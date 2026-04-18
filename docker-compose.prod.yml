@@ -1,0 +1,51 @@
+services:
+  db:
+    restart: unless-stopped
+    ports: !reset []
+    shm_size: '256mb'
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  backend:
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+    ports: !reset []
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && python scripts/init_master_data.py && python scripts/init_real_master_data.py && python scripts/create_admin.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  nginx:
+    restart: unless-stopped
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M

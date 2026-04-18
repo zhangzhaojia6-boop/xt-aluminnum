@@ -1,0 +1,3 @@
+business_date,workshop_code,shift_code,metric_code,metric_name,metric_value,unit,source_row_no
+2026-03-25,W1,A,output_weight,产量,120.5,吨,1
+2026-03-25,W2,B,output_weight,产量,85.0,吨,2

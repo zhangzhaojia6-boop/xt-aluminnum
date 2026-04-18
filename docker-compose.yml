@@ -1,0 +1,114 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:3000,http://localhost:5173}
+      UPLOAD_DIR: /app/uploads
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Shanghai}
+      MES_ADAPTER: ${MES_ADAPTER:-null}
+      MES_API_BASE: ${MES_API_BASE:-}
+      MES_API_KEY: ${MES_API_KEY:-}
+      MES_API_TIMEOUT_SECONDS: ${MES_API_TIMEOUT_SECONDS:-8}
+      MES_API_TRACKING_CARD_INFO_PATH: ${MES_API_TRACKING_CARD_INFO_PATH:-/tracking-cards/{card_no}}
+      MES_API_COIL_SNAPSHOTS_PATH: ${MES_API_COIL_SNAPSHOTS_PATH:-/coil-snapshots}
+      MES_SYNC_LIMIT: ${MES_SYNC_LIMIT:-200}
+      MES_SYNC_WINDOW_MINUTES: ${MES_SYNC_WINDOW_MINUTES:-10}
+      MES_SYNC_POLL_MINUTES: ${MES_SYNC_POLL_MINUTES:-1}
+      MES_SYNC_RETRY_LIMIT: ${MES_SYNC_RETRY_LIMIT:-3}
+      MES_SYNC_BACKOFF_SECONDS: ${MES_SYNC_BACKOFF_SECONDS:-2}
+      INIT_ADMIN_USERNAME: ${INIT_ADMIN_USERNAME:-admin}
+      INIT_ADMIN_PASSWORD: ${INIT_ADMIN_PASSWORD:?Set INIT_ADMIN_PASSWORD in .env}
+      INIT_ADMIN_NAME: ${INIT_ADMIN_NAME:-系统管理员}
+      DINGTALK_CORP_ID: ${DINGTALK_CORP_ID:-}
+      DINGTALK_APP_KEY: ${DINGTALK_APP_KEY:-}
+      DINGTALK_APP_SECRET: ${DINGTALK_APP_SECRET:-}
+      DINGTALK_AGENT_ID: ${DINGTALK_AGENT_ID:-}
+      WORKFLOW_ENABLED: ${WORKFLOW_ENABLED:-false}
+      AUTO_PUBLISH_ENABLED: ${AUTO_PUBLISH_ENABLED:-true}
+      AUTO_PUSH_ENABLED: ${AUTO_PUSH_ENABLED:-true}
+      AUTO_PIPELINE_REQUIRE_READY: ${AUTO_PIPELINE_REQUIRE_READY:-true}
+      WECOM_BOT_ENABLED: ${WECOM_BOT_ENABLED:-false}
+      WECOM_BOT_DRY_RUN: ${WECOM_BOT_DRY_RUN:-false}
+      WECOM_BOT_WEBHOOK_URL: ${WECOM_BOT_WEBHOOK_URL:-}
+      WECOM_BOT_MANAGEMENT_WEBHOOK_URL: ${WECOM_BOT_MANAGEMENT_WEBHOOK_URL:-}
+      WECOM_BOT_WORKSHOP_WEBHOOK_MAP: ${WECOM_BOT_WORKSHOP_WEBHOOK_MAP:-{}}
+      WECOM_BOT_TEAM_WEBHOOK_MAP: ${WECOM_BOT_TEAM_WEBHOOK_MAP:-{}}
+      WECOM_BOT_TIMEOUT_SECONDS: ${WECOM_BOT_TIMEOUT_SECONDS:-8}
+      WECOM_APP_ENABLED: ${WECOM_APP_ENABLED:-false}
+      WECOM_CORP_ID: ${WECOM_CORP_ID:-}
+      WECOM_AGENT_ID: ${WECOM_AGENT_ID:-}
+      WECOM_APP_SECRET: ${WECOM_APP_SECRET:-}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+      LLM_API_BASE: ${LLM_API_BASE:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
+      APP_CONNECTION_ENABLED: ${APP_CONNECTION_ENABLED:-false}
+      APP_CONNECTION_API_BASE: ${APP_CONNECTION_API_BASE:-}
+      APP_CONNECTION_API_KEY: ${APP_CONNECTION_API_KEY:-}
+      APP_CONNECTION_TIMEOUT_SECONDS: ${APP_CONNECTION_TIMEOUT_SECONDS:-8}
+      APP_CONNECTION_PUSH_MODE: ${APP_CONNECTION_PUSH_MODE:-disabled}
+      MANAGEMENT_ESTIMATE_REVENUE_PER_TON: ${MANAGEMENT_ESTIMATE_REVENUE_PER_TON:-}
+      MANAGEMENT_ESTIMATE_ELECTRICITY_COST_PER_UNIT: ${MANAGEMENT_ESTIMATE_ELECTRICITY_COST_PER_UNIT:-}
+      MANAGEMENT_ESTIMATE_GAS_COST_PER_UNIT: ${MANAGEMENT_ESTIMATE_GAS_COST_PER_UNIT:-}
+      MANAGEMENT_ESTIMATE_LABOR_COST_PER_ATTENDANCE: ${MANAGEMENT_ESTIMATE_LABOR_COST_PER_ATTENDANCE:-}
+      ALUMINUM_BYPASS_REPO_ROOT: /workspace
+    command: >
+      sh -c "alembic upgrade head &&
+      python scripts/init_master_data.py &&
+      python scripts/init_real_master_data.py &&
+      python scripts/create_admin.py &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - .:/workspace:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+
+volumes:
+  pgdata:

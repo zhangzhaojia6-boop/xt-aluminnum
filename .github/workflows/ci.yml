@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run backend tests
+        run: pytest
+        working-directory: backend
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Audit frontend dependencies
+        run: npm run audit
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - backend-tests
+      - frontend-build
+    env:
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+      PLAYWRIGHT_USERNAME: admin
+      PLAYWRIGHT_PASSWORD: Round10CiAdmin!2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          sed -i 's/^SECRET_KEY=.*/SECRET_KEY=ci-very-strong-secret-key-0123456789abcdef/' .env
+          sed -i 's/^INIT_ADMIN_PASSWORD=.*/INIT_ADMIN_PASSWORD=Round10CiAdmin!2026/' .env
+      - name: Validate compose file
+        run: docker compose config
+      - name: Validate production compose file
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+      - name: Start stack
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+      - name: Wait for healthz
+        run: timeout 180 bash -c 'until curl -fsS http://127.0.0.1:8080/healthz; do sleep 3; done'
+      - name: Wait for readyz
+        run: timeout 180 bash -c 'until curl -fsS http://127.0.0.1:8080/readyz; do sleep 3; done'
+      - name: Check exposed ports in prod overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+      - name: Verify login through nginx
+        run: |
+          curl -fsS \
+            -X POST http://127.0.0.1:8080/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"ChangeThisAdminPassword!2026"}' \
+            | python -c "import json, sys; assert json.load(sys.stdin)['access_token']"
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Run Playwright smoke
+        run: npm run e2e
+        working-directory: frontend
+      - name: Capture compose logs
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
+      - name: Shutdown stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
