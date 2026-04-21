@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import secrets
 from pathlib import Path
 
@@ -32,11 +33,13 @@ def build_env_content(
     dingtalk_app_key: str,
     dingtalk_app_secret: str,
     dingtalk_agent_id: str,
+    app_env: str,
+    cors_origins: str,
 ) -> str:
     lines = [
         *WARNING_LINES,
         '',
-        'APP_ENV=development',
+        f'APP_ENV={app_env}',
         '',
         '# PostgreSQL settings',
         'POSTGRES_USER=bypass_user',
@@ -47,7 +50,7 @@ def build_env_content(
         f'SECRET_KEY={secret_key}',
         'ALGORITHM=HS256',
         'ACCESS_TOKEN_EXPIRE_MINUTES=480',
-        'CORS_ORIGINS=http://localhost:8080,http://localhost:3000,http://localhost:5173',
+        f'CORS_ORIGINS={cors_origins}',
         'DEFAULT_TIMEZONE=Asia/Shanghai',
         'UPLOAD_DIR=./backend/uploads',
         'MES_ADAPTER=null',
@@ -112,16 +115,28 @@ def build_env_content(
     return '\n'.join(lines) + '\n'
 
 
-def write_env_file(output_path: Path = DEFAULT_OUTPUT_PATH) -> Path:
+def write_env_file(
+    output_path: Path = DEFAULT_OUTPUT_PATH,
+    *,
+    app_env: str = 'production',
+    domain: str = '',
+) -> Path:
     postgres_password = secrets.token_hex(16)
     secret_key = secrets.token_hex(32)
     admin_password = secrets.token_urlsafe(18)
+    cors_origins = f'https://{domain}' if domain else 'http://localhost:8080,http://localhost:3000,http://localhost:5173'
 
-    print('Generate DingTalk settings. Leave blank if not ready yet.')
-    dingtalk_corp_id = prompt_value('DINGTALK_CORP_ID')
-    dingtalk_app_key = prompt_value('DINGTALK_APP_KEY')
-    dingtalk_app_secret = prompt_value('DINGTALK_APP_SECRET')
-    dingtalk_agent_id = prompt_value('DINGTALK_AGENT_ID')
+    if domain:
+        dingtalk_corp_id = ''
+        dingtalk_app_key = ''
+        dingtalk_app_secret = ''
+        dingtalk_agent_id = ''
+    else:
+        print('Generate DingTalk settings. Leave blank if not ready yet.')
+        dingtalk_corp_id = prompt_value('DINGTALK_CORP_ID')
+        dingtalk_app_key = prompt_value('DINGTALK_APP_KEY')
+        dingtalk_app_secret = prompt_value('DINGTALK_APP_SECRET')
+        dingtalk_agent_id = prompt_value('DINGTALK_AGENT_ID')
 
     env_content = build_env_content(
         postgres_password=postgres_password,
@@ -131,13 +146,28 @@ def write_env_file(output_path: Path = DEFAULT_OUTPUT_PATH) -> Path:
         dingtalk_app_key=dingtalk_app_key,
         dingtalk_app_secret=dingtalk_app_secret,
         dingtalk_agent_id=dingtalk_agent_id,
+        app_env=app_env,
+        cors_origins=cors_origins,
     )
     output_path.write_text(env_content, encoding='utf-8')
     return output_path
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Generate a quick-trial .env file.')
+    parser.add_argument('--app-env', default='production')
+    parser.add_argument('--domain', default='')
+    parser.add_argument('--output', default=str(DEFAULT_OUTPUT_PATH))
+    return parser.parse_args()
+
+
 def main() -> None:
-    output_path = write_env_file()
+    args = parse_args()
+    output_path = write_env_file(
+        Path(args.output),
+        app_env=args.app_env,
+        domain=args.domain,
+    )
     print(f'Wrote secure environment template to {output_path}')
 
 
