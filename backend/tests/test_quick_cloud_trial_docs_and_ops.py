@@ -43,3 +43,22 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert './scripts/deploy_trial.sh' in ops
     assert './scripts/check_trial_stack.sh' in ops
     assert './scripts/backup_db.sh' in ops
+
+
+def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
+    deploy = _read('scripts/deploy_trial.sh')
+    check = _read('scripts/check_trial_stack.sh')
+
+    assert 'docker compose -f docker-compose.yml -f docker-compose.prod.yml config' in deploy
+    assert 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build' in deploy
+    assert 'docker compose -f docker-compose.yml -f docker-compose.prod.yml ps' in deploy
+    assert 'curl -kfsS "$BASE_URL/healthz"' in check
+    assert 'curl -kfsS "$BASE_URL/readyz"' in check
+
+
+def test_backup_and_restore_scripts_default_to_prod_overlay() -> None:
+    backup = _read('scripts/backup_db.sh')
+    restore = _read('scripts/restore_db.sh')
+
+    assert 'COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml docker-compose.prod.yml}"' in backup
+    assert 'COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml docker-compose.prod.yml}"' in restore

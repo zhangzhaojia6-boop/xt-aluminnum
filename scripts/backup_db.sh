@@ -6,7 +6,7 @@ cd "$REPO_ROOT"
 
 BACKUP_DIR="${BACKUP_DIR:-backups}"
 SERVICE_NAME="${SERVICE_NAME:-db}"
-COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml}"
+COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml docker-compose.prod.yml}"
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
 OUTPUT_FILE="${1:-$BACKUP_DIR/postgres-$TIMESTAMP.dump}"
 CONTAINER_FILE="/tmp/postgres-backup-$TIMESTAMP.dump"

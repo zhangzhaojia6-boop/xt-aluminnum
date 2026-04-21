@@ -12,7 +12,7 @@ cd "$REPO_ROOT"
 BACKUP_FILE="$1"
 TARGET_DATABASE="${2:-aluminum_bypass_restore_check}"
 SERVICE_NAME="${SERVICE_NAME:-db}"
-COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml}"
+COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml docker-compose.prod.yml}"
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
 CONTAINER_FILE="/tmp/postgres-restore-$TIMESTAMP.dump"
 
