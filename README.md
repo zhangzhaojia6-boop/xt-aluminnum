@@ -54,6 +54,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 3. 上 GitHub 前只提交代码、文档和示例配置，生产 `.env`、真实密钥、企业微信凭据和数据库口令继续留在本地或云端密钥管理里。
 4. 上云前先按本仓库基线跑通后端测试、前端构建、Compose 就绪检查，再补域名、SSL、生产环境变量和云主机/容器编排。
 5. Phase 1 的上线口径保持不变：先跑通“岗位直录 + 智能体自动处理 + 驾驶舱直达”，GitHub 与云端只是交付包装层，不改变业务主线。
+6. 一个车间快速试跑建议先接 GitHub 远端，再上云主机；这样云端后续只需要 `git pull` 就能更新，不必反复手工传代码包。
 
 ## Phase 2 首版发布说明
 
