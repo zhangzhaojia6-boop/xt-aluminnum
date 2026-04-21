@@ -2,6 +2,10 @@
 *.pyc
 __pycache__/
 .pytest_cache/
+.tmp-pytest/
+backend/.pytest-cache/
+backend/.pytest-cache-2/
+backend/pytest-cache-files-*/
 node_modules/
 dist/
 uploads/
@@ -16,4 +20,6 @@ backups/
 tmp/
 frontend/playwright-report/
 frontend/test-results/
+frontend/tmp-review-home.png
+frontend/frontend/
 ssl/
