@@ -370,9 +370,13 @@ def test_visual_diff_gate_supports_per_module_threshold() -> None:
     assert "TARGET_PANELS" in script
     assert "module_id" in script
     assert "threshold_percent" in script
+    assert "FULL_REFERENCE_CANVAS" in script
+    assert "generated-full-reference.png" in script
+    assert "fit_generated_to_panel" in script
+    assert "pixel_mismatch_percent" in script
+    assert "full_canvas_diff_percent" in script
+    assert "true_panel_diff_percent" in script
     assert "edge_diff_percent" in script
-    assert "content_occupancy" in script
-    assert "combined_diff" in script
     assert "visual-diff-report.json" in script
     assert "VISUAL_DIFF_ENFORCE" in script
     assert "target-crops" in script
