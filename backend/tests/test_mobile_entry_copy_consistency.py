@@ -558,7 +558,7 @@ def test_visual_audit_script_uses_admin_reference_routes() -> None:
     assert "audit-report.json" in source
     assert "01 system overview visible" in source
     assert "12 ops center visible" in source
-    assert "command module panels" in source
+    assert "overview quick entries" in source
     assert "process.exitCode = 1" in source
 
 

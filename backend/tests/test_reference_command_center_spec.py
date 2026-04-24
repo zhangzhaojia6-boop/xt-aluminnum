@@ -179,12 +179,20 @@ def test_reference_command_shells_keep_three_surfaces_separate() -> None:
     assert "现场填报" not in admin
 
 
-def test_review_overview_uses_16_panel_command_canvas() -> None:
+def test_review_overview_uses_single_reference_module_01() -> None:
     overview = _read_repo_file("frontend/src/reference-command/pages/CommandOverview.vue")
     router = _read_repo_file("frontend/src/router/index.js")
 
-    assert "CommandCanvas" in overview
-    assert "referenceModules" in overview
+    assert "cmd-overview-board" in overview
+    assert "cmd-overview-kpis" in overview
+    assert "overviewKpisImage" in overview
+    assert "cmd-overview-kpis__visual" in overview
+    assert "cmd-overview-shortcuts" in overview
+    assert "cmd-overview-line" in overview
+    assert "overviewFactoryLineImage" in overview
+    assert "overviewShortcutsImage" in overview
+    assert "cmd-overview-card__visual" in overview
+    assert "cmd-overview-status__label" in overview
     assert "name: 'review-overview-home'" in router
     assert "component: CommandOverview" in router
     assert "moduleId: '01'" in router

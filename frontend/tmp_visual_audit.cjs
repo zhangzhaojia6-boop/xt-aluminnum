@@ -258,7 +258,11 @@ async function captureRoute(page, report, spec, outDir) {
   }
   await ensureEnglishSubtitleAbsent(page, report, spec.route);
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(outDir, spec.screenshot), fullPage: true });
+  if (spec.captureSelector) {
+    await page.locator(spec.captureSelector).first().screenshot({ path: path.join(outDir, spec.screenshot) });
+  } else {
+    await page.screenshot({ path: path.join(outDir, spec.screenshot), fullPage: true });
+  }
 }
 
 async function captureLogin(page, report, outDir) {
@@ -302,14 +306,15 @@ async function captureEntryFlow(page, report, outDir) {
       {
         route: '/review/overview',
         screenshot: '01-review-overview.png',
-        frameSelector: '.cmd-canvas',
-        selector: '.cmd-canvas__grid',
+        frameSelector: '.cmd-overview-board',
+        selector: '.cmd-overview-kpis',
         label: '01 system overview visible',
         moduleNumber: '01',
-        numberSelector: '.cmd-panel__number:text("01")',
+        numberSelector: '.cmd-module-page__number:text("01")',
+        captureSelector: '.cmd-overview-board',
         countChecks: [
-          { selector: '.cmd-panel', minCount: 16, label: 'command module panels' },
-          { selector: '.cmd-kpi', minCount: 16, label: 'overview kpi tiles' },
+          { selector: '.cmd-overview-kpi', minCount: 7, label: 'overview kpi tiles' },
+          { selector: '.cmd-overview-shortcuts button', minCount: 8, label: 'overview quick entries' },
         ],
       },
       { route: '/review/factory', screenshot: '05-factory-board.png', selector: '.cmd-factory-table', label: '05 factory board visible', moduleNumber: '05', factoryDensity: true },
