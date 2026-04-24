@@ -362,6 +362,22 @@ def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> N
     assert "layoutHook: '.cmd-layout--roadmap'" in source
 
 
+def test_visual_diff_gate_supports_per_module_threshold() -> None:
+    script = _read_repo_file("frontend/tmp_visual_diff.py")
+
+    assert "REFERENCE_UI_TARGET_IMAGE" in script
+    assert "DIFF_THRESHOLD_PERCENT" in script
+    assert "TARGET_PANELS" in script
+    assert "module_id" in script
+    assert "threshold_percent" in script
+    assert "edge_diff_percent" in script
+    assert "content_occupancy" in script
+    assert "combined_diff" in script
+    assert "visual-diff-report.json" in script
+    assert "VISUAL_DIFF_ENFORCE" in script
+    assert "target-crops" in script
+
+
 def test_factory_board_module_05_is_table_first_like_reference_panel() -> None:
     source = _read_repo_file("frontend/src/reference-command/components/CommandPage.vue")
     start = source.index('v-if="showFactoryCompat"')
