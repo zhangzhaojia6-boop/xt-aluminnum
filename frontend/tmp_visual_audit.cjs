@@ -348,12 +348,13 @@ async function captureEntryFlow(page, report, outDir) {
     await loginWithPassword(mpage);
     await mpage.goto('/entry');
     await ensureVisible(mpage, report, '/entry', '[data-module="03"]', '03 entry terminal visible');
+    await ensureVisible(mpage, report, '/entry', '.cmd-entry-terminal', '03 entry terminal reference card visible');
     await ensureVisible(mpage, report, '/entry', '.cmd-shell__nav', 'entry-only nav visible');
     await ensureTextAbsent(mpage, report, '/entry', '审阅中心', 'surface boundary: fill-only nav isolation');
     await ensureTextAbsent(mpage, report, '/entry', '管理控制台', 'surface boundary: fill-only nav isolation');
     await ensureTextAbsent(mpage, report, '/entry', '移动端预览', 'mobile preview module cancelled');
     await ensureEnglishSubtitleAbsent(mpage, report, '/entry');
-    await mpage.screenshot({ path: path.join(outDir, '03-entry-terminal.png'), fullPage: true });
+    await mpage.locator('.cmd-entry-terminal').first().screenshot({ path: path.join(outDir, '03-entry-terminal.png') });
     await captureEntryFlow(mpage, report, outDir);
     report.checks.push({
       route: '/entry',

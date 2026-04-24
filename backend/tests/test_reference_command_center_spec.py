@@ -207,9 +207,14 @@ def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
     home = _read_repo_file("frontend/src/reference-command/pages/CommandEntryHome.vue")
     flow = _read_repo_file("frontend/src/reference-command/pages/CommandEntryFlow.vue")
     router = _read_repo_file("frontend/src/router/index.js")
+    audit = _read_repo_file("frontend/tmp_visual_audit.cjs")
 
     assert 'data-module="03"' in home
     assert 'data-module="04"' in flow
+    assert "cmd-entry-terminal" in home
+    assert "entryTerminalImage" in home
+    assert "cmd-entry-terminal__functional" in home
+    assert "cmd-entry-terminal" in audit
     assert "快速填报" in home
     assert "基础信息" in flow
     assert "name: 'mobile-entry'" in router

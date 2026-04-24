@@ -1,33 +1,24 @@
 <template>
-  <div class="cmd-page cmd-module-page" data-module="03" data-testid="mobile-entry">
-    <header class="cmd-module-page__head">
-      <div class="cmd-module-page__title">
-        <span class="cmd-module-page__number">03</span>
-        <h1>独立填报终端首页</h1>
-      </div>
-      <span class="cmd-status" data-testid="mobile-current-shift">当前班次 {{ currentShiftLabel }}</span>
-    </header>
-    <div class="cmd-module-page__kpis">
-      <CommandKpi v-for="kpi in viewModel.kpis" :key="kpi.label" v-bind="kpi" />
-    </div>
-    <div class="cmd-entry-grid">
-      <article class="cmd-entry-card">
-        <header class="cmd-entry-card__head"><strong>快捷录入</strong></header>
+  <div class="cmd-page cmd-entry-terminal-page" data-module="03" data-testid="mobile-entry">
+    <section class="cmd-entry-terminal">
+      <img class="cmd-entry-terminal__visual" :src="entryTerminalImage" alt="" />
+      <div class="cmd-entry-terminal__functional">
+        <header class="cmd-module-page__head">
+          <div class="cmd-module-page__title">
+            <span class="cmd-module-page__number">03</span>
+            <h1>独立填报终端首页</h1>
+          </div>
+          <span class="cmd-status" data-testid="mobile-current-shift">当前班次 {{ currentShiftLabel }}</span>
+        </header>
         <div data-testid="mobile-role-bucket" class="cmd-status">现场直接报数</div>
         <button type="button" class="cmd-button is-primary" data-testid="mobile-go-report" @click="openAdvancedForm">
           快速填报
         </button>
-        <CommandActionBar :actions="quickActions" />
-      </article>
-      <article class="cmd-entry-card">
-        <header class="cmd-entry-card__head"><strong>最近状态</strong></header>
-        <CommandTable :rows="viewModel.tableRows" />
-      </article>
-      <article class="cmd-entry-card">
-        <header class="cmd-entry-card__head"><strong>任务走势</strong></header>
-        <CommandTrend :values="viewModel.trend" />
-      </article>
-    </div>
+        <button type="button">高质填报</button>
+        <button type="button">拍照识别</button>
+        <button type="button">历史记录</button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -35,22 +26,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import CommandActionBar from '../components/CommandActionBar.vue'
-import CommandKpi from '../components/CommandKpi.vue'
-import CommandTable from '../components/CommandTable.vue'
-import CommandTrend from '../components/CommandTrend.vue'
 import { api } from '../../api/index.js'
-import { adaptEntryHome } from '../data/moduleAdapters.js'
+import entryTerminalImage from '../assets/entry-terminal.png'
 
 const router = useRouter()
 const currentShift = ref(null)
-const viewModel = computed(() => adaptEntryHome())
 const currentShiftLabel = computed(() => currentShift.value?.shift_name || currentShift.value?.name || '白班')
-const quickActions = [
-  { key: 'fill', label: '快速填报', primary: true },
-  { key: 'photo', label: '拍照识别' },
-  { key: 'history', label: '历史记录' }
-]
 
 function resolveShiftParam(key, fallback) {
   return currentShift.value?.[key] || currentShift.value?.current_shift?.[key] || fallback
