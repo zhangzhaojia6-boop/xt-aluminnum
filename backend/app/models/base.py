@@ -1,8 +1,11 @@
 from datetime import datetime
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, JSON, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+json_object_type = JSON().with_variant(JSONB, 'postgresql')
 
 
 class TimestampMixin:
@@ -12,4 +15,4 @@ class TimestampMixin:
     )
 
 
-__all__ = ["Base", "TimestampMixin"]
+__all__ = ["Base", "TimestampMixin", "json_object_type"]

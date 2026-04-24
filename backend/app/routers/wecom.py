@@ -1,6 +1,6 @@
 """
-企业微信回调与认证路由。
-处理 OAuth2 登录、JS-SDK 签名、消息回调。
+企业微信兼容路由。
+当前主入口已转向钉钉优先，这里保留旧入口兼容。
 """
 
 from __future__ import annotations
@@ -49,53 +49,44 @@ class JsapiSignatureResponse(BaseModel):
     signature: str
 
 
-@router.post("/login", response_model=WecomLoginResponse)
-async def wecom_login(req: WecomLoginRequest, db: Session = Depends(get_db)):
-    """
-    企业微信 OAuth2 登录。
-
-    流程：
-    1. 用 code 换取 userid
-    2. 通过 userid 在 users 表中查找对应用户（匹配 username 或 dingtalk_user_id 字段）
-    3. 找到则签发 JWT token
-    4. 找不到则返回 403
-
-    注意：
-    - 如果 WECOM_APP_ENABLED 为 false，返回 503
-    """
-
+async def _channel_login(
+    req: WecomLoginRequest,
+    db: Session,
+    *,
+    entry_label: str,
+) -> WecomLoginResponse:
     if not settings.WECOM_APP_ENABLED:
-        raise HTTPException(status_code=503, detail="企业微信应用未启用")
+        raise HTTPException(status_code=503, detail=f"{entry_label}入口未启用")
 
     from app.adapters.wecom import code_to_userid
 
     try:
-        wecom_userid = await code_to_userid(req.code)
+        channel_userid = await code_to_userid(req.code)
     except RuntimeError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
-    mapping = resolve_wecom_user(db, wecom_userid=wecom_userid)
+    mapping = resolve_wecom_user(db, wecom_userid=channel_userid)
     if mapping.status == "invalid":
-        raise HTTPException(status_code=403, detail="企业微信账号无效，请重新进入企业微信后再试。")
+        raise HTTPException(status_code=403, detail=f"{entry_label}账号无效，请重新进入后再试。")
     if mapping.status == "not_found":
         raise HTTPException(
             status_code=403,
-            detail=f"当前企业微信账号未绑定系统用户（{wecom_userid}），请联系管理员开通。",
+            detail=f"当前{entry_label}账号未绑定系统用户（{channel_userid}），请联系管理员开通。",
         )
     if mapping.status == "inactive":
         raise HTTPException(
             status_code=403,
-            detail=f"账号已停用（{wecom_userid}），请联系管理员启用后再试。",
+            detail=f"账号已停用（{channel_userid}），请联系管理员启用后再试。",
         )
     if mapping.status == "ambiguous":
         conflict_names = [item.username for item in mapping.conflicts]
         raise HTTPException(
             status_code=403,
-            detail=f"企业微信账号映射不唯一（{wecom_userid}），请联系管理员清理重复账号：{', '.join(conflict_names)}。",
+            detail=f"{entry_label}账号映射不唯一（{channel_userid}），请联系管理员清理重复账号：{', '.join(conflict_names)}。",
         )
     user = mapping.user
     if user is None:
-        raise HTTPException(status_code=403, detail="企业微信账号映射失败，请联系管理员检查配置。")
+        raise HTTPException(status_code=403, detail=f"{entry_label}账号映射失败，请联系管理员检查配置。")
 
     token = create_access_token(user.id)
     return WecomLoginResponse(
@@ -103,6 +94,15 @@ async def wecom_login(req: WecomLoginRequest, db: Session = Depends(get_db)):
         user_id=user.id,
         display_name=user.name or user.username,
     )
+
+
+@router.post("/login", response_model=WecomLoginResponse)
+async def wecom_login(req: WecomLoginRequest, db: Session = Depends(get_db)):
+    """
+    企业微信 OAuth2 登录兼容入口。
+    """
+
+    return await _channel_login(req, db, entry_label="企业微信")
 
 
 @router.post("/jsapi-signature", response_model=JsapiSignatureResponse)

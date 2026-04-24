@@ -3,10 +3,9 @@
 from datetime import time
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, Time, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base, TimestampMixin, json_object_type
 
 
 class AttendanceSchedule(Base, TimestampMixin):
@@ -51,7 +50,7 @@ class ClockRecord(Base, TimestampMixin):
     location_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     source: Mapped[str] = mapped_column(String(32), default='import', nullable=False)
     import_batch_id: Mapped[int | None] = mapped_column(ForeignKey('import_batches.id'), nullable=True)
-    raw_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_data: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
 
 class AttendanceClockRecord(Base, TimestampMixin):

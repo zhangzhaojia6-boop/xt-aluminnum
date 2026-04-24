@@ -30,6 +30,7 @@ class WorkshopTemplateOut(BaseModel):
     tempo: str
     supports_ocr: bool = False
     entry_fields: list[WorkshopTemplateFieldOut] = Field(default_factory=list)
+    shift_fields: list[WorkshopTemplateFieldOut] = Field(default_factory=list)
     extra_fields: list[WorkshopTemplateFieldOut] = Field(default_factory=list)
     qc_fields: list[WorkshopTemplateFieldOut] = Field(default_factory=list)
     readonly_fields: list[WorkshopTemplateFieldOut] = Field(default_factory=list)
@@ -40,6 +41,7 @@ class WorkshopTemplateConfigUpsert(BaseModel):
     tempo: str
     supports_ocr: bool = False
     entry_fields: list[WorkshopTemplateFieldBase] = Field(default_factory=list)
+    shift_fields: list[WorkshopTemplateFieldBase] = Field(default_factory=list)
     extra_fields: list[WorkshopTemplateFieldBase] = Field(default_factory=list)
     qc_fields: list[WorkshopTemplateFieldBase] = Field(default_factory=list)
     readonly_fields: list[WorkshopTemplateFieldBase] = Field(default_factory=list)

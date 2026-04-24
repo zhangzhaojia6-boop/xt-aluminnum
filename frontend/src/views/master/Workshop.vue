@@ -1,12 +1,14 @@
 <template>
-  <div class="page-stack">
-    <div class="page-header">
-      <div>
-        <h1>车间管理</h1>
-        <p>维护车间基础档案。</p>
-      </div>
+  <ReferencePageFrame
+    module-number="14"
+    title="主数据与模板中心"
+    :tags="['车间主数据', '班组员工', '机台班次']"
+    class="page-stack admin-master-center"
+    data-testid="admin-master-center"
+  >
+    <template #actions>
       <el-button type="primary" @click="openCreate">新增车间</el-button>
-    </div>
+    </template>
 
     <el-card class="panel">
       <el-table :data="items" stripe v-loading="loading">
@@ -59,7 +61,7 @@
         <el-button type="primary" :loading="saving" @click="save">保存</el-button>
       </template>
     </el-dialog>
-  </div>
+  </ReferencePageFrame>
 </template>
 
 <script setup>
@@ -67,6 +69,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { createWorkshop, deleteWorkshop, fetchWorkshopsPage, updateWorkshop } from '../../api/master.js'
+import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 
 const items = ref([])
 const dialogVisible = ref(false)

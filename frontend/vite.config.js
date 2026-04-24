@@ -62,19 +62,23 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: proxyTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       },
       '/uploads': {
         target: proxyTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       },
       '/healthz': {
         target: proxyTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       },
       '/readyz': {
         target: proxyTarget,
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       }
     }
   }

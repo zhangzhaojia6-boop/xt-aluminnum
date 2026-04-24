@@ -40,6 +40,7 @@ def _entry(**overrides):
         'verified_input_weight': None,
         'verified_output_weight': None,
         'scrap_weight': None,
+        'spool_weight': None,
         'yield_rate': 97.05,
         'weighed_at': None,
         'verified_at': None,
@@ -93,6 +94,45 @@ def test_update_entry_denies_non_creator_in_same_workshop(monkeypatch) -> None:
         )
 
     assert exc.value.status_code == 403
+
+
+def test_update_entry_strips_readonly_fields_before_apply(monkeypatch) -> None:
+    db = _DummyDB()
+    entry = _entry(id=88, created_by=101, created_by_user_id=101)
+    captured_payload: dict[str, object] = {}
+
+    def fake_apply(entity, payload, **_kwargs):
+        captured_payload.update(payload)
+        entity.input_weight = payload.get('input_weight', entity.input_weight)
+
+    monkeypatch.setattr('app.services.work_order_service._ensure_entry', lambda *_args, **_kwargs: entry)
+    monkeypatch.setattr('app.services.work_order_service._ensure_entry_write_access', lambda *_args, **_kwargs: False)
+    monkeypatch.setattr('app.services.work_order_service._model_to_dict', lambda entity: dict(entity.__dict__))
+    monkeypatch.setattr('app.services.work_order_service._resolve_entry_template_key', lambda *_args, **_kwargs: 'casting')
+    monkeypatch.setattr('app.services.work_order_service._resolve_entry_workshop_type', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
+    monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.1)
+    monkeypatch.setattr('app.services.work_order_service._ensure_work_order', lambda *_args, **_kwargs: SimpleNamespace(id=1))
+    monkeypatch.setattr('app.services.work_order_service._recompute_work_order_rollups', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        'app.services.work_order_service._normalize_template_section_payload',
+        lambda payload, **_kwargs: payload or {},
+    )
+    monkeypatch.setattr(
+        'app.services.work_order_service._serialize_entry',
+        lambda _db, entity, *, user_role: {'id': entity.id, 'yield_rate': entity.yield_rate},
+    )
+
+    payload = update_entry(
+        db,
+        entry_id=entry.id,
+        payload={'input_weight': 9600, 'yield_rate': 12.34},
+        operator=_user(id=101, workshop_id=1),
+    )
+
+    assert 'yield_rate' not in captured_payload
+    assert payload['yield_rate'] == 97.1
 
 
 def test_update_entry_denies_assigned_shift_mismatch(monkeypatch) -> None:

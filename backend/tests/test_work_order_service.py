@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+from typing import Any
 from types import SimpleNamespace
 
 from app.adapters.mes_adapter import CardInfo
@@ -224,6 +225,55 @@ def test_add_entry_returns_existing_entry_for_reused_idempotency_key(monkeypatch
 
     assert payload == {'id': 88, 'entry_status': 'draft'}
     assert db.added == []
+
+
+def test_add_entry_strips_readonly_fields_before_persist(monkeypatch) -> None:
+    db = _DummyWorkOrderDB()
+    work_order = SimpleNamespace(id=1, current_station=None, overall_status='created')
+    workshop = SimpleNamespace(id=1, code='casting', name='casting')
+    captured_payload: dict[str, Any] = {}
+
+    def fake_apply(entity, payload, *, user_role):
+        captured_payload.update(payload)
+        entity.input_weight = payload.get('input_weight')
+        entity.output_weight = payload.get('output_weight')
+
+    monkeypatch.setattr('app.services.work_order_service._ensure_work_order', lambda *_args, **_kwargs: work_order)
+    monkeypatch.setattr('app.services.work_order_service._ensure_header_access', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.build_scope_summary', lambda *_args, **_kwargs: SimpleNamespace())
+    monkeypatch.setattr('app.services.work_order_service.resolve_work_order_entry_workshop_scope', lambda *_args, **_kwargs: 1)
+    monkeypatch.setattr('app.services.work_order_service.can_view_all_work_order_entries', lambda *_args, **_kwargs: False)
+    monkeypatch.setattr('app.services.work_order_service._ensure_workshop', lambda *_args, **_kwargs: workshop)
+    monkeypatch.setattr('app.services.work_order_service._ensure_machine', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service._ensure_shift', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        'app.services.work_order_service._normalize_template_section_payload',
+        lambda payload, **_kwargs: payload or {},
+    )
+    monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
+    monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.05)
+    monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        'app.services.work_order_service._serialize_entry',
+        lambda _db, entity, *, user_role: {'id': entity.id, 'yield_rate': entity.yield_rate},
+    )
+
+    payload = add_entry(
+        db,
+        work_order_id=1,
+        payload={
+            'workshop_id': 1,
+            'business_date': date(2026, 3, 28),
+            'entry_type': 'completed',
+            'input_weight': 9500,
+            'output_weight': 9220,
+            'yield_rate': 88.88,
+        },
+        operator=_user(role='shift_leader', workshop_id=1),
+    )
+
+    assert 'yield_rate' not in captured_payload
+    assert payload['yield_rate'] == 97.05
 
 
 def test_create_work_order_prefills_mes_card_info(monkeypatch) -> None:

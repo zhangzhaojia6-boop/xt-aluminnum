@@ -1,13 +1,10 @@
 <template>
-  <div class="page-stack">
-    <div class="page-header">
-      <div>
-        <h1>日报看板</h1>
-        <p>查看日报生成结果、版本状态与交付提示，不在主路径展示审核、发布或确认操作。</p>
-      </div>
-    </div>
+  <ReferencePageFrame module-number="08" title="日报与交付中心" :tags="['生成', '交付', '归档']">
+    <template #actions>
+      <el-button type="primary" @click="load">查询</el-button>
+    </template>
 
-    <el-card class="panel">
+    <ReferenceModuleCard module-number="08" title="日报筛选">
       <el-form inline>
         <el-form-item label="开始日期">
           <el-date-picker v-model="filters.start_date" type="date" value-format="YYYY-MM-DD" />
@@ -29,14 +26,11 @@
             <el-option label="已发布" value="published" />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="load">查询</el-button>
-        </el-form-item>
       </el-form>
-    </el-card>
+    </ReferenceModuleCard>
 
-    <el-card class="panel">
-      <el-table :data="items" stripe>
+    <ReferenceModuleCard module-number="08" title="交付清单">
+      <ReferenceDataTable :data="items" stripe>
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="report_date" label="报告日期" width="130" />
         <el-table-column prop="report_type" label="报告类型" width="140">
@@ -77,9 +71,9 @@
             <el-button link type="primary" @click="openDetail(row.id)">查看详情</el-button>
           </template>
         </el-table-column>
-      </el-table>
-    </el-card>
-  </div>
+      </ReferenceDataTable>
+    </ReferenceModuleCard>
+  </ReferencePageFrame>
 </template>
 
 <script setup>
@@ -88,6 +82,9 @@ import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
+import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { fetchReports } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
 

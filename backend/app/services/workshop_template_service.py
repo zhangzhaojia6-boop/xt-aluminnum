@@ -17,6 +17,7 @@ from app.core.workshop_templates import (
     normalize_template_key,
     resolve_workshop_type,
     resolve_template_key,
+    _merge_supplemental_sections,
 )
 from app.models.master import WorkshopTemplateConfig
 
@@ -61,7 +62,10 @@ def upsert_workshop_template_config(
     item.tempo = definition['tempo']
     item.supports_ocr = definition['supports_ocr']
     item.entry_fields = definition['entry_fields']
-    item.extra_fields = definition['extra_fields']
+    item.extra_fields = _merge_supplemental_sections(
+        shift_fields=definition['shift_fields'],
+        extra_fields=definition['extra_fields'],
+    )
     item.qc_fields = definition['qc_fields']
     item.readonly_fields = definition['readonly_fields']
     item.is_active = True

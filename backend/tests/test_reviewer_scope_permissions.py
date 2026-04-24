@@ -3,7 +3,11 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.core.permissions import assert_manage_override_access, assert_review_access
+from app.core.permissions import (
+    assert_manage_override_access,
+    assert_manager_dashboard_access,
+    assert_review_access,
+)
 
 
 def _user(**overrides):
@@ -49,3 +53,25 @@ def test_admin_can_execute_override_actions() -> None:
             is_manager=True,
         )
     )
+
+
+def test_reviewer_cannot_enter_manager_dashboard_entry() -> None:
+    with pytest.raises(HTTPException) as exc:
+        assert_manager_dashboard_access(_user(), workshop_id=1)
+
+    assert exc.value.status_code == 403
+
+
+def test_manager_can_enter_dashboard_within_scope() -> None:
+    summary = assert_manager_dashboard_access(
+        _user(
+            role='manager',
+            is_reviewer=False,
+            is_manager=True,
+            data_scope_type='self_workshop',
+            team_id=None,
+        ),
+        workshop_id=1,
+    )
+
+    assert summary.is_manager is True

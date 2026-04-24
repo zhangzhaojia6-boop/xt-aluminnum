@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.base import json_object_type
 
 
 class MesImportRecord(Base):
@@ -21,7 +21,7 @@ class MesImportRecord(Base):
     metric_value: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_row_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    raw_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -47,7 +47,7 @@ class MesCoilSnapshot(Base):
     event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     updated_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    source_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -85,7 +85,7 @@ class MesSyncRunLog(Base):
     next_cursor: Mapped[str | None] = mapped_column(Text, nullable=True)
     lag_seconds: Mapped[float | None] = mapped_column(Numeric(18, 3), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -9,6 +9,11 @@ def build_settings(**overrides) -> Settings:
         'DATABASE_URL': 'postgresql+psycopg2://user:pass@localhost:5432/test',
         'SECRET_KEY': 's' * 32,
         'INIT_ADMIN_PASSWORD': 'AdminPassword#2026',
+        'LLM_ENABLED': False,
+        'LLM_API_BASE': None,
+        'LLM_API_KEY': None,
+        'LLM_MODEL': '',
+        'LLM_ENDPOINT_ID': '',
     }
     values.update(overrides)
     return Settings(**values)
@@ -124,7 +129,20 @@ def test_validate_runtime_settings_rejects_missing_llm_fields_in_production() ->
     with pytest.raises(RuntimeError) as exc_info:
         settings.validate_runtime_settings()
 
-    assert 'LLM_ENABLED requires LLM_API_BASE, LLM_API_KEY, and LLM_MODEL' in str(exc_info.value)
+    assert 'LLM_ENABLED requires LLM_API_BASE, LLM_API_KEY, and (LLM_MODEL or LLM_ENDPOINT_ID)' in str(exc_info.value)
+
+
+def test_validate_runtime_settings_allows_llm_with_endpoint_id_only() -> None:
+    settings = build_settings(
+        APP_ENV='production',
+        LLM_ENABLED=True,
+        LLM_API_BASE='https://ark.cn-beijing.volces.com/api/v3',
+        LLM_API_KEY='test-key',
+        LLM_MODEL='',
+        LLM_ENDPOINT_ID='ep-20260422-test',
+    )
+
+    settings.validate_runtime_settings()
 
 
 def test_validate_runtime_settings_warns_when_rest_api_mes_adapter_has_no_base_url() -> None:

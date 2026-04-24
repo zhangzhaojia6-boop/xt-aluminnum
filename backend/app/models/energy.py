@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.base import json_object_type
 
 
 class EnergyImportRecord(Base):
@@ -19,7 +19,7 @@ class EnergyImportRecord(Base):
     energy_value: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_row_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    raw_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -1,6 +1,9 @@
 from datetime import date
+from datetime import datetime
 
+from app.agents.base import AgentAction, AgentDecision
 from app.services.mobile_report_service import (
+    _build_agent_decision_snapshot,
     _required_submit_fields,
     calculate_mobile_report_metrics,
     summarize_mobile_reporting,
@@ -84,3 +87,36 @@ def test_summarize_mobile_reporting_warns_when_schedule_empty() -> None:
     assert summary["expected_count"] == 0
     assert summary["reporting_rate"] == 0.0
     assert summary["config_warnings"]
+
+
+def test_agent_decision_snapshot_prefers_latest_validator_decision() -> None:
+    decision = AgentDecision(
+        agent_name='validator',
+        action=AgentAction.AUTO_REJECT,
+        target_type='mobile_shift_report',
+        target_id=7,
+        reason='校验未通过：产出重量大于投入重量',
+        details={'errors': ['产出重量大于投入重量']},
+        timestamp=datetime(2026, 4, 21, 3, 0, 0),
+    )
+    report = type('Report', (), {'report_status': 'returned', 'returned_reason': '请修改后重提'})()
+
+    snapshot = _build_agent_decision_snapshot(report=report, decisions=[decision])
+
+    assert snapshot['agent_decision_status'] == 'returned'
+    assert snapshot['agent_decision_action'] == 'auto_reject'
+    assert snapshot['agent_decision_agent'] == 'validator'
+    assert snapshot['agent_decision_reason'] == '校验未通过：产出重量大于投入重量'
+    assert snapshot['agent_decision_errors'] == ['产出重量大于投入重量']
+    assert snapshot['agent_decision_warnings'] == []
+    assert snapshot['agent_decision_at'] == datetime(2026, 4, 21, 3, 0, 0)
+
+
+def test_agent_decision_snapshot_derives_auto_confirmed_from_report_status() -> None:
+    report = type('Report', (), {'report_status': 'approved', 'returned_reason': None})()
+
+    snapshot = _build_agent_decision_snapshot(report=report, decisions=None)
+
+    assert snapshot['agent_decision_status'] == 'auto_confirmed'
+    assert snapshot['agent_decision_action'] == 'auto_confirm'
+    assert snapshot['agent_decision_agent'] == 'validator'

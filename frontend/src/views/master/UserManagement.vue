@@ -1,12 +1,14 @@
 <template>
-  <div class="page-stack">
-    <div class="page-header">
-      <div>
-        <h1>用户管理</h1>
-        <p>维护系统账号、角色与车间班组归属。</p>
-      </div>
+  <ReferencePageFrame
+    module-number="13"
+    title="权限治理中心"
+    :tags="['用户账号', '角色权限', '归属范围']"
+    class="page-stack admin-users-center"
+    data-testid="admin-users-center"
+  >
+    <template #actions>
       <el-button type="primary" @click="openCreate">新增用户</el-button>
-    </div>
+    </template>
 
     <el-card class="panel">
       <div class="page-filters">
@@ -139,13 +141,14 @@
         <el-button type="primary" :loading="saving" @click="submitResetPassword">确认重置</el-button>
       </template>
     </el-dialog>
-  </div>
+  </ReferencePageFrame>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { fetchTeams, fetchWorkshops } from '../../api/master.js'
 import { createUser, deleteUser, fetchUsersPage, resetUserPassword, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'

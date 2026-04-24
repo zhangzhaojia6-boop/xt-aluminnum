@@ -7,43 +7,43 @@ const ROLE_ALIASES = {
 const ROLE_BUCKET_META = {
   machine_operator: {
     title: '机台直录',
-    subtitle: '只录本机台、本班次的原始值。'
+    subtitle: '只录本机台原始值。'
   },
   shift_leader: {
     title: '班次直录',
-    subtitle: '只录本班核心原始值。'
+    subtitle: '只录本班原始值。'
   },
   weigher: {
     title: '过磅补录',
-    subtitle: '只补录复核重量。'
+    subtitle: '只录复核重量。'
   },
   qc: {
     title: '质检补录',
-    subtitle: '只补录质检结论。'
+    subtitle: '只录质检结论。'
   },
   energy_stat: {
     title: '能耗补录',
-    subtitle: '只补录当班电气能耗。'
+    subtitle: '只录当班能耗。'
   },
   maintenance_lead: {
     title: '机修补录',
-    subtitle: '只补录停机与设备异常。'
+    subtitle: '只录停机与设备异常。'
   },
   hydraulic_lead: {
     title: '液压补录',
-    subtitle: '只补录液压油与辅材耗用。'
+    subtitle: '只录液压耗用。'
   },
   contracts: {
     title: '计划科补录',
-    subtitle: '只补录合同进度、余合同和投料口径。'
+    subtitle: '只录合同与投料口径。'
   },
   inventory_keeper: {
     title: '成品库补录',
-    subtitle: '只补录入库、发货、寄存和库存结存。'
+    subtitle: '只录入库、发货与结存。'
   },
   utility_manager: {
     title: '水电气补录',
-    subtitle: '只补录全厂水、电、气原始值。'
+    subtitle: '只录全厂水、电、气。'
   },
 }
 

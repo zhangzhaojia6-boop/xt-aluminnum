@@ -8,9 +8,17 @@
       </div>
       <div class="header-actions">
         <el-button plain @click="loadPage">刷新</el-button>
-        <el-button plain @click="goEntry">返回入口</el-button>
       </div>
     </div>
+
+    <el-alert
+      v-if="pageError"
+      class="panel"
+      type="error"
+      :closable="false"
+      show-icon
+      :title="pageError"
+    />
 
     <el-card class="panel mobile-card">
       <template #header>当前班次</template>
@@ -187,7 +195,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
 
 import { fetchAttendanceDraft, submitAttendanceConfirmation } from '../../api/attendance'
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
@@ -196,12 +203,12 @@ import { fetchCurrentShift } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
 import MobileBottomNav from './MobileBottomNav.vue'
 
-const router = useRouter()
 const { enqueuePendingRequest } = useRetryQueue()
 
 const pageLoading = ref(true)
 const draftLoading = ref(false)
 const submitting = ref(false)
+const pageError = ref('')
 const lastSubmitTime = ref(0)
 const submitCooldownActive = ref(false)
 const currentShift = ref({})
@@ -244,7 +251,13 @@ function requestErrorMessage(error, fallback = '提交失败') {
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || item).join('; ')
   }
-  return detail || error?.message || fallback
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim()
+  }
+  return error?.message || fallback
 }
 
 function clearSubmitCooldownTimer() {
@@ -307,6 +320,9 @@ async function loadDraft() {
       business_date: currentShift.value.business_date
     })
     normalizeDraft(payload)
+  } catch (error) {
+    normalizeDraft({ status: 'draft', items: [] })
+    ElMessage.error(requestErrorMessage(error, '加载考勤草稿失败，请稍后重试'))
   } finally {
     draftLoading.value = false
   }
@@ -314,6 +330,7 @@ async function loadDraft() {
 
 async function loadPage() {
   pageLoading.value = true
+  pageError.value = ''
   try {
     const shiftPayload = await fetchCurrentShift()
     currentShift.value = shiftPayload || {}
@@ -330,6 +347,12 @@ async function loadPage() {
     }
 
     await loadDraft()
+  } catch (error) {
+    pageError.value = requestErrorMessage(error, '加载考勤确认页面失败，请刷新重试。')
+    currentShift.value = {}
+    equipmentOptions.value = []
+    machineId.value = null
+    normalizeDraft({ status: 'draft', items: [] })
   } finally {
     pageLoading.value = false
   }
@@ -391,10 +414,6 @@ async function submit() {
   } finally {
     submitting.value = false
   }
-}
-
-function goEntry() {
-  router.push({ name: 'mobile-entry' })
 }
 
 watch(machineId, async (value, previous) => {

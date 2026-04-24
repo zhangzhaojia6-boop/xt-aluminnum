@@ -95,6 +95,13 @@ class MobileShiftReportOut(BaseModel):
     photo_uploaded_at: datetime | None = None
     linked_production_data_id: int | None = None
     returned_reason: str | None = None
+    agent_decision_status: str | None = None
+    agent_decision_action: str | None = None
+    agent_decision_agent: str | None = None
+    agent_decision_reason: str | None = None
+    agent_decision_warnings: list[str] = Field(default_factory=list)
+    agent_decision_errors: list[str] = Field(default_factory=list)
+    agent_decision_at: datetime | None = None
     active_reminders: list[dict] = Field(default_factory=list)
     monthly_output: float | None = None
     monthly_electricity: float | None = None

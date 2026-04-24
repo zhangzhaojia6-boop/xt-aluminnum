@@ -169,7 +169,9 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
 
         energy_owner = db.execute(select(User).where(User.username == 'ZR2-A-EN')).scalar_one()
         qc_owner = db.execute(select(User).where(User.username == 'ZR2-B-QC')).scalar_one()
+        contract_owner = db.execute(select(User).where(User.username == 'CPK-A-PLAN')).scalar_one()
         inventory_owner = db.execute(select(User).where(User.username == 'CPK-A-INV')).scalar_one()
+        utility_owner_a = db.execute(select(User).where(User.username == 'CPK-A-UTILITY')).scalar_one()
         utility_owner = db.execute(select(User).where(User.username == 'CPK-C-UTILITY')).scalar_one()
 
         assert energy_owner.role == 'energy_stat'
@@ -184,6 +186,13 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         assert inventory_owner.role == 'inventory_keeper'
         assert inventory_owner.workshop_id == next(item for item in workshops if item.code == 'CPK').id
         assert inventory_owner.assigned_shift_ids == [1]
+        assert inventory_owner.pin_code == '506371'
+
+        assert contract_owner.role == 'contracts'
+        assert contract_owner.pin_code == '101901'
+
+        assert utility_owner_a.role == 'utility_manager'
+        assert utility_owner_a.pin_code == '591767'
 
         assert utility_owner.role == 'utility_manager'
         assert utility_owner.assigned_shift_ids == [3]

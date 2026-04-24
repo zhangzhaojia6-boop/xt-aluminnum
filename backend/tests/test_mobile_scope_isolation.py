@@ -63,3 +63,20 @@ def test_mobile_user_can_modify_own_report_within_scope() -> None:
         report=_report(owner_user_id=11, submitted_by_user_id=11),
         write=True,
     )
+
+
+def test_manager_cannot_use_mobile_report_access_without_mobile_role() -> None:
+    with pytest.raises(HTTPException) as exc:
+        assert_mobile_report_access(
+            _user(
+                role='manager',
+                is_mobile_user=False,
+                is_manager=True,
+                team_id=None,
+                data_scope_type='self_workshop',
+            ),
+            report=_report(owner_user_id=11, submitted_by_user_id=11),
+            write=False,
+        )
+
+    assert exc.value.status_code == 403

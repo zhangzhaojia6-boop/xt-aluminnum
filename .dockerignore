@@ -2,6 +2,7 @@
 .github
 .pytest_cache
 backend/.pytest_cache
+backend/.pytest-run-*/
 backend/__pycache__
 backend/uploads
 frontend/node_modules

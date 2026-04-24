@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_user, get_db
 from app.main import app
+from app.schemas.dashboard import DeliveryStatusOut
 from app.models.system import User
 
 
@@ -45,5 +46,9 @@ def test_delivery_status_endpoint(monkeypatch) -> None:
     assert response.json()['delivery_ready'] is True
     assert response.json()['reports_reviewed_count'] == 1
     assert response.json()['reports_published_count'] == 0
+    parsed = DeliveryStatusOut.model_validate(response.json())
+    assert parsed.delivery_ready is True
+    assert parsed.reports_generated == 3
+    assert parsed.missing_steps == []
 
     app.dependency_overrides.clear()

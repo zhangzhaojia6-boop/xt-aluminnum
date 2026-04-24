@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.core.permissions import get_current_manager_user
+from app.core.permissions import assert_manager_dashboard_access, get_current_manager_user
 from app.core.rate_limit import enforce_request_rate_limit
 from app.core.scope import build_scope_summary
-from app.schemas.dashboard import FactoryDashboardResponse, WorkshopDashboardResponse
+from app.schemas.dashboard import DeliveryStatusOut, FactoryDashboardResponse, WorkshopDashboardResponse
 from app.models.system import User
 from app.services import report_service
 
@@ -54,8 +54,8 @@ def workshop_director_dashboard(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
-    summary = _ensure_reviewer_or_manager(current_user)
     selected_workshop_id = workshop_id or current_user.workshop_id
+    summary = assert_manager_dashboard_access(current_user, workshop_id=selected_workshop_id)
     if not summary.is_admin and summary.data_scope_type != 'all':
         if summary.workshop_id is not None and selected_workshop_id != summary.workshop_id:
             raise HTTPException(status_code=403, detail='Dashboard scope denied')
@@ -79,7 +79,7 @@ def statistics_dashboard(
     return report_service.build_statistics_dashboard(db, target_date=target_date or date.today())
 
 
-@router.get('/delivery-status')
+@router.get('/delivery-status', response_model=DeliveryStatusOut, response_model_exclude_none=True)
 def delivery_status(
     request: Request,
     target_date: date | None = None,
@@ -111,8 +111,8 @@ def workshop_dashboard_alias(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
-    summary = _ensure_reviewer_or_manager(current_user)
     selected_workshop_id = workshop_id or current_user.workshop_id
+    summary = assert_manager_dashboard_access(current_user, workshop_id=selected_workshop_id)
     if not summary.is_admin and summary.data_scope_type != 'all':
         if summary.workshop_id is not None and selected_workshop_id != summary.workshop_id:
             raise HTTPException(status_code=403, detail='Dashboard scope denied')

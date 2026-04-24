@@ -2,6 +2,12 @@ from app.services import bootstrap
 from tests.path_helpers import REPO_ROOT
 
 
+def _repo_root():
+    if (REPO_ROOT / 'frontend').exists():
+        return REPO_ROOT
+    return REPO_ROOT.parent
+
+
 def test_bootstrap_defaults_use_xintai_branding_and_chinese_shift_labels() -> None:
     assert bootstrap.DEFAULT_SYSTEM_CONFIGS[0] == ('system_name', '河南鑫泰铝业生产管理系统', '系统显示名称')
     assert bootstrap.DEFAULT_SHIFT_CONFIGS == [
@@ -21,16 +27,20 @@ def test_bootstrap_defaults_use_xintai_branding_and_chinese_shift_labels() -> No
 
 
 def test_user_facing_brand_strings_are_updated() -> None:
-    login_text = (REPO_ROOT / 'frontend' / 'src' / 'views' / 'Login.vue').read_text(encoding='utf-8')
-    layout_text = (REPO_ROOT / 'frontend' / 'src' / 'views' / 'Layout.vue').read_text(encoding='utf-8')
-    router_text = (REPO_ROOT / 'frontend' / 'src' / 'router' / 'index.js').read_text(encoding='utf-8')
-    index_text = (REPO_ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')
-    config_text = (REPO_ROOT / 'backend' / 'app' / 'config.py').read_text(encoding='utf-8')
+    repo_root = _repo_root()
+    login_text = (repo_root / 'frontend' / 'src' / 'views' / 'Login.vue').read_text(encoding='utf-8')
+    layout_text = (repo_root / 'frontend' / 'src' / 'views' / 'Layout.vue').read_text(encoding='utf-8')
+    app_shell_text = (repo_root / 'frontend' / 'src' / 'layout' / 'AppShell.vue').read_text(encoding='utf-8')
+    router_text = (repo_root / 'frontend' / 'src' / 'router' / 'index.js').read_text(encoding='utf-8')
+    index_text = (repo_root / 'frontend' / 'index.html').read_text(encoding='utf-8')
+    config_text = (repo_root / 'backend' / 'app' / 'config.py').read_text(encoding='utf-8')
 
     assert '鑫泰铝业' in login_text
-    assert '河南鑫泰铝业有限公司 · 生产数据管理平台' in login_text
-    assert '鑫' in layout_text
-    assert '智能生产数据系统' in layout_text
+    assert '生产数据系统' in login_text
+    assert '钉钉' in login_text
+    assert '<AppShell zone="desktop">' in layout_text
+    assert '鑫' in app_shell_text
+    assert '鑫泰铝业协同平台' in app_shell_text
     assert "const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'" in router_text
     assert '<title>鑫泰铝业</title>' in index_text
     assert "APP_NAME: str = '鑫泰铝业'" in config_text

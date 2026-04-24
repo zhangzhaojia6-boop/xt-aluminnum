@@ -2,17 +2,44 @@
   <div class="mobile-shell">
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">班长手机填报</div>
+        <div class="mobile-kicker">我的填报</div>
         <h1>历史填报</h1>
-        <p>只显示你自己有权限查看的班次记录，不会混出其他班组数据。</p>
+        <p>只看你有权限的班次记录。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="load">刷新</el-button>
-        <el-button plain @click="goEntry">返回入口</el-button>
+        <el-button plain class="mobile-inline-action" @click="load">刷新</el-button>
       </div>
     </div>
 
-    <el-card class="panel mobile-card">
+    <div v-if="loading" class="mobile-inline-state panel">
+      <p>正在加载历史记录…</p>
+      <p>如果长时间不返回，请检查网络并重试。</p>
+      <el-button
+        type="primary"
+        plain
+        class="mobile-inline-action"
+        :loading="loading"
+        @click="load"
+      >
+        重试加载
+      </el-button>
+      <el-button class="mobile-inline-action" plain @click="goEntry">返回首页</el-button>
+    </div>
+
+    <div v-else-if="pageError" class="mobile-inline-state panel">
+      <p>{{ pageError }}</p>
+      <el-button
+        type="primary"
+        plain
+        class="mobile-inline-action"
+        @click="load"
+      >
+        重试加载
+      </el-button>
+      <el-button plain class="mobile-inline-action" @click="goEntry">返回首页</el-button>
+    </div>
+
+    <el-card v-else class="panel mobile-card">
       <template #header>最近记录</template>
       <div v-if="!items.length" class="mobile-placeholder">暂无历史填报记录。</div>
       <div v-else class="mobile-history-list">
@@ -58,10 +85,41 @@ import { useRouter } from 'vue-router'
 
 import { fetchMobileHistory } from '../../api/mobile'
 import { formatNumber, formatStatusLabel } from '../../utils/display'
+import { useAuthStore } from '../../stores/auth'
+import { resolveTransitionRoleBucket } from '../../utils/mobileTransition'
 import MobileBottomNav from './MobileBottomNav.vue'
 
 const router = useRouter()
+const auth = useAuthStore()
 const items = ref([])
+const loading = ref(true)
+const pageError = ref('')
+
+const advancedRoleBuckets = [
+  'machine_operator',
+  'weigher',
+  'qc',
+  'energy_stat',
+  'maintenance_lead',
+  'hydraulic_lead',
+  'contracts',
+  'inventory_keeper',
+  'utility_manager'
+]
+
+const currentUserRoleBucket = resolveTransitionRoleBucket({
+  role: auth.role,
+  isMachineBound: Boolean(auth.isMachineBound)
+})
+
+function isAdvancedHistoryItem(item) {
+  const roleBucket = item?.role_bucket || item?.report_role_bucket || currentUserRoleBucket
+  return advancedRoleBuckets.includes(roleBucket)
+}
+
+function resolveDetailRouteName(item = {}) {
+  return isAdvancedHistoryItem(item) ? 'mobile-report-form-advanced' : 'mobile-report-form'
+}
 
 function statusTagType(status) {
   if (status === 'submitted' || status === 'approved') return 'success'
@@ -71,13 +129,36 @@ function statusTagType(status) {
 }
 
 async function load() {
-  const data = await fetchMobileHistory({ limit: 12 })
-  items.value = data.items || []
+  loading.value = true
+  pageError.value = ''
+  try {
+    const data = await fetchMobileHistory({ limit: 12 })
+    items.value = data.items || []
+  } catch (error) {
+    pageError.value = requestErrorMessage(error, '加载历史记录失败，请重试。')
+    items.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+function requestErrorMessage(error, fallback = '操作失败') {
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item).join('；')
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim()
+  }
+  return error?.message || fallback
 }
 
 function openDetail(item) {
   router.push({
-    name: 'mobile-report-form',
+    name: resolveDetailRouteName(item),
     params: {
       businessDate: item.business_date,
       shiftId: item.shift_id

@@ -1,9 +1,12 @@
-from app.routers import attendance, auth, dashboard, energy, imports, master, mes, mobile, ocr, production, quality, realtime, reconciliation, reports, templates, users, wecom, work_orders
+from app.routers import assistant, attendance, auth, command, dashboard, dingtalk, energy, imports, master, mes, mobile, ocr, production, quality, realtime, reconciliation, reports, templates, users, work_orders
 
 __all__ = [
+    'assistant',
     'attendance',
     'auth',
+    'command',
     'dashboard',
+    'dingtalk',
     'energy',
     'imports',
     'master',
@@ -15,7 +18,6 @@ __all__ = [
     'reports',
     'templates',
     'users',
-    'wecom',
     'quality',
     'realtime',
     'work_orders',

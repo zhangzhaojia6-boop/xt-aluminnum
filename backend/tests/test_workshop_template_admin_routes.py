@@ -98,6 +98,39 @@ def test_get_workshop_template_prefers_workshop_code_override_and_hides_disabled
     assert [field['name'] for field in payload['readonly_fields']] == ['yield_rate']
 
 
+def test_workshop_template_override_keeps_energy_fields_owner_only(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    with session_factory() as db:
+        db.add(Workshop(code='ZD', name='铸锭车间', workshop_type='casting', sort_order=1, is_active=True))
+        db.add(
+            WorkshopTemplateConfig(
+                template_key='ZD',
+                display_name='铸锭模板',
+                tempo='slow',
+                supports_ocr=False,
+                entry_fields=[
+                    {'name': 'alloy_grade', 'label': '产品大类', 'type': 'text', 'required': True, 'enabled': True},
+                    {'name': 'input_weight', 'label': '重量', 'type': 'number', 'required': True, 'enabled': True},
+                ],
+                extra_fields=[
+                    {'name': 'energy_kwh', 'label': '电耗', 'type': 'number', 'required': True, 'enabled': True},
+                    {'name': 'gas_m3', 'label': '气耗', 'type': 'number', 'required': False, 'enabled': True},
+                ],
+                qc_fields=[],
+                readonly_fields=[],
+                is_active=True,
+            )
+        )
+        db.commit()
+
+        leader_payload = get_workshop_template('ZD', user_role='shift_leader', db=db)
+        energy_payload = get_workshop_template('ZD', user_role='energy_stat', db=db)
+
+    assert [field['name'] for field in leader_payload['extra_fields']] == []
+    assert [field['name'] for field in leader_payload['readonly_fields']] == []
+    assert [field['name'] for field in energy_payload['extra_fields']] == ['energy_kwh', 'gas_m3']
+
+
 def test_admin_can_upsert_workshop_template_and_public_template_endpoint_reads_it(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     with session_factory() as db:
@@ -125,6 +158,9 @@ def test_admin_can_upsert_workshop_template_and_public_template_endpoint_reads_i
                     {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True, 'enabled': True},
                     {'name': 'input_spec', 'label': '上机规格', 'type': 'text', 'required': True, 'enabled': True},
                     {'name': 'tray_weight', 'label': '托盘重量', 'type': 'number', 'unit': 'kg', 'required': False, 'enabled': True},
+                ],
+                'shift_fields': [
+                    {'name': 'roll_speed', 'label': '机列速度', 'type': 'number', 'unit': 'm/min', 'required': False, 'enabled': True}
                 ],
                 'extra_fields': [
                     {'name': 'edge_protector', 'label': '护角数量', 'type': 'number', 'unit': '个', 'required': False, 'enabled': True}
@@ -157,5 +193,6 @@ def test_admin_can_upsert_workshop_template_and_public_template_endpoint_reads_i
     payload = template_response.json()
     assert payload['display_name'] == '精整模板'
     assert [field['name'] for field in payload['entry_fields']] == ['batch_no', 'input_spec', 'tray_weight']
+    assert [field['name'] for field in payload['shift_fields']] == ['roll_speed']
     assert [field['name'] for field in payload['extra_fields']] == ['edge_protector']
     assert [field['name'] for field in payload['readonly_fields']] == ['yield_rate']

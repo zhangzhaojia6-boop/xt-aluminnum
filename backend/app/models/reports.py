@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.base import json_object_type
 
 
 class DailyReport(Base):
@@ -16,7 +16,7 @@ class DailyReport(Base):
     report_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     workshop_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('workshops.id'), nullable=True, index=True)
 
-    report_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    report_data: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
     text_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     generated_scope: Mapped[str] = mapped_column(String(32), nullable=False, default='auto_confirmed')
     output_mode: Mapped[str] = mapped_column(String(16), nullable=False, default='both')

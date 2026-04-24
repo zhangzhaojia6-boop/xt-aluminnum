@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import { loginApi, meApi, qrLoginApi, wecomLoginApi } from '../api/auth.js'
+import { dingtalkLoginApi, loginApi, meApi, qrLoginApi } from '../api/auth.js'
 
 const TOKEN_KEY = 'aluminum_bypass_token'
 const USER_KEY = 'aluminum_bypass_user'
@@ -70,26 +70,56 @@ export const useAuthStore = defineStore('auth', {
     hasGlobalReviewScope() {
       return this.isAdmin || (this.isReviewer && (this.dataScopeType === 'all' || this.user?.workshop_id == null))
     },
-    canAccessMobile() {
+    canAccessFillSurface() {
       return this.isMobileUser
     },
+    entrySurface() {
+      return this.canAccessFillSurface
+    },
+    isFillOnlyRole() {
+      return this.canAccessFillSurface && !this.canAccessReviewSurface && !this.canAccessDesktopConfig
+    },
+    canAccessReviewSurface() {
+      return this.isAdmin || this.isManager
+    },
+    reviewSurface() {
+      return this.canAccessReviewSurface
+    },
+    canAccessDesktopConfig() {
+      return this.isAdmin || this.isManager
+    },
+    adminSurface() {
+      return this.canAccessDesktopConfig
+    },
+    superAdminSurface() {
+      return this.isAdmin && this.entrySurface && this.reviewSurface && this.adminSurface
+    },
+    defaultSurface() {
+      if (this.entrySurface && !this.reviewSurface && !this.adminSurface) return 'entry'
+      if (this.reviewSurface && !this.adminSurface) return 'review'
+      if (this.adminSurface) return 'admin'
+      return 'login'
+    },
+    canAccessMobile() {
+      return this.canAccessFillSurface
+    },
     canAccessDesktop() {
-      return this.isAdmin || this.isReviewer || this.isManager
+      return this.canAccessReviewSurface || this.canAccessDesktopConfig
     },
     canAccessReviewDesk() {
-      return this.isAdmin || this.isReviewer
+      return this.canAccessReviewSurface
     },
     canAccessFactoryDashboard() {
-      return this.isAdmin || this.isManager || this.hasGlobalReviewScope
+      return this.canAccessReviewSurface
     },
     canAccessWorkshopDashboard() {
-      return this.canAccessFactoryDashboard || (this.isReviewer && Boolean(this.user?.workshop_id))
+      return this.canAccessReviewSurface
     },
     canAccessStatisticsDashboard() {
-      return this.isAdmin || this.isManager || this.hasGlobalReviewScope
+      return this.canAccessReviewSurface
     },
     canAccessManagerDashboard() {
-      return this.canAccessFactoryDashboard || this.canAccessWorkshopDashboard
+      return this.canAccessReviewSurface
     }
   },
   actions: {
@@ -140,10 +170,10 @@ export const useAuthStore = defineStore('auth', {
       this.setSession(result.access_token, result.user, result.machine_info)
       return result
     },
-    async wecomLogin(code) {
-      const result = await wecomLoginApi({ code })
+    async dingtalkLogin(code) {
+      const result = await dingtalkLoginApi({ code })
       const token = result.access_token || result.token || ''
-      if (token === '') throw new Error('企业微信登录未返回令牌')
+      if (token === '') throw new Error('钉钉登录未返回令牌')
 
       this.setToken(token)
       this.setMachineContext(null)

@@ -1,138 +1,166 @@
 <template>
   <div class="mobile-shell mobile-shell--entry" data-testid="mobile-entry">
-    <div class="mobile-top">
-      <div>
-        <div class="mobile-kicker">岗位直录</div>
-        <h1>{{ pageTitle }}</h1>
-        <p>{{ pageSubtitle }}</p>
-      </div>
-      <el-button v-if="auth.canAccessDesktop" plain @click="goDesktop">进入后台</el-button>
-    </div>
-
-    <el-alert
-      v-if="authenticating"
-      title="正在通过企业微信校验身份并进入手机填报入口，请稍候。"
-      type="info"
-      show-icon
-      :closable="false"
-      class="panel"
-    />
-
-    <el-alert
-      v-else-if="authError"
-      :title="authError"
-      type="error"
-      show-icon
-      :closable="false"
-      class="panel"
-    />
-
-    <el-alert
-      v-else-if="showDebugBootstrap"
-      :title="bootstrapTip"
-      :type="bootstrap.entry_mode === 'web_debug' ? 'info' : 'success'"
-      show-icon
-      :closable="false"
-      class="panel"
-    />
-
-    <el-alert
-      v-if="!authenticating && !authError && (bootstrap.phase_notice || bootstrap.data_entry_mode === 'manual_only')"
-      :title="bootstrap.phase_notice || '当前阶段先由主操手工录入，系统自动校验、汇总和催报。'"
-      type="info"
-      show-icon
-      :closable="false"
-      class="panel"
-    />
-
-    <el-card class="panel mobile-card mobile-entry-card" data-testid="mobile-current-shift">
-      <div v-if="authenticating" class="mobile-placeholder">正在校验企业微信身份并加载当前班次...</div>
-      <div v-else-if="authError" class="mobile-placeholder">
-        <div>{{ authError }}</div>
-        <div class="mobile-actions mobile-actions--entry">
-          <el-button type="primary" plain @click="goLogin">改用账号登录</el-button>
+    <section class="mobile-entry-stage panel">
+      <div class="mobile-entry-stage__top">
+        <div>
+          <div class="mobile-kicker">03 独立填报端</div>
+          <h1>{{ pageTitle }}</h1>
+          <p>{{ pageSubtitle }}</p>
         </div>
       </div>
-      <div v-else-if="loading" class="mobile-placeholder">正在加载当前班次与任务状态...</div>
-      <div v-else-if="!current.can_submit" class="mobile-placeholder">
-        {{ current.ownership_note || '当前账号暂未绑定可填报班次，请先确认车间、班组和排班配置。' }}
-      </div>
-      <template v-else>
-        <div class="mobile-entry-card__hero">
-          <div class="mobile-entry-card__brand">
-            <span class="mobile-entry-card__mark">鑫</span>
-            <div>
-              <div class="mobile-entry-card__brand-title">鑫泰铝业</div>
-              <div class="mobile-entry-card__brand-copy">只录本岗原始值，后面交给系统。</div>
-            </div>
-          </div>
 
-          <div class="mobile-entry-card__identity">
-            <span class="mobile-entry-card__eyebrow">当前岗位</span>
-            <strong data-testid="mobile-role-bucket">{{ roleBucketMeta.title }}</strong>
-            <p>{{ transitionMapping.new_action }}</p>
-          </div>
+      <el-alert
+        v-if="authenticating"
+        title="正在校验身份"
+        type="info"
+        show-icon
+        :closable="false"
+        class="panel"
+      />
 
-          <div class="mobile-entry-card__facts">
-            <div v-for="fact in currentFacts" :key="fact.label" class="mobile-entry-card__fact">
-              <span>{{ fact.label }}</span>
-              <strong>{{ fact.value }}</strong>
-            </div>
-          </div>
+      <el-alert
+        v-else-if="authError"
+        :title="authError"
+        type="error"
+        show-icon
+        :closable="false"
+        class="panel"
+      />
 
-          <div class="mobile-entry-card__brief">
-            <span>本岗负责</span>
-            <strong>{{ transitionMapping.evidence_label }}</strong>
-            <p>{{ roleBucketMeta.subtitle }}</p>
-          </div>
-        </div>
+      <el-alert
+        v-else-if="showDebugBootstrap"
+        :title="bootstrapTip"
+        :type="bootstrap.entry_mode === 'web_debug' ? 'info' : 'success'"
+        show-icon
+        :closable="false"
+        class="panel"
+      />
 
-        <div class="mobile-agent-grid">
-          <article
-            v-for="squad in agentSquads"
-            :key="squad.title"
-            class="mobile-agent-card"
+      <div v-if="authenticating" class="mobile-entry-stage__empty">正在校验身份…</div>
+      <div v-else-if="authError" class="mobile-entry-stage__empty">
+        <p>{{ authError }}</p>
+        <p>请重试钉钉鉴权，或改用账号登录。</p>
+        <div class="mobile-entry-stage__action-row">
+          <el-button
+            :loading="retryingAuth"
+            type="primary"
+            plain
+            class="mobile-inline-action"
+            @click="retryAuth"
           >
-            <div class="mobile-agent-card__top">
-              <span>{{ squad.kicker }}</span>
-              <strong>{{ squad.title }}</strong>
-            </div>
-            <p>{{ squad.summary }}</p>
-            <div class="mobile-agent-card__tags">
-              <span v-for="item in squad.items" :key="item">{{ item }}</span>
-            </div>
+            重试鉴权
+          </el-button>
+          <el-button plain class="mobile-inline-action" @click="goLogin">改用账号登录</el-button>
+          <el-button plain class="mobile-inline-action" @click="load">重新加载</el-button>
+        </div>
+      </div>
+      <div v-else-if="loading" class="mobile-entry-stage__empty">
+        <p>正在加载当前任务…</p>
+        <p>可稍后重试。</p>
+        <div class="mobile-entry-stage__action-row">
+          <el-button type="primary" plain class="mobile-inline-action" :loading="loading" @click="load">再次尝试</el-button>
+        </div>
+      </div>
+      <div v-else-if="loadError" class="mobile-entry-stage__empty">
+        <p>{{ loadError }}</p>
+        <div class="mobile-entry-stage__action-row">
+          <el-button type="primary" plain class="mobile-inline-action" :loading="loading" @click="load">重试加载</el-button>
+          <el-button plain class="mobile-inline-action" @click="goLogin">改用账号登录</el-button>
+        </div>
+      </div>
+      <div v-else-if="!hasCurrentShift" class="mobile-entry-stage__empty">
+        <p>当前账号暂未拿到可显示的班次任务。</p>
+        <div class="mobile-entry-stage__action-row">
+          <el-button type="primary" plain class="mobile-inline-action" @click="load">刷新任务</el-button>
+        </div>
+      </div>
+      <div v-else-if="current.can_submit === false" class="mobile-entry-stage__empty">
+        <p>{{ current.ownership_note || '当前账号暂未开启可填报岗位。' }}</p>
+        <p>先联系管理员同步，或先看历史记录。</p>
+        <div class="mobile-entry-stage__action-row">
+          <el-button type="primary" plain class="mobile-inline-action" @click="load">刷新任务</el-button>
+          <el-button plain class="mobile-inline-action" @click="goReportHistory">查看历史</el-button>
+        </div>
+      </div>
+      <div v-else class="mobile-entry-stage__hero" data-testid="mobile-current-shift">
+        <div class="mobile-entry-stage__brand">
+          <span class="mobile-entry-stage__mark">鑫</span>
+          <div>
+            <strong>当前任务</strong>
+            <p>{{ current.workshop_name || bootstrap.workshop_name || '-' }} · {{ current.shift_name || current.shift_code || '-' }}</p>
+          </div>
+        </div>
+
+        <div class="mobile-entry-stage__facts">
+          <article v-for="fact in currentFacts" :key="fact.label" class="mobile-entry-stage__fact">
+            <span>{{ fact.label }}</span>
+            <strong>{{ fact.value }}</strong>
           </article>
         </div>
 
-        <div v-if="isMachineBound" class="mobile-machine-banner">
-          <div class="mobile-machine-banner__title">
-            {{ current.workshop_name || bootstrap.workshop_name || '-' }} / {{ current.machine_name || bootstrap.machine_name || '-' }} / {{ current.shift_name || current.shift_code || '-' }}
-          </div>
-          <div class="mobile-machine-banner__meta">
-            <span>业务日期 {{ current.business_date }}</span>
-            <span>账号 {{ auth.user?.username || '-' }}</span>
-            <span>状态 {{ formatStatusLabel(current.report_status) }}</span>
+        <div v-if="isMachineBound" class="mobile-entry-stage__machine">
+          <strong>{{ current.machine_name || bootstrap.machine_name || '-' }}</strong>
+          <span>账号 {{ auth.user?.username || '-' }}</span>
+        </div>
+
+        <div class="mobile-entry-stage__role" data-testid="mobile-role-bucket">
+          <span>当前角色</span>
+          <strong>{{ roleBucketMeta.title }}</strong>
+        </div>
+
+        <div class="mobile-entry-stage__cta">
+          <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
+            {{ transitionMapping.primary_cta }}
+          </el-button>
+          <div class="mobile-entry-stage__status">
+            <span>状态</span>
+            <strong>{{ formatStatusLabel(current.report_status) }}</strong>
           </div>
         </div>
 
-        <div class="mobile-actions mobile-actions--entry">
-          <template v-if="isMachineBound">
-            <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
-              {{ transitionMapping.primary_cta }}
-            </el-button>
-          </template>
-          <template v-else>
-            <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
-              {{ transitionMapping.primary_cta }}
-            </el-button>
-          </template>
+        <div class="mobile-entry-stage__summary-grid">
+          <article class="mobile-entry-stage__summary-item">
+            <span>今日班次</span>
+            <strong>{{ current.shift_name || current.shift_code || '-' }}</strong>
+          </article>
+          <article class="mobile-entry-stage__summary-item">
+            <span>待填报任务</span>
+            <strong>{{ pendingTaskCount }}</strong>
+          </article>
+          <article class="mobile-entry-stage__summary-item">
+            <span>已提交任务</span>
+            <strong>{{ submittedTaskCount }}</strong>
+          </article>
+          <article class="mobile-entry-stage__summary-item">
+            <span>异常待补项</span>
+            <strong>{{ anomalyPendingCount }}</strong>
+          </article>
+          <article class="mobile-entry-stage__summary-item">
+            <span>最近提交状态</span>
+            <strong>{{ lastSubmitStatus }}</strong>
+          </article>
         </div>
-      </template>
-    </el-card>
+
+        <div class="mobile-entry-stage__quick-grid">
+          <el-button type="primary" plain @click="goReport">快速填报</el-button>
+          <el-button plain @click="goAdvancedReport">高级填报</el-button>
+          <el-button plain :disabled="!ocrSupported || !current.shift_id" @click="goOcr">OCR</el-button>
+          <el-button plain @click="goReportHistory">历史记录</el-button>
+          <el-button plain @click="goDrafts">草稿箱</el-button>
+        </div>
+
+        <div class="mobile-entry-stage__ai">
+          <span>智能提示</span>
+          <ul>
+            <li v-for="item in aiHints" :key="item">{{ item }}</li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <el-card v-if="showReminderPanel" class="panel mobile-card">
-      <template #header>当前提醒</template>
-      <ReminderList :items="current.active_reminders || []" empty-text="当前班次没有催报或迟报记录。" />
+      <template #header>提醒</template>
+      <ReminderList :items="current.active_reminders || []" empty-text="当前没有提醒。" />
     </el-card>
 
     <MobileBottomNav />
@@ -159,10 +187,13 @@ const auth = useAuthStore()
 const isDev = import.meta.env.DEV
 const loading = ref(true)
 const authenticating = ref(false)
+const retryingAuth = ref(false)
 const authError = ref('')
+const loadError = ref('')
 const bootstrap = ref({})
 const current = ref({})
 const ocrSupported = ref(false)
+const hasCurrentShift = computed(() => Boolean(current.value?.shift_id))
 
 const isMachineBound = computed(() => Boolean(current.value?.is_machine_bound || bootstrap.value?.is_machine_bound || auth.isMachineBound))
 const transitionMapping = computed(() => buildMobileTransitionMapping({
@@ -186,41 +217,34 @@ const advancedRoleBuckets = [
   'inventory_keeper',
   'utility_manager'
 ]
-const entryModeLabel = computed(() => {
-  const mode = bootstrap.value?.data_entry_mode
-  if (mode === 'manual_only') return '主操手工直录'
-  if (mode === 'scan_assisted') return '扫码辅助录入'
-  if (mode === 'mes_assisted') return 'MES 辅助录入'
-  return '-'
-})
 const currentFacts = computed(() => [
-  { label: '业务日期', value: current.value?.business_date || '-' },
-  { label: '班次', value: current.value?.shift_name || current.value?.shift_code || '-' },
-  { label: '车间', value: current.value?.workshop_name || bootstrap.value?.workshop_name || '-' },
-  {
-    label: isMachineBound.value ? '机台' : '班组',
-    value: isMachineBound.value
-      ? (current.value?.machine_name || bootstrap.value?.machine_name || '-')
-      : (current.value?.team_name || '-')
-  },
-  { label: '录入方式', value: entryModeLabel.value },
-  { label: '当前状态', value: formatStatusLabel(current.value?.report_status) },
-  { label: '当前负责人', value: current.value?.leader_name || auth.displayName }
+  { label: '日期', value: current.value?.business_date || '-' },
+  { label: isMachineBound.value ? '机台' : '班组', value: isMachineBound.value ? (current.value?.machine_name || bootstrap.value?.machine_name || '-') : (current.value?.team_name || '-') },
+  { label: '状态', value: formatStatusLabel(current.value?.report_status) }
 ])
-const agentSquads = computed(() => [
-  {
-    kicker: 'AI 智能体联动',
-    title: '采集清洗小队',
-    summary: `接住${transitionMapping.value.evidence_label}，自动做字段校验、缺报提醒、异常退回和班次留痕。`,
-    items: ['字段校验', '缺报提醒', '异常退回', '班次留痕']
-  },
-  {
-    kicker: '终端可视化',
-    title: '分析决策小队',
-    summary: '把同班次原始值变成驾驶舱、日报、预警和月累计视图，直接给管理层看结果。',
-    items: ['厂长驾驶舱', '日报摘要', '异常预警', '月累计']
+const pendingTaskCount = computed(() => Number(current.value?.can_submit === false ? 0 : 1))
+const submittedTaskCount = computed(() => ['submitted', 'reviewed', 'auto_confirmed'].includes(String(current.value?.report_status || '')) ? 1 : 0)
+const anomalyPendingCount = computed(() => Number(current.value?.active_reminders?.length || 0))
+const lastSubmitStatus = computed(() => formatStatusLabel(current.value?.report_status))
+const aiHints = computed(() => {
+  const hints = []
+  const status = String(current.value?.report_status || '')
+  const reminderCount = anomalyPendingCount.value
+
+  if (status === 'returned') {
+    hints.push('上次提交已被退回，建议先补齐异常说明和现场图片。')
   }
-])
+  if (status === 'late' || status === 'unreported') {
+    hints.push('当前班次处于待补报状态，先提交关键原始值再补扩展字段。')
+  }
+  if (reminderCount > 0) {
+    hints.push(`有 ${reminderCount} 条异常待补项，建议优先处理后再提交。`)
+  }
+  if (!hints.length) {
+    hints.push('本班任务状态正常，提交后系统会自动汇总。')
+  }
+  return hints.slice(0, 3)
+})
 const showDebugBootstrap = computed(() => (
   auth.isLoggedIn &&
   isDev &&
@@ -228,8 +252,10 @@ const showDebugBootstrap = computed(() => (
   Boolean(bootstrap.value.current_identity_source)
 ))
 
-function resolveWecomCode() {
-  return typeof route.query.code === 'string' ? route.query.code.trim() : ''
+function resolveAuthCode() {
+  const candidates = [route.query.authCode, route.query.auth_code, route.query.code]
+  const code = candidates.find((value) => typeof value === 'string' && value.trim())
+  return code ? code.trim() : ''
 }
 
 function parseErrorMessage(error, fallback) {
@@ -237,47 +263,53 @@ function parseErrorMessage(error, fallback) {
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || item).join('；')
   }
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
   if (typeof detail === 'string' && detail.trim()) {
     return detail.trim()
   }
   return error?.message || fallback
 }
 
-const bootstrapTip = computed(() => {
-  const scopeSummary = bootstrap.value.current_scope_summary || {}
-  const scopeLabel = formatScopeLabel(scopeSummary.data_scope_type)
-  const entryModeMap = {
-    wecom_h5: '企业微信工作台入口',
-    dingtalk_h5: '兼容钉钉入口',
-    web_debug: '浏览器调试入口'
-  }
-  const identitySourceMap = {
-    wecom_oauth: '企业微信免登',
-    dingtalk_runtime: '企业微信运行时',
-    dingtalk_binding: '兼容钉钉身份',
-    signed_query: '企业微信签名参数',
+  const bootstrapTip = computed(() => {
+    const scopeSummary = bootstrap.value.current_scope_summary || {}
+    const scopeLabel = formatScopeLabel(scopeSummary.data_scope_type)
+    const entryModeMap = {
+      dingtalk_h5: '钉钉工作台',
+      wecom_h5: '钉钉工作台',
+      web_debug: '浏览器调试'
+    }
+    const identitySourceMap = {
+      wecom_oauth: '钉钉免登',
+      dingtalk_oauth: '钉钉免登',
+      dingtalk_runtime: '钉钉运行时',
+      dingtalk_binding: '钉钉绑定',
+      signed_query: '签名参数',
     dev_fallback: '本地调试'
   }
-  const entryMode = entryModeMap[bootstrap.value.entry_mode] || '浏览器调试入口'
+  const entryMode = entryModeMap[bootstrap.value.entry_mode] || '浏览器调试'
   const identitySource = identitySourceMap[bootstrap.value.current_identity_source] || '本地调试'
-  return `当前入口：${entryMode}；身份来源：${identitySource}；数据范围：${scopeLabel}`
+  return `入口 ${entryMode} · 身份 ${identitySource} · 范围 ${scopeLabel}`
 })
 
-async function ensureWecomSession() {
-  const code = resolveWecomCode()
+async function ensureDingtalkSession() {
+  const code = resolveAuthCode()
   if (auth.isLoggedIn || !code) return true
 
   authenticating.value = true
   authError.value = ''
   try {
-    await auth.wecomLogin(code)
+    await auth.dingtalkLogin(code)
     const nextQuery = { ...route.query }
     delete nextQuery.code
+    delete nextQuery.authCode
+    delete nextQuery.auth_code
     delete nextQuery.state
     await router.replace({ name: 'mobile-entry', query: nextQuery })
     return true
   } catch (error) {
-    authError.value = parseErrorMessage(error, '企业微信登录失败，请联系管理员检查账号映射。')
+    authError.value = parseErrorMessage(error, '钉钉登录失败，请联系管理员检查账号映射。')
     return false
   } finally {
     authenticating.value = false
@@ -285,14 +317,17 @@ async function ensureWecomSession() {
 }
 
 async function load() {
-  const ready = await ensureWecomSession()
+  const ready = await ensureDingtalkSession()
   if (!ready) {
     loading.value = false
     return
   }
   loading.value = true
+  loadError.value = ''
   authError.value = ''
   try {
+    current.value = {}
+    bootstrap.value = {}
     const [bootstrapData, currentData] = await Promise.all([
       fetchMobileBootstrap(),
       fetchCurrentShift()
@@ -314,9 +349,22 @@ async function load() {
   } catch (error) {
     bootstrap.value = {}
     current.value = {}
-    authError.value = parseErrorMessage(error, '加载当前班次失败，请稍后重试或改用账号登录。')
+    loadError.value = parseErrorMessage(error, '加载当前班次失败，请稍后重试或改用账号登录。')
   } finally {
     loading.value = false
+  }
+}
+
+async function retryAuth() {
+  if (retryingAuth.value) return
+  retryingAuth.value = true
+  try {
+    const ready = await ensureDingtalkSession()
+    if (ready) {
+      await load()
+    }
+  } finally {
+    retryingAuth.value = false
   }
 }
 
@@ -334,13 +382,261 @@ function goReport() {
   })
 }
 
-function goDesktop() {
-  router.push({ name: 'factory-dashboard' })
+function goAdvancedReport() {
+  if (!current.value?.shift_id) return
+  router.push({
+    name: 'mobile-report-form-advanced',
+    params: {
+      businessDate: current.value.business_date,
+      shiftId: current.value.shift_id
+    }
+  })
+}
+
+function goOcr() {
+  if (!current.value?.shift_id || !ocrSupported.value) return
+  router.push({
+    name: 'mobile-ocr-capture',
+    params: {
+      businessDate: current.value.business_date,
+      shiftId: current.value.shift_id
+    }
+  })
 }
 
 function goLogin() {
-  router.push({ name: 'login', query: { redirect: '/mobile' } })
+  router.push({ name: 'login', query: { redirect: '/entry' } })
+}
+
+function goReportHistory() {
+  router.push({ name: 'mobile-report-history' })
+}
+
+function goDrafts() {
+  router.push({ name: 'entry-drafts' })
 }
 
 onMounted(load)
 </script>
+
+<style scoped>
+.mobile-entry-stage,
+.mobile-entry-stage__top,
+.mobile-entry-stage__hero,
+.mobile-entry-stage__facts,
+.mobile-entry-stage__cta {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-entry-stage {
+  padding: 12px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.98));
+}
+
+.mobile-entry-stage__top {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+}
+
+.mobile-entry-stage__top h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.22;
+}
+
+.mobile-entry-stage__top p {
+  max-width: 28ch;
+  line-height: 1.4;
+}
+
+.mobile-entry-stage__desktop-link {
+  min-height: 36px;
+  border-radius: 12px;
+}
+
+.mobile-entry-stage__top p,
+.mobile-entry-stage__brand p,
+.mobile-entry-stage__empty,
+.mobile-entry-stage__fact span,
+.mobile-entry-stage__machine span,
+.mobile-entry-stage__role span,
+.mobile-entry-stage__status span {
+  margin: 0;
+  color: var(--app-muted);
+}
+
+.mobile-entry-stage__empty {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.mobile-entry-stage__empty p + p {
+  font-size: 12px;
+}
+
+.mobile-entry-stage__action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-entry-stage__action-row .el-button {
+  border-radius: 14px;
+  min-height: 38px;
+  min-width: 122px;
+}
+
+.mobile-entry-stage__brand,
+.mobile-entry-stage__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-entry-stage__brand {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.mobile-entry-stage__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #111827, #1d4ed8);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.mobile-entry-stage__brand strong,
+.mobile-entry-stage__fact strong,
+.mobile-entry-stage__machine strong,
+.mobile-entry-stage__role strong,
+.mobile-entry-stage__status strong {
+  color: var(--app-text);
+}
+
+.mobile-entry-stage__facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mobile-entry-stage__fact,
+.mobile-entry-stage__machine,
+.mobile-entry-stage__role,
+.mobile-entry-stage__status {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.mobile-entry-stage__machine {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.04), rgba(29, 78, 216, 0.08));
+}
+
+.mobile-entry-stage__role {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(37, 99, 235, 0.06));
+}
+
+.mobile-entry-stage__cta .el-button {
+  min-height: 46px;
+  min-width: 142px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.mobile-entry-stage__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.mobile-entry-stage__summary-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.mobile-entry-stage__summary-item span {
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.mobile-entry-stage__summary-item strong {
+  font-size: 15px;
+  color: var(--app-text);
+}
+
+.mobile-entry-stage__quick-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mobile-entry-stage__quick-grid .el-button {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.mobile-entry-stage__ai {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(239, 246, 255, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+}
+
+.mobile-entry-stage__ai span {
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.mobile-entry-stage__ai ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 720px) {
+  .mobile-entry-stage__top,
+  .mobile-entry-stage__cta,
+  .mobile-entry-stage__brand {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .mobile-entry-stage__action-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-entry-stage__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-entry-stage__quick-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

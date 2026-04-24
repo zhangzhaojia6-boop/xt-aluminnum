@@ -6,6 +6,9 @@ __pycache__/
 backend/.pytest-cache/
 backend/.pytest-cache-2/
 backend/pytest-cache-files-*/
+backend/.pytest-run-*/
+backend/.codex-preview.db
+backend/local-dev.db
 node_modules/
 dist/
 uploads/

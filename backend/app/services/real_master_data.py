@@ -188,6 +188,12 @@ WAREHOUSE_OWNER_ACCOUNTS = [
     ('UTILITY', '水电气负责人', 'utility_manager'),
 ]
 
+E2E_OWNER_PIN_BY_USERNAME = {
+    'CPK-A-INV': '506371',
+    'CPK-A-PLAN': '101901',
+    'CPK-A-UTILITY': '591767',
+}
+
 REAL_WORKSHOP_CODES = {item['code'] for item in WORKSHOPS}
 REAL_TEAM_CODES = {f"{item['code']}-{shift_code}" for item in WORKSHOPS for shift_code, _name, _sort_order in SHIFT_TEAMS}
 REAL_EQUIPMENT_CODES = {
@@ -411,9 +417,10 @@ def _ensure_special_owner_account(
 ) -> None:
     user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
     assigned_shift_ids = [shift_id] if shift_id is not None else []
+    stable_pin = E2E_OWNER_PIN_BY_USERNAME.get(username)
 
     if user is None:
-        pin = generate_random_pin(6)
+        pin = stable_pin or generate_random_pin(6)
         user = User(
             username=username,
             password_hash=get_password_hash(pin),
@@ -442,6 +449,8 @@ def _ensure_special_owner_account(
     user.is_reviewer = False
     user.is_manager = False
     user.is_active = True
+    if stable_pin:
+        user.pin_code = stable_pin
     if not user.pin_code:
         user.pin_code = generate_random_pin(6)
     if not user.password_hash or not verify_password(user.pin_code, user.password_hash):

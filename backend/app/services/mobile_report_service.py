@@ -12,6 +12,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.agents.validator import validator_agent
+from app.agents.base import AgentAction, AgentDecision
 from app.config import settings
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
@@ -91,6 +92,65 @@ def _mobile_report_decision_status(report: MobileShiftReport | None) -> str:
 
 def _is_mobile_report_auto_confirmed(report: MobileShiftReport | None) -> bool:
     return _mobile_report_decision_status(report) == AUTO_CONFIRMED_REPORT_STATUS
+
+
+def _build_agent_decision_snapshot(
+    *,
+    report: MobileShiftReport | None,
+    decisions: list[AgentDecision] | None = None,
+) -> dict:
+    latest = decisions[-1] if decisions else None
+    if latest is not None:
+        details = latest.details or {}
+        if latest.action == AgentAction.AUTO_CONFIRM:
+            status = AUTO_CONFIRMED_REPORT_STATUS
+        elif latest.action == AgentAction.AUTO_REJECT:
+            status = 'returned'
+        else:
+            status = _mobile_report_decision_status(report)
+        return {
+            'agent_decision_status': status,
+            'agent_decision_action': latest.action.value,
+            'agent_decision_agent': latest.agent_name,
+            'agent_decision_reason': latest.reason,
+            'agent_decision_warnings': [str(item) for item in (details.get('warnings') or [])],
+            'agent_decision_errors': [str(item) for item in (details.get('errors') or [])],
+            'agent_decision_at': latest.timestamp,
+        }
+
+    status = _mobile_report_decision_status(report)
+    if status == AUTO_CONFIRMED_REPORT_STATUS:
+        return {
+            'agent_decision_status': AUTO_CONFIRMED_REPORT_STATUS,
+            'agent_decision_action': AgentAction.AUTO_CONFIRM.value,
+            'agent_decision_agent': 'validator',
+            'agent_decision_reason': '系统自动校验通过',
+            'agent_decision_warnings': [],
+            'agent_decision_errors': [],
+            'agent_decision_at': None,
+        }
+    if status == 'returned':
+        return {
+            'agent_decision_status': 'returned',
+            'agent_decision_action': AgentAction.AUTO_REJECT.value,
+            'agent_decision_agent': 'validator',
+            'agent_decision_reason': (
+                _normalize_override_reason(getattr(report, 'returned_reason', None))
+                or '系统自动校验未通过，请按提示修正后再提交。'
+            ),
+            'agent_decision_warnings': [],
+            'agent_decision_errors': [],
+            'agent_decision_at': None,
+        }
+    return {
+        'agent_decision_status': status if report is not None else None,
+        'agent_decision_action': None,
+        'agent_decision_agent': None,
+        'agent_decision_reason': None,
+        'agent_decision_warnings': [],
+        'agent_decision_errors': [],
+        'agent_decision_at': None,
+    }
 
 
 def _ensure_mobile_write_scope(current_user: User, *, workshop_id: int, shift_id: int) -> None:
@@ -464,6 +524,7 @@ def _serialize_mobile_report(
     workshop: Workshop,
     team: Team | None,
     leader_name: str,
+    agent_decision_snapshot: dict | None = None,
 ) -> dict:
     monthly_totals = _aggregate_monthly_totals(
         db,
@@ -501,6 +562,7 @@ def _serialize_mobile_report(
         team_id=team.id if team else None,
         leader_user_id=report.owner_user_id if report else None,
     )
+    decision_snapshot = agent_decision_snapshot or _build_agent_decision_snapshot(report=report)
 
     return {
         'id': report.id if report else None,
@@ -537,6 +599,13 @@ def _serialize_mobile_report(
         'photo_uploaded_at': report.photo_uploaded_at if report else None,
         'linked_production_data_id': report.linked_production_data_id if report else None,
         'returned_reason': report.returned_reason if report else None,
+        'agent_decision_status': decision_snapshot.get('agent_decision_status'),
+        'agent_decision_action': decision_snapshot.get('agent_decision_action'),
+        'agent_decision_agent': decision_snapshot.get('agent_decision_agent'),
+        'agent_decision_reason': decision_snapshot.get('agent_decision_reason'),
+        'agent_decision_warnings': decision_snapshot.get('agent_decision_warnings', []),
+        'agent_decision_errors': decision_snapshot.get('agent_decision_errors', []),
+        'agent_decision_at': decision_snapshot.get('agent_decision_at'),
         'active_reminders': active_reminders,
         'submitted_at': report.submitted_at if report else None,
         'last_saved_at': report.last_saved_at if report else None,
@@ -1038,6 +1107,7 @@ def save_or_submit_report(
     report.optional_photo_url = payload.get('optional_photo_url')
     report.last_saved_at = _local_now()
 
+    decision_snapshot = None
     if submit:
         missing = _required_submit_fields(payload)
         if missing:
@@ -1063,12 +1133,13 @@ def save_or_submit_report(
             'electricity_daily': _to_float(getattr(report, 'electricity_daily', None)),
             'gas_daily': _to_float(getattr(report, 'gas_daily', None)),
         }
-        validator_agent.execute(
+        decisions = validator_agent.execute(
             db=db,
             report_id=report.id,
             report_data=_report_data,
             workshop_code=workshop.code,
         )
+        decision_snapshot = _build_agent_decision_snapshot(report=report, decisions=decisions)
         log_pilot_event(
             "worker_report_submitted",
             report_id=report.id,
@@ -1111,6 +1182,7 @@ def save_or_submit_report(
         workshop=workshop,
         team=team,
         leader_name=current_user.name,
+        agent_decision_snapshot=decision_snapshot,
     )
 
 
@@ -1199,6 +1271,9 @@ def _build_inventory_summary_bucket(
         'workshop_name': workshop_name,
         'team_id': team_id,
         'team_name': team_name,
+        'source': 'mobile',
+        'source_label': '主操直录',
+        'source_variant': 'mobile',
         'storage_prepared': 0.0,
         'storage_finished': 0.0,
         'shipment_weight': 0.0,
@@ -1379,6 +1454,9 @@ def summarize_mobile_inventory(
                 team_name=None,
             ),
         )
+        payload['source'] = 'owner_only'
+        payload['source_label'] = '专项补录'
+        payload['source_variant'] = 'owner'
         payload['storage_finished'] += _to_float(extra_payload.get('storage_inbound_weight')) or 0.0
         payload['shipment_weight'] += _to_float(extra_payload.get('shipment_weight')) or 0.0
         payload['storage_inbound_area'] += _to_float(extra_payload.get('storage_inbound_area')) or 0.0

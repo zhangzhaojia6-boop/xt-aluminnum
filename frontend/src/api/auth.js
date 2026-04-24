@@ -5,8 +5,8 @@ export async function loginApi({ username, password }) {
   return data
 }
 
-export async function wecomLoginApi({ code }) {
-  const { data } = await api.post('/wecom/login', { code })
+export async function dingtalkLoginApi({ code }) {
+  const { data } = await api.post('/dingtalk/login', { code })
   return {
     ...data,
     access_token: data.access_token || data.token || '',

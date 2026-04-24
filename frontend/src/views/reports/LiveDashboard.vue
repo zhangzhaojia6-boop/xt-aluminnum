@@ -1,35 +1,45 @@
 <template>
-  <div class="page-stack live-dashboard" data-testid="live-dashboard">
-    <div class="page-header live-dashboard__header">
-      <div>
-        <h1>实时运营看板</h1>
-        <p>按车间、机台、班次实时查看提交情况，自动汇总产出与考勤确认状态。</p>
+  <ReferencePageFrame
+    module-number="12"
+    title="系统运维与可观测"
+    :tags="['实时运营', '提交进度', '探针']"
+    class="live-dashboard"
+    data-testid="live-dashboard"
+  >
+    <template #actions>
+      <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
+      <div class="live-dashboard__connection">
+        <span :class="['live-dashboard__connection-dot', `is-${connectionTone}`]"></span>
+        <span>{{ connectionLabel }}</span>
       </div>
-      <div class="header-actions live-dashboard__actions">
-        <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
-        <div class="live-dashboard__connection">
-          <span :class="['live-dashboard__connection-dot', `is-${connectionTone}`]"></span>
-          <span>{{ connectionLabel }}</span>
-        </div>
-        <div class="live-dashboard__progress-pill">
-          全厂提交进度 {{ overallProgressText }}
-        </div>
-        <div class="live-dashboard__progress-pill">
-          数据源 {{ aggregation.data_source === 'mes_projection' ? 'MES 投影' : '工单兼容口径' }}
-        </div>
-        <div class="live-dashboard__progress-pill">
-          MES Lag {{ syncLagText }}
-        </div>
-        <el-button :icon="RefreshRight" @click="loadAggregation()">刷新</el-button>
+      <div class="live-dashboard__progress-pill">
+        全厂提交进度 {{ overallProgressText }}
       </div>
-    </div>
+      <div class="live-dashboard__progress-pill">
+        数据源 {{ aggregation.data_source === 'mes_projection' ? 'MES 投影' : '工单兼容口径' }}
+      </div>
+      <div class="live-dashboard__progress-pill">
+        延迟 {{ syncLagText }}
+      </div>
+      <el-button :icon="RefreshRight" @click="loadDashboardSurface()">刷新</el-button>
+    </template>
 
-    <el-alert
+    <StatePanel
       type="info"
-      :closable="false"
       class="live-dashboard__truth-note"
       title="正式口径：全厂/车间总成材率优先使用成品率矩阵；机台/班次/批次层仍显示 runtime compat 成材率。"
     />
+
+    <section class="stat-grid live-dashboard__ops-strip">
+      <KpiCard
+        v-for="item in opsCards"
+        :key="item.label"
+        :label="item.label"
+        :value="item.value"
+        :hint="item.hint"
+        :tone="item.tone"
+      />
+    </section>
 
     <div class="live-dashboard__summary">
       <div class="stat-card">
@@ -238,7 +248,7 @@
         </el-table-column>
       </el-table>
     </el-drawer>
-  </div>
+  </ReferencePageFrame>
 </template>
 
 <script setup>
@@ -246,7 +256,11 @@ import { Download, RefreshRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { fetchAssistantLiveProbe } from '../../api/assistant'
 import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
+import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import KpiCard from '../../components/cards/KpiCard.vue'
+import StatePanel from '../../components/feedback/StatePanel.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
 import { formatNumber } from '../../utils/display'
@@ -262,6 +276,14 @@ const activeCell = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
+const opsSnapshot = ref({
+  healthStatus: '未知',
+  pipelineStatus: '未检测',
+  probeStatus: '未检测',
+  probeHint: 'text=- / image=-',
+  appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
+  responseMs: '--'
+})
 
 let reloadTimer = null
 const handledEventIds = new Set()
@@ -359,6 +381,68 @@ const syncLagText = computed(() => {
   if (!Number.isFinite(lag)) return '--'
   if (lag < 60) return `${lag.toFixed(0)}s`
   return `${(lag / 60).toFixed(1)}m`
+})
+
+const estimatedErrorRate = computed(() => {
+  const total = numberValue(aggregation.value.overall_progress?.total_cells)
+  if (!total) return '--'
+
+  let issueCount = 0
+  for (const workshop of aggregation.value.workshops || []) {
+    for (const machine of workshop.machines || []) {
+      for (const shift of machine.shifts || []) {
+        if (!shift?.is_applicable) continue
+        if (shift.submission_status !== 'all_submitted') issueCount += 1
+        if (numberValue(shift.attendance_exception_count) > 0) issueCount += 1
+      }
+    }
+  }
+  const rate = (issueCount / total) * 100
+  return `${Math.max(0, rate).toFixed(1)}%`
+})
+
+const opsCards = computed(() => {
+  const responseMs = Number(String(opsSnapshot.value.responseMs).replace('ms', '').trim())
+  const responseTone = !Number.isFinite(responseMs)
+    ? 'neutral'
+    : (responseMs <= 600 ? 'success' : responseMs <= 1500 ? 'warning' : 'danger')
+  const errorRate = Number(String(estimatedErrorRate.value).replace('%', '').trim())
+  const errorTone = !Number.isFinite(errorRate)
+    ? 'neutral'
+    : (errorRate <= 5 ? 'success' : errorRate <= 15 ? 'warning' : 'danger')
+
+  return [
+    {
+      label: '系统健康',
+      value: opsSnapshot.value.healthStatus,
+      hint: opsSnapshot.value.pipelineStatus,
+      tone: opsSnapshot.value.healthStatus === '健康' ? 'success' : 'danger'
+    },
+    {
+      label: 'AI 探针',
+      value: opsSnapshot.value.probeStatus,
+      hint: opsSnapshot.value.probeHint,
+      tone: opsSnapshot.value.probeStatus === '就绪' ? 'success' : 'warning'
+    },
+    {
+      label: '构建版本',
+      value: opsSnapshot.value.appVersion,
+      hint: '前端构建版本',
+      tone: 'info'
+    },
+    {
+      label: '错误率',
+      value: estimatedErrorRate.value,
+      hint: '按实时班次异常估算',
+      tone: errorTone
+    },
+    {
+      label: '响应时间',
+      value: opsSnapshot.value.responseMs,
+      hint: 'healthz + readyz 探测',
+      tone: responseTone
+    }
+  ]
 })
 
 const streamScope = computed(() => {
@@ -470,6 +554,15 @@ function clearHandledEvents() {
   handledEventIds.clear()
 }
 
+async function parseResponseJson(response) {
+  if (!response?.ok) return null
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
 async function loadAggregation({ silent = false } = {}) {
   if (!silent) {
     loading.value = true
@@ -488,6 +581,55 @@ async function loadAggregation({ silent = false } = {}) {
   } finally {
     loading.value = false
   }
+}
+
+async function loadOpsSnapshot() {
+  const startedAt = Date.now()
+  try {
+    const [healthResponse, readyResponse, probePayload] = await Promise.all([
+      fetch('/healthz'),
+      fetch('/readyz'),
+      fetchAssistantLiveProbe()
+    ])
+
+    const [healthPayload, readyPayload] = await Promise.all([
+      parseResponseJson(healthResponse),
+      parseResponseJson(readyResponse)
+    ])
+
+    const healthStatus = healthPayload?.status === 'ok' ? '健康' : '异常'
+    const pipelineReady = Boolean(readyPayload?.details?.pipeline?.hard_gate_passed)
+    const pipelineStatus = pipelineReady ? '管道就绪' : '管道阻塞'
+    const probeStatus = probePayload?.overall_ok ? '就绪' : '阻塞'
+    const probeHint = probePayload
+      ? `text=${probePayload.text_probe_ok ? 'ok' : 'fail'} / image=${probePayload.image_probe_ok ? 'ok' : 'fail'}`
+      : 'text=- / image=-'
+
+    opsSnapshot.value = {
+      ...opsSnapshot.value,
+      healthStatus,
+      pipelineStatus,
+      probeStatus,
+      probeHint,
+      responseMs: `${Date.now() - startedAt}ms`
+    }
+  } catch {
+    opsSnapshot.value = {
+      ...opsSnapshot.value,
+      healthStatus: '异常',
+      pipelineStatus: '未检测',
+      probeStatus: '未检测',
+      probeHint: 'text=- / image=-',
+      responseMs: `${Date.now() - startedAt}ms`
+    }
+  }
+}
+
+async function loadDashboardSurface() {
+  await Promise.all([
+    loadAggregation(),
+    loadOpsSnapshot()
+  ])
 }
 
 function scheduleReload() {
@@ -672,11 +814,11 @@ watch(targetDate, async () => {
   drawerVisible.value = false
   activeCell.value = null
   drawerData.value = { items: [] }
-  await loadAggregation()
+  await loadDashboardSurface()
 })
 
 onMounted(async () => {
-  await loadAggregation()
+  await loadDashboardSurface()
 })
 
 onBeforeUnmount(() => {

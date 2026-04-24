@@ -28,6 +28,7 @@ from app.services.contract_progress_projection_service import build_contract_pro
 from app.services.contract_delivery_target_service import resolve_contract_delivery_targets
 from app.services import leader_summary_service
 from app.services.audit_service import record_audit
+from app.services.deterministic_orchestration_service import build_runtime_orchestration_snapshot
 from app.services.management_estimate_service import build_management_estimate
 from app.services import mobile_report_service
 from app.services import mobile_reminder_service
@@ -117,6 +118,331 @@ def _safe_pending_shift_items(db: Session, *, target_date: date, limit: int = 20
         )
     except Exception:  # noqa: BLE001
         return []
+
+
+def _normalize_blocker_summary(blocker_summary: Any) -> dict[str, Any]:
+    if isinstance(blocker_summary, dict):
+        digest = str(blocker_summary.get('digest') or '').strip()
+        if digest:
+            return {
+                'has_blockers': bool(blocker_summary.get('has_blockers', True)),
+                'digest': digest,
+            }
+    text = str(blocker_summary or '').strip()
+    return {
+        'has_blockers': bool(text),
+        'digest': text or '未发现关键异常',
+    }
+
+
+def _build_analysis_handoff(
+    *,
+    target_date: date,
+    surface: str,
+    total_output: float | None,
+    history_digest: dict[str, Any],
+    sync_status: dict[str, Any] | None,
+    published_report_at: datetime | None,
+    mobile_summary: dict[str, Any],
+    delivery_status: dict[str, Any],
+    energy_summary: dict[str, Any],
+    energy_lane: list[dict[str, Any]],
+    contract_lane: dict[str, Any],
+    contract_progress: dict[str, Any],
+    blocker_summary: dict[str, Any],
+    exception_lane: dict[str, Any],
+) -> dict[str, Any]:
+    unreported_count = int(mobile_summary.get('unreported_count') or 0)
+    returned_count = int(mobile_summary.get('returned_count') or 0)
+    reporting_rate = round(_to_float(mobile_summary.get('reporting_rate')), 2)
+    delivery_ready = bool(delivery_status.get('delivery_ready'))
+    missing_steps = [str(item) for item in (delivery_status.get('missing_steps') or []) if item]
+    has_blockers = bool(blocker_summary.get('has_blockers'))
+    reconciliation_open_count = int(exception_lane.get('reconciliation_open_count') or 0)
+    mobile_exception_count = int(exception_lane.get('mobile_exception_count') or 0)
+    production_exception_count = int(exception_lane.get('production_exception_count') or 0)
+
+    blocking_reasons: list[str] = []
+    if unreported_count > 0:
+        blocking_reasons.append('reporting_incomplete')
+    if returned_count > 0:
+        blocking_reasons.append('reporting_returned')
+    if not delivery_ready:
+        blocking_reasons.append('delivery_not_ready')
+    if has_blockers:
+        blocking_reasons.append('quality_blocker')
+    if reconciliation_open_count > 0:
+        blocking_reasons.append('reconciliation_open')
+
+    attention_flags: list[str] = list(blocking_reasons)
+
+    reporting_status = 'healthy'
+    if unreported_count > 0:
+        reporting_status = 'blocked'
+    elif returned_count > 0:
+        reporting_status = 'warning'
+
+    delivery_status_label = 'healthy' if delivery_ready and not missing_steps else 'blocked'
+
+    over_line_count = sum(1 for row in energy_lane if row.get('is_over_line'))
+    energy_status = 'healthy'
+    if energy_summary.get('energy_per_ton') is None:
+        energy_status = 'idle'
+    elif over_line_count > 0:
+        energy_status = 'warning'
+        attention_flags.append('energy_over_line')
+
+    contract_quality_status = str(contract_lane.get('quality_status') or '').strip().lower()
+    contract_status = 'healthy'
+    if not contract_lane and surface == 'workshop':
+        contract_status = 'idle'
+    elif contract_quality_status in {'missing', 'blocked'}:
+        contract_status = 'blocked'
+    elif contract_quality_status == 'warning' or int(contract_progress.get('stalled_contract_count') or 0) > 0:
+        contract_status = 'warning'
+    if int(contract_progress.get('stalled_contract_count') or 0) > 0:
+        attention_flags.append('contract_stalled')
+
+    risk_status = 'healthy'
+    if has_blockers or reconciliation_open_count > 0:
+        risk_status = 'blocked'
+    elif mobile_exception_count > 0 or production_exception_count > 0:
+        risk_status = 'warning'
+        attention_flags.append('exception_present')
+
+    # Preserve order while removing duplicates across blocking and warning signals.
+    attention_flags = list(dict.fromkeys(attention_flags))
+
+    priority = 'low'
+    if blocking_reasons:
+        priority = 'high'
+    elif attention_flags:
+        priority = 'medium'
+
+    contract_source_labels = ['专项补录', '系统汇总']
+    if surface == 'workshop' and not contract_lane:
+        contract_source_labels = ['系统汇总']
+
+    snapshots = list(history_digest.get('daily_snapshots') or [])
+    history_points = len(snapshots)
+    sync_status_value = str((sync_status or {}).get('last_run_status') or 'idle')
+    sync_lag_raw = (sync_status or {}).get('lag_seconds')
+    sync_lag_seconds = int(sync_lag_raw) if sync_lag_raw is not None else None
+    freshness_status = 'cold'
+    if sync_status_value in {'failed', 'error'}:
+        freshness_status = 'stale'
+    elif sync_lag_seconds is not None and sync_lag_seconds > 3600:
+        freshness_status = 'stale'
+    elif published_report_at is not None and sync_status_value == 'success':
+        freshness_status = 'fresh'
+    elif history_points > 0:
+        freshness_status = 'warming'
+
+    data_gaps: list[str] = []
+    if published_report_at is None:
+        data_gaps.append('report_unpublished')
+    if history_points == 0:
+        data_gaps.append('history_unavailable')
+    if freshness_status == 'stale':
+        data_gaps.append('sync_stale')
+    if contract_status == 'idle':
+        data_gaps.append('contracts_unavailable')
+    if energy_status == 'idle':
+        data_gaps.append('energy_unavailable')
+
+    section_statuses = {
+        'reporting': reporting_status,
+        'delivery': delivery_status_label,
+        'energy': energy_status,
+        'contracts': contract_status,
+        'risk': risk_status,
+    }
+    section_matrix = {
+        'healthy_sections': [key for key, value in section_statuses.items() if value == 'healthy'],
+        'warning_sections': [key for key, value in section_statuses.items() if value == 'warning'],
+        'blocked_sections': [key for key, value in section_statuses.items() if value == 'blocked'],
+        'idle_sections': [key for key, value in section_statuses.items() if value == 'idle'],
+    }
+    section_reasons = {
+        'reporting': [],
+        'delivery': [],
+        'energy': [],
+        'contracts': [],
+        'risk': [],
+    }
+    if unreported_count > 0:
+        section_reasons['reporting'].append('reporting_incomplete')
+    if returned_count > 0:
+        section_reasons['reporting'].append('reporting_returned')
+    if not delivery_ready:
+        section_reasons['delivery'].append('delivery_not_ready')
+    if over_line_count > 0:
+        section_reasons['energy'].append('energy_over_line')
+    if energy_status == 'idle':
+        section_reasons['energy'].append('energy_unavailable')
+    if contract_quality_status in {'missing', 'blocked', 'warning'}:
+        section_reasons['contracts'].append(f'contract_quality_{contract_quality_status}')
+    if int(contract_progress.get('stalled_contract_count') or 0) > 0:
+        section_reasons['contracts'].append('contract_stalled')
+    if contract_status == 'idle':
+        section_reasons['contracts'].append('contracts_unavailable')
+    if has_blockers:
+        section_reasons['risk'].append('quality_blocker')
+    if reconciliation_open_count > 0:
+        section_reasons['risk'].append('reconciliation_open')
+    if mobile_exception_count > 0 or production_exception_count > 0:
+        section_reasons['risk'].append('exception_present')
+    for key, values in section_reasons.items():
+        section_reasons[key] = list(dict.fromkeys(values))
+    source_matrix = {
+        'reporting': ['主操直录'],
+        'delivery': ['系统汇总', '结果发布'],
+        'energy': ['专项补录', '系统汇总'],
+        'contracts': contract_source_labels,
+        'risk': ['系统汇总'],
+    }
+    source_variants = {
+        'reporting': ['mobile'],
+        'delivery': ['system', 'publish'],
+        'energy': ['owner_only', 'system'],
+        'contracts': ['system'] if contract_source_labels == ['系统汇总'] else ['owner_only', 'system'],
+        'risk': ['system'],
+    }
+    action_matrix = {
+        'reporting': [],
+        'delivery': [],
+        'energy': [],
+        'contracts': [],
+        'risk': [],
+    }
+    if unreported_count > 0:
+        action_matrix['reporting'].append('check_unreported_shifts')
+    if returned_count > 0:
+        action_matrix['reporting'].append('review_returned_entries')
+    if not action_matrix['reporting']:
+        action_matrix['reporting'].append('watch_reporting_arrivals')
+
+    if 'report_unpublished' in data_gaps:
+        action_matrix['delivery'].append('publish_daily_report')
+    if 'delivery_not_ready' in section_reasons['delivery']:
+        action_matrix['delivery'].append('close_delivery_steps')
+    if not action_matrix['delivery']:
+        action_matrix['delivery'].append('watch_delivery_release')
+
+    if 'energy_unavailable' in section_reasons['energy']:
+        action_matrix['energy'].append('collect_energy_owner_entries')
+    if 'energy_over_line' in section_reasons['energy']:
+        action_matrix['energy'].append('review_energy_over_line')
+    if not action_matrix['energy']:
+        action_matrix['energy'].append('watch_energy_baseline')
+
+    if 'contracts_unavailable' in section_reasons['contracts']:
+        action_matrix['contracts'].append('collect_contract_owner_entries')
+    if any(reason.startswith('contract_quality_') for reason in section_reasons['contracts']):
+        action_matrix['contracts'].append('review_contract_quality')
+    if 'contract_stalled' in section_reasons['contracts']:
+        action_matrix['contracts'].append('review_stalled_contracts')
+    if not action_matrix['contracts']:
+        action_matrix['contracts'].append('watch_contract_progress')
+
+    if 'quality_blocker' in section_reasons['risk']:
+        action_matrix['risk'].append('clear_quality_blockers')
+    if 'reconciliation_open' in section_reasons['risk']:
+        action_matrix['risk'].append('close_reconciliation_items')
+    if 'exception_present' in section_reasons['risk']:
+        action_matrix['risk'].append('review_open_exceptions')
+    if 'sync_stale' in data_gaps:
+        action_matrix['risk'].append('refresh_pipeline_sync')
+    if not action_matrix['risk']:
+        action_matrix['risk'].append('watch_risk_signals')
+
+    output_points = [
+        _to_float(item.get('output_weight'))
+        for item in snapshots
+        if item.get('output_weight') is not None
+    ]
+    current_output = output_points[-1] if output_points else (_to_float(total_output) if total_output is not None else None)
+    yesterday_output = output_points[-2] if len(output_points) >= 2 else None
+    output_delta_vs_yesterday = None
+    if current_output is not None and yesterday_output is not None:
+        output_delta_vs_yesterday = round(current_output - yesterday_output, 2)
+    seven_day_average_output = None
+    if output_points:
+        seven_day_average_output = round(sum(output_points) / len(output_points), 2)
+    elif current_output is not None:
+        seven_day_average_output = round(current_output, 2)
+
+    return {
+        'target_date': target_date.isoformat(),
+        'surface': surface,
+        'readiness': len(blocking_reasons) == 0,
+        'blocking_reasons': blocking_reasons,
+        'priority': priority,
+        'attention_flags': attention_flags,
+        'data_gaps': data_gaps,
+        'section_matrix': section_matrix,
+        'section_reasons': section_reasons,
+        'source_matrix': source_matrix,
+        'source_variants': source_variants,
+        'action_matrix': action_matrix,
+        'freshness': {
+            'freshness_status': freshness_status,
+            'sync_status': sync_status_value,
+            'sync_lag_seconds': sync_lag_seconds,
+            'history_points': history_points,
+            'published_report_at': published_report_at.isoformat() if published_report_at else None,
+        },
+        'trend': {
+            'current_output': round(current_output, 2) if current_output is not None else None,
+            'yesterday_output': round(yesterday_output, 2) if yesterday_output is not None else None,
+            'output_delta_vs_yesterday': output_delta_vs_yesterday,
+            'seven_day_average_output': seven_day_average_output,
+        },
+        'reporting': {
+            'status': reporting_status,
+            'reporting_rate': reporting_rate,
+            'reported_count': int(mobile_summary.get('reported_count') or 0),
+            'unreported_count': unreported_count,
+            'auto_confirmed_count': int(mobile_summary.get('auto_confirmed_count') or 0),
+            'returned_count': returned_count,
+            'source_labels': ['主操直录'],
+        },
+        'delivery': {
+            'status': delivery_status_label,
+            'delivery_ready': delivery_ready,
+            'reports_generated': int(delivery_status.get('reports_generated') or 0),
+            'reports_published_count': int(delivery_status.get('reports_published_count') or 0),
+            'missing_steps': missing_steps,
+            'source_labels': ['系统汇总', '结果发布'],
+        },
+        'energy': {
+            'status': energy_status,
+            'energy_per_ton': energy_summary.get('energy_per_ton'),
+            'total_energy': energy_summary.get('total_energy'),
+            'electricity_value': energy_summary.get('electricity_value'),
+            'gas_value': energy_summary.get('gas_value'),
+            'water_value': energy_summary.get('water_value'),
+            'source_labels': ['专项补录', '系统汇总'],
+        },
+        'contracts': {
+            'status': contract_status,
+            'daily_contract_weight': contract_lane.get('daily_contract_weight'),
+            'month_to_date_contract_weight': contract_lane.get('month_to_date_contract_weight'),
+            'active_contract_count': int(contract_progress.get('active_contract_count') or 0),
+            'stalled_contract_count': int(contract_progress.get('stalled_contract_count') or 0),
+            'remaining_weight': round(_to_float(contract_progress.get('remaining_weight')), 2),
+            'source_labels': contract_source_labels,
+        },
+        'risk': {
+            'status': risk_status,
+            'has_blockers': has_blockers,
+            'blocker_digest': str(blocker_summary.get('digest') or '未发现关键异常'),
+            'reconciliation_open_count': reconciliation_open_count,
+            'mobile_exception_count': mobile_exception_count,
+            'production_exception_count': production_exception_count,
+            'source_labels': ['系统汇总'],
+        },
+    }
 
 
 def resolve_report_delivery_payload(db: Session, *, entity: DailyReport) -> dict:
@@ -1135,7 +1461,7 @@ def _build_factory_boss_summary(
     energy_per_ton: float | None,
     mobile_summary: dict,
     exception_total: int,
-    blocker_summary: str | None,
+    blocker_summary: dict[str, Any] | None,
 ) -> str:
     reporting_rate_text = f"{mobile_summary.get('reporting_rate', 0):.0f}%"
     energy_text = f'{energy_per_ton:.2f}' if energy_per_ton is not None else '-'
@@ -1146,8 +1472,9 @@ def _build_factory_boss_summary(
         focus_items.append(f"退回班次 {mobile_summary['returned_count']} 个")
     if exception_total > 0:
         focus_items.append(f"异常班次 {exception_total} 个")
-    if blocker_summary:
-        focus_items.append(blocker_summary)
+    blocker_digest = str((blocker_summary or {}).get('digest') or '').strip()
+    if blocker_digest and (blocker_summary or {}).get('has_blockers'):
+        focus_items.append(blocker_digest)
     focus_text = '；'.join(focus_items) if focus_items else '建议关注未闭环班次与单吨能耗波动。'
     return (
         f"{target_date.month}月{target_date.day}日，全厂今日产量 {total_output:.2f} 吨，"
@@ -1257,6 +1584,9 @@ def _build_production_lane(db: Session, *, target_date: date, workshop_id: int |
         lane.append(
             {
                 **item,
+                'source': 'mobile',
+                'source_label': '主操直录',
+                'source_variant': 'mobile',
                 'target_value': None,
                 'compare_value': compare_value,
                 'delta_vs_yesterday': None if compare_value is None else round(item['total_output'] - compare_value, 2),
@@ -1270,10 +1600,32 @@ def _build_energy_lane(db: Session, *, target_date: date, workshop_id: int | Non
     return [
         {
             **row,
+            **_lane_source_meta(row.get('source')),
             'is_over_line': bool(row.get('energy_per_ton') and row['energy_per_ton'] > 4),
         }
         for row in energy_rows
     ]
+
+
+def _lane_source_meta(source: str | None) -> dict[str, str]:
+    normalized = str(source or 'import').lower()
+    if normalized == 'owner_only':
+        return {
+            'source': 'owner_only',
+            'source_label': '专项补录',
+            'source_variant': 'owner',
+        }
+    if normalized == 'mobile':
+        return {
+            'source': 'mobile',
+            'source_label': '主操直录',
+            'source_variant': 'mobile',
+        }
+    return {
+        'source': 'import',
+        'source_label': '系统导入',
+        'source_variant': 'import',
+    }
 
 
 def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | None = None) -> dict:
@@ -1318,6 +1670,223 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
     }
 
 
+def _build_runtime_source_lanes(
+    *,
+    surface: str,
+    history_digest: dict[str, Any] | None,
+    energy_lane: list[dict[str, Any]] | None,
+    inventory_lane: list[dict[str, Any]] | None,
+    contract_lane: dict[str, Any] | None,
+    exception_lane: dict[str, Any] | None,
+    mobile_summary: dict[str, Any] | None,
+    delivery_status: dict[str, Any] | None,
+    orchestration: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    history_digest = history_digest or {}
+    energy_lane = energy_lane or []
+    inventory_lane = inventory_lane or []
+    contract_lane = contract_lane or {}
+    exception_lane = exception_lane or {}
+    mobile_summary = mobile_summary or {}
+    delivery_status = delivery_status or {}
+    orchestration = orchestration or build_runtime_orchestration_snapshot(
+        mobile_summary=mobile_summary,
+        exception_lane=exception_lane,
+        delivery_status=delivery_status,
+        reminder_summary=None,
+    )
+    result_target_map = {
+        'factory': {
+            'algorithm_pipeline': ['今日产量', '今日上报状态', '单吨能耗'],
+            'analysis_agent': ['今日摘要', '今日关注', '近 7 日留存趋势'],
+            'execution_agent': ['交付与闭环', '数据留存与归档'],
+        },
+        'workshop': {
+            'algorithm_pipeline': ['今日产量', '生产泳道'],
+            'analysis_agent': ['异常与提醒泳道', '上报率'],
+            'execution_agent': ['待处理班次', '交付缺口'],
+        },
+    }
+    targets = result_target_map['workshop' if surface == 'workshop' else 'factory']
+    expected_count = int(mobile_summary.get('expected_count') or 0)
+    reported_count = int(mobile_summary.get('reported_count') or 0)
+    reporting_rate = float(mobile_summary.get('reporting_rate') or 0.0)
+    returned_count = int(mobile_summary.get('returned_count') or 0)
+    unreported_count = int(mobile_summary.get('unreported_count') or 0)
+    late_count = int(mobile_summary.get('late_count') or 0)
+    auto_confirmed_count = int(mobile_summary.get('auto_confirmed_count') or 0)
+    history_points = len(history_digest.get('daily_snapshots') or [])
+    reconciliation_open_count = int(exception_lane.get('reconciliation_open_count') or 0)
+    exception_count = int(exception_lane.get('mobile_exception_count') or 0) + int(
+        exception_lane.get('production_exception_count') or 0
+    )
+    reports_ready_count = int(
+        delivery_status.get('reports_ready_count')
+        or delivery_status.get('reports_published')
+        or (
+            int(delivery_status.get('reports_reviewed_count') or 0)
+            + int(delivery_status.get('reports_published_count') or 0)
+        )
+    )
+    workers = {item.get('key'): item for item in (orchestration.get('workers') or [])}
+    algorithm_worker = workers.get('algorithm_pipeline', {})
+    analysis_worker = workers.get('analysis_agent', {})
+    execution_worker = workers.get('execution_agent', {})
+    reliability_score = float(orchestration.get('reliability_score') or 0.0)
+    blocking_count = int(orchestration.get('blocking_count') or 0)
+    bottlenecks = [str(item) for item in (orchestration.get('bottlenecks') or []) if item]
+    execution_stage_detail = (
+        '、'.join(bottlenecks[:2])
+        if bottlenecks
+        else '交付链路可持续运行'
+    )
+    return [
+        {
+            'key': 'algorithm_pipeline',
+            'label': '算法流水线',
+            'actor_label': '规则引擎',
+            'detail': (
+                f'上报率 {reporting_rate:.2f}%'
+                if expected_count > 0
+                else '暂无应报清单'
+            ),
+            'stage_label': '确定性规则',
+            'stage_detail': f'{reported_count}/{expected_count} 班次到位，自动确认 {auto_confirmed_count} 条',
+            'result_label': '原始值标准化 / 自动校验',
+            'result_targets': targets['algorithm_pipeline'],
+            'status': algorithm_worker.get('status') or 'healthy',
+        },
+        {
+            'key': 'analysis_agent',
+            'label': '分析决策助手',
+            'actor_label': 'AI 推理',
+            'detail': f'异常 {exception_count} 条，差异 {reconciliation_open_count} 条',
+            'stage_label': '解释与建议',
+            'stage_detail': f'可靠度 {reliability_score:.1f}，风险阻塞 {blocking_count} 项',
+            'result_label': '异常归因 / 处理优先级',
+            'result_targets': targets['analysis_agent'],
+            'status': analysis_worker.get('status') or 'healthy',
+        },
+        {
+            'key': 'execution_agent',
+            'label': '执行交付助手',
+            'actor_label': '交付编排',
+            'detail': f'{reports_ready_count} 份可交付，留存 {history_points} 天',
+            'stage_label': '闭环执行',
+            'stage_detail': execution_stage_detail,
+            'result_label': '日报发布 / 交付闭环',
+            'result_targets': targets['execution_agent'],
+            'status': execution_worker.get('status') or 'healthy',
+        },
+    ]
+
+
+def _build_runtime_trace(
+    *,
+    surface: str = 'factory',
+    history_digest: dict[str, Any] | None,
+    energy_lane: list[dict[str, Any]] | None,
+    inventory_lane: list[dict[str, Any]] | None,
+    contract_lane: dict[str, Any] | None,
+    exception_lane: dict[str, Any] | None,
+    mobile_summary: dict[str, Any] | None,
+    reminder_summary: dict[str, Any] | None,
+    delivery_status: dict[str, Any] | None,
+    sync_status: dict[str, Any] | None,
+) -> dict[str, Any]:
+    history_digest = history_digest or {}
+    energy_lane = energy_lane or []
+    exception_lane = exception_lane or {}
+    mobile_summary = mobile_summary or {}
+    reminder_summary = reminder_summary or {}
+    delivery_status = delivery_status or {}
+    sync_status = sync_status or {}
+
+    orchestration = build_runtime_orchestration_snapshot(
+        mobile_summary=mobile_summary,
+        exception_lane=exception_lane,
+        delivery_status=delivery_status,
+        reminder_summary=reminder_summary,
+    )
+    worker_index = {
+        item.get('key'): item
+        for item in (orchestration.get('workers') or [])
+        if isinstance(item, dict)
+    }
+
+    expected_count = int(mobile_summary.get('expected_count') or 0)
+    reported_count = int(mobile_summary.get('reported_count') or 0)
+    auto_confirmed_count = int(mobile_summary.get('auto_confirmed_count') or 0)
+    returned_count = int(mobile_summary.get('returned_count') or 0)
+    unreported_count = int(mobile_summary.get('unreported_count') or 0)
+    late_count = int(mobile_summary.get('late_count') or 0)
+    reminder_count = int(reminder_summary.get('today_reminder_count') or 0)
+    reporting_rate = float(mobile_summary.get('reporting_rate') or 0.0)
+
+    reconciliation_open_count = int(exception_lane.get('reconciliation_open_count') or 0)
+    exception_count = int(exception_lane.get('mobile_exception_count') or 0) + int(
+        exception_lane.get('production_exception_count') or 0
+    )
+    mes_last_run_status = sync_status.get('last_run_status')
+    reports_generated = int(delivery_status.get('reports_generated') or 0)
+    reports_published_count = int(delivery_status.get('reports_published_count') or 0)
+    reports_ready_count = int(
+        delivery_status.get('reports_ready_count')
+        or delivery_status.get('reports_published')
+        or (
+            int(delivery_status.get('reports_reviewed_count') or 0)
+            + reports_published_count
+        )
+    )
+    missing_steps = list(delivery_status.get('missing_steps') or [])
+    delivery_ready = bool(delivery_status.get('delivery_ready'))
+    algorithm_status = str(worker_index.get('algorithm_pipeline', {}).get('status') or 'healthy')
+    analysis_status = str(worker_index.get('analysis_agent', {}).get('status') or 'healthy')
+    execution_status = str(worker_index.get('execution_agent', {}).get('status') or 'healthy')
+
+    return {
+        'source_lanes': _build_runtime_source_lanes(
+            surface=surface,
+            history_digest=history_digest,
+            energy_lane=energy_lane,
+            inventory_lane=inventory_lane,
+            contract_lane=contract_lane,
+            exception_lane=exception_lane,
+            mobile_summary=mobile_summary,
+            delivery_status=delivery_status,
+            orchestration=orchestration,
+        ),
+        'frontline': {
+            'status': algorithm_status,
+            'expected_count': expected_count,
+            'reported_count': reported_count,
+            'auto_confirmed_count': auto_confirmed_count,
+            'returned_count': returned_count,
+            'unreported_count': unreported_count,
+            'late_count': late_count,
+            'reminder_count': reminder_count,
+            'reporting_rate': round(reporting_rate, 2),
+        },
+        'backline': {
+            'status': analysis_status,
+            'history_points': len(history_digest.get('daily_snapshots') or []),
+            'energy_row_count': len(energy_lane),
+            'exception_count': exception_count,
+            'reconciliation_open_count': reconciliation_open_count,
+            'mes_last_run_status': mes_last_run_status,
+        },
+        'delivery': {
+            'status': execution_status,
+            'delivery_ready': delivery_ready,
+            'reports_generated': reports_generated,
+            'reports_ready_count': reports_ready_count,
+            'reports_published_count': reports_published_count,
+            'missing_steps': missing_steps,
+        },
+        'orchestration': orchestration,
+    }
+
+
 _REPORT_STATUS_PRIORITY = {
     'unreported': 0,
     'returned': 1,
@@ -1326,6 +1895,23 @@ _REPORT_STATUS_PRIORITY = {
     CANONICAL_REPORT_SCOPE: 4,
     'approved': 4,
 }
+
+
+def _workshop_reporting_meta(report_status: str) -> dict[str, str]:
+    hint_map = {
+        'submitted': '主操已提交，等待系统自动收口',
+        'reviewed': '系统已接住本班数据，正在进入汇总',
+        'auto_confirmed': '主操直录已稳定，系统已自动归档',
+        'returned': '已退回主操补录，暂未进入汇总',
+        'draft': '主操正在填写，结果卡暂未更新',
+        'unreported': '主操待补，系统暂未看到本班原始值',
+        'late': '主操已迟报，本班结果可能滞后',
+    }
+    return {
+        'source_label': '主操直录',
+        'source_variant': 'mobile',
+        'status_hint': hint_map.get(report_status, '系统正在同步当前班次状态'),
+    }
 
 
 def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dict]:
@@ -1382,6 +1968,7 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
                 'workshop_code': workshop.code,
                 'report_status': report_status,
                 'output_weight': output_weight,
+                **_workshop_reporting_meta(report_status),
             }
         )
 
@@ -1436,7 +2023,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     exception_lane = _build_exception_lane(db, target_date=target_date)
     reminder_summary = mobile_reminder_service.summarize_reminders(db, target_date=target_date)
     sync_status = _safe_latest_mes_sync_status(db)
-    blocker_summary = quality_service.blocker_summary(db, business_date=target_date)
+    blocker_summary = _normalize_blocker_summary(quality_service.blocker_summary(db, business_date=target_date))
     month_output = _month_to_date_output(db, target_date=target_date)
     boss_summary = _build_factory_boss_summary(
         target_date=target_date,
@@ -1469,11 +2056,13 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         blocker_summary=blocker_summary,
         yield_matrix_lane=production_report.get('yield_matrix_lane') or (latest_report.report_data.get('yield_matrix_lane') if latest_report and isinstance(latest_report.report_data, dict) else {}),
     )
+    history_digest = _build_history_digest(db, target_date=target_date)
+    energy_lane = _build_energy_lane(db, target_date=target_date)
     return {
         'target_date': target_date.isoformat(),
         'today_total_output': total_output,
         'month_to_date_output': month_output,
-        'history_digest': _build_history_digest(db, target_date=target_date),
+        'history_digest': history_digest,
         'total_energy': energy_summary['total_energy'],
         'energy_per_ton': energy_summary['energy_per_ton'],
         'open_reconciliation_count': open_reconciliation,
@@ -1503,11 +2092,23 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
             latest_report=latest_report,
             management_estimate=management_estimate,
         ),
+        'runtime_trace': _build_runtime_trace(
+            surface='factory',
+            history_digest=history_digest,
+            energy_lane=energy_lane,
+            inventory_lane=inventory_lane,
+            contract_lane=contract_lane,
+            exception_lane=exception_lane,
+            mobile_summary=mobile_summary,
+            reminder_summary=reminder_summary,
+            delivery_status=delivery_status,
+            sync_status=sync_status,
+        ),
         'mobile_reporting_summary': mobile_summary,
         'reminder_summary': reminder_summary,
         'blocker_summary': blocker_summary,
         'production_lane': _build_production_lane(db, target_date=target_date),
-        'energy_lane': _build_energy_lane(db, target_date=target_date),
+        'energy_lane': energy_lane,
         'inventory_lane': inventory_lane,
         'exception_lane': exception_lane,
         'workshop_output_summary': _build_canonical_workshop_output_summary(db, target_date=target_date),
@@ -1516,6 +2117,22 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         'contract_lane': contract_lane,
         'contract_progress': contract_progress,
         'management_estimate': management_estimate,
+        'analysis_handoff': _build_analysis_handoff(
+            target_date=target_date,
+            surface='factory',
+            total_output=total_output,
+            history_digest=history_digest,
+            sync_status=sync_status,
+            published_report_at=latest_report.published_at if latest_report else None,
+            mobile_summary=mobile_summary,
+            delivery_status=delivery_status,
+            energy_summary=energy_summary,
+            energy_lane=energy_lane,
+            contract_lane=contract_lane,
+            contract_progress=contract_progress,
+            blocker_summary=blocker_summary,
+            exception_lane=exception_lane,
+        ),
         'mes_sync_status': sync_status,
     }
 
@@ -1586,12 +2203,18 @@ def build_workshop_dashboard(
     mobile_summary = mobile_report_service.summarize_mobile_reporting(db, target_date=target_date, workshop_id=workshop_id)
     exception_lane = _build_exception_lane(db, target_date=target_date, workshop_id=workshop_id)
     reminder_summary = mobile_reminder_service.summarize_reminders(db, target_date=target_date, workshop_id=workshop_id)
+    history_digest = _build_history_digest(db, target_date=target_date, workshop_id=workshop_id)
+    energy_lane = _build_energy_lane(db, target_date=target_date, workshop_id=workshop_id)
+    delivery_status = build_delivery_status(db, target_date=target_date)
+    sync_status = _safe_latest_mes_sync_status(db)
+    inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id)
 
     return {
         'target_date': target_date.isoformat(),
         'workshop_id': workshop_id,
         'total_output': total_output,
         'month_to_date_output': _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id),
+        'history_digest': history_digest,
         'shift_count': len(items),
         'confirmed_shift_count': confirmed,
         'reviewed_shift_count': reviewed,
@@ -1603,10 +2226,38 @@ def build_workshop_dashboard(
         'reconciliation_open_count': reconciliation_open,
         'mobile_reporting_summary': mobile_summary,
         'reminder_summary': reminder_summary,
+        'runtime_trace': _build_runtime_trace(
+            surface='workshop',
+            history_digest=history_digest,
+            energy_lane=energy_lane,
+            inventory_lane=inventory_lane,
+            contract_lane={},
+            exception_lane=exception_lane,
+            mobile_summary=mobile_summary,
+            reminder_summary=reminder_summary,
+            delivery_status=delivery_status,
+            sync_status=sync_status,
+        ),
         'production_lane': _build_production_lane(db, target_date=target_date, workshop_id=workshop_id),
-        'energy_lane': _build_energy_lane(db, target_date=target_date, workshop_id=workshop_id),
-        'inventory_lane': mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id),
+        'energy_lane': energy_lane,
+        'inventory_lane': inventory_lane,
         'exception_lane': exception_lane,
+        'analysis_handoff': _build_analysis_handoff(
+            target_date=target_date,
+            surface='workshop',
+            total_output=total_output,
+            history_digest=history_digest,
+            sync_status=sync_status,
+            published_report_at=None,
+            mobile_summary=mobile_summary,
+            delivery_status=delivery_status,
+            energy_summary=energy_totals,
+            energy_lane=energy_lane,
+            contract_lane={},
+            contract_progress={},
+            blocker_summary={'has_blockers': False, 'digest': '未发现关键异常'},
+            exception_lane=exception_lane,
+        ),
         'attendance_summary': {
             'total': int((attendance_data.total if attendance_data else 0) or 0),
             'normal': int((attendance_data.normal if attendance_data else 0) or 0),

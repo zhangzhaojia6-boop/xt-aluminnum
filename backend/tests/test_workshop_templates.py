@@ -82,6 +82,7 @@ def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_i
     contracts_template = get_workshop_template('finishing', user_role='contracts')
 
     shift_leader_extra_names = [field['name'] for field in shift_leader_template['extra_fields']]
+    shift_leader_shift_names = [field['name'] for field in shift_leader_template['shift_fields']]
     contracts_extra_names = [field['name'] for field in contracts_template['extra_fields']]
     shift_leader_entry_names = [field['name'] for field in shift_leader_template['entry_fields']]
 
@@ -98,7 +99,8 @@ def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_i
         'tray_weight',
         'scrap_weight',
     ]
-    assert shift_leader_extra_names == ['roll_speed', 'ring_count']
+    assert shift_leader_shift_names == ['roll_speed', 'ring_count']
+    assert shift_leader_extra_names == []
     assert 'customer_name' not in shift_leader_extra_names
     assert contracts_extra_names == ['contract_no', 'customer_name', 'contract_weight']
     assert contracts_template['extra_fields'][0]['editable'] is True
@@ -118,12 +120,13 @@ def test_casting_template_is_slow_and_includes_actual_extra_fields() -> None:
         'scrap_weight',
         'skin_weight',
     ]
-    assert [field['name'] for field in template['extra_fields']] == [
+    assert [field['name'] for field in template['shift_fields']] == [
         'paper_furnace',
         'static_furnace',
         'unit_output',
         'gas_consumption',
     ]
+    assert template['extra_fields'] == []
 
 
 def test_phase1_templates_split_owner_fields_for_energy_qc_and_contract_roles() -> None:

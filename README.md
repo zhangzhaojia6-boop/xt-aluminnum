@@ -1,11 +1,11 @@
 # Aluminum Bypass
 
-铝业旁路系统当前已经进入“手机端填报主入口 + Agent 自动校验汇总 + 观察/实施分层 + 企业微信单入口优先 + 历史系统端口保留”的阶段。
+铝业旁路系统当前已经进入“手机端填报主入口 + Agent 自动校验汇总 + 观察/实施分层 + 钉钉单入口优先 + 历史系统端口保留”的阶段。
 
 ## 当前定位
 
 1. 班长手机端填报优先
-2. 企业微信 H5 / 浏览器 `/mobile` 单入口优先
+2. 钉钉 H5 / 浏览器 `/mobile` 单入口优先
 3. 观察与实施工作台负责异常处置、配置维护和运行门禁
 4. 管理端优先看聚合结果和驾驶舱，不重建人工统计中间层
 5. Excel / CSV 导入退居补录和兜底路径
@@ -20,7 +20,7 @@
 
 1. 管理端、观察/实施端、用户端三端隔离
 2. 用户端之间按 `workshop + team + owner_user_id` 硬隔离
-3. 企业微信身份入口优先，历史系统端口继续保留
+3. 钉钉身份入口优先，历史系统端口继续保留
 4. 手机端真实图片上传
 5. 未报 / 迟报识别与催报记录
 
@@ -47,11 +47,41 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml config
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
+## 云端快速上线闸门（推荐）
+
+云主机常用执行链路：
+
+```bash
+git remote -v
+git pull
+cp .env.example .env
+./scripts/deploy_trial.sh
+./scripts/go_live_gate.sh https://你的域名
+```
+
+说明：
+
+1. `deploy_trial.sh` 做 compose 检查、启动和首轮 `check_trial_stack`。
+2. `go_live_gate.sh` 做 `stack / pilot / AI / role-smoke / rollback` 一体化校验。
+3. 只有 `GO_LIVE_READY=true` 才建议对现场交付。
+
+更省心的一键入口：
+
+```bash
+./scripts/launch_cloud_trial.sh https://你的域名 --pull --skip-ai
+```
+
+说明：
+
+1. 默认只跑 `deploy_trial` 与 `go_live_gate`，避免误改本地未提交内容。
+2. 加 `--pull` 时会先执行 `git pull`。
+3. 仅演练可用 `./scripts/launch_cloud_trial.sh --dry-run`。
+
 ## GitHub / 上云前封装准备
 
 1. 当前仓库已经具备后续封装所需的基础资产：`.env.example`、`docker-compose.yml`、`docker-compose.prod.yml`、`.github/workflows/ci.yml`。
-2. 当前代码工作区还需要补正式 GitHub 托管动作：初始化或接回 Git 仓库、绑定远端、确认默认分支与发布分支策略。
-3. 上 GitHub 前只提交代码、文档和示例配置，生产 `.env`、真实密钥、企业微信凭据和数据库口令继续留在本地或云端密钥管理里。
+2. 当前仓库已可用于“初始化或接回 Git 仓库”流程（`origin` 可见），上云常规流程建议为云机 `git pull` 拉取更新，再按部署脚本执行。
+3. 上 GitHub 前只提交代码、文档和示例配置，生产 `.env`、真实密钥、钉钉凭据和数据库口令继续留在本地或云端密钥管理里。
 4. 上云前先按本仓库基线跑通后端测试、前端构建、Compose 就绪检查，再补域名、SSL、生产环境变量和云主机/容器编排。
 5. Phase 1 的上线口径保持不变：先跑通“岗位直录 + 智能体自动处理 + 驾驶舱直达”，GitHub 与云端只是交付包装层，不改变业务主线。
 6. 一个车间快速试跑建议先接 GitHub 远端，再上云主机；这样云端后续只需要 `git pull` 就能更新，不必反复手工传代码包。
@@ -85,5 +115,5 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 1. 用户端只能访问自己有权操作的数据
 2. 观察/实施端只处理授权范围内的异常、配置与运行门禁
 3. 管理端默认展示聚合结果，不默认暴露原始填报编辑
-4. 企业微信入口与 `/mobile` 主链路已经收口，历史系统端口仅作为兼容保留
+4. 钉钉入口与 `/mobile` 主链路已经收口，历史系统端口仅作为兼容保留
 5. 手机端图片上传与催报记录已经打通

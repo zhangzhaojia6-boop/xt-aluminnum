@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pandas as pd
 
 from app.models.imports import ImportBatch, ImportRow
+from app.models.master import Workshop
+from app.models.production import WorkOrderEntry
 from app.services.contract_canonical_service import build_contract_projection, load_contract_snapshots, parse_contract_sheet
 
 
@@ -39,6 +41,9 @@ class FakeQuery:
     def __init__(self, items):
         self._items = items
 
+    def join(self, *_args, **_kwargs):
+        return self
+
     def filter(self, *_args, **_kwargs):
         return self
 
@@ -54,13 +59,15 @@ class FakeDB:
         self._batches = batches
         self._rows_by_batch = rows_by_batch
 
-    def query(self, model):
-        if model is ImportBatch:
+    def query(self, *models):
+        if models == (ImportBatch,):
             return FakeQuery(self._batches)
-        if model is ImportRow:
+        if models == (ImportRow,):
             batch_id = self._next_batch_id
             return FakeQuery(self._rows_by_batch[batch_id])
-        raise AssertionError(f'unexpected model query: {model}')
+        if models == (WorkOrderEntry, Workshop):
+            return FakeQuery([])
+        raise AssertionError(f'unexpected model query: {models}')
 
     @property
     def _next_batch_id(self):

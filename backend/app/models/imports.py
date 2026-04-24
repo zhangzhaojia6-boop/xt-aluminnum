@@ -1,10 +1,9 @@
 ﻿from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base, TimestampMixin, json_object_type
 
 
 class ImportBatch(Base, TimestampMixin):
@@ -40,8 +39,8 @@ class ImportRow(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     batch_id: Mapped[int] = mapped_column(ForeignKey('import_batches.id'), index=True, nullable=False)
     row_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    raw_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    mapped_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_data: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    mapped_data: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default='pending', nullable=False)
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -56,6 +55,6 @@ class FieldMappingTemplate(Base, TimestampMixin):
     template_name: Mapped[str] = mapped_column(String(128), nullable=False)
     import_type: Mapped[str] = mapped_column(String(32), nullable=False)
     source_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
-    mappings: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    mappings: Mapped[dict] = mapped_column(json_object_type, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

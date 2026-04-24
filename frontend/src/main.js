@@ -11,7 +11,11 @@ import App from './App.vue'
 import router from './router'
 import { setupApiInterceptors } from './api'
 import { useAuthStore } from './stores/auth'
+import './design/theme.css'
 import './styles.css'
+import './reference-command/styles/command-tokens.css'
+import './reference-command/styles/command-layout.css'
+import './reference-command/styles/command-motion.css'
 
 const app = createApp(App)
 const pinia = createPinia()

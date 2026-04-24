@@ -84,6 +84,9 @@ def test_summarize_mobile_inventory_includes_owner_only_work_order_entries(tmp_p
                 'workshop_name': '成品库',
                 'team_id': None,
                 'team_name': None,
+                'source': 'owner_only',
+                'source_label': '专项补录',
+                'source_variant': 'owner',
                 'storage_prepared': 0.0,
                 'storage_finished': 320.0,
                 'shipment_weight': 184.0,
@@ -157,5 +160,8 @@ def test_summarize_mobile_inventory_prefers_owner_only_inventory_source_over_mob
 
         assert items[0]['storage_finished'] == 320.0
         assert items[0]['shipment_weight'] == 184.0
+        assert items[0]['source'] == 'owner_only'
+        assert items[0]['source_label'] == '专项补录'
+        assert items[0]['source_variant'] == 'owner'
     finally:
         db.close()

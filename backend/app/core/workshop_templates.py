@@ -558,6 +558,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
         ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *MAINTENANCE_OWNER_FIELDS,
@@ -596,6 +597,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机卷重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'trim_weight', 'label': '切头重量', 'type': 'number', 'unit': 'kg', 'required': False},
         ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *MAINTENANCE_OWNER_FIELDS,
@@ -630,9 +632,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'tray_weight', 'label': '\u6258\u76d8\u91cd\u91cf', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'scrap_weight', 'label': '\u5e9f\u6599\u91cd\u91cf', 'type': 'number', 'unit': 'kg', 'required': False},
         ],
-        'extra_fields': [
+        'shift_fields': [
             {'name': 'roll_speed', 'label': '机列速度', 'type': 'number', 'unit': 'm/min'},
             {'name': 'ring_count', 'label': '圈/球', 'type': 'text'},
+        ],
+        'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *MAINTENANCE_OWNER_FIELDS,
             *HYDRAULIC_OWNER_FIELDS,
@@ -665,6 +669,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
         ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *MAINTENANCE_OWNER_FIELDS,
@@ -701,11 +706,13 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'scrap_weight', 'label': '废料', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg', 'required': False},
         ],
-        'extra_fields': [
+        'shift_fields': [
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³'},
+        ],
+        'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *MAINTENANCE_OWNER_FIELDS,
             *HYDRAULIC_OWNER_FIELDS,
@@ -727,6 +734,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '成品库与公辅',
         'tempo': 'fast',
         'entry_fields': INVENTORY_OWNER_FIELDS,
+        'shift_fields': [],
         'extra_fields': [
             *UTILITY_OWNER_FIELDS,
             *CONTRACT_PROGRESS_FIELDS,
@@ -782,14 +790,16 @@ def _default_write_roles(section_name: str, field_name: str, target: str) -> lis
         return []
     if target == 'entry':
         if field_name in {'energy_kwh', 'gas_m3'}:
-            return ['shift_leader', 'energy_stat']
+            return ['energy_stat']
         return []
     if target == 'qc':
         return ['qc']
     return ['shift_leader']
 
 
-def _default_read_roles(target: str, field_name: str) -> list[str]:
+def _default_read_roles(section_name: str, target: str, field_name: str) -> list[str]:
+    if section_name == 'shift_fields':
+        return ['shift_leader', 'admin', 'manager']
     if target in {'extra', 'qc'}:
         return [READ_ALL]
     if target in {'work_order', 'entry'}:
@@ -832,7 +842,7 @@ def _normalize_field(
     field_name = normalized['name']
     target = _field_target(section_name, field_name)
     write_roles = _listify(normalized.get('role_write')) or _default_write_roles(section_name, field_name, target)
-    read_roles = _listify(normalized.get('role_read')) or _default_read_roles(target, field_name)
+    read_roles = _listify(normalized.get('role_read')) or _default_read_roles(section_name, target, field_name)
 
     normalized['type'] = _field_type(field_name, normalized.get('type'))
     normalized['target'] = target
@@ -926,13 +936,40 @@ def _normalize_definition_section(fields: list[dict[str, Any]] | None, *, sectio
     ]
 
 
+def _split_supplemental_sections(fields: list[dict[str, Any]] | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    shift_fields: list[dict[str, Any]] = []
+    extra_fields: list[dict[str, Any]] = []
+
+    for field in fields or []:
+        stored_section = str(field.get('section') or '').strip()
+        if stored_section == 'shift_fields':
+            shift_fields.append(field)
+            continue
+        extra_fields.append(field)
+
+    return shift_fields, extra_fields
+
+
+def _merge_supplemental_sections(
+    *,
+    shift_fields: list[dict[str, Any]] | None,
+    extra_fields: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    merged = []
+    merged.extend(_normalize_definition_section(shift_fields, section_name='shift_fields'))
+    merged.extend(_normalize_definition_section(extra_fields, section_name='extra_fields'))
+    return merged
+
+
 def _load_template_definition_from_config(config: WorkshopTemplateConfig) -> dict[str, Any]:
+    shift_fields, extra_fields = _split_supplemental_sections(config.extra_fields)
     return {
         'display_name': config.display_name,
         'tempo': config.tempo,
         'supports_ocr': bool(config.supports_ocr),
         'entry_fields': _normalize_definition_section(config.entry_fields, section_name='entry_fields'),
-        'extra_fields': _normalize_definition_section(config.extra_fields, section_name='extra_fields'),
+        'shift_fields': _normalize_definition_section(shift_fields, section_name='shift_fields'),
+        'extra_fields': _normalize_definition_section(extra_fields, section_name='extra_fields'),
         'qc_fields': _normalize_definition_section(config.qc_fields, section_name='qc_fields'),
         'readonly_fields': _normalize_definition_section(config.readonly_fields, section_name='readonly_fields'),
     }
@@ -945,6 +982,7 @@ def _load_default_template_definition(base_type: str) -> dict[str, Any]:
         'tempo': template['tempo'],
         'supports_ocr': bool(template.get('supports_ocr', False)),
         'entry_fields': _normalize_definition_section(template.get('entry_fields'), section_name='entry_fields'),
+        'shift_fields': _normalize_definition_section(template.get('shift_fields'), section_name='shift_fields'),
         'extra_fields': _normalize_definition_section(template.get('extra_fields'), section_name='extra_fields'),
         'qc_fields': _normalize_definition_section(template.get('qc_fields'), section_name='qc_fields'),
         'readonly_fields': _normalize_definition_section(template.get('readonly_fields'), section_name='readonly_fields'),
@@ -1001,6 +1039,7 @@ def normalize_template_definition_payload(
         'tempo': str(payload.get('tempo') or definition['tempo']).strip() or definition['tempo'],
         'supports_ocr': bool(payload.get('supports_ocr', definition['supports_ocr'])),
         'entry_fields': _normalize_definition_section(payload.get('entry_fields'), section_name='entry_fields'),
+        'shift_fields': _normalize_definition_section(payload.get('shift_fields'), section_name='shift_fields'),
         'extra_fields': _normalize_definition_section(payload.get('extra_fields'), section_name='extra_fields'),
         'qc_fields': _normalize_definition_section(payload.get('qc_fields'), section_name='qc_fields'),
         'readonly_fields': _normalize_definition_section(payload.get('readonly_fields'), section_name='readonly_fields'),
@@ -1071,12 +1110,13 @@ def get_workshop_template(workshop_type: str, *, user_role: str, db: Session | N
         'tempo': template['tempo'],
         'supports_ocr': bool(template.get('supports_ocr', False)),
         'entry_fields': [],
+        'shift_fields': [],
         'extra_fields': [],
         'qc_fields': [],
         'readonly_fields': readonly_fields,
     }
 
-    for section_name in ['entry_fields', 'extra_fields', 'qc_fields']:
+    for section_name in ['entry_fields', 'shift_fields', 'extra_fields', 'qc_fields']:
         for field in template.get(section_name, []):
             if not field.get('enabled', True):
                 continue

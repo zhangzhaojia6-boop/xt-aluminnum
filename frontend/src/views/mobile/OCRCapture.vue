@@ -6,7 +6,6 @@
         <h1>拍照识别</h1>
         <p>纸单拍照后先识别，再带入同一套随行卡表单继续人工核对和提交。</p>
       </div>
-      <el-button plain @click="goBack">返回入口</el-button>
     </div>
 
     <el-card class="panel mobile-card">
@@ -145,7 +144,13 @@ function requestErrorMessage(error, fallback = '识别失败') {
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || item).join('; ')
   }
-  return detail || error?.message || fallback
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim()
+  }
+  return error?.message || fallback
 }
 
 function storageKey(submissionId) {
@@ -287,10 +292,6 @@ function goManualForm() {
       shiftId: route.params.shiftId || currentShift.value.shift_id
     }
   })
-}
-
-function goBack() {
-  router.push({ name: 'mobile-entry' })
 }
 
 onMounted(load)

@@ -561,6 +561,7 @@ def _filter_template_payload_values(
     template = get_workshop_template(template_key, user_role=user_role, db=db)
     visible_fields = [
         *template['entry_fields'],
+        *template.get('shift_fields', []),
         *template['extra_fields'],
         *template['qc_fields'],
         *template['readonly_fields'],
@@ -585,6 +586,7 @@ def _normalize_template_section_payload(
     template = get_workshop_template(template_key, user_role=user_role, db=db)
     editable_fields = [
         *template['entry_fields'],
+        *template.get('shift_fields', []),
         *template['extra_fields'],
         *template['qc_fields'],
     ]
@@ -593,6 +595,142 @@ def _normalize_template_section_payload(
     if unknown:
         raise _http_error(status.HTTP_403_FORBIDDEN, f'cannot modify template fields: {", ".join(unknown)}')
     return values
+
+
+def _readonly_fields_by_target(
+    db: Session,
+    template_key: str | None,
+    user_role: str,
+) -> dict[str, set[str]]:
+    if not template_key:
+        return {}
+    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    readonly_names: dict[str, set[str]] = {
+        'entry': set(),
+        'shift': set(),
+        'extra': set(),
+        'qc': set(),
+        'work_order': set(),
+    }
+    for field in template.get('readonly_fields', []):
+        target = field.get('target')
+        field_name = field.get('name')
+        if target and field_name:
+            readonly_names.setdefault(target, set()).add(field_name)
+    return readonly_names
+
+
+def _strip_readonly_payload_fields(
+    payload: dict[str, Any],
+    *,
+    db: Session,
+    user_role: str,
+    template_key: str | None,
+) -> dict[str, Any]:
+    if not payload:
+        return {}
+    readonly_fields = _readonly_fields_by_target(db, template_key=template_key, user_role=user_role)
+    if not readonly_fields:
+        return dict(payload)
+
+    sanitized = dict(payload)
+
+    for field_name in set(sanitized.keys()) & set(readonly_fields.get('entry', set())):
+        sanitized.pop(field_name, None)
+
+    if 'extra_payload' in sanitized and isinstance(sanitized.get('extra_payload'), dict):
+        extra_payload = dict(sanitized['extra_payload'])
+        for field_name in set(extra_payload.keys()) & set(readonly_fields.get('extra', set())):
+            extra_payload.pop(field_name, None)
+        sanitized['extra_payload'] = extra_payload
+    if 'qc_payload' in sanitized and isinstance(sanitized.get('qc_payload'), dict):
+        qc_payload = dict(sanitized['qc_payload'])
+        for field_name in set(qc_payload.keys()) & set(readonly_fields.get('qc', set())):
+            qc_payload.pop(field_name, None)
+        sanitized['qc_payload'] = qc_payload
+
+    return sanitized
+
+
+def _recalculate_readonly_derived_fields(
+    db: Session,
+    entity: WorkOrderEntry,
+    *,
+    template_key: str | None,
+    user_role: str,
+) -> None:
+    if not template_key:
+        return
+    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    for field in template.get('readonly_fields', []):
+        name = field.get('name')
+        compute = field.get('compute')
+        target = field.get('target')
+        if not name or not compute:
+            continue
+        if target == 'work_order':
+            continue
+        if target == 'entry':
+            if name == 'yield_rate':
+                entity.yield_rate = _calculate_yield_rate(entity)
+                continue
+            computed = _safe_decimal_compute(
+                compute,
+                context={
+                    'input_weight': _to_float(entity.verified_input_weight) or _to_float(entity.input_weight),
+                    'output_weight': _to_float(entity.verified_output_weight) or _to_float(entity.output_weight),
+                    'spool_weight': _to_float(entity.spool_weight),
+                },
+            )
+            if computed is None:
+                continue
+            setattr(entity, name, computed)
+            continue
+
+        if target in {'extra', 'qc'}:
+            raw_payload = getattr(entity, f'{target}_payload', None) or {}
+            if not isinstance(raw_payload, dict):
+                raw_payload = {}
+
+            context = {
+                'input_weight': _to_float(entity.verified_input_weight) or _to_float(entity.input_weight),
+                'output_weight': _to_float(entity.verified_output_weight) or _to_float(entity.output_weight),
+                'spool_weight': _to_float(entity.spool_weight),
+            }
+            context.update(raw_payload)
+
+            computed = _safe_decimal_compute(compute, context=context)
+            if computed is None:
+                continue
+
+            raw_payload[name] = computed
+            setattr(entity, f'{target}_payload', raw_payload)
+
+
+def _safe_decimal_compute(expression: str, *, context: dict[str, Any]) -> float | None:
+    if expression == 'output_weight / input_weight * 100':
+        output_weight = context.get('output_weight')
+        input_weight = context.get('input_weight')
+        if output_weight is None or input_weight in (None, 0):
+            return None
+        return round((float(output_weight) / float(input_weight)) * 100, 4)
+
+    if expression == 'input_weight - output_weight - spool_weight':
+        output_weight = context.get('output_weight')
+        input_weight = context.get('input_weight')
+        spool_weight = context.get('spool_weight') or 0
+        if output_weight is None or input_weight is None:
+            return None
+        return round(float(input_weight) - float(output_weight) - float(spool_weight), 4)
+
+    if expression == 'finished_inventory_weight - consignment_weight':
+        finished_inventory_weight = context.get('finished_inventory_weight')
+        consignment_weight = context.get('consignment_weight')
+        if finished_inventory_weight is None or consignment_weight is None:
+            return None
+        return round(float(finished_inventory_weight) - float(consignment_weight), 4)
+
+    return None
 
 
 def _serialize_entry(db: Session, entity: WorkOrderEntry, *, user_role: str) -> dict[str, Any]:
@@ -909,7 +1047,6 @@ def add_entry(
     work_order = _ensure_work_order(work_order_id, db)
     _ensure_header_access(db, work_order, operator)
     ocr_submission_id = payload.pop('ocr_submission_id', None)
-    payload_fingerprint = _entry_create_idempotency_fingerprint(work_order_id=work_order_id, payload=payload)
     idempotency_scope = _entry_create_idempotency_scope(operator)
 
     if idempotency_key:
@@ -959,6 +1096,13 @@ def add_entry(
         user_role=operator.role,
         target='qc',
     )
+    payload = _strip_readonly_payload_fields(
+        payload,
+        db=db,
+        user_role=operator.role,
+        template_key=template_key,
+    )
+    payload_fingerprint = _entry_create_idempotency_fingerprint(work_order_id=work_order_id, payload=payload)
 
     normalized_role = normalize_role(operator.role)
     if normalized_role in OWNER_ONLY_ENTRY_ROLES:
@@ -980,6 +1124,12 @@ def add_entry(
                 payload,
                 user_role=operator.role,
                 privileged_override=allow_locked_update,
+            )
+            _recalculate_readonly_derived_fields(
+                db,
+                existing_owner_entry,
+                template_key=template_key,
+                user_role=operator.role,
             )
             existing_owner_entry.yield_rate = _calculate_yield_rate(existing_owner_entry)
             record_entity_change(
@@ -1012,6 +1162,12 @@ def add_entry(
         locked_fields=[],
     )
     _apply_entry_fields(entity, payload, user_role=operator.role)
+    _recalculate_readonly_derived_fields(
+        db,
+        entity,
+        template_key=template_key,
+        user_role=operator.role,
+    )
     entity.yield_rate = _calculate_yield_rate(entity)
     db.add(entity)
     db.flush()
@@ -1089,8 +1245,20 @@ def update_entry(
             user_role=operator.role,
             target='qc',
         )
+    payload = _strip_readonly_payload_fields(
+        payload,
+        db=db,
+        user_role=operator.role,
+        template_key=template_key,
+    )
 
     _apply_entry_fields(entity, payload, user_role=operator.role, privileged_override=privileged_override)
+    _recalculate_readonly_derived_fields(
+        db,
+        entity,
+        template_key=template_key,
+        user_role=operator.role,
+    )
     if normalize_role(operator.role) == 'weigher':
         entity.weigher_user_id = operator.id
         entity.weighed_at = entity.weighed_at or _utcnow()

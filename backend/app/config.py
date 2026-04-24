@@ -102,6 +102,9 @@ class Settings(BaseSettings):
     LLM_API_BASE: str | None = None
     LLM_API_KEY: str | None = None
     LLM_MODEL: str | None = None
+    LLM_ENDPOINT_ID: str | None = None
+    LLM_IMAGE_MODEL: str | None = None
+    LLM_IMAGE_ENDPOINT_ID: str | None = None
     LLM_TIMEOUT_SECONDS: float = 20.0
     APP_CONNECTION_ENABLED: bool = False
     APP_CONNECTION_API_BASE: str | None = None
@@ -296,13 +299,15 @@ class Settings(BaseSettings):
                 for field_name, field_value in (
                     ('LLM_API_BASE', self.LLM_API_BASE),
                     ('LLM_API_KEY', self.LLM_API_KEY),
-                    ('LLM_MODEL', self.LLM_MODEL),
                 )
                 if _is_blank(field_value)
             ]
+            has_llm_model_ref = not _is_blank(self.LLM_MODEL) or not _is_blank(self.LLM_ENDPOINT_ID)
+            if not has_llm_model_ref:
+                missing_llm_fields.append('(LLM_MODEL or LLM_ENDPOINT_ID)')
             if missing_llm_fields:
                 if len(missing_llm_fields) == 3:
-                    issues.append('LLM_ENABLED requires LLM_API_BASE, LLM_API_KEY, and LLM_MODEL')
+                    issues.append('LLM_ENABLED requires LLM_API_BASE, LLM_API_KEY, and (LLM_MODEL or LLM_ENDPOINT_ID)')
                 else:
                     issues.append(f"LLM_ENABLED is missing {', '.join(missing_llm_fields)}")
 

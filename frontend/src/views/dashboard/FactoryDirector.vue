@@ -1,123 +1,96 @@
 <template>
-  <div class="page-stack" data-testid="factory-dashboard">
-    <div class="page-header">
-      <div>
-        <h1>厂长驾驶舱</h1>
-        <p>聚焦岗位直录、智能体联动、月累计产量与异常闭环，前台不再铺陈 MES 接入过程。</p>
-      </div>
-      <div class="header-actions">
-        <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
-        <span class="note">数据更新于 {{ lastRefreshLabel }}</span>
-      </div>
-    </div>
-
-    <section class="dashboard-command panel" v-loading="loading">
-      <div class="dashboard-command__hero">
-        <div class="dashboard-command__copy">
-          <span>智能体联动</span>
-          <h2>把原始值收口到一套运行壳层里，让采集清洗小队和分析决策小队像专业经理班子一样接力。</h2>
-          <p>这一阶段先守住日产量、入库、发货、合同和能耗，再往后接成本核算、排产规划和经营自动化。</p>
-          <div class="dashboard-command__pills">
-            <span v-for="pill in commandPills" :key="pill">{{ pill }}</span>
-          </div>
+  <ReferencePageFrame
+    module-number="05"
+    title="工厂作业看板"
+    :tags="['审阅端', '厂级']"
+    class="page-stack review-factory"
+    data-testid="factory-dashboard"
+  >
+    <section
+      class="review-home-hero panel review-factory-hero review-factory-reveal review-factory-reveal--1"
+      data-testid="review-home-hero"
+      v-loading="loading"
+    >
+      <div class="review-home-hero__meta">
+        <div class="review-home-hero__copy">
+          <h2>鑫泰铝业协同运营平台</h2>
         </div>
-        <div class="dashboard-command__rail">
-          <div class="dashboard-hero__metric">
-            <span>今日产量</span>
-            <strong>{{ formatNumber(leaderMetrics.today_total_output) }}</strong>
-          </div>
-          <div class="dashboard-hero__metric">
-            <span>月累计产量</span>
-            <strong>{{ formatNumber(monthToDateOutput) }}</strong>
-          </div>
-          <div class="dashboard-hero__metric">
-            <span>数据留存</span>
-            <strong>{{ retentionSummary }}</strong>
+        <div class="review-home-hero__toolbar">
+          <div class="review-home-hero__controls">
+            <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
+            <span class="note">最近更新：{{ lastRefreshLabel }}</span>
           </div>
         </div>
       </div>
 
-      <div class="agent-orchestra-grid">
-        <article class="agent-orchestra-card">
-          <div class="agent-orchestra-card__top">
-            <span>采集清洗小队</span>
-            <strong>把主操、成品库、水电气、计划科原始值先接住</strong>
+      <div class="review-home-hero__grid">
+        <div class="review-home-hero__metrics">
+          <div class="review-home-hero__section-title">
+            <el-icon><TrendCharts /></el-icon>
+            <span>核心指标</span>
           </div>
-          <p>负责字段校验、缺报提醒、异常退回和岗位归档，让数据先变干净，再进入经营视图。</p>
-          <div class="agent-orchestra-card__stats">
-            <div v-for="item in collectionSquadStats" :key="item.label" class="agent-orchestra-stat">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </div>
-          </div>
-        </article>
-
-        <article class="agent-orchestra-card is-accent">
-          <div class="agent-orchestra-card__top">
-            <span>分析决策小队</span>
-            <strong>把日数据转成摘要、预警、趋势和归档</strong>
-          </div>
-          <p>负责驾驶舱、日报、异常闭环和历史留存，让领导直接看结果，不再等人工统计拼总表。</p>
-          <div class="agent-orchestra-card__stats">
-            <div v-for="item in decisionSquadStats" :key="item.label" class="agent-orchestra-stat">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="agent-flow">
-        <div v-for="step in pipelineSteps" :key="step.title" class="agent-flow__step">
-          <span>{{ step.stage }}</span>
-          <strong>{{ step.title }}</strong>
-          <p>{{ step.summary }}</p>
+          <ReviewCommandDeck :cards="heroCards" />
+        </div>
+        <div class="review-home-hero__runtime">
+          <AgentRuntimeFlow
+            title=""
+            :trace="runtimeTrace"
+            :risks="data.exception_lane || {}"
+            compact
+          />
         </div>
       </div>
     </section>
 
-    <div class="dashboard-secondary-grid" v-loading="loading">
-      <el-card class="panel">
-        <template #header>今日摘要</template>
-        <div class="text-summary">{{ leaderSummaryText }}</div>
-      </el-card>
-
-      <el-card class="panel">
-        <template #header>交付与闭环</template>
-        <div class="ops-digest-grid">
-          <div class="ops-digest-card">
-            <span>交付状态</span>
-            <strong>{{ delivery.delivery_ready ? '可交付' : '未就绪' }}</strong>
-            <p>当前缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</p>
-          </div>
-          <div class="ops-digest-card">
-            <span>最新刷新</span>
-            <strong>{{ lastRefreshLabel }}</strong>
-            <p>当前驾驶舱按 30 秒自动刷新，保持日内运行态。</p>
-          </div>
-        </div>
-      </el-card>
+    <div class="review-factory-dock review-factory-reveal review-factory-reveal--2">
+      <ReviewAssistantDock
+        :quick-actions="assistantQuickActions"
+        :capabilities="assistantCapabilities"
+        :loading="assistantLoading"
+        @run="handleAssistantShortcut"
+        @open="handleAssistantOpen"
+      />
     </div>
 
-    <div class="stat-grid" v-loading="loading">
+    <ReviewAssistantWorkbench
+      v-model="assistantOpen"
+      :capabilities="assistantCapabilities"
+      :loading="assistantLoading"
+      :seed-query="assistantSeedQuery"
+      :shortcut-seed="assistantShortcutSeed"
+    />
+
+    <section class="review-factory-detail-toggle review-factory-reveal review-factory-reveal--3">
+      <button type="button" class="review-factory-detail-toggle__btn" @click="detailExpanded = !detailExpanded">
+        {{ detailExpanded ? '收起运行详情' : '展开运行详情' }}
+      </button>
+    </section>
+
+    <div v-show="detailExpanded" class="stat-grid review-factory-reveal review-factory-reveal--3" v-loading="loading">
       <div class="stat-card">
         <div class="stat-label">今日产量</div>
+        <div v-if="sourceTagsFor('今日产量').length" class="stat-source-tags">
+          <span
+            v-for="lane in sourceTagsFor('今日产量')"
+            :key="`today-output-${lane.key}`"
+            :class="['stat-source-tag', sourceTagClass(lane)]"
+          >
+            {{ sourceTagText(lane) }}
+          </span>
+        </div>
         <div class="stat-value">{{ formatNumber(leaderMetrics.today_total_output) }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">估算收入</div>
-        <div class="stat-value">{{ formatMoney(leaderMetrics.estimated_revenue) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">估算成本</div>
-        <div class="stat-value">{{ formatMoney(leaderMetrics.estimated_cost) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">估算毛差</div>
-        <div class="stat-value">{{ formatMoney(leaderMetrics.estimated_margin) }}</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-label">单吨能耗</div>
+        <div v-if="sourceTagsFor('单吨能耗').length" class="stat-source-tags">
+          <span
+            v-for="lane in sourceTagsFor('单吨能耗')"
+            :key="`energy-per-ton-${lane.key}`"
+            :class="['stat-source-tag', sourceTagClass(lane)]"
+          >
+            {{ sourceTagText(lane) }}
+          </span>
+        </div>
         <div class="stat-value">{{ formatNumber(leaderMetrics.energy_per_ton) }}</div>
       </div>
       <div class="stat-card">
@@ -130,35 +103,42 @@
       </div>
       <div class="stat-card">
         <div class="stat-label">今日发货</div>
+        <div v-if="sourceTagsFor('今日发货').length" class="stat-source-tags">
+          <span
+            v-for="lane in sourceTagsFor('今日发货')"
+            :key="`shipment-${lane.key}`"
+            :class="['stat-source-tag', sourceTagClass(lane)]"
+          >
+            {{ sourceTagText(lane) }}
+          </span>
+        </div>
         <div class="stat-value">{{ formatNumber(leaderMetrics.shipment_weight) }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">入库面积</div>
+        <div v-if="sourceTagsFor('入库面积').length" class="stat-source-tags">
+          <span
+            v-for="lane in sourceTagsFor('入库面积')"
+            :key="`inbound-area-${lane.key}`"
+            :class="['stat-source-tag', sourceTagClass(lane)]"
+          >
+            {{ sourceTagText(lane) }}
+          </span>
+        </div>
         <div class="stat-value">{{ formatNumber(leaderMetrics.storage_inbound_area) }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">合同量</div>
+        <div v-if="sourceTagsFor('合同量').length" class="stat-source-tags">
+          <span
+            v-for="lane in sourceTagsFor('合同量')"
+            :key="`contract-${lane.key}`"
+            :class="['stat-source-tag', sourceTagClass(lane)]"
+          >
+            {{ sourceTagText(lane) }}
+          </span>
+        </div>
         <div class="stat-value">{{ formatNumber(leaderMetrics.contract_weight) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">活跃合同</div>
-        <div class="stat-value">{{ leaderMetrics.active_contract_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">停滞合同</div>
-        <div class="stat-value">{{ leaderMetrics.stalled_contract_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">活跃卷数</div>
-        <div class="stat-value">{{ leaderMetrics.active_coil_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">成品率</div>
-        <div class="stat-value">{{ formatNumber(leaderMetrics.yield_rate) }}%</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">出勤</div>
-        <div class="stat-value">{{ leaderMetrics.total_attendance ?? 0 }}</div>
       </div>
       <div class="stat-card" data-testid="delivery-ready-card">
         <div class="stat-label">交付状态</div>
@@ -166,125 +146,202 @@
       </div>
     </div>
 
-    <el-card class="panel" v-loading="loading">
-      <template #header>今日上报状态</template>
-      <div class="reporting-status-grid">
-        <div
-          v-for="item in data.workshop_reporting_status || []"
-          :key="item.workshop_id"
-          class="reporting-status-card"
-        >
-          <div class="reporting-status-name">{{ item.workshop_name }}</div>
-          <el-tag :type="reportStatusTagType(item.report_status)" effect="plain" size="large">
-            {{ reportStatusLabel(item.report_status) }}
-          </el-tag>
-          <div v-if="item.output_weight != null" class="reporting-status-weight">
-            {{ formatNumber(item.output_weight) }} 吨
+    <el-card
+      v-show="detailExpanded"
+      class="panel review-home-tabs review-factory-tabs review-factory-reveal review-factory-reveal--4"
+      v-loading="loading"
+    >
+      <el-tabs v-model="detailTab">
+        <el-tab-pane label="上报" name="reporting">
+          <div class="panel-header-shell">
+            <span>今日上报状态</span>
+            <div v-if="sourceTagsFor('今日上报状态').length" class="panel-source-tags">
+              <span
+                v-for="lane in sourceTagsFor('今日上报状态')"
+                :key="`reporting-${lane.key}`"
+                :class="['panel-source-tag', sourceTagClass(lane)]"
+              >
+                {{ sourceTagText(lane) }}
+              </span>
+            </div>
           </div>
-        </div>
-        <div v-if="!(data.workshop_reporting_status || []).length" class="template-empty">
-          暂无车间数据
-        </div>
-      </div>
-    </el-card>
+          <el-table
+            v-if="(data.workshop_reporting_status || []).length"
+            :data="data.workshop_reporting_status || []"
+            class="reporting-status-table"
+            stripe
+            size="small"
+          >
+            <el-table-column prop="workshop_name" label="车间" min-width="150" />
+            <el-table-column label="状态" width="130">
+              <template #default="{ row }">
+                <span :class="['reporting-status-pill', `is-${row.report_status || 'unreported'}`, `tone-${reportStatusTagType(row.report_status)}`]">
+                  {{ reportStatusLabel(row.report_status) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="来源" width="130">
+              <template #default="{ row }">
+                <span :class="['lane-source-pill', reportingSourceClass(row)]">
+                  {{ row.source_label || '主操直录' }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="产量(吨)" width="120" align="right">
+              <template #default="{ row }">
+                {{ row.output_weight == null ? '--' : formatNumber(row.output_weight) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="说明" min-width="220">
+              <template #default="{ row }">
+                <span class="reporting-status-note">{{ row.status_hint || reportStatusHint(row.report_status) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else class="template-empty">
+            暂无车间数据
+          </div>
+        </el-tab-pane>
 
-    <el-card class="panel" v-loading="loading">
-      <template #header>今日关注</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="未报班次">{{ data.exception_lane?.unreported_shift_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="迟报班次">{{ data.exception_lane?.reminder_late_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="待处理差异">{{ data.exception_lane?.reconciliation_open_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="待处理日报">{{ data.exception_lane?.pending_report_publish_count ?? 0 }}</el-descriptions-item>
-      </el-descriptions>
-      <div class="note" data-testid="delivery-missing-steps">交付缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
-    </el-card>
+        <el-tab-pane label="关注" name="attention">
+          <div class="panel-header-shell">
+            <span>今日关注</span>
+            <div v-if="sourceTagsFor('今日关注').length" class="panel-source-tags">
+              <span
+                v-for="lane in sourceTagsFor('今日关注')"
+                :key="`attention-${lane.key}`"
+                :class="['panel-source-tag', sourceTagClass(lane)]"
+              >
+                {{ sourceTagText(lane) }}
+              </span>
+            </div>
+          </div>
+          <el-descriptions :column="4" border>
+            <el-descriptions-item label="未报班次">{{ data.exception_lane?.unreported_shift_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="迟报班次">{{ data.exception_lane?.reminder_late_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="待处理差异">{{ data.exception_lane?.reconciliation_open_count ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="待处理日报">{{ data.exception_lane?.pending_report_publish_count ?? 0 }}</el-descriptions-item>
+          </el-descriptions>
+          <div class="note" data-testid="delivery-missing-steps">缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
+        </el-tab-pane>
 
-    <el-card class="panel" v-loading="loading">
-      <template #header>近 7 日留存趋势</template>
-      <div class="history-trend-grid">
-        <div v-for="item in dailySnapshots" :key="item.date" class="history-trend-card">
-          <div class="history-trend-card__top">
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.date }}</span>
-          </div>
-          <div class="history-trend-card__bar">
-            <span :style="{ width: trendBarWidth(item.output_weight) }" />
-          </div>
-          <div class="history-trend-card__meta">
-            <div>
-              <span>产量</span>
-              <strong>{{ formatNumber(item.output_weight) }} 吨</strong>
-            </div>
-            <div>
-              <span>入库</span>
-              <strong>{{ formatNumber(item.storage_finished_weight) }} 吨</strong>
-            </div>
-            <div>
-              <span>发货</span>
-              <strong>{{ formatNumber(item.shipment_weight) }} 吨</strong>
-            </div>
-            <div>
-              <span>入库面积</span>
-              <strong>{{ formatNumber(item.storage_inbound_area) }} ㎡</strong>
-            </div>
-            <div>
-              <span>合同</span>
-              <strong>{{ formatNumber(item.contract_weight) }} 吨</strong>
-            </div>
-            <div>
-              <span>单吨能耗</span>
-              <strong>{{ formatNumber(item.energy_per_ton) }}</strong>
+        <el-tab-pane label="趋势" name="trend">
+          <div class="panel-header-shell">
+            <span>近 7 日留存趋势</span>
+            <div v-if="sourceTagsFor('近 7 日留存趋势').length" class="panel-source-tags">
+              <span
+                v-for="lane in sourceTagsFor('近 7 日留存趋势')"
+                :key="`trend-${lane.key}`"
+                :class="['panel-source-tag', sourceTagClass(lane)]"
+              >
+                {{ sourceTagText(lane) }}
+              </span>
             </div>
           </div>
-        </div>
-        <div v-if="!dailySnapshots.length" class="template-empty">
-          暂无趋势数据
-        </div>
-      </div>
-    </el-card>
+          <div class="history-trend-grid">
+            <div v-for="item in dailySnapshots" :key="item.date" class="history-trend-card">
+              <div class="history-trend-card__top">
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.date }}</span>
+              </div>
+              <div class="history-trend-card__bar">
+                <span :style="{ width: trendBarWidth(item.output_weight) }" />
+              </div>
+              <div class="history-trend-card__meta">
+                <div>
+                  <span>产量</span>
+                  <strong>{{ formatNumber(item.output_weight) }} 吨</strong>
+                </div>
+                <div>
+                  <span>入库</span>
+                  <strong>{{ formatNumber(item.storage_finished_weight) }} 吨</strong>
+                </div>
+                <div>
+                  <span>发货</span>
+                  <strong>{{ formatNumber(item.shipment_weight) }} 吨</strong>
+                </div>
+                <div>
+                  <span>入库面积</span>
+                  <strong>{{ formatNumber(item.storage_inbound_area) }} ㎡</strong>
+                </div>
+                <div>
+                  <span>合同</span>
+                  <strong>{{ formatNumber(item.contract_weight) }} 吨</strong>
+                </div>
+                <div>
+                  <span>单吨能耗</span>
+                  <strong>{{ formatNumber(item.energy_per_ton) }}</strong>
+                </div>
+              </div>
+            </div>
+            <div v-if="!dailySnapshots.length" class="template-empty">
+              暂无趋势数据
+            </div>
+          </div>
+        </el-tab-pane>
 
-    <el-card class="panel" v-loading="loading">
-      <template #header>数据留存与归档</template>
-      <div class="archive-grid">
-        <div class="archive-card">
-          <span>月度归档</span>
-          <strong>{{ formatNumber(monthArchive.total_output) }} 吨</strong>
-          <p>已留存 {{ monthArchive.reported_days ?? 0 }} 天，日均 {{ formatNumber(monthArchive.average_daily_output) }} 吨。</p>
-        </div>
-        <div class="archive-card">
-          <span>年度归档</span>
-          <strong>{{ formatNumber(yearArchive.total_output) }} 吨</strong>
-          <p>已覆盖 {{ yearArchive.active_months ?? 0 }} 个月，月均 {{ formatNumber(yearArchive.average_monthly_output) }} 吨。</p>
-        </div>
-        <div class="archive-card archive-card--accent">
-          <span>当日留存</span>
-          <strong>{{ targetDate }}</strong>
-          <p>原始值、摘要、趋势快照都按天沉淀，后续可直接接月结、年结、成本和排产。</p>
-        </div>
-      </div>
+        <el-tab-pane label="归档" name="archive">
+          <div class="panel-header-shell">
+            <span>数据留存与归档</span>
+            <div v-if="sourceTagsFor('数据留存与归档').length" class="panel-source-tags">
+              <span
+                v-for="lane in sourceTagsFor('数据留存与归档')"
+                :key="`archive-${lane.key}`"
+                :class="['panel-source-tag', sourceTagClass(lane)]"
+              >
+                {{ sourceTagText(lane) }}
+              </span>
+            </div>
+          </div>
+          <div class="archive-grid">
+            <div class="archive-card">
+              <span>月度归档</span>
+              <strong>{{ formatNumber(monthArchive.total_output) }} 吨</strong>
+              <p>日均 {{ formatNumber(monthArchive.average_daily_output) }} 吨</p>
+            </div>
+            <div class="archive-card">
+              <span>年度归档</span>
+              <strong>{{ formatNumber(yearArchive.total_output) }} 吨</strong>
+              <p>月均 {{ formatNumber(yearArchive.average_monthly_output) }} 吨</p>
+            </div>
+            <div class="archive-card archive-card--accent">
+              <span>当日留存</span>
+              <strong>{{ targetDate }}</strong>
+              <p>归档完成</p>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </el-card>
-  </div>
+  </ReferencePageFrame>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
+import { TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
+import { buildAssistantFallback, fetchAssistantCapabilities } from '../../api/assistant'
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
+import AgentRuntimeFlow from '../../components/review/AgentRuntimeFlow.vue'
+import ReviewAssistantDock from '../../components/review/ReviewAssistantDock.vue'
+import ReviewAssistantWorkbench from '../../components/review/ReviewAssistantWorkbench.vue'
+import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
+import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
 
 function reportStatusLabel(status) {
   const map = {
-    submitted: '已上报',
-    reviewed: '已接收',
-    auto_confirmed: '自动确认',
-    returned: '已退回',
+    submitted: '主操已报',
+    reviewed: '系统处理中',
+    auto_confirmed: '已入汇总',
+    returned: '退回补录',
     draft: '填报中',
-    unreported: '未上报',
+    unreported: '待上报',
     late: '迟报'
   }
-  return map[status] || status || '未上报'
+  return map[status] || status || '待上报'
 }
 
 function reportStatusTagType(status) {
@@ -300,68 +357,172 @@ function reportStatusTagType(status) {
   return map[status] || 'info'
 }
 
+function reportStatusHint(status) {
+  const map = {
+    submitted: '主操已报',
+    reviewed: '系统处理中',
+    auto_confirmed: '已入汇总',
+    returned: '退回补录',
+    draft: '填报中',
+    unreported: '待上报',
+    late: '迟报'
+  }
+  return map[status] || '同步中'
+}
+
+function reportingSourceClass(item) {
+  const normalized = String(item?.source_variant || '').toLowerCase()
+  if (normalized === 'owner') return 'is-owner'
+  if (normalized === 'mobile') return 'is-mobile'
+  return 'is-import'
+}
+
+function prefersExpandedDetail() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+  return window.matchMedia('(min-width: 1080px)').matches
+}
+
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const data = ref({})
 const delivery = ref({})
 const lastRefreshAt = ref('')
+const assistantOpen = ref(false)
+const assistantLoading = ref(false)
+const assistantSeedQuery = ref('')
+const assistantShortcutSeed = ref(null)
+const assistantCapabilities = ref(buildAssistantFallback())
+const detailTab = ref('reporting')
+const detailExpanded = ref(prefersExpandedDetail())
+const lastLoadErrorMessage = ref('')
 const leaderMetrics = computed(() => data.value.leader_metrics || {})
 const historyDigest = computed(() => data.value.history_digest || {})
+const runtimeTrace = computed(() => data.value.runtime_trace || {})
+const runtimeSourceIndex = computed(() => {
+  const index = {}
+  for (const lane of runtimeTrace.value.source_lanes || []) {
+    for (const target of lane.result_targets || []) {
+      if (!index[target]) index[target] = []
+      index[target].push(lane)
+    }
+  }
+  return index
+})
 const dailySnapshots = computed(() => historyDigest.value.daily_snapshots || [])
 const monthArchive = computed(() => historyDigest.value.month_archive || {})
 const yearArchive = computed(() => historyDigest.value.year_archive || {})
 const maxTrendOutput = computed(() => Math.max(...dailySnapshots.value.map((item) => Number(item.output_weight) || 0), 1))
-const commandPills = computed(() => ['主操直录', '专项 owner 补录', '企业微信主入口', '自动归档', '自动预警'])
 const monthToDateOutput = computed(() => data.value.month_to_date_output ?? data.value.leader_metrics?.month_to_date_output ?? null)
-const leaderSummaryText = computed(() =>
-  data.value.leader_summary?.summary_text || data.value.final_text_summary || data.value.boss_summary || '暂无摘要。'
-)
 const lastRefreshLabel = computed(() => (lastRefreshAt.value ? dayjs(lastRefreshAt.value).format('HH:mm:ss') : '--:--:--'))
 const retentionSummary = computed(() => `${monthArchive.value.reported_days ?? 0} 天归档`)
-const collectionSquadStats = computed(() => [
-  { label: '已报率', value: `${data.value.mobile_reporting_summary?.reporting_rate ?? 0}%` },
-  { label: '未报班次', value: `${data.value.exception_lane?.unreported_shift_count ?? 0} 个` },
-  { label: '退回班次', value: `${data.value.exception_lane?.returned_shift_count ?? 0} 个` },
-  { label: '今日催报', value: `${data.value.reminder_summary?.today_reminder_count ?? 0} 次` }
-])
-const decisionSquadStats = computed(() => [
-  { label: '开放差异', value: `${data.value.exception_lane?.reconciliation_open_count ?? 0} 个` },
-  { label: '待发布日报', value: `${data.value.exception_lane?.pending_report_publish_count ?? 0} 份` },
-  { label: '月度归档', value: `${monthArchive.value.reported_days ?? 0} 天` },
-  { label: '年度归档', value: `${yearArchive.value.active_months ?? 0} 个月` }
-])
-const pipelineSteps = computed(() => [
+const assistantQuickActions = computed(() => assistantCapabilities.value.quick_actions || buildAssistantFallback().quick_actions)
+let assistantShortcutSequence = 0
+const heroCards = computed(() => [
   {
-    stage: '01',
-    title: '岗位直录',
-    summary: '主操、成品库、水电气、计划科把原始值按岗位直接录入。'
+    key: 'today-output',
+    label: '今日产量',
+    value: `${formatNumber(leaderMetrics.value.today_total_output)} 吨`,
+    hint: '主线指标。',
+    tone: 'success'
   },
   {
-    stage: '02',
-    title: '自动校验',
-    summary: '采集清洗小队做字段完整性、范围校验、缺报提醒和异常退回。'
+    key: 'unreported',
+    label: '缺报班次',
+    value: `${data.value.exception_lane?.unreported_shift_count ?? 0}`,
+    hint: '先补原始值。',
+    tone: (data.value.exception_lane?.unreported_shift_count ?? 0) > 0 ? 'danger' : 'success'
   },
   {
-    stage: '03',
-    title: '自动汇总',
-    summary: '分析决策小队生成摘要、预警、趋势、归档和驾驶舱视图。'
+    key: 'exceptions',
+    label: '异常与退回',
+    value: `${(data.value.exception_lane?.mobile_exception_count ?? 0) + (data.value.exception_lane?.returned_shift_count ?? 0)}`,
+    hint: '先清异常。',
+    tone:
+      (data.value.exception_lane?.mobile_exception_count ?? 0) + (data.value.exception_lane?.returned_shift_count ?? 0) > 0
+        ? 'alert'
+        : 'success'
   },
   {
-    stage: '04',
-    title: '领导直达',
-    summary: '管理层直接看结果和异常闭环，不再等待中间人工汇总。'
+    key: 'delivery',
+    label: '交付状态',
+    value: delivery.value.delivery_ready ? '可交付' : '未就绪',
+    hint: formatDeliveryMissingSteps(delivery.value.missing_steps).join('；') || '关键链路已具备。',
+    tone: delivery.value.delivery_ready ? 'success' : 'alert'
+  },
+  {
+    key: 'energy',
+    label: '单吨能耗',
+    value: `${formatNumber(leaderMetrics.value.energy_per_ton)}`,
+    hint: '盯住波动。',
+    tone: 'primary'
+  },
+  {
+    key: 'retention',
+    label: '数据留存',
+    value: retentionSummary.value,
+    hint: `月累计 ${formatNumber(monthToDateOutput.value)} 吨。`,
+    tone: 'primary'
   }
 ])
 let refreshTimer = null
 
-function formatMoney(value) {
-  if (value === null || value === undefined || value === '') return '--'
-  return `¥${formatNumber(value)}`
+function mergeAssistantCapabilities(payload = {}) {
+  return {
+    ...buildAssistantFallback(),
+    ...payload,
+    groups: payload.groups || buildAssistantFallback().groups
+  }
 }
 
 function trendBarWidth(value) {
   const safeValue = Number(value) || 0
   return `${Math.max((safeValue / maxTrendOutput.value) * 100, safeValue > 0 ? 12 : 0)}%`
+}
+
+function sourceTagsFor(target) {
+  return runtimeSourceIndex.value[target] || []
+}
+
+function sourceTagText(lane) {
+  if (!lane?.stage_label) return `来自 ${lane?.label || ''}`.trim()
+  return `${lane.label} · ${lane.stage_label}`
+}
+
+function sourceTagClass(lane) {
+  return lane?.status ? `is-${lane.status}` : ''
+}
+
+function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试') {
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item).join('；')
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim()
+  }
+  return error?.message || fallback
+}
+
+function handleAssistantOpen() {
+  assistantSeedQuery.value = ''
+  assistantShortcutSeed.value = null
+  assistantOpen.value = true
+}
+
+function handleAssistantShortcut(action) {
+  const query = action?.query || action?.label || ''
+  assistantShortcutSequence += 1
+  assistantSeedQuery.value = query
+  assistantShortcutSeed.value = {
+    key: action?.key || `assistant-shortcut-${assistantShortcutSequence}`,
+    mode: action?.mode || 'answer',
+    query,
+    token: `assistant-shortcut-${assistantShortcutSequence}`
+  }
+  assistantOpen.value = true
 }
 
 async function load() {
@@ -374,10 +535,27 @@ async function load() {
     data.value = dashboardPayload
     delivery.value = deliveryPayload
     lastRefreshAt.value = new Date().toISOString()
-  } catch {
-    ElMessage.error('数据加载失败，请稍后重试')
+    lastLoadErrorMessage.value = ''
+  } catch (error) {
+    const message = requestErrorMessage(error, '数据加载失败，请稍后重试')
+    if (message !== lastLoadErrorMessage.value) {
+      ElMessage.error(message)
+      lastLoadErrorMessage.value = message
+    }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadAssistant() {
+  assistantLoading.value = true
+  try {
+    const payload = await fetchAssistantCapabilities()
+    assistantCapabilities.value = mergeAssistantCapabilities(payload)
+  } catch {
+    assistantCapabilities.value = buildAssistantFallback()
+  } finally {
+    assistantLoading.value = false
   }
 }
 
@@ -385,6 +563,7 @@ watch(targetDate, () => load())
 
 onMounted(() => {
   load()
+  loadAssistant()
   refreshTimer = setInterval(load, 30000)
 })
 
@@ -397,275 +576,297 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.dashboard-command,
-.dashboard-command__hero,
-.dashboard-command__copy,
-.dashboard-command__rail,
-.dashboard-hero__metric,
-.agent-orchestra-card,
-.agent-orchestra-card__top,
-.agent-orchestra-card__stats,
-.agent-orchestra-stat,
-.agent-flow__step,
-.ops-digest-card {
-  display: grid;
-  gap: 12px;
+.review-factory {
+  position: relative;
 }
 
-.dashboard-command {
-  padding: 24px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.98));
+.review-factory-reveal {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: review-factory-reveal 0.2s ease forwards;
 }
 
-.dashboard-command__hero {
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
-  align-items: start;
+.review-factory-reveal--1 {
+  animation-delay: 0.02s;
 }
 
-.dashboard-command__copy span,
-.agent-orchestra-card__top span,
-.agent-flow__step span,
-.ops-digest-card span {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--app-muted);
+.review-factory-reveal--2 {
+  animation-delay: 0.04s;
 }
 
-.dashboard-command__copy h2 {
+.review-factory-reveal--3 {
+  animation-delay: 0.06s;
+}
+
+.review-factory-reveal--4 {
+  animation-delay: 0.08s;
+}
+
+.review-factory-hero {
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.review-factory-dock {
   margin: 0;
-  font-size: 34px;
-  line-height: 1.18;
-  color: var(--app-text);
 }
 
-.dashboard-command__copy p {
-  margin: 0;
-  color: var(--app-muted);
-  line-height: 1.7;
-  max-width: 720px;
+.review-factory-tabs :deep(.el-tabs__header) {
+  margin-bottom: 14px;
 }
 
-.dashboard-command__pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.review-factory-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
 }
 
-.dashboard-command__pills span,
-.top-pulse {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 14px;
+.review-factory-tabs :deep(.el-tabs__item) {
+  margin: 0 4px 6px 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  color: var(--app-text);
-  font-size: 13px;
   font-weight: 600;
 }
 
-.dashboard-command__rail {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-content: start;
+.review-factory-tabs :deep(.el-tabs__active-bar) {
+  border-radius: 999px;
 }
 
-.dashboard-hero__metric {
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 18px 38px rgba(148, 163, 184, 0.14);
-  animation: dashboard-float 5.6s ease-in-out infinite;
+.review-home-hero,
+.review-home-hero__meta,
+.review-home-hero__copy,
+.review-home-hero__toolbar,
+.review-home-hero__controls,
+.review-home-hero__grid,
+.review-home-hero__metrics,
+.review-home-hero__runtime {
+  display: grid;
+  gap: 8px;
 }
 
-.dashboard-hero__metric:nth-child(2) {
-  animation-delay: 0.18s;
+.review-home-hero {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 38%),
+    rgba(255, 255, 255, 0.96);
 }
 
-.dashboard-hero__metric:nth-child(3) {
-  animation-delay: 0.36s;
+.review-home-hero__meta {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
 }
 
-.dashboard-hero__metric span {
+.review-home-hero__copy h2 {
+  margin: 0;
+  font-size: clamp(26px, 2.3vw, 36px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.review-home-hero__toolbar {
+  align-items: start;
+  justify-items: end;
+}
+
+.review-home-hero__controls {
+  width: min(280px, 100%);
+  justify-items: end;
+  gap: 8px;
+}
+
+.review-home-hero__controls :deep(.el-input__wrapper) {
+  border-radius: 10px;
+}
+
+.review-home-hero__controls .note,
+.review-home-hero__section-title {
   font-size: 12px;
   color: var(--app-muted);
 }
 
-.dashboard-hero__metric strong {
-  font-size: 24px;
-  color: var(--app-text);
+.review-home-hero__section-title {
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.agent-orchestra-grid,
-.dashboard-secondary-grid,
-.ops-digest-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+.review-home-hero__section-title :deep(.el-icon) {
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(219, 234, 254, 0.86);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  color: #1d4ed8;
 }
 
-.agent-orchestra-card {
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.8);
-  animation: dashboard-float 6.2s ease-in-out infinite;
+.review-home-hero__grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(400px, 0.9fr);
+  align-items: start;
+  gap: 12px;
 }
 
-.agent-orchestra-card.is-accent {
-  background:
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 36%),
-    rgba(255, 255, 255, 0.82);
-  animation-delay: 0.24s;
-}
-
-.agent-orchestra-card__top strong,
-.agent-flow__step strong,
-.ops-digest-card strong {
-  font-size: 20px;
-  color: var(--app-text);
-  line-height: 1.35;
-}
-
-.agent-orchestra-card p,
-.agent-flow__step p,
-.ops-digest-card p {
-  margin: 0;
-  color: var(--app-muted);
-  line-height: 1.7;
-}
-
-.agent-orchestra-card__stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.agent-orchestra-stat {
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.agent-orchestra-stat strong {
-  font-size: 18px;
-  color: var(--app-text);
-}
-
-.agent-flow {
-  display: grid;
+.review-factory .stat-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
-.agent-flow__step {
-  padding: 16px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  position: relative;
+.review-factory-detail-toggle {
+  display: flex;
+  justify-content: center;
+}
+
+.review-factory-detail-toggle__btn {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform var(--app-motion-fast) var(--app-motion-curve),
+    box-shadow var(--app-motion-fast) var(--app-motion-curve),
+    border-color var(--app-motion-fast) ease,
+    background-color var(--app-motion-fast) ease;
+}
+
+.review-factory-detail-toggle__btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow: var(--app-shadow-xs);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(247, 252, 255, 0.96));
+}
+
+.review-factory-detail-toggle__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--app-focus-ring);
+}
+
+.review-factory .stat-card {
+  min-height: 116px;
+  padding: 15px;
+}
+
+.review-home-hero__metrics,
+.review-home-hero__runtime {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.94);
+  box-shadow: var(--app-shadow-xs);
+}
+.review-factory-tabs {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: var(--app-shadow-xs);
+}
+
+@keyframes review-factory-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reporting-status-table {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
   overflow: hidden;
 }
 
-.agent-flow__step::after {
-  content: '';
-  position: absolute;
-  inset: auto 12px 0 12px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.72), rgba(16, 185, 129, 0.72));
+.reporting-status-table :deep(.el-table__cell) {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
-.agent-flow__step::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.55) 48%, transparent 100%);
-  transform: translateX(-130%);
-  animation: dashboard-sheen 7.2s ease-in-out infinite;
-}
-
-.ops-digest-card {
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-@keyframes dashboard-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-@keyframes dashboard-sheen {
-  0%,
-  70%,
-  100% {
-    transform: translateX(-130%);
-  }
-
-  85% {
-    transform: translateX(130%);
-  }
-}
-
-.reporting-status-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.reporting-status-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
-  min-width: 100px;
-}
-
-.reporting-status-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.reporting-status-weight {
+.reporting-status-table :deep(.cell) {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+}
+
+.reporting-status-table :deep(thead .cell) {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #475569;
+}
+
+.reporting-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: rgba(226, 232, 240, 0.8);
+  color: #334155;
+}
+
+.reporting-status-pill.is-submitted,
+.reporting-status-pill.is-reviewed,
+.reporting-status-pill.is-auto_confirmed {
+  color: #0f766e;
+  background: rgba(209, 250, 229, 0.7);
+  border-color: rgba(16, 185, 129, 0.26);
+}
+
+.reporting-status-pill.is-draft {
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.76);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.reporting-status-pill.is-unreported {
+  color: #92400e;
+  background: rgba(254, 243, 199, 0.78);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.reporting-status-pill.is-late,
+.reporting-status-pill.is-returned {
+  color: #991b1b;
+  background: rgba(254, 226, 226, 0.82);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.reporting-status-note {
+  display: inline-block;
+  color: #64748b;
+  line-height: 1.45;
 }
 
 .history-trend-grid,
 .archive-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 
 .history-trend-card,
 .archive-card {
   display: grid;
-  gap: 12px;
-  padding: 18px;
-  border-radius: 22px;
+  gap: 8px;
+  padding: 13px;
+  border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 34%),
-    rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 36px rgba(148, 163, 184, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.95));
+  box-shadow: var(--app-shadow-xs);
+  transition:
+    transform var(--app-motion-fast) var(--app-motion-curve),
+    border-color var(--app-motion-fast) ease,
+    box-shadow var(--app-motion-fast) var(--app-motion-curve);
+}
+
+.history-trend-card:hover,
+.archive-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.2);
+  box-shadow: var(--app-shadow-sm);
 }
 
 .history-trend-card__top,
@@ -676,9 +877,13 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.review-factory-tabs :deep(.el-card__body) {
+  padding-top: 4px;
+}
+
 .history-trend-card__top strong,
 .archive-card strong {
-  font-size: 22px;
+  font-size: 18px;
   color: var(--app-text);
 }
 
@@ -686,8 +891,6 @@ onUnmounted(() => {
 .history-trend-card__meta span,
 .archive-card span {
   font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--app-muted);
 }
 
@@ -706,39 +909,75 @@ onUnmounted(() => {
 }
 
 .history-trend-card__meta strong {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--app-text);
 }
 
 .archive-card p {
   margin: 0;
   color: var(--app-muted);
-  line-height: 1.7;
+  line-height: 1.55;
 }
 
 .archive-card--accent {
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(240, 249, 255, 0.96));
+  border-color: rgba(59, 130, 246, 0.26);
+  background: rgba(239, 246, 255, 0.82);
+}
+
+.review-home-tabs :deep(.el-tabs__header) {
+  margin-bottom: 14px;
+}
+
+.template-empty {
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  color: var(--app-muted);
+  text-align: center;
+}
+
+@media (max-width: 1280px) {
+  .review-factory .stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .review-factory .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
-  .dashboard-command__hero,
-  .dashboard-secondary-grid,
-  .ops-digest-grid {
+  .review-home-hero__meta,
+  .review-home-hero__grid,
+  .review-factory .stat-grid {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-command__rail,
-  .agent-orchestra-grid,
-  .agent-flow,
-  .agent-orchestra-card__stats {
-    grid-template-columns: 1fr;
+  .review-home-hero__toolbar,
+  .review-home-hero__controls {
+    justify-items: start;
+    width: 100%;
   }
 
   .history-trend-grid,
   .archive-grid {
     grid-template-columns: 1fr;
+  }
+
+  .review-factory-tabs :deep(.el-tabs__item) {
+    margin: 0 2px 6px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .review-home-hero {
+    padding: 12px;
+  }
+
+  .review-home-hero__copy h2 {
+    font-size: 28px;
   }
 }
 </style>

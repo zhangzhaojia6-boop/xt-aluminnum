@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.pytest-cache/
+.pytest-cache-2/
+.pytest-run-*/
+pytest-cache-files-*/
+local-dev.db
+uploads/

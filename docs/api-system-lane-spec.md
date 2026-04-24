@@ -45,13 +45,14 @@
 
 **当前证据**
 - `backend/app/routers/auth.py`：账号登录、扫码登录、`/me`
-- `backend/app/routers/wecom.py`：企业微信登录、JS-SDK 签名
+- `backend/app/routers/dingtalk.py`：当前默认身份入口
+- `backend/app/routers/wecom.py`：企业微信兼容登录、JS-SDK 签名
 - `backend/app/core/permissions.py`：mobile / reviewer / manager / admin 几类作用域入口
 
 **规范定义**
-- 身份入口保留多通道：账号密码、扫码机台、企业微信。
+- 身份入口保留多通道：账号密码、扫码机台、钉钉优先，企业微信兼容保留。
 - 权限判断必须下沉到 `core/permissions.py` 这一类横切层，不允许业务服务各写一套。
-- 企业微信登录属于“身份入口”，不是管理 API，也不是生产主流程 API。
+- 钉钉/企业微信登录都属于“身份入口”，不是管理 API，也不是生产主流程 API。
 
 ### 2.2 L1：生产主流程 API（正式主口径）
 
@@ -162,7 +163,7 @@
 
 | 对象 | 当前系统主存储/服务 | canonical 写入口 | canonical 读入口 | 说明 |
 | --- | --- | --- | --- | --- |
-| User / Session | `auth.py`、`wecom.py`、`users.py` | `/api/v1/auth/*`、`/api/v1/wecom/login`、`/api/v1/users/*` | `/api/v1/auth/me` | 身份对象，不承载业务产量事实 |
+| User / Session | `auth.py`、`dingtalk.py`、`wecom.py`、`users.py` | `/api/v1/auth/*`、`/api/v1/dingtalk/login`、`/api/v1/users/*` | `/api/v1/auth/me` | 身份对象，不承载业务产量事实 |
 | Workshop / Team / Equipment / ShiftConfig | `master.py`、`equipment_service.py` | `/api/v1/master/*` | `/api/v1/master/*`、bootstrap | 主数据对象 |
 | AttendanceSchedule | `attendance.py`、`config_readiness_service.py` | 导入/排班导入 | attendance read / readyz | 应报清单基础对象 |
 | MobileShiftReport | `mobile_report_service.py` | `/api/v1/mobile/report/save|submit|upload-photo` | mobile detail/history、dashboard 汇总 | 现场主填报对象 |
@@ -205,7 +206,7 @@
 
 | 面 | canonical surface |
 | --- | --- |
-| 身份入口 | `/api/v1/auth/login`、`/api/v1/auth/me`、`/api/v1/auth/qr-login`、`/api/v1/wecom/login` |
+| 身份入口 | `/api/v1/auth/login`、`/api/v1/auth/me`、`/api/v1/auth/qr-login`、`/api/v1/dingtalk/login` |
 | 主流程 | `/api/v1/mobile/report/save`、`/api/v1/mobile/report/submit`、`/api/v1/mobile/current-shift`、`/api/v1/attendance/confirm`、`/api/v1/work-orders/*` |
 | 观察面 | `/api/v1/dashboard/factory-director`、`/api/v1/dashboard/workshop-director`、`/api/v1/dashboard/statistics`、`/api/v1/dashboard/delivery-status`、`GET /api/v1/reports*`、`/api/v1/realtime/stream` |
 | 管理面 | `/api/v1/master/workshops|teams|employees|equipment|shift-configs|workshop-templates`、`/api/v1/users/*`、`/api/v1/imports/*`、`/api/v1/mes/import`、`/api/v1/reconciliation/*`、`/api/v1/quality/*` |

@@ -63,7 +63,8 @@ def test_wecom_login_matches_username(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
+        legacy_response = client.post("/api/v1/wecom/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
@@ -71,6 +72,7 @@ def test_wecom_login_matches_username(tmp_path, monkeypatch) -> None:
     payload = response.json()
     assert payload["user_id"] == user.id
     assert payload["token"]
+    assert legacy_response.status_code == 404
 
 
 def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
@@ -86,7 +88,7 @@ def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
@@ -103,12 +105,12 @@ def test_wecom_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) 
     monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
-    assert "未绑定系统用户" in response.json()["detail"]
+    assert "当前钉钉账号未绑定系统用户" in response.json()["detail"]
 
 
 def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -> None:
@@ -124,7 +126,7 @@ def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -
     monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
@@ -146,7 +148,7 @@ def test_wecom_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) 
     monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
@@ -159,9 +161,9 @@ def test_wecom_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", False)
     client = _client_with_db(session_factory)
     try:
-        response = client.post("/api/v1/wecom/login", json={"code": "abc"})
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 503
-    assert "企业微信应用未启用" in response.json()["detail"]
+    assert "钉钉入口未启用" in response.json()["detail"]

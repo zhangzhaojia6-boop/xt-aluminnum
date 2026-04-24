@@ -1,39 +1,28 @@
 ﻿<template>
   <div class="mobile-shell mobile-shell--entry-form" data-testid="dynamic-entry-form">
-    <el-result
+  <el-result
       v-if="loadError"
       icon="error"
       :title="loadError"
       sub-title="请检查网络连接后重试，或联系管理员。"
     >
       <template #extra>
-        <el-button type="primary" @click="goEntry">返回入口</el-button>
+        <el-button type="primary" :loading="loading" @click="loadPage">重试加载</el-button>
       </template>
     </el-result>
 
     <template v-else>
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">{{ isOwnerOnlyMode ? '岗位补录' : '按随行卡填报' }}</div>
-        <h1>{{ isOwnerOnlyMode ? roleBucketMeta.title : '随行卡填报' }}</h1>
-        <p>{{ isOwnerOnlyMode ? '当前岗位按班次补录，不需要随行卡。系统会自动按日期、班次和岗位归档。' : '按随行卡逐卷录入，提交前请核对数据与现场一致。' }}</p>
+        <div class="mobile-kicker">04 填报流程页</div>
+        <h1>{{ isOwnerOnlyMode ? ownerModeConfig.title : '随行卡填报' }}</h1>
       </div>
-      <el-button plain @click="goEntry">返回入口</el-button>
     </div>
 
     <el-alert
       v-if="currentShift.ownership_note"
       :title="currentShift.ownership_note"
       type="warning"
-      show-icon
-      :closable="false"
-      class="panel"
-    />
-
-    <el-alert
-      v-if="isOwnerOnlyMode"
-      title="当前岗位按班次补录，不需要随行卡。系统会自动按日期、班次和岗位归档。"
-      type="success"
       show-icon
       :closable="false"
       class="panel"
@@ -48,34 +37,35 @@
       class="panel"
     />
 
+    <div v-if="loading" class="mobile-inline-state panel">
+      <p>正在加载填报页面…</p>
+      <el-button type="primary" :loading="loading" class="mobile-inline-action" @click="loadPage">重试加载</el-button>
+    </div>
+
     <div
-      v-if="template && currentShift.can_submit"
+      v-if="template && !currentShift.can_submit"
+      class="mobile-inline-state panel"
+    >
+      <p>当前账号暂时无法填报。</p>
+      <p>{{ currentShift.ownership_note || '请联系管理员。' }}</p>
+      <div class="mobile-recovery-actions">
+        <el-button type="primary" plain class="mobile-inline-action" @click="loadPage">刷新状态</el-button>
+        <el-button plain class="mobile-inline-action" @click="goHistory">查看历史</el-button>
+      </div>
+    </div>
+
+    <div
+      v-else-if="template && currentShift.can_submit"
       class="panel entry-summary-strip"
       data-testid="entry-summary-strip"
     >
-      <div class="entry-summary-strip__row">
-        <div class="entry-summary-strip__identity">
-          <span>{{ roleBucketMeta.title }}</span>
-          <strong>{{ summaryIdentity }}</strong>
-        </div>
-      </div>
       <div class="entry-summary-strip__facts">
         <span v-for="item in summaryFacts" :key="item">{{ item }}</span>
       </div>
     </div>
 
-    <el-card v-if="template && currentShift.can_submit" class="panel mobile-card">
-      <el-steps :active="currentStepIndex" simple finish-status="success">
-        <el-step
-          v-for="item in visibleStepItems"
-          :key="item.key"
-          :title="item.title"
-        />
-      </el-steps>
-    </el-card>
-
-    <el-card v-if="template && isFastTempo && !isOwnerOnlyMode" class="panel mobile-card">
-      <template #header>快工序节奏</template>
+    <el-card v-if="template && showFastEntryHelper" class="panel mobile-card">
+      <template #header>连续录入</template>
       <div class="mobile-dynamic-summary">
         <div class="mobile-summary-chip">
           <span>已提交</span>
@@ -98,323 +88,449 @@
         >
           继续下一卷
         </el-button>
-        <div class="mobile-history-note">
-          提交后保留机台、班次和日期，适合连续录入多卷。
-        </div>
       </div>
     </el-card>
 
-    <el-card v-if="template && !isOwnerOnlyMode" class="panel mobile-card" data-testid="entry-work-order-card">
-      <template #header>随行卡与工单</template>
-      <div class="mobile-form-grid">
-        <div class="mobile-field mobile-field-wide">
-          <label>
-            <span class="mobile-required">*</span>
-            随行卡号
-          </label>
-          <div class="mobile-inline-actions">
-            <el-input
-              v-model="trackingCardNo"
-              placeholder="请输入或扫码随行卡号"
-              :disabled="lookupLoading"
-              @keyup.enter="lookupTrackingCard"
-            />
-            <el-button :loading="lookupLoading" @click="lookupTrackingCard">读取工单</el-button>
-            <el-button plain @click="handleScanClick">相机扫码</el-button>
+    <MobileSwipeWorkspace
+      v-if="template && currentShift.can_submit"
+      v-model:active-key="currentStepKey"
+      :pages="visibleStepItems"
+    >
+      <template #work_order>
+        <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card" data-testid="entry-work-order-card">
+          <template #header>随行卡</template>
+          <div class="mobile-form-grid">
+            <div class="mobile-field mobile-field-wide">
+              <label>
+                <span class="mobile-required">*</span>
+                随行卡号
+              </label>
+              <div class="mobile-inline-actions">
+                <el-input
+                  v-model="trackingCardNo"
+                  placeholder="请输入或扫码随行卡号"
+                  :disabled="lookupLoading"
+                  @keyup.enter="lookupTrackingCard"
+                />
+                <el-button :loading="lookupLoading" @click="lookupTrackingCard">读取</el-button>
+                <el-button plain @click="handleScanClick">相机扫码</el-button>
+              </div>
+            </div>
+
+            <div class="mobile-field">
+              <label>
+                <span class="mobile-required" v-if="equipmentOptions.length">*</span>
+                机台
+              </label>
+              <div v-if="isMachineBound" class="mobile-static-value">
+                {{ boundMachine?.name || boundMachine?.code || currentShift.machine_name || '-' }}
+              </div>
+              <el-select
+                v-else
+                v-model="formState.machine_id"
+                placeholder="请选择机台"
+                clearable
+                filterable
+                :disabled="isEntryEditingDisabled"
+              >
+                <el-option
+                  v-for="item in equipmentOptions"
+                  :key="item.id"
+                  :label="item.name || item.code"
+                  :value="item.id"
+                />
+              </el-select>
+            </div>
+
+            <div v-if="currentWorkOrder && workOrderSummaryItems.length" class="mobile-field mobile-field-wide">
+              <label>当前卷</label>
+              <div class="mobile-static-grid">
+                <div v-for="item in workOrderSummaryItems" :key="item.label" class="mobile-static-chip">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="mobile-field-meta">随行卡号来自外部生产系统，本系统只做录入与流转，不直接连接外部生产系统。</div>
-        </div>
+        </el-card>
 
-        <div class="mobile-field">
-          <label>
-            <span class="mobile-required" v-if="equipmentOptions.length">*</span>
-            机台
-          </label>
-          <div v-if="isMachineBound" class="mobile-static-value">
-            {{ boundMachine?.name || boundMachine?.code || currentShift.machine_name || '-' }}
+        <el-card v-if="!isOwnerOnlyMode && isSlowTempo" class="panel mobile-card">
+          <template #header>本班交接</template>
+          <div class="mobile-field mobile-field-wide">
+            <label>本班状态</label>
+            <el-radio-group v-model="completionMode" :disabled="isEntryEditingDisabled">
+              <el-radio-button value="in_progress">继续录入</el-radio-button>
+              <el-radio-button value="completed">本班完工</el-radio-button>
+            </el-radio-group>
           </div>
-          <el-select
-            v-else
-            v-model="formState.machine_id"
-            placeholder="请选择机台"
-            clearable
-            filterable
-            :disabled="isEntryEditingDisabled"
-          >
-            <el-option
-              v-for="item in equipmentOptions"
-              :key="item.id"
-              :label="item.name || item.code"
-              :value="item.id"
-            />
-          </el-select>
-          <div v-if="isMachineBound" class="mobile-field-meta">机台账号已绑定到当前设备，无法切换其他机台。</div>
-          <div v-else-if="!equipmentOptions.length" class="mobile-field-meta">当前车间尚未配置机台，先允许按班次录入。</div>
-        </div>
-
-        <div v-if="currentWorkOrder" class="mobile-field">
-          <label>工艺路线</label>
-          <div class="mobile-static-value">{{ currentWorkOrder.process_route_code || '-' }}</div>
-        </div>
-
-        <div v-if="currentWorkOrder" class="mobile-field">
-          <label>工单状态</label>
-          <div class="mobile-static-value">
-            {{ formatStatusLabel(currentWorkOrder.overall_status) }}
+          <div v-if="currentWorkOrder && historyEntries.length" class="mobile-history-list">
+            <div class="mobile-section-title">前序记录</div>
+            <div v-for="item in historyEntries" :key="item.id" class="mobile-history-item">
+              <div class="mobile-history-main">
+                <div>
+                  <div class="mobile-history-title">
+                    {{ item.business_date }} / {{ item.shift_id ? `班次 ${item.shift_id}` : '未标记班次' }}
+                  </div>
+                  <div class="mobile-history-meta">
+                    状态：{{ formatStatusLabel(item.entry_status) }} / {{ item.entry_type === 'completed' ? '本班完工' : '接续中' }}
+                  </div>
+                </div>
+                <el-tag :type="item.entry_type === 'completed' ? 'success' : 'warning'" effect="light">
+                  {{ item.entry_type === 'completed' ? '完工' : '接续' }}
+                </el-tag>
+              </div>
+              <div class="mobile-static-grid">
+                <div
+                  v-for="summary in summarizeHistoryEntry(item)"
+                  :key="`${item.id}-${summary.label}`"
+                  class="mobile-static-chip"
+                >
+                  <span>{{ summary.label }}</span>
+                  <strong>{{ summary.value }}</strong>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+          <div v-else-if="currentWorkOrder" class="mobile-placeholder">暂无记录。</div>
+        </el-card>
+      </template>
 
-        <div v-if="currentWorkOrder && workOrderSummaryItems.length" class="mobile-field mobile-field-wide">
-          <label>工单头信息</label>
+      <template #core>
+        <el-card class="panel mobile-card" data-testid="entry-core-form">
+          <template #header>{{ isOwnerOnlyMode ? ownerModeConfig.coreCardTitle : '填写' }}</template>
+          <div class="mobile-dynamic-form">
+            <template v-if="isOwnerOnlyMode">
+              <section
+                v-for="section in ownerCoreSections"
+                :key="`core-${section.title}`"
+                class="mobile-dynamic-section"
+              >
+                <div class="mobile-section-title">{{ section.title }}</div>
+                <div class="mobile-form-grid">
+                  <div
+                    v-for="field in section.fields"
+                    :key="`${section.title}-${field.name}`"
+                    :class="['mobile-field', field.name === 'operator_notes' ? 'mobile-field-wide' : '']"
+                  >
+                    <label class="mobile-field-label">
+                      <span>
+                        <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                        {{ displayFieldLabel(field) }}
+                        <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                      </span>
+                      <el-button
+                        v-if="isVoiceFieldSupported(field)"
+                        text
+                        type="primary"
+                        size="small"
+                        :disabled="isEntryEditingDisabled"
+                        @click.stop="toggleVoicePrefill(field)"
+                      >
+                        {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                      </el-button>
+                      <span
+                        v-if="ocrMetaForField(field.name)"
+                        :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                      >
+                        {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                      </span>
+                    </label>
+                    <el-time-picker
+                      v-if="field.type === 'time'"
+                      v-model="formValues[field.name]"
+                      value-format="HH:mm:ss"
+                      format="HH:mm"
+                      placeholder="选择时间"
+                      :disabled="isEntryEditingDisabled"
+                      class="mobile-time-picker"
+                    />
+                    <el-input
+                      v-else
+                      v-model="formValues[field.name]"
+                      :type="field.type === 'textarea' ? 'textarea' : 'text'"
+                      :rows="field.type === 'textarea' ? 3 : undefined"
+                      :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+            </template>
+
+            <section v-else-if="entryFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">{{ isOwnerOnlyMode ? '本班原始值' : '本卷原始值' }}</div>
+              <div class="mobile-form-grid">
+                <div
+                  v-for="field in entryFields"
+                  :key="field.name"
+                  :class="['mobile-field', field.name === 'operator_notes' ? 'mobile-field-wide' : '']"
+                >
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                    </span>
+                    <el-button
+                      v-if="isVoiceFieldSupported(field)"
+                      text
+                      type="primary"
+                      size="small"
+                      :disabled="isEntryEditingDisabled"
+                      @click.stop="toggleVoicePrefill(field)"
+                    >
+                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                    </el-button>
+                    <span
+                      v-if="ocrMetaForField(field.name)"
+                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                    >
+                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                    </span>
+                  </label>
+                  <el-time-picker
+                    v-if="field.type === 'time'"
+                    v-model="formValues[field.name]"
+                    value-format="HH:mm:ss"
+                    format="HH:mm"
+                    placeholder="选择时间"
+                    :disabled="isEntryEditingDisabled"
+                    class="mobile-time-picker"
+                  />
+                  <el-input
+                    v-else
+                    v-model="formValues[field.name]"
+                    :type="field.type === 'textarea' ? 'textarea' : 'text'"
+                    :rows="field.type === 'textarea' ? 3 : undefined"
+                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div v-if="!isOwnerOnlyMode" class="mobile-dynamic-summary mobile-dynamic-summary--footer">
+            <div class="mobile-summary-chip">
+              <span>自动成材率</span>
+              <strong :class="yieldClass">{{ yieldDisplay }}</strong>
+            </div>
+          </div>
+        </el-card>
+      </template>
+
+      <template #supplemental>
+        <el-card class="panel mobile-card">
+          <template #header>{{ supplementalCardTitle }}</template>
+          <div class="mobile-dynamic-form">
+            <template v-if="isOwnerOnlyMode">
+              <section
+                v-for="section in ownerSupplementalSections"
+                :key="`supplemental-${section.title}`"
+                class="mobile-dynamic-section"
+              >
+                <div class="mobile-section-title">{{ section.title }}</div>
+                <div class="mobile-form-grid">
+                  <div v-for="field in section.fields" :key="`${section.title}-${field.name}`" class="mobile-field">
+                    <label class="mobile-field-label">
+                      <span>
+                        <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                        {{ displayFieldLabel(field) }}
+                        <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                      </span>
+                      <el-button
+                        v-if="isVoiceFieldSupported(field)"
+                        text
+                        type="primary"
+                        size="small"
+                        :disabled="isEntryEditingDisabled"
+                        @click.stop="toggleVoicePrefill(field)"
+                      >
+                        {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                      </el-button>
+                      <span
+                        v-if="ocrMetaForField(field.name)"
+                        :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                      >
+                        {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                      </span>
+                    </label>
+                    <el-input
+                      v-model="formValues[field.name]"
+                      :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                      :placeholder="fieldPlaceholder(field)"
+                      :disabled="isEntryEditingDisabled"
+                    />
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <section v-else-if="shiftFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">{{ isOwnerOnlyMode ? '岗位归档字段' : '班末补充确认' }}</div>
+              <div class="mobile-form-grid">
+                <div v-for="field in shiftFields" :key="field.name" class="mobile-field">
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                    </span>
+                    <el-button
+                      v-if="isVoiceFieldSupported(field)"
+                      text
+                      type="primary"
+                      size="small"
+                      :disabled="isEntryEditingDisabled"
+                      @click.stop="toggleVoicePrefill(field)"
+                    >
+                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                    </el-button>
+                    <span
+                      v-if="ocrMetaForField(field.name)"
+                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                    >
+                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                    </span>
+                  </label>
+                  <el-input
+                    v-model="formValues[field.name]"
+                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section v-if="extraFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">{{ isOwnerOnlyMode ? '补录字段' : '车间字段' }}</div>
+              <div class="mobile-form-grid">
+                <div v-for="field in extraFields" :key="field.name" class="mobile-field">
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                    </span>
+                    <el-button
+                      v-if="isVoiceFieldSupported(field)"
+                      text
+                      type="primary"
+                      size="small"
+                      :disabled="isEntryEditingDisabled"
+                      @click.stop="toggleVoicePrefill(field)"
+                    >
+                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                    </el-button>
+                    <span
+                      v-if="ocrMetaForField(field.name)"
+                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                    >
+                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                    </span>
+                  </label>
+                  <el-input
+                    v-model="formValues[field.name]"
+                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section v-if="machineFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">机台字段</div>
+              <div class="mobile-form-grid">
+                <div v-for="field in machineFields" :key="field.name" class="mobile-field">
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
+                    </span>
+                    <el-button
+                      v-if="isVoiceFieldSupported(field)"
+                      text
+                      type="primary"
+                      size="small"
+                      :disabled="isEntryEditingDisabled"
+                      @click.stop="toggleVoicePrefill(field)"
+                    >
+                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                    </el-button>
+                  </label>
+                  <el-input
+                    v-model="formValues[field.name]"
+                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section v-if="qcFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">质检字段</div>
+              <div class="mobile-form-grid">
+                <div v-for="field in qcFields" :key="field.name" class="mobile-field">
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                    </span>
+                    <el-button
+                      v-if="isVoiceFieldSupported(field)"
+                      text
+                      type="primary"
+                      size="small"
+                      :disabled="isEntryEditingDisabled"
+                      @click.stop="toggleVoicePrefill(field)"
+                    >
+                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
+                    </el-button>
+                    <span
+                      v-if="ocrMetaForField(field.name)"
+                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
+                    >
+                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
+                    </span>
+                  </label>
+                  <el-input
+                    v-model="formValues[field.name]"
+                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div v-if="!hasSupplementalFields" class="mobile-placeholder">
+            无需补充。
+          </div>
+        </el-card>
+      </template>
+
+      <template #review>
+        <el-card class="panel mobile-card">
+          <template #header>确认提交</template>
           <div class="mobile-static-grid">
-            <div v-for="item in workOrderSummaryItems" :key="item.label" class="mobile-static-chip">
+            <div v-for="item in reviewSummaryItems" :key="item.label" class="mobile-static-chip">
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
             </div>
           </div>
-        </div>
-      </div>
-    </el-card>
+        </el-card>
 
-    <el-card v-if="template && !isOwnerOnlyMode && isSlowTempo && isCurrentStep('work_order')" class="panel mobile-card">
-      <template #header>慢工序交接</template>
-      <div class="mobile-field mobile-field-wide">
-        <label>本班状态</label>
-        <el-radio-group v-model="completionMode" :disabled="isEntryEditingDisabled">
-          <el-radio-button value="in_progress">本班接续（下班继续）</el-radio-button>
-          <el-radio-button value="completed">本班完工</el-radio-button>
-        </el-radio-group>
-      </div>
-      <div class="mobile-field-meta">
-        接续时自动以 `in_progress` 保存，完工时自动以 `completed` 提交。
-      </div>
-      <div v-if="currentWorkOrder && historyEntries.length" class="mobile-history-list">
-        <div class="mobile-section-title">前序班次已填数据</div>
-        <div v-for="item in historyEntries" :key="item.id" class="mobile-history-item">
-          <div class="mobile-history-main">
-            <div>
-              <div class="mobile-history-title">
-                {{ item.business_date }} / {{ item.shift_id ? `班次 ${item.shift_id}` : '未标记班次' }}
-              </div>
-              <div class="mobile-history-meta">
-                状态：{{ formatStatusLabel(item.entry_status) }} / {{ item.entry_type === 'completed' ? '本班完工' : '接续中' }}
-              </div>
-            </div>
-            <el-tag :type="item.entry_type === 'completed' ? 'success' : 'warning'" effect="light">
-              {{ item.entry_type === 'completed' ? '完工' : '接续' }}
-            </el-tag>
-          </div>
-          <div class="mobile-static-grid">
-            <div
-              v-for="summary in summarizeHistoryEntry(item)"
-              :key="`${item.id}-${summary.label}`"
-              class="mobile-static-chip"
-            >
-              <span>{{ summary.label }}</span>
-              <strong>{{ summary.value }}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else-if="currentWorkOrder" class="mobile-placeholder">当前随行卡在本车间还没有前序班次记录。</div>
-    </el-card>
-
-    <el-card
-      v-if="template && (isCurrentStep('core') || isCurrentStep('supplemental'))"
-      class="panel mobile-card"
-      data-testid="entry-core-form"
-    >
-      <template #header>{{ isCurrentStep('core') ? (isOwnerOnlyMode ? '岗位填写' : '核心填写') : '补充字段' }}</template>
-      <div class="mobile-dynamic-form">
-        <section v-if="isCurrentStep('core') && entryFields.length" class="mobile-dynamic-section">
-          <div class="mobile-section-title">{{ isOwnerOnlyMode ? '岗位原始值' : '核心原始值' }}</div>
-          <div class="mobile-form-grid">
-            <div
-              v-for="field in entryFields"
-              :key="field.name"
-              :class="['mobile-field', field.name === 'operator_notes' ? 'mobile-field-wide' : '']"
-            >
-              <label class="mobile-field-label">
-                <span>
-                  <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                  {{ displayFieldLabel(field) }}
-                  <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                </span>
-                <el-button
-                  v-if="isVoiceFieldSupported(field)"
-                  text
-                  type="primary"
-                  size="small"
-                  :disabled="isEntryEditingDisabled"
-                  @click.stop="toggleVoicePrefill(field)"
-                >
-                  {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                </el-button>
-                <span
-                  v-if="ocrMetaForField(field.name)"
-                  :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                >
-                  {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                </span>
-              </label>
-              <el-time-picker
-                v-if="field.type === 'time'"
-                v-model="formValues[field.name]"
-                value-format="HH:mm:ss"
-                format="HH:mm"
-                placeholder="选择时间"
-                :disabled="isEntryEditingDisabled"
-                class="mobile-time-picker"
-              />
-              <el-input
-                v-else
-                v-model="formValues[field.name]"
-                :type="field.type === 'textarea' ? 'textarea' : 'text'"
-                :rows="field.type === 'textarea' ? 3 : undefined"
-                :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                :placeholder="fieldPlaceholder(field)"
-                :disabled="isEntryEditingDisabled"
-              />
-              <div v-if="field.hint" class="mobile-field-meta">{{ field.hint }}</div>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="isCurrentStep('supplemental') && extraFields.length" class="mobile-dynamic-section">
-          <div class="mobile-section-title">{{ isOwnerOnlyMode ? '延伸口径' : '车间补充字段' }}</div>
-          <div class="mobile-form-grid">
-            <div v-for="field in extraFields" :key="field.name" class="mobile-field">
-              <label class="mobile-field-label">
-                <span>
-                  <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                  {{ displayFieldLabel(field) }}
-                  <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                </span>
-                <el-button
-                  v-if="isVoiceFieldSupported(field)"
-                  text
-                  type="primary"
-                  size="small"
-                  :disabled="isEntryEditingDisabled"
-                  @click.stop="toggleVoicePrefill(field)"
-                >
-                  {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                </el-button>
-                <span
-                  v-if="ocrMetaForField(field.name)"
-                  :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                >
-                  {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                </span>
-              </label>
-              <el-input
-                v-model="formValues[field.name]"
-                :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                :placeholder="fieldPlaceholder(field)"
-                :disabled="isEntryEditingDisabled"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section v-if="isCurrentStep('supplemental') && machineFields.length" class="mobile-dynamic-section">
-          <div class="mobile-section-title">机台耗材字段</div>
-          <div class="mobile-form-grid">
-            <div v-for="field in machineFields" :key="field.name" class="mobile-field">
-              <label class="mobile-field-label">
-                <span>
-                  <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                  {{ displayFieldLabel(field) }}
-                  <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                </span>
-                <el-button
-                  v-if="isVoiceFieldSupported(field)"
-                  text
-                  type="primary"
-                  size="small"
-                  :disabled="isEntryEditingDisabled"
-                  @click.stop="toggleVoicePrefill(field)"
-                >
-                  {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                </el-button>
-              </label>
-              <el-input
-                v-model="formValues[field.name]"
-                :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                :placeholder="fieldPlaceholder(field)"
-                :disabled="isEntryEditingDisabled"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section v-if="isCurrentStep('supplemental') && qcFields.length" class="mobile-dynamic-section">
-          <div class="mobile-section-title">质检补充字段</div>
-          <div class="mobile-form-grid">
-            <div v-for="field in qcFields" :key="field.name" class="mobile-field">
-              <label class="mobile-field-label">
-                <span>
-                  <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                  {{ displayFieldLabel(field) }}
-                </span>
-                <el-button
-                  v-if="isVoiceFieldSupported(field)"
-                  text
-                  type="primary"
-                  size="small"
-                  :disabled="isEntryEditingDisabled"
-                  @click.stop="toggleVoicePrefill(field)"
-                >
-                  {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                </el-button>
-                <span
-                  v-if="ocrMetaForField(field.name)"
-                  :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                >
-                  {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                </span>
-              </label>
-              <el-input
-                v-model="formValues[field.name]"
-                :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                :placeholder="fieldPlaceholder(field)"
-                :disabled="isEntryEditingDisabled"
-              />
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div v-if="isCurrentStep('core') && !isOwnerOnlyMode" class="mobile-dynamic-summary mobile-dynamic-summary--footer">
-        <div class="mobile-summary-chip">
-          <span>自动成材率</span>
-          <strong :class="yieldClass">{{ yieldDisplay }}</strong>
-        </div>
-        <div class="mobile-history-note">
-          颜色规则：≥98% 为绿色，95%-98% 为黄色，低于 95% 为红色。
-        </div>
-      </div>
-      <div v-if="isCurrentStep('supplemental') && !hasSupplementalFields" class="mobile-placeholder">
-        当前模板没有额外补充字段，可以直接进入最后确认。
-      </div>
-    </el-card>
-
-    <el-card v-if="template && isCurrentStep('review')" class="panel mobile-card">
-      <template #header>提交前确认</template>
-      <div class="mobile-static-grid">
-        <div v-for="item in reviewSummaryItems" :key="item.label" class="mobile-static-chip">
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-        </div>
-      </div>
-      <div class="mobile-history-note">确认无误后再正式提交。保存草稿不会对外发布。</div>
-    </el-card>
-
-    <el-card v-if="template && isCurrentStep('review')" class="panel mobile-card" data-testid="entry-secondary-sections">
-      <template #header>更多信息</template>
-      <div v-if="!hasSecondaryContent" class="mobile-placeholder">{{ isOwnerOnlyMode ? '岗位补录模式下，这里会显示自动计算字段和归档结果。' : '读取工单后，这里会显示识别来源、前序来料、公式字段和批量录入等补充信息。' }}</div>
-      <el-collapse v-else class="mobile-collapse">
-        <el-collapse-item v-if="hasOcrContext" title="识别来源" name="ocr">
+        <el-card v-if="hasSecondaryContent" class="panel mobile-card" data-testid="entry-secondary-sections">
+          <template #header>工具与记录</template>
+          <el-collapse class="mobile-collapse">
+        <el-collapse-item v-if="hasOcrContext" title="拍照记录" name="ocr">
           <div class="mobile-static-grid">
             <div class="mobile-static-chip">
               <span>识别记录</span>
@@ -428,7 +544,6 @@
           <div v-if="ocrState.imageUrl" class="mobile-ocr-preview">
             <img :src="ocrState.imageUrl" alt="识别留存图片">
           </div>
-          <div class="mobile-history-note">低置信度字段会在主表单中继续高亮，提交前仍需人工核对。</div>
           <div class="mobile-actions">
             <el-button plain @click="goOcrCapture">重新拍照</el-button>
           </div>
@@ -455,7 +570,7 @@
           </div>
         </el-collapse-item>
 
-        <el-collapse-item v-if="readonlyDisplayItems.length" title="自动计算与只读字段" name="readonly">
+        <el-collapse-item v-if="readonlyDisplayItems.length" title="系统字段" name="readonly">
           <div class="mobile-static-grid">
             <div v-for="item in readonlyDisplayItems" :key="item.name" class="mobile-static-chip">
               <span>{{ item.label }}</span>
@@ -464,8 +579,8 @@
           </div>
         </el-collapse-item>
 
-        <el-collapse-item v-if="template && isFastTempo && !isOwnerOnlyMode" title="批量录入" name="batch">
-          <div class="mobile-history-note">按字段顺序粘贴制表符分列文本，每行一卷。列顺序：{{ batchColumnLabels }}</div>
+        <el-collapse-item v-if="template && isFastTempo && !isOwnerOnlyMode" title="批量粘贴" name="batch">
+          <div class="mobile-history-note">制表符分列，每行一卷。</div>
           <div class="mobile-field mobile-field-wide">
             <el-input
               v-model="batchText"
@@ -477,13 +592,15 @@
           </div>
           <div class="mobile-actions">
             <el-button :disabled="isEntryEditingDisabled" @click="applyBatchPaste">载入队列</el-button>
-            <div class="mobile-history-note">当前队列剩余 {{ batchQueue.length }} 卷。</div>
+            <div class="mobile-history-note">队列 {{ batchQueue.length }} 卷</div>
           </div>
         </el-collapse-item>
-      </el-collapse>
-    </el-card>
+          </el-collapse>
+        </el-card>
+      </template>
+    </MobileSwipeWorkspace>
 
-    <div class="mobile-sticky-actions">
+    <div v-if="template && currentShift.can_submit" class="mobile-sticky-actions">
       <div class="mobile-sticky-actions__meta">
         <span v-if="autoSavedLabel" class="mobile-draft-indicator">{{ autoSavedLabel }}</span>
       </div>
@@ -573,6 +690,7 @@ import {
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard.js'
+import MobileSwipeWorkspace from '../../components/mobile/MobileSwipeWorkspace.vue'
 import MobileBottomNav from './MobileBottomNav.vue'
 
 const OCR_STORAGE_PREFIX = 'aluminum-ocr-submission:'
@@ -635,6 +753,7 @@ const entryCreateIdempotencyKey = ref(buildClientUuid())
 let submitCooldownTimer = null
 
 const entryFields = computed(() => template.value?.entry_fields || [])
+const shiftFields = computed(() => template.value?.shift_fields || [])
 const workshopExtraFields = computed(() => template.value?.extra_fields || [])
 const machineFields = computed(() =>
   (currentShift.machine_custom_fields || []).map((field, index) => ({
@@ -651,9 +770,22 @@ const machineFields = computed(() =>
 )
 const extraFields = computed(() => workshopExtraFields.value)
 const qcFields = computed(() => template.value?.qc_fields || [])
-const editableFields = computed(() => [...entryFields.value, ...workshopExtraFields.value, ...machineFields.value, ...qcFields.value])
+const editableFields = computed(() => [
+  ...entryFields.value,
+  ...shiftFields.value,
+  ...workshopExtraFields.value,
+  ...machineFields.value,
+  ...qcFields.value
+])
+const batchEditableFields = computed(() => [...entryFields.value])
 const readonlyFields = computed(() => template.value?.readonly_fields || [])
-const hasSupplementalFields = computed(() => Boolean(extraFields.value.length || machineFields.value.length || qcFields.value.length))
+const hasSupplementalFields = computed(() => Boolean(
+  shiftFields.value.length ||
+  extraFields.value.length ||
+  machineFields.value.length ||
+  qcFields.value.length
+))
+const hasShiftConfirmationFields = computed(() => Boolean(shiftFields.value.length))
 const isSlowTempo = computed(() => template.value?.tempo === 'slow')
 const isFastTempo = computed(() => template.value?.tempo === 'fast')
 const isMachineBound = computed(() => Boolean(currentShift.is_machine_bound || auth.isMachineBound))
@@ -666,11 +798,6 @@ const boundMachine = computed(() => {
     name: currentShift.machine_name || auth.machineContext?.machine_name || ''
   }
 })
-const tempoLabel = computed(() => {
-  if (template.value?.tempo === 'slow') return '慢工序'
-  if (template.value?.tempo === 'fast') return '快工序'
-  return '-'
-})
 const transitionMapping = computed(() => buildMobileTransitionMapping({
   role: auth.role,
   isMachineBound: isMachineBound.value,
@@ -680,15 +807,172 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager']
 const isOwnerOnlyMode = computed(() => ownerOnlyRoleBuckets.includes(transitionMapping.value.role_bucket))
+const OWNER_MODE_CONFIG = {
+  inventory_keeper: {
+    title: '成品库填报',
+    description: '录今日入库、发货与结存。',
+    coreCardTitle: '今日进出',
+    coreStepTitle: '进出',
+    supplementalCardTitle: '结存复核',
+    supplementalStepTitle: '结存',
+    coreSections: [
+      {
+        title: '今日入库',
+        fieldNames: [
+          'storage_inbound_weight',
+          'storage_inbound_area',
+          'plant_to_park_inbound_weight',
+          'park_to_storage_inbound_weight',
+        ],
+      },
+      {
+        title: '今日发货',
+        fieldNames: [
+          'shipment_weight',
+          'shipment_area',
+          'month_to_date_shipment_weight',
+          'month_to_date_shipment_area',
+        ],
+      },
+    ],
+    supplementalSections: [
+      {
+        title: '结存与备料',
+        fieldNames: [
+          'month_to_date_inbound_weight',
+          'month_to_date_inbound_area',
+          'consignment_weight',
+          'finished_inventory_weight',
+          'shearing_prepared_weight',
+        ],
+      },
+    ],
+  },
+  utility_manager: {
+    title: '水电气填报',
+    description: '录用电、天然气和用水原始值。',
+    coreCardTitle: '介质录入',
+    coreStepTitle: '介质',
+    supplementalCardTitle: '水量补录',
+    supplementalStepTitle: '用水',
+    coreSections: [
+      {
+        title: '用电',
+        fieldNames: [
+          'total_electricity_kwh',
+          'new_plant_electricity_kwh',
+          'park_electricity_kwh',
+        ],
+      },
+      {
+        title: '天然气',
+        fieldNames: [
+          'cast_roll_gas_m3',
+          'smelting_gas_m3',
+          'heating_furnace_gas_m3',
+          'boiler_gas_m3',
+          'total_gas_m3',
+        ],
+      },
+    ],
+    supplementalSections: [
+      {
+        title: '用水',
+        fieldNames: ['groundwater_ton', 'tap_water_ton'],
+      },
+    ],
+  },
+  contracts: {
+    title: '计划科填报',
+    description: '录合同、余量与投料口径。',
+    coreCardTitle: '合同进度',
+    coreStepTitle: '合同',
+    supplementalCardTitle: '投料补录',
+    supplementalStepTitle: '投料',
+    coreSections: [
+      {
+        title: '当日合同',
+        fieldNames: ['daily_contract_weight', 'daily_hot_roll_contract_weight'],
+      },
+      {
+        title: '月累计与余合同',
+        fieldNames: [
+          'month_to_date_contract_weight',
+          'month_to_date_hot_roll_contract_weight',
+          'remaining_contract_weight',
+          'remaining_hot_roll_contract_weight',
+          'remaining_contract_delta_weight',
+        ],
+      },
+    ],
+    supplementalSections: [
+      {
+        title: '投料与坯料',
+        fieldNames: [
+          'billet_inventory_weight',
+          'daily_input_weight',
+          'month_to_date_input_weight',
+        ],
+      },
+    ],
+  },
+}
+const defaultOwnerModeConfig = {
+  title: roleBucketMeta.value.title,
+  description: '按班次补录，系统会自动归档。',
+  coreCardTitle: '补录',
+  coreStepTitle: '本班',
+  supplementalCardTitle: '补录字段',
+  supplementalStepTitle: '补录',
+  coreSections: [],
+  supplementalSections: [],
+}
+const ownerModeConfig = computed(() => OWNER_MODE_CONFIG[transitionMapping.value.role_bucket] || defaultOwnerModeConfig)
+const ownerOnlyEditableFields = computed(() => [
+  ...entryFields.value,
+  ...shiftFields.value,
+  ...extraFields.value,
+  ...machineFields.value,
+  ...qcFields.value,
+])
+const ownerSectionBundle = computed(() => {
+  if (!isOwnerOnlyMode.value) {
+    return { core: [], supplemental: [] }
+  }
+
+  const fieldMap = new Map(ownerOnlyEditableFields.value.map((field) => [field.name, field]))
+  const usedFieldNames = new Set()
+  const buildSections = (definitions = []) =>
+    definitions
+      .map((section) => {
+        const fields = section.fieldNames
+          .map((name) => fieldMap.get(name))
+          .filter(Boolean)
+        fields.forEach((field) => usedFieldNames.add(field.name))
+        return { title: section.title, fields }
+      })
+      .filter((section) => section.fields.length)
+
+  const core = buildSections(ownerModeConfig.value.coreSections)
+  const supplemental = buildSections(ownerModeConfig.value.supplementalSections)
+  const leftovers = ownerOnlyEditableFields.value.filter((field) => !usedFieldNames.has(field.name))
+  if (leftovers.length) {
+    supplemental.push({ title: '其他补录', fields: leftovers })
+  }
+
+  return { core, supplemental }
+})
+const ownerCoreSections = computed(() => ownerSectionBundle.value.core)
+const ownerSupplementalSections = computed(() => ownerSectionBundle.value.supplemental)
 const currentStepKey = ref('work_order')
 const visibleStepItems = computed(() => {
   const items = []
   if (!isOwnerOnlyMode.value) {
-    items.push({ key: 'work_order', title: '工单' })
+    items.push({ key: 'work_order', title: '随行卡' })
   }
-  items.push({ key: 'core', title: isOwnerOnlyMode.value ? '岗位' : '核心' })
-  if (hasSupplementalFields.value) {
-    items.push({ key: 'supplemental', title: '补充' })
+  items.push({ key: 'core', title: isOwnerOnlyMode.value ? ownerModeConfig.value.coreStepTitle : '本卷' })
+  if (isOwnerOnlyMode.value ? ownerSupplementalSections.value.length : hasSupplementalFields.value) {
+    items.push({ key: 'supplemental', title: isOwnerOnlyMode.value ? ownerModeConfig.value.supplementalStepTitle : (hasShiftConfirmationFields.value ? '班末' : '补充') })
   }
   items.push({ key: 'review', title: '提交' })
   return items
@@ -699,16 +983,10 @@ const currentStepIndex = computed(() => {
 })
 const isFirstStep = computed(() => currentStepIndex.value <= 0)
 const isReviewStep = computed(() => currentStepKey.value === 'review')
-const summaryIdentity = computed(() => [
-  currentShift.workshop_name || template.value?.display_name || '-',
-  boundMachine.value?.name || currentShift.machine_name || currentShift.team_name || '-',
-  currentShift.shift_name || currentShift.shift_code || '-'
-].filter(Boolean).join(' / '))
 const summaryFacts = computed(() => [
   formState.business_date || '-',
-  tempoLabel.value,
-  currentShift.leader_name || auth.displayName,
-  isOwnerOnlyMode.value ? '岗位补录归档' : (template.value?.supports_ocr ? '支持拍照识别' : '手动录入')
+  currentShift.shift_name || currentShift.shift_code || '-',
+  isOwnerOnlyMode.value ? '本班补录' : '本卷录入'
 ])
 const readOnlyByCreator = computed(() => {
   if (!currentEntry.value?.created_by_user_id || !auth.user?.id) return false
@@ -726,6 +1004,11 @@ const isEntryEditingDisabled = computed(() =>
 const postSubmitLocked = computed(() => justSubmitted.value && !currentEntry.value)
 const submitButtonDisabled = computed(() => !canOperate.value || submitting.value || postSubmitLocked.value || submitCooldownActive.value)
 const canContinueNext = computed(() => isFastTempo.value && (justSubmitted.value || batchQueue.value.length > 0))
+const showFastEntryHelper = computed(() => Boolean(
+  !isOwnerOnlyMode.value &&
+  isFastTempo.value &&
+  (submittedCount.value || batchQueue.value.length || canContinueNext.value)
+))
 const entryType = computed(() => (isSlowTempo.value ? completionMode.value : 'completed'))
 const yieldRate = computed(() => {
   const inputWeight = toNumber(formValues.input_weight)
@@ -782,8 +1065,13 @@ const workOrderSummaryItems = computed(() => {
     .filter(Boolean)
   return items
 })
+const supplementalCardTitle = computed(() => {
+  if (isOwnerOnlyMode.value) return ownerModeConfig.value.supplementalCardTitle
+  if (hasShiftConfirmationFields.value) return '班末确认'
+  return '补充字段'
+})
 const batchColumnLabels = computed(() =>
-  ['闅忚鍗″彿', ...editableFields.value.map((field) => displayFieldLabel(field))].join(' / ')
+  ['随行卡号', ...batchEditableFields.value.map((field) => displayFieldLabel(field))].join(' / ')
 )
 
 const hasOcrContext = computed(() => Boolean(ocrState.submissionId))
@@ -793,20 +1081,26 @@ const hasSecondaryContent = computed(() => Boolean(
   readonlyDisplayItems.value.length ||
   isFastTempo.value
 ))
-const reviewSummaryItems = computed(() => [
-  { label: isOwnerOnlyMode.value ? '岗位归档' : '随行卡号', value: activeTrackingCardNo.value || '-' },
-  { label: '班次', value: currentShift.shift_name || currentShift.shift_code || '-' },
-  {
-    label: isOwnerOnlyMode.value ? '岗位' : (isMachineBound.value ? '机台' : '班组'),
-    value: isOwnerOnlyMode.value
-      ? roleBucketMeta.value.title
-      : (boundMachine.value?.name || currentShift.machine_name || currentShift.team_name || '-')
-  },
-  { label: '已填字段', value: `${filledEditableFieldCount.value}/${editableFields.value.length}` },
-  { label: '成材率', value: yieldDisplay.value },
-  { label: '识别来源', value: hasOcrContext.value ? '拍照识别后已核对' : '手动填写' },
-  { label: '提交方式', value: isSlowTempo.value ? (completionMode.value === 'completed' ? '本班完工' : '本班接续') : '本班完工' }
-])
+const reviewSummaryItems = computed(() => {
+  const items = [
+    { label: isOwnerOnlyMode.value ? '岗位归档' : '随行卡号', value: activeTrackingCardNo.value || '-' },
+    { label: '班次', value: currentShift.shift_name || currentShift.shift_code || '-' },
+    {
+      label: isOwnerOnlyMode.value ? '岗位' : (isMachineBound.value ? '机台' : '班组'),
+      value: isOwnerOnlyMode.value
+        ? roleBucketMeta.value.title
+        : (boundMachine.value?.name || currentShift.machine_name || currentShift.team_name || '-')
+    },
+    { label: '已填', value: `${filledEditableFieldCount.value}/${editableFields.value.length}` },
+    { label: '提交方式', value: isSlowTempo.value ? (completionMode.value === 'completed' ? '本班完工' : '本班接续') : '本班完工' }
+  ]
+
+  if (!isOwnerOnlyMode.value && yieldRate.value !== null) {
+    items.splice(4, 0, { label: '成材率', value: yieldDisplay.value })
+  }
+
+  return items
+})
 const localDraftScope = computed(() => ({
   workshopId: currentShift.workshop_id || '',
   shiftId: formState.shift_id || '',
@@ -860,12 +1154,18 @@ function buildClientUuid() {
   return `entry-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function requestErrorMessage(error, fallback = '鎻愪氦澶辫触') {
+function requestErrorMessage(error, fallback = '提交失败') {
   const detail = error?.response?.data?.detail
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || item).join('; ')
   }
-  return detail || error?.message || fallback
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || fallback
+  }
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail.trim()
+  }
+  return error?.message || fallback
 }
 
 function ocrStorageKey(submissionId) {
@@ -959,8 +1259,8 @@ function goPrevStep() {
   currentStepKey.value = prev.key
 }
 
-function goEntry() {
-  router.push({ name: 'mobile-entry' })
+function goHistory() {
+  router.push({ name: 'mobile-report-history' })
 }
 
 watch(visibleStepItems, (steps) => {
@@ -1559,7 +1859,7 @@ async function saveDraft() {
       ElMessage.warning('网络不可用，内容已自动暂存在本机草稿')
       return
     }
-    ElMessage.error(requestErrorMessage(error, '鑽夌淇濆瓨澶辫触'))
+    ElMessage.error(requestErrorMessage(error, '草稿保存失败'))
   } finally {
     saving.value = false
   }
@@ -1612,7 +1912,7 @@ async function submitEntry() {
       }
       return
     }
-    ElMessage.error(requestErrorMessage(error, '鎻愪氦澶辫触'))
+    ElMessage.error(requestErrorMessage(error, '提交失败'))
   } finally {
     submitting.value = false
   }
@@ -1625,7 +1925,7 @@ async function applyBatchRow(row) {
   clearOcrState({ clearStorage: true })
   trackingCardNo.value = normalizeTrackingCard(row.tracking_card_no)
   resetFormValues()
-  editableFields.value.forEach((field) => {
+  batchEditableFields.value.forEach((field) => {
     formValues[field.name] = formatFieldValue(field, row[field.name])
   })
   await lookupTrackingCard({ silentMissing: true })
@@ -1670,7 +1970,7 @@ async function continueNextCoil({ silent = false } = {}) {
 }
 
 function parseBatchRow(columns) {
-  const fields = editableFields.value
+  const fields = batchEditableFields.value
   const row = { tracking_card_no: normalizeTrackingCard(columns[0] || '') }
   fields.forEach((field, index) => {
     row[field.name] = columns[index + 1] ?? emptyFieldValue(field)
@@ -1704,7 +2004,7 @@ async function applyBatchPaste() {
 }
 
 function summarizeHistoryEntry(entry) {
-  const fields = [...entryFields.value, ...extraFields.value, ...machineFields.value]
+  const fields = [...entryFields.value, ...shiftFields.value, ...extraFields.value, ...machineFields.value]
   return fields
     .map((field) => {
       const rawValue =
@@ -1791,3 +2091,104 @@ onBeforeUnmount(() => {
   clearSubmitCooldownTimer()
 })
 </script>
+
+<style scoped>
+.mobile-shell--entry-form {
+  --entry-card-gap: 11px;
+  --entry-inline-gap: 8px;
+}
+
+.mobile-shell--entry-form .mobile-top h1 {
+  margin-bottom: 0;
+  letter-spacing: -0.01em;
+}
+
+.mobile-shell--entry-form :deep(.panel.mobile-card .el-card__header) {
+  padding: 12px 14px 0;
+}
+
+.mobile-shell--entry-form :deep(.panel.mobile-card .el-card__body) {
+  padding: 12px 14px 14px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-form-grid) {
+  gap: 10px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-field) {
+  gap: 6px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-field + .mobile-field) {
+  margin-top: 2px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-inline-actions) {
+  gap: var(--entry-inline-gap);
+  flex-wrap: wrap;
+}
+
+.mobile-shell--entry-form :deep(.mobile-dynamic-section + .mobile-dynamic-section) {
+  margin-top: var(--entry-card-gap);
+}
+
+.mobile-shell--entry-form :deep(.mobile-section-title) {
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+
+.mobile-shell--entry-form :deep(.mobile-actions) {
+  gap: var(--entry-inline-gap);
+}
+
+.mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons) {
+  gap: var(--entry-inline-gap);
+}
+
+.mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button) {
+  min-width: 0;
+  min-height: 42px;
+  border-radius: 12px;
+}
+
+.mobile-shell--entry-form :deep(.panel.mobile-card) {
+  border-radius: 16px;
+  box-shadow: var(--app-shadow-xs);
+}
+
+.mobile-shell--entry-form :deep(.mobile-static-chip),
+.mobile-shell--entry-form :deep(.mobile-summary-chip),
+.mobile-shell--entry-form :deep(.mobile-history-item),
+.mobile-shell--entry-form :deep(.mobile-inline-state) {
+  border-radius: 14px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-static-chip strong),
+.mobile-shell--entry-form :deep(.mobile-summary-chip strong) {
+  letter-spacing: -0.01em;
+}
+
+.mobile-shell--entry-form :deep(.mobile-inline-actions .el-button),
+.mobile-shell--entry-form :deep(.mobile-actions .el-button) {
+  border-radius: 12px;
+}
+
+.mobile-shell--entry-form :deep(.mobile-inline-actions .el-button:active),
+.mobile-shell--entry-form :deep(.mobile-actions .el-button:active) {
+  transform: translateY(0);
+}
+
+@media (max-width: 420px) {
+  .mobile-shell--entry-form :deep(.panel.mobile-card .el-card__header) {
+    padding: 10px 12px 0;
+  }
+
+  .mobile-shell--entry-form :deep(.panel.mobile-card .el-card__body) {
+    padding: 10px 12px 12px;
+  }
+
+  .mobile-shell--entry-form :deep(.mobile-form-grid) {
+    gap: 9px;
+  }
+}
+</style>

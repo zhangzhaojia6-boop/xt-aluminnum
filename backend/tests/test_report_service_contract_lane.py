@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from types import SimpleNamespace
 
 from sqlalchemy import create_engine
@@ -371,8 +371,11 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
         lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 0, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},
     )
     monkeypatch.setattr('app.services.report_service.mobile_reminder_service.summarize_reminders', lambda *_args, **_kwargs: {})
-    monkeypatch.setattr('app.services.report_service._safe_latest_mes_sync_status', lambda *_args, **_kwargs: {})
-    monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: {'digest': '无异常'})
+    monkeypatch.setattr(
+        'app.services.report_service._safe_latest_mes_sync_status',
+        lambda *_args, **_kwargs: {'last_run_status': 'failed', 'lag_seconds': 7200},
+    )
+    monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: '仍有 1 条质量阻塞')
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
@@ -388,6 +391,59 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     assert '发货 184.00 吨' in payload['leader_summary']['summary_text']
     assert '入库面积 1800.00 ㎡' in payload['leader_summary']['summary_text']
     assert payload['leader_summary']['summary_text'] != '旧摘要'
+    assert payload['blocker_summary'] == {
+        'has_blockers': True,
+        'digest': '仍有 1 条质量阻塞',
+    }
+    assert payload['analysis_handoff']['surface'] == 'factory'
+    assert payload['analysis_handoff']['readiness'] is False
+    assert payload['analysis_handoff']['priority'] == 'high'
+    assert 'quality_blocker' in payload['analysis_handoff']['attention_flags']
+    assert 'quality_blocker' in payload['analysis_handoff']['blocking_reasons']
+    assert payload['analysis_handoff']['data_gaps'] == ['report_unpublished', 'history_unavailable', 'sync_stale']
+    assert payload['analysis_handoff']['section_matrix'] == {
+        'healthy_sections': ['reporting', 'delivery', 'energy', 'contracts'],
+        'warning_sections': [],
+        'blocked_sections': ['risk'],
+        'idle_sections': [],
+    }
+    assert payload['analysis_handoff']['section_reasons'] == {
+        'reporting': [],
+        'delivery': [],
+        'energy': [],
+        'contracts': [],
+        'risk': ['quality_blocker'],
+    }
+    assert payload['analysis_handoff']['source_matrix'] == {
+        'reporting': ['主操直录'],
+        'delivery': ['系统汇总', '结果发布'],
+        'energy': ['专项补录', '系统汇总'],
+        'contracts': ['专项补录', '系统汇总'],
+        'risk': ['系统汇总'],
+    }
+    assert payload['analysis_handoff']['source_variants'] == {
+        'reporting': ['mobile'],
+        'delivery': ['system', 'publish'],
+        'energy': ['owner_only', 'system'],
+        'contracts': ['owner_only', 'system'],
+        'risk': ['system'],
+    }
+    assert payload['analysis_handoff']['action_matrix'] == {
+        'reporting': ['watch_reporting_arrivals'],
+        'delivery': ['publish_daily_report'],
+        'energy': ['watch_energy_baseline'],
+        'contracts': ['watch_contract_progress'],
+        'risk': ['clear_quality_blockers', 'refresh_pipeline_sync'],
+    }
+    assert payload['analysis_handoff']['freshness'] == {
+        'freshness_status': 'stale',
+        'sync_status': 'failed',
+        'sync_lag_seconds': 7200,
+        'history_points': 0,
+        'published_report_at': None,
+    }
+    assert payload['analysis_handoff']['trend']['current_output'] == 180.5
+    assert payload['analysis_handoff']['contracts']['daily_contract_weight'] == 59.0
 
 
 def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift(monkeypatch) -> None:
@@ -400,7 +456,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
             }
         },
         final_text_summary='旧摘要',
-        published_at=None,
+        published_at=datetime(2026, 4, 17, 18, 0, tzinfo=UTC),
         text_summary=None,
         final_confirmed_at=None,
         final_confirmed_by=None,
@@ -456,12 +512,25 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
         lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 0, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},
     )
     monkeypatch.setattr('app.services.report_service.mobile_reminder_service.summarize_reminders', lambda *_args, **_kwargs: {})
-    monkeypatch.setattr('app.services.report_service._safe_latest_mes_sync_status', lambda *_args, **_kwargs: {})
-    monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: {'digest': '无异常'})
+    monkeypatch.setattr(
+        'app.services.report_service._safe_latest_mes_sync_status',
+        lambda *_args, **_kwargs: {'last_run_status': 'success', 'lag_seconds': 30},
+    )
+    monkeypatch.setattr(
+        'app.services.report_service.quality_service.blocker_summary',
+        lambda *_args, **_kwargs: {'digest': '无异常', 'has_blockers': False},
+    )
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
-    monkeypatch.setattr('app.services.report_service._build_history_digest', lambda *_args, **_kwargs: {'daily_snapshots': [], 'month_archive': {}, 'year_archive': {}})
+    monkeypatch.setattr(
+        'app.services.report_service._build_history_digest',
+        lambda *_args, **_kwargs: {
+            'daily_snapshots': [{'date': '2026-04-17', 'output_weight': 180.5}],
+            'month_archive': {},
+            'year_archive': {},
+        },
+    )
     monkeypatch.setattr('app.services.report_service._build_production_lane', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_energy_lane', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_canonical_workshop_output_summary', lambda *_args, **_kwargs: [])
@@ -473,3 +542,55 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
     assert payload['leader_summary']['summary_source'] == 'deterministic'
     assert payload['leader_summary']['summary_text'] != '旧的 llm 摘要'
     assert '发货 184.00 吨' in payload['leader_summary']['summary_text']
+    assert payload['blocker_summary'] == {
+        'has_blockers': False,
+        'digest': '无异常',
+    }
+    assert payload['analysis_handoff']['surface'] == 'factory'
+    assert payload['analysis_handoff']['readiness'] is True
+    assert payload['analysis_handoff']['priority'] == 'low'
+    assert payload['analysis_handoff']['attention_flags'] == []
+    assert payload['analysis_handoff']['data_gaps'] == []
+    assert payload['analysis_handoff']['section_matrix'] == {
+        'healthy_sections': ['reporting', 'delivery', 'energy', 'contracts', 'risk'],
+        'warning_sections': [],
+        'blocked_sections': [],
+        'idle_sections': [],
+    }
+    assert payload['analysis_handoff']['section_reasons'] == {
+        'reporting': [],
+        'delivery': [],
+        'energy': [],
+        'contracts': [],
+        'risk': [],
+    }
+    assert payload['analysis_handoff']['source_matrix'] == {
+        'reporting': ['主操直录'],
+        'delivery': ['系统汇总', '结果发布'],
+        'energy': ['专项补录', '系统汇总'],
+        'contracts': ['专项补录', '系统汇总'],
+        'risk': ['系统汇总'],
+    }
+    assert payload['analysis_handoff']['source_variants'] == {
+        'reporting': ['mobile'],
+        'delivery': ['system', 'publish'],
+        'energy': ['owner_only', 'system'],
+        'contracts': ['owner_only', 'system'],
+        'risk': ['system'],
+    }
+    assert payload['analysis_handoff']['action_matrix'] == {
+        'reporting': ['watch_reporting_arrivals'],
+        'delivery': ['watch_delivery_release'],
+        'energy': ['watch_energy_baseline'],
+        'contracts': ['watch_contract_progress'],
+        'risk': ['watch_risk_signals'],
+    }
+    assert payload['analysis_handoff']['freshness'] == {
+        'freshness_status': 'fresh',
+        'sync_status': 'success',
+        'sync_lag_seconds': 30,
+        'history_points': 1,
+        'published_report_at': '2026-04-17T18:00:00+00:00',
+    }
+    assert payload['analysis_handoff']['risk']['blocker_digest'] == '无异常'
+    assert payload['analysis_handoff']['trend']['current_output'] == 180.5
