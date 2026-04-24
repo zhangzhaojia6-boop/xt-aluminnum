@@ -13,6 +13,8 @@ from PIL import Image, ImageChops, ImageFilter, ImageStat
 
 REFERENCE_UI_TARGET_IMAGE = "C:/Users/xt/Downloads/cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png"
 DIFF_THRESHOLD_PERCENT = 10.0
+FULL_REFERENCE_CANVAS = (1672, 941)
+PIXEL_TOLERANCE = 18
 
 
 @dataclass(frozen=True)
@@ -44,9 +46,10 @@ TARGET_PANELS: tuple[TargetPanel, ...] = (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compare command pages with target reference panels.")
+    parser = argparse.ArgumentParser(description="Compare generated pages against the full target reference image.")
     parser.add_argument("--module", dest="module_id", default="", help="Only compare one module id, e.g. 01.")
     parser.add_argument("--threshold", dest="threshold_percent", type=float, default=DIFF_THRESHOLD_PERCENT)
+    parser.add_argument("--tolerance", dest="pixel_tolerance", type=int, default=PIXEL_TOLERANCE)
     parser.add_argument("--target", default=os.environ.get("REFERENCE_UI_TARGET_IMAGE", REFERENCE_UI_TARGET_IMAGE))
     parser.add_argument("--screenshots", default=str(Path("tmp") / "visual-audit"))
     parser.add_argument("--out", default=str(Path("tmp") / "visual-audit" / "visual-diff-report.json"))
@@ -66,21 +69,28 @@ def crop_reference(target: Image.Image, panel: TargetPanel, crop_dir: Path) -> I
     return crop
 
 
-def normalize_generated(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+def fit_generated_to_panel(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     image = image.convert("RGB")
-    image.thumbnail(size, Image.Resampling.LANCZOS)
-    canvas = Image.new("RGB", size, (244, 247, 251))
-    left = (size[0] - image.width) // 2
-    top = (size[1] - image.height) // 2
-    canvas.paste(image, (left, top))
-    return canvas
+    scale = max(size[0] / image.width, size[1] / image.height)
+    resized = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
+    left = max((resized.width - size[0]) // 2, 0)
+    # Keep the top of each page because the target panels show the page header and first screen.
+    top = 0
+    return resized.crop((left, top, left + size[0], top + size[1]))
 
 
-def diff_percent(reference: Image.Image, generated: Image.Image) -> float:
+def mean_color_delta_percent(reference: Image.Image, generated: Image.Image) -> float:
     diff = ImageChops.difference(reference, generated)
     stat = ImageStat.Stat(diff)
     mean = sum(stat.mean) / len(stat.mean)
     return round((mean / 255.0) * 100.0, 2)
+
+
+def pixel_mismatch_percent(reference: Image.Image, generated: Image.Image, tolerance: int = PIXEL_TOLERANCE) -> float:
+    diff = ImageChops.difference(reference.convert("RGB"), generated.convert("RGB")).convert("L")
+    mask = diff.point(lambda value: 255 if value > tolerance else 0, mode="L")
+    stat = ImageStat.Stat(mask)
+    return round((stat.mean[0] / 255.0) * 100.0, 2)
 
 
 def edge_mask(image: Image.Image) -> Image.Image:
@@ -103,24 +113,22 @@ def content_occupancy(image: Image.Image) -> float:
     return round(stat.mean[0] / 255.0, 4)
 
 
-def combined_diff(reference: Image.Image, generated: Image.Image) -> dict[str, float]:
-    pixel = diff_percent(reference, generated)
-    edge = edge_diff_percent(reference, generated)
-    reference_occupancy = content_occupancy(reference)
-    generated_occupancy = content_occupancy(generated)
-    occupancy_delta = round(abs(reference_occupancy - generated_occupancy) * 100.0, 2)
-    combined = round(max(pixel, edge, occupancy_delta), 2)
+def full_pixel_metrics(reference: Image.Image, generated: Image.Image, tolerance: int) -> dict[str, float]:
     return {
-        "pixel_diff_percent": pixel,
-        "edge_diff_percent": edge,
-        "reference_content_occupancy": reference_occupancy,
-        "generated_content_occupancy": generated_occupancy,
-        "content_occupancy_delta_percent": occupancy_delta,
-        "combined_diff_percent": combined,
+        "true_panel_diff_percent": pixel_mismatch_percent(reference, generated, tolerance),
+        "mean_color_delta_percent": mean_color_delta_percent(reference, generated),
+        "edge_diff_percent": edge_diff_percent(reference, generated),
     }
 
 
-def compare_panel(panel: TargetPanel, target: Image.Image, screenshot_dir: Path, crop_dir: Path) -> dict[str, object]:
+def compare_panel(
+    panel: TargetPanel,
+    target: Image.Image,
+    screenshot_dir: Path,
+    crop_dir: Path,
+    generated_dir: Path,
+    tolerance: int,
+) -> tuple[dict[str, object], Image.Image | None]:
     screenshot_path = screenshot_dir / panel.screenshot
     reference = crop_reference(target, panel, crop_dir)
     if not screenshot_path.exists():
@@ -130,24 +138,29 @@ def compare_panel(panel: TargetPanel, target: Image.Image, screenshot_dir: Path,
             "screenshot": str(screenshot_path),
             "threshold_percent": DIFF_THRESHOLD_PERCENT,
             "diff_percent": 100.0,
+            "true_panel_diff_percent": 100.0,
             "status": "fail",
             "error": "missing screenshot",
-        }
+        }, None
 
-    generated = normalize_generated(Image.open(screenshot_path), reference.size)
-    metrics = combined_diff(reference, generated)
-    diff = metrics["combined_diff_percent"]
+    generated = fit_generated_to_panel(Image.open(screenshot_path), reference.size)
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    generated_path = generated_dir / f"{panel.module_id}-{panel.title}.png"
+    generated.save(generated_path)
+    metrics = full_pixel_metrics(reference, generated, tolerance)
+    diff = metrics["true_panel_diff_percent"]
     return {
         "module_id": panel.module_id,
         "title": panel.title,
         "target_crop": str(crop_dir / f"{panel.module_id}-{panel.title}.png"),
+        "generated_panel": str(generated_path),
         "screenshot": str(screenshot_path),
         "threshold_percent": DIFF_THRESHOLD_PERCENT,
         "diff_percent": diff,
         **metrics,
         "status": "pass" if diff <= DIFF_THRESHOLD_PERCENT else "fail",
         "error": "" if diff <= DIFF_THRESHOLD_PERCENT else f"diff {diff}% exceeds threshold",
-    }
+    }, generated
 
 
 def main() -> int:
@@ -156,12 +169,21 @@ def main() -> int:
     screenshot_dir = Path(args.screenshots)
     out_path = Path(args.out)
     crop_dir = out_path.parent / "target-crops"
+    generated_dir = out_path.parent / "generated-panels"
     threshold = float(args.threshold_percent)
+    tolerance = int(args.pixel_tolerance)
 
     target = Image.open(target_path).convert("RGB")
+    if target.size != FULL_REFERENCE_CANVAS:
+        raise ValueError(f"target image size {target.size} does not match {FULL_REFERENCE_CANVAS}")
+
     rows = []
-    for panel in selected_panels(args.module_id):
-        row = compare_panel(panel, target, screenshot_dir, crop_dir)
+    panels = list(selected_panels(args.module_id))
+    generated_canvas = target.copy()
+    for panel in panels:
+        row, generated_panel = compare_panel(panel, target, screenshot_dir, crop_dir, generated_dir, tolerance)
+        if generated_panel is not None:
+            generated_canvas.paste(generated_panel, panel.box[:2])
         row["threshold_percent"] = threshold
         row["status"] = "pass" if float(row["diff_percent"]) <= threshold else "fail"
         if row["status"] == "fail" and not row.get("error"):
@@ -169,15 +191,21 @@ def main() -> int:
         rows.append(row)
 
     failed = [row for row in rows if row["status"] != "pass"]
+    generated_canvas_path = out_path.parent / "generated-full-reference.png"
+    generated_canvas.save(generated_canvas_path)
+    full_canvas_diff_percent = pixel_mismatch_percent(target, generated_canvas, tolerance)
     report = {
         "target_image": str(target_path),
+        "generated_full_reference": str(generated_canvas_path),
         "screenshot_dir": str(screenshot_dir),
         "threshold_percent": threshold,
+        "pixel_tolerance": tolerance,
         "module_id": args.module_id or "all",
         "enforced": bool(args.enforce),
         "summary": {
             "total": len(rows),
             "failed": len(failed),
+            "full_canvas_diff_percent": full_canvas_diff_percent,
             "max_diff_percent": max((float(row["diff_percent"]) for row in rows), default=0.0),
         },
         "results": rows,
