@@ -214,7 +214,11 @@ def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
     assert "cmd-entry-terminal" in home
     assert "entryTerminalImage" in home
     assert "cmd-entry-terminal__functional" in home
+    assert "cmd-entry-flow" in flow
+    assert "entryFlowImage" in flow
+    assert "cmd-entry-flow__functional" in flow
     assert "cmd-entry-terminal" in audit
+    assert "cmd-entry-flow" in audit
     assert "快速填报" in home
     assert "基础信息" in flow
     assert "name: 'mobile-entry'" in router

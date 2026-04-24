@@ -279,9 +279,10 @@ async function captureEntryFlow(page, report, outDir) {
   await page.goto('/entry/dynamic-entry-form');
   const route = new URL(page.url()).pathname;
   await ensureVisible(page, report, route, '[data-module="04"]', '04 entry flow visible');
+  await ensureVisible(page, report, route, '.cmd-entry-flow', '04 entry flow reference card visible');
   await ensureVisible(page, report, route, '.cmd-module-page__number:text("04")', 'module 04 visible');
   await ensureEnglishSubtitleAbsent(page, report, route);
-  await page.screenshot({ path: path.join(outDir, '04-entry-flow.png'), fullPage: true });
+  await page.locator('.cmd-entry-flow').first().screenshot({ path: path.join(outDir, '04-entry-flow.png') });
 }
 
 (async () => {
