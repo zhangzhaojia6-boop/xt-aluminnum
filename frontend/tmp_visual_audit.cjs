@@ -268,10 +268,11 @@ async function captureRoute(page, report, spec, outDir) {
 async function captureLogin(page, report, outDir) {
   await page.goto('/login');
   await ensureVisible(page, report, '/login', '[data-testid="login-page"]', '02 login role handoff visible');
+  await ensureVisible(page, report, '/login', '.cmd-login-reference', '02 login reference card visible');
   await ensureVisible(page, report, '/login', '.cmd-login__number:text("02")', 'module 02 visible');
   await ensureCountAtLeast(page, report, '/login', '.cmd-login__role', 3, 'login role cards');
   await ensureEnglishSubtitleAbsent(page, report, '/login');
-  await page.screenshot({ path: path.join(outDir, '02-login-role-handoff.png'), fullPage: true });
+  await page.locator('.cmd-login-reference').first().screenshot({ path: path.join(outDir, '02-login-role-handoff.png') });
 }
 
 async function captureEntryFlow(page, report, outDir) {

@@ -1,13 +1,13 @@
 <template>
   <div class="cmd-page cmd-login" data-module="02" data-testid="login-page">
-    <section class="cmd-login__stage">
-      <div class="cmd-login__hero">
-        <div class="cmd-login__brand" data-testid="login-brand" v-html="commandLogoHtml('鑫泰铝业生产协同系统')" />
-        <div class="cmd-module-page__title" style="margin-top: 22px">
+    <section class="cmd-login-reference">
+      <img class="cmd-login-reference__visual" :src="loginRoleHandoffImage" alt="" />
+      <div class="cmd-login__functional">
+        <div class="cmd-module-page__title cmd-login__functional-title">
           <span class="cmd-login__number">02</span>
           <h1>登录与角色入口</h1>
         </div>
-        <div class="cmd-login__roles">
+        <div class="cmd-login__roles" aria-label="角色入口">
           <button
             v-for="option in surfaceOptions"
             :key="option.value"
@@ -20,9 +20,6 @@
             <span>{{ option.title }}</span>
           </button>
         </div>
-      </div>
-
-      <div class="cmd-login__card">
         <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="submit">
           <el-form-item prop="username">
             <el-input v-model="form.username" data-testid="login-username" placeholder="账号" size="large" autocomplete="username" />
@@ -49,7 +46,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { useAuthStore } from '../../stores/auth.js'
-import { commandLogoHtml } from '../assets/logo.js'
+import loginRoleHandoffImage from '../assets/login-role-handoff.png'
 
 const router = useRouter()
 const route = useRoute()

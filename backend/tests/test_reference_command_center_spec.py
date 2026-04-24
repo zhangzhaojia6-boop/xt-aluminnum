@@ -159,10 +159,15 @@ def test_reference_command_keeps_legacy_routes_and_route_names() -> None:
 def test_command_login_replaces_old_login_route_with_three_roles() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
+    audit = _read_repo_file("frontend/tmp_visual_audit.cjs")
 
     assert "component: CommandLogin" in router
     for role in ["录入端", "审阅端", "管理端"]:
         assert role in login
+    assert "cmd-login-reference" in login
+    assert "loginRoleHandoffImage" in login
+    assert "cmd-login__functional" in login
+    assert "cmd-login-reference" in audit
     assert "(Login" not in login
 
 
