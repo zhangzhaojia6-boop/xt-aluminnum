@@ -180,7 +180,7 @@ async function ensureTopRailShell(page, report, route) {
 }
 
 async function ensureFactoryReferenceDensity(page, report, route) {
-  const frame = page.locator('.cmd-module-page').first();
+  const frame = page.locator('.cmd-factory-board').first();
   const table = page.locator('.cmd-factory-table').first();
   const frameBox = await frame.boundingBox();
   const tableBox = await table.boundingBox();
@@ -319,7 +319,7 @@ async function captureEntryFlow(page, report, outDir) {
           { selector: '.cmd-overview-shortcuts button', minCount: 8, label: 'overview quick entries' },
         ],
       },
-      { route: '/review/factory', screenshot: '05-factory-board.png', selector: '.cmd-factory-table', label: '05 factory board visible', moduleNumber: '05', factoryDensity: true },
+      { route: '/review/factory', screenshot: '05-factory-board.png', selector: '.cmd-factory-table', label: '05 factory board visible', moduleNumber: '05', factoryDensity: true, captureSelector: '.cmd-factory-board' },
       { route: '/review/tasks', screenshot: '07-review-tasks.png', selector: '.cmd-module-page__primary', label: '07 review center visible', moduleNumber: '07', layoutHook: '.cmd-layout--review-center' },
       { route: '/review/reports', screenshot: '08-reports.png', selector: '.cmd-module-page__primary', label: '08 reports center visible', moduleNumber: '08', layoutHook: '.cmd-layout--report-delivery' },
       { route: '/review/quality', screenshot: '09-quality.png', selector: '.cmd-module-page__primary', label: '09 quality center visible', moduleNumber: '09', layoutHook: '.cmd-layout--quality-alerts' },

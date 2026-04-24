@@ -411,6 +411,9 @@ def test_factory_board_module_05_is_table_first_like_reference_panel() -> None:
     factory_section = source[start:end]
 
     assert "cmd-factory-board__stats" not in factory_section
+    assert "factoryBoardImage" in source
+    assert "cmd-factory-board__visual" in factory_section
+    assert "cmd-factory-board__functional" in factory_section
     assert "data-testid=\"review-command-deck\"" in factory_section
     assert "cmd-factory-table" in factory_section
     assert "合计/平均" in factory_section

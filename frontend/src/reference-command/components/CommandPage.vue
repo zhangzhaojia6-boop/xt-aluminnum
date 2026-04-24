@@ -14,6 +14,8 @@
     </header>
 
     <section v-if="showFactoryCompat" class="cmd-factory-board" data-testid="review-home-hero">
+      <img class="cmd-factory-board__visual" :src="factoryBoardImage" alt="" />
+      <div class="cmd-factory-board__functional">
       <div class="cmd-factory-board__top">
         <span class="cmd-factory-board__lead">车间 / 产线日内作业</span>
         <div class="review-home-hero__controls cmd-factory-board__date">
@@ -96,6 +98,7 @@
         <button type="button" class="cmd-button">开始问答</button>
         <button type="button" class="cmd-button">搜上下文</button>
         <button type="button" class="cmd-button">出图</button>
+      </div>
       </div>
     </section>
 
@@ -289,6 +292,7 @@ import CommandKpi from './CommandKpi.vue'
 import CommandStatus from './CommandStatus.vue'
 import CommandTable from './CommandTable.vue'
 import CommandTrend from './CommandTrend.vue'
+import factoryBoardImage from '../assets/factory-board.png'
 
 const props = defineProps({
   module: {
