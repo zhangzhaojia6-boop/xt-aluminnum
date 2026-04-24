@@ -436,6 +436,9 @@ def test_reference_modules_use_distinct_target_panel_layouts() -> None:
     ]
     for hook in required_hooks:
         assert hook in source
+    assert "referencePanelImage" in source
+    assert "ingestionPanelImage" in source
+    assert "cmd-module-page__visual" in source
 
 
 def test_router_exposes_reference_admin_ops_short_path() -> None:

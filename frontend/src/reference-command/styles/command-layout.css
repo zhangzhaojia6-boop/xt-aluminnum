@@ -300,6 +300,28 @@
   padding: 10px;
 }
 
+.cmd-module-page.has-reference-panel {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cmd-module-page.has-reference-panel > .cmd-module-page__head,
+.cmd-module-page__functional {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.cmd-module-page__visual {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .cmd-module-page__kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -326,7 +326,7 @@ async function captureEntryFlow(page, report, outDir) {
       { route: '/review/cost-accounting', screenshot: '10-cost.png', selector: '.cmd-module-page__primary', label: '10 cost center visible', moduleNumber: '10', layoutHook: '.cmd-layout--cost-stack' },
       { route: '/review/brain', screenshot: '11-brain.png', selector: '.cmd-module-page__primary', label: '11 brain center visible', moduleNumber: '11', layoutHook: '.cmd-layout--ai-brain' },
       { route: '/admin', screenshot: '14-admin-home.png', selector: '.cmd-module-page__primary', label: 'admin home visible', moduleNumber: '14' },
-      { route: '/admin/ingestion', screenshot: '06-admin-ingestion.png', selector: '.cmd-module-page__primary', label: '06 ingestion center visible', moduleNumber: '06', layoutHook: '.cmd-layout--mapping-center' },
+      { route: '/admin/ingestion', screenshot: '06-admin-ingestion.png', selector: '.cmd-module-page__primary', label: '06 ingestion center visible', moduleNumber: '06', layoutHook: '.cmd-layout--mapping-center', captureSelector: '.cmd-module-page__visual' },
       { route: '/admin/ops', screenshot: '12-admin-ops.png', selector: '.cmd-module-page__primary', label: '12 ops center visible', moduleNumber: '12', layoutHook: '.cmd-layout--ops-observability' },
       { route: '/admin/governance', screenshot: '13-admin-governance.png', selector: '.cmd-module-page__primary', label: '13 governance center visible', moduleNumber: '13', layoutHook: '.cmd-layout--governance-matrix' },
       { route: '/admin/users', screenshot: '13-admin-users.png', selector: '.cmd-module-page__primary', label: '13 users center visible', moduleNumber: '13', layoutHook: '.cmd-layout--governance-matrix' },

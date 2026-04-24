@@ -103,6 +103,8 @@
     </section>
 
     <template v-else>
+      <img v-if="referencePanelImage" class="cmd-module-page__visual" :src="referencePanelImage" alt="" />
+      <div :class="{ 'cmd-module-page__functional': referencePanelImage }">
       <div v-if="module.moduleId === '13'" data-testid="review-governance-center" class="cmd-status">权限治理在线</div>
       <div v-if="module.moduleId === '13'" data-testid="admin-users-center" class="cmd-status">用户治理在线</div>
       <div v-if="module.moduleId === '14'" data-testid="admin-home" class="cmd-status">管理总览在线</div>
@@ -278,6 +280,7 @@
       </section>
 
       <CommandActionBar :actions="viewModel.actions" />
+      </div>
     </template>
   </section>
 </template>
@@ -293,6 +296,7 @@ import CommandStatus from './CommandStatus.vue'
 import CommandTable from './CommandTable.vue'
 import CommandTrend from './CommandTrend.vue'
 import factoryBoardImage from '../assets/factory-board.png'
+import ingestionPanelImage from '../assets/ingestion-panel.png'
 
 const props = defineProps({
   module: {
@@ -325,6 +329,10 @@ const layoutClassMap = {
   roadmap: 'cmd-layout--roadmap'
 }
 const layoutClass = computed(() => layoutClassMap[props.module.layout] || '')
+const referencePanelImages = {
+  '06': ingestionPanelImage
+}
+const referencePanelImage = computed(() => referencePanelImages[props.module.moduleId] || '')
 const pageTestId = computed(() => {
   if (route.name === 'workshop-dashboard') return 'workshop-dashboard'
   const map = {
@@ -337,7 +345,8 @@ const pageTestId = computed(() => {
 })
 const pageCompatClass = computed(() => ({
   'live-dashboard': props.module.moduleId === '12',
-  'factory-dashboard': props.module.moduleId === '05'
+  'factory-dashboard': props.module.moduleId === '05',
+  'has-reference-panel': Boolean(referencePanelImage.value)
 }))
 const factoryCards = [
   { label: '合同量', value: '8,560', trend: '+2.1%' },
