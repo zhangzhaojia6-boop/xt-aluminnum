@@ -79,6 +79,33 @@ test('quality route renders the quality alerts smoke surface', async ({ page }) 
   await expect(qualityCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('cost route renders the cost benefit smoke surface', async ({ page }) => {
+  await page.goto('/review/cost-accounting')
+
+  const costCenter = page.getByTestId('cost-benefit-center')
+  const detailTable = page.getByTestId('cost-detail-table')
+
+  await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(costCenter.getByRole('heading', { name: /10\s*成本核算与效益中心/ })).toBeVisible()
+  await expect(costCenter.getByText(/经营估算|策略口径/).first()).toBeVisible()
+  await expect(costCenter.getByText('fallback').first()).toBeVisible()
+  await expect(costCenter.getByText('吨铝成本')).toBeVisible()
+  await expect(costCenter.getByText('电耗').first()).toBeVisible()
+  await expect(costCenter.getByText('天然气').first()).toBeVisible()
+  await expect(costCenter.getByRole('button', { name: '产量口径' })).toBeVisible()
+  await expect(costCenter.getByRole('button', { name: '通货口径' })).toBeVisible()
+  await expect(detailTable).toBeVisible()
+  await expect(detailTable.getByRole('columnheader', { name: '吨耗 / 吨成本' })).toBeVisible()
+  await expect(costCenter.getByText('成本构成趋势')).toBeVisible()
+  await expect(costCenter.getByRole('button', { name: '查看日报影响' })).toBeVisible()
+  await expect(costCenter.getByRole('button', { name: '查看质量风险' })).toBeVisible()
+  await expect(costCenter.getByText('财务结算完成')).toHaveCount(0)
+  await expect(costCenter.getByText('月结完成')).toHaveCount(0)
+  await expect(costCenter.getByText('ERP 已入账')).toHaveCount(0)
+  await expect(costCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(costCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+})
+
 test('fill-only operator cannot access review reports', async ({ page }) => {
   await page.goto('/review/reports')
 
@@ -92,6 +119,14 @@ test('fill-only operator cannot access review quality', async ({ page }) => {
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('review-shell')).toHaveCount(0)
   await expect(page.getByTestId('quality-alerts-center')).toHaveCount(0)
+})
+
+test('fill-only operator cannot access review cost', async ({ page }) => {
+  await page.goto('/review/cost-accounting')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('cost-benefit-center')).toHaveCount(0)
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {

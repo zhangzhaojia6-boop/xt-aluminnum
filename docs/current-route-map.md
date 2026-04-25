@@ -39,7 +39,7 @@
 - `/review/overview` -> `review-overview-home` -> `CommandOverview.vue`，正式中心：系统总览主视图。
 - `/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`，正式中心：审阅中心。
 - `/review/reports` -> `review-report-center` -> `CommandModulePage.vue`，正式中心：日报与交付中心；当前按高清目标图 `08-reports-delivery.png` 对齐，使用 fallback 读面数据、`auto_confirmed` / 已自动确认口径，导出 PDF、导出 Excel、发送/交付、重新生成在无真实接口时禁用，本页不承接生产事实写入。
-- `/review/cost-accounting` -> `review-cost-accounting` -> `CommandModulePage.vue`，正式中心：成本核算与效益中心。
+- `/review/cost-accounting` -> `review-cost-accounting` -> `CommandModulePage.vue`，正式中心：成本核算与效益中心；当前按高清目标图 `10-cost-benefit.png` 对齐，使用 fallback 经营估算 / 策略口径展示吨铝成本、人工、电耗、天然气、辅材 / 损耗、构成趋势与风险摘要。调整方案、导出在无真实接口时禁用；查看日报影响、查看质量风险、看工厂看板为审阅端跳转。本页不承接生产事实写入，不作为财务结算依据。
 - `/review/quality` -> `review-quality-center` -> `CommandModulePage.vue`，正式中心：质量与告警中心；当前按高清目标图 `09-quality-alerts.png` 对齐，使用 fallback 读面数据展示质量告警、严重度、处置状态、日报交付影响与 AI 辅助分诊。查看详情、标记处理中、关闭、导出告警清单、查看历史在无真实处置接口时禁用；进入审阅任务与查看日报影响为审阅端跳转。本页不承接生产事实写入。
 - `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
 - `/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`，正式中心：工厂作业看板。

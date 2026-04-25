@@ -403,6 +403,204 @@
         <p class="quality-caliber-copy">{{ qualityData.caliber }}</p>
       </SectionCard>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isCostModule"
+      class="cost-center-page cmd-layout--cost-stack"
+      center-no="10"
+      title="成本核算与效益中心"
+      data-testid="cost-benefit-center"
+    >
+      <template #tools>
+        <span class="cost-center-page__scope">{{ costData.scope }}</span>
+        <span class="cost-center-page__date">业务日期：{{ costBusinessDate }}</span>
+        <span class="cost-center-page__updated">更新时间：{{ costData.updatedAt }}</span>
+        <input
+          v-model="costBusinessDate"
+          class="cost-control"
+          type="date"
+          disabled
+          aria-label="业务日期"
+          title="日期查询接口待接入，当前只展示本读面数据"
+        />
+        <select v-model="costWorkshop" class="cost-control" aria-label="车间选择">
+          <option v-for="item in costData.workshops" :key="item.key" :value="item.key">{{ item.label }}</option>
+        </select>
+        <button type="button" class="cost-refresh" @click="refreshCostView">刷新</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="costData.source !== 'live'"
+          :source="costData.source"
+          message="成本核算与效益中心使用 fallback 经营估算数据，仅用于查看策略口径和成本构成；不承接生产事实或财务结果写入。"
+        />
+      </template>
+
+      <div class="cost-center-page__basis" aria-label="口径切换">
+        <div class="cost-workshop-tabs" aria-label="车间 / 方案 tab">
+          <button
+            v-for="item in costData.workshops"
+            :key="item.key"
+            type="button"
+            :class="{ 'is-active': item.key === costWorkshop }"
+            @click="costWorkshop = item.key"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+        <div class="cost-basis-tabs">
+          <button
+            v-for="item in costData.basisOptions"
+            :key="item.key"
+            type="button"
+            :class="{ 'is-active': item.key === costBasis }"
+            @click="costBasis = item.key"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+
+      <KpiStrip :items="costData.kpis" />
+
+      <div class="cost-center-page__overview">
+        <SectionCard title="成本构成趋势" :meta="activeCostBasisLabel">
+          <div class="cost-stack-chart" aria-label="成本构成趋势">
+            <div v-for="point in costData.trend" :key="point.day" class="cost-stack-chart__item">
+              <div class="cost-stack-chart__bar">
+                <i
+                  v-for="segment in costData.composition"
+                  :key="`${point.day}-${segment.key}`"
+                  :style="{
+                    height: `${costSegmentHeight(point, segment)}%`,
+                    background: segment.color
+                  }"
+                ></i>
+              </div>
+              <strong>{{ costTrendTotal(point).toLocaleString() }}</strong>
+              <span>{{ point.day }}</span>
+            </div>
+          </div>
+          <div class="cost-stack-chart__legend">
+            <span v-for="segment in costData.composition" :key="segment.key">
+              <i :style="{ background: segment.color }"></i>
+              {{ segment.label }}
+            </span>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="累计构成" :meta="activeCostWorkshopLabel">
+          <div class="cost-composition-list">
+            <article v-for="item in costData.composition" :key="item.key">
+              <div>
+                <i :style="{ background: item.color }"></i>
+                <span>{{ item.label }}</span>
+              </div>
+              <strong>{{ item.value.toLocaleString() }}</strong>
+              <em>{{ item.ratio }}%</em>
+            </article>
+            <article class="is-total">
+              <div>
+                <i></i>
+                <span>合计</span>
+              </div>
+              <strong>{{ costData.cumulative.amount }}</strong>
+              <em>100.0%</em>
+            </article>
+          </div>
+          <div class="cost-cumulative-summary">
+            <span>月累计估算：{{ costData.cumulative.monthEstimate }}</span>
+            <span>产量：{{ costData.cumulative.monthOutput }}</span>
+            <span>通货量：{{ costData.cumulative.monthThroughput }}</span>
+          </div>
+          <button type="button" class="cost-primary-action" disabled title="策略保存接口待接入，当前不伪造方案已保存">
+            调整方案
+          </button>
+        </SectionCard>
+      </div>
+
+      <div class="cost-center-page__middle">
+        <DataTableShell
+          data-testid="cost-detail-table"
+          title="成本明细表"
+          subtitle="经营估算口径下的用量、金额、吨耗、月累计与来源状态"
+          :columns="costDetailColumns"
+          :rows="costData.detailRows"
+        >
+          <template #cell-item="{ row }">
+            <div class="cost-item-cell">
+              <strong>{{ row.item }}</strong>
+              <SourceBadge :source="row.source" />
+            </div>
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.status" :tone="row.tone" />
+          </template>
+          <template #cell-basisText="{ row }">
+            <span class="cost-basis-copy">{{ row.basisText }}</span>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="累计构成 / 趋势" :meta="costData.source">
+          <div class="cost-trend-summary">
+            <article>
+              <span>成本趋势</span>
+              <strong>{{ costTrendDirection }}</strong>
+              <em>{{ activeCostBasisLabel }}</em>
+            </article>
+            <article>
+              <span>产量 / 通货量对比</span>
+              <strong>{{ activeTrendPoint.outputTon }} / {{ activeTrendPoint.throughputTon }}</strong>
+              <em>吨</em>
+            </article>
+            <article>
+              <span>偏差风险</span>
+              <strong>{{ activeTrendPoint.risk }}</strong>
+              <em>人工复核</em>
+            </article>
+          </div>
+          <p class="cost-caliber-copy">管理者可从堆叠趋势和明细表查看哪项成本拉高，但当前结果只用于经营解释。</p>
+        </SectionCard>
+      </div>
+
+      <div class="cost-center-page__bottom">
+        <SectionCard title="操作区" :meta="costData.actions.adjustPlan">
+          <div class="cost-action-grid">
+            <button type="button" disabled title="方案保存接口待接入">调整方案</button>
+            <button type="button" @click="showCostPanel('caliber')">查看口径</button>
+            <button type="button" disabled title="导出接口待接入，当前不伪造导出成功">导出</button>
+            <button type="button" @click="goRoute('review-report-center')">查看日报影响</button>
+            <button type="button" @click="goRoute('review-quality-center')">查看质量风险</button>
+            <button type="button" @click="goRoute('factory-dashboard')">看工厂看板</button>
+            <button
+              type="button"
+              :disabled="!canOpenAdminIngestion"
+              :title="canOpenAdminIngestion ? '进入数据接入中心' : '当前账号无管理端权限'"
+              @click="goAdminIngestion"
+            >
+              看数据接入
+            </button>
+          </div>
+          <p class="cost-caliber-copy">禁用动作没有真实接口，不保存策略方案，不伪造导出成功，也不写入财务结果。</p>
+        </SectionCard>
+
+        <SectionCard title="风险摘要" meta="经营估算提醒">
+          <div class="cost-risk-list">
+            <article v-for="risk in costData.risks" :key="risk.label">
+              <div>
+                <span>{{ risk.label }}</span>
+                <strong>{{ risk.value }}</strong>
+              </div>
+              <StatusBadge :label="risk.status" :tone="risk.tone" />
+            </article>
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard :title="costInfoPanel === 'risk' ? '风险口径' : '口径说明'" :meta="costData.scope">
+        <p class="cost-caliber-copy">{{ costData.caliber }}</p>
+      </SectionCard>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -418,7 +616,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { factoryBoardMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { costCenterMock, factoryBoardMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -440,6 +638,10 @@ const qualityBusinessDate = ref(qualityCenterMock.businessDate)
 const qualitySeverityFilter = ref('')
 const qualityStatusFilter = ref('')
 const qualitySourceFilter = ref('')
+const costBusinessDate = ref(costCenterMock.businessDate)
+const costWorkshop = ref(costCenterMock.activeWorkshop)
+const costBasis = ref(costCenterMock.activeBasis)
+const costInfoPanel = ref('caliber')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -451,9 +653,11 @@ const viewModel = computed(() => adaptModuleView(module.value.moduleId))
 const isFactoryModule = computed(() => module.value.moduleId === '05' && route.name !== 'workshop-dashboard')
 const isReportsModule = computed(() => module.value.moduleId === '08')
 const isQualityModule = computed(() => module.value.moduleId === '09')
+const isCostModule = computed(() => module.value.moduleId === '10')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
 const qualityData = qualityCenterMock
+const costData = costCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -500,9 +704,37 @@ const qualityAlertColumns = [
   { key: 'action', label: '操作' }
 ]
 
+const costDetailColumns = [
+  { key: 'item', label: '项目' },
+  { key: 'amount', label: '当日用量 / 金额' },
+  { key: 'unit', label: '单位' },
+  { key: 'price', label: '单价 / 折算价' },
+  { key: 'tonCost', label: '吨耗 / 吨成本' },
+  { key: 'monthly', label: '月累计' },
+  { key: 'status', label: '状态' },
+  { key: 'basisText', label: '说明' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
+
+const activeCostWorkshop = computed(() => (
+  costData.workshops.find((item) => item.key === costWorkshop.value) || costData.workshops[0]
+))
+
+const activeCostWorkshopLabel = computed(() => activeCostWorkshop.value?.label || costData.workshops[0]?.label || '')
+const activeCostBasisLabel = computed(() => (
+  costData.basisOptions.find((item) => item.key === costBasis.value)?.label || '产量口径'
+))
+const activeTrendPoint = computed(() => costData.trend[costData.trend.length - 1] || {})
+const costTrendDirection = computed(() => {
+  const first = costTrendTotal(costData.trend[0] || {})
+  const last = costTrendTotal(activeTrendPoint.value)
+  if (last > first) return '小幅抬升'
+  if (last < first) return '小幅回落'
+  return '基本持平'
+})
 
 const filteredQualityAlerts = computed(() => qualityData.alerts.filter((item) => {
   if (qualitySeverityFilter.value && item.severity !== qualitySeverityFilter.value) return false
@@ -527,6 +759,20 @@ function refreshReportsView() {
 
 function refreshQualityView() {
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function refreshCostView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function costTrendTotal(point) {
+  return Object.values(point?.parts || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+}
+
+function costSegmentHeight(point, segment) {
+  const total = costTrendTotal(point)
+  if (!total) return 0
+  return Math.max(1.5, (Number(point.parts?.[segment.key] || 0) / total) * 100)
 }
 
 function reportStatusTone(value) {
@@ -554,6 +800,10 @@ function qualityStatusTone(value) {
 
 function showReportPanel(panel) {
   reportInfoPanel.value = panel
+}
+
+function showCostPanel(panel) {
+  costInfoPanel.value = panel
 }
 
 function goAdminIngestion() {
@@ -1262,18 +1512,368 @@ function goAdminIngestion() {
   box-shadow: inset 3px 0 0 var(--warning);
 }
 
+.cost-center-page {
+  padding: var(--space-page);
+}
+
+:global(.cmd-page:has(.cost-center-page)) {
+  background: #f5f8fc;
+}
+
+.cost-center-page__scope,
+.cost-center-page__date,
+.cost-center-page__updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.cost-center-page__scope {
+  padding: 7px 10px;
+  border: 1px solid var(--primary-soft);
+  border-radius: 8px;
+  color: var(--primary);
+  background: #f2f7ff;
+  font-weight: 900;
+}
+
+.cost-control,
+.cost-refresh,
+.cost-workshop-tabs button,
+.cost-basis-tabs button,
+.cost-action-grid button,
+.cost-primary-action {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cost-control {
+  max-width: 156px;
+}
+
+.cost-refresh,
+.cost-workshop-tabs button,
+.cost-basis-tabs button,
+.cost-action-grid button:not(:disabled),
+.cost-primary-action:not(:disabled) {
+  cursor: pointer;
+}
+
+.cost-refresh:hover,
+.cost-workshop-tabs button:hover,
+.cost-basis-tabs button:hover,
+.cost-action-grid button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.cost-workshop-tabs button.is-active,
+.cost-basis-tabs button.is-active {
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.cost-control:disabled,
+.cost-action-grid button:disabled,
+.cost-primary-action:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.cost-center-page__basis {
+  display: grid;
+  gap: 12px;
+}
+
+.cost-workshop-tabs,
+.cost-basis-tabs {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.cost-workshop-tabs button {
+  min-width: 132px;
+  min-height: 48px;
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.cost-basis-tabs {
+  justify-content: flex-end;
+}
+
+.cost-basis-tabs button {
+  min-width: 118px;
+}
+
+.cost-center-page__overview,
+.cost-center-page__middle,
+.cost-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.46fr);
+  gap: var(--space-card);
+  align-items: stretch;
+}
+
+.cost-center-page__middle,
+.cost-center-page__bottom {
+  align-items: start;
+}
+
+.cost-stack-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(58px, 1fr));
+  gap: 14px;
+  min-height: 294px;
+  padding: 12px 8px 2px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.cost-stack-chart__item {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.cost-stack-chart__bar {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-self: end;
+  width: 48px;
+  height: 230px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 5px 5px 2px 2px;
+  background: #edf2f7;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+}
+
+.cost-stack-chart__bar i {
+  display: block;
+  width: 100%;
+}
+
+.cost-stack-chart__item strong {
+  color: var(--text-main);
+  font-family: var(--font-number);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.cost-stack-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cost-stack-chart__legend span,
+.cost-composition-list article div,
+.cost-item-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cost-stack-chart__legend i,
+.cost-composition-list i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.cost-composition-list,
+.cost-cumulative-summary,
+.cost-risk-list,
+.cost-trend-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.cost-composition-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text-secondary);
+}
+
+.cost-composition-list article.is-total {
+  border-bottom: 0;
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.cost-composition-list article.is-total i {
+  background: var(--primary);
+}
+
+.cost-composition-list strong,
+.cost-composition-list em,
+.cost-trend-summary strong {
+  color: var(--text-main);
+  font-family: var(--font-number);
+  font-style: normal;
+}
+
+.cost-composition-list em {
+  min-width: 58px;
+  text-align: right;
+}
+
+.cost-cumulative-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.cost-cumulative-summary span,
+.cost-basis-copy,
+.cost-caliber-copy,
+.cost-risk-list span,
+.cost-trend-summary span,
+.cost-trend-summary em {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.cost-cumulative-summary span {
+  padding: 9px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--neutral-soft);
+}
+
+.cost-primary-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  color: #fff;
+  background: var(--primary);
+}
+
+.cost-item-cell strong,
+.cost-risk-list strong {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.cost-trend-summary article,
+.cost-risk-list article {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--neutral-soft);
+}
+
+.cost-risk-list article {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.cost-risk-list article div {
+  display: grid;
+  gap: 4px;
+}
+
+.cost-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cost-action-grid button {
+  width: 100%;
+}
+
+.cost-caliber-copy {
+  margin: 0;
+}
+
+:deep(.cost-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.cost-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.cost-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.cost-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.cost-center-page .section-card),
+:deep(.cost-center-page .data-table-shell),
+:deep(.cost-center-page .center-page__head),
+:deep(.cost-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.cost-center-page .data-table-shell table) {
+  min-width: 1120px;
+}
+
+:deep(.cost-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.cost-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.cost-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
   .reports-center-page__overview,
   .reports-center-page__bottom,
   .quality-center-page__layout,
-  .quality-center-page__bottom {
+  .quality-center-page__bottom,
+  .cost-center-page__overview,
+  .cost-center-page__middle,
+  .cost-center-page__bottom {
     grid-template-columns: 1fr;
   }
 
   :deep(.reports-center-page .kpi-strip),
-  :deep(.quality-center-page .kpi-strip) {
+  :deep(.quality-center-page .kpi-strip),
+  :deep(.cost-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 }
@@ -1281,7 +1881,8 @@ function goAdminIngestion() {
 @media (max-width: 640px) {
   :global(.app-shell:has(.factory-center-page)),
   :global(.app-shell:has(.reports-center-page)),
-  :global(.app-shell:has(.quality-center-page)) {
+  :global(.app-shell:has(.quality-center-page)),
+  :global(.app-shell:has(.cost-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -1297,19 +1898,25 @@ function goAdminIngestion() {
   :global(.app-shell:has(.quality-center-page) > .app-shell__aside),
   :global(.app-shell:has(.quality-center-page) > .el-container),
   :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.quality-center-page) .app-shell__main) {
+  :global(.app-shell:has(.quality-center-page) .app-shell__main),
+  :global(.app-shell:has(.cost-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.cost-center-page) > .el-container),
+  :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.cost-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
   :global(.app-shell:has(.factory-center-page) > .el-container),
   :global(.app-shell:has(.reports-center-page) > .el-container),
-  :global(.app-shell:has(.quality-center-page) > .el-container) {
+  :global(.app-shell:has(.quality-center-page) > .el-container),
+  :global(.app-shell:has(.cost-center-page) > .el-container) {
     min-width: 0;
   }
 
   :global(.app-shell:has(.factory-center-page) .app-shell__topbar),
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.quality-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.cost-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
@@ -1317,13 +1924,15 @@ function goAdminIngestion() {
 
   :global(.app-shell:has(.factory-center-page) .app-shell__main),
   :global(.app-shell:has(.reports-center-page) .app-shell__main),
-  :global(.app-shell:has(.quality-center-page) .app-shell__main) {
+  :global(.app-shell:has(.quality-center-page) .app-shell__main),
+  :global(.app-shell:has(.cost-center-page) .app-shell__main) {
     padding: 8px;
   }
 
   .factory-center-page,
   .reports-center-page,
-  .quality-center-page {
+  .quality-center-page,
+  .cost-center-page {
     padding: 10px;
   }
 
@@ -1332,12 +1941,16 @@ function goAdminIngestion() {
   .reports-risk-actions,
   .quality-action-grid,
   .quality-risk-actions,
+  .cost-action-grid,
+  .cost-cumulative-summary,
   :deep(.reports-center-page .kpi-strip),
-  :deep(.quality-center-page .kpi-strip) {
+  :deep(.quality-center-page .kpi-strip),
+  :deep(.cost-center-page .kpi-strip) {
     grid-template-columns: 1fr;
   }
 
-  .quality-control {
+  .quality-control,
+  .cost-control {
     max-width: none;
     width: 100%;
   }
@@ -1358,6 +1971,16 @@ function goAdminIngestion() {
   .reports-trend {
     grid-template-columns: repeat(7, minmax(48px, 1fr));
     overflow-x: auto;
+  }
+
+  .cost-stack-chart {
+    grid-template-columns: repeat(7, minmax(52px, 1fr));
+    overflow-x: auto;
+  }
+
+  .cost-stack-chart__bar {
+    width: 38px;
+    height: 190px;
   }
 
   .reports-delivery-summary article,

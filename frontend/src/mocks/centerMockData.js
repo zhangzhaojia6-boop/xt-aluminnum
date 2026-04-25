@@ -363,32 +363,85 @@ export const qualityCenterMock = {
 }
 
 export const costCenterMock = {
-  caliberTabs: ['铸二', '铸三', '精整', '热轧', '拉矫', '2050', '1650', '1850', '花纹板'],
+  source: 'fallback',
+  updatedAt: '2026-04-25 10:30',
+  businessDate: '2026-04-25',
+  scope: '经营估算 / 策略口径',
+  activeWorkshop: 'zr2',
+  activeBasis: 'output',
+  workshops: [
+    { key: 'zr2', label: '铸二', source: 'fallback', risk: '偏高' },
+    { key: 'zr3', label: '铸三', source: 'fallback', risk: '正常' },
+    { key: 'finishing', label: '精整', source: 'fallback', risk: '待核' },
+    { key: 'hotRolling', label: '热轧', source: 'fallback', risk: '偏高' },
+    { key: 'leveling', label: '拉矫', source: 'fallback', risk: '正常' },
+    { key: 'line2050', label: '2050', source: 'fallback', risk: '待核' },
+    { key: 'line1650', label: '1650', source: 'fallback', risk: '正常' },
+    { key: 'line1850', label: '1850', source: 'fallback', risk: '正常' },
+    { key: 'pattern', label: '花纹板', source: 'fallback', risk: '待接入' }
+  ],
+  basisOptions: [
+    { key: 'output', label: '产量口径' },
+    { key: 'throughput', label: '通货口径' }
+  ],
   kpis: [
-    { label: '吨铝成本', value: '8,560', unit: '元/吨', tone: 'info' },
-    { label: '人工', value: '1,245', unit: '元/吨', tone: 'neutral' },
-    { label: '电耗', value: '632', unit: '元/吨', tone: 'neutral' },
-    { label: '天然气', value: '324', unit: '元/吨', tone: 'neutral' },
-    { label: '辅材/损耗', value: '156', unit: '元/吨', tone: 'neutral' }
+    { label: '吨铝成本', value: '8,560', unit: '元/吨', trend: '经营估算', tone: 'info' },
+    { label: '人工', value: '1,245', unit: '元/吨', trend: '班组口径', tone: 'neutral' },
+    { label: '电耗', value: '632', unit: '元/吨', trend: '折算 2,960 kWh', tone: 'warning' },
+    { label: '天然气', value: '324', unit: '元/吨', trend: '折算 126 m³', tone: 'neutral' },
+    { label: '辅材 / 损耗', value: '156', unit: '元/吨', trend: '策略价', tone: 'neutral' },
+    { label: '成本偏差 / 风险项', value: '3', unit: '项', trend: '待人工复核', tone: 'warning' }
+  ],
+  composition: [
+    { key: 'material', label: '原料', value: 5120, ratio: 59.8, color: '#1167f2', source: 'import' },
+    { key: 'power', label: '电耗', value: 1260, ratio: 14.7, color: '#22a66f', source: 'owner' },
+    { key: 'gas', label: '天然气', value: 820, ratio: 9.6, color: '#24aac0', source: 'owner' },
+    { key: 'labor', label: '人工', value: 1245, ratio: 14.5, color: '#9061e8', source: 'system' },
+    { key: 'loss', label: '辅材 / 损耗', value: 156, ratio: 1.8, color: '#ffab2d', source: 'fallback' },
+    { key: 'other', label: '折旧 / 其他', value: 159, ratio: 1.9, color: '#b8c0cc', source: 'fallback' }
   ],
   trend: [
-    { day: '05-15', parts: [3800, 1100, 900, 1000, 850, 900] },
-    { day: '05-16', parts: [3900, 1060, 920, 980, 810, 880] },
-    { day: '05-17', parts: [3650, 1030, 890, 960, 760, 820] },
-    { day: '05-18', parts: [3500, 990, 860, 920, 720, 780] },
-    { day: '05-19', parts: [3550, 1010, 880, 940, 760, 790] },
-    { day: '05-20', parts: [3600, 1040, 900, 960, 790, 820] },
-    { day: '05-21', parts: [3700, 1060, 910, 970, 810, 850] }
+    { day: '05-15', parts: { material: 3820, power: 1090, gas: 860, labor: 1040, loss: 820, other: 880 }, outputTon: 230, throughputTon: 246, risk: '正常' },
+    { day: '05-16', parts: { material: 3900, power: 1080, gas: 900, labor: 1030, loss: 780, other: 850 }, outputTon: 228, throughputTon: 244, risk: '正常' },
+    { day: '05-17', parts: { material: 3660, power: 1020, gas: 870, labor: 990, loss: 720, other: 805 }, outputTon: 219, throughputTon: 235, risk: '待核' },
+    { day: '05-18', parts: { material: 3520, power: 970, gas: 840, labor: 910, loss: 690, other: 770 }, outputTon: 212, throughputTon: 230, risk: '正常' },
+    { day: '05-19', parts: { material: 3580, power: 1010, gas: 860, labor: 930, loss: 730, other: 790 }, outputTon: 216, throughputTon: 232, risk: '正常' },
+    { day: '05-20', parts: { material: 3630, power: 1060, gas: 890, labor: 950, loss: 760, other: 820 }, outputTon: 221, throughputTon: 238, risk: '偏高' },
+    { day: '05-21', parts: { material: 3700, power: 1090, gas: 900, labor: 970, loss: 790, other: 840 }, outputTon: 224, throughputTon: 241, risk: '偏高' }
   ],
-  cumulative: [
-    { label: '原料', value: '5,120', ratio: '59.8%', color: 'primary' },
-    { label: '电耗', value: '1,260', ratio: '14.7%', color: 'success' },
-    { label: '天然气', value: '820', ratio: '9.6%', color: 'info' },
-    { label: '人工', value: '1,245', ratio: '14.5%', color: 'accent' },
-    { label: '辅材/损耗', value: '156', ratio: '1.8%', color: 'warning' },
-    { label: '折旧', value: '159', ratio: '1.9%', color: 'neutral' },
-    { label: '合计', value: '8,760', ratio: '100.0%', color: 'total' }
-  ]
+  cumulative: {
+    amount: '8,760',
+    unit: '元/吨',
+    monthEstimate: '183.6 万',
+    monthOutput: '2,145 吨',
+    monthThroughput: '2,312 吨'
+  },
+  detailRows: [
+    { id: 'material', item: '原料', amount: '5,120', unit: '元/吨', price: '策略折算价', tonCost: '5,120', monthly: '109.8 万', status: 'fallback', tone: 'warning', source: 'import', basisText: '按当日投料与策略价估算，待价格主数据接入。' },
+    { id: 'power', item: '电耗', amount: '2,960 kWh', unit: 'kWh', price: '0.426 元/kWh', tonCost: '632', monthly: '13.6 万', status: '偏高', tone: 'warning', source: 'owner', basisText: '能耗专项补录折算，05-20 后段略高。' },
+    { id: 'gas', item: '天然气', amount: '126 m³', unit: 'm³', price: '2.57 元/m³', tonCost: '324', monthly: '7.0 万', status: '正常', tone: 'success', source: 'owner', basisText: '按班次能耗与通货量交叉查看。' },
+    { id: 'labor', item: '人工', amount: '24 人班', unit: '人班', price: '51.9 元/人班', tonCost: '1,245', monthly: '26.7 万', status: '待核', tone: 'info', source: 'system', basisText: '按班组配置估算，非工资结算口径。' },
+    { id: 'loss', item: '辅材 / 损耗', amount: '156', unit: '元/吨', price: '策略价', tonCost: '156', monthly: '3.3 万', status: 'fallback', tone: 'warning', source: 'system', basisText: '辅材与损耗合并估算，需现场试跑复核。' },
+    { id: 'other', item: '折旧 / 其他', amount: '159', unit: '元/吨', price: '策略摊销', tonCost: '159', monthly: '3.4 万', status: '待接入', tone: 'neutral', source: 'system', basisText: '仅作经营观察，不代表入账摊销。' }
+  ],
+  risks: [
+    { label: '成本偏高项', value: '电耗、原料策略价', status: '待复核', tone: 'warning', routeName: 'factory-dashboard' },
+    { label: '单价待核', value: '原料 / 辅材使用 fallback', status: 'fallback', tone: 'warning', routeName: 'admin-ingestion-center' },
+    { label: '能耗异常', value: '05-20 起电耗折算偏高', status: '观察', tone: 'info', routeName: 'review-quality-center' },
+    { label: '数据源 fallback / mixed', value: '成本读面 fallback', status: '需复核', tone: 'warning', routeName: 'admin-ingestion-center' },
+    { label: '日报解释风险', value: '经营解释需标注策略口径', status: '影响日报', tone: 'danger', routeName: 'review-report-center' }
+  ],
+  actions: {
+    adjustPlan: 'disabled',
+    viewBasis: 'enabled',
+    export: 'disabled',
+    reportImpact: 'enabled',
+    qualityRisk: 'enabled',
+    factoryBoard: 'enabled',
+    ingestion: 'permission'
+  },
+  caliber:
+    '本页为经营估算 / 策略口径，用于查看成本构成、能耗、人工、辅材与损耗趋势，不作为会计结算或月度入账依据。若数据源标记为 fallback/mixed，请以现场试跑口径复核。'
 }
 
 export const ingestionCenterMock = {

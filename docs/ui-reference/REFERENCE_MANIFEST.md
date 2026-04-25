@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/review/quality`
-- 本轮使用图：`09-quality-alerts.png`
+- 当前优先页面：`/review/cost-accounting`
+- 本轮使用图：`10-cost-benefit.png`
 
 ## 文件与中心映射
 
@@ -40,6 +40,13 @@
 - 业务元素：质量告警、告警来源、严重度、处理状态、质检补录、日报交付影响、AI 关注点、处置、追溯和查看历史。
 - 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
+## 10 视觉审计摘要
+
+- 布局：顶部大号编号与中文标题；右侧为产量口径 / 通货口径切换；主体包含车间 tab、KPI、成本构成趋势、累计构成、操作区、风险摘要和口径说明。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，蓝色主按钮，蓝 / 绿 / 青 / 紫 / 橙 / 灰表示成本构成。
+- 业务元素：吨铝成本、人工、电耗、天然气、辅材 / 损耗、产量口径、通货口径、累计构成、调整方案、查看口径、导出和经营风险。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
+
 ## 设计约束
 
 - 参考图是视觉与信息架构基线，不作为静态截图嵌入产品。
@@ -47,3 +54,4 @@
 - 必须转译成可运行 Web 组件，保持 `/entry`、`/review`、`/admin` 三端边界。
 - `/review/reports` 是日报生成、导出与交付状态读面，不承接生产事实写入。
 - `/review/quality` 是质量告警与处置状态读面，当前为 fallback 数据；AI 仅作辅助分诊，处置写动作在无真实接口时禁用，不承接生产事实写入。
+- `/review/cost-accounting` 是经营估算 / 策略口径读面，当前为 fallback 数据；调整方案与导出在无真实接口时禁用，不承接生产事实写入，不作为财务结算依据。
