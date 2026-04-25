@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/admin/governance`
-- 本轮使用图：`13-governance.png`
+- 当前优先页面：`/admin/master`
+- 本轮使用图：`14-master-template.png`
 
 ## 文件与中心映射
 
@@ -75,6 +75,13 @@
 - 业务元素：admin、manager、reviewer、operator、owner-only、fill-only、Entry / Review / Admin、数据范围、审计日志、登录记录、权限变更记录、风险账号和系统设置。
 - 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
+## 14 视觉审计摘要
+
+- 布局：顶部大号编号与“主数据与模板中心”标题；目标图主体为主数据、模板配置、枚举配置、别名管理 tab 与主数据卡片网格；落地扩展为 KPI、主数据分类表、模板配置表、字段规则 / owner 表、数据缺口 / 风险、操作区和口径说明。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，蓝色线性图标语汇，高密表格补足配置细节，绿 / 橙 / 红 / 灰表达启用、待完善、高风险和禁用态。
+- 业务元素：车间、班组、员工、机台、用户、班次、别名、字典、模板、字段规则、owner 字段、必填项、校验规则、启用状态和主数据缺口。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
+
 ## 设计约束
 
 - 参考图是视觉与信息架构基线，不作为静态截图嵌入产品。
@@ -86,3 +93,4 @@
 - `/review/brain` 是审阅端 AI 总控中心，当前为 fallback / mixed 证据读面；AI 仅作辅助解释与建议，生成与追问在无真实接口时禁用，不自动执行质量、成本、排产或交付动作。
 - `/admin/ops` 是管理端运维观测面，当前为 fallback / mixed 只读观测数据；刷新、readiness、健康检查和上线闸门仅做只读状态查看，回滚预检、导出诊断和查看日志在无真实接口时禁用，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
 - `/admin/governance` 是管理端权限治理面，当前为 fallback / mixed 只读治理数据；查看审计、角色矩阵、风险账号和相关中心跳转仅做只读/导航动作，导出审计与保存策略在无真实接口时禁用，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
+- `/admin/master` 是管理端主数据配置面，当前为 fallback / mixed 只读配置底座数据；查看、筛选、跳转和刷新仅做只读/导航动作，导出配置、发布模板和保存字段规则在无真实接口时禁用，不绕过后端主数据与权限模型，不直接修改生产事实或真实模板发布。

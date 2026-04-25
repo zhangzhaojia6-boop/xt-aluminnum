@@ -16,6 +16,7 @@
 - `/review/brain` 当前使用 `brainCenterMock` fallback / mixed 证据读面，对齐高清目标图 `11-ai-control.png`；生成今日摘要与追问在无真实接口时禁用，证据查看、审阅/日报/质量/成本跳转与复制摘要保持只读/导航语义。AI 仅作为辅助解释与建议，不自动执行生产、质量、成本、排产或交付动作。
 - `/admin/ops` 当前使用 `opsCenterMock` fallback / mixed 只读观测数据，对齐高清目标图 `12-ops-observability.png`；刷新探针、查看 readiness、查看健康检查、查看上线闸门只做页面状态切换，回滚预检、导出诊断、查看日志保持 disabled。本页属于管理端运维观测面，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
 - `/admin/governance` 当前使用 `governanceCenterMock` fallback / mixed 只读治理数据，对齐高清目标图 `13-governance.png`；查看审计、查看角色矩阵、查看风险账号、进入主数据、进入运维观测、刷新权限视图为只读/导航动作，导出审计与保存策略保持 disabled。本页属于管理端权限治理面，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
+- `/admin/master` 当前使用 `masterCenterMock` fallback / mixed 只读配置底座数据，对齐高清目标图 `14-master-template.png`；查看车间、班组、机台、用户、模板、字段规则、刷新主数据为筛选/跳转/只读动作，导出配置、发布模板、保存字段规则保持 disabled。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实或真实模板发布。
 
 ## 本轮处理方向
 
@@ -30,3 +31,4 @@
 - 本轮 brain route smoke 增加标题、编号、辅助建议 / 系统提示、今日摘要、风险事件、证据链 / 数据来源、source 标识、禁止伪造自动决策文案、禁止生产事实写入按钮与 fill-only 访问边界断言。
 - 本轮 ops route smoke 增加标题、编号、healthz、readyz、hard gate、错误率、响应时间、fallback/source 标识、禁用回滚/导出/日志操作、禁止伪造自动修复/真实回滚/部署成功文案与非 admin 访问边界断言。
 - 本轮 governance route smoke 增加标题、编号、角色矩阵、审计日志、数据权限、高风险账号 / 治理风险、fallback/source 标识、禁用导出审计与保存策略、禁止伪造权限保存/安全策略生效/审计清理文案、禁止生产事实写入按钮与非 admin 访问边界断言。
+- 本轮 master route smoke 增加标题、编号、车间、班组、机台、模板配置、字段规则 / 字段 owner、fallback/source 标识、禁用导出配置/发布模板/保存字段规则、禁止伪造主数据保存/模板发布/字段同步文案、禁止生产事实写入按钮与三端边界断言。

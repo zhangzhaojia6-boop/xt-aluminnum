@@ -1464,6 +1464,220 @@
         <p class="governance-caliber-copy">{{ governanceData.caliber }}</p>
       </SectionCard>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isMasterModule"
+      class="master-center-page"
+      center-no="14"
+      title="主数据与模板中心"
+      data-testid="admin-master-center"
+    >
+      <template #tools>
+        <span class="master-center-page__scope">{{ masterData.environment }}</span>
+        <span class="master-center-page__updated">更新时间：{{ masterData.updatedAt }}</span>
+        <select v-model="masterCategoryFilter" class="master-control" aria-label="分类筛选">
+          <option value="">全部分类</option>
+          <option v-for="category in masterCategoryOptions" :key="category" :value="category">{{ category }}</option>
+        </select>
+        <select v-model="masterStatusFilter" class="master-control" aria-label="状态筛选">
+          <option value="">全部状态</option>
+          <option v-for="status in masterStatusOptions" :key="status" :value="status">{{ status }}</option>
+        </select>
+        <button type="button" class="master-refresh" @click="refreshMasterView">刷新</button>
+        <button type="button" class="master-template-link" @click="goMasterRoute('admin-template-center')">进入模板中心</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="masterData.source !== 'live'"
+          :source="masterData.source"
+          message="主数据与模板中心使用 fallback/mixed 配置底座数据，仅用于查看状态、模板与字段规则；不保存主数据，不发布真实模板。"
+        />
+        <div class="master-compat-markers" aria-label="兼容入口状态">
+          <span data-testid="admin-home">管理总览在线</span>
+          <span data-testid="template-editor-page">模板中心在线</span>
+          <SourceBadge :source="masterData.source" />
+        </div>
+      </template>
+
+      <KpiStrip :items="masterData.kpis" />
+
+      <div class="master-center-page__overview">
+        <DataTableShell
+          data-testid="master-category-table"
+          title="主数据分类"
+          subtitle="车间、班组、员工、机台、用户、班次、别名、字典的只读状态"
+          :columns="masterCategoryColumns"
+          :rows="filteredMasterCategories"
+        >
+          <template #actions>
+            <SourceBadge :source="masterData.source" />
+          </template>
+          <template #cell-name="{ row }">
+            <div class="master-name-cell">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.count }}{{ row.unit }}</span>
+            </div>
+          </template>
+          <template #cell-statusLabel="{ row }">
+            <StatusBadge :label="row.statusLabel" :tone="row.tone" />
+          </template>
+          <template #cell-source="{ row }">
+            <SourceBadge :source="row.source" />
+          </template>
+          <template #cell-remark="{ row }">
+            <span class="master-muted-copy">{{ row.remark }}</span>
+          </template>
+          <template #cell-action="{ row }">
+            <button
+              type="button"
+              class="master-mini-button"
+              :disabled="row.actionStatus !== 'enabled'"
+              :title="row.actionStatus === 'enabled' ? '只读查看入口' : '无真实接口，当前禁用'"
+              @click="goMasterRoute(row.routeName)"
+            >
+              {{ row.actionLabel }}
+            </button>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="上线试跑风险" :meta="masterInfoPanelLabel">
+          <div class="master-risk-stack">
+            <article v-for="risk in masterData.risks.slice(0, 4)" :key="risk.id" :class="`is-${risk.tone}`">
+              <div>
+                <strong>{{ risk.label }}</strong>
+                <span>{{ risk.value }}</span>
+              </div>
+              <StatusBadge :label="risk.status" :tone="risk.tone" />
+            </article>
+          </div>
+          <div class="master-risk-links">
+            <button type="button" @click="goMasterRoute('admin-governance-center')">看权限治理</button>
+            <button type="button" @click="goMasterRoute('admin-ingestion-center')">看数据接入</button>
+            <button type="button" @click="goMasterRoute('admin-ops-reliability')">看运维观测</button>
+            <button type="button" @click="goMasterRoute('mobile-entry')">看录入端</button>
+          </div>
+        </SectionCard>
+      </div>
+
+      <DataTableShell
+        data-testid="master-template-table"
+        title="模板配置"
+        subtitle="role-owned 字段与普通班组字段分开理解；无真实发布接口的动作保持禁用"
+        :columns="masterTemplateColumns"
+        :rows="filteredMasterTemplates"
+      >
+        <template #actions>
+          <button type="button" class="master-disabled-action" disabled title="无真实发布接口，当前禁用">发布模板</button>
+        </template>
+        <template #cell-name="{ row }">
+          <div class="master-name-cell">
+            <strong>{{ row.name }}</strong>
+            <span>{{ row.ownerScope }}</span>
+          </div>
+        </template>
+        <template #cell-fieldCount="{ row }">
+          <strong class="master-number">{{ row.fieldCount }}</strong>
+        </template>
+        <template #cell-requiredCount="{ row }">
+          <strong class="master-number">{{ row.requiredCount }}</strong>
+        </template>
+        <template #cell-statusLabel="{ row }">
+          <StatusBadge :label="row.statusLabel" :tone="row.tone" />
+        </template>
+        <template #cell-source="{ row }">
+          <SourceBadge :source="row.source" />
+        </template>
+        <template #cell-action="{ row }">
+          <div class="master-row-actions">
+            <button type="button" class="master-mini-button" @click="goMasterRoute(row.routeName)">{{ row.actionLabel }}</button>
+            <button type="button" class="master-mini-button" disabled title="无真实发布接口，当前禁用">发布</button>
+          </div>
+        </template>
+      </DataTableShell>
+
+      <DataTableShell
+        data-testid="master-field-rule-table"
+        title="字段规则 / 字段 owner"
+        subtitle="owner-only、系统计算和普通班组字段在本表中分清；本页不绕过后端模板规则"
+        :columns="masterFieldRuleColumns"
+        :rows="masterData.fieldRules"
+      >
+        <template #actions>
+          <button type="button" class="master-disabled-action" disabled title="无真实字段规则保存接口，当前禁用">保存字段规则</button>
+        </template>
+        <template #cell-fieldName="{ row }">
+          <code class="master-code">{{ row.fieldName }}</code>
+        </template>
+        <template #cell-owner="{ row }">
+          <StatusBadge :label="row.owner" :tone="ownerTone(row.owner)" />
+        </template>
+        <template #cell-required="{ row }">
+          <StatusBadge :label="row.required" :tone="row.required === '是' ? 'warning' : 'neutral'" />
+        </template>
+        <template #cell-source="{ row }">
+          <SourceBadge :source="row.source" />
+        </template>
+        <template #cell-statusLabel="{ row }">
+          <StatusBadge :label="row.statusLabel" :tone="row.tone" />
+        </template>
+        <template #cell-remark="{ row }">
+          <span class="master-muted-copy">{{ row.remark }}</span>
+        </template>
+      </DataTableShell>
+
+      <div class="master-center-page__bottom">
+        <DataTableShell
+          data-testid="master-risk-table"
+          title="数据缺口 / 风险"
+          subtitle="缺少班次、模板字段、owner 绑定、机台班次、别名冲突和数据源口径"
+          :columns="masterRiskColumns"
+          :rows="masterData.risks"
+        >
+          <template #cell-label="{ row }">
+            <strong>{{ row.label }}</strong>
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.status" :tone="row.tone" />
+          </template>
+          <template #cell-source="{ row }">
+            <SourceBadge :source="row.source" />
+          </template>
+          <template #cell-route="{ row }">
+            <button
+              type="button"
+              class="master-mini-button"
+              :disabled="!row.routeName"
+              :title="row.routeName ? '查看相关中心' : '暂无真实入口'"
+              @click="goMasterRoute(row.routeName)"
+            >
+              {{ row.routeName ? '查看' : '只读' }}
+            </button>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="操作区" meta="跳转 / 只读动作">
+          <div class="master-action-grid">
+            <button
+              v-for="action in masterData.actions"
+              :key="action.key"
+              type="button"
+              :class="`is-${action.tone}`"
+              :disabled="masterActionDisabled(action)"
+              :title="action.title"
+              @click="runMasterAction(action)"
+            >
+              <span>{{ action.label }}</span>
+              <StatusBadge :label="masterActionStatusLabel(action)" :tone="masterActionStatusTone(action)" />
+            </button>
+          </div>
+          <p class="master-muted-copy">{{ masterActionCopy }}</p>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="口径说明" :meta="masterData.source">
+        <p class="master-caliber-copy">{{ masterData.caliber }}</p>
+      </SectionCard>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -1479,7 +1693,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { brainCenterMock, costCenterMock, factoryBoardMock, governanceCenterMock, ingestionCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { brainCenterMock, costCenterMock, factoryBoardMock, governanceCenterMock, ingestionCenterMock, masterCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -1518,6 +1732,9 @@ const opsInfoPanel = ref('readiness')
 const governanceRoleFilter = ref('')
 const governanceRiskFilter = ref('')
 const governanceInfoPanel = ref('matrix')
+const masterCategoryFilter = ref('')
+const masterStatusFilter = ref('')
+const masterInfoPanel = ref('overview')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -1534,6 +1751,7 @@ const isBrainModule = computed(() => module.value.moduleId === '11')
 const isOpsModule = computed(() => module.value.moduleId === '12')
 const isGovernanceModule = computed(() => module.value.moduleId === '13')
 const isIngestionModule = computed(() => module.value.moduleId === '06')
+const isMasterModule = computed(() => module.value.moduleId === '14')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
 const qualityData = qualityCenterMock
@@ -1542,6 +1760,7 @@ const ingestionData = ingestionCenterMock
 const brainData = brainCenterMock
 const opsData = opsCenterMock
 const governanceData = governanceCenterMock
+const masterData = masterCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -1699,6 +1918,49 @@ const governanceRiskColumns = [
   { key: 'route', label: '入口' }
 ]
 
+const masterCategoryColumns = [
+  { key: 'name', label: '分类' },
+  { key: 'statusLabel', label: '启用状态' },
+  { key: 'missing', label: '缺口' },
+  { key: 'updatedAt', label: '最近更新' },
+  { key: 'source', label: '来源' },
+  { key: 'remark', label: '说明' },
+  { key: 'action', label: '操作' }
+]
+
+const masterTemplateColumns = [
+  { key: 'name', label: '模板名称' },
+  { key: 'role', label: '适用角色' },
+  { key: 'scope', label: '适用车间 / 班组' },
+  { key: 'fieldCount', label: '字段数' },
+  { key: 'requiredCount', label: '必填项' },
+  { key: 'validationRules', label: '校验规则' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'source', label: '来源' },
+  { key: 'updatedAt', label: '最近更新' },
+  { key: 'action', label: '操作' }
+]
+
+const masterFieldRuleColumns = [
+  { key: 'fieldName', label: '字段名' },
+  { key: 'label', label: '中文名称' },
+  { key: 'template', label: '所属模板' },
+  { key: 'owner', label: 'owner' },
+  { key: 'required', label: '是否必填' },
+  { key: 'validationRule', label: '校验规则' },
+  { key: 'source', label: '数据来源' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'remark', label: '说明' }
+]
+
+const masterRiskColumns = [
+  { key: 'label', label: '风险项' },
+  { key: 'value', label: '说明' },
+  { key: 'status', label: '状态' },
+  { key: 'source', label: '来源' },
+  { key: 'route', label: '入口' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
@@ -1708,6 +1970,13 @@ const brainRiskOptions = computed(() => [...new Set(brainData.risks.map((item) =
 const brainTopicOptions = computed(() => brainData.topics.map((item) => item.title))
 const governanceRoleOptions = computed(() => governanceData.roles.map((item) => item.role))
 const governanceRiskOptions = computed(() => [...new Set(governanceData.roles.map((item) => item.risk))])
+const masterCategoryOptions = computed(() => masterData.categories.map((item) => item.name))
+const masterStatusOptions = computed(() => [
+  ...new Set([
+    ...masterData.categories.map((item) => item.statusLabel),
+    ...masterData.templates.map((item) => item.statusLabel)
+  ])
+])
 
 const filteredIngestionDataSources = computed(() => ingestionData.dataSources.filter((item) => {
   if (ingestionSourceFilter.value && item.name !== ingestionSourceFilter.value) return false
@@ -1730,6 +1999,17 @@ const filteredBrainTopics = computed(() => brainData.topics.filter((item) => {
 const filteredGovernanceRoles = computed(() => governanceData.roles.filter((item) => {
   if (governanceRoleFilter.value && item.role !== governanceRoleFilter.value) return false
   if (governanceRiskFilter.value && item.risk !== governanceRiskFilter.value) return false
+  return true
+}))
+
+const filteredMasterCategories = computed(() => masterData.categories.filter((item) => {
+  if (masterCategoryFilter.value && item.name !== masterCategoryFilter.value) return false
+  if (masterStatusFilter.value && item.statusLabel !== masterStatusFilter.value && item.source !== masterStatusFilter.value) return false
+  return true
+}))
+
+const filteredMasterTemplates = computed(() => masterData.templates.filter((item) => {
+  if (masterStatusFilter.value && item.statusLabel !== masterStatusFilter.value && item.source !== masterStatusFilter.value) return false
   return true
 }))
 
@@ -1757,6 +2037,23 @@ const governanceActionNote = computed(() => {
     refresh: '刷新只更新前端视图，不保存权限策略或绕过后端权限模型。'
   }
   return labels[governanceInfoPanel.value] || '无真实接口的保存、导出、清理动作保持禁用；可用动作仅跳转或只读查看。'
+})
+
+const masterInfoPanelLabel = computed(() => {
+  const labels = {
+    overview: '主数据底座',
+    fieldRules: '字段规则',
+    refresh: '前端刷新',
+    route: '关联中心'
+  }
+  return labels[masterInfoPanel.value] || '只读'
+})
+
+const masterActionCopy = computed(() => {
+  if (masterInfoPanel.value === 'fieldRules') return '正在查看字段规则；字段配置不在前端保存，也不绕过后端模板规则。'
+  if (masterInfoPanel.value === 'refresh') return '刷新只更新前端视图，不保存主数据、不发布模板、不同步字段规则。'
+  if (masterCategoryFilter.value) return `已筛选 ${masterCategoryFilter.value}；分类动作仅用于只读定位。`
+  return '无真实接口的导出、发布、保存动作保持禁用；可用动作仅跳转、筛选或刷新。'
 })
 
 const ingestionOverviewGradient = computed(() => {
@@ -1831,6 +2128,59 @@ function refreshOpsView() {
 function refreshGovernanceView() {
   governanceInfoPanel.value = 'refresh'
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function refreshMasterView() {
+  masterInfoPanel.value = 'refresh'
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function goMasterRoute(name) {
+  if (!name) return
+  masterInfoPanel.value = 'route'
+  if (route.name !== name) {
+    router.push({ name })
+  }
+}
+
+function runMasterAction(action) {
+  if (masterActionDisabled(action)) return
+  if (action.category) {
+    masterCategoryFilter.value = action.category
+    masterInfoPanel.value = 'overview'
+    return
+  }
+  if (action.routeName) {
+    goMasterRoute(action.routeName)
+    return
+  }
+  if (action.panel === 'fieldRules') {
+    masterInfoPanel.value = 'fieldRules'
+    return
+  }
+  if (action.panel === 'refresh') {
+    refreshMasterView()
+  }
+}
+
+function masterActionDisabled(action) {
+  return action.status !== 'enabled'
+}
+
+function masterActionStatusLabel(action) {
+  return action.status === 'enabled' ? '可用' : '禁用'
+}
+
+function masterActionStatusTone(action) {
+  if (action.status !== 'enabled') return 'neutral'
+  return action.tone || 'info'
+}
+
+function ownerTone(owner) {
+  if (owner === '主操') return 'success'
+  if (owner.includes('owner')) return 'warning'
+  if (owner === '系统计算') return 'info'
+  return 'neutral'
 }
 
 function costTrendTotal(point) {
@@ -4397,6 +4747,251 @@ function goAdminIngestion() {
   background: #fffaf2;
 }
 
+.master-center-page {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  background: #f8fafc;
+}
+
+.master-center-page__scope,
+.master-center-page__updated {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.master-control {
+  min-width: 132px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.master-refresh,
+.master-template-link,
+.master-disabled-action,
+.master-mini-button,
+.master-risk-links button {
+  min-height: 34px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.master-template-link {
+  background: #0f62fe;
+  color: #fff;
+}
+
+.master-disabled-action,
+.master-mini-button:disabled,
+.master-action-grid button:disabled {
+  border-color: var(--card-border);
+  background: #f1f5f9;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.master-compat-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.master-compat-markers span:not(.source-badge) {
+  padding: 4px 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.master-center-page__overview,
+.master-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.75fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.master-name-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.master-name-cell strong {
+  color: var(--text-primary);
+}
+
+.master-name-cell span,
+.master-muted-copy {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.master-number {
+  color: #1d4ed8;
+  font-size: 18px;
+}
+
+.master-code {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.master-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 130px;
+}
+
+.master-risk-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.master-risk-stack article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.master-risk-stack article.is-danger {
+  border-color: #fecdd3;
+  background: #fff8f9;
+}
+
+.master-risk-stack article.is-warning {
+  border-color: #fed7aa;
+  background: #fffaf2;
+}
+
+.master-risk-stack article > div {
+  display: grid;
+  gap: 5px;
+}
+
+.master-risk-stack article span {
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.master-risk-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.master-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.master-action-grid button {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  min-height: 62px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.master-action-grid button.is-danger:not(:disabled) {
+  border-color: #fecdd3;
+  background: #fff8f9;
+}
+
+.master-action-grid button.is-warning:not(:disabled) {
+  border-color: #fed7aa;
+  background: #fffaf2;
+}
+
+.master-caliber-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+:deep(.master-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.master-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.master-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.master-center-page .kpi-card__value) {
+  font-size: 32px;
+}
+
+:deep(.master-center-page .section-card),
+:deep(.master-center-page .data-table-shell),
+:deep(.master-center-page .center-page__head),
+:deep(.master-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.master-center-page .data-table-shell table) {
+  min-width: 1220px;
+}
+
+:deep(.master-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.master-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.master-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.master-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
@@ -4417,7 +5012,9 @@ function goAdminIngestion() {
   .ops-center-page__risk,
   .governance-center-page__overview,
   .governance-center-page__middle,
-  .governance-center-page__bottom {
+  .governance-center-page__bottom,
+  .master-center-page__overview,
+  .master-center-page__bottom {
     grid-template-columns: 1fr;
   }
 
@@ -4427,13 +5024,15 @@ function goAdminIngestion() {
   :deep(.cost-center-page .kpi-strip),
   :deep(.brain-center-page .kpi-strip),
   :deep(.ops-center-page .kpi-strip),
-  :deep(.governance-center-page .kpi-strip) {
+  :deep(.governance-center-page .kpi-strip),
+  :deep(.master-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 
   .brain-topic-grid,
   .ops-version-grid,
-  .governance-surface-grid {
+  .governance-surface-grid,
+  .master-risk-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -4446,7 +5045,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.cost-center-page)),
   :global(.app-shell:has(.brain-center-page)),
   :global(.app-shell:has(.ops-center-page)),
-  :global(.app-shell:has(.governance-center-page)) {
+  :global(.app-shell:has(.governance-center-page)),
+  :global(.app-shell:has(.master-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -4482,7 +5082,11 @@ function goAdminIngestion() {
   :global(.app-shell:has(.governance-center-page) > .app-shell__aside),
   :global(.app-shell:has(.governance-center-page) > .el-container),
   :global(.app-shell:has(.governance-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.governance-center-page) .app-shell__main) {
+  :global(.app-shell:has(.governance-center-page) .app-shell__main),
+  :global(.app-shell:has(.master-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.master-center-page) > .el-container),
+  :global(.app-shell:has(.master-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.master-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
@@ -4493,7 +5097,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.cost-center-page) > .el-container),
   :global(.app-shell:has(.brain-center-page) > .el-container),
   :global(.app-shell:has(.ops-center-page) > .el-container),
-  :global(.app-shell:has(.governance-center-page) > .el-container) {
+  :global(.app-shell:has(.governance-center-page) > .el-container),
+  :global(.app-shell:has(.master-center-page) > .el-container) {
     min-width: 0;
   }
 
@@ -4504,7 +5109,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
   :global(.app-shell:has(.brain-center-page) .app-shell__topbar),
   :global(.app-shell:has(.ops-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.governance-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.governance-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.master-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
@@ -4517,7 +5123,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.cost-center-page) .app-shell__main),
   :global(.app-shell:has(.brain-center-page) .app-shell__main),
   :global(.app-shell:has(.ops-center-page) .app-shell__main),
-  :global(.app-shell:has(.governance-center-page) .app-shell__main) {
+  :global(.app-shell:has(.governance-center-page) .app-shell__main),
+  :global(.app-shell:has(.master-center-page) .app-shell__main) {
     padding: 8px;
   }
 
@@ -4528,7 +5135,8 @@ function goAdminIngestion() {
   .cost-center-page,
   .brain-center-page,
   .ops-center-page,
-  .governance-center-page {
+  .governance-center-page,
+  .master-center-page {
     padding: 10px;
   }
 
@@ -4550,13 +5158,16 @@ function goAdminIngestion() {
   .ops-version-grid,
   .governance-surface-grid,
   .governance-action-grid,
+  .master-risk-links,
+  .master-action-grid,
   :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip),
   :deep(.brain-center-page .kpi-strip),
   :deep(.ops-center-page .kpi-strip),
-  :deep(.governance-center-page .kpi-strip) {
+  :deep(.governance-center-page .kpi-strip),
+  :deep(.master-center-page .kpi-strip) {
     grid-template-columns: 1fr;
   }
 
@@ -4564,7 +5175,8 @@ function goAdminIngestion() {
   .ingestion-control,
   .cost-control,
   .brain-control,
-  .governance-control {
+  .governance-control,
+  .master-control {
     max-width: none;
     width: 100%;
   }
@@ -4618,7 +5230,9 @@ function goAdminIngestion() {
   .brain-topic-card button,
   .brain-ask-panel__input button,
   .ops-refresh,
-  .governance-refresh {
+  .governance-refresh,
+  .master-refresh,
+  .master-template-link {
     width: 100%;
   }
 

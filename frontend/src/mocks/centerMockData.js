@@ -1061,3 +1061,72 @@ export const governanceCenterMock = {
   caliber:
     '本页用于查看角色矩阵、数据权限边界、审计日志和治理风险，属于管理端权限治理面。当前页面不绕过后端权限模型，不直接修改生产事实或真实授权策略。若数据源标记为 fallback/mixed，请以实际账号权限和后端审计记录复核。'
 }
+
+export const masterCenterMock = {
+  source: 'fallback',
+  environment: 'trial / 管理端主数据配置面',
+  updatedAt: '2026-04-25 11:26',
+  kpis: [
+    { label: '车间数', value: 18, unit: '个', trend: 'fallback：以主数据接口复核', tone: 'info' },
+    { label: '班组数', value: 56, unit: '个', trend: '含待绑定班次 3 个', tone: 'warning' },
+    { label: '员工 / 用户', value: '1,256 / 348', unit: '', trend: '员工台账与账号 mixed', tone: 'info' },
+    { label: '机台数', value: 342, unit: '台', trend: '9 台缺少班次', tone: 'warning' },
+    { label: '启用模板', value: 24, unit: '个', trend: '7 类表单口径', tone: 'success' },
+    { label: '待完善项', value: 9, unit: '项', trend: '上线试跑需复核', tone: 'danger' }
+  ],
+  categories: [
+    { id: 'workshops', name: '车间', count: 18, unit: '个', statusLabel: '已启用', tone: 'success', missing: '0 项', updatedAt: '04-25 10:20', source: 'mixed', actionLabel: '查看车间', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '车间清单需以后端主数据接口为准' },
+    { id: 'teams', name: '班组', count: 56, unit: '个', statusLabel: '待完善', tone: 'warning', missing: '3 个缺班次', updatedAt: '04-25 10:18', source: 'fallback', actionLabel: '查看班组', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '不在本页新增或保存班组' },
+    { id: 'employees', name: '员工', count: 1256, unit: '人', statusLabel: 'mixed', tone: 'warning', missing: '12 人待绑定', updatedAt: '04-25 10:12', source: 'mixed', actionLabel: '查看员工', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '员工与账号关系需现场试跑复核' },
+    { id: 'machines', name: '机台', count: 342, unit: '台', statusLabel: '待完善', tone: 'warning', missing: '9 台无班次', updatedAt: '04-25 10:09', source: 'fallback', actionLabel: '查看机台', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '机台班次绑定不在前端伪造完成' },
+    { id: 'users', name: '用户', count: 348, unit: '人', statusLabel: '需治理', tone: 'danger', missing: '5 个高权限待核', updatedAt: '04-25 10:05', source: 'mixed', actionLabel: '查看用户', actionStatus: 'enabled', routeName: 'admin-users', remark: '账号权限边界由后端权限模型控制' },
+    { id: 'shifts', name: '班次', count: 6, unit: '个', statusLabel: '待完善', tone: 'warning', missing: '夜班口径待核', updatedAt: '04-25 09:58', source: 'fallback', actionLabel: '查看班次', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '班次规则用于解释，不直接写入生产事实' },
+    { id: 'aliases', name: '别名', count: 128, unit: '条', statusLabel: '冲突待核', tone: 'danger', missing: '4 条冲突', updatedAt: '04-25 09:51', source: 'fallback', actionLabel: '查看别名', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '别名冲突需与数据接入口径一起复核' },
+    { id: 'dictionaries', name: '字典', count: 186, unit: '项', statusLabel: '已启用', tone: 'success', missing: '2 项待复核', updatedAt: '04-25 09:45', source: 'mixed', actionLabel: '查看字典', actionStatus: 'enabled', routeName: 'admin-master-workshop', remark: '字典只读展示，不替代后台配置' }
+  ],
+  templates: [
+    { id: 'operator-entry', name: '主操填报模板', role: '主操 / fill-only', scope: '铸造、挤压、精整班组', fieldCount: 42, requiredCount: 18, validationRules: '重量、班次、机台必校验', statusLabel: '已启用', tone: 'success', source: 'mixed', updatedAt: '04-25 10:22', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '普通班组字段，不含 owner-only 专项字段' },
+    { id: 'owner-only', name: 'owner-only 补录模板', role: 'owner-only', scope: '成品库 / 水电气 / 计划科', fieldCount: 31, requiredCount: 14, validationRules: 'owner 范围、业务日期、来源必校验', statusLabel: '待审核', tone: 'warning', source: 'fallback', updatedAt: '04-25 10:16', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '不下发给普通班组' },
+    { id: 'finished-goods', name: '成品库模板', role: '成品库 owner', scope: '成品库 / 出入库', fieldCount: 28, requiredCount: 12, validationRules: '批次、库位、重量范围', statusLabel: '已启用', tone: 'success', source: 'mixed', updatedAt: '04-25 10:10', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: 'owner 字段仅成品库责任域可见' },
+    { id: 'energy', name: '水电气模板', role: '水电气 owner', scope: '能源计量', fieldCount: 24, requiredCount: 10, validationRules: '仪表读数递增、单位换算', statusLabel: '待完善', tone: 'warning', source: 'fallback', updatedAt: '04-25 10:03', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '能耗字段不作为主操产量录入项' },
+    { id: 'planning', name: '计划科模板', role: '计划科 owner', scope: '计划 / 工单', fieldCount: 22, requiredCount: 8, validationRules: '计划号、工单号、日期范围', statusLabel: '待完善', tone: 'warning', source: 'fallback', updatedAt: '04-25 09:57', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '计划字段用于审阅关联，不由班组补写' },
+    { id: 'quality', name: '质量补录模板', role: '质检 owner', scope: '质检 / 质量告警', fieldCount: 36, requiredCount: 16, validationRules: '抽检批次、缺陷类型、处置状态', statusLabel: '待审核', tone: 'warning', source: 'mixed', updatedAt: '04-25 09:52', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '质检字段进入质量中心复核' },
+    { id: 'cost', name: '成本估算字段模板', role: '系统计算 / 管理员查看', scope: '成本核算 / 效益中心', fieldCount: 19, requiredCount: 6, validationRules: '价格口径、吨耗、估算来源', statusLabel: 'fallback', tone: 'warning', source: 'fallback', updatedAt: '04-25 09:40', actionLabel: '查看模板', actionStatus: 'enabled', routeName: 'admin-template-center', ownerScope: '估算字段仅作经营口径复核' }
+  ],
+  fieldRules: [
+    { id: 'workshop_id', fieldName: 'workshop_id', label: '车间', template: '主操填报模板', owner: '主操', required: '是', validationRule: '必须匹配授权车间', source: 'mixed', statusLabel: '已启用', tone: 'success', remark: '普通班组可见，范围由后端权限约束' },
+    { id: 'shift_id', fieldName: 'shift_id', label: '班次', template: '主操填报模板', owner: '主操', required: '是', validationRule: '业务日期内有效班次', source: 'fallback', statusLabel: '待完善', tone: 'warning', remark: '缺少班次配置会阻塞试跑核对' },
+    { id: 'machine_id', fieldName: 'machine_id', label: '机台', template: '主操填报模板', owner: '主操', required: '是', validationRule: '机台需绑定班组与班次', source: 'fallback', statusLabel: '待完善', tone: 'warning', remark: '无班次机台不能伪造成可填' },
+    { id: 'finished_weight', fieldName: 'finished_weight', label: '成品重量', template: '成品库模板', owner: '成品库 owner', required: '是', validationRule: '数值范围与批次必填', source: 'mixed', statusLabel: '已启用', tone: 'success', remark: 'owner-only 字段，不下发给普通班组' },
+    { id: 'energy_power', fieldName: 'energy_power', label: '用电量', template: '水电气模板', owner: '水电气 owner', required: '是', validationRule: '读数递增、单位为 kWh', source: 'fallback', statusLabel: '待完善', tone: 'warning', remark: '不作为主操产量字段' },
+    { id: 'planned_output', fieldName: 'planned_output', label: '计划产量', template: '计划科模板', owner: '计划科 owner', required: '否', validationRule: '计划号存在时校验', source: 'fallback', statusLabel: '待完善', tone: 'warning', remark: '用于审阅关联，不开放班组补写' },
+    { id: 'quality_defect', fieldName: 'quality_defect', label: '缺陷类型', template: '质量补录模板', owner: '质检 owner', required: '是', validationRule: '枚举值来自质检字典', source: 'mixed', statusLabel: '待审核', tone: 'warning', remark: '质量字段进入 /review/quality 处置' },
+    { id: 'cost_per_ton', fieldName: 'cost_per_ton', label: '吨成本估算', template: '成本估算字段模板', owner: '系统计算', required: '否', validationRule: '由产量与成本口径计算', source: 'fallback', statusLabel: '只读', tone: 'info', remark: '系统计算字段，不允许前端手工写入' }
+  ],
+  risks: [
+    { id: 'missing-shifts', label: '缺少班次配置', value: '3 个班组和 9 台机台缺少有效班次', status: '待复核', tone: 'warning', routeName: 'admin-master-workshop', source: 'fallback' },
+    { id: 'missing-fields', label: '缺少模板字段', value: '水电气、计划科模板存在字段缺口', status: '待完善', tone: 'warning', routeName: 'admin-template-center', source: 'fallback' },
+    { id: 'owner-unbound', label: 'owner 未绑定', value: '5 个 owner-only 字段未绑定责任角色', status: '高风险', tone: 'danger', routeName: 'admin-governance-center', source: 'mixed' },
+    { id: 'machine-shift', label: '机台无班次', value: '机台班次映射不完整，试跑前需人工复核', status: '阻塞试跑', tone: 'danger', routeName: 'admin-master-workshop', source: 'fallback' },
+    { id: 'alias-conflict', label: '别名冲突', value: '4 条设备 / 车间别名与导入字段冲突', status: '冲突', tone: 'danger', routeName: 'admin-ingestion-center', source: 'fallback' },
+    { id: 'source-mixed', label: 'fallback / mixed 数据源', value: '当前页面用于配置底座查看，不替代真实主数据接口', status: 'fallback', tone: 'warning', routeName: 'admin-ops-reliability', source: 'fallback' }
+  ],
+  actions: [
+    { key: 'viewWorkshops', label: '查看车间', status: 'enabled', tone: 'info', category: '车间', title: '定位到车间分类，只读查看' },
+    { key: 'viewTeams', label: '查看班组', status: 'enabled', tone: 'warning', category: '班组', title: '定位到班组分类，只读查看' },
+    { key: 'viewMachines', label: '查看机台', status: 'enabled', tone: 'warning', category: '机台', title: '定位到机台分类，只读查看' },
+    { key: 'viewUsers', label: '查看用户', status: 'enabled', tone: 'danger', routeName: 'admin-users', title: '进入用户与角色治理入口' },
+    { key: 'viewTemplates', label: '查看模板', status: 'enabled', tone: 'info', routeName: 'admin-template-center', title: '进入模板中心同页只读视图' },
+    { key: 'viewFieldRules', label: '查看字段规则', status: 'enabled', tone: 'info', panel: 'fieldRules', title: '定位到字段规则表' },
+    { key: 'exportConfig', label: '导出配置', status: 'disabled', tone: 'neutral', title: '无真实导出接口，当前禁用' },
+    { key: 'refreshMaster', label: '刷新主数据', status: 'enabled', tone: 'info', panel: 'refresh', title: '刷新前端视图，不写入主数据' }
+  ],
+  actionCapabilities: {
+    exportConfig: 'disabled',
+    publishTemplate: 'disabled',
+    saveRule: 'disabled',
+    refresh: 'enabled'
+  },
+  caliber:
+    '本页用于查看车间、班组、员工、机台、用户、班次、别名、模板与字段规则，属于管理端主数据配置面。当前页面不承接现场生产事实写入，不绕过后端主数据与权限模型。若数据源标记为 fallback/mixed，请以实际主数据接口和现场试跑配置复核。'
+}

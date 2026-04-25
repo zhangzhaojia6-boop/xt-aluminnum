@@ -30,3 +30,8 @@
 
 - 当前 `readyz` 使用 UTC 自然日校验排班，跨日后若无次日排班会触发 `SCHEDULE_EMPTY`
 - 试跑前需执行一次 `docker compose exec -T backend python scripts/init_real_master_data.py` 预置当日应报清单
+
+## 7. 主数据与模板中心仍为只读 fallback/mixed 配置面
+
+- `/admin/master` 已对齐高清目标图 14，当前使用 `masterCenterMock` 展示车间、班组、员工、机台、用户、班次、别名、模板和字段规则状态
+- 导出配置、发布模板、保存字段规则保持 disabled；后续若接入真实主数据接口，需要先补接口方案和权限边界文档
