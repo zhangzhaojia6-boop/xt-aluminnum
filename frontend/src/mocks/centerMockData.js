@@ -213,20 +213,153 @@ export const reportsCenterMock = {
 export const reportDeliveryMock = reportsCenterMock
 
 export const qualityCenterMock = {
-  rows: [
-    { id: 'q-001', time: '10:12', source: '模具一线', type: '成品质量', detail: '成品毛刺偏高', severity: '高', status: '处理中' },
-    { id: 'q-002', time: '09:50', source: '热轧区', type: '设备告警', detail: '轧机轴承温度异常', severity: '中', status: '处理中' },
-    { id: 'q-003', time: '09:40', source: '精整区', type: '质量异常', detail: '板面氧化斑点', severity: '中', status: '待处置' },
-    { id: 'q-004', time: '09:30', source: '质检系统', type: '不合格品', detail: '不合格品率 2.35% 超标', severity: '高', status: '处理中' },
-    { id: 'q-005', time: '08:50', source: '性能区', type: '设备异常', detail: '焊机焊接电流波动', severity: '低', status: '已处置' },
-    { id: 'q-006', time: '昨天 23:10', source: '包装区', type: '物流异常', detail: '包装破损率上升', severity: '低', status: '已关闭' }
+  source: 'fallback',
+  businessDate: '2024-05-21',
+  updatedAt: '2024-05-21 10:30',
+  kpis: [
+    { label: '今日告警数', value: 10, unit: '项', trend: '含昨日延续', tone: 'warning' },
+    { label: '高风险告警', value: 2, unit: '项', trend: '未关闭', tone: 'danger' },
+    { label: '待处置', value: 2, unit: '项', trend: '需审阅确认', tone: 'warning' },
+    { label: '处理中', value: 3, unit: '项', trend: '人工跟进', tone: 'processing' },
+    { label: '已关闭', value: 4, unit: '项', trend: '今日闭环', tone: 'success' },
+    { label: '影响日报交付项', value: 2, unit: '项', trend: '阻塞日报', tone: 'danger' }
   ],
-  flow: [
-    { title: 'AI 辅助分诊', body: '识别告警类型、分析根因、评估影响范围。' },
-    { title: '建议处理方案', body: '基于知识库与历史经验形成辅助建议。' },
-    { title: '执行与跟踪', body: '记录处置过程与结果，保留追踪线索。' },
-    { title: '关闭与沉淀', body: '验证问题解决后关闭，沉淀经验知识。' }
-  ]
+  alerts: [
+    {
+      id: 'q-001',
+      time: '10:12',
+      source: '模具一线',
+      sourceType: 'operator',
+      type: '成品质量',
+      detail: '成品毛刺偏高，需复核模具磨损与首检记录',
+      severity: '高',
+      status: '处理中',
+      impactScope: '铸造一线 / 当班日报',
+      owner: '质量负责人',
+      deliveryImpact: '影响日报交付',
+      reason: '高风险未关闭，日报需人工确认',
+      tone: 'danger'
+    },
+    {
+      id: 'q-002',
+      time: '09:50',
+      source: '热轧区',
+      sourceType: 'system',
+      type: '设备告警',
+      detail: '轧机轴承温度异常，连续两次越过预警线',
+      severity: '中',
+      status: '处理中',
+      impactScope: '热轧区 / 产线看板',
+      owner: '热轧班长',
+      deliveryImpact: '需跟踪',
+      reason: '等待现场复核温度曲线',
+      tone: 'warning'
+    },
+    {
+      id: 'q-003',
+      time: '09:40',
+      source: '精整区',
+      sourceType: 'operator',
+      type: '质检补录',
+      detail: '板面氧化斑点记录缺少批次照片，待补齐凭证',
+      severity: '中',
+      status: '待处置',
+      impactScope: '精整区 / 审阅任务',
+      owner: '审阅员',
+      deliveryImpact: '影响日报交付',
+      reason: '待补齐凭证后进入审阅',
+      tone: 'warning'
+    },
+    {
+      id: 'q-004',
+      time: '09:30',
+      source: '质检系统',
+      sourceType: 'exception',
+      type: '不合格品',
+      detail: '不合格品率 2.35% 超出试跑阈值，需人工确认口径',
+      severity: '高',
+      status: '阻塞',
+      impactScope: '质量异常日报',
+      owner: '质量经理',
+      deliveryImpact: '阻塞日报',
+      reason: '异常未关闭，质量异常日报未执行真实发送',
+      tone: 'danger'
+    },
+    {
+      id: 'q-005',
+      time: '08:50',
+      source: '性能区',
+      sourceType: 'system',
+      type: '设备异常',
+      detail: '焊机焊接电流波动，处置记录待复核',
+      severity: '低',
+      status: '已处置',
+      impactScope: '性能区',
+      owner: '设备员',
+      deliveryImpact: '无阻塞',
+      reason: '保留追溯，不作为最终质检结论',
+      tone: 'success'
+    },
+    {
+      id: 'q-006',
+      time: '昨天 23:10',
+      source: '包装区',
+      sourceType: 'import',
+      type: '物流异常',
+      detail: '包装破损率上升，已记录复核线索',
+      severity: '低',
+      status: '已关闭',
+      impactScope: '包装区',
+      owner: '包装主管',
+      deliveryImpact: '无阻塞',
+      reason: '历史闭环样例，fallback 状态下需现场复核',
+      tone: 'closed'
+    },
+    {
+      id: 'q-007',
+      time: '昨天 21:45',
+      source: '公辅系统',
+      sourceType: 'system',
+      type: '能耗异常',
+      detail: '压缩空气压力波动，已沉淀为追溯线索',
+      severity: '低',
+      status: '已关闭',
+      impactScope: '公辅系统',
+      owner: '公辅值班',
+      deliveryImpact: '无阻塞',
+      reason: '不作为 AI 自动关闭依据',
+      tone: 'closed'
+    }
+  ],
+  workflow: [
+    { title: '发现 / 分诊', count: 3, status: '处理中', tone: 'processing', body: '系统校验与审阅任务聚合告警，人工确认来源与责任范围。', nextAction: '进入审阅任务' },
+    { title: '建议方案', count: 2, status: '待确认', tone: 'warning', body: '辅助建议只用于排序与提示，不能替代质量处置结论。', nextAction: '查看告警详情' },
+    { title: '执行跟踪', count: 3, status: '跟踪中', tone: 'processing', body: '跟踪现场复核、退回补齐与处置记录，不写入生产事实。', nextAction: '看工厂看板' },
+    { title: '关闭沉淀', count: 4, status: '已关闭', tone: 'success', body: '关闭前需人工验证问题解决，沉淀追溯线索与日报影响。', nextAction: '查看历史' }
+  ],
+  aiTriage: [
+    { label: '辅助建议', value: '优先核对质检系统不合格品率与模具一线毛刺偏高两项高风险。', tone: 'warning' },
+    { label: '高风险来源', value: '质检系统、模具一线；均需人工确认后才能关闭。', tone: 'danger' },
+    { label: '日报影响', value: '质量异常日报被 2 项未关闭告警阻塞，建议先进入审阅任务核对凭证。', tone: 'warning' },
+    { label: '数据口径', value: '当前为 fallback 读面，不能视作最终质检结论。', tone: 'info' }
+  ],
+  blockers: [
+    { label: '未关闭高风险', value: '2 项', status: '阻塞', tone: 'danger', routeName: 'review-task-center' },
+    { label: '待审相关告警', value: '3 项', status: '待审', tone: 'warning', routeName: 'review-task-center' },
+    { label: '影响日报交付', value: '2 项', status: '交付风险', tone: 'danger', routeName: 'review-report-center' },
+    { label: '数据源 fallback / mixed', value: '当前 fallback', status: '需复核', tone: 'warning', routeName: 'factory-dashboard' },
+    { label: '最近失败原因', value: '异常未关闭 2 项，质量异常日报未执行真实发送', status: '失败', tone: 'danger', routeName: 'review-report-center' }
+  ],
+  actions: {
+    viewDetail: 'disabled',
+    markProcessing: 'disabled',
+    close: 'disabled',
+    export: 'disabled',
+    reviewTasks: 'enabled',
+    reportImpact: 'enabled'
+  },
+  caliber:
+    '本页用于查看质量告警、异常处置与日报交付影响。告警状态来自已接入数据源与系统校验结果，当前页面不承接生产事实写入。若数据源标记为 fallback/mixed，请以现场试跑口径复核。'
 }
 
 export const costCenterMock = {

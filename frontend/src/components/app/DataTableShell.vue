@@ -19,7 +19,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, index) in rows" :key="row.id || index">
+        <tr v-for="(row, index) in rows" :key="row.id || index" :class="resolveRowClass(row)">
           <td v-for="column in columns" :key="column.key">
             <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
               {{ row[column.key] }}
@@ -59,4 +59,11 @@ defineProps({
     default: '暂无数据'
   }
 })
+
+function resolveRowClass(row) {
+  if (!row) return ''
+  if (row.rowClass) return row.rowClass
+  if (row.tone) return `is-${row.tone}`
+  return ''
+}
 </script>

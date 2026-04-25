@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/review/reports`
-- 本轮使用图：`08-reports-delivery.png`
+- 当前优先页面：`/review/quality`
+- 本轮使用图：`09-quality-alerts.png`
 
 ## 文件与中心映射
 
@@ -33,9 +33,17 @@
 - 业务元素：日产、订单达成率、综合成品率、计划交付、已交付、待分发、PDF / Excel 导出、发送 / 交付、阻塞项和 auto_confirmed 口径。
 - 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
+## 09 视觉审计摘要
+
+- 布局：顶部大号编号与中文标题；主体左侧为高密告警列表，右侧为质量处置流程；补充 KPI、AI 辅助分诊、阻塞风险和口径说明。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，紧凑表格，红 / 橙 / 绿状态色表达高、中、低风险与处理状态。
+- 业务元素：质量告警、告警来源、严重度、处理状态、质检补录、日报交付影响、AI 关注点、处置、追溯和查看历史。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
+
 ## 设计约束
 
 - 参考图是视觉与信息架构基线，不作为静态截图嵌入产品。
 - 不把图中装饰元素机械照搬，不使用纯展示型大屏语汇覆盖生产协同边界。
 - 必须转译成可运行 Web 组件，保持 `/entry`、`/review`、`/admin` 三端边界。
 - `/review/reports` 是日报生成、导出与交付状态读面，不承接生产事实写入。
+- `/review/quality` 是质量告警与处置状态读面，当前为 fallback 数据；AI 仅作辅助分诊，处置写动作在无真实接口时禁用，不承接生产事实写入。

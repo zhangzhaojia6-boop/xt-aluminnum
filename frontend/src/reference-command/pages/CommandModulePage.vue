@@ -235,6 +235,174 @@
         </p>
       </SectionCard>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isQualityModule"
+      class="quality-center-page cmd-layout--quality-alerts"
+      center-no="09"
+      title="质量与告警中心"
+      data-testid="quality-alerts-center"
+    >
+      <template #tools>
+        <span class="quality-center-page__date">业务日期：{{ qualityData.businessDate }}</span>
+        <span class="quality-center-page__updated">更新时间：{{ qualityData.updatedAt }}</span>
+        <input
+          v-model="qualityBusinessDate"
+          class="quality-control"
+          type="date"
+          disabled
+          aria-label="业务日期"
+          title="日期查询接口待接入，当前只展示本读面数据"
+        />
+        <select v-model="qualitySeverityFilter" class="quality-control" aria-label="严重度筛选">
+          <option value="">全部严重度</option>
+          <option value="高">高</option>
+          <option value="中">中</option>
+          <option value="低">低</option>
+        </select>
+        <select v-model="qualityStatusFilter" class="quality-control" aria-label="状态筛选">
+          <option value="">全部状态</option>
+          <option value="待处置">待处置</option>
+          <option value="处理中">处理中</option>
+          <option value="已处置">已处置</option>
+          <option value="已关闭">已关闭</option>
+          <option value="阻塞">阻塞</option>
+        </select>
+        <select v-model="qualitySourceFilter" class="quality-control" aria-label="来源筛选">
+          <option value="">全部来源</option>
+          <option v-for="source in qualitySourceOptions" :key="source" :value="source">{{ source }}</option>
+        </select>
+        <button type="button" class="quality-refresh" @click="refreshQualityView">刷新</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="qualityData.source !== 'live'"
+          :source="qualityData.source"
+          message="质量与告警中心使用 fallback 读面数据，仅用于查看告警、处置状态和日报影响；不承接生产事实写入。"
+        />
+      </template>
+
+      <KpiStrip :items="qualityData.kpis" />
+
+      <div class="quality-center-page__layout">
+        <DataTableShell
+          data-testid="quality-alert-table"
+          title="告警列表"
+          subtitle="质量告警来源、严重度、处理状态与日报交付影响"
+          :columns="qualityAlertColumns"
+          :rows="filteredQualityAlerts"
+        >
+          <template #actions>
+            <StatusBadge label="辅助建议" tone="info" />
+          </template>
+          <template #cell-source="{ row }">
+            <div class="quality-source-cell">
+              <strong>{{ row.source }}</strong>
+              <SourceBadge :source="row.sourceType" />
+            </div>
+          </template>
+          <template #cell-detail="{ row }">
+            <div class="quality-alert-detail">
+              <strong>{{ row.detail }}</strong>
+              <span>{{ row.reason }}</span>
+            </div>
+          </template>
+          <template #cell-severity="{ row }">
+            <StatusBadge :label="row.severity" :tone="qualitySeverityTone(row.severity)" />
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.status" :tone="qualityStatusTone(row.status)" />
+          </template>
+          <template #cell-impactScope="{ row }">
+            <div class="quality-impact-cell">
+              <strong>{{ row.impactScope }}</strong>
+              <span>{{ row.deliveryImpact }}</span>
+            </div>
+          </template>
+          <template #cell-action="{ row }">
+            <div class="quality-row-actions">
+              <button type="button" disabled :title="`详情接口待接入：${row.id}`">查看详情</button>
+              <button type="button" disabled title="处置接口待接入，当前不伪造成功状态">标记处理中</button>
+              <button type="button" disabled title="关闭接口待接入，AI 不会自动关闭告警">关闭</button>
+            </div>
+          </template>
+        </DataTableShell>
+
+        <aside class="quality-center-page__side">
+          <SectionCard title="质量处置流程" :meta="qualityData.source">
+            <div class="quality-workflow">
+              <article v-for="step in qualityData.workflow" :key="step.title" class="quality-workflow__item">
+                <div class="quality-workflow__mark">
+                  <strong>{{ step.count }}</strong>
+                </div>
+                <div>
+                  <header>
+                    <strong>{{ step.title }}</strong>
+                    <StatusBadge :label="step.status" :tone="step.tone" />
+                  </header>
+                  <p>{{ step.body }}</p>
+                  <span>{{ step.nextAction }}</span>
+                </div>
+              </article>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="AI 辅助分诊" meta="辅助建议">
+            <div class="quality-ai-list">
+              <article v-for="item in qualityData.aiTriage" :key="item.label">
+                <StatusBadge :label="item.label" :tone="item.tone" />
+                <p>{{ item.value }}</p>
+              </article>
+            </div>
+            <p class="quality-helper-copy">AI 只提供辅助建议，不形成最终结论，不自动关闭质量问题。</p>
+          </SectionCard>
+        </aside>
+      </div>
+
+      <div class="quality-center-page__bottom">
+        <SectionCard title="操作区" :meta="qualityData.actions.export">
+          <div class="quality-action-grid">
+            <button type="button" disabled title="详情接口待接入">查看详情</button>
+            <button type="button" disabled title="处置接口待接入">标记处理中</button>
+            <button type="button" disabled title="关闭接口待接入，AI 不会自动关闭">关闭</button>
+            <button type="button" @click="goRoute('review-task-center')">进入审阅任务</button>
+            <button type="button" @click="goRoute('review-report-center')">查看日报影响</button>
+            <button type="button" disabled title="导出接口待接入">导出告警清单</button>
+            <button type="button" disabled title="历史追溯接口待接入">查看历史</button>
+          </div>
+          <p class="quality-helper-copy">当前只读面不接处置写接口；禁用动作不会伪造“已自动处置成功”。</p>
+        </SectionCard>
+
+        <SectionCard title="阻塞与风险摘要" :meta="qualityData.source">
+          <div class="quality-blocker-list">
+            <article v-for="blocker in qualityData.blockers" :key="blocker.label">
+              <div>
+                <span>{{ blocker.label }}</span>
+                <strong>{{ blocker.value }}</strong>
+              </div>
+              <StatusBadge :label="blocker.status" :tone="blocker.tone" />
+            </article>
+          </div>
+          <div class="quality-risk-actions">
+            <button type="button" @click="goRoute('review-task-center')">去审阅</button>
+            <button type="button" @click="goRoute('review-report-center')">看日报</button>
+            <button type="button" @click="goRoute('factory-dashboard')">看工厂看板</button>
+            <button
+              type="button"
+              :disabled="!canOpenAdminIngestion"
+              :title="canOpenAdminIngestion ? '进入数据接入中心' : '当前账号无管理端权限'"
+              @click="goAdminIngestion"
+            >
+              看数据接入
+            </button>
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="口径说明" :meta="qualityData.source">
+        <p class="quality-caliber-copy">{{ qualityData.caliber }}</p>
+      </SectionCard>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -250,7 +418,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { factoryBoardMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { factoryBoardMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -268,6 +436,10 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const reportInfoPanel = ref('caliber')
+const qualityBusinessDate = ref(qualityCenterMock.businessDate)
+const qualitySeverityFilter = ref('')
+const qualityStatusFilter = ref('')
+const qualitySourceFilter = ref('')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -278,8 +450,10 @@ const module = computed(() => (
 const viewModel = computed(() => adaptModuleView(module.value.moduleId))
 const isFactoryModule = computed(() => module.value.moduleId === '05' && route.name !== 'workshop-dashboard')
 const isReportsModule = computed(() => module.value.moduleId === '08')
+const isQualityModule = computed(() => module.value.moduleId === '09')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
+const qualityData = qualityCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -314,6 +488,29 @@ const reportDeliveryColumns = [
   { key: 'action', label: '操作' }
 ]
 
+const qualityAlertColumns = [
+  { key: 'time', label: '时间' },
+  { key: 'source', label: '来源' },
+  { key: 'type', label: '类型' },
+  { key: 'detail', label: '描述' },
+  { key: 'severity', label: '严重度' },
+  { key: 'status', label: '状态' },
+  { key: 'impactScope', label: '影响范围' },
+  { key: 'owner', label: '责任 / 建议处理人' },
+  { key: 'action', label: '操作' }
+]
+
+const qualitySourceOptions = computed(() => (
+  [...new Set(qualityData.alerts.map((item) => item.source))]
+))
+
+const filteredQualityAlerts = computed(() => qualityData.alerts.filter((item) => {
+  if (qualitySeverityFilter.value && item.severity !== qualitySeverityFilter.value) return false
+  if (qualityStatusFilter.value && item.status !== qualityStatusFilter.value) return false
+  if (qualitySourceFilter.value && item.source !== qualitySourceFilter.value) return false
+  return true
+}))
+
 function goRoute(name) {
   if (route.name !== name) {
     router.push({ name })
@@ -328,9 +525,29 @@ function refreshReportsView() {
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
 }
 
+function refreshQualityView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
 function reportStatusTone(value) {
   if (String(value).includes('失败') || String(value).includes('阻塞')) return 'danger'
   if (String(value).includes('待') || String(value).includes('未')) return 'warning'
+  if (String(value).includes('已')) return 'success'
+  return 'info'
+}
+
+function qualitySeverityTone(value) {
+  if (value === '高') return 'danger'
+  if (value === '中') return 'warning'
+  if (value === '低') return 'success'
+  return 'info'
+}
+
+function qualityStatusTone(value) {
+  if (String(value).includes('阻塞')) return 'danger'
+  if (String(value).includes('待')) return 'warning'
+  if (String(value).includes('处理')) return 'processing'
+  if (String(value).includes('关闭')) return 'closed'
   if (String(value).includes('已')) return 'success'
   return 'info'
 }
@@ -771,22 +988,300 @@ function goAdminIngestion() {
   vertical-align: top;
 }
 
+.quality-center-page {
+  padding: var(--space-page);
+}
+
+:global(.cmd-page:has(.quality-center-page)) {
+  background: #f5f8fc;
+}
+
+.quality-center-page__date,
+.quality-center-page__updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.quality-control,
+.quality-refresh,
+.quality-row-actions button,
+.quality-action-grid button,
+.quality-risk-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quality-control {
+  max-width: 148px;
+}
+
+.quality-refresh,
+.quality-action-grid button:not(:disabled),
+.quality-risk-actions button:not(:disabled) {
+  cursor: pointer;
+}
+
+.quality-refresh:hover,
+.quality-action-grid button:not(:disabled):hover,
+.quality-risk-actions button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.quality-control:disabled,
+.quality-row-actions button:disabled,
+.quality-action-grid button:disabled,
+.quality-risk-actions button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.quality-center-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: var(--space-card);
+  align-items: start;
+}
+
+.quality-center-page__side,
+.quality-workflow,
+.quality-ai-list,
+.quality-blocker-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quality-source-cell {
+  display: grid;
+  gap: 5px;
+  align-items: start;
+}
+
+.quality-source-cell strong,
+.quality-impact-cell strong,
+.quality-alert-detail strong,
+.quality-workflow__item strong,
+.quality-blocker-list strong {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.quality-alert-detail,
+.quality-impact-cell {
+  display: grid;
+  gap: 5px;
+  white-space: normal;
+}
+
+.quality-alert-detail span,
+.quality-impact-cell span,
+.quality-helper-copy,
+.quality-caliber-copy,
+.quality-workflow__item p,
+.quality-workflow__item span,
+.quality-ai-list p,
+.quality-blocker-list span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.quality-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 210px;
+}
+
+.quality-row-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.quality-workflow__item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  position: relative;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.quality-workflow__item::before {
+  content: "";
+  position: absolute;
+  left: 38px;
+  top: 52px;
+  bottom: -12px;
+  width: 1px;
+  border-left: 1px dashed #b8c7da;
+}
+
+.quality-workflow__item:last-child::before {
+  display: none;
+}
+
+.quality-workflow__mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  font-family: var(--font-number);
+}
+
+.quality-workflow__mark strong {
+  color: var(--primary);
+  font-size: 25px;
+  line-height: 1;
+}
+
+.quality-workflow__item header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quality-workflow__item p,
+.quality-ai-list p,
+.quality-helper-copy,
+.quality-caliber-copy {
+  margin: 0;
+}
+
+.quality-ai-list article,
+.quality-blocker-list article {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--neutral-soft);
+}
+
+.quality-blocker-list article {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.quality-blocker-list article div {
+  display: grid;
+  gap: 4px;
+}
+
+.quality-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 0.86fr) minmax(320px, 1fr);
+  gap: var(--space-card);
+  align-items: start;
+}
+
+.quality-action-grid,
+.quality-risk-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quality-action-grid button,
+.quality-risk-actions button {
+  width: 100%;
+}
+
+:deep(.quality-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.quality-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.quality-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.quality-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.quality-center-page .section-card),
+:deep(.quality-center-page .data-table-shell),
+:deep(.quality-center-page .center-page__head),
+:deep(.quality-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.quality-center-page .data-table-shell table) {
+  min-width: 1180px;
+}
+
+:deep(.quality-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.quality-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.quality-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.quality-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
+:deep(.quality-center-page .data-table-shell tbody tr.is-danger td:first-child) {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+:deep(.quality-center-page .data-table-shell tbody tr.is-warning td:first-child) {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
   .reports-center-page__overview,
-  .reports-center-page__bottom {
+  .reports-center-page__bottom,
+  .quality-center-page__layout,
+  .quality-center-page__bottom {
     grid-template-columns: 1fr;
   }
 
-  :deep(.reports-center-page .kpi-strip) {
+  :deep(.reports-center-page .kpi-strip),
+  :deep(.quality-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 }
 
 @media (max-width: 640px) {
   :global(.app-shell:has(.factory-center-page)),
-  :global(.app-shell:has(.reports-center-page)) {
+  :global(.app-shell:has(.reports-center-page)),
+  :global(.app-shell:has(.quality-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -798,37 +1293,61 @@ function goAdminIngestion() {
   :global(.app-shell:has(.reports-center-page) > .app-shell__aside),
   :global(.app-shell:has(.reports-center-page) > .el-container),
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.reports-center-page) .app-shell__main) {
+  :global(.app-shell:has(.reports-center-page) .app-shell__main),
+  :global(.app-shell:has(.quality-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.quality-center-page) > .el-container),
+  :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.quality-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
   :global(.app-shell:has(.factory-center-page) > .el-container),
-  :global(.app-shell:has(.reports-center-page) > .el-container) {
+  :global(.app-shell:has(.reports-center-page) > .el-container),
+  :global(.app-shell:has(.quality-center-page) > .el-container) {
     min-width: 0;
   }
 
   :global(.app-shell:has(.factory-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.reports-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.quality-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
   }
 
   :global(.app-shell:has(.factory-center-page) .app-shell__main),
-  :global(.app-shell:has(.reports-center-page) .app-shell__main) {
+  :global(.app-shell:has(.reports-center-page) .app-shell__main),
+  :global(.app-shell:has(.quality-center-page) .app-shell__main) {
     padding: 8px;
   }
 
   .factory-center-page,
-  .reports-center-page {
+  .reports-center-page,
+  .quality-center-page {
     padding: 10px;
   }
 
   .factory-risk-actions,
   .reports-action-grid,
   .reports-risk-actions,
-  :deep(.reports-center-page .kpi-strip) {
+  .quality-action-grid,
+  .quality-risk-actions,
+  :deep(.reports-center-page .kpi-strip),
+  :deep(.quality-center-page .kpi-strip) {
     grid-template-columns: 1fr;
+  }
+
+  .quality-control {
+    max-width: none;
+    width: 100%;
+  }
+
+  .quality-workflow__item {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .quality-row-actions {
+    min-width: 180px;
   }
 
   .factory-risk-events span {

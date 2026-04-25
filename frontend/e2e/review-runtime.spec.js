@@ -58,11 +58,40 @@ test('reports route renders the delivery center smoke surface', async ({ page })
   await expect(reportsCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('quality route renders the quality alerts smoke surface', async ({ page }) => {
+  await page.goto('/review/quality')
+
+  const qualityCenter = page.getByTestId('quality-alerts-center')
+  const alertTable = page.getByTestId('quality-alert-table')
+
+  await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(qualityCenter.getByRole('heading', { name: /09\s*质量与告警中心/ })).toBeVisible()
+  await expect(qualityCenter.getByText('fallback').first()).toBeVisible()
+  await expect(qualityCenter.getByText('告警列表')).toBeVisible()
+  await expect(alertTable).toBeVisible()
+  await expect(alertTable.getByRole('columnheader', { name: '严重度' })).toBeVisible()
+  await expect(alertTable.getByText(/待处置|处理中/).first()).toBeVisible()
+  await expect(qualityCenter.getByText('AI 辅助分诊')).toBeVisible()
+  await expect(qualityCenter.getByText('辅助建议').first()).toBeVisible()
+  await expect(qualityCenter.getByRole('button', { name: '进入审阅任务' })).toBeVisible()
+  await expect(qualityCenter.getByRole('button', { name: '查看日报影响' })).toBeVisible()
+  await expect(qualityCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(qualityCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+})
+
 test('fill-only operator cannot access review reports', async ({ page }) => {
   await page.goto('/review/reports')
 
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('review-shell')).toHaveCount(0)
+})
+
+test('fill-only operator cannot access review quality', async ({ page }) => {
+  await page.goto('/review/quality')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('quality-alerts-center')).toHaveCount(0)
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {
