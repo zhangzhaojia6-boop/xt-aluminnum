@@ -17,7 +17,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | 01 | 系统总览主视图 | 审阅端 | `/review/overview` | 今日产量、订单达成、成品率、运行产线、异常、待审、交付 | 进入各中心、查看风险摘要 | Hero + KPI + 产线图 + 快捷入口 |
 | 02 | 登录与角色入口 | 公共入口 | `/login` | 当前登录态、角色、三端权限 | 选择录入端、审阅端、管理端并登录 | 三角色入口影响默认落点 |
-| 03 | 独立填报终端首页 | 录入端 | `/entry` | 今日班次、待填任务、已提交、异常补卡、最近状态 | 开始填报、OCR、历史、草稿 | 录入端不出现审阅/管理入口 |
+| 03 | 独立填报端首页 | 录入端 | `/entry` | 今日班次、待填任务、已提交、异常补卡、最近状态 | 开始填报、OCR、历史、草稿 | 录入端不出现审阅/管理入口 |
 | 04 | 填报流程页 | 录入端 | `/entry/report/*`、`/entry/advanced/*` | 随行卡、机台、班次、模板字段、草稿 | 上一步、下一步、保存草稿、正式提交 | 步骤化、低负担、专项 owner 字段不下发给班组 |
 | 05 | 工厂作业看板 | 审阅端 | `/review/factory` | 厂级产量、达成率、异常、趋势、交付 | 查看厂级明细、跳转审阅/日报 | 左 KPI + 主图/表 + 右风险 |
 | 06 | 数据接入与字段映射中心 | 管理端 | `/admin/ingestion` | 数据源状态、字段映射、导入批次、成功率、错误率 | 上传、映射、查看历史 | 接入状态和字段映射同屏 |
@@ -25,12 +25,11 @@
 | 08 | 日报与交付中心 | 审阅端 | `/review/reports` | 日产、达成率、交付清单、导出状态 | 导出 PDF/Excel、发送、重新生成 | 交付状态清楚 |
 | 09 | 质量与告警中心 | 审阅端 | `/review/quality` | 质量告警、处理状态、质检补录、AI 关注点 | 处置、追溯、查看历史 | 告警表 + 质量快捷入口 |
 | 10 | 成本核算与效益中心 | 审阅端 | `/review/cost-accounting` | 成本拆解、能耗、人工、公辅、价格快照、校差 | 调整方案、查看口径、导出 | 成本图与策略引擎同屏 |
-| 11 | AI 总大脑中心 | 审阅端 | `/review/brain` | 今日摘要、风险事件、成本解释、质量关注、接入问题 | 提问、生成建议、查看证据 | AI 建议必须带业务上下文 |
-| 12 | 系统运维与可观测 | 管理端 | `/admin/ops` | health、ready、AI probe、版本、错误率、响应时间 | 探针、刷新、查看发布状态 | 可上线、可回滚、可观测 |
-| 13 | 权限治理中心 | 管理端 | `/admin/governance` | 角色矩阵、审计日志、数据权限、系统设置 | 查看矩阵、审计、调整权限 | 权限边界可读 |
+| 11 | AI 总控中心 | 审阅端 | `/review/brain` | 今日摘要、风险事件、成本解释、质量关注、接入问题 | 提问、生成建议、查看证据 | AI 建议必须带业务上下文 |
+| 12 | 系统运维与观测 | 管理端 | `/admin/ops` | health、ready、AI probe、版本、错误率、响应时间 | 探针、刷新、查看发布状态 | 可上线、可回滚、可观测 |
+| 13 | 权限与治理中心 | 管理端 | `/admin/governance` | 角色矩阵、审计日志、数据权限、系统设置 | 查看矩阵、审计、调整权限 | 权限边界可读 |
 | 14 | 主数据与模板中心 | 管理端 | `/admin/master`、`/admin/master/templates` | 车间、班组、员工、机台、用户、班次、别名、模板 | 配置模板、维护主数据 | 模板/主数据入口集中 |
 | 15 | 响应式录入体验 | 全局验收 | `/entry` 全链路 | 不单独建手机壳模块，使用真实录入端响应式页面 | 手机、平板、桌面切换验证 | 移动端预览模块取消 |
-| 16 | 路线图与下一步 | 双端 | `/review/roadmap`、`/admin/roadmap` | 当期目标、中期优化、长期智能协同、进度 | 查看路线、进入下一步 | 审阅视角和管理视角可分离 |
 
 每个中心页至少包含：编号标题区、KPI 摘要区、主表格或主图形区、摘要/风险/趋势区、固定操作区。
 
@@ -39,21 +38,21 @@
 录入端只负责录入。
 
 - 允许：今日班次、待填任务、快速填报、高级填报、OCR、草稿、历史、异常补录、提交反馈、录入端智能提示。
-- 禁止：厂级看板、车间看板、审阅任务、成本中心、AI 总大脑工作台、运维中心、权限治理、主数据配置。
+- 禁止：厂级看板、车间看板、审阅任务、成本中心、AI 总控工作台、运维中心、权限治理、主数据配置。
 - 路由：`/entry`、`/entry/report/*`、`/entry/advanced/*`、`/entry/ocr/*`、`/entry/attendance`、`/entry/history`、`/entry/drafts`。
 - 权限：fill-only 用户不得看到审阅端或管理端导航，访问 `/review/*` 或 `/admin/*` 必须回跳 `/entry`。
 
 审阅端只负责看数、审阅、处置和交付。
 
-- 允许：总览、厂级/车间看板、审阅任务、日报交付、质量告警、差异治理、成本解释、AI 生产摘要、路线图业务视角。
+- 允许：总览、厂级/车间看板、审阅任务、日报交付、质量告警、差异治理、成本解释、AI 生产摘要。
 - 禁止：用户管理、角色权限配置、主数据维护、模板字段配置、系统发布回滚配置。
-- 路由：`/review/overview`、`/review/factory`、`/review/workshop`、`/review/tasks`、`/review/reports`、`/review/quality`、`/review/reconciliation`、`/review/cost-accounting`、`/review/brain`、`/review/roadmap`。
+- 路由：`/review/overview`、`/review/factory`、`/review/workshop`、`/review/tasks`、`/review/reports`、`/review/quality`、`/review/reconciliation`、`/review/cost-accounting`、`/review/brain`。
 
 管理端只负责配置、治理、主数据和运维。
 
-- 允许：数据接入、字段映射、导入历史、健康探针、AI live probe、权限治理、审计日志、主数据、模板字段、路线图管理视角。
+- 允许：数据接入、字段映射、导入历史、健康探针、AI live probe、权限治理、审计日志、主数据、模板字段。
 - 禁止：现场填报、日常审阅任务处理、填报表单提交。
-- 路由：`/admin`、`/admin/ingestion`、`/admin/field-mapping`、`/admin/ops`、`/admin/governance`、`/admin/master`、`/admin/master/templates`、`/admin/users`、`/admin/roadmap`。
+- 路由：`/admin`、`/admin/ingestion`、`/admin/field-mapping`、`/admin/ops`、`/admin/governance`、`/admin/master`、`/admin/master/templates`、`/admin/users`。
 
 兼容规则：
 
@@ -125,7 +124,7 @@
 
 聚合 view model 字段：
 
-- `module_id`：对应 01-16 模块编号。
+- `module_id`：对应 01-15 模块编号。
 - `title`：中文中心标题。
 - `kpis`：KPI 数组。
 - `status_summary`：状态摘要。

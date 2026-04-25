@@ -1,34 +1,57 @@
-# 当前路由地图（2026-04-23）
+# 当前路由地图（2026-04-24）
 
 ## 入口层
 
-- `/login`：账号登录 + 钉钉免登 code 兼容（`frontend/src/views/Login.vue`）
-- `/review/*`：审阅端（`frontend/src/views/review/ReviewLayout.vue`）
-- `/`（desktop 壳）+ `/master/*` 等：配置/兼容后台（`frontend/src/views/Layout.vue`）
-- `/mobile/*`：移动填报（`frontend/src/views/mobile/*`）
+- `/login`：账号登录 + 钉钉免登 code 兼容（`frontend/src/reference-command/pages/CommandLogin.vue`）
+- `/entry/*`：录入端主入口；`/mobile/*` 仅保留兼容重定向
+- `/review/*`：审阅端主入口，覆盖总览、工厂/车间看板、审阅、日报、质量、差异、成本、AI 总控
+- `/admin/*`：管理端主入口，覆盖数据接入、主数据、模板、用户、治理、运维
+- `/`（desktop 壳）+ `/master/*` 等：历史配置/兼容后台，继续 redirect 或降级保留
+
+## 正式中心导航（现状）
+
+- 01 系统总览主视图：`/review/overview`
+- 03 独立填报端首页：`/entry`
+- 05 工厂作业看板：`/review/factory`
+- 06 数据接入与字段映射中心：`/admin/ingestion`
+- 07 审阅中心：`/review/tasks`
+- 08 日报与交付中心：`/review/reports`
+- 09 质量与告警中心：`/review/quality`
+- 10 成本核算与效益中心：`/review/cost-accounting`
+- 11 AI 总控中心：`/review/brain`
+- 12 系统运维与观测：`/admin/ops`
+- 13 权限与治理中心：`/admin/governance`
+- 14 主数据与模板中心：`/admin/master`
 
 ## 移动填报链路（现状）
 
-- `/mobile` -> `mobile-entry` -> [MobileEntry.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/MobileEntry.vue)
-- `/mobile/report/:businessDate/:shiftId` -> `mobile-report-form` -> [ShiftReportForm.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/ShiftReportForm.vue)
-- `/mobile/report-advanced/:businessDate/:shiftId` -> `mobile-report-form-advanced` -> [DynamicEntryForm.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/DynamicEntryForm.vue)
-- `/mobile/ocr/:businessDate/:shiftId` -> `mobile-ocr-capture` -> [OCRCapture.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/OCRCapture.vue)
-- `/mobile/attendance` -> `mobile-attendance-confirm` -> [AttendanceConfirm.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/AttendanceConfirm.vue)
-- `/mobile/history` -> `mobile-report-history` -> [ShiftReportHistory.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/mobile/ShiftReportHistory.vue)
+- `/entry` -> `mobile-entry` -> `CommandEntryHome.vue`
+- `/entry/report/:businessDate/:shiftId` -> `mobile-report-form` -> `ShiftReportForm.vue`
+- `/entry/advanced/:businessDate/:shiftId` -> `mobile-report-form-advanced` -> `DynamicEntryForm.vue`
+- `/entry/ocr/:businessDate/:shiftId` -> `mobile-ocr-capture` -> `OCRCapture.vue`
+- `/entry/attendance` -> `mobile-attendance-confirm` -> `AttendanceConfirm.vue`
+- `/entry/history` -> `mobile-report-history` -> `ShiftReportHistory.vue`
+- `/entry/drafts` -> `entry-drafts` -> `EntryDrafts.vue`
+- `/mobile/*` -> `/entry/*` 兼容重定向
 
-## 审阅中心链路（现状）
+## 审阅/管理链路（现状）
 
-- `/review/factory` -> `factory-dashboard` -> [FactoryDirector.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/dashboard/FactoryDirector.vue)
-- `/review/workshop` -> `workshop-dashboard` -> [WorkshopDirector.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/dashboard/WorkshopDirector.vue)
-- `/review/ingestion` -> `review-ingestion-center` -> [FileImport.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/imports/FileImport.vue)
-- `/review/reports` -> `review-report-center` -> [ReportList.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reports/ReportList.vue)
-- `/review/quality` -> `review-quality-center` -> [QualityCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/quality/QualityCenter.vue)
+- `/review/overview` -> `review-overview-home` -> `CommandOverview.vue`，正式中心：系统总览主视图。
+- `/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`，正式中心：审阅中心。
+- `/review/reports` -> `review-report-center` -> `CommandModulePage.vue`，正式中心：日报与交付中心。
+- `/review/cost-accounting` -> `review-cost-accounting` -> `CommandModulePage.vue`，正式中心：成本核算与效益中心。
+- `/review/quality` -> `review-quality-center` -> `CommandModulePage.vue`，正式中心：质量与告警中心。
 - `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
-- `/review/ops-reliability` -> `review-ops-reliability` -> [LiveDashboard.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reports/LiveDashboard.vue)
-- `/review/cost-accounting` -> `review-cost-accounting` -> [CostAccountingCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/review/CostAccountingCenter.vue)
-- `/review/governance` -> `review-governance-center` -> [GovernanceCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/review/GovernanceCenter.vue)
-- `/review/roadmap` -> `review-roadmap-center` -> [RoadmapCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/review/RoadmapCenter.vue)
-- `/review/template-center` -> `review-template-center` -> [WorkshopTemplateConfig.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/master/WorkshopTemplateConfig.vue)
+- `/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`，正式中心：工厂作业看板。
+- `/review/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
+- `/review/brain` -> `review-brain-center` -> `CommandModulePage.vue`，正式中心：AI 总控中心。
+- `/review/roadmap` -> `/review/overview`，路线图入口隔离。
+- `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`，管理能力不再挂在审阅端。
+- `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。
+- `/admin/ingestion` -> `admin-ingestion-center` -> `CommandModulePage.vue`，正式中心：数据接入与字段映射中心。
+- `/admin/governance` -> `admin-governance-center` -> `CommandModulePage.vue`，正式中心：权限与治理中心。
+- `/admin/ops` -> `admin-ops-reliability` -> `CommandModulePage.vue`，正式中心：系统运维与观测。
+- `/admin/master`、`/admin/master/templates`：正式中心：主数据与模板中心。
 
 ## Desktop 兼容链路（现状）
 
@@ -45,12 +68,11 @@
 
 - 核心链路：
   - 登录（账号/钉钉）
-  - 移动填报（主操 + owner）
-  - 厂级/车间看板
-  - 审阅、质量、差异、日报、运维
-  - 主数据与模板配置
+  - 录入端（主操 + owner）
+  - 系统总览、工厂/车间看板、审阅中心、日报交付、质量告警、差异核对、成本核算、AI 总控
+  - 数据接入、主数据模板、用户权限、治理与运维
 - legacy/兼容入口：
-  - `/worker` -> 重定向到 `/mobile`
+  - `/worker` -> 重定向到 `/entry`
   - `/dashboard/*` 的旧路径保留为 redirect
   - `/factory` `/workshop` 等历史路径保留 redirect
-
+  - `/review/roadmap` 只作为兼容重定向，不再作为正式中心
