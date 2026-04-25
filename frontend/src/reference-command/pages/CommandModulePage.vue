@@ -91,6 +91,223 @@
       </SectionCard>
     </CenterPageShell>
     <CenterPageShell
+      v-else-if="isIngestionModule"
+      class="ingestion-center-page cmd-layout--mapping-center"
+      center-no="06"
+      title="数据接入与字段映射中心"
+      data-testid="review-ingestion-center-v2"
+    >
+      <template #tools>
+        <span class="ingestion-center-page__scope">{{ ingestionData.environment }}</span>
+        <span class="ingestion-center-page__date">业务日期：{{ ingestionBusinessDate }}</span>
+        <span class="ingestion-center-page__updated">更新时间：{{ ingestionData.updatedAt }}</span>
+        <select v-model="ingestionSourceFilter" class="ingestion-control" aria-label="数据源筛选">
+          <option value="">全部数据源</option>
+          <option v-for="source in ingestionSourceOptions" :key="source" :value="source">{{ source }}</option>
+        </select>
+        <select v-model="ingestionStatusFilter" class="ingestion-control" aria-label="状态筛选">
+          <option value="">全部状态</option>
+          <option value="mixed">mixed</option>
+          <option value="fallback">fallback</option>
+          <option value="待接入">待接入</option>
+          <option value="部分字段">部分字段</option>
+          <option value="试跑映射">试跑映射</option>
+        </select>
+        <button type="button" class="ingestion-refresh" @click="refreshIngestionView">刷新</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="ingestionData.source !== 'live'"
+          :source="ingestionData.source"
+          message="数据接入与字段映射中心使用 fallback 治理数据，仅用于查看数据源、映射、批次和错误；不承接现场生产事实写入。"
+        />
+      </template>
+
+      <KpiStrip :items="ingestionData.kpis" />
+
+      <div class="ingestion-center-page__top">
+        <DataTableShell
+          data-testid="ingestion-source-table"
+          title="数据源状态"
+          subtitle="管理端配置治理面：展示来源状态、最近同步、成功率和失败摘要"
+          :columns="ingestionSourceColumns"
+          :rows="filteredIngestionDataSources"
+        >
+          <template #actions>
+            <SourceBadge :source="ingestionData.source" />
+          </template>
+          <template #cell-name="{ row }">
+            <div class="ingestion-source-cell">
+              <strong>{{ row.name }}</strong>
+              <SourceBadge :source="row.source" />
+            </div>
+          </template>
+          <template #cell-statusLabel="{ row }">
+            <StatusBadge :label="row.statusLabel" :tone="row.tone" />
+          </template>
+          <template #cell-failed="{ row }">
+            <strong class="ingestion-number" :class="{ 'is-danger': Number(row.failed) > 0 }">{{ row.failed }}</strong>
+          </template>
+          <template #cell-owner="{ row }">
+            <div class="ingestion-note-cell">
+              <strong>{{ row.owner }}</strong>
+              <span>{{ row.note }}</span>
+            </div>
+          </template>
+          <template #cell-action="{ row }">
+            <div class="ingestion-row-actions">
+              <button type="button" disabled :title="`详情接口待接入：${row.id}`">查看详情</button>
+              <button type="button" disabled title="配置接口待接入，当前不伪造接入完成">配置</button>
+            </div>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="导入概览" :meta="ingestionData.source">
+          <div class="ingestion-overview">
+            <div class="ingestion-overview__metrics">
+              <article>
+                <span>总数据量</span>
+                <strong>{{ ingestionData.importOverview.totalRows }}</strong>
+                <em>条</em>
+              </article>
+              <article>
+                <span>成功导入（试跑）</span>
+                <strong>{{ ingestionData.importOverview.acceptedRows }}</strong>
+                <em>条</em>
+              </article>
+              <article>
+                <span>成功率</span>
+                <strong>{{ ingestionData.importOverview.successRate }}</strong>
+                <em>fallback</em>
+              </article>
+              <article>
+                <span>失败记录</span>
+                <strong class="is-danger">{{ ingestionData.importOverview.failedRows }}</strong>
+                <em>条</em>
+              </article>
+              <article>
+                <span>待处理</span>
+                <strong class="is-warning">{{ ingestionData.importOverview.pendingRows }}</strong>
+                <em>条</em>
+              </article>
+            </div>
+            <div class="ingestion-ring" :style="{ background: ingestionOverviewGradient }" aria-label="导入概览环形图">
+              <span></span>
+            </div>
+            <div class="ingestion-overview__legend">
+              <span v-for="segment in ingestionData.importOverview.segments" :key="segment.key">
+                <i :style="{ background: segment.color }"></i>
+                {{ segment.label }}
+              </span>
+            </div>
+          </div>
+        </SectionCard>
+      </div>
+
+      <DataTableShell
+        data-testid="ingestion-field-table"
+        title="字段映射表"
+        subtitle="字段名称、数据源字段、映射方式、校验状态与口径说明"
+        :columns="ingestionFieldColumns"
+        :rows="ingestionData.fieldMappings"
+      >
+        <template #cell-name="{ row }">
+          <div class="ingestion-field-cell">
+            <strong>{{ row.name }}</strong>
+            <SourceBadge :source="row.sourceKey" />
+          </div>
+        </template>
+        <template #cell-sourceField="{ row }">
+          <div class="ingestion-note-cell">
+            <strong>{{ row.sourceField }}</strong>
+            <span>{{ row.source }}</span>
+          </div>
+        </template>
+        <template #cell-mapping="{ row }">
+          <StatusBadge :label="row.mapping" tone="info" />
+        </template>
+        <template #cell-check="{ row }">
+          <StatusBadge :label="row.check" :tone="row.tone" />
+        </template>
+        <template #cell-caliber="{ row }">
+          <span class="ingestion-caliber-copy">{{ row.caliber }}</span>
+        </template>
+        <template #cell-action="{ row }">
+          <button type="button" class="ingestion-mini-button" disabled :title="`字段 ${row.name} 的编辑接口待接入`">配置</button>
+        </template>
+      </DataTableShell>
+
+      <div class="ingestion-center-page__bottom">
+        <DataTableShell
+          data-testid="ingestion-history-table"
+          title="导入历史"
+          subtitle="最近导入批次、失败行数、状态和错误摘要"
+          :columns="ingestionHistoryColumns"
+          :rows="ingestionData.importHistory"
+        >
+          <template #cell-source="{ row }">
+            <div class="ingestion-source-cell">
+              <strong>{{ row.source }}</strong>
+              <SourceBadge :source="row.sourceKey" />
+            </div>
+          </template>
+          <template #cell-failed="{ row }">
+            <strong class="ingestion-number" :class="{ 'is-danger': Number(row.failed) > 0 }">{{ row.failed }}</strong>
+          </template>
+          <template #cell-status="{ row }">
+            <div class="ingestion-note-cell">
+              <StatusBadge :label="row.status" :tone="row.tone" />
+              <span>{{ row.reason }}</span>
+            </div>
+          </template>
+          <template #cell-action="{ row }">
+            <div class="ingestion-row-actions">
+              <button type="button" disabled :title="`详情接口待接入：${row.id}`">查看详情</button>
+              <button type="button" disabled title="错误明细接口待接入">查看错误</button>
+              <button type="button" disabled title="重新处理接口待接入，当前不伪造处理成功">重新处理</button>
+            </div>
+          </template>
+        </DataTableShell>
+
+        <aside class="ingestion-center-page__side">
+          <SectionCard title="错误 / 失败说明" :meta="ingestionData.source">
+            <div class="ingestion-error-list">
+              <article v-for="error in ingestionData.errors" :key="error.label">
+                <div>
+                  <span>{{ error.label }}</span>
+                  <strong>{{ error.value }}</strong>
+                </div>
+                <StatusBadge :label="error.status" :tone="error.tone" />
+              </article>
+            </div>
+            <div class="ingestion-risk-actions">
+              <button type="button" @click="goRoute('admin-governance-center')">去治理</button>
+              <button type="button" @click="goRoute('admin-ops-reliability')">看运维</button>
+              <button type="button" @click="goRoute('review-task-center')">看审阅任务</button>
+              <button type="button" @click="goRoute('review-report-center')">看日报影响</button>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="操作区" :meta="ingestionData.actions.upload">
+            <div class="ingestion-action-grid">
+              <button type="button" disabled title="上传接口待接入，当前不写生产事实">上传文件</button>
+              <button type="button" disabled title="配置映射接口待接入">配置映射</button>
+              <button type="button" @click="showIngestionPanel('errors')">查看错误</button>
+              <button type="button" disabled title="重新处理接口待接入，当前不伪造成功">重新处理</button>
+              <button type="button" disabled title="导出接口待接入">导出错误清单</button>
+              <button type="button" @click="showIngestionPanel('caliber')">查看口径</button>
+            </div>
+            <p class="ingestion-caliber-copy">禁用动作没有真实接口，不上传、不重处理，也不展示生产库写入成功状态。</p>
+          </SectionCard>
+        </aside>
+      </div>
+
+      <SectionCard :title="ingestionInfoPanel === 'errors' ? '错误口径' : '口径说明'" :meta="ingestionData.environment">
+        <p class="ingestion-caliber-copy">{{ ingestionData.caliber }}</p>
+      </SectionCard>
+    </CenterPageShell>
+    <CenterPageShell
       v-else-if="isReportsModule"
       class="reports-center-page"
       center-no="08"
@@ -616,7 +833,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { costCenterMock, factoryBoardMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { costCenterMock, factoryBoardMock, ingestionCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -642,6 +859,10 @@ const costBusinessDate = ref(costCenterMock.businessDate)
 const costWorkshop = ref(costCenterMock.activeWorkshop)
 const costBasis = ref(costCenterMock.activeBasis)
 const costInfoPanel = ref('caliber')
+const ingestionBusinessDate = ref(ingestionCenterMock.businessDate)
+const ingestionSourceFilter = ref('')
+const ingestionStatusFilter = ref('')
+const ingestionInfoPanel = ref('caliber')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -654,10 +875,12 @@ const isFactoryModule = computed(() => module.value.moduleId === '05' && route.n
 const isReportsModule = computed(() => module.value.moduleId === '08')
 const isQualityModule = computed(() => module.value.moduleId === '09')
 const isCostModule = computed(() => module.value.moduleId === '10')
+const isIngestionModule = computed(() => module.value.moduleId === '06')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
 const qualityData = qualityCenterMock
 const costData = costCenterMock
+const ingestionData = ingestionCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -715,9 +938,60 @@ const costDetailColumns = [
   { key: 'basisText', label: '说明' }
 ]
 
+const ingestionSourceColumns = [
+  { key: 'name', label: '数据源名称' },
+  { key: 'type', label: '类型' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'lastSync', label: '最近同步' },
+  { key: 'successRate', label: '成功率' },
+  { key: 'failed', label: '失败数' },
+  { key: 'owner', label: '负责人 / 说明' },
+  { key: 'action', label: '操作' }
+]
+
+const ingestionFieldColumns = [
+  { key: 'name', label: '字段名称' },
+  { key: 'type', label: '字段类型' },
+  { key: 'sourceField', label: '数据源字段' },
+  { key: 'mapping', label: '映射方式' },
+  { key: 'check', label: '校验状态' },
+  { key: 'caliber', label: '口径说明' },
+  { key: 'updatedAt', label: '最近更新' },
+  { key: 'action', label: '操作' }
+]
+
+const ingestionHistoryColumns = [
+  { key: 'time', label: '时间' },
+  { key: 'source', label: '数据源' },
+  { key: 'task', label: '文件 / 任务名称' },
+  { key: 'total', label: '总行数' },
+  { key: 'success', label: '成功行数' },
+  { key: 'failed', label: '失败行数' },
+  { key: 'status', label: '状态' },
+  { key: 'action', label: '操作' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
+
+const ingestionSourceOptions = computed(() => ingestionData.dataSources.map((item) => item.name))
+
+const filteredIngestionDataSources = computed(() => ingestionData.dataSources.filter((item) => {
+  if (ingestionSourceFilter.value && item.name !== ingestionSourceFilter.value) return false
+  if (ingestionStatusFilter.value && item.statusLabel !== ingestionStatusFilter.value && item.status !== ingestionStatusFilter.value) return false
+  return true
+}))
+
+const ingestionOverviewGradient = computed(() => {
+  let cursor = 0
+  const stops = ingestionData.importOverview.segments.map((segment) => {
+    const start = cursor
+    cursor += Number(segment.value || 0)
+    return `${segment.color} ${start}% ${cursor}%`
+  })
+  return `conic-gradient(${stops.join(', ')})`
+})
 
 const activeCostWorkshop = computed(() => (
   costData.workshops.find((item) => item.key === costWorkshop.value) || costData.workshops[0]
@@ -765,6 +1039,10 @@ function refreshCostView() {
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
 }
 
+function refreshIngestionView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
 function costTrendTotal(point) {
   return Object.values(point?.parts || {}).reduce((sum, value) => sum + Number(value || 0), 0)
 }
@@ -798,12 +1076,24 @@ function qualityStatusTone(value) {
   return 'info'
 }
 
+function ingestionStatusTone(value) {
+  if (String(value).includes('冲突') || String(value).includes('缺失') || String(value).includes('异常')) return 'danger'
+  if (String(value).includes('待') || String(value).includes('fallback') || String(value).includes('部分')) return 'warning'
+  if (String(value).includes('mixed') || String(value).includes('试跑')) return 'info'
+  if (String(value).includes('通过') || String(value).includes('完成')) return 'success'
+  return 'neutral'
+}
+
 function showReportPanel(panel) {
   reportInfoPanel.value = panel
 }
 
 function showCostPanel(panel) {
   costInfoPanel.value = panel
+}
+
+function showIngestionPanel(panel) {
+  ingestionInfoPanel.value = panel
 }
 
 function goAdminIngestion() {
@@ -969,6 +1259,302 @@ function goAdminIngestion() {
 :deep(.factory-center-page .data-table-shell tbody tr:last-child td) {
   border-top: 1px solid var(--primary-soft);
   background: #f7faff;
+}
+
+.ingestion-center-page {
+  padding: var(--space-page);
+}
+
+:global(.cmd-page:has(.ingestion-center-page)) {
+  background: #f5f8fc;
+}
+
+.ingestion-center-page__scope,
+.ingestion-center-page__date,
+.ingestion-center-page__updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ingestion-center-page__scope {
+  padding: 7px 10px;
+  border: 1px solid var(--primary-soft);
+  border-radius: 8px;
+  color: var(--primary);
+  background: #f2f7ff;
+  font-weight: 900;
+}
+
+.ingestion-control,
+.ingestion-refresh,
+.ingestion-row-actions button,
+.ingestion-action-grid button,
+.ingestion-risk-actions button,
+.ingestion-mini-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ingestion-control {
+  max-width: 148px;
+}
+
+.ingestion-refresh,
+.ingestion-action-grid button:not(:disabled),
+.ingestion-risk-actions button:not(:disabled),
+.ingestion-row-actions button:not(:disabled),
+.ingestion-mini-button:not(:disabled) {
+  cursor: pointer;
+}
+
+.ingestion-refresh:hover,
+.ingestion-action-grid button:not(:disabled):hover,
+.ingestion-risk-actions button:not(:disabled):hover,
+.ingestion-row-actions button:not(:disabled):hover,
+.ingestion-mini-button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.ingestion-control:disabled,
+.ingestion-action-grid button:disabled,
+.ingestion-risk-actions button:disabled,
+.ingestion-row-actions button:disabled,
+.ingestion-mini-button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.ingestion-center-page__top,
+.ingestion-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: var(--space-card);
+  align-items: start;
+}
+
+.ingestion-center-page__side,
+.ingestion-error-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ingestion-source-cell,
+.ingestion-field-cell {
+  display: inline-grid;
+  gap: 5px;
+  align-items: start;
+}
+
+.ingestion-source-cell strong,
+.ingestion-field-cell strong,
+.ingestion-note-cell strong,
+.ingestion-error-list strong,
+.ingestion-number {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.ingestion-note-cell {
+  display: grid;
+  gap: 5px;
+  white-space: normal;
+}
+
+.ingestion-note-cell span,
+.ingestion-caliber-copy,
+.ingestion-error-list span,
+.ingestion-overview__metrics span,
+.ingestion-overview__metrics em,
+.ingestion-overview__legend {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.ingestion-number {
+  font-family: var(--font-number);
+}
+
+.ingestion-number.is-danger,
+.ingestion-overview__metrics strong.is-danger {
+  color: var(--danger);
+}
+
+.ingestion-overview__metrics strong.is-warning {
+  color: var(--warning);
+}
+
+.ingestion-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 190px;
+}
+
+.ingestion-row-actions button,
+.ingestion-mini-button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.ingestion-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(150px, 0.42fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.ingestion-overview__metrics {
+  display: grid;
+  gap: 8px;
+}
+
+.ingestion-overview__metrics article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.ingestion-overview__metrics strong {
+  color: var(--text-main);
+  font-family: var(--font-number);
+  font-size: 24px;
+}
+
+.ingestion-overview__metrics em {
+  grid-column: 1 / -1;
+  font-style: normal;
+}
+
+.ingestion-ring {
+  display: grid;
+  place-items: center;
+  width: 148px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 50%;
+}
+
+.ingestion-ring span {
+  width: 82px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.ingestion-overview__legend {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.ingestion-overview__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ingestion-overview__legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.ingestion-error-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--neutral-soft);
+}
+
+.ingestion-error-list article div {
+  display: grid;
+  gap: 4px;
+}
+
+.ingestion-action-grid,
+.ingestion-risk-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ingestion-action-grid button,
+.ingestion-risk-actions button {
+  width: 100%;
+}
+
+.ingestion-caliber-copy {
+  margin: 0;
+}
+
+:deep(.ingestion-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.ingestion-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.ingestion-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.ingestion-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.ingestion-center-page .section-card),
+:deep(.ingestion-center-page .data-table-shell),
+:deep(.ingestion-center-page .center-page__head),
+:deep(.ingestion-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.ingestion-center-page .data-table-shell table) {
+  min-width: 1080px;
+}
+
+:deep(.ingestion-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.ingestion-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.ingestion-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.ingestion-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
 }
 
 .reports-center-page {
@@ -1861,6 +2447,8 @@ function goAdminIngestion() {
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
+  .ingestion-center-page__top,
+  .ingestion-center-page__bottom,
   .reports-center-page__overview,
   .reports-center-page__bottom,
   .quality-center-page__layout,
@@ -1871,6 +2459,7 @@ function goAdminIngestion() {
     grid-template-columns: 1fr;
   }
 
+  :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip) {
@@ -1880,6 +2469,7 @@ function goAdminIngestion() {
 
 @media (max-width: 640px) {
   :global(.app-shell:has(.factory-center-page)),
+  :global(.app-shell:has(.ingestion-center-page)),
   :global(.app-shell:has(.reports-center-page)),
   :global(.app-shell:has(.quality-center-page)),
   :global(.app-shell:has(.cost-center-page)) {
@@ -1891,6 +2481,10 @@ function goAdminIngestion() {
   :global(.app-shell:has(.factory-center-page) > .el-container),
   :global(.app-shell:has(.factory-center-page) .app-shell__topbar),
   :global(.app-shell:has(.factory-center-page) .app-shell__main),
+  :global(.app-shell:has(.ingestion-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.ingestion-center-page) > .el-container),
+  :global(.app-shell:has(.ingestion-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.ingestion-center-page) .app-shell__main),
   :global(.app-shell:has(.reports-center-page) > .app-shell__aside),
   :global(.app-shell:has(.reports-center-page) > .el-container),
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
@@ -1907,6 +2501,7 @@ function goAdminIngestion() {
   }
 
   :global(.app-shell:has(.factory-center-page) > .el-container),
+  :global(.app-shell:has(.ingestion-center-page) > .el-container),
   :global(.app-shell:has(.reports-center-page) > .el-container),
   :global(.app-shell:has(.quality-center-page) > .el-container),
   :global(.app-shell:has(.cost-center-page) > .el-container) {
@@ -1914,6 +2509,7 @@ function goAdminIngestion() {
   }
 
   :global(.app-shell:has(.factory-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.ingestion-center-page) .app-shell__topbar),
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
   :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
   :global(.app-shell:has(.cost-center-page) .app-shell__topbar) {
@@ -1923,6 +2519,7 @@ function goAdminIngestion() {
   }
 
   :global(.app-shell:has(.factory-center-page) .app-shell__main),
+  :global(.app-shell:has(.ingestion-center-page) .app-shell__main),
   :global(.app-shell:has(.reports-center-page) .app-shell__main),
   :global(.app-shell:has(.quality-center-page) .app-shell__main),
   :global(.app-shell:has(.cost-center-page) .app-shell__main) {
@@ -1930,6 +2527,7 @@ function goAdminIngestion() {
   }
 
   .factory-center-page,
+  .ingestion-center-page,
   .reports-center-page,
   .quality-center-page,
   .cost-center-page {
@@ -1937,12 +2535,15 @@ function goAdminIngestion() {
   }
 
   .factory-risk-actions,
+  .ingestion-action-grid,
+  .ingestion-risk-actions,
   .reports-action-grid,
   .reports-risk-actions,
   .quality-action-grid,
   .quality-risk-actions,
   .cost-action-grid,
   .cost-cumulative-summary,
+  :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip) {
@@ -1950,6 +2551,7 @@ function goAdminIngestion() {
   }
 
   .quality-control,
+  .ingestion-control,
   .cost-control {
     max-width: none;
     width: 100%;

@@ -12,6 +12,7 @@
 - `/review/reports` 当前使用 `reportsCenterMock` fallback 读面数据，口径为 `auto_confirmed` / 已自动确认；导出 PDF、导出 Excel、发送/交付、重新生成均保持 disabled，不写入生产事实。
 - `/review/quality` 当前使用 `qualityCenterMock` fallback 读面数据，对齐高清目标图 `09-quality-alerts.png`；标记处理中、关闭、导出告警清单、查看历史等处置动作保持 disabled，AI 仅作为辅助分诊，不自动关闭告警。
 - `/review/cost-accounting` 当前使用 `costCenterMock` fallback 经营估算 / 策略口径，对齐高清目标图 `10-cost-benefit.png`；调整方案、导出保持 disabled，查看日报影响、查看质量风险、看工厂看板为跳转动作。本页不承接生产事实写入，不作为财务结算或月度入账依据。
+- `/admin/ingestion` 当前使用 `ingestionCenterMock` fallback 管理端配置治理数据，对齐高清目标图 `06-ingestion-mapping.png`；上传文件、配置映射、重新处理、导出错误清单保持 disabled，查看错误、查看口径和相关中心跳转为只读/导航动作。本页不承接生产事实写入，不表示 MES/ERP 正式联通。
 
 ## 本轮处理方向
 
@@ -22,3 +23,4 @@
 - 本轮 reports route smoke 增加标题、编号、交付清单、导出按钮、口径、source 标识与 fill-only 访问边界断言。
 - 本轮 quality route smoke 增加标题、编号、告警列表、严重度、处置状态、source 标识、AI 辅助分诊、只读边界与 fill-only 访问边界断言。
 - 本轮 cost route smoke 增加标题、编号、经营估算 / 策略口径、吨铝成本、电耗、天然气、口径切换、source 标识、只读边界与 fill-only 访问边界断言。
+- 本轮 ingestion route smoke 增加标题、编号、数据源、字段映射、导入历史、成功率、source 标识、只读边界与非 admin 访问边界断言。

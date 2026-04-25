@@ -319,6 +319,22 @@
   background: var(--success-soft);
 }
 
+.source-badge.is-live {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.source-badge.is-plc,
+.source-badge.is-quality,
+.source-badge.is-energy,
+.source-badge.is-erp,
+.source-badge.is-manual,
+.source-badge.is-mixed,
+.source-badge.is-fallback {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
 .source-badge.is-exception {
   color: var(--danger);
   background: var(--danger-soft);

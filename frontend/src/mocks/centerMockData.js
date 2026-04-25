@@ -445,36 +445,182 @@ export const costCenterMock = {
 }
 
 export const ingestionCenterMock = {
-  updatedAt: '2024-05-21 10:30',
+  source: 'fallback',
+  updatedAt: '2026-04-25 10:30',
+  businessDate: '2026-04-25',
+  environment: '管理端 / 配置治理面',
+  kpis: [
+    { label: '数据源数量', value: 6, unit: '个', trend: '含手工录入', tone: 'info' },
+    { label: '已接入', value: 0, unit: '个', trend: '无正式 live', tone: 'neutral' },
+    { label: 'fallback / 待接入', value: '4 / 2', unit: '项', trend: '需治理', tone: 'warning' },
+    { label: '今日导入批次', value: 5, unit: '批', trend: '试跑样例', tone: 'processing' },
+    { label: '成功率', value: '88.54', unit: '%', trend: 'fallback 口径', tone: 'warning' },
+    { label: '失败记录', value: '4,321', unit: '条', trend: '待人工确认', tone: 'danger' }
+  ],
+  dataSources: [
+    {
+      id: 'mes',
+      name: 'MES',
+      type: '生产订单 / 卷级数据',
+      source: 'mixed',
+      status: 'mixed',
+      statusLabel: '试跑映射',
+      tone: 'warning',
+      lastSync: '10:15',
+      successRate: '88.54%',
+      failed: 544,
+      owner: '数据治理',
+      note: '仅展示映射样例，未标记正式联通'
+    },
+    {
+      id: 'plc',
+      name: 'PLC',
+      type: '设备采集',
+      source: 'fallback',
+      status: 'fallback',
+      statusLabel: 'fallback',
+      tone: 'warning',
+      lastSync: '09:30',
+      successRate: '99.77%',
+      failed: 20,
+      owner: '设备工程',
+      note: '时间戳格式需治理'
+    },
+    {
+      id: 'quality',
+      name: '质检系统',
+      type: '质量记录',
+      source: 'fallback',
+      status: 'fallback',
+      statusLabel: 'fallback',
+      tone: 'warning',
+      lastSync: '08:50',
+      successRate: '99.68%',
+      failed: 20,
+      owner: '质量负责人',
+      note: '缺陷原因字段待统一'
+    },
+    {
+      id: 'energy',
+      name: '能耗系统',
+      type: '电耗 / 气耗',
+      source: 'mixed',
+      status: 'mixed',
+      statusLabel: 'mixed',
+      tone: 'info',
+      lastSync: '07:50',
+      successRate: '100.00%',
+      failed: 0,
+      owner: '能源管理员',
+      note: '成本读面仍按策略口径复核'
+    },
+    {
+      id: 'erp',
+      name: 'ERP',
+      type: '经营主数据',
+      source: 'fallback',
+      status: '待接入',
+      statusLabel: '待接入',
+      tone: 'neutral',
+      lastSync: '待接入',
+      successRate: '-',
+      failed: '-',
+      owner: '财务 / IT',
+      note: '仅保留字段治理占位，不表示同步'
+    },
+    {
+      id: 'manual',
+      name: '手工录入',
+      type: '现场一手录入',
+      source: 'manual',
+      status: 'mixed',
+      statusLabel: '部分字段',
+      tone: 'warning',
+      lastSync: '08:20',
+      successRate: '98.02%',
+      failed: 22,
+      owner: '总统计',
+      note: '字段口径待人工确认'
+    }
+  ],
+  fieldMappings: [
+    { id: 'business-date', name: 'business_date', type: 'Date', source: 'MES / 手工录入', sourceKey: 'mixed', sourceField: 'biz_date', mapping: '字段转换', check: '待核', tone: 'warning', caliber: '业务日期按日报口径统一，不回写现场事实', updatedAt: '10:15' },
+    { id: 'shift-id', name: 'shift_id', type: 'String', source: 'MES / PLC', sourceKey: 'mixed', sourceField: 'shift_code', mapping: '字典映射', check: '通过', tone: 'success', caliber: '班次字典与审阅任务保持一致', updatedAt: '10:12' },
+    { id: 'workshop-code', name: 'workshop_code', type: 'String', source: '手工录入', sourceKey: 'manual', sourceField: 'workshop_name', mapping: '字典映射', check: '待核', tone: 'warning', caliber: '车间名称需映射到标准编码', updatedAt: '09:58' },
+    { id: 'line-code', name: 'line_code', type: 'String', source: 'PLC', sourceKey: 'fallback', sourceField: 'line_no', mapping: '字段转换', check: 'fallback', tone: 'warning', caliber: '产线编码仍按试跑映射复核', updatedAt: '09:30' },
+    { id: 'output-ton', name: 'output_ton', type: 'Decimal', source: 'MES', sourceKey: 'mixed', sourceField: 'actual_weight', mapping: '单位转换', check: '冲突', tone: 'danger', caliber: 'kg -> t 转换需与日报产量口径核对', updatedAt: '10:15' },
+    { id: 'finished-rate', name: 'finished_rate', type: 'Percent', source: '质检系统', sourceKey: 'fallback', sourceField: 'finished_rate', mapping: '直接映射', check: '待核', tone: 'warning', caliber: '成品率字段待确认统计口径', updatedAt: '08:50' },
+    { id: 'defect-reason', name: 'defect_reason', type: 'String', source: '质检系统', sourceKey: 'fallback', sourceField: 'defect_code', mapping: '字典映射', check: '缺失', tone: 'danger', caliber: '缺陷原因字典未完全覆盖', updatedAt: '08:50' },
+    { id: 'energy-kwh', name: 'energy_kwh', type: 'Decimal', source: '能耗系统', sourceKey: 'mixed', sourceField: 'power_kwh', mapping: '直接映射', check: '通过', tone: 'success', caliber: '仅用于读面核对与成本估算', updatedAt: '07:50' },
+    { id: 'gas-m3', name: 'gas_m3', type: 'Decimal', source: '能耗系统', sourceKey: 'mixed', sourceField: 'gas_flow', mapping: '字段转换', check: '通过', tone: 'success', caliber: 'm³ 口径按班次汇总', updatedAt: '07:50' },
+    { id: 'material-loss', name: 'material_loss', type: 'Decimal', source: 'ERP / 手工录入', sourceKey: 'fallback', sourceField: 'loss_amount', mapping: '人工确认', check: '待配置', tone: 'neutral', caliber: '辅材损耗暂不代表入账结果', updatedAt: '待接入' }
+  ],
+  importOverview: {
+    totalRows: '96,327',
+    acceptedRows: '84,542',
+    successRate: '88.54%',
+    failedRows: '4,321',
+    pendingRows: '12',
+    segments: [
+      { key: 'accepted', label: '校验通过', value: 84.54, color: '#1167f2' },
+      { key: 'failed', label: '失败', value: 4.5, color: '#ef4444' },
+      { key: 'pending', label: '待处理', value: 0.01, color: '#f59e0b' },
+      { key: 'other', label: '其他 / 未统计', value: 7.77, color: '#18a36a' }
+    ]
+  },
+  importHistory: [
+    { id: 'h-001', time: '05-21 10:15', source: 'MES', sourceKey: 'mixed', task: 'mes_20240521_1015.csv', total: '12,845', success: '12,301', failed: '544', status: '校验完成', tone: 'warning', reason: '544 行产品编码缺失，未写入生产事实' },
+    { id: 'h-002', time: '05-21 09:30', source: 'PLC', sourceKey: 'fallback', task: 'plc_20240521_0930.csv', total: '8,542', success: '8,522', failed: '20', status: '部分失败', tone: 'warning', reason: '20 行时间戳格式异常' },
+    { id: 'h-003', time: '05-21 08:50', source: '质检系统', sourceKey: 'fallback', task: 'qc_20240521_0850.xlsx', total: '6,321', success: '6,301', failed: '20', status: '部分失败', tone: 'warning', reason: '20 行缺少批次号' },
+    { id: 'h-004', time: '05-21 08:20', source: '手工录入', sourceKey: 'manual', task: 'manual_input_20240521.xlsx', total: '1,111', success: '1,089', failed: '22', status: '待人工确认', tone: 'info', reason: '22 行字段口径待确认' },
+    { id: 'h-005', time: '05-21 07:50', source: '能耗系统', sourceKey: 'mixed', task: 'energy_20240521_0750.csv', total: '5,210', success: '5,210', failed: '0', status: '校验完成', tone: 'success', reason: '能耗读面仍需与成本策略复核' }
+  ],
+  errors: [
+    { label: '最近失败原因', value: '产品编码缺失、时间戳格式异常、批次号缺失', status: '待处理', tone: 'warning', routeName: 'review-task-center' },
+    { label: '字段缺失', value: 'defect_reason / material_loss 覆盖不足', status: '缺失', tone: 'danger', routeName: 'admin-governance-center' },
+    { label: '口径冲突', value: 'output_ton kg -> t 转换需与日报口径核对', status: '冲突', tone: 'danger', routeName: 'review-report-center' },
+    { label: '数据源异常', value: 'PLC 时间戳与班次归属需治理', status: '异常', tone: 'warning', routeName: 'admin-ops-reliability' },
+    { label: '待人工确认', value: '手工录入字段映射 22 行待复核', status: '待确认', tone: 'info', routeName: 'review-task-center' }
+  ],
+  actions: {
+    upload: 'disabled',
+    configureMapping: 'disabled',
+    viewErrors: 'enabled',
+    retry: 'disabled',
+    exportErrors: 'disabled',
+    viewCaliber: 'enabled'
+  },
+  caliber:
+    '本页用于管理数据源接入、字段映射、导入批次与错误说明，属于管理端配置治理面，不承接现场生产事实写入。若数据源标记为 fallback/mixed，请以现场试跑口径复核。',
   sources: [
-    { name: 'MES', source: 'mes', status: '已映射', tone: 'success' },
-    { name: 'PLC', source: 'system', status: '已映射', tone: 'success' },
-    { name: '质检系统', source: 'system', status: '已映射', tone: 'success' },
-    { name: '能耗系统', source: 'system', status: '已映射', tone: 'success' },
-    { name: 'ERP', source: 'import', status: '已映射', tone: 'success' },
+    { name: 'MES', source: 'mes', status: '试跑映射', tone: 'warning' },
+    { name: 'PLC', source: 'system', status: 'fallback', tone: 'warning' },
+    { name: '质检系统', source: 'system', status: 'fallback', tone: 'warning' },
+    { name: '能耗系统', source: 'system', status: 'mixed', tone: 'info' },
+    { name: 'ERP', source: 'import', status: '待接入', tone: 'neutral' },
     { name: '手工录入', source: 'operator', status: '部分字段', tone: 'warning' }
   ],
   fields: [
-    { name: '订单编号', type: 'String', sourceField: 'order_id', mapping: '直接映射', check: '通过' },
-    { name: '产品编码', type: 'String', sourceField: 'product_code', mapping: '直接映射', check: '通过' },
-    { name: '实际重量', type: 'Float', sourceField: 'actual_weight', mapping: '单位转换(kg→t)', check: '通过' },
-    { name: '生产数量', type: 'Int', sourceField: 'qty', mapping: '直接映射', check: '通过' },
-    { name: '创建时间', type: 'DateTime', sourceField: 'create_time', mapping: '格式转换', check: '通过' },
-    { name: '班次', type: 'String', sourceField: 'shift_code', mapping: '字典映射', check: '通过' },
-    { name: '产线', type: 'String', sourceField: 'line_code', mapping: '直接映射', check: '通过' }
+    { name: 'business_date', type: 'Date', sourceField: 'biz_date', mapping: '字段转换', check: '待核' },
+    { name: 'shift_id', type: 'String', sourceField: 'shift_code', mapping: '字典映射', check: '通过' },
+    { name: 'workshop_code', type: 'String', sourceField: 'workshop_name', mapping: '字典映射', check: '待核' },
+    { name: 'line_code', type: 'String', sourceField: 'line_no', mapping: '字段转换', check: 'fallback' },
+    { name: 'output_ton', type: 'Decimal', sourceField: 'actual_weight', mapping: '单位转换', check: '冲突' },
+    { name: 'finished_rate', type: 'Percent', sourceField: 'finished_rate', mapping: '直接映射', check: '待核' },
+    { name: 'defect_reason', type: 'String', sourceField: 'defect_code', mapping: '字典映射', check: '缺失' }
   ],
   overview: [
     { label: '总数据量', value: '96,327', unit: '条', tone: 'info' },
-    { label: '成功导入', value: '84,542', unit: '条', tone: 'success' },
+    { label: '校验通过', value: '84,542', unit: '条', tone: 'success' },
     { label: '成功率', value: '88.54', unit: '%', tone: 'success' },
     { label: '失败记录', value: '4,321', unit: '条', tone: 'danger' },
     { label: '待处理', value: '12', unit: '条', tone: 'warning' }
   ],
   history: [
-    { id: 'h-001', time: '05-21 10:15', source: 'MES', task: 'mes_20240521_1015.csv', total: '12,845', success: '12,301', failed: '544', status: '已完成', reason: '544 行产品编码缺失' },
-    { id: 'h-002', time: '05-21 09:30', source: 'PLC', task: 'plc_20240521_0930.csv', total: '8,542', success: '8,522', failed: '20', status: '已完成', reason: '20 行时间戳格式异常' },
-    { id: 'h-003', time: '05-21 08:50', source: '质检系统', task: 'qc_20240521_0850.xlsx', total: '6,321', success: '6,301', failed: '20', status: '已完成', reason: '20 行缺少批次号' },
-    { id: 'h-004', time: '05-21 08:20', source: '手工录入', task: 'manual_input_20240521.xlsx', total: '1,111', success: '1,089', failed: '22', status: '部分失败', reason: '22 行字段口径待确认' },
-    { id: 'h-005', time: '05-21 07:50', source: '能耗系统', task: 'energy_20240521_0750.csv', total: '5,210', success: '5,210', failed: '0', status: '已完成', reason: '无失败记录' }
+    { id: 'h-001', time: '05-21 10:15', source: 'MES', task: 'mes_20240521_1015.csv', total: '12,845', success: '12,301', failed: '544', status: '校验完成', reason: '544 行产品编码缺失' },
+    { id: 'h-002', time: '05-21 09:30', source: 'PLC', task: 'plc_20240521_0930.csv', total: '8,542', success: '8,522', failed: '20', status: '部分失败', reason: '20 行时间戳格式异常' },
+    { id: 'h-003', time: '05-21 08:50', source: '质检系统', task: 'qc_20240521_0850.xlsx', total: '6,321', success: '6,301', failed: '20', status: '部分失败', reason: '20 行缺少批次号' },
+    { id: 'h-004', time: '05-21 08:20', source: '手工录入', task: 'manual_input_20240521.xlsx', total: '1,111', success: '1,089', failed: '22', status: '待人工确认', reason: '22 行字段口径待确认' },
+    { id: 'h-005', time: '05-21 07:50', source: '能耗系统', task: 'energy_20240521_0750.csv', total: '5,210', success: '5,210', failed: '0', status: '校验完成', reason: '能耗读面仍需与成本策略复核' }
   ]
 }

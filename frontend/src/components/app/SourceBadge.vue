@@ -17,6 +17,14 @@ const labels = {
   owner: '专项补录',
   import: '导入',
   mes: 'MES',
+  plc: 'PLC',
+  quality: '质检',
+  energy: '能耗',
+  erp: 'ERP',
+  manual: '手工',
+  live: 'live',
+  mixed: 'mixed',
+  fallback: 'fallback',
   system: '系统汇总',
   exception: '异常处置'
 }

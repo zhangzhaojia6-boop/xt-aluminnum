@@ -48,7 +48,7 @@
 - `/review/roadmap` -> `/review/overview`，路线图入口隔离。
 - `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`，管理能力不再挂在审阅端。
 - `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。
-- `/admin/ingestion` -> `admin-ingestion-center` -> `CommandModulePage.vue`，正式中心：数据接入与字段映射中心。
+- `/admin/ingestion` -> `admin-ingestion-center` -> `CommandModulePage.vue`，正式中心：数据接入与字段映射中心；当前按高清目标图 `06-ingestion-mapping.png` 对齐，使用 fallback 管理端配置治理数据展示数据源状态、字段映射、导入概览、导入历史与错误说明。上传文件、配置映射、重新处理、导出错误清单在无真实接口时禁用；查看错误、查看口径和相关中心跳转保持只读。本页不承接生产事实写入，不表示 MES/ERP 正式联通。
 - `/admin/governance` -> `admin-governance-center` -> `CommandModulePage.vue`，正式中心：权限与治理中心。
 - `/admin/ops` -> `admin-ops-reliability` -> `CommandModulePage.vue`，正式中心：系统运维与观测。
 - `/admin/master`、`/admin/master/templates`：正式中心：主数据与模板中心。

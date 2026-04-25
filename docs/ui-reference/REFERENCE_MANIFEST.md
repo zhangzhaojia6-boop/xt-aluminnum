@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/review/cost-accounting`
-- 本轮使用图：`10-cost-benefit.png`
+- 当前优先页面：`/admin/ingestion`
+- 本轮使用图：`06-ingestion-mapping.png`
 
 ## 文件与中心映射
 
@@ -25,6 +25,13 @@
 | 13 | `13-governance.png` | 权限与治理中心 |
 | 14 | `14-master-template.png` | 主数据与模板中心 |
 | 15 | `15-entry-responsive.png` | 响应式录入体验 |
+
+## 06 视觉审计摘要
+
+- 布局：顶部大号编号与中文标题；主体为数据源状态、字段映射表和导入概览三栏；底部为导入历史、错误 / 失败说明、操作区和口径说明。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，高密表格，绿色 / 红色 / 橙色表达校验、失败和待处理状态。
+- 业务元素：MES、PLC、质检系统、能耗系统、ERP、手工录入、字段名称、字段类型、数据源字段、映射方式、校验状态、导入历史、成功率和失败记录。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
 ## 08 视觉审计摘要
 
