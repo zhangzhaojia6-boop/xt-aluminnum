@@ -8,6 +8,8 @@
 - 多个中心页仍使用 fallback/mock 数据，需要持续显式展示 `MockDataNotice` 或 source 标识。
 - 成本中心定位为经营估算 / 策略口径，不是财务结算。
 - 数据接入中心归属 `/admin/ingestion`，`/review/ingestion` 只做 legacy redirect。
+- 高清目标图已切换为 `docs/ui-reference/highres/` 基线，文件名按 01-15 中心编号规整；`/review/reports` 对齐 `08-reports-delivery.png`。
+- `/review/reports` 当前使用 `reportsCenterMock` fallback 读面数据，口径为 `auto_confirmed` / 已自动确认；导出 PDF、导出 Excel、发送/交付、重新生成均保持 disabled，不写入生产事实。
 
 ## 本轮处理方向
 
@@ -15,3 +17,4 @@
 - 增强通用组件契约：状态、来源、表格 loading/empty、fallback 类型。
 - 只深改 6 个指定页面，其余页面做轻量一致性检查。
 - 新增 route contract e2e，锁定 `/entry`、`/review`、`/admin` 与 legacy redirect。
+- 本轮 reports route smoke 增加标题、编号、交付清单、导出按钮、口径、source 标识与 fill-only 访问边界断言。

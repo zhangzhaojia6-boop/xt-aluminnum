@@ -1,7 +1,25 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes('fill-only')) {
+    await setupReviewSessionAndMocks(page, {
+      token: 'playwright-fill-token',
+      user: {
+        id: 2,
+        username: 'operator',
+        name: 'Playwright Operator',
+        role: 'operator',
+        is_mobile_user: true,
+        is_reviewer: false,
+        is_manager: false,
+        data_scope_type: 'self_team',
+        assigned_shift_ids: []
+      }
+    })
+    return
+  }
+
   await setupReviewSessionAndMocks(page)
 })
 
@@ -19,6 +37,32 @@ test('factory route renders the production board smoke surface', async ({ page }
   await expect(lineTable.getByRole('columnheader', { name: '趋势（24h）' })).toBeVisible()
   await expect(lineTable.getByText('铸造一线')).toBeVisible()
   await expect(factoryBoard.getByText('风险摘要')).toBeVisible()
+})
+
+test('reports route renders the delivery center smoke surface', async ({ page }) => {
+  await page.goto('/review/reports')
+
+  const reportsCenter = page.getByTestId('reports-delivery-center')
+  const deliveryTable = page.getByTestId('reports-delivery-table')
+
+  await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(reportsCenter.getByRole('heading', { name: /08\s*日报与交付中心/ })).toBeVisible()
+  await expect(reportsCenter.getByText('fallback').first()).toBeVisible()
+  await expect(reportsCenter.getByText('交付清单')).toBeVisible()
+  await expect(deliveryTable).toBeVisible()
+  await expect(deliveryTable.getByRole('columnheader', { name: '生成口径' })).toBeVisible()
+  await expect(reportsCenter.getByRole('button', { name: '导出 PDF' })).toBeVisible()
+  await expect(reportsCenter.getByRole('button', { name: '导出 Excel' })).toBeVisible()
+  await expect(reportsCenter.getByText(/auto_confirmed|已自动确认/).first()).toBeVisible()
+  await expect(reportsCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(reportsCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+})
+
+test('fill-only operator cannot access review reports', async ({ page }) => {
+  await page.goto('/review/reports')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('review-shell')).toHaveCount(0)
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {

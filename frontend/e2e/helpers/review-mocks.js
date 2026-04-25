@@ -1,22 +1,27 @@
-export async function setupReviewSessionAndMocks(page) {
-  await page.addInitScript(() => {
-    localStorage.setItem('aluminum_bypass_token', 'playwright-review-token')
+const defaultReviewUser = {
+  id: 1,
+  username: 'admin',
+  name: 'Playwright Admin',
+  role: 'admin',
+  is_mobile_user: true,
+  is_reviewer: true,
+  is_manager: true,
+  data_scope_type: 'all',
+  assigned_shift_ids: []
+}
+
+export async function setupReviewSessionAndMocks(page, session = {}) {
+  const token = session.token || 'playwright-review-token'
+  const user = session.user || defaultReviewUser
+
+  await page.addInitScript(({ token, user }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
     localStorage.setItem(
       'aluminum_bypass_user',
-      JSON.stringify({
-        id: 1,
-        username: 'admin',
-        name: 'Playwright Admin',
-        role: 'admin',
-        is_mobile_user: true,
-        is_reviewer: true,
-        is_manager: true,
-        data_scope_type: 'all',
-        assigned_shift_ids: []
-      })
+      JSON.stringify(user)
     )
     localStorage.removeItem('aluminum_bypass_machine')
-  })
+  }, { token, user })
 
   const runtimeTrace = {
     source_lanes: [

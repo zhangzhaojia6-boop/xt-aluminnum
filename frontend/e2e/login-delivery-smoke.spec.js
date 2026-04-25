@@ -27,7 +27,7 @@ test('login and view report delivery center contract', async ({ page }) => {
   await expect(page.getByText('交付清单', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '导出 PDF' })).toBeVisible()
   await expect(page.getByRole('button', { name: '导出 Excel' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /发送\/交付/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /发送\s*\/\s*交付/ })).toBeVisible()
   await expect(page.getByRole('tab', { name: '关注' })).toHaveCount(0)
 })
 

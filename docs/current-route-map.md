@@ -38,7 +38,7 @@
 
 - `/review/overview` -> `review-overview-home` -> `CommandOverview.vue`，正式中心：系统总览主视图。
 - `/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`，正式中心：审阅中心。
-- `/review/reports` -> `review-report-center` -> `CommandModulePage.vue`，正式中心：日报与交付中心。
+- `/review/reports` -> `review-report-center` -> `CommandModulePage.vue`，正式中心：日报与交付中心；当前按高清目标图 `08-reports-delivery.png` 对齐，使用 fallback 读面数据、`auto_confirmed` / 已自动确认口径，导出 PDF、导出 Excel、发送/交付、重新生成在无真实接口时禁用，本页不承接生产事实写入。
 - `/review/cost-accounting` -> `review-cost-accounting` -> `CommandModulePage.vue`，正式中心：成本核算与效益中心。
 - `/review/quality` -> `review-quality-center` -> `CommandModulePage.vue`，正式中心：质量与告警中心。
 - `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)

@@ -109,28 +109,108 @@ export const factoryBoardMock = {
   ]
 }
 
-export const reportDeliveryMock = {
-  updatedAt: '2024-05-21',
+export const reportsCenterMock = {
+  source: 'fallback',
+  updatedAt: '2024-05-21 10:30',
+  businessDate: '2024-05-21',
+  scope: 'auto_confirmed',
   kpis: [
-    { label: '日量', value: '5,824', unit: '吨', trend: '+8.6%', tone: 'success' },
+    { label: '日产量', value: '5,824', unit: '吨', trend: '+8.6%', tone: 'success' },
     { label: '订单达成率', value: '96.7', unit: '%', trend: '+2.1%', tone: 'success' },
     { label: '综合成品率', value: '98.2', unit: '%', trend: '+1.3%', tone: 'success' },
-    { label: '已交付/待分发', value: '20/3', unit: '车', trend: '今日', tone: 'processing' }
+    { label: '已生成日报数', value: 3, unit: '份', trend: 'auto_confirmed', tone: 'processing' },
+    { label: '已交付 / 待分发', value: '20 / 3', unit: '车', trend: '今日交付', tone: 'warning' },
+    { label: '阻塞项 / 待审项', value: '1 / 18', unit: '项', trend: '需复核', tone: 'danger' }
   ],
-  trend: [900, 1050, 1260, 1080, 1000, 1900, 1660, 1540, 1620, 1860, 1910, 1990, 2100, 1760, 1580],
-  delivery: [
+  trend: [
+    { day: '05-15', output: 4920, delivered: 18, pending: 4 },
+    { day: '05-16', output: 5180, delivered: 19, pending: 3 },
+    { day: '05-17', output: 5060, delivered: 18, pending: 4 },
+    { day: '05-18', output: 5360, delivered: 20, pending: 3 },
+    { day: '05-19', output: 5520, delivered: 21, pending: 2 },
+    { day: '05-20', output: 5710, delivered: 20, pending: 3 },
+    { day: '05-21', output: 5824, delivered: 20, pending: 3 }
+  ],
+  deliverySummary: [
     { label: '计划交付', value: '23', unit: '车', tone: 'info' },
     { label: '已交付', value: '20', unit: '车', tone: 'success' },
     { label: '待分发', value: '3', unit: '车', tone: 'warning' },
-    { label: '异常/阻塞', value: '1', unit: '项', tone: 'danger' }
+    { label: '交付失败', value: '1', unit: '项', tone: 'danger' }
   ],
-  actions: [
-    { label: '导出 PDF', state: '可用' },
-    { label: '导出 Excel', state: '可用' },
-    { label: '发送/交付', state: '待接入' },
-    { label: '重新生成', state: '待接入' }
-  ]
+  deliveryRows: [
+    {
+      id: 'report-factory-day',
+      name: '厂级生产日报',
+      businessDate: '2024-05-21',
+      scopeText: '全厂',
+      caliber: 'auto_confirmed',
+      generationStatus: '已生成',
+      deliveryStatus: '待分发',
+      exportStatus: 'PDF / Excel 待导出',
+      receivers: '管理层、总统计',
+      updatedAt: '10:30',
+      source: 'system',
+      reason: '等待人工确认接收对象'
+    },
+    {
+      id: 'report-workshop-confirmed',
+      name: '车间交付日报',
+      businessDate: '2024-05-21',
+      scopeText: '铸造 / 精整',
+      caliber: '已自动确认数据口径',
+      generationStatus: '已生成',
+      deliveryStatus: '已交付',
+      exportStatus: '已导出',
+      receivers: '车间主任、生产主管',
+      updatedAt: '10:12',
+      source: 'system',
+      reason: 'fallback 样例状态，仅用于读面验收'
+    },
+    {
+      id: 'report-quality-blocked',
+      name: '质量异常日报',
+      businessDate: '2024-05-21',
+      scopeText: '质量 / 告警',
+      caliber: 'auto_confirmed',
+      generationStatus: '阻塞',
+      deliveryStatus: '交付失败',
+      exportStatus: '未导出',
+      receivers: '质量负责人',
+      updatedAt: '09:50',
+      source: 'exception',
+      reason: '异常未关闭 2 项，未执行真实发送'
+    },
+    {
+      id: 'report-shift-pending',
+      name: '班次补齐日报',
+      businessDate: '2024-05-21',
+      scopeText: '夜班 / 热轧',
+      caliber: 'auto_confirmed',
+      generationStatus: '待生成',
+      deliveryStatus: '待分发',
+      exportStatus: '未导出',
+      receivers: '总统计、热轧车间',
+      updatedAt: '09:20',
+      source: 'operator',
+      reason: '缺报班次 1 项，待审记录 18 单'
+    }
+  ],
+  blockers: [
+    { label: '缺报班次', value: '1 项', status: '待补齐', tone: 'warning', routeName: 'review-task-center' },
+    { label: '待审记录', value: '18 单', status: '待审', tone: 'processing', routeName: 'review-task-center' },
+    { label: '异常未关闭', value: '2 项', status: '阻塞', tone: 'danger', routeName: 'review-quality-center' },
+    { label: '数据源 fallback / mixed', value: '当前 fallback', status: '需复核', tone: 'warning', routeName: 'factory-dashboard' },
+    { label: '交付失败原因', value: '接收对象待确认，未执行真实发送', status: '失败', tone: 'danger', routeName: 'review-report-center' }
+  ],
+  actions: {
+    exportPdf: 'disabled',
+    exportExcel: 'disabled',
+    send: 'disabled',
+    regenerate: 'disabled'
+  }
 }
+
+export const reportDeliveryMock = reportsCenterMock
 
 export const qualityCenterMock = {
   rows: [
