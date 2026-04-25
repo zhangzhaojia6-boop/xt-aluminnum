@@ -53,7 +53,7 @@ test('admin compatibility shortcuts land on reference command modules', async ({
   await page.goto('/admin/users')
   await expect(page).toHaveURL(/\/admin\/users$/)
   await expect(page.getByTestId('admin-users-center')).toBeVisible()
-  await expect(page.locator('.reference-page[data-module="13"]').getByRole('heading', { name: '权限与治理中心' })).toBeVisible()
+  await expect(page.locator('.reference-page[data-module="13"]').getByRole('heading', { name: /权限(与)?治理中心/ })).toBeVisible()
 })
 
 test('admin ingestion route renders the mapping center smoke surface', async ({ page }) => {
@@ -115,7 +115,41 @@ test('admin ops route renders the observability smoke surface', async ({ page })
   await expect(opsCenter.getByText('已执行部署成功')).toHaveCount(0)
 })
 
-test('fill-only operator cannot access admin ops or ingestion', async ({ page }) => {
+test('admin governance route renders the permission governance smoke surface', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.goto('/admin/governance')
+
+  const governanceCenter = page.getByTestId('admin-governance-center')
+  const roleMatrix = page.getByTestId('governance-role-matrix')
+  const auditTable = page.getByTestId('governance-audit-table')
+  const riskTable = page.getByTestId('governance-risk-table')
+
+  await expect(page).toHaveURL(/\/admin\/governance$/)
+  await expect(page.getByTestId('admin-shell')).toBeVisible()
+  await expect(governanceCenter.getByRole('heading', { name: /13\s*权限治理中心/ })).toBeVisible()
+  await expect(governanceCenter.getByText('管理端 / 权限治理面')).toBeVisible()
+  await expect(governanceCenter.getByText('角色矩阵').first()).toBeVisible()
+  await expect(governanceCenter.getByText('审计日志').first()).toBeVisible()
+  await expect(governanceCenter.getByText('数据权限').first()).toBeVisible()
+  await expect(governanceCenter.getByText(/高风险账号|治理风险/).first()).toBeVisible()
+  await expect(governanceCenter.getByText(/Mock|fallback|mixed|source/).first()).toBeVisible()
+  await expect(roleMatrix).toBeVisible()
+  await expect(roleMatrix.getByRole('columnheader', { name: '可访问端' })).toBeVisible()
+  await expect(roleMatrix.getByText('admin').first()).toBeVisible()
+  await expect(roleMatrix.getByText('fill-only').first()).toBeVisible()
+  await expect(auditTable).toBeVisible()
+  await expect(auditTable.getByRole('columnheader', { name: '风险级别' })).toBeVisible()
+  await expect(riskTable).toBeVisible()
+  await expect(governanceCenter.getByRole('button', { name: '导出审计' })).toBeDisabled()
+  await expect(governanceCenter.getByRole('button', { name: '保存策略' })).toBeDisabled()
+  await expect(governanceCenter.getByText('权限已保存成功')).toHaveCount(0)
+  await expect(governanceCenter.getByText('安全策略已生效')).toHaveCount(0)
+  await expect(governanceCenter.getByText('审计日志已清理')).toHaveCount(0)
+  await expect(governanceCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(governanceCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+})
+
+test('fill-only operator cannot access admin ops ingestion or governance', async ({ page }) => {
   await setupReviewSessionAndMocks(page, {
     token: 'playwright-fill-token',
     user: {
@@ -142,9 +176,15 @@ test('fill-only operator cannot access admin ops or ingestion', async ({ page })
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('admin-shell')).toHaveCount(0)
   await expect(page.getByTestId('live-dashboard')).toHaveCount(0)
+
+  await page.goto('/admin/governance')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('admin-governance-center')).toHaveCount(0)
 })
 
-test('manager without admin access cannot see admin ops entry', async ({ page }) => {
+test('manager without admin access cannot see admin ops or governance entry', async ({ page }) => {
   await setupReviewSessionAndMocks(page, {
     token: 'playwright-review-manager-token',
     user: {
@@ -165,6 +205,7 @@ test('manager without admin access cannot see admin ops entry', async ({ page })
   await expect(page).toHaveURL(/\/review\/overview$/)
   await expect(page.getByTestId('review-shell')).toBeVisible()
   await expect(page.getByText(/系统运维与可观测|系统运维与观测|系统运维/)).toHaveCount(0)
+  await expect(page.getByText(/权限治理中心|权限与治理中心|权限治理/)).toHaveCount(0)
   await expect(page.getByTestId('admin-shell')).toHaveCount(0)
 })
 

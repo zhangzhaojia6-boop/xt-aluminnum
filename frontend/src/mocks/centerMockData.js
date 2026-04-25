@@ -928,3 +928,136 @@ export const opsCenterMock = {
   caliber:
     '本页用于查看系统健康、就绪状态、服务探针、错误率、响应时间和上线闸门风险，属于管理端运维观测面。页面默认不执行部署、回滚、重启或自动修复操作。若数据源标记为 fallback/mixed，请以实际运维命令和服务器状态复核。'
 }
+
+export const governanceCenterMock = {
+  source: 'fallback',
+  environment: 'trial / 管理端权限治理面',
+  updatedAt: '2026-04-25 11:18',
+  kpis: [
+    { label: '用户数', value: 42, unit: '人', trend: 'fallback：以账号台账复核', tone: 'info' },
+    { label: '角色数', value: 6, unit: '类', trend: 'admin / manager / reviewer / operator / owner-only / fill-only', tone: 'success' },
+    { label: '高风险账号', value: 3, unit: '个', trend: '需人工复核', tone: 'danger' },
+    { label: '最近登录', value: 18, unit: '次', trend: '近 24h mixed 口径', tone: 'warning' },
+    { label: '审计事件', value: 128, unit: '条', trend: 'fallback 记录，不替代后端审计', tone: 'info' },
+    { label: '待确认权限项', value: 5, unit: '项', trend: '不自动保存策略', tone: 'warning' }
+  ],
+  roles: [
+    {
+      role: 'admin',
+      entry: 'Entry / Review / Admin',
+      visibleCenters: '全部管理中心、审阅中心、录入端',
+      actions: '配置查看、主数据维护入口、权限治理入口',
+      dataScope: '全厂 / 全车间 / 全班组',
+      defaultEntry: '/admin/master',
+      risk: '高',
+      tone: 'danger',
+      source: 'mixed',
+      note: '高权限账号需保留审计，不在前端直接改授权'
+    },
+    {
+      role: 'manager',
+      entry: 'Review',
+      visibleCenters: '工厂看板、日报、质量、成本、AI 辅助',
+      actions: '审阅、查看汇总、查看交付状态',
+      dataScope: '全厂或授权车间',
+      defaultEntry: '/review/overview',
+      risk: '中',
+      tone: 'warning',
+      source: 'fallback',
+      note: '无 admin 权限时不显示管理端配置入口'
+    },
+    {
+      role: 'reviewer',
+      entry: 'Review',
+      visibleCenters: '审阅任务、质量、日报相关只读面',
+      actions: '查看、标记、提出处理建议',
+      dataScope: '授权车间 / 班组',
+      defaultEntry: '/review/tasks',
+      risk: '中',
+      tone: 'warning',
+      source: 'fallback',
+      note: '不进入管理端权限治理面'
+    },
+    {
+      role: 'operator',
+      entry: 'Entry',
+      visibleCenters: '今日任务、填报流程、历史记录',
+      actions: '现场填报、草稿、异常补录',
+      dataScope: '本人机台 / 班次',
+      defaultEntry: '/entry',
+      risk: '低',
+      tone: 'success',
+      source: 'fallback',
+      note: 'fill-only，不能访问 Admin'
+    },
+    {
+      role: 'owner-only',
+      entry: 'Entry',
+      visibleCenters: '专项填报、 owner 数据面',
+      actions: '只填授权 owner 指标',
+      dataScope: 'owner 责任域',
+      defaultEntry: '/entry',
+      risk: '低',
+      tone: 'success',
+      source: 'mixed',
+      note: '与 fill-only 的差异在于 owner 指标范围'
+    },
+    {
+      role: 'fill-only',
+      entry: 'Entry',
+      visibleCenters: '录入端',
+      actions: '提交现场一手数据',
+      dataScope: '自班组 / 自机台',
+      defaultEntry: '/entry',
+      risk: '低',
+      tone: 'success',
+      source: 'fallback',
+      note: '不能访问 Review / Admin'
+    }
+  ],
+  dataScopes: [
+    { scope: '按车间', appliesTo: 'manager / reviewer', boundary: '仅查看授权车间汇总与异常', risk: '跨车间查看需后端授权复核', tone: 'warning' },
+    { scope: '按班组', appliesTo: 'reviewer / operator', boundary: '班组维度填报与审阅', risk: '换班、代填需审计记录', tone: 'warning' },
+    { scope: '按机台', appliesTo: 'operator / fill-only', boundary: '只处理绑定机台与班次任务', risk: '禁止前端扩大机台范围', tone: 'success' },
+    { scope: 'owner 范围', appliesTo: 'owner-only', boundary: '仅 owner 责任指标可填报', risk: 'owner 指标变更需后台权限模型确认', tone: 'info' },
+    { scope: '全厂', appliesTo: 'admin / manager', boundary: '全局查看或治理入口', risk: '高权限账号需双人复核', tone: 'danger' }
+  ],
+  auditLogs: [
+    { time: '05-21 10:20', actor: '李四', action: '修改', target: '角色配置', source: 'fallback', result: '待复核', risk: '高', tone: 'danger', note: '仅展示历史样例，不表示权限已保存' },
+    { time: '05-21 10:10', actor: '张三', action: '导出', target: '日报数据', source: 'mixed', result: '记录', risk: '中', tone: 'warning', note: '需以后端审计记录复核' },
+    { time: '05-21 09:50', actor: '王五', action: '进入审计', target: '审阅台', source: 'fallback', result: '通过', risk: '低', tone: 'success', note: '登录与访问记录只读展示' },
+    { time: '05-21 09:30', actor: '赵六', action: '配置', target: '权限策略', source: 'fallback', result: '待确认', risk: '高', tone: 'danger', note: '策略状态需以后端记录复核' }
+  ],
+  risks: [
+    { label: '权限越界风险', value: 'manager 全厂视图需与 data_scope_type 复核', status: '待确认', tone: 'warning', routeName: 'admin-master-workshop' },
+    { label: '异常登录', value: '高权限账号近 24h 登录 3 次需核对来源', status: '高风险账号', tone: 'danger', routeName: 'admin-ops-reliability' },
+    { label: '长期未登录账号', value: '7 个账号超过 30 天未登录', status: 'warning', tone: 'warning', routeName: '' },
+    { label: '角色冲突', value: 'owner-only 与 reviewer 叠加需人工确认', status: '冲突', tone: 'danger', routeName: 'admin-users' },
+    { label: 'fallback / mixed', value: '当前治理数据不替代真实账号权限与后端审计', status: 'fallback', tone: 'warning', routeName: '' }
+  ],
+  settings: [
+    { key: 'session', label: '会话过期策略', value: '8 小时 / 待后端复核', status: '只读', tone: 'info' },
+    { key: 'password', label: '密码 / PIN 策略', value: '强密码 + 现场 PIN 口径', status: 'disabled', tone: 'neutral' },
+    { key: 'landing', label: '角色默认落点', value: 'Entry / Review / Admin 按后端权限', status: '只读', tone: 'info' },
+    { key: 'audit', label: '审计保留周期', value: '180 天建议值', status: 'fallback', tone: 'warning' },
+    { key: 'risk', label: '高风险提醒', value: '高权限 / 异常登录 / 角色冲突', status: '只读', tone: 'warning' },
+    { key: 'confirm', label: '管理员确认策略', value: '高风险变更需人工确认', status: 'disabled', tone: 'neutral' }
+  ],
+  actions: [
+    { key: 'audit', label: '查看审计', status: 'enabled', tone: 'info', panel: 'audit', title: '定位到审计日志，只读查看' },
+    { key: 'exportAudit', label: '导出审计', status: 'disabled', tone: 'neutral', title: '无真实导出接口，当前禁用' },
+    { key: 'matrix', label: '查看角色矩阵', status: 'enabled', tone: 'success', panel: 'matrix', title: '定位到角色矩阵' },
+    { key: 'risks', label: '查看风险账号', status: 'enabled', tone: 'warning', panel: 'risks', title: '定位到风险与异常' },
+    { key: 'master', label: '进入主数据', status: 'enabled', tone: 'info', routeName: 'admin-master-workshop', title: '进入主数据中心' },
+    { key: 'ops', label: '进入运维观测', status: 'enabled', tone: 'info', routeName: 'admin-ops-reliability', title: '进入运维观测中心' },
+    { key: 'refresh', label: '刷新权限视图', status: 'enabled', tone: 'info', panel: 'refresh', title: '刷新前端视图，不保存权限策略' }
+  ],
+  matrixSummary: [
+    { label: 'Entry 录入端', value: 'operator / owner-only / fill-only / admin', tone: 'success' },
+    { label: 'Review 审阅端', value: 'manager / reviewer / admin', tone: 'warning' },
+    { label: 'Admin 管理端', value: 'admin', tone: 'danger' },
+    { label: '生产事实写入', value: '仅录入端按后端权限提交', tone: 'info' }
+  ],
+  caliber:
+    '本页用于查看角色矩阵、数据权限边界、审计日志和治理风险，属于管理端权限治理面。当前页面不绕过后端权限模型，不直接修改生产事实或真实授权策略。若数据源标记为 fallback/mixed，请以实际账号权限和后端审计记录复核。'
+}

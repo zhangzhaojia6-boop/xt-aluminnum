@@ -1270,6 +1270,200 @@
         </SectionCard>
       </div>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isGovernanceModule"
+      class="governance-center-page reference-page cmd-layout--governance-matrix"
+      center-no="13"
+      title="权限治理中心"
+      data-testid="admin-governance-center"
+    >
+      <template #tools>
+        <span class="governance-center-page__scope">管理端 / 权限治理面</span>
+        <span class="governance-center-page__env">环境：{{ governanceData.environment }}</span>
+        <span class="governance-center-page__updated">更新时间：{{ governanceData.updatedAt }}</span>
+        <label class="governance-control">
+          <span>角色</span>
+          <select v-model="governanceRoleFilter">
+            <option value="">全部角色</option>
+            <option v-for="item in governanceRoleOptions" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </label>
+        <label class="governance-control">
+          <span>风险</span>
+          <select v-model="governanceRiskFilter">
+            <option value="">全部风险</option>
+            <option v-for="item in governanceRiskOptions" :key="item" :value="item">{{ item }}</option>
+          </select>
+        </label>
+        <button type="button" class="governance-refresh" @click="refreshGovernanceView">刷新</button>
+        <button type="button" class="governance-refresh" @click="governanceInfoPanel = 'audit'">查看审计日志</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="governanceData.source !== 'live'"
+          :source="governanceData.source"
+          message="权限治理中心使用 fallback / mixed 只读治理数据；不绕过后端权限模型，不保存真实授权策略，不清理审计日志，也不写入生产事实。"
+        />
+      </template>
+
+      <div class="governance-compat-row">
+        <span data-testid="review-governance-center">权限治理在线</span>
+        <span data-testid="admin-users-center">用户治理在线</span>
+      </div>
+
+      <KpiStrip :items="governanceData.kpis" />
+
+      <div class="governance-center-page__overview">
+        <SectionCard title="权限端面总览" :meta="governanceData.source">
+          <div class="governance-surface-grid">
+            <article v-for="item in governanceData.matrixSummary" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <StatusBadge :label="item.tone" :tone="item.tone" />
+            </article>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="数据权限边界" meta="workshop / team / machine / owner">
+          <div class="governance-scope-list">
+            <article v-for="scope in governanceData.dataScopes" :key="scope.scope">
+              <header>
+                <strong>{{ scope.scope }}</strong>
+                <StatusBadge :label="scope.appliesTo" :tone="scope.tone" />
+              </header>
+              <p>{{ scope.boundary }}</p>
+              <span>{{ scope.risk }}</span>
+            </article>
+          </div>
+        </SectionCard>
+      </div>
+
+      <DataTableShell
+        data-testid="governance-role-matrix"
+        title="角色矩阵"
+        subtitle="角色、默认入口、Entry / Review / Admin 可访问面、可查看中心、动作、数据范围与风险"
+        :columns="governanceRoleColumns"
+        :rows="filteredGovernanceRoles"
+      >
+        <template #actions>
+          <SourceBadge :source="governanceData.source" />
+        </template>
+        <template #cell-role="{ row }">
+          <strong class="governance-role-name">{{ row.role }}</strong>
+        </template>
+        <template #cell-entry="{ row }">
+          <span class="governance-access-copy">{{ row.entry }}</span>
+        </template>
+        <template #cell-visibleCenters="{ row }">
+          <span class="governance-muted-copy">{{ row.visibleCenters }}</span>
+        </template>
+        <template #cell-actions="{ row }">
+          <span class="governance-muted-copy">{{ row.actions }}</span>
+        </template>
+        <template #cell-dataScope="{ row }">
+          <span class="governance-muted-copy">{{ row.dataScope }}</span>
+        </template>
+        <template #cell-risk="{ row }">
+          <StatusBadge :label="row.risk" :tone="row.tone" />
+        </template>
+        <template #cell-source="{ row }">
+          <SourceBadge :source="row.source" />
+        </template>
+        <template #cell-note="{ row }">
+          <span class="governance-muted-copy">{{ row.note }}</span>
+        </template>
+      </DataTableShell>
+
+      <div class="governance-center-page__middle">
+        <DataTableShell
+          data-testid="governance-audit-table"
+          title="审计日志"
+          subtitle="时间、操作人、动作、目标、来源、结果、风险级别与说明"
+          :columns="governanceAuditColumns"
+          :rows="governanceData.auditLogs"
+        >
+          <template #cell-source="{ row }">
+            <SourceBadge :source="row.source" />
+          </template>
+          <template #cell-result="{ row }">
+            <StatusBadge :label="row.result" :tone="row.tone" />
+          </template>
+          <template #cell-risk="{ row }">
+            <StatusBadge :label="row.risk" :tone="row.tone" />
+          </template>
+          <template #cell-note="{ row }">
+            <span class="governance-muted-copy">{{ row.note }}</span>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="系统设置" meta="只读 / disabled">
+          <div class="governance-setting-list">
+            <article v-for="setting in governanceData.settings" :key="setting.key">
+              <div>
+                <strong>{{ setting.label }}</strong>
+                <span>{{ setting.value }}</span>
+              </div>
+              <StatusBadge :label="setting.status" :tone="setting.tone" />
+            </article>
+          </div>
+          <button type="button" class="governance-save-policy" disabled title="无真实策略保存接口，当前禁用">保存策略</button>
+        </SectionCard>
+      </div>
+
+      <div class="governance-center-page__bottom">
+        <DataTableShell
+          data-testid="governance-risk-table"
+          title="风险与异常"
+          subtitle="权限越界、异常登录、长期未登录、高权限账号、角色冲突和 fallback/mixed 说明"
+          :columns="governanceRiskColumns"
+          :rows="governanceData.risks"
+        >
+          <template #cell-label="{ row }">
+            <strong class="governance-role-name">{{ row.label }}</strong>
+          </template>
+          <template #cell-value="{ row }">
+            <span class="governance-muted-copy">{{ row.value }}</span>
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.status" :tone="row.tone" />
+          </template>
+          <template #cell-route="{ row }">
+            <button
+              type="button"
+              class="governance-mini-button"
+              :disabled="!row.routeName"
+              :title="row.routeName ? '查看相关中心' : '暂无真实入口'"
+              @click="goGovernanceRoute(row.routeName)"
+            >
+              {{ row.routeName ? '查看' : '只读' }}
+            </button>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="操作区" meta="只读 / 受控动作">
+          <div class="governance-action-grid">
+            <button
+              v-for="action in governanceData.actions"
+              :key="action.key"
+              type="button"
+              :class="`is-${action.tone}`"
+              :disabled="governanceActionDisabled(action)"
+              :title="governanceActionTitle(action)"
+              @click="runGovernanceAction(action)"
+            >
+              <span>{{ action.label }}</span>
+              <StatusBadge :label="governanceActionStatusLabel(action)" :tone="governanceActionStatusTone(action)" />
+            </button>
+          </div>
+          <p class="governance-muted-copy">{{ governanceActionNote }}</p>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="口径说明" :meta="governanceData.source">
+        <p class="governance-caliber-copy">{{ governanceData.caliber }}</p>
+      </SectionCard>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -1285,7 +1479,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { brainCenterMock, costCenterMock, factoryBoardMock, ingestionCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { brainCenterMock, costCenterMock, factoryBoardMock, governanceCenterMock, ingestionCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -1321,6 +1515,9 @@ const brainTopicFilter = ref('')
 const brainFocusPanel = ref('evidence')
 const brainCopied = ref(false)
 const opsInfoPanel = ref('readiness')
+const governanceRoleFilter = ref('')
+const governanceRiskFilter = ref('')
+const governanceInfoPanel = ref('matrix')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -1335,6 +1532,7 @@ const isQualityModule = computed(() => module.value.moduleId === '09')
 const isCostModule = computed(() => module.value.moduleId === '10')
 const isBrainModule = computed(() => module.value.moduleId === '11')
 const isOpsModule = computed(() => module.value.moduleId === '12')
+const isGovernanceModule = computed(() => module.value.moduleId === '13')
 const isIngestionModule = computed(() => module.value.moduleId === '06')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
@@ -1343,6 +1541,7 @@ const costData = costCenterMock
 const ingestionData = ingestionCenterMock
 const brainData = brainCenterMock
 const opsData = opsCenterMock
+const governanceData = governanceCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -1470,6 +1669,36 @@ const opsRiskColumns = [
   { key: 'route', label: '入口' }
 ]
 
+const governanceRoleColumns = [
+  { key: 'role', label: '角色' },
+  { key: 'defaultEntry', label: '默认入口' },
+  { key: 'entry', label: '可访问端' },
+  { key: 'visibleCenters', label: '可查看中心' },
+  { key: 'actions', label: '可执行动作' },
+  { key: 'dataScope', label: '数据范围' },
+  { key: 'risk', label: '风险等级' },
+  { key: 'source', label: '来源' },
+  { key: 'note', label: '说明' }
+]
+
+const governanceAuditColumns = [
+  { key: 'time', label: '时间' },
+  { key: 'actor', label: '操作人' },
+  { key: 'action', label: '动作' },
+  { key: 'target', label: '目标' },
+  { key: 'source', label: '来源' },
+  { key: 'result', label: '结果' },
+  { key: 'risk', label: '风险级别' },
+  { key: 'note', label: '说明' }
+]
+
+const governanceRiskColumns = [
+  { key: 'label', label: '风险项' },
+  { key: 'value', label: '说明' },
+  { key: 'status', label: '状态' },
+  { key: 'route', label: '入口' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
@@ -1477,6 +1706,8 @@ const qualitySourceOptions = computed(() => (
 const ingestionSourceOptions = computed(() => ingestionData.dataSources.map((item) => item.name))
 const brainRiskOptions = computed(() => [...new Set(brainData.risks.map((item) => item.level))])
 const brainTopicOptions = computed(() => brainData.topics.map((item) => item.title))
+const governanceRoleOptions = computed(() => governanceData.roles.map((item) => item.role))
+const governanceRiskOptions = computed(() => [...new Set(governanceData.roles.map((item) => item.risk))])
 
 const filteredIngestionDataSources = computed(() => ingestionData.dataSources.filter((item) => {
   if (ingestionSourceFilter.value && item.name !== ingestionSourceFilter.value) return false
@@ -1496,6 +1727,12 @@ const filteredBrainTopics = computed(() => brainData.topics.filter((item) => {
   return true
 }))
 
+const filteredGovernanceRoles = computed(() => governanceData.roles.filter((item) => {
+  if (governanceRoleFilter.value && item.role !== governanceRoleFilter.value) return false
+  if (governanceRiskFilter.value && item.risk !== governanceRiskFilter.value) return false
+  return true
+}))
+
 const brainActionNote = computed(() => {
   if (brainCopied.value) return '辅助摘要已复制；该动作只复制文本，不写入业务数据。'
   if (brainFocusPanel.value === 'evidence') return '查看证据会定位到本页证据链，不触发自动处置。'
@@ -1510,6 +1747,16 @@ const opsActionNote = computed(() => {
     probe: '探针刷新只更新页面查询参数，不重启服务或修复问题。'
   }
   return labels[opsInfoPanel.value] || '无真实接口的操作保持禁用；可用动作仅查看只读信息或跳转。'
+})
+
+const governanceActionNote = computed(() => {
+  const labels = {
+    audit: '正在查看审计日志；本页不删除、不清理审计记录。',
+    matrix: '正在查看角色矩阵；矩阵用于理解权限边界，不直接修改真实权限。',
+    risks: '正在查看治理风险；风险摘要不会自动修复账号或策略。',
+    refresh: '刷新只更新前端视图，不保存权限策略或绕过后端权限模型。'
+  }
+  return labels[governanceInfoPanel.value] || '无真实接口的保存、导出、清理动作保持禁用；可用动作仅跳转或只读查看。'
 })
 
 const ingestionOverviewGradient = computed(() => {
@@ -1578,6 +1825,11 @@ function refreshBrainView() {
 
 function refreshOpsView() {
   opsInfoPanel.value = 'probe'
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function refreshGovernanceView() {
+  governanceInfoPanel.value = 'refresh'
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
 }
 
@@ -1728,6 +1980,43 @@ function runOpsAction(action) {
 }
 
 function goOpsRoute(routeName) {
+  if (!routeName) return
+  goRoute(routeName)
+}
+
+function governanceActionDisabled(action) {
+  if (!action || action.status === 'disabled') return true
+  if (action.routeName && String(action.routeName).startsWith('admin-')) return !authStore.adminSurface
+  return false
+}
+
+function governanceActionTitle(action) {
+  if (action?.routeName && String(action.routeName).startsWith('admin-') && !authStore.adminSurface) return '当前账号无管理端权限'
+  return action?.title || action?.label || '只读'
+}
+
+function governanceActionStatusLabel(action) {
+  if (governanceActionDisabled(action)) return 'disabled'
+  return action?.status || 'enabled'
+}
+
+function governanceActionStatusTone(action) {
+  if (governanceActionDisabled(action)) return 'neutral'
+  return action?.tone || 'info'
+}
+
+function runGovernanceAction(action) {
+  if (governanceActionDisabled(action)) return
+  if (action.panel) {
+    governanceInfoPanel.value = action.panel
+    return
+  }
+  if (action.routeName) {
+    goRoute(action.routeName)
+  }
+}
+
+function goGovernanceRoute(routeName) {
   if (!routeName) return
   goRoute(routeName)
 }
@@ -3839,6 +4128,275 @@ function goAdminIngestion() {
   background: #fffaf2;
 }
 
+.governance-center-page {
+  padding: var(--space-page);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.95), rgba(255, 255, 255, 0.98)),
+    var(--app-bg);
+}
+
+.governance-center-page__scope,
+.governance-center-page__env,
+.governance-center-page__updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.governance-center-page__scope {
+  color: var(--color-primary);
+}
+
+.governance-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.governance-control select {
+  min-width: 112px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.governance-refresh,
+.governance-mini-button,
+.governance-save-policy {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.governance-refresh:hover,
+.governance-mini-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.governance-save-policy,
+.governance-mini-button:disabled,
+.governance-action-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.governance-compat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.governance-compat-row span {
+  padding: 5px 10px;
+  border: 1px solid #dbe7ff;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.governance-center-page__overview,
+.governance-center-page__middle,
+.governance-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(360px, 0.82fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.governance-surface-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.governance-surface-grid article,
+.governance-setting-list article,
+.governance-scope-list article {
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.governance-surface-grid article {
+  display: grid;
+  gap: 8px;
+  min-height: 96px;
+  padding: 13px;
+}
+
+.governance-surface-grid span,
+.governance-setting-list span,
+.governance-scope-list span,
+.governance-muted-copy {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.governance-surface-grid strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.governance-scope-list,
+.governance-setting-list {
+  display: grid;
+  gap: 10px;
+}
+
+.governance-scope-list article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.governance-scope-list header,
+.governance-setting-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.governance-scope-list p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.governance-role-name {
+  color: var(--text-primary);
+  font-weight: 900;
+}
+
+.governance-access-copy {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.governance-setting-list article {
+  min-height: 62px;
+  padding: 11px 12px;
+}
+
+.governance-setting-list article > div {
+  display: grid;
+  gap: 4px;
+}
+
+.governance-save-policy {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.governance-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.governance-action-grid button {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  min-height: 62px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.governance-action-grid button.is-danger:not(:disabled) {
+  border-color: #fecdd3;
+  background: #fff7f8;
+}
+
+.governance-action-grid button.is-warning:not(:disabled) {
+  border-color: #fed7aa;
+  background: #fffaf2;
+}
+
+.governance-caliber-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+:deep(.governance-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.governance-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.governance-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.governance-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.governance-center-page .section-card),
+:deep(.governance-center-page .data-table-shell),
+:deep(.governance-center-page .center-page__head),
+:deep(.governance-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.governance-center-page .data-table-shell table) {
+  min-width: 1240px;
+}
+
+:deep(.governance-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.governance-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.governance-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.governance-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
@@ -3856,7 +4414,10 @@ function goAdminIngestion() {
   .ops-center-page__overview,
   .ops-center-page__middle,
   .ops-center-page__bottom,
-  .ops-center-page__risk {
+  .ops-center-page__risk,
+  .governance-center-page__overview,
+  .governance-center-page__middle,
+  .governance-center-page__bottom {
     grid-template-columns: 1fr;
   }
 
@@ -3865,12 +4426,14 @@ function goAdminIngestion() {
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip),
   :deep(.brain-center-page .kpi-strip),
-  :deep(.ops-center-page .kpi-strip) {
+  :deep(.ops-center-page .kpi-strip),
+  :deep(.governance-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 
   .brain-topic-grid,
-  .ops-version-grid {
+  .ops-version-grid,
+  .governance-surface-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -3882,7 +4445,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.quality-center-page)),
   :global(.app-shell:has(.cost-center-page)),
   :global(.app-shell:has(.brain-center-page)),
-  :global(.app-shell:has(.ops-center-page)) {
+  :global(.app-shell:has(.ops-center-page)),
+  :global(.app-shell:has(.governance-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -3914,7 +4478,11 @@ function goAdminIngestion() {
   :global(.app-shell:has(.ops-center-page) > .app-shell__aside),
   :global(.app-shell:has(.ops-center-page) > .el-container),
   :global(.app-shell:has(.ops-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.ops-center-page) .app-shell__main) {
+  :global(.app-shell:has(.ops-center-page) .app-shell__main),
+  :global(.app-shell:has(.governance-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.governance-center-page) > .el-container),
+  :global(.app-shell:has(.governance-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.governance-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
@@ -3924,7 +4492,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.quality-center-page) > .el-container),
   :global(.app-shell:has(.cost-center-page) > .el-container),
   :global(.app-shell:has(.brain-center-page) > .el-container),
-  :global(.app-shell:has(.ops-center-page) > .el-container) {
+  :global(.app-shell:has(.ops-center-page) > .el-container),
+  :global(.app-shell:has(.governance-center-page) > .el-container) {
     min-width: 0;
   }
 
@@ -3934,7 +4503,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
   :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
   :global(.app-shell:has(.brain-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.ops-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.ops-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.governance-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
@@ -3946,7 +4516,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.quality-center-page) .app-shell__main),
   :global(.app-shell:has(.cost-center-page) .app-shell__main),
   :global(.app-shell:has(.brain-center-page) .app-shell__main),
-  :global(.app-shell:has(.ops-center-page) .app-shell__main) {
+  :global(.app-shell:has(.ops-center-page) .app-shell__main),
+  :global(.app-shell:has(.governance-center-page) .app-shell__main) {
     padding: 8px;
   }
 
@@ -3956,7 +4527,8 @@ function goAdminIngestion() {
   .quality-center-page,
   .cost-center-page,
   .brain-center-page,
-  .ops-center-page {
+  .ops-center-page,
+  .governance-center-page {
     padding: 10px;
   }
 
@@ -3976,19 +4548,23 @@ function goAdminIngestion() {
   .ops-trend-grid,
   .ops-action-grid,
   .ops-version-grid,
+  .governance-surface-grid,
+  .governance-action-grid,
   :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip),
   :deep(.brain-center-page .kpi-strip),
-  :deep(.ops-center-page .kpi-strip) {
+  :deep(.ops-center-page .kpi-strip),
+  :deep(.governance-center-page .kpi-strip) {
     grid-template-columns: 1fr;
   }
 
   .quality-control,
   .ingestion-control,
   .cost-control,
-  .brain-control {
+  .brain-control,
+  .governance-control {
     max-width: none;
     width: 100%;
   }
@@ -4041,7 +4617,8 @@ function goAdminIngestion() {
 
   .brain-topic-card button,
   .brain-ask-panel__input button,
-  .ops-refresh {
+  .ops-refresh,
+  .governance-refresh {
     width: 100%;
   }
 
