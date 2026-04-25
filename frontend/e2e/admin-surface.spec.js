@@ -35,12 +35,12 @@ test('admin compatibility shortcuts land on reference command modules', async ({
   await expect(page.locator('.reference-page[data-module="06"]').getByRole('heading', { name: '数据接入与字段映射中心' })).toBeVisible()
 
   await page.goto('/admin/ops')
-  await expect(page).toHaveURL(/\/admin\/ops-reliability$/)
+  await expect(page).toHaveURL(/\/admin\/ops$/)
   await expect(page.getByTestId('live-dashboard')).toBeVisible()
-  await expect(page.locator('.reference-page[data-module="12"]').getByRole('heading', { name: '系统运维与可观测' })).toBeVisible()
+  await expect(page.locator('.reference-page[data-module="12"]').getByRole('heading', { name: '系统运维与观测' })).toBeVisible()
 
   await page.goto('/admin/master')
-  await expect(page).toHaveURL(/\/admin\/master\/workshop$/)
+  await expect(page).toHaveURL(/\/admin\/master$/)
   await expect(page.getByTestId('admin-master-center')).toBeVisible()
   await expect(page.locator('.reference-page[data-module="14"]').getByRole('heading', { name: '主数据与模板中心' })).toBeVisible()
 
@@ -50,9 +50,9 @@ test('admin compatibility shortcuts land on reference command modules', async ({
   await expect(page.locator('.reference-page[data-module="14"]').getByRole('heading', { name: '主数据与模板中心' })).toBeVisible()
 
   await page.goto('/admin/users')
-  await expect(page).toHaveURL(/\/admin\/master\/users$/)
+  await expect(page).toHaveURL(/\/admin\/users$/)
   await expect(page.getByTestId('admin-users-center')).toBeVisible()
-  await expect(page.locator('.reference-page[data-module="13"]').getByRole('heading', { name: '权限治理中心' })).toBeVisible()
+  await expect(page.locator('.reference-page[data-module="13"]').getByRole('heading', { name: '权限与治理中心' })).toBeVisible()
 })
 
 test('super admin can switch from admin shell to entry and review shells', async ({ page }) => {
