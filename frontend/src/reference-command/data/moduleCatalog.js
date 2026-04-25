@@ -133,7 +133,8 @@ export const referenceModules = Object.freeze([
   },
   {
     moduleId: '12',
-    title: '系统运维与观测',
+    title: '系统运维与可观测',
+    legacyTitle: '系统运维与观测',
     surface: 'admin',
     routeName: 'admin-ops-reliability',
     routePath: '/admin/ops',

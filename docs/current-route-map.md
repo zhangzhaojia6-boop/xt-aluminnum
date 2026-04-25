@@ -19,7 +19,7 @@
 - 09 质量与告警中心：`/review/quality`
 - 10 成本核算与效益中心：`/review/cost-accounting`
 - 11 AI 总控中心：`/review/brain`
-- 12 系统运维与观测：`/admin/ops`
+- 12 系统运维与可观测：`/admin/ops`
 - 13 权限与治理中心：`/admin/governance`
 - 14 主数据与模板中心：`/admin/master`
 
@@ -50,7 +50,7 @@
 - `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。
 - `/admin/ingestion` -> `admin-ingestion-center` -> `CommandModulePage.vue`，正式中心：数据接入与字段映射中心；当前按高清目标图 `06-ingestion-mapping.png` 对齐，使用 fallback 管理端配置治理数据展示数据源状态、字段映射、导入概览、导入历史与错误说明。上传文件、配置映射、重新处理、导出错误清单在无真实接口时禁用；查看错误、查看口径和相关中心跳转保持只读。本页不承接生产事实写入，不表示 MES/ERP 正式联通。
 - `/admin/governance` -> `admin-governance-center` -> `CommandModulePage.vue`，正式中心：权限与治理中心。
-- `/admin/ops` -> `admin-ops-reliability` -> `CommandModulePage.vue`，正式中心：系统运维与观测。
+- `/admin/ops` -> `admin-ops-reliability` -> `CommandModulePage.vue`，正式中心：系统运维与可观测；当前按高清目标图 `12-ops-observability.png` 对齐，使用 `opsCenterMock` fallback / mixed 只读观测数据展示 healthz、readyz、hard gate、服务探针、错误率、响应时间、版本与部署信息、风险与日志摘要。刷新探针、查看 readiness、查看健康检查和查看上线闸门只做页面只读状态切换；回滚预检、导出诊断、查看日志在无真实接口时禁用。本页不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
 - `/admin/master`、`/admin/master/templates`：正式中心：主数据与模板中心。
 
 ## Desktop 兼容链路（现状）

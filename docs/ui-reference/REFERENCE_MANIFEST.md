@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/review/brain`
-- 本轮使用图：`11-ai-control.png`
+- 当前优先页面：`/admin/ops`
+- 本轮使用图：`12-ops-observability.png`
 
 ## 文件与中心映射
 
@@ -21,7 +21,7 @@
 | 09 | `09-quality-alerts.png` | 质量与告警中心 |
 | 10 | `10-cost-benefit.png` | 成本核算与效益中心 |
 | 11 | `11-ai-control.png` | AI 总控中心 |
-| 12 | `12-ops-observability.png` | 系统运维与观测 |
+| 12 | `12-ops-observability.png` | 系统运维与可观测 |
 | 13 | `13-governance.png` | 权限与治理中心 |
 | 14 | `14-master-template.png` | 主数据与模板中心 |
 | 15 | `15-entry-responsive.png` | 响应式录入体验 |
@@ -61,6 +61,13 @@
 - 业务元素：今日摘要、风险事件、日报交付阻塞、质量关注、成本解释、数据接入 fallback / mixed、AI 辅助建议、证据来源和追问入口。
 - 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
+## 12 视觉审计摘要
+
+- 布局：顶部大号编号与中文标题，右侧版本信息；主体左侧为系统健康 KPI，右侧为关键服务实时监控；下方为部署与告警时间线，并扩展为服务探针矩阵、趋势、版本部署、操作区、风险与日志摘要。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，深色大数字，绿色 / 红色 / 橙色表达健康、错误率、阻塞和 warning，趋势图与时间线保持轻量。
+- 业务元素：healthz、readyz、hard_gate_passed、frontend、backend、database、gateway / nginx、scheduler / jobs、message / push、AI probe、report pipeline、version、build time、error rate、latency、recent failures、go-live gate 和 rollback readiness。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
+
 ## 设计约束
 
 - 参考图是视觉与信息架构基线，不作为静态截图嵌入产品。
@@ -70,3 +77,4 @@
 - `/review/quality` 是质量告警与处置状态读面，当前为 fallback 数据；AI 仅作辅助分诊，处置写动作在无真实接口时禁用，不承接生产事实写入。
 - `/review/cost-accounting` 是经营估算 / 策略口径读面，当前为 fallback 数据；调整方案与导出在无真实接口时禁用，不承接生产事实写入，不作为财务结算依据。
 - `/review/brain` 是审阅端 AI 总控中心，当前为 fallback / mixed 证据读面；AI 仅作辅助解释与建议，生成与追问在无真实接口时禁用，不自动执行质量、成本、排产或交付动作。
+- `/admin/ops` 是管理端运维观测面，当前为 fallback / mixed 只读观测数据；刷新、readiness、健康检查和上线闸门仅做只读状态查看，回滚预检、导出诊断和查看日志在无真实接口时禁用，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。

@@ -832,3 +832,99 @@ export const brainCenterMock = {
   caliber:
     '本页用于汇总生产、日报、质量、成本和数据接入的辅助解释与建议。AI 输出仅作为审阅辅助，不自动执行生产、质量、成本、排产或交付动作。若数据源标记为 fallback/mixed，请以现场试跑口径复核。'
 }
+
+export const opsCenterMock = {
+  source: 'fallback',
+  environment: 'trial / 管理端运维观测面',
+  updatedAt: '2026-04-25 10:42',
+  version: {
+    current: 'v2.3.1',
+    buildId: 'frontend-fallback-20260425',
+    frontend: '0.2.0',
+    backend: '0.4.0',
+    buildTime: '2026-04-25 09:40',
+    deployTime: '待复核',
+    commit: 'fallback-snapshot',
+    schema: '待人工复核',
+    environment: 'trial'
+  },
+  kpis: [
+    { label: 'healthz', value: '待复核', unit: '', trend: 'fallback：未声明真实健康通过', tone: 'warning' },
+    { label: 'readyz', value: '阻塞', unit: '', trend: 'hard gate 未通过', tone: 'danger' },
+    { label: 'hard gate', value: 'false', unit: '', trend: '上线闸门需人工复核', tone: 'danger' },
+    { label: '服务数', value: 8, unit: '项', trend: '2 disabled / 3 warning', tone: 'warning' },
+    { label: '错误率', value: '0.12', unit: '%', trend: '最近 24h fallback 趋势', tone: 'warning' },
+    { label: '平均响应时间', value: 218, unit: 'ms', trend: 'healthz + readyz 探测口径', tone: 'info' }
+  ],
+  readiness: {
+    status: 'blocked',
+    statusLabel: 'readiness blocked',
+    hardGatePassed: false,
+    hardGateLabel: 'hard_gate_passed=false',
+    lastCheckTime: '2026-04-25 10:42',
+    source: 'fallback',
+    blockingReasons: [
+      'readyz 结果未接入当前页面真实读取，不能声明通过',
+      '数据库 schema 状态为待复核',
+      'AI probe 当前为 disabled / fallback，不参与上线通过判定'
+    ],
+    warnings: [
+      '消息推送为 disabled，仅保留只读观察入口',
+      'report pipeline 受质量日报阻塞影响，需结合 /review/reports 复核',
+      'fallback 数据只用于页面收口，不替代服务器运维命令'
+    ]
+  },
+  services: [
+    { id: 'frontend', name: 'frontend', statusLabel: 'fallback', tone: 'warning', latency: '24ms', lastCheck: '10:42', source: 'fallback', note: '前端运行态来自页面兜底快照，需用浏览器与构建结果复核', actionLabel: '刷新探针', actionStatus: 'enabled', panel: 'probe' },
+    { id: 'backend', name: 'backend', statusLabel: 'warning', tone: 'warning', latency: '218ms', lastCheck: '10:42', source: 'fallback', note: '后端健康需以 /healthz 与 /readyz 实测为准', actionLabel: '查看健康检查', actionStatus: 'enabled', panel: 'health' },
+    { id: 'database', name: 'database', statusLabel: 'warning', tone: 'warning', latency: '12ms', lastCheck: '10:41', source: 'fallback', note: 'schema 状态未由真实版本 API 返回，不能声明最新', actionLabel: '只读', actionStatus: 'disabled' },
+    { id: 'gateway', name: 'gateway / nginx', statusLabel: 'fallback', tone: 'warning', latency: '98ms', lastCheck: '10:41', source: 'fallback', note: '网关状态未接入真实代理探针', actionLabel: '只读', actionStatus: 'disabled' },
+    { id: 'scheduler', name: 'scheduler / jobs', statusLabel: 'degraded', tone: 'warning', latency: '210ms', lastCheck: '10:40', source: 'mixed', note: '定时任务只展示观测状态，不重启任务', actionLabel: '查看上线闸门', actionStatus: 'enabled', panel: 'gate' },
+    { id: 'message', name: 'message / push', statusLabel: 'disabled', tone: 'neutral', latency: '-', lastCheck: '10:40', source: 'fallback', note: '消息推送未启用，不伪造送达成功', actionLabel: '只读', actionStatus: 'disabled' },
+    { id: 'ai-probe', name: 'AI probe', statusLabel: 'disabled', tone: 'neutral', latency: '-', lastCheck: '10:39', source: 'fallback', note: 'LLM probe 未启用，不显示 live 成功', actionLabel: '看 AI 总控', actionStatus: 'enabled', routeName: 'review-brain-center' },
+    { id: 'report-pipeline', name: 'report pipeline', statusLabel: 'blocked', tone: 'danger', latency: '156ms', lastCheck: '10:39', source: 'mixed', note: '日报交付链路存在阻塞，需进入日报中心复核', actionLabel: '看日报', actionStatus: 'enabled', routeName: 'review-report-center' }
+  ],
+  trends: {
+    errorRate: [
+      { label: '00:00', value: 0.04 },
+      { label: '04:00', value: 0.07 },
+      { label: '08:00', value: 0.12 },
+      { label: '12:00', value: 0.09 },
+      { label: '16:00', value: 0.11 },
+      { label: '20:00', value: 0.08 }
+    ],
+    latency: [
+      { label: '00:00', value: 168 },
+      { label: '04:00', value: 192 },
+      { label: '08:00', value: 218 },
+      { label: '12:00', value: 205 },
+      { label: '16:00', value: 230 },
+      { label: '20:00', value: 176 }
+    ]
+  },
+  timeline: [
+    { time: '10:00', title: '版本快照待复核', detail: 'v2.3.1 仅来自 fallback 版本信息', tone: 'info' },
+    { time: '10:12', title: '配置检查完成', detail: '不代表真实重启或部署完成', tone: 'warning' },
+    { time: '10:15', title: '告警解除待核', detail: 'warning issues 仍需人工确认', tone: 'warning' },
+    { time: '10:18', title: '上线闸门阻塞', detail: 'hard_gate_passed=false', tone: 'danger' }
+  ],
+  actions: [
+    { key: 'refreshProbe', label: '刷新探针', status: 'enabled', tone: 'info', panel: 'probe', title: '仅刷新本页查询状态，不重启服务' },
+    { key: 'readiness', label: '查看 readiness', status: 'enabled', tone: 'warning', panel: 'readiness', title: '查看 readyz / hard gate 只读说明' },
+    { key: 'health', label: '查看健康检查', status: 'enabled', tone: 'info', panel: 'health', title: '查看 healthz 只读说明' },
+    { key: 'goLiveGate', label: '查看上线闸门', status: 'enabled', tone: 'danger', panel: 'gate', title: '查看 go-live gate 阻塞原因' },
+    { key: 'rollbackCheck', label: '查看回滚预检', status: 'disabled', tone: 'neutral', title: '无回滚预检接口，当前不伪造通过' },
+    { key: 'exportDiagnostics', label: '导出诊断', status: 'disabled', tone: 'neutral', title: '导出接口未接入，当前不伪造导出成功' },
+    { key: 'logs', label: '查看日志', status: 'disabled', tone: 'neutral', title: '日志入口未接入，当前不打开服务器日志' }
+  ],
+  risks: [
+    { label: '最近失败', value: '日报交付链路阻塞 1 项', status: '阻塞', tone: 'danger', routeName: 'review-report-center' },
+    { label: '阻塞原因', value: 'readyz / hard gate 未由 live 数据确认', status: '待复核', tone: 'warning', routeName: '' },
+    { label: 'warning issues', value: 'schema、消息推送、AI probe 需人工检查', status: 'warning', tone: 'warning', routeName: 'admin-governance-center' },
+    { label: '错误摘要', value: '0.12% fallback 错误率，不替代真实日志', status: 'fallback', tone: 'warning', routeName: '' },
+    { label: '可上线风险', value: '上线闸门未通过，不建议宣称 ready', status: 'hard gate', tone: 'danger', routeName: 'admin-ingestion-center' },
+    { label: 'AI fallback', value: 'AI probe disabled，不显示 live LLM 成功', status: 'disabled', tone: 'neutral', routeName: 'review-brain-center' }
+  ],
+  caliber:
+    '本页用于查看系统健康、就绪状态、服务探针、错误率、响应时间和上线闸门风险，属于管理端运维观测面。页面默认不执行部署、回滚、重启或自动修复操作。若数据源标记为 fallback/mixed，请以实际运维命令和服务器状态复核。'
+}

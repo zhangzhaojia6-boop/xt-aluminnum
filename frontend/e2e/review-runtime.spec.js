@@ -168,8 +168,8 @@ test('ops reliability center route renders live dashboard surface', async ({ pag
   await expect(page).toHaveURL(/\/admin\/ops$/)
   await expect(page.getByTestId('admin-shell')).toBeVisible()
   await expect(page.getByTestId('live-dashboard')).toBeVisible()
-  await expect(page.getByText('系统运维与观测', { exact: true }).first()).toBeVisible()
-  await expect(page.locator('.live-dashboard .stat-card').first()).toBeVisible()
+  await expect(page.getByText('系统运维与可观测', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId('ops-service-table')).toBeVisible()
 })
 
 test('review roadmap legacy path redirects to review overview', async ({ page }) => {

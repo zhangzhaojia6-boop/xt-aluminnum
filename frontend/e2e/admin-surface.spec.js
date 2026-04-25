@@ -38,7 +38,7 @@ test('admin compatibility shortcuts land on reference command modules', async ({
   await page.goto('/admin/ops')
   await expect(page).toHaveURL(/\/admin\/ops$/)
   await expect(page.getByTestId('live-dashboard')).toBeVisible()
-  await expect(page.locator('.reference-page[data-module="12"]').getByRole('heading', { name: '系统运维与观测' })).toBeVisible()
+  await expect(page.getByTestId('live-dashboard').getByRole('heading', { name: /12\s*系统运维与可观测/ })).toBeVisible()
 
   await page.goto('/admin/master')
   await expect(page).toHaveURL(/\/admin\/master$/)
@@ -85,7 +85,37 @@ test('admin ingestion route renders the mapping center smoke surface', async ({ 
   await expect(ingestionCenter.getByText('导入成功写入生产库')).toHaveCount(0)
 })
 
-test('fill-only operator cannot access admin ingestion', async ({ page }) => {
+test('admin ops route renders the observability smoke surface', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.goto('/admin/ops')
+
+  const opsCenter = page.getByTestId('live-dashboard')
+  const serviceTable = page.getByTestId('ops-service-table')
+  const riskTable = page.getByTestId('ops-risk-table')
+
+  await expect(page).toHaveURL(/\/admin\/ops$/)
+  await expect(page.getByTestId('admin-shell')).toBeVisible()
+  await expect(opsCenter.getByRole('heading', { name: /12\s*系统运维与可观测/ })).toBeVisible()
+  await expect(opsCenter.getByText('管理端 / 运维观测面')).toBeVisible()
+  await expect(opsCenter.getByText(/healthz|健康/).first()).toBeVisible()
+  await expect(opsCenter.getByText(/readyz|就绪/).first()).toBeVisible()
+  await expect(opsCenter.getByText(/hard gate|上线闸门/).first()).toBeVisible()
+  await expect(opsCenter.getByText('错误率').first()).toBeVisible()
+  await expect(opsCenter.getByText('响应时间').first()).toBeVisible()
+  await expect(opsCenter.getByText(/Mock|fallback|mixed|source/).first()).toBeVisible()
+  await expect(serviceTable).toBeVisible()
+  await expect(serviceTable.getByRole('columnheader', { name: '延迟' })).toBeVisible()
+  await expect(serviceTable.getByText('AI probe')).toBeVisible()
+  await expect(riskTable).toBeVisible()
+  await expect(opsCenter.getByRole('button', { name: '查看回滚预检' }).first()).toBeDisabled()
+  await expect(opsCenter.getByRole('button', { name: '导出诊断' })).toBeDisabled()
+  await expect(opsCenter.getByRole('button', { name: '查看日志' })).toBeDisabled()
+  await expect(opsCenter.getByText('已自动修复')).toHaveCount(0)
+  await expect(opsCenter.getByText('已真实回滚')).toHaveCount(0)
+  await expect(opsCenter.getByText('已执行部署成功')).toHaveCount(0)
+})
+
+test('fill-only operator cannot access admin ops or ingestion', async ({ page }) => {
   await setupReviewSessionAndMocks(page, {
     token: 'playwright-fill-token',
     user: {
@@ -106,6 +136,36 @@ test('fill-only operator cannot access admin ingestion', async ({ page }) => {
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('admin-shell')).toHaveCount(0)
   await expect(page.getByTestId('review-ingestion-center-v2')).toHaveCount(0)
+
+  await page.goto('/admin/ops')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('live-dashboard')).toHaveCount(0)
+})
+
+test('manager without admin access cannot see admin ops entry', async ({ page }) => {
+  await setupReviewSessionAndMocks(page, {
+    token: 'playwright-review-manager-token',
+    user: {
+      id: 3,
+      username: 'review-manager',
+      name: 'Playwright Review Manager',
+      role: 'manager',
+      is_mobile_user: false,
+      is_reviewer: true,
+      is_manager: true,
+      data_scope_type: 'all',
+      assigned_shift_ids: []
+    }
+  })
+
+  await page.goto('/review/overview')
+
+  await expect(page).toHaveURL(/\/review\/overview$/)
+  await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(page.getByText(/系统运维与可观测|系统运维与观测|系统运维/)).toHaveCount(0)
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
 })
 
 test('super admin can switch from admin shell to entry and review shells', async ({ page }) => {

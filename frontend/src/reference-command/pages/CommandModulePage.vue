@@ -1023,6 +1023,253 @@
         </aside>
       </div>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isOpsModule"
+      class="ops-center-page live-dashboard cmd-layout--ops-observability"
+      center-no="12"
+      title="系统运维与可观测"
+      data-testid="live-dashboard"
+    >
+      <template #tools>
+        <span class="ops-center-page__scope">管理端 / 运维观测面</span>
+        <span class="ops-center-page__env">环境：{{ opsData.environment }}</span>
+        <span class="ops-center-page__updated">更新时间：{{ opsData.updatedAt }}</span>
+        <span class="ops-center-page__version">当前版本 {{ opsData.version.current }}</span>
+        <button type="button" class="ops-refresh" @click="refreshOpsView">刷新</button>
+        <button type="button" class="ops-refresh" @click="opsInfoPanel = 'gate'">查看上线闸门</button>
+        <button type="button" class="ops-refresh" disabled title="无回滚预检接口，当前不伪造通过">查看回滚预检</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="opsData.source !== 'live'"
+          :source="opsData.source"
+          message="系统运维与可观测中心使用 fallback / mixed 只读观测数据；不执行部署、回滚、重启或自动修复，也不伪造 health / ready / AI probe 成功。"
+        />
+      </template>
+
+      <KpiStrip :items="opsData.kpis" />
+
+      <div class="ops-center-page__overview">
+        <SectionCard title="ready / hard gate 状态" :meta="opsData.readiness.source">
+          <div class="ops-readiness">
+            <article>
+              <span>hard_gate_passed</span>
+              <strong>{{ opsData.readiness.hardGatePassed ? 'true' : 'false' }}</strong>
+              <StatusBadge :label="opsData.readiness.hardGateLabel" tone="danger" />
+            </article>
+            <article>
+              <span>readiness status</span>
+              <strong>{{ opsData.readiness.status }}</strong>
+              <StatusBadge :label="opsData.readiness.statusLabel" tone="danger" />
+            </article>
+            <article>
+              <span>last check time</span>
+              <strong>{{ opsData.readiness.lastCheckTime }}</strong>
+              <SourceBadge :source="opsData.readiness.source" />
+            </article>
+          </div>
+          <div class="ops-readiness__lists">
+            <div>
+              <strong>blocking reasons</strong>
+              <span v-for="item in opsData.readiness.blockingReasons" :key="item">{{ item }}</span>
+            </div>
+            <div>
+              <strong>warning issues</strong>
+              <span v-for="item in opsData.readiness.warnings" :key="item">{{ item }}</span>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="实时监控（关键服务）" meta="latency / error rate">
+          <div class="ops-service-compact">
+            <article v-for="service in opsData.services.slice(0, 4)" :key="service.id">
+              <i :class="`is-${service.tone}`"></i>
+              <span>{{ service.name }}</span>
+              <strong>{{ service.latency }}</strong>
+              <em>{{ service.id === 'message' ? '-' : service.statusLabel }}</em>
+            </article>
+          </div>
+        </SectionCard>
+      </div>
+
+      <DataTableShell
+        data-testid="ops-service-table"
+        title="服务探针矩阵"
+        subtitle="服务名、状态、延迟、最近检查、来源、说明与只读操作"
+        :columns="opsServiceColumns"
+        :rows="opsData.services"
+      >
+        <template #actions>
+          <SourceBadge :source="opsData.source" />
+        </template>
+        <template #cell-name="{ row }">
+          <strong class="ops-service-name">{{ row.name }}</strong>
+        </template>
+        <template #cell-statusLabel="{ row }">
+          <StatusBadge :label="row.statusLabel" :tone="row.tone" />
+        </template>
+        <template #cell-source="{ row }">
+          <SourceBadge :source="row.source" />
+        </template>
+        <template #cell-note="{ row }">
+          <span class="ops-muted-copy">{{ row.note }}</span>
+        </template>
+        <template #cell-action="{ row }">
+          <button
+            type="button"
+            class="ops-mini-button"
+            :disabled="opsActionDisabled(row)"
+            :title="opsActionTitle(row)"
+            @click="runOpsAction(row)"
+          >
+            {{ row.actionLabel }}
+          </button>
+        </template>
+      </DataTableShell>
+
+      <div class="ops-center-page__middle">
+        <SectionCard title="错误率 / 响应时间趋势" meta="最近 24h / fallback">
+          <div class="ops-trend-grid">
+            <div class="ops-trend-panel">
+              <header>
+                <span>错误率趋势</span>
+                <strong>0.12%</strong>
+              </header>
+              <div class="ops-bar-trend" aria-label="错误率趋势">
+                <span
+                  v-for="point in opsData.trends.errorRate"
+                  :key="`error-${point.label}`"
+                  :style="{ height: `${opsTrendHeight(point, 'errorRate')}%` }"
+                ></span>
+              </div>
+              <footer>
+                <em v-for="point in opsData.trends.errorRate" :key="point.label">{{ point.label }}</em>
+              </footer>
+            </div>
+            <div class="ops-trend-panel">
+              <header>
+                <span>响应时间趋势</span>
+                <strong>218ms</strong>
+              </header>
+              <div class="ops-bar-trend is-latency" aria-label="响应时间趋势">
+                <span
+                  v-for="point in opsData.trends.latency"
+                  :key="`latency-${point.label}`"
+                  :style="{ height: `${opsTrendHeight(point, 'latency')}%` }"
+                ></span>
+              </div>
+              <footer>
+                <em v-for="point in opsData.trends.latency" :key="point.label">{{ point.label }}</em>
+              </footer>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="部署与告警时间线" :meta="opsData.version.current">
+          <div class="ops-timeline">
+            <article v-for="item in opsData.timeline" :key="`${item.time}-${item.title}`">
+              <i :class="`is-${item.tone}`"></i>
+              <strong>{{ item.time }}</strong>
+              <span>{{ item.title }}</span>
+              <em>{{ item.detail }}</em>
+            </article>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div class="ops-center-page__bottom">
+        <SectionCard title="版本与部署信息" :meta="opsData.version.environment">
+          <div class="ops-version-grid">
+            <article>
+              <span>当前版本</span>
+              <strong>{{ opsData.version.current }}</strong>
+            </article>
+            <article>
+              <span>最近构建</span>
+              <strong>{{ opsData.version.buildTime }}</strong>
+            </article>
+            <article>
+              <span>最近部署</span>
+              <strong>{{ opsData.version.deployTime }}</strong>
+            </article>
+            <article>
+              <span>commit / build id</span>
+              <strong>{{ opsData.version.buildId }}</strong>
+            </article>
+            <article>
+              <span>前端版本</span>
+              <strong>{{ opsData.version.frontend }}</strong>
+            </article>
+            <article>
+              <span>后端版本</span>
+              <strong>{{ opsData.version.backend }}</strong>
+            </article>
+            <article>
+              <span>数据库 schema</span>
+              <strong>{{ opsData.version.schema }}</strong>
+            </article>
+            <article>
+              <span>环境</span>
+              <strong>{{ opsData.version.environment }}</strong>
+            </article>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="操作区" meta="只读 / 受控操作">
+          <div class="ops-action-grid">
+            <button
+              v-for="action in opsData.actions"
+              :key="action.key"
+              type="button"
+              :class="`is-${action.tone}`"
+              :disabled="opsActionDisabled(action)"
+              :title="opsActionTitle(action)"
+              @click="runOpsAction(action)"
+            >
+              <span>{{ action.label }}</span>
+              <StatusBadge :label="opsActionStatusLabel(action)" :tone="opsActionStatusTone(action)" />
+            </button>
+          </div>
+          <p class="ops-muted-copy">{{ opsActionNote }}</p>
+        </SectionCard>
+      </div>
+
+      <div class="ops-center-page__risk">
+        <DataTableShell
+          data-testid="ops-risk-table"
+          title="风险与日志摘要"
+          subtitle="最近失败、阻塞原因、warning issues、错误摘要、可上线风险与 fallback/mixed 说明"
+          :columns="opsRiskColumns"
+          :rows="opsData.risks"
+        >
+          <template #cell-label="{ row }">
+            <strong class="ops-service-name">{{ row.label }}</strong>
+          </template>
+          <template #cell-value="{ row }">
+            <span class="ops-muted-copy">{{ row.value }}</span>
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.status" :tone="row.tone" />
+          </template>
+          <template #cell-route="{ row }">
+            <button
+              type="button"
+              class="ops-mini-button"
+              :disabled="!row.routeName"
+              :title="row.routeName ? '查看相关中心' : '暂无真实入口'"
+              @click="goOpsRoute(row.routeName)"
+            >
+              {{ row.routeName ? '查看' : '只读' }}
+            </button>
+          </template>
+        </DataTableShell>
+
+        <SectionCard title="口径说明" :meta="opsData.source">
+          <p class="ops-caliber-copy">{{ opsData.caliber }}</p>
+        </SectionCard>
+      </div>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -1038,7 +1285,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { brainCenterMock, costCenterMock, factoryBoardMock, ingestionCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { brainCenterMock, costCenterMock, factoryBoardMock, ingestionCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -1073,6 +1320,7 @@ const brainRiskFilter = ref('')
 const brainTopicFilter = ref('')
 const brainFocusPanel = ref('evidence')
 const brainCopied = ref(false)
+const opsInfoPanel = ref('readiness')
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -1086,6 +1334,7 @@ const isReportsModule = computed(() => module.value.moduleId === '08')
 const isQualityModule = computed(() => module.value.moduleId === '09')
 const isCostModule = computed(() => module.value.moduleId === '10')
 const isBrainModule = computed(() => module.value.moduleId === '11')
+const isOpsModule = computed(() => module.value.moduleId === '12')
 const isIngestionModule = computed(() => module.value.moduleId === '06')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
@@ -1093,6 +1342,7 @@ const qualityData = qualityCenterMock
 const costData = costCenterMock
 const ingestionData = ingestionCenterMock
 const brainData = brainCenterMock
+const opsData = opsCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -1203,6 +1453,23 @@ const brainEvidenceColumns = [
   { key: 'note', label: '说明' }
 ]
 
+const opsServiceColumns = [
+  { key: 'name', label: '服务名' },
+  { key: 'statusLabel', label: '状态' },
+  { key: 'latency', label: '延迟' },
+  { key: 'lastCheck', label: '最近检查' },
+  { key: 'source', label: '来源' },
+  { key: 'note', label: '说明' },
+  { key: 'action', label: '操作' }
+]
+
+const opsRiskColumns = [
+  { key: 'label', label: '风险项' },
+  { key: 'value', label: '摘要' },
+  { key: 'status', label: '状态' },
+  { key: 'route', label: '入口' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
@@ -1233,6 +1500,16 @@ const brainActionNote = computed(() => {
   if (brainCopied.value) return '辅助摘要已复制；该动作只复制文本，不写入业务数据。'
   if (brainFocusPanel.value === 'evidence') return '查看证据会定位到本页证据链，不触发自动处置。'
   return '无真实接口的动作保持禁用；可用动作仅做跳转或复制。'
+})
+
+const opsActionNote = computed(() => {
+  const labels = {
+    readiness: '正在查看 readyz / hard gate 阻塞原因；该视图不自动改配置。',
+    health: '正在查看 healthz 只读说明；真实健康状态需以接口与服务器命令复核。',
+    gate: '正在查看上线闸门风险；本页不会执行部署或放行上线。',
+    probe: '探针刷新只更新页面查询参数，不重启服务或修复问题。'
+  }
+  return labels[opsInfoPanel.value] || '无真实接口的操作保持禁用；可用动作仅查看只读信息或跳转。'
 })
 
 const ingestionOverviewGradient = computed(() => {
@@ -1296,6 +1573,11 @@ function refreshIngestionView() {
 }
 
 function refreshBrainView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function refreshOpsView() {
+  opsInfoPanel.value = 'probe'
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
 }
 
@@ -1404,6 +1686,50 @@ function copyBrainSummary() {
   }
   brainCopied.value = true
   brainFocusPanel.value = 'copy'
+}
+
+function opsTrendHeight(point, metric) {
+  const values = opsData.trends?.[metric]?.map((item) => Number(item.value || 0)) || []
+  const max = Math.max(...values, 1)
+  return Math.max(10, Math.round((Number(point?.value || 0) / max) * 100))
+}
+
+function opsActionDisabled(action) {
+  const status = action?.status || action?.actionStatus
+  if (!action || status === 'disabled') return true
+  if (action.routeName && String(action.routeName).startsWith('admin-')) return !authStore.adminSurface
+  return false
+}
+
+function opsActionTitle(action) {
+  if (action?.routeName && String(action.routeName).startsWith('admin-') && !authStore.adminSurface) return '当前账号无管理端权限'
+  return action?.title || action?.label || '只读'
+}
+
+function opsActionStatusLabel(action) {
+  if (opsActionDisabled(action)) return 'disabled'
+  return action?.status || action?.actionStatus || 'enabled'
+}
+
+function opsActionStatusTone(action) {
+  if (opsActionDisabled(action)) return 'neutral'
+  return action?.tone || 'info'
+}
+
+function runOpsAction(action) {
+  if (opsActionDisabled(action)) return
+  if (action.panel) {
+    opsInfoPanel.value = action.panel
+    return
+  }
+  if (action.routeName) {
+    goRoute(action.routeName)
+  }
+}
+
+function goOpsRoute(routeName) {
+  if (!routeName) return
+  goRoute(routeName)
 }
 
 function showReportPanel(panel) {
@@ -3123,6 +3449,396 @@ function goAdminIngestion() {
   background: #fffaf2;
 }
 
+.ops-center-page {
+  padding: var(--space-page);
+}
+
+:global(.cmd-page:has(.ops-center-page)) {
+  background: #f5f8fc;
+}
+
+.ops-center-page__scope,
+.ops-center-page__env,
+.ops-center-page__updated,
+.ops-center-page__version {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ops-center-page__scope {
+  padding: 7px 10px;
+  border: 1px solid var(--primary-soft);
+  border-radius: 8px;
+  color: var(--primary);
+  background: #f2f7ff;
+  font-weight: 900;
+}
+
+.ops-refresh,
+.ops-mini-button,
+.ops-action-grid button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ops-refresh:not(:disabled),
+.ops-mini-button:not(:disabled),
+.ops-action-grid button:not(:disabled) {
+  cursor: pointer;
+}
+
+.ops-refresh:not(:disabled):hover,
+.ops-mini-button:not(:disabled):hover,
+.ops-action-grid button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.ops-refresh:disabled,
+.ops-mini-button:disabled,
+.ops-action-grid button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.ops-center-page__overview,
+.ops-center-page__middle,
+.ops-center-page__bottom,
+.ops-center-page__risk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.48fr);
+  gap: var(--space-card);
+  align-items: start;
+}
+
+.ops-center-page__overview {
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.82fr);
+}
+
+.ops-readiness {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ops-readiness article,
+.ops-version-grid article {
+  display: grid;
+  gap: 7px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ops-readiness article span,
+.ops-version-grid article span,
+.ops-service-compact article span,
+.ops-trend-panel header span,
+.ops-timeline article em,
+.ops-muted-copy,
+.ops-caliber-copy {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.ops-readiness article strong,
+.ops-version-grid article strong,
+.ops-service-compact article strong,
+.ops-trend-panel header strong,
+.ops-timeline article strong,
+.ops-service-name {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.ops-readiness article strong {
+  font-family: var(--font-number);
+  font-size: 32px;
+}
+
+.ops-readiness__lists,
+.ops-service-compact,
+.ops-action-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ops-readiness__lists {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ops-readiness__lists div {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.ops-readiness__lists strong {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ops-readiness__lists span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ops-service-compact article {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 72px 90px;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.ops-service-compact article:last-child {
+  border-bottom: 0;
+}
+
+.ops-service-compact i,
+.ops-timeline i {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.ops-service-compact i.is-danger,
+.ops-timeline i.is-danger {
+  background: #e5484d;
+}
+
+.ops-service-compact i.is-warning,
+.ops-timeline i.is-warning {
+  background: #f59e0b;
+}
+
+.ops-service-compact i.is-neutral,
+.ops-timeline i.is-neutral {
+  background: #94a3b8;
+}
+
+.ops-service-compact em {
+  color: #e5484d;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.ops-trend-grid,
+.ops-version-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ops-trend-panel {
+  display: grid;
+  gap: 10px;
+  min-height: 220px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ops-trend-panel header,
+.ops-trend-panel footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-trend-panel header strong {
+  color: #e5484d;
+  font-family: var(--font-number);
+  font-size: 28px;
+}
+
+.ops-bar-trend {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(22px, 1fr));
+  gap: 10px;
+  align-items: end;
+  height: 128px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.ops-bar-trend span {
+  min-height: 10px;
+  border-radius: 6px 6px 2px 2px;
+  background: #e5484d;
+}
+
+.ops-bar-trend.is-latency span {
+  background: var(--primary);
+}
+
+.ops-trend-panel footer em {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.ops-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 26px 8px 10px;
+}
+
+.ops-timeline article {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+}
+
+.ops-timeline article::before {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 2px dashed #b8c6dc;
+  content: '';
+  z-index: 0;
+}
+
+.ops-timeline article:first-child::before {
+  left: 50%;
+}
+
+.ops-timeline article:last-child::before {
+  right: 50%;
+}
+
+.ops-timeline i {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border: 4px solid #fff;
+  box-shadow: 0 0 0 1px var(--card-border);
+}
+
+.ops-timeline article span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ops-version-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ops-version-grid article {
+  min-height: 78px;
+  padding: 10px;
+}
+
+.ops-action-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.ops-action-grid button {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  min-height: 62px;
+  width: 100%;
+  text-align: left;
+}
+
+.ops-action-grid button.is-danger:not(:disabled) {
+  border-color: #fecdd3;
+  background: #fff7f8;
+}
+
+.ops-action-grid button.is-warning:not(:disabled) {
+  border-color: #fed7aa;
+  background: #fffaf2;
+}
+
+.ops-caliber-copy {
+  margin: 0;
+}
+
+:deep(.ops-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.ops-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.ops-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.ops-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.ops-center-page .section-card),
+:deep(.ops-center-page .data-table-shell),
+:deep(.ops-center-page .center-page__head),
+:deep(.ops-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.ops-center-page .data-table-shell table) {
+  min-width: 1180px;
+}
+
+:deep(.ops-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.ops-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.ops-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.ops-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
@@ -3136,7 +3852,11 @@ function goAdminIngestion() {
   .cost-center-page__middle,
   .cost-center-page__bottom,
   .brain-center-page__overview,
-  .brain-center-page__bottom {
+  .brain-center-page__bottom,
+  .ops-center-page__overview,
+  .ops-center-page__middle,
+  .ops-center-page__bottom,
+  .ops-center-page__risk {
     grid-template-columns: 1fr;
   }
 
@@ -3144,11 +3864,13 @@ function goAdminIngestion() {
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip),
-  :deep(.brain-center-page .kpi-strip) {
+  :deep(.brain-center-page .kpi-strip),
+  :deep(.ops-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 
-  .brain-topic-grid {
+  .brain-topic-grid,
+  .ops-version-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -3159,7 +3881,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.reports-center-page)),
   :global(.app-shell:has(.quality-center-page)),
   :global(.app-shell:has(.cost-center-page)),
-  :global(.app-shell:has(.brain-center-page)) {
+  :global(.app-shell:has(.brain-center-page)),
+  :global(.app-shell:has(.ops-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -3187,7 +3910,11 @@ function goAdminIngestion() {
   :global(.app-shell:has(.brain-center-page) > .app-shell__aside),
   :global(.app-shell:has(.brain-center-page) > .el-container),
   :global(.app-shell:has(.brain-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.brain-center-page) .app-shell__main) {
+  :global(.app-shell:has(.brain-center-page) .app-shell__main),
+  :global(.app-shell:has(.ops-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.ops-center-page) > .el-container),
+  :global(.app-shell:has(.ops-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.ops-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
@@ -3196,7 +3923,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.reports-center-page) > .el-container),
   :global(.app-shell:has(.quality-center-page) > .el-container),
   :global(.app-shell:has(.cost-center-page) > .el-container),
-  :global(.app-shell:has(.brain-center-page) > .el-container) {
+  :global(.app-shell:has(.brain-center-page) > .el-container),
+  :global(.app-shell:has(.ops-center-page) > .el-container) {
     min-width: 0;
   }
 
@@ -3205,7 +3933,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
   :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
   :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.brain-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.brain-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.ops-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
@@ -3216,7 +3945,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.reports-center-page) .app-shell__main),
   :global(.app-shell:has(.quality-center-page) .app-shell__main),
   :global(.app-shell:has(.cost-center-page) .app-shell__main),
-  :global(.app-shell:has(.brain-center-page) .app-shell__main) {
+  :global(.app-shell:has(.brain-center-page) .app-shell__main),
+  :global(.app-shell:has(.ops-center-page) .app-shell__main) {
     padding: 8px;
   }
 
@@ -3225,7 +3955,8 @@ function goAdminIngestion() {
   .reports-center-page,
   .quality-center-page,
   .cost-center-page,
-  .brain-center-page {
+  .brain-center-page,
+  .ops-center-page {
     padding: 10px;
   }
 
@@ -3240,11 +3971,17 @@ function goAdminIngestion() {
   .cost-cumulative-summary,
   .brain-topic-grid,
   .brain-action-grid,
+  .ops-readiness,
+  .ops-readiness__lists,
+  .ops-trend-grid,
+  .ops-action-grid,
+  .ops-version-grid,
   :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
   :deep(.cost-center-page .kpi-strip),
-  :deep(.brain-center-page .kpi-strip) {
+  :deep(.brain-center-page .kpi-strip),
+  :deep(.ops-center-page .kpi-strip) {
     grid-template-columns: 1fr;
   }
 
@@ -3303,8 +4040,33 @@ function goAdminIngestion() {
   }
 
   .brain-topic-card button,
-  .brain-ask-panel__input button {
+  .brain-ask-panel__input button,
+  .ops-refresh {
     width: 100%;
+  }
+
+  .ops-service-compact article {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .ops-service-compact article strong,
+  .ops-service-compact article em {
+    justify-self: start;
+  }
+
+  .ops-timeline {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-top: 8px;
+  }
+
+  .ops-timeline article {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .ops-timeline article::before {
+    display: none;
   }
 }
 </style>
