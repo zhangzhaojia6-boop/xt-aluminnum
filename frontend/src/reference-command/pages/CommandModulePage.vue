@@ -818,6 +818,211 @@
         <p class="cost-caliber-copy">{{ costData.caliber }}</p>
       </SectionCard>
     </CenterPageShell>
+    <CenterPageShell
+      v-else-if="isBrainModule"
+      class="brain-center-page cmd-layout--ai-brain"
+      center-no="11"
+      title="AI 总控中心"
+      data-testid="brain-control-center"
+    >
+      <template #tools>
+        <span class="brain-center-page__scope">{{ brainData.scope }}</span>
+        <span class="brain-center-page__date">业务日期：{{ brainBusinessDate }}</span>
+        <span class="brain-center-page__updated">更新时间：{{ brainData.updatedAt }}</span>
+        <input
+          v-model="brainBusinessDate"
+          class="brain-control"
+          type="date"
+          disabled
+          aria-label="业务日期"
+          title="日期查询接口待接入，当前只展示本读面数据"
+        />
+        <select v-model="brainRiskFilter" class="brain-control" aria-label="风险筛选">
+          <option value="">全部风险</option>
+          <option v-for="level in brainRiskOptions" :key="level" :value="level">{{ level }}</option>
+        </select>
+        <select v-model="brainTopicFilter" class="brain-control" aria-label="专题筛选">
+          <option value="">全部专题</option>
+          <option v-for="topic in brainTopicOptions" :key="topic" :value="topic">{{ topic }}</option>
+        </select>
+        <button type="button" class="brain-refresh" @click="refreshBrainView">刷新</button>
+      </template>
+
+      <template #summary>
+        <MockDataNotice
+          v-if="brainData.source !== 'live'"
+          :source="brainData.source"
+          message="AI 总控中心使用 fallback / mixed 证据读面，仅提供辅助建议与系统提示；不自动执行生产、质量、成本、排产或交付动作。"
+        />
+      </template>
+
+      <KpiStrip :items="brainData.kpis" />
+
+      <div class="brain-center-page__overview">
+        <SectionCard :title="brainData.summary.title" :meta="brainData.summary.confidence">
+          <div class="brain-summary-card">
+            <StatusBadge label="辅助摘要" tone="info" />
+            <strong>{{ brainData.summary.headline }}</strong>
+            <ul>
+              <li v-for="point in brainData.summary.points" :key="point">{{ point }}</li>
+            </ul>
+            <p>{{ brainData.summary.nextStep }}</p>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="风险事件 Top5" meta="系统提示">
+          <div class="brain-risk-top">
+            <article v-for="(risk, index) in brainRiskTopFive" :key="risk.id">
+              <span class="brain-risk-top__no">{{ index + 1 }}</span>
+              <div>
+                <strong>{{ risk.name }}</strong>
+                <span>{{ risk.sourceCenter }} · {{ risk.impact }}</span>
+              </div>
+              <StatusBadge :label="risk.level" :tone="risk.tone" />
+            </article>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="问答 / 追问" :meta="brainData.ask.status">
+          <div class="brain-ask-panel">
+            <div class="brain-ask-panel__head">
+              <span class="brain-bot-mark">AI</span>
+              <strong>智能助手</strong>
+              <StatusBadge label="fallback" tone="warning" />
+            </div>
+            <button
+              v-for="question in brainData.questions"
+              :key="question"
+              type="button"
+              disabled
+              title="追问接口未启用，当前不伪造 LLM 回答"
+            >
+              {{ question }}
+            </button>
+            <div class="brain-ask-panel__input">
+              <input :placeholder="brainData.ask.placeholder" disabled aria-label="追问输入" />
+              <button type="button" disabled title="真实 LLM 追问接口未启用">发送</button>
+            </div>
+            <p>{{ brainData.ask.notice }}</p>
+          </div>
+        </SectionCard>
+      </div>
+
+      <DataTableShell
+        data-testid="brain-risk-table"
+        title="风险事件"
+        subtitle="风险名称、来源中心、风险等级、影响对象、证据、建议动作、状态与跳转"
+        :columns="brainRiskColumns"
+        :rows="filteredBrainRisks"
+      >
+        <template #actions>
+          <SourceBadge :source="brainData.source" />
+        </template>
+        <template #cell-name="{ row }">
+          <div class="brain-risk-name">
+            <strong>{{ row.name }}</strong>
+            <SourceBadge :source="row.sourceKey" />
+          </div>
+        </template>
+        <template #cell-level="{ row }">
+          <StatusBadge :label="row.level" :tone="row.tone" />
+        </template>
+        <template #cell-evidence="{ row }">
+          <span class="brain-evidence-copy">{{ row.evidence }}</span>
+        </template>
+        <template #cell-recommendation="{ row }">
+          <span class="brain-evidence-copy">{{ row.recommendation }}</span>
+        </template>
+        <template #cell-status="{ row }">
+          <StatusBadge :label="row.status" :tone="row.statusTone" />
+        </template>
+        <template #cell-route="{ row }">
+          <button
+            type="button"
+            class="brain-mini-button"
+            :disabled="!canUseBrainRoute(row.routeName)"
+            :title="canUseBrainRoute(row.routeName) ? row.routeLabel : '当前账号无管理端权限'"
+            @click="goBrainRoute(row.routeName)"
+          >
+            {{ row.routeLabel }}
+          </button>
+        </template>
+      </DataTableShell>
+
+      <SectionCard title="多专题 AI 卡片" meta="辅助建议">
+        <div class="brain-topic-grid">
+          <article v-for="topic in filteredBrainTopics" :key="topic.id" class="brain-topic-card">
+            <header>
+              <strong>{{ topic.title }}</strong>
+              <StatusBadge :label="topic.status" :tone="topic.tone" />
+            </header>
+            <p><span>关键证据</span>{{ topic.evidence }}</p>
+            <p><span>辅助建议</span>{{ topic.advice }}</p>
+            <footer>
+              <div>
+                <SourceBadge :source="topic.sourceKey" />
+                <em>{{ topic.source }}</em>
+              </div>
+              <button
+                type="button"
+                :disabled="!canUseBrainRoute(topic.routeName)"
+                :title="canUseBrainRoute(topic.routeName) ? topic.routeLabel : '当前账号无管理端权限'"
+                @click="goBrainRoute(topic.routeName)"
+              >
+                {{ topic.routeLabel }}
+              </button>
+            </footer>
+          </article>
+        </div>
+      </SectionCard>
+
+      <div class="brain-center-page__bottom">
+        <DataTableShell
+          data-testid="brain-evidence-table"
+          title="证据链 / 数据来源"
+          subtitle="引用数据源、口径、更新时间、source 类型与 fallback / mixed 说明"
+          :columns="brainEvidenceColumns"
+          :rows="brainData.evidence"
+        >
+          <template #cell-name="{ row }">
+            <strong class="brain-source-name">{{ row.name }}</strong>
+          </template>
+          <template #cell-sourceType="{ row }">
+            <SourceBadge :source="row.sourceType" />
+          </template>
+          <template #cell-status="{ row }">
+            <StatusBadge :label="row.sourceType" :tone="row.tone" />
+          </template>
+          <template #cell-note="{ row }">
+            <span class="brain-evidence-copy">{{ row.note }}</span>
+          </template>
+        </DataTableShell>
+
+        <aside class="brain-center-page__side">
+          <SectionCard title="建议动作" meta="enabled / disabled">
+            <div class="brain-action-grid">
+              <button
+                v-for="action in brainData.actions"
+                :key="action.key"
+                type="button"
+                :class="`is-${action.tone}`"
+                :disabled="brainActionDisabled(action)"
+                :title="brainActionTitle(action)"
+                @click="runBrainAction(action)"
+              >
+                <span>{{ action.label }}</span>
+                <StatusBadge :label="brainActionStatusLabel(action)" :tone="brainActionStatusTone(action)" />
+              </button>
+            </div>
+            <p class="brain-action-copy">{{ brainActionNote }}</p>
+          </SectionCard>
+
+          <SectionCard title="口径说明" :meta="brainData.source">
+            <p class="brain-caliber-copy">{{ brainData.caliber }}</p>
+          </SectionCard>
+        </aside>
+      </div>
+    </CenterPageShell>
     <CommandPage v-else :module="module" :view-model="viewModel" />
   </div>
 </template>
@@ -833,7 +1038,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { costCenterMock, factoryBoardMock, ingestionCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { brainCenterMock, costCenterMock, factoryBoardMock, ingestionCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -863,6 +1068,11 @@ const ingestionBusinessDate = ref(ingestionCenterMock.businessDate)
 const ingestionSourceFilter = ref('')
 const ingestionStatusFilter = ref('')
 const ingestionInfoPanel = ref('caliber')
+const brainBusinessDate = ref(brainCenterMock.businessDate)
+const brainRiskFilter = ref('')
+const brainTopicFilter = ref('')
+const brainFocusPanel = ref('evidence')
+const brainCopied = ref(false)
 
 const module = computed(() => (
   findModuleById(props.moduleId || route.meta?.moduleId)
@@ -875,12 +1085,14 @@ const isFactoryModule = computed(() => module.value.moduleId === '05' && route.n
 const isReportsModule = computed(() => module.value.moduleId === '08')
 const isQualityModule = computed(() => module.value.moduleId === '09')
 const isCostModule = computed(() => module.value.moduleId === '10')
+const isBrainModule = computed(() => module.value.moduleId === '11')
 const isIngestionModule = computed(() => module.value.moduleId === '06')
 const factoryData = factoryBoardMock
 const reportsData = reportsCenterMock
 const qualityData = qualityCenterMock
 const costData = costCenterMock
 const ingestionData = ingestionCenterMock
+const brainData = brainCenterMock
 const reportTrendMax = computed(() => Math.max(...reportsData.trend.map((point) => point.output), 1))
 const canOpenAdminIngestion = computed(() => authStore.adminSurface)
 
@@ -971,17 +1183,57 @@ const ingestionHistoryColumns = [
   { key: 'action', label: '操作' }
 ]
 
+const brainRiskColumns = [
+  { key: 'name', label: '风险名称' },
+  { key: 'sourceCenter', label: '来源中心' },
+  { key: 'level', label: '风险等级' },
+  { key: 'impact', label: '影响对象' },
+  { key: 'evidence', label: '证据' },
+  { key: 'recommendation', label: '建议动作' },
+  { key: 'status', label: '状态' },
+  { key: 'route', label: '跳转' }
+]
+
+const brainEvidenceColumns = [
+  { key: 'name', label: '引用数据源' },
+  { key: 'caliber', label: '口径' },
+  { key: 'updatedAt', label: '更新时间' },
+  { key: 'sourceType', label: 'source 类型' },
+  { key: 'status', label: '标识' },
+  { key: 'note', label: '说明' }
+]
+
 const qualitySourceOptions = computed(() => (
   [...new Set(qualityData.alerts.map((item) => item.source))]
 ))
 
 const ingestionSourceOptions = computed(() => ingestionData.dataSources.map((item) => item.name))
+const brainRiskOptions = computed(() => [...new Set(brainData.risks.map((item) => item.level))])
+const brainTopicOptions = computed(() => brainData.topics.map((item) => item.title))
 
 const filteredIngestionDataSources = computed(() => ingestionData.dataSources.filter((item) => {
   if (ingestionSourceFilter.value && item.name !== ingestionSourceFilter.value) return false
   if (ingestionStatusFilter.value && item.statusLabel !== ingestionStatusFilter.value && item.status !== ingestionStatusFilter.value) return false
   return true
 }))
+
+const filteredBrainRisks = computed(() => brainData.risks.filter((item) => {
+  if (brainRiskFilter.value && item.level !== brainRiskFilter.value) return false
+  return true
+}))
+
+const brainRiskTopFive = computed(() => filteredBrainRisks.value.slice(0, 5))
+
+const filteredBrainTopics = computed(() => brainData.topics.filter((item) => {
+  if (brainTopicFilter.value && item.title !== brainTopicFilter.value) return false
+  return true
+}))
+
+const brainActionNote = computed(() => {
+  if (brainCopied.value) return '辅助摘要已复制；该动作只复制文本，不写入业务数据。'
+  if (brainFocusPanel.value === 'evidence') return '查看证据会定位到本页证据链，不触发自动处置。'
+  return '无真实接口的动作保持禁用；可用动作仅做跳转或复制。'
+})
 
 const ingestionOverviewGradient = computed(() => {
   let cursor = 0
@@ -1043,6 +1295,10 @@ function refreshIngestionView() {
   router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
 }
 
+function refreshBrainView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
 function costTrendTotal(point) {
   return Object.values(point?.parts || {}).reduce((sum, value) => sum + Number(value || 0), 0)
 }
@@ -1082,6 +1338,72 @@ function ingestionStatusTone(value) {
   if (String(value).includes('mixed') || String(value).includes('试跑')) return 'info'
   if (String(value).includes('通过') || String(value).includes('完成')) return 'success'
   return 'neutral'
+}
+
+function canUseBrainRoute(routeName) {
+  if (!routeName) return true
+  if (String(routeName).startsWith('admin-')) return authStore.adminSurface
+  return true
+}
+
+function goBrainRoute(routeName) {
+  if (!routeName) {
+    brainFocusPanel.value = 'evidence'
+    brainCopied.value = false
+    return
+  }
+  if (canUseBrainRoute(routeName)) {
+    goRoute(routeName)
+  }
+}
+
+function brainActionDisabled(action) {
+  if (!action || action.status === 'disabled') return true
+  if (action.status === 'permission' && !canUseBrainRoute(action.routeName)) return true
+  return false
+}
+
+function brainActionStatusLabel(action) {
+  if (action.status === 'permission') return canUseBrainRoute(action.routeName) ? 'enabled' : 'permission'
+  return action.status
+}
+
+function brainActionStatusTone(action) {
+  if (brainActionDisabled(action)) return 'neutral'
+  return action.tone || 'info'
+}
+
+function brainActionTitle(action) {
+  if (action.status === 'permission' && !canUseBrainRoute(action.routeName)) return '当前账号无管理端权限'
+  return action.title || action.label
+}
+
+function runBrainAction(action) {
+  if (brainActionDisabled(action)) return
+  if (action.key === 'copySummary') {
+    copyBrainSummary()
+    return
+  }
+  if (action.key === 'evidence') {
+    brainFocusPanel.value = 'evidence'
+    brainCopied.value = false
+    return
+  }
+  goBrainRoute(action.routeName)
+}
+
+function copyBrainSummary() {
+  const text = [
+    brainData.summary.headline,
+    ...brainData.summary.points,
+    brainData.summary.nextStep,
+    brainData.caliber
+  ].join('\n')
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {})
+  }
+  brainCopied.value = true
+  brainFocusPanel.value = 'copy'
 }
 
 function showReportPanel(panel) {
@@ -2444,6 +2766,363 @@ function goAdminIngestion() {
   background: #fffaf2;
 }
 
+.brain-center-page {
+  padding: var(--space-page);
+}
+
+:global(.cmd-page:has(.brain-center-page)) {
+  background: #f5f8fc;
+}
+
+.brain-center-page__scope,
+.brain-center-page__date,
+.brain-center-page__updated {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.brain-center-page__scope {
+  padding: 7px 10px;
+  border: 1px solid var(--primary-soft);
+  border-radius: 8px;
+  color: var(--primary);
+  background: #f2f7ff;
+  font-weight: 900;
+}
+
+.brain-control,
+.brain-refresh,
+.brain-mini-button,
+.brain-topic-card button,
+.brain-action-grid button,
+.brain-ask-panel button,
+.brain-ask-panel__input input {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.brain-control {
+  max-width: 156px;
+}
+
+.brain-refresh,
+.brain-mini-button:not(:disabled),
+.brain-topic-card button:not(:disabled),
+.brain-action-grid button:not(:disabled) {
+  cursor: pointer;
+}
+
+.brain-refresh:hover,
+.brain-mini-button:not(:disabled):hover,
+.brain-topic-card button:not(:disabled):hover,
+.brain-action-grid button:not(:disabled):hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.brain-control:disabled,
+.brain-mini-button:disabled,
+.brain-topic-card button:disabled,
+.brain-action-grid button:disabled,
+.brain-ask-panel button:disabled,
+.brain-ask-panel__input input:disabled,
+.brain-ask-panel__input button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.brain-center-page__overview {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1fr) minmax(300px, 0.78fr);
+  gap: var(--space-card);
+  align-items: stretch;
+}
+
+.brain-summary-card,
+.brain-risk-top,
+.brain-ask-panel,
+.brain-topic-card,
+.brain-center-page__side {
+  display: grid;
+  gap: 10px;
+}
+
+.brain-summary-card strong,
+.brain-risk-top strong,
+.brain-topic-card strong,
+.brain-source-name,
+.brain-risk-name strong,
+.brain-ask-panel__head strong {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.brain-summary-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.brain-summary-card li,
+.brain-summary-card p,
+.brain-risk-top span,
+.brain-topic-card p,
+.brain-topic-card em,
+.brain-evidence-copy,
+.brain-action-copy,
+.brain-caliber-copy,
+.brain-ask-panel p {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.brain-summary-card p,
+.brain-topic-card p,
+.brain-action-copy,
+.brain-caliber-copy,
+.brain-ask-panel p {
+  margin: 0;
+}
+
+.brain-risk-top article {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 60px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.brain-risk-top article:last-child {
+  border-bottom: 0;
+}
+
+.brain-risk-top__no {
+  color: var(--primary);
+  font-family: var(--font-number);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.brain-risk-top article div {
+  display: grid;
+  gap: 4px;
+}
+
+.brain-ask-panel {
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.brain-ask-panel__head,
+.brain-ask-panel__input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brain-bot-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #fff;
+  background: var(--primary);
+  font-family: var(--font-number);
+  font-weight: 900;
+}
+
+.brain-ask-panel > button {
+  width: 100%;
+  min-height: 48px;
+  text-align: left;
+}
+
+.brain-ask-panel__input input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.brain-ask-panel__input button {
+  flex: 0 0 auto;
+}
+
+.brain-risk-name {
+  display: inline-grid;
+  gap: 5px;
+  align-items: start;
+}
+
+.brain-mini-button {
+  min-height: 30px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+
+.brain-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.brain-topic-card {
+  min-height: 188px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.brain-topic-card header,
+.brain-topic-card footer,
+.brain-topic-card footer div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brain-topic-card header,
+.brain-topic-card footer {
+  justify-content: space-between;
+}
+
+.brain-topic-card p {
+  display: grid;
+  gap: 4px;
+}
+
+.brain-topic-card p span {
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.brain-topic-card footer {
+  margin-top: auto;
+}
+
+.brain-topic-card footer div {
+  min-width: 0;
+}
+
+.brain-topic-card em {
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brain-topic-card button {
+  min-width: 112px;
+}
+
+.brain-center-page__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
+  gap: var(--space-card);
+  align-items: start;
+}
+
+.brain-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.brain-action-grid button {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  min-height: 62px;
+  width: 100%;
+  text-align: left;
+}
+
+.brain-action-grid button.is-danger:not(:disabled) {
+  border-color: #fecdd3;
+  background: #fff7f8;
+}
+
+.brain-action-grid button.is-warning:not(:disabled) {
+  border-color: #fed7aa;
+  background: #fffaf2;
+}
+
+.brain-action-grid button.is-success:not(:disabled) {
+  border-color: #b7ead7;
+  background: #f3fcf8;
+}
+
+:deep(.brain-center-page .kpi-strip) {
+  grid-template-columns: repeat(6, minmax(128px, 1fr));
+}
+
+:deep(.brain-center-page .kpi-card) {
+  min-height: 96px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.brain-center-page .kpi-card__label) {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+:deep(.brain-center-page .kpi-card__value) {
+  font-size: 34px;
+}
+
+:deep(.brain-center-page .section-card),
+:deep(.brain-center-page .data-table-shell),
+:deep(.brain-center-page .center-page__head),
+:deep(.brain-center-page .center-page__summary) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:deep(.brain-center-page .center-page__title) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+:deep(.brain-center-page .data-table-shell table) {
+  min-width: 1180px;
+}
+
+:deep(.brain-center-page .data-table-shell th) {
+  font-size: 12px;
+}
+
+:deep(.brain-center-page .data-table-shell td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: top;
+}
+
+:deep(.brain-center-page .data-table-shell tbody tr.is-danger td) {
+  background: #fff8f9;
+}
+
+:deep(.brain-center-page .data-table-shell tbody tr.is-warning td) {
+  background: #fffaf2;
+}
+
 @media (max-width: 1120px) {
   .factory-center-page__layout,
   .factory-caliber-list,
@@ -2455,15 +3134,22 @@ function goAdminIngestion() {
   .quality-center-page__bottom,
   .cost-center-page__overview,
   .cost-center-page__middle,
-  .cost-center-page__bottom {
+  .cost-center-page__bottom,
+  .brain-center-page__overview,
+  .brain-center-page__bottom {
     grid-template-columns: 1fr;
   }
 
   :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
-  :deep(.cost-center-page .kpi-strip) {
+  :deep(.cost-center-page .kpi-strip),
+  :deep(.brain-center-page .kpi-strip) {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+
+  .brain-topic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2472,7 +3158,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.ingestion-center-page)),
   :global(.app-shell:has(.reports-center-page)),
   :global(.app-shell:has(.quality-center-page)),
-  :global(.app-shell:has(.cost-center-page)) {
+  :global(.app-shell:has(.cost-center-page)),
+  :global(.app-shell:has(.brain-center-page)) {
     display: block;
     overflow-x: hidden;
   }
@@ -2496,7 +3183,11 @@ function goAdminIngestion() {
   :global(.app-shell:has(.cost-center-page) > .app-shell__aside),
   :global(.app-shell:has(.cost-center-page) > .el-container),
   :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.cost-center-page) .app-shell__main) {
+  :global(.app-shell:has(.cost-center-page) .app-shell__main),
+  :global(.app-shell:has(.brain-center-page) > .app-shell__aside),
+  :global(.app-shell:has(.brain-center-page) > .el-container),
+  :global(.app-shell:has(.brain-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.brain-center-page) .app-shell__main) {
     width: 100% !important;
   }
 
@@ -2504,7 +3195,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.ingestion-center-page) > .el-container),
   :global(.app-shell:has(.reports-center-page) > .el-container),
   :global(.app-shell:has(.quality-center-page) > .el-container),
-  :global(.app-shell:has(.cost-center-page) > .el-container) {
+  :global(.app-shell:has(.cost-center-page) > .el-container),
+  :global(.app-shell:has(.brain-center-page) > .el-container) {
     min-width: 0;
   }
 
@@ -2512,7 +3204,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.ingestion-center-page) .app-shell__topbar),
   :global(.app-shell:has(.reports-center-page) .app-shell__topbar),
   :global(.app-shell:has(.quality-center-page) .app-shell__topbar),
-  :global(.app-shell:has(.cost-center-page) .app-shell__topbar) {
+  :global(.app-shell:has(.cost-center-page) .app-shell__topbar),
+  :global(.app-shell:has(.brain-center-page) .app-shell__topbar) {
     height: auto;
     flex-wrap: wrap;
     gap: 8px;
@@ -2522,7 +3215,8 @@ function goAdminIngestion() {
   :global(.app-shell:has(.ingestion-center-page) .app-shell__main),
   :global(.app-shell:has(.reports-center-page) .app-shell__main),
   :global(.app-shell:has(.quality-center-page) .app-shell__main),
-  :global(.app-shell:has(.cost-center-page) .app-shell__main) {
+  :global(.app-shell:has(.cost-center-page) .app-shell__main),
+  :global(.app-shell:has(.brain-center-page) .app-shell__main) {
     padding: 8px;
   }
 
@@ -2530,7 +3224,8 @@ function goAdminIngestion() {
   .ingestion-center-page,
   .reports-center-page,
   .quality-center-page,
-  .cost-center-page {
+  .cost-center-page,
+  .brain-center-page {
     padding: 10px;
   }
 
@@ -2543,16 +3238,20 @@ function goAdminIngestion() {
   .quality-risk-actions,
   .cost-action-grid,
   .cost-cumulative-summary,
+  .brain-topic-grid,
+  .brain-action-grid,
   :deep(.ingestion-center-page .kpi-strip),
   :deep(.reports-center-page .kpi-strip),
   :deep(.quality-center-page .kpi-strip),
-  :deep(.cost-center-page .kpi-strip) {
+  :deep(.cost-center-page .kpi-strip),
+  :deep(.brain-center-page .kpi-strip) {
     grid-template-columns: 1fr;
   }
 
   .quality-control,
   .ingestion-control,
-  .cost-control {
+  .cost-control,
+  .brain-control {
     max-width: none;
     width: 100%;
   }
@@ -2588,6 +3287,24 @@ function goAdminIngestion() {
   .reports-delivery-summary article,
   .reports-risk-list article {
     grid-template-columns: 1fr;
+  }
+
+  .brain-risk-top article,
+  .brain-topic-card header,
+  .brain-topic-card footer,
+  .brain-ask-panel__input {
+    align-items: flex-start;
+  }
+
+  .brain-topic-card header,
+  .brain-topic-card footer,
+  .brain-ask-panel__input {
+    flex-direction: column;
+  }
+
+  .brain-topic-card button,
+  .brain-ask-panel__input button {
+    width: 100%;
   }
 }
 </style>

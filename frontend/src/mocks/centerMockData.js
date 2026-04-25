@@ -624,3 +624,211 @@ export const ingestionCenterMock = {
     { id: 'h-005', time: '05-21 07:50', source: '能耗系统', task: 'energy_20240521_0750.csv', total: '5,210', success: '5,210', failed: '0', status: '校验完成', reason: '能耗读面仍需与成本策略复核' }
   ]
 }
+
+export const brainCenterMock = {
+  source: 'fallback',
+  businessDate: '2026-04-25',
+  updatedAt: '2026-04-25 10:30',
+  scope: '辅助建议 / 证据驱动',
+  kpis: [
+    { label: '今日摘要', value: '可交付', unit: '', trend: '辅助建议：先复核 3 项风险', tone: 'info' },
+    { label: '高风险事件', value: 2, unit: '项', trend: '质量 / 日报阻塞', tone: 'danger' },
+    { label: '待审重点', value: 18, unit: '单', trend: '审阅端待确认', tone: 'warning' },
+    { label: '日报阻塞', value: 1, unit: '项', trend: '未执行真实交付', tone: 'danger' },
+    { label: '质量关注', value: 2, unit: '项', trend: '需人工关闭前复核', tone: 'warning' },
+    { label: 'fallback / mixed', value: '3 / 2', unit: '源', trend: '系统提示：按试跑口径复核', tone: 'warning' }
+  ],
+  summary: {
+    title: '今日辅助摘要',
+    headline: '系统提示：今日产量与交付总体可继续推进，但质量异常、日报阻塞与数据接入口径仍需审阅端人工复核。',
+    points: [
+      '今日产量保持在 5,824 吨读面水平，订单达成率按 fallback 口径为 96.7%。',
+      '质量异常日报受 2 项未关闭高风险告警影响，日报交付存在 1 项阻塞。',
+      '成本侧电耗与原料策略价偏高，当前只作为经营估算解释，不作为会计结算。',
+      'MES / 能耗为 mixed 试跑状态，质检与 ERP 仍含 fallback，建议复核字段口径。'
+    ],
+    confidence: 'mixed / fallback',
+    nextStep: '辅助建议：先查看质量告警与日报阻塞，再回到数据接入中心确认 source 标识。'
+  },
+  risks: [
+    {
+      id: 'risk-quality-report',
+      name: '质量异常日报阻塞',
+      sourceCenter: '质量告警',
+      sourceKey: 'quality',
+      level: '高风险',
+      tone: 'danger',
+      impact: '质量异常日报 / 管理层交付',
+      evidence: '2 项高风险未关闭，质量异常日报未执行真实发送',
+      recommendation: '辅助建议：进入质量与告警中心复核凭证与责任范围',
+      status: '待人工复核',
+      statusTone: 'warning',
+      routeName: 'review-quality-center',
+      routeLabel: '查看质量告警'
+    },
+    {
+      id: 'risk-delivery-blocked',
+      name: '日报交付链路阻塞',
+      sourceCenter: '日报交付',
+      sourceKey: 'system',
+      level: '高风险',
+      tone: 'danger',
+      impact: '厂级生产日报 / 接收对象',
+      evidence: '交付失败 1 项，接收对象待确认',
+      recommendation: '辅助建议：查看日报阻塞项并确认接收对象',
+      status: '阻塞',
+      statusTone: 'danger',
+      routeName: 'review-report-center',
+      routeLabel: '看日报阻塞'
+    },
+    {
+      id: 'risk-cost-energy',
+      name: '电耗与策略价偏高',
+      sourceCenter: '成本效益',
+      sourceKey: 'energy',
+      level: '中风险',
+      tone: 'warning',
+      impact: '经营估算 / 成本解释',
+      evidence: '05-20 起电耗折算偏高，原料策略价仍为 fallback',
+      recommendation: '系统提示：按经营估算口径查看成本解释，不形成结算结果',
+      status: '观察',
+      statusTone: 'info',
+      routeName: 'review-cost-accounting',
+      routeLabel: '看成本解释'
+    },
+    {
+      id: 'risk-ingestion-source',
+      name: '数据源 fallback / mixed',
+      sourceCenter: '数据接入',
+      sourceKey: 'mixed',
+      level: '中风险',
+      tone: 'warning',
+      impact: '日报口径 / 成本估算 / 质量告警',
+      evidence: 'MES 与能耗为 mixed，质检与 ERP 仍含 fallback / 待接入',
+      recommendation: '辅助建议：查看字段映射与 source 状态，不标记正式联通',
+      status: '需治理',
+      statusTone: 'warning',
+      routeName: 'admin-ingestion-center',
+      routeLabel: '看数据接入'
+    },
+    {
+      id: 'risk-factory-output',
+      name: '产线异常与待审累积',
+      sourceCenter: '工厂看板',
+      sourceKey: 'exception',
+      level: '中风险',
+      tone: 'warning',
+      impact: '熔铸区 / 热轧区 / 审阅任务',
+      evidence: '熔铸区成品率偏低，18 单待审核',
+      recommendation: '辅助建议：先看工厂看板，再进入审阅任务确认异常原因',
+      status: '待审',
+      statusTone: 'processing',
+      routeName: 'factory-dashboard',
+      routeLabel: '看工厂看板'
+    }
+  ],
+  topics: [
+    {
+      id: 'production',
+      title: '生产摘要',
+      status: '可继续推进',
+      tone: 'success',
+      evidence: '今日产量 5,824 吨，异常 4 项，待审 18 单',
+      advice: '辅助建议：优先确认熔铸区与热轧区异常是否影响日报口径。',
+      source: 'factory board',
+      sourceKey: 'system',
+      routeName: 'factory-dashboard',
+      routeLabel: '看工厂看板'
+    },
+    {
+      id: 'reports',
+      title: '日报交付',
+      status: '存在阻塞',
+      tone: 'danger',
+      evidence: '质量异常日报交付失败 1 项，接收对象待确认',
+      advice: '系统提示：查看阻塞项，不自动发送或重新生成日报。',
+      source: 'reports delivery',
+      sourceKey: 'system',
+      routeName: 'review-report-center',
+      routeLabel: '看日报阻塞'
+    },
+    {
+      id: 'quality',
+      title: '质量关注',
+      status: '需人工关闭前复核',
+      tone: 'warning',
+      evidence: '不合格品率与毛刺偏高两项高风险未关闭',
+      advice: '辅助建议：核对凭证、批次和责任范围后再做人工处置。',
+      source: 'quality alerts',
+      sourceKey: 'quality',
+      routeName: 'review-quality-center',
+      routeLabel: '看质量告警'
+    },
+    {
+      id: 'cost',
+      title: '成本解释',
+      status: '经营估算',
+      tone: 'info',
+      evidence: '电耗折算偏高，原料 / 辅材策略价仍需现场复核',
+      advice: '辅助建议：只用于经营解释，不作为会计结算或月结依据。',
+      source: 'cost benefit',
+      sourceKey: 'energy',
+      routeName: 'review-cost-accounting',
+      routeLabel: '看成本解释'
+    },
+    {
+      id: 'ingestion',
+      title: '数据接入问题',
+      status: 'fallback / mixed',
+      tone: 'warning',
+      evidence: 'output_ton 转换、defect_reason 字典、material_loss 字段仍待治理',
+      advice: '系统提示：查看字段映射，不表示 MES / ERP 已正式联通。',
+      source: 'ingestion mapping',
+      sourceKey: 'mixed',
+      routeName: 'admin-ingestion-center',
+      routeLabel: '看数据接入'
+    },
+    {
+      id: 'ops',
+      title: '系统运行风险',
+      status: '只读观察',
+      tone: 'info',
+      evidence: 'readiness / health 只作为页面提示，未接自动经营指挥',
+      advice: '辅助建议：如需运维证据，进入系统运维中心查看健康状态。',
+      source: 'readiness / health',
+      sourceKey: 'system',
+      routeName: 'admin-ops-reliability',
+      routeLabel: '看运维状态'
+    }
+  ],
+  evidence: [
+    { id: 'factory', name: 'factory board', caliber: '厂级生产看板读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于产量、异常、待审数量解释' },
+    { id: 'reports', name: 'reports delivery', caliber: 'auto_confirmed / 已自动确认数据口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于日报生成、阻塞和交付状态查看' },
+    { id: 'quality', name: 'quality alerts', caliber: '质量告警与日报影响读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于质量风险解释，不自动关闭告警' },
+    { id: 'cost', name: 'cost benefit', caliber: '经营估算 / 策略口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于成本解释，不作为会计结算' },
+    { id: 'ingestion', name: 'ingestion mapping', caliber: '字段映射与导入试跑', updatedAt: '2026-04-25 10:15', sourceType: 'mixed', tone: 'info', note: '用于 source / fallback / mixed 风险说明' },
+    { id: 'health', name: 'readiness / health', caliber: '前端只读健康提示', updatedAt: '2026-04-25 10:20', sourceType: 'mixed', tone: 'info', note: '不表示 live LLM 或自动决策已启用' }
+  ],
+  actions: [
+    { key: 'generateSummary', label: '生成今日摘要', status: 'disabled', tone: 'neutral', title: '生成接口未接入，当前使用 fallback 辅助摘要' },
+    { key: 'evidence', label: '查看证据', status: 'enabled', tone: 'info', routeName: '', title: '查看本页证据链与数据来源' },
+    { key: 'reviewTasks', label: '去审阅任务', status: 'enabled', tone: 'processing', routeName: 'review-task-center', title: '进入审阅任务' },
+    { key: 'reportBlockers', label: '看日报阻塞', status: 'enabled', tone: 'danger', routeName: 'review-report-center', title: '查看日报交付阻塞' },
+    { key: 'qualityAlerts', label: '看质量告警', status: 'enabled', tone: 'warning', routeName: 'review-quality-center', title: '查看质量告警' },
+    { key: 'costExplain', label: '看成本解释', status: 'enabled', tone: 'info', routeName: 'review-cost-accounting', title: '查看成本解释' },
+    { key: 'ingestionIssues', label: '看数据接入问题', status: 'permission', tone: 'warning', routeName: 'admin-ingestion-center', title: '需要管理端权限' },
+    { key: 'copySummary', label: '复制摘要', status: 'enabled', tone: 'success', routeName: '', title: '复制本页辅助摘要，不写入业务数据' }
+  ],
+  questions: [
+    '有异常吗？',
+    '外机比我多了啥？',
+    '今日异常汇总？'
+  ],
+  ask: {
+    status: 'disabled',
+    placeholder: '追问接口未启用',
+    notice: '当前没有真实 LLM 追问接口，本区仅展示 fallback 问法入口，不保存对话。'
+  },
+  caliber:
+    '本页用于汇总生产、日报、质量、成本和数据接入的辅助解释与建议。AI 输出仅作为审阅辅助，不自动执行生产、质量、成本、排产或交付动作。若数据源标记为 fallback/mixed，请以现场试跑口径复核。'
+}

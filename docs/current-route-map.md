@@ -1,4 +1,4 @@
-# 当前路由地图（2026-04-24）
+# 当前路由地图（2026-04-25）
 
 ## 入口层
 
@@ -44,7 +44,7 @@
 - `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
 - `/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`，正式中心：工厂作业看板。
 - `/review/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
-- `/review/brain` -> `review-brain-center` -> `CommandModulePage.vue`，正式中心：AI 总控中心。
+- `/review/brain` -> `review-brain-center` -> `CommandModulePage.vue`，正式中心：AI 总控中心；当前按高清目标图 `11-ai-control.png` 对齐，使用 `brainCenterMock` fallback / mixed 证据读面汇总生产、日报、质量、成本和数据接入风险。生成今日摘要与追问在无真实接口时禁用；查看证据、去审阅任务、看日报阻塞、看质量告警、看成本解释、复制摘要为只读/导航动作；看数据接入问题需管理端权限。本页仅提供辅助解释与建议，不承接生产事实写入，不自动执行质量、成本、排产或交付动作。
 - `/review/roadmap` -> `/review/overview`，路线图入口隔离。
 - `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`，管理能力不再挂在审阅端。
 - `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。

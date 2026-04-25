@@ -106,6 +106,28 @@ test('cost route renders the cost benefit smoke surface', async ({ page }) => {
   await expect(costCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('brain route renders the AI control smoke surface', async ({ page }) => {
+  await page.goto('/review/brain')
+
+  const brainCenter = page.getByTestId('brain-control-center')
+  const riskTable = page.getByTestId('brain-risk-table')
+
+  await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(brainCenter.getByRole('heading', { name: /11\s*AI 总控中心/ })).toBeVisible()
+  await expect(brainCenter.getByText(/辅助建议|系统提示/).first()).toBeVisible()
+  await expect(brainCenter.getByText('今日摘要').first()).toBeVisible()
+  await expect(brainCenter.getByText('风险事件').first()).toBeVisible()
+  await expect(riskTable).toBeVisible()
+  await expect(riskTable.getByRole('columnheader', { name: '证据' })).toBeVisible()
+  await expect(brainCenter.getByText(/证据链|数据来源/).first()).toBeVisible()
+  await expect(brainCenter.getByText(/Mock|fallback|mixed|source/).first()).toBeVisible()
+  await expect(brainCenter.getByText('AI 已自动处理')).toHaveCount(0)
+  await expect(brainCenter.getByText('AI 已接管生产')).toHaveCount(0)
+  await expect(brainCenter.getByText('自动排产完成')).toHaveCount(0)
+  await expect(brainCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(brainCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+})
+
 test('fill-only operator cannot access review reports', async ({ page }) => {
   await page.goto('/review/reports')
 
@@ -127,6 +149,14 @@ test('fill-only operator cannot access review cost', async ({ page }) => {
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('review-shell')).toHaveCount(0)
   await expect(page.getByTestId('cost-benefit-center')).toHaveCount(0)
+})
+
+test('fill-only operator cannot access review brain', async ({ page }) => {
+  await page.goto('/review/brain')
+
+  await expect(page).toHaveURL(/\/(entry|login)$/)
+  await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('brain-control-center')).toHaveCount(0)
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {

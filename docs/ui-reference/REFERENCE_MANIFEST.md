@@ -3,8 +3,8 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
-- 当前优先页面：`/admin/ingestion`
-- 本轮使用图：`06-ingestion-mapping.png`
+- 当前优先页面：`/review/brain`
+- 本轮使用图：`11-ai-control.png`
 
 ## 文件与中心映射
 
@@ -54,6 +54,13 @@
 - 业务元素：吨铝成本、人工、电耗、天然气、辅材 / 损耗、产量口径、通货口径、累计构成、调整方案、查看口径、导出和经营风险。
 - 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
 
+## 11 视觉审计摘要
+
+- 布局：顶部大号编号与中文标题；主体为今日摘要 / KPI、风险事件 Top5、智能助手追问入口；补充多专题 AI 卡片、证据链 / 数据来源、建议动作和口径说明。
+- 视觉：白底 / 浅灰蓝背景，细边框卡片，大号蓝色编号，深色数字，红 / 橙 / 绿状态色表达高风险、中风险与正常提示，蓝色按钮用于查看证据和中心跳转。
+- 业务元素：今日摘要、风险事件、日报交付阻塞、质量关注、成本解释、数据接入 fallback / mixed、AI 辅助建议、证据来源和追问入口。
+- 转译组件：`CenterPageShell`、`KpiStrip`、`SectionCard`、`DataTableShell`、`StatusBadge`、`SourceBadge`、`MockDataNotice`。
+
 ## 设计约束
 
 - 参考图是视觉与信息架构基线，不作为静态截图嵌入产品。
@@ -62,3 +69,4 @@
 - `/review/reports` 是日报生成、导出与交付状态读面，不承接生产事实写入。
 - `/review/quality` 是质量告警与处置状态读面，当前为 fallback 数据；AI 仅作辅助分诊，处置写动作在无真实接口时禁用，不承接生产事实写入。
 - `/review/cost-accounting` 是经营估算 / 策略口径读面，当前为 fallback 数据；调整方案与导出在无真实接口时禁用，不承接生产事实写入，不作为财务结算依据。
+- `/review/brain` 是审阅端 AI 总控中心，当前为 fallback / mixed 证据读面；AI 仅作辅助解释与建议，生成与追问在无真实接口时禁用，不自动执行质量、成本、排产或交付动作。
