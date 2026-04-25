@@ -39,7 +39,8 @@ def test_command_review_surface_is_surface_scoped() -> None:
     payload = response.json()
     assert payload['surface'] == 'review'
     module_ids = {item['module_id'] for item in payload['modules']}
-    assert {'01', '05', '07', '08', '09', '10', '11', '16'}.issubset(module_ids)
+    assert {'01', '05', '07', '08', '09', '10', '11'}.issubset(module_ids)
+    assert '16' not in module_ids
     assert '06' not in module_ids
     first_kpi = payload['modules'][0]['kpis'][0]
     assert {'label', 'value', 'unit', 'trend', 'status', 'icon_key'}.issubset(first_kpi)
@@ -64,7 +65,7 @@ def test_admin_command_overview_uses_admin_modules() -> None:
     payload = response.json()
     assert payload['surface'] == 'admin'
     module_ids = {item['module_id'] for item in payload['modules']}
-    assert {'06', '12', '13', '14', '16'} == module_ids
+    assert {'06', '12', '13', '14'} == module_ids
 
 
 def test_admin_module_overview_endpoints_return_reference_view_models() -> None:
@@ -72,8 +73,8 @@ def test_admin_module_overview_endpoints_return_reference_view_models() -> None:
     client = TestClient(app)
 
     cases = [
-        ('/api/v1/admin/ops-overview', '12', '系统运维与可观测'),
-        ('/api/v1/admin/governance-overview', '13', '权限治理中心'),
+        ('/api/v1/admin/ops-overview', '12', '系统运维与观测'),
+        ('/api/v1/admin/governance-overview', '13', '权限与治理中心'),
         ('/api/v1/admin/master-overview', '14', '主数据与模板中心'),
     ]
 

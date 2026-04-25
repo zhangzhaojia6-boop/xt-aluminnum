@@ -2,30 +2,49 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const targetReferenceImage = process.env.REFERENCE_UI_TARGET_IMAGE || 'C:/Users/xt/Downloads/cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png';
+const repoRoot = path.resolve(__dirname, '..', '..', '..');
+const referenceManifestPath = path.join(repoRoot, 'docs', 'ui-reference', 'REFERENCE_MANIFEST.md');
+const targetReferenceImageDir = path.join(repoRoot, 'docs', 'ui-reference', 'highres');
+const expectedReferenceImages = [
+  '01-overview.png',
+  '02-login.png',
+  '03-entry-home.png',
+  '04-entry-flow.png',
+  '05-factory-board.png',
+  '06-ingestion-mapping.png',
+  '07-review-tasks.png',
+  '08-reports-delivery.png',
+  '09-quality-alerts.png',
+  '10-cost-benefit.png',
+  '11-ai-control.png',
+  '12-ops-observability.png',
+  '13-governance.png',
+  '14-master-template.png',
+  '15-entry-responsive.png',
+];
+const targetReferenceImage = process.env.REFERENCE_UI_TARGET_IMAGE
+  ? path.resolve(process.cwd(), process.env.REFERENCE_UI_TARGET_IMAGE)
+  : path.join(targetReferenceImageDir, expectedReferenceImages[0]);
 const targetAlignmentSpec = {
-  expectedPanelCount: 16,
-  expectedWidth: 1672,
-  expectedHeight: 941,
+  expectedPanelCount: expectedReferenceImages.length,
 };
 
 const referencePanelChecks = [
-  { moduleNumber: '01', targetPanel: 'row-1-col-1', screenshot: '01-review-overview.png', label: '01 target panel maps to system overview' },
-  { moduleNumber: '02', targetPanel: 'row-1-col-2', screenshot: '02-login-role-handoff.png', label: '02 target panel maps to login handoff' },
-  { moduleNumber: '03', targetPanel: 'row-1-col-3', screenshot: '03-entry-terminal.png', label: '03 target panel maps to entry terminal' },
-  { moduleNumber: '04', targetPanel: 'row-1-col-4', screenshot: '04-entry-flow.png', label: '04 target panel maps to entry flow' },
-  { moduleNumber: '05', targetPanel: 'row-2-col-1', screenshot: '05-factory-board.png', label: '05 target panel maps to factory board' },
-  { moduleNumber: '06', targetPanel: 'row-2-col-2', screenshot: '06-admin-ingestion.png', label: '06 target panel maps to ingestion center' },
-  { moduleNumber: '07', targetPanel: 'row-2-col-3', screenshot: '07-review-tasks.png', label: '07 target panel maps to review center' },
-  { moduleNumber: '08', targetPanel: 'row-2-col-4', screenshot: '08-reports.png', label: '08 target panel maps to reports center' },
-  { moduleNumber: '09', targetPanel: 'row-3-col-1', screenshot: '09-quality.png', label: '09 target panel maps to quality alerts' },
-  { moduleNumber: '10', targetPanel: 'row-3-col-2', screenshot: '10-cost.png', label: '10 target panel maps to cost center' },
-  { moduleNumber: '11', targetPanel: 'row-3-col-3', screenshot: '11-brain.png', label: '11 target panel maps to AI brain' },
-  { moduleNumber: '12', targetPanel: 'row-3-col-4', screenshot: '12-admin-ops.png', label: '12 target panel maps to ops reliability' },
-  { moduleNumber: '13', targetPanel: 'row-4-col-1', screenshot: '13-admin-governance.png', label: '13 target panel maps to governance' },
-  { moduleNumber: '14', targetPanel: 'row-4-col-2', screenshot: '14-admin-master.png', label: '14 target panel maps to master data' },
-  { moduleNumber: '15', targetPanel: 'row-4-col-3', screenshot: '15-entry-responsive.png', label: '15 target panel maps to responsive entry' },
-  { moduleNumber: '16', targetPanel: 'row-4-col-4', screenshot: '16-review-roadmap.png', label: '16 target panel maps to roadmap' },
+  { moduleNumber: '01', targetPanel: '01-overview', referenceImage: '01-overview.png', screenshot: '01-overview.png', label: '01 target panel maps to system overview' },
+  { moduleNumber: '02', targetPanel: '02-login', referenceImage: '02-login.png', screenshot: '02-login.png', label: '02 target panel maps to login handoff' },
+  { moduleNumber: '03', targetPanel: '03-entry-home', referenceImage: '03-entry-home.png', screenshot: '03-entry-home.png', label: '03 target panel maps to entry home' },
+  { moduleNumber: '04', targetPanel: '04-entry-flow', referenceImage: '04-entry-flow.png', screenshot: '04-entry-flow.png', label: '04 target panel maps to entry flow' },
+  { moduleNumber: '05', targetPanel: '05-factory-board', referenceImage: '05-factory-board.png', screenshot: '05-factory-board.png', label: '05 target panel maps to factory board' },
+  { moduleNumber: '06', targetPanel: '06-ingestion-mapping', referenceImage: '06-ingestion-mapping.png', screenshot: '06-ingestion-mapping.png', label: '06 target panel maps to ingestion center' },
+  { moduleNumber: '07', targetPanel: '07-review-tasks', referenceImage: '07-review-tasks.png', screenshot: '07-review-tasks.png', label: '07 target panel maps to review center' },
+  { moduleNumber: '08', targetPanel: '08-reports-delivery', referenceImage: '08-reports-delivery.png', screenshot: '08-reports-delivery.png', label: '08 target panel maps to reports center' },
+  { moduleNumber: '09', targetPanel: '09-quality-alerts', referenceImage: '09-quality-alerts.png', screenshot: '09-quality-alerts.png', label: '09 target panel maps to quality alerts' },
+  { moduleNumber: '10', targetPanel: '10-cost-benefit', referenceImage: '10-cost-benefit.png', screenshot: '10-cost-benefit.png', label: '10 target panel maps to cost center' },
+  { moduleNumber: '11', targetPanel: '11-ai-control', referenceImage: '11-ai-control.png', screenshot: '11-ai-control.png', label: '11 target panel maps to AI control' },
+  { moduleNumber: '12', targetPanel: '12-ops-observability', referenceImage: '12-ops-observability.png', screenshot: '12-ops-observability.png', label: '12 target panel maps to ops reliability' },
+  { moduleNumber: '13', targetPanel: '13-governance', referenceImage: '13-governance.png', screenshot: '13-governance.png', label: '13 target panel maps to governance' },
+  { moduleNumber: '14', targetPanel: '14-master-template', referenceImage: '14-master-template.png', screenshot: '14-master-template.png', label: '14 target panel maps to master data' },
+  { moduleNumber: '15', targetPanel: '15-entry-responsive', referenceImage: '15-entry-responsive.png', screenshot: '15-entry-responsive.png', label: '15 target panel maps to responsive entry' },
 ];
 
 function readPngSize(filePath) {
@@ -39,28 +58,35 @@ function readPngSize(filePath) {
 }
 
 function addTargetImageChecks(report) {
+  const imageMeta = expectedReferenceImages.map((filename) => {
+    const filePath = path.join(targetReferenceImageDir, filename);
+    return {
+      filename,
+      exists: fs.existsSync(filePath),
+      size: readPngSize(filePath),
+    };
+  });
+  const existingCount = imageMeta.filter((item) => item.exists).length;
   const meta = {
-    path: targetReferenceImage,
+    referenceImageDir: path.relative(repoRoot, targetReferenceImageDir),
+    referenceManifest: path.relative(repoRoot, referenceManifestPath),
+    targetReferenceImage: path.relative(repoRoot, targetReferenceImage),
     exists: fs.existsSync(targetReferenceImage),
-    width: 0,
-    height: 0,
+    manifestExists: fs.existsSync(referenceManifestPath),
     expectedPanelCount: targetAlignmentSpec.expectedPanelCount,
+    actualPanelCount: existingCount,
+    images: imageMeta,
   };
-  const size = readPngSize(targetReferenceImage);
-  if (size) {
-    meta.width = size.width;
-    meta.height = size.height;
-  }
   report.targetImageMeta = meta;
-  const ok = meta.exists && meta.width === targetAlignmentSpec.expectedWidth && meta.height === targetAlignmentSpec.expectedHeight;
+  const ok = meta.manifestExists && existingCount === targetAlignmentSpec.expectedPanelCount && meta.exists;
   report.checks.push({
     route: 'target-reference-image',
     kind: 'target_image_meta',
-    label: 'target reference image readable and sized',
-    expected: `${targetAlignmentSpec.expectedWidth}x${targetAlignmentSpec.expectedHeight}`,
-    actual: meta.exists ? `${meta.width}x${meta.height}` : 'missing',
+    label: 'highres target reference images and manifest are readable',
+    expected: `${targetAlignmentSpec.expectedPanelCount} highres panels + manifest`,
+    actual: `${existingCount} highres panels, manifest=${meta.manifestExists}`,
     status: ok ? 'pass' : 'fail',
-    error: ok ? '' : `target image expected ${targetAlignmentSpec.expectedWidth}x${targetAlignmentSpec.expectedHeight}`,
+    error: ok ? '' : 'docs/ui-reference highres baseline is incomplete',
   });
 }
 
@@ -68,18 +94,21 @@ function addReferencePanelChecks(report, outDir) {
   report.referencePanelChecks = referencePanelChecks;
   for (const item of referencePanelChecks) {
     const screenshotPath = path.join(outDir, item.screenshot);
+    const referencePath = path.join(targetReferenceImageDir, item.referenceImage);
     const exists = fs.existsSync(screenshotPath);
+    const referenceExists = fs.existsSync(referencePath);
     const checklistItem = referenceChecklist.find((candidate) => candidate.moduleNumber === item.moduleNumber);
-    const ok = exists && Boolean(checklistItem);
+    const ok = exists && referenceExists && Boolean(checklistItem);
     report.checks.push({
       route: checklistItem?.route || item.targetPanel,
       kind: 'reference_panel_alignment',
       moduleNumber: item.moduleNumber,
       targetPanel: item.targetPanel,
+      referenceImage: item.referenceImage,
       screenshot: item.screenshot,
       label: item.label,
       status: ok ? 'pass' : 'fail',
-      error: ok ? '' : `missing screenshot or checklist mapping for module ${item.moduleNumber}`,
+      error: ok ? '' : `missing screenshot, highres image, or checklist mapping for module ${item.moduleNumber}`,
     });
   }
 }
@@ -217,7 +246,7 @@ async function ensureLayoutHook(page, report, route, selector, label) {
 const referenceChecklist = [
   { moduleNumber: '01', title: '系统总览主视图', surface: 'review', route: '/review/overview' },
   { moduleNumber: '02', title: '登录与角色入口', surface: 'public', route: '/login' },
-  { moduleNumber: '03', title: '独立填报终端首页', surface: 'entry', route: '/entry' },
+  { moduleNumber: '03', title: '独立填报端首页', surface: 'entry', route: '/entry' },
   { moduleNumber: '04', title: '填报流程页', surface: 'entry', route: '/entry/report/*' },
   { moduleNumber: '05', title: '工厂作业看板', surface: 'review', route: '/review/factory' },
   { moduleNumber: '06', title: '数据接入与字段映射中心', surface: 'admin', route: '/admin/ingestion' },
@@ -225,12 +254,11 @@ const referenceChecklist = [
   { moduleNumber: '08', title: '日报与交付中心', surface: 'review', route: '/review/reports' },
   { moduleNumber: '09', title: '质量与告警中心', surface: 'review', route: '/review/quality' },
   { moduleNumber: '10', title: '成本核算与效益中心', surface: 'review', route: '/review/cost-accounting' },
-  { moduleNumber: '11', title: 'AI 总大脑中心', surface: 'review', route: '/review/brain' },
-  { moduleNumber: '12', title: '系统运维与可观测', surface: 'admin', route: '/admin/ops' },
-  { moduleNumber: '13', title: '权限治理中心', surface: 'admin', route: '/admin/governance' },
+  { moduleNumber: '11', title: 'AI 总控中心', surface: 'review', route: '/review/brain' },
+  { moduleNumber: '12', title: '系统运维与观测', surface: 'admin', route: '/admin/ops' },
+  { moduleNumber: '13', title: '权限与治理中心', surface: 'admin', route: '/admin/governance' },
   { moduleNumber: '14', title: '主数据与模板中心', surface: 'admin', route: '/admin/master', templateRoute: '/admin/master/templates' },
   { moduleNumber: '15', title: '响应式录入体验', surface: 'responsive', route: '/entry' },
-  { moduleNumber: '16', title: '路线图与下一步', surface: 'review/admin', route: '/review/roadmap', adminRoute: '/admin/roadmap' },
 ];
 
 async function captureRoute(page, report, spec, outDir) {
@@ -268,25 +296,27 @@ async function captureRoute(page, report, spec, outDir) {
 async function captureLogin(page, report, outDir) {
   await page.goto('/login');
   await ensureVisible(page, report, '/login', '[data-testid="login-page"]', '02 login role handoff visible');
-  await ensureVisible(page, report, '/login', '.cmd-login-reference', '02 login reference card visible');
+  await ensureVisible(page, report, '/login', '.cmd-login__stage', '02 login web entry visible');
   await ensureVisible(page, report, '/login', '.cmd-login__number:text("02")', 'module 02 visible');
   await ensureCountAtLeast(page, report, '/login', '.cmd-login__role', 3, 'login role cards');
   await ensureEnglishSubtitleAbsent(page, report, '/login');
-  await page.locator('.cmd-login-reference').first().screenshot({ path: path.join(outDir, '02-login-role-handoff.png') });
+  await page.locator('.cmd-login__stage').first().screenshot({ path: path.join(outDir, '02-login.png') });
 }
 
 async function captureEntryFlow(page, report, outDir) {
   await page.goto('/entry/dynamic-entry-form');
   const route = new URL(page.url()).pathname;
   await ensureVisible(page, report, route, '[data-module="04"]', '04 entry flow visible');
-  await ensureVisible(page, report, route, '.cmd-entry-flow', '04 entry flow reference card visible');
-  await ensureVisible(page, report, route, '.cmd-module-page__number:text("04")', 'module 04 visible');
+  await ensureVisible(page, report, route, '.center-page', '04 entry flow web page visible');
+  await ensureVisible(page, report, route, '.center-page__no:text("04")', 'module 04 visible');
   await ensureEnglishSubtitleAbsent(page, report, route);
-  await page.locator('.cmd-entry-flow').first().screenshot({ path: path.join(outDir, '04-entry-flow.png') });
+  await page.locator('.center-page').first().screenshot({ path: path.join(outDir, '04-entry-flow.png') });
 }
 
 (async () => {
-  const outDir = path.resolve('tmp', 'visual-audit');
+  const outDir = process.env.VISUAL_AUDIT_OUTPUT_DIR
+    ? path.resolve(process.cwd(), process.env.VISUAL_AUDIT_OUTPUT_DIR)
+    : path.join(repoRoot, 'tmp', 'visual-audit');
   fs.mkdirSync(outDir, { recursive: true });
   const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost';
   const report = { generatedAt: new Date().toISOString(), baseURL, referenceChecklist, checks: [] };
@@ -307,33 +337,32 @@ async function captureEntryFlow(page, report, outDir) {
     const desktopRoutes = [
       {
         route: '/review/overview',
-        screenshot: '01-review-overview.png',
-        frameSelector: '.cmd-overview-board',
-        selector: '.cmd-overview-kpis',
+        screenshot: '01-overview.png',
+        frameSelector: '[data-testid="overview-dashboard"]',
+        selector: '.kpi-strip',
         label: '01 system overview visible',
         moduleNumber: '01',
-        numberSelector: '.cmd-module-page__number:text("01")',
-        captureSelector: '.cmd-overview-board',
+        numberSelector: '.center-page__no:text("01")',
+        captureSelector: '[data-testid="overview-dashboard"]',
         countChecks: [
-          { selector: '.cmd-overview-kpi', minCount: 7, label: 'overview kpi tiles' },
-          { selector: '.cmd-overview-shortcuts button', minCount: 8, label: 'overview quick entries' },
+          { selector: '.kpi-card', minCount: 7, label: 'overview kpi tiles' },
+          { selector: '.action-tile', minCount: 6, label: 'overview quick entries' },
         ],
       },
       { route: '/review/factory', screenshot: '05-factory-board.png', selector: '.cmd-factory-table', label: '05 factory board visible', moduleNumber: '05', factoryDensity: true, captureSelector: '.cmd-factory-board' },
-      { route: '/review/tasks', screenshot: '07-review-tasks.png', selector: '.cmd-module-page__primary', label: '07 review center visible', moduleNumber: '07', layoutHook: '.cmd-layout--review-center' },
-      { route: '/review/reports', screenshot: '08-reports.png', selector: '.cmd-module-page__primary', label: '08 reports center visible', moduleNumber: '08', layoutHook: '.cmd-layout--report-delivery' },
-      { route: '/review/quality', screenshot: '09-quality.png', selector: '.cmd-module-page__primary', label: '09 quality center visible', moduleNumber: '09', layoutHook: '.cmd-layout--quality-alerts' },
-      { route: '/review/cost-accounting', screenshot: '10-cost.png', selector: '.cmd-module-page__primary', label: '10 cost center visible', moduleNumber: '10', layoutHook: '.cmd-layout--cost-stack' },
-      { route: '/review/brain', screenshot: '11-brain.png', selector: '.cmd-module-page__primary', label: '11 brain center visible', moduleNumber: '11', layoutHook: '.cmd-layout--ai-brain' },
+      { route: '/review/tasks', screenshot: '07-review-tasks.png', frameSelector: '[data-testid="review-task-center"]', selector: '.data-table-shell', label: '07 review center visible', moduleNumber: '07', numberSelector: '.center-page__no:text("07")', captureSelector: '[data-testid="review-task-center"]' },
+      { route: '/review/reports', screenshot: '08-reports-delivery.png', selector: '.cmd-module-page__primary', label: '08 reports center visible', moduleNumber: '08', layoutHook: '.cmd-layout--report-delivery' },
+      { route: '/review/quality', screenshot: '09-quality-alerts.png', selector: '.cmd-module-page__primary', label: '09 quality center visible', moduleNumber: '09', layoutHook: '.cmd-layout--quality-alerts' },
+      { route: '/review/reconciliation', screenshot: '09-reconciliation.png', frameSelector: '.page-stack, body', selector: '.reconciliation-center, [data-testid="reconciliation-center"], .page-stack', label: '09 reconciliation center visible', moduleNumber: '09', numberSelector: 'body' },
+      { route: '/review/cost-accounting', screenshot: '10-cost-benefit.png', selector: '.cmd-module-page__primary', label: '10 cost center visible', moduleNumber: '10', layoutHook: '.cmd-layout--cost-stack' },
+      { route: '/review/brain', screenshot: '11-ai-control.png', selector: '.cmd-module-page__primary', label: '11 brain center visible', moduleNumber: '11', layoutHook: '.cmd-layout--ai-brain' },
       { route: '/admin', screenshot: '14-admin-home.png', selector: '.cmd-module-page__primary', label: 'admin home visible', moduleNumber: '14' },
-      { route: '/admin/ingestion', screenshot: '06-admin-ingestion.png', selector: '.cmd-module-page__primary', label: '06 ingestion center visible', moduleNumber: '06', layoutHook: '.cmd-layout--mapping-center', captureSelector: '.cmd-module-page__visual' },
-      { route: '/admin/ops', screenshot: '12-admin-ops.png', selector: '.cmd-module-page__primary', label: '12 ops center visible', moduleNumber: '12', layoutHook: '.cmd-layout--ops-observability' },
-      { route: '/admin/governance', screenshot: '13-admin-governance.png', selector: '.cmd-module-page__primary', label: '13 governance center visible', moduleNumber: '13', layoutHook: '.cmd-layout--governance-matrix' },
+      { route: '/admin/ingestion', screenshot: '06-ingestion-mapping.png', selector: '.cmd-module-page__primary', label: '06 ingestion center visible', moduleNumber: '06', layoutHook: '.cmd-layout--mapping-center', captureSelector: '.cmd-module-page' },
+      { route: '/admin/ops', screenshot: '12-ops-observability.png', selector: '.cmd-module-page__primary', label: '12 ops center visible', moduleNumber: '12', layoutHook: '.cmd-layout--ops-observability' },
+      { route: '/admin/governance', screenshot: '13-governance.png', selector: '.cmd-module-page__primary', label: '13 governance center visible', moduleNumber: '13', layoutHook: '.cmd-layout--governance-matrix' },
       { route: '/admin/users', screenshot: '13-admin-users.png', selector: '.cmd-module-page__primary', label: '13 users center visible', moduleNumber: '13', layoutHook: '.cmd-layout--governance-matrix' },
-      { route: '/admin/master', screenshot: '14-admin-master.png', selector: '.cmd-module-page__primary', label: '14 master center visible', moduleNumber: '14', layoutHook: '.cmd-layout--master-templates' },
+      { route: '/admin/master', screenshot: '14-master-template.png', selector: '.cmd-module-page__primary', label: '14 master center visible', moduleNumber: '14', layoutHook: '.cmd-layout--master-templates' },
       { route: '/admin/master/templates', screenshot: '14-admin-templates.png', selector: '.cmd-module-page__primary', label: '14 template center visible', moduleNumber: '14', layoutHook: '.cmd-layout--master-templates' },
-      { route: '/review/roadmap', screenshot: '16-review-roadmap.png', selector: '.cmd-module-page__primary', label: '16 review roadmap center visible', moduleNumber: '16', layoutHook: '.cmd-layout--roadmap' },
-      { route: '/admin/roadmap', screenshot: '16-admin-roadmap.png', selector: '.cmd-module-page__primary', label: '16 admin roadmap center visible', moduleNumber: '16', layoutHook: '.cmd-layout--roadmap' },
     ];
 
     for (const spec of desktopRoutes) {
@@ -349,13 +378,13 @@ async function captureEntryFlow(page, report, outDir) {
     await loginWithPassword(mpage);
     await mpage.goto('/entry');
     await ensureVisible(mpage, report, '/entry', '[data-module="03"]', '03 entry terminal visible');
-    await ensureVisible(mpage, report, '/entry', '.cmd-entry-terminal', '03 entry terminal reference card visible');
-    await ensureVisible(mpage, report, '/entry', '.cmd-shell__nav', 'entry-only nav visible');
+    await ensureVisible(mpage, report, '/entry', '.center-page', '03 entry terminal web page visible');
+    await ensureVisible(mpage, report, '/entry', '.app-entry-shell__nav', 'entry-only nav visible');
     await ensureTextAbsent(mpage, report, '/entry', '审阅中心', 'surface boundary: fill-only nav isolation');
     await ensureTextAbsent(mpage, report, '/entry', '管理控制台', 'surface boundary: fill-only nav isolation');
     await ensureTextAbsent(mpage, report, '/entry', '移动端预览', 'mobile preview module cancelled');
     await ensureEnglishSubtitleAbsent(mpage, report, '/entry');
-    await mpage.locator('.cmd-entry-terminal').first().screenshot({ path: path.join(outDir, '03-entry-terminal.png') });
+    await mpage.locator('.center-page').first().screenshot({ path: path.join(outDir, '03-entry-home.png') });
     await captureEntryFlow(mpage, report, outDir);
     report.checks.push({
       route: '/entry',

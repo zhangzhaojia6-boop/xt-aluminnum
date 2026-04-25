@@ -19,11 +19,14 @@ def _repo_file(relative_path: str) -> Path:
     return _resolve_repo_root() / relative_path
 
 
+VISUAL_AUDIT_TOOL = "frontend/tools/visual-audit/command-center-audit.cjs"
+
+
 def _reference_command_files() -> list[Path]:
     root = _repo_file("frontend/src/reference-command")
     if not root.exists():
         return []
-    return [path for path in root.rglob("*") if path.is_file()]
+    return [path for path in root.rglob("*") if path.is_file() and path.suffix in {".css", ".js", ".vue"}]
 
 
 def test_reference_command_boundary_files_are_declared() -> None:
@@ -77,16 +80,17 @@ def test_reference_command_ui_uses_chinese_dense_copy_without_helper_fields() ->
             assert token not in text, f"{token} in {path}"
 
 
-def test_reference_command_catalog_declares_16_target_modules() -> None:
+def test_reference_command_catalog_declares_15_target_modules_without_roadmap_page() -> None:
     catalog = _read_repo_file("frontend/src/reference-command/data/moduleCatalog.js")
 
-    for module_id in [f"{index:02d}" for index in range(1, 17)]:
+    for module_id in [f"{index:02d}" for index in range(1, 16)]:
         assert f"moduleId: '{module_id}'" in catalog
+    assert "moduleId: '16'" not in catalog
 
     for title in [
         "系统总览主视图",
         "登录与角色入口",
-        "独立填报终端首页",
+        "独立填报端首页",
         "填报流程页",
         "工厂作业看板",
         "数据接入与字段映射中心",
@@ -94,12 +98,11 @@ def test_reference_command_catalog_declares_16_target_modules() -> None:
         "日报与交付中心",
         "质量与告警中心",
         "成本核算与效益中心",
-        "AI 总大脑中心",
-        "系统运维与可观测",
-        "权限治理中心",
+        "AI 总控中心",
+        "系统运维与观测",
+        "权限与治理中心",
         "主数据与模板中心",
         "响应式录入体验",
-        "路线图与下一步",
     ]:
         assert title in catalog
 
@@ -110,10 +113,22 @@ def test_reference_command_catalog_declares_16_target_modules() -> None:
 def test_reference_command_tokens_match_target_image_rules() -> None:
     tokens = _read_repo_file("frontend/src/reference-command/styles/command-tokens.css")
 
-    assert "--cmd-bg: #f4f7fb" in tokens
-    assert "--cmd-panel: #ffffff" in tokens
-    assert "--cmd-border: #e5edf7" in tokens
-    assert "--cmd-blue: #1f6fff" in tokens
+    for token in [
+        "--cmd-bg:",
+        "--cmd-panel:",
+        "--cmd-border:",
+        "--cmd-blue:",
+        "--cmd-green:",
+        "--cmd-amber:",
+        "--cmd-red:",
+        "--cmd-text:",
+        "--cmd-radius:",
+    ]:
+        assert token in tokens
+    assert "#f5f7fb" in tokens
+    assert "#ffffff" in tokens
+    assert "#e5edf7" in tokens
+    assert "#0f6bff" in tokens
     assert "DIN Alternate" in tokens
     assert "Microsoft YaHei" in tokens
 
@@ -159,15 +174,17 @@ def test_reference_command_keeps_legacy_routes_and_route_names() -> None:
 def test_command_login_replaces_old_login_route_with_three_roles() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
-    audit = _read_repo_file("frontend/tmp_visual_audit.cjs")
+    audit = _read_repo_file(VISUAL_AUDIT_TOOL)
 
     assert "component: CommandLogin" in router
-    for role in ["录入端", "审阅端", "管理端"]:
+    for role in ["录入填报", "审阅端", "管理端"]:
         assert role in login
-    assert "cmd-login-reference" in login
-    assert "loginRoleHandoffImage" in login
-    assert "cmd-login__functional" in login
-    assert "cmd-login-reference" in audit
+    assert "loginRoleHandoffImage" not in login
+    assert "cmd-login-reference" not in login
+    assert "style=" not in login
+    assert "cmd-login__stage" in login
+    assert "cmd-login__card" in login
+    assert "cmd-login-reference" not in audit
     assert "(Login" not in login
 
 
@@ -188,16 +205,10 @@ def test_review_overview_uses_single_reference_module_01() -> None:
     overview = _read_repo_file("frontend/src/reference-command/pages/CommandOverview.vue")
     router = _read_repo_file("frontend/src/router/index.js")
 
-    assert "cmd-overview-board" in overview
-    assert "cmd-overview-kpis" in overview
-    assert "overviewKpisImage" in overview
-    assert "cmd-overview-kpis__visual" in overview
-    assert "cmd-overview-shortcuts" in overview
-    assert "cmd-overview-line" in overview
-    assert "overviewFactoryLineImage" in overview
-    assert "overviewShortcutsImage" in overview
-    assert "cmd-overview-card__visual" in overview
-    assert "cmd-overview-status__label" in overview
+    assert "CenterPageShell" in overview
+    assert "KpiStrip" in overview
+    assert "DataTableShell" in overview
+    assert "MockDataNotice" in overview
     assert "name: 'review-overview-home'" in router
     assert "component: CommandOverview" in router
     assert "moduleId: '01'" in router
@@ -207,18 +218,19 @@ def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
     home = _read_repo_file("frontend/src/reference-command/pages/CommandEntryHome.vue")
     flow = _read_repo_file("frontend/src/reference-command/pages/CommandEntryFlow.vue")
     router = _read_repo_file("frontend/src/router/index.js")
-    audit = _read_repo_file("frontend/tmp_visual_audit.cjs")
+    audit = _read_repo_file(VISUAL_AUDIT_TOOL)
 
-    assert 'data-module="03"' in home
+    assert 'no="03"' in home
     assert 'data-module="04"' in flow
-    assert "cmd-entry-terminal" in home
-    assert "entryTerminalImage" in home
-    assert "cmd-entry-terminal__functional" in home
-    assert "cmd-entry-flow" in flow
-    assert "entryFlowImage" in flow
-    assert "cmd-entry-flow__functional" in flow
-    assert "cmd-entry-terminal" in audit
-    assert "cmd-entry-flow" in audit
+    assert "CenterPageShell" in home
+    assert "KpiStrip" in home
+    assert "MockDataNotice" in home
+    assert "CenterPageShell" in flow
+    assert "entryFlowImage" not in flow
+    assert "cmd-entry-flow__visual" not in flow
+    assert "cmd-entry-flow__functional" not in flow
+    assert "CenterPageShell" in home
+    assert "cmd-entry-flow__visual" not in audit
     assert "快速填报" in home
     assert "基础信息" in flow
     assert "name: 'mobile-entry'" in router
@@ -233,14 +245,16 @@ def test_review_modules_are_schema_driven_command_pages() -> None:
     review_start = router.index("path: '/review'")
     review_end = router.index("{ path: '/factory'", review_start)
     review_routes = router[review_start:review_end]
+    task_index = review_routes.index("name: 'review-task-center'")
+    task_slice = review_routes[task_index: task_index + 360]
+    assert "component: CommandReviewTasks" in task_slice
+    assert "moduleId: '07'" in task_slice
     expected = [
         ("name: 'factory-dashboard'", "moduleId: '05'"),
-        ("name: 'review-task-center'", "moduleId: '07'"),
         ("name: 'review-report-center'", "moduleId: '08'"),
         ("name: 'review-quality-center'", "moduleId: '09'"),
         ("name: 'review-cost-accounting'", "moduleId: '10'"),
         ("name: 'review-brain-center'", "moduleId: '11'"),
-        ("name: 'review-roadmap-center'", "moduleId: '16'"),
     ]
     for route_name, module_id in expected:
         route_index = review_routes.index(route_name)
@@ -261,7 +275,6 @@ def test_admin_modules_are_schema_driven_command_pages() -> None:
         ("name: 'admin-users'", "moduleId: '13'"),
         ("name: 'admin-master-workshop'", "moduleId: '14'"),
         ("name: 'admin-template-center'", "moduleId: '14'"),
-        ("name: 'admin-roadmap-center'", "moduleId: '16'"),
     ]
     for route_name, module_id in expected:
         route_index = admin_routes.index(route_name)
@@ -277,7 +290,7 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
     required_rows = [
         "| 01 | 系统总览主视图 | 审阅端 | `/review/overview` |",
         "| 02 | 登录与角色入口 | 公共入口 | `/login` |",
-        "| 03 | 独立填报终端首页 | 录入端 | `/entry` |",
+        "| 03 | 独立填报端首页 | 录入端 | `/entry` |",
         "| 04 | 填报流程页 | 录入端 | `/entry/report/*`、`/entry/advanced/*` |",
         "| 05 | 工厂作业看板 | 审阅端 | `/review/factory` |",
         "| 06 | 数据接入与字段映射中心 | 管理端 | `/admin/ingestion` |",
@@ -285,17 +298,19 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
         "| 08 | 日报与交付中心 | 审阅端 | `/review/reports` |",
         "| 09 | 质量与告警中心 | 审阅端 | `/review/quality` |",
         "| 10 | 成本核算与效益中心 | 审阅端 | `/review/cost-accounting` |",
-        "| 11 | AI 总大脑中心 | 审阅端 | `/review/brain` |",
-        "| 12 | 系统运维与可观测 | 管理端 | `/admin/ops` |",
-        "| 13 | 权限治理中心 | 管理端 | `/admin/governance` |",
+        "| 11 | AI 总控中心 | 审阅端 | `/review/brain` |",
+        "| 12 | 系统运维与观测 | 管理端 | `/admin/ops` |",
+        "| 13 | 权限与治理中心 | 管理端 | `/admin/governance` |",
         "| 14 | 主数据与模板中心 | 管理端 | `/admin/master`、`/admin/master/templates` |",
         "| 15 | 响应式录入体验 | 全局验收 | `/entry` 全链路 |",
-        "| 16 | 路线图与下一步 | 双端 | `/review/roadmap`、`/admin/roadmap` |",
     ]
     for row in required_rows:
         assert row in spec
 
     assert "移动端预览模块取消" in spec
+    assert "| 16 |" not in spec
+    assert "/review/roadmap" not in spec
+    assert "/admin/roadmap" not in spec
     assert "每个中心页至少包含：编号标题区、KPI 摘要区、主表格或主图形区、摘要/风险/趋势区、固定操作区。" in spec
 
 
@@ -345,21 +360,30 @@ def test_ui_replica_spec_keeps_three_surface_execution_boundaries() -> None:
 
 
 def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> None:
-    source = _read_repo_file("frontend/tmp_visual_audit.cjs")
+    source = _read_repo_file(VISUAL_AUDIT_TOOL)
 
     assert "referenceChecklist" in source
     assert "targetReferenceImage" in source
+    assert "referenceManifestPath" in source
+    assert "targetReferenceImageDir" in source
     assert "referencePanelChecks" in source
     assert "targetImageMeta" in source
-    assert "expectedPanelCount: 16" in source
-    assert "cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png" in source
+    assert "expectedPanelCount: expectedReferenceImages.length" in source
+    assert "expectedReferenceImages = [" in source
+    assert "docs', 'ui-reference', 'highres'" in source
+    assert "REFERENCE_MANIFEST.md" in source
+    assert "01-overview.png" in source
+    assert "08-reports-delivery.png" in source
+    assert "C:/Users/" not in source
+    assert "D:/" not in source
+    assert "Downloads" not in source
     assert "route: '/login'" in source
     assert "route: '/entry'" in source
     assert "route: '/review/factory'" in source
     assert "route: '/review/overview'" in source
     assert "route: '/review/tasks'" in source
     assert "route: '/review/cost-accounting'" in source
-    assert "route: '/review/roadmap'" in source
+    assert "route: '/review/roadmap'" not in source
     assert "route: '/admin'" in source
     assert "route: '/admin/master'" in source
     assert "route: '/admin/ops'" in source
@@ -372,8 +396,7 @@ def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> N
     assert "04-entry-flow.png" in source
     assert "05-factory-board.png" in source
     assert "13-admin-users.png" in source
-    assert "14-admin-master.png" in source
-    assert "16-review-roadmap.png" in source
+    assert "14-master-template.png" in source
     assert "surface boundary: fill-only nav isolation" in source
     assert "mobile preview module cancelled" in source
     assert "ensureTextAbsent" in source
@@ -381,7 +404,7 @@ def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> N
     assert "factoryDensity: true" in source
     assert "ensureLayoutHook" in source
     assert "layoutHook: '.cmd-layout--mapping-center'" in source
-    assert "layoutHook: '.cmd-layout--roadmap'" in source
+    assert "layoutHook: '.cmd-layout--roadmap'" not in source
 
 
 def test_visual_diff_gate_supports_per_module_threshold() -> None:
@@ -411,12 +434,24 @@ def test_factory_board_module_05_is_table_first_like_reference_panel() -> None:
     factory_section = source[start:end]
 
     assert "cmd-factory-board__stats" not in factory_section
-    assert "factoryBoardImage" in source
-    assert "cmd-factory-board__visual" in factory_section
-    assert "cmd-factory-board__functional" in factory_section
+    assert "factoryBoardImage" not in source
+    assert "cmd-factory-board__visual" not in factory_section
+    assert "cmd-factory-board__functional" not in factory_section
     assert "data-testid=\"review-command-deck\"" in factory_section
     assert "cmd-factory-table" in factory_section
-    assert "合计/平均" in factory_section
+    for text in [
+        "厂级观察面 · 不写入生产事实",
+        "车间/产线",
+        "产量（吨）",
+        "成品率",
+        "良率/优品率",
+        "异常",
+        "趋势（24h）",
+        "风险摘要",
+    ]:
+        assert text in factory_section
+    assert "提交生产数据" not in factory_section
+    assert "补录产量" not in factory_section
 
 
 def test_reference_modules_use_distinct_target_panel_layouts() -> None:
@@ -432,13 +467,93 @@ def test_reference_modules_use_distinct_target_panel_layouts() -> None:
         "cmd-layout--ops-observability",
         "cmd-layout--governance-matrix",
         "cmd-layout--master-templates",
-        "cmd-layout--roadmap",
     ]
     for hook in required_hooks:
         assert hook in source
-    assert "referencePanelImage" in source
-    assert "ingestionPanelImage" in source
-    assert "cmd-module-page__visual" in source
+    assert "referencePanelImage" not in source
+    assert "ingestionPanelImage" not in source
+    assert "reviewCenterPanelImage" not in source
+    assert "cmd-module-page__visual" not in source
+
+
+def test_center_navigation_defines_first_round_business_centers_only() -> None:
+    source = _read_repo_file("frontend/src/config/navigation.js")
+
+    for expected in [
+        "no: '01'",
+        "no: '03'",
+        "no: '05'",
+        "no: '06'",
+        "no: '07'",
+        "no: '08'",
+        "no: '09'",
+        "no: '10'",
+        "no: '11'",
+        "no: '12'",
+        "no: '13'",
+        "no: '14'",
+    ]:
+        assert expected in source
+    for expected in [
+        "title: '独立填报端首页'",
+        "title: '系统总览主视图'",
+        "title: '工厂作业看板'",
+        "title: '数据接入与字段映射中心'",
+        "title: '审阅中心'",
+        "title: '日报与交付中心'",
+        "title: '质量与告警中心'",
+        "title: '成本核算与效益中心'",
+        "title: 'AI 总控中心'",
+        "title: '系统运维与观测'",
+        "title: '权限与治理中心'",
+        "title: '主数据与模板中心'",
+    ]:
+        assert expected in source
+    assert "no: '02'" not in source
+    assert "no: '04'" not in source
+    assert "no: '15'" not in source
+    assert "no: '16'" not in source
+    assert "description" not in source
+
+
+def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> None:
+    router = _read_repo_file("frontend/src/router/index.js")
+    admin_shell = _read_repo_file("frontend/src/layout/AdminShell.vue")
+    app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
+
+    assert '<AppShell zone="admin">' in admin_shell
+    assert "admin-shell" in app_shell
+
+    required_canonicals = [
+        ("'/entry'", "'03'"),
+        ("'/entry/report/:businessDate/:shiftId'", "'04'"),
+        ("'/entry/advanced/:businessDate/:shiftId'", "'04'"),
+        ("'/entry/attendance'", "'03'"),
+        ("'/entry/history'", "'03'"),
+        ("'/entry/drafts'", "'03'"),
+        ("'/review/overview'", "'01'"),
+        ("'/review/factory'", "'05'"),
+        ("'/review/workshop'", "'05'"),
+        ("'/review/tasks'", "'07'"),
+        ("'/review/reports'", "'08'"),
+        ("'/review/quality'", "'09'"),
+        ("'/review/reconciliation'", "'09'"),
+        ("'/review/cost-accounting'", "'10'"),
+        ("'/admin/ingestion'", "'06'"),
+        ("'/admin/master'", "'14'"),
+        ("'/admin/master/templates'", "'14'"),
+        ("'/admin/users'", "'13'"),
+        ("'/admin/governance'", "'13'"),
+        ("'/admin/ops'", "'12'"),
+    ]
+    for canonical, center_no in required_canonicals:
+        index = router.index(canonical)
+        route_slice = router[max(0, index - 280): index + 360]
+        assert "zone:" in route_slice
+        assert "access:" in route_slice
+        assert "title:" in route_slice
+        assert "canonical:" in route_slice
+        assert f"centerNo: {center_no}" in route_slice
 
 
 def test_router_exposes_reference_admin_ops_short_path() -> None:
@@ -462,25 +577,24 @@ def test_router_exposes_reference_admin_short_paths() -> None:
     assert "redirect: { name: 'admin-users' }" in source
 
 
-def test_review_roadmap_remains_in_review_surface() -> None:
+def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
     start = source.index("path: '/review'")
     end = source.index("{ path: '/factory'", start)
     review_routes = source[start:end]
 
     assert "path: 'roadmap'," in review_routes
-    assert "name: 'review-roadmap-center'" in review_routes
-    assert "component: CommandModulePage" in review_routes
-    assert "moduleId: '16'" in review_routes
-    assert "redirect: { name: 'admin-roadmap-center' }" not in review_routes
+    assert "redirect: { name: 'review-overview-home' }" in review_routes
+    assert "name: 'review-roadmap-center'" not in review_routes
+    assert "moduleId: '16'" not in review_routes
 
 
-def test_review_roadmap_is_formal_review_navigation_item() -> None:
+def test_review_roadmap_is_not_formal_review_navigation_item() -> None:
     source = _read_repo_file("frontend/src/config/navigation.js")
 
-    assert "'review-roadmap-center': { center: 'roadmap', group: '经营与智能'" in source
-    assert "'review-roadmap-center': { center: 'roadmap', group: '兼容入口'" not in source
-    assert "{ routeName: 'review-roadmap-center', label: '路线图', access: 'review_surface' }" in source
+    assert "review-roadmap-center" not in source
+    assert "admin-roadmap-center" not in source
+    assert "路线图" not in source
 
 
 def test_factory_board_uses_reference_frame_module_05() -> None:

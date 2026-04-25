@@ -16,6 +16,9 @@ def _read_repo_file(relative_path: str) -> str:
     return (_resolve_repo_root() / relative_path).read_text(encoding="utf-8-sig")
 
 
+VISUAL_AUDIT_TOOL = "frontend/tools/visual-audit/command-center-audit.cjs"
+
+
 def test_readme_promotes_dingtalk_mobile_entry() -> None:
     readme = _read_repo_file("README.md")
 
@@ -94,7 +97,8 @@ def test_mobile_entry_uses_current_task_first_copy() -> None:
 def test_shift_report_form_copy_matches_manual_phase() -> None:
     source = _read_repo_file("frontend/src/views/mobile/ShiftReportForm.vue")
 
-    assert "录数字，再提交。" in source
+    assert "提交前确认关键数字。" in source
+    assert "正式提交" in source
     assert "04 填报流程页" in source
     assert "goDesktop" not in source
     assert "canAccessDesktop" not in source
@@ -308,13 +312,16 @@ def test_phase1_layout_hides_review_and_statistics_navigation() -> None:
 def test_layout_trims_admin_navigation_to_phase1_minimum_controls() -> None:
     source = _read_repo_file("frontend/src/config/navigation.js")
 
-    assert "const desktopNavigation = [" in source
-    assert "label: '兼容入口'" in source
-    assert "routeName: 'master-workshop'" in source
-    assert "routeName: 'review-template-center'" in source
+    assert "const adminNavigation = [" in source
+    assert "label: '管理总览'" in source
+    assert "label: '数据接入与字段映射中心'" in source
+    assert "label: '权限治理'" in source
+    assert "routeName: 'admin-master-workshop'" in source
+    assert "routeName: 'admin-template-center'" in source
     assert "routeName: 'master-team'" not in source
     assert "routeName: 'master-employee'" not in source
     assert "routeName: 'master-alias'" not in source
+    assert "routeName: 'admin-roadmap-center'" not in source
 
 
 def test_layout_surfaces_phase1_agent_shell_badges() -> None:
@@ -329,9 +336,9 @@ def test_layout_surfaces_phase1_agent_shell_badges() -> None:
 def test_router_exposes_separate_review_surface() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "const CommandReviewShell = () => import('../reference-command/shells/CommandReviewShell.vue')" in source
+    assert "const ReviewShell = () => import('../layout/ReviewShell.vue')" in source
     assert "path: '/review'" in source
-    assert "component: CommandReviewShell" in source
+    assert "component: ReviewShell" in source
     assert "zone: 'review'" in source
 
 
@@ -374,7 +381,8 @@ def test_shells_do_not_leak_cross_surface_navigation() -> None:
     assert "审阅任务" not in entry
     assert "主数据" not in entry
     assert "AI 助手" in app_shell
-    assert "管理控制台" in admin
+    assert "管理控制台" in app_shell
+    assert '<AppShell zone="admin">' in admin
     assert "现场填报" not in admin
 
 
@@ -423,7 +431,7 @@ def test_reference_review_modules_use_numbered_cn_titles() -> None:
         "frontend/src/views/reports/ReportList.vue": ("08", "日报与交付中心"),
         "frontend/src/views/quality/QualityCenter.vue": ("09", "质量与告警中心"),
         "frontend/src/views/review/CostAccountingCenter.vue": ("10", "成本核算与效益中心"),
-        "frontend/src/views/assistant/BrainCenter.vue": ("11", "AI 总大脑中心"),
+        "frontend/src/views/assistant/BrainCenter.vue": ("11", "AI 总控中心"),
     }
     for path, (number, title) in modules.items():
         source = _read_repo_file(path)
@@ -441,16 +449,17 @@ def test_reference_admin_modules_use_numbered_cn_titles() -> None:
 
     modules = {
         "frontend/src/views/review/IngestionCenter.vue": ("06", "数据接入与字段映射中心"),
-        "frontend/src/views/reports/LiveDashboard.vue": ("12", "系统运维与可观测"),
-        "frontend/src/views/review/GovernanceCenter.vue": ("13", "权限治理中心"),
+        "frontend/src/views/reports/LiveDashboard.vue": ("12", "系统运维与观测"),
+        "frontend/src/views/review/GovernanceCenter.vue": ("13", "权限与治理中心"),
         "frontend/src/views/master/WorkshopTemplateConfig.vue": ("14", "主数据与模板中心"),
-        "frontend/src/views/review/RoadmapCenter.vue": ("16", "路线图与下一步"),
     }
     for path, (number, title) in modules.items():
         source = _read_repo_file(path)
         assert f'module-number="{number}"' in source
         assert title in source
         assert "ReferencePageFrame" in source
+
+    assert not (_resolve_repo_root() / "frontend/src/views/review/RoadmapCenter.vue").exists()
 
 
 def test_review_router_closes_core_centers_for_target_granularity() -> None:
@@ -463,16 +472,19 @@ def test_review_router_closes_core_centers_for_target_granularity() -> None:
     assert "name: 'review-ops-reliability'" in source
     assert "name: 'review-cost-accounting'" in source
     assert "name: 'review-governance-center'" in source
-    assert "name: 'review-roadmap-center'" in source
     assert "name: 'review-template-center'" in source
     assert "name: 'admin-ingestion-center'" in source
     assert "name: 'admin-ops-reliability'" in source
     assert "name: 'admin-governance-center'" in source
     assert "name: 'admin-template-center'" in source
-    assert "name: 'admin-roadmap-center'" in source
+    assert "name: 'review-roadmap-center'" not in source
+    assert "name: 'admin-roadmap-center'" not in source
+    assert "path: 'brain'," in source
+    assert "name: 'review-brain-center'" in source
+    assert "moduleId: '11'" in source
     assert "path: '/ops/reliability', redirect: '/admin/ops'" in source
     assert "path: '/cost/accounting', redirect: '/review/cost-accounting'" in source
-    assert "path: '/roadmap/next', redirect: '/admin/roadmap'" in source
+    assert "path: '/roadmap/next', redirect: '/review/overview'" in source
     assert "path: 'master/workshop-templates'" in source
     assert "redirect: '/master/workshop-template'" in source
 
@@ -482,14 +494,15 @@ def test_review_layout_exposes_multi_center_navigation_groups() -> None:
 
     assert "label: '总览中心'" in source
     assert "label: '审阅处置'" in source
-    assert "label: '质量与核对'" in source
     assert "label: '经营与智能'" in source
-    assert "label: '数据与模板'" in source
-    assert "label: '现场录入'" in source
+    assert "label: '录入端'" in source
+    assert "label: '管理端'" in source
+    assert "label: '数据接入与字段映射中心'" in source
+    assert "label: '权限治理'" in source
     assert "routeName: 'admin-ops-reliability'" in source
     assert "routeName: 'review-cost-accounting'" in source
     assert "routeName: 'admin-governance-center'" in source
-    assert "routeName: 'admin-roadmap-center'" in source
+    assert "routeName: 'admin-roadmap-center'" not in source
     assert "routeName: 'mobile-entry'" not in re.search(
         r"const reviewNavigation = \[(.*?)\]\n\nconst adminNavigation",
         source,
@@ -551,7 +564,7 @@ def test_backend_main_mounts_dingtalk_without_wecom_entry() -> None:
 
 
 def test_visual_audit_script_uses_admin_reference_routes() -> None:
-    source = _read_repo_file("frontend/tmp_visual_audit.cjs")
+    source = _read_repo_file(VISUAL_AUDIT_TOOL)
 
     assert "route: '/admin/master/templates'" in source
     assert "/master/workshop-templates" not in source
@@ -559,6 +572,9 @@ def test_visual_audit_script_uses_admin_reference_routes() -> None:
     assert "01 system overview visible" in source
     assert "12 ops center visible" in source
     assert "overview quick entries" in source
+    assert "REFERENCE_MANIFEST.md" in source
+    assert "08-reports-delivery.png" in source
+    assert "C:/Users/" not in source
     assert "process.exitCode = 1" in source
 
 

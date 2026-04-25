@@ -54,7 +54,7 @@ def _build_entry_modules(*, target_date: date) -> list[CommandModuleOut]:
     return [
         _module(
             module_id='03',
-            title='独立填报端',
+            title='独立填报端首页',
             surface='entry',
             kpis=[
                 {'label': '待填任务', 'value': '12', 'unit': '项', 'trend': '今日', 'status': 'warning', 'icon_key': 'task'},
@@ -112,24 +112,14 @@ def _build_review_modules(*, target_date: date) -> list[CommandModuleOut]:
         _module(module_id='08', title='日报与交付中心', surface='review', status_summary=[f'{target_date.isoformat()} 日报交付状态可追踪。']),
         _module(module_id='09', title='质量与告警中心', surface='review', status_summary=['质量告警与差异核对保持联动。']),
         _module(module_id='10', title='成本核算与效益中心', surface='review', status_summary=['按策略引擎输出吨耗与校差记录。']),
-        _module(module_id='11', title='AI 总大脑中心', surface='review', status_summary=['接入摘要、风险、成本和问答视图。']),
-        _module(
-            module_id='16',
-            title='路线图与下一步',
-            surface='review',
-            status_summary=['审阅视角聚焦当前推进、业务阻塞和下一步交付。'],
-            actions=[
-                {'label': '路线图', 'route_name': 'review-roadmap-center', 'access': 'review_surface'},
-            ],
-        ),
+        _module(module_id='11', title='AI 总控中心', surface='review', status_summary=['AI 建议为辅助建议，必须展示 mock/live 来源。']),
     ]
 
 
 def _build_admin_modules(*, target_date: date) -> list[CommandModuleOut]:
     return [
         _module(module_id='06', title='数据接入与字段映射中心', surface='admin', status_summary=['导入、映射、错误解释统一管理。']),
-        _module(module_id='12', title='系统运维与可观测', surface='admin', status_summary=[f'{target_date.isoformat()} 探针与实时运营合并展示。']),
-        _module(module_id='13', title='权限治理中心', surface='admin', status_summary=['角色矩阵、数据范围和账号分布统一治理。']),
+        _module(module_id='12', title='系统运维与观测', surface='admin', status_summary=[f'{target_date.isoformat()} 探针与实时运营合并展示。']),
+        _module(module_id='13', title='权限与治理中心', surface='admin', status_summary=['角色矩阵、数据范围和账号分布统一治理。']),
         _module(module_id='14', title='主数据与模板中心', surface='admin', status_summary=['字段模板、车间主数据、录入口径统一维护。']),
-        _module(module_id='16', title='路线图与下一步', surface='admin', status_summary=['当前推进、下一阶段、后续排期三段展示。']),
     ]
