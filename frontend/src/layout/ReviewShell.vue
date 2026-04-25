@@ -1,5 +1,5 @@
 <template>
-  <AppShell zone="admin">
+  <AppShell zone="review">
     <router-view />
   </AppShell>
 </template>

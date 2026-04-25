@@ -1,11 +1,10 @@
 <template>
   <div class="cmd-page cmd-login" data-module="02" data-testid="login-page">
-    <section class="cmd-login-reference">
-      <img class="cmd-login-reference__visual" :src="loginRoleHandoffImage" alt="" />
-      <div class="cmd-login__functional">
-        <div class="cmd-module-page__title cmd-login__functional-title">
-          <span class="cmd-login__number">02</span>
-          <h1>登录与角色入口</h1>
+    <section class="cmd-login__stage">
+      <div class="cmd-login__hero">
+        <div class="cmd-shell__brand" data-testid="login-brand">
+          <span v-html="commandLogoMark" />
+          <strong>鑫泰铝业生产协同系统</strong>
         </div>
         <div class="cmd-login__roles" aria-label="角色入口">
           <button
@@ -13,12 +12,19 @@
             :key="option.value"
             type="button"
             :class="['cmd-login__role', { 'is-active': selectedSurface === option.value }]"
-            :data-testid="`login-surface-${option.value}`"
+            :data-testid="option.testId"
             @click="selectedSurface = option.value"
           >
             <strong>{{ option.label }}</strong>
             <span>{{ option.title }}</span>
           </button>
+        </div>
+      </div>
+
+      <div class="cmd-login__card">
+        <div class="cmd-module-page__title cmd-login__functional-title">
+          <span class="cmd-login__number">02</span>
+          <h1>登录与角色入口</h1>
         </div>
         <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="submit">
           <el-form-item prop="username">
@@ -27,11 +33,11 @@
           <el-form-item prop="password">
             <el-input v-model="form.password" data-testid="login-password" type="password" placeholder="密码" size="large" show-password autocomplete="current-password" />
           </el-form-item>
-          <el-button data-testid="login-submit" type="primary" size="large" :loading="loading" native-type="submit" style="width: 100%">
+          <el-button data-testid="login-submit" class="cmd-login__submit" type="primary" size="large" :loading="loading" native-type="submit">
             进入系统
           </el-button>
         </el-form>
-        <div class="cmd-action-bar" style="justify-content: space-between">
+        <div class="cmd-login__status-row">
           <span class="cmd-status">统一身份认证</span>
           <span class="cmd-status">权限自动分流</span>
         </div>
@@ -46,7 +52,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { useAuthStore } from '../../stores/auth.js'
-import loginRoleHandoffImage from '../assets/login-role-handoff.png'
+import { commandLogoMark } from '../assets/logo.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -63,9 +69,9 @@ const form = reactive({
 })
 
 const surfaceOptions = [
-  { value: 'entry', label: '录入端', title: '现场直接报数' },
-  { value: 'review', label: '审阅端', title: '异常审阅处置' },
-  { value: 'admin', label: '管理端', title: '系统配置治理' }
+  { value: 'entry', label: '录入填报', title: '现场直接报数', testId: 'login-surface-entry' },
+  { value: 'review', label: '审阅端', title: '异常审阅处置', testId: 'login-surface-review' },
+  { value: 'admin', label: '管理端', title: '系统配置治理', testId: 'login-surface-admin' }
 ]
 
 const rules = {

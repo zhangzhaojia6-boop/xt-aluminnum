@@ -1,20 +1,20 @@
 :root {
-  --cmd-bg: #f4f7fb;
+  --cmd-bg: #f5f7fb;
   --cmd-panel: #ffffff;
   --cmd-panel-soft: #f8fbff;
   --cmd-border: #e5edf7;
   --cmd-border-strong: #d5e2f1;
-  --cmd-blue: #1f6fff;
-  --cmd-blue-deep: #0f56d9;
-  --cmd-cyan: #14b8d4;
-  --cmd-green: #16a37a;
-  --cmd-red: #ef3e52;
-  --cmd-amber: #f5a623;
-  --cmd-text: #102033;
-  --cmd-muted: #64748b;
-  --cmd-shadow: 0 8px 24px rgba(30, 76, 138, 0.07);
-  --cmd-radius: 12px;
-  --cmd-radius-sm: 8px;
+  --cmd-blue: #0f6bff;
+  --cmd-blue-deep: #0b56d8;
+  --cmd-cyan: #0ea5b7;
+  --cmd-green: #0f9f6e;
+  --cmd-red: #e11d2e;
+  --cmd-amber: #d97706;
+  --cmd-text: #0f1f35;
+  --cmd-muted: #66758f;
+  --cmd-shadow: 0 8px 22px rgba(15, 45, 84, 0.06);
+  --cmd-radius: 16px;
+  --cmd-radius-sm: 12px;
   --cmd-gap: 10px;
   --cmd-font: "DIN Alternate", "Barlow Condensed", "MiSans", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
 }

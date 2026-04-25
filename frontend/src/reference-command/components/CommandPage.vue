@@ -14,21 +14,17 @@
     </header>
 
     <section v-if="showFactoryCompat" class="cmd-factory-board" data-testid="review-home-hero">
-      <img class="cmd-factory-board__visual" :src="factoryBoardImage" alt="" />
-      <div class="cmd-factory-board__functional">
       <div class="cmd-factory-board__top">
-        <span class="cmd-factory-board__lead">车间 / 产线日内作业</span>
-        <div class="review-home-hero__controls cmd-factory-board__date">
-          <label class="el-date-editor">
-            <input v-model="targetDate" aria-label="目标日期" />
-          </label>
-        </div>
+        <span class="cmd-factory-board__lead">厂级观察面 · 不写入生产事实</span>
         <div class="cmd-factory-board__badges">
+          <span class="cmd-muted">更新时间：{{ factoryBoardMock.updatedAt }}</span>
+          <button type="button" role="tab" class="cmd-button" @click="refreshView">刷新</button>
           <span class="cmd-status" data-testid="delivery-ready-card">日报交付就绪</span>
-          <button type="button" role="tab" class="cmd-button">关注</button>
           <span class="cmd-status" data-testid="delivery-missing-steps">待补齐步骤</span>
         </div>
       </div>
+
+      <MockDataNotice source="fallback" message="工厂作业看板使用兜底状态网格，真实接口接入后替换。" />
 
       <div data-testid="review-command-deck" class="cmd-factory-board__main">
         <table class="cmd-table cmd-factory-table">
@@ -36,8 +32,8 @@
             <tr>
               <th>车间/产线</th>
               <th>产量（吨）</th>
-              <th>OEE</th>
-              <th>良率/成品率</th>
+              <th>成品率</th>
+              <th>良率/优品率</th>
               <th>异常</th>
               <th>趋势（24h）</th>
             </tr>
@@ -46,34 +42,36 @@
             <tr v-for="row in factoryRows" :key="row.name">
               <td>{{ row.name }}</td>
               <td>{{ row.output }}</td>
-              <td>{{ row.oee }}</td>
-              <td>{{ row.quality }}</td>
-              <td :class="{ 'is-risk': row.risk !== '0' }">{{ row.risk }}</td>
+              <td>{{ row.yieldRate }}</td>
+              <td>{{ row.qualityRate }}</td>
+              <td :class="{ 'is-risk': row.exceptionCount > 0 }">{{ row.exceptionCount }}</td>
               <td><CommandTrend :values="row.trend" /></td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <td>合计/平均</td>
-              <td>5,824</td>
-              <td>92.3%</td>
-              <td>96.2%</td>
-              <td class="is-risk">4</td>
+              <td>{{ factoryBoardMock.total.name }}</td>
+              <td>{{ factoryBoardMock.total.output }}</td>
+              <td>{{ factoryBoardMock.total.yieldRate }}</td>
+              <td>{{ factoryBoardMock.total.qualityRate }}</td>
+              <td class="is-risk">{{ factoryBoardMock.total.exceptionCount }}</td>
               <td><CommandTrend :values="[8, 12, 10, 15, 13, 16, 14]" /></td>
             </tr>
           </tfoot>
         </table>
 
         <aside class="cmd-factory-board__side">
-          <div class="cmd-factory-metrics" aria-label="工厂汇总指标">
-            <article v-for="card in factoryCards" :key="card.label" class="stat-card">
-              <span>{{ card.label }}</span>
-              <strong class="stat-value">{{ card.value }}</strong>
-              <em>{{ card.trend }}</em>
-            </article>
+          <div class="cmd-risk-summary" aria-label="风险摘要">
+            <strong>风险摘要</strong>
+            <span v-for="risk in factoryBoardMock.risks" :key="risk.label">
+              <StatusBadge :label="risk.label" :tone="risk.tone" />
+              <em>{{ risk.value }}</em>
+            </span>
+            <button type="button" class="cmd-button" @click="goRoute('review-task-center')">进入审阅任务</button>
+            <button type="button" class="cmd-button" @click="goRoute('review-quality-center')">进入质量中心</button>
           </div>
           <div data-testid="agent-runtime-flow" class="cmd-factory-ai">
-            <strong>算法流水线</strong>
+            <strong>系统辅助状态</strong>
             <span>分析决策助手</span>
             <span>执行交付助手</span>
             <span>可靠度</span>
@@ -99,49 +97,91 @@
         <button type="button" class="cmd-button">搜上下文</button>
         <button type="button" class="cmd-button">出图</button>
       </div>
-      </div>
     </section>
 
     <template v-else>
-      <img v-if="referencePanelImage" class="cmd-module-page__visual" :src="referencePanelImage" alt="" />
-      <div :class="{ 'cmd-module-page__functional': referencePanelImage }">
       <div v-if="module.moduleId === '13'" data-testid="review-governance-center" class="cmd-status">权限治理在线</div>
       <div v-if="module.moduleId === '13'" data-testid="admin-users-center" class="cmd-status">用户治理在线</div>
       <div v-if="module.moduleId === '14'" data-testid="admin-home" class="cmd-status">管理总览在线</div>
       <div v-if="module.moduleId === '14'" data-testid="admin-master-center" class="cmd-status">主数据在线</div>
       <div v-if="module.moduleId === '14'" data-testid="template-editor-page" class="cmd-status">模板中心在线</div>
 
+      <MockDataNotice v-if="showModuleFallbackNotice" source="fallback" :message="moduleFallbackNotice" />
+
       <section :class="['cmd-target-layout', layoutClass]">
         <template v-if="module.moduleId === '06'">
-          <div class="cmd-module-page__primary">
-            <div class="cmd-source-list">
-              <span v-for="source in mappingSources" :key="source.name">
-                <i></i>{{ source.name }}<strong>{{ source.state }}</strong>
-              </span>
-            </div>
-            <table class="cmd-table">
-              <thead><tr><th>源字段</th><th>目标字段</th><th>类型</th><th>映射状态</th></tr></thead>
-              <tbody>
-                <tr v-for="row in mappingFields" :key="row.source">
-                  <td>{{ row.source }}</td><td>{{ row.target }}</td><td>{{ row.type }}</td><td>{{ row.state }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="cmd-module-page__primary cmd-ingestion-grid">
+            <section class="cmd-ingestion-sources">
+              <header class="cmd-section-title">数据源列表</header>
+              <div class="cmd-source-list">
+                <span v-for="source in ingestionCenterMock.sources" :key="source.name">
+                  <SourceBadge :source="source.source" />
+                  {{ source.name }}
+                  <StatusBadge :label="source.status" :tone="source.tone" />
+                </span>
+              </div>
+              <button type="button" class="cmd-button" disabled title="待接入真实新增数据源接口">添加数据源（待接入）</button>
+            </section>
+
+            <section class="cmd-ingestion-mapping">
+              <header class="cmd-section-title">字段映射</header>
+              <table class="cmd-table">
+                <thead><tr><th>字段名称</th><th>字段类型</th><th>数据源字段</th><th>映射方式</th><th>校验状态</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in ingestionCenterMock.fields" :key="row.name">
+                    <td>{{ row.name }}</td>
+                    <td><StatusBadge :label="row.type" tone="info" /></td>
+                    <td>{{ row.sourceField }}</td>
+                    <td>{{ row.mapping }}</td>
+                    <td><StatusBadge :label="row.check" tone="success" /></td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="button" class="cmd-button" disabled title="映射保存接口待接入">编辑映射规则（待接入）</button>
+            </section>
+
+            <section class="cmd-ingestion-history">
+              <header class="cmd-section-title">导入历史（最近）</header>
+              <table class="cmd-table">
+                <thead><tr><th>时间</th><th>数据源</th><th>文件/任务名称</th><th>总行数</th><th>成功行数</th><th>失败行数</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in ingestionCenterMock.history" :key="row.id">
+                    <td>{{ row.time }}</td>
+                    <td>{{ row.source }}</td>
+                    <td>{{ row.task }}</td>
+                    <td>{{ row.total }}</td>
+                    <td>{{ row.success }}</td>
+                    <td :class="{ 'is-risk': row.failed !== '0' }">{{ row.failed }}</td>
+                    <td><StatusBadge :label="row.status" :tone="row.status === '部分失败' ? 'warning' : 'success'" /></td>
+                    <td><button type="button" class="cmd-mini-button" disabled :title="row.reason">详情（待接入）</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
           </div>
-          <aside class="cmd-module-page__side cmd-ring-card">
-            <strong>导入成功率</strong>
-            <div class="cmd-ring">96%</div>
-            <span>今日 5 个文件 · 12 项映射</span>
+          <aside class="cmd-module-page__side cmd-ingestion-side">
+            <strong>导入概览（今日）</strong>
+            <div v-for="item in ingestionCenterMock.overview" :key="item.label" class="cmd-side-metric">
+              <span>{{ item.label }}</span>
+              <b :class="`is-${item.tone}`">{{ item.value }}<small>{{ item.unit }}</small></b>
+            </div>
+            <div class="cmd-donut" aria-label="导入成功率">88.54%</div>
+            <strong>错误/失败说明</strong>
+            <span class="cmd-muted">失败记录可进入历史行查看原因摘要；详情接口待接入，不伪造成功处理。</span>
           </aside>
         </template>
 
-        <template v-else-if="module.moduleId === '07'">
+        <template v-else-if="showReviewTasks">
+          <MockDataNotice source="fallback" message="审阅任务使用兜底队列，AI 建议仅作为辅助建议。" />
+          <div class="cmd-review-tabs" role="tablist" aria-label="待审 已审 已驳回" data-review-tabs="待审 已审 已驳回">
+            <button v-for="tab in reviewTaskMock.tabs" :key="tab" type="button" role="tab" class="cmd-button">{{ tab }}</button>
+          </div>
           <table class="cmd-table cmd-module-page__primary">
-            <thead><tr><th>消息源</th><th>班次</th><th>提交时间</th><th>异常类型</th><th>AI 建议</th><th>操作</th></tr></thead>
+            <thead><tr><th>录入车间</th><th>班次</th><th>提交时间</th><th>异常类型</th><th>AI 建议</th><th>风险等级</th><th>操作</th></tr></thead>
             <tbody>
-              <tr v-for="row in reviewQueue" :key="row.time">
-                <td>{{ row.source }}</td><td>{{ row.shift }}</td><td>{{ row.time }}</td><td>{{ row.type }}</td><td>{{ row.ai }}</td>
-                <td><button type="button" class="cmd-mini-button">通过</button></td>
+              <tr v-for="row in reviewTaskMock.rows" :key="row.id">
+                <td>{{ row.workshop }}</td><td>{{ row.shift }}</td><td>{{ row.submittedAt }}</td><td>{{ row.anomalyType }}</td><td>{{ row.aiAdvice }}</td><td>{{ row.risk }}</td>
+                <td><button type="button" class="cmd-mini-button">通过</button><button type="button" class="cmd-mini-button">驳回</button></td>
               </tr>
             </tbody>
           </table>
@@ -149,50 +189,106 @@
             <strong>批量操作</strong>
             <button type="button" class="cmd-button is-primary">批量通过</button>
             <button type="button" class="cmd-button">批量驳回</button>
+            <button type="button" class="cmd-button">导出清单</button>
             <CommandTrend :values="viewModel.trend" />
           </aside>
         </template>
 
         <template v-else-if="module.moduleId === '08'">
-          <div class="cmd-module-page__primary cmd-report-grid">
-            <CommandKpi v-for="kpi in viewModel.kpis" :key="kpi.label" v-bind="kpi" />
-            <CommandTrend class="cmd-wide-trend" :values="[20, 24, 22, 32, 29, 35, 38, 34]" />
+          <div class="cmd-module-page__primary cmd-report-center">
+            <KpiStrip :items="reportDeliveryMock.kpis" />
+            <section class="cmd-chart-card">
+              <header class="cmd-section-title">日量趋势</header>
+              <CommandTrend class="cmd-wide-trend" :values="reportDeliveryMock.trend" />
+              <span class="cmd-muted">日报范围：auto_confirmed / 已自动确认口径。</span>
+            </section>
           </div>
-          <aside class="cmd-module-page__side cmd-delivery-list">
+          <aside class="cmd-module-page__side cmd-delivery-list cmd-delivery-panel">
             <strong>交付清单</strong>
-            <span>计划交付 <b>23 车</b></span>
-            <span>已交付 <b>20 车</b></span>
-            <span>待交付 <b>3 车</b></span>
+            <span v-for="item in reportDeliveryMock.delivery" :key="item.label">
+              {{ item.label }} <b>{{ item.value }} {{ item.unit }}</b>
+              <StatusBadge :label="item.tone === 'danger' ? '阻塞' : '状态'" :tone="item.tone" />
+            </span>
+            <strong>操作区</strong>
+            <button
+              v-for="action in reportDeliveryMock.actions"
+              :key="action.label"
+              type="button"
+              class="cmd-button"
+              :disabled="action.state !== '可用'"
+              :title="action.state === '可用' ? '仅导出当前日报视图' : '后端交付接口待接入'"
+            >
+              {{ action.label }}{{ action.state === '可用' ? '' : '（待接入）' }}
+            </button>
           </aside>
         </template>
 
         <template v-else-if="module.moduleId === '09'">
           <table class="cmd-table cmd-module-page__primary">
-            <thead><tr><th>时间</th><th>来源</th><th>类型</th><th>严重度</th><th>状态</th></tr></thead>
+            <thead><tr><th>时间</th><th>来源</th><th>类型</th><th>描述</th><th>严重度</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
-              <tr v-for="row in qualityAlerts" :key="row.time">
-                <td>{{ row.time }}</td><td>{{ row.source }}</td><td>{{ row.type }}</td><td>{{ row.level }}</td><td>{{ row.state }}</td>
+              <tr v-for="row in qualityCenterMock.rows" :key="row.id">
+                <td>{{ row.time }}</td>
+                <td>{{ row.source }}</td>
+                <td>{{ row.type }}</td>
+                <td>{{ row.detail }}</td>
+                <td><StatusBadge :label="row.severity" :tone="severityTone(row.severity)" /></td>
+                <td><StatusBadge :label="row.status" :tone="qualityStatusTone(row.status)" /></td>
+                <td>
+                  <button type="button" class="cmd-mini-button" disabled title="详情接口待接入">查看详情</button>
+                  <button type="button" class="cmd-mini-button" disabled title="处置接口待接入">标记处理中</button>
+                  <button type="button" class="cmd-mini-button" disabled title="关闭接口待接入">关闭</button>
+                </td>
               </tr>
             </tbody>
           </table>
-          <aside class="cmd-module-page__side cmd-stack-list">
-            <strong>质量处置建议</strong>
-            <span>AI 分类与诊断</span><span>建议快速复检</span><span>执行与追踪</span><span>关闭历史批次</span>
+          <aside class="cmd-module-page__side cmd-stack-list cmd-quality-flow">
+            <strong>质量处置流程</strong>
+            <span v-for="step in qualityCenterMock.flow" :key="step.title">
+              <b>{{ step.title }}</b>
+              <em>{{ step.body }}</em>
+            </span>
+            <button type="button" class="cmd-button" @click="goRoute('review-task-center')">进入审阅任务</button>
+            <span class="cmd-muted">AI 辅助分诊仅作辅助建议，不自动关闭质量问题。</span>
           </aside>
         </template>
 
         <template v-else-if="module.moduleId === '10'">
-          <div class="cmd-module-page__primary cmd-cost-bars">
-            <div v-for="row in costRows" :key="row.name" class="cmd-cost-row">
-              <span>{{ row.name }}</span>
-              <i :style="{ '--cmd-bar': row.value }"></i>
-              <strong>{{ row.amount }}</strong>
+          <div class="cmd-module-page__primary cmd-cost-center">
+            <div class="cmd-tab-row">
+              <button v-for="tab in costCenterMock.caliberTabs" :key="tab" type="button" class="cmd-button" :class="{ 'is-primary': tab === '铸二' }">{{ tab }}</button>
             </div>
+            <div class="cmd-tab-row">
+              <button type="button" class="cmd-button is-primary">产量口径</button>
+              <button type="button" class="cmd-button" disabled title="通货口径策略接口待接入">通货口径（待接入）</button>
+            </div>
+            <KpiStrip :items="costCenterMock.kpis" />
+            <section class="cmd-chart-card">
+              <header class="cmd-section-title">成本构成趋势（元/吨）</header>
+              <div class="cmd-stack-chart">
+                <div v-for="bar in costCenterMock.trend" :key="bar.day" class="cmd-stack-bar">
+                  <i
+                    v-for="(part, index) in bar.parts"
+                    :key="`${bar.day}-${index}`"
+                    :style="{ height: `${part / 90}%` }"
+                    :class="`is-part-${index}`"
+                  ></i>
+                  <span>{{ bar.day }}</span>
+                </div>
+              </div>
+            </section>
           </div>
-          <aside class="cmd-module-page__side cmd-stack-list">
-            <strong>调节方案</strong>
-            <span>吨铝成本拆分</span><span>电耗偏高回收</span><span>人工排班优化</span>
-            <button type="button" class="cmd-button is-primary">调节方案</button>
+          <aside class="cmd-module-page__side cmd-stack-list cmd-cost-summary">
+            <strong>经营估算 / 策略口径</strong>
+            <span v-for="row in costCenterMock.cumulative" :key="row.label" :class="{ 'is-total': row.label === '合计' }">
+              <b>{{ row.label }}</b>
+              <em>{{ row.value }}</em>
+              <strong>{{ row.ratio }}</strong>
+            </span>
+            <button type="button" class="cmd-button" disabled title="当前仅展示只读策略口径说明">调整方案（待接入）</button>
+            <button type="button" class="cmd-button" disabled title="口径抽屉待接入">查看口径（待接入）</button>
+            <button type="button" class="cmd-button" disabled title="导出接口待接入">导出（待接入）</button>
+            <span class="cmd-muted">本页不是财务结算中心，不显示财务月结结果。</span>
           </aside>
         </template>
 
@@ -249,16 +345,6 @@
           </aside>
         </template>
 
-        <template v-else-if="module.moduleId === '16'">
-          <div class="cmd-module-page__primary cmd-roadmap">
-            <article v-for="phase in roadmapPhases" :key="phase.title">
-              <strong>{{ phase.title }}</strong>
-              <span v-for="item in phase.items" :key="item">{{ item }}</span>
-              <em>{{ phase.progress }}</em>
-            </article>
-          </div>
-        </template>
-
         <template v-else>
           <div class="cmd-module-page__kpis">
             <CommandKpi v-for="kpi in viewModel.kpis" :key="kpi.label" v-bind="kpi" />
@@ -280,14 +366,13 @@
       </section>
 
       <CommandActionBar :actions="viewModel.actions" />
-      </div>
     </template>
   </section>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import CommandActionBar from './CommandActionBar.vue'
 import CommandFlowMap from './CommandFlowMap.vue'
@@ -295,8 +380,18 @@ import CommandKpi from './CommandKpi.vue'
 import CommandStatus from './CommandStatus.vue'
 import CommandTable from './CommandTable.vue'
 import CommandTrend from './CommandTrend.vue'
-import factoryBoardImage from '../assets/factory-board.png'
-import ingestionPanelImage from '../assets/ingestion-panel.png'
+import KpiStrip from '../../components/app/KpiStrip.vue'
+import MockDataNotice from '../../components/app/MockDataNotice.vue'
+import SourceBadge from '../../components/app/SourceBadge.vue'
+import StatusBadge from '../../components/app/StatusBadge.vue'
+import {
+  costCenterMock,
+  factoryBoardMock,
+  ingestionCenterMock,
+  qualityCenterMock,
+  reportDeliveryMock,
+  reviewTaskMock
+} from '../../mocks/centerMockData.js'
 
 const props = defineProps({
   module: {
@@ -310,11 +405,20 @@ const props = defineProps({
 })
 
 const route = useRoute()
+const router = useRouter()
 const assistantOpen = ref(false)
-const targetDate = ref(new Date().toISOString().slice(0, 10))
 
 const statusLabel = computed(() => props.viewModel.statuses?.[0]?.label || '在线')
 const showFactoryCompat = computed(() => props.module.moduleId === '05' && route.name !== 'workshop-dashboard')
+const showReviewTasks = computed(() => props.module.moduleId === '07')
+const showModuleFallbackNotice = computed(() => ['06', '08', '09', '10', '11', '12', '13', '14'].includes(props.module.moduleId))
+const moduleFallbackNotice = computed(() => (
+  {
+    '06': '数据接入中心使用兜底接入与映射数据，不作为生产事实补录入口。',
+    '10': '成本中心使用经营估算 / 策略口径兜底数据，不代表财务结算。',
+    '11': 'AI 总控使用兜底摘要，AI 建议仅作为辅助建议。'
+  }[props.module.moduleId] || '中心页使用兜底数据，真实接口接入后替换。'
+))
 const moduleTitle = computed(() => route.name === 'workshop-dashboard' ? '车间审阅端' : props.module.title)
 const layoutClassMap = {
   'mapping-center': 'cmd-layout--mapping-center',
@@ -326,73 +430,45 @@ const layoutClassMap = {
   'ops-observability': 'cmd-layout--ops-observability',
   'governance-matrix': 'cmd-layout--governance-matrix',
   'master-templates': 'cmd-layout--master-templates',
-  roadmap: 'cmd-layout--roadmap'
 }
 const layoutClass = computed(() => layoutClassMap[props.module.layout] || '')
-const referencePanelImages = {
-  '06': ingestionPanelImage
-}
-const referencePanelImage = computed(() => referencePanelImages[props.module.moduleId] || '')
 const pageTestId = computed(() => {
   if (route.name === 'workshop-dashboard') return 'workshop-dashboard'
   const map = {
     '05': 'factory-dashboard',
     '06': 'review-ingestion-center-v2',
-    '12': 'live-dashboard',
-    '16': 'review-roadmap-center'
+    '12': 'live-dashboard'
   }
   return map[props.module.moduleId] || ''
 })
 const pageCompatClass = computed(() => ({
   'live-dashboard': props.module.moduleId === '12',
-  'factory-dashboard': props.module.moduleId === '05',
-  'has-reference-panel': Boolean(referencePanelImage.value)
+  'factory-dashboard': props.module.moduleId === '05'
 }))
-const factoryCards = [
-  { label: '合同量', value: '8,560', trend: '+2.1%' },
-  { label: '今日发货', value: '5,824', trend: '+8.6%' },
-  { label: '今日产量', value: '5,824', trend: '+8.6%' }
-]
-const factoryRows = [
-  { name: '铸造一线', output: '1,265', oee: '92.1%', quality: '96.3%', risk: '1', trend: [12, 18, 15, 22, 19, 28, 24] },
-  { name: '铸造二线', output: '1,132', oee: '94.6%', quality: '97.1%', risk: '0', trend: [10, 12, 16, 14, 18, 20, 23] },
-  { name: '精整区', output: '986', oee: '91.3%', quality: '95.6%', risk: '2', trend: [9, 11, 10, 15, 13, 18, 16] },
-  { name: '热轧区', output: '1,432', oee: '90.4%', quality: '94.2%', risk: '1', trend: [18, 15, 19, 22, 20, 24, 27] },
-  { name: '拉矫区', output: '1,009', oee: '93.0%', quality: '96.0%', risk: '0', trend: [8, 12, 11, 14, 18, 17, 19] }
-]
-const mappingSources = [
-  { name: 'MES', state: '已接入' },
-  { name: 'PLC', state: '已接入' },
-  { name: '质检系统', state: '已接入' },
-  { name: 'ERP', state: '已接入' },
-  { name: '手工导入', state: '待办' }
-]
-const mappingFields = [
-  { source: 'order_id', target: '订单编号', type: 'String', state: '已映射' },
-  { source: 'product_code', target: '产品编码', type: 'String', state: '已映射' },
-  { source: 'actual_weight', target: '实际重量', type: 'Float', state: '已映射' },
-  { source: 'bad_qty', target: '不良数量', type: 'Integer', state: '已映射' },
-  { source: 'create_time', target: '生产时间', type: 'DateTime', state: '已映射' }
-]
-const reviewQueue = [
-  { source: '铸造一线', shift: '白班', time: '05-21 10:10', type: '成品率偏低', ai: '建议复核' },
-  { source: '精整区', shift: '白班', time: '05-21 10:05', type: '能耗异常', ai: '中风险' },
-  { source: '热轧区', shift: '夜班', time: '05-21 09:50', type: '产量异常', ai: '建议补录' },
-  { source: '铸造二线', shift: '白班', time: '05-21 09:45', type: '质量波动', ai: '中风险' }
-]
-const qualityAlerts = [
-  { time: '10:12', source: '铸造一线', type: '成品率', level: '高', state: '处理中' },
-  { time: '09:58', source: '热轧区', type: '长宽偏差', level: '中', state: '待确认' },
-  { time: '09:40', source: '精整区', type: '复检异常', level: '中', state: '待确认' },
-  { time: '08:50', source: '拉矫区', type: '设备停机', level: '低', state: '已闭环' }
-]
-const costRows = [
-  { name: '人工', value: '36%', amount: '1,245' },
-  { name: '电耗', value: '52%', amount: '632' },
-  { name: '天然气', value: '28%', amount: '324' },
-  { name: '公辅分摊', value: '42%', amount: '186' },
-  { name: '其他', value: '22%', amount: '98' }
-]
+const factoryRows = factoryBoardMock.rows
+
+function goRoute(name) {
+  router.push({ name })
+}
+
+function refreshView() {
+  router.replace({ name: route.name, query: { ...route.query, refreshed: String(Date.now()) } })
+}
+
+function severityTone(value) {
+  if (value === '高') return 'danger'
+  if (value === '中') return 'warning'
+  if (value === '低') return 'success'
+  return 'neutral'
+}
+
+function qualityStatusTone(value) {
+  if (value === '待处置') return 'pending'
+  if (value === '处理中') return 'processing'
+  if (value === '已处置') return 'success'
+  if (value === '已关闭') return 'closed'
+  return 'neutral'
+}
 const brainRisks = [
   { title: '今日摘要', value: '产量 5,824 吨' },
   { title: '风险 Top5', value: '质量波动 · 中风险' },
@@ -414,10 +490,5 @@ const masterTiles = [
   { icon: '机', label: '机台管理', value: '342 台' },
   { icon: '模', label: '报表模板', value: '24 个模板' },
   { icon: '字', label: '字段字典', value: '186 项' }
-]
-const roadmapPhases = [
-  { title: '当前阶段', progress: '进行中 80%', items: ['核心流程上线', '班组入口稳定', '权限与日报闭环'] },
-  { title: '中期', progress: '进行中 45%', items: ['成本模型优化', '集团 KPI 看板', 'AI 质量诊断'] },
-  { title: '长期', progress: '规划中 15%', items: ['跨厂协同', '供应商联动', '智能排产'] }
 ]
 </script>

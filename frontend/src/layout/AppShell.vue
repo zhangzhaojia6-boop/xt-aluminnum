@@ -111,7 +111,11 @@ const zoneLabel = computed(() => {
   if (props.zone === 'desktop') return '兼容配置台'
   return '审阅指挥台'
 })
-const shellTestId = computed(() => (props.zone === 'review' ? 'review-shell' : 'app-shell'))
+const shellTestId = computed(() => {
+  if (props.zone === 'review') return 'review-shell'
+  if (props.zone === 'admin') return 'admin-shell'
+  return 'app-shell'
+})
 const navGroups = computed(() => buildShellNavigation(props.zone, auth))
 const activeMenuIndex = computed(() => String(route.name || ''))
 const currentMeta = computed(() => route.meta || {})

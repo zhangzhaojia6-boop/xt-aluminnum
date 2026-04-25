@@ -1,10 +1,10 @@
 <template>
-  <div class="mobile-shell">
+  <div class="mobile-shell mobile-shell--flow">
     <div class="mobile-top">
       <div>
         <div class="mobile-kicker">04 填报流程页</div>
         <h1>本班填报</h1>
-        <p>录数字，再提交。</p>
+        <p>按步骤完成本班数据，系统提示仅作辅助。</p>
       </div>
     </div>
 
@@ -54,15 +54,25 @@
       <el-button type="primary" plain class="mobile-inline-action" @click="load">再次尝试</el-button>
     </div>
 
-    <MobileSwipeWorkspace
-      v-else
-      v-model:active-key="activePageKey"
-      :pages="swipePages"
-      data-testid="mobile-shift-report-workspace"
-    >
-      <template #overview>
-        <el-card class="panel mobile-card">
-          <template #header>当前任务</template>
+    <div v-if="!loadError && !loading" class="entry-flow-steps" aria-label="填报步骤">
+      <span
+        v-for="(step, index) in entryFlowSteps"
+        :key="step"
+        :class="{ 'is-active': index <= entryStepActiveIndex }"
+      >
+        <b>{{ index + 1 }}</b>{{ step }}
+      </span>
+    </div>
+
+    <div v-if="!loadError && !loading" class="entry-flow-layout">
+      <MobileSwipeWorkspace
+        v-model:active-key="activePageKey"
+        :pages="swipePages"
+        data-testid="mobile-shift-report-workspace"
+      >
+        <template #overview>
+          <el-card class="panel mobile-card">
+            <template #header>当前任务</template>
           <div class="mobile-overview-grid">
             <div class="mobile-overview-item"><span>业务日期</span><strong>{{ report.business_date || '-' }}</strong></div>
             <div class="mobile-overview-item"><span>班次</span><strong>{{ report.shift_name || '-' }}</strong></div>
@@ -95,8 +105,8 @@
         <el-card class="panel mobile-card">
           <template #header>提醒</template>
           <ReminderList :items="report.active_reminders || []" empty-text="当前没有提醒。" />
-        </el-card>
-      </template>
+          </el-card>
+        </template>
 
       <template #production>
         <el-card class="panel mobile-card">
@@ -240,7 +250,21 @@
           </div>
         </el-card>
       </template>
-    </MobileSwipeWorkspace>
+      </MobileSwipeWorkspace>
+
+      <aside class="entry-flow-hints">
+        <section class="entry-flow-hint-card">
+          <strong>本步要点</strong>
+          <ol>
+            <li v-for="item in currentStepTips" :key="item">{{ item }}</li>
+          </ol>
+        </section>
+        <section class="entry-flow-hint-card">
+          <strong>辅助提示</strong>
+          <span>{{ currentAssistHint }}</span>
+        </section>
+      </aside>
+    </div>
 
     <div v-if="!loadError && !loading" class="mobile-sticky-actions">
       <div class="note">{{ currentPage.title }} · {{ currentPageIndex + 1 }} / {{ swipePages.length }}</div>
@@ -251,7 +275,7 @@
           :disabled="Boolean(loadError) || saving || submitting || loading"
           @click="goPrevPage"
         >
-          上一屏
+          上一步
         </el-button>
         <el-button
           size="large"
@@ -260,7 +284,7 @@
           :loading="saving"
           class="mobile-inline-action"
         >
-          暂存
+          保存草稿
         </el-button>
         <el-button
           v-if="!isLastPage"
@@ -269,7 +293,7 @@
           :disabled="Boolean(loadError) || saving || submitting || loading"
           @click="goNextPage"
         >
-          下一屏
+          下一步
         </el-button>
         <el-button
           v-else
@@ -380,10 +404,28 @@ const swipePages = [
   { key: 'exception', title: '异常' },
   { key: 'submit', title: '确认' }
 ]
+const entryFlowSteps = ['班次信息', '产品录入', '配比/物耗', '异常补充', '图片/附件', '提交成功']
+const stepTipMap = {
+  overview: ['核对业务日期、班次和车间。', '确认当前状态可继续编辑。', '有退回原因时先按提示补齐。'],
+  production: ['优先填写投入量、产出量和废料量。', '必填数字为空时无法正式提交。', '补录字段可留空，系统会自动汇总。'],
+  energy: ['电耗、气耗为可选原始值。', '能耗异常请在异常步骤补充说明。'],
+  exception: ['异常类型请写明设备、质量、人员或物流。', '图片/附件只作为现场凭证，不强制依赖 OCR。'],
+  submit: ['提交前确认关键数字。', '提交后系统自动校验，结果以审阅端为准。']
+}
+const assistHintMap = {
+  overview: '系统提示：当前班次信息来自已登录账号与排班数据。',
+  production: '辅助提示：产出量与投入量偏差较大时，请补充异常说明。',
+  energy: '辅助提示：能耗数据用于经营分析，不作为财务结算。',
+  exception: '辅助提示：AI/OCR 不稳定时请以人工填写为准。',
+  submit: '系统提示：保存草稿不会进入审阅队列，正式提交后才流转。'
+}
 const currentPageIndex = computed(() => swipePages.findIndex((page) => page.key === activePageKey.value))
 const currentPage = computed(() => swipePages[Math.max(currentPageIndex.value, 0)] || swipePages[0])
 const isFirstPage = computed(() => currentPageIndex.value <= 0)
 const isLastPage = computed(() => currentPageIndex.value >= swipePages.length - 1)
+const entryStepActiveIndex = computed(() => Math.min(currentPageIndex.value, entryFlowSteps.length - 1))
+const currentStepTips = computed(() => stepTipMap[activePageKey.value] || stepTipMap.overview)
+const currentAssistHint = computed(() => assistHintMap[activePageKey.value] || assistHintMap.overview)
 
 const localDraftScope = computed(() => ({
   workshopId: report.workshop_id || '',
@@ -684,3 +726,141 @@ onBeforeUnmount(() => {
   clearSubmitCooldownTimer()
 })
 </script>
+
+<style scoped>
+.mobile-shell--flow {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-bottom: 96px;
+}
+
+.entry-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: #fff;
+}
+
+.entry-flow-steps span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.entry-flow-steps b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #cbd7e7;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: #fff;
+}
+
+.entry-flow-steps .is-active {
+  color: var(--primary);
+}
+
+.entry-flow-steps .is-active b {
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.entry-flow-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+
+.entry-flow-hints {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.entry-flow-hint-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.entry-flow-hint-card strong {
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.entry-flow-hint-card ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+}
+
+.entry-flow-hint-card span {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.mobile-shell--flow :deep(.mobile-field .el-input__wrapper),
+.mobile-shell--flow :deep(.mobile-field .el-textarea__inner) {
+  min-height: 44px;
+  border-radius: var(--radius-control);
+}
+
+.mobile-shell--flow :deep(.mobile-sticky-actions) {
+  position: sticky;
+  bottom: 0;
+  z-index: 12;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -8px 20px rgba(15, 45, 84, 0.08);
+}
+
+@media (max-width: 900px) {
+  .entry-flow-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-flow-hints {
+    position: static;
+    order: 2;
+  }
+
+  .entry-flow-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-shell--flow {
+    padding-inline: 10px;
+  }
+
+  .entry-flow-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px;
+  }
+
+  .entry-flow-hint-card {
+    padding: 12px;
+  }
+}
+</style>

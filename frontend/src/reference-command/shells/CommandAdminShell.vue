@@ -13,7 +13,6 @@
         <RouterLink class="el-menu-item" :to="{ name: 'master-workshop' }">主数据</RouterLink>
         <RouterLink class="el-menu-item" :to="{ name: 'workshop-template-config' }">模板中心</RouterLink>
         <RouterLink class="el-menu-item" :to="{ name: 'admin-users' }">用户管理</RouterLink>
-        <RouterLink class="el-menu-item" :to="{ name: 'admin-roadmap-center' }">路线图</RouterLink>
       </nav>
     </aside>
     <main class="cmd-shell__main">

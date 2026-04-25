@@ -15,7 +15,6 @@
         <div class="app-nav-group__title">经营与智能</div>
         <RouterLink class="el-menu-item" :to="{ name: 'review-cost-accounting' }">成本效益</RouterLink>
         <RouterLink class="el-menu-item" :to="{ name: 'review-brain-center' }">AI 总大脑</RouterLink>
-        <RouterLink class="el-menu-item" :to="{ name: 'review-roadmap-center' }">路线图</RouterLink>
       </nav>
     </aside>
     <main class="cmd-shell__main">

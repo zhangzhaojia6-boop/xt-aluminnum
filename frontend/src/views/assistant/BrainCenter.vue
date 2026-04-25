@@ -1,7 +1,7 @@
 <template>
   <ReferencePageFrame
     module-number="11"
-    title="AI 总大脑中心"
+    title="AI 总控中心"
     :tags="['生产摘要', '风险摘要', '智能问答']"
     data-testid="assistant-brain-center"
   >

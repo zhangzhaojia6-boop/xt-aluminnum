@@ -24,16 +24,17 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+import { buildShellNavigation } from '../config/navigation'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
-const navItems = [
-  { routeName: 'mobile-entry', label: '今日任务' },
-  { routeName: 'mobile-report-history', label: '历史' },
-  { routeName: 'entry-drafts', label: '草稿' }
-]
+const navItems = computed(() => buildShellNavigation('entry', auth).flatMap((group) => group.items))
 
 function go(routeName) {
   if (route.name === routeName) return

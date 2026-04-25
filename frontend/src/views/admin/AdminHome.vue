@@ -35,8 +35,7 @@ const modules = [
   { number: '06', title: '数据接入与字段映射中心', routeName: 'admin-ingestion-center', status: 'warning', statusLabel: '改造中' },
   { number: '12', title: '系统运维与可观测', routeName: 'admin-ops-reliability', status: 'success', statusLabel: '在线' },
   { number: '13', title: '权限治理中心', routeName: 'admin-governance-center', status: 'success', statusLabel: '可配置' },
-  { number: '14', title: '主数据与模板中心', routeName: 'admin-template-center', status: 'success', statusLabel: '可配置' },
-  { number: '16', title: '路线图与下一步', routeName: 'admin-roadmap-center', status: 'pending', statusLabel: '排期中' }
+  { number: '14', title: '主数据与模板中心', routeName: 'admin-template-center', status: 'success', statusLabel: '可配置' }
 ]
 
 function go(routeName) {

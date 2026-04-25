@@ -2100,7 +2100,7 @@ onBeforeUnmount(() => {
 
 .mobile-shell--entry-form .mobile-top h1 {
   margin-bottom: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .mobile-shell--entry-form :deep(.panel.mobile-card .el-card__header) {
@@ -2165,7 +2165,7 @@ onBeforeUnmount(() => {
 
 .mobile-shell--entry-form :deep(.mobile-static-chip strong),
 .mobile-shell--entry-form :deep(.mobile-summary-chip strong) {
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button),

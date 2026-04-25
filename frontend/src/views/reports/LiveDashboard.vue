@@ -1,7 +1,7 @@
 <template>
   <ReferencePageFrame
     module-number="12"
-    title="系统运维与可观测"
+    title="系统运维与观测"
     :tags="['实时运营', '提交进度', '探针']"
     class="live-dashboard"
     data-testid="live-dashboard"

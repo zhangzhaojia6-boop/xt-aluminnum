@@ -138,12 +138,10 @@ const referenceModules = [
   { number: '08', title: '日报与交付中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
   { number: '09', title: '质量与告警中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
   { number: '10', title: '成本核算与效益中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '11', title: 'AI 总大脑中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '12', title: '系统运维与可观测', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '13', title: '权限治理中心', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '14', title: '主数据与模板中心', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '15', title: '响应式录入体验', owner: '全局验收', status: 'success', statusLabel: '替代预览' },
-  { number: '16', title: '路线图与下一步', owner: '管理端', status: 'pending', statusLabel: '排期中' }
+  { number: '11', title: 'AI 总控中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
+  { number: '12', title: '系统运维与观测', owner: '管理端', status: 'warning', statusLabel: '改造中' },
+  { number: '13', title: '权限与治理中心', owner: '管理端', status: 'warning', statusLabel: '改造中' },
+  { number: '14', title: '主数据与模板中心', owner: '管理端', status: 'warning', statusLabel: '改造中' }
 ]
 
 const overviewCards = computed(() => {

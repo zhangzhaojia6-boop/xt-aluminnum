@@ -70,7 +70,6 @@ export const adaptIngestion = compactViewModel
 export const adaptOps = compactViewModel
 export const adaptGovernance = compactViewModel
 export const adaptMaster = compactViewModel
-export const adaptRoadmap = compactViewModel
 
 export function adaptModuleView(moduleId, payload = {}) {
   const adapters = {
@@ -87,8 +86,7 @@ export function adaptModuleView(moduleId, payload = {}) {
     '12': adaptOps,
     '13': adaptGovernance,
     '14': adaptMaster,
-    '15': adaptEntryHome,
-    '16': adaptRoadmap
+    '15': adaptEntryHome
   }
   return (adapters[moduleId] || compactViewModel)(payload)
 }

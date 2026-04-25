@@ -1,7 +1,7 @@
 <template>
   <ReferencePageFrame
     module-number="13"
-    title="权限治理中心"
+    title="权限与治理中心"
     :tags="['角色矩阵', '数据权限', '审计']"
     class="review-governance-center"
     data-testid="review-governance-center"

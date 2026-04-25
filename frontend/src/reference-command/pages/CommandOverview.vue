@@ -1,89 +1,73 @@
 <template>
-  <section class="cmd-overview-board cmd-module-page" data-module="01" data-testid="overview-dashboard">
-    <header class="cmd-module-page__head cmd-overview-board__head">
-      <div class="cmd-module-page__title">
-        <span class="cmd-module-page__number">01</span>
-        <h1>系统总览主视图</h1>
-      </div>
-      <div class="cmd-overview-board__tools">
-        <span>数据时间：2024-05-21 10:30</span>
-        <button type="button">刷新</button>
-      </div>
-    </header>
+  <CenterPageShell no="01" title="系统总览主视图" data-testid="overview-dashboard">
+    <template #tools>
+      <span class="status-badge">数据时间 {{ dataTime }}</span>
+      <button type="button" class="cmd-button" @click="refresh">刷新</button>
+    </template>
 
-    <div class="cmd-overview-kpis">
-      <img class="cmd-overview-kpis__visual" :src="overviewKpisImage" alt="" />
-      <div class="cmd-overview-kpis__functional" aria-label="今日关键指标">
-        <article v-for="kpi in kpis" :key="kpi.label" class="cmd-overview-kpi" :class="{ 'is-risk': kpi.risk }">
-          <span class="cmd-overview-kpi__icon">{{ kpi.icon }}</span>
-          <span>{{ kpi.label }}</span>
-          <strong>{{ kpi.value }}</strong>
-          <em>{{ kpi.trend }}</em>
-        </article>
-      </div>
+    <MockDataNotice source="fallback" message="当前总览使用聚合兜底数据，真实接口接入后保留同一结构。" />
+    <KpiStrip aria-label="今日产量 订单达成率 综合成品率 在制产线 异常数 待审核 已交付" :items="reviewOverviewMock.kpis" />
+
+    <div class="center-grid-2">
+      <SectionCard title="生产全景" meta="产线状态">
+        <DataTableShell :columns="lineColumns" :rows="reviewOverviewMock.lines">
+          <template #cell-source="{ row }">
+            <SourceBadge :source="row.source" />
+          </template>
+          <template #cell-status="{ value }">
+            <StatusBadge :label="value" :tone="value === '关注' ? 'warning' : 'success'" />
+          </template>
+        </DataTableShell>
+      </SectionCard>
+
+      <SectionCard title="系统状态">
+        <div class="action-grid">
+          <StatusBadge v-for="item in reviewOverviewMock.system" :key="item.label" :label="`${item.label} ${item.status}`" tone="normal" />
+        </div>
+      </SectionCard>
     </div>
 
-    <div class="cmd-overview-board__main">
-      <section class="cmd-overview-card cmd-overview-card--asset">
-        <img class="cmd-overview-card__visual" :src="overviewShortcutsImage" alt="" />
-        <div class="cmd-overview-shortcuts cmd-overview-card__functional" aria-label="快捷入口">
-          <button v-for="item in shortcuts" :key="item.label" type="button">
-            <span>{{ item.icon }}</span>
-            {{ item.label }}
-          </button>
-        </div>
-      </section>
-
-      <section class="cmd-overview-card cmd-overview-card--asset cmd-overview-line">
-        <img class="cmd-overview-card__visual" :src="overviewFactoryLineImage" alt="" />
-        <div class="cmd-overview-card__functional" aria-label="生产全景">
-          <header>
-            <strong>生产全景</strong>
-            <span>实时</span>
-          </header>
-          <div class="cmd-overview-status">
-            <span v-for="item in statuses" :key="item.label">
-              <i aria-hidden="true" />
-              <span class="cmd-overview-status__label">{{ item.label }}</span>
-              <b>{{ item.state }}</b>
-            </span>
-          </div>
-        </div>
-      </section>
-    </div>
-  </section>
+    <SectionCard title="快捷入口">
+      <div class="action-grid">
+        <ActionTile label="看板中心" meta="工厂作业" @click="go('factory-dashboard')" />
+        <ActionTile label="审单中心" meta="待审任务" @click="go('review-task-center')" />
+        <ActionTile label="日报中心" meta="交付清单" @click="go('review-report-center')" />
+        <ActionTile label="质量中心" meta="告警处置" @click="go('review-quality-center')" />
+        <ActionTile label="成本中心" meta="经营估算" @click="go('review-cost-accounting')" />
+        <ActionTile label="AI 总控" meta="辅助提效" @click="go('review-brain-center')" />
+      </div>
+    </SectionCard>
+  </CenterPageShell>
 </template>
 
 <script setup>
-import overviewFactoryLineImage from '../assets/overview-factory-line.png'
-import overviewKpisImage from '../assets/overview-kpis.png'
-import overviewShortcutsImage from '../assets/overview-shortcuts.png'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-const kpis = [
-  { icon: '产', label: '今日产量（吨）', value: '5,824', trend: '+8.6%' },
-  { icon: '单', label: '订单达成率', value: '96.7%', trend: '+2.1%' },
-  { icon: '质', label: '综合良品率', value: '98.2%', trend: '+1.3%' },
-  { icon: '线', label: '在制产线', value: '8', trend: '运行' },
-  { icon: '异', label: '异常数', value: '12', trend: '待处置', risk: true },
-  { icon: '审', label: '待审数', value: '18', trend: '待确认' },
-  { icon: '交', label: '已交付', value: '23', trend: '车' }
+import ActionTile from '../../components/app/ActionTile.vue'
+import CenterPageShell from '../../components/app/CenterPageShell.vue'
+import DataTableShell from '../../components/app/DataTableShell.vue'
+import KpiStrip from '../../components/app/KpiStrip.vue'
+import MockDataNotice from '../../components/app/MockDataNotice.vue'
+import SectionCard from '../../components/app/SectionCard.vue'
+import SourceBadge from '../../components/app/SourceBadge.vue'
+import StatusBadge from '../../components/app/StatusBadge.vue'
+import { reviewOverviewMock } from '../../mocks/centerMockData.js'
+
+const router = useRouter()
+const dataTime = ref('2026-04-24 10:30')
+
+const lineColumns = [
+  { key: 'name', label: '产线' },
+  { key: 'status', label: '状态' },
+  { key: 'source', label: '来源' }
 ]
 
-const shortcuts = [
-  { icon: '看', label: '看板中心' },
-  { icon: '审', label: '审阅中心' },
-  { icon: '数', label: '数据中心' },
-  { icon: '质', label: '质量中心' },
-  { icon: '成', label: '成本中心' },
-  { icon: '运', label: '运维中心' },
-  { icon: '治', label: '治理中心' },
-  { icon: 'AI', label: 'AI 大脑' }
-]
+function refresh() {
+  dataTime.value = new Date().toISOString().slice(0, 16).replace('T', ' ')
+}
 
-const statuses = [
-  { label: '数据接入', state: '正常' },
-  { label: '系统性能', state: '良好' },
-  { label: '任务调度', state: '正常' },
-  { label: '消息服务', state: '正常' }
-]
+function go(routeName) {
+  router.push({ name: routeName })
+}
 </script>

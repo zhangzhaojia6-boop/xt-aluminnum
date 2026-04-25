@@ -9,9 +9,10 @@ const CommandEntryHome = () => import('../reference-command/pages/CommandEntryHo
 const CommandEntryFlow = () => import('../reference-command/pages/CommandEntryFlow.vue')
 const CommandOverview = () => import('../reference-command/pages/CommandOverview.vue')
 const CommandModulePage = () => import('../reference-command/pages/CommandModulePage.vue')
-const CommandEntryShell = () => import('../reference-command/shells/CommandEntryShell.vue')
-const CommandReviewShell = () => import('../reference-command/shells/CommandReviewShell.vue')
-const CommandAdminShell = () => import('../reference-command/shells/CommandAdminShell.vue')
+const CommandReviewTasks = () => import('../reference-command/pages/CommandReviewTasks.vue')
+const EntryShell = () => import('../layout/EntryShell.vue')
+const ReviewShell = () => import('../layout/ReviewShell.vue')
+const AdminShell = () => import('../layout/AdminShell.vue')
 const WorkshopDirector = () => import('../views/dashboard/WorkshopDirector.vue')
 const Statistics = () => import('../views/dashboard/Statistics.vue')
 const FileImport = () => import('../views/imports/FileImport.vue')
@@ -100,47 +101,52 @@ function withMeta(route) {
 }
 
 const rawRoutes = [
-  { path: '/login', name: 'login', component: CommandLogin, meta: { title: '登录' } },
+  {
+    path: '/login',
+    name: 'login',
+    component: CommandLogin,
+    meta: { zone: 'public', access: 'public', title: '登录与角色入口', centerNo: '02', canonical: '/login' }
+  },
   {
     path: '/entry',
-    component: CommandEntryShell,
-    meta: { requiresAuth: true, title: '独立填报端', zone: 'entry' },
+    component: EntryShell,
+    meta: { requiresAuth: true, title: '独立填报端首页', zone: 'entry', access: 'entry', centerNo: '03', canonical: '/entry' },
     children: [
       {
         path: '',
         name: 'mobile-entry',
         component: CommandEntryHome,
-        meta: { requiresAuth: true, title: '填报首页', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '独立填报端首页', zone: 'entry', access: 'entry', centerNo: '03', canonical: '/entry' }
       },
       {
         path: 'dynamic-entry-form',
         name: 'dynamic-entry-form',
         component: CommandEntryFlow,
-        meta: { requiresAuth: true, title: '填报流程', zone: 'entry', access: 'fill_surface', legacy: true }
+        meta: { requiresAuth: true, title: '填报流程', zone: 'entry', access: 'entry', centerNo: '04', canonical: '/entry/report', legacy: true }
       },
       {
         path: 'report/:businessDate/:shiftId',
         name: 'mobile-report-form',
         component: ShiftReportForm,
-        meta: { requiresAuth: true, title: '快速填报', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '快速填报', zone: 'entry', access: 'entry', centerNo: '04', canonical: '/entry/report/:businessDate/:shiftId' }
       },
       {
         path: 'advanced/:businessDate/:shiftId',
         name: 'mobile-report-form-advanced',
         component: DynamicEntryForm,
-        meta: { requiresAuth: true, title: '高级填报', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '高项填报', zone: 'entry', access: 'entry', centerNo: '04', canonical: '/entry/advanced/:businessDate/:shiftId' }
       },
       {
         path: 'ocr/:businessDate/:shiftId',
         name: 'mobile-ocr-capture',
         component: OCRCapture,
-        meta: { requiresAuth: true, title: 'OCR 录入', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: 'OCR 试验录入', zone: 'entry', access: 'entry', centerNo: '04', canonical: '/entry/ocr/:businessDate/:shiftId' }
       },
       {
         path: 'attendance',
         name: 'mobile-attendance-confirm',
         component: AttendanceConfirm,
-        meta: { requiresAuth: true, title: '异常补录', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '异常补录', zone: 'entry', access: 'entry', centerNo: '03', canonical: '/entry/attendance' }
       },
       {
         path: 'anomaly',
@@ -151,19 +157,20 @@ const rawRoutes = [
         path: 'history',
         name: 'mobile-report-history',
         component: ShiftReportHistory,
-        meta: { requiresAuth: true, title: '历史记录', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '历史记录', zone: 'entry', access: 'entry', centerNo: '03', canonical: '/entry/history' }
       },
       {
         path: 'drafts',
         name: 'entry-drafts',
         component: EntryDrafts,
-        meta: { requiresAuth: true, title: '草稿箱', zone: 'entry', access: 'fill_surface' }
+        meta: { requiresAuth: true, title: '草稿箱', zone: 'entry', access: 'entry', centerNo: '03', canonical: '/entry/drafts' }
       }
     ]
   },
   {
     path: '/mobile',
-    redirect: (to) => ({ path: '/entry', query: to.query, hash: to.hash })
+    redirect: (to) => ({ path: '/entry', query: to.query, hash: to.hash }),
+    meta: { zone: 'legacy', access: 'entry', title: '移动填报兼容入口', canonical: '/entry' }
   },
   {
     path: '/mobile/report/:businessDate/:shiftId',
@@ -191,225 +198,224 @@ const rawRoutes = [
   },
   {
     path: '/admin',
-    component: CommandAdminShell,
-    meta: { requiresAuth: true, title: '管理控制台', zone: 'admin' },
-    redirect: '/admin/overview',
+    component: AdminShell,
+    meta: { requiresAuth: true, title: '管理控制台', zone: 'admin', access: 'admin', canonical: '/admin' },
     children: [
       {
-        path: 'overview',
+        path: '',
         name: 'admin-overview',
         component: CommandModulePage,
         props: { moduleId: '14' },
-        meta: { title: '管理总览', zone: 'admin', access: 'desktop_config', moduleId: '14' }
+        meta: { title: '主数据与模板中心', zone: 'admin', access: 'admin', centerNo: '14', moduleId: '14', canonical: '/admin' }
+      },
+      {
+        path: 'overview',
+        redirect: { name: 'admin-overview' },
+        meta: { title: '管理总览', zone: 'admin', access: 'admin', centerNo: '14', legacy: true, canonical: '/admin' }
       },
       {
         path: 'ingestion',
         name: 'admin-ingestion-center',
         component: CommandModulePage,
         props: { moduleId: '06' },
-        meta: { title: '数据接入与字段映射', zone: 'admin', access: 'desktop_config', moduleId: '06' }
+        meta: { title: '数据接入与字段映射中心', zone: 'admin', access: 'admin', centerNo: '06', moduleId: '06', canonical: '/admin/ingestion' }
       },
       {
         path: 'ingestion-center',
         name: 'ingestion-center',
         redirect: { name: 'admin-ingestion-center' },
-        meta: { title: '数据接入与字段映射', zone: 'admin', access: 'desktop_config', legacy: true }
+        meta: { title: '数据接入中心兼容入口', zone: 'admin', access: 'admin', centerNo: '06', legacy: true, canonical: '/admin/ingestion' }
       },
       {
         path: 'field-mapping',
         redirect: { name: 'admin-ingestion-center' },
-        meta: { title: '字段映射', zone: 'admin', access: 'desktop_config', legacy: true }
+        meta: { title: '字段映射', zone: 'admin', access: 'admin', centerNo: '06', legacy: true, canonical: '/admin/ingestion' }
       },
       {
-        path: 'ops-reliability',
+        path: 'ops',
         name: 'admin-ops-reliability',
         component: CommandModulePage,
         props: { moduleId: '12' },
-        meta: { title: '系统运维与可观测', zone: 'admin', access: 'desktop_config', moduleId: '12' }
+        meta: { title: '系统运维与观测', zone: 'admin', access: 'admin', centerNo: '12', moduleId: '12', canonical: '/admin/ops' }
+      },
+      {
+        path: 'ops-reliability',
+        redirect: { name: 'admin-ops-reliability' },
+        meta: { title: '系统运维兼容入口', zone: 'admin', access: 'admin', centerNo: '12', legacy: true, canonical: '/admin/ops' }
       },
       {
         path: 'ops-center',
         name: 'ops-reliability',
         redirect: { name: 'admin-ops-reliability' },
-        meta: { title: '系统运维与可观测', zone: 'admin', access: 'desktop_config', legacy: true }
-      },
-      {
-        path: 'ops',
-        redirect: { name: 'admin-ops-reliability' },
-        meta: { title: '系统运维与可观测', zone: 'admin', access: 'desktop_config', legacy: true }
+        meta: { title: '系统运维兼容入口', zone: 'admin', access: 'admin', centerNo: '12', legacy: true, canonical: '/admin/ops' }
       },
       {
         path: 'governance',
         name: 'admin-governance-center',
         component: CommandModulePage,
         props: { moduleId: '13' },
-        meta: { title: '权限治理中心', zone: 'admin', access: 'admin', moduleId: '13' }
+        meta: { title: '权限与治理中心', zone: 'admin', access: 'admin', centerNo: '13', moduleId: '13', canonical: '/admin/governance' }
       },
       {
         path: 'governance-center',
         name: 'governance-center',
         redirect: { name: 'admin-governance-center' },
-        meta: { title: '权限治理中心', zone: 'admin', access: 'admin', legacy: true }
-      },
-      {
-        path: 'master/workshop',
-        name: 'admin-master-workshop',
-        component: CommandModulePage,
-        props: { moduleId: '14' },
-        meta: { title: '主数据中心', zone: 'admin', access: 'desktop_config', moduleId: '14' }
+        meta: { title: '权限治理兼容入口', zone: 'admin', access: 'admin', centerNo: '13', legacy: true, canonical: '/admin/governance' }
       },
       {
         path: 'master',
+        name: 'admin-master-workshop',
+        component: CommandModulePage,
+        props: { moduleId: '14' },
+        meta: { title: '主数据与模板中心', zone: 'admin', access: 'admin', centerNo: '14', moduleId: '14', canonical: '/admin/master' }
+      },
+      {
+        path: 'master/workshop',
         redirect: { name: 'admin-master-workshop' },
-        meta: { title: '主数据中心', zone: 'admin', access: 'desktop_config', legacy: true }
+        meta: { title: '主数据中心', zone: 'admin', access: 'admin', centerNo: '14', legacy: true, canonical: '/admin/master' }
       },
       {
         path: 'master/templates',
         name: 'admin-template-center',
         component: CommandModulePage,
         props: { moduleId: '14' },
-        meta: { title: '主数据与模板中心', zone: 'admin', access: 'desktop_config', moduleId: '14' }
+        meta: { title: '主数据与模板中心', zone: 'admin', access: 'admin', centerNo: '14', moduleId: '14', canonical: '/admin/master/templates' }
       },
       {
         path: 'workshop-template-config',
         name: 'workshop-template-config',
         redirect: { name: 'admin-template-center' },
-        meta: { title: '主数据与模板中心', zone: 'admin', access: 'desktop_config', legacy: true }
+        meta: { title: '主数据与模板中心', zone: 'admin', access: 'admin', centerNo: '14', legacy: true, canonical: '/admin/master/templates' }
       },
       {
         path: 'templates',
         redirect: { name: 'admin-template-center' },
-        meta: { title: '模板配置', zone: 'admin', access: 'desktop_config', legacy: true }
-      },
-      {
-        path: 'master/users',
-        name: 'admin-users',
-        component: CommandModulePage,
-        props: { moduleId: '13' },
-        meta: { title: '用户与角色', zone: 'admin', access: 'admin', moduleId: '13' }
+        meta: { title: '模板配置', zone: 'admin', access: 'admin', centerNo: '14', legacy: true, canonical: '/admin/master/templates' }
       },
       {
         path: 'users',
+        name: 'admin-users',
+        component: CommandModulePage,
+        props: { moduleId: '13' },
+        meta: { title: '用户与角色', zone: 'admin', access: 'admin', centerNo: '13', moduleId: '13', canonical: '/admin/users' }
+      },
+      {
+        path: 'master/users',
         redirect: { name: 'admin-users' },
-        meta: { title: '用户与角色', zone: 'admin', access: 'admin', legacy: true }
+        meta: { title: '用户与角色', zone: 'admin', access: 'admin', centerNo: '13', legacy: true, canonical: '/admin/users' }
       },
       {
         path: 'roadmap',
-        name: 'admin-roadmap-center',
-        component: CommandModulePage,
-        props: { moduleId: '16' },
-        meta: { title: '路线图与下一步', zone: 'admin', access: 'desktop_config', moduleId: '16' }
+        redirect: { name: 'admin-overview' },
+        meta: { title: '路线图兼容入口', zone: 'legacy', access: 'admin', legacy: true, canonical: '/admin' }
       }
     ]
   },
   {
     path: '/review',
-    component: CommandReviewShell,
-    meta: { requiresAuth: true, zone: 'review' },
+    component: ReviewShell,
+    meta: { requiresAuth: true, zone: 'review', access: 'review', title: '审阅端', canonical: '/review/overview' },
     redirect: '/review/overview',
     children: [
       {
         path: 'overview',
         name: 'review-overview-home',
         component: CommandOverview,
-        meta: { title: '系统总览', zone: 'review', access: 'review_surface', moduleId: '01' }
+        meta: { title: '系统总览主视图', zone: 'review', access: 'review', centerNo: '01', moduleId: '01', canonical: '/review/overview' }
       },
       {
         path: 'tasks',
         name: 'review-task-center',
-        component: CommandModulePage,
-        props: { moduleId: '07' },
-        meta: { title: '审阅中心', zone: 'review', access: 'review_surface', moduleId: '07' }
+        component: CommandReviewTasks,
+        meta: { title: '审阅中心', zone: 'review', access: 'review', centerNo: '07', moduleId: '07', canonical: '/review/tasks' }
       },
       {
         path: 'factory',
         name: 'factory-dashboard',
         component: CommandModulePage,
         props: { moduleId: '05' },
-        meta: { title: '厂级看板', zone: 'review', access: 'review_surface', moduleId: '05' }
+        meta: { title: '工厂作业看板', zone: 'review', access: 'review', centerNo: '05', moduleId: '05', canonical: '/review/factory' }
       },
       {
         path: 'workshop',
         name: 'workshop-dashboard',
         component: WorkshopDirector,
-        meta: { title: '车间审阅端', zone: 'review', access: 'review_surface', moduleId: '05' }
+        meta: { title: '车间审阅端', zone: 'review', access: 'review', centerNo: '05', canonical: '/review/workshop' }
       },
       {
         path: 'ingestion',
         name: 'review-ingestion-center',
         redirect: { name: 'admin-ingestion-center' },
-        meta: { title: '数据接入中心', zone: 'review', access: 'desktop_config', legacy: true }
+        meta: { title: '数据接入中心兼容入口', zone: 'legacy', access: 'admin', centerNo: '06', legacy: true, canonical: '/admin/ingestion' }
       },
       {
         path: 'reports',
         name: 'review-report-center',
         component: CommandModulePage,
         props: { moduleId: '08' },
-        meta: { title: '日报交付中心', zone: 'review', access: 'review', moduleId: '08' }
+        meta: { title: '日报与交付中心', zone: 'review', access: 'review', centerNo: '08', moduleId: '08', canonical: '/review/reports' }
       },
       {
         path: 'quality',
         name: 'review-quality-center',
         component: CommandModulePage,
         props: { moduleId: '09' },
-        meta: { title: '质量与告警中心', zone: 'review', access: 'review', moduleId: '09' }
+        meta: { title: '质量与告警中心', zone: 'review', access: 'review', centerNo: '09', moduleId: '09', canonical: '/review/quality' }
       },
       {
         path: 'reconciliation',
         name: 'review-reconciliation-center',
         component: ReconciliationCenter,
-        meta: { title: '差异核对中心', zone: 'review', access: 'review' }
+        meta: { title: '质量与告警中心', zone: 'review', access: 'review', centerNo: '09', canonical: '/review/reconciliation' }
       },
       {
         path: 'ops-reliability',
         name: 'review-ops-reliability',
         redirect: { name: 'admin-ops-reliability' },
-        meta: { title: '系统运营与可观测', zone: 'review', access: 'desktop_config', legacy: true }
+        meta: { title: '系统运维兼容入口', zone: 'legacy', access: 'admin', centerNo: '12', legacy: true, canonical: '/admin/ops' }
       },
       {
         path: 'cost-accounting',
         name: 'review-cost-accounting',
         component: CommandModulePage,
         props: { moduleId: '10' },
-        meta: { title: '成本核算与效益', zone: 'review', access: 'review_surface', moduleId: '10' }
+        meta: { title: '成本核算与效益中心', zone: 'review', access: 'review', centerNo: '10', moduleId: '10', canonical: '/review/cost-accounting' }
       },
       {
         path: 'cost-accounting-center',
         name: 'cost-accounting-center',
         redirect: { name: 'review-cost-accounting' },
-        meta: { title: '成本核算与效益', zone: 'review', access: 'review_surface', legacy: true }
+        meta: { title: '成本核算与效益中心', zone: 'legacy', access: 'review', centerNo: '10', legacy: true, canonical: '/review/cost-accounting' }
       },
       {
         path: 'brain',
         name: 'review-brain-center',
         component: CommandModulePage,
         props: { moduleId: '11' },
-        meta: { title: 'AI 总大脑', zone: 'review', access: 'review_surface', moduleId: '11' }
+        meta: { title: 'AI 总控中心', zone: 'review', access: 'review', centerNo: '11', moduleId: '11', canonical: '/review/brain' }
       },
       {
         path: 'brain-center',
         name: 'brain-center',
         redirect: { name: 'review-brain-center' },
-        meta: { title: 'AI 总大脑', zone: 'review', access: 'review_surface', legacy: true }
+        meta: { title: 'AI 总控中心', zone: 'legacy', access: 'review', centerNo: '11', legacy: true, canonical: '/review/brain' }
       },
       {
         path: 'governance',
         name: 'review-governance-center',
         redirect: { name: 'admin-governance-center' },
-        meta: { title: '权限治理中心', zone: 'review', access: 'admin', legacy: true }
+        meta: { title: '权限治理兼容入口', zone: 'legacy', access: 'admin', centerNo: '13', legacy: true, canonical: '/admin/governance' }
       },
       {
         path: 'roadmap',
-        name: 'review-roadmap-center',
-        component: CommandModulePage,
-        props: { moduleId: '16' },
-        meta: { title: '路线图与下一步', zone: 'review', access: 'review_surface', moduleId: '16' }
+        redirect: { name: 'review-overview-home' },
+        meta: { title: '路线图兼容入口', zone: 'legacy', access: 'review', legacy: true, canonical: '/review/overview' }
       },
       {
         path: 'template-center',
         name: 'review-template-center',
         redirect: { name: 'admin-template-center' },
-        meta: { title: '字段映射中心', zone: 'review', access: 'desktop_config', legacy: true }
+        meta: { title: '模板中心兼容入口', zone: 'legacy', access: 'admin', centerNo: '14', legacy: true, canonical: '/admin/master/templates' }
       }
     ]
   },
@@ -421,14 +427,16 @@ const rawRoutes = [
   { path: '/ops/reliability', redirect: '/admin/ops' },
   { path: '/governance', redirect: '/admin/governance' },
   { path: '/cost/accounting', redirect: '/review/cost-accounting' },
-  { path: '/roadmap/next', redirect: '/admin/roadmap' },
+  { path: '/roadmap/next', redirect: '/review/overview' },
+  { path: '/dashboard', redirect: { path: '/review/overview' }, meta: { zone: 'legacy', access: 'review', canonical: '/review/overview' } },
   { path: '/dashboard/factory', redirect: '/review/factory' },
   { path: '/dashboard/workshop', redirect: '/review/workshop' },
   { path: '/dashboard/statistics', redirect: '/review/factory' },
+  { path: '/master', redirect: { path: '/admin/master' }, meta: { zone: 'legacy', access: 'admin', canonical: '/admin/master' } },
   {
     path: '/',
     component: Layout,
-    meta: { requiresAuth: true, zone: 'desktop' },
+    meta: { requiresAuth: true, zone: 'legacy', access: 'admin', canonical: '/admin/master' },
     redirect: '/admin/master/workshop',
     children: [
       { path: 'dashboard/factory', redirect: '/review/factory' },
@@ -645,6 +653,20 @@ router.beforeEach((to) => {
     return defaultLanding(authStore)
   }
 
+  if (to.meta.access === 'public') {
+    document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
+    return true
+  }
+  if (to.meta.access === 'entry' && !authStore.canAccessFillSurface) {
+    return defaultLanding(authStore)
+  }
+  if (to.meta.access === 'review' && !authStore.canAccessReviewSurface) {
+    return defaultLanding(authStore)
+  }
+  if (to.meta.access === 'admin' && !authStore.adminSurface) {
+    return defaultLanding(authStore)
+  }
+
   if (to.meta.access === 'review' && !authStore.canAccessReviewDesk) {
     return defaultLanding(authStore)
   }
@@ -657,7 +679,7 @@ router.beforeEach((to) => {
   if (to.meta.access === 'manager' && !(authStore.isAdmin || authStore.isManager)) {
     return defaultLanding(authStore)
   }
-  if (to.meta.access === 'admin' && !authStore.isAdmin) {
+  if (to.meta.access === 'admin_strict' && !authStore.isAdmin) {
     return defaultLanding(authStore)
   }
   if (to.meta.access === 'factory_dashboard' && !authStore.canAccessFactoryDashboard) {
