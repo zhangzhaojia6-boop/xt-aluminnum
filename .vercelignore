@@ -1,0 +1,9 @@
+.vercel/
+frontend/.vercel/
+.tmp/
+.tmp-pytest/
+.omx/
+backend/.pytest-run-*/
+backend/pytest-cache-files-*/
+frontend/playwright-report/
+frontend/test-results/
