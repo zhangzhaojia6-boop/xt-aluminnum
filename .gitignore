@@ -27,3 +27,4 @@ frontend/tmp-review-home.png
 frontend/frontend/
 ssl/
 .vercel/
+.tmp/
