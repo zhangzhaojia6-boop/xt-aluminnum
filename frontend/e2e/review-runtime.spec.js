@@ -110,17 +110,21 @@ test('brain route renders the AI control smoke surface', async ({ page }) => {
   await page.goto('/review/brain')
 
   const brainCenter = page.getByTestId('brain-control-center')
-  const riskTable = page.getByTestId('brain-risk-table')
+  const reviewAside = page.getByTestId('review-shell').locator('.app-shell__aside')
 
   await expect(page.getByTestId('review-shell')).toBeVisible()
+  await expect(reviewAside).toBeVisible()
+  await expect(reviewAside.locator('.el-menu-item.is-active', { hasText: 'AI 总控' })).toBeVisible()
+  await expect(reviewAside.getByText('系统总览')).toBeVisible()
   await expect(brainCenter.getByRole('heading', { name: /11\s*AI 总控中心/ })).toBeVisible()
   await expect(brainCenter.getByText(/辅助建议|系统提示/).first()).toBeVisible()
-  await expect(brainCenter.getByText('今日摘要').first()).toBeVisible()
-  await expect(brainCenter.getByText('风险事件').first()).toBeVisible()
-  await expect(riskTable).toBeVisible()
-  await expect(riskTable.getByRole('columnheader', { name: '证据' })).toBeVisible()
-  await expect(brainCenter.getByText(/证据链|数据来源/).first()).toBeVisible()
+  await expect(brainCenter.getByTestId('brain-agent-question')).toBeVisible()
+  await expect(brainCenter.getByPlaceholder(/问我：今天有哪些交付风险/)).toBeVisible()
+  await expect(brainCenter.getByRole('button', { name: '生成建议' })).toBeVisible()
+  await expect(brainCenter.getByText('最近上下文摘要')).toBeVisible()
+  await expect(brainCenter.getByText('证据来源')).toBeVisible()
   await expect(brainCenter.getByText(/Mock|fallback|mixed|source/).first()).toBeVisible()
+  await expect(brainCenter.getByText(/查看日报阻塞|查看质量告警/).first()).toBeVisible()
   await expect(brainCenter.getByText('AI 已自动处理')).toHaveCount(0)
   await expect(brainCenter.getByText('AI 已接管生产')).toHaveCount(0)
   await expect(brainCenter.getByText('自动排产完成')).toHaveCount(0)
@@ -156,7 +160,10 @@ test('fill-only operator cannot access review brain', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
   await expect(page.getByTestId('brain-control-center')).toHaveCount(0)
+  await expect(page.getByText('AI 总控')).toHaveCount(0)
+  await expect(page.getByText('管理端')).toHaveCount(0)
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {

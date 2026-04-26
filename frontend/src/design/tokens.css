@@ -17,11 +17,11 @@
   --text-main: #0f1f35;
   --text-secondary: #334155;
   --text-muted: #66758f;
-  --radius-card: 16px;
-  --radius-control: 12px;
-  --shadow-card: 0 8px 22px rgba(15, 45, 84, 0.06);
-  --space-page: 18px;
-  --space-card: 14px;
+  --radius-card: 8px;
+  --radius-control: 8px;
+  --shadow-card: 0 8px 22px rgba(15, 45, 84, 0.05);
+  --space-page: 16px;
+  --space-card: 12px;
   --content-max: 1440px;
   --font-number: "DIN Alternate", "Barlow Condensed", "SF Pro Display", "Microsoft YaHei", sans-serif;
   --table-head: #f5f8fc;
@@ -52,7 +52,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px;
+  padding: 14px 16px;
 }
 
 .center-page__title {
@@ -68,7 +68,7 @@
 .center-page__no {
   color: var(--primary);
   font-family: var(--font-number);
-  font-size: 38px;
+  font-size: 42px;
   line-height: 1;
 }
 
@@ -199,7 +199,7 @@
 .section-card {
   display: grid;
   gap: 10px;
-  padding: var(--space-card);
+  padding: 14px;
 }
 
 .section-card__head {

@@ -246,7 +246,7 @@ function canAccess(auth, access) {
   if (!access || access === 'public') return true
   if (access === 'entry' || access === 'fill_surface') return Boolean(auth?.entrySurface ?? auth?.canAccessFillSurface)
   if (access === 'review' || access === 'review_surface') return Boolean(auth?.reviewSurface ?? auth?.canAccessReviewSurface)
-  if (access === 'admin' || access === 'desktop_config' || access === 'admin_surface') return Boolean(auth?.adminSurface ?? auth?.canAccessDesktopConfig)
+  if (access === 'admin' || access === 'desktop_config' || access === 'admin_surface') return Boolean(auth?.isAdmin)
   return true
 }
 

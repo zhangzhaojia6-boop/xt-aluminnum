@@ -829,23 +829,7 @@
         <span class="brain-center-page__scope">{{ brainData.scope }}</span>
         <span class="brain-center-page__date">业务日期：{{ brainBusinessDate }}</span>
         <span class="brain-center-page__updated">更新时间：{{ brainData.updatedAt }}</span>
-        <input
-          v-model="brainBusinessDate"
-          class="brain-control"
-          type="date"
-          disabled
-          aria-label="业务日期"
-          title="日期查询接口待接入，当前只展示本读面数据"
-        />
-        <select v-model="brainRiskFilter" class="brain-control" aria-label="风险筛选">
-          <option value="">全部风险</option>
-          <option v-for="level in brainRiskOptions" :key="level" :value="level">{{ level }}</option>
-        </select>
-        <select v-model="brainTopicFilter" class="brain-control" aria-label="专题筛选">
-          <option value="">全部专题</option>
-          <option v-for="topic in brainTopicOptions" :key="topic" :value="topic">{{ topic }}</option>
-        </select>
-        <button type="button" class="brain-refresh" @click="refreshBrainView">刷新</button>
+        <SourceBadge :source="brainData.source" />
       </template>
 
       <template #summary>
@@ -856,172 +840,80 @@
         />
       </template>
 
-      <KpiStrip :items="brainData.kpis" />
+      <SectionCard class="brain-agent-card" title="问答框" :meta="brainData.ask.status">
+        <div class="brain-agent-card__input">
+          <textarea
+            v-model="brainQuestion"
+            data-testid="brain-agent-question"
+            aria-label="AI 总控问答框"
+            :placeholder="brainData.ask.placeholder"
+          ></textarea>
+          <button type="button" class="brain-agent-card__primary" @click="requestBrainSuggestion">
+            生成建议
+          </button>
+        </div>
+        <p class="brain-agent-card__notice">{{ brainSuggestionNotice || brainData.ask.notice }}</p>
+      </SectionCard>
 
       <div class="brain-center-page__overview">
-        <SectionCard :title="brainData.summary.title" :meta="brainData.summary.confidence">
-          <div class="brain-summary-card">
-            <StatusBadge label="辅助摘要" tone="info" />
-            <strong>{{ brainData.summary.headline }}</strong>
-            <ul>
-              <li v-for="point in brainData.summary.points" :key="point">{{ point }}</li>
-            </ul>
-            <p>{{ brainData.summary.nextStep }}</p>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="风险事件 Top5" meta="系统提示">
-          <div class="brain-risk-top">
-            <article v-for="(risk, index) in brainRiskTopFive" :key="risk.id">
-              <span class="brain-risk-top__no">{{ index + 1 }}</span>
+        <SectionCard title="最近上下文摘要" meta="辅助建议">
+          <div class="brain-context-list">
+            <article v-for="(item, index) in brainData.context" :key="item.title">
+              <span class="brain-context-list__no">{{ index + 1 }}</span>
               <div>
-                <strong>{{ risk.name }}</strong>
-                <span>{{ risk.sourceCenter }} · {{ risk.impact }}</span>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.detail }}</p>
               </div>
-              <StatusBadge :label="risk.level" :tone="risk.tone" />
+              <SourceBadge :source="item.sourceKey" />
             </article>
           </div>
         </SectionCard>
 
-        <SectionCard title="问答 / 追问" :meta="brainData.ask.status">
-          <div class="brain-ask-panel">
-            <div class="brain-ask-panel__head">
-              <span class="brain-bot-mark">AI</span>
-              <strong>智能助手</strong>
-              <StatusBadge label="fallback" tone="warning" />
-            </div>
+        <SectionCard title="Agent 动作建议" meta="操作前确认">
+          <div class="brain-action-grid">
             <button
-              v-for="question in brainData.questions"
-              :key="question"
+              v-for="action in brainData.actions"
+              :key="action.key"
               type="button"
-              disabled
-              title="追问接口未启用，当前不伪造 LLM 回答"
+              :class="`is-${action.tone}`"
+              :disabled="brainActionDisabled(action)"
+              :title="brainActionTitle(action)"
+              @click="prepareBrainAction(action)"
             >
-              {{ question }}
+              <span>{{ action.label }}</span>
+              <StatusBadge :label="brainActionStatusLabel(action)" :tone="brainActionStatusTone(action)" />
             </button>
-            <div class="brain-ask-panel__input">
-              <input :placeholder="brainData.ask.placeholder" disabled aria-label="追问输入" />
-              <button type="button" disabled title="真实 LLM 追问接口未启用">发送</button>
-            </div>
-            <p>{{ brainData.ask.notice }}</p>
           </div>
+          <div v-if="brainPendingAction" class="brain-action-confirm">
+            <p>操作前确认：{{ brainPendingAction.label }} 只会跳转或复制当前摘要，不写入业务数据。</p>
+            <div>
+              <button type="button" class="brain-mini-button" @click="confirmBrainAction">确认</button>
+              <button type="button" class="brain-mini-button" @click="brainPendingAction = null">取消</button>
+            </div>
+          </div>
+          <p class="brain-action-copy">{{ brainActionNote }}</p>
         </SectionCard>
       </div>
 
-      <DataTableShell
-        data-testid="brain-risk-table"
-        title="风险事件"
-        subtitle="风险名称、来源中心、风险等级、影响对象、证据、建议动作、状态与跳转"
-        :columns="brainRiskColumns"
-        :rows="filteredBrainRisks"
-      >
-        <template #actions>
-          <SourceBadge :source="brainData.source" />
-        </template>
-        <template #cell-name="{ row }">
-          <div class="brain-risk-name">
-            <strong>{{ row.name }}</strong>
-            <SourceBadge :source="row.sourceKey" />
-          </div>
-        </template>
-        <template #cell-level="{ row }">
-          <StatusBadge :label="row.level" :tone="row.tone" />
-        </template>
-        <template #cell-evidence="{ row }">
-          <span class="brain-evidence-copy">{{ row.evidence }}</span>
-        </template>
-        <template #cell-recommendation="{ row }">
-          <span class="brain-evidence-copy">{{ row.recommendation }}</span>
-        </template>
-        <template #cell-status="{ row }">
-          <StatusBadge :label="row.status" :tone="row.statusTone" />
-        </template>
-        <template #cell-route="{ row }">
-          <button
-            type="button"
-            class="brain-mini-button"
-            :disabled="!canUseBrainRoute(row.routeName)"
-            :title="canUseBrainRoute(row.routeName) ? row.routeLabel : '当前账号无管理端权限'"
-            @click="goBrainRoute(row.routeName)"
-          >
-            {{ row.routeLabel }}
-          </button>
-        </template>
-      </DataTableShell>
-
-      <SectionCard title="多专题 AI 卡片" meta="辅助建议">
-        <div class="brain-topic-grid">
-          <article v-for="topic in filteredBrainTopics" :key="topic.id" class="brain-topic-card">
+      <SectionCard title="证据来源" meta="source 标识">
+        <div class="brain-source-grid">
+          <article v-for="source in brainData.evidence" :key="source.id">
             <header>
-              <strong>{{ topic.title }}</strong>
-              <StatusBadge :label="topic.status" :tone="topic.tone" />
+              <strong>{{ source.name }}</strong>
+              <SourceBadge :source="source.sourceType" />
             </header>
-            <p><span>关键证据</span>{{ topic.evidence }}</p>
-            <p><span>辅助建议</span>{{ topic.advice }}</p>
+            <p>{{ source.caliber }}</p>
             <footer>
-              <div>
-                <SourceBadge :source="topic.sourceKey" />
-                <em>{{ topic.source }}</em>
-              </div>
-              <button
-                type="button"
-                :disabled="!canUseBrainRoute(topic.routeName)"
-                :title="canUseBrainRoute(topic.routeName) ? topic.routeLabel : '当前账号无管理端权限'"
-                @click="goBrainRoute(topic.routeName)"
-              >
-                {{ topic.routeLabel }}
-              </button>
+              <span>{{ source.updatedAt }}</span>
+              <em>{{ source.note }}</em>
             </footer>
           </article>
         </div>
       </SectionCard>
 
-      <div class="brain-center-page__bottom">
-        <DataTableShell
-          data-testid="brain-evidence-table"
-          title="证据链 / 数据来源"
-          subtitle="引用数据源、口径、更新时间、source 类型与 fallback / mixed 说明"
-          :columns="brainEvidenceColumns"
-          :rows="brainData.evidence"
-        >
-          <template #cell-name="{ row }">
-            <strong class="brain-source-name">{{ row.name }}</strong>
-          </template>
-          <template #cell-sourceType="{ row }">
-            <SourceBadge :source="row.sourceType" />
-          </template>
-          <template #cell-status="{ row }">
-            <StatusBadge :label="row.sourceType" :tone="row.tone" />
-          </template>
-          <template #cell-note="{ row }">
-            <span class="brain-evidence-copy">{{ row.note }}</span>
-          </template>
-        </DataTableShell>
-
-        <aside class="brain-center-page__side">
-          <SectionCard title="建议动作" meta="enabled / disabled">
-            <div class="brain-action-grid">
-              <button
-                v-for="action in brainData.actions"
-                :key="action.key"
-                type="button"
-                :class="`is-${action.tone}`"
-                :disabled="brainActionDisabled(action)"
-                :title="brainActionTitle(action)"
-                @click="runBrainAction(action)"
-              >
-                <span>{{ action.label }}</span>
-                <StatusBadge :label="brainActionStatusLabel(action)" :tone="brainActionStatusTone(action)" />
-              </button>
-            </div>
-            <p class="brain-action-copy">{{ brainActionNote }}</p>
-          </SectionCard>
-
-          <SectionCard title="口径说明" :meta="brainData.source">
-            <p class="brain-caliber-copy">{{ brainData.caliber }}</p>
-          </SectionCard>
-        </aside>
-      </div>
+      <SectionCard title="口径说明" :meta="brainData.source">
+        <p class="brain-caliber-copy">{{ brainData.caliber }}</p>
+      </SectionCard>
     </CenterPageShell>
     <CenterPageShell
       v-else-if="isOpsModule"
@@ -1727,6 +1619,9 @@ const brainBusinessDate = ref(brainCenterMock.businessDate)
 const brainRiskFilter = ref('')
 const brainTopicFilter = ref('')
 const brainFocusPanel = ref('evidence')
+const brainQuestion = ref('')
+const brainSuggestionNotice = ref('')
+const brainPendingAction = ref(null)
 const brainCopied = ref(false)
 const opsInfoPanel = ref('readiness')
 const governanceRoleFilter = ref('')
@@ -2014,9 +1909,9 @@ const filteredMasterTemplates = computed(() => masterData.templates.filter((item
 }))
 
 const brainActionNote = computed(() => {
+  if (brainPendingAction.value) return `等待确认：${brainPendingAction.value.label} 不会自动执行生产、质量、成本、排产或交付动作。`
   if (brainCopied.value) return '辅助摘要已复制；该动作只复制文本，不写入业务数据。'
-  if (brainFocusPanel.value === 'evidence') return '查看证据会定位到本页证据链，不触发自动处置。'
-  return '无真实接口的动作保持禁用；可用动作仅做跳转或复制。'
+  return '操作前确认：可用动作仅做跳转或复制；禁用动作等待真实接口接入。'
 })
 
 const opsActionNote = computed(() => {
@@ -2226,13 +2121,12 @@ function ingestionStatusTone(value) {
 
 function canUseBrainRoute(routeName) {
   if (!routeName) return true
-  if (String(routeName).startsWith('admin-')) return authStore.adminSurface
+  if (String(routeName).startsWith('admin-')) return authStore.isAdmin
   return true
 }
 
 function goBrainRoute(routeName) {
   if (!routeName) {
-    brainFocusPanel.value = 'evidence'
     brainCopied.value = false
     return
   }
@@ -2248,8 +2142,9 @@ function brainActionDisabled(action) {
 }
 
 function brainActionStatusLabel(action) {
-  if (action.status === 'permission') return canUseBrainRoute(action.routeName) ? 'enabled' : 'permission'
-  return action.status
+  if (action.status === 'permission') return canUseBrainRoute(action.routeName) ? '可用' : '需权限'
+  if (action.status === 'disabled') return '待接入'
+  return '可用'
 }
 
 function brainActionStatusTone(action) {
@@ -2262,15 +2157,27 @@ function brainActionTitle(action) {
   return action.title || action.label
 }
 
+function requestBrainSuggestion() {
+  brainSuggestionNotice.value = '系统提示：当前没有真实 LLM 接口，未生成 live 回答；请依据 fallback 摘要、动作建议和证据来源人工复核。'
+}
+
+function prepareBrainAction(action) {
+  if (brainActionDisabled(action)) return
+  brainPendingAction.value = action
+  brainCopied.value = false
+}
+
+function confirmBrainAction() {
+  if (!brainPendingAction.value) return
+  const action = brainPendingAction.value
+  brainPendingAction.value = null
+  runBrainAction(action)
+}
+
 function runBrainAction(action) {
   if (brainActionDisabled(action)) return
   if (action.key === 'copySummary') {
     copyBrainSummary()
-    return
-  }
-  if (action.key === 'evidence') {
-    brainFocusPanel.value = 'evidence'
-    brainCopied.value = false
     return
   }
   goBrainRoute(action.routeName)
@@ -2287,7 +2194,6 @@ function copyBrainSummary() {
     navigator.clipboard.writeText(text).catch(() => {})
   }
   brainCopied.value = true
-  brainFocusPanel.value = 'copy'
 }
 
 function opsTrendHeight(point, metric) {
@@ -3756,13 +3662,10 @@ function goAdminIngestion() {
   font-weight: 900;
 }
 
-.brain-control,
-.brain-refresh,
+.brain-agent-card__primary,
 .brain-mini-button,
-.brain-topic-card button,
 .brain-action-grid button,
-.brain-ask-panel button,
-.brain-ask-panel__input input {
+.brain-action-confirm button {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--card-border);
@@ -3774,159 +3677,145 @@ function goAdminIngestion() {
   font-weight: 800;
 }
 
-.brain-control {
-  max-width: 156px;
-}
-
-.brain-refresh,
+.brain-agent-card__primary,
 .brain-mini-button:not(:disabled),
-.brain-topic-card button:not(:disabled),
-.brain-action-grid button:not(:disabled) {
+.brain-action-grid button:not(:disabled),
+.brain-action-confirm button:not(:disabled) {
   cursor: pointer;
 }
 
-.brain-refresh:hover,
+.brain-agent-card__primary,
+.brain-agent-card__primary:hover,
 .brain-mini-button:not(:disabled):hover,
-.brain-topic-card button:not(:disabled):hover,
-.brain-action-grid button:not(:disabled):hover {
+.brain-action-grid button:not(:disabled):hover,
+.brain-action-confirm button:not(:disabled):hover {
   color: var(--primary);
   border-color: var(--primary);
   background: var(--primary-soft);
 }
 
-.brain-control:disabled,
 .brain-mini-button:disabled,
-.brain-topic-card button:disabled,
 .brain-action-grid button:disabled,
-.brain-ask-panel button:disabled,
-.brain-ask-panel__input input:disabled,
-.brain-ask-panel__input button:disabled {
+.brain-action-confirm button:disabled {
   color: #94a3b8;
   cursor: not-allowed;
   background: #f8fafc;
 }
 
+.brain-agent-card {
+  gap: 12px;
+}
+
+.brain-agent-card__input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.brain-agent-card textarea {
+  min-height: 156px;
+  padding: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.brain-agent-card textarea:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(15, 107, 255, 0.12);
+}
+
+.brain-agent-card__primary {
+  min-height: 156px;
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+  font-size: 16px;
+}
+
+.brain-agent-card__primary:hover {
+  color: #fff;
+  background: #0b56d8;
+}
+
+.brain-agent-card__notice {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .brain-center-page__overview {
   display: grid;
-  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1fr) minmax(300px, 0.78fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
   gap: var(--space-card);
   align-items: stretch;
 }
 
-.brain-summary-card,
-.brain-risk-top,
-.brain-ask-panel,
-.brain-topic-card,
-.brain-center-page__side {
+.brain-context-list,
+.brain-source-grid {
   display: grid;
   gap: 10px;
 }
 
-.brain-summary-card strong,
-.brain-risk-top strong,
-.brain-topic-card strong,
+.brain-context-list strong,
+.brain-source-grid strong,
 .brain-source-name,
-.brain-risk-name strong,
-.brain-ask-panel__head strong {
+.brain-risk-name strong {
   color: var(--text-main);
   font-weight: 900;
 }
 
-.brain-summary-card ul {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-  padding-left: 18px;
-}
-
-.brain-summary-card li,
-.brain-summary-card p,
-.brain-risk-top span,
-.brain-topic-card p,
-.brain-topic-card em,
+.brain-context-list p,
+.brain-source-grid p,
+.brain-source-grid span,
+.brain-source-grid em,
 .brain-evidence-copy,
 .brain-action-copy,
-.brain-caliber-copy,
-.brain-ask-panel p {
+.brain-caliber-copy {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.65;
 }
 
-.brain-summary-card p,
-.brain-topic-card p,
+.brain-context-list p,
+.brain-source-grid p,
 .brain-action-copy,
-.brain-caliber-copy,
-.brain-ask-panel p {
+.brain-caliber-copy {
   margin: 0;
 }
 
-.brain-risk-top article {
+.brain-context-list article {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 10px;
-  align-items: center;
-  min-height: 60px;
-  padding: 9px 0;
+  align-items: start;
+  min-height: 66px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--card-border);
 }
 
-.brain-risk-top article:last-child {
+.brain-context-list article:last-child {
   border-bottom: 0;
 }
 
-.brain-risk-top__no {
+.brain-context-list__no {
   color: var(--primary);
   font-family: var(--font-number);
-  font-size: 30px;
+  font-size: 34px;
   font-weight: 900;
   line-height: 1;
 }
 
-.brain-risk-top article div {
+.brain-context-list article div {
   display: grid;
   gap: 4px;
-}
-
-.brain-ask-panel {
-  padding: 10px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.brain-ask-panel__head,
-.brain-ask-panel__input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brain-bot-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  color: #fff;
-  background: var(--primary);
-  font-family: var(--font-number);
-  font-weight: 900;
-}
-
-.brain-ask-panel > button {
-  width: 100%;
-  min-height: 48px;
-  text-align: left;
-}
-
-.brain-ask-panel__input input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.brain-ask-panel__input button {
-  flex: 0 0 auto;
 }
 
 .brain-risk-name {
@@ -3941,69 +3830,6 @@ function goAdminIngestion() {
   white-space: nowrap;
 }
 
-.brain-topic-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.brain-topic-card {
-  min-height: 188px;
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.brain-topic-card header,
-.brain-topic-card footer,
-.brain-topic-card footer div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brain-topic-card header,
-.brain-topic-card footer {
-  justify-content: space-between;
-}
-
-.brain-topic-card p {
-  display: grid;
-  gap: 4px;
-}
-
-.brain-topic-card p span {
-  color: var(--text-secondary);
-  font-weight: 900;
-}
-
-.brain-topic-card footer {
-  margin-top: auto;
-}
-
-.brain-topic-card footer div {
-  min-width: 0;
-}
-
-.brain-topic-card em {
-  overflow: hidden;
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.brain-topic-card button {
-  min-width: 112px;
-}
-
-.brain-center-page__bottom {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.42fr);
-  gap: var(--space-card);
-  align-items: start;
-}
-
 .brain-action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4012,9 +3838,9 @@ function goAdminIngestion() {
 
 .brain-action-grid button {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   justify-items: start;
-  min-height: 62px;
+  min-height: 66px;
   width: 100%;
   text-align: left;
 }
@@ -4034,23 +3860,58 @@ function goAdminIngestion() {
   background: #f3fcf8;
 }
 
-:deep(.brain-center-page .kpi-strip) {
-  grid-template-columns: repeat(6, minmax(128px, 1fr));
-}
-
-:deep(.brain-center-page .kpi-card) {
-  min-height: 96px;
+.brain-action-confirm {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed #b8c7da;
   border-radius: 8px;
-  box-shadow: none;
+  background: #f8fbff;
 }
 
-:deep(.brain-center-page .kpi-card__label) {
-  font-size: 13px;
-  font-weight: 800;
+.brain-action-confirm p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
-:deep(.brain-center-page .kpi-card__value) {
-  font-size: 34px;
+.brain-action-confirm div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brain-source-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brain-source-grid article {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.brain-source-grid header,
+.brain-source-grid footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.brain-source-grid footer {
+  margin-top: auto;
+  flex-direction: column;
+}
+
+.brain-source-grid em {
+  font-style: normal;
 }
 
 :deep(.brain-center-page .section-card),
@@ -5029,7 +4890,7 @@ function goAdminIngestion() {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 
-  .brain-topic-grid,
+  .brain-source-grid,
   .ops-version-grid,
   .governance-surface-grid,
   .master-risk-links {
@@ -5149,8 +5010,8 @@ function goAdminIngestion() {
   .quality-risk-actions,
   .cost-action-grid,
   .cost-cumulative-summary,
-  .brain-topic-grid,
-  .brain-action-grid,
+    .brain-source-grid,
+    .brain-action-grid,
   .ops-readiness,
   .ops-readiness__lists,
   .ops-trend-grid,
@@ -5214,21 +5075,23 @@ function goAdminIngestion() {
     grid-template-columns: 1fr;
   }
 
-  .brain-risk-top article,
-  .brain-topic-card header,
-  .brain-topic-card footer,
-  .brain-ask-panel__input {
+  .brain-context-list article,
+  .brain-source-grid header,
+  .brain-source-grid footer,
+  .brain-agent-card__input {
     align-items: flex-start;
   }
 
-  .brain-topic-card header,
-  .brain-topic-card footer,
-  .brain-ask-panel__input {
+  .brain-agent-card__input {
+    grid-template-columns: 1fr;
+  }
+
+  .brain-source-grid header,
+  .brain-source-grid footer {
     flex-direction: column;
   }
 
-  .brain-topic-card button,
-  .brain-ask-panel__input button,
+  .brain-agent-card__primary,
   .ops-refresh,
   .governance-refresh,
   .master-refresh,

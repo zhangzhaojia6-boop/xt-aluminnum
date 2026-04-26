@@ -650,6 +650,13 @@ export const brainCenterMock = {
     confidence: 'mixed / fallback',
     nextStep: '辅助建议：先查看质量告警与日报阻塞，再回到数据接入中心确认 source 标识。'
   },
+  context: [
+    { title: '今日交付风险', detail: '质量异常日报存在 1 项交付阻塞，接收对象需人工确认。', sourceKey: 'fallback', tone: 'danger' },
+    { title: '质量关注点', detail: '2 项高风险告警未关闭，影响质量异常日报口径。', sourceKey: 'fallback', tone: 'warning' },
+    { title: '数据源风险', detail: 'MES 与能耗为 mixed，质检与 ERP 仍含 fallback 字段。', sourceKey: 'mixed', tone: 'warning' },
+    { title: '成本估算提醒', detail: '电耗折算和原料策略价偏高，仅作经营估算解释。', sourceKey: 'fallback', tone: 'info' },
+    { title: '运维阻塞', detail: 'AI probe 未启用，不展示 live LLM 成功或自动接管状态。', sourceKey: 'mixed', tone: 'info' }
+  ],
   risks: [
     {
       id: 'risk-quality-report',
@@ -802,21 +809,19 @@ export const brainCenterMock = {
     }
   ],
   evidence: [
-    { id: 'factory', name: 'factory board', caliber: '厂级生产看板读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于产量、异常、待审数量解释' },
-    { id: 'reports', name: 'reports delivery', caliber: 'auto_confirmed / 已自动确认数据口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于日报生成、阻塞和交付状态查看' },
-    { id: 'quality', name: 'quality alerts', caliber: '质量告警与日报影响读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于质量风险解释，不自动关闭告警' },
-    { id: 'cost', name: 'cost benefit', caliber: '经营估算 / 策略口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于成本解释，不作为会计结算' },
-    { id: 'ingestion', name: 'ingestion mapping', caliber: '字段映射与导入试跑', updatedAt: '2026-04-25 10:15', sourceType: 'mixed', tone: 'info', note: '用于 source / fallback / mixed 风险说明' },
-    { id: 'health', name: 'readiness / health', caliber: '前端只读健康提示', updatedAt: '2026-04-25 10:20', sourceType: 'mixed', tone: 'info', note: '不表示 live LLM 或自动决策已启用' }
+    { id: 'factory', name: '工厂看板', caliber: '厂级生产看板读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于产量、异常、待审数量解释' },
+    { id: 'reports', name: '日报交付', caliber: 'auto_confirmed / 已自动确认数据口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于日报生成、阻塞和交付状态查看' },
+    { id: 'quality', name: '质量告警', caliber: '质量告警与日报影响读面', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于质量风险解释，不自动关闭告警' },
+    { id: 'cost', name: '成本估算', caliber: '经营估算 / 策略口径', updatedAt: '2026-04-25 10:30', sourceType: 'fallback', tone: 'warning', note: '用于成本解释，不作为会计结算' },
+    { id: 'ingestion', name: '数据接入', caliber: '字段映射与导入试跑', updatedAt: '2026-04-25 10:15', sourceType: 'mixed', tone: 'info', note: '用于 source / fallback / mixed 风险说明' },
+    { id: 'health', name: '运维状态', caliber: '前端只读健康提示', updatedAt: '2026-04-25 10:20', sourceType: 'mixed', tone: 'info', note: '不表示 live LLM 或自动决策已启用' }
   ],
   actions: [
+    { key: 'reportBlockers', label: '查看日报阻塞', status: 'enabled', tone: 'danger', routeName: 'review-report-center', title: '跳转到日报与交付中心' },
+    { key: 'qualityAlerts', label: '查看质量告警', status: 'enabled', tone: 'warning', routeName: 'review-quality-center', title: '跳转到质量与告警中心' },
+    { key: 'costExplain', label: '查看成本异常', status: 'enabled', tone: 'info', routeName: 'review-cost-accounting', title: '跳转到成本核算与效益中心' },
+    { key: 'ingestionIssues', label: '查看数据接入问题', status: 'permission', tone: 'warning', routeName: 'admin-ingestion-center', title: '需要管理端权限' },
     { key: 'generateSummary', label: '生成今日摘要', status: 'disabled', tone: 'neutral', title: '生成接口未接入，当前使用 fallback 辅助摘要' },
-    { key: 'evidence', label: '查看证据', status: 'enabled', tone: 'info', routeName: '', title: '查看本页证据链与数据来源' },
-    { key: 'reviewTasks', label: '去审阅任务', status: 'enabled', tone: 'processing', routeName: 'review-task-center', title: '进入审阅任务' },
-    { key: 'reportBlockers', label: '看日报阻塞', status: 'enabled', tone: 'danger', routeName: 'review-report-center', title: '查看日报交付阻塞' },
-    { key: 'qualityAlerts', label: '看质量告警', status: 'enabled', tone: 'warning', routeName: 'review-quality-center', title: '查看质量告警' },
-    { key: 'costExplain', label: '看成本解释', status: 'enabled', tone: 'info', routeName: 'review-cost-accounting', title: '查看成本解释' },
-    { key: 'ingestionIssues', label: '看数据接入问题', status: 'permission', tone: 'warning', routeName: 'admin-ingestion-center', title: '需要管理端权限' },
     { key: 'copySummary', label: '复制摘要', status: 'enabled', tone: 'success', routeName: '', title: '复制本页辅助摘要，不写入业务数据' }
   ],
   questions: [
@@ -825,9 +830,9 @@ export const brainCenterMock = {
     '今日异常汇总？'
   ],
   ask: {
-    status: 'disabled',
-    placeholder: '追问接口未启用',
-    notice: '当前没有真实 LLM 追问接口，本区仅展示 fallback 问法入口，不保存对话。'
+    status: 'fallback / 待接入',
+    placeholder: '问我：今天有哪些交付风险？哪些质量问题会影响日报？帮我生成今日摘要。',
+    notice: '当前没有真实 LLM 接口；生成建议只显示 fallback/待接入说明，不产生 live 回答。'
   },
   caliber:
     '本页用于汇总生产、日报、质量、成本和数据接入的辅助解释与建议。AI 输出仅作为审阅辅助，不自动执行生产、质量、成本、排产或交付动作。若数据源标记为 fallback/mixed，请以现场试跑口径复核。'

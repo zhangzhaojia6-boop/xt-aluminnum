@@ -2,18 +2,20 @@ import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
 async function loginAsAdmin(page) {
-  await page.goto('/login')
-  await page.getByTestId('login-username').fill(process.env.PLAYWRIGHT_ADMIN_USERNAME || 'admin')
-  await page
-    .getByTestId('login-password')
-    .fill(process.env.PLAYWRIGHT_ADMIN_PASSWORD || process.env.PLAYWRIGHT_PASSWORD || process.env.INIT_ADMIN_PASSWORD || 'Admin#Gate2026_Strong')
-  const loginResponse = page.waitForResponse((response) =>
-    response.url().includes('/api/v1/auth/login') &&
-    response.request().method() === 'POST' &&
-    response.status() === 200
-  )
-  await page.getByTestId('login-submit').click()
-  await loginResponse
+  await setupReviewSessionAndMocks(page, {
+    token: 'playwright-admin-token',
+    user: {
+      id: 1,
+      username: 'admin',
+      name: 'Playwright Admin',
+      role: 'admin',
+      is_mobile_user: true,
+      is_reviewer: true,
+      is_manager: true,
+      data_scope_type: 'all',
+      assigned_shift_ids: []
+    }
+  })
 }
 
 test('admin surface is separate from review and entry surfaces', async ({ page }) => {
@@ -68,6 +70,10 @@ test('admin master route renders the master data and template smoke surface', as
 
   await expect(page).toHaveURL(/\/admin\/master$/)
   await expect(page.getByTestId('admin-shell')).toBeVisible()
+  const adminAside = page.getByTestId('admin-shell').locator('.app-shell__aside')
+  await expect(adminAside).toBeVisible()
+  await expect(adminAside.locator('.el-menu-item.is-active', { hasText: '主数据' })).toBeVisible()
+  await expect(adminAside.getByText('系统运维')).toBeVisible()
   await expect(masterCenter.getByRole('heading', { name: /14\s*主数据与模板中心/ })).toBeVisible()
   await expect(masterCenter.getByText('trial / 管理端主数据配置面')).toBeVisible()
   await expect(masterCenter.locator('.mock-data-notice')).toContainText('fallback')
@@ -250,6 +256,7 @@ test('manager without admin access cannot see admin master ops or governance ent
   await expect(page.getByText(/主数据与模板中心|主数据配置面/)).toHaveCount(0)
   await expect(page.getByText(/系统运维与可观测|系统运维与观测|系统运维/)).toHaveCount(0)
   await expect(page.getByText(/权限治理中心|权限与治理中心|权限治理/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '管理端' })).toHaveCount(0)
   await expect(page.getByTestId('admin-shell')).toHaveCount(0)
 })
 

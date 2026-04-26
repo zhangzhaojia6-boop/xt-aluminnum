@@ -1,6 +1,6 @@
 <template>
-  <el-container class="app-shell" :data-testid="shellTestId">
-    <el-aside class="app-shell__aside" width="252px">
+  <el-container class="app-shell" :class="{ 'is-nav-open': navOpen }" :data-testid="shellTestId" :data-zone="props.zone">
+    <el-aside id="app-shell-navigation" class="app-shell__aside" width="252px" :aria-label="`${zoneLabel}导航`">
       <div class="app-shell__brand">
         <div class="app-shell__brand-mark" :data-testid="props.zone === 'review' ? 'review-brand-mark' : undefined">鑫</div>
         <div>
@@ -18,12 +18,24 @@
         </el-menu>
       </div>
     </el-aside>
+    <button v-if="navOpen" type="button" class="app-shell__scrim" aria-label="关闭导航" @click="navOpen = false" />
 
     <el-container>
       <el-header class="app-shell__topbar">
-        <div>
-          <div class="app-shell__meta">{{ currentMeta.group || zoneLabel }}</div>
-          <h1 class="app-shell__title">{{ currentMeta.title || '系统中心' }}</h1>
+        <div class="app-shell__topbar-start">
+          <el-button
+            class="app-shell__menu-button"
+            plain
+            aria-controls="app-shell-navigation"
+            :aria-expanded="navOpen ? 'true' : 'false'"
+            @click="navOpen = !navOpen"
+          >
+            导航
+          </el-button>
+          <div>
+            <div class="app-shell__meta">{{ currentMeta.group || zoneLabel }}</div>
+            <h1 class="app-shell__title">{{ currentMeta.title || '系统中心' }}</h1>
+          </div>
         </div>
         <div class="topbar-actions">
           <span class="topbar-user">{{ auth.displayName }}</span>
@@ -84,7 +96,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -105,6 +117,7 @@ const auth = useAuthStore()
 const assistantStore = useAssistantStore()
 const assistantDrawerOpen = ref(false)
 const assistantQuery = ref('')
+const navOpen = ref(false)
 
 const zoneLabel = computed(() => {
   if (props.zone === 'admin') return '管理控制台'
@@ -121,7 +134,7 @@ const activeMenuIndex = computed(() => String(route.name || ''))
 const currentMeta = computed(() => route.meta || {})
 const showEntrySwitch = computed(() => props.zone !== 'entry' && auth.entrySurface && auth.superAdminSurface)
 const showReviewSwitch = computed(() => props.zone !== 'review' && auth.reviewSurface)
-const showAdminSwitch = computed(() => props.zone !== 'admin' && auth.adminSurface)
+const showAdminSwitch = computed(() => props.zone !== 'admin' && auth.isAdmin)
 const showAssistant = computed(() => props.zone === 'review' && auth.reviewSurface)
 const probeDescription = computed(() => {
   const probe = assistantStore.liveProbe
@@ -130,19 +143,24 @@ const probeDescription = computed(() => {
 })
 
 function handleSelect(routeName) {
-  if (!routeName || routeName === route.name) return
+  if (!routeName) return
+  navOpen.value = false
+  if (routeName === route.name) return
   router.push({ name: routeName })
 }
 
 function goEntry() {
+  navOpen.value = false
   router.push({ name: 'mobile-entry' })
 }
 
 function goReview() {
+  navOpen.value = false
   router.push({ name: 'review-overview-home' })
 }
 
 function goAdmin() {
+  navOpen.value = false
   router.push({ name: 'admin-overview' })
 }
 
@@ -172,5 +190,9 @@ async function refreshProbe() {
 
 onMounted(() => {
   assistantStore.loadCapabilities(false)
+})
+
+watch(() => route.fullPath, () => {
+  navOpen.value = false
 })
 </script>

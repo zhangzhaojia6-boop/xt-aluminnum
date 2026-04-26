@@ -12,9 +12,9 @@
   --cmd-amber: #d97706;
   --cmd-text: #0f1f35;
   --cmd-muted: #66758f;
-  --cmd-shadow: 0 8px 22px rgba(15, 45, 84, 0.06);
-  --cmd-radius: 16px;
-  --cmd-radius-sm: 12px;
+  --cmd-shadow: 0 8px 22px rgba(15, 45, 84, 0.05);
+  --cmd-radius: 8px;
+  --cmd-radius-sm: 8px;
   --cmd-gap: 10px;
   --cmd-font: "DIN Alternate", "Barlow Condensed", "MiSans", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
 }
