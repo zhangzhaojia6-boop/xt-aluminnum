@@ -19,7 +19,11 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 
 ## 推荐 Vercel 设置
 
-本仓库根目录没有 `package.json`，前端项目位于 `frontend/`。当前仓库提供根目录 `vercel.json`，用于从仓库根目录构建前端并补齐 SPA fallback。
+本仓库根目录没有 `package.json`，前端项目位于 `frontend/`。Vercel 的 Root Directory 必须和读取的 `vercel.json` 保持一致，否则 SPA 深链 fallback 不会生效。
+
+### Root Directory = 仓库根目录
+
+使用根目录 `vercel.json`，从仓库根目录构建前端并补齐 SPA fallback。
 
 - Root Directory: 仓库根目录
 - Framework Preset: Vite
@@ -28,6 +32,20 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 - Output Directory: `frontend/dist`
 - Node.js: 建议 22.x；Vite 8 依赖要求 Node `^20.19.0 || >=22.12.0`
 - Rewrites: `/(.*)` -> `/index.html`
+
+### Root Directory = `frontend`
+
+使用 `frontend/vercel.json`，从前端目录构建并补齐 SPA fallback。
+
+- Root Directory: `frontend`
+- Framework Preset: Vite
+- Install Command: `npm ci`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Node.js: 建议 22.x；Vite 8 依赖要求 Node `^20.19.0 || >=22.12.0`
+- Rewrites: `/(.*)` -> `/index.html`
+
+不要混淆两种模式：如果 Vercel Dashboard 的 Root Directory 设置为 `frontend`，根目录 `vercel.json` 不会参与该项目构建，必须依赖 `frontend/vercel.json`。
 
 ## 环境变量
 
