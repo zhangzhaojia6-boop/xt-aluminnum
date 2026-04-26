@@ -10,7 +10,7 @@
     <KpiStrip :items="entryHomeMock.kpis" />
 
     <div data-testid="mobile-role-bucket" class="center-grid-2">
-      <SectionCard title="今日待填任务" meta="录入端只负责录入">
+      <SectionCard title="今日任务" meta="录入端只负责录入" aria-label="待填任务">
         <DataTableShell :columns="taskColumns" :rows="entryHomeMock.tasks">
           <template #cell-status="{ value }">
             <StatusBadge :label="value" :tone="value === '异常待补' ? 'warning' : value === '已提交' ? 'success' : 'info'" />
@@ -20,11 +20,10 @@
 
       <SectionCard title="快捷操作">
         <div class="action-grid">
-          <ActionTile label="快速填报" meta="当班报数" primary @click="openReportForm" />
-          <ActionTile data-testid="mobile-go-report" label="高项填报" meta="专项 owner" @click="openAdvancedForm" />
-          <ActionTile label="历史记录" meta="已提交" @click="goHistory" />
-          <ActionTile label="草稿箱" meta="待续填" @click="goDrafts" />
-          <ActionTile label="拍照识别" meta="试验功能" @click="openOcr" />
+          <ActionTile data-testid="mobile-go-report" label="开始填报" meta="高项填报" primary @click="openAdvancedForm" />
+          <ActionTile label="快速填报" meta="当班报数" @click="openReportForm" />
+          <ActionTile label="草稿" meta="草稿箱" @click="goDrafts" />
+          <ActionTile label="历史" meta="历史记录" @click="goHistory" />
         </div>
       </SectionCard>
     </div>

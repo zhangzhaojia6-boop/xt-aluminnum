@@ -154,6 +154,17 @@
           </div>
         </el-card>
 
+        <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card entry-mes-trace-card" data-testid="entry-mes-trace-card">
+          <template #header>线索追踪（待 MES 对接确认）</template>
+          <ul class="entry-mes-trace-list">
+            <li>本系统当前采集前工序现场事实。</li>
+            <li>后工序追踪以 MES 为正式真源。</li>
+            <li>坯料与 MES 后续对象映射待对接确认。</li>
+            <li>当前不要求主操填写 MES 后续码。</li>
+            <li>如现场已有随行卡/坯料号，可作为线索记录。</li>
+          </ul>
+        </el-card>
+
         <el-card v-if="!isOwnerOnlyMode && isSlowTempo" class="panel mobile-card">
           <template #header>本班交接</template>
           <div class="mobile-field mobile-field-wide">
@@ -398,6 +409,27 @@
                   <el-input
                     v-model="formValues[field.name]"
                     :inputmode="field.type === 'number' ? 'decimal' : 'text'"
+                    :placeholder="fieldPlaceholder(field)"
+                    :disabled="isEntryEditingDisabled"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section v-if="operatorConfirmationFields.length" class="mobile-dynamic-section">
+              <div class="mobile-section-title">异常与班末确认</div>
+              <div class="mobile-form-grid">
+                <div v-for="field in operatorConfirmationFields" :key="field.name" class="mobile-field mobile-field-wide">
+                  <label class="mobile-field-label">
+                    <span>
+                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
+                      {{ displayFieldLabel(field) }}
+                    </span>
+                  </label>
+                  <el-input
+                    v-model="formValues[field.name]"
+                    type="textarea"
+                    :rows="3"
                     :placeholder="fieldPlaceholder(field)"
                     :disabled="isEntryEditingDisabled"
                   />
@@ -752,6 +784,15 @@ const submitCooldownActive = ref(false)
 const entryCreateIdempotencyKey = ref(buildClientUuid())
 let submitCooldownTimer = null
 
+const OPERATOR_CONFIRMATION_FIELD = {
+  name: 'operator_notes',
+  label: '异常说明 / 班末补充确认',
+  type: 'textarea',
+  required: false,
+  target: 'entry',
+  hint: '如有异常、交接说明或班末补充，在这里写清楚。'
+}
+
 const entryFields = computed(() => template.value?.entry_fields || [])
 const shiftFields = computed(() => template.value?.shift_fields || [])
 const workshopExtraFields = computed(() => template.value?.extra_fields || [])
@@ -770,9 +811,22 @@ const machineFields = computed(() =>
 )
 const extraFields = computed(() => workshopExtraFields.value)
 const qcFields = computed(() => template.value?.qc_fields || [])
+const existingEditableFieldNames = computed(() => new Set([
+  ...entryFields.value,
+  ...shiftFields.value,
+  ...workshopExtraFields.value,
+  ...machineFields.value,
+  ...qcFields.value
+].map((field) => field.name)))
+const operatorConfirmationFields = computed(() => {
+  if (isOwnerOnlyMode.value) return []
+  if (existingEditableFieldNames.value.has(OPERATOR_CONFIRMATION_FIELD.name)) return []
+  return [OPERATOR_CONFIRMATION_FIELD]
+})
 const editableFields = computed(() => [
   ...entryFields.value,
   ...shiftFields.value,
+  ...operatorConfirmationFields.value,
   ...workshopExtraFields.value,
   ...machineFields.value,
   ...qcFields.value
@@ -781,11 +835,12 @@ const batchEditableFields = computed(() => [...entryFields.value])
 const readonlyFields = computed(() => template.value?.readonly_fields || [])
 const hasSupplementalFields = computed(() => Boolean(
   shiftFields.value.length ||
+  operatorConfirmationFields.value.length ||
   extraFields.value.length ||
   machineFields.value.length ||
   qcFields.value.length
 ))
-const hasShiftConfirmationFields = computed(() => Boolean(shiftFields.value.length))
+const hasShiftConfirmationFields = computed(() => Boolean(shiftFields.value.length || operatorConfirmationFields.value.length))
 const isSlowTempo = computed(() => template.value?.tempo === 'slow')
 const isFastTempo = computed(() => template.value?.tempo === 'fast')
 const isMachineBound = computed(() => Boolean(currentShift.is_machine_bound || auth.isMachineBound))
@@ -2171,6 +2226,20 @@ onBeforeUnmount(() => {
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button),
 .mobile-shell--entry-form :deep(.mobile-actions .el-button) {
   border-radius: 12px;
+}
+
+.entry-mes-trace-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.entry-mes-trace-list li {
+  overflow-wrap: anywhere;
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button:active),

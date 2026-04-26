@@ -1,6 +1,20 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+
+async function expectNoHorizontalOverflow(page) {
+  const overflow = await page.evaluate(() => {
+    const root = document.scrollingElement || document.documentElement
+    return {
+      windowWidth: window.innerWidth,
+      documentWidth: root.scrollWidth,
+      bodyWidth: document.body.scrollWidth
+    }
+  })
+  expect(overflow.documentWidth).toBeLessThanOrEqual(overflow.windowWidth + 1)
+  expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.windowWidth + 1)
+}
 
 test('machine account can submit a mobile entry', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   const trackingCard = `PW${Date.now()}`
 
   await page.goto('/login?machine=XT-ZD-1')
@@ -16,6 +30,8 @@ test('machine account can submit a mobile entry', async ({ page }) => {
   await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByTestId('entry-summary-strip')).toBeVisible()
+  await expect(page.getByText('线索追踪（待 MES 对接确认）')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
 
   await page.locator('.mobile-inline-actions input').first().fill(trackingCard)
   await page.getByRole('button', { name: '下一步' }).click()
@@ -29,6 +45,8 @@ test('machine account can submit a mobile entry', async ({ page }) => {
   await expect(page.getByPlaceholder('请输入电耗')).toHaveCount(0)
 
   const actionButtons = page.locator('.mobile-sticky-actions__buttons button')
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
+  await expectNoHorizontalOverflow(page)
   await expect(actionButtons.nth(2)).toBeEnabled()
   await actionButtons.nth(2).click()
   await expect(page.getByText('确认提交', { exact: true })).toBeVisible()

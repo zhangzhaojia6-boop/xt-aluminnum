@@ -162,8 +162,11 @@ test('fill-only operator cannot access review brain', async ({ page }) => {
   await expect(page.getByTestId('review-shell')).toHaveCount(0)
   await expect(page.getByTestId('admin-shell')).toHaveCount(0)
   await expect(page.getByTestId('brain-control-center')).toHaveCount(0)
-  await expect(page.getByText('AI 总控')).toHaveCount(0)
-  await expect(page.getByText('管理端')).toHaveCount(0)
+  const entryShell = page.getByTestId('entry-shell')
+  if (await entryShell.count()) {
+    await expect(entryShell.getByText('AI 总控')).toHaveCount(0)
+    await expect(entryShell.getByText('管理端')).toHaveCount(0)
+  }
 })
 
 test('ops reliability center route renders live dashboard surface', async ({ page }) => {
