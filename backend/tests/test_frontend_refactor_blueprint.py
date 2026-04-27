@@ -145,19 +145,20 @@ def test_unified_design_shell_and_app_components_exist() -> None:
 def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
     checks = {
         "frontend/src/reference-command/pages/CommandLogin.vue": [
-            "login-surface-entry",
-            "login-surface-review",
-            "login-surface-admin",
+            "cmd-login__surface-list",
+            "录入端",
+            "审阅端",
+            "管理端",
             "auth.login",
             "auth.dingtalkLogin",
         ],
         "frontend/src/reference-command/pages/CommandEntryHome.vue": [
             "CenterPageShell",
-            "待填任务",
+            "最近提交状态",
             "已提交",
             "异常待补",
             "快速填报",
-            "高项填报",
+            "高级填报",
             "历史记录",
             "草稿箱",
             "MockDataNotice",

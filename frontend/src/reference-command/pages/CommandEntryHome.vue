@@ -1,7 +1,8 @@
 <template>
-  <CenterPageShell no="03" title="独立填报端首页" data-testid="mobile-entry">
+  <CenterPageShell no="03" title="独立填报端首页" class="entry-home-page" data-testid="mobile-entry">
     <template #tools>
       <StatusBadge data-testid="mobile-current-shift" :label="`当前班次 ${currentShiftLabel}`" tone="normal" />
+      <StatusBadge :label="identityLabel" tone="info" />
       <SourceBadge source="operator" />
     </template>
 
@@ -10,7 +11,37 @@
     <KpiStrip :items="entryHomeMock.kpis" />
 
     <div data-testid="mobile-role-bucket" class="center-grid-2">
-      <SectionCard title="今日任务" meta="录入端只负责录入" aria-label="待填任务">
+      <SectionCard title="批次号" meta="唯一主线索" aria-label="批次号主入口">
+        <div class="entry-batch-card">
+          <div class="entry-batch-card__input">
+            <input
+              v-model="batchNo"
+              aria-label="批次号"
+              placeholder="扫码或输入批次号"
+              @keyup.enter="openAdvancedForm"
+            />
+            <button type="button" data-testid="mobile-go-report" @click="openAdvancedForm">开始填报</button>
+          </div>
+          <div class="entry-batch-card__meta">
+            <span>扫码带入线索字段</span>
+            <span>字段可人工修改</span>
+            <span>MES 待对接</span>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="快捷操作">
+        <div class="action-grid">
+          <ActionTile label="快速填报" meta="当班报数" primary @click="openReportForm" />
+          <ActionTile label="高级填报" meta="完整字段" @click="openAdvancedForm" />
+          <ActionTile label="草稿" meta="草稿箱" @click="goDrafts" />
+          <ActionTile label="历史" meta="历史记录" @click="goHistory" />
+        </div>
+      </SectionCard>
+    </div>
+
+    <div class="center-grid-2 entry-home-page__lower">
+      <SectionCard title="最近提交状态" meta="录入端只负责录入">
         <DataTableShell :columns="taskColumns" :rows="entryHomeMock.tasks">
           <template #cell-status="{ value }">
             <StatusBadge :label="value" :tone="value === '异常待补' ? 'warning' : value === '已提交' ? 'success' : 'info'" />
@@ -18,12 +49,10 @@
         </DataTableShell>
       </SectionCard>
 
-      <SectionCard title="快捷操作">
-        <div class="action-grid">
-          <ActionTile data-testid="mobile-go-report" label="开始填报" meta="高项填报" primary @click="openAdvancedForm" />
-          <ActionTile label="快速填报" meta="当班报数" @click="openReportForm" />
-          <ActionTile label="草稿" meta="草稿箱" @click="goDrafts" />
-          <ActionTile label="历史" meta="历史记录" @click="goHistory" />
+      <SectionCard title="MES 线索追踪说明" meta="待 MES 对接">
+        <div class="entry-mes-copy">
+          <p>当前阶段以批次号启动填报；若系统命中上一工序记录，可先回填合金、规格、上机重量等字段。</p>
+          <p>所有回填字段均保留人工修改权限；MES 后续码、对象号、状态与更新时间保持待对接语义。</p>
         </div>
       </SectionCard>
     </div>
@@ -48,7 +77,9 @@ import { entryHomeMock } from '../../mocks/centerMockData.js'
 const router = useRouter()
 const currentShift = ref(null)
 const usingFallback = ref(false)
+const batchNo = ref('')
 const currentShiftLabel = computed(() => currentShift.value?.shift_name || currentShift.value?.name || '白班')
+const identityLabel = computed(() => currentShift.value?.machine_name || currentShift.value?.team_name || '现场填报')
 
 const taskColumns = [
   { key: 'name', label: '任务' },

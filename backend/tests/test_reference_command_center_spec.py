@@ -125,10 +125,10 @@ def test_reference_command_tokens_match_target_image_rules() -> None:
         "--cmd-radius:",
     ]:
         assert token in tokens
-    assert "#f5f7fb" in tokens
+    assert "#f5f5f7" in tokens
     assert "#ffffff" in tokens
-    assert "#e5edf7" in tokens
-    assert "#0f6bff" in tokens
+    assert "rgba(0, 0, 0, 0.06)" in tokens
+    assert "#0071e3" in tokens
     assert "DIN Alternate" in tokens
     assert "Microsoft YaHei" in tokens
 
@@ -177,7 +177,7 @@ def test_command_login_replaces_old_login_route_with_three_roles() -> None:
     audit = _read_repo_file(VISUAL_AUDIT_TOOL)
 
     assert "component: CommandLogin" in router
-    for role in ["录入填报", "审阅端", "管理端"]:
+    for role in ["录入端", "审阅端", "管理端"]:
         assert role in login
     assert "loginRoleHandoffImage" not in login
     assert "cmd-login-reference" not in login

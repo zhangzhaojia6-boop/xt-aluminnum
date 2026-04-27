@@ -126,6 +126,10 @@ test('admin ingestion route renders the mapping center smoke surface', async ({ 
   await expect(ingestionCenter.getByText('MES 已正式联通')).toHaveCount(0)
   await expect(ingestionCenter.getByText('ERP 已正式同步')).toHaveCount(0)
   await expect(ingestionCenter.getByText('导入成功写入生产库')).toHaveCount(0)
+
+  await expect(sourceTable.getByText('在制料快照')).toBeVisible()
+  await expect(fieldTable.getByText('wip_ton')).toBeVisible()
+  await expect(sourceTable.getByText('待正式对接')).toBeVisible()
 })
 
 test('admin ops route renders the observability smoke surface', async ({ page }) => {

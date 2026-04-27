@@ -541,6 +541,20 @@ export const ingestionCenterMock = {
       failed: 22,
       owner: '总统计',
       note: '字段口径待人工确认'
+    },
+    {
+      id: 'mes-wip',
+      name: 'MES 在制料快照',
+      type: '在制料 / 投料量',
+      source: 'fallback',
+      status: 'fallback',
+      statusLabel: '待正式对接',
+      tone: 'warning',
+      lastSync: '截图口径',
+      successRate: '-',
+      failed: '-',
+      owner: 'MES 方',
+      note: '当前为 MES 截图口径 fallback read-model，待 MES 方确认 API 字段与刷新频率'
     }
   ],
   fieldMappings: [
@@ -553,7 +567,12 @@ export const ingestionCenterMock = {
     { id: 'defect-reason', name: 'defect_reason', type: 'String', source: '质检系统', sourceKey: 'fallback', sourceField: 'defect_code', mapping: '字典映射', check: '缺失', tone: 'danger', caliber: '缺陷原因字典未完全覆盖', updatedAt: '08:50' },
     { id: 'energy-kwh', name: 'energy_kwh', type: 'Decimal', source: '能耗系统', sourceKey: 'mixed', sourceField: 'power_kwh', mapping: '直接映射', check: '通过', tone: 'success', caliber: '仅用于读面核对与成本估算', updatedAt: '07:50' },
     { id: 'gas-m3', name: 'gas_m3', type: 'Decimal', source: '能耗系统', sourceKey: 'mixed', sourceField: 'gas_flow', mapping: '字段转换', check: '通过', tone: 'success', caliber: 'm³ 口径按班次汇总', updatedAt: '07:50' },
-    { id: 'material-loss', name: 'material_loss', type: 'Decimal', source: 'ERP / 手工录入', sourceKey: 'fallback', sourceField: 'loss_amount', mapping: '人工确认', check: '待配置', tone: 'neutral', caliber: '辅材损耗暂不代表入账结果', updatedAt: '待接入' }
+    { id: 'material-loss', name: 'material_loss', type: 'Decimal', source: 'ERP / 手工录入', sourceKey: 'fallback', sourceField: 'loss_amount', mapping: '人工确认', check: '待配置', tone: 'neutral', caliber: '辅材损耗暂不代表入账结果', updatedAt: '待接入' },
+    { id: 'wip-ton', name: 'wip_ton', type: 'Decimal', source: 'MES 在制料快照', sourceKey: 'fallback', sourceField: 'wip_weight', mapping: '直接映射', check: '待核', tone: 'warning', caliber: '在制料重量，待 MES 方确认计算口径', updatedAt: '截图口径' },
+    { id: 'wip-daily-feed', name: 'daily_feed_ton', type: 'Decimal', source: 'MES 在制料快照', sourceKey: 'fallback', sourceField: 'daily_feed', mapping: '直接映射', check: '待核', tone: 'warning', caliber: '当日投料量，待确认日期口径', updatedAt: '截图口径' },
+    { id: 'wip-monthly-feed', name: 'monthly_feed_ton', type: 'Decimal', source: 'MES 在制料快照', sourceKey: 'fallback', sourceField: 'monthly_feed', mapping: '直接映射', check: '待核', tone: 'warning', caliber: '当月投料量，待确认统计周期', updatedAt: '截图口径' },
+    { id: 'wip-workshop', name: 'workshop', type: 'String', source: 'MES 在制料快照', sourceKey: 'fallback', sourceField: 'workshop_name', mapping: '字典映射', check: '待核', tone: 'warning', caliber: '车间名称待 MES 方确认编码', updatedAt: '截图口径' },
+    { id: 'wip-process', name: 'process', type: 'String', source: 'MES 在制料快照', sourceKey: 'fallback', sourceField: 'process_name', mapping: '字典映射', check: '待核', tone: 'warning', caliber: '工序名称待 MES 方确认编码', updatedAt: '截图口径' }
   ],
   importOverview: {
     totalRows: '96,327',
@@ -1134,4 +1153,34 @@ export const masterCenterMock = {
   },
   caliber:
     '本页用于查看车间、班组、员工、机台、用户、班次、别名、模板与字段规则，属于管理端主数据配置面。当前页面不承接现场生产事实写入，不绕过后端主数据与权限模型。若数据源标记为 fallback/mixed，请以实际主数据接口和现场试跑配置复核。'
+}
+
+export const mesWipSnapshotMock = {
+  source: 'fallback',
+  sourceLabel: 'MES截图口径 / 待正式对接',
+  businessDate: '2026-04-27',
+  updatedAt: '2026-04-27',
+  summary: {
+    monthlyContractTon: 6918,
+    dailyContractTon: 0,
+    monthlyFeedTon: 8955.2,
+    dailyFeedTon: 49.5,
+    wipTotalTon: 1148.5
+  },
+  feedByLine: [
+    { line: '1450', ton: 0 },
+    { line: '1650', ton: 0 },
+    { line: '1850', ton: 0 },
+    { line: '2050', ton: 49.5 }
+  ],
+  workshops: [
+    { name: '1850车间', wipTon: 48.5, processes: [{ name: '冷轧', ton: 48.5 }] },
+    { name: '2050车间', wipTon: 289.0, processes: [{ name: '冷轧', ton: 289.0 }] },
+    { name: '拉矫车间', wipTon: 190.0, processes: [{ name: '洗拉', ton: 25.5 }, { name: '拉矫', ton: 70.5 }, { name: '退火', ton: 94.0 }] },
+    { name: '热轧车间', wipTon: 25.5, processes: [{ name: '中厚板剪切', ton: 25.5 }] },
+    { name: '精整', wipTon: 128.0, processes: [{ name: '剪切', ton: 30.0 }, { name: '纵剪', ton: 98.0 }] },
+    { name: '新厂在线车间', wipTon: 305.0, processes: [{ name: '北线退火', ton: 305.0 }] },
+    { name: '园区在线车间', wipTon: 96.5, processes: [{ name: '在线退火', ton: 96.5 }] },
+    { name: '园区精整', wipTon: 66.0, processes: [{ name: '剪切', ton: 66.0 }] }
+  ]
 }

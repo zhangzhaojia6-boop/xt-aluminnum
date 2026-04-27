@@ -78,6 +78,23 @@
           <li v-for="item in aiRiskSummary" :key="item">{{ item }}</li>
         </ul>
       </ReferenceModuleCard>
+
+      <ReferenceModuleCard module-number="05" title="MES 在制料" density="dense" data-testid="overview-mes-wip">
+        <div class="review-overview-center__wip">
+          <div class="review-overview-center__wip-row">
+            <span>在制料总计</span>
+            <strong>{{ mesWipSummary.wipTotalTon }} t</strong>
+          </div>
+          <div class="review-overview-center__wip-row">
+            <span>当日投料量</span>
+            <strong>{{ mesWipSummary.dailyFeedTon }} t</strong>
+          </div>
+          <div class="review-overview-center__wip-meta">
+            <span class="source-badge is-fallback">fallback</span>
+            <button type="button" class="review-overview-center__wip-link" @click="go('review-brain-center')">查看详情</button>
+          </div>
+        </div>
+      </ReferenceModuleCard>
     </section>
   </ReferencePageFrame>
 </template>
@@ -93,6 +110,7 @@ import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
+import { mesWipSnapshotMock } from '../../mocks/centerMockData.js'
 import { formatNumber } from '../../utils/display'
 
 const router = useRouter()
@@ -192,6 +210,8 @@ const aiRiskSummary = computed(() => {
   return risks.slice(0, 3)
 })
 
+const mesWipSummary = mesWipSnapshotMock.summary
+
 function go(routeName) {
   router.push({ name: routeName })
 }
@@ -241,7 +261,52 @@ onMounted(load)
 }
 
 .review-overview-center__ai-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.review-overview-center__wip {
+  display: grid;
+  gap: 10px;
+}
+
+.review-overview-center__wip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-overview-center__wip-row span {
+  color: #86868b;
+  font-size: 13px;
+}
+
+.review-overview-center__wip-row strong {
+  color: #1d1d1f;
+  font-family: var(--font-number);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.review-overview-center__wip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.review-overview-center__wip-link {
+  border: 0;
+  background: none;
+  color: #0071e3;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.review-overview-center__wip-link:hover {
+  text-decoration: underline;
 }
 
 .review-overview-center__line-map {

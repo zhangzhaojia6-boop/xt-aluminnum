@@ -84,6 +84,38 @@
         </SectionCard>
       </div>
 
+      <SectionCard title="MES 在制料快照（待正式对接）" class="factory-wip-card" data-testid="factory-mes-wip-snapshot">
+        <MockDataNotice source="fallback" :message="mesWipData.sourceLabel" />
+        <div class="factory-wip-card__kpis">
+          <div class="factory-wip-card__kpi">
+            <span>在制料总计</span>
+            <strong>{{ mesWipData.summary.wipTotalTon }}</strong>
+            <em>t</em>
+          </div>
+          <div class="factory-wip-card__kpi">
+            <span>当月投料量</span>
+            <strong>{{ mesWipData.summary.monthlyFeedTon }}</strong>
+            <em>t</em>
+          </div>
+          <div class="factory-wip-card__kpi">
+            <span>当日投料量</span>
+            <strong>{{ mesWipData.summary.dailyFeedTon }}</strong>
+            <em>t</em>
+          </div>
+        </div>
+        <DataTableShell title="车间 / 工序在制料" data-testid="factory-wip-table" :columns="mesWipColumns" :rows="mesWipRows">
+          <template #cell-workshop="{ value }">
+            <strong>{{ value }}</strong>
+          </template>
+          <template #cell-wipTon="{ value }">
+            <strong class="factory-number">{{ value }}</strong>
+          </template>
+          <template #cell-source="{ value }">
+            <SourceBadge :source="value" />
+          </template>
+        </DataTableShell>
+      </SectionCard>
+
       <SectionCard title="来源与口径" class="factory-caliber-card">
         <div class="factory-caliber-list">
           <span v-for="item in factoryData.caliber" :key="item">{{ item }}</span>
@@ -856,23 +888,10 @@
       </SectionCard>
 
       <div class="brain-center-page__overview">
-        <SectionCard title="最近上下文摘要" meta="辅助建议">
-          <div class="brain-context-list">
-            <article v-for="(item, index) in brainData.context" :key="item.title">
-              <span class="brain-context-list__no">{{ index + 1 }}</span>
-              <div>
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.detail }}</p>
-              </div>
-              <SourceBadge :source="item.sourceKey" />
-            </article>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Agent 动作建议" meta="操作前确认">
+        <SectionCard title="建议动作" meta="最多 6 个">
           <div class="brain-action-grid">
             <button
-              v-for="action in brainData.actions"
+              v-for="action in brainData.actions.slice(0, 6)"
               :key="action.key"
               type="button"
               :class="`is-${action.tone}`"
@@ -892,6 +911,27 @@
             </div>
           </div>
           <p class="brain-action-copy">{{ brainActionNote }}</p>
+        </SectionCard>
+
+        <SectionCard title="最近上下文摘要" meta="辅助建议">
+          <div class="brain-context-list">
+            <article v-for="(item, index) in brainData.context" :key="item.title">
+              <span class="brain-context-list__no">{{ index + 1 }}</span>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.detail }}</p>
+              </div>
+              <SourceBadge :source="item.sourceKey" />
+            </article>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="辅助建议 / 系统提示" :meta="brainData.source">
+          <div class="brain-summary-list">
+            <strong>{{ brainData.summary.headline }}</strong>
+            <span v-for="item in brainData.summary.points" :key="item">{{ item }}</span>
+            <p>{{ brainData.summary.nextStep }}</p>
+          </div>
         </SectionCard>
       </div>
 
@@ -1585,7 +1625,7 @@ import MockDataNotice from '../../components/app/MockDataNotice.vue'
 import SectionCard from '../../components/app/SectionCard.vue'
 import SourceBadge from '../../components/app/SourceBadge.vue'
 import StatusBadge from '../../components/app/StatusBadge.vue'
-import { brainCenterMock, costCenterMock, factoryBoardMock, governanceCenterMock, ingestionCenterMock, masterCenterMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
+import { brainCenterMock, costCenterMock, factoryBoardMock, governanceCenterMock, ingestionCenterMock, masterCenterMock, mesWipSnapshotMock, opsCenterMock, qualityCenterMock, reportsCenterMock } from '../../mocks/centerMockData.js'
 import { useAuthStore } from '../../stores/auth.js'
 import CommandPage from '../components/CommandPage.vue'
 import CommandTrend from '../components/CommandTrend.vue'
@@ -1648,6 +1688,7 @@ const isGovernanceModule = computed(() => module.value.moduleId === '13')
 const isIngestionModule = computed(() => module.value.moduleId === '06')
 const isMasterModule = computed(() => module.value.moduleId === '14')
 const factoryData = factoryBoardMock
+const mesWipData = mesWipSnapshotMock
 const reportsData = reportsCenterMock
 const qualityData = qualityCenterMock
 const costData = costCenterMock
@@ -1676,6 +1717,25 @@ const factoryTableRows = computed(() => [
     isTotal: true
   }
 ])
+
+const mesWipColumns = [
+  { key: 'workshop', label: '车间' },
+  { key: 'process', label: '工序' },
+  { key: 'wipTon', label: '在制料（t）' },
+  { key: 'source', label: '来源' }
+]
+
+const mesWipRows = computed(() =>
+  mesWipData.workshops.flatMap((ws) =>
+    ws.processes.map((p, i) => ({
+      id: `${ws.name}-${p.name}`,
+      workshop: i === 0 ? ws.name : '',
+      process: p.name,
+      wipTon: p.ton !== null ? p.ton : '-',
+      source: 'fallback'
+    }))
+  )
+)
 
 const reportDeliveryColumns = [
   { key: 'name', label: '日报名称' },
@@ -2433,6 +2493,40 @@ function goAdminIngestion() {
   border: 1px solid var(--card-border);
   border-radius: var(--radius-control);
   background: var(--neutral-soft);
+}
+
+.factory-wip-card__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.factory-wip-card__kpi {
+  padding: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-control);
+  background: var(--neutral-soft);
+  display: grid;
+  gap: 4px;
+}
+
+.factory-wip-card__kpi span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.factory-wip-card__kpi strong {
+  color: var(--text-main);
+  font-family: var(--font-number);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.factory-wip-card__kpi em {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
 }
 
 :deep(.factory-center-page .data-table-shell table) {
@@ -3753,13 +3847,14 @@ function goAdminIngestion() {
 
 .brain-center-page__overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1fr) minmax(280px, 0.7fr);
   gap: var(--space-card);
   align-items: stretch;
 }
 
 .brain-context-list,
-.brain-source-grid {
+.brain-source-grid,
+.brain-summary-list {
   display: grid;
   gap: 10px;
 }
@@ -3787,8 +3882,29 @@ function goAdminIngestion() {
 .brain-context-list p,
 .brain-source-grid p,
 .brain-action-copy,
-.brain-caliber-copy {
+.brain-caliber-copy,
+.brain-summary-list p {
   margin: 0;
+}
+
+.brain-summary-list {
+  align-content: start;
+}
+
+.brain-summary-list strong {
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.brain-summary-list span {
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: #f8fbff;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .brain-context-list article {

@@ -6,25 +6,24 @@
           <span v-html="commandLogoMark" />
           <strong>鑫泰铝业生产协同系统</strong>
         </div>
-        <div class="cmd-login__roles" aria-label="角色入口">
-          <button
-            v-for="option in surfaceOptions"
-            :key="option.value"
-            type="button"
-            :class="['cmd-login__role', { 'is-active': selectedSurface === option.value }]"
-            :data-testid="option.testId"
-            @click="selectedSurface = option.value"
-          >
-            <strong>{{ option.label }}</strong>
-            <span>{{ option.title }}</span>
-          </button>
+        <div class="cmd-login__handoff" aria-label="权限自动分流">
+          <span class="cmd-login__number">02</span>
+          <div>
+            <h1>登录与角色入口</h1>
+            <p>统一账号进入后，系统按账号权限进入录入端、审阅端或管理端。</p>
+          </div>
+        </div>
+        <div class="cmd-login__surface-list" aria-label="权限落点">
+          <span>录入端</span>
+          <span>审阅端</span>
+          <span>管理端</span>
         </div>
       </div>
 
       <div class="cmd-login__card">
         <div class="cmd-module-page__title cmd-login__functional-title">
           <span class="cmd-login__number">02</span>
-          <h1>登录与角色入口</h1>
+          <h1>账号登录</h1>
         </div>
         <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="submit">
           <el-form-item prop="username">
@@ -61,18 +60,11 @@ const formRef = ref()
 const loading = ref(false)
 const qrLoginPending = ref(false)
 const dingtalkLoginPending = ref(false)
-const selectedSurface = ref('review')
 
 const form = reactive({
   username: '',
   password: ''
 })
-
-const surfaceOptions = [
-  { value: 'entry', label: '录入填报', title: '现场直接报数', testId: 'login-surface-entry' },
-  { value: 'review', label: '审阅端', title: '异常审阅处置', testId: 'login-surface-review' },
-  { value: 'admin', label: '管理端', title: '系统配置治理', testId: 'login-surface-admin' }
-]
 
 const rules = {
   username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
@@ -102,20 +94,14 @@ function resolveAuthCode() {
   return resolveQueryValue('authCode') || resolveQueryValue('auth_code') || resolveQueryValue('code')
 }
 
-function surfaceLandingPath(surface) {
-  if (surface === 'entry' && auth.entrySurface) return '/entry'
-  if (surface === 'admin' && auth.adminSurface) return '/admin'
-  if (surface === 'review' && auth.reviewSurface) return '/review/overview'
-  return ''
-}
-
-function resolveRedirectPath() {
-  const selected = surfaceLandingPath(selectedSurface.value)
-  if (selected) return selected
+function defaultLandingPath() {
   if (typeof route.query.redirect === 'string' && route.query.redirect) return route.query.redirect
   if (auth.defaultSurface === 'entry') return '/entry'
   if (auth.defaultSurface === 'admin') return '/admin'
-  return '/review/overview'
+  if (auth.defaultSurface === 'review') return '/review/overview'
+  if (auth.reviewSurface) return '/review/overview'
+  if (auth.entrySurface) return '/entry'
+  return '/login'
 }
 
 async function submit() {
@@ -125,7 +111,7 @@ async function submit() {
   try {
     await auth.login({ username: form.username, password: form.password })
     ElMessage.success('登录成功')
-    await router.push(resolveRedirectPath())
+    await router.push(defaultLandingPath())
   } finally {
     loading.value = false
   }
@@ -139,7 +125,7 @@ async function tryDingtalkLogin() {
   try {
     await auth.dingtalkLogin(code)
     ElMessage.success('钉钉登录成功')
-    await router.replace(resolveRedirectPath())
+    await router.replace(defaultLandingPath())
     return true
   } catch {
     return false

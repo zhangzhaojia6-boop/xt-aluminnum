@@ -37,6 +37,15 @@ test('factory route renders the production board smoke surface', async ({ page }
   await expect(lineTable.getByRole('columnheader', { name: '趋势（24h）' })).toBeVisible()
   await expect(lineTable.getByText('铸造一线')).toBeVisible()
   await expect(factoryBoard.getByText('风险摘要')).toBeVisible()
+
+  const wipSnapshot = page.getByTestId('factory-mes-wip-snapshot')
+  await expect(wipSnapshot).toBeVisible()
+  await expect(wipSnapshot.getByText('在制料快照')).toBeVisible()
+  await expect(wipSnapshot.getByText('1148.5')).toBeVisible()
+  await expect(wipSnapshot.getByText('8955.2')).toBeVisible()
+  await expect(wipSnapshot.getByText('49.5').first()).toBeVisible()
+  await expect(wipSnapshot.getByText(/fallback|待正式对接/).first()).toBeVisible()
+  await expect(factoryBoard.getByText('MES 已正式联通')).toHaveCount(0)
 })
 
 test('reports route renders the delivery center smoke surface', async ({ page }) => {
@@ -121,6 +130,8 @@ test('brain route renders the AI control smoke surface', async ({ page }) => {
   await expect(brainCenter.getByTestId('brain-agent-question')).toBeVisible()
   await expect(brainCenter.getByPlaceholder(/问我：今天有哪些交付风险/)).toBeVisible()
   await expect(brainCenter.getByRole('button', { name: '生成建议' })).toBeVisible()
+  await expect(brainCenter.getByRole('button', { name: '生成今日摘要' })).toBeDisabled()
+  await expect(brainCenter.locator('.brain-action-grid button')).toHaveCount(6)
   await expect(brainCenter.getByText('最近上下文摘要')).toBeVisible()
   await expect(brainCenter.getByText('证据来源')).toBeVisible()
   await expect(brainCenter.getByText(/Mock|fallback|mixed|source/).first()).toBeVisible()

@@ -918,56 +918,188 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 18px;
+  padding: 24px;
+  background: linear-gradient(160deg, #f5f5f7 0%, #ece8e4 50%, #e8e0db 100%);
 }
 
 .cmd-login__stage {
-  width: min(980px, 100%);
+  width: min(1040px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.75fr);
+  gap: 24px;
+  align-items: stretch;
 }
 
 .cmd-login__hero,
 .cmd-login__card {
-  padding: 16px;
+  padding: 32px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 20px 60px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.cmd-login__hero {
+  display: grid;
+  align-content: space-between;
+  min-height: 420px;
+  gap: 32px;
 }
 
 .cmd-login__submit {
   width: 100%;
+  border-radius: 980px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .cmd-login__status-row {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.cmd-login__roles {
+.cmd-login__handoff {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cmd-login__handoff .cmd-login__number {
+  font-size: 72px;
+  line-height: 0.9;
+  background: linear-gradient(135deg, var(--cmd-blue) 0%, #5856d6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.cmd-login__handoff h1 {
+  margin: 0;
+  color: var(--cmd-text);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.cmd-login__handoff p {
+  max-width: 28em;
+  margin: 12px 0 0;
+  color: var(--cmd-muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.cmd-login__surface-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 18px;
+  gap: 12px;
 }
 
-.cmd-login__role {
-  min-height: 126px;
-  border: 1px solid var(--cmd-border);
-  border-radius: var(--cmd-radius);
-  background: #fff;
-  cursor: pointer;
+.cmd-login__surface-list span {
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  color: var(--cmd-blue);
+  background: rgba(0, 113, 227, 0.04);
+  font-weight: 500;
+  transition: all 0.15s ease-out;
 }
 
-.cmd-login__role.is-active {
-  border-color: var(--cmd-blue);
-  box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.09);
+.cmd-login__surface-list span:hover {
+  background: rgba(0, 113, 227, 0.08);
 }
 
 .cmd-entry-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.entry-home-page {
+  background: #f4f8fd;
+}
+
+.entry-home-page__lower {
+  margin-top: 16px;
+}
+
+.entry-batch-card {
+  display: grid;
+  gap: 12px;
+}
+
+.entry-batch-card__input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.entry-batch-card__input input,
+.entry-batch-card__input button {
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 900;
+}
+
+.entry-batch-card__input input {
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  background: #fff;
+}
+
+.entry-batch-card__input input:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(15, 107, 255, 0.12);
+}
+
+.entry-batch-card__input button {
+  padding: 0 18px;
+  border: 1px solid var(--primary);
+  color: #fff;
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.entry-batch-card__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.entry-batch-card__meta span {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #dce7f4;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: #f8fbff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.entry-mes-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.entry-mes-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.75;
 }
 
 .cmd-step-row {
@@ -1244,10 +1376,15 @@
   .cmd-canvas__grid,
   .cmd-module-page__kpis,
   .cmd-entry-grid,
-  .cmd-login__roles,
+  .cmd-login__surface-list,
+  .entry-batch-card__meta,
   .cmd-step-row,
   .cmd-factory-board__stats,
   .cmd-tab-row {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-batch-card__input {
     grid-template-columns: 1fr;
   }
 
