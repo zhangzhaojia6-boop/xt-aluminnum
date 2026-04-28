@@ -182,22 +182,23 @@ def test_mobile_entry_highlights_agent_squads_without_old_review_language() -> N
     assert "审核工作台" not in source
 
 
-def test_factory_dashboard_mentions_agent_pipeline_and_retention_view() -> None:
+def test_factory_dashboard_uses_compact_white_card_surface() -> None:
     source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
 
-    assert "智能体联动" in source
-    assert "月累计产量" in source
-    assert "数据留存" in source
+    assert "工厂作业看板" in source
+    assert "月累计" in source
+    assert "background: #ffffff" in source
+    assert "border: 1px solid #e5e7eb" in source
 
 
-def test_factory_dashboard_highlights_two_agent_squads_and_direct_pipeline() -> None:
+def test_factory_dashboard_removes_redundant_agent_copy() -> None:
     source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
 
-    assert "采集清洗小队" in source
-    assert "分析决策小队" in source
-    assert "岗位直录" in source
-    assert "领导直达" in source
-    assert "交付与闭环" in source
+    assert "智能体联动" not in source
+    assert "采集清洗小队" not in source
+    assert "分析决策小队" not in source
+    assert "领导直达" not in source
+    assert "交付与闭环" not in source
 
 
 def test_factory_dashboard_exposes_inventory_owner_metrics() -> None:

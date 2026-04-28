@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test'
 
+const adminUsername = process.env.PLAYWRIGHT_ADMIN_USERNAME || process.env.PLAYWRIGHT_USERNAME || 'admin'
+const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD || process.env.PLAYWRIGHT_PASSWORD || 'Admin@123456'
+
 test('admin can access workshop templates and machine user consumes updated template fields', async ({ page }) => {
   const fieldName = `qa_field_${Date.now()}`
   const fieldLabel = `测试字段${Date.now()}`
 
   await page.goto('/login')
-  await page.getByTestId('login-username').fill('admin')
-  await page.getByTestId('login-password').fill('Admin@123456')
+  await page.getByTestId('login-username').fill(adminUsername)
+  await page.getByTestId('login-password').fill(adminPassword)
   await page.getByTestId('login-submit').click()
   await page.waitForURL(/\/dashboard\/factory/)
   const token = await page.evaluate(() => localStorage.getItem('aluminum_bypass_token'))

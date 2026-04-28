@@ -9,9 +9,13 @@ def build_settings(**overrides) -> Settings:
         'DATABASE_URL': 'postgresql+psycopg2://user:pass@localhost:5432/test',
         'SECRET_KEY': 's' * 32,
         'INIT_ADMIN_PASSWORD': 'AdminPassword#2026',
+        'LLM_ENABLED': False,
+        'LLM_API_BASE': None,
+        'LLM_API_KEY': None,
+        'LLM_MODEL': None,
     }
     values.update(overrides)
-    return Settings(**values)
+    return Settings(**values, _env_file=None)
 
 
 def test_validate_runtime_settings_rejects_placeholder_values_in_production() -> None:

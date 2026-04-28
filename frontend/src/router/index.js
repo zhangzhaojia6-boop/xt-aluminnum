@@ -111,7 +111,8 @@ const routes = [
         path: 'dashboard/factory',
         name: 'factory-dashboard',
         component: FactoryDirector,
-        meta: { title: '厂长驾驶舱', zone: 'desktop', access: 'factory_dashboard' }
+        alias: ['/review/factory'],
+        meta: { title: '工厂作业看板', zone: 'desktop', access: 'factory_dashboard' }
       },
       {
         path: 'dashboard/workshop',

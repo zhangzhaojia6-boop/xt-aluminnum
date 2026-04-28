@@ -39,6 +39,9 @@ class FakeQuery:
     def __init__(self, items):
         self._items = items
 
+    def join(self, *_args, **_kwargs):
+        return self
+
     def filter(self, *_args, **_kwargs):
         return self
 
@@ -54,13 +57,13 @@ class FakeDB:
         self._batches = batches
         self._rows_by_batch = rows_by_batch
 
-    def query(self, model):
-        if model is ImportBatch:
+    def query(self, *models):
+        if models == (ImportBatch,):
             return FakeQuery(self._batches)
-        if model is ImportRow:
+        if models == (ImportRow,):
             batch_id = self._next_batch_id
             return FakeQuery(self._rows_by_batch[batch_id])
-        raise AssertionError(f'unexpected model query: {model}')
+        return FakeQuery([])
 
     @property
     def _next_batch_id(self):

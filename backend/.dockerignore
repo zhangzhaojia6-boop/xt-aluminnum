@@ -1,0 +1,8 @@
+__pycache__/
+.pytest_cache/
+.pytest-run-*/
+pytest-cache-files-*/
+*.pyc
+uploads/
+local-dev.db
+.codex-preview.db
