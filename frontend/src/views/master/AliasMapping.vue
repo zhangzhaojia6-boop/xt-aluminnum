@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>主数据别名映射</h1>
-        <p>配置外部来源编码与系统主数据编码之间的对应关系。</p>
       </div>
       <el-button type="primary" @click="openCreate">新增映射</el-button>
     </div>

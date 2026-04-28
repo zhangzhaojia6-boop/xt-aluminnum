@@ -15,16 +15,16 @@ async function loginAsContractOwner(page) {
 }
 
 async function expectFillOnlyBoundary(page) {
-  await page.goto('/review/factory')
+  await page.goto('/manage/factory')
   await expect(page).toHaveURL(/\/entry$/)
   await expect(page.getByTestId('entry-shell')).toBeVisible()
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
-  await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 
-  await page.goto('/admin')
+  await page.goto('/manage/admin')
   await expect(page).toHaveURL(/\/entry$/)
   await expect(page.getByTestId('entry-shell')).toBeVisible()
-  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 }
 
 test('contract owner uses the entry contract surface without review or admin access', async ({ page }) => {
@@ -36,8 +36,7 @@ test('contract owner uses the entry contract surface without review or admin acc
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByText('当日合同', { exact: true })).toBeVisible()
   await expect(page.getByText('月累计与余合同', { exact: true })).toBeVisible()
-  await expect(page.getByTestId('review-shell')).toHaveCount(0)
-  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 
   await expectFillOnlyBoundary(page)
 })

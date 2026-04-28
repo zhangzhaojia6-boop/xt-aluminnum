@@ -1,59 +1,63 @@
 <template>
-  <CenterPageShell no="04" title="填报流程页" data-module="04">
-    <template #tools>
-      <StatusBadge label="草稿自动保存" tone="normal" />
-      <SourceBadge source="operator" />
-    </template>
-
-    <MockDataNotice source="fallback" message="流程示例使用兜底字段，正式提交仍进入真实填报表单。" />
-
-    <SectionCard title="填报步骤">
-      <div class="cmd-step-row">
-        <span v-for="(step, index) in steps" :key="step" class="cmd-step" :class="{ 'is-active': index === 1 }">
-          {{ index + 1 }} {{ step }}
-        </span>
-      </div>
-    </SectionCard>
-
-    <div class="center-grid-2">
-      <SectionCard title="基础信息">
-        <DataTableShell :columns="formColumns" :rows="formRows">
-          <template #cell-state="{ value }">
-            <StatusBadge :label="value" :tone="value === '待提交' ? 'warning' : 'success'" />
-          </template>
-        </DataTableShell>
-      </SectionCard>
-
-      <SectionCard title="操作">
-        <div class="action-grid">
-          <ActionTile label="上一步" meta="返回基础信息" />
-          <ActionTile label="保存草稿" meta="暂存当前字段" />
-          <ActionTile label="下一步" meta="进入确认提交" primary />
-        </div>
-      </SectionCard>
-    </div>
-  </CenterPageShell>
+  <div class="xt-page command-entry-flow">
+    <XtPageHeader title="填报流程页" eyebrow="04 ENTRY FLOW" />
+    <XtGrid>
+      <XtKpi label="当前步骤" value="2" unit="/6" trend="产量录入" />
+      <XtKpi label="产量" value="285.60" unit="吨" trend="班次" />
+      <XtKpi label="良率" value="98.5" unit="%" trend="自动估算" tone="success" />
+    </XtGrid>
+    <XtCard title="流程步骤">
+      <ol class="flow-steps">
+        <li v-for="step in steps" :key="step" :class="{ 'is-current': step === '产量录入' }">{{ step }}</li>
+      </ol>
+    </XtCard>
+    <XtActionBar>
+      <button type="button">上一步</button>
+      <button type="button">保存草稿</button>
+      <button type="button" class="is-primary">下一步</button>
+    </XtActionBar>
+  </div>
 </template>
 
 <script setup>
-import ActionTile from '../../components/app/ActionTile.vue'
-import CenterPageShell from '../../components/app/CenterPageShell.vue'
-import DataTableShell from '../../components/app/DataTableShell.vue'
-import MockDataNotice from '../../components/app/MockDataNotice.vue'
-import SectionCard from '../../components/app/SectionCard.vue'
-import SourceBadge from '../../components/app/SourceBadge.vue'
-import StatusBadge from '../../components/app/StatusBadge.vue'
+import { XtActionBar, XtCard, XtGrid, XtKpi, XtPageHeader } from '../../components/xt'
 
-const steps = ['基础信息', '产量录入', '能耗辅项', '异常补充', '图片上传', '提交成功']
-const formColumns = [
-  { key: 'name', label: '字段' },
-  { key: 'value', label: '数值' },
-  { key: 'rate', label: '口径' },
-  { key: 'state', label: '状态' }
-]
-const formRows = [
-  { id: 'line', name: '产线', value: 'A00 铝线', rate: '已选', state: '正常' },
-  { id: 'output', name: '产量', value: '285.60', rate: '吨', state: '待提交' },
-  { id: 'yield', name: '良率', value: '98.5%', rate: '自动', state: '正常' }
-]
+const steps = ['机台确认', '产量录入', '质量确认', '能耗录入', '异常说明', '提交']
 </script>
+
+<style scoped>
+.command-entry-flow {
+  display: grid;
+  gap: var(--xt-space-5);
+}
+
+.flow-steps {
+  display: grid;
+  gap: var(--xt-space-3);
+  margin: 0;
+  padding-left: var(--xt-space-5);
+}
+
+.flow-steps li {
+  color: var(--xt-text-secondary);
+}
+
+.flow-steps li.is-current {
+  color: var(--xt-primary);
+  font-weight: 700;
+}
+
+button {
+  height: 36px;
+  padding: 0 var(--xt-space-4);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel);
+}
+
+button.is-primary {
+  border-color: var(--xt-primary);
+  color: #fff;
+  background: var(--xt-primary);
+}
+</style>

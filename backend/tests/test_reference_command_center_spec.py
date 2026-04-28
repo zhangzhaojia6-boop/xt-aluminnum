@@ -22,47 +22,59 @@ def _repo_file(relative_path: str) -> Path:
 VISUAL_AUDIT_TOOL = "frontend/tools/visual-audit/command-center-audit.cjs"
 
 
-def _reference_command_files() -> list[Path]:
-    root = _repo_file("frontend/src/reference-command")
-    if not root.exists():
-        return []
-    return [path for path in root.rglob("*") if path.is_file() and path.suffix in {".css", ".js", ".vue"}]
+def _ui_boundary_files() -> list[Path]:
+    roots = [
+        _repo_file("frontend/src/components/reference"),
+        _repo_file("frontend/src/components/xt"),
+        _repo_file("frontend/src/design"),
+        _repo_file("frontend/src/layout"),
+    ]
+    files: list[Path] = []
+    for root in roots:
+        if root.exists():
+            files.extend(path for path in root.rglob("*") if path.is_file() and path.suffix in {".css", ".js", ".vue"})
+    return files
 
 
-def test_reference_command_boundary_files_are_declared() -> None:
+def test_current_ui_boundary_files_are_declared() -> None:
     expected = [
-        "frontend/src/reference-command/assets/logo.js",
-        "frontend/src/reference-command/assets/industry-graphics.js",
-        "frontend/src/reference-command/data/moduleCatalog.js",
-        "frontend/src/reference-command/data/moduleAdapters.js",
-        "frontend/src/reference-command/components/CommandCanvas.vue",
-        "frontend/src/reference-command/components/CommandPanel.vue",
-        "frontend/src/reference-command/components/CommandPage.vue",
-        "frontend/src/reference-command/components/CommandKpi.vue",
-        "frontend/src/reference-command/components/CommandTable.vue",
-        "frontend/src/reference-command/components/CommandTrend.vue",
-        "frontend/src/reference-command/components/CommandFlowMap.vue",
-        "frontend/src/reference-command/components/CommandActionBar.vue",
-        "frontend/src/reference-command/components/CommandStatus.vue",
-        "frontend/src/reference-command/shells/CommandEntryShell.vue",
-        "frontend/src/reference-command/shells/CommandReviewShell.vue",
-        "frontend/src/reference-command/shells/CommandAdminShell.vue",
-        "frontend/src/reference-command/pages/CommandLogin.vue",
-        "frontend/src/reference-command/pages/CommandOverview.vue",
-        "frontend/src/reference-command/pages/CommandEntryHome.vue",
-        "frontend/src/reference-command/pages/CommandEntryFlow.vue",
-        "frontend/src/reference-command/pages/CommandModulePage.vue",
-        "frontend/src/reference-command/styles/command-tokens.css",
-        "frontend/src/reference-command/styles/command-layout.css",
-        "frontend/src/reference-command/styles/command-motion.css",
+        "frontend/src/design/xt-tokens.css",
+        "frontend/src/design/xt-base.css",
+        "frontend/src/design/xt-motion.css",
+        "frontend/src/design/industrial.css",
+        "frontend/src/design/theme.css",
+        "frontend/src/layout/AppShell.vue",
+        "frontend/src/layout/EntryShell.vue",
+        "frontend/src/layout/ManageShell.vue",
+        "frontend/src/components/reference/ReferencePageFrame.vue",
+        "frontend/src/components/reference/ReferenceModuleCard.vue",
+        "frontend/src/components/reference/ReferenceKpiTile.vue",
+        "frontend/src/components/reference/ReferenceStatusTag.vue",
+        "frontend/src/components/reference/ReferenceDataTable.vue",
+        "frontend/src/components/reference/ReferenceFlowGraphic.vue",
+        "frontend/src/components/xt/XtActionBar.vue",
+        "frontend/src/components/xt/XtBatchAction.vue",
+        "frontend/src/components/xt/XtCard.vue",
+        "frontend/src/components/xt/XtEmpty.vue",
+        "frontend/src/components/xt/XtExport.vue",
+        "frontend/src/components/xt/XtFilter.vue",
+        "frontend/src/components/xt/XtGrid.vue",
+        "frontend/src/components/xt/XtKpi.vue",
+        "frontend/src/components/xt/XtLogo.vue",
+        "frontend/src/components/xt/XtNotification.vue",
+        "frontend/src/components/xt/XtPageHeader.vue",
+        "frontend/src/components/xt/XtSearch.vue",
+        "frontend/src/components/xt/XtSkeleton.vue",
+        "frontend/src/components/xt/XtStatus.vue",
+        "frontend/src/components/xt/XtTable.vue",
     ]
     for path in expected:
         assert _repo_file(path).exists(), path
 
 
-def test_reference_command_ui_uses_chinese_dense_copy_without_helper_fields() -> None:
-    files = _reference_command_files()
-    assert files, "frontend/src/reference-command must contain the rebuilt UI boundary"
+def test_current_ui_uses_chinese_dense_copy_without_helper_fields() -> None:
+    files = _ui_boundary_files()
+    assert files, "current frontend UI boundary must contain rebuilt files"
 
     forbidden = [
         "(Review Center)",
@@ -110,39 +122,39 @@ def test_reference_command_catalog_declares_15_target_modules_without_roadmap_pa
         assert surface in catalog
 
 
-def test_reference_command_tokens_match_target_image_rules() -> None:
-    tokens = _read_repo_file("frontend/src/reference-command/styles/command-tokens.css")
+def test_xt_tokens_match_target_image_rules() -> None:
+    tokens = _read_repo_file("frontend/src/design/xt-tokens.css")
 
     for token in [
-        "--cmd-bg:",
-        "--cmd-panel:",
-        "--cmd-border:",
-        "--cmd-blue:",
-        "--cmd-green:",
-        "--cmd-amber:",
-        "--cmd-red:",
-        "--cmd-text:",
-        "--cmd-radius:",
+        "--xt-bg-page:",
+        "--xt-bg-panel:",
+        "--xt-border:",
+        "--xt-primary:",
+        "--xt-success:",
+        "--xt-warning:",
+        "--xt-danger:",
+        "--xt-text:",
+        "--xt-radius-xl:",
     ]:
         assert token in tokens
-    assert "#f5f5f7" in tokens
+    assert "#f5f7fa" in tokens
     assert "#ffffff" in tokens
-    assert "rgba(0, 0, 0, 0.06)" in tokens
+    assert "rgba(0, 0, 0, 0.08)" in tokens
     assert "#0071e3" in tokens
     assert "DIN Alternate" in tokens
     assert "Microsoft YaHei" in tokens
 
 
-def test_reference_command_components_expose_target_css_hooks() -> None:
+def test_current_components_expose_target_css_hooks() -> None:
     hooks = {
-        "CommandPanel.vue": ["cmd-panel", "cmd-panel__number", "cmd-panel__title"],
-        "CommandCanvas.vue": ["cmd-canvas", "cmd-canvas__grid"],
-        "CommandPage.vue": ["cmd-module-page", "cmd-module-page__primary", "cmd-module-page__side"],
-        "CommandKpi.vue": ["cmd-kpi", "cmd-kpi__value"],
-        "CommandActionBar.vue": ["cmd-action-bar"],
+        "frontend/src/components/xt/XtCard.vue": ["xt-card", "xt-card__header", "xt-card__title"],
+        "frontend/src/components/xt/XtGrid.vue": ["xt-grid"],
+        "frontend/src/components/xt/XtKpi.vue": ["xt-kpi", "xt-kpi__value"],
+        "frontend/src/components/xt/XtActionBar.vue": ["xt-action-bar"],
+        "frontend/src/components/reference/ReferencePageFrame.vue": ["reference-page", "reference-page__header"],
     }
-    for filename, expected_hooks in hooks.items():
-        source = _read_repo_file(f"frontend/src/reference-command/components/{filename}")
+    for relative_path, expected_hooks in hooks.items():
+        source = _read_repo_file(relative_path)
         for hook in expected_hooks:
             assert hook in source
 
@@ -152,18 +164,18 @@ def test_reference_command_keeps_legacy_routes_and_route_names() -> None:
 
     for route_name in [
         "mobile-entry",
-        "dynamic-entry-form",
+        "mobile-report-form-advanced",
         "review-overview-home",
         "factory-dashboard",
         "review-task-center",
-        "report-list",
-        "quality-center",
-        "cost-accounting-center",
-        "brain-center",
-        "ops-reliability",
-        "governance-center",
-        "master-workshop",
-        "workshop-template-config",
+        "review-report-center",
+        "review-quality-center",
+        "review-cost-accounting",
+        "review-brain-center",
+        "admin-ops-reliability",
+        "admin-governance-center",
+        "admin-master-workshop",
+        "admin-template-center",
     ]:
         assert f"name: '{route_name}'" in router
 
@@ -171,47 +183,45 @@ def test_reference_command_keeps_legacy_routes_and_route_names() -> None:
         assert legacy_path in router
 
 
-def test_command_login_replaces_old_login_route_with_three_roles() -> None:
+def test_login_route_uses_three_surface_handoff() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
-    login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
-    audit = _read_repo_file(VISUAL_AUDIT_TOOL)
+    login = _read_repo_file("frontend/src/views/Login.vue")
 
-    assert "component: CommandLogin" in router
+    assert "component: Login" in router
     for role in ["录入端", "审阅端", "管理端"]:
         assert role in login
     assert "loginRoleHandoffImage" not in login
     assert "cmd-login-reference" not in login
-    assert "style=" not in login
-    assert "cmd-login__stage" in login
-    assert "cmd-login__card" in login
-    assert "cmd-login-reference" not in audit
+    assert "login-stage" in login
+    assert "login-card" in login
     assert "(Login" not in login
 
 
-def test_reference_command_shells_keep_three_surfaces_separate() -> None:
-    entry = _read_repo_file("frontend/src/reference-command/shells/CommandEntryShell.vue")
-    review = _read_repo_file("frontend/src/reference-command/shells/CommandReviewShell.vue")
-    admin = _read_repo_file("frontend/src/reference-command/shells/CommandAdminShell.vue")
+def test_shells_keep_entry_and_manage_surfaces_separate() -> None:
+    entry = _read_repo_file("frontend/src/layout/EntryShell.vue")
+    app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
+    manage = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
     assert "独立填报端" in entry
     assert "审阅中心" not in entry
     assert "主数据" not in entry
-    assert "AI 总大脑" in review
-    assert "管理控制台" in admin
-    assert "现场填报" not in admin
+    assert "AI 助手" in app_shell
+    assert "管理控制台" in manage
+    assert "现场填报" not in manage
 
 
 def test_review_overview_uses_single_reference_module_01() -> None:
     overview = _read_repo_file("frontend/src/reference-command/pages/CommandOverview.vue")
     router = _read_repo_file("frontend/src/router/index.js")
 
-    assert "CenterPageShell" in overview
-    assert "KpiStrip" in overview
-    assert "DataTableShell" in overview
-    assert "MockDataNotice" in overview
+    assert "XtPageHeader" in overview
+    assert 'title="系统总览主视图"' in overview
+    assert "XtGrid" in overview
+    assert "XtKpi" in overview
+    assert "XtTable" in overview
     assert "name: 'review-overview-home'" in router
-    assert "component: CommandOverview" in router
-    assert "moduleId: '01'" in router
+    assert "component: OverviewCenter" in router
+    assert "canonical: '/manage/overview'" in router
 
 
 def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
@@ -220,19 +230,19 @@ def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     audit = _read_repo_file(VISUAL_AUDIT_TOOL)
 
-    assert 'no="03"' in home
-    assert 'data-module="04"' in flow
-    assert "CenterPageShell" in home
-    assert "KpiStrip" in home
-    assert "MockDataNotice" in home
-    assert "CenterPageShell" in flow
+    assert 'title="独立填报端首页"' in home
+    assert 'eyebrow="03 ENTRY"' in home
+    assert 'title="填报流程页"' in flow
+    assert 'eyebrow="04 ENTRY FLOW"' in flow
+    assert "XtPageHeader" in home
+    assert "XtKpi" in home
+    assert "XtActionBar" in flow
     assert "entryFlowImage" not in flow
     assert "cmd-entry-flow__visual" not in flow
     assert "cmd-entry-flow__functional" not in flow
-    assert "CenterPageShell" in home
     assert "cmd-entry-flow__visual" not in audit
     assert "快速填报" in home
-    assert "基础信息" in flow
+    assert "产量录入" in flow
     assert "name: 'mobile-entry'" in router
     assert "name: 'dynamic-entry-form'" in router
     for forbidden in ["权限治理", "主数据", "审阅任务"]:
@@ -242,45 +252,42 @@ def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
 
 def test_review_modules_are_schema_driven_command_pages() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
-    review_start = router.index("path: '/review'")
-    review_end = router.index("{ path: '/factory'", review_start)
-    review_routes = router[review_start:review_end]
-    task_index = review_routes.index("name: 'review-task-center'")
-    task_slice = review_routes[task_index: task_index + 360]
-    assert "component: CommandReviewTasks" in task_slice
-    assert "moduleId: '07'" in task_slice
+    manage_start = router.index("path: '/manage'")
+    manage_end = router.index("{ path: '/review'", manage_start)
+    manage_routes = router[manage_start:manage_end]
     expected = [
-        ("name: 'factory-dashboard'", "moduleId: '05'"),
-        ("name: 'review-report-center'", "moduleId: '08'"),
-        ("name: 'review-quality-center'", "moduleId: '09'"),
-        ("name: 'review-cost-accounting'", "moduleId: '10'"),
-        ("name: 'review-brain-center'", "moduleId: '11'"),
+        ("name: 'review-task-center'", "component: ReviewTaskCenter", "centerNo: '07'", "canonical: '/manage/entry-center'"),
+        ("name: 'factory-dashboard'", "component: FactoryDirector", "centerNo: '05'", "canonical: '/manage/factory'"),
+        ("name: 'review-report-center'", "component: ReportList", "centerNo: '08'", "canonical: '/manage/reports'"),
+        ("name: 'review-quality-center'", "component: QualityCenter", "centerNo: '09'", "canonical: '/manage/quality'"),
+        ("name: 'review-cost-accounting'", "component: CostAccountingCenter", "centerNo: '10'", "canonical: '/manage/cost'"),
+        ("name: 'review-brain-center'", "component: AiWorkstation", "centerNo: '11'", "canonical: '/manage/ai'"),
     ]
-    for route_name, module_id in expected:
-        route_index = review_routes.index(route_name)
-        route_slice = review_routes[route_index: route_index + 360]
-        assert "component: CommandModulePage" in route_slice
-        assert module_id in route_slice
+    for tokens in expected:
+        route_index = manage_routes.index(tokens[0])
+        route_slice = manage_routes[route_index: route_index + 420]
+        for token in tokens[1:]:
+            assert token in route_slice
 
 
 def test_admin_modules_are_schema_driven_command_pages() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
-    admin_start = router.index("path: '/admin'")
-    admin_end = router.index("path: '/review'", admin_start)
-    admin_routes = router[admin_start:admin_end]
+    manage_start = router.index("path: '/manage'")
+    manage_end = router.index("{ path: '/review'", manage_start)
+    manage_routes = router[manage_start:manage_end]
     expected = [
-        ("name: 'admin-ingestion-center'", "moduleId: '06'"),
-        ("name: 'admin-ops-reliability'", "moduleId: '12'"),
-        ("name: 'admin-governance-center'", "moduleId: '13'"),
-        ("name: 'admin-users'", "moduleId: '13'"),
-        ("name: 'admin-master-workshop'", "moduleId: '14'"),
-        ("name: 'admin-template-center'", "moduleId: '14'"),
+        ("name: 'admin-ingestion-center'", "component: IngestionCenter", "centerNo: '06'", "canonical: '/manage/ingestion'"),
+        ("name: 'admin-ops-reliability'", "component: LiveDashboard", "centerNo: '12'", "canonical: '/manage/admin/settings'"),
+        ("name: 'admin-governance-center'", "component: GovernanceCenter", "centerNo: '13'", "canonical: '/manage/admin/governance'"),
+        ("name: 'admin-users'", "component: UserManagement", "centerNo: '13'", "canonical: '/manage/admin/users'"),
+        ("name: 'admin-master-workshop'", "component: Workshop", "centerNo: '14'", "canonical: '/manage/master'"),
+        ("name: 'admin-template-center'", "component: WorkshopTemplateConfig", "centerNo: '14'", "canonical: '/manage/admin/templates'"),
     ]
-    for route_name, module_id in expected:
-        route_index = admin_routes.index(route_name)
-        route_slice = admin_routes[route_index: route_index + 360]
-        assert "component: CommandModulePage" in route_slice
-        assert module_id in route_slice
+    for tokens in expected:
+        route_index = manage_routes.index(tokens[0])
+        route_slice = manage_routes[route_index: route_index + 420]
+        for token in tokens[1:]:
+            assert token in route_slice
 
 
 def test_ui_replica_spec_locks_reference_module_granularity() -> None:
@@ -428,52 +435,48 @@ def test_visual_diff_gate_supports_per_module_threshold() -> None:
 
 
 def test_factory_board_module_05_is_table_first_like_reference_panel() -> None:
-    source = _read_repo_file("frontend/src/reference-command/components/CommandPage.vue")
-    start = source.index('v-if="showFactoryCompat"')
-    end = source.index("<template v-else>", start)
-    factory_section = source[start:end]
+    source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
 
-    assert "cmd-factory-board__stats" not in factory_section
+    assert "ReferencePageFrame" in source
+    assert 'module-number="05"' in source
     assert "factoryBoardImage" not in source
-    assert "cmd-factory-board__visual" not in factory_section
-    assert "cmd-factory-board__functional" not in factory_section
-    assert "data-testid=\"review-command-deck\"" in factory_section
-    assert "cmd-factory-table" in factory_section
+    assert "cmd-factory-board__visual" not in source
+    assert "cmd-factory-board__functional" not in source
+    assert "reporting-status-table" in source
     for text in [
-        "厂级观察面 · 不写入生产事实",
-        "车间/产线",
-        "产量（吨）",
-        "成品率",
-        "良率/优品率",
-        "异常",
-        "趋势（24h）",
-        "风险摘要",
+        "工厂作业看板",
+        "今日上报状态",
+        "车间",
+        "产量(吨)",
+        "状态",
+        "今日关注",
+        "近 7 日留存趋势",
     ]:
-        assert text in factory_section
-    assert "提交生产数据" not in factory_section
-    assert "补录产量" not in factory_section
+        assert text in source
+    assert "提交生产数据" not in source
+    assert "补录产量" not in source
 
 
 def test_reference_modules_use_distinct_target_panel_layouts() -> None:
-    source = _read_repo_file("frontend/src/reference-command/components/CommandPage.vue")
+    modules = {
+        "frontend/src/views/review/IngestionCenter.vue": ("module-number=\"06\"", "数据接入与字段映射中心"),
+        "frontend/src/views/review/ReviewTaskCenter.vue": ("module-number=\"07\"", "审阅中心"),
+        "frontend/src/views/reports/ReportList.vue": ("module-number=\"08\"", "日报与交付中心"),
+        "frontend/src/views/quality/QualityCenter.vue": ("module-number=\"09\"", "质量与告警中心"),
+        "frontend/src/views/review/CostAccountingCenter.vue": ("module-number=\"10\"", "成本核算与效益中心"),
+        "frontend/src/views/reports/LiveDashboard.vue": ("module-number=\"12\"", "系统运维与观测"),
+        "frontend/src/views/review/GovernanceCenter.vue": ("module-number=\"13\"", "权限与治理中心"),
+        "frontend/src/views/master/WorkshopTemplateConfig.vue": ("module-number=\"14\"", "主数据与模板中心"),
+    }
+    for path, tokens in modules.items():
+        source = _read_repo_file(path)
+        assert "ReferencePageFrame" in source
+        for token in tokens:
+            assert token in source
 
-    required_hooks = [
-        "cmd-layout--mapping-center",
-        "cmd-layout--review-center",
-        "cmd-layout--report-delivery",
-        "cmd-layout--quality-alerts",
-        "cmd-layout--cost-stack",
-        "cmd-layout--ai-brain",
-        "cmd-layout--ops-observability",
-        "cmd-layout--governance-matrix",
-        "cmd-layout--master-templates",
-    ]
-    for hook in required_hooks:
-        assert hook in source
-    assert "referencePanelImage" not in source
-    assert "ingestionPanelImage" not in source
-    assert "reviewCenterPanelImage" not in source
-    assert "cmd-module-page__visual" not in source
+    ai = _read_repo_file("frontend/src/views/ai/AiWorkstation.vue")
+    assert "AI 工作台" in ai
+    assert "cmd-module-page__visual" not in ai
 
 
 def test_center_navigation_defines_first_round_business_centers_only() -> None:
@@ -518,40 +521,40 @@ def test_center_navigation_defines_first_round_business_centers_only() -> None:
 
 def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
-    admin_shell = _read_repo_file("frontend/src/layout/AdminShell.vue")
-    app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
+    entry_shell = _read_repo_file("frontend/src/layout/EntryShell.vue")
+    manage_shell = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
-    assert '<AppShell zone="admin">' in admin_shell
-    assert "admin-shell" in app_shell
+    assert 'data-testid="entry-shell"' in entry_shell
+    assert 'data-testid="manage-shell"' in manage_shell
+    assert "管理控制台" in manage_shell
+    assert "const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }" in router
+    assert "const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }" in router
+    assert "const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }" in router
 
     required_canonicals = [
-        ("'/entry'", "'03'"),
-        ("'/entry/report/:businessDate/:shiftId'", "'04'"),
-        ("'/entry/advanced/:businessDate/:shiftId'", "'04'"),
-        ("'/entry/attendance'", "'03'"),
-        ("'/entry/history'", "'03'"),
-        ("'/entry/drafts'", "'03'"),
-        ("'/review/overview'", "'01'"),
-        ("'/review/factory'", "'05'"),
-        ("'/review/workshop'", "'05'"),
-        ("'/review/tasks'", "'07'"),
-        ("'/review/reports'", "'08'"),
-        ("'/review/quality'", "'09'"),
-        ("'/review/reconciliation'", "'09'"),
-        ("'/review/cost-accounting'", "'10'"),
-        ("'/admin/ingestion'", "'06'"),
-        ("'/admin/master'", "'14'"),
-        ("'/admin/master/templates'", "'14'"),
-        ("'/admin/users'", "'13'"),
-        ("'/admin/governance'", "'13'"),
-        ("'/admin/ops'", "'12'"),
+        ("canonical: '/entry'", "'03'"),
+        ("path: 'report/:businessDate/:shiftId'", "'04'"),
+        ("path: 'advanced/:businessDate/:shiftId'", "'04'"),
+        ("canonical: '/manage/overview'", "'01'"),
+        ("canonical: '/manage/factory'", "'05'"),
+        ("canonical: '/manage/workshop'", "'05'"),
+        ("canonical: '/manage/entry-center'", "'07'"),
+        ("canonical: '/manage/reports'", "'08'"),
+        ("canonical: '/manage/quality'", "'09'"),
+        ("canonical: '/manage/reconciliation'", "'09'"),
+        ("canonical: '/manage/cost'", "'10'"),
+        ("canonical: '/manage/ingestion'", "'06'"),
+        ("canonical: '/manage/master'", "'14'"),
+        ("canonical: '/manage/admin/templates'", "'14'"),
+        ("canonical: '/manage/admin/users'", "'13'"),
+        ("canonical: '/manage/admin/governance'", "'13'"),
+        ("canonical: '/manage/admin/settings'", "'12'"),
     ]
-    for canonical, center_no in required_canonicals:
-        index = router.index(canonical)
+    for anchor, center_no in required_canonicals:
+        index = router.index(anchor)
         route_slice = router[max(0, index - 280): index + 360]
-        assert "zone:" in route_slice
-        assert "access:" in route_slice
         assert "title:" in route_slice
+        assert "meta:" in route_slice
         assert "canonical:" in route_slice
         assert f"centerNo: {center_no}" in route_slice
 
@@ -559,34 +562,29 @@ def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> 
 def test_router_exposes_reference_admin_ops_short_path() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "path: 'ops'," in source
+    assert "path: 'admin/ops'" in source
     assert "redirect: { name: 'admin-ops-reliability' }" in source
-    assert "{ path: '/ops/reliability', redirect: '/admin/ops' }" in source
+    assert "{ path: '/ops/reliability', redirect: '/manage/admin/settings' }" in source
 
 
 def test_router_exposes_reference_admin_short_paths() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "path: 'field-mapping'," in source
     assert "path: 'master'," in source
-    assert "path: 'templates'," in source
-    assert "path: 'users'," in source
-    assert "redirect: { name: 'admin-ingestion-center' }" in source
+    assert "path: 'admin/templates'," in source
+    assert "path: 'admin/users'," in source
+    assert "path: '/admin/ingestion', redirect: '/manage/ingestion'" in source
     assert "redirect: { name: 'admin-master-workshop' }" in source
-    assert "redirect: { name: 'admin-template-center' }" in source
-    assert "redirect: { name: 'admin-users' }" in source
+    assert "path: '/admin/templates', redirect: '/manage/admin/templates'" in source
+    assert "path: '/admin/users', redirect: '/manage/admin/users'" in source
 
 
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
-    start = source.index("path: '/review'")
-    end = source.index("{ path: '/factory'", start)
-    review_routes = source[start:end]
 
-    assert "path: 'roadmap'," in review_routes
-    assert "redirect: { name: 'review-overview-home' }" in review_routes
-    assert "name: 'review-roadmap-center'" not in review_routes
-    assert "moduleId: '16'" not in review_routes
+    assert "{ path: '/review/roadmap', redirect: '/manage/overview' }" in source
+    assert "name: 'review-roadmap-center'" not in source
+    assert "moduleId: '16'" not in source
 
 
 def test_review_roadmap_is_not_formal_review_navigation_item() -> None:

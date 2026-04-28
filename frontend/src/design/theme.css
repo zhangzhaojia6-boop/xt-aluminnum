@@ -23,6 +23,9 @@
 .app-shell {
   min-height: 100vh;
   background: var(--theme-shell);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(0, 113, 227, 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(217, 119, 87, 0.04), transparent);
 }
 
 .app-shell__aside {
@@ -31,10 +34,11 @@
   z-index: 30;
   height: 100vh;
   overflow-y: auto;
-  border-right: 1px solid var(--theme-border);
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  box-shadow: 1px 0 32px rgba(0, 0, 0, 0.03);
 }
 
 .app-shell__brand {
@@ -45,15 +49,16 @@
 }
 
 .app-shell__brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--theme-brand) 0%, #5856d6 100%);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--theme-brand) 0%, #5856d6 50%, #d97757 100%);
   color: #fff;
   font-size: 18px;
   font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.2);
 }
 
 .app-shell__brand-title {
@@ -77,10 +82,11 @@
   gap: 12px;
   min-height: 76px;
   padding: 14px 24px;
-  border-bottom: 1px solid var(--theme-border);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .app-shell__topbar-start {
@@ -129,13 +135,15 @@
 }
 
 .side-menu .el-menu-item {
-  height: 40px;
-  margin: 2px 0;
-  border-radius: 10px;
+  height: 44px;
+  margin: 2px 6px;
+  padding: 0 14px;
+  border-radius: 12px;
   color: #424245;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  transition: all 0.15s ease-out;
+  transition: all 0.2s var(--motion-smooth, cubic-bezier(0.25, 0.1, 0.25, 1));
+  position: relative;
 }
 
 .side-menu .el-menu-item:hover {
@@ -145,9 +153,20 @@
 
 .side-menu .el-menu-item.is-active {
   color: var(--theme-brand);
-  background: rgba(0, 113, 227, 0.1);
-  box-shadow: inset 3px 0 0 var(--theme-brand);
+  background: rgba(0, 113, 227, 0.08);
+  box-shadow: none;
   font-weight: 600;
+}
+
+.side-menu .el-menu-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #0071e3, #5856d6);
 }
 
 .topbar-actions {

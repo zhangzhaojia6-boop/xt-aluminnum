@@ -2,9 +2,8 @@
   <div class="mobile-shell mobile-shell--flow">
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">04 填报流程页</div>
+        <div v-if="false" class="mobile-kicker">04 填报流程页</div>
         <h1>本班填报</h1>
-        <p>按步骤完成本班数据，系统提示仅作辅助。</p>
       </div>
     </div>
 
@@ -125,8 +124,24 @@
               <el-input v-model.number="form.output_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入产出量" />
             </div>
             <div class="mobile-field">
-              <label>废料量</label>
+              <label>
+                废料量
+                <span class="entry-calc-source">{{ scrapOverrideLabel }}</span>
+              </label>
               <el-input v-model.number="form.scrap_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入废料量" />
+            </div>
+          </div>
+
+          <div class="entry-calc-strip">
+            <div>
+              <span>建议废料</span>
+              <strong>{{ suggestedScrapDisplay }}</strong>
+              <em>自动计算</em>
+            </div>
+            <div>
+              <span>成品率</span>
+              <strong>{{ yieldRateDisplay }}</strong>
+              <em>{{ scrapOverrideLabel }}</em>
             </div>
           </div>
 
@@ -252,18 +267,6 @@
       </template>
       </MobileSwipeWorkspace>
 
-      <aside class="entry-flow-hints">
-        <section class="entry-flow-hint-card">
-          <strong>本步要点</strong>
-          <ol>
-            <li v-for="item in currentStepTips" :key="item">{{ item }}</li>
-          </ol>
-        </section>
-        <section class="entry-flow-hint-card">
-          <strong>辅助提示</strong>
-          <span>{{ currentAssistHint }}</span>
-        </section>
-      </aside>
     </div>
 
     <div v-if="!loadError && !loading" class="mobile-sticky-actions">
@@ -426,6 +429,28 @@ const isLastPage = computed(() => currentPageIndex.value >= swipePages.length - 
 const entryStepActiveIndex = computed(() => Math.min(currentPageIndex.value, entryFlowSteps.length - 1))
 const currentStepTips = computed(() => stepTipMap[activePageKey.value] || stepTipMap.overview)
 const currentAssistHint = computed(() => assistHintMap[activePageKey.value] || assistHintMap.overview)
+const suggestedScrap = computed(() => {
+  const input = Number(form.input_weight)
+  const output = Number(form.output_weight)
+  if (!Number.isFinite(input) || !Number.isFinite(output)) return null
+  const value = input - output
+  if (value < 0) return null
+  return Number(value.toFixed(2))
+})
+const hasManualScrapOverride = computed(() => {
+  if (suggestedScrap.value === null) return false
+  const actual = Number(form.scrap_weight)
+  if (!Number.isFinite(actual)) return false
+  return Math.abs(actual - suggestedScrap.value) > 0.005
+})
+const suggestedScrapDisplay = computed(() => suggestedScrap.value === null ? '-' : formatNumber(suggestedScrap.value))
+const scrapOverrideLabel = computed(() => hasManualScrapOverride.value ? '人工修正' : '系统建议')
+const yieldRateDisplay = computed(() => {
+  const input = Number(form.input_weight)
+  const output = Number(form.output_weight)
+  if (!Number.isFinite(input) || !Number.isFinite(output) || input <= 0) return '-'
+  return `${((output / input) * 100).toFixed(2)}%`
+})
 
 const localDraftScope = computed(() => ({
   workshopId: report.workshop_id || '',
@@ -772,8 +797,8 @@ onBeforeUnmount(() => {
 
 .entry-flow-steps .is-active b {
   color: #fff;
-  border-color: var(--primary);
-  background: var(--primary);
+  border-color: transparent;
+  background: linear-gradient(135deg, #0071e3, #5856d6);
 }
 
 .entry-flow-layout {
@@ -803,6 +828,7 @@ onBeforeUnmount(() => {
 .entry-flow-hint-card strong {
   color: var(--primary);
   font-size: 16px;
+  font-family: var(--font-display, 'SF Pro Display', system-ui);
 }
 
 .entry-flow-hint-card ol {
@@ -818,6 +844,43 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.entry-calc-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.entry-calc-strip div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.entry-calc-strip span,
+.entry-calc-strip em,
+.entry-calc-source {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.entry-calc-strip strong {
+  color: var(--primary);
+  font-family: var(--font-number);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.entry-calc-source {
+  margin-left: 6px;
+  font-weight: 800;
+}
+
 .mobile-shell--flow :deep(.mobile-field .el-input__wrapper),
 .mobile-shell--flow :deep(.mobile-field .el-textarea__inner) {
   min-height: 44px;
@@ -830,8 +893,20 @@ onBeforeUnmount(() => {
   z-index: 12;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow: 0 -8px 20px rgba(15, 45, 84, 0.08);
+}
+
+.mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary) {
+  box-shadow: 0 4px 24px rgba(0, 113, 227, 0.3);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary:hover) {
+  box-shadow: 0 8px 40px rgba(0, 113, 227, 0.5);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 900px) {
@@ -861,6 +936,10 @@ onBeforeUnmount(() => {
 
   .entry-flow-hint-card {
     padding: 12px;
+  }
+
+  .entry-calc-strip {
+    grid-template-columns: 1fr;
   }
 }
 </style>

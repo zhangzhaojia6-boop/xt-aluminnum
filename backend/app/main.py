@@ -19,7 +19,7 @@ from app.config import settings
 from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
-from app.routers import assistant, attendance, auth, command, dashboard, dingtalk, energy, imports, master, mes, mobile, ocr, production, quality, realtime, reconciliation, reports, templates, users, work_orders
+from app.routers import ai, assistant, attendance, auth, command, dashboard, dingtalk, energy, export, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, search, templates, users, work_orders
 from app.services import dingtalk_service
 
 scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if BackgroundScheduler else None
@@ -198,6 +198,10 @@ app.include_router(realtime.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(templates.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(dingtalk.router, prefix=f'{settings.API_V1_PREFIX}/dingtalk')
 app.include_router(work_orders.router, prefix=f'{settings.API_V1_PREFIX}')
+app.include_router(ai.router, prefix=f'{settings.API_V1_PREFIX}/ai')
+app.include_router(search.router, prefix=f'{settings.API_V1_PREFIX}')
+app.include_router(export.router, prefix=f'{settings.API_V1_PREFIX}')
+app.include_router(notifications.router, prefix=f'{settings.API_V1_PREFIX}/notifications')
 
 
 @app.get('/')

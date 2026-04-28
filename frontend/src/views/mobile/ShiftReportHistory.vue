@@ -2,7 +2,6 @@
   <div class="mobile-shell">
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">我的填报</div>
         <h1>历史填报</h1>
         <p>只看你有权限的班次记录。</p>
       </div>

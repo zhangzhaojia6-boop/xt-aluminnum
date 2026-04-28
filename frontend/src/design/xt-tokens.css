@@ -1,0 +1,107 @@
+:root {
+  --xt-primary: #0071e3;
+  --xt-primary-hover: #0058b0;
+  --xt-primary-light: rgba(0, 113, 227, 0.08);
+
+  --xt-gray-50: #f9fafb;
+  --xt-gray-100: #f3f4f6;
+  --xt-gray-200: #e5e7eb;
+  --xt-gray-300: #d1d5db;
+  --xt-gray-400: #9ca3af;
+  --xt-gray-500: #6b7280;
+  --xt-gray-600: #4b5563;
+  --xt-gray-700: #374151;
+  --xt-gray-800: #1f2937;
+  --xt-gray-900: #111827;
+
+  --xt-success: #22c55e;
+  --xt-success-light: rgba(34, 197, 94, 0.08);
+  --xt-warning: #f59e0b;
+  --xt-warning-light: rgba(245, 158, 11, 0.08);
+  --xt-danger: #ef4444;
+  --xt-danger-light: rgba(239, 68, 68, 0.08);
+  --xt-info: #3b82f6;
+  --xt-info-light: rgba(59, 130, 246, 0.08);
+
+  --xt-bg-page: #f5f7fa;
+  --xt-bg-panel: #ffffff;
+  --xt-bg-panel-soft: #fafafa;
+
+  --xt-text: #1f2937;
+  --xt-text-secondary: #6b7280;
+  --xt-text-muted: #9ca3af;
+  --xt-text-inverse: #ffffff;
+
+  --xt-border: #e5e7eb;
+  --xt-border-light: #f3f4f6;
+
+  --xt-font-body: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --xt-font-number: 'DIN Alternate', 'Barlow Condensed', 'SF Pro Display', monospace;
+  --xt-font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+
+  --xt-text-xs: 12px;
+  --xt-text-sm: 13px;
+  --xt-text-base: 14px;
+  --xt-text-lg: 16px;
+  --xt-text-xl: 20px;
+  --xt-text-2xl: 24px;
+  --xt-text-3xl: 32px;
+
+  --xt-space-1: 4px;
+  --xt-space-2: 8px;
+  --xt-space-3: 12px;
+  --xt-space-4: 16px;
+  --xt-space-5: 20px;
+  --xt-space-6: 24px;
+  --xt-space-8: 32px;
+  --xt-space-10: 40px;
+  --xt-space-12: 48px;
+
+  --xt-radius-sm: 4px;
+  --xt-radius-md: 6px;
+  --xt-radius-lg: 8px;
+  --xt-radius-xl: 12px;
+
+  --xt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --xt-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --xt-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --xt-motion-fast: 120ms;
+  --xt-motion-normal: 200ms;
+  --xt-motion-slow: 350ms;
+  --xt-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  --xt-sidebar-width: 240px;
+  --xt-sidebar-collapsed: 64px;
+  --xt-topbar-height: 56px;
+  --xt-content-max: 1400px;
+  --xt-tabbar-height: 56px;
+
+  --app-bg: var(--xt-bg-page);
+  --app-panel: rgba(255, 255, 255, 0.92);
+  --app-panel-soft: var(--xt-bg-panel-soft);
+  --app-panel-strong: var(--xt-bg-panel);
+  --app-accent: var(--xt-primary);
+  --app-accent-soft: var(--xt-primary-light);
+  --app-text: var(--xt-text);
+  --app-muted: var(--xt-text-secondary);
+  --app-border: var(--xt-border);
+  --app-shadow-xs: var(--xt-shadow-sm);
+  --app-shadow-sm: var(--xt-shadow-md);
+  --app-shadow-md: var(--xt-shadow-lg);
+  --app-focus-ring: 0 0 0 3px rgba(0, 113, 227, 0.24);
+  --app-motion-fast: var(--xt-motion-fast);
+  --app-motion-base: var(--xt-motion-normal);
+  --app-motion-curve: var(--xt-ease);
+  --app-radius-card: var(--xt-radius-xl);
+
+  --primary: var(--xt-primary);
+  --text-main: var(--xt-text);
+  --reference-blue: var(--xt-primary);
+  --reference-green: var(--xt-success);
+  --reference-red: var(--xt-danger);
+  --reference-amber: var(--xt-warning);
+  --reference-line: var(--xt-border-light);
+  --reference-card: rgba(255, 255, 255, 0.96);
+  --reference-shadow: var(--xt-shadow-md);
+}

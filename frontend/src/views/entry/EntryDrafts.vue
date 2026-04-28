@@ -4,7 +4,6 @@
       <div class="page-title">
         <div>
           <h1>草稿箱</h1>
-          <p>仅显示本机本账号暂存的未提交填报草稿。</p>
         </div>
         <el-button plain @click="loadDrafts">刷新</el-button>
       </div>

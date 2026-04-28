@@ -8,28 +8,27 @@ import 'element-plus/es/components/message-box/style/css'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
-import router from './router'
+import router, { installRouterGuards } from './router'
 import { setupApiInterceptors } from './api'
 import { useAuthStore } from './stores/auth'
-import './design/tokens.css'
-import './design/theme.css'
-import './styles.css'
-import './reference-command/styles/command-tokens.css'
-import './reference-command/styles/command-layout.css'
-import './reference-command/styles/command-motion.css'
+import './design/xt-tokens.css'
+import './design/xt-base.css'
+import './design/xt-motion.css'
+import './design/industrial.css'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
-app.use(router)
 app.component(ElConfigProvider.name, ElConfigProvider)
 app.directive('loading', ElLoadingDirective)
 app.config.globalProperties.$zhCn = zhCn
 
-setupApiInterceptors(router, pinia)
-
 const authStore = useAuthStore(pinia)
 authStore.hydrate()
+installRouterGuards(router, authStore)
+setupApiInterceptors(router, pinia)
+
+app.use(router)
 
 app.mount('#app')

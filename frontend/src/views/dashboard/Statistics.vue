@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>统计观察看板</h1>
-        <p>按授权范围查看待处理班次、催报状态、质量阻断与交付缺口，主路径仅做观察与提示。</p>
       </div>
       <div class="header-actions">
         <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
@@ -97,9 +96,6 @@
         <el-descriptions-item label="主交付范围">{{ yieldMatrixLane.primary_delivery_scope ?? '-' }}</el-descriptions-item>
         <el-descriptions-item label="交付范围">{{ (yieldMatrixLane.delivery_scopes || []).join('、') || '-' }}</el-descriptions-item>
       </el-descriptions>
-      <div class="note">
-        正式口径说明：全厂/车间总成材率以矩阵为真相；旧 `yield_rate` 仅保留兼容明细用途。
-      </div>
       <el-table :data="yieldMatrixWorkshopRows" stripe>
         <el-table-column prop="workshop_key" label="矩阵口径" min-width="180" />
         <el-table-column prop="yield_rate" label="正式成品率" min-width="120">
@@ -241,3 +237,62 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.page-stack {
+  padding: 16px;
+  background: var(--app-bg, #f5f5f7);
+  min-height: 100vh;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  padding: 16px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
+  border-radius: var(--radius-card, 16px);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+.stat-label {
+  color: var(--text-muted, #86868b);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-family: var(--font-number, 'SF Pro Display', 'DIN Alternate', system-ui);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-main, #1d1d1f);
+  letter-spacing: -0.02em;
+}
+
+.panel {
+  padding: 16px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
+  border-radius: var(--radius-card, 16px);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
+  margin-bottom: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+</style>

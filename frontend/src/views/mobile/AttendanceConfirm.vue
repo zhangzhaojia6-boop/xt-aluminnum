@@ -2,7 +2,6 @@
   <div class="mobile-shell" data-testid="attendance-confirm">
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">班长二次确认</div>
         <h1>考勤确认</h1>
         <p>先看钉钉原始打卡，再由班长确认或纠偏，异常会自动进入人事复核。</p>
       </div>

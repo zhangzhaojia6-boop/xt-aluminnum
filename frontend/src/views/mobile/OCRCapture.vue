@@ -2,7 +2,6 @@
   <div class="mobile-shell" data-testid="mobile-ocr-capture">
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">拍照识别录入</div>
         <h1>拍照识别</h1>
         <p>纸单拍照后先识别，再带入同一套随行卡表单继续人工核对和提交。</p>
       </div>

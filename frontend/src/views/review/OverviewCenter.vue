@@ -277,12 +277,12 @@ onMounted(load)
 }
 
 .review-overview-center__wip-row span {
-  color: #86868b;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .review-overview-center__wip-row strong {
-  color: #1d1d1f;
+  color: var(--text-main);
   font-family: var(--font-number);
   font-size: 20px;
   font-weight: 700;
@@ -299,7 +299,7 @@ onMounted(load)
 .review-overview-center__wip-link {
   border: 0;
   background: none;
-  color: #0071e3;
+  color: var(--primary);
   font-size: 13px;
   cursor: pointer;
   padding: 0;
@@ -327,13 +327,13 @@ onMounted(load)
   min-height: 42px;
   display: grid;
   place-items: center;
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 13px;
   font-weight: 900;
 }
 
 .review-overview-center__line-map span.is-warning {
-  color: #b45309;
+  color: var(--warning);
   background: rgba(254, 243, 199, 0.88);
 }
 
@@ -348,13 +348,13 @@ onMounted(load)
 
 .review-overview-center__quick span,
 .review-overview-center__module-card span {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 800;
 }
 
 .review-overview-center__quick strong {
-  color: #0f172a;
+  color: var(--text-main);
   font-size: 15px;
 }
 

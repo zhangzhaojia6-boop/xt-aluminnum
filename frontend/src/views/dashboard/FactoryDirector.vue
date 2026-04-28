@@ -143,6 +143,7 @@
       <div class="stat-card" data-testid="delivery-ready-card">
         <div class="stat-label">交付状态</div>
         <div class="stat-value">{{ delivery.delivery_ready ? '可交付' : '未就绪' }}</div>
+        <div class="note" data-testid="delivery-missing-steps">缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
       </div>
     </div>
 
@@ -222,7 +223,7 @@
             <el-descriptions-item label="待处理差异">{{ data.exception_lane?.reconciliation_open_count ?? 0 }}</el-descriptions-item>
             <el-descriptions-item label="待处理日报">{{ data.exception_lane?.pending_report_publish_count ?? 0 }}</el-descriptions-item>
           </el-descriptions>
-          <div class="note" data-testid="delivery-missing-steps">缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
+          <div class="note">缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
         </el-tab-pane>
 
         <el-tab-pane label="趋势" name="trend">
@@ -420,7 +421,7 @@ let assistantShortcutSequence = 0
 const heroCards = computed(() => [
   {
     key: 'today-output',
-    label: '今日产量',
+    label: '产量合计',
     value: `${formatNumber(leaderMetrics.value.today_total_output)} 吨`,
     hint: '主线指标。',
     tone: 'success'
@@ -444,8 +445,8 @@ const heroCards = computed(() => [
   },
   {
     key: 'delivery',
-    label: '交付状态',
-    value: delivery.value.delivery_ready ? '可交付' : '未就绪',
+    label: '交付进度',
+    value: delivery.value.delivery_ready ? '已具备' : '待补齐',
     hint: formatDeliveryMissingSteps(delivery.value.missing_steps).join('；') || '关键链路已具备。',
     tone: delivery.value.delivery_ready ? 'success' : 'alert'
   },

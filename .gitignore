@@ -23,8 +23,10 @@ backups/
 tmp/
 frontend/playwright-report/
 frontend/test-results/
+test-results/
 frontend/tmp-review-home.png
 frontend/frontend/
 ssl/
 .vercel/
 .tmp/
+.worktrees/

@@ -15,16 +15,16 @@ async function loginAsInventoryOwner(page) {
 }
 
 async function expectFillOnlyBoundary(page) {
-  await page.goto('/review/factory')
+  await page.goto('/manage/factory')
   await expect(page).toHaveURL(/\/entry$/)
   await expect(page.getByTestId('entry-shell')).toBeVisible()
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
-  await expect(page.getByTestId('review-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 
-  await page.goto('/admin')
+  await page.goto('/manage/admin')
   await expect(page).toHaveURL(/\/entry$/)
   await expect(page.getByTestId('entry-shell')).toBeVisible()
-  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 }
 
 test('inventory owner uses the entry inventory surface without review or admin access', async ({ page }) => {
@@ -37,8 +37,7 @@ test('inventory owner uses the entry inventory surface without review or admin a
   await expect(page.getByTestId('entry-work-order-card')).toHaveCount(0)
   await expect(page.getByText('今日入库', { exact: true })).toBeVisible()
   await expect(page.getByText('今日发货', { exact: true })).toBeVisible()
-  await expect(page.getByTestId('review-shell')).toHaveCount(0)
-  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 
   await expectFillOnlyBoundary(page)
 })

@@ -19,7 +19,8 @@ test('machine account can submit a mobile entry', async ({ page }) => {
 
   await page.goto('/login?machine=XT-ZD-1')
 
-  await expect(page).toHaveURL(/\/(mobile|entry)$/)
+  await expect(page).toHaveURL(/\/entry$/)
+  await expect(page.getByTestId('entry-shell')).toBeVisible()
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
   await expect(page.getByTestId('mobile-current-shift')).toBeVisible()
   await expect(page.getByTestId('mobile-role-bucket')).toBeVisible()
@@ -27,7 +28,7 @@ test('machine account can submit a mobile entry', async ({ page }) => {
 
   await page.getByTestId('mobile-go-report').click()
 
-  await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
+  await expect(page).toHaveURL(/\/entry\/advanced\//)
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByTestId('entry-summary-strip')).toBeVisible()
   await expect(page.getByText('线索追踪（待 MES 对接确认）')).toBeVisible()

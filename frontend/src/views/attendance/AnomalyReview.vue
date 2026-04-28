@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>考勤异常处置</h1>
-        <p>汇总班长覆盖钉钉自动判定的记录，由观察/实施人员做最终核实与闭环处理。</p>
       </div>
       <div class="attendance-anomaly-toolbar">
         <el-date-picker

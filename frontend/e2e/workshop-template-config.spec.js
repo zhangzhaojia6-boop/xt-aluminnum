@@ -13,10 +13,10 @@ test('admin can access workshop templates and machine user consumes updated temp
   await page.getByTestId('login-username').fill('admin')
   await page.getByTestId('login-password').fill(adminPassword)
   await page.getByTestId('login-submit').click()
-  await page.waitForURL(/\/review\/(overview|factory)/)
+  await page.waitForURL(/\/manage\/(overview|factory)/)
   const token = await page.evaluate(() => localStorage.getItem('aluminum_bypass_token'))
 
-  await page.goto('/master/workshop-template')
+  await page.goto('/manage/admin/templates')
   await expect(page.getByTestId('template-editor-page')).toBeVisible()
 
   const authHeaders = { Authorization: `Bearer ${token}` }

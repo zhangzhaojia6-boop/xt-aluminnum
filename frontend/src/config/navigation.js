@@ -263,7 +263,7 @@ export function resolveRouteMeta(routeName, currentMeta = {}) {
         canonical: center.path
       }
     : {}
-  return { ...(currentMeta || {}), ...centerMeta, ...routeMeta }
+  return { ...centerMeta, ...routeMeta, ...(currentMeta || {}) }
 }
 
 export function buildShellNavigation(zone, auth) {

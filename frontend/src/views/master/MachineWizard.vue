@@ -156,7 +156,6 @@
 
           <div class="machine-wizard__footer-actions">
             <el-button @click="regeneratePreviewPin">重新生成</el-button>
-            <span class="machine-wizard__hint">提交后将由后端实际生成 6 位 PIN，最终以创建结果为准。</span>
           </div>
         </section>
       </div>

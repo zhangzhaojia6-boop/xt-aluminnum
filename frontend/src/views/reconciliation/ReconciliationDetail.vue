@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>差异详情</h1>
-        <p>查看两个来源之间的差异内容、处理过程和最终说明。</p>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

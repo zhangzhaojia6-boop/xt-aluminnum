@@ -46,11 +46,18 @@ def test_navigation_declares_15_center_blueprint_without_roadmap() -> None:
 def test_core_routes_have_zone_access_title_center_and_canonical_meta() -> None:
     source = _read("frontend/src/router/index.js")
 
+    for meta in [
+        "const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }",
+        "const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }",
+        "const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }",
+    ]:
+        assert meta in source
+
     core = [
         ("path: '/login'", "zone: 'public'", "access: 'public'", "canonical: '/login'"),
-        ("path: '/entry'", "zone: 'entry'", "access: 'entry'", "canonical: '/entry'"),
-        ("path: '/review'", "zone: 'review'", "access: 'review'", "canonical: '/review/overview'"),
-        ("path: '/admin'", "zone: 'admin'", "access: 'admin'", "canonical: '/admin'"),
+        ("path: '/entry'", "component: EntryShell", "canonical: '/entry'"),
+        ("path: '/manage'", "component: ManageShell", "canonical: '/manage'"),
+        ("path: 'admin'", "name: 'admin-overview'", "canonical: '/manage/admin'"),
     ]
     for tokens in core:
         anchor = source.index(tokens[0])
@@ -67,20 +74,18 @@ def test_core_routes_have_zone_access_title_center_and_canonical_meta() -> None:
 
 def test_ai_center_is_formal_and_roadmap_is_isolated_redirect() -> None:
     source = _read("frontend/src/router/index.js")
-    review_start = source.index("path: '/review'")
-    review_end = source.index("{ path: '/factory'", review_start)
-    review_routes = source[review_start:review_end]
+    manage_start = source.index("path: '/manage'")
+    manage_end = source.index("{ path: '/review'", manage_start)
+    manage_routes = source[manage_start:manage_end]
 
-    brain_anchor = review_routes.index("path: 'brain',")
-    brain_block = review_routes[brain_anchor : brain_anchor + 320]
-    assert "component: CommandModulePage" in brain_block
-    assert "moduleId: '11'" in brain_block
-    assert "canonical: '/review/brain'" in brain_block
+    brain_anchor = manage_routes.index("path: 'ai',")
+    brain_block = manage_routes[brain_anchor : brain_anchor + 320]
+    assert "component: AiWorkstation" in brain_block
+    assert "centerNo: '11'" in brain_block
+    assert "canonical: '/manage/ai'" in brain_block
 
-    roadmap_anchor = review_routes.index("path: 'roadmap',")
-    roadmap_block = review_routes[roadmap_anchor : roadmap_anchor + 260]
-    assert "redirect: { name: 'review-overview-home' }" in roadmap_block
-    assert "name: 'review-roadmap-center'" not in review_routes
+    assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
+    assert "name: 'review-roadmap-center'" not in source
 
 
 def test_legacy_paths_redirect_to_canonical_three_surfaces() -> None:
@@ -88,12 +93,12 @@ def test_legacy_paths_redirect_to_canonical_three_surfaces() -> None:
 
     for legacy, canonical in [
         ("path: '/mobile'", "path: '/entry'"),
-        ("path: '/dashboard'", "path: '/review/overview'"),
-        ("path: '/master'", "path: '/admin/master'"),
+        ("path: '/dashboard'", "redirect: '/manage/overview'"),
+        ("path: '/master'", "redirect: '/manage/master'"),
         ("path: 'ingestion'", "name: 'admin-ingestion-center'"),
-        ("path: 'template-center'", "name: 'admin-template-center'"),
-        ("path: 'governance'", "name: 'admin-governance-center'"),
-        ("path: 'ops-reliability'", "name: 'admin-ops-reliability'"),
+        ("path: 'admin/templates'", "name: 'admin-template-center'"),
+        ("path: 'admin/governance'", "name: 'admin-governance-center'"),
+        ("path: 'admin/settings'", "name: 'admin-ops-reliability'"),
     ]:
         anchor = source.index(legacy)
         block = source[anchor : anchor + 380]
@@ -102,91 +107,83 @@ def test_legacy_paths_redirect_to_canonical_three_surfaces() -> None:
 
 def test_unified_design_shell_and_app_components_exist() -> None:
     expected_files = [
-        "frontend/src/design/tokens.css",
-        "frontend/src/design/status.js",
-        "frontend/src/design/centerTheme.js",
+        "frontend/src/design/xt-tokens.css",
+        "frontend/src/design/xt-base.css",
+        "frontend/src/design/xt-motion.css",
+        "frontend/src/design/industrial.css",
+        "frontend/src/design/theme.css",
         "frontend/src/layout/AppShell.vue",
         "frontend/src/layout/EntryShell.vue",
-        "frontend/src/layout/ReviewShell.vue",
-        "frontend/src/layout/AdminShell.vue",
-        "frontend/src/components/app/CenterPageShell.vue",
-        "frontend/src/components/app/AppKpiCard.vue",
-        "frontend/src/components/app/KpiStrip.vue",
-        "frontend/src/components/app/ActionTile.vue",
-        "frontend/src/components/app/StatusBadge.vue",
-        "frontend/src/components/app/DataTableShell.vue",
-        "frontend/src/components/app/SectionCard.vue",
-        "frontend/src/components/app/FixedActionBar.vue",
-        "frontend/src/components/app/SourceBadge.vue",
-        "frontend/src/components/app/MockDataNotice.vue",
+        "frontend/src/layout/ManageShell.vue",
+        "frontend/src/components/xt/XtActionBar.vue",
+        "frontend/src/components/xt/XtBatchAction.vue",
+        "frontend/src/components/xt/XtCard.vue",
+        "frontend/src/components/xt/XtEmpty.vue",
+        "frontend/src/components/xt/XtExport.vue",
+        "frontend/src/components/xt/XtFilter.vue",
+        "frontend/src/components/xt/XtGrid.vue",
+        "frontend/src/components/xt/XtKpi.vue",
+        "frontend/src/components/xt/XtLogo.vue",
+        "frontend/src/components/xt/XtNotification.vue",
+        "frontend/src/components/xt/XtPageHeader.vue",
+        "frontend/src/components/xt/XtSearch.vue",
+        "frontend/src/components/xt/XtSkeleton.vue",
+        "frontend/src/components/xt/XtStatus.vue",
+        "frontend/src/components/xt/XtTable.vue",
     ]
     for relative_path in expected_files:
         assert _repo_file(relative_path).exists(), relative_path
 
-    tokens = _read("frontend/src/design/tokens.css")
+    tokens = _read("frontend/src/design/xt-tokens.css")
     for token in [
-        "--app-bg",
-        "--card-bg",
-        "--card-border",
-        "--primary",
-        "--success",
-        "--warning",
-        "--danger",
-        "--text-main",
-        "--text-muted",
-        "--radius-card",
-        "--shadow-card",
-        "--space-page",
-        "--space-card",
+        "--xt-bg-page",
+        "--xt-bg-panel",
+        "--xt-border",
+        "--xt-primary",
+        "--xt-success",
+        "--xt-warning",
+        "--xt-danger",
+        "--xt-text",
+        "--xt-text-muted",
+        "--xt-radius-xl",
+        "--xt-shadow-md",
+        "--xt-space-6",
+        "--xt-sidebar-width",
     ]:
         assert token in tokens
 
 
 def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
     checks = {
-        "frontend/src/reference-command/pages/CommandLogin.vue": [
-            "cmd-login__surface-list",
+        "frontend/src/views/Login.vue": [
+            "login-stage__role-grid",
             "录入端",
             "审阅端",
             "管理端",
             "auth.login",
             "auth.dingtalkLogin",
         ],
-        "frontend/src/reference-command/pages/CommandEntryHome.vue": [
-            "CenterPageShell",
-            "最近提交状态",
-            "已提交",
-            "异常待补",
+        "frontend/src/views/mobile/MobileEntry.vue": [
+            "data-testid=\"mobile-entry\"",
+            "当前任务",
             "快速填报",
             "高级填报",
             "历史记录",
             "草稿箱",
-            "MockDataNotice",
         ],
-        "frontend/src/reference-command/pages/CommandOverview.vue": [
-            "CenterPageShell",
+        "frontend/src/views/review/OverviewCenter.vue": [
+            "ReferencePageFrame",
             "今日产量",
-            "订单达成率",
-            "综合成品率",
-            "在制产线",
-            "异常数",
-            "待审核",
-            "已交付",
-            "系统状态",
-            "MockDataNotice",
+            "AI 今日摘要",
+            "AI 风险摘要",
         ],
-        "frontend/src/reference-command/components/CommandPage.vue": [
-            "showReviewTasks",
+        "frontend/src/views/review/ReviewTaskCenter.vue": [
+            "ReferencePageFrame",
             "待审",
             "已审",
-            "已驳回",
-            "录入车间",
-            "AI 建议",
-            "风险等级",
             "批量通过",
             "批量驳回",
             "导出清单",
-            "MockDataNotice",
         ],
     }
     for relative_path, tokens in checks.items():

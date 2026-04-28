@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>导入历史</h1>
-        <p>查看每次文件导入的批次结果和摘要。</p>
       </div>
       <el-button @click="load">刷新</el-button>
     </div>

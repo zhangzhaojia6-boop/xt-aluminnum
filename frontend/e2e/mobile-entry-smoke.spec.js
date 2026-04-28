@@ -5,6 +5,18 @@ const username = process.env.PLAYWRIGHT_USERNAME || 'admin'
 const password = process.env.PLAYWRIGHT_PASSWORD || process.env.INIT_ADMIN_PASSWORD || 'Admin#Gate2026_Strong'
 const responsiveWidths = [375, 390, 414, 768]
 
+async function seedStoredSession(page, token, user, machineContext = null) {
+  await page.addInitScript(({ token, user, machineContext }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    if (machineContext) {
+      localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+    } else {
+      localStorage.removeItem('aluminum_bypass_machine')
+    }
+  }, { token, user, machineContext })
+}
+
 async function expectNoHorizontalOverflow(page) {
   const overflow = await page.evaluate(() => {
     const root = document.documentElement
@@ -30,19 +42,43 @@ async function expectContainerInsideViewport(page, locator) {
 }
 
 async function setupFillOnlyEntrySession(page) {
-  await setupReviewSessionAndMocks(page, {
-    token: 'playwright-fill-token',
-    user: {
-      id: 2,
-      username: 'operator',
-      name: 'Playwright Operator',
-      role: 'operator',
-      is_mobile_user: true,
-      is_reviewer: false,
-      is_manager: false,
-      data_scope_type: 'self_team',
-      assigned_shift_ids: []
-    }
+  const token = 'playwright-fill-token'
+  const user = {
+    id: 2,
+    username: 'operator',
+    name: 'Playwright Operator',
+    role: 'operator',
+    is_mobile_user: true,
+    is_reviewer: false,
+    is_manager: false,
+    data_scope_type: 'self_team',
+    assigned_shift_ids: []
+  }
+  await setupReviewSessionAndMocks(page, { token, user })
+  await seedStoredSession(page, token, user)
+
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(user)
+    })
+  })
+
+  await page.route('**/api/v1/mobile/bootstrap', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        entry_mode: 'web_debug',
+        current_identity_source: 'account',
+        current_scope_summary: { data_scope_type: 'self_team' },
+        workshop_id: 1,
+        workshop_name: '挤压车间',
+        workshop_type: 'extrusion',
+        is_machine_bound: false
+      })
+    })
   })
 
   await page.route('**/api/v1/mobile/current-shift', async (route) => {
@@ -61,6 +97,22 @@ async function setupFillOnlyEntrySession(page) {
       })
     })
   })
+
+  await page.route('**/api/v1/templates/extrusion', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        supports_ocr: false,
+        role_bucket: 'operator',
+        entry_fields: [],
+        shift_fields: [],
+        extra_fields: [],
+        qc_fields: [],
+        readonly_fields: []
+      })
+    })
+  })
 }
 
 test('admin mobile entry shows the manual-first mobile fallback entry', async ({ page }) => {
@@ -70,13 +122,13 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/review\/(factory|overview)/)
+  await expect(page).toHaveURL(/\/manage\/overview$/)
 
   const currentShiftResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/mobile/current-shift') &&
     response.request().method() === 'GET'
   )
-  await page.goto('/mobile')
+  await page.goto('/entry')
   await currentShiftResponse
 
   const currentShiftCard = page.getByTestId('mobile-current-shift')
@@ -101,10 +153,11 @@ for (const width of responsiveWidths) {
     await expect(page).toHaveURL(/\/entry$/)
     await expect(entryShell).toBeVisible()
     await expect(page.getByTestId('mobile-entry')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '今日任务' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /开始填报/ })).toBeVisible()
-    await expect(entryShell.getByRole('button', { name: '草稿箱', exact: true })).toBeVisible()
-    await expect(entryShell.getByRole('button', { name: '历史记录', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '班次直录' })).toBeVisible()
+    await expect(page.getByText('当前任务')).toBeVisible()
+    await expect(page.getByText('当前角色')).toBeVisible()
+    await expect(page.getByRole('button', { name: '开始本班填报' })).toBeVisible()
+    await expect(entryShell.getByRole('link', { name: /草稿/ })).toBeVisible()
     await expect(entryShell.getByText('管理端')).toHaveCount(0)
     await expect(entryShell.getByText('审阅端')).toHaveCount(0)
     await expectNoHorizontalOverflow(page)
@@ -116,15 +169,14 @@ test('fill-only operator lands on entry and cannot see review or admin navigatio
   await page.setViewportSize({ width: 390, height: 844 })
   await setupFillOnlyEntrySession(page)
 
-  await page.goto('/review/brain')
+  await page.goto('/manage/ai')
 
   const entryShell = page.getByTestId('entry-shell')
   await expect(page).toHaveURL(/\/entry$/)
   await expect(entryShell).toBeVisible()
   await expect(entryShell.getByText('管理端')).toHaveCount(0)
   await expect(entryShell.getByText('审阅端')).toHaveCount(0)
-  await expect(page.getByTestId('review-shell')).toHaveCount(0)
-  await expect(page.getByTestId('admin-shell')).toHaveCount(0)
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 })
 
 for (const width of responsiveWidths) {
@@ -132,16 +184,18 @@ for (const width of responsiveWidths) {
     await page.setViewportSize({ width, height: width >= 768 ? 1024 : 844 })
     await page.goto('/login?machine=XT-ZD-1')
 
-    await expect(page).toHaveURL(/\/(mobile|entry)$/)
+    await expect(page).toHaveURL(/\/entry$/)
     await expect(page.getByTestId('mobile-go-report')).toBeVisible()
     await expectNoHorizontalOverflow(page)
     await expectContainerInsideViewport(page, page.getByTestId('entry-shell'))
 
     await page.getByTestId('mobile-go-report').click()
-    await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
+    await expect(page).toHaveURL(/\/entry\/advanced\//)
     await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
+    await expect(page.getByText('批次号', { exact: true }).first()).toBeVisible()
     await expect(page.getByText('线索追踪（待 MES 对接确认）')).toBeVisible()
     await expect(page.getByText('当前不要求主操填写 MES 后续码。')).toBeVisible()
+    await expect(page.getByText('随行卡', { exact: true })).toHaveCount(0)
     await expect(page.getByText(/MES 后续码.*必填/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
     await expect(page.getByRole('button', { name: '下一步' })).toBeVisible()
@@ -156,7 +210,7 @@ for (const width of responsiveWidths) {
     await expectNoHorizontalOverflow(page)
     await expectContainerInsideViewport(page, page.getByTestId('mobile-shift-report-workspace'))
 
-    await page.goto('/mobile')
+    await page.goto('/entry')
     await expect(page).toHaveURL(/\/entry$/)
     await expect(page.getByTestId('mobile-entry')).toBeVisible()
     await expectNoHorizontalOverflow(page)

@@ -150,14 +150,14 @@ def test_dynamic_entry_form_hides_work_order_scaffold_for_owner_only_mode() -> N
 
     assert "<template #work_order>" in source
     assert "v-if=\"!isOwnerOnlyMode\"" in source
-    assert "isOwnerOnlyMode ? ownerModeConfig.title : '随行卡填报'" in source
+    assert "isOwnerOnlyMode ? ownerModeConfig.title : '批次号填报'" in source
     assert "isOwnerOnlyMode.value ? 'core' : 'work_order'" in source
 
 
 def test_dynamic_entry_form_owner_only_mode_skips_tracking_card_and_machine_summary() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
 
-    assert "label: isOwnerOnlyMode.value ? '岗位归档' : '随行卡号'" in source
+    assert "label: isOwnerOnlyMode.value ? '岗位归档' : '批次号'" in source
     assert "label: isOwnerOnlyMode.value ? '岗位' : (isMachineBound.value ? '机台' : '班组')" in source
     assert "if (equipmentOptions.value.length && !formState.machine_id && !isOwnerOnlyMode.value)" in source
     assert "if (isFastTempo.value && !isOwnerOnlyMode.value)" in source
@@ -185,7 +185,7 @@ def test_dynamic_entry_form_trims_operator_surface_copy() -> None:
     assert "goDesktop" not in source
     assert "canAccessDesktop" not in source
     assert "<template #header>连续录入</template>" in source
-    assert "<template #header>随行卡</template>" in source
+    assert "批次号填报" in source
     assert "<label>当前卷</label>" in source
     assert "<template #header>本班交接</template>" in source
     assert "继续录入" in source
@@ -220,7 +220,7 @@ def test_dynamic_entry_form_trims_redundant_helper_copy() -> None:
 def test_dynamic_entry_form_uses_field_facing_step_titles_and_trimmed_summary_strip() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
 
-    assert "items.push({ key: 'work_order', title: '随行卡' })" in source
+    assert "items.push({ key: 'work_order', title: '批次号' })" in source
     assert "items.push({ key: 'core', title: isOwnerOnlyMode.value ? ownerModeConfig.value.coreStepTitle : '本卷' })" in source
     assert "items.push({ key: 'supplemental', title: isOwnerOnlyMode.value ? ownerModeConfig.value.supplementalStepTitle : (hasShiftConfirmationFields.value ? '班末' : '补充') })" in source
     assert "items.push({ key: 'review', title: '提交' })" in source
@@ -301,10 +301,10 @@ def test_phase1_desktop_landing_skips_statistics_and_review_defaults() -> None:
 
 
 def test_phase1_layout_hides_review_and_statistics_navigation() -> None:
-    source = _read_repo_file("frontend/src/views/Layout.vue")
+    source = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
-    assert '<AppShell zone="desktop">' in source
-    assert "统计观察看板" not in source
+    assert 'data-testid="manage-shell"' in source
+    assert "管理控制台" in source
     assert "班次观察台" not in source
     assert "差异处置" not in source
 
@@ -336,10 +336,11 @@ def test_layout_surfaces_phase1_agent_shell_badges() -> None:
 def test_router_exposes_separate_review_surface() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "const ReviewShell = () => import('../layout/ReviewShell.vue')" in source
+    assert "const ManageShell = () => import('../layout/ManageShell.vue')" in source
+    assert "path: '/manage'" in source
     assert "path: '/review'" in source
-    assert "component: ReviewShell" in source
-    assert "zone: 'review'" in source
+    assert "component: ManageShell" in source
+    assert "zone: 'manage'" in source
 
 
 def test_reference_ui_keeps_legacy_route_names_and_urls() -> None:
@@ -352,8 +353,8 @@ def test_reference_ui_keeps_legacy_route_names_and_urls() -> None:
     assert "name: 'master-workshop'" in source
     assert "path: '/mobile'" in source
     assert "redirect: (to) => ({ path: '/entry'" in source
-    assert "path: '/dashboard/factory', redirect: '/review/factory'" in source
-    assert "path: 'master/workshop'" in source
+    assert "path: '/dashboard/factory', redirect: '/manage/factory'" in source
+    assert "path: '/master/workshop', name: 'master-workshop', redirect: '/manage/master'" in source
 
 
 def test_reference_ui_declares_three_independent_surfaces() -> None:
@@ -362,6 +363,7 @@ def test_reference_ui_declares_three_independent_surfaces() -> None:
     auth_source = _read_repo_file("frontend/src/stores/auth.js")
 
     assert "path: '/entry'" in router_source
+    assert "path: '/manage'" in router_source
     assert "path: '/review'" in router_source
     assert "path: '/admin'" in router_source
     assert "entrySurface()" in auth_source
@@ -375,15 +377,15 @@ def test_reference_ui_declares_three_independent_surfaces() -> None:
 def test_shells_do_not_leak_cross_surface_navigation() -> None:
     entry = _read_repo_file("frontend/src/layout/EntryShell.vue")
     app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
-    admin = _read_repo_file("frontend/src/layout/AdminShell.vue")
+    manage = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
     assert "独立填报端" in entry
     assert "审阅任务" not in entry
     assert "主数据" not in entry
     assert "AI 助手" in app_shell
     assert "管理控制台" in app_shell
-    assert '<AppShell zone="admin">' in admin
-    assert "现场填报" not in admin
+    assert 'data-testid="manage-shell"' in manage
+    assert "现场填报" not in manage
 
 
 def test_reference_ui_component_layer_exists() -> None:
@@ -394,13 +396,18 @@ def test_reference_ui_component_layer_exists() -> None:
         "frontend/src/components/reference/ReferenceStatusTag.vue",
         "frontend/src/components/reference/ReferenceDataTable.vue",
         "frontend/src/components/reference/ReferenceFlowGraphic.vue",
+        "frontend/src/components/xt/XtCard.vue",
+        "frontend/src/components/xt/XtKpi.vue",
+        "frontend/src/components/xt/XtTable.vue",
+        "frontend/src/components/xt/XtStatus.vue",
     ]:
         assert (_resolve_repo_root() / path).exists()
 
-    styles = _read_repo_file("frontend/src/styles.css")
-    assert "--reference-bg" in styles
-    assert "--reference-blue" in styles
-    assert ".reference-page" in styles
+    tokens = _read_repo_file("frontend/src/design/xt-tokens.css")
+    base = _read_repo_file("frontend/src/design/xt-base.css")
+    assert "--xt-bg-page" in tokens
+    assert "--xt-primary" in tokens
+    assert ".reference-page" in base
 
 
 def test_reference_login_and_entry_use_cn_titles_and_no_english_subtitles() -> None:
@@ -442,10 +449,10 @@ def test_reference_review_modules_use_numbered_cn_titles() -> None:
 
 def test_reference_admin_modules_use_numbered_cn_titles() -> None:
     router_source = _read_repo_file("frontend/src/router/index.js")
-    assert "const CommandModulePage = () => import('../reference-command/pages/CommandModulePage.vue')" in router_source
+    assert "const ManageShell = () => import('../layout/ManageShell.vue')" in router_source
     assert "name: 'admin-overview'" in router_source
-    assert "component: CommandModulePage" in router_source
-    assert "moduleId: '14'" in router_source
+    assert "component: page('管理控制台', '14')" in router_source
+    assert "centerNo: '14'" in router_source
 
     modules = {
         "frontend/src/views/review/IngestionCenter.vue": ("06", "数据接入与字段映射中心"),
@@ -479,14 +486,14 @@ def test_review_router_closes_core_centers_for_target_granularity() -> None:
     assert "name: 'admin-template-center'" in source
     assert "name: 'review-roadmap-center'" not in source
     assert "name: 'admin-roadmap-center'" not in source
-    assert "path: 'brain'," in source
+    assert "path: 'ai'," in source
     assert "name: 'review-brain-center'" in source
-    assert "moduleId: '11'" in source
-    assert "path: '/ops/reliability', redirect: '/admin/ops'" in source
-    assert "path: '/cost/accounting', redirect: '/review/cost-accounting'" in source
-    assert "path: '/roadmap/next', redirect: '/review/overview'" in source
-    assert "path: 'master/workshop-templates'" in source
-    assert "redirect: '/master/workshop-template'" in source
+    assert "centerNo: '11'" in source
+    assert "path: '/ops/reliability', redirect: '/manage/admin/settings'" in source
+    assert "path: '/cost/accounting', redirect: '/manage/cost'" in source
+    assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
+    assert "path: '/master/workshop-templates'" in source
+    assert "redirect: '/manage/admin/templates'" in source
 
 
 def test_review_layout_exposes_multi_center_navigation_groups() -> None:

@@ -1,0 +1,67 @@
+.xt-fade-enter-active,
+.xt-fade-leave-active {
+  transition: opacity var(--xt-motion-normal) var(--xt-ease);
+}
+
+.xt-fade-enter-from,
+.xt-fade-leave-to {
+  opacity: 0;
+}
+
+.xt-rise-enter-active,
+.xt-rise-leave-active {
+  transition:
+    opacity var(--xt-motion-normal) var(--xt-ease),
+    transform var(--xt-motion-normal) var(--xt-ease);
+}
+
+.xt-rise-enter-from,
+.xt-rise-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.xt-stagger-enter-active {
+  transition:
+    opacity var(--xt-motion-normal) var(--xt-ease),
+    transform var(--xt-motion-normal) var(--xt-ease);
+  transition-delay: calc(var(--xt-stagger-index, 0) * 50ms);
+}
+
+.xt-stagger-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@keyframes xt-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.xt-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--xt-gray-100) 25%,
+    var(--xt-gray-200) 50%,
+    var(--xt-gray-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: xt-shimmer 1.5s infinite;
+  border-radius: var(--xt-radius-sm);
+}
+
+.xt-countup {
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

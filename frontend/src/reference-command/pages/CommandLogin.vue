@@ -1,29 +1,10 @@
 <template>
   <div class="cmd-page cmd-login" data-module="02" data-testid="login-page">
     <section class="cmd-login__stage">
-      <div class="cmd-login__hero">
-        <div class="cmd-shell__brand" data-testid="login-brand">
+      <div class="cmd-login__card">
+        <div class="cmd-login__brand-block" data-testid="login-brand">
           <span v-html="commandLogoMark" />
           <strong>鑫泰铝业生产协同系统</strong>
-        </div>
-        <div class="cmd-login__handoff" aria-label="权限自动分流">
-          <span class="cmd-login__number">02</span>
-          <div>
-            <h1>登录与角色入口</h1>
-            <p>统一账号进入后，系统按账号权限进入录入端、审阅端或管理端。</p>
-          </div>
-        </div>
-        <div class="cmd-login__surface-list" aria-label="权限落点">
-          <span>录入端</span>
-          <span>审阅端</span>
-          <span>管理端</span>
-        </div>
-      </div>
-
-      <div class="cmd-login__card">
-        <div class="cmd-module-page__title cmd-login__functional-title">
-          <span class="cmd-login__number">02</span>
-          <h1>账号登录</h1>
         </div>
         <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="submit">
           <el-form-item prop="username">
@@ -36,9 +17,10 @@
             进入系统
           </el-button>
         </el-form>
-        <div class="cmd-login__status-row">
-          <span class="cmd-status">统一身份认证</span>
-          <span class="cmd-status">权限自动分流</span>
+        <div class="cmd-login__surface-list" aria-label="权限落点">
+          <span>录入端</span>
+          <span>审阅端</span>
+          <span>管理端</span>
         </div>
       </div>
     </section>

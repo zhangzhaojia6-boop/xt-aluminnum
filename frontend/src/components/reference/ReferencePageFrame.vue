@@ -1,6 +1,6 @@
 <template>
   <section class="reference-page" :data-module="moduleNumber">
-    <header class="reference-page__head">
+    <header class="reference-page__header">
       <div class="reference-page__title-group">
         <span class="reference-page__number">{{ paddedNumber }}</span>
         <h1>{{ title }}</h1>

@@ -24,6 +24,9 @@
             <el-radio-button label="approved">已审</el-radio-button>
             <el-radio-button label="rejected">已驳回</el-radio-button>
           </el-radio-group>
+          <el-button size="small" :disabled="!filteredTasks.length">批量通过</el-button>
+          <el-button size="small" :disabled="!filteredTasks.length">批量驳回</el-button>
+          <el-button size="small" :disabled="!filteredTasks.length">导出清单</el-button>
         </template>
         <ReferenceDataTable :data="filteredTasks" stripe v-loading="loading">
           <el-table-column prop="workshop" label="来源车间" min-width="130" />

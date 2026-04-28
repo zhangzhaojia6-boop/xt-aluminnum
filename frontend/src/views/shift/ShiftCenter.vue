@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>班次观察台</h1>
-        <p>导入并查看生产班次数据，主路径聚焦状态、异常说明与版本变化，不展示审核确认按钮。</p>
       </div>
       <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <el-input v-model="templateCode" placeholder="模板编码（可选）" style="width: 180px" />

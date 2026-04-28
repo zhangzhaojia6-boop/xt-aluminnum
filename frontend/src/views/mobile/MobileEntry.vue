@@ -3,7 +3,7 @@
     <section class="mobile-entry-stage panel">
       <div class="mobile-entry-stage__top">
         <div>
-          <div class="mobile-kicker">03 独立填报端</div>
+          <div v-if="false" class="mobile-kicker">03 独立填报端</div>
           <h1>{{ pageTitle }}</h1>
           <p>{{ pageSubtitle }}</p>
         </div>
@@ -516,7 +516,7 @@ onMounted(load)
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #111827, #1d4ed8);
+  background: linear-gradient(135deg, var(--text-main), var(--primary));
   color: #fff;
   font-size: 20px;
   font-weight: 800;

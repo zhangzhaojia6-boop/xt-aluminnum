@@ -14,8 +14,8 @@
     <template v-else>
     <div class="mobile-top">
       <div>
-        <div class="mobile-kicker">04 填报流程页</div>
-        <h1>{{ isOwnerOnlyMode ? ownerModeConfig.title : '随行卡填报' }}</h1>
+        <div v-if="false" class="mobile-kicker">04 填报流程页</div>
+        <h1>{{ isOwnerOnlyMode ? ownerModeConfig.title : '批次号填报' }}</h1>
       </div>
     </div>
 
@@ -98,17 +98,17 @@
     >
       <template #work_order>
         <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card" data-testid="entry-work-order-card">
-          <template #header>随行卡</template>
+          <template #header>基础识别</template>
           <div class="mobile-form-grid">
             <div class="mobile-field mobile-field-wide">
               <label>
                 <span class="mobile-required">*</span>
-                随行卡号
+                批次号
               </label>
               <div class="mobile-inline-actions">
                 <el-input
                   v-model="trackingCardNo"
-                  placeholder="请输入或扫码随行卡号"
+                  placeholder="请输入或扫码批次号"
                   :disabled="lookupLoading"
                   @keyup.enter="lookupTrackingCard"
                 />
@@ -159,9 +159,8 @@
           <ul class="entry-mes-trace-list">
             <li>本系统当前采集前工序现场事实。</li>
             <li>后工序追踪以 MES 为正式真源。</li>
-            <li>坯料与 MES 后续对象映射待对接确认。</li>
             <li>当前不要求主操填写 MES 后续码。</li>
-            <li>如现场已有随行卡/坯料号，可作为线索记录。</li>
+            <li>如现场已有二维码或坯料号，可作为批次线索记录。</li>
           </ul>
         </el-card>
 
@@ -618,7 +617,7 @@
               v-model="batchText"
               type="textarea"
               :rows="6"
-              placeholder="示例：随行卡号〔制表符〕上机重量〔制表符〕下机重量..."
+              placeholder="示例：批次号〔制表符〕上机重量〔制表符〕下机重量..."
               :disabled="isEntryEditingDisabled"
             />
           </div>
@@ -790,7 +789,7 @@ const OPERATOR_CONFIRMATION_FIELD = {
   type: 'textarea',
   required: false,
   target: 'entry',
-  hint: '如有异常、交接说明或班末补充，在这里写清楚。'
+  hint: ''
 }
 
 const entryFields = computed(() => template.value?.entry_fields || [])
@@ -1023,7 +1022,7 @@ const currentStepKey = ref('work_order')
 const visibleStepItems = computed(() => {
   const items = []
   if (!isOwnerOnlyMode.value) {
-    items.push({ key: 'work_order', title: '随行卡' })
+    items.push({ key: 'work_order', title: '批次号' })
   }
   items.push({ key: 'core', title: isOwnerOnlyMode.value ? ownerModeConfig.value.coreStepTitle : '本卷' })
   if (isOwnerOnlyMode.value ? ownerSupplementalSections.value.length : hasSupplementalFields.value) {
@@ -1126,7 +1125,7 @@ const supplementalCardTitle = computed(() => {
   return '补充字段'
 })
 const batchColumnLabels = computed(() =>
-  ['随行卡号', ...batchEditableFields.value.map((field) => displayFieldLabel(field))].join(' / ')
+  ['批次号', ...batchEditableFields.value.map((field) => displayFieldLabel(field))].join(' / ')
 )
 
 const hasOcrContext = computed(() => Boolean(ocrState.submissionId))
@@ -1138,7 +1137,7 @@ const hasSecondaryContent = computed(() => Boolean(
 ))
 const reviewSummaryItems = computed(() => {
   const items = [
-    { label: isOwnerOnlyMode.value ? '岗位归档' : '随行卡号', value: activeTrackingCardNo.value || '-' },
+    { label: isOwnerOnlyMode.value ? '岗位归档' : '批次号', value: activeTrackingCardNo.value || '-' },
     { label: '班次', value: currentShift.shift_name || currentShift.shift_code || '-' },
     {
       label: isOwnerOnlyMode.value ? '岗位' : (isMachineBound.value ? '机台' : '班组'),
@@ -1300,7 +1299,7 @@ function isCurrentStep(stepKey) {
 function goNextStep() {
   const normalized = activeTrackingCardNo.value
   if (currentStepKey.value === 'work_order' && !isOwnerOnlyMode.value && !normalized) {
-    ElMessage.warning('请先录入或读取随行卡号')
+    ElMessage.warning('请先录入或读取批次号')
     return
   }
   const next = visibleStepItems.value[currentStepIndex.value + 1]
@@ -1687,7 +1686,7 @@ async function refreshWorkOrder() {
 async function lookupTrackingCard({ silentMissing = false } = {}) {
   const normalized = activeTrackingCardNo.value
   if (!normalized && !isOwnerOnlyMode.value) {
-    ElMessage.warning('请先输入随行卡号')
+    ElMessage.warning('请先输入批次号')
     return
   }
   if (!isOwnerOnlyMode.value) {
@@ -1760,7 +1759,7 @@ function collectEntryPayload() {
 async function persistWorkOrderHeader(requestConfig = {}) {
   const normalized = activeTrackingCardNo.value
   if (!normalized && !isOwnerOnlyMode.value) {
-    ElMessage.warning('请先输入随行卡号')
+    ElMessage.warning('请先输入批次号')
     return null
   }
   if (!currentWorkOrder.value) {
@@ -1775,7 +1774,7 @@ async function persistWorkOrderHeader(requestConfig = {}) {
     return created
   }
   if (currentWorkOrder.value.tracking_card_no !== normalized) {
-    ElMessage.warning('随行卡号已变更，请先点击“读取工单”确认当前工单')
+    ElMessage.warning('批次号已变更，请先点击“读取”确认当前记录')
     return null
   }
   const updated = await updateWorkOrder(currentWorkOrder.value.id, collectWorkOrderPayload(), requestConfig)
@@ -1828,7 +1827,7 @@ function isFieldRequired(field) {
 function validateBeforeSubmit() {
   const normalized = activeTrackingCardNo.value
   if (!isOwnerOnlyMode.value && !normalized) {
-    ElMessage.warning('请先输入随行卡号')
+    ElMessage.warning('请先输入批次号')
     return false
   }
   if (equipmentOptions.value.length && !formState.machine_id && !isOwnerOnlyMode.value) {
@@ -2047,7 +2046,7 @@ async function applyBatchPaste() {
     .filter((row) => row.tracking_card_no)
 
   if (!rows.length) {
-    ElMessage.warning('没有识别到有效的随行卡号')
+    ElMessage.warning('没有识别到有效的批次号')
     return
   }
 
@@ -2093,7 +2092,7 @@ function handleScanClick() {
     goOcrCapture()
     return
   }
-  ElMessage.info('请使用扫码枪或手工录入随行卡号。')
+  ElMessage.info('请使用扫码枪或手工录入批次号。')
 }
 
 async function loadPage() {
@@ -2156,6 +2155,7 @@ onBeforeUnmount(() => {
 .mobile-shell--entry-form .mobile-top h1 {
   margin-bottom: 0;
   letter-spacing: 0;
+  font-family: var(--font-display, 'SF Pro Display', system-ui);
 }
 
 .mobile-shell--entry-form :deep(.panel.mobile-card .el-card__header) {
@@ -2206,9 +2206,19 @@ onBeforeUnmount(() => {
   border-radius: 12px;
 }
 
+.mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button--primary) {
+  box-shadow: 0 4px 24px rgba(0, 113, 227, 0.3);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button--primary:hover) {
+  box-shadow: 0 8px 40px rgba(0, 113, 227, 0.5);
+  transform: translateY(-1px);
+}
+
 .mobile-shell--entry-form :deep(.panel.mobile-card) {
   border-radius: 16px;
-  box-shadow: var(--app-shadow-xs);
+  box-shadow: var(--shadow-card);
 }
 
 .mobile-shell--entry-form :deep(.mobile-static-chip),
@@ -2221,6 +2231,7 @@ onBeforeUnmount(() => {
 .mobile-shell--entry-form :deep(.mobile-static-chip strong),
 .mobile-shell--entry-form :deep(.mobile-summary-chip strong) {
   letter-spacing: 0;
+  font-family: var(--font-number, 'SF Pro Display', 'DIN Alternate', system-ui);
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button),

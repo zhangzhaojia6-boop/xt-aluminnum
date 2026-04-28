@@ -312,14 +312,204 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       contentType: 'application/json',
       body: JSON.stringify({
         items: [
-          { id: 1, workshop_code: 'ZP1', workshop_name: '总装车间' },
-          { id: 2, workshop_code: 'ZP2', workshop_name: '轧机一车间' }
+          { id: 1, code: 'ZP1', name: '总装车间', workshop_code: 'ZP1', workshop_name: '总装车间', is_active: true, sort_order: 1 },
+          { id: 2, code: 'ZP2', name: '轧机一车间', workshop_code: 'ZP2', workshop_name: '轧机一车间', is_active: true, sort_order: 2 }
         ],
         total: 2
       })
     })
   })
 
+
+  await page.route('**/api/v1/master/teams**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          { id: 1, name: '白班', workshop_id: 1, workshop_name: '总装车间' }
+        ],
+        total: 1
+      })
+    })
+  })
+  await page.route('**/api/v1/imports/history**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 1,
+            filename: 'mes-export.xlsx',
+            import_type: 'mes',
+            status: 'success',
+            row_count: 128,
+            success_count: 126,
+            failed_count: 2,
+            created_at: '2026-04-23T08:00:00Z'
+          }
+        ],
+        total: 1
+      })
+    })
+  })
+
+  const fulfillUsers = async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 1,
+            username: 'admin',
+            name: '系统管理员',
+            role: 'admin',
+            is_mobile_user: true,
+            is_reviewer: true,
+            is_manager: true,
+            data_scope_type: 'all'
+          },
+          {
+            id: 2,
+            username: 'operator',
+            name: '班组操作员',
+            role: 'operator',
+            is_mobile_user: true,
+            is_reviewer: false,
+            is_manager: false,
+            data_scope_type: 'self_team'
+          }
+        ],
+        total: 2,
+        skip: 0,
+        limit: 300
+      })
+    })
+  }
+
+  await page.route('**/api/v1/users', fulfillUsers)
+  await page.route('**/api/v1/users/', fulfillUsers)
+  await page.route('**/api/v1/users/**', fulfillUsers)
+  await page.route(/.*\/api\/v1\/users\/?(\?.*)?$/, fulfillUsers)
+
+  await page.route('**/api/v1/reports**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [],
+        total: 0,
+        skip: 0,
+        limit: 20
+      })
+    })
+  })
+
+  await page.route('**/api/v1/quality/issues**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 1,
+            issue_type: 'yield_rate',
+            severity: 'warning',
+            status: 'open',
+            title: '成材率低于阈值',
+            workshop_name: '挤压车间',
+            machine_name: 'XT-ZD-1',
+            business_date: '2026-04-23',
+            detail: '白班成材率低于目标值'
+          }
+        ],
+        total: 1,
+        skip: 0,
+        limit: 20
+      })
+    })
+  })
+
+  await page.route('**/api/v1/ai/conversations', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 'conv-1',
+            title: 'AI 工作台',
+            created_at: '2026-04-23T08:00:00Z',
+            updated_at: '2026-04-23T08:10:00Z'
+          }
+        ]
+      })
+    })
+  })
+
+  await page.route('**/api/v1/ai/conversations/conv-1', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'conv-1',
+        title: 'AI 工作台',
+        messages: []
+      })
+    })
+  })
+
+
+  await page.route('**/api/v1/mobile/bootstrap', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        entry_mode: 'web_debug',
+        current_identity_source: 'account',
+        current_scope_summary: { data_scope_type: 'all' },
+        workshop_id: 1,
+        workshop_name: '挤压车间',
+        workshop_type: 'extrusion',
+        is_machine_bound: false
+      })
+    })
+  })
+
+  await page.route('**/api/v1/mobile/current-shift', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        business_date: '2026-04-23',
+        shift_id: 1,
+        shift_name: '白班',
+        workshop_id: 1,
+        workshop_name: '挤压车间',
+        workshop_type: 'extrusion',
+        can_submit: true,
+        is_machine_bound: false
+      })
+    })
+  })
+
+  await page.route('**/api/v1/templates/extrusion', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        supports_ocr: false,
+        role_bucket: 'operator',
+        entry_fields: [],
+        shift_fields: [],
+        extra_fields: [],
+        qc_fields: [],
+        readonly_fields: []
+      })
+    })
+  })
   await page.route('**/api/v1/assistant/capabilities**', async (route) => {
     await route.fulfill({
       status: 200,
