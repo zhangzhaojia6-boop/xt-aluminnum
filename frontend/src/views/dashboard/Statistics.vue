@@ -277,7 +277,7 @@ onUnmounted(() => {
   font-size: 28px;
   font-weight: 700;
   color: var(--text-main, #1d1d1f);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .panel {
