@@ -42,7 +42,7 @@ test('machine account can submit a mobile entry', async ({ page }) => {
   await formInputs.nth(1).fill('6x1600')
   await formInputs.nth(3).fill('1200')
   await page.getByRole('button', { name: '下一步' }).click()
-  await expect(page.getByText('班末补充确认', { exact: true })).toBeVisible()
+  await expect(page.getByText('班末确认', { exact: true })).toBeVisible()
   await expect(page.getByPlaceholder('请输入电耗')).toHaveCount(0)
 
   const actionButtons = page.locator('.mobile-sticky-actions__buttons button')

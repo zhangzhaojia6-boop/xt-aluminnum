@@ -1,8 +1,14 @@
 from importlib.util import module_from_spec, spec_from_file_location
+import os
 from pathlib import Path
 
 
-MODULE_PATH = Path(__file__).resolve().parents[2] / 'scripts' / 'generate_env.py'
+REPO_ROOT = (
+    Path(os.environ['ALUMINUM_BYPASS_REPO_ROOT'])
+    if os.environ.get('ALUMINUM_BYPASS_REPO_ROOT')
+    else Path(__file__).resolve().parents[2]
+)
+MODULE_PATH = REPO_ROOT / 'scripts' / 'generate_env.py'
 SPEC = spec_from_file_location('generate_env', MODULE_PATH)
 MODULE = module_from_spec(SPEC)
 assert SPEC and SPEC.loader

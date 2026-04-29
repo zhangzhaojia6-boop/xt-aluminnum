@@ -293,6 +293,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { Connection, Document, Promotion, TrendCharts, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchWorkshopDashboard } from '../../api/dashboard'
 import AgentRuntimeFlow from '../../components/review/AgentRuntimeFlow.vue'
@@ -300,7 +301,15 @@ import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
 import { fetchWorkshops } from '../../api/master'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
 
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const route = useRoute()
+
+function resolveInitialTargetDate() {
+  const value = typeof route.query.target_date === 'string' ? route.query.target_date : ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && dayjs(value).isValid()) return value
+  return dayjs().format('YYYY-MM-DD')
+}
+
+const targetDate = ref(resolveInitialTargetDate())
 const workshopId = ref(null)
 const workshops = ref([])
 const data = ref({})

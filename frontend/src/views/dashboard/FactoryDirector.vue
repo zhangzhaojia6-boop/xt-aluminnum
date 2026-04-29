@@ -322,6 +322,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 
 import { buildAssistantFallback, fetchAssistantCapabilities } from '../../api/assistant'
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
@@ -331,6 +332,8 @@ import ReviewAssistantWorkbench from '../../components/review/ReviewAssistantWor
 import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
+
+const route = useRoute()
 
 function reportStatusLabel(status) {
   const map = {
@@ -383,7 +386,13 @@ function prefersExpandedDetail() {
   return window.matchMedia('(min-width: 1080px)').matches
 }
 
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+function resolveInitialTargetDate() {
+  const value = typeof route.query.target_date === 'string' ? route.query.target_date : ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && dayjs(value).isValid()) return value
+  return dayjs().format('YYYY-MM-DD')
+}
+
+const targetDate = ref(resolveInitialTargetDate())
 const loading = ref(false)
 const data = ref({})
 const delivery = ref({})

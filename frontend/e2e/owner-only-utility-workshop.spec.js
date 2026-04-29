@@ -80,10 +80,8 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
     await setWorkshopTargetDate(adminPage, submittedBusinessDate)
     await adminPage.locator('.review-workshop__controls .el-select .el-select__wrapper').click()
     await adminPage.locator('.el-select-dropdown__item').filter({ hasText: '成品库' }).last().click()
-    const energyHeader = adminPage.locator('.el-collapse-item__header').filter({ hasText: '能耗泳道' }).first()
-    await energyHeader.click()
-
-    const ownerEnergyRow = adminPage.locator('.el-table__body tr').filter({ hasText: '专项补录' }).first()
+    const energySection = adminPage.locator('.el-collapse-item').filter({ hasText: '能耗泳道' }).first()
+    const ownerEnergyRow = energySection.locator('.el-table__body tr').first()
     await expect(ownerEnergyRow).toBeVisible({ timeout: 10000 })
     await expect.poll(
       async () => parseMetric(await ownerEnergyRow.locator('td').nth(4).innerText()),
