@@ -19,7 +19,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-label">数据状态</div>
-        <div class="stat-value">{{ formatStatusLabel(item.data_status) }}</div>
+        <div class="stat-value"><ReferenceStatusTag :status="statusTone(item.data_status)" :label="formatFlowStatus(item.data_status)" /></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">版本号</div>
@@ -49,7 +49,9 @@
         <el-descriptions-item label="车间">{{ item.workshop_name }}</el-descriptions-item>
         <el-descriptions-item label="班组">{{ item.team_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备">{{ item.equipment_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="数据状态">{{ formatStatusLabel(item.data_status) }}</el-descriptions-item>
+        <el-descriptions-item label="数据状态">
+          <ReferenceStatusTag :status="statusTone(item.data_status)" :label="formatFlowStatus(item.data_status)" />
+        </el-descriptions-item>
         <el-descriptions-item label="兼容中间态时间">{{ item.reviewed_at || '-' }}</el-descriptions-item>
         <el-descriptions-item label="主链确认时间">{{ item.confirmed_at || '-' }}</el-descriptions-item>
         <el-descriptions-item label="驳回原因">{{ item.rejected_reason || '-' }}</el-descriptions-item>
@@ -61,7 +63,7 @@
 
     <el-card class="panel">
       <template #header>关联异常</template>
-      <el-table :data="exceptions" stripe>
+      <ReferenceDataTable :data="exceptions" stripe>
         <el-table-column label="异常类型" width="180">
           <template #default="{ row }">
             {{ formatExceptionTypeLabel(row.exception_type) }}
@@ -71,20 +73,20 @@
         <el-table-column prop="severity" label="级别" width="100" />
         <el-table-column prop="status" label="状态" width="120">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.status) }}
+            <ReferenceStatusTag :status="statusTone(row.status)" :label="formatStatusLabel(row.status)" />
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-card class="panel">
       <template #header>处理轨迹摘要</template>
-      <el-table :data="auditTrails" stripe>
+      <ReferenceDataTable :data="auditTrails" stripe>
         <el-table-column prop="created_at" label="时间" width="200" />
         <el-table-column prop="user_name" label="操作人" width="120" />
         <el-table-column prop="action" label="动作" width="180" />
         <el-table-column prop="reason" label="原因" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -94,6 +96,8 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchShiftProductionDetail } from '../../api/production'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatExceptionTypeLabel, formatStatusLabel } from '../../utils/display'
 
 const route = useRoute()
@@ -106,6 +110,19 @@ async function load() {
   item.value = data.item || null
   exceptions.value = data.exceptions || []
   auditTrails.value = data.audit_trails || []
+}
+
+function formatFlowStatus(status) {
+  const label = formatStatusLabel(status)
+  return label === '已审核' ? '已校验' : label
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['closed', 'confirmed', 'success', 'auto_confirmed'].includes(value)) return 'success'
+  if (['pending', 'reviewed', 'open', 'warning'].includes(value)) return 'warning'
+  if (['abnormal', 'rejected', 'returned', 'failed', 'error'].includes(value)) return 'danger'
+  return 'normal'
 }
 
 onMounted(load)

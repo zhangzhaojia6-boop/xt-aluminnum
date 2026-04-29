@@ -34,7 +34,7 @@
     </el-card>
 
     <el-card class="panel">
-      <el-table :data="rows" stripe>
+      <ReferenceDataTable :data="rows" stripe>
         <el-table-column prop="business_date" label="业务日期" width="120" />
         <el-table-column prop="workshop_code" label="车间" width="120" />
         <el-table-column prop="shift_code" label="班次" width="120" />
@@ -44,7 +44,7 @@
         <el-table-column prop="total_energy" label="总能耗" width="120" />
         <el-table-column prop="output_weight" label="产量" width="120" />
         <el-table-column prop="energy_per_ton" label="单吨能耗" width="120" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -55,6 +55,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchEnergySummary, importEnergyFile } from '../../api/energy'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 
 const filters = reactive({
   business_date: dayjs().format('YYYY-MM-DD')

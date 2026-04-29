@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>考勤详情</h1>
-        <p>查看单个员工某业务日的打卡、自动结果和异常，并执行人工覆盖。</p>
+        <p>查看单个员工某业务日的打卡、自动结果和异常，并执行例外修正。</p>
       </div>
       <el-button @click="reload">刷新</el-button>
     </div>
@@ -14,14 +14,16 @@
         <el-descriptions-item label="姓名">{{ detail.result.employee_name }}</el-descriptions-item>
         <el-descriptions-item label="业务日期">{{ detail.result.business_date }}</el-descriptions-item>
         <el-descriptions-item label="考勤状态">
-          {{ formatStatusLabel(detail.result.attendance_status) }}
+          <ReferenceStatusTag :status="statusTone(detail.result.attendance_status)" :label="formatStatusLabel(detail.result.attendance_status)" />
         </el-descriptions-item>
         <el-descriptions-item label="上班打卡">{{ detail.result.check_in_time || '-' }}</el-descriptions-item>
         <el-descriptions-item label="下班打卡">{{ detail.result.check_out_time || '-' }}</el-descriptions-item>
         <el-descriptions-item label="迟到(分)">{{ detail.result.late_minutes }}</el-descriptions-item>
         <el-descriptions-item label="早退(分)">{{ detail.result.early_leave_minutes }}</el-descriptions-item>
-        <el-descriptions-item label="数据状态">{{ formatStatusLabel(detail.result.data_status) }}</el-descriptions-item>
-        <el-descriptions-item label="人工覆盖">{{ formatBooleanLabel(detail.result.is_manual_override) }}</el-descriptions-item>
+        <el-descriptions-item label="数据状态">
+          <ReferenceStatusTag :status="statusTone(detail.result.data_status)" :label="formatFlowStatus(detail.result.data_status)" />
+        </el-descriptions-item>
+        <el-descriptions-item label="例外修正">{{ formatBooleanLabel(detail.result.is_manual_override) }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
 
@@ -29,7 +31,7 @@
       <template #header>
         <div style="font-weight: 700;">异常列表</div>
       </template>
-      <el-table :data="detail.exceptions" stripe>
+      <ReferenceDataTable :data="detail.exceptions" stripe>
         <el-table-column label="异常类型" width="180">
           <template #default="{ row }">
             {{ formatExceptionTypeLabel(row.exception_type) }}
@@ -38,15 +40,15 @@
         <el-table-column prop="exception_desc" label="说明" min-width="220" />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.status) }}
+            <ReferenceStatusTag :status="statusTone(row.status)" :label="formatStatusLabel(row.status)" />
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-card class="panel" v-if="detail">
       <template #header>
-        <div style="font-weight: 700;">人工覆盖</div>
+        <div style="font-weight: 700;">例外修正</div>
       </template>
       <el-form :model="overrideForm" label-width="120px">
         <el-form-item label="考勤状态">
@@ -81,11 +83,11 @@
         <el-form-item label="备注">
           <el-input v-model="overrideForm.remark" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="覆盖原因">
+        <el-form-item label="修正原因">
           <el-input v-model="overrideForm.override_reason" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="submitting" @click="submitOverride">提交覆盖</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitOverride">提交修正</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -98,6 +100,8 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceDetail, overrideAttendanceResult } from '../../api/attendance'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatBooleanLabel, formatExceptionTypeLabel, formatStatusLabel } from '../../utils/display'
 
 const route = useRoute()
@@ -139,7 +143,7 @@ async function reload() {
 async function submitOverride() {
   if (!detail.value) return
   if (!overrideForm.override_reason.trim()) {
-    ElMessage.warning('请填写覆盖原因')
+    ElMessage.warning('请填写修正原因')
     return
   }
 
@@ -154,11 +158,25 @@ async function submitOverride() {
       remark: overrideForm.remark,
       override_reason: overrideForm.override_reason
     })
-    ElMessage.success('覆盖成功')
+    ElMessage.success('修正成功')
     await reload()
   } finally {
     submitting.value = false
   }
+}
+
+function formatFlowStatus(status) {
+  if (status === 'flagged') return '异常待闭环'
+  const label = formatStatusLabel(status)
+  return label === '已审核' ? '已校验' : label
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['normal', 'closed', 'confirmed', 'success', 'auto_confirmed'].includes(value)) return 'success'
+  if (['pending', 'reviewed', 'open', 'warning', 'flagged'].includes(value)) return 'warning'
+  if (['abnormal', 'absent', 'rejected', 'returned', 'failed', 'error'].includes(value)) return 'danger'
+  return 'normal'
 }
 
 reload()

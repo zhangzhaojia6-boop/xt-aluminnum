@@ -4,7 +4,7 @@
       <div>
         <h1>考勤异常处置</h1>
       </div>
-      <div class="attendance-anomaly-toolbar">
+      <div class="header-actions attendance-anomaly-toolbar">
         <el-date-picker
           v-model="filters.dateRange"
           type="daterange"
@@ -39,7 +39,7 @@
         <div class="stat-value">{{ filteredItems.length }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">待处理</div>
+        <div class="stat-label">待闭环</div>
         <div class="stat-value">{{ countByHrStatus('pending') }}</div>
       </div>
       <div class="stat-card">
@@ -53,36 +53,34 @@
     </div>
 
     <el-card class="panel">
-      <el-table :data="filteredItems" stripe v-loading="loading">
-        <el-table-column prop="business_date" label="日期" width="120" />
-        <el-table-column prop="workshop_name" label="车间" min-width="140" />
-        <el-table-column prop="machine_name" label="机台" width="100" />
-        <el-table-column prop="shift_name" label="班次" width="100" />
-        <el-table-column prop="employee_name" label="姓名" width="120" />
-        <el-table-column label="钉钉记录" min-width="170">
+      <ReferenceDataTable :data="filteredItems" stripe v-loading="loading">
+        <el-table-column prop="business_date" label="日期" width="108" />
+        <el-table-column prop="workshop_name" label="车间" width="100" />
+        <el-table-column prop="machine_name" label="机台" width="96" />
+        <el-table-column prop="shift_name" label="班次" width="88" />
+        <el-table-column prop="employee_name" label="姓名" width="110" />
+        <el-table-column label="钉钉记录" min-width="142">
           <template #default="{ row }">{{ formatClock(row) }}</template>
         </el-table-column>
-        <el-table-column label="班长确认" min-width="150">
+        <el-table-column label="班长确认" min-width="140">
           <template #default="{ row }">
             {{ formatStatusLabel(row.auto_status) }} → {{ formatStatusLabel(row.leader_status) }}
           </template>
         </el-table-column>
-        <el-table-column prop="override_reason" label="差异原因" min-width="220" />
-        <el-table-column label="人事状态" width="150">
+        <el-table-column prop="override_reason" label="差异原因" min-width="150" />
+        <el-table-column label="人事状态" width="116">
           <template #default="{ row }">
-            <el-tag :type="hrStatusTagType(row.hr_status)" effect="light">
-              {{ hrStatusLabel(row.hr_status) }}
-            </el-tag>
+            <ReferenceStatusTag :status="hrStatusTagType(row.hr_status)" :label="hrStatusLabel(row.hr_status)" />
           </template>
         </el-table-column>
-        <el-table-column label="处理" min-width="260">
+        <el-table-column label="处理" width="316" fixed="right">
           <template #default="{ row }">
             <div class="attendance-anomaly-actions">
               <el-select
                 v-model="row._next_hr_status"
+                class="attendance-anomaly-actions__select"
                 placeholder="选择状态"
                 size="small"
-                style="width: 110px;"
               >
                 <el-option label="待处理" value="pending" />
                 <el-option label="已核实" value="verified" />
@@ -90,12 +88,13 @@
               </el-select>
               <el-input
                 v-model="row._review_note"
+                class="attendance-anomaly-actions__note"
                 size="small"
-                placeholder="处置备注"
-                maxlength="200"
-                show-word-limit
+                placeholder="备注"
+                maxlength="80"
               />
               <el-button
+                class="attendance-anomaly-actions__save"
                 type="primary"
                 size="small"
                 :loading="updatingIds.has(row.detail_id)"
@@ -106,7 +105,7 @@
             </div>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -118,6 +117,8 @@ import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceAnomalies, reviewAttendanceAnomaly } from '../../api/attendance'
 import { fetchWorkshops } from '../../api/master'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatStatusLabel } from '../../utils/display'
 
 const loading = ref(false)
@@ -173,7 +174,7 @@ function hrStatusLabel(value) {
 
 function hrStatusTagType(value) {
   if (value === 'verified') return 'success'
-  if (value === 'resolved') return 'info'
+  if (value === 'resolved') return 'success'
   return 'warning'
 }
 
@@ -207,7 +208,7 @@ async function applyReview(row) {
     })
     row.hr_status = payload.hr_status
     row._review_note = payload.note || ''
-    ElMessage.success('复核状态已更新')
+    ElMessage.success('处置状态已更新')
   } finally {
     const remaining = new Set(updatingIds.value)
     remaining.delete(row.detail_id)
@@ -220,3 +221,29 @@ onMounted(async () => {
   await load()
 })
 </script>
+
+<style scoped>
+.attendance-anomaly-actions {
+  display: grid;
+  grid-template-columns: 92px minmax(112px, 1fr) 54px;
+  gap: 6px;
+  align-items: center;
+}
+
+.attendance-anomaly-actions__select,
+.attendance-anomaly-actions__note {
+  min-width: 0;
+}
+
+.attendance-anomaly-actions__save {
+  min-width: 54px;
+  padding: 0 10px;
+}
+
+.attendance-anomaly-actions :deep(.el-select__wrapper),
+.attendance-anomaly-actions :deep(.el-input__wrapper) {
+  min-height: 30px;
+  border-radius: var(--xt-radius-md);
+  box-shadow: 0 0 0 1px var(--xt-border-light) inset;
+}
+</style>

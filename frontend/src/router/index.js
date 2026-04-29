@@ -240,7 +240,7 @@ const rawRoutes = [
   { path: '/imports/history', redirect: '/manage/imports' },
   { path: '/energy/center', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心' } },
   { path: '/attendance/overview', name: 'attendance-overview', component: AttendanceOverview, meta: { ...reviewMeta, title: '考勤总览' } },
-  { path: '/attendance/detail/:id', name: 'attendance-detail', component: AttendanceDetail, meta: { ...reviewMeta, title: '考勤详情' } },
+  { path: '/attendance/detail/:employeeId/:businessDate', name: 'attendance-detail', component: AttendanceDetail, meta: { ...reviewMeta, title: '考勤详情' } },
   { path: '/attendance/exceptions', name: 'attendance-exceptions', component: ExceptionList, meta: { ...reviewMeta, title: '异常列表' } },
   { path: '/shift/detail/:id', name: 'shift-detail', component: ShiftDetail, meta: { ...reviewMeta, title: '班次详情' } },
   { path: '/reports/list', redirect: '/manage/reports' },

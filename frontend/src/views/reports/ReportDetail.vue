@@ -69,22 +69,22 @@
         <el-descriptions-item label="交付范围">{{ yieldMatrixLane.delivery_scopes?.join(' / ') || '-' }}</el-descriptions-item>
       </el-descriptions>
 
-      <el-table v-if="yieldMatrixWorkshopRows.length" :data="yieldMatrixWorkshopRows" stripe class="matrix-table">
+      <ReferenceDataTable v-if="yieldMatrixWorkshopRows.length" :data="yieldMatrixWorkshopRows" stripe class="matrix-table">
         <el-table-column prop="workshop_key" label="矩阵口径" min-width="180" />
         <el-table-column prop="yield_rate" label="成品率" min-width="120" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-card class="panel" v-if="workshopRows.length">
       <template #header>车间汇总</template>
-      <el-table :data="workshopRows" stripe>
+      <ReferenceDataTable :data="workshopRows" stripe>
         <el-table-column prop="workshop_name" label="车间" min-width="160" />
         <el-table-column prop="output_weight" label="产量" min-width="120" />
         <el-table-column prop="input_weight" label="投入" min-width="120" />
         <el-table-column prop="yield_rate" label="成材率" min-width="120" />
         <el-table-column prop="attendance_count" label="出勤" min-width="100" />
         <el-table-column prop="electricity_kwh" label="电耗" min-width="120" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-card class="panel" v-if="mobileSummary">
@@ -100,13 +100,13 @@
     <el-card class="panel" v-if="anomalySummary || anomalyItems.length">
       <template #header>异常摘要</template>
       <div class="text-summary">{{ anomalySummary?.digest || '当前未生成异常摘要。' }}</div>
-      <el-table v-if="anomalyItems.length" :data="anomalyItems" stripe>
+      <ReferenceDataTable v-if="anomalyItems.length" :data="anomalyItems" stripe>
         <el-table-column prop="label" label="异常类型" min-width="140" />
         <el-table-column prop="severity" label="级别" width="100" />
         <el-table-column prop="workshop_id" label="车间" width="100" />
         <el-table-column prop="shift_id" label="班次" width="100" />
         <el-table-column prop="detail" label="说明" min-width="280" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
   </div>
@@ -118,6 +118,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { exportReport, fetchReportDetail } from '../../api/reports'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import {
   formatBooleanLabel,
   formatOutputModeLabel,

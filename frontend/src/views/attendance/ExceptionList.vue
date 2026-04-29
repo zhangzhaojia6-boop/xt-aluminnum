@@ -3,9 +3,9 @@
     <div class="page-header">
       <div>
         <h1>异常清单</h1>
-        <p>筛选考勤异常并进行人工处理。</p>
+        <p>筛选考勤异常并完成例外处置闭环。</p>
       </div>
-      <div style="display: flex; gap: 10px; align-items: center;">
+      <div class="header-actions">
         <el-date-picker v-model="filters.businessDate" type="date" value-format="YYYY-MM-DD" />
         <el-select v-model="filters.exceptionType" clearable placeholder="异常类型" style="width: 180px;">
           <el-option label="缺上班卡" value="missing_checkin" />
@@ -22,7 +22,7 @@
     </div>
 
     <el-card class="panel">
-      <el-table :data="items" stripe>
+      <ReferenceDataTable :data="items" stripe>
         <el-table-column prop="business_date" label="业务日期" width="130" />
         <el-table-column prop="employee_no" label="工号" width="120" />
         <el-table-column prop="employee_name" label="姓名" width="140" />
@@ -34,7 +34,7 @@
         <el-table-column prop="exception_desc" label="说明" min-width="220" />
         <el-table-column prop="status" label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'open' ? 'danger' : 'success'">{{ formatStatusLabel(row.status) }}</el-tag>
+            <ReferenceStatusTag :status="row.status === 'open' ? 'danger' : 'success'" :label="formatStatusLabel(row.status)" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="210">
@@ -43,7 +43,7 @@
             <el-button link type="warning" @click="openResolveDialog(row)">处理</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-dialog v-model="resolveDialog.visible" title="处理异常" width="480px">
@@ -77,6 +77,8 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceExceptions, resolveAttendanceException } from '../../api/attendance'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatExceptionTypeLabel, formatStatusLabel } from '../../utils/display'
 
 const router = useRouter()
