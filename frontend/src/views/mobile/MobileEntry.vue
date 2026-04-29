@@ -429,10 +429,7 @@ onMounted(load)
 
 .mobile-entry-stage {
   padding: 12px;
-  background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.98));
+  background: var(--xt-bg-panel);
 }
 
 .mobile-entry-stage__top {
@@ -454,7 +451,7 @@ onMounted(load)
 
 .mobile-entry-stage__desktop-link {
   min-height: 36px;
-  border-radius: 12px;
+  border-radius: var(--xt-radius-lg);
 }
 
 .mobile-entry-stage__top p,
@@ -472,8 +469,8 @@ onMounted(load)
   display: grid;
   gap: 8px;
   padding: 10px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.04);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
 }
 
 .mobile-entry-stage__empty p + p {
@@ -487,7 +484,7 @@ onMounted(load)
 }
 
 .mobile-entry-stage__action-row .el-button {
-  border-radius: 14px;
+  border-radius: var(--xt-radius-lg);
   min-height: 38px;
   min-width: 122px;
 }
@@ -502,9 +499,9 @@ onMounted(load)
 
 .mobile-entry-stage__brand {
   padding: 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-border-light);
 }
 
 .mobile-entry-stage__mark {
@@ -513,8 +510,8 @@ onMounted(load)
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--text-main), var(--primary));
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-primary);
   color: #fff;
   font-size: 20px;
   font-weight: 800;
@@ -539,23 +536,23 @@ onMounted(load)
   display: grid;
   gap: 4px;
   padding: 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-border-light);
 }
 
 .mobile-entry-stage__machine {
-  background: linear-gradient(135deg, rgba(17, 24, 39, 0.04), rgba(29, 78, 216, 0.08));
+  background: var(--xt-bg-panel-soft);
 }
 
 .mobile-entry-stage__role {
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(37, 99, 235, 0.06));
+  background: var(--xt-primary-light);
 }
 
 .mobile-entry-stage__cta .el-button {
   min-height: 46px;
   min-width: 142px;
-  border-radius: 14px;
+  border-radius: var(--xt-radius-lg);
   font-size: 14px;
 }
 
@@ -569,9 +566,9 @@ onMounted(load)
   display: grid;
   gap: 4px;
   padding: 10px;
-  border-radius: 12px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
+  border: 1px solid var(--xt-border-light);
 }
 
 .mobile-entry-stage__summary-item span {
@@ -592,16 +589,28 @@ onMounted(load)
 
 .mobile-entry-stage__quick-grid .el-button {
   min-height: 40px;
-  border-radius: 12px;
+  border-radius: var(--xt-radius-lg);
+}
+
+.mobile-entry-stage__action-row :deep(.el-button--primary.is-plain),
+.mobile-entry-stage__quick-grid :deep(.el-button--primary.is-plain) {
+  border-color: rgba(0, 113, 227, 0.34);
+  background: var(--xt-bg-panel);
+  color: var(--xt-primary);
+}
+
+.mobile-entry-stage__action-row :deep(.el-button--primary.is-plain:hover),
+.mobile-entry-stage__quick-grid :deep(.el-button--primary.is-plain:hover) {
+  background: var(--xt-primary-light);
 }
 
 .mobile-entry-stage__ai {
   display: grid;
   gap: 6px;
   padding: 10px;
-  border-radius: 12px;
-  background: rgba(239, 246, 255, 0.9);
-  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-primary-light);
+  border: 1px solid rgba(0, 113, 227, 0.18);
 }
 
 .mobile-entry-stage__ai span {
