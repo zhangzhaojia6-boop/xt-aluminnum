@@ -78,18 +78,17 @@
     </section>
 
     <section class="review-overview-center__module-grid">
-      <ReferenceModuleCard
+      <XtModuleTile
         v-for="item in referenceModules"
         :key="item.number"
-        :module-number="item.number"
-        :title="item.title"
-        density="dense"
-      >
-        <div class="review-overview-center__module-card">
-          <ReferenceStatusTag :status="item.status" :label="item.statusLabel" />
-          <span>{{ item.owner }}</span>
-        </div>
-      </ReferenceModuleCard>
+        :module="item"
+        :status="item.status"
+        :status-text="item.statusLabel"
+        :metrics="moduleMetrics(item)"
+        action-label="进入"
+        compact
+        @action="openReferenceModule"
+      />
     </section>
 
     <section class="review-overview-center__ai-grid">
@@ -134,7 +133,7 @@ import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
-import { XtExecutionRail, XtFactoryMap } from '../../components/xt'
+import { XtExecutionRail, XtFactoryMap, XtModuleTile } from '../../components/xt'
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
 import { mesWipSnapshotMock } from '../../mocks/centerMockData.js'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
@@ -165,20 +164,20 @@ const quickEntries = [
 ]
 
 const referenceModules = [
-  { number: '01', title: '系统总览主视图', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '02', title: '登录与角色入口', owner: '公共入口', status: 'success', statusLabel: '已接入' },
-  { number: '03', title: '独立填报端', owner: '录入端', status: 'success', statusLabel: '已接入' },
-  { number: '04', title: '填报流程页', owner: '录入端', status: 'success', statusLabel: '已接入' },
-  { number: '05', title: '工厂作业看板', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '06', title: '数据接入与字段映射中心', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '07', title: '审阅中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '08', title: '日报与交付中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '09', title: '质量与告警中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '10', title: '成本核算与效益中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '11', title: 'AI 总控中心', owner: '审阅端', status: 'success', statusLabel: '已接入' },
-  { number: '12', title: '系统运维与观测', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '13', title: '权限与治理中心', owner: '管理端', status: 'warning', statusLabel: '改造中' },
-  { number: '14', title: '主数据与模板中心', owner: '管理端', status: 'warning', statusLabel: '改造中' }
+  { number: '01', title: '系统总览主视图', shortTitle: '总览', subtitle: '全局链路', owner: '审阅端', variant: 'overview', routeName: 'review-overview-home', status: 'success', statusLabel: '在线' },
+  { number: '02', title: '登录与角色入口', shortTitle: '入口', subtitle: '角色分流', owner: '公共入口', variant: 'entry', routeName: 'login', status: 'success', statusLabel: '在线' },
+  { number: '03', title: '独立填报端', shortTitle: '填报端', subtitle: '手机优先', owner: '录入端', variant: 'entry', routeName: 'mobile-entry', status: 'success', statusLabel: '在线' },
+  { number: '04', title: '填报流程页', shortTitle: '流程页', subtitle: '一岗一表', owner: '录入端', variant: 'entry', routeName: 'mobile-entry', status: 'success', statusLabel: '在线' },
+  { number: '05', title: '工厂作业看板', shortTitle: '工厂', subtitle: '厂级作战图', owner: '审阅端', variant: 'factory', routeName: 'factory-dashboard', status: 'success', statusLabel: '在线' },
+  { number: '06', title: '数据接入与字段映射中心', shortTitle: '接入', subtitle: '字段映射', owner: '管理端', variant: 'ingestion', routeName: 'admin-ingestion-center', status: 'warning', statusLabel: '改造中' },
+  { number: '07', title: '审阅中心', shortTitle: '审阅', subtitle: '异常处置', owner: '审阅端', variant: 'review', routeName: 'review-task-center', status: 'success', statusLabel: '在线' },
+  { number: '08', title: '日报与交付中心', shortTitle: '日报', subtitle: '自动交付', owner: '审阅端', variant: 'report', routeName: 'review-report-center', status: 'success', statusLabel: '在线' },
+  { number: '09', title: '质量与告警中心', shortTitle: '质量', subtitle: '阈值预警', owner: '审阅端', variant: 'quality', routeName: 'review-quality-center', status: 'success', statusLabel: '在线' },
+  { number: '10', title: '成本核算与效益中心', shortTitle: '成本', subtitle: '收益核算', owner: '审阅端', variant: 'cost', routeName: 'review-cost-accounting', status: 'success', statusLabel: '在线' },
+  { number: '11', title: 'AI 总控中心', shortTitle: 'AI 总管', subtitle: '预测执行', owner: '审阅端', variant: 'brain', routeName: 'review-brain-center', status: 'success', statusLabel: '在线' },
+  { number: '12', title: '系统运维与观测', shortTitle: '运维', subtitle: '健康探针', owner: '管理端', variant: 'ops', routeName: 'admin-ops-reliability', status: 'warning', statusLabel: '改造中' },
+  { number: '13', title: '权限与治理中心', shortTitle: '治理', subtitle: '角色隔离', owner: '管理端', variant: 'governance', routeName: 'admin-governance-center', status: 'warning', statusLabel: '改造中' },
+  { number: '14', title: '主数据与模板中心', shortTitle: '主数据', subtitle: '车间模板', owner: '管理端', variant: 'master', routeName: 'admin-master-workshop', status: 'warning', statusLabel: '改造中' }
 ]
 
 const overviewCards = computed(() => {
@@ -399,6 +398,18 @@ function toFactoryStatus(status) {
 
 function go(routeName) {
   router.push({ name: routeName })
+}
+
+function openReferenceModule(item) {
+  if (item?.routeName) go(item.routeName)
+}
+
+function moduleMetrics(item) {
+  return [
+    { label: '归属', value: item.owner },
+    { label: '编号', value: item.number },
+    { label: '状态', value: item.statusLabel }
+  ]
 }
 
 async function load() {

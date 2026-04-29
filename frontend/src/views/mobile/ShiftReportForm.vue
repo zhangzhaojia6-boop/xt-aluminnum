@@ -18,7 +18,7 @@
 
     <el-alert
       v-if="!canEdit"
-      title="当前记录已提交，暂时不能继续修改。需要重填时，等系统退回。"
+      title="已提交，待系统退回后可改。"
       type="info"
       show-icon
       :closable="false"
@@ -48,9 +48,8 @@
     </div>
 
     <div v-else-if="loading" class="mobile-inline-state panel">
-      <p>正在加载班次填报内容…</p>
-      <p>若持续无响应，请退出后重进或联系管理员。</p>
-      <el-button type="primary" plain class="mobile-inline-action" @click="load">再次尝试</el-button>
+      <p>正在加载班次填报…</p>
+      <el-button type="primary" plain class="mobile-inline-action" @click="load">重试</el-button>
     </div>
 
     <div v-if="!loadError && !loading" class="entry-flow-steps" aria-label="填报步骤">
@@ -95,7 +94,7 @@
               <el-tag :type="agentDecisionTagType" effect="light">{{ agentDecisionTitle }}</el-tag>
             </div>
             <div class="mobile-overview-item mobile-overview-item-wide">
-              <span>说明</span>
+              <span>处理</span>
               <strong>{{ agentDecisionHint }}</strong>
             </div>
           </div>
@@ -113,22 +112,22 @@
           <div class="mobile-form-grid">
             <div class="mobile-field">
               <label>出勤人数</label>
-              <el-input v-model.number="form.attendance_count" :disabled="!canEdit" inputmode="numeric" placeholder="请输入人数" />
+              <el-input v-model.number="form.attendance_count" :disabled="!canEdit" inputmode="numeric" placeholder="人数" />
             </div>
             <div class="mobile-field">
               <label>投入量</label>
-              <el-input v-model.number="form.input_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入投入量" />
+              <el-input v-model.number="form.input_weight" :disabled="!canEdit" inputmode="decimal" placeholder="投入量" />
             </div>
             <div class="mobile-field">
               <label>产出量</label>
-              <el-input v-model.number="form.output_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入产出量" />
+              <el-input v-model.number="form.output_weight" :disabled="!canEdit" inputmode="decimal" placeholder="产出量" />
             </div>
             <div class="mobile-field">
               <label>
                 废料量
                 <span class="entry-calc-source">{{ scrapOverrideLabel }}</span>
               </label>
-              <el-input v-model.number="form.scrap_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入废料量" />
+              <el-input v-model.number="form.scrap_weight" :disabled="!canEdit" inputmode="decimal" placeholder="废料量" />
             </div>
           </div>
 
@@ -155,23 +154,22 @@
             <div v-if="showExtendedProduction" class="mobile-form-grid">
               <div class="mobile-field">
                 <label>备料量</label>
-                <el-input v-model.number="form.storage_prepared" :disabled="!canEdit" inputmode="decimal" placeholder="请输入备料量" />
+                <el-input v-model.number="form.storage_prepared" :disabled="!canEdit" inputmode="decimal" placeholder="备料量" />
               </div>
               <div class="mobile-field">
                 <label>成品入库</label>
-                <el-input v-model.number="form.storage_finished" :disabled="!canEdit" inputmode="decimal" placeholder="请输入成品入库量" />
+                <el-input v-model.number="form.storage_finished" :disabled="!canEdit" inputmode="decimal" placeholder="入库量" />
               </div>
               <div class="mobile-field">
                 <label>发货量</label>
-                <el-input v-model.number="form.shipment_weight" :disabled="!canEdit" inputmode="decimal" placeholder="请输入发货量" />
+                <el-input v-model.number="form.shipment_weight" :disabled="!canEdit" inputmode="decimal" placeholder="发货量" />
               </div>
               <div class="mobile-field">
                 <label>合同承接量</label>
-                <el-input v-model.number="form.contract_received" :disabled="!canEdit" inputmode="decimal" placeholder="请输入合同承接量" />
+                <el-input v-model.number="form.contract_received" :disabled="!canEdit" inputmode="decimal" placeholder="合同量" />
               </div>
             </div>
           </el-collapse-transition>
-          <div class="mobile-history-note">补录字段可留空，系统会结合专项岗位数据自动汇总。</div>
         </el-card>
       </template>
 
@@ -181,11 +179,11 @@
           <div class="mobile-form-grid">
             <div class="mobile-field">
               <label>日电耗</label>
-              <el-input v-model.number="form.electricity_daily" :disabled="!canEdit" inputmode="decimal" placeholder="请输入日电耗（可选）" />
+              <el-input v-model.number="form.electricity_daily" :disabled="!canEdit" inputmode="decimal" placeholder="日电耗" />
             </div>
             <div class="mobile-field">
               <label>日气耗</label>
-              <el-input v-model.number="form.gas_daily" :disabled="!canEdit" inputmode="decimal" placeholder="请输入日气耗（可选）" />
+              <el-input v-model.number="form.gas_daily" :disabled="!canEdit" inputmode="decimal" placeholder="日气耗" />
             </div>
           </div>
         </el-card>
@@ -201,7 +199,7 @@
             </div>
             <div class="mobile-field">
               <label>异常类型</label>
-              <el-input v-model="form.exception_type" :disabled="!canEdit" placeholder="如设备、质量、人员、物流" />
+              <el-input v-model="form.exception_type" :disabled="!canEdit" placeholder="设备 / 质量 / 人员 / 物流" />
             </div>
             <div class="mobile-field mobile-field-wide">
               <label>备注</label>
@@ -210,7 +208,7 @@
                 :disabled="!canEdit"
                 type="textarea"
                 :rows="4"
-                placeholder="请输入异常说明、交接信息或需要后续关注的内容"
+                placeholder="异常或交接备注"
               />
             </div>
             <div class="mobile-field mobile-field-wide">
@@ -407,28 +405,12 @@ const swipePages = [
   { key: 'exception', title: '异常' },
   { key: 'submit', title: '确认' }
 ]
-const entryFlowSteps = ['班次信息', '产品录入', '配比/物耗', '异常补充', '图片/附件', '提交成功']
-const stepTipMap = {
-  overview: ['核对业务日期、班次和车间。', '确认当前状态可继续编辑。', '有退回原因时先按提示补齐。'],
-  production: ['优先填写投入量、产出量和废料量。', '必填数字为空时无法正式提交。', '补录字段可留空，系统会自动汇总。'],
-  energy: ['电耗、气耗为可选原始值。', '能耗异常请在异常步骤补充说明。'],
-  exception: ['异常类型请写明设备、质量、人员或物流。', '图片/附件只作为现场凭证，不强制依赖 OCR。'],
-  submit: ['提交前确认关键数字。', '提交后系统自动校验，结果以审阅端为准。']
-}
-const assistHintMap = {
-  overview: '系统提示：当前班次信息来自已登录账号与排班数据。',
-  production: '辅助提示：产出量与投入量偏差较大时，请补充异常说明。',
-  energy: '辅助提示：能耗数据用于经营分析，不作为财务结算。',
-  exception: '辅助提示：AI/OCR 不稳定时请以人工填写为准。',
-  submit: '系统提示：保存草稿不会进入审阅队列，正式提交后才流转。'
-}
+const entryFlowSteps = ['班次', '数字', '能耗', '异常', '提交']
 const currentPageIndex = computed(() => swipePages.findIndex((page) => page.key === activePageKey.value))
 const currentPage = computed(() => swipePages[Math.max(currentPageIndex.value, 0)] || swipePages[0])
 const isFirstPage = computed(() => currentPageIndex.value <= 0)
 const isLastPage = computed(() => currentPageIndex.value >= swipePages.length - 1)
 const entryStepActiveIndex = computed(() => Math.min(currentPageIndex.value, entryFlowSteps.length - 1))
-const currentStepTips = computed(() => stepTipMap[activePageKey.value] || stepTipMap.overview)
-const currentAssistHint = computed(() => assistHintMap[activePageKey.value] || assistHintMap.overview)
 const suggestedScrap = computed(() => {
   const input = Number(form.input_weight)
   const output = Number(form.output_weight)
@@ -809,42 +791,6 @@ onBeforeUnmount(() => {
   align-items: start;
 }
 
-.entry-flow-hints {
-  position: sticky;
-  top: var(--xt-space-3);
-  display: grid;
-  gap: var(--xt-space-3);
-}
-
-.entry-flow-hint-card {
-  display: grid;
-  gap: var(--xt-space-3);
-  padding: var(--xt-space-4);
-  border: 1px solid var(--xt-border-light);
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
-}
-
-.entry-flow-hint-card strong {
-  color: var(--xt-primary);
-  font-size: var(--xt-text-lg);
-  font-family: var(--font-display, 'SF Pro Display', system-ui);
-}
-
-.entry-flow-hint-card ol {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding-left: 20px;
-  color: var(--xt-text-secondary);
-}
-
-.entry-flow-hint-card span {
-  color: var(--xt-text-secondary);
-  line-height: 1.6;
-}
-
 .entry-calc-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -912,11 +858,6 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
-  .entry-flow-hints {
-    position: static;
-    order: 2;
-  }
-
   .entry-flow-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -930,10 +871,6 @@ onBeforeUnmount(() => {
   .entry-flow-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 10px;
-  }
-
-  .entry-flow-hint-card {
-    padding: 12px;
   }
 
   .entry-calc-strip {

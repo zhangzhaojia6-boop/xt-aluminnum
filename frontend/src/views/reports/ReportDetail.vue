@@ -13,24 +13,11 @@
       </div>
     </div>
 
-    <el-card class="panel" v-if="report">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="报告编号">{{ report.id }}</el-descriptions-item>
-        <el-descriptions-item label="报告日期">{{ report.report_date }}</el-descriptions-item>
-        <el-descriptions-item label="报告类型">{{ formatReportTypeLabel(report.report_type) }}</el-descriptions-item>
-        <el-descriptions-item label="当前状态">{{ formatStatusLabel(report.status) }}</el-descriptions-item>
-        <el-descriptions-item label="生成范围">{{ formatReportScopeLabel(report.generated_scope) }}</el-descriptions-item>
-        <el-descriptions-item label="输出方式">{{ formatOutputModeLabel(report.output_mode) }}</el-descriptions-item>
-        <el-descriptions-item label="生成时间">{{ report.generated_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="发布时间">{{ report.published_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="归档版本">{{ formatBooleanLabel(report.is_final_version) }}</el-descriptions-item>
-        <el-descriptions-item label="归档确认来源">{{ report.final_confirmed_by || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="归档确认时间">{{ report.final_confirmed_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="质量闸门状态">{{ formatStatusLabel(report.quality_gate_status) }}</el-descriptions-item>
-        <el-descriptions-item label="是否可交付">{{ report.delivery_ready ? '是' : '否' }}</el-descriptions-item>
-        <el-descriptions-item label="闸门说明" :span="2">{{ report.quality_gate_summary || '-' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+    <div v-if="report" class="report-detail__field-stack">
+      <XtFieldGroup title="结论区" tier="primary" :items="reportPrimaryFields" />
+      <XtFieldGroup title="交付区" tier="supporting" :items="reportSupportingFields" />
+      <XtFieldGroup title="审计区" tier="audit" :items="reportAuditFields" collapsed />
+    </div>
 
     <el-card class="panel" v-if="report">
       <template #header>最终版文本日报</template>
@@ -42,19 +29,7 @@
       <div class="text-summary">{{ report.text_summary || '当前未生成文本摘要内容。' }}</div>
     </el-card>
 
-    <el-card class="panel" v-if="report">
-      <template #header>经营指标</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="总产量">{{ reportData.total_output_weight ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="总投入">{{ reportData.total_input_weight ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="成材率">{{ preferredYieldRate }}</el-descriptions-item>
-        <el-descriptions-item label="出勤">{{ reportData.total_attendance ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="总电耗">{{ reportData.total_electricity_kwh ?? reportData.total_energy ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="单位能耗">{{ reportData.energy_per_ton ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="应报班次">{{ reportData.total_expected ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="上报率">{{ reportData.reporting_rate ?? '-' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+    <XtFieldGroup v-if="report" title="核心指标" tier="primary" :items="metricFields" />
 
     <el-card class="panel" v-if="yieldMatrixLane">
       <template #header>成品率矩阵正式口径</template>
@@ -87,15 +62,7 @@
       </ReferenceDataTable>
     </el-card>
 
-    <el-card class="panel" v-if="mobileSummary">
-      <template #header>上报闭环概况</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="已报">{{ mobileSummary.reported_count ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="未报">{{ mobileSummary.unreported_count ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="退回">{{ mobileSummary.returned_count ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="迟报">{{ mobileSummary.late_count ?? '-' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+    <XtFieldGroup v-if="mobileSummary" title="上报闭环" tier="supporting" :items="mobileSummaryFields" />
 
     <el-card class="panel" v-if="anomalySummary || anomalyItems.length">
       <template #header>异常摘要</template>
@@ -119,6 +86,7 @@ import { ElMessage } from 'element-plus'
 
 import { exportReport, fetchReportDetail } from '../../api/reports'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import { XtFieldGroup } from '../../components/xt'
 import {
   formatBooleanLabel,
   formatOutputModeLabel,
@@ -146,6 +114,41 @@ const yieldMatrixWorkshopRows = computed(() =>
 const mobileSummary = computed(() => reportData.value.mobile_reporting_summary || null)
 const anomalySummary = computed(() => reportData.value.anomaly_summary || null)
 const anomalyItems = computed(() => reportData.value.anomaly_items || [])
+const reportPrimaryFields = computed(() => [
+  { label: '报告日期', value: report.value?.report_date },
+  { label: '报告类型', value: formatReportTypeLabel(report.value?.report_type) },
+  { label: '当前状态', value: formatStatusLabel(report.value?.status) },
+  { label: '是否可交付', value: report.value?.delivery_ready ? '是' : '否' },
+  { label: '质量闸门', value: formatStatusLabel(report.value?.quality_gate_status), hint: report.value?.quality_gate_summary || '' }
+])
+const reportSupportingFields = computed(() => [
+  { label: '生成范围', value: formatReportScopeLabel(report.value?.generated_scope) },
+  { label: '生成时间', value: report.value?.generated_at },
+  { label: '发布时间', value: report.value?.published_at },
+  { label: '输出方式', value: formatOutputModeLabel(report.value?.output_mode) }
+])
+const reportAuditFields = computed(() => [
+  { label: '报告编号', value: report.value?.id },
+  { label: '归档版本', value: formatBooleanLabel(report.value?.is_final_version) },
+  { label: '归档确认来源', value: report.value?.final_confirmed_by },
+  { label: '归档确认时间', value: report.value?.final_confirmed_at }
+])
+const metricFields = computed(() => [
+  { label: '总产量', value: reportData.value.total_output_weight },
+  { label: '总投入', value: reportData.value.total_input_weight },
+  { label: '成材率', value: preferredYieldRate.value },
+  { label: '出勤', value: reportData.value.total_attendance },
+  { label: '总电耗', value: reportData.value.total_electricity_kwh ?? reportData.value.total_energy },
+  { label: '单位能耗', value: reportData.value.energy_per_ton },
+  { label: '应报班次', value: reportData.value.total_expected },
+  { label: '上报率', value: reportData.value.reporting_rate }
+])
+const mobileSummaryFields = computed(() => [
+  { label: '已报', value: mobileSummary.value?.reported_count },
+  { label: '未报', value: mobileSummary.value?.unreported_count },
+  { label: '退回', value: mobileSummary.value?.returned_count },
+  { label: '迟报', value: mobileSummary.value?.late_count }
+])
 async function load() {
   report.value = await fetchReportDetail(route.params.id)
 }
@@ -173,3 +176,10 @@ async function download(format) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.report-detail__field-stack {
+  display: grid;
+  gap: var(--xt-space-3);
+}
+</style>

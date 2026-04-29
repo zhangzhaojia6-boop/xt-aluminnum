@@ -40,6 +40,20 @@
         </div>
       </div>
 
+      <div class="review-home-hero__workshop-ribbon">
+        <button
+          v-for="workshop in workshopGlyphs"
+          :key="workshop.key"
+          type="button"
+          class="review-home-hero__workshop-card"
+          :class="{ 'is-active': workshop.active }"
+        >
+          <XtWorkshopGlyph :workshop-type="workshop.type" :active="workshop.active" compact />
+          <span>{{ workshop.name }}</span>
+          <strong>{{ workshop.status }}</strong>
+        </button>
+      </div>
+
       <div class="review-home-hero__grid">
         <div class="review-home-hero__metrics">
           <div class="review-home-hero__section-title">
@@ -348,7 +362,7 @@ import ReviewAssistantDock from '../../components/review/ReviewAssistantDock.vue
 import ReviewAssistantWorkbench from '../../components/review/ReviewAssistantWorkbench.vue'
 import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
-import { XtExecutionRail, XtFactoryMap } from '../../components/xt'
+import { XtExecutionRail, XtFactoryMap, XtWorkshopGlyph } from '../../components/xt'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
 
 const route = useRoute()
@@ -569,6 +583,30 @@ const factoryDirectorBrief = computed(() => {
   if (delivery.value.delivery_ready) return '现场采集、自动汇总、日报交付均处于可交付状态。'
   return '交付链路仍有缺口，AI 正把缺口拆成可执行动作。'
 })
+const workshopGlyphs = computed(() => {
+  const rows = data.value.workshop_reporting_status || []
+  const source = rows.length
+    ? rows
+    : [
+        { workshop_name: '铸锭车间', report_status: 'submitted' },
+        { workshop_name: '热轧车间', report_status: 'submitted' },
+        { workshop_name: '冷轧车间', report_status: 'submitted' },
+        { workshop_name: '拉矫车间', report_status: 'submitted' },
+        { workshop_name: '在线退火', report_status: 'submitted' },
+        { workshop_name: '成品库', report_status: 'submitted' }
+      ]
+  return source.slice(0, 8).map((item, index) => {
+    const name = item.workshop_name || item.name || `车间 ${index + 1}`
+    const status = item.report_status || item.status || 'submitted'
+    return {
+      key: item.workshop_id || item.id || `${name}-${index}`,
+      name,
+      status: reportStatusLabel(status),
+      type: workshopTypeFromName(name),
+      active: ['returned', 'late', 'unreported'].includes(String(status).toLowerCase())
+    }
+  })
+})
 let assistantShortcutSequence = 0
 const heroCards = computed(() => [
   {
@@ -650,6 +688,18 @@ function toFactoryStatus(status) {
   if (['danger', 'error', 'failed', 'blocked', 'returned', 'late'].includes(value)) return 'danger'
   if (['warning', 'alert', 'pending', 'fallback', 'mixed', 'unreported'].includes(value)) return 'warning'
   return 'normal'
+}
+
+function workshopTypeFromName(name) {
+  const value = String(name || '')
+  if (/铸|熔|锭/.test(value)) return 'casting'
+  if (/热轧|热/.test(value)) return 'hot_roll'
+  if (/冷轧|冷/.test(value)) return 'cold_roll'
+  if (/拉矫|矫/.test(value)) return 'leveling'
+  if (/退火/.test(value)) return 'online_annealing'
+  if (/库|仓|成品/.test(value)) return 'inventory'
+  if (/跨|链路|调度/.test(value)) return 'cross_workshop_flow'
+  return 'finishing'
 }
 
 function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试') {
@@ -797,6 +847,7 @@ onUnmounted(() => {
 .review-home-hero__controls,
 .review-home-hero__grid,
 .review-home-hero__war-room,
+.review-home-hero__workshop-ribbon,
 .review-home-hero__execution,
 .review-home-hero__execution-head,
 .review-home-hero__metrics,
@@ -875,6 +926,48 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
   align-items: stretch;
   gap: 12px;
+}
+
+.review-home-hero__workshop-ribbon {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.review-home-hero__workshop-card {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
+  text-align: left;
+  cursor: default;
+  box-shadow: var(--xt-shadow-xs);
+}
+
+.review-home-hero__workshop-card :deep(.xt-workshop-glyph) {
+  min-height: 58px;
+}
+
+.review-home-hero__workshop-card span {
+  overflow: hidden;
+  color: var(--xt-text);
+  font-size: 13px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-home-hero__workshop-card strong {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.review-home-hero__workshop-card.is-active {
+  border-color: rgba(183, 121, 31, 0.28);
+  background: var(--xt-warning-light);
 }
 
 .review-home-hero__execution {

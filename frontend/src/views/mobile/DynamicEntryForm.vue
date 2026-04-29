@@ -108,7 +108,7 @@
               <div class="mobile-inline-actions">
                 <el-input
                   v-model="trackingCardNo"
-                  placeholder="请输入或扫码批次号"
+                  placeholder="批次号 / 扫码"
                   :disabled="lookupLoading"
                   @keyup.enter="lookupTrackingCard"
                 />
@@ -128,7 +128,7 @@
               <el-select
                 v-else
                 v-model="formState.machine_id"
-                placeholder="请选择机台"
+                placeholder="选择机台"
                 clearable
                 filterable
                 :disabled="isEntryEditingDisabled"
@@ -154,14 +154,13 @@
           </div>
         </el-card>
 
-        <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card entry-mes-trace-card" data-testid="entry-mes-trace-card">
-          <template #header>线索追踪（待 MES 对接确认）</template>
-          <ul class="entry-mes-trace-list">
-            <li>本系统当前采集前工序现场事实。</li>
-            <li>后工序追踪以 MES 为正式真源。</li>
-            <li>当前不要求主操填写 MES 后续码。</li>
-            <li>如现场已有二维码或坯料号，可作为批次线索记录。</li>
-          </ul>
+        <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card entry-external-trace-card" data-testid="entry-mes-trace-card">
+          <template #header>外部系统线索</template>
+          <div class="entry-external-trace">
+            <span>前工序事实</span>
+            <span>后工序同步</span>
+            <span>不补后续码</span>
+          </div>
         </el-card>
 
         <el-card v-if="!isOwnerOnlyMode && isSlowTempo" class="panel mobile-card">
@@ -1571,8 +1570,9 @@ function displayFieldLabel(field) {
 
 function fieldPlaceholder(field) {
   const label = displayFieldLabel(field)
-  if (field.type === 'number') return `请输入${label}`
-  return `填写${label}`
+  if (field.type === 'number') return '数字'
+  if (field.type === 'time') return '时间'
+  return label || '填写'
 }
 
 function resolvePersistedFieldValue(field, workOrder = currentWorkOrder.value, entry = currentEntry.value) {
@@ -2236,18 +2236,25 @@ onBeforeUnmount(() => {
   border-radius: 12px;
 }
 
-.entry-mes-trace-list {
+.entry-external-trace {
   display: grid;
-  gap: 8px;
-  margin: 0;
-  padding-left: 18px;
-  color: var(--app-muted);
-  font-size: 13px;
-  line-height: 1.55;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--xt-space-2);
 }
 
-.entry-mes-trace-list li {
-  overflow-wrap: anywhere;
+.entry-external-trace span {
+  min-width: 0;
+  padding: 9px 10px;
+  overflow: hidden;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
+  font-weight: 850;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button:active),
