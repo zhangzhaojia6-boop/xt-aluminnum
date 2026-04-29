@@ -290,7 +290,7 @@ const previewUsername = computed(() => {
   return machineCode || ''
 })
 const previewQrCode = computed(() => (previewUsername.value ? `XT-${previewUsername.value}` : ''))
-const qrLoginUrl = computed(() => (result.value ? `${window.location.origin}/mobile?machine=${encodeURIComponent(result.value.account.qr_code)}` : ''))
+const qrLoginUrl = computed(() => (result.value ? `${window.location.origin}/login?machine=${encodeURIComponent(result.value.account.qr_code)}` : ''))
 
 watch(
   () => props.modelValue,

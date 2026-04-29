@@ -234,7 +234,7 @@ const customFieldForm = ref([])
 
 const qrLoginUrl = computed(() => {
   if (!qrTarget.value?.qr_code) return ''
-  return `${window.location.origin}/mobile?machine=${encodeURIComponent(qrTarget.value.qr_code)}`
+  return `${window.location.origin}/login?machine=${encodeURIComponent(qrTarget.value.qr_code)}`
 })
 
 watch(

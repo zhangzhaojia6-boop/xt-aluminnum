@@ -761,6 +761,26 @@ def test_factory_dashboard_maps_auto_confirmed_and_returned_statuses() -> None:
     assert "returned: 'danger'" in source
 
 
+def test_machine_qr_urls_use_login_machine_entrypoint() -> None:
+    equipment = _read_repo_file("frontend/src/views/master/Equipment.vue")
+    wizard = _read_repo_file("frontend/src/views/master/MachineWizard.vue")
+
+    assert "/login?machine=" in equipment
+    assert "/login?machine=" in wizard
+    assert "/mobile?machine=" not in equipment
+    assert "/mobile?machine=" not in wizard
+
+
+def test_login_review_surface_uses_manage_canonical_landing() -> None:
+    login = _read_repo_file("frontend/src/views/Login.vue")
+    command_login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
+
+    assert "return '/manage/overview'" in login
+    assert "return '/manage/overview'" in command_login
+    assert "return '/review/overview'" not in login
+    assert "return '/review/overview'" not in command_login
+
+
 def test_review_dashboards_parse_structured_load_errors() -> None:
     factory_source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
     workshop_source = _read_repo_file("frontend/src/views/dashboard/WorkshopDirector.vue")

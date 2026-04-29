@@ -168,7 +168,7 @@ function resolveAuthCode() {
 
 function surfaceLandingPath(surface) {
   if (surface === 'entry' && auth.entrySurface) return '/entry'
-  if (surface === 'review' && auth.reviewSurface) return '/review/overview'
+  if (surface === 'review' && auth.reviewSurface) return '/manage/overview'
   if (surface === 'admin' && auth.adminSurface) return '/admin'
   return ''
 }
@@ -178,8 +178,8 @@ function resolveDefaultLandingPath() {
   if (selectedLanding) return selectedLanding
   if (auth.defaultSurface === 'entry') return '/entry'
   if (auth.defaultSurface === 'admin') return '/admin'
-  if (auth.defaultSurface === 'review') return '/review/overview'
-  return auth.canAccessDesktop ? '/review/overview' : '/entry'
+  if (auth.defaultSurface === 'review') return '/manage/overview'
+  return auth.canAccessDesktop ? '/manage/overview' : '/entry'
 }
 
 function resolveRedirectPath() {

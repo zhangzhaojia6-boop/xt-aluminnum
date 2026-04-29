@@ -80,8 +80,8 @@ function defaultLandingPath() {
   if (typeof route.query.redirect === 'string' && route.query.redirect) return route.query.redirect
   if (auth.defaultSurface === 'entry') return '/entry'
   if (auth.defaultSurface === 'admin') return '/admin'
-  if (auth.defaultSurface === 'review') return '/review/overview'
-  if (auth.reviewSurface) return '/review/overview'
+  if (auth.defaultSurface === 'review') return '/manage/overview'
+  if (auth.reviewSurface) return '/manage/overview'
   if (auth.entrySurface) return '/entry'
   return '/login'
 }
