@@ -117,9 +117,12 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
+
+const route = useRoute()
 
 function reportStatusLabel(status) {
   const map = {
@@ -147,7 +150,13 @@ function reportStatusTagType(status) {
   return map[status] || 'info'
 }
 
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+function resolveInitialTargetDate() {
+  const value = typeof route.query.target_date === 'string' ? route.query.target_date : ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) && dayjs(value).isValid()) return value
+  return dayjs().format('YYYY-MM-DD')
+}
+
+const targetDate = ref(resolveInitialTargetDate())
 const loading = ref(false)
 const data = ref({})
 const delivery = ref({})

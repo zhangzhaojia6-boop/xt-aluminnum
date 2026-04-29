@@ -64,6 +64,14 @@ const routes = [
     meta: { requiresAuth: true, title: '企业微信填报入口', zone: 'mobile' }
   },
   {
+    path: '/entry',
+    redirect: (to) => ({
+      name: 'mobile-entry',
+      query: to.query,
+      hash: to.hash
+    })
+  },
+  {
     path: '/mobile/report/:businessDate/:shiftId',
     name: 'mobile-report-form',
     component: ShiftReportForm,
@@ -97,6 +105,14 @@ const routes = [
     path: '/worker',
     redirect: (to) => ({
       name: 'mobile-entry',
+      query: to.query,
+      hash: to.hash
+    })
+  },
+  {
+    path: '/manage',
+    redirect: (to) => ({
+      path: '/dashboard/factory',
       query: to.query,
       hash: to.hash
     })

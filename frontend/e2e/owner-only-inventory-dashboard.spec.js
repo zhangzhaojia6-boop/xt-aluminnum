@@ -20,6 +20,7 @@ test('inventory owner can submit and factory dashboard reflects the new shipment
   await expect(page).toHaveURL(/\/mobile$/)
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/mobile\/report-advanced\//)
+  const businessDate = new URL(page.url()).pathname.split('/').at(-2)
 
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByTestId('entry-work-order-card')).toHaveCount(0)
@@ -53,7 +54,8 @@ test('inventory owner can submit and factory dashboard reflects the new shipment
     await adminPage.getByTestId('login-username').fill(adminUsername)
     await adminPage.getByTestId('login-password').fill(adminPassword)
     await adminPage.getByTestId('login-submit').click()
-    await expect(adminPage).toHaveURL(/\/dashboard\/factory/)
+    await expect(adminPage).toHaveURL(/\/dashboard\/factory/, { timeout: 15000 })
+    await adminPage.goto(`/dashboard/factory?target_date=${businessDate}`)
 
     const shipmentCard = adminPage.locator('.stat-card').filter({ hasText: '今日发货' }).first()
     await expect(shipmentCard).toBeVisible()

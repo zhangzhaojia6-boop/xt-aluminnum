@@ -20,6 +20,7 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
   await expect(page).toHaveURL(/\/mobile$/)
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/mobile\/report-advanced\//)
+  const businessDate = new URL(page.url()).pathname.split('/').at(-2)
 
   await page.getByRole('button', { name: '下一步' }).click()
   const inputs = page.locator('.mobile-field input')
@@ -50,8 +51,8 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
     await adminPage.getByTestId('login-username').fill(adminUsername)
     await adminPage.getByTestId('login-password').fill(adminPassword)
     await adminPage.getByTestId('login-submit').click()
-    await expect(adminPage).toHaveURL(/\/dashboard\/factory/)
-    await adminPage.goto('/dashboard/workshop')
+    await expect(adminPage).toHaveURL(/\/dashboard\/factory/, { timeout: 15000 })
+    await adminPage.goto(`/dashboard/workshop?target_date=${businessDate}`)
     await adminPage.locator('.header-actions .el-select .el-select__wrapper').click()
     await adminPage.locator('.el-select-dropdown__item').filter({ hasText: '成品库' }).last().click()
 

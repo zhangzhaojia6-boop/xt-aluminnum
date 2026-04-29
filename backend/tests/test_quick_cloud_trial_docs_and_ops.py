@@ -1,7 +1,12 @@
+import os
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = (
+    Path(os.environ['ALUMINUM_BYPASS_REPO_ROOT'])
+    if os.environ.get('ALUMINUM_BYPASS_REPO_ROOT')
+    else Path(__file__).resolve().parents[2]
+)
 
 
 def _read(relative_path: str) -> str:

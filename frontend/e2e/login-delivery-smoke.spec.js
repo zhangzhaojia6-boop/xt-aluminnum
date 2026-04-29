@@ -18,4 +18,8 @@ test('login and view delivery status card', async ({ page }) => {
   await expect(page.getByTestId('factory-dashboard')).toBeVisible()
   await expect(page.getByTestId('delivery-ready-card')).toBeVisible()
   await expect(page.getByTestId('delivery-missing-steps')).toBeVisible()
+
+  await page.goto('/manage')
+  await expect(page).toHaveURL(/\/dashboard\/factory/, { timeout: 15000 })
+  await expect(page.getByTestId('app-shell')).toBeVisible()
 })

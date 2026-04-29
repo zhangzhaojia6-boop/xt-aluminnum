@@ -20,6 +20,7 @@ test('contract owner can submit and factory dashboard reflects the new contract 
   await expect(page).toHaveURL(/\/mobile$/)
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/mobile\/report-advanced\//)
+  const businessDate = new URL(page.url()).pathname.split('/').at(-2)
 
   await page.getByRole('button', { name: '下一步' }).click()
   const inputs = page.locator('.mobile-field input')
@@ -46,7 +47,8 @@ test('contract owner can submit and factory dashboard reflects the new contract 
     await adminPage.getByTestId('login-username').fill(adminUsername)
     await adminPage.getByTestId('login-password').fill(adminPassword)
     await adminPage.getByTestId('login-submit').click()
-    await expect(adminPage).toHaveURL(/\/dashboard\/factory/)
+    await expect(adminPage).toHaveURL(/\/dashboard\/factory/, { timeout: 15000 })
+    await adminPage.goto(`/dashboard/factory?target_date=${businessDate}`)
 
     const contractCard = adminPage.locator('.stat-card').filter({ hasText: '合同量' }).first()
     await expect(contractCard).toBeVisible()

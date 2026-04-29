@@ -10,12 +10,13 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/dashboard\/factory/)
+  await expect(page).toHaveURL(/\/dashboard\/factory/, { timeout: 15000 })
 
-  await page.goto('/mobile')
+  await page.goto('/entry')
 
   const currentShiftCard = page.getByTestId('mobile-current-shift')
 
+  await expect(page).toHaveURL(/\/mobile/)
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
   await expect(currentShiftCard).toBeVisible()
   await expect(page.getByTestId('mobile-role-bucket')).toBeVisible()
