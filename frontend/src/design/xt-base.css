@@ -303,6 +303,38 @@ svg {
   font-weight: 800;
 }
 
+@media (max-width: 780px) {
+  .reference-page {
+    padding: var(--xt-space-3);
+  }
+
+  .reference-page__header {
+    display: grid;
+    align-items: start;
+  }
+
+  .reference-page__title-group {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reference-page__tags {
+    grid-column: 1 / -1;
+  }
+
+  .reference-page__actions {
+    width: 100%;
+    justify-content: start;
+    flex-wrap: wrap;
+  }
+
+  .reference-page h1 {
+    line-height: 1.22;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
+
 .reference-card {
   position: relative;
   min-width: 0;

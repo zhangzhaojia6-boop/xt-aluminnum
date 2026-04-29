@@ -23,6 +23,23 @@
         </div>
       </div>
 
+      <div class="review-home-hero__war-room">
+        <XtFactoryMap
+          compact
+          :nodes="factoryMapNodes"
+          :lines="factoryMapLines"
+          :alerts="factoryMapAlerts"
+          :active-key="factoryActiveKey"
+        />
+        <div class="review-home-hero__execution">
+          <div class="review-home-hero__execution-head">
+            <span>AI 总管执行链</span>
+            <strong>{{ factoryDirectorBrief }}</strong>
+          </div>
+          <XtExecutionRail :steps="factoryExecutionSteps" :active-index="factoryExecutionActiveIndex" compact />
+        </div>
+      </div>
+
       <div class="review-home-hero__grid">
         <div class="review-home-hero__metrics">
           <div class="review-home-hero__section-title">
@@ -331,6 +348,7 @@ import ReviewAssistantDock from '../../components/review/ReviewAssistantDock.vue
 import ReviewAssistantWorkbench from '../../components/review/ReviewAssistantWorkbench.vue'
 import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import { XtExecutionRail, XtFactoryMap } from '../../components/xt'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
 
 const route = useRoute()
@@ -426,6 +444,131 @@ const monthToDateOutput = computed(() => data.value.month_to_date_output ?? data
 const lastRefreshLabel = computed(() => (lastRefreshAt.value ? dayjs(lastRefreshAt.value).format('HH:mm:ss') : '--:--:--'))
 const retentionSummary = computed(() => `${monthArchive.value.reported_days ?? 0} 天归档`)
 const assistantQuickActions = computed(() => assistantCapabilities.value.quick_actions || buildAssistantFallback().quick_actions)
+const exceptionCounts = computed(() => {
+  const lane = data.value.exception_lane || {}
+  return {
+    unreported: Number(lane.unreported_shift_count || 0),
+    returned: Number(lane.returned_shift_count || 0),
+    mobile: Number(lane.mobile_exception_count || 0),
+    late: Number(lane.reminder_late_count || 0),
+    reconciliation: Number(lane.reconciliation_open_count || 0),
+    pendingPublish: Number(lane.pending_report_publish_count || 0)
+  }
+})
+const factoryAbnormalCount = computed(() => exceptionCounts.value.mobile + exceptionCounts.value.returned + exceptionCounts.value.late)
+const factoryPendingCount = computed(() => exceptionCounts.value.reconciliation + exceptionCounts.value.pendingPublish)
+const factoryMissingSteps = computed(() => formatDeliveryMissingSteps(delivery.value.missing_steps || []))
+const factoryActiveKey = computed(() => {
+  if (exceptionCounts.value.unreported || factoryAbnormalCount.value) return 'entry'
+  if (exceptionCounts.value.reconciliation) return 'ai'
+  if (!delivery.value.delivery_ready) return 'publish'
+  return 'ai'
+})
+const factoryMapNodes = computed(() => [
+  {
+    key: 'entry',
+    label: '现场直录',
+    short: '录',
+    status: exceptionCounts.value.unreported || factoryAbnormalCount.value ? 'warning' : 'normal',
+    x: '13%',
+    y: '34%'
+  },
+  {
+    key: 'casting',
+    label: '铸锭产线',
+    short: '锭',
+    status: factoryAbnormalCount.value ? 'warning' : 'normal',
+    x: '36%',
+    y: '64%'
+  },
+  {
+    key: 'storage',
+    label: '成品入库',
+    short: '库',
+    status: 'normal',
+    x: '58%',
+    y: '35%'
+  },
+  {
+    key: 'ai',
+    label: 'AI 调度',
+    short: 'AI',
+    status: factoryPendingCount.value ? 'warning' : 'normal',
+    x: '74%',
+    y: '58%'
+  },
+  {
+    key: 'publish',
+    label: '日报交付',
+    short: '报',
+    status: delivery.value.delivery_ready ? 'normal' : 'warning',
+    x: '88%',
+    y: '28%'
+  }
+])
+const factoryMapLines = computed(() => {
+  const lanes = runtimeTrace.value.source_lanes || []
+  if (lanes.length) {
+    return lanes.slice(0, 5).map((lane, index) => ({
+      key: lane.key || `${lane.label || 'lane'}-${index}`,
+      label: lane.label || lane.key || `数据源 ${index + 1}`,
+      value: lane.stage_label || lane.status_label || '同步',
+      status: toFactoryStatus(lane.status)
+    }))
+  }
+  return [
+    { key: 'zd', label: '铸锭车间', value: '在线', status: 'normal' },
+    { key: 'mes', label: 'MES', value: '同步', status: 'normal' },
+    { key: 'report', label: '日报', value: delivery.value.delivery_ready ? '就绪' : '待补齐', status: delivery.value.delivery_ready ? 'normal' : 'warning' }
+  ]
+})
+const factoryMapAlerts = computed(() => [
+  { key: 'unreported', label: '缺报班次', value: exceptionCounts.value.unreported, status: 'warning' },
+  { key: 'late', label: '迟报班次', value: exceptionCounts.value.late, status: 'warning' },
+  { key: 'returned', label: '退回补录', value: exceptionCounts.value.returned, status: 'danger' },
+  { key: 'reconciliation', label: '差异待核', value: exceptionCounts.value.reconciliation, status: 'warning' },
+  { key: 'publish', label: '日报待发', value: exceptionCounts.value.pendingPublish, status: 'warning' }
+].filter((item) => Number(item.value || 0) > 0).slice(0, 4))
+const factoryExecutionSteps = computed(() => {
+  const sourceCount = runtimeTrace.value.source_lanes?.length || factoryMapLines.value.length
+  const missingText = factoryMissingSteps.value.join('、')
+  return [
+    { key: 'discover', label: '发现', detail: `${sourceCount || 0} 条数据源在线`, status: 'done' },
+    {
+      key: 'judge',
+      label: '判断',
+      detail: factoryAbnormalCount.value ? `${factoryAbnormalCount.value} 项异常需优先闭环` : '校验规则通过',
+      status: factoryAbnormalCount.value ? 'warning' : 'done'
+    },
+    {
+      key: 'execute',
+      label: '执行',
+      detail: exceptionCounts.value.unreported ? `自动催报 ${exceptionCounts.value.unreported} 个班次` : '汇总、核对、补差动作就绪',
+      status: exceptionCounts.value.unreported ? 'running' : 'done'
+    },
+    {
+      key: 'audit',
+      label: '留痕',
+      detail: factoryPendingCount.value ? `${factoryPendingCount.value} 项等待闭环记录` : '审计链路完整',
+      status: factoryPendingCount.value ? 'warning' : 'done'
+    },
+    {
+      key: 'publish',
+      label: '发布',
+      detail: delivery.value.delivery_ready ? '日报可以交付' : `缺口：${missingText || '等待交付条件'}`,
+      status: delivery.value.delivery_ready ? 'done' : 'warning'
+    }
+  ]
+})
+const factoryExecutionActiveIndex = computed(() => {
+  const index = factoryExecutionSteps.value.findIndex((item) => ['warning', 'danger', 'running'].includes(item.status))
+  return index >= 0 ? index : factoryExecutionSteps.value.length - 1
+})
+const factoryDirectorBrief = computed(() => {
+  if (factoryMapAlerts.value.length) return `当前 ${factoryMapAlerts.value.length} 类风险会影响日报节奏，AI 已按优先级推进。`
+  if (delivery.value.delivery_ready) return '现场采集、自动汇总、日报交付均处于可交付状态。'
+  return '交付链路仍有缺口，AI 正把缺口拆成可执行动作。'
+})
 let assistantShortcutSequence = 0
 const heroCards = computed(() => [
   {
@@ -500,6 +643,13 @@ function sourceTagText(lane) {
 
 function sourceTagClass(lane) {
   return lane?.status ? `is-${lane.status}` : ''
+}
+
+function toFactoryStatus(status) {
+  const value = String(status || '').toLowerCase()
+  if (['danger', 'error', 'failed', 'blocked', 'returned', 'late'].includes(value)) return 'danger'
+  if (['warning', 'alert', 'pending', 'fallback', 'mixed', 'unreported'].includes(value)) return 'warning'
+  return 'normal'
 }
 
 function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试') {
@@ -646,6 +796,9 @@ onUnmounted(() => {
 .review-home-hero__toolbar,
 .review-home-hero__controls,
 .review-home-hero__grid,
+.review-home-hero__war-room,
+.review-home-hero__execution,
+.review-home-hero__execution-head,
 .review-home-hero__metrics,
 .review-home-hero__runtime {
   display: grid;
@@ -687,7 +840,8 @@ onUnmounted(() => {
 }
 
 .review-home-hero__controls .note,
-.review-home-hero__section-title {
+.review-home-hero__section-title,
+.review-home-hero__execution-head span {
   font-size: 12px;
   color: var(--app-muted);
 }
@@ -715,6 +869,38 @@ onUnmounted(() => {
   grid-template-columns: minmax(0, 1.1fr) minmax(400px, 0.9fr);
   align-items: start;
   gap: 12px;
+}
+
+.review-home-hero__war-room {
+  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.review-home-hero__execution {
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-2xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-md);
+}
+
+.review-home-hero__execution-head {
+  gap: 6px;
+}
+
+.review-home-hero__execution-head span {
+  color: var(--xt-primary);
+  font-weight: 900;
+}
+
+.review-home-hero__execution-head strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: 19px;
+  line-height: 1.35;
 }
 
 .review-factory .stat-grid {
@@ -958,6 +1144,7 @@ onUnmounted(() => {
 
 @media (max-width: 900px) {
   .review-home-hero__meta,
+  .review-home-hero__war-room,
   .review-home-hero__grid,
   .review-factory .stat-grid {
     grid-template-columns: 1fr;
