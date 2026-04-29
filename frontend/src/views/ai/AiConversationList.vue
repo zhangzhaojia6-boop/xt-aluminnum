@@ -1,7 +1,10 @@
 <template>
   <aside class="ai-conversations">
     <div class="ai-conversations__header">
-      <strong>对话</strong>
+      <div>
+        <span>问答助手</span>
+        <strong>对话</strong>
+      </div>
       <el-button type="primary" size="small" :disabled="disabled" @click="$emit('new')">新建</el-button>
     </div>
 
@@ -63,7 +66,7 @@ function formatTime(value) {
   width: 280px;
   min-width: 220px;
   border-right: 1px solid var(--xt-border-light);
-  background: var(--xt-bg-panel-soft);
+  background: var(--xt-command-surface);
 }
 
 .ai-conversations__header {
@@ -77,11 +80,29 @@ function formatTime(value) {
   background: var(--xt-bg-panel);
 }
 
+.ai-conversations__header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ai-conversations__header span {
+  color: var(--xt-primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-conversations__header strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: 18px;
+}
+
 .ai-conversations__list {
   display: grid;
   gap: 6px;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
 }
 
 .ai-conversations__item {
@@ -91,12 +112,17 @@ function formatTime(value) {
   gap: 4px 8px;
   width: 100%;
   border: 1px solid transparent;
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-xl);
   background: transparent;
   color: var(--xt-text);
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
+  transition:
+    transform var(--xt-motion-fast) var(--xt-ease),
+    border-color var(--xt-motion-fast) ease,
+    box-shadow var(--xt-motion-fast) var(--xt-ease),
+    background-color var(--xt-motion-fast) ease;
 }
 
 .ai-conversations__item:hover,
@@ -104,6 +130,10 @@ function formatTime(value) {
   border-color: rgba(0, 113, 227, 0.18);
   background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
+}
+
+.ai-conversations__item:active {
+  transform: scale(0.98);
 }
 
 .ai-conversations__item[aria-disabled="true"] {

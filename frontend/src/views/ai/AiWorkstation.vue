@@ -19,7 +19,13 @@
       </header>
 
       <div ref="messagesRef" class="ai-workstation__messages">
-        <div v-if="store.loadingMessages" class="ai-workstation__state">加载中</div>
+        <XtAiThinking
+          v-if="showThinkingState"
+          :streaming="store.streaming || store.loadingMessages"
+          :tool-calls="activeToolCalls"
+          :last-error="store.lastError"
+        />
+        <div v-if="store.loadingMessages && !store.messages.length" class="ai-workstation__state">加载中</div>
         <template v-else-if="store.messages.length">
           <AiChatMessage v-for="(message, index) in store.messages" :key="`${message.timestamp}-${index}`" :msg="message" />
         </template>
@@ -27,15 +33,25 @@
       </div>
 
       <form class="ai-workstation__composer" @submit.prevent="send">
-        <textarea
-          v-model="input"
-          rows="1"
-          placeholder="输入消息"
-          :disabled="store.loadingMessages"
-          @keydown.enter.exact.prevent="send"
-        />
-        <el-button v-if="store.streaming" type="danger" @click="store.stopGeneration">停止</el-button>
-        <el-button v-else type="primary" native-type="submit" :disabled="!canSend">发送</el-button>
+        <div class="ai-workstation__composer-shell">
+          <span class="ai-workstation__composer-mark">AI</span>
+          <textarea
+            v-model="input"
+            rows="1"
+            placeholder="输入消息"
+            :disabled="store.loadingMessages"
+            @keydown.enter.exact.prevent="send"
+          />
+          <div class="ai-workstation__composer-tags" aria-hidden="true">
+            <span>现场</span>
+            <span>规则</span>
+            <span>日报</span>
+          </div>
+        </div>
+        <div class="ai-workstation__composer-actions">
+          <el-button v-if="store.streaming" type="danger" @click="store.stopGeneration">停止</el-button>
+          <el-button v-else type="primary" native-type="submit" :disabled="!canSend">发送</el-button>
+        </div>
       </form>
     </main>
   </section>
@@ -46,6 +62,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useAiChatStore } from '../../stores/ai-chat'
+import { XtAiThinking } from '../../components/xt'
 import AiChatMessage from './AiChatMessage.vue'
 import AiConversationList from './AiConversationList.vue'
 
@@ -54,6 +71,10 @@ const input = ref('')
 const messagesRef = ref(null)
 
 const canSend = computed(() => Boolean(input.value.trim()) && !store.streaming && !store.loadingMessages)
+const activeToolCalls = computed(() => {
+  return store.messages.flatMap((message) => message.toolCalls || message.tool_calls || []).filter((toolCall) => ['pending', 'running'].includes(toolCall?.status))
+})
+const showThinkingState = computed(() => store.loadingMessages || store.streaming || activeToolCalls.value.length > 0 || Boolean(store.lastError))
 const statusText = computed(() => {
   if (store.streaming) return '生成中'
   if (store.loadingMessages || store.loadingConversations) return '加载中'
@@ -70,7 +91,7 @@ onMounted(async () => {
 })
 
 watch(
-  () => [store.messages.length, store.messages[store.messages.length - 1]?.content],
+  () => [store.messages.length, store.messages[store.messages.length - 1]?.content, store.messages[store.messages.length - 1]?.toolCalls?.length],
   () => {
     nextTick(() => {
       if (messagesRef.value) messagesRef.value.scrollTop = messagesRef.value.scrollHeight
@@ -118,9 +139,9 @@ async function send() {
   min-height: calc(100vh - 96px);
   overflow: hidden;
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-2xl);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .ai-workstation__main {
@@ -137,7 +158,7 @@ async function send() {
   min-height: 68px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--xt-border-light);
-  background: var(--xt-bg-panel);
+  background: var(--xt-command-surface);
 }
 
 .ai-workstation__bar h1 {
@@ -160,7 +181,11 @@ async function send() {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background: var(--xt-bg-panel-soft);
+  background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px),
+    linear-gradient(rgba(15, 23, 42, 0.02) 1px, transparent 1px),
+    var(--xt-bg-panel-soft);
+  background-size: 34px 34px;
 }
 
 .ai-workstation__state {
@@ -179,31 +204,82 @@ async function send() {
 }
 
 .ai-workstation__composer {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-end;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
   border-top: 1px solid var(--xt-border-light);
   background: var(--xt-bg-panel);
 }
 
+.ai-workstation__composer-shell {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.ai-workstation__composer-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-ink);
+  color: #ffffff;
+  font-family: var(--xt-font-number);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .ai-workstation__composer textarea {
-  flex: 1;
+  min-width: 0;
   min-height: 44px;
   max-height: 128px;
   resize: vertical;
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-lg);
+  border: 0;
+  background: transparent;
   color: var(--xt-text);
   font: inherit;
   line-height: 1.6;
-  padding: 9px 12px;
+  padding: 9px 0;
   outline: none;
 }
 
-.ai-workstation__composer textarea:focus {
+.ai-workstation__composer-shell:focus-within {
   border-color: rgba(0, 113, 227, 0.45);
   box-shadow: var(--app-focus-ring);
+}
+
+.ai-workstation__composer-tags {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-workstation__composer-tags span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-workstation__composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 @media (max-width: 900px) {
@@ -215,7 +291,24 @@ async function send() {
   }
 
   .ai-workstation__composer {
+    grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .ai-workstation__composer-shell {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .ai-workstation__composer-tags {
+    grid-column: 1 / -1;
+  }
+
+  .ai-workstation__composer-actions {
+    justify-content: stretch;
+  }
+
+  .ai-workstation__composer-actions :deep(.el-button) {
+    width: 100%;
   }
 }
 </style>
