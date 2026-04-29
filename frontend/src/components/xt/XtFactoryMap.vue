@@ -13,6 +13,7 @@
         class="xt-factory-map__node"
         :class="[`is-${node.status || 'normal'}`, { 'is-active': node.key === activeKey }]"
         :style="{ left: node.x, top: node.y }"
+        :aria-label="node.label"
       >
         <span>{{ node.short || node.label?.slice(0, 1) || '点' }}</span>
         <strong>{{ node.label }}</strong>
@@ -73,7 +74,7 @@ const fallbackNodes = [
 
 const fallbackLines = [
   { key: 'zd', label: '铸锭线', value: '在线', status: 'normal' },
-  { key: 'mes', label: 'MES', value: '同步', status: 'normal' },
+  { key: 'sync', label: '生产系统', value: '同步', status: 'normal' },
   { key: 'report', label: '日报', value: '待发布', status: 'warning' }
 ]
 

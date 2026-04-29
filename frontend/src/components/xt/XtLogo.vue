@@ -1,15 +1,20 @@
 <template>
   <div class="xt-logo" :class="[`xt-logo--${variant}`, { 'xt-logo--color': color }]">
-    <svg class="xt-logo__icon" viewBox="0 0 48 48" role="img" aria-label="鑫泰铝业">
-      <path class="xt-logo__ingot" d="M24 4 40 12v20L24 44 8 32V12L24 4Z" />
-      <path class="xt-logo__edge" d="M24 4v40M8 12l16 10 16-10M8 32l16-10 16 10" />
-      <path class="xt-logo__core" d="M18 17.5 24 14l6 3.5v9L24 30l-6-3.5v-9Z" />
-      <path class="xt-logo__flow" d="M13.5 27.5c5.2-7.8 15.8-7.8 21 0" />
+    <svg class="xt-logo__icon" viewBox="0 0 48 48" role="img" aria-label="鑫泰铝业 数据中枢">
+      <path class="xt-logo__shadow" d="M12 33.5 24 40l12-6.5 3.5 2L24 44 8.5 35.5 12 33.5Z" />
+      <path class="xt-logo__ingot" d="M24 4 40 12v20L24 42 8 32V12L24 4Z" />
+      <path class="xt-logo__face xt-logo__face--left" d="M8 12 24 22v20L8 32V12Z" />
+      <path class="xt-logo__face xt-logo__face--right" d="M40 12 24 22v20l16-10V12Z" />
+      <path class="xt-logo__edge" d="M24 4v18M8 12l16 10 16-10M8 32l16-10 16 10" />
+      <path class="xt-logo__core" d="M18.2 17.8 24 14.5l5.8 3.3v8.4L24 29.5l-5.8-3.3v-8.4Z" />
+      <path class="xt-logo__heat" d="M21 24c1.4-2.4 4.6-2.4 6 0" />
+      <path class="xt-logo__flow" d="M13.2 27.5c5.3-7.4 16.3-7.4 21.6 0" />
       <circle class="xt-logo__node" cx="35" cy="27.5" r="2.2" />
+      <circle class="xt-logo__scan" cx="13.2" cy="27.5" r="1.5" />
     </svg>
     <span v-if="variant !== 'icon'" class="xt-logo__text">
       <span class="xt-logo__cn">鑫泰</span>
-      <span v-if="variant === 'full'" class="xt-logo__en">ALUMINUM MES</span>
+      <span v-if="variant === 'full'" class="xt-logo__en">DATA HUB</span>
     </span>
   </div>
 </template>
@@ -65,6 +70,22 @@ defineProps({
   filter: drop-shadow(0 6px 10px rgba(11, 99, 246, 0.14));
 }
 
+.xt-logo__shadow {
+  fill: color-mix(in srgb, var(--xt-primary) 10%, transparent);
+}
+
+.xt-logo__face {
+  stroke: none;
+}
+
+.xt-logo__face--left {
+  fill: color-mix(in srgb, var(--xt-primary) 7%, var(--xt-bg-panel));
+}
+
+.xt-logo__face--right {
+  fill: color-mix(in srgb, var(--xt-accent) 7%, var(--xt-bg-panel));
+}
+
 .xt-logo__edge,
 .xt-logo__flow {
   fill: none;
@@ -83,6 +104,14 @@ defineProps({
   opacity: 0.92;
 }
 
+.xt-logo__heat {
+  fill: none;
+  stroke: var(--xt-bg-panel);
+  stroke-linecap: round;
+  stroke-width: 1.4;
+  opacity: 0.85;
+}
+
 .xt-logo__flow {
   opacity: 0.72;
   stroke-width: 1.8;
@@ -92,6 +121,12 @@ defineProps({
   fill: var(--xt-primary);
   stroke: var(--xt-bg-panel);
   stroke-width: 1.4;
+}
+
+.xt-logo__scan {
+  fill: var(--xt-accent);
+  stroke: var(--xt-bg-panel);
+  stroke-width: 1;
 }
 
 .xt-logo__text {
