@@ -62,7 +62,7 @@ function formatToolCall(toolCall) {
 }
 
 .ai-message__meta {
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   font-size: 12px;
   font-weight: 700;
 }
@@ -72,10 +72,10 @@ function formatToolCall(toolCall) {
 }
 
 .ai-message__bubble {
-  border: 1px solid var(--app-border);
-  border-radius: 18px;
-  background: var(--card-bg);
-  box-shadow: var(--app-shadow-xs);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   padding: 12px 14px;
 }
 
@@ -99,8 +99,9 @@ function formatToolCall(toolCall) {
 }
 
 .ai-message__tool {
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
   padding: 8px 10px;
 }
 
@@ -115,7 +116,7 @@ function formatToolCall(toolCall) {
 }
 
 .ai-message__tool-status {
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   font-weight: 600;
 }
 

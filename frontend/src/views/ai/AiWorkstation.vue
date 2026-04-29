@@ -113,13 +113,14 @@ async function send() {
 
 <style scoped>
 .ai-workstation {
-  display: flex;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
   min-height: calc(100vh - 96px);
   overflow: hidden;
-  border: 1px solid var(--app-border);
-  border-radius: var(--radius-card);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .ai-workstation__main {
@@ -133,38 +134,48 @@ async function send() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 72px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--app-border);
+  min-height: 68px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
 }
 
 .ai-workstation__bar h1 {
   margin: 0;
-  color: var(--app-text);
+  color: var(--xt-text);
   font-size: 18px;
   line-height: 1.4;
+  letter-spacing: 0;
 }
 
 .ai-workstation__bar span {
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   font-size: 13px;
 }
 
 .ai-workstation__messages {
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 14px;
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background: linear-gradient(180deg, rgba(245, 245, 247, 0.58), rgba(255, 255, 255, 0.9));
+  background: var(--xt-bg-panel-soft);
 }
 
 .ai-workstation__state {
-  align-self: center;
+  align-self: start;
   justify-self: center;
-  color: var(--app-muted);
+  min-width: 160px;
+  margin-top: var(--xt-space-5);
+  padding: 12px 16px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-secondary);
   font-size: 14px;
+  text-align: center;
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .ai-workstation__composer {
@@ -172,18 +183,18 @@ async function send() {
   align-items: flex-end;
   gap: 12px;
   padding: 14px 16px;
-  border-top: 1px solid var(--app-border);
-  background: rgba(255, 255, 255, 0.9);
+  border-top: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
 }
 
 .ai-workstation__composer textarea {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   max-height: 128px;
   resize: vertical;
-  border: 1px solid var(--app-border);
-  border-radius: var(--radius-control);
-  color: var(--app-text);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-lg);
+  color: var(--xt-text);
   font: inherit;
   line-height: 1.6;
   padding: 9px 12px;
@@ -197,6 +208,7 @@ async function send() {
 
 @media (max-width: 900px) {
   .ai-workstation {
+    display: flex;
     flex-direction: column;
     min-height: calc(100vh - 72px);
     border-radius: 0;

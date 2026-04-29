@@ -60,10 +60,10 @@ function formatTime(value) {
 .ai-conversations {
   display: flex;
   flex-direction: column;
-  width: 260px;
+  width: 280px;
   min-width: 220px;
-  border-right: 1px solid var(--app-border);
-  background: rgba(255, 255, 255, 0.72);
+  border-right: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel-soft);
 }
 
 .ai-conversations__header {
@@ -71,8 +71,10 @@ function formatTime(value) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid var(--app-border);
+  min-height: 68px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
 }
 
 .ai-conversations__list {
@@ -89,9 +91,9 @@ function formatTime(value) {
   gap: 4px 8px;
   width: 100%;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--xt-radius-lg);
   background: transparent;
-  color: var(--app-text);
+  color: var(--xt-text);
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
@@ -99,8 +101,9 @@ function formatTime(value) {
 
 .ai-conversations__item:hover,
 .ai-conversations__item.is-active {
-  border-color: rgba(0, 113, 227, 0.14);
-  background: var(--app-accent-soft);
+  border-color: rgba(0, 113, 227, 0.18);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .ai-conversations__item[aria-disabled="true"] {
@@ -116,7 +119,7 @@ function formatTime(value) {
 }
 
 .ai-conversations__time {
-  color: var(--app-muted);
+  color: var(--xt-text-muted);
   font-size: 12px;
 }
 
@@ -135,7 +138,7 @@ function formatTime(value) {
 
 .ai-conversations__state {
   padding: 24px 16px;
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   font-size: 14px;
   text-align: center;
 }
@@ -145,7 +148,7 @@ function formatTime(value) {
     width: 100%;
     max-height: 220px;
     border-right: 0;
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid var(--xt-border-light);
   }
 }
 </style>
