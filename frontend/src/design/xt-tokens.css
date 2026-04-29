@@ -1,9 +1,9 @@
 :root {
-  --xt-primary: #0b63f6;
-  --xt-primary-hover: #084fc5;
-  --xt-primary-active: #063e9a;
-  --xt-primary-light: rgba(11, 99, 246, 0.08);
-  --xt-primary-soft: #edf4ff;
+  --xt-primary: #0071e3;
+  --xt-primary-hover: #0066cc;
+  --xt-primary-active: #005bb5;
+  --xt-primary-light: rgba(0, 113, 227, 0.08);
+  --xt-primary-soft: #eaf3ff;
   --xt-accent: #9a5a2f;
   --xt-accent-hover: #7f4521;
   --xt-accent-light: rgba(154, 90, 47, 0.11);
@@ -30,7 +30,7 @@
   --xt-info: #2563eb;
   --xt-info-light: rgba(37, 99, 235, 0.08);
 
-  --xt-bg-page: #f3f6fa;
+  --xt-bg-page: #f5f7fa;
   --xt-bg-shell: #edf2f7;
   --xt-bg-panel: #ffffff;
   --xt-bg-panel-soft: #f8fafc;
@@ -81,7 +81,7 @@
 
   --xt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
   --xt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.09);
-  --xt-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --xt-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
   --xt-shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.06);
   --xt-shadow-command: 0 18px 44px rgba(11, 99, 246, 0.13), 0 2px 4px rgba(15, 23, 42, 0.06);
 
