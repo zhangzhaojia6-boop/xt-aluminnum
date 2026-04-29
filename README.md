@@ -1,11 +1,11 @@
 # Aluminum Bypass
 
-铝业旁路系统当前已经进入“手机端填报主入口 + Agent 自动校验汇总 + 观察/实施分层 + 钉钉单入口优先 + 历史系统端口保留”的阶段。
+铝业旁路系统当前已经进入“独立填报端 `/entry` + 管理审阅端 `/manage` + Agent 自动校验汇总 + 浏览器 / 钉钉试跑优先 + 历史系统端口兼容”的阶段。
 
 ## 当前定位
 
-1. 班长手机端填报优先
-2. 钉钉 H5 / 浏览器 `/mobile` 单入口优先
+1. 岗位手机端 `/entry` 填报优先
+2. 钉钉 H5 / 浏览器 `/entry` 单入口优先
 3. 观察与实施工作台负责异常处置、配置维护和运行门禁
 4. 管理端优先看聚合结果和驾驶舱，不重建人工统计中间层
 5. Excel / CSV 导入退居补录和兜底路径
@@ -27,7 +27,9 @@
 ## 当前入口
 
 - 前端首页：[https://localhost/](https://localhost/)
-- 手机填报唯一入口：[https://localhost/mobile](https://localhost/mobile)
+- 手机填报主入口：[https://localhost/entry](https://localhost/entry)
+- 管理审阅主入口：[https://localhost/manage](https://localhost/manage)
+- 兼容入口：[https://localhost/mobile](https://localhost/mobile) 会重定向到 `/entry`
 - 探活检查：[https://localhost/healthz](https://localhost/healthz)
 - 就绪检查：[https://localhost/readyz](https://localhost/readyz)
 - 后端 OpenAPI 文档：[http://localhost:8000/docs](http://localhost:8000/docs)
@@ -88,7 +90,7 @@ cp .env.example .env
 
 ## Phase 2 首版发布说明
 
-1. 双端分离：`/mobile` 只服务主操与专项 owner，`/review/*` 只服务管理员与管理层。
+1. 双端分离：`/entry` 只服务主操与专项 owner，`/manage/*` 只服务管理员与管理层；`/mobile`、`/review/*` 仅作历史兼容。
 2. 填报端继续朝“极简滑屏工作台”收口：少字、少说明、像手机切屏一样左右滑动完成录入。
 3. 审阅端继续朝“流程追踪运行面板”收口：先看数据从哪来、流到哪、哪里卡住，再看结果和风险。
 4. AI 感主要体现在接力结构、流程追踪和结果摘要，不靠大段 AI 说明文案刷屏。
@@ -115,5 +117,5 @@ cp .env.example .env
 1. 用户端只能访问自己有权操作的数据
 2. 观察/实施端只处理授权范围内的异常、配置与运行门禁
 3. 管理端默认展示聚合结果，不默认暴露原始填报编辑
-4. 钉钉入口与 `/mobile` 主链路已经收口，历史系统端口仅作为兼容保留
+4. 钉钉入口与 `/entry` 主链路已经收口，历史系统端口仅作为兼容保留
 5. 手机端图片上传与催报记录已经打通

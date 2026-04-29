@@ -74,7 +74,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "DRY RUN：仅做预检，不发起网络探测。"
   echo "将检查:"
   echo " - /healthz 与 /readyz 的重试策略（默认 ${READY_RETRIES} 次 x ${READY_INTERVAL_SECONDS}s）"
-  echo " - /、/mobile、/review/factory 路由访问与 id=\"app\" 校验"
+  echo " - /、/entry、/manage/factory 路由访问与 id=\"app\" 校验"
   echo " - /api/v1/auth/login 入口可达性规则"
   echo " - db/backend/nginx 运行态"
   echo " - 运行命令: docker compose -f docker-compose.yml -f docker-compose.prod.yml ps"
@@ -109,7 +109,7 @@ if ! printf '%s\n' "$HOME_PAYLOAD" | grep -q 'id="app"'; then
   exit 1
 fi
 
-for ROUTE in mobile review/factory; do
+for ROUTE in entry manage/factory; do
   ROUTE_URL="${BASE_URL}/${ROUTE}"
   if ! ROUTE_PAYLOAD="$(curl -kfsSL --max-time 15 "$ROUTE_URL" 2>/dev/null)"; then
     echo "路由可访问性检查失败：无法访问 ${ROUTE_URL}，请检查前端服务是否可达" >&2

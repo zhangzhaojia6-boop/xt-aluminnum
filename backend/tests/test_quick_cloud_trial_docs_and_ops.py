@@ -169,7 +169,7 @@ def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     assert 'HOME_PAYLOAD="$(curl -kfsSL --max-time 15 "$BASE_URL/")"' in check
     assert 'id="app"' in check
     assert '首页可访问性检查失败：返回内容未包含前端挂载锚点（id=\\"app\\"）' in check
-    assert 'for ROUTE in mobile review/factory;' in check
+    assert 'for ROUTE in entry manage/factory;' in check
     assert 'ROUTE_URL="${BASE_URL}/${ROUTE}"' in check
     assert 'if ! ROUTE_PAYLOAD="$(curl -kfsSL --max-time 15 "$ROUTE_URL" 2>/dev/null)"; then' in check
     assert '路由可访问性检查失败：无法访问 ${ROUTE_URL}，请检查前端服务是否可达' in check
@@ -280,11 +280,11 @@ def test_backup_and_restore_scripts_default_to_prod_overlay() -> None:
     assert 'DRY RUN：仅做恢复前置预检，不执行数据库恢复。' in restore
 
 
-def test_quick_trial_ops_docs_includes_mobile_and_review_factory_routes() -> None:
+def test_quick_trial_ops_docs_includes_entry_and_manage_factory_routes() -> None:
     ops = _read('docs/快速试跑运维手册.md')
 
-    assert '`/mobile` 可访问' in ops
-    assert '`/review/factory` 可访问' in ops
+    assert '`/entry` 可访问' in ops
+    assert '`/manage/factory` 可访问' in ops
     assert 'compose 文件存在、`.env` 已准备、docker/compose/daemon 可用' in ops
     assert '自定义备份路径' in ops
     assert '自动创建对应目录' in ops
