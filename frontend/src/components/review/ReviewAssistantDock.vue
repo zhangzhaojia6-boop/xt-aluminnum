@@ -185,7 +185,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__copy strong {
   font-size: 17px;
   line-height: 1.25;
-  color: var(--app-text);
+  color: var(--xt-text);
 }
 
 .review-assistant-dock__status-strip {
@@ -199,10 +199,10 @@ const shortcutActions = computed(() => {
   gap: 4px;
   min-height: 70px;
   padding: 9px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.96));
-  box-shadow: var(--app-shadow-xs);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -212,8 +212,8 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__status-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.24);
-  box-shadow: var(--app-shadow-sm);
+  border-color: rgba(0, 113, 227, 0.22);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .review-assistant-dock__status-head {
@@ -232,17 +232,17 @@ const shortcutActions = computed(() => {
 }
 
 .review-assistant-dock__status-card.is-primary {
-  border-color: rgba(37, 99, 235, 0.24);
-  background: rgba(239, 246, 255, 0.9);
+  border-color: rgba(0, 113, 227, 0.22);
+  background: var(--xt-primary-light);
 }
 
 .review-assistant-dock__status-card.is-success {
   border-color: rgba(5, 150, 105, 0.24);
-  background: rgba(236, 253, 245, 0.9);
+  background: var(--xt-success-light);
 }
 
 .review-assistant-dock__status-card span {
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
 }
 
 .review-assistant-dock__status-card span {
@@ -252,7 +252,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__status-card strong {
   font-size: 21px;
   line-height: 1.1;
-  color: var(--app-text);
+  color: var(--xt-text);
 }
 
 .review-assistant-dock__actions {
@@ -267,10 +267,10 @@ const shortcutActions = computed(() => {
   gap: 8px;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 255, 0.96));
-  color: var(--app-text);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text);
   font-size: 13px;
   font-weight: 700;
   text-align: left;
@@ -285,9 +285,9 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__shortcut:hover,
 .review-assistant-dock__shortcut:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(29, 78, 216, 0.24);
-  background: rgba(239, 246, 255, 0.9);
-  box-shadow: var(--app-shadow-xs);
+  border-color: rgba(0, 113, 227, 0.22);
+  background: var(--xt-bg-panel-soft);
+  box-shadow: var(--xt-shadow-sm);
   outline: none;
 }
 
@@ -316,7 +316,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__open {
   grid-column: 1 / -1;
   min-height: 44px;
-  border-radius: 12px;
+  border-radius: var(--xt-radius-lg);
 }
 
 @media (max-width: 1100px) {
