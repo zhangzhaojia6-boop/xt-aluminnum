@@ -42,7 +42,7 @@
     </el-card>
 
     <el-card class="panel" v-loading="loading">
-      <el-table :data="filteredItems" stripe>
+      <ReferenceDataTable :data="filteredItems" stripe>
         <el-table-column prop="surface_id" label="Surface ID" min-width="220" />
         <el-table-column prop="category" label="类别" min-width="140">
           <template #default="{ row }">{{ formatCategory(row.category) }}</template>
@@ -50,12 +50,12 @@
         <el-table-column prop="location" label="位置" min-width="240" />
         <el-table-column prop="status" label="去留" min-width="140">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ formatMapStatus(row.status) }}</el-tag>
+            <ReferenceStatusTag :status="statusTagType(row.status)" :label="formatMapStatus(row.status)" />
           </template>
         </el-table-column>
         <el-table-column prop="replacement" label="正式替代口径" min-width="260" />
         <el-table-column prop="notes" label="说明" min-width="320" />
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -64,6 +64,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { fetchYieldRateDeprecationMap } from '../../api/master'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 
 const loading = ref(false)
 const payload = ref({
@@ -102,7 +104,7 @@ function statusTagType(value) {
       replace: 'success',
       compat_only: 'warning',
       remove: 'danger'
-    }[value] || 'info'
+    }[value] || 'normal'
   )
 }
 

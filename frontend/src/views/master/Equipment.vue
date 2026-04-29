@@ -14,7 +14,7 @@
     </div>
 
     <el-card class="panel">
-      <el-table :data="items" stripe v-loading="loading">
+      <ReferenceDataTable :data="items" stripe v-loading="loading">
         <el-table-column prop="code" label="编码" min-width="130" />
         <el-table-column prop="name" label="名称" min-width="120" />
         <el-table-column label="车间" min-width="150">
@@ -25,13 +25,13 @@
         </el-table-column>
         <el-table-column label="班制" min-width="170">
           <template #default="{ row }">
-            <el-tag size="small" effect="light">{{ row.shift_mode === 'two' ? '两班制' : '三班制' }}</el-tag>
+            <ReferenceStatusTag status="normal" :label="row.shift_mode === 'two' ? '两班制' : '三班制'" />
             <span class="machine-table__sub">{{ shiftSummary(row.assigned_shift_ids) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="运行状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.operational_status)" effect="light">{{ statusLabel(row.operational_status) }}</el-tag>
+            <ReferenceStatusTag :status="statusTagType(row.operational_status)" :label="statusLabel(row.operational_status)" />
           </template>
         </el-table-column>
         <el-table-column label="绑定账号" min-width="170">
@@ -60,7 +60,7 @@
             </el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <MachineWizard
@@ -183,6 +183,8 @@ import {
   toggleEquipmentStatus,
   updateEquipment
 } from '../../api/master.js'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 
 const machineTypeOptions = [
   { value: 'cast_roller', label: '铸轧机' },

@@ -16,7 +16,7 @@
         </el-select>
       </div>
 
-      <el-table :data="items" stripe v-loading="loading">
+      <ReferenceDataTable :data="items" stripe v-loading="loading">
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="code" label="编码" width="160" />
         <el-table-column prop="name" label="名称" />
@@ -26,7 +26,7 @@
         <el-table-column prop="sort_order" label="排序" width="90" />
         <el-table-column prop="is_active" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'info'">{{ row.is_active ? '启用' : '停用' }}</el-tag>
+            <ReferenceStatusTag :status="row.is_active ? 'success' : 'normal'" :label="row.is_active ? '启用' : '停用'" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180">
@@ -35,7 +35,7 @@
             <el-button text type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
 
       <div class="table-pagination">
         <el-pagination
@@ -82,6 +82,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { createTeam, deleteTeam, fetchTeamsPage, fetchWorkshops, updateTeam } from '../../api/master.js'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 
 const items = ref([])
 const workshops = ref([])

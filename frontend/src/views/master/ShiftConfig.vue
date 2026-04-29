@@ -9,7 +9,7 @@
     </div>
 
     <el-card class="panel">
-      <el-table :data="items" stripe>
+      <ReferenceDataTable :data="items" stripe>
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column prop="code" label="编码" width="120" />
         <el-table-column prop="name" label="名称" width="140" />
@@ -18,12 +18,12 @@
         <el-table-column prop="end_time" label="结束" width="120" />
         <el-table-column prop="is_night" label="夜班" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.is_night ? 'warning' : 'success'">{{ row.is_night ? '是' : '否' }}</el-tag>
+            <ReferenceStatusTag :status="row.is_night ? 'warning' : 'success'" :label="row.is_night ? '是' : '否'" />
           </template>
         </el-table-column>
         <el-table-column prop="is_active" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'info'">{{ row.is_active ? '启用' : '停用' }}</el-tag>
+            <ReferenceStatusTag :status="row.is_active ? 'success' : 'normal'" :label="row.is_active ? '启用' : '停用'" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180">
@@ -32,7 +32,7 @@
             <el-button text type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑班次' : '新增班次'" width="560px">
@@ -72,6 +72,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { createShiftConfig, deleteShiftConfig, listShiftConfigs, updateShiftConfig } from '../../api/master'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 
 const items = ref([])
 const dialogVisible = ref(false)
