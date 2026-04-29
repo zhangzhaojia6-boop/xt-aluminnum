@@ -2,7 +2,7 @@
   <div class="xt-manage" :class="{ 'xt-manage--collapsed': collapsed }" data-testid="manage-shell">
     <aside class="xt-manage__sidebar">
       <RouterLink class="xt-manage__brand" to="/manage/overview" aria-label="鑫泰铝业管理控制台">
-        <span class="xt-manage__brand-mark">鑫</span>
+        <XtLogo :variant="collapsed ? 'icon' : 'full'" />
         <span v-if="!collapsed" class="xt-manage__brand-text">管理控制台</span>
       </RouterLink>
 
@@ -107,6 +107,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
 
+import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
 
@@ -158,7 +159,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .xt-manage {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--xt-bg-page);
+  background: var(--xt-bg-shell);
   color: var(--xt-text);
 }
 
@@ -171,7 +172,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   flex-direction: column;
   background: var(--xt-bg-panel);
   border-right: 1px solid var(--xt-border-light);
-  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.02);
+  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.03);
   transition: width var(--xt-motion-normal) var(--xt-ease);
 }
 
@@ -180,30 +181,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__brand {
-  height: var(--xt-topbar-height);
+  min-height: calc(var(--xt-topbar-height) + 8px);
   display: flex;
   align-items: center;
-  gap: var(--xt-space-3);
+  gap: var(--xt-space-2);
   padding: 0 var(--xt-space-4);
   border-bottom: 1px solid var(--xt-border-light);
   color: var(--xt-text);
   text-decoration: none;
 }
 
-.xt-manage__brand-mark {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--xt-radius-md);
-  background: var(--xt-primary);
-  color: var(--xt-text-inverse);
-  font-weight: 800;
-  box-shadow: 0 1px 2px rgba(11, 99, 246, 0.18);
-}
-
 .xt-manage__brand-text {
+  margin-left: auto;
+  padding: 3px var(--xt-space-2);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
   font-weight: 700;
   letter-spacing: 0;
   white-space: nowrap;
@@ -228,16 +223,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   padding: var(--xt-space-2) var(--xt-space-3);
   font-size: var(--xt-text-xs);
   color: var(--xt-text-muted);
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .xt-manage__nav-item {
-  min-height: 38px;
+  min-height: 40px;
   display: flex;
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-3);
-  border-radius: var(--xt-radius-md);
+  border-radius: var(--xt-radius-lg);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
   font-weight: 600;
@@ -263,6 +258,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   background: var(--xt-primary-light);
   color: var(--xt-primary);
   font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(11, 99, 246, 0.10);
 }
 
 .xt-manage--collapsed .xt-manage__nav-item {
@@ -292,7 +288,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__collapse-btn {
-  height: 44px;
+  height: 48px;
   border-top: 1px solid var(--xt-border-light);
   color: var(--xt-text-muted);
 }
@@ -328,6 +324,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   padding: 0 var(--xt-space-5);
   background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
 
 .xt-manage__hamburger {
@@ -335,14 +332,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__search-trigger {
-  min-width: 220px;
-  height: 36px;
+  min-width: 260px;
+  height: 38px;
   display: flex;
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
+  border-radius: var(--xt-radius-pill);
   color: var(--xt-text-muted);
   background: var(--xt-bg-panel-soft);
 }
@@ -351,7 +348,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   margin-left: auto;
   padding: 1px var(--xt-space-2);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-sm);
+  border-radius: var(--xt-radius-pill);
   background: var(--xt-bg-panel);
   color: var(--xt-text-muted);
   font-family: var(--xt-font-mono);
@@ -370,7 +367,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   gap: var(--xt-space-2);
   min-height: 36px;
   padding: 0 var(--xt-space-2);
-  border-radius: var(--xt-radius-md);
+  border-radius: var(--xt-radius-pill);
   color: var(--xt-text-secondary);
 }
 

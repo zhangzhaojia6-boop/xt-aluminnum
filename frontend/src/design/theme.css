@@ -49,8 +49,8 @@
   display: grid;
   place-items: center;
   border-radius: var(--theme-radius-lg);
-  background: var(--theme-brand);
-  color: #fff;
+  background: var(--xt-bg-panel-soft);
+  color: var(--theme-brand);
   font-size: 18px;
   font-weight: 800;
   box-shadow: var(--theme-shadow-sm);

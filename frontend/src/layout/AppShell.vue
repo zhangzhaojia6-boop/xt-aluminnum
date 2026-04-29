@@ -2,7 +2,9 @@
   <el-container class="app-shell" :class="{ 'is-nav-open': navOpen }" :data-testid="shellTestId" :data-zone="props.zone">
     <el-aside id="app-shell-navigation" class="app-shell__aside" width="252px" :aria-label="`${zoneLabel}导航`">
       <div class="app-shell__brand">
-        <div class="app-shell__brand-mark" :data-testid="props.zone === 'review' ? 'review-brand-mark' : undefined">鑫</div>
+        <div class="app-shell__brand-mark" :data-testid="props.zone === 'review' ? 'review-brand-mark' : undefined">
+          <XtLogo variant="icon" />
+        </div>
         <div>
           <p class="app-shell__brand-title" :data-testid="props.zone === 'review' ? 'review-brand-title' : undefined">鑫泰铝业协同平台</p>
           <p class="app-shell__brand-subtitle">{{ zoneLabel }}</p>
@@ -100,6 +102,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
+import { XtLogo } from '../components/xt'
 import { buildShellNavigation } from '../config/navigation'
 import { useAssistantStore } from '../stores/assistant'
 import { useAuthStore } from '../stores/auth'

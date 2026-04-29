@@ -2,7 +2,7 @@
   <div class="xt-entry" data-testid="entry-shell">
     <header class="xt-entry__topbar">
       <RouterLink class="xt-entry__brand" to="/entry" aria-label="鑫泰铝业独立填报端">
-        <span class="xt-entry__mark">鑫</span>
+        <XtLogo variant="icon" />
         <span>独立填报端</span>
       </RouterLink>
       <div class="xt-entry__shift">{{ currentShift }}</div>
@@ -37,6 +37,7 @@ import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { Document, EditPen, HomeFilled, User } from '@element-plus/icons-vue'
 
+import { XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -66,7 +67,7 @@ function isActive(path) {
   min-height: 100dvh;
   max-width: 600px;
   margin: 0 auto;
-  background: var(--xt-bg-page);
+  background: var(--xt-bg-shell);
   color: var(--xt-text);
   border-right: 1px solid var(--xt-border-light);
   border-left: 1px solid var(--xt-border-light);
@@ -83,6 +84,7 @@ function isActive(path) {
   padding: calc(var(--xt-space-2) + env(safe-area-inset-top)) var(--xt-space-4) var(--xt-space-2);
   background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
 
 .xt-entry__brand {
@@ -91,25 +93,14 @@ function isActive(path) {
   gap: var(--xt-space-2);
   color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  font-weight: 700;
+  font-weight: 850;
   text-decoration: none;
-}
-
-.xt-entry__mark {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--xt-radius-md);
-  background: var(--xt-primary);
-  color: var(--xt-text-inverse);
-  box-shadow: 0 1px 2px rgba(11, 99, 246, 0.18);
 }
 
 .xt-entry__shift {
   padding: 3px var(--xt-space-2);
   border-radius: 999px;
-  background: var(--xt-bg-panel-soft);
+  background: var(--xt-primary-light);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-weight: 600;
@@ -141,7 +132,7 @@ function isActive(path) {
   padding: var(--xt-space-1) var(--xt-space-2) calc(var(--xt-space-1) + env(safe-area-inset-bottom));
   background: var(--xt-bg-panel);
   border-top: 1px solid var(--xt-border-light);
-  box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.08);
   transform: translateX(-50%);
 }
 
@@ -154,7 +145,7 @@ function isActive(path) {
   gap: 2px;
   justify-content: center;
   padding: var(--xt-space-1) var(--xt-space-3);
-  border-radius: var(--xt-radius-md);
+  border-radius: var(--xt-radius-lg);
   color: var(--xt-text-muted);
   font-size: 10px;
   font-weight: 700;

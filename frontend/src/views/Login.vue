@@ -3,16 +3,27 @@
     <section class="login-stage" data-testid="login-page">
       <div class="login-stage__hero">
         <div class="login-brand" data-testid="login-brand">
-          <div class="login-mark">鑫</div>
-          <div>
-            <h1>鑫泰铝业</h1>
-            <p>生产数据系统</p>
-          </div>
+          <XtLogo variant="full" />
+          <span class="login-brand__tag">工业 AI 数据系统</span>
         </div>
 
         <div class="login-stage__headline">
-          <span class="login-stage__eyebrow">02 登录与角色入口</span>
-          <h2>铝厂生产协同系统</h2>
+          <span class="login-stage__eyebrow">全厂作战地图</span>
+          <h2>鑫泰铝业 MES</h2>
+        </div>
+
+        <div class="login-stage__map" aria-hidden="true">
+          <span class="xt-scan-line" />
+          <div class="login-stage__track login-stage__track--top" />
+          <div class="login-stage__track login-stage__track--middle" />
+          <div class="login-stage__track login-stage__track--bottom" />
+          <div class="login-stage__node is-furnace">炉</div>
+          <div class="login-stage__node is-cast">铸</div>
+          <div class="login-stage__node is-ingot">锭</div>
+          <div class="login-stage__ai">
+            <span>AI 总管</span>
+            <strong>发现 → 判断 → 执行</strong>
+          </div>
         </div>
 
         <div class="login-stage__role-grid">
@@ -116,6 +127,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import { XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth.js'
 
 const router = useRouter()
@@ -261,13 +273,13 @@ onMounted(async () => {
   display: grid;
   place-items: center;
   padding: 32px;
-  background: var(--xt-bg-page);
+  background: var(--xt-bg-shell);
 }
 
 .login-stage {
   width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -283,11 +295,33 @@ onMounted(async () => {
 }
 
 .login-stage__hero {
+  position: relative;
+  overflow: hidden;
   padding: 32px;
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-2xl);
   background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+  box-shadow: var(--xt-shadow-md);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-4);
+}
+
+.login-brand__tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--xt-space-3);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
 }
 
 .login-stage__eyebrow,
@@ -300,10 +334,107 @@ onMounted(async () => {
 
 .login-stage__headline h2 {
   margin: 0;
-  font-size: 44px;
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: 46px;
+  font-weight: 900;
   line-height: 1.05;
   letter-spacing: 0;
-  color: #0f172a;
+}
+
+.login-stage__map {
+  position: relative;
+  min-height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-2xl);
+  background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    var(--xt-bg-panel-soft);
+  background-size: 28px 28px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.login-stage__track {
+  position: absolute;
+  right: 9%;
+  left: 9%;
+  height: 18px;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(11, 99, 246, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(11, 99, 246, 0.08);
+}
+
+.login-stage__track--top {
+  top: 28%;
+  transform: rotate(-5deg);
+}
+
+.login-stage__track--middle {
+  top: 52%;
+  transform: rotate(2deg);
+}
+
+.login-stage__track--bottom {
+  top: 75%;
+  transform: rotate(-2deg);
+}
+
+.login-stage__node {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  color: var(--xt-primary);
+  font-size: var(--xt-text-xl);
+  font-weight: 900;
+  box-shadow: var(--xt-shadow-md);
+}
+
+.login-stage__node.is-furnace {
+  top: 19%;
+  left: 12%;
+  color: var(--xt-accent);
+}
+
+.login-stage__node.is-cast {
+  top: 42%;
+  right: 18%;
+}
+
+.login-stage__node.is-ingot {
+  bottom: 11%;
+  left: 29%;
+}
+
+.login-stage__ai {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: var(--xt-space-3);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.login-stage__ai span {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+}
+
+.login-stage__ai strong {
+  color: var(--xt-text);
+  font-size: var(--xt-text-sm);
 }
 
 .login-stage__role-grid {
@@ -348,7 +479,7 @@ onMounted(async () => {
 
 .login-stage__role-card.is-accent {
   border-color: rgba(11, 99, 246, 0.28);
-  background: rgba(11, 99, 246, 0.06);
+  background: var(--xt-primary-light);
 }
 
 .login-stage__role-top {
@@ -361,9 +492,9 @@ onMounted(async () => {
   font-style: normal;
   font-size: 12px;
   font-weight: 600;
-  color: #0a5bd8;
-  background: rgba(219, 234, 254, 0.96);
-  border: 1px solid rgba(59, 130, 246, 0.18);
+  color: var(--xt-primary);
+  background: var(--xt-primary-soft);
+  border: 1px solid rgba(11, 99, 246, 0.18);
   border-radius: 999px;
   min-height: 26px;
   padding: 0 10px;
@@ -381,8 +512,8 @@ onMounted(async () => {
 .login-card {
   align-content: start;
   padding: 28px;
-  border-radius: var(--xt-radius-xl);
-  box-shadow: var(--app-shadow-sm);
+  border-radius: var(--xt-radius-2xl);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .login-card :deep(.el-alert) {
@@ -394,6 +525,8 @@ onMounted(async () => {
   line-height: 1;
   letter-spacing: 0;
   color: var(--app-text);
+  font-family: var(--xt-font-display);
+  font-weight: 900;
 }
 
 .login-card :deep(.el-input__wrapper) {
@@ -436,8 +569,17 @@ onMounted(async () => {
     padding: 24px;
   }
 
+  .login-brand {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .login-stage__headline h2 {
     font-size: 32px;
+  }
+
+  .login-stage__map {
+    min-height: 220px;
   }
 
   .login-stage__role-grid {
