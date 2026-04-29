@@ -8,27 +8,33 @@
     </div>
 
     <el-card class="panel">
-      <el-form :model="form" label-width="120px">
-        <el-form-item label="导入类型">
-          <el-select v-model="form.importType" style="width: 280px">
-            <el-option label="排班导入 (attendance_schedule)" value="attendance_schedule" />
-            <el-option label="打卡导入 (attendance_clock)" value="attendance_clock" />
-            <el-option label="生产导入 (production_shift)" value="production_shift" />
-            <el-option label="MES导出导入 (mes_export)" value="mes_export" />
-            <el-option label="能耗导入 (energy)" value="energy" />
-            <el-option label="通用导入 (generic)" value="generic" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="模板编码">
-          <el-input v-model="form.templateCode" style="width: 280px" placeholder="可选，例如 attendance_schedule_default" />
-        </el-form-item>
-        <el-form-item label="选择文件">
+      <div class="file-import-layout">
+        <el-form :model="form" class="file-import-form" label-width="92px">
+          <el-form-item label="导入类型">
+            <el-select v-model="form.importType" class="file-import-control">
+              <el-option label="排班导入 (attendance_schedule)" value="attendance_schedule" />
+              <el-option label="打卡导入 (attendance_clock)" value="attendance_clock" />
+              <el-option label="生产导入 (production_shift)" value="production_shift" />
+              <el-option label="MES导出导入 (mes_export)" value="mes_export" />
+              <el-option label="能耗导入 (energy)" value="energy" />
+              <el-option label="通用导入 (generic)" value="generic" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="模板编码">
+            <el-input v-model="form.templateCode" class="file-import-control" placeholder="可选，例如 attendance_schedule_default" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :disabled="!form.file" :loading="uploading" @click="submit">上传并导入</el-button>
+          </el-form-item>
+        </el-form>
+
+        <label class="file-import-drop">
           <input type="file" accept=".csv,.xlsx" @change="handleFileChange" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :disabled="!form.file" :loading="uploading" @click="submit">上传并导入</el-button>
-        </el-form-item>
-      </el-form>
+          <span>导入文件</span>
+          <strong>{{ selectedFileName }}</strong>
+          <em>支持 .csv / .xlsx，上传后生成导入批次和行级记录。</em>
+        </label>
+      </div>
 
       <el-alert
         v-if="summary"
@@ -43,7 +49,7 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { importClocks, importSchedules } from '../../api/attendance'
@@ -59,6 +65,8 @@ const form = reactive({
   templateCode: '',
   file: null
 })
+
+const selectedFileName = computed(() => form.file?.name || '点击选择文件')
 
 function handleFileChange(event) {
   const file = event.target.files?.[0]
@@ -95,3 +103,58 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.file-import-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(320px, 1fr);
+  gap: var(--xt-space-5);
+  align-items: stretch;
+}
+
+.file-import-form {
+  min-width: 0;
+}
+
+.file-import-control {
+  width: min(100%, 320px);
+}
+
+.file-import-drop {
+  position: relative;
+  min-height: 154px;
+  display: grid;
+  align-content: center;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-5);
+  border: 1px dashed var(--xt-border-strong);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-muted);
+  cursor: pointer;
+}
+
+.file-import-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-import-drop span,
+.file-import-drop em {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
+  font-style: normal;
+}
+
+.file-import-drop strong {
+  color: var(--xt-gray-900);
+  font-size: var(--xt-text-lg);
+}
+
+@media (max-width: 820px) {
+  .file-import-layout {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -16,12 +16,14 @@
           {{ formatQualityIssueTypeLabel(item.issue_type) }}
         </el-descriptions-item>
         <el-descriptions-item label="问题级别">
-          {{ formatStatusLabel(item.issue_level) }}
+          <ReferenceStatusTag :status="statusTone(item.issue_level)" :label="formatStatusLabel(item.issue_level)" />
         </el-descriptions-item>
         <el-descriptions-item label="来源类型">{{ formatSourceTypeLabel(item.source_type) }}</el-descriptions-item>
         <el-descriptions-item label="维度键">{{ item.dimension_key || '-' }}</el-descriptions-item>
         <el-descriptions-item label="字段名">{{ item.field_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="处理状态">{{ formatStatusLabel(item.status) }}</el-descriptions-item>
+        <el-descriptions-item label="处理状态">
+          <ReferenceStatusTag :status="statusTone(item.status)" :label="formatStatusLabel(item.status)" />
+        </el-descriptions-item>
         <el-descriptions-item label="问题描述" :span="2">
           {{ item.issue_desc }}
         </el-descriptions-item>
@@ -38,6 +40,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchQualityIssues } from '../../api/quality'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatQualityIssueTypeLabel, formatSourceTypeLabel, formatStatusLabel } from '../../utils/display'
 
 const route = useRoute()
@@ -46,6 +49,14 @@ const item = ref(null)
 async function load() {
   const rows = await fetchQualityIssues({ issue_id: route.params.id })
   item.value = rows && rows.length ? rows[0] : null
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['resolved', 'closed', 'success', 'normal'].includes(value)) return 'success'
+  if (['warning', 'medium', 'pending', 'open'].includes(value)) return 'warning'
+  if (['critical', 'high', 'danger', 'failed', 'error'].includes(value)) return 'danger'
+  return 'normal'
 }
 
 onMounted(load)

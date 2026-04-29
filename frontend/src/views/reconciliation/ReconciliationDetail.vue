@@ -16,7 +16,9 @@
         </el-descriptions-item>
         <el-descriptions-item label="维度键">{{ item.dimension_key || '-' }}</el-descriptions-item>
         <el-descriptions-item label="字段名">{{ item.field_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="处理状态">{{ formatStatusLabel(item.status) }}</el-descriptions-item>
+        <el-descriptions-item label="处理状态">
+          <ReferenceStatusTag :status="statusTone(item.status)" :label="formatStatusLabel(item.status)" />
+        </el-descriptions-item>
         <el-descriptions-item label="来源 A">{{ formatSourceTypeLabel(item.source_a) }}</el-descriptions-item>
         <el-descriptions-item label="来源 B">{{ formatSourceTypeLabel(item.source_b) }}</el-descriptions-item>
         <el-descriptions-item label="来源 A 值">{{ item.source_a_value ?? '-' }}</el-descriptions-item>
@@ -35,6 +37,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchReconciliationItems } from '../../api/reconciliation'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatReconciliationTypeLabel, formatSourceTypeLabel, formatStatusLabel } from '../../utils/display'
 
 const route = useRoute()
@@ -43,6 +46,14 @@ const item = ref(null)
 async function load() {
   const data = await fetchReconciliationItems({ item_id: route.params.id })
   item.value = data && data.length ? data[0] : null
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['matched', 'resolved', 'closed', 'success'].includes(value)) return 'success'
+  if (['open', 'pending', 'warning'].includes(value)) return 'warning'
+  if (['mismatch', 'failed', 'error', 'danger'].includes(value)) return 'danger'
+  return 'normal'
 }
 
 onMounted(load)
