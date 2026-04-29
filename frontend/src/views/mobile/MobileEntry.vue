@@ -163,7 +163,6 @@
       <ReminderList :items="current.active_reminders || []" empty-text="当前没有提醒。" />
     </el-card>
 
-    <MobileBottomNav />
   </div>
 </template>
 
@@ -178,7 +177,6 @@ import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
-import MobileBottomNav from './MobileBottomNav.vue'
 import ReminderList from './ReminderList.vue'
 
 const route = useRoute()

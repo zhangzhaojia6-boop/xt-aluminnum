@@ -23,14 +23,14 @@
         </section>
       </nav>
 
-      <button class="xt-manage__collapse-btn" type="button" @click="toggleCollapse">
+      <button class="xt-manage__collapse-btn" type="button" aria-label="切换侧边栏" @click="toggleCollapse">
         <el-icon><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
       </button>
     </aside>
 
     <div class="xt-manage__main">
       <header class="xt-manage__topbar">
-        <button class="xt-manage__hamburger" type="button" @click="drawerOpen = true">
+        <button class="xt-manage__hamburger" type="button" aria-label="打开导航" @click="drawerOpen = true">
           <el-icon><Menu /></el-icon>
         </button>
         <button class="xt-manage__search-trigger" type="button" @click="searchOpen = true">
@@ -170,6 +170,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   flex-direction: column;
   background: var(--xt-bg-panel);
   border-right: 1px solid var(--xt-border-light);
+  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.02);
   transition: width var(--xt-motion-normal) var(--xt-ease);
 }
 
@@ -183,6 +184,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-4);
+  border-bottom: 1px solid var(--xt-border-light);
   color: var(--xt-text);
   text-decoration: none;
 }
@@ -193,14 +195,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   flex: 0 0 32px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-md);
   background: var(--xt-primary);
   color: var(--xt-text-inverse);
   font-weight: 800;
+  box-shadow: 0 1px 2px rgba(11, 99, 246, 0.18);
 }
 
 .xt-manage__brand-text {
   font-weight: 700;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -223,24 +227,41 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   padding: var(--xt-space-2) var(--xt-space-3);
   font-size: var(--xt-text-xs);
   color: var(--xt-text-muted);
+  font-weight: 700;
 }
 
 .xt-manage__nav-item {
-  min-height: 40px;
+  min-height: 38px;
   display: flex;
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-md);
   color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
+  font-weight: 600;
   text-decoration: none;
-  transition: background var(--xt-motion-fast), color var(--xt-motion-fast);
+  transition:
+    background-color var(--xt-motion-fast) var(--xt-ease),
+    color var(--xt-motion-fast) var(--xt-ease),
+    transform var(--xt-motion-fast) var(--xt-ease);
 }
 
-.xt-manage__nav-item:hover,
+.xt-manage__nav-item:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .xt-manage__nav-item:hover {
+    background: var(--xt-bg-panel-soft);
+    color: var(--xt-text);
+  }
+}
+
 .xt-manage__nav-item.is-active {
   background: var(--xt-primary-light);
   color: var(--xt-primary);
+  font-weight: 700;
 }
 
 .xt-manage--collapsed .xt-manage__nav-item {
@@ -256,11 +277,33 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   background: transparent;
   color: inherit;
   cursor: pointer;
+  transition:
+    background-color var(--xt-motion-fast) var(--xt-ease),
+    color var(--xt-motion-fast) var(--xt-ease),
+    transform var(--xt-motion-fast) var(--xt-ease);
+}
+
+.xt-manage__collapse-btn:active,
+.xt-manage__hamburger:active,
+.xt-manage__search-trigger:active,
+.xt-manage__user:active {
+  transform: scale(0.96);
 }
 
 .xt-manage__collapse-btn {
   height: 44px;
   border-top: 1px solid var(--xt-border-light);
+  color: var(--xt-text-muted);
+}
+
+@media (hover: hover) {
+  .xt-manage__collapse-btn:hover,
+  .xt-manage__hamburger:hover,
+  .xt-manage__search-trigger:hover,
+  .xt-manage__user:hover {
+    background: var(--xt-bg-panel-soft);
+    color: var(--xt-text);
+  }
 }
 
 .xt-manage__main {
@@ -282,9 +325,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-5);
-  background: color-mix(in srgb, var(--xt-bg-panel) 92%, transparent);
+  background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
-  backdrop-filter: blur(12px);
 }
 
 .xt-manage__hamburger {
@@ -299,7 +341,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
   border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-md);
   color: var(--xt-text-muted);
   background: var(--xt-bg-panel-soft);
 }
@@ -312,6 +354,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   display: flex;
   align-items: center;
   gap: var(--xt-space-2);
+  min-height: 36px;
+  padding: 0 var(--xt-space-2);
+  border-radius: var(--xt-radius-md);
+  color: var(--xt-text-secondary);
 }
 
 .xt-manage__content {
@@ -333,7 +379,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   display: flex;
   justify-content: space-between;
   padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-md);
   color: var(--xt-text);
   text-decoration: none;
   background: var(--xt-bg-panel-soft);

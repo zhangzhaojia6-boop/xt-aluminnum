@@ -25,15 +25,15 @@
 
   --xt-bg-page: #f5f7fa;
   --xt-bg-panel: #ffffff;
-  --xt-bg-panel-soft: #fafafa;
+  --xt-bg-panel-soft: #f9fafb;
 
-  --xt-text: #1f2937;
-  --xt-text-secondary: #6b7280;
-  --xt-text-muted: #9ca3af;
+  --xt-text: #111827;
+  --xt-text-secondary: #586174;
+  --xt-text-muted: #8a94a6;
   --xt-text-inverse: #ffffff;
 
-  --xt-border: #e5e7eb;
-  --xt-border-light: #f3f4f6;
+  --xt-border: #dfe5ec;
+  --xt-border-light: #edf1f5;
 
   --xt-font-body: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --xt-font-number: 'DIN Alternate', 'Barlow Condensed', 'SF Pro Display', monospace;
@@ -60,25 +60,25 @@
   --xt-radius-sm: 4px;
   --xt-radius-md: 6px;
   --xt-radius-lg: 8px;
-  --xt-radius-xl: 12px;
+  --xt-radius-xl: 8px;
 
-  --xt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --xt-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --xt-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --xt-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --xt-shadow-md: 0 1px 3px rgba(15, 23, 42, 0.10);
+  --xt-shadow-lg: 0 8px 22px rgba(0, 0, 0, 0.08);
 
   --xt-motion-fast: 120ms;
   --xt-motion-normal: 200ms;
   --xt-motion-slow: 350ms;
-  --xt-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --xt-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --xt-sidebar-width: 240px;
+  --xt-sidebar-width: 252px;
   --xt-sidebar-collapsed: 64px;
-  --xt-topbar-height: 56px;
+  --xt-topbar-height: 60px;
   --xt-content-max: 1400px;
   --xt-tabbar-height: 56px;
 
   --app-bg: var(--xt-bg-page);
-  --app-panel: rgba(255, 255, 255, 0.92);
+  --app-panel: #ffffff;
   --app-panel-soft: var(--xt-bg-panel-soft);
   --app-panel-strong: var(--xt-bg-panel);
   --app-accent: var(--xt-primary);
@@ -89,7 +89,7 @@
   --app-shadow-xs: var(--xt-shadow-sm);
   --app-shadow-sm: var(--xt-shadow-md);
   --app-shadow-md: var(--xt-shadow-lg);
-  --app-focus-ring: 0 0 0 3px rgba(0, 113, 227, 0.24);
+  --app-focus-ring: 0 0 0 3px rgba(11, 99, 246, 0.20);
   --app-motion-fast: var(--xt-motion-fast);
   --app-motion-base: var(--xt-motion-normal);
   --app-motion-curve: var(--xt-ease);
@@ -102,6 +102,6 @@
   --reference-red: var(--xt-danger);
   --reference-amber: var(--xt-warning);
   --reference-line: var(--xt-border-light);
-  --reference-card: rgba(255, 255, 255, 0.96);
-  --reference-shadow: var(--xt-shadow-md);
+  --reference-card: #ffffff;
+  --reference-shadow: var(--xt-shadow-sm);
 }

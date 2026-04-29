@@ -255,11 +255,20 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.login-stage {
-  width: min(1080px, 100%);
+.login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
-  gap: 20px;
+  place-items: center;
+  padding: 32px;
+  background: var(--xt-bg-page);
+}
+
+.login-stage {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  gap: 16px;
   align-items: stretch;
 }
 
@@ -274,29 +283,26 @@ onMounted(async () => {
 }
 
 .login-stage__hero {
-  padding: 34px;
-  border-radius: 32px;
-  background:
-    radial-gradient(circle at 14% 16%, rgba(59, 130, 246, 0.18), transparent 26%),
-    radial-gradient(circle at 88% 14%, rgba(14, 165, 233, 0.13), transparent 30%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 251, 0.96));
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: var(--app-shadow-md);
+  padding: 32px;
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .login-stage__eyebrow,
 .login-card__head span,
 .login-stage__role-top span {
   font-size: 12px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--app-muted);
 }
 
 .login-stage__headline h2 {
   margin: 0;
-  font-size: clamp(36px, 5vw, 52px);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: 0;
   color: #0f172a;
 }
 
@@ -312,15 +318,15 @@ onMounted(async () => {
   text-align: left;
   font: inherit;
   cursor: pointer;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel-soft);
+  border: 1px solid var(--xt-border-light);
   box-shadow: var(--app-shadow-xs);
   transition:
     transform var(--app-motion-base) var(--app-motion-curve),
-    box-shadow var(--app-motion-base) var(--app-motion-curve),
+    background-color var(--app-motion-base) var(--app-motion-curve),
     border-color var(--app-motion-base) ease,
-    background-color var(--app-motion-base) ease;
+    color var(--app-motion-base) ease;
 }
 
 .login-stage__role-card:focus-visible {
@@ -328,16 +334,21 @@ onMounted(async () => {
   outline-offset: 3px;
 }
 
-.login-stage__role-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(37, 99, 235, 0.18);
-  box-shadow: var(--app-shadow-sm);
+@media (hover: hover) {
+  .login-stage__role-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(11, 99, 246, 0.22);
+    background: #ffffff;
+  }
+}
+
+.login-stage__role-card:active {
+  transform: scale(0.98);
 }
 
 .login-stage__role-card.is-accent {
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 30%),
-    linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.98));
+  border-color: rgba(11, 99, 246, 0.28);
+  background: rgba(11, 99, 246, 0.06);
 }
 
 .login-stage__role-top {
@@ -363,13 +374,14 @@ onMounted(async () => {
 .login-stage__role-card strong {
   font-size: 24px;
   line-height: 1.12;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   color: var(--app-text);
 }
 
 .login-card {
   align-content: start;
   padding: 28px;
+  border-radius: var(--xt-radius-xl);
   box-shadow: var(--app-shadow-sm);
 }
 
@@ -380,7 +392,7 @@ onMounted(async () => {
 .login-card__head strong {
   font-size: 30px;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: var(--app-text);
 }
 
@@ -412,12 +424,20 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
+  .login-page {
+    padding: 16px;
+  }
+
   .login-stage {
     grid-template-columns: 1fr;
   }
 
   .login-stage__hero {
     padding: 24px;
+  }
+
+  .login-stage__headline h2 {
+    font-size: 32px;
   }
 
   .login-stage__role-grid {

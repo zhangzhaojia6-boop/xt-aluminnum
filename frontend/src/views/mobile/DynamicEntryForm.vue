@@ -691,7 +691,6 @@
       </template>
     </el-dialog>
 
-    <MobileBottomNav />
     </template>
   </div>
 </template>
@@ -722,7 +721,6 @@ import {
 } from '../../utils/mobileTransition.js'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard.js'
 import MobileSwipeWorkspace from '../../components/mobile/MobileSwipeWorkspace.vue'
-import MobileBottomNav from './MobileBottomNav.vue'
 
 const OCR_STORAGE_PREFIX = 'aluminum-ocr-submission:'
 

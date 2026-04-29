@@ -9,14 +9,11 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(0, 113, 227, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 113, 227, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
+  background: none;
 }
 
 .xt-page::after {
-  content: '';
+  content: none;
   position: fixed;
   top: 0;
   right: 0;
@@ -24,7 +21,7 @@
   z-index: 100;
   height: 3px;
   pointer-events: none;
-  background: linear-gradient(90deg, var(--xt-primary), transparent 60%);
+  background: none;
 }
 
 .xt-page > * {
@@ -35,26 +32,21 @@
 .xt-login-bg {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #0a0f1a 0%, #111827 50%, #0a1628 100%);
+  background: var(--xt-bg-page);
 }
 
 .xt-login-bg::before {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(0, 113, 227, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 113, 227, 0.06) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background: none;
 }
 
 .xt-login-bg::after {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 600px 400px at 30% 40%, rgba(0, 113, 227, 0.12), transparent),
-    radial-gradient(ellipse 400px 300px at 70% 60%, rgba(59, 130, 246, 0.06), transparent);
+  background: none;
 }

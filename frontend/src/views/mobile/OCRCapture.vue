@@ -95,7 +95,6 @@
       </div>
     </el-card>
 
-    <MobileBottomNav />
   </div>
 </template>
 
@@ -107,7 +106,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
 import { extractOcrFields, fetchCurrentShift, fetchWorkshopTemplate } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
-import MobileBottomNav from './MobileBottomNav.vue'
 
 const STORAGE_PREFIX = 'aluminum-ocr-submission:'
 

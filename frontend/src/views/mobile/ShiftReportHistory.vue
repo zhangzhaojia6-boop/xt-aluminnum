@@ -74,7 +74,6 @@
       </div>
     </el-card>
 
-    <MobileBottomNav />
   </div>
 </template>
 
@@ -86,7 +85,6 @@ import { fetchMobileHistory } from '../../api/mobile'
 import { formatNumber, formatStatusLabel } from '../../utils/display'
 import { useAuthStore } from '../../stores/auth'
 import { resolveTransitionRoleBucket } from '../../utils/mobileTransition'
-import MobileBottomNav from './MobileBottomNav.vue'
 
 const router = useRouter()
 const auth = useAuthStore()

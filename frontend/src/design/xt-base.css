@@ -19,6 +19,7 @@ body {
   font-size: var(--xt-text-base);
   line-height: 1.58;
   background: var(--xt-bg-page);
+  touch-action: manipulation;
 }
 
 #app {
@@ -121,10 +122,7 @@ svg {
   margin: 0 auto;
   padding: var(--xt-space-4) var(--xt-space-4) calc(96px + env(safe-area-inset-bottom, 0px));
   overflow-x: clip;
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.09), transparent 24%),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.07), transparent 28%),
-    linear-gradient(180deg, #fbfdff 0%, #f4f7fb 100%);
+  background: var(--xt-bg-page);
 }
 
 .mobile-card {
@@ -189,9 +187,7 @@ svg {
   min-height: 100%;
   padding: var(--xt-space-4);
   border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(248, 251, 255, 0.72)),
-    radial-gradient(circle at 10% 0%, rgba(11, 99, 246, 0.08), transparent 24%);
+  background: var(--xt-bg-page);
 }
 
 .reference-page__header,
@@ -275,7 +271,7 @@ svg {
   padding: var(--xt-space-3);
   border: 1px solid var(--reference-line);
   border-radius: var(--xt-radius-xl);
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  background: var(--xt-bg-panel);
 }
 
 .reference-kpi__icon {
@@ -331,9 +327,7 @@ svg {
   padding: var(--xt-space-2);
   border: 1px solid var(--reference-line);
   border-radius: var(--xt-radius-xl);
-  background:
-    linear-gradient(90deg, rgba(11, 99, 246, 0.08), transparent 70%),
-    rgba(248, 251, 255, 0.94);
+  background: var(--xt-bg-panel-soft);
 }
 
 .reference-flow__node {
@@ -367,7 +361,16 @@ svg {
 
 .el-button {
   border-radius: var(--xt-radius-md);
-  transition: all var(--xt-motion-fast) var(--xt-ease);
+  transition:
+    background-color var(--xt-motion-fast) var(--xt-ease),
+    border-color var(--xt-motion-fast) var(--xt-ease),
+    box-shadow var(--xt-motion-fast) var(--xt-ease),
+    color var(--xt-motion-fast) var(--xt-ease),
+    transform var(--xt-motion-fast) var(--xt-ease);
+}
+
+.el-button:active {
+  transform: scale(0.96);
 }
 
 .el-button--primary {

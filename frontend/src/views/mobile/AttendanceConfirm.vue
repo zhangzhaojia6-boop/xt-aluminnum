@@ -187,7 +187,6 @@
       </el-button>
     </div>
 
-    <MobileBottomNav />
   </div>
 </template>
 
@@ -200,7 +199,6 @@ import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRet
 import { fetchEquipment } from '../../api/master'
 import { fetchCurrentShift } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
-import MobileBottomNav from './MobileBottomNav.vue'
 
 const { enqueuePendingRequest } = useRetryQueue()
 

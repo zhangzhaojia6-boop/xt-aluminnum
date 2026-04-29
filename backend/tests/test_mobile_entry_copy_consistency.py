@@ -292,6 +292,22 @@ def test_mobile_bottom_nav_keeps_entry_surface_only() -> None:
     assert "后台" not in source
 
 
+def test_entry_shell_owns_bottom_navigation_without_page_duplicates() -> None:
+    shell = _read_repo_file("frontend/src/layout/EntryShell.vue")
+
+    assert "xt-entry__tabbar" in shell
+    for path in [
+        "frontend/src/views/mobile/MobileEntry.vue",
+        "frontend/src/views/mobile/AttendanceConfirm.vue",
+        "frontend/src/views/mobile/DynamicEntryForm.vue",
+        "frontend/src/views/mobile/OCRCapture.vue",
+        "frontend/src/views/mobile/ShiftReportHistory.vue",
+    ]:
+        source = _read_repo_file(path)
+        assert "<MobileBottomNav" not in source
+        assert "import MobileBottomNav" not in source
+
+
 def test_phase1_desktop_landing_skips_statistics_and_review_defaults() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
