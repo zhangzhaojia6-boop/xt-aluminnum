@@ -37,12 +37,12 @@ def test_user_facing_brand_strings_are_updated() -> None:
     config_text = (repo_root / 'backend' / 'app' / 'config.py').read_text(encoding='utf-8')
 
     assert '鑫泰铝业' in login_text
-    assert '生产数据系统' in login_text
+    assert '数据中枢' in login_text
     assert '钉钉' in login_text
-    assert '管理控制台' in manage_shell_text
-    assert '独立填报端' in entry_shell_text
+    assert '数据中枢' in manage_shell_text
+    assert '现场填报' in entry_shell_text
     assert '鑫' in app_shell_text
-    assert '鑫泰铝业协同平台' in app_shell_text
+    assert '鑫泰铝业 数据中枢' in app_shell_text
     assert "const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'" in router_text
     assert '<title>鑫泰铝业</title>' in index_text
     assert "APP_NAME: str = '鑫泰铝业'" in config_text

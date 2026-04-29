@@ -97,7 +97,7 @@ def test_mobile_entry_uses_current_task_first_copy() -> None:
 def test_shift_report_form_copy_matches_manual_phase() -> None:
     source = _read_repo_file("frontend/src/views/mobile/ShiftReportForm.vue")
 
-    assert "提交前确认关键数字。" in source
+    assert "提交确认" in source
     assert "正式提交" in source
     assert "04 填报流程页" in source
     assert "goDesktop" not in source
@@ -320,7 +320,7 @@ def test_phase1_layout_hides_review_and_statistics_navigation() -> None:
     source = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
     assert 'data-testid="manage-shell"' in source
-    assert "管理控制台" in source
+    assert "数据中枢" in source
     assert "班次观察台" not in source
     assert "差异处置" not in source
 
@@ -329,8 +329,8 @@ def test_layout_trims_admin_navigation_to_phase1_minimum_controls() -> None:
     source = _read_repo_file("frontend/src/config/navigation.js")
 
     assert "const adminNavigation = [" in source
-    assert "label: '管理总览'" in source
-    assert "label: '数据接入与字段映射中心'" in source
+    assert "group: '管理总览'" in source
+    assert "label: '数据接入'" in source
     assert "label: '权限治理'" in source
     assert "routeName: 'admin-master-workshop'" in source
     assert "routeName: 'admin-template-center'" in source
@@ -395,7 +395,7 @@ def test_shells_do_not_leak_cross_surface_navigation() -> None:
     app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
     manage = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
-    assert "独立填报端" in entry
+    assert "现场填报" in entry
     assert "审阅任务" not in entry
     assert "主数据" not in entry
     assert "AI 助手" in app_shell
@@ -520,7 +520,7 @@ def test_review_layout_exposes_multi_center_navigation_groups() -> None:
     assert "label: '经营与智能'" in source
     assert "label: '录入端'" in source
     assert "label: '管理端'" in source
-    assert "label: '数据接入与字段映射中心'" in source
+    assert "label: '数据接入'" in source
     assert "label: '权限治理'" in source
     assert "routeName: 'admin-ops-reliability'" in source
     assert "routeName: 'review-cost-accounting'" in source
@@ -639,7 +639,7 @@ def test_mobile_entry_trims_agent_explainer_copy_from_fill_surface() -> None:
 def test_factory_dashboard_mentions_agent_pipeline_and_retention_view() -> None:
     source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
 
-    assert "鑫泰铝业协同运营平台" in source
+    assert "鑫泰铝业 数据中枢" in source
     assert "月累计" in source
     assert "数据留存" in source
 
@@ -704,7 +704,7 @@ def test_review_layout_and_workbench_share_short_copy_language() -> None:
     workbench = _read_repo_file("frontend/src/components/review/ReviewAssistantWorkbench.vue")
 
     assert "审阅指挥台" in layout
-    assert "鑫泰铝业协同平台" in layout
+    assert "鑫泰铝业 数据中枢" in layout
     assert "智能生产数据系统" not in layout
     assert "AI 审阅工作台" in workbench
     assert "问答 · 取数 · 图卡 · 动作" in workbench

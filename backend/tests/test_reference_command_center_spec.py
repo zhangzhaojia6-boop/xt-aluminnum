@@ -137,10 +137,11 @@ def test_xt_tokens_match_target_image_rules() -> None:
         "--xt-radius-xl:",
     ]:
         assert token in tokens
-    assert "#f5f7fa" in tokens
+    assert "oklch(97.3% 0.008 248)" in tokens
     assert "#ffffff" in tokens
-    assert "rgba(0, 0, 0, 0.08)" in tokens
-    assert "#0071e3" in tokens
+    assert "rgba(15, 23, 42, 0.10)" in tokens
+    assert "oklch(51% 0.17 255)" in tokens
+    assert "Bahnschrift" in tokens
     assert "DIN Alternate" in tokens
     assert "Microsoft YaHei" in tokens
 
@@ -202,11 +203,11 @@ def test_shells_keep_entry_and_manage_surfaces_separate() -> None:
     app_shell = _read_repo_file("frontend/src/layout/AppShell.vue")
     manage = _read_repo_file("frontend/src/layout/ManageShell.vue")
 
-    assert "独立填报端" in entry
+    assert "现场填报" in entry
     assert "审阅中心" not in entry
     assert "主数据" not in entry
     assert "AI 助手" in app_shell
-    assert "管理控制台" in manage
+    assert "数据中枢" in manage
     assert "现场填报" not in manage
 
 
@@ -526,7 +527,7 @@ def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> 
 
     assert 'data-testid="entry-shell"' in entry_shell
     assert 'data-testid="manage-shell"' in manage_shell
-    assert "管理控制台" in manage_shell
+    assert "数据中枢" in manage_shell
     assert "const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }" in router
     assert "const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }" in router
     assert "const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }" in router
