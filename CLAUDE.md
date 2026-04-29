@@ -63,6 +63,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Frontend rules
 
 - Build production UI, not a demo.
+- Frontend quality bar: treat the user's benchmark "像opus 4.7在Claude code编码设计前端一样，参考其设计前端多好看，你gpt5.5设计的前端太难看了" as a standing reminder to avoid generic GPT-style UI and deliver Opus-level taste, composition, branding, interaction detail, and browser-verified polish.
 - Do not add explanatory copy, helper text, marketing text, or onboarding text unless explicitly requested.
 - Do not introduce schema or component props named:
   `description`, `explanation`, `helperText`, `tooltip`, `note`, `rationale`.
