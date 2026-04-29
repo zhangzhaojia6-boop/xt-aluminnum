@@ -472,10 +472,7 @@ onMounted(async () => {
 
 .review-workshop__overview {
   padding: 14px;
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.06), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.98));
+  background: var(--xt-bg-panel);
 }
 
 .review-workshop__eyebrow {
@@ -488,9 +485,10 @@ onMounted(async () => {
 .review-workshop__eyebrow + h1,
 .review-workshop__headline h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1.16;
-  color: var(--app-text);
+  letter-spacing: 0;
+  color: var(--xt-text);
 }
 
 .review-workshop__headline p {
@@ -534,9 +532,9 @@ onMounted(async () => {
 }
 
 .review-workshop__overview {
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .review-workshop__note {
@@ -580,7 +578,7 @@ onMounted(async () => {
 }
 
 .review-workshop__layers {
-  border-radius: 18px;
+  border-radius: var(--xt-radius-lg);
 }
 
 .review-workshop__layers :deep(.el-collapse-item__header) {
@@ -647,7 +645,7 @@ onMounted(async () => {
 .workshop-panel-title__name .el-icon {
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: var(--xt-radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -613,9 +613,9 @@ onUnmounted(() => {
 }
 
 .review-factory-hero {
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: var(--app-shadow-sm);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .review-factory-dock {
@@ -632,12 +632,12 @@ onUnmounted(() => {
 
 .review-factory-tabs :deep(.el-tabs__item) {
   margin: 0 4px 6px 0;
-  border-radius: 999px;
+  border-radius: var(--xt-radius-md);
   font-weight: 600;
 }
 
 .review-factory-tabs :deep(.el-tabs__active-bar) {
-  border-radius: 999px;
+  border-radius: var(--xt-radius-sm);
 }
 
 .review-home-hero,
@@ -654,9 +654,7 @@ onUnmounted(() => {
 
 .review-home-hero {
   padding: 16px;
-  background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 38%),
-    rgba(255, 255, 255, 0.96);
+  background: var(--xt-bg-panel);
 }
 
 .review-home-hero__meta {
@@ -667,10 +665,10 @@ onUnmounted(() => {
 
 .review-home-hero__copy h2 {
   margin: 0;
-  font-size: clamp(26px, 2.3vw, 36px);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: var(--app-text);
+  font-size: clamp(22px, 1.7vw, 28px);
+  line-height: 1.14;
+  letter-spacing: 0;
+  color: var(--xt-text);
 }
 
 .review-home-hero__toolbar {
@@ -685,7 +683,7 @@ onUnmounted(() => {
 }
 
 .review-home-hero__controls :deep(.el-input__wrapper) {
-  border-radius: 10px;
+  border-radius: var(--xt-radius-lg);
 }
 
 .review-home-hero__controls .note,
@@ -704,7 +702,7 @@ onUnmounted(() => {
 .review-home-hero__section-title :deep(.el-icon) {
   width: 20px;
   height: 20px;
-  border-radius: 8px;
+  border-radius: var(--xt-radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -732,10 +730,10 @@ onUnmounted(() => {
 .review-factory-detail-toggle__btn {
   min-height: 36px;
   padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
-  color: #334155;
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-soft);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -748,9 +746,9 @@ onUnmounted(() => {
 
 .review-factory-detail-toggle__btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.28);
-  box-shadow: var(--app-shadow-xs);
-  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(247, 252, 255, 0.96));
+  border-color: rgba(0, 113, 227, 0.24);
+  box-shadow: var(--xt-shadow-sm);
+  background: var(--xt-bg-panel-soft);
 }
 
 .review-factory-detail-toggle__btn:focus-visible {
@@ -766,14 +764,14 @@ onUnmounted(() => {
 .review-home-hero__metrics,
 .review-home-hero__runtime {
   padding: 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(248, 250, 252, 0.94);
-  box-shadow: var(--app-shadow-xs);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel-soft);
+  box-shadow: none;
 }
 .review-factory-tabs {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: var(--app-shadow-xs);
+  border: 1px solid var(--xt-border-light);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 @keyframes review-factory-reveal {
@@ -862,10 +860,10 @@ onUnmounted(() => {
   display: grid;
   gap: 8px;
   padding: 13px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.95));
-  box-shadow: var(--app-shadow-xs);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -875,8 +873,8 @@ onUnmounted(() => {
 .history-trend-card:hover,
 .archive-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.2);
-  box-shadow: var(--app-shadow-sm);
+  border-color: rgba(0, 113, 227, 0.2);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .history-trend-card__top,
@@ -915,7 +913,7 @@ onUnmounted(() => {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0f766e, #0ea5e9);
+  background: var(--xt-primary);
 }
 
 .history-trend-card__meta strong {
@@ -930,8 +928,8 @@ onUnmounted(() => {
 }
 
 .archive-card--accent {
-  border-color: rgba(59, 130, 246, 0.26);
-  background: rgba(239, 246, 255, 0.82);
+  border-color: rgba(0, 113, 227, 0.22);
+  background: var(--xt-primary-light);
 }
 
 .review-home-tabs :deep(.el-tabs__header) {
@@ -987,7 +985,7 @@ onUnmounted(() => {
   }
 
   .review-home-hero__copy h2 {
-    font-size: 28px;
+    font-size: 24px;
   }
 }
 </style>

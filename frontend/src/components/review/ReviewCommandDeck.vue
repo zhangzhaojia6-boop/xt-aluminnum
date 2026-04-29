@@ -49,7 +49,7 @@ function iconToneClass(tone) {
 <style scoped>
 .review-command-deck {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
 }
 
@@ -61,10 +61,10 @@ function iconToneClass(tone) {
   gap: 8px;
   min-height: 86px;
   padding: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.94));
-  box-shadow: var(--app-shadow-xs);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
   transition:
     transform var(--app-motion-fast) var(--app-motion-curve),
     border-color var(--app-motion-fast) ease,
@@ -85,9 +85,9 @@ function iconToneClass(tone) {
 .review-command-deck__card:hover,
 .review-command-deck__card:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.24);
-  box-shadow: var(--app-shadow-sm);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 249, 255, 0.96));
+  border-color: rgba(0, 113, 227, 0.24);
+  box-shadow: var(--xt-shadow-md);
+  background: var(--xt-bg-panel-soft);
   outline: none;
 }
 
@@ -120,7 +120,7 @@ function iconToneClass(tone) {
 .review-command-deck__label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--app-muted);
+  color: var(--xt-text-secondary);
   line-height: 1.2;
 }
 
