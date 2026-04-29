@@ -40,7 +40,10 @@
         </div>
         <div class="template-meta__item">
           <span>当前来源</span>
-          <strong>{{ templateForm.has_override ? '已覆盖' : `继承 ${templateForm.source_template_key || templateForm.workshop_type || '-'}` }}</strong>
+          <ReferenceStatusTag
+            :status="templateForm.has_override ? 'warning' : 'success'"
+            :label="templateForm.has_override ? '车间覆盖' : `继承 ${templateForm.source_template_key || templateForm.workshop_type || '-'}`"
+          />
         </div>
       </div>
 
@@ -68,7 +71,15 @@
               <strong>{{ section.label }}</strong>
               <span>{{ templateForm[section.key].length }} 项</span>
             </div>
-            <el-button type="primary" plain :data-testid="`template-add-${section.key}`" @click="addField(section.key)">新增</el-button>
+            <el-button
+              class="template-section__add"
+              type="primary"
+              :data-testid="`template-add-${section.key}`"
+              title="新增字段"
+              @click="addField(section.key)"
+            >
+              +
+            </el-button>
           </div>
         </template>
 
@@ -116,6 +127,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchWorkshops, fetchWorkshopTemplateConfig, updateWorkshopTemplateConfig } from '../../api/master'
 
 const saving = ref(false)
@@ -264,22 +276,22 @@ onMounted(async () => {
 
 .template-meta__item,
 .template-config-grid__item {
-  background: var(--el-fill-color-extra-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 14px;
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
   padding: 14px;
-  box-shadow: var(--app-shadow-xs);
+  box-shadow: var(--xt-shadow-xs);
   transition:
-    transform var(--app-motion-fast) var(--app-motion-curve),
-    box-shadow var(--app-motion-fast) var(--app-motion-curve),
-    border-color var(--app-motion-fast) ease;
+    transform var(--xt-motion-fast) var(--xt-ease-out),
+    box-shadow var(--xt-motion-fast) var(--xt-ease-out),
+    border-color var(--xt-motion-fast) ease;
 }
 
 .template-meta__item:hover,
 .template-config-grid__item:hover {
   transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.22);
-  box-shadow: var(--app-shadow-sm);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .template-meta__item span,
@@ -288,10 +300,11 @@ onMounted(async () => {
   display: block;
   font-size: 12px;
   margin-bottom: 6px;
+  font-weight: 700;
 }
 
 .template-meta__item strong {
-  color: var(--el-text-color-primary);
+  color: var(--xt-gray-900);
 }
 
 .template-config-grid {
@@ -320,9 +333,10 @@ onMounted(async () => {
 
 .template-section__title span {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-  background: var(--el-fill-color-light);
-  border-radius: 999px;
+  color: var(--xt-text-secondary);
+  background: var(--xt-bg-panel-muted);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
   min-height: 24px;
   padding: 0 10px;
   display: inline-flex;
@@ -330,7 +344,17 @@ onMounted(async () => {
 }
 
 .template-empty {
-  color: var(--el-text-color-secondary);
+  color: var(--xt-text-secondary);
+}
+
+.template-section__add {
+  width: 40px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--xt-radius-md);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .template-field-list {
@@ -340,21 +364,21 @@ onMounted(async () => {
 }
 
 .template-field-row {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 14px;
-  padding: 14px;
-  background: #fbfcff;
-  box-shadow: var(--app-shadow-xs);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  padding: 12px;
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-xs);
   transition:
-    transform var(--app-motion-fast) var(--app-motion-curve),
-    box-shadow var(--app-motion-fast) var(--app-motion-curve),
-    border-color var(--app-motion-fast) ease;
+    transform var(--xt-motion-fast) var(--xt-ease-out),
+    box-shadow var(--xt-motion-fast) var(--xt-ease-out),
+    border-color var(--xt-motion-fast) ease;
 }
 
 .template-field-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.22);
-  box-shadow: var(--app-shadow-sm);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .template-field-row__main,
