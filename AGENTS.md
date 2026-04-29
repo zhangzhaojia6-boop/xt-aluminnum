@@ -60,6 +60,12 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## Product naming
+
+- Canonical system name: `鑫泰铝业 数据中枢`.
+- Use `数据中枢` as the product/system identity in UI, specs, plans, docs, and user-facing copy.
+- Do not call this product a `MES` system. `MES` may appear only as an external production system, data source, integration adapter, or boundary explanation.
+
 ## Frontend rules
 
 - Build production UI, not a demo.
