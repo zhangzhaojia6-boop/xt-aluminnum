@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1>日报详情</h1>
-        <p>查看结构化日报、文本摘要和最终确认版本，并支持导出。</p>
+        <p>查看结构化日报、文本摘要和归档版本，并支持导出。</p>
       </div>
       <div class="header-actions">
         <el-button @click="load">刷新</el-button>
@@ -23,9 +23,9 @@
         <el-descriptions-item label="输出方式">{{ formatOutputModeLabel(report.output_mode) }}</el-descriptions-item>
         <el-descriptions-item label="生成时间">{{ report.generated_at || '-' }}</el-descriptions-item>
         <el-descriptions-item label="发布时间">{{ report.published_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="是否最终版">{{ formatBooleanLabel(report.is_final_version) }}</el-descriptions-item>
-        <el-descriptions-item label="最终确认人">{{ report.final_confirmed_by || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="最终确认时间">{{ report.final_confirmed_at || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="归档版本">{{ formatBooleanLabel(report.is_final_version) }}</el-descriptions-item>
+        <el-descriptions-item label="归档确认来源">{{ report.final_confirmed_by || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="归档确认时间">{{ report.final_confirmed_at || '-' }}</el-descriptions-item>
         <el-descriptions-item label="质量闸门状态">{{ formatStatusLabel(report.quality_gate_status) }}</el-descriptions-item>
         <el-descriptions-item label="是否可交付">{{ report.delivery_ready ? '是' : '否' }}</el-descriptions-item>
         <el-descriptions-item label="闸门说明" :span="2">{{ report.quality_gate_summary || '-' }}</el-descriptions-item>

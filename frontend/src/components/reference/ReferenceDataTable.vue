@@ -1,12 +1,14 @@
 <template>
-  <el-table
-    v-bind="$attrs"
-    :data="data"
-    class="reference-data-table"
-    size="small"
-  >
-    <slot />
-  </el-table>
+  <div class="reference-data-table-shell">
+    <el-table
+      v-bind="$attrs"
+      :data="data"
+      class="reference-data-table"
+      size="small"
+    >
+      <slot />
+    </el-table>
+  </div>
 </template>
 
 <script setup>

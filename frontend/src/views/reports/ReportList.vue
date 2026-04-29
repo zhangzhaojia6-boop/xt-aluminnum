@@ -1,5 +1,5 @@
 <template>
-  <ReferencePageFrame module-number="08" title="日报与交付中心" :tags="['生成', '交付', '归档']">
+  <ReferencePageFrame module-number="08" title="日报与交付中心" :tags="['生成', '交付', '归档']" class="report-list">
     <template #actions>
       <el-button type="primary" @click="load">查询</el-button>
     </template>
@@ -22,7 +22,7 @@
         <el-form-item label="当前状态">
           <el-select v-model="filters.status" clearable style="width: 160px">
             <el-option label="草稿" value="draft" />
-            <el-option label="已审核" value="reviewed" />
+            <el-option label="已校验" value="reviewed" />
             <el-option label="已发布" value="published" />
           </el-select>
         </el-form-item>
@@ -31,42 +31,40 @@
 
     <ReferenceModuleCard module-number="08" title="交付清单">
       <ReferenceDataTable :data="items" stripe>
-        <el-table-column prop="id" label="编号" width="80" />
-        <el-table-column prop="report_date" label="报告日期" width="130" />
-        <el-table-column prop="report_type" label="报告类型" width="140">
+        <el-table-column prop="id" label="编号" width="70" />
+        <el-table-column prop="report_date" label="报告日期" width="112" />
+        <el-table-column prop="report_type" label="报告类型" width="118">
           <template #default="{ row }">
             {{ formatReportTypeLabel(row.report_type) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="当前状态" width="120">
+        <el-table-column prop="status" label="当前状态" width="112">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.status) }}
+            <ReferenceStatusTag :status="statusTone(row.status)" :label="formatReportStatus(row.status)" />
           </template>
         </el-table-column>
-        <el-table-column prop="generated_scope" label="统计范围" width="190">
+        <el-table-column prop="generated_scope" label="生成范围" width="120">
           <template #default="{ row }">
             {{ formatReportScopeLabel(row.generated_scope) }}
           </template>
         </el-table-column>
-        <el-table-column prop="output_mode" label="输出方式" width="170">
+        <el-table-column prop="output_mode" label="输出方式" width="126">
           <template #default="{ row }">
             {{ formatOutputModeLabel(row.output_mode) }}
           </template>
         </el-table-column>
-        <el-table-column prop="is_final_version" label="归档版本" width="120">
+        <el-table-column prop="is_final_version" label="归档版本" width="112">
           <template #default="{ row }">
-            <el-tag :type="row.is_final_version ? 'success' : 'info'">
-              {{ row.is_final_version ? '是' : '否' }}
-            </el-tag>
+            <ReferenceStatusTag :status="row.is_final_version ? 'success' : 'normal'" :label="row.is_final_version ? '最终版' : '过程版'" />
           </template>
         </el-table-column>
-        <el-table-column prop="published_at" label="最新输出时间" width="200" />
-        <el-table-column label="关键摘要" min-width="280">
+        <el-table-column prop="published_at" label="最新输出时间" width="148" />
+        <el-table-column label="关键摘要" min-width="180">
           <template #default="{ row }">
             {{ buildSummaryLine(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="120">
+        <el-table-column label="操作" width="110">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">查看详情</el-button>
           </template>
@@ -85,6 +83,7 @@ import { ElMessage } from 'element-plus'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchReports } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
 
@@ -120,6 +119,19 @@ function buildSummaryLine(row) {
   return parts.join('；') || '-'
 }
 
+function formatReportStatus(status) {
+  const label = formatStatusLabel(status)
+  return label === '已审核' ? '已校验' : label
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['published', 'delivered', 'done', 'success', 'reviewed'].includes(value)) return 'success'
+  if (['draft', 'pending', 'generating'].includes(value)) return 'pending'
+  if (['failed', 'blocked', 'error'].includes(value)) return 'danger'
+  return 'normal'
+}
+
 async function load() {
   try {
     const params = { ...filters }
@@ -133,3 +145,9 @@ async function load() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.report-list :deep(.reference-card .el-form) {
+  row-gap: var(--xt-space-2);
+}
+</style>

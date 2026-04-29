@@ -1,5 +1,5 @@
 <template>
-  <ReferencePageFrame module-number="09" title="质量与告警中心" :tags="['质量检查', '异常处置', '复查']">
+  <ReferencePageFrame module-number="09" title="质量与告警中心" :tags="['质量检查', '异常处置', '复查']" class="quality-center">
     <template #actions>
       <el-date-picker v-model="filters.business_date" type="date" value-format="YYYY-MM-DD" />
       <el-button type="primary" :loading="checking" @click="runChecks">运行质量检查</el-button>
@@ -40,36 +40,38 @@
 
     <ReferenceModuleCard module-number="09" title="告警清单">
       <ReferenceDataTable :data="items" stripe>
-        <el-table-column prop="id" label="编号" width="80" />
-        <el-table-column prop="business_date" label="业务日期" width="120" />
-        <el-table-column prop="issue_level" label="问题级别" width="120">
+        <el-table-column prop="id" label="编号" width="70" />
+        <el-table-column prop="business_date" label="业务日期" width="110" />
+        <el-table-column prop="issue_level" label="问题级别" width="106">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.issue_level) }}
+            <ReferenceStatusTag :status="statusTone(row.issue_level)" :label="formatStatusLabel(row.issue_level)" />
           </template>
         </el-table-column>
-        <el-table-column prop="issue_type" label="问题类型" width="160">
+        <el-table-column prop="issue_type" label="问题类型" width="140">
           <template #default="{ row }">
             {{ formatQualityIssueTypeLabel(row.issue_type) }}
           </template>
         </el-table-column>
-        <el-table-column prop="source_type" label="来源模块" width="140">
+        <el-table-column prop="source_type" label="来源模块" width="116">
           <template #default="{ row }">
             {{ formatSourceTypeLabel(row.source_type) }}
           </template>
         </el-table-column>
-        <el-table-column prop="dimension_key" label="维度" width="160" />
-        <el-table-column prop="field_name" label="字段" width="140" />
-        <el-table-column prop="issue_desc" label="问题描述" min-width="220" />
-        <el-table-column prop="status" label="处理状态" width="120">
+        <el-table-column prop="dimension_key" label="维度" width="120" />
+        <el-table-column prop="field_name" label="字段" width="110" />
+        <el-table-column prop="issue_desc" label="问题描述" min-width="170" />
+        <el-table-column prop="status" label="处理状态" width="110">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.status) }}
+            <ReferenceStatusTag :status="statusTone(row.status)" :label="formatStatusLabel(row.status)" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="220">
+        <el-table-column label="操作" width="190">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
-            <el-button v-if="row.status === 'open'" link type="success" @click="onResolve(row)">标记已解决</el-button>
-            <el-button v-if="row.status === 'open'" link type="warning" @click="onIgnore(row)">忽略问题</el-button>
+            <div class="quality-center__actions">
+              <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
+              <el-button v-if="row.status === 'open'" link type="success" @click="onResolve(row)">标记已解决</el-button>
+              <el-button v-if="row.status === 'open'" link type="warning" @click="onIgnore(row)">忽略问题</el-button>
+            </div>
           </template>
         </el-table-column>
       </ReferenceDataTable>
@@ -86,6 +88,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchQualityIssues, ignoreQualityIssue, resolveQualityIssue, runQualityChecks } from '../../api/quality'
 import { formatQualityIssueTypeLabel, formatSourceTypeLabel, formatStatusLabel } from '../../utils/display'
 
@@ -124,6 +127,14 @@ function openDetail(id) {
   router.push({ name: 'quality-detail', params: { id } })
 }
 
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['resolved', 'done', 'success'].includes(value)) return 'success'
+  if (['open', 'warning', 'pending'].includes(value)) return 'warning'
+  if (['blocker', 'failed', 'error'].includes(value)) return 'danger'
+  return 'normal'
+}
+
 async function onResolve(row) {
   const { value } = await ElMessageBox.prompt('请输入处理说明', '标记为已解决', {
     confirmButtonText: '提交',
@@ -146,3 +157,15 @@ async function onIgnore(row) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.quality-center__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quality-center__actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+</style>
