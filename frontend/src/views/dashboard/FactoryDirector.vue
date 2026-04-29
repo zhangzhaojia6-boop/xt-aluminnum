@@ -13,7 +13,7 @@
     >
       <div class="review-home-hero__meta">
         <div class="review-home-hero__copy">
-          <h2>鑫泰铝业协同运营平台</h2>
+          <h2>鑫泰铝业 数据中枢</h2>
         </div>
         <div class="review-home-hero__toolbar">
           <div class="review-home-hero__controls">
@@ -518,7 +518,7 @@ const factoryMapLines = computed(() => {
   }
   return [
     { key: 'zd', label: '铸锭车间', value: '在线', status: 'normal' },
-    { key: 'mes', label: 'MES', value: '同步', status: 'normal' },
+    { key: 'sync', label: '生产系统', value: '同步', status: 'normal' },
     { key: 'report', label: '日报', value: delivery.value.delivery_ready ? '就绪' : '待补齐', status: delivery.value.delivery_ready ? 'normal' : 'warning' }
   ]
 })

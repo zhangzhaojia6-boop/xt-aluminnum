@@ -105,7 +105,7 @@
         </ul>
       </ReferenceModuleCard>
 
-      <ReferenceModuleCard module-number="05" title="MES 在制料" density="dense" data-testid="overview-mes-wip">
+      <ReferenceModuleCard module-number="05" title="生产系统在制料" density="dense" data-testid="overview-mes-wip">
         <div class="review-overview-center__wip">
           <div class="review-overview-center__wip-row">
             <span>在制料总计</span>
@@ -240,8 +240,8 @@ const factoryMapNodes = computed(() => [
     y: '66%'
   },
   {
-    key: 'mes',
-    label: 'MES 同步',
+    key: 'sync',
+    label: '生产系统同步',
     short: '数',
     status: 'normal',
     x: '58%',
