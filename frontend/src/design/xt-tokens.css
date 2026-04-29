@@ -1,14 +1,16 @@
 :root {
-  --xt-primary: #0071e3;
-  --xt-primary-hover: #0066cc;
-  --xt-primary-active: #005bb5;
-  --xt-primary-light: rgba(0, 113, 227, 0.08);
-  --xt-primary-soft: #eaf3ff;
-  --xt-accent: #9a5a2f;
-  --xt-accent-hover: #7f4521;
-  --xt-accent-light: rgba(154, 90, 47, 0.11);
-  --xt-accent-soft: #fff4ea;
-  --xt-command-surface: #f7f9fc;
+  --xt-primary: oklch(51% 0.17 255);
+  --xt-primary-hover: oklch(46% 0.18 255);
+  --xt-primary-active: oklch(40% 0.17 255);
+  --xt-primary-light: oklch(94% 0.035 255);
+  --xt-primary-soft: oklch(97% 0.018 255);
+  --xt-accent: oklch(54% 0.095 54);
+  --xt-accent-hover: oklch(46% 0.105 54);
+  --xt-accent-light: oklch(94% 0.035 54);
+  --xt-accent-soft: oklch(97% 0.022 54);
+  --xt-command-surface: oklch(97.4% 0.009 248);
+  --xt-command-surface-strong: oklch(99.2% 0.004 248);
+  --xt-command-surface-dark: oklch(22% 0.025 250);
 
   --xt-gray-50: #f8fafc;
   --xt-gray-100: #f1f5f9;
@@ -21,37 +23,40 @@
   --xt-gray-800: #1e293b;
   --xt-gray-900: #0f172a;
 
-  --xt-success: #168a55;
-  --xt-success-light: rgba(22, 138, 85, 0.09);
-  --xt-warning: #b7791f;
-  --xt-warning-light: rgba(183, 121, 31, 0.10);
-  --xt-danger: #c24134;
-  --xt-danger-light: rgba(194, 65, 52, 0.09);
-  --xt-info: #2563eb;
-  --xt-info-light: rgba(37, 99, 235, 0.08);
+  --xt-success: oklch(52% 0.13 158);
+  --xt-success-light: oklch(95% 0.035 158);
+  --xt-warning: oklch(61% 0.12 75);
+  --xt-warning-light: oklch(95% 0.045 75);
+  --xt-danger: oklch(55% 0.15 28);
+  --xt-danger-light: oklch(95% 0.04 28);
+  --xt-info: oklch(50% 0.15 252);
+  --xt-info-light: oklch(95% 0.03 252);
 
-  --xt-bg-page: #f5f7fa;
-  --xt-bg-shell: #edf2f7;
-  --xt-bg-panel: #ffffff;
-  --xt-bg-panel-soft: #f8fafc;
-  --xt-bg-panel-muted: #f1f5f9;
+  --xt-bg-page: oklch(97.3% 0.008 248);
+  --xt-bg-shell: oklch(94.4% 0.012 248);
+  --xt-bg-panel: oklch(99.7% 0.002 248);
+  --xt-bg-panel-soft: oklch(97.9% 0.007 248);
+  --xt-bg-panel-muted: oklch(95.4% 0.011 248);
   --xt-bg-panel-strong: #ffffff;
-  --xt-bg-ink: #0b1220;
-  --xt-bg-ink-soft: #111b2f;
+  --xt-bg-depth: oklch(91.8% 0.018 248);
+  --xt-bg-ink: oklch(18% 0.028 250);
+  --xt-bg-ink-soft: oklch(23% 0.032 250);
+  --xt-bg-ink-panel: oklch(27% 0.034 250);
 
-  --xt-text: #101828;
-  --xt-text-secondary: #526173;
-  --xt-text-muted: #8693a6;
-  --xt-text-soft: #394456;
+  --xt-text: oklch(21% 0.025 250);
+  --xt-text-secondary: oklch(43% 0.032 250);
+  --xt-text-muted: oklch(62% 0.025 250);
+  --xt-text-soft: oklch(32% 0.028 250);
   --xt-text-inverse: #ffffff;
 
-  --xt-border: #d7e0eb;
-  --xt-border-light: #e7edf4;
-  --xt-border-strong: #b8c6d8;
+  --xt-border: oklch(87.8% 0.017 248);
+  --xt-border-light: oklch(92.6% 0.012 248);
+  --xt-border-strong: oklch(77.8% 0.028 248);
+  --xt-border-ink: rgba(255, 255, 255, 0.09);
 
-  --xt-font-body: 'Aptos', 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --xt-font-display: 'Aptos Display', 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --xt-font-number: 'DIN Alternate', 'Bahnschrift', 'SF Pro Display', monospace;
+  --xt-font-body: 'MiSans', 'HarmonyOS Sans SC', 'Aptos', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --xt-font-display: 'MiSans', 'HarmonyOS Sans SC', 'Aptos Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --xt-font-number: 'Bahnschrift', 'DIN Alternate', 'SF Pro Display', monospace;
   --xt-font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
 
   --xt-text-xs: 12px;
@@ -76,14 +81,15 @@
   --xt-radius-md: 6px;
   --xt-radius-lg: 8px;
   --xt-radius-xl: 12px;
-  --xt-radius-2xl: 16px;
+  --xt-radius-2xl: 12px;
   --xt-radius-pill: 999px;
 
-  --xt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --xt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.09);
-  --xt-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
-  --xt-shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.06);
-  --xt-shadow-command: 0 18px 44px rgba(11, 99, 246, 0.13), 0 2px 4px rgba(15, 23, 42, 0.06);
+  --xt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --xt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.10), 0 1px 0 rgba(255, 255, 255, 0.82) inset;
+  --xt-shadow-md: 0 12px 28px rgba(15, 23, 42, 0.11), 0 1px 3px rgba(15, 23, 42, 0.07);
+  --xt-shadow-lg: 0 24px 58px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --xt-shadow-command: 0 22px 54px rgba(11, 91, 212, 0.15), 0 2px 4px rgba(15, 23, 42, 0.07);
+  --xt-shadow-inset-hairline: inset 0 1px 0 rgba(255, 255, 255, 0.92);
 
   --xt-motion-fast: 120ms;
   --xt-motion-normal: 180ms;
