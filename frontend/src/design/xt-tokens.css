@@ -2,6 +2,9 @@
   --xt-primary: #0071e3;
   --xt-primary-hover: #0058b0;
   --xt-primary-light: rgba(0, 113, 227, 0.08);
+  --xt-accent: #7c5f4c;
+  --xt-accent-light: rgba(124, 95, 76, 0.10);
+  --xt-command-surface: #fbfaf8;
 
   --xt-gray-50: #f9fafb;
   --xt-gray-100: #f3f4f6;
@@ -30,6 +33,7 @@
   --xt-text: #111827;
   --xt-text-secondary: #586174;
   --xt-text-muted: #8a94a6;
+  --xt-text-soft: #3f4655;
   --xt-text-inverse: #ffffff;
 
   --xt-border: #dfe5ec;

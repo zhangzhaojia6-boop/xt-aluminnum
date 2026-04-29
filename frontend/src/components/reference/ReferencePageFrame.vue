@@ -3,7 +3,10 @@
     <header class="reference-page__header">
       <div class="reference-page__title-group">
         <span class="reference-page__number">{{ paddedNumber }}</span>
-        <h1>{{ title }}</h1>
+        <div class="reference-page__title-copy">
+          <span class="reference-page__system">鑫泰 MES · 运行中心</span>
+          <h1>{{ title }}</h1>
+        </div>
         <div v-if="tags.length" class="reference-page__tags">
           <span v-for="tag in tags" :key="tag">{{ tag }}</span>
         </div>

@@ -36,6 +36,7 @@
         <button class="xt-manage__search-trigger" type="button" @click="searchOpen = true">
           <el-icon><Search /></el-icon>
           <span>搜索</span>
+          <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
           <el-dropdown trigger="click">
@@ -346,6 +347,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   background: var(--xt-bg-panel-soft);
 }
 
+.xt-manage__search-trigger kbd {
+  margin-left: auto;
+  padding: 1px var(--xt-space-2);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-sm);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-muted);
+  font-family: var(--xt-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .xt-manage__topbar-right {
   margin-left: auto;
 }
@@ -427,6 +441,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
   .xt-manage__search-trigger {
     min-width: 0;
+  }
+
+  .xt-manage__search-trigger kbd {
+    display: none;
   }
 
   .xt-manage__content {
