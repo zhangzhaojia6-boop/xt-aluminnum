@@ -14,7 +14,7 @@
       <header class="ai-workstation__bar">
         <div>
           <h1>{{ store.currentConversation?.title || 'AI 工作台' }}</h1>
-          <span>{{ statusText }}</span>
+          <span>{{ statusText }} · 预测 / 分析 / 执行</span>
         </div>
       </header>
 
@@ -38,7 +38,7 @@
           <textarea
             v-model="input"
             rows="1"
-            placeholder="输入消息"
+            placeholder="问 AI 总管：今天哪个车间风险最高，下一步怎么做？"
             :disabled="store.loadingMessages"
             @keydown.enter.exact.prevent="send"
           />

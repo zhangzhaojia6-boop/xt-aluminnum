@@ -77,13 +77,14 @@ function normalizeToolStatus(status) {
 }
 
 function formatToolStatus(status) {
+  const normalized = normalizeToolStatus(status)
   const labels = {
     pending: '等待中',
     running: '执行中',
     done: '已完成',
     error: '失败'
   }
-  return labels[status] || status || '已完成'
+  return labels[normalized] || status || '已完成'
 }
 
 function toolTitle(toolCall) {
