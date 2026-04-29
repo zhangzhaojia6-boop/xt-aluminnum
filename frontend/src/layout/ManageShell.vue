@@ -1,9 +1,9 @@
 <template>
   <div class="xt-manage" :class="{ 'xt-manage--collapsed': collapsed }" data-testid="manage-shell">
     <aside class="xt-manage__sidebar">
-      <RouterLink class="xt-manage__brand" to="/manage/overview" aria-label="鑫泰铝业管理控制台">
+      <RouterLink class="xt-manage__brand" to="/manage/overview" aria-label="鑫泰铝业数据中枢">
         <XtLogo :variant="collapsed ? 'icon' : 'full'" />
-        <span v-if="!collapsed" class="xt-manage__brand-text">管理控制台</span>
+        <span v-if="!collapsed" class="xt-manage__brand-text">数据中枢</span>
       </RouterLink>
 
       <nav class="xt-manage__nav" aria-label="管理端导航">
@@ -15,10 +15,13 @@
             :to="item.path"
             class="xt-manage__nav-item"
             :class="{ 'is-active': isActive(item.path) }"
-            :title="collapsed ? item.title : undefined"
+            :title="item.title"
           >
             <el-icon><component :is="item.icon" /></el-icon>
-            <span v-if="!collapsed" class="xt-manage__nav-label">{{ item.title }}</span>
+            <span v-if="!collapsed" class="xt-manage__nav-label">
+              <span>{{ item.shortLabel || item.title }}</span>
+              <small v-if="item.secondaryGroup">{{ item.secondaryGroup }}</small>
+            </span>
           </RouterLink>
         </section>
       </nav>
@@ -78,7 +81,10 @@
             @click="drawerOpen = false"
           >
             <el-icon><component :is="item.icon" /></el-icon>
-            <span class="xt-manage__nav-label">{{ item.title }}</span>
+            <span class="xt-manage__nav-label">
+              <span>{{ item.shortLabel || item.title }}</span>
+              <small v-if="item.secondaryGroup">{{ item.secondaryGroup }}</small>
+            </span>
           </RouterLink>
         </template>
       </nav>
@@ -94,7 +100,7 @@
           class="xt-manage__search-item"
           @click="searchOpen = false"
         >
-          <span>{{ item.title }}</span>
+          <span>{{ item.shortLabel || item.title }}</span>
           <small>{{ item.group }}</small>
         </RouterLink>
       </div>
@@ -170,7 +176,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   width: var(--xt-sidebar-width);
   display: flex;
   flex-direction: column;
-  background: var(--xt-bg-panel);
+  background: var(--xt-command-surface-strong);
   border-right: 1px solid var(--xt-border-light);
   box-shadow: 1px 0 0 rgba(15, 23, 42, 0.03);
   transition: width var(--xt-motion-normal) var(--xt-ease);
@@ -196,8 +202,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   padding: 3px var(--xt-space-2);
   border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-pill);
-  background: var(--xt-bg-panel-soft);
-  color: var(--xt-text-secondary);
+  background: var(--xt-bg-ink);
+  color: rgba(255, 255, 255, 0.82);
   font-size: var(--xt-text-xs);
   font-weight: 700;
   letter-spacing: 0;
@@ -220,19 +226,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__nav-group-label {
-  padding: var(--xt-space-2) var(--xt-space-3);
+  padding: var(--xt-space-2) var(--xt-space-3) var(--xt-space-1);
   font-size: var(--xt-text-xs);
   color: var(--xt-text-muted);
   font-weight: 850;
 }
 
 .xt-manage__nav-item {
-  min-height: 40px;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: var(--xt-space-3);
+  gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
-  border-radius: var(--xt-radius-lg);
+  border-radius: var(--xt-radius-md);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
   font-weight: 600;
@@ -259,6 +265,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   color: var(--xt-primary);
   font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(11, 99, 246, 0.10);
+}
+
+.xt-manage__nav-label {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.xt-manage__nav-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-manage__nav-label small {
+  color: var(--xt-text-muted);
+  font-size: 10px;
+  font-weight: 760;
 }
 
 .xt-manage--collapsed .xt-manage__nav-item {
@@ -322,7 +347,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-5);
-  background: var(--xt-bg-panel);
+  background: color-mix(in srgb, var(--xt-bg-panel) 90%, var(--xt-bg-shell));
   border-bottom: 1px solid var(--xt-border-light);
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
 }
@@ -372,7 +397,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__content {
-  padding: var(--xt-space-6);
+  padding: var(--xt-space-5);
 }
 
 .xt-manage__container {

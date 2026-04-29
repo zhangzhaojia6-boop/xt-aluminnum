@@ -1,9 +1,9 @@
 <template>
   <div class="xt-entry" data-testid="entry-shell">
     <header class="xt-entry__topbar">
-      <RouterLink class="xt-entry__brand" to="/entry" aria-label="鑫泰铝业独立填报端">
+      <RouterLink class="xt-entry__brand" to="/entry" aria-label="鑫泰铝业数据中枢填报端">
         <XtLogo variant="icon" />
-        <span>独立填报端</span>
+        <span>现场填报</span>
       </RouterLink>
       <div class="xt-entry__shift">{{ currentShift }}</div>
       <span class="xt-entry__user">{{ userName }}</span>

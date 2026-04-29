@@ -6,7 +6,7 @@
           <XtLogo variant="icon" />
         </div>
         <div>
-          <p class="app-shell__brand-title" :data-testid="props.zone === 'review' ? 'review-brand-title' : undefined">鑫泰铝业协同平台</p>
+          <p class="app-shell__brand-title" :data-testid="props.zone === 'review' ? 'review-brand-title' : undefined">鑫泰铝业 数据中枢</p>
           <p class="app-shell__brand-subtitle">{{ zoneLabel }}</p>
         </div>
       </div>

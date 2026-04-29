@@ -18,46 +18,52 @@ import {
 const NAV_GROUPS = [
   {
     label: '总览',
-    items: [{ title: '总览', path: '/manage/overview', icon: Monitor, access: 'review' }]
-  },
-  {
-    label: '生产管理',
+    commandGroup: '总览',
     items: [
-      { title: '录入中心', path: '/manage/entry-center', icon: List, access: 'review' },
-      { title: '班次中心', path: '/manage/shift', icon: Document, access: 'review' },
-      { title: '对账中心', path: '/manage/reconciliation', icon: Tickets, access: 'review' }
+      { title: '系统总览主视图', shortLabel: '总览', path: '/manage/overview', icon: Monitor, access: 'review', commandGroup: '总览', secondaryGroup: '全局' },
+      { title: '日报与交付中心', shortLabel: '日报', path: '/manage/reports', icon: Printer, access: 'review', commandGroup: '总览', secondaryGroup: '交付' },
+      { title: '统计中心', shortLabel: '统计', path: '/manage/statistics', icon: DataAnalysis, access: 'review', commandGroup: '总览', secondaryGroup: '指标' }
     ]
   },
   {
-    label: '质量管控',
+    label: '工厂',
+    commandGroup: '工厂',
     items: [
-      { title: '异常审核', path: '/manage/anomaly', icon: Warning, access: 'review' },
-      { title: '质量预警', path: '/manage/quality', icon: TrendCharts, access: 'review' }
+      { title: '工厂作业看板', shortLabel: '工厂', path: '/manage/factory', icon: Monitor, access: 'review', commandGroup: '工厂', secondaryGroup: '作业' },
+      { title: '车间作业看板', shortLabel: '车间', path: '/manage/workshop', icon: Grid, access: 'review', commandGroup: '工厂', secondaryGroup: '作业' },
+      { title: '班次中心', shortLabel: '班次', path: '/manage/shift', icon: Document, access: 'review', commandGroup: '工厂', secondaryGroup: '节奏' },
+      { title: '差异核对中心', shortLabel: '核对', path: '/manage/reconciliation', icon: Tickets, access: 'review', commandGroup: '工厂', secondaryGroup: '质量' },
+      { title: '质量与告警中心', shortLabel: '质量', path: '/manage/quality', icon: TrendCharts, access: 'review', commandGroup: '工厂', secondaryGroup: '质量' },
+      { title: '异常处置', shortLabel: '异常', path: '/manage/anomaly', icon: Warning, access: 'review', commandGroup: '工厂', secondaryGroup: '质量' }
     ]
   },
   {
-    label: '数据分析',
+    label: '填报',
+    commandGroup: '填报',
     items: [
-      { title: '统计中心', path: '/manage/statistics', icon: DataAnalysis, access: 'review' },
-      { title: '成本效益', path: '/manage/cost', icon: Coin, access: 'review' },
-      { title: '报表交付', path: '/manage/reports', icon: Printer, access: 'review' }
-    ]
-  },
-  {
-    label: '基础数据',
-    items: [
-      { title: '主数据', path: '/manage/master', icon: Grid, access: 'admin' },
-      { title: '别名映射', path: '/manage/alias', icon: Connection, access: 'admin' },
-      { title: '导入历史', path: '/manage/imports', icon: Upload, access: 'admin' }
+      { title: '录入中心', shortLabel: '录入', path: '/manage/entry-center', icon: List, access: 'review', commandGroup: '填报', secondaryGroup: '岗位直录' }
     ]
   },
   {
     label: 'AI',
-    items: [{ title: 'AI 工作台', path: '/manage/ai', icon: ChatDotRound, access: 'review' }]
+    commandGroup: 'AI',
+    items: [
+      { title: 'AI 工作台', shortLabel: 'AI 工作台', path: '/manage/ai', icon: ChatDotRound, access: 'review', commandGroup: 'AI', secondaryGroup: '总管' },
+      { title: '成本核算与效益中心', shortLabel: '成本', path: '/manage/cost', icon: Coin, access: 'review', commandGroup: 'AI', secondaryGroup: '判断' }
+    ]
   },
   {
-    label: '系统管理',
-    items: [{ title: '系统设置', path: '/manage/admin/settings', icon: Setting, access: 'admin' }]
+    label: '管理',
+    commandGroup: '管理',
+    items: [
+      { title: '数据接入与字段映射中心', shortLabel: '数据接入', path: '/manage/ingestion', icon: Connection, access: 'admin', commandGroup: '管理', secondaryGroup: '接入' },
+      { title: '主数据与模板中心', shortLabel: '主数据', path: '/manage/master', icon: Grid, access: 'admin', commandGroup: '管理', secondaryGroup: '模板' },
+      { title: '别名映射', shortLabel: '别名', path: '/manage/alias', icon: Connection, access: 'admin', commandGroup: '管理', secondaryGroup: '模板' },
+      { title: '导入历史', shortLabel: '导入', path: '/manage/imports', icon: Upload, access: 'admin', commandGroup: '管理', secondaryGroup: '接入' },
+      { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '管理', secondaryGroup: '运行' },
+      { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Grid, access: 'admin', commandGroup: '管理', secondaryGroup: '权限' },
+      { title: '权限与治理中心', shortLabel: '治理', path: '/manage/admin/governance', icon: Setting, access: 'admin', commandGroup: '管理', secondaryGroup: '权限' }
+    ]
   }
 ]
 

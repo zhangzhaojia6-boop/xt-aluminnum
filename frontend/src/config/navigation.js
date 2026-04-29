@@ -183,6 +183,29 @@ const routeMetaByName = {
   'master-workshop-template': { center: 'master', group: '兼容入口', order: 309, icon: 'SetUp', legacy: true, roles: ['admin'], keepAlive: false }
 }
 
+const commandMetaByName = {
+  'review-overview-home': { shortLabel: '总览', commandGroup: '总览', secondaryGroup: '全局' },
+  'factory-dashboard': { shortLabel: '工厂', commandGroup: '工厂', secondaryGroup: '作业' },
+  'workshop-dashboard': { shortLabel: '车间', commandGroup: '工厂', secondaryGroup: '作业' },
+  'review-task-center': { shortLabel: '录入', commandGroup: '填报', secondaryGroup: '岗位直录' },
+  'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
+  'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
+  'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
+  'review-cost-accounting': { shortLabel: '成本', commandGroup: 'AI', secondaryGroup: '判断' },
+  'review-brain-center': { shortLabel: 'AI', commandGroup: 'AI', secondaryGroup: '总管' },
+  'admin-ingestion-center': { shortLabel: '数据接入', commandGroup: '管理', secondaryGroup: '接入' },
+  'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '模板' },
+  'admin-template-center': { shortLabel: '模板', commandGroup: '管理', secondaryGroup: '模板' },
+  'admin-ops-reliability': { shortLabel: '设置', commandGroup: '管理', secondaryGroup: '运行' },
+  'admin-governance-center': { shortLabel: '治理', commandGroup: '管理', secondaryGroup: '权限' },
+  'admin-users': { shortLabel: '用户', commandGroup: '管理', secondaryGroup: '权限' },
+  'mobile-entry': { shortLabel: '填报', commandGroup: '填报', secondaryGroup: '移动' }
+}
+
+Object.entries(commandMetaByName).forEach(([routeName, meta]) => {
+  routeMetaByName[routeName] = { ...(routeMetaByName[routeName] || {}), ...meta }
+})
+
 const entryNavigation = [
   {
     key: 'entry-main',
@@ -201,27 +224,27 @@ const reviewNavigation = [
     key: 'overview',
     label: '总览中心',
     items: [
-      { routeName: 'review-overview-home', label: '系统总览', access: 'review' },
-      { routeName: 'factory-dashboard', label: '工厂看板', access: 'review' },
-      { routeName: 'workshop-dashboard', label: '车间看板', access: 'review' }
+      { routeName: 'review-overview-home', label: '总览', access: 'review' },
+      { routeName: 'factory-dashboard', label: '工厂', access: 'review' },
+      { routeName: 'workshop-dashboard', label: '车间', access: 'review' }
     ]
   },
   {
     key: 'review',
     label: '审阅处置',
     items: [
-      { routeName: 'review-task-center', label: '审阅中心', access: 'review' },
-      { routeName: 'review-report-center', label: '日报交付', access: 'review' },
-      { routeName: 'review-quality-center', label: '质量告警', access: 'review' },
-      { routeName: 'review-reconciliation-center', label: '差异核对', access: 'review' }
+      { routeName: 'review-task-center', label: '录入', access: 'review' },
+      { routeName: 'review-report-center', label: '日报', access: 'review' },
+      { routeName: 'review-quality-center', label: '质量', access: 'review' },
+      { routeName: 'review-reconciliation-center', label: '核对', access: 'review' }
     ]
   },
   {
     key: 'analysis',
     label: '经营与智能',
     items: [
-      { routeName: 'review-cost-accounting', label: '成本效益', access: 'review' },
-      { routeName: 'review-brain-center', label: 'AI 总控', access: 'review' }
+      { routeName: 'review-cost-accounting', label: '成本', access: 'review' },
+      { routeName: 'review-brain-center', label: 'AI', access: 'review' }
     ]
   }
 ]
@@ -231,8 +254,8 @@ const adminNavigation = [
     key: 'admin-main',
     label: '管理端',
     items: [
-      { routeName: 'admin-overview', label: '管理总览', access: 'admin' },
-      { routeName: 'admin-ingestion-center', label: '数据接入与字段映射中心', access: 'admin' },
+      { routeName: 'admin-overview', label: '管理', access: 'admin' },
+      { routeName: 'admin-ingestion-center', label: '数据接入', access: 'admin' },
       { routeName: 'admin-master-workshop', label: '主数据', access: 'admin' },
       { routeName: 'admin-template-center', label: '模板中心', access: 'admin' },
       { routeName: 'admin-users', label: '用户管理', access: 'admin' },

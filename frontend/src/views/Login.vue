@@ -4,28 +4,23 @@
       <div class="login-stage__hero">
         <div class="login-brand" data-testid="login-brand">
           <XtLogo variant="full" />
-          <span class="login-brand__tag">生产数据系统</span>
+          <span class="login-brand__tag">数据中枢</span>
         </div>
 
         <div class="login-stage__headline">
           <span v-if="false">02 登录与角色入口</span>
           <span class="login-stage__eyebrow">全厂作战地图</span>
-          <h2>鑫泰铝业 MES</h2>
+          <h2>鑫泰铝业 数据中枢</h2>
         </div>
 
-        <div class="login-stage__map" aria-hidden="true">
-          <span class="xt-scan-line" />
-          <div class="login-stage__track login-stage__track--top" />
-          <div class="login-stage__track login-stage__track--middle" />
-          <div class="login-stage__track login-stage__track--bottom" />
-          <div class="login-stage__node is-furnace">炉</div>
-          <div class="login-stage__node is-cast">铸</div>
-          <div class="login-stage__node is-ingot">锭</div>
-          <div class="login-stage__ai">
-            <span>AI 总管</span>
-            <strong>发现 → 判断 → 执行</strong>
-          </div>
-        </div>
+        <XtFactoryMap
+          class="login-stage__map"
+          compact
+          :nodes="loginMapNodes"
+          :lines="loginMapLines"
+          :alerts="loginMapAlerts"
+          active-key="ai"
+        />
 
         <div class="login-stage__role-grid">
           <button
@@ -128,7 +123,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import { XtLogo } from '../components/xt'
+import { XtFactoryMap, XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth.js'
 
 const router = useRouter()
@@ -149,6 +144,23 @@ const surfaceOptions = [
   { value: 'entry', label: '录入端', badge: '钉钉', title: '现场填报' },
   { value: 'review', label: '审阅端', badge: '桌面', title: '生产审阅' },
   { value: 'admin', label: '管理端', badge: '桌面', title: '系统配置' }
+]
+
+const loginMapNodes = [
+  { key: 'furnace', label: '熔铸炉', short: '炉', status: 'normal', x: '15%', y: '24%' },
+  { key: 'casting', label: '铸锭线', short: '铸', status: 'normal', x: '55%', y: '40%' },
+  { key: 'batch', label: '批次链', short: '批', status: 'warning', x: '31%', y: '70%' },
+  { key: 'ai', label: 'AI 总管', short: 'AI', status: 'normal', x: '78%', y: '66%' }
+]
+
+const loginMapLines = [
+  { key: 'entry', label: '岗位直录', value: '在线', status: 'normal' },
+  { key: 'validation', label: '自动校验', value: '运行', status: 'normal' },
+  { key: 'publish', label: '日报发布', value: '待命', status: 'warning' }
+]
+
+const loginMapAlerts = [
+  { key: 'loop', label: '闭环', value: '发现 → 判断 → 执行', status: 'warning' }
 ]
 
 const rules = {
