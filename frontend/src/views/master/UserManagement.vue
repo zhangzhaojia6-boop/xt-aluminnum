@@ -21,7 +21,7 @@
         </el-select>
       </div>
 
-      <el-table :data="items" stripe v-loading="loading">
+      <ReferenceDataTable :data="items" stripe v-loading="loading">
         <el-table-column prop="username" label="用户名" min-width="140" />
         <el-table-column prop="name" label="姓名" min-width="120" />
         <el-table-column prop="role" label="角色" min-width="140">
@@ -37,23 +37,17 @@
         </el-table-column>
         <el-table-column prop="is_mobile_user" label="手机端" width="90">
           <template #default="{ row }">
-            <el-tag :type="row.is_mobile_user ? 'success' : 'info'" effect="light">
-              {{ row.is_mobile_user ? '是' : '否' }}
-            </el-tag>
+            <ReferenceStatusTag :status="row.is_mobile_user ? 'success' : 'normal'" :label="row.is_mobile_user ? '是' : '否'" />
           </template>
         </el-table-column>
         <el-table-column prop="is_reviewer" label="观察/处置兼容" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.is_reviewer ? 'warning' : 'info'" effect="light">
-              {{ row.is_reviewer ? '是' : '否' }}
-            </el-tag>
+            <ReferenceStatusTag :status="row.is_reviewer ? 'warning' : 'normal'" :label="row.is_reviewer ? '是' : '否'" />
           </template>
         </el-table-column>
         <el-table-column prop="is_active" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'info'" effect="light">
-              {{ row.is_active ? '启用' : '停用' }}
-            </el-tag>
+            <ReferenceStatusTag :status="row.is_active ? 'success' : 'normal'" :label="row.is_active ? '启用' : '停用'" />
           </template>
         </el-table-column>
         <el-table-column prop="last_login" label="最近登录" min-width="160">
@@ -66,7 +60,7 @@
             <el-button text type="danger" :disabled="!row.is_active" @click="deactivate(row)">停用</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
 
       <div class="table-pagination">
         <el-pagination
@@ -149,6 +143,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchTeams, fetchWorkshops } from '../../api/master.js'
 import { createUser, deleteUser, fetchUsersPage, resetUserPassword, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'

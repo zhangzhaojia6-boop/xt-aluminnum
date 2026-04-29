@@ -4,7 +4,7 @@
       <div>
         <h1>班次观察台</h1>
       </div>
-      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <div class="header-actions">
         <el-input v-model="templateCode" placeholder="模板编码（可选）" style="width: 180px" />
         <el-select v-model="duplicateStrategy" style="width: 220px">
           <el-option label="重复时默认拒绝" value="reject" />
@@ -31,7 +31,7 @@
         <el-form-item label="数据状态">
           <el-select v-model="filters.data_status" clearable style="width: 180px">
             <el-option label="待处理" value="pending" />
-            <el-option label="已审核" value="reviewed" />
+            <el-option label="已校验" value="reviewed" />
             <el-option label="已确认" value="confirmed" />
             <el-option label="已驳回" value="rejected" />
             <el-option label="已作废" value="voided" />
@@ -44,32 +44,32 @@
     </el-card>
 
     <el-card class="panel">
-      <el-table :data="items" stripe>
-        <el-table-column prop="id" label="编号" width="80" />
-        <el-table-column prop="business_date" label="业务日期" width="120" />
-        <el-table-column prop="workshop_name" label="车间" width="140" />
-        <el-table-column prop="team_name" label="班组" width="140" />
-        <el-table-column prop="shift_code" label="班次" width="90" />
-        <el-table-column prop="version_no" label="版本" width="80" />
-        <el-table-column prop="output_weight" label="产出量" width="110" />
-        <el-table-column prop="actual_headcount" label="实到" width="90" />
-        <el-table-column prop="planned_headcount" label="计划" width="90" />
-        <el-table-column label="数据状态" width="120">
+      <ReferenceDataTable :data="items" stripe>
+        <el-table-column prop="id" label="编号" width="70" />
+        <el-table-column prop="business_date" label="业务日期" width="110" />
+        <el-table-column prop="workshop_name" label="车间" width="100" />
+        <el-table-column prop="team_name" label="班组" width="90" />
+        <el-table-column prop="shift_code" label="班次" width="70" />
+        <el-table-column prop="version_no" label="版本" width="70" />
+        <el-table-column prop="output_weight" label="产出量" width="90" />
+        <el-table-column prop="actual_headcount" label="实到" width="70" />
+        <el-table-column prop="planned_headcount" label="计划" width="70" />
+        <el-table-column label="数据状态" width="104">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.data_status)">{{ formatStatusLabel(row.data_status) }}</el-tag>
+            <ReferenceStatusTag :status="statusTone(row.data_status)" :label="formatFlowStatus(row.data_status)" />
           </template>
         </el-table-column>
-        <el-table-column label="观察提示" min-width="180">
+        <el-table-column label="观察提示" min-width="150">
           <template #default="{ row }">
             <span>{{ observationLabel(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="120">
+        <el-table-column label="操作" width="90">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row.id)">详情</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -82,6 +82,8 @@ import { ElMessage } from 'element-plus'
 
 import { fetchWorkshops } from '../../api/master'
 import { fetchShiftProductionData, importProductionFile } from '../../api/production'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatStatusLabel } from '../../utils/display'
 
 const router = useRouter()
@@ -99,12 +101,16 @@ const uploadFile = ref(null)
 const templateCode = ref('')
 const duplicateStrategy = ref('reject')
 
-function statusType(status) {
+function statusTone(status) {
   if (status === 'confirmed') return 'success'
-  if (status === 'reviewed') return 'warning'
+  if (status === 'reviewed' || status === 'pending') return 'warning'
   if (status === 'rejected') return 'danger'
-  if (status === 'voided') return 'info'
-  return ''
+  return 'normal'
+}
+
+function formatFlowStatus(status) {
+  const label = formatStatusLabel(status)
+  return label === '已审核' ? '已校验' : label
 }
 
 function observationLabel(row) {

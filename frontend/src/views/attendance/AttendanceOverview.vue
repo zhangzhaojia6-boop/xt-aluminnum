@@ -5,7 +5,7 @@
         <h1>考勤总览</h1>
         <p>按业务日期查看考勤结果，并触发自动处理流程。</p>
       </div>
-      <div style="display: flex; gap: 10px;">
+      <div class="header-actions">
         <el-date-picker v-model="businessDate" type="date" value-format="YYYY-MM-DD" />
         <el-button @click="load">查询</el-button>
         <el-button type="primary" :loading="processing" @click="runProcess">自动处理</el-button>
@@ -26,18 +26,18 @@
         <div class="stat-value">{{ summary.abnormal }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">待处理</div>
+        <div class="stat-label">待闭环</div>
         <div class="stat-value">{{ summary.pending_review }}</div>
       </div>
     </div>
 
     <el-card class="panel">
-      <el-table :data="items" stripe>
+      <ReferenceDataTable :data="items" stripe>
         <el-table-column prop="employee_no" label="工号" width="120" />
         <el-table-column prop="employee_name" label="姓名" width="140" />
         <el-table-column prop="attendance_status" label="状态" width="130">
           <template #default="{ row }">
-            <el-tag :type="row.attendance_status === 'normal' ? 'success' : 'danger'">{{ formatStatusLabel(row.attendance_status) }}</el-tag>
+            <ReferenceStatusTag :status="statusTone(row.attendance_status)" :label="formatStatusLabel(row.attendance_status)" />
           </template>
         </el-table-column>
         <el-table-column prop="check_in_time" label="上班打卡" width="190" />
@@ -46,7 +46,7 @@
         <el-table-column prop="early_leave_minutes" label="早退(分)" width="100" />
         <el-table-column prop="data_status" label="数据状态" width="120">
           <template #default="{ row }">
-            {{ formatStatusLabel(row.data_status) }}
+            <ReferenceStatusTag :status="statusTone(row.data_status)" :label="formatFlowStatus(row.data_status)" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120">
@@ -54,7 +54,7 @@
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           </template>
         </el-table-column>
-      </el-table>
+      </ReferenceDataTable>
     </el-card>
   </div>
 </template>
@@ -66,6 +66,8 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceResults, processAttendance } from '../../api/attendance'
+import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatStatusLabel } from '../../utils/display'
 
 const router = useRouter()
@@ -96,6 +98,19 @@ function openDetail(row) {
     name: 'attendance-detail',
     params: { employeeId: row.employee_id, businessDate: row.business_date }
   })
+}
+
+function formatFlowStatus(status) {
+  const label = formatStatusLabel(status)
+  return label === '已审核' ? '已校验' : label
+}
+
+function statusTone(status) {
+  const value = String(status || '').toLowerCase()
+  if (['normal', 'confirmed', 'success', 'auto_confirmed'].includes(value)) return 'success'
+  if (['pending', 'reviewed', 'warning'].includes(value)) return 'warning'
+  if (['abnormal', 'rejected', 'returned', 'failed', 'error'].includes(value)) return 'danger'
+  return 'normal'
 }
 
 onMounted(load)
