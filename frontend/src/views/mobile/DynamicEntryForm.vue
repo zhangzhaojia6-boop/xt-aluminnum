@@ -2187,7 +2187,7 @@ onBeforeUnmount(() => {
 
 .mobile-shell--entry-form :deep(.mobile-section-title) {
   margin-bottom: 8px;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .mobile-shell--entry-form :deep(.mobile-actions) {
@@ -2200,18 +2200,17 @@ onBeforeUnmount(() => {
 
 .mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button) {
   min-width: 0;
-  min-height: 42px;
+  min-height: 48px;
   border-radius: 12px;
 }
 
 .mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button--primary) {
-  box-shadow: 0 4px 24px rgba(0, 113, 227, 0.3);
-  transition: box-shadow 0.2s, transform 0.2s;
+  box-shadow: var(--xt-shadow-sm);
+  transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
 .mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button--primary:hover) {
-  box-shadow: 0 8px 40px rgba(0, 113, 227, 0.5);
-  transform: translateY(-1px);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .mobile-shell--entry-form :deep(.panel.mobile-card) {

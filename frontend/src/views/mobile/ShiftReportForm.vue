@@ -762,20 +762,21 @@ onBeforeUnmount(() => {
 .entry-flow-steps {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-  margin: 8px 0 12px;
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-card);
-  background: #fff;
+  gap: var(--xt-space-2);
+  margin: var(--xt-space-2) 0 var(--xt-space-3);
+  padding: var(--xt-space-3);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .entry-flow-steps span {
   display: grid;
   justify-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 13px;
+  gap: var(--xt-space-2);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
   font-weight: 800;
   text-align: center;
 }
@@ -785,14 +786,14 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #cbd7e7;
+  border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-lg);
-  color: var(--text-secondary);
-  background: #fff;
+  color: var(--xt-text-secondary);
+  background: var(--xt-bg-panel);
 }
 
 .entry-flow-steps .is-active {
-  color: var(--primary);
+  color: var(--xt-primary);
 }
 
 .entry-flow-steps .is-active b {
@@ -804,30 +805,30 @@ onBeforeUnmount(() => {
 .entry-flow-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 14px;
+  gap: var(--xt-space-3);
   align-items: start;
 }
 
 .entry-flow-hints {
   position: sticky;
-  top: 12px;
+  top: var(--xt-space-3);
   display: grid;
-  gap: 12px;
+  gap: var(--xt-space-3);
 }
 
 .entry-flow-hint-card {
   display: grid;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-card);
-  background: #fff;
-  box-shadow: var(--shadow-card);
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-4);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .entry-flow-hint-card strong {
-  color: var(--primary);
-  font-size: 16px;
+  color: var(--xt-primary);
+  font-size: var(--xt-text-lg);
   font-family: var(--font-display, 'SF Pro Display', system-ui);
 }
 
@@ -836,41 +837,41 @@ onBeforeUnmount(() => {
   gap: 8px;
   margin: 0;
   padding-left: 20px;
-  color: var(--text-secondary);
+  color: var(--xt-text-secondary);
 }
 
 .entry-flow-hint-card span {
-  color: var(--text-secondary);
+  color: var(--xt-text-secondary);
   line-height: 1.6;
 }
 
 .entry-calc-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--xt-space-3);
+  margin-top: var(--xt-space-3);
 }
 
 .entry-calc-strip div {
   display: grid;
-  gap: 4px;
+  gap: var(--xt-space-1);
   min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: #f8fbff;
+  padding: var(--xt-space-3);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-primary-light);
 }
 
 .entry-calc-strip span,
 .entry-calc-strip em,
 .entry-calc-source {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
   font-style: normal;
 }
 
 .entry-calc-strip strong {
-  color: var(--primary);
+  color: var(--xt-primary);
   font-family: var(--font-number);
   font-size: 24px;
   line-height: 1;
@@ -883,28 +884,27 @@ onBeforeUnmount(() => {
 
 .mobile-shell--flow :deep(.mobile-field .el-input__wrapper),
 .mobile-shell--flow :deep(.mobile-field .el-textarea__inner) {
-  min-height: 44px;
-  border-radius: var(--radius-control);
+  min-height: 48px;
+  border-radius: var(--xt-radius-lg);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions) {
   position: sticky;
-  bottom: 0;
+  bottom: calc(var(--xt-tabbar-height) + var(--xt-space-3) + env(safe-area-inset-bottom, 0px));
   z-index: 12;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-2xl);
   background: var(--xt-bg-panel);
-  box-shadow: 0 -1px 8px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary) {
   box-shadow: var(--xt-shadow-sm);
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary:hover) {
   box-shadow: var(--xt-shadow-md);
-  transform: translateY(-1px);
 }
 
 @media (max-width: 900px) {

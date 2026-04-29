@@ -111,6 +111,6 @@ defineProps({
   color: var(--xt-text-secondary);
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 </style>

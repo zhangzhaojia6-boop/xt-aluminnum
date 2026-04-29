@@ -1,13 +1,14 @@
 <template>
   <div class="mobile-shell" data-testid="entry-drafts-page">
-    <section class="panel mobile-card">
-      <div class="page-title">
-        <div>
-          <h1>草稿箱</h1>
-        </div>
-        <el-button plain @click="loadDrafts">刷新</el-button>
+    <div class="mobile-top">
+      <div>
+        <h1>草稿箱</h1>
+        <p>只保留本机暂存内容，恢复后继续提交。</p>
       </div>
+      <el-button plain class="mobile-inline-action" @click="loadDrafts">刷新</el-button>
+    </div>
 
+    <section class="panel mobile-card">
       <div v-if="!drafts.length" class="template-empty">暂无草稿</div>
 
       <div v-else class="mobile-history-list">

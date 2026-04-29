@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .mobile-swipe-workspace {
   display: grid;
-  gap: 14px;
+  gap: var(--xt-space-3);
   overflow: hidden;
   touch-action: pan-y;
 }
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
 .mobile-swipe-workspace__page {
   flex: 0 0 100%;
   min-width: 100%;
-  padding-right: 2px;
+  padding-right: 1px;
 }
 
 .mobile-swipe-workspace__footer,
@@ -196,35 +196,55 @@ onBeforeUnmount(() => {
 
 .mobile-swipe-workspace__footer {
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--xt-space-3);
+  padding: 0 var(--xt-space-1);
 }
 
 .mobile-swipe-workspace__indicator {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--app-muted);
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--xt-space-2);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
 }
 
 .mobile-swipe-workspace__dots {
-  gap: 8px;
+  gap: var(--xt-space-1);
 }
 
 .mobile-swipe-workspace__dot {
-  width: 8px;
-  height: 8px;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.32);
+  background: transparent;
+  position: relative;
   transition:
     transform 0.22s ease,
-    background-color 0.22s ease,
-    width 0.22s ease;
+    background-color 0.22s ease;
+}
+
+.mobile-swipe-workspace__dot::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: inherit;
+  background: var(--xt-gray-300);
 }
 
 .mobile-swipe-workspace__dot.is-active {
-  width: 22px;
-  background: linear-gradient(90deg, #0a5bd8, #12b5cb);
+  background: var(--xt-primary-light);
+}
+
+.mobile-swipe-workspace__dot.is-active::after {
+  inset: 8px;
+  background: var(--xt-primary);
 }
 </style>

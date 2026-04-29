@@ -88,6 +88,7 @@ function isActive(path) {
 }
 
 .xt-entry__brand {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--xt-space-2);
@@ -98,18 +99,28 @@ function isActive(path) {
 }
 
 .xt-entry__shift {
+  max-width: 34%;
+  min-width: 0;
   padding: 3px var(--xt-space-2);
   border-radius: 999px;
   background: var(--xt-primary-light);
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xt-entry__user {
+  max-width: 28%;
+  min-width: 0;
   margin-left: auto;
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xt-entry__content {
@@ -147,7 +158,7 @@ function isActive(path) {
   padding: var(--xt-space-1) var(--xt-space-3);
   border-radius: var(--xt-radius-lg);
   color: var(--xt-text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-decoration: none;
   transition:

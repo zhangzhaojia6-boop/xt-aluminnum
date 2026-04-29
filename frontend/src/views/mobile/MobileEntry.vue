@@ -84,7 +84,7 @@
       </div>
       <div v-else class="mobile-entry-stage__hero" data-testid="mobile-current-shift">
         <div class="mobile-entry-stage__brand">
-          <span class="mobile-entry-stage__mark">鑫</span>
+          <span class="mobile-entry-stage__mark"><XtLogo variant="icon" /></span>
           <div>
             <strong>当前任务</strong>
             <p>{{ current.workshop_name || bootstrap.workshop_name || '-' }} · {{ current.shift_name || current.shift_code || '-' }}</p>
@@ -171,6 +171,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCurrentShift, fetchMobileBootstrap, fetchWorkshopTemplate } from '../../api/mobile.js'
+import { XtLogo } from '../../components/xt'
 import { useAuthStore } from '../../stores/auth.js'
 import { formatScopeLabel, formatStatusLabel } from '../../utils/display.js'
 import {
@@ -428,8 +429,10 @@ onMounted(load)
 }
 
 .mobile-entry-stage {
-  padding: 12px;
+  padding: var(--xt-space-3);
   background: var(--xt-bg-panel);
+  border-color: var(--xt-border-light);
+  border-radius: var(--xt-radius-2xl);
 }
 
 .mobile-entry-stage__top {
@@ -440,12 +443,15 @@ onMounted(load)
 
 .mobile-entry-stage__top h1 {
   margin: 4px 0 0;
-  font-size: 22px;
+  font-size: var(--xt-text-2xl);
+  font-family: var(--xt-font-display);
+  font-weight: 950;
   line-height: 1.22;
 }
 
 .mobile-entry-stage__top p {
-  max-width: 28ch;
+  max-width: 30ch;
+  font-size: var(--xt-text-lg);
   line-height: 1.4;
 }
 
@@ -467,14 +473,15 @@ onMounted(load)
 
 .mobile-entry-stage__empty {
   display: grid;
-  gap: 8px;
-  padding: 10px;
-  border-radius: var(--xt-radius-lg);
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-4);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
   background: var(--xt-bg-panel-soft);
 }
 
 .mobile-entry-stage__empty p + p {
-  font-size: 12px;
+  font-size: var(--xt-text-sm);
 }
 
 .mobile-entry-stage__action-row {
@@ -485,7 +492,7 @@ onMounted(load)
 
 .mobile-entry-stage__action-row .el-button {
   border-radius: var(--xt-radius-lg);
-  min-height: 38px;
+  min-height: 48px;
   min-width: 122px;
 }
 
@@ -498,9 +505,9 @@ onMounted(load)
 }
 
 .mobile-entry-stage__brand {
-  padding: 12px;
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-panel);
+  padding: var(--xt-space-3);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel-soft);
   border: 1px solid var(--xt-border-light);
 }
 
@@ -511,10 +518,14 @@ onMounted(load)
   width: 44px;
   height: 44px;
   border-radius: var(--xt-radius-lg);
-  background: var(--xt-primary);
-  color: #fff;
-  font-size: 20px;
-  font-weight: 800;
+  background: var(--xt-bg-panel);
+  color: var(--xt-primary);
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.mobile-entry-stage__mark :deep(.xt-logo__icon) {
+  width: 28px;
+  height: 28px;
 }
 
 .mobile-entry-stage__brand strong,
@@ -534,8 +545,8 @@ onMounted(load)
 .mobile-entry-stage__role,
 .mobile-entry-stage__status {
   display: grid;
-  gap: 4px;
-  padding: 10px;
+  gap: var(--xt-space-1);
+  padding: var(--xt-space-3);
   border-radius: var(--xt-radius-lg);
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border-light);
@@ -547,13 +558,15 @@ onMounted(load)
 
 .mobile-entry-stage__role {
   background: var(--xt-primary-light);
+  border-color: rgba(11, 99, 246, 0.16);
 }
 
 .mobile-entry-stage__cta .el-button {
-  min-height: 46px;
-  min-width: 142px;
+  min-height: 52px;
+  min-width: 156px;
   border-radius: var(--xt-radius-lg);
-  font-size: 14px;
+  font-size: var(--xt-text-lg);
+  font-weight: 900;
 }
 
 .mobile-entry-stage__summary-grid {
@@ -564,20 +577,20 @@ onMounted(load)
 
 .mobile-entry-stage__summary-item {
   display: grid;
-  gap: 4px;
-  padding: 10px;
+  gap: var(--xt-space-1);
+  padding: var(--xt-space-3);
   border-radius: var(--xt-radius-lg);
   background: var(--xt-bg-panel-soft);
   border: 1px solid var(--xt-border-light);
 }
 
 .mobile-entry-stage__summary-item span {
-  font-size: 12px;
+  font-size: var(--xt-text-sm);
   color: var(--app-muted);
 }
 
 .mobile-entry-stage__summary-item strong {
-  font-size: 15px;
+  font-size: var(--xt-text-lg);
   color: var(--app-text);
 }
 
@@ -588,8 +601,9 @@ onMounted(load)
 }
 
 .mobile-entry-stage__quick-grid .el-button {
-  min-height: 40px;
+  min-height: 48px;
   border-radius: var(--xt-radius-lg);
+  font-size: var(--xt-text-lg);
 }
 
 .mobile-entry-stage__action-row :deep(.el-button--primary.is-plain),
@@ -606,16 +620,17 @@ onMounted(load)
 
 .mobile-entry-stage__ai {
   display: grid;
-  gap: 6px;
-  padding: 10px;
-  border-radius: var(--xt-radius-lg);
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border-radius: var(--xt-radius-xl);
   background: var(--xt-primary-light);
   border: 1px solid rgba(0, 113, 227, 0.18);
 }
 
 .mobile-entry-stage__ai span {
-  font-size: 12px;
+  font-size: var(--xt-text-sm);
   color: var(--app-muted);
+  font-weight: 850;
 }
 
 .mobile-entry-stage__ai ul {
@@ -623,6 +638,9 @@ onMounted(load)
   padding-left: 18px;
   display: grid;
   gap: 4px;
+  color: var(--xt-text);
+  font-size: var(--xt-text-lg);
+  line-height: 1.45;
 }
 
 @media (max-width: 720px) {
