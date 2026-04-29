@@ -46,11 +46,21 @@ defineProps({
 
 <style scoped>
 .xt-card {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-xl);
   background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
+}
+
+.xt-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .xt-card--interactive {
@@ -60,10 +70,12 @@ defineProps({
     transform var(--xt-motion-fast) var(--xt-ease);
 }
 
-.xt-card--interactive:hover {
-  border-color: var(--xt-border);
-  box-shadow: var(--xt-shadow-md);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .xt-card--interactive:hover {
+    border-color: var(--xt-border);
+    box-shadow: var(--xt-shadow-md);
+    transform: translateY(-1px);
+  }
 }
 
 .xt-card__header,
@@ -88,9 +100,11 @@ defineProps({
 .xt-card__title {
   margin: 0;
   color: var(--xt-text);
+  font-family: var(--xt-font-display);
   font-size: var(--xt-text-lg);
-  font-weight: 700;
+  font-weight: 850;
   line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .xt-card__subtitle {

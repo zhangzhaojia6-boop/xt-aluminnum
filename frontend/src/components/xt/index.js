@@ -1,4 +1,8 @@
 export { default as XtLogo } from './XtLogo.vue'
+export { default as XtFactoryMap } from './XtFactoryMap.vue'
+export { default as XtExecutionRail } from './XtExecutionRail.vue'
+export { default as XtAiThinking } from './XtAiThinking.vue'
+export { default as XtAiActionCard } from './XtAiActionCard.vue'
 export { default as XtCard } from './XtCard.vue'
 export { default as XtKpi } from './XtKpi.vue'
 export { default as XtStatus } from './XtStatus.vue'

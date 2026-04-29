@@ -37,6 +37,8 @@ defineProps({
   justify-content: space-between;
   gap: var(--xt-space-6);
   margin-bottom: var(--xt-space-6);
+  padding-bottom: var(--xt-space-4);
+  border-bottom: 1px solid var(--xt-border-light);
 }
 
 .xt-page-header__main {
@@ -47,16 +49,18 @@ defineProps({
   margin-bottom: var(--xt-space-1);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
 .xt-page-header__title {
   margin: 0;
   color: var(--xt-text);
+  font-family: var(--xt-font-display);
   font-size: var(--xt-text-2xl);
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.25;
+  letter-spacing: 0;
 }
 
 .xt-page-header__subtitle {

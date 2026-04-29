@@ -1,14 +1,15 @@
 <template>
   <div class="xt-logo" :class="[`xt-logo--${variant}`, { 'xt-logo--color': color }]">
-    <svg class="xt-logo__icon" viewBox="0 0 32 32" role="img" aria-label="鑫泰">
-      <path d="M16 2 28 8v16l-12 6L4 24V8L16 2Z" fill="none" stroke="currentColor" stroke-width="1.5" />
-      <path d="M16 2v28M4 8l24 16M28 8 4 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4" />
-      <path d="m10 14 6-4 6 4v8l-6 4-6-4v-8Z" fill="currentColor" opacity="0.15" />
-      <path d="m10 14 6-4 6 4v8l-6 4-6-4v-8Z" fill="none" stroke="currentColor" stroke-width="1.5" />
+    <svg class="xt-logo__icon" viewBox="0 0 48 48" role="img" aria-label="鑫泰铝业">
+      <path class="xt-logo__ingot" d="M24 4 40 12v20L24 44 8 32V12L24 4Z" />
+      <path class="xt-logo__edge" d="M24 4v40M8 12l16 10 16-10M8 32l16-10 16 10" />
+      <path class="xt-logo__core" d="M18 17.5 24 14l6 3.5v9L24 30l-6-3.5v-9Z" />
+      <path class="xt-logo__flow" d="M13.5 27.5c5.2-7.8 15.8-7.8 21 0" />
+      <circle class="xt-logo__node" cx="35" cy="27.5" r="2.2" />
     </svg>
     <span v-if="variant !== 'icon'" class="xt-logo__text">
       <span class="xt-logo__cn">鑫泰</span>
-      <span v-if="variant === 'full'" class="xt-logo__en">XINTAI</span>
+      <span v-if="variant === 'full'" class="xt-logo__en">ALUMINUM MES</span>
     </span>
   </div>
 </template>
@@ -46,14 +47,51 @@ defineProps({
 }
 
 .xt-logo__icon {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
+  overflow: visible;
 }
 
 .xt-logo--icon .xt-logo__icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+}
+
+.xt-logo__ingot {
+  fill: var(--xt-bg-panel);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 6px 10px rgba(11, 99, 246, 0.14));
+}
+
+.xt-logo__edge,
+.xt-logo__flow {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.xt-logo__edge {
+  opacity: 0.34;
+  stroke-width: 1.2;
+}
+
+.xt-logo__core {
+  fill: var(--xt-accent);
+  opacity: 0.92;
+}
+
+.xt-logo__flow {
+  opacity: 0.72;
+  stroke-width: 1.8;
+}
+
+.xt-logo__node {
+  fill: var(--xt-primary);
+  stroke: var(--xt-bg-panel);
+  stroke-width: 1.4;
 }
 
 .xt-logo__text {
@@ -65,14 +103,14 @@ defineProps({
 
 .xt-logo__cn {
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
 .xt-logo__en {
   color: var(--xt-text-secondary);
   font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 </style>

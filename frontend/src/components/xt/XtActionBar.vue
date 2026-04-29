@@ -29,7 +29,7 @@ defineProps({
   padding: var(--xt-space-3) var(--xt-space-4);
   border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-xl);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
 }
 
@@ -37,7 +37,7 @@ defineProps({
   position: sticky;
   bottom: var(--xt-space-4);
   z-index: 20;
-  backdrop-filter: blur(12px);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .xt-action-bar__main,

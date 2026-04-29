@@ -130,11 +130,21 @@ function emitSelection() {
 
 <style scoped>
 .xt-table {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-xl);
   background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
+}
+
+.xt-table::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .xt-table__header {
@@ -148,8 +158,10 @@ function emitSelection() {
 
 .xt-table__title {
   margin: 0;
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
   font-size: var(--xt-text-lg);
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .xt-table__actions {
@@ -181,10 +193,10 @@ function emitSelection() {
 
 .xt-table th {
   color: var(--xt-text-secondary);
-  background: var(--xt-gray-50);
+  background: var(--xt-bg-panel-soft);
   font-size: var(--xt-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-weight: 800;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -194,11 +206,13 @@ function emitSelection() {
 }
 
 .xt-table tbody tr {
-  transition: background var(--xt-motion-fast) var(--xt-ease);
+  transition: background-color var(--xt-motion-fast) var(--xt-ease);
 }
 
-.xt-table tbody tr:hover {
-  background: var(--xt-primary-light);
+@media (hover: hover) {
+  .xt-table tbody tr:hover {
+    background: var(--xt-primary-light);
+  }
 }
 
 .xt-table tbody tr:last-child td {

@@ -26,6 +26,8 @@ defineProps({
   gap: var(--xt-space-3);
   min-height: 160px;
   padding: var(--xt-space-8);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   text-align: center;
 }
@@ -35,14 +37,17 @@ defineProps({
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px dashed var(--xt-border);
-  border-radius: 50%;
-  color: var(--xt-gray-400);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-muted);
   font-size: var(--xt-text-xl);
+  box-shadow: var(--xt-shadow-xs);
 }
 
 .xt-empty__text {
   font-size: var(--xt-text-sm);
+  font-weight: 700;
 }
 
 .xt-empty__actions {
