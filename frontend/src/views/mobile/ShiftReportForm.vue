@@ -786,7 +786,7 @@ onBeforeUnmount(() => {
   width: 32px;
   height: 32px;
   border: 1px solid #cbd7e7;
-  border-radius: 999px;
+  border-radius: var(--xt-radius-lg);
   color: var(--text-secondary);
   background: #fff;
 }
@@ -798,7 +798,7 @@ onBeforeUnmount(() => {
 .entry-flow-steps .is-active b {
   color: #fff;
   border-color: transparent;
-  background: linear-gradient(135deg, #0071e3, #5856d6);
+  background: var(--xt-primary);
 }
 
 .entry-flow-layout {
@@ -893,19 +893,17 @@ onBeforeUnmount(() => {
   z-index: 12;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 -8px 20px rgba(15, 45, 84, 0.08);
+  background: var(--xt-bg-panel);
+  box-shadow: 0 -1px 8px rgba(15, 23, 42, 0.06);
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary) {
-  box-shadow: 0 4px 24px rgba(0, 113, 227, 0.3);
+  box-shadow: var(--xt-shadow-sm);
   transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .mobile-shell--flow :deep(.mobile-sticky-actions .el-button--primary:hover) {
-  box-shadow: 0 8px 40px rgba(0, 113, 227, 0.5);
+  box-shadow: var(--xt-shadow-md);
   transform: translateY(-1px);
 }
 
