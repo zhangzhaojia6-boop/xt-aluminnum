@@ -34,19 +34,14 @@
 }
 
 @keyframes xt-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
 }
 
 .xt-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--xt-gray-100) 25%,
-    var(--xt-gray-200) 50%,
-    var(--xt-gray-100) 75%
-  );
-  background-size: 200% 100%;
-  animation: xt-shimmer 1.5s infinite;
+  background: var(--xt-bg-panel-muted);
+  animation: xt-shimmer 1.4s var(--xt-ease) infinite;
   border-radius: var(--xt-radius-sm);
 }
 

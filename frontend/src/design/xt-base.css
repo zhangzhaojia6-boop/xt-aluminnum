@@ -22,6 +22,10 @@ body {
   touch-action: manipulation;
 }
 
+::selection {
+  background: rgba(11, 99, 246, 0.16);
+}
+
 #app {
   min-height: 100vh;
   min-height: 100dvh;
@@ -41,6 +45,7 @@ select {
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 img,
@@ -79,12 +84,22 @@ svg {
   border: 1px solid var(--app-border);
   border-radius: var(--app-radius-card);
   background: var(--app-panel);
-  box-shadow: var(--app-shadow-xs);
+  box-shadow: var(--app-shadow-sm);
 }
 
 .panel {
   position: relative;
   overflow: hidden;
+}
+
+.panel::before,
+.reference-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .stat-grid {
@@ -95,10 +110,10 @@ svg {
 
 .stat-card {
   padding: var(--xt-space-4);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--xt-border-light);
   border-radius: var(--app-radius-card);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--app-shadow-xs);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--app-shadow-sm);
 }
 
 .note {
@@ -107,8 +122,9 @@ svg {
 
 .template-empty {
   padding: var(--xt-space-5);
-  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border: 1px dashed var(--xt-border-strong);
   border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel-soft);
   color: var(--app-muted);
   text-align: center;
 }
@@ -127,6 +143,7 @@ svg {
 
 .mobile-card {
   border-radius: var(--xt-radius-xl);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .mobile-card .el-card__header {
@@ -161,9 +178,9 @@ svg {
   align-items: center;
   min-height: 24px;
   padding: 0 var(--xt-space-2);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--xt-border-light);
   border-radius: 999px;
-  background: rgba(248, 250, 252, 0.92);
+  background: var(--xt-bg-panel-soft);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
   font-weight: 600;
@@ -171,16 +188,16 @@ svg {
 
 .panel-source-tag.is-healthy,
 .stat-source-tag.is-healthy {
-  color: #0f766e;
-  border-color: rgba(15, 118, 110, 0.18);
-  background: rgba(240, 253, 250, 0.92);
+  color: var(--xt-success);
+  border-color: rgba(22, 138, 85, 0.20);
+  background: var(--xt-success-light);
 }
 
 .panel-source-tag.is-alert,
 .stat-source-tag.is-alert {
-  color: #b45309;
-  border-color: rgba(217, 119, 6, 0.22);
-  background: rgba(255, 247, 237, 0.96);
+  color: var(--xt-warning);
+  border-color: rgba(183, 121, 31, 0.22);
+  background: var(--xt-warning-light);
 }
 
 .reference-page {
@@ -234,7 +251,7 @@ svg {
   min-height: 40px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(0, 113, 227, 0.14);
+  border: 1px solid rgba(11, 99, 246, 0.16);
   border-radius: var(--xt-radius-lg);
   background: #ffffff;
   box-shadow: var(--xt-shadow-sm);
@@ -278,8 +295,8 @@ svg {
   align-items: center;
   min-height: 24px;
   padding: 0 var(--xt-space-2);
-  border: 1px solid rgba(124, 95, 76, 0.16);
-  border-radius: var(--xt-radius-md);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-pill);
   background: var(--xt-command-surface);
   color: var(--xt-text-soft);
   font-size: var(--xt-text-xs);
@@ -287,6 +304,7 @@ svg {
 }
 
 .reference-card {
+  position: relative;
   min-width: 0;
   display: grid;
   gap: var(--xt-space-3);
@@ -319,9 +337,9 @@ svg {
   height: 38px;
   display: grid;
   place-items: center;
-  border-radius: var(--xt-radius-xl);
+  border-radius: var(--xt-radius-lg);
   color: var(--reference-blue);
-  background: rgba(219, 234, 254, 0.96);
+  background: var(--xt-primary-soft);
   font-weight: 900;
 }
 
@@ -344,6 +362,7 @@ svg {
   font-size: var(--xt-text-2xl);
   font-weight: 900;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .reference-kpi__value small {
@@ -353,8 +372,8 @@ svg {
 }
 
 .reference-data-table {
-  --el-table-header-bg-color: #f7faff;
-  --el-table-row-hover-bg-color: #f2f7ff;
+  --el-table-header-bg-color: var(--xt-bg-panel-soft);
+  --el-table-row-hover-bg-color: var(--xt-primary-light);
   overflow: hidden;
   border: 1px solid var(--reference-line);
   border-radius: var(--xt-radius-xl);
@@ -367,7 +386,7 @@ svg {
   padding: var(--xt-space-2);
   border: 1px solid var(--reference-line);
   border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-panel-soft);
+  background: var(--xt-bg-panel-muted);
 }
 
 .reference-flow__node {
@@ -432,14 +451,51 @@ svg {
 
 .el-table {
   --el-table-border-color: var(--xt-border-light);
-  --el-table-header-bg-color: var(--xt-gray-50);
+  --el-table-header-bg-color: var(--xt-bg-panel-soft);
   --el-table-row-hover-bg-color: var(--xt-primary-light);
   font-size: var(--xt-text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .el-table th.el-table__cell {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
+}
+
+.el-card,
+.el-dialog,
+.el-drawer {
+  --el-card-border-color: var(--xt-border-light);
+  --el-card-border-radius: var(--xt-radius-xl);
+}
+
+.el-card {
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.el-card__header {
+  border-bottom-color: var(--xt-border-light);
+}
+
+.el-message-box,
+.el-dialog {
+  border-radius: var(--xt-radius-xl);
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow: var(--app-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
 }

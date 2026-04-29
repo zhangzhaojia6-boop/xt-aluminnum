@@ -1,46 +1,57 @@
 :root {
-  --xt-primary: #0071e3;
-  --xt-primary-hover: #0058b0;
-  --xt-primary-light: rgba(0, 113, 227, 0.08);
-  --xt-accent: #7c5f4c;
-  --xt-accent-light: rgba(124, 95, 76, 0.10);
-  --xt-command-surface: #fbfaf8;
+  --xt-primary: #0b63f6;
+  --xt-primary-hover: #084fc5;
+  --xt-primary-active: #063e9a;
+  --xt-primary-light: rgba(11, 99, 246, 0.08);
+  --xt-primary-soft: #edf4ff;
+  --xt-accent: #9a5a2f;
+  --xt-accent-hover: #7f4521;
+  --xt-accent-light: rgba(154, 90, 47, 0.11);
+  --xt-accent-soft: #fff4ea;
+  --xt-command-surface: #f7f9fc;
 
-  --xt-gray-50: #f9fafb;
-  --xt-gray-100: #f3f4f6;
-  --xt-gray-200: #e5e7eb;
-  --xt-gray-300: #d1d5db;
-  --xt-gray-400: #9ca3af;
-  --xt-gray-500: #6b7280;
-  --xt-gray-600: #4b5563;
-  --xt-gray-700: #374151;
-  --xt-gray-800: #1f2937;
-  --xt-gray-900: #111827;
+  --xt-gray-50: #f8fafc;
+  --xt-gray-100: #f1f5f9;
+  --xt-gray-200: #e2e8f0;
+  --xt-gray-300: #cbd5e1;
+  --xt-gray-400: #94a3b8;
+  --xt-gray-500: #64748b;
+  --xt-gray-600: #475569;
+  --xt-gray-700: #334155;
+  --xt-gray-800: #1e293b;
+  --xt-gray-900: #0f172a;
 
-  --xt-success: #22c55e;
-  --xt-success-light: rgba(34, 197, 94, 0.08);
-  --xt-warning: #f59e0b;
-  --xt-warning-light: rgba(245, 158, 11, 0.08);
-  --xt-danger: #ef4444;
-  --xt-danger-light: rgba(239, 68, 68, 0.08);
-  --xt-info: #3b82f6;
-  --xt-info-light: rgba(59, 130, 246, 0.08);
+  --xt-success: #168a55;
+  --xt-success-light: rgba(22, 138, 85, 0.09);
+  --xt-warning: #b7791f;
+  --xt-warning-light: rgba(183, 121, 31, 0.10);
+  --xt-danger: #c24134;
+  --xt-danger-light: rgba(194, 65, 52, 0.09);
+  --xt-info: #2563eb;
+  --xt-info-light: rgba(37, 99, 235, 0.08);
 
-  --xt-bg-page: #f5f7fa;
+  --xt-bg-page: #f3f6fa;
+  --xt-bg-shell: #edf2f7;
   --xt-bg-panel: #ffffff;
-  --xt-bg-panel-soft: #f9fafb;
+  --xt-bg-panel-soft: #f8fafc;
+  --xt-bg-panel-muted: #f1f5f9;
+  --xt-bg-panel-strong: #ffffff;
+  --xt-bg-ink: #0b1220;
+  --xt-bg-ink-soft: #111b2f;
 
-  --xt-text: #111827;
-  --xt-text-secondary: #586174;
-  --xt-text-muted: #8a94a6;
-  --xt-text-soft: #3f4655;
+  --xt-text: #101828;
+  --xt-text-secondary: #526173;
+  --xt-text-muted: #8693a6;
+  --xt-text-soft: #394456;
   --xt-text-inverse: #ffffff;
 
-  --xt-border: #dfe5ec;
-  --xt-border-light: #edf1f5;
+  --xt-border: #d7e0eb;
+  --xt-border-light: #e7edf4;
+  --xt-border-strong: #b8c6d8;
 
-  --xt-font-body: 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --xt-font-number: 'DIN Alternate', 'Barlow Condensed', 'SF Pro Display', monospace;
+  --xt-font-body: 'Aptos', 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --xt-font-display: 'Aptos Display', 'MiSans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --xt-font-number: 'DIN Alternate', 'Bahnschrift', 'SF Pro Display', monospace;
   --xt-font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
 
   --xt-text-xs: 12px;
@@ -64,15 +75,19 @@
   --xt-radius-sm: 4px;
   --xt-radius-md: 6px;
   --xt-radius-lg: 8px;
-  --xt-radius-xl: 8px;
+  --xt-radius-xl: 12px;
+  --xt-radius-2xl: 16px;
+  --xt-radius-pill: 999px;
 
-  --xt-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --xt-shadow-md: 0 1px 3px rgba(15, 23, 42, 0.10);
-  --xt-shadow-lg: 0 8px 22px rgba(0, 0, 0, 0.08);
+  --xt-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --xt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.09);
+  --xt-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --xt-shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.06);
+  --xt-shadow-command: 0 18px 44px rgba(11, 99, 246, 0.13), 0 2px 4px rgba(15, 23, 42, 0.06);
 
   --xt-motion-fast: 120ms;
-  --xt-motion-normal: 200ms;
-  --xt-motion-slow: 350ms;
+  --xt-motion-normal: 180ms;
+  --xt-motion-slow: 260ms;
   --xt-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   --xt-sidebar-width: 252px;
@@ -82,7 +97,7 @@
   --xt-tabbar-height: 56px;
 
   --app-bg: var(--xt-bg-page);
-  --app-panel: #ffffff;
+  --app-panel: var(--xt-bg-panel);
   --app-panel-soft: var(--xt-bg-panel-soft);
   --app-panel-strong: var(--xt-bg-panel);
   --app-accent: var(--xt-primary);
@@ -90,10 +105,10 @@
   --app-text: var(--xt-text);
   --app-muted: var(--xt-text-secondary);
   --app-border: var(--xt-border);
-  --app-shadow-xs: var(--xt-shadow-sm);
-  --app-shadow-sm: var(--xt-shadow-md);
-  --app-shadow-md: var(--xt-shadow-lg);
-  --app-focus-ring: 0 0 0 3px rgba(11, 99, 246, 0.20);
+  --app-shadow-xs: var(--xt-shadow-xs);
+  --app-shadow-sm: var(--xt-shadow-sm);
+  --app-shadow-md: var(--xt-shadow-md);
+  --app-focus-ring: 0 0 0 3px rgba(11, 99, 246, 0.18);
   --app-motion-fast: var(--xt-motion-fast);
   --app-motion-base: var(--xt-motion-normal);
   --app-motion-curve: var(--xt-ease);
@@ -106,6 +121,6 @@
   --reference-red: var(--xt-danger);
   --reference-amber: var(--xt-warning);
   --reference-line: var(--xt-border-light);
-  --reference-card: #ffffff;
+  --reference-card: var(--xt-bg-panel);
   --reference-shadow: var(--xt-shadow-sm);
 }
