@@ -116,7 +116,16 @@ async def dingtalk_login(req: DingtalkLoginRequest, db: Session = Depends(get_db
     db.commit()
 
     token = create_access_token(user.id)
-    log_action(db, user=user, action="login", module="dingtalk", reason="钉钉H5免登")
+    log_action(
+        db,
+        user_id=user.id,
+        user_name=user.name,
+        action="login",
+        module="dingtalk",
+        table_name="users",
+        record_id=user.id,
+        reason="钉钉H5免登",
+    )
 
     return {
         "access_token": token,

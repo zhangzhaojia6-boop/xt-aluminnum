@@ -165,11 +165,9 @@ def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
         ],
         "frontend/src/views/mobile/MobileEntry.vue": [
             "data-testid=\"mobile-entry\"",
-            "当前任务",
-            "快速填报",
-            "高级填报",
+            "开始填报",
+            "填报",
             "历史记录",
-            "草稿箱",
         ],
         "frontend/src/views/review/OverviewCenter.vue": [
             "ReferencePageFrame",

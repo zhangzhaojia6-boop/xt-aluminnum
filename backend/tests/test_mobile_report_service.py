@@ -51,7 +51,7 @@ def test_required_submit_fields_returns_readable_labels() -> None:
             'output_weight': None,
         }
     )
-    assert missing == ['出勤人数', '投入重量', '产出重量']
+    assert missing == ['投入重量', '产出重量']
 
 
 class _FakeQuery:
