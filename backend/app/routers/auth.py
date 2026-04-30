@@ -79,7 +79,7 @@ def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.post('/qr-login', response_model=QrLoginResponse, name='auth-qr-login')
+@router.post('/qr-login', name='auth-qr-login')
 def qr_login(
     request: Request,
     body: QrLoginRequest,
@@ -90,6 +90,15 @@ def qr_login(
         raise HTTPException(status_code=404, detail='未找到该机台')
     if equipment.operational_status != 'running':
         raise HTTPException(status_code=403, detail='该机台已停机')
+
+    if equipment.equipment_type == 'virtual_workshop_qr':
+        workshop = db.get(Workshop, equipment.workshop_id)
+        return {
+            'type': 'workshop_redirect',
+            'workshop_code': workshop.code if workshop else equipment.code,
+            'workshop_name': workshop.name if workshop else '',
+        }
+
     if equipment.bound_user_id is None:
         raise HTTPException(status_code=404, detail='该机台未绑定账号，请联系管理员')
 

@@ -272,7 +272,11 @@ async function tryQrLogin() {
 
   qrLoginPending.value = true
   try {
-    await auth.qrLogin(qrCode)
+    const result = await auth.qrLogin(qrCode)
+    if (result.type === 'workshop_redirect') {
+      workshopHint.value = `车间：${result.workshop_name || result.workshop_code}，请用该车间的角色账号登录`
+      return
+    }
     ElMessage.success('机台登录成功')
     await router.replace({ name: 'mobile-entry' })
   } catch {

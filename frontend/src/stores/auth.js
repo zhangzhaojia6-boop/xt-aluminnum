@@ -191,6 +191,9 @@ export const useAuthStore = defineStore('auth', {
     },
     async qrLogin(qrCode) {
       const result = await qrLoginApi({ qr_code: qrCode })
+      if (result.type === 'workshop_redirect') {
+        return result
+      }
       this.setSession(result.access_token, result.user, result.machine_info)
       return result
     },

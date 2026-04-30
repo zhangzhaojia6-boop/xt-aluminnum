@@ -49,6 +49,12 @@ class QrLoginResponse(LoginResponse):
     machine_info: MachineInfo
 
 
+class WorkshopQrResponse(BaseModel):
+    type: str = 'workshop_redirect'
+    workshop_code: str
+    workshop_name: str
+
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str

@@ -44,6 +44,7 @@ const AttendanceDetail = () => import('../views/attendance/AttendanceDetail.vue'
 const ExceptionList = () => import('../views/attendance/ExceptionList.vue')
 const ReportDetail = () => import('../views/reports/ReportDetail.vue')
 const QualityDetail = () => import('../views/quality/QualityDetail.vue')
+const QRCodePrint = () => import('../views/master/QRCodePrint.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -187,7 +188,8 @@ const rawRoutes = [
       { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
       { path: 'admin/templates', name: 'admin-template-center', component: WorkshopTemplateConfig, meta: { ...adminMeta, title: '模板中心', centerNo: '14', canonical: '/manage/admin/templates' } },
       { path: 'admin/ops', redirect: { name: 'admin-ops-reliability' } },
-      { path: 'admin/master', redirect: { name: 'admin-master-workshop' } }
+      { path: 'admin/master', redirect: { name: 'admin-master-workshop' } },
+      { path: 'admin/qr-print', name: 'admin-qr-print', component: QRCodePrint, meta: { ...adminMeta, title: 'QR 码打印', canonical: '/manage/admin/qr-print' } }
     ]
   },
   { path: '/review', redirect: '/manage/overview' },
