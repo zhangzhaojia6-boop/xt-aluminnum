@@ -55,6 +55,11 @@ class WorkshopQrResponse(BaseModel):
     workshop_name: str
 
 
+class WorkshopQuickEntryRequest(BaseModel):
+    workshop_code: str
+    role: str
+
+
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str

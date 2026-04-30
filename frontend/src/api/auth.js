@@ -23,3 +23,8 @@ export async function meApi(config = {}) {
   const { data } = await api.get('/auth/me', config)
   return data
 }
+
+export async function workshopQuickEntryApi({ workshop_code, role }) {
+  const { data } = await api.post('/auth/workshop-quick-entry', { workshop_code, role })
+  return data
+}

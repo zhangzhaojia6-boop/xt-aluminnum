@@ -7,6 +7,9 @@
           <h1>{{ pageTitle }}</h1>
           <p>{{ pageSubtitle }}</p>
         </div>
+        <el-button text size="small" class="mobile-logout-btn" @click="handleLogout">
+          切换账号
+        </el-button>
       </div>
 
       <el-alert
@@ -107,8 +110,8 @@
         </div>
 
         <div class="mobile-entry-stage__cta">
-          <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
-            {{ transitionMapping.primary_cta }}
+          <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goUnifiedEntry">
+            开始填报
           </el-button>
           <div class="mobile-entry-stage__status">
             <span>状态</span>
@@ -117,9 +120,7 @@
         </div>
 
         <div class="mobile-entry-stage__quick-grid">
-          <el-button type="primary" plain @click="goReport">快速填报</el-button>
-          <el-button plain @click="goAdvancedReport">高级填报</el-button>
-          <el-button plain :disabled="!ocrSupported || !current.shift_id" @click="goOcr">OCR</el-button>
+          <el-button type="primary" plain @click="goUnifiedEntry">填报</el-button>
           <el-button plain @click="goReportHistory">历史记录</el-button>
         </div>
       </div>
@@ -311,6 +312,11 @@ async function load() {
   }
 }
 
+function handleLogout() {
+  auth.logout()
+  router.replace('/login')
+}
+
 async function retryAuth() {
   if (retryingAuth.value) return
   retryingAuth.value = true
@@ -322,6 +328,11 @@ async function retryAuth() {
   } finally {
     retryingAuth.value = false
   }
+}
+
+function goUnifiedEntry() {
+  if (!current.value?.shift_id) return
+  router.push({ name: 'mobile-unified-entry' })
 }
 
 function goReport() {
@@ -398,6 +409,12 @@ onMounted(load)
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 6px;
+}
+
+.mobile-logout-btn {
+  font-size: 12px;
+  color: var(--xt-text-tertiary, #999);
+  margin-top: 6px;
 }
 
 .mobile-entry-stage__top h1 {

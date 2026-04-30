@@ -21,6 +21,11 @@ export async function fetchCurrentShift() {
   return data
 }
 
+export async function fetchEntryFields() {
+  const { data } = await api.get('/mobile/entry-fields')
+  return data
+}
+
 export async function fetchWorkshopTemplate(templateKey) {
   const { data } = await api.get(`/templates/${templateKey}`)
   return data
@@ -129,5 +134,15 @@ export async function ackMobileReminder(reminderId, note = '') {
 
 export async function closeMobileReminder(reminderId, note = '') {
   const { data } = await api.post(`/mobile/reminders/${reminderId}/close`, { note })
+  return data
+}
+
+export async function fetchCoilList(businessDate, shiftId) {
+  const { data } = await api.get(`/mobile/coil-list/${businessDate}/${shiftId}`)
+  return data
+}
+
+export async function createCoilEntry(payload) {
+  const { data } = await api.post('/mobile/coil-entry', payload)
   return data
 }

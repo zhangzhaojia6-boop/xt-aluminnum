@@ -99,6 +99,56 @@ def qr_login(
             'workshop_name': workshop.name if workshop else '',
         }
 
+    if equipment.equipment_type == 'virtual_role_qr':
+        workshop = db.get(Workshop, equipment.workshop_id)
+        if workshop is None:
+            raise HTTPException(status_code=404, detail='车间不存在')
+        qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
+        mapping = ROLE_QR_SUFFIX_MAP.get(qr_suffix)
+        if mapping is None:
+            raise HTTPException(status_code=400, detail='无效角色码')
+        system_role, role_label = mapping
+        username = equipment.code.upper()
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            user = User(
+                username=username,
+                password_hash=get_password_hash('xt123456'),
+                name=equipment.name or f'{workshop.name}{role_label}',
+                role=system_role,
+                workshop_id=workshop.id,
+                is_active=True,
+                is_mobile_user=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+        token = create_access_token(
+            subject=str(user.id),
+            extra_claims={'workshop_id': workshop.id, 'machine_id': equipment.id},
+        )
+        log_action(
+            db,
+            user_id=user.id,
+            user_name=user.name,
+            action='qr_login',
+            module='auth',
+            table_name='equipment',
+            record_id=equipment.id,
+            ip_address=request.client.host if request.client else None,
+        )
+        machine_info = build_machine_info(equipment, workshop=workshop) if qr_suffix == 'OP' else None
+        user_info = UserInfo.model_validate(user)
+        return {
+            'access_token': token,
+            'token_type': 'bearer',
+            'user': user_info.model_dump(),
+            'machine_info': machine_info,
+        }
+
     if equipment.bound_user_id is None:
         raise HTTPException(status_code=404, detail='该机台未绑定账号，请联系管理员')
 
@@ -146,3 +196,11 @@ def qr_login(
 @router.post('/logout')
 def logout() -> dict:
     return {'success': True, 'data': None, 'message': 'logout success', 'total': None}
+
+
+ROLE_QR_SUFFIX_MAP = {
+    'OP': ('machine_operator', '主操'),
+    'EN': ('energy_stat', '电工'),
+    'HY': ('hydraulic_lead', '液压'),
+    'MT': ('maintenance_lead', '机修'),
+}

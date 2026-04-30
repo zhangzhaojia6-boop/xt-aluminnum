@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import { dingtalkLoginApi, loginApi, meApi, qrLoginApi } from '../api/auth.js'
+import { dingtalkLoginApi, loginApi, meApi, qrLoginApi, workshopQuickEntryApi } from '../api/auth.js'
 
 const TOKEN_KEY = 'aluminum_bypass_token'
 const USER_KEY = 'aluminum_bypass_user'
@@ -203,6 +203,11 @@ export const useAuthStore = defineStore('auth', {
       this.user = normalizeUser(user)
       localStorage.setItem(USER_KEY, JSON.stringify(this.user))
       return this.user
+    },
+    async workshopQuickEntry({ workshop_code, role }) {
+      const result = await workshopQuickEntryApi({ workshop_code, role })
+      this.setSession(result.access_token, result.user, result.machine_info)
+      return result
     }
   }
 })

@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.permissions import get_current_mobile_user
+from app.core.workshop_templates import DEFAULT_WORKSHOP_TEMPLATES, WORKSHOP_TYPE_BY_WORKSHOP_CODE, resolve_workshop_type
+from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.mobile import (
     MobileBootstrapOut,
@@ -236,3 +238,100 @@ def create_coil_entry(
         ip_address=_request_ip(request),
     )
     return MobileCoilEntryOut(**entry)
+
+
+ROLE_FIELD_MAPPING = {
+    'machine_operator': {'sections': ['entry', 'shift'], 'label': '产量数据'},
+    'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
+    'maintenance_lead': {'extra_filter': 'maintenance_lead', 'label': '设备维护'},
+    'hydraulic_lead': {'extra_filter': 'hydraulic_lead', 'label': '液压耗材'},
+    'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '耗材统计'},
+    'qc': {'sections': ['qc'], 'label': '质检数据'},
+    'weigher': {'sections': ['entry'], 'label': '称重数据'},
+    'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
+    'contracts': {'extra_filter': 'contracts', 'label': '合同与投料'},
+    'inventory_keeper': {'sections': ['entry'], 'label': '库存数据'},
+    'utility_manager': {'extra_filter': 'utility_manager', 'label': '水电气'},
+}
+
+
+def _filter_fields_by_role(fields: list[dict], role: str) -> list[dict]:
+    result = []
+    for f in fields:
+        role_write = f.get('role_write', [])
+        if not role_write or role in role_write or role in ('admin', 'shift_leader'):
+            result.append(f)
+    return result
+
+
+@router.get('/entry-fields', name='mobile-entry-fields')
+def entry_fields(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> dict:
+    workshop = db.get(Workshop, current_user.workshop_id) if current_user.workshop_id else None
+    if workshop is None:
+        return {'groups': [], 'mode': 'unknown', 'error': '未绑定车间'}
+
+    ws_code = workshop.code.upper()
+    ws_type = WORKSHOP_TYPE_BY_WORKSHOP_CODE.get(ws_code)
+    if not ws_type:
+        try:
+            ws_type = resolve_workshop_type(
+                workshop_type=getattr(workshop, 'workshop_type', None),
+                workshop_code=ws_code,
+                workshop_name=workshop.name,
+            )
+        except Exception:
+            ws_type = 'casting'
+
+    template = DEFAULT_WORKSHOP_TEMPLATES.get(ws_type, {})
+    role = current_user.role or ''
+    mapping = ROLE_FIELD_MAPPING.get(role, ROLE_FIELD_MAPPING.get('shift_leader', {}))
+
+    groups = []
+    is_per_coil = role == 'machine_operator'
+
+    if 'extra_filter' in mapping:
+        target_role = mapping['extra_filter']
+        fields = []
+        for f in template.get('extra_fields', []):
+            rw = f.get('role_write', [])
+            if target_role in rw:
+                fields.append(f)
+        for f in template.get('qc_fields', []):
+            rw = f.get('role_write', [])
+            if target_role in rw:
+                fields.append(f)
+        if fields:
+            groups.append({'label': mapping.get('label', '填报'), 'fields': fields})
+    else:
+        sections = mapping.get('sections', ['entry'])
+        if 'entry' in sections:
+            ef = _filter_fields_by_role(template.get('entry_fields', []), role)
+            if ef:
+                groups.append({'label': '产量数据' if is_per_coil else '基础数据', 'fields': ef})
+        if 'shift' in sections:
+            sf = _filter_fields_by_role(template.get('shift_fields', []), role)
+            if sf:
+                groups.append({'label': '班次数据', 'fields': sf})
+        if 'extra' in sections:
+            xf = _filter_fields_by_role(template.get('extra_fields', []), role)
+            if xf:
+                groups.append({'label': '补充数据', 'fields': xf})
+        if 'qc' in sections:
+            qf = _filter_fields_by_role(template.get('qc_fields', []), role)
+            if qf:
+                groups.append({'label': '质检', 'fields': qf})
+
+    readonly = template.get('readonly_fields', [])
+    readonly_filtered = _filter_fields_by_role(readonly, role)
+
+    return {
+        'groups': groups,
+        'readonly_fields': readonly_filtered,
+        'mode': 'per_coil' if is_per_coil else 'per_shift',
+        'workshop_type': ws_type,
+        'role': role,
+        'role_label': mapping.get('label', '填报'),
+    }
