@@ -608,7 +608,7 @@ svg {
   flex-wrap: wrap;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 520px) {
   .mobile-shell {
     padding-inline: var(--xt-space-3);
   }

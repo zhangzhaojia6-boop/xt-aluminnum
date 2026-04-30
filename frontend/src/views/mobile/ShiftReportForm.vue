@@ -736,14 +736,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .mobile-shell--flow {
-  max-width: 1180px;
+  max-width: 760px;
   margin: 0 auto;
   padding-bottom: 96px;
 }
 
 .entry-flow-steps {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: var(--xt-space-2);
   margin: var(--xt-space-2) 0 var(--xt-space-3);
   padding: var(--xt-space-3);
@@ -786,7 +786,7 @@ onBeforeUnmount(() => {
 
 .entry-flow-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--xt-space-3);
   align-items: start;
 }
@@ -854,10 +854,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .entry-flow-layout {
-    grid-template-columns: 1fr;
-  }
-
   .entry-flow-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

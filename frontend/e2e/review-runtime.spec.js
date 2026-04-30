@@ -30,7 +30,7 @@ test('factory route renders the production board smoke surface', async ({ page }
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(factoryBoard.getByRole('heading', { name: '工厂作业看板' })).toBeVisible()
-  await expect(factoryBoard.getByText('鑫泰铝业协同运营平台')).toBeVisible()
+  await expect(factoryBoard.getByText('鑫泰铝业 数据中枢')).toBeVisible()
   await expect(factoryBoard.getByTestId('review-home-hero')).toBeVisible()
   await expect(factoryBoard.getByTestId('agent-runtime-flow')).toBeVisible()
   await expect(factoryBoard.getByTestId('review-assistant-dock')).toBeVisible()
@@ -121,7 +121,7 @@ test('brain route renders the AI control smoke surface', async ({ page }) => {
   await expect(aiWorkstation).toBeVisible()
   await expect(aiWorkstation.getByRole('heading', { name: 'AI 工作台' })).toBeVisible()
   await expect(aiWorkstation.getByText(/对话|暂无对话|加载中/).first()).toBeVisible()
-  await expect(aiWorkstation.getByPlaceholder('输入消息')).toBeVisible()
+  await expect(aiWorkstation.getByPlaceholder('问 AI 总管：今天哪个车间风险最高，下一步怎么做？')).toBeVisible()
   await expect(aiWorkstation.getByRole('button', { name: '新建' })).toBeVisible()
   await expect(aiWorkstation.getByRole('button', { name: '发送' })).toBeDisabled()
   await expect(aiWorkstation.getByText('AI 已自动处理')).toHaveCount(0)
@@ -194,6 +194,6 @@ test('review navigation does not expose roadmap as a formal center', async ({ pa
   const reviewAside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   const roadmapItem = reviewAside.locator('.xt-manage__nav-item', { hasText: '路线图' })
 
-  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '数据分析' })).toBeVisible()
+  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '总览' })).toBeVisible()
   await expect(roadmapItem).toHaveCount(0)
 })

@@ -425,29 +425,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   color: var(--xt-text-muted);
 }
 
-@media (max-width: 1023px) {
-  .xt-manage__sidebar {
-    width: var(--xt-sidebar-collapsed);
-  }
-
-  .xt-manage__main,
-  .xt-manage--collapsed .xt-manage__main {
-    margin-left: var(--xt-sidebar-collapsed);
-  }
-
-  .xt-manage__nav-label,
-  .xt-manage__nav-group-label,
-  .xt-manage__brand-text {
-    display: none;
-  }
-
-  .xt-manage__nav-item {
-    justify-content: center;
-    padding: 0;
-  }
-}
-
-@media (max-width: 767px) {
+@media (max-width: 1180px) {
   .xt-manage__sidebar {
     display: none;
   }
@@ -463,14 +441,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
   .xt-manage__search-trigger {
     min-width: 0;
-  }
-
-  .xt-manage__search-trigger kbd {
-    display: none;
+    width: min(320px, 100%);
   }
 
   .xt-manage__content {
     padding: var(--xt-space-4);
+  }
+}
+
+@media (max-width: 767px) {
+  .xt-manage__search-trigger kbd {
+    display: none;
   }
 }
 </style>
