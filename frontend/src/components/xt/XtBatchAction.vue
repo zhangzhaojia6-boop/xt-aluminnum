@@ -41,7 +41,7 @@ defineEmits(['action', 'clear'])
   justify-content: space-between;
   gap: var(--xt-space-3);
   padding: var(--xt-space-3) var(--xt-space-4);
-  border: 1px solid rgba(0, 113, 227, 0.18);
+  border: 1px solid var(--xt-primary-border);
   border-radius: var(--xt-radius-xl);
   color: var(--xt-primary);
   background: var(--xt-primary-light);

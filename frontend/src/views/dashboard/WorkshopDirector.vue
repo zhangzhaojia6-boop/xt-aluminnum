@@ -596,7 +596,7 @@ onMounted(async () => {
 }
 
 .workshop-lane-table {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--xt-border-light);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -613,7 +613,7 @@ onMounted(async () => {
 .workshop-lane-table :deep(thead .cell) {
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: #475569;
+  color: var(--xt-gray-600);
 }
 
 .workshop-delta {
@@ -622,15 +622,15 @@ onMounted(async () => {
 }
 
 .workshop-delta.is-up {
-  color: #0f766e;
+  color: var(--xt-success);
 }
 
 .workshop-delta.is-down {
-  color: #b91c1c;
+  color: var(--xt-danger);
 }
 
 .workshop-delta.is-flat {
-  color: #64748b;
+  color: var(--xt-gray-500);
 }
 
 .workshop-panel-title {
@@ -649,8 +649,8 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.82);
+  color: var(--xt-primary);
+  background: var(--xt-primary-light);
 }
 
 .workshop-panel-title small {

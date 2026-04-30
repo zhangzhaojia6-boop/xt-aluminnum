@@ -84,7 +84,7 @@ function isActive(path) {
   padding: calc(var(--xt-space-2) + env(safe-area-inset-top)) var(--xt-space-4) var(--xt-space-2);
   background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 0 var(--xt-border-light);
 }
 
 .xt-entry__brand {
@@ -143,7 +143,7 @@ function isActive(path) {
   padding: var(--xt-space-1) var(--xt-space-2) calc(var(--xt-space-1) + env(safe-area-inset-bottom));
   background: var(--xt-bg-panel);
   border-top: 1px solid var(--xt-border-light);
-  box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--xt-shadow-sm);
   transform: translateX(-50%);
 }
 

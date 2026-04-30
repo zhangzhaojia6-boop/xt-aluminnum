@@ -221,8 +221,8 @@ const riskCards = computed(() => {
 .agent-runtime-flow {
   padding: 10px;
   border-radius: 12px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--xt-bg-panel-strong);
+  border: 1px solid var(--xt-border-light);
 }
 
 .agent-runtime-flow__header {
@@ -256,8 +256,8 @@ const riskCards = computed(() => {
 .agent-runtime-flow__column {
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: #f8fafc;
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-gray-50);
 }
 
 .agent-runtime-flow__item,
@@ -268,8 +268,8 @@ const riskCards = computed(() => {
   min-height: 50px;
   padding: 9px 10px;
   border-radius: 10px;
-  background: #fff;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--xt-bg-panel-strong);
+  border: 1px solid var(--xt-border-light);
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease,
@@ -280,7 +280,7 @@ const riskCards = computed(() => {
 .agent-runtime-flow__item:hover,
 .agent-runtime-flow__step:hover {
   transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: var(--xt-info-border);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
@@ -289,7 +289,7 @@ const riskCards = computed(() => {
 .agent-runtime-flow__item.is-warning,
 .agent-runtime-flow__step.is-warning,
 .agent-runtime-flow__risk.is-alert {
-  border-color: rgba(239, 68, 68, 0.26);
+  border-color: var(--xt-danger-border);
   background: rgba(254, 242, 242, 0.92);
 }
 
@@ -302,22 +302,22 @@ const riskCards = computed(() => {
   justify-content: center;
   border-radius: 999px;
   background: rgba(219, 234, 254, 0.82);
-  color: #1d4ed8;
+  color: var(--xt-primary);
 }
 
 .agent-runtime-flow__badge.is-alert {
   background: rgba(254, 226, 226, 0.88);
-  color: #b91c1c;
+  color: var(--xt-danger);
 }
 
 .agent-runtime-flow__badge.is-warning {
   background: rgba(254, 243, 199, 0.92);
-  color: #b45309;
+  color: var(--xt-warning);
 }
 
 .agent-runtime-flow__badge.is-idle {
   background: rgba(241, 245, 249, 0.9);
-  color: #475569;
+  color: var(--xt-gray-600);
 }
 
 .agent-runtime-flow__badge--step {
@@ -349,8 +349,8 @@ const riskCards = computed(() => {
 .agent-runtime-flow__risk {
   padding: 9px 10px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--xt-gray-50);
+  border: 1px solid var(--xt-border-light);
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease,
@@ -359,7 +359,7 @@ const riskCards = computed(() => {
 
 .agent-runtime-flow__risk:hover {
   transform: translateY(-1px);
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: var(--xt-info-border);
 }
 
 .agent-runtime-flow__risk span {

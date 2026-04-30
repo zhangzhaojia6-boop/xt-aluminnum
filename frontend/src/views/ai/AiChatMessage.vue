@@ -142,9 +142,9 @@ function formatToolCall(toolCall) {
 }
 
 .ai-message--user .ai-message__bubble {
-  border-color: rgba(0, 113, 227, 0.18);
+  border-color: var(--xt-primary-border);
   background: var(--app-accent);
-  color: #ffffff;
+  color: var(--xt-text-inverse);
 }
 
 .ai-message__content {

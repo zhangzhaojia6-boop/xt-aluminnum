@@ -502,8 +502,8 @@ onMounted(async () => {
 @media (hover: hover) {
   .login-stage__role-card:hover {
     transform: translateY(-2px);
-    border-color: rgba(11, 99, 246, 0.22);
-    background: #ffffff;
+    border-color: var(--xt-primary-border);
+    background: var(--xt-bg-panel-strong);
   }
 }
 

@@ -127,7 +127,7 @@ function formatTime(value) {
 
 .ai-conversations__item:hover,
 .ai-conversations__item.is-active {
-  border-color: rgba(0, 113, 227, 0.18);
+  border-color: var(--xt-primary-border);
   background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
 }

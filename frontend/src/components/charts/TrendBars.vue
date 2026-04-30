@@ -58,13 +58,13 @@ const safeItems = computed(() => {
 .trend-bars__track {
   height: 8px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--xt-bg-panel-muted);
   overflow: hidden;
 }
 
 .trend-bars__fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #1d4ed8, #0ea5e9);
+  background: linear-gradient(90deg, var(--xt-primary), var(--xt-info));
 }
 </style>

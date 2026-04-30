@@ -67,7 +67,7 @@ defineProps({
   fill: var(--xt-bg-panel);
   stroke: currentColor;
   stroke-width: 2.2;
-  filter: drop-shadow(0 6px 10px rgba(11, 99, 246, 0.14));
+  filter: drop-shadow(0 6px 10px var(--xt-primary-border));
 }
 
 .xt-logo__shadow {

@@ -70,7 +70,7 @@ const title = computed(() => {
 }
 
 .xt-ai-thinking.is-error {
-  border-color: rgba(194, 65, 52, 0.24);
+  border-color: var(--xt-danger-border);
   background: var(--xt-danger-light);
 }
 

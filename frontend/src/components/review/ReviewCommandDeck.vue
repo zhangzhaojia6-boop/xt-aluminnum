@@ -85,7 +85,7 @@ function iconToneClass(tone) {
 .review-command-deck__card:hover,
 .review-command-deck__card:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(0, 113, 227, 0.24);
+  border-color: var(--xt-primary-border);
   box-shadow: var(--xt-shadow-md);
   background: var(--xt-bg-panel-soft);
   outline: none;

@@ -168,7 +168,7 @@ onMounted(load)
 
   .qr-print-card {
     break-inside: avoid;
-    border: 1px solid #ccc;
+    border: 1px solid var(--xt-border);
   }
 }
 </style>

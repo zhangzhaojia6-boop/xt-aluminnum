@@ -85,7 +85,7 @@ function defaultDetail(index) {
 }
 
 .xt-execution-rail__step.is-running {
-  border-color: rgba(11, 99, 246, 0.24);
+  border-color: var(--xt-primary-border);
   box-shadow: var(--xt-shadow-command);
 }
 

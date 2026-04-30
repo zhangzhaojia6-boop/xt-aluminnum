@@ -513,13 +513,13 @@ onMounted(load)
 @media (hover: hover) {
   .review-overview-center__ai-actions button:hover {
     transform: translateY(-1px);
-    border-color: rgba(11, 99, 246, 0.2);
+    border-color: var(--xt-primary-border);
     box-shadow: var(--xt-shadow-sm);
   }
 }
 
 .review-overview-center__ai-actions button.is-warning {
-  border-color: rgba(183, 121, 31, 0.22);
+  border-color: var(--xt-warning-border);
   background: var(--xt-warning-light);
 }
 
@@ -611,7 +611,7 @@ onMounted(load)
 .review-overview-center__quick {
   border: 1px solid var(--reference-line);
   border-radius: 14px;
-  background: rgba(248, 251, 255, 0.94);
+  background: var(--xt-primary-soft);
 }
 
 .review-overview-center__quick {

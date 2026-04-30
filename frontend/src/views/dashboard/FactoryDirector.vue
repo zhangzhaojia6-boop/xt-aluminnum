@@ -911,9 +911,9 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(219, 234, 254, 0.86);
-  border: 1px solid rgba(59, 130, 246, 0.24);
-  color: #1d4ed8;
+  background: var(--xt-primary-light);
+  border: 1px solid var(--xt-primary-border);
+  color: var(--xt-primary);
 }
 
 .review-home-hero__grid {
@@ -966,7 +966,7 @@ onUnmounted(() => {
 }
 
 .review-home-hero__workshop-card.is-active {
-  border-color: rgba(183, 121, 31, 0.28);
+  border-color: var(--xt-warning-border);
   background: var(--xt-warning-light);
 }
 
@@ -1025,7 +1025,7 @@ onUnmounted(() => {
 
 .review-factory-detail-toggle__btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(0, 113, 227, 0.24);
+  border-color: var(--xt-primary-border);
   box-shadow: var(--xt-shadow-sm);
   background: var(--xt-bg-panel-soft);
 }
@@ -1061,7 +1061,7 @@ onUnmounted(() => {
 }
 
 .reporting-status-table {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--xt-border-light);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -1078,7 +1078,7 @@ onUnmounted(() => {
 .reporting-status-table :deep(thead .cell) {
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: #475569;
+  color: var(--xt-gray-600);
 }
 
 .reporting-status-pill {
@@ -1090,40 +1090,40 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   border: 1px solid transparent;
-  background: rgba(226, 232, 240, 0.8);
-  color: #334155;
+  background: var(--xt-gray-200);
+  color: var(--xt-gray-700);
 }
 
 .reporting-status-pill.is-submitted,
 .reporting-status-pill.is-reviewed,
 .reporting-status-pill.is-auto_confirmed {
-  color: #0f766e;
-  background: rgba(209, 250, 229, 0.7);
-  border-color: rgba(16, 185, 129, 0.26);
+  color: var(--xt-success);
+  background: var(--xt-success-light);
+  border-color: var(--xt-success-border);
 }
 
 .reporting-status-pill.is-draft {
-  color: #1d4ed8;
-  background: rgba(219, 234, 254, 0.76);
-  border-color: rgba(59, 130, 246, 0.28);
+  color: var(--xt-primary);
+  background: var(--xt-primary-light);
+  border-color: var(--xt-primary-border);
 }
 
 .reporting-status-pill.is-unreported {
-  color: #92400e;
-  background: rgba(254, 243, 199, 0.78);
-  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--xt-warning);
+  background: var(--xt-warning-light);
+  border-color: var(--xt-warning-border);
 }
 
 .reporting-status-pill.is-late,
 .reporting-status-pill.is-returned {
-  color: #991b1b;
-  background: rgba(254, 226, 226, 0.82);
-  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--xt-danger);
+  background: var(--xt-danger-light);
+  border-color: var(--xt-danger-border);
 }
 
 .reporting-status-note {
   display: inline-block;
-  color: #64748b;
+  color: var(--xt-gray-500);
   line-height: 1.45;
 }
 
@@ -1152,7 +1152,7 @@ onUnmounted(() => {
 .history-trend-card:hover,
 .archive-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 113, 227, 0.2);
+  border-color: var(--xt-primary-border);
   box-shadow: var(--xt-shadow-md);
 }
 
@@ -1185,7 +1185,7 @@ onUnmounted(() => {
   overflow: hidden;
   height: 8px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.16);
+  background: var(--xt-bg-panel-muted);
 }
 
 .history-trend-card__bar span {
@@ -1207,7 +1207,7 @@ onUnmounted(() => {
 }
 
 .archive-card--accent {
-  border-color: rgba(0, 113, 227, 0.22);
+  border-color: var(--xt-primary-border);
   background: var(--xt-primary-light);
 }
 
@@ -1218,7 +1218,7 @@ onUnmounted(() => {
 .template-empty {
   padding: 18px 16px;
   border-radius: 12px;
-  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border: 1px dashed var(--xt-border);
   color: var(--app-muted);
   text-align: center;
 }

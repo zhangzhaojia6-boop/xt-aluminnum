@@ -274,7 +274,7 @@ onMounted(load)
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--app-border);
-  background: rgba(248, 250, 252, 0.92);
+  background: var(--xt-gray-50);
 }
 
 .ingestion-source-card span {

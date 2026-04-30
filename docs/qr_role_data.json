@@ -1,0 +1,447 @@
+{
+  "ZD": {
+    "name": "铸锭车间",
+    "codes": [
+      {
+        "qr": "XT-ZD-1-OP",
+        "name": "铸锭车间 1# 主操",
+        "code": "ZD-1-OP"
+      },
+      {
+        "qr": "XT-ZD-2-OP",
+        "name": "铸锭车间 2# 主操",
+        "code": "ZD-2-OP"
+      },
+      {
+        "qr": "XT-ZD-3-OP",
+        "name": "铸锭车间 3# 主操",
+        "code": "ZD-3-OP"
+      },
+      {
+        "qr": "XT-ZD-4-OP",
+        "name": "铸锭车间 4# 主操",
+        "code": "ZD-4-OP"
+      },
+      {
+        "qr": "XT-ZD-EN",
+        "name": "铸锭车间 电工",
+        "code": "ZD-EN"
+      },
+      {
+        "qr": "XT-ZD-HY",
+        "name": "铸锭车间 液压",
+        "code": "ZD-HY"
+      },
+      {
+        "qr": "XT-ZD-MT",
+        "name": "铸锭车间 机修",
+        "code": "ZD-MT"
+      }
+    ]
+  },
+  "ZR2": {
+    "name": "铸轧二车间",
+    "codes": [
+      {
+        "qr": "XT-ZR2-1-OP",
+        "name": "铸轧二车间 1# 主操",
+        "code": "ZR2-1-OP"
+      },
+      {
+        "qr": "XT-ZR2-2-OP",
+        "name": "铸轧二车间 2# 主操",
+        "code": "ZR2-2-OP"
+      },
+      {
+        "qr": "XT-ZR2-3-OP",
+        "name": "铸轧二车间 3# 主操",
+        "code": "ZR2-3-OP"
+      },
+      {
+        "qr": "XT-ZR2-4-OP",
+        "name": "铸轧二车间 4# 主操",
+        "code": "ZR2-4-OP"
+      },
+      {
+        "qr": "XT-ZR2-5-OP",
+        "name": "铸轧二车间 5# 主操",
+        "code": "ZR2-5-OP"
+      },
+      {
+        "qr": "XT-ZR2-6-OP",
+        "name": "铸轧二车间 6# 主操",
+        "code": "ZR2-6-OP"
+      },
+      {
+        "qr": "XT-ZR2-EN",
+        "name": "铸轧二车间 电工",
+        "code": "ZR2-EN"
+      },
+      {
+        "qr": "XT-ZR2-HY",
+        "name": "铸轧二车间 液压",
+        "code": "ZR2-HY"
+      },
+      {
+        "qr": "XT-ZR2-MT",
+        "name": "铸轧二车间 机修",
+        "code": "ZR2-MT"
+      }
+    ]
+  },
+  "ZR3": {
+    "name": "铸轧三车间",
+    "codes": [
+      {
+        "qr": "XT-ZR3-1-OP",
+        "name": "铸轧三车间 1# 主操",
+        "code": "ZR3-1-OP"
+      },
+      {
+        "qr": "XT-ZR3-2-OP",
+        "name": "铸轧三车间 2# 主操",
+        "code": "ZR3-2-OP"
+      },
+      {
+        "qr": "XT-ZR3-3-OP",
+        "name": "铸轧三车间 3# 主操",
+        "code": "ZR3-3-OP"
+      },
+      {
+        "qr": "XT-ZR3-4-OP",
+        "name": "铸轧三车间 4# 主操",
+        "code": "ZR3-4-OP"
+      },
+      {
+        "qr": "XT-ZR3-5-OP",
+        "name": "铸轧三车间 5# 主操",
+        "code": "ZR3-5-OP"
+      },
+      {
+        "qr": "XT-ZR3-6-OP",
+        "name": "铸轧三车间 6# 主操",
+        "code": "ZR3-6-OP"
+      },
+      {
+        "qr": "XT-ZR3-7-OP",
+        "name": "铸轧三车间 7# 主操",
+        "code": "ZR3-7-OP"
+      },
+      {
+        "qr": "XT-ZR3-8-OP",
+        "name": "铸轧三车间 8# 主操",
+        "code": "ZR3-8-OP"
+      },
+      {
+        "qr": "XT-ZR3-9-OP",
+        "name": "铸轧三车间 9# 主操",
+        "code": "ZR3-9-OP"
+      },
+      {
+        "qr": "XT-ZR3-EN",
+        "name": "铸轧三车间 电工",
+        "code": "ZR3-EN"
+      },
+      {
+        "qr": "XT-ZR3-HY",
+        "name": "铸轧三车间 液压",
+        "code": "ZR3-HY"
+      },
+      {
+        "qr": "XT-ZR3-MT",
+        "name": "铸轧三车间 机修",
+        "code": "ZR3-MT"
+      }
+    ]
+  },
+  "RZ": {
+    "name": "热轧车间",
+    "codes": [
+      {
+        "qr": "XT-RZ-SAW-OP",
+        "name": "热轧车间 锯床 主操",
+        "code": "RZ-SAW-OP"
+      },
+      {
+        "qr": "XT-RZ-FMILL-OP",
+        "name": "热轧车间 六面铣 主操",
+        "code": "RZ-FMILL-OP"
+      },
+      {
+        "qr": "XT-RZ-DMILL-OP",
+        "name": "热轧车间 双面铣 主操",
+        "code": "RZ-DMILL-OP"
+      },
+      {
+        "qr": "XT-RZ-MED-OP",
+        "name": "热轧车间 中厚板 主操",
+        "code": "RZ-MED-OP"
+      },
+      {
+        "qr": "XT-RZ-HEAT-OP",
+        "name": "热轧车间 加热炉 主操",
+        "code": "RZ-HEAT-OP"
+      },
+      {
+        "qr": "XT-RZ-ROLL-OP",
+        "name": "热轧车间 热轧机 主操",
+        "code": "RZ-ROLL-OP"
+      },
+      {
+        "qr": "XT-RZ-EN",
+        "name": "热轧车间 电工",
+        "code": "RZ-EN"
+      },
+      {
+        "qr": "XT-RZ-HY",
+        "name": "热轧车间 液压",
+        "code": "RZ-HY"
+      },
+      {
+        "qr": "XT-RZ-MT",
+        "name": "热轧车间 机修",
+        "code": "RZ-MT"
+      }
+    ]
+  },
+  "LZ2050": {
+    "name": "冷轧2050车间",
+    "codes": [
+      {
+        "qr": "XT-LZ2050-1-OP",
+        "name": "冷轧2050车间 2050# 主操",
+        "code": "LZ2050-1-OP"
+      },
+      {
+        "qr": "XT-LZ2050-EN",
+        "name": "冷轧2050车间 电工",
+        "code": "LZ2050-EN"
+      },
+      {
+        "qr": "XT-LZ2050-HY",
+        "name": "冷轧2050车间 液压",
+        "code": "LZ2050-HY"
+      },
+      {
+        "qr": "XT-LZ2050-MT",
+        "name": "冷轧2050车间 机修",
+        "code": "LZ2050-MT"
+      }
+    ]
+  },
+  "LZ1450": {
+    "name": "冷轧1450车间",
+    "codes": [
+      {
+        "qr": "XT-LZ1450-1-OP",
+        "name": "冷轧1450车间 1450#1 主操",
+        "code": "LZ1450-1-OP"
+      },
+      {
+        "qr": "XT-LZ1450-2-OP",
+        "name": "冷轧1450车间 1450#2 主操",
+        "code": "LZ1450-2-OP"
+      },
+      {
+        "qr": "XT-LZ1450-800-OP",
+        "name": "冷轧1450车间 800# 主操",
+        "code": "LZ1450-800-OP"
+      },
+      {
+        "qr": "XT-LZ1450-EN",
+        "name": "冷轧1450车间 电工",
+        "code": "LZ1450-EN"
+      },
+      {
+        "qr": "XT-LZ1450-HY",
+        "name": "冷轧1450车间 液压",
+        "code": "LZ1450-HY"
+      },
+      {
+        "qr": "XT-LZ1450-MT",
+        "name": "冷轧1450车间 机修",
+        "code": "LZ1450-MT"
+      }
+    ]
+  },
+  "LZ3": {
+    "name": "冷轧三车间",
+    "codes": [
+      {
+        "qr": "XT-LZ3-1-OP",
+        "name": "冷轧三车间 1# 主操",
+        "code": "LZ3-1-OP"
+      },
+      {
+        "qr": "XT-LZ3-2-OP",
+        "name": "冷轧三车间 2# 主操",
+        "code": "LZ3-2-OP"
+      },
+      {
+        "qr": "XT-LZ3-3-OP",
+        "name": "冷轧三车间 3# 主操",
+        "code": "LZ3-3-OP"
+      },
+      {
+        "qr": "XT-LZ3-4-OP",
+        "name": "冷轧三车间 4# 主操",
+        "code": "LZ3-4-OP"
+      },
+      {
+        "qr": "XT-LZ3-5-OP",
+        "name": "冷轧三车间 5# 主操",
+        "code": "LZ3-5-OP"
+      },
+      {
+        "qr": "XT-LZ3-EN",
+        "name": "冷轧三车间 电工",
+        "code": "LZ3-EN"
+      },
+      {
+        "qr": "XT-LZ3-HY",
+        "name": "冷轧三车间 液压",
+        "code": "LZ3-HY"
+      },
+      {
+        "qr": "XT-LZ3-MT",
+        "name": "冷轧三车间 机修",
+        "code": "LZ3-MT"
+      }
+    ]
+  },
+  "JZ": {
+    "name": "精整一车间",
+    "codes": [
+      {
+        "qr": "XT-JZ-19R-OP",
+        "name": "精整一车间 19辊 主操",
+        "code": "JZ-19R-OP"
+      },
+      {
+        "qr": "XT-JZ-N19R-OP",
+        "name": "精整一车间 新19辊 主操",
+        "code": "JZ-N19R-OP"
+      },
+      {
+        "qr": "XT-JZ-SL-OP",
+        "name": "精整一车间 纵剪 主操",
+        "code": "JZ-SL-OP"
+      },
+      {
+        "qr": "XT-JZ-EN",
+        "name": "精整一车间 电工",
+        "code": "JZ-EN"
+      },
+      {
+        "qr": "XT-JZ-HY",
+        "name": "精整一车间 液压",
+        "code": "JZ-HY"
+      },
+      {
+        "qr": "XT-JZ-MT",
+        "name": "精整一车间 机修",
+        "code": "JZ-MT"
+      }
+    ]
+  },
+  "JZ2": {
+    "name": "精整二车间",
+    "codes": [
+      {
+        "qr": "XT-JZ2-LJ-OP",
+        "name": "精整二车间 拉矫 主操",
+        "code": "JZ2-LJ-OP"
+      },
+      {
+        "qr": "XT-JZ2-DFQ-OP",
+        "name": "精整二车间 大分切 主操",
+        "code": "JZ2-DFQ-OP"
+      },
+      {
+        "qr": "XT-JZ2-XJZ-OP",
+        "name": "精整二车间 小剪子 主操",
+        "code": "JZ2-XJZ-OP"
+      },
+      {
+        "qr": "XT-JZ2-EN",
+        "name": "精整二车间 电工",
+        "code": "JZ2-EN"
+      },
+      {
+        "qr": "XT-JZ2-HY",
+        "name": "精整二车间 液压",
+        "code": "JZ2-HY"
+      },
+      {
+        "qr": "XT-JZ2-MT",
+        "name": "精整二车间 机修",
+        "code": "JZ2-MT"
+      }
+    ]
+  },
+  "JQ": {
+    "name": "剪切车间",
+    "codes": [
+      {
+        "qr": "XT-JQ-1-OP",
+        "name": "剪切车间 1# 主操",
+        "code": "JQ-1-OP"
+      },
+      {
+        "qr": "XT-JQ-2-OP",
+        "name": "剪切车间 2# 主操",
+        "code": "JQ-2-OP"
+      },
+      {
+        "qr": "XT-JQ-3-OP",
+        "name": "剪切车间 3# 主操",
+        "code": "JQ-3-OP"
+      },
+      {
+        "qr": "XT-JQ-4-OP",
+        "name": "剪切车间 4# 主操",
+        "code": "JQ-4-OP"
+      },
+      {
+        "qr": "XT-JQ-RJ-OP",
+        "name": "剪切车间 重卷 主操",
+        "code": "JQ-RJ-OP"
+      },
+      {
+        "qr": "XT-JQ-EN",
+        "name": "剪切车间 电工",
+        "code": "JQ-EN"
+      },
+      {
+        "qr": "XT-JQ-HY",
+        "name": "剪切车间 液压",
+        "code": "JQ-HY"
+      },
+      {
+        "qr": "XT-JQ-MT",
+        "name": "剪切车间 机修",
+        "code": "JQ-MT"
+      }
+    ]
+  },
+  "CPK": {
+    "name": "成品库",
+    "codes": [
+      {
+        "qr": "XT-CPK-EN",
+        "name": "成品库 电工",
+        "code": "CPK-EN"
+      },
+      {
+        "qr": "XT-CPK-HY",
+        "name": "成品库 液压",
+        "code": "CPK-HY"
+      },
+      {
+        "qr": "XT-CPK-MT",
+        "name": "成品库 机修",
+        "code": "CPK-MT"
+      }
+    ]
+  }
+}

@@ -172,7 +172,7 @@ const shortcutActions = computed(() => {
   grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   gap: 12px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--xt-bg-panel-strong);
   box-shadow: var(--app-shadow-xs);
 }
 
@@ -212,7 +212,7 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__status-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 113, 227, 0.22);
+  border-color: var(--xt-primary-border);
   box-shadow: var(--xt-shadow-md);
 }
 
@@ -228,16 +228,16 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__status-card:hover .review-assistant-dock__status-icon {
   transform: translateY(-1px);
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .review-assistant-dock__status-card.is-primary {
-  border-color: rgba(0, 113, 227, 0.22);
+  border-color: var(--xt-primary-border);
   background: var(--xt-primary-light);
 }
 
 .review-assistant-dock__status-card.is-success {
-  border-color: rgba(5, 150, 105, 0.24);
+  border-color: var(--xt-success-border);
   background: var(--xt-success-light);
 }
 
@@ -285,7 +285,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__shortcut:hover,
 .review-assistant-dock__shortcut:focus-visible {
   transform: translateY(-2px);
-  border-color: rgba(0, 113, 227, 0.22);
+  border-color: var(--xt-primary-border);
   background: var(--xt-bg-panel-soft);
   box-shadow: var(--xt-shadow-sm);
   outline: none;
@@ -293,13 +293,13 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__shortcut.is-success:hover,
 .review-assistant-dock__shortcut.is-success:focus-visible {
-  border-color: rgba(5, 150, 105, 0.24);
+  border-color: var(--xt-success-border);
   background: rgba(236, 253, 245, 0.92);
 }
 
 .review-assistant-dock__shortcut.is-warn:hover,
 .review-assistant-dock__shortcut.is-warn:focus-visible {
-  border-color: rgba(217, 119, 6, 0.24);
+  border-color: var(--xt-warning-border);
   background: rgba(255, 247, 237, 0.92);
 }
 
@@ -310,7 +310,7 @@ const shortcutActions = computed(() => {
 .review-assistant-dock__shortcut:hover .review-assistant-dock__shortcut-icon,
 .review-assistant-dock__shortcut:focus-visible .review-assistant-dock__shortcut-icon {
   transform: translateY(-1px);
-  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .review-assistant-dock__open {

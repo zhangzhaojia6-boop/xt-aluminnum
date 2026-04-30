@@ -586,7 +586,7 @@ onMounted(load)
 
 .mobile-entry-stage__action-row :deep(.el-button--primary.is-plain),
 .mobile-entry-stage__quick-grid :deep(.el-button--primary.is-plain) {
-  border-color: rgba(0, 113, 227, 0.34);
+  border-color: var(--xt-primary-border);
   background: var(--xt-bg-panel);
   color: var(--xt-primary);
 }

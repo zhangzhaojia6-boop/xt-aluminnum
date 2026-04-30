@@ -290,7 +290,7 @@ onMounted(async () => {
 .template-meta__item:hover,
 .template-config-grid__item:hover {
   transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.22);
+  border-color: var(--xt-info-border);
   box-shadow: var(--xt-shadow-sm);
 }
 
@@ -377,7 +377,7 @@ onMounted(async () => {
 
 .template-field-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.22);
+  border-color: var(--xt-info-border);
   box-shadow: var(--xt-shadow-sm);
 }
 

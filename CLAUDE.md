@@ -66,10 +66,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Use `数据中枢` as the product/system identity in UI, specs, plans, docs, and user-facing copy.
 - Do not call this product a `MES` system. `MES` may appear only as an external production system, data source, integration adapter, or boundary explanation.
 
+## Agent division of labor
+
+Claude Code (Opus) 是设计者与决策者——负责前端视觉设计、交互品质、产品方向判断和架构决策。所有涉及审美、用户体验、界面构图、品牌调性的工作由 Claude Code 亲自完成，不可委托。
+
+Codex 是执行者——承接明确定义的后端逻辑、数据处理、批量重构、测试编写、脚手架搭建等不依赖视觉判断的编码任务。Codex 接收精确的 spec 和验收标准，按要求交付，不做设计决策。
+
+原则：设计权不下放，执行力不浪费。Claude Code 出图纸，Codex 砌砖。
+
 ## Frontend rules
 
 - Build production UI, not a demo.
-- Frontend quality bar: treat the user's benchmark "像opus 4.7在Claude code编码设计前端一样，参考其设计前端多好看，你gpt5.5设计的前端太难看了" as a standing reminder to avoid generic GPT-style UI and deliver Opus-level taste, composition, branding, interaction detail, and browser-verified polish.
+- 前端品质是本项目的核心竞争力。每一个页面、每一个组件都必须达到可交付给真实用户的水准——不是"能用"，而是"好用且好看"。
+- 视觉标杆：Claude Code 自身的 UI 品质。拒绝一切模板感、AI 味、GPT 风格的默认输出。字体要讲究，间距要呼吸，颜色要克制，动效要有意义。
 - Do not add explanatory copy, helper text, marketing text, or onboarding text unless explicitly requested.
 - Do not introduce schema or component props named:
   `description`, `explanation`, `helperText`, `tooltip`, `note`, `rationale`.

@@ -779,7 +779,7 @@ onBeforeUnmount(() => {
 }
 
 .entry-flow-steps .is-active b {
-  color: #fff;
+  color: var(--xt-text-inverse);
   border-color: transparent;
   background: var(--xt-primary);
 }

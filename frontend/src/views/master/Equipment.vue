@@ -444,15 +444,15 @@ function printQrCard() {
         <meta charset="utf-8" />
         <title>机台卡片</title>
         <style>
-          body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f8fafc; }
-          .card { width: 320px; margin: 24px auto; padding: 24px; border: 1px solid #dbe3ea; border-radius: 18px; background: #fff; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12); }
+          body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: var(--xt-gray-50); }
+          .card { width: 320px; margin: 24px auto; padding: 24px; border: 1px solid var(--xt-border); border-radius: 18px; background: var(--xt-bg-panel-strong); box-shadow: var(--xt-shadow-md); }
           .brand { font-size: 22px; font-weight: 800; }
-          .sub { margin-top: 6px; color: #64748b; }
+          .sub { margin-top: 6px; color: var(--xt-gray-500); }
           .machine { margin-top: 16px; font-size: 28px; font-weight: 800; }
           .qr { margin-top: 20px; text-align: center; }
           .qr img { width: 220px; height: 220px; }
           .meta { margin-top: 18px; display: grid; gap: 8px; font-size: 16px; }
-          .foot { margin-top: 18px; color: #64748b; line-height: 1.7; }
+          .foot { margin-top: 18px; color: var(--xt-gray-500); line-height: 1.7; }
         </style>
       </head>
       <body>

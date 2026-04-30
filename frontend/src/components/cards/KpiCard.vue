@@ -33,18 +33,18 @@ const toneClass = computed(() => `is-${props.tone || 'neutral'}`)
 
 <style scoped>
 .kpi-card.is-success .stat-value {
-  color: #0f766e;
+  color: var(--xt-success);
 }
 
 .kpi-card.is-warning .stat-value {
-  color: #b45309;
+  color: var(--xt-warning);
 }
 
 .kpi-card.is-danger .stat-value {
-  color: #b91c1c;
+  color: var(--xt-danger);
 }
 
 .kpi-card.is-info .stat-value {
-  color: #1d4ed8;
+  color: var(--xt-info);
 }
 </style>

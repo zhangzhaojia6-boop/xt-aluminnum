@@ -57,7 +57,7 @@ button {
 
 button.is-primary {
   border-color: var(--xt-primary);
-  color: #fff;
+  color: var(--xt-text-inverse);
   background: var(--xt-primary);
 }
 </style>

@@ -178,7 +178,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   flex-direction: column;
   background: var(--xt-command-surface-strong);
   border-right: 1px solid var(--xt-border-light);
-  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.03);
+  box-shadow: 1px 0 0 var(--xt-border-light);
   transition: width var(--xt-motion-normal) var(--xt-ease);
 }
 
@@ -264,7 +264,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   background: var(--xt-primary-light);
   color: var(--xt-primary);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(11, 99, 246, 0.10);
+  box-shadow: inset 0 0 0 1px var(--xt-primary-border);
 }
 
 .xt-manage__nav-label {
@@ -349,7 +349,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   padding: 0 var(--xt-space-5);
   background: color-mix(in srgb, var(--xt-bg-panel) 90%, var(--xt-bg-shell));
   border-bottom: 1px solid var(--xt-border-light);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 0 var(--xt-border-light);
 }
 
 .xt-manage__hamburger {

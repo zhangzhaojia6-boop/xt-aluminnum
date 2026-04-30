@@ -90,11 +90,11 @@ defineProps({
   font-weight: 800;
 }
 
-.xt-kpi--primary { border-color: rgba(11, 99, 246, 0.20); }
-.xt-kpi--success { border-color: rgba(22, 138, 85, 0.20); }
-.xt-kpi--warning { border-color: rgba(183, 121, 31, 0.22); }
-.xt-kpi--danger { border-color: rgba(194, 65, 52, 0.20); }
-.xt-kpi--info { border-color: rgba(37, 99, 235, 0.18); }
+.xt-kpi--primary { border-color: var(--xt-primary-border); }
+.xt-kpi--success { border-color: var(--xt-success-border); }
+.xt-kpi--warning { border-color: var(--xt-warning-border); }
+.xt-kpi--danger { border-color: var(--xt-danger-border); }
+.xt-kpi--info { border-color: var(--xt-info-border); }
 
 .xt-kpi--primary::before { background: var(--xt-primary); box-shadow: 0 0 0 4px var(--xt-primary-light); }
 .xt-kpi--success::before { background: var(--xt-success); box-shadow: 0 0 0 4px var(--xt-success-light); }

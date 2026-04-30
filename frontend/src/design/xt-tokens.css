@@ -25,12 +25,18 @@
 
   --xt-success: oklch(52% 0.13 158);
   --xt-success-light: oklch(95% 0.035 158);
+  --xt-success-border: rgba(22, 138, 85, 0.20);
   --xt-warning: oklch(61% 0.12 75);
   --xt-warning-light: oklch(95% 0.045 75);
+  --xt-warning-border: rgba(183, 121, 31, 0.22);
   --xt-danger: oklch(55% 0.15 28);
   --xt-danger-light: oklch(95% 0.04 28);
+  --xt-danger-border: rgba(194, 65, 52, 0.20);
   --xt-info: oklch(50% 0.15 252);
   --xt-info-light: oklch(95% 0.03 252);
+  --xt-info-border: rgba(37, 99, 235, 0.18);
+  --xt-primary-border: rgba(11, 99, 246, 0.20);
+  --xt-accent-border: rgba(183, 121, 31, 0.20);
 
   --xt-bg-page: oklch(97.3% 0.008 248);
   --xt-bg-shell: oklch(94.4% 0.012 248);

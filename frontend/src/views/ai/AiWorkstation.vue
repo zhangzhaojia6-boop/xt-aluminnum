@@ -223,7 +223,7 @@ async function send() {
   border: 1px solid var(--xt-border);
   border-radius: var(--xt-radius-xl);
   background: var(--xt-bg-panel-soft);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px var(--xt-border-ink);
 }
 
 .ai-workstation__composer-mark {
@@ -233,7 +233,7 @@ async function send() {
   place-items: center;
   border-radius: var(--xt-radius-lg);
   background: var(--xt-bg-ink);
-  color: #ffffff;
+  color: var(--xt-text-inverse);
   font-family: var(--xt-font-number);
   font-size: 12px;
   font-weight: 900;
@@ -254,7 +254,7 @@ async function send() {
 }
 
 .ai-workstation__composer-shell:focus-within {
-  border-color: rgba(0, 113, 227, 0.45);
+  border-color: var(--xt-primary);
   box-shadow: var(--app-focus-ring);
 }
 

@@ -60,7 +60,7 @@ defineProps({
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--xt-shadow-inset-hairline);
 }
 
 .xt-card--interactive {
