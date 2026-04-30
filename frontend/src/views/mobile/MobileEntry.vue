@@ -83,12 +83,20 @@
         </div>
       </div>
       <div v-else class="mobile-entry-stage__hero" data-testid="mobile-current-shift">
-        <div class="mobile-entry-stage__brand">
-          <span class="mobile-entry-stage__mark"><XtLogo variant="icon" /></span>
-          <div>
-            <strong>当前任务</strong>
-            <p>{{ current.workshop_name || bootstrap.workshop_name || '-' }} · {{ current.shift_name || current.shift_code || '-' }}</p>
+        <div class="mobile-entry-stage__identity" :style="{ '--role-color': roleColor }">
+          <div class="mobile-entry-stage__identity-main">
+            <strong>{{ roleBucketMeta.title }}</strong>
+            <span>{{ current.workshop_name || bootstrap.workshop_name || '-' }}</span>
           </div>
+          <div class="mobile-entry-stage__identity-shift">
+            <span>{{ current.shift_name || current.shift_code || '-' }}</span>
+            <span>{{ current.business_date || '-' }}</span>
+          </div>
+        </div>
+
+        <div v-if="isMachineBound" class="mobile-entry-stage__machine">
+          <strong>{{ current.machine_name || bootstrap.machine_name || '-' }}</strong>
+          <span>{{ auth.user?.username || '-' }}</span>
         </div>
 
         <div class="mobile-entry-stage__facts">
@@ -96,16 +104,6 @@
             <span>{{ fact.label }}</span>
             <strong>{{ fact.value }}</strong>
           </article>
-        </div>
-
-        <div v-if="isMachineBound" class="mobile-entry-stage__machine">
-          <strong>{{ current.machine_name || bootstrap.machine_name || '-' }}</strong>
-          <span>账号 {{ auth.user?.username || '-' }}</span>
-        </div>
-
-        <div class="mobile-entry-stage__role" data-testid="mobile-role-bucket">
-          <span>当前角色</span>
-          <strong>{{ roleBucketMeta.title }}</strong>
         </div>
 
         <div class="mobile-entry-stage__cta">
@@ -118,42 +116,11 @@
           </div>
         </div>
 
-        <div class="mobile-entry-stage__summary-grid">
-          <article class="mobile-entry-stage__summary-item">
-            <span>今日班次</span>
-            <strong>{{ current.shift_name || current.shift_code || '-' }}</strong>
-          </article>
-          <article class="mobile-entry-stage__summary-item">
-            <span>待填报任务</span>
-            <strong>{{ pendingTaskCount }}</strong>
-          </article>
-          <article class="mobile-entry-stage__summary-item">
-            <span>已提交任务</span>
-            <strong>{{ submittedTaskCount }}</strong>
-          </article>
-          <article class="mobile-entry-stage__summary-item">
-            <span>异常待补项</span>
-            <strong>{{ anomalyPendingCount }}</strong>
-          </article>
-          <article class="mobile-entry-stage__summary-item">
-            <span>最近提交状态</span>
-            <strong>{{ lastSubmitStatus }}</strong>
-          </article>
-        </div>
-
         <div class="mobile-entry-stage__quick-grid">
           <el-button type="primary" plain @click="goReport">快速填报</el-button>
           <el-button plain @click="goAdvancedReport">高级填报</el-button>
           <el-button plain :disabled="!ocrSupported || !current.shift_id" @click="goOcr">OCR</el-button>
           <el-button plain @click="goReportHistory">历史记录</el-button>
-          <el-button plain @click="goDrafts">草稿箱</el-button>
-        </div>
-
-        <div class="mobile-entry-stage__ai">
-          <span>智能提示</span>
-          <ul>
-            <li v-for="item in aiHints" :key="item">{{ item }}</li>
-          </ul>
         </div>
       </div>
     </section>
@@ -171,7 +138,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCurrentShift, fetchMobileBootstrap, fetchWorkshopTemplate } from '../../api/mobile.js'
-import { XtLogo } from '../../components/xt'
 import { useAuthStore } from '../../stores/auth.js'
 import { formatScopeLabel, formatStatusLabel } from '../../utils/display.js'
 import {
@@ -179,6 +145,20 @@ import {
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
 import ReminderList from './ReminderList.vue'
+
+const ROLE_COLOR_MAP = {
+  shift_leader: 'var(--m-role-operator)',
+  mobile_user: 'var(--m-role-operator)',
+  energy_stat: 'var(--m-role-energy)',
+  maintenance_lead: 'var(--m-role-maintenance)',
+  hydraulic_lead: 'var(--m-role-hydraulic)',
+  consumable_stat: 'var(--m-role-consumable)',
+  qc: 'var(--m-role-qc)',
+  weigher: 'var(--m-role-weigher)',
+  utility_manager: 'var(--m-role-utility)',
+  inventory_keeper: 'var(--m-role-inventory)',
+  contracts: 'var(--m-role-contracts)',
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -204,6 +184,7 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const pageTitle = computed(() => roleBucketMeta.value.title)
 const pageSubtitle = computed(() => roleBucketMeta.value.subtitle)
+const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || auth.role] || 'var(--m-role-operator)')
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
 const advancedRoleBuckets = [
   'machine_operator',
@@ -221,29 +202,6 @@ const currentFacts = computed(() => [
   { label: isMachineBound.value ? '机台' : '班组', value: isMachineBound.value ? (current.value?.machine_name || bootstrap.value?.machine_name || '-') : (current.value?.team_name || '-') },
   { label: '状态', value: formatStatusLabel(current.value?.report_status) }
 ])
-const pendingTaskCount = computed(() => Number(current.value?.can_submit === false ? 0 : 1))
-const submittedTaskCount = computed(() => ['submitted', 'reviewed', 'auto_confirmed'].includes(String(current.value?.report_status || '')) ? 1 : 0)
-const anomalyPendingCount = computed(() => Number(current.value?.active_reminders?.length || 0))
-const lastSubmitStatus = computed(() => formatStatusLabel(current.value?.report_status))
-const aiHints = computed(() => {
-  const hints = []
-  const status = String(current.value?.report_status || '')
-  const reminderCount = anomalyPendingCount.value
-
-  if (status === 'returned') {
-    hints.push('上次提交已被退回，建议先补齐异常说明和现场图片。')
-  }
-  if (status === 'late' || status === 'unreported') {
-    hints.push('当前班次处于待补报状态，先提交关键原始值再补扩展字段。')
-  }
-  if (reminderCount > 0) {
-    hints.push(`有 ${reminderCount} 条异常待补项，建议优先处理后再提交。`)
-  }
-  if (!hints.length) {
-    hints.push('本班任务状态正常，提交后系统会自动汇总。')
-  }
-  return hints.slice(0, 3)
-})
 const showDebugBootstrap = computed(() => (
   auth.isLoggedIn &&
   isDev &&
@@ -411,10 +369,6 @@ function goReportHistory() {
   router.push({ name: 'mobile-report-history' })
 }
 
-function goDrafts() {
-  router.push({ name: 'entry-drafts' })
-}
-
 onMounted(load)
 </script>
 
@@ -455,20 +409,63 @@ onMounted(load)
   line-height: 1.4;
 }
 
-.mobile-entry-stage__desktop-link {
-  min-height: 36px;
-  border-radius: var(--xt-radius-lg);
-}
-
 .mobile-entry-stage__top p,
-.mobile-entry-stage__brand p,
 .mobile-entry-stage__empty,
 .mobile-entry-stage__fact span,
 .mobile-entry-stage__machine span,
-.mobile-entry-stage__role span,
 .mobile-entry-stage__status span {
   margin: 0;
   color: var(--app-muted);
+}
+
+.mobile-entry-stage__identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--xt-space-4);
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-ink);
+  border-left: 3px solid var(--role-color, var(--xt-primary));
+  box-shadow: var(--xt-shadow-md);
+}
+
+.mobile-entry-stage__identity-main {
+  display: grid;
+  gap: 2px;
+}
+
+.mobile-entry-stage__identity-main strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--xt-font-display);
+  font-size: var(--xt-text-xl);
+  font-weight: 850;
+  letter-spacing: -0.012em;
+  line-height: 1.18;
+}
+
+.mobile-entry-stage__identity-main span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--xt-text-sm);
+}
+
+.mobile-entry-stage__identity-shift {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.mobile-entry-stage__identity-shift span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--xt-text-sm);
+}
+
+.mobile-entry-stage__identity-shift span:first-child {
+  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .mobile-entry-stage__empty {
@@ -496,54 +493,24 @@ onMounted(load)
   min-width: 122px;
 }
 
-.mobile-entry-stage__brand,
-.mobile-entry-stage__cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.mobile-entry-stage__brand {
+.mobile-entry-stage__machine {
+  display: grid;
+  gap: var(--xt-space-1);
   padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-xl);
+  border-radius: var(--xt-radius-lg);
   background: var(--xt-bg-panel-soft);
   border: 1px solid var(--xt-border-light);
 }
 
-.mobile-entry-stage__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-panel);
-  color: var(--xt-primary);
-  box-shadow: var(--xt-shadow-sm);
-}
-
-.mobile-entry-stage__mark :deep(.xt-logo__icon) {
-  width: 28px;
-  height: 28px;
-}
-
-.mobile-entry-stage__brand strong,
-.mobile-entry-stage__fact strong,
-.mobile-entry-stage__machine strong,
-.mobile-entry-stage__role strong,
-.mobile-entry-stage__status strong {
+.mobile-entry-stage__machine strong {
   color: var(--app-text);
 }
 
 .mobile-entry-stage__facts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.mobile-entry-stage__fact,
-.mobile-entry-stage__machine,
-.mobile-entry-stage__role,
-.mobile-entry-stage__status {
+.mobile-entry-stage__fact {
   display: grid;
   gap: var(--xt-space-1);
   padding: var(--xt-space-3);
@@ -552,13 +519,17 @@ onMounted(load)
   border: 1px solid var(--xt-border-light);
 }
 
-.mobile-entry-stage__machine {
-  background: var(--xt-bg-panel-soft);
+.mobile-entry-stage__fact strong {
+  color: var(--app-text);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
 }
 
-.mobile-entry-stage__role {
-  background: var(--xt-primary-light);
-  border-color: rgba(11, 99, 246, 0.16);
+.mobile-entry-stage__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .mobile-entry-stage__cta .el-button {
@@ -569,28 +540,16 @@ onMounted(load)
   font-weight: 900;
 }
 
-.mobile-entry-stage__summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
-}
-
-.mobile-entry-stage__summary-item {
+.mobile-entry-stage__status {
   display: grid;
   gap: var(--xt-space-1);
   padding: var(--xt-space-3);
   border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-panel-soft);
+  background: var(--xt-bg-panel);
   border: 1px solid var(--xt-border-light);
 }
 
-.mobile-entry-stage__summary-item span {
-  font-size: var(--xt-text-sm);
-  color: var(--app-muted);
-}
-
-.mobile-entry-stage__summary-item strong {
-  font-size: var(--xt-text-lg);
+.mobile-entry-stage__status strong {
   color: var(--app-text);
 }
 
@@ -618,35 +577,9 @@ onMounted(load)
   background: var(--xt-primary-light);
 }
 
-.mobile-entry-stage__ai {
-  display: grid;
-  gap: var(--xt-space-2);
-  padding: var(--xt-space-3);
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-primary-light);
-  border: 1px solid rgba(0, 113, 227, 0.18);
-}
-
-.mobile-entry-stage__ai span {
-  font-size: var(--xt-text-sm);
-  color: var(--app-muted);
-  font-weight: 850;
-}
-
-.mobile-entry-stage__ai ul {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 4px;
-  color: var(--xt-text);
-  font-size: var(--xt-text-lg);
-  line-height: 1.45;
-}
-
 @media (max-width: 720px) {
   .mobile-entry-stage__top,
-  .mobile-entry-stage__cta,
-  .mobile-entry-stage__brand {
+  .mobile-entry-stage__cta {
     grid-template-columns: 1fr;
     display: grid;
   }
@@ -657,7 +590,7 @@ onMounted(load)
   }
 
   .mobile-entry-stage__facts {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mobile-entry-stage__quick-grid {

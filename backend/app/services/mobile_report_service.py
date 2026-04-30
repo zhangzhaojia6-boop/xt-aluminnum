@@ -729,12 +729,24 @@ def _build_current_shift_fallback(
     }
 
 
+def _resolve_entry_mode(role: str) -> str:
+    if role in ('shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'):
+        return 'coil_entry'
+    if role in ('energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat', 'qc', 'weigher'):
+        return 'auxiliary_shift_entry'
+    if role in ('utility_manager', 'inventory_keeper', 'contracts'):
+        return 'owner_daily_entry'
+    return 'coil_entry'
+
+
 def get_mobile_bootstrap(db: Session, *, current_user: User) -> dict:
     assert_mobile_user_access(current_user)
     payload = dingtalk_service.service.build_mobile_bootstrap(current_user)
     data_entry_mode = settings.mobile_data_entry_mode_normalized
     payload['current_scope_summary'] = scope_to_dict(build_scope_summary(current_user))
     payload['data_entry_mode'] = data_entry_mode
+    payload['entry_mode'] = _resolve_entry_mode(current_user.role or '')
+    payload['user_role'] = current_user.role
     payload['scan_assist_enabled'] = settings.MOBILE_SCAN_ASSIST_ENABLED
     payload['mes_display_enabled'] = settings.MOBILE_MES_DISPLAY_ENABLED
     payload['phase_notice'] = (

@@ -151,6 +151,39 @@ HYDRAULIC_OWNER_FIELDS = [
     },
 ]
 
+CONSUMABLE_OWNER_FIELDS = {
+    'casting': [
+        {'name': 'liquefied_gas_per_ton', 'label': '液化气吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'titanium_wire_per_ton', 'label': '钛丝吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'steel_strip_per_ton', 'label': '钢带吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'magnesium_per_ton', 'label': '镁锭吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'manganese_per_ton', 'label': '锰剂吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'iron_per_ton', 'label': '铁剂吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'copper_per_ton', 'label': '铜剂吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+    ],
+    'hot_roll': [
+        {'name': 'hot_roll_emulsion_per_ton', 'label': '热轧乳液吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+    ],
+    'cold_roll': [
+        {'name': 'rolling_oil_per_ton', 'label': '轧制油吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'filter_agent_per_ton', 'label': '飞滤剂吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'diatomite_per_ton', 'label': '硅藻土吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'white_earth_per_ton', 'label': '白土吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'filter_cloth_daily', 'label': '滤布日用', 'type': 'number', 'unit': '米', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'high_temp_tape_daily', 'label': '高温胶带日用', 'type': 'number', 'unit': '卷', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'regen_oil_out', 'label': '再生油出', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'regen_oil_in', 'label': '再生油回', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+    ],
+    'finishing': [
+        {'name': 'rolling_oil_per_ton', 'label': '轧制油吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'd40_per_ton', 'label': 'D40吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'steel_plate_per_ton', 'label': '钢板吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'steel_strip_per_ton', 'label': '钢带吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'steel_buckle_per_ton', 'label': '钢带扣吨耗', 'type': 'number', 'unit': 'kg', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+        {'name': 'high_temp_tape_daily', 'label': '高温胶带日用', 'type': 'number', 'unit': '卷', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
+    ],
+}
+
 CONTRACT_OWNER_FIELDS = [
     {
         'name': 'contract_no',

@@ -120,6 +120,17 @@
   --app-motion-curve: var(--xt-ease);
   --app-radius-card: var(--xt-radius-xl);
 
+  --m-role-operator: var(--xt-primary);
+  --m-role-energy: var(--xt-success);
+  --m-role-maintenance: var(--xt-warning);
+  --m-role-hydraulic: var(--xt-accent);
+  --m-role-consumable: var(--xt-info);
+  --m-role-qc: var(--xt-danger);
+  --m-role-weigher: var(--xt-text-secondary);
+  --m-role-utility: var(--xt-success);
+  --m-role-inventory: var(--xt-accent);
+  --m-role-contracts: var(--xt-primary);
+
   --primary: var(--xt-primary);
   --text-main: var(--xt-text);
   --reference-blue: var(--xt-primary);

@@ -8,6 +8,15 @@ ROLE_ALIASES = {
     'team_leader': 'shift_leader',
     'deputy_leader': 'shift_leader',
     'mobile_user': 'shift_leader',
+    'EN': 'energy_stat',
+    'MT': 'maintenance_lead',
+    'HY': 'hydraulic_lead',
+    'CS': 'consumable_stat',
+    'QC': 'qc',
+    'WG': 'weigher',
+    'UM': 'utility_manager',
+    'IK': 'inventory_keeper',
+    'CT': 'contracts',
 }
 
 READ_ALL = '*'
@@ -45,7 +54,7 @@ FIELD_OWNERSHIP = {
         'qc_notes': {'write': ['qc'], 'read': [READ_ALL]},
         'energy_kwh': {'write': ['energy_stat'], 'read': ['energy_stat', 'admin', 'manager', 'statistician']},
         'gas_m3': {'write': ['energy_stat'], 'read': ['energy_stat', 'admin', 'manager', 'statistician']},
-        'extra_payload': {'write': ['shift_leader', 'contracts'], 'read': [READ_ALL]},
+        'extra_payload': {'write': ['shift_leader', 'contracts', 'utility_manager', 'inventory_keeper', 'consumable_stat'], 'read': [READ_ALL]},
         'qc_payload': {'write': ['qc'], 'read': [READ_ALL]},
         'yield_rate': {'write': [], 'read': [READ_ALL]},
     },
