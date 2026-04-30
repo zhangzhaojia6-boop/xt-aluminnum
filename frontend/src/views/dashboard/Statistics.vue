@@ -2,7 +2,8 @@
   <div class="page-stack" data-testid="statistics-dashboard">
     <div class="page-header">
       <div>
-        <h1>统计观察看板</h1>
+        <div class="page-eyebrow">数据观察</div>
+        <h1>统计看板</h1>
       </div>
       <div class="header-actions">
         <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
@@ -11,7 +12,7 @@
       </div>
     </div>
 
-    <div class="stat-grid" v-loading="loading">
+    <div class="stat-grid stat-reveal stat-reveal--1" v-loading="loading">
       <div class="stat-card">
         <div class="stat-label">待处理班次</div>
         <div class="stat-value">{{ stats.pending_shift_count ?? 0 }}</div>
@@ -74,7 +75,7 @@
       </div>
     </div>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--2" v-loading="loading">
       <template #header>MES 同步状态</template>
       <el-descriptions :column="4" border>
         <el-descriptions-item label="最近同步">{{ stats.mes_sync_status?.last_synced_at || '-' }}</el-descriptions-item>
@@ -84,7 +85,7 @@
       </el-descriptions>
     </el-card>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--2" v-loading="loading">
       <template #header>成品率矩阵正式口径</template>
       <el-descriptions :column="4" border>
         <el-descriptions-item label="矩阵日期">{{ yieldMatrixLane.business_date ?? '-' }}</el-descriptions-item>
@@ -105,7 +106,7 @@
     </el-card>
 
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
       <template #header>合同口径观察</template>
       <el-descriptions :column="4" border>
         <el-descriptions-item label="快照数">{{ stats.contract_lane?.snapshot_count ?? 0 }}</el-descriptions-item>
@@ -127,7 +128,7 @@
       </el-table>
     </el-card>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
       <template #header>日报产出状态</template>
       <el-descriptions :column="4" border>
         <el-descriptions-item label="已生成日报">{{ delivery.reports_generated ?? 0 }}</el-descriptions-item>
@@ -137,7 +138,7 @@
       </el-descriptions>
     </el-card>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
       <template #header>待处理班次</template>
       <el-table :data="stats.pending_shift_items || []" stripe>
         <el-table-column prop="id" label="编号" width="80" />
@@ -153,7 +154,7 @@
       </el-table>
     </el-card>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
       <template #header>催报概览</template>
       <el-table :data="stats.reminder_summary?.recent_items || []" stripe>
         <el-table-column prop="reminder_type" label="提醒类型">
@@ -167,7 +168,7 @@
       </el-table>
     </el-card>
 
-    <el-card class="panel" v-loading="loading">
+    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
       <template #header>交付缺口</template>
       <div class="note">{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
     </el-card>
@@ -240,59 +241,98 @@ onUnmounted(() => {
 
 <style scoped>
 .page-stack {
-  padding: 16px;
-  background: var(--app-bg, #f5f5f7);
+  padding: var(--xt-space-4);
+  background: var(--xt-bg-page);
   min-height: 100vh;
+}
+
+.page-eyebrow {
+  font-size: var(--xt-text-xs);
+  letter-spacing: 0.02em;
+  color: var(--xt-text-muted);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: var(--xt-text-2xl);
+  line-height: 1.16;
+  letter-spacing: 0;
+  color: var(--xt-text);
 }
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--xt-space-3);
+  margin-bottom: var(--xt-space-4);
 }
 
 .stat-card {
-  padding: 16px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
-  border-radius: var(--radius-card, 16px);
-  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  padding: var(--xt-space-4);
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  box-shadow: var(--xt-shadow-sm);
+  transition: transform var(--xt-motion-fast) var(--xt-ease),
+              box-shadow var(--xt-motion-fast) var(--xt-ease),
+              border-color var(--xt-motion-fast) ease;
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.08));
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: var(--xt-primary-border);
+  box-shadow: var(--xt-shadow-md);
 }
 
 .stat-label {
-  color: var(--text-muted, #86868b);
-  font-size: 12px;
-  margin-bottom: 4px;
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--xt-space-1);
 }
 
 .stat-value {
-  font-family: var(--font-number, 'SF Pro Display', 'DIN Alternate', system-ui);
-  font-size: 28px;
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
   font-weight: 700;
-  color: var(--text-main, #1d1d1f);
-  letter-spacing: 0;
+  color: var(--xt-text);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 .panel {
-  padding: 16px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--card-border, rgba(0,0,0,0.06));
-  border-radius: var(--radius-card, 16px);
-  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
-  margin-bottom: 12px;
+  padding: var(--xt-space-4);
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-xl);
+  box-shadow: var(--xt-shadow-sm);
+  margin-bottom: var(--xt-space-3);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: var(--xt-space-4);
+}
+
+.note {
+  font-size: var(--xt-text-xs);
+  color: var(--xt-text-muted);
+}
+
+.stat-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: stat-reveal 0.24s var(--xt-ease) forwards;
+}
+
+.stat-reveal--1 { animation-delay: 0.02s; }
+.stat-reveal--2 { animation-delay: 0.04s; }
+.stat-reveal--3 { animation-delay: 0.06s; }
+
+@keyframes stat-reveal {
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

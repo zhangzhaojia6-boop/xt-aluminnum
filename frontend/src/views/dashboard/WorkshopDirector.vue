@@ -505,7 +505,7 @@ onMounted(async () => {
 
 .review-workshop__metric-grid {
   display: grid;
-  gap: 10px;
+  gap: var(--xt-space-3);
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 

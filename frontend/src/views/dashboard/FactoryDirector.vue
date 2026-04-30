@@ -997,8 +997,8 @@ onUnmounted(() => {
 }
 
 .review-factory .stat-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--xt-space-3);
 }
 
 .review-factory-detail-toggle {
@@ -1036,8 +1036,7 @@ onUnmounted(() => {
 }
 
 .review-factory .stat-card {
-  min-height: 116px;
-  padding: 15px;
+  padding: var(--xt-space-4);
 }
 
 .review-home-hero__metrics,
@@ -1221,18 +1220,6 @@ onUnmounted(() => {
   border: 1px dashed var(--xt-border);
   color: var(--app-muted);
   text-align: center;
-}
-
-@media (max-width: 1280px) {
-  .review-factory .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1100px) {
-  .review-factory .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 900px) {
