@@ -275,7 +275,7 @@ onUnmounted(() => {
   box-shadow: var(--xt-shadow-sm);
   transition: transform var(--xt-motion-fast) var(--xt-ease),
               box-shadow var(--xt-motion-fast) var(--xt-ease),
-              border-color var(--xt-motion-fast) ease;
+              border-color var(--xt-motion-fast) var(--xt-ease);
 }
 
 .stat-card:hover {

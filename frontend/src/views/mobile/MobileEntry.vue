@@ -410,7 +410,7 @@ onMounted(load)
 
 .mobile-logout-btn {
   font-size: 12px;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
   margin-top: 6px;
 }
 

@@ -351,7 +351,7 @@ onMounted(loadData)
 .unified-entry {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--xt-bg-page, #f5f5f7);
+  background: var(--xt-bg-page);
   padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -363,9 +363,9 @@ onMounted(loadData)
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: var(--xt-bg-ink, #1a1a2e);
+  background: var(--xt-bg-ink);
   border-left: 3px solid var(--role-color);
-  color: #fff;
+  color: var(--xt-text-inverse);
 }
 
 .ue-identity__main strong {
@@ -381,24 +381,14 @@ onMounted(loadData)
   opacity: 0.6;
 }
 
-.ue-identity__logout {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.25);
-  color: rgba(255,255,255,0.7);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
 .ue-loading, .ue-error {
   padding: 48px 16px;
   text-align: center;
-  color: var(--xt-text-secondary, #666);
+  color: var(--xt-text-secondary);
   font-size: 15px;
 }
 
-.ue-error { color: var(--xt-text-danger, #d32f2f); }
+.ue-error { color: var(--xt-danger); }
 
 .ue-coil-header {
   display: flex;
@@ -408,16 +398,16 @@ onMounted(loadData)
 }
 
 .ue-coil-seq {
-  font-family: var(--xt-font-number, 'Bahnschrift', monospace);
+  font-family: var(--xt-font-number);
   font-size: 28px;
   font-weight: 950;
   letter-spacing: -0.02em;
-  color: var(--xt-primary, #3b82f6);
+  color: var(--xt-primary);
 }
 
 .ue-coil-shift {
   font-size: 13px;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
 }
 
 .ue-group {
@@ -428,21 +418,21 @@ onMounted(loadData)
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--xt-text-secondary, #666);
+  color: var(--xt-text-secondary);
   margin: 0 0 8px;
   text-transform: uppercase;
 }
 
 .ue-fields {
-  background: var(--xt-bg-panel, #fff);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  background: var(--xt-bg-panel);
+  border-radius: var(--xt-radius-xl);
+  box-shadow: var(--xt-shadow-sm);
   padding: 4px 16px;
 }
 
 .ue-field {
   padding: 12px 0;
-  border-bottom: 1px solid var(--xt-border-light, #eee);
+  border-bottom: 1px solid var(--xt-border-light);
 }
 
 .ue-field:last-child { border-bottom: none; }
@@ -453,26 +443,26 @@ onMounted(loadData)
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--xt-text-primary, #222);
+  color: var(--xt-text);
   margin-bottom: 6px;
 }
 .ue-field__unit {
   font-size: 12px;
   font-weight: 400;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
 }
 
 .ue-input {
   display: block;
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   padding: 8px 12px;
-  border: 1px solid var(--xt-border-default, #ddd);
+  border: 1px solid var(--xt-border);
   border-radius: 8px;
   font-size: 16px;
   font-family: inherit;
-  background: var(--xt-bg-page, #f5f5f7);
-  color: var(--xt-text-primary, #222);
+  background: var(--xt-bg-page);
+  color: var(--xt-text);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
@@ -480,13 +470,13 @@ onMounted(loadData)
 }
 
 .ue-input:focus {
-  border-color: var(--xt-primary, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  border-color: var(--xt-primary);
+  box-shadow: var(--app-focus-ring);
 }
 
 .ue-input--number {
   text-align: right;
-  font-family: var(--xt-font-number, 'Bahnschrift', 'DIN Alternate', monospace);
+  font-family: var(--xt-font-number);
   font-variant-numeric: tabular-nums;
 }
 
@@ -516,21 +506,21 @@ onMounted(loadData)
 .ue-readonly-item {
   flex: 1;
   min-width: 100px;
-  background: var(--xt-bg-panel, #fff);
+  background: var(--xt-bg-panel);
   border-radius: 10px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .ue-readonly-item__label {
   display: block;
   font-size: 12px;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
   margin-bottom: 4px;
 }
 
 .ue-readonly-item__value {
-  font-family: var(--xt-font-number, 'Bahnschrift', monospace);
+  font-family: var(--xt-font-number);
   font-size: 20px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -547,7 +537,7 @@ onMounted(loadData)
   min-height: 48px;
   border: none;
   border-radius: 10px;
-  background: var(--xt-primary, #3b82f6);
+  background: var(--xt-primary);
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -563,17 +553,17 @@ onMounted(loadData)
   width: 100%;
   min-height: 44px;
   margin-top: 8px;
-  border: 1.5px solid var(--xt-primary, #3b82f6);
+  border: 1.5px solid var(--xt-primary);
   border-radius: 10px;
   background: transparent;
-  color: var(--xt-primary, #3b82f6);
+  color: var(--xt-primary);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.ue-split-btn:active { background: rgba(59,130,246,0.08); }
+.ue-split-btn:active { background: var(--xt-primary-soft); }
 
 .ue-spec-row {
   display: flex;
@@ -590,23 +580,23 @@ onMounted(loadData)
 .ue-spec-sep {
   font-size: 16px;
   font-weight: 700;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
   flex-shrink: 0;
 }
 
 .ue-spec-fixed {
-  background: var(--xt-bg-panel, #fff);
+  background: var(--xt-bg-panel);
   border-color: transparent;
-  color: var(--xt-text-secondary, #666);
+  color: var(--xt-text-secondary);
   font-weight: 700;
   text-align: center;
   pointer-events: none;
 }
 
 .ue-history {
-  background: var(--xt-bg-panel, #fff);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  background: var(--xt-bg-panel);
+  border-radius: var(--xt-radius-xl);
+  box-shadow: var(--xt-shadow-sm);
   overflow: hidden;
 }
 
@@ -615,21 +605,21 @@ onMounted(loadData)
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--xt-border-light, #eee);
+  border-bottom: 1px solid var(--xt-border-light);
   font-size: 14px;
 }
 
 .ue-history-item:last-child { border-bottom: none; }
 
 .ue-history-item__index {
-  font-family: var(--xt-font-number, monospace);
+  font-family: var(--xt-font-number);
   font-weight: 700;
-  color: var(--xt-text-tertiary, #999);
+  color: var(--xt-text-muted);
   min-width: 28px;
 }
 
 .ue-history-item__summary {
-  color: var(--xt-text-primary, #222);
+  color: var(--xt-text);
 }
 </style>
 
