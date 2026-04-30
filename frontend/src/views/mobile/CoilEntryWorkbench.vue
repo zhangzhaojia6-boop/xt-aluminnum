@@ -12,27 +12,27 @@
     </div>
 
     <div class="coil-operator panel">
-      <label>操作人</label>
+      <label>我是</label>
       <el-input
         v-model="operatorName"
-        placeholder="姓名"
+        placeholder="填你的名字"
         @blur="saveOperatorName"
       />
     </div>
 
     <div class="coil-summary">
       <article class="coil-summary__item">
-        <span>已录入</span>
+        <span>已录</span>
         <strong>{{ coilList.length }}</strong>
         <span>卷</span>
       </article>
       <article class="coil-summary__item">
-        <span>总投入</span>
+        <span>投入</span>
         <strong>{{ totalInput }}</strong>
         <span>kg</span>
       </article>
       <article class="coil-summary__item">
-        <span>总产出</span>
+        <span>产出</span>
         <strong>{{ totalOutput }}</strong>
         <span>kg</span>
       </article>
@@ -64,55 +64,96 @@
 
     <div class="coil-actions">
       <el-button type="primary" size="large" class="xt-pressable" @click="showEntryDialog = true">
-        录入新卷
+        录一卷
+      </el-button>
+      <el-button size="large" plain class="xt-pressable" @click="showSummaryDialog = true">
+        本班汇总
       </el-button>
     </div>
 
     <el-dialog
+      v-model="showSummaryDialog"
+      title="本班汇总"
+      width="92%"
+      class="coil-dialog"
+    >
+      <div class="coil-summary-detail">
+        <article class="coil-summary-detail__row">
+          <span>总卷数</span><strong>{{ coilList.length }} 卷</strong>
+        </article>
+        <article class="coil-summary-detail__row">
+          <span>总投入</span><strong>{{ totalInput }} kg</strong>
+        </article>
+        <article class="coil-summary-detail__row">
+          <span>总产出</span><strong>{{ totalOutput }} kg</strong>
+        </article>
+        <article class="coil-summary-detail__row">
+          <span>总废料</span><strong>{{ totalScrap }} kg</strong>
+        </article>
+        <article class="coil-summary-detail__row">
+          <span>成品率</span><strong>{{ yieldRate }}%</strong>
+        </article>
+      </div>
+      <template #footer>
+        <el-button @click="showSummaryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="showEntryDialog"
-      title="录入新卷"
+      title="录一卷"
       :close-on-click-modal="false"
       width="92%"
       class="coil-dialog"
     >
       <div class="mobile-form-grid">
         <div class="mobile-field mobile-field-wide">
-          <label><span class="mobile-required">*</span> 坯料卷号</label>
+          <label><span class="mobile-required">*</span> 卷号</label>
           <el-input v-model="form.tracking_card_no" placeholder="手工输入或扫码" />
         </div>
         <div class="mobile-field">
-          <label><span class="mobile-required">*</span> 合金牌号</label>
-          <el-input v-model="form.alloy_grade" placeholder="如 1060、3003" />
+          <label><span class="mobile-required">*</span> 合金</label>
+          <el-select v-model="form.alloy_grade" filterable allow-create placeholder="选择或输入">
+            <el-option v-for="g in alloyGrades" :key="g" :label="g" :value="g" />
+          </el-select>
         </div>
         <div class="mobile-field">
-          <label>输入规格</label>
+          <label>来料规格</label>
           <el-input v-model="form.input_spec" placeholder="厚×宽" />
         </div>
         <div class="mobile-field">
-          <label>输出规格</label>
+          <label>成品规格</label>
           <el-input v-model="form.output_spec" placeholder="厚×宽" />
         </div>
         <div class="mobile-field">
-          <label><span class="mobile-required">*</span> 投入量(kg)</label>
+          <label>上机时间</label>
+          <el-time-picker v-model="form.on_machine_time" format="HH:mm" value-format="HH:mm" placeholder="可不填" style="width:100%" />
+        </div>
+        <div class="mobile-field">
+          <label>下机时间</label>
+          <el-time-picker v-model="form.off_machine_time" format="HH:mm" value-format="HH:mm" placeholder="可不填" style="width:100%" />
+        </div>
+        <div class="mobile-field">
+          <label><span class="mobile-required">*</span> 投入重量 kg</label>
           <el-input v-model.number="form.input_weight" type="number" inputmode="decimal" />
         </div>
         <div class="mobile-field">
-          <label><span class="mobile-required">*</span> 产出量(kg)</label>
+          <label><span class="mobile-required">*</span> 产出重量 kg</label>
           <el-input v-model.number="form.output_weight" type="number" inputmode="decimal" />
         </div>
         <div class="mobile-field">
-          <label>废料量(kg)</label>
+          <label>废料 kg</label>
           <el-input :model-value="suggestedScrap" disabled />
-          <span class="mobile-field-unit">自动 = 投入 - 产出</span>
+          <span class="mobile-field-unit">自动算 = 投入 − 产出</span>
         </div>
         <div class="mobile-field mobile-field-wide">
           <label>备注</label>
-          <el-input v-model="form.operator_notes" type="textarea" :rows="2" />
+          <el-input v-model="form.operator_notes" type="textarea" :rows="2" placeholder="有异常情况写这里" />
         </div>
       </div>
       <template #footer>
         <el-button @click="showEntryDialog = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" class="xt-pressable" @click="submitCoil">提交</el-button>
+        <el-button type="primary" :loading="submitting" class="xt-pressable" @click="submitCoil">提交这卷</el-button>
       </template>
     </el-dialog>
   </div>
@@ -134,6 +175,7 @@ const bootstrap = ref({})
 const currentShift = ref({})
 const coilList = ref([])
 const showEntryDialog = ref(false)
+const showSummaryDialog = ref(false)
 const submitting = ref(false)
 const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
 
@@ -144,16 +186,21 @@ const businessDate = computed(() => currentShift.value?.business_date || '-')
 
 const totalInput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.input_weight) || 0), 0))
 const totalOutput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.output_weight) || 0), 0))
+const totalScrap = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.scrap_weight) || 0), 0))
 const yieldRate = computed(() => {
   if (!totalInput.value) return '-'
   return ((totalOutput.value / totalInput.value) * 100).toFixed(1)
 })
+
+const alloyGrades = ['1060', '1100', '3003', '3004', '3105', '5052', '5083', '5754', '6061', '8011', '8079']
 
 const emptyForm = () => ({
   tracking_card_no: '',
   alloy_grade: '',
   input_spec: '',
   output_spec: '',
+  on_machine_time: null,
+  off_machine_time: null,
   input_weight: null,
   output_weight: null,
   operator_notes: '',
@@ -376,6 +423,8 @@ onMounted(loadData)
   position: sticky;
   bottom: calc(var(--xt-tabbar-height) + env(safe-area-inset-bottom, 0px) + 8px);
   z-index: 10;
+  display: grid;
+  gap: 8px;
 }
 
 .coil-actions .el-button {
@@ -385,6 +434,35 @@ onMounted(loadData)
   font-size: var(--xt-text-lg);
   font-weight: 900;
   box-shadow: var(--xt-shadow-md);
+}
+
+.coil-summary-detail {
+  display: grid;
+  gap: 1px;
+  background: var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  overflow: hidden;
+}
+
+.coil-summary-detail__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--xt-space-3) var(--xt-space-4);
+  background: var(--xt-bg-panel);
+}
+
+.coil-summary-detail__row span {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-lg);
+}
+
+.coil-summary-detail__row strong {
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.012em;
 }
 
 @media (max-width: 400px) {

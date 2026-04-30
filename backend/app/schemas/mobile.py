@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -199,6 +199,8 @@ class MobileCoilEntryPayload(BaseModel):
     alloy_grade: str | None = Field(default=None, max_length=64)
     input_spec: str | None = Field(default=None, max_length=64)
     output_spec: str | None = Field(default=None, max_length=64)
+    on_machine_time: time | None = None
+    off_machine_time: time | None = None
     input_weight: float | None = Field(default=None, ge=0)
     output_weight: float | None = Field(default=None, ge=0)
     scrap_weight: float | None = Field(default=None, ge=0)

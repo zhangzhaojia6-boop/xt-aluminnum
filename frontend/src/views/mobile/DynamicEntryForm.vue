@@ -854,7 +854,6 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
   role: auth.role,
   isMachineBound: isMachineBound.value,
   reportStatus: currentEntry.value?.entry_status || currentShift.report_status,
-  ocrSupported: Boolean(template.value?.supports_ocr)
 }))
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const ROLE_COLOR_MAP = {
@@ -870,12 +869,11 @@ const ROLE_COLOR_MAP = {
   contracts: 'var(--m-role-contracts)',
 }
 const roleColor = computed(() => ROLE_COLOR_MAP[transitionMapping.value.role_bucket] || 'var(--m-role-operator)')
-const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat', 'qc', 'weigher']
+const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat']
 const isOwnerOnlyMode = computed(() => ownerOnlyRoleBuckets.includes(transitionMapping.value.role_bucket))
 const OWNER_MODE_CONFIG = {
   inventory_keeper: {
-    title: '成品库填报',
-    description: '录今日入库、发货与结存。',
+    title: '填出入库',
     coreCardTitle: '今日进出',
     coreStepTitle: '进出',
     supplementalCardTitle: '结存复核',
@@ -914,8 +912,7 @@ const OWNER_MODE_CONFIG = {
     ],
   },
   utility_manager: {
-    title: '水电气填报',
-    description: '录用电、天然气和用水原始值。',
+    title: '填水电气',
     coreCardTitle: '介质录入',
     coreStepTitle: '介质',
     supplementalCardTitle: '水量补录',
@@ -948,8 +945,7 @@ const OWNER_MODE_CONFIG = {
     ],
   },
   contracts: {
-    title: '计划科填报',
-    description: '录合同、余量与投料口径。',
+    title: '填合同',
     coreCardTitle: '合同进度',
     coreStepTitle: '合同',
     supplementalCardTitle: '投料补录',
@@ -982,7 +978,7 @@ const OWNER_MODE_CONFIG = {
     ],
   },
   energy_stat: {
-    title: '电工填报',
+    title: '填能耗',
     coreCardTitle: '能耗录入',
     coreStepTitle: '能耗',
     supplementalCardTitle: '补充',
@@ -993,7 +989,7 @@ const OWNER_MODE_CONFIG = {
     supplementalSections: [],
   },
   maintenance_lead: {
-    title: '机修填报',
+    title: '报停机',
     coreCardTitle: '停机录入',
     coreStepTitle: '停机',
     supplementalCardTitle: '补充',
@@ -1004,7 +1000,7 @@ const OWNER_MODE_CONFIG = {
     supplementalSections: [],
   },
   hydraulic_lead: {
-    title: '液压填报',
+    title: '报油耗',
     coreCardTitle: '耗油录入',
     coreStepTitle: '耗油',
     supplementalCardTitle: '补充',
@@ -1015,7 +1011,7 @@ const OWNER_MODE_CONFIG = {
     supplementalSections: [],
   },
   consumable_stat: {
-    title: '耗材统计填报',
+    title: '报辅材',
     coreCardTitle: '辅材录入',
     coreStepTitle: '辅材',
     supplementalCardTitle: '补充',
@@ -1024,7 +1020,7 @@ const OWNER_MODE_CONFIG = {
     supplementalSections: [],
   },
   qc: {
-    title: '质检填报',
+    title: '填质检',
     coreCardTitle: '质检录入',
     coreStepTitle: '质检',
     supplementalCardTitle: '补充',
@@ -1035,7 +1031,7 @@ const OWNER_MODE_CONFIG = {
     supplementalSections: [],
   },
   weigher: {
-    title: '称重填报',
+    title: '核重量',
     coreCardTitle: '核实重量',
     coreStepTitle: '称重',
     supplementalCardTitle: '补充',
@@ -1048,7 +1044,6 @@ const OWNER_MODE_CONFIG = {
 }
 const defaultOwnerModeConfig = {
   title: roleBucketMeta.value.title,
-  description: '按班次补录，系统会自动归档。',
   coreCardTitle: '补录',
   coreStepTitle: '本班',
   supplementalCardTitle: '补录字段',
@@ -1056,7 +1051,32 @@ const defaultOwnerModeConfig = {
   coreSections: [],
   supplementalSections: [],
 }
-const ownerModeConfig = computed(() => OWNER_MODE_CONFIG[transitionMapping.value.role_bucket] || defaultOwnerModeConfig)
+const CONSUMABLE_SECTIONS_BY_WORKSHOP = {
+  casting: [
+    { title: '铸轧辅材', fieldNames: ['liquefied_gas_per_ton', 'titanium_wire_per_ton', 'steel_strip_per_ton', 'magnesium_per_ton', 'manganese_per_ton', 'iron_per_ton', 'copper_per_ton'] },
+  ],
+  hot_roll: [
+    { title: '热轧辅材', fieldNames: ['hot_roll_emulsion_per_ton'] },
+  ],
+  cold_roll: [
+    { title: '冷轧辅材', fieldNames: ['rolling_oil_per_ton', 'filter_agent_per_ton', 'diatomite_per_ton', 'white_earth_per_ton', 'filter_cloth_daily', 'high_temp_tape_daily', 'regen_oil_out', 'regen_oil_in'] },
+  ],
+  finishing: [
+    { title: '精整辅材', fieldNames: ['rolling_oil_per_ton', 'd40_per_ton', 'steel_plate_per_ton', 'steel_strip_per_ton', 'steel_buckle_per_ton', 'high_temp_tape_daily'] },
+  ],
+}
+const ownerModeConfig = computed(() => {
+  const bucket = transitionMapping.value.role_bucket
+  if (bucket === 'consumable_stat') {
+    const workshopType = currentShift.workshop_type || bootstrap.value?.workshop_type || 'casting'
+    const base = OWNER_MODE_CONFIG[bucket]
+    return {
+      ...base,
+      coreSections: CONSUMABLE_SECTIONS_BY_WORKSHOP[workshopType] || CONSUMABLE_SECTIONS_BY_WORKSHOP.casting,
+    }
+  }
+  return OWNER_MODE_CONFIG[bucket] || defaultOwnerModeConfig
+})
 const ownerOnlyEditableFields = computed(() => [
   ...entryFields.value,
   ...shiftFields.value,

@@ -6,48 +6,48 @@ const ROLE_ALIASES = {
 
 const ROLE_BUCKET_META = {
   machine_operator: {
-    title: '机台直录',
-    subtitle: '只录本机台原始值。'
+    title: '录产量',
+    subtitle: '按卷记录投入、产出重量'
   },
   shift_leader: {
-    title: '班次直录',
-    subtitle: '只录本班原始值。'
+    title: '录产量',
+    subtitle: '记录本班次生产数据'
   },
   weigher: {
-    title: '过磅补录',
-    subtitle: '只录复核重量。'
+    title: '核重量',
+    subtitle: '逐卷核实过磅重量'
   },
   qc: {
-    title: '质检补录',
-    subtitle: '只录质检结论。'
+    title: '填质检',
+    subtitle: '逐卷填写质检结论'
   },
   energy_stat: {
-    title: '能耗补录',
-    subtitle: '只录当班能耗。'
+    title: '填能耗',
+    subtitle: '记录本班用电、用气'
   },
   maintenance_lead: {
-    title: '机修补录',
-    subtitle: '只录停机与设备异常。'
+    title: '报停机',
+    subtitle: '记录停机时长和原因'
   },
   hydraulic_lead: {
-    title: '液压补录',
-    subtitle: '只录液压耗用。'
+    title: '报油耗',
+    subtitle: '记录液压油、齿轮油用量'
   },
   consumable_stat: {
-    title: '耗材统计补录',
-    subtitle: '只录车间辅材耗用。'
+    title: '报辅材',
+    subtitle: '记录车间辅材消耗'
   },
   contracts: {
-    title: '计划科补录',
-    subtitle: '只录合同与投料口径。'
+    title: '填合同',
+    subtitle: '记录合同接单、投料进度'
   },
   inventory_keeper: {
-    title: '成品库补录',
-    subtitle: '只录入库、发货与结存。'
+    title: '填出入库',
+    subtitle: '记录入库、发货、库存'
   },
   utility_manager: {
-    title: '水电气补录',
-    subtitle: '只录全厂水、电、气。'
+    title: '填水电气',
+    subtitle: '记录全厂用电、天然气、用水'
   },
 }
 
@@ -78,7 +78,6 @@ export function buildMobileTransitionMapping({
   role,
   isMachineBound,
   reportStatus,
-  ocrSupported = false
 }) {
   const roleBucket = resolveTransitionRoleBucket({ role, isMachineBound })
   const isResume = ['draft', 'returned'].includes(reportStatus)
@@ -86,122 +85,87 @@ export function buildMobileTransitionMapping({
   if (roleBucket === 'machine_operator') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去机台数据要先写纸卡，再层层转抄。',
-      new_action: '现在只录本机台、本班次的原始值和随行卡信息。',
-      system_auto_followup: '系统自动校验、留痕，并把后续汇总和提醒接住。',
-      evidence_label: '机台原始值',
-      primary_cta: isResume ? '继续本机填报' : '开始本机填报'
+      evidence_label: '产量',
+      primary_cta: isResume ? '继续录产量' : '录产量'
     }
   }
 
   if (roleBucket === 'weigher') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去复核重量要回传给统计再补表。',
-      new_action: '现在只补录过磅复核值，系统自动关联当前随行卡和班次。',
-      system_auto_followup: '系统自动回写状态、保留留痕，并接给后续环节。',
-      evidence_label: '复核重量',
-      primary_cta: isResume ? '继续复核填报' : '开始复核填报'
+      evidence_label: '过磅重量',
+      primary_cta: isResume ? '继续核重量' : '核重量'
     }
   }
 
   if (roleBucket === 'qc') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去质检结论要单独传递，前后状态容易脱节。',
-      new_action: '现在只补录质检结论和备注。',
-      system_auto_followup: '系统自动更新质检状态、保留留痕，并同步到后续报表。',
       evidence_label: '质检结论',
-      primary_cta: isResume ? '继续质检填报' : '开始质检填报'
+      primary_cta: isResume ? '继续填质检' : '填质检'
     }
   }
 
   if (roleBucket === 'energy_stat') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去能耗数据要单独统计，再回填主表。',
-      new_action: '现在只录入本班能耗原始值。',
-      system_auto_followup: '系统自动汇总能耗口径、更新看板并保留留痕。',
-      evidence_label: '能耗原始值',
-      primary_cta: isResume ? '继续能耗填报' : '开始能耗填报'
+      evidence_label: '用电用气',
+      primary_cta: isResume ? '继续填能耗' : '填能耗'
     }
   }
 
   if (roleBucket === 'maintenance_lead') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去停机原因需要另找人补充说明。',
-      new_action: '现在只补录停机时长和设备异常。',
-      system_auto_followup: '系统自动挂接到班次记录，并带入异常看板。',
-      evidence_label: '停机与设备状态',
-      primary_cta: isResume ? '继续机修补录' : '开始机修补录'
+      evidence_label: '停机记录',
+      primary_cta: isResume ? '继续报停机' : '报停机'
     }
   }
 
   if (roleBucket === 'hydraulic_lead') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去液压耗材要单独记账，月底再并表。',
-      new_action: '现在只补录液压油和辅材耗用。',
-      system_auto_followup: '系统自动沉淀班次耗材口径，并保留历史记录。',
-      evidence_label: '液压耗材',
-      primary_cta: isResume ? '继续液压补录' : '开始液压补录'
+      evidence_label: '油耗记录',
+      primary_cta: isResume ? '继续报油耗' : '报油耗'
     }
   }
 
   if (roleBucket === 'consumable_stat') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去辅材耗用分散在各车间表格里。',
-      new_action: '现在只补录本车间辅材吨耗。',
-      system_auto_followup: '系统自动汇总辅材口径，并接入耗材日报。',
-      evidence_label: '辅材吨耗',
-      primary_cta: isResume ? '继续耗材补录' : '开始耗材补录'
+      evidence_label: '辅材消耗',
+      primary_cta: isResume ? '继续报辅材' : '报辅材'
     }
   }
 
   if (roleBucket === 'contracts') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去合同口径独立维护，现场进度很难同屏看到。',
-      new_action: '现在只补录当日合同、月累计、余合同和投料口径。',
-      system_auto_followup: '系统自动汇总余合同变化、投料和交付视图。',
-      evidence_label: '合同进度口径',
-      primary_cta: isResume ? '继续计划科补录' : '开始计划科补录'
+      evidence_label: '合同进度',
+      primary_cta: isResume ? '继续填合同' : '填合同'
     }
   }
 
   if (roleBucket === 'inventory_keeper') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去入库、发货、寄存要分别报给统计。',
-      new_action: '现在只补录成品库入库、发货、寄存和库存结存。',
-      system_auto_followup: '系统自动更新库存看板，并沉淀日月留存。',
-      evidence_label: '库存原始值',
-      primary_cta: isResume ? '继续成品库补录' : '开始成品库补录'
+      evidence_label: '出入库',
+      primary_cta: isResume ? '继续填出入库' : '填出入库'
     }
   }
 
   if (roleBucket === 'utility_manager') {
     return {
       role_bucket: roleBucket,
-      legacy_responsibility: '过去公辅数据分散在不同表格里，月底再汇总。',
-      new_action: '现在只补录全厂用电、天然气和水耗原始值。',
-      system_auto_followup: '系统自动汇总公辅趋势，并接入经营分析。',
-      evidence_label: '公辅原始值',
-      primary_cta: isResume ? '继续水电气补录' : '开始水电气补录'
+      evidence_label: '水电气',
+      primary_cta: isResume ? '继续填水电气' : '填水电气'
     }
   }
 
   return {
     role_bucket: roleBucket,
-    legacy_responsibility: '过去班次原始值要先汇总，再往上层层传递。',
-    new_action: ocrSupported
-      ? '现在只需确认本班原始值，可手动填写，也可先拍照识别后再核对。'
-      : '现在只需确认本班原始值并直接录入系统。',
-    system_auto_followup: '系统自动催报、汇总、生成线索，并同步更新驾驶舱。',
-    evidence_label: '班次原始值',
-    primary_cta: isResume ? '继续本班填报' : '开始本班填报'
+    evidence_label: '班次数据',
+    primary_cta: isResume ? '继续填报' : '开始填报'
   }
 }
 

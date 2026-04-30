@@ -74,6 +74,15 @@
           class="panel"
         />
 
+        <el-alert
+          v-if="workshopHint"
+          :title="workshopHint"
+          type="info"
+          show-icon
+          :closable="false"
+          class="panel"
+        />
+
         <el-form ref="formRef" :model="form" :rules="rules" class="login-card__form" @submit.prevent="submit">
           <el-form-item prop="username">
             <el-input
@@ -133,6 +142,7 @@ const formRef = ref()
 const loading = ref(false)
 const qrLoginPending = ref(false)
 const dingtalkLoginPending = ref(false)
+const workshopHint = ref('')
 const selectedSurface = ref('review')
 
 const form = reactive({
@@ -272,10 +282,17 @@ async function tryQrLogin() {
   }
 }
 
+function applyWorkshopContext() {
+  const wsCode = resolveQueryValue('workshop')
+  if (!wsCode) return
+  workshopHint.value = `车间：${wsCode}，请用该车间的角色账号登录`
+}
+
 onMounted(async () => {
   const dingtalkLoggedIn = await tryDingtalkLogin()
   if (dingtalkLoggedIn) return
   await tryQrLogin()
+  applyWorkshopContext()
 })
 </script>
 

@@ -1583,6 +1583,53 @@ def list_coil_entries(
     return result
 
 
+def _aggregate_coil_to_shift(db: Session, *, business_date: date, shift_id: int, workshop_id: int):
+    agg = (
+        db.query(
+            func.sum(WorkOrderEntry.input_weight).label('total_input'),
+            func.sum(WorkOrderEntry.output_weight).label('total_output'),
+            func.sum(WorkOrderEntry.scrap_weight).label('total_scrap'),
+            func.count(WorkOrderEntry.id).label('coil_count'),
+        )
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.shift_id == shift_id,
+            WorkOrderEntry.workshop_id == workshop_id,
+        )
+        .first()
+    )
+    if not agg or not agg.coil_count:
+        return
+    spd = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.business_date == business_date,
+            ShiftProductionData.shift_config_id == shift_id,
+            ShiftProductionData.workshop_id == workshop_id,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .first()
+    )
+    if spd:
+        spd.input_weight = float(agg.total_input or 0)
+        spd.output_weight = float(agg.total_output or 0)
+        spd.scrap_weight = float(agg.total_scrap or 0)
+        spd.data_source = 'mobile_coil_agg'
+    else:
+        spd = ShiftProductionData(
+            business_date=business_date,
+            shift_config_id=shift_id,
+            workshop_id=workshop_id,
+            input_weight=float(agg.total_input or 0),
+            output_weight=float(agg.total_output or 0),
+            scrap_weight=float(agg.total_scrap or 0),
+            data_source='mobile_coil_agg',
+            data_status='pending',
+        )
+        db.add(spd)
+    db.commit()
+
+
 def create_coil_entry(
     db: Session,
     *,
@@ -1617,6 +1664,8 @@ def create_coil_entry(
         machine_id=getattr(current_user, 'machine_id', None),
         shift_id=payload['shift_id'],
         business_date=payload['business_date'],
+        on_machine_time=payload.get('on_machine_time'),
+        off_machine_time=payload.get('off_machine_time'),
         input_weight=payload.get('input_weight'),
         output_weight=payload.get('output_weight'),
         input_spec=payload.get('input_spec'),
@@ -1633,6 +1682,13 @@ def create_coil_entry(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+
+    _aggregate_coil_to_shift(
+        db,
+        business_date=payload['business_date'],
+        shift_id=payload['shift_id'],
+        workshop_id=entry.workshop_id,
+    )
 
     return {
         'id': entry.id,

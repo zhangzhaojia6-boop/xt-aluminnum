@@ -179,7 +179,6 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
   role: auth.role,
   isMachineBound: isMachineBound.value,
   reportStatus: current.value?.report_status,
-  ocrSupported: ocrSupported.value
 }))
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const pageTitle = computed(() => roleBucketMeta.value.title)
