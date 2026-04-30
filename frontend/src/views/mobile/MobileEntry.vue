@@ -327,9 +327,15 @@ async function retryAuth() {
 
 function goReport() {
   if (!current.value?.shift_id) return
-  const reportRouteName = advancedRoleBuckets.includes(transitionMapping.value.role_bucket)
-    ? 'mobile-report-form-advanced'
-    : 'mobile-report-form'
+  const bucket = transitionMapping.value.role_bucket
+  let reportRouteName
+  if (bucket === 'machine_operator') {
+    reportRouteName = 'mobile-coil-entry'
+  } else if (advancedRoleBuckets.includes(bucket)) {
+    reportRouteName = 'mobile-report-form-advanced'
+  } else {
+    reportRouteName = 'mobile-report-form'
+  }
   router.push({
     name: reportRouteName,
     params: {

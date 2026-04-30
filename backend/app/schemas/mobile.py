@@ -191,3 +191,34 @@ class MobileBootstrapOut(BaseModel):
     machine_name: str | None = None
     workshop_id: int | None = None
     workshop_name: str | None = None
+    user_role: str | None = None
+
+
+class MobileCoilEntryPayload(BaseModel):
+    tracking_card_no: str = Field(min_length=1, max_length=64)
+    alloy_grade: str | None = Field(default=None, max_length=64)
+    input_spec: str | None = Field(default=None, max_length=64)
+    output_spec: str | None = Field(default=None, max_length=64)
+    input_weight: float | None = Field(default=None, ge=0)
+    output_weight: float | None = Field(default=None, ge=0)
+    scrap_weight: float | None = Field(default=None, ge=0)
+    operator_name: str | None = Field(default=None, max_length=64)
+    operator_notes: str | None = Field(default=None, max_length=1000)
+    business_date: date
+    shift_id: int = Field(gt=0)
+
+
+class MobileCoilEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tracking_card_no: str
+    alloy_grade: str | None = None
+    input_spec: str | None = None
+    output_spec: str | None = None
+    input_weight: float | None = None
+    output_weight: float | None = None
+    scrap_weight: float | None = None
+    operator_notes: str | None = None
+    business_date: date
+    created_at: datetime | None = None

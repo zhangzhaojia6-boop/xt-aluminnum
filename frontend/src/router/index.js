@@ -11,6 +11,7 @@ const MobileEntry = () => import('../views/mobile/MobileEntry.vue')
 const AttendanceConfirm = () => import('../views/mobile/AttendanceConfirm.vue')
 const ShiftReportForm = () => import('../views/mobile/ShiftReportForm.vue')
 const DynamicEntryForm = () => import('../views/mobile/DynamicEntryForm.vue')
+const CoilEntryWorkbench = () => import('../views/mobile/CoilEntryWorkbench.vue')
 const OCRCapture = () => import('../views/mobile/OCRCapture.vue')
 const ShiftReportHistory = () => import('../views/mobile/ShiftReportHistory.vue')
 const EntryDrafts = () => import('../views/entry/EntryDrafts.vue')
@@ -144,6 +145,7 @@ const rawRoutes = [
       { path: 'report', redirect: { name: 'mobile-entry' } },
       { path: 'report/:businessDate/:shiftId', name: 'mobile-report-form', component: ShiftReportForm, meta: { ...entryMeta, title: '快速填报', centerNo: '04', canonical: '/entry/report/:businessDate/:shiftId' } },
       { path: 'advanced/:businessDate/:shiftId', name: 'mobile-report-form-advanced', component: DynamicEntryForm, meta: { ...entryMeta, title: '高项填报', centerNo: '04', canonical: '/entry/advanced/:businessDate/:shiftId' } },
+      { path: 'coil/:businessDate/:shiftId', name: 'mobile-coil-entry', component: CoilEntryWorkbench, meta: { ...entryMeta, title: '按卷录入', centerNo: '04', canonical: '/entry/coil/:businessDate/:shiftId' } },
       { path: 'ocr/:businessDate/:shiftId', name: 'mobile-ocr-capture', component: OCRCapture, meta: { ...entryMeta, title: 'OCR 试验录入', centerNo: '04', canonical: '/entry/ocr/:businessDate/:shiftId' } },
       { path: 'attendance', name: 'mobile-attendance-confirm', component: AttendanceConfirm, meta: { ...entryMeta, title: '异常补录', centerNo: '03', canonical: '/entry/attendance' } },
       { path: 'anomaly', name: 'entry-anomaly', redirect: { name: 'mobile-attendance-confirm' } },

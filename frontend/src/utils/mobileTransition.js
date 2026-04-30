@@ -33,6 +33,10 @@ const ROLE_BUCKET_META = {
     title: '液压补录',
     subtitle: '只录液压耗用。'
   },
+  consumable_stat: {
+    title: '耗材统计补录',
+    subtitle: '只录车间辅材耗用。'
+  },
   contracts: {
     title: '计划科补录',
     subtitle: '只录合同与投料口径。'
@@ -59,6 +63,7 @@ export function resolveTransitionRoleBucket({ role, isMachineBound }) {
   if (normalizedRole === 'energy_stat') return 'energy_stat'
   if (normalizedRole === 'maintenance_lead') return 'maintenance_lead'
   if (normalizedRole === 'hydraulic_lead') return 'hydraulic_lead'
+  if (normalizedRole === 'consumable_stat') return 'consumable_stat'
   if (normalizedRole === 'contracts') return 'contracts'
   if (normalizedRole === 'inventory_keeper') return 'inventory_keeper'
   if (normalizedRole === 'utility_manager') return 'utility_manager'
@@ -144,6 +149,17 @@ export function buildMobileTransitionMapping({
     }
   }
 
+  if (roleBucket === 'consumable_stat') {
+    return {
+      role_bucket: roleBucket,
+      legacy_responsibility: '过去辅材耗用分散在各车间表格里。',
+      new_action: '现在只补录本车间辅材吨耗。',
+      system_auto_followup: '系统自动汇总辅材口径，并接入耗材日报。',
+      evidence_label: '辅材吨耗',
+      primary_cta: isResume ? '继续耗材补录' : '开始耗材补录'
+    }
+  }
+
   if (roleBucket === 'contracts') {
     return {
       role_bucket: roleBucket,
@@ -207,6 +223,9 @@ export function buildTransitionFollowupSteps(roleBucket, { ocrSupported = false 
   }
   if (roleBucket === 'hydraulic_lead') {
     return ['自动沉淀耗材记录', '自动汇总班次口径', '自动保留历史留痕']
+  }
+  if (roleBucket === 'consumable_stat') {
+    return ['自动汇总辅材吨耗', '自动接入耗材日报', '自动保留历史留痕']
   }
   if (roleBucket === 'contracts') {
     return ['自动汇总余合同', '自动刷新交付视图', '自动沉淀经营口径']

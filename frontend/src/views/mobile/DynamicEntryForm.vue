@@ -12,11 +12,12 @@
     </el-result>
 
     <template v-else>
-    <div class="mobile-top">
+    <div class="mobile-top" :style="isOwnerOnlyMode ? { '--role-color': roleColor } : {}">
       <div>
         <div v-if="false" class="mobile-kicker">04 填报流程页</div>
         <h1>{{ isOwnerOnlyMode ? ownerModeConfig.title : '批次号填报' }}</h1>
       </div>
+      <div v-if="isOwnerOnlyMode" class="entry-role-badge" :style="{ background: roleColor }"></div>
     </div>
 
     <el-alert
@@ -856,7 +857,20 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
   ocrSupported: Boolean(template.value?.supports_ocr)
 }))
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
-const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager']
+const ROLE_COLOR_MAP = {
+  shift_leader: 'var(--m-role-operator)',
+  energy_stat: 'var(--m-role-energy)',
+  maintenance_lead: 'var(--m-role-maintenance)',
+  hydraulic_lead: 'var(--m-role-hydraulic)',
+  consumable_stat: 'var(--m-role-consumable)',
+  qc: 'var(--m-role-qc)',
+  weigher: 'var(--m-role-weigher)',
+  utility_manager: 'var(--m-role-utility)',
+  inventory_keeper: 'var(--m-role-inventory)',
+  contracts: 'var(--m-role-contracts)',
+}
+const roleColor = computed(() => ROLE_COLOR_MAP[transitionMapping.value.role_bucket] || 'var(--m-role-operator)')
+const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat', 'qc', 'weigher']
 const isOwnerOnlyMode = computed(() => ownerOnlyRoleBuckets.includes(transitionMapping.value.role_bucket))
 const OWNER_MODE_CONFIG = {
   inventory_keeper: {
@@ -966,6 +980,70 @@ const OWNER_MODE_CONFIG = {
         ],
       },
     ],
+  },
+  energy_stat: {
+    title: '电工填报',
+    coreCardTitle: '能耗录入',
+    coreStepTitle: '能耗',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [
+      { title: '电耗与气耗', fieldNames: ['energy_kwh', 'gas_m3'] },
+    ],
+    supplementalSections: [],
+  },
+  maintenance_lead: {
+    title: '机修填报',
+    coreCardTitle: '停机录入',
+    coreStepTitle: '停机',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [
+      { title: '停机记录', fieldNames: ['downtime_minutes', 'downtime_reason'] },
+    ],
+    supplementalSections: [],
+  },
+  hydraulic_lead: {
+    title: '液压填报',
+    coreCardTitle: '耗油录入',
+    coreStepTitle: '耗油',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [
+      { title: '液压油与齿轮油', fieldNames: ['hydraulic_oil_32', 'hydraulic_oil_46', 'gear_oil'] },
+    ],
+    supplementalSections: [],
+  },
+  consumable_stat: {
+    title: '耗材统计填报',
+    coreCardTitle: '辅材录入',
+    coreStepTitle: '辅材',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [],
+    supplementalSections: [],
+  },
+  qc: {
+    title: '质检填报',
+    coreCardTitle: '质检录入',
+    coreStepTitle: '质检',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [
+      { title: '质检结论', fieldNames: ['qc_grade', 'qc_notes'] },
+    ],
+    supplementalSections: [],
+  },
+  weigher: {
+    title: '称重填报',
+    coreCardTitle: '核实重量',
+    coreStepTitle: '称重',
+    supplementalCardTitle: '补充',
+    supplementalStepTitle: '补充',
+    coreSections: [
+      { title: '核实重量', fieldNames: ['verified_input_weight', 'verified_output_weight'] },
+    ],
+    supplementalSections: [],
   },
 }
 const defaultOwnerModeConfig = {
@@ -2274,5 +2352,16 @@ onBeforeUnmount(() => {
   .mobile-shell--entry-form :deep(.mobile-form-grid) {
     gap: 9px;
   }
+}
+
+.entry-role-badge {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--xt-radius-pill);
+  flex-shrink: 0;
+}
+
+.mobile-top[style*="--role-color"] {
+  border-left: 3px solid var(--role-color);
 }
 </style>

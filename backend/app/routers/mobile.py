@@ -10,6 +10,8 @@ from app.core.permissions import get_current_mobile_user
 from app.models.system import User
 from app.schemas.mobile import (
     MobileBootstrapOut,
+    MobileCoilEntryOut,
+    MobileCoilEntryPayload,
     MobileCurrentShiftOut,
     MobilePhotoUploadResponse,
     MobileReminderActionRequest,
@@ -202,3 +204,35 @@ def close_reminder(
         note=body.note,
     )
     return MobileReminderRecordOut(**payload)
+
+
+@router.get('/coil-list/{business_date}/{shift_id}', response_model=list[MobileCoilEntryOut], name='mobile-coil-list')
+def coil_list(
+    business_date: date,
+    shift_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> list[MobileCoilEntryOut]:
+    entries = mobile_report_service.list_coil_entries(
+        db,
+        business_date=business_date,
+        shift_id=shift_id,
+        current_user=current_user,
+    )
+    return [MobileCoilEntryOut(**e) for e in entries]
+
+
+@router.post('/coil-entry', response_model=MobileCoilEntryOut, name='mobile-coil-entry')
+def create_coil_entry(
+    body: MobileCoilEntryPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileCoilEntryOut:
+    entry = mobile_report_service.create_coil_entry(
+        db,
+        payload=body.model_dump(),
+        current_user=current_user,
+        ip_address=_request_ip(request),
+    )
+    return MobileCoilEntryOut(**entry)

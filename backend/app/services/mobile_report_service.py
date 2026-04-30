@@ -1539,3 +1539,111 @@ def count_linked_open_production_exceptions(
     if workshop_id:
         query = query.filter(MobileShiftReport.workshop_id == workshop_id)
     return int(query.scalar() or 0)
+
+
+def list_coil_entries(
+    db: Session,
+    *,
+    business_date: date,
+    shift_id: int,
+    current_user: User,
+) -> list[dict]:
+    assert_mobile_user_access(current_user)
+    rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.shift_id == shift_id,
+        )
+        .order_by(WorkOrderEntry.id.desc())
+        .all()
+    )
+    from app.models.production import WorkOrder
+    wo_ids = {r.work_order_id for r in rows}
+    wo_map = {}
+    if wo_ids:
+        wos = db.query(WorkOrder).filter(WorkOrder.id.in_(wo_ids)).all()
+        wo_map = {wo.id: wo for wo in wos}
+    result = []
+    for r in rows:
+        wo = wo_map.get(r.work_order_id)
+        result.append({
+            'id': r.id,
+            'tracking_card_no': wo.tracking_card_no if wo else '',
+            'alloy_grade': wo.alloy_grade if wo else None,
+            'input_spec': r.input_spec,
+            'output_spec': r.output_spec,
+            'input_weight': float(r.input_weight) if r.input_weight is not None else None,
+            'output_weight': float(r.output_weight) if r.output_weight is not None else None,
+            'scrap_weight': float(r.scrap_weight) if r.scrap_weight is not None else None,
+            'operator_notes': r.operator_notes,
+            'business_date': r.business_date,
+            'created_at': r.created_at if hasattr(r, 'created_at') else None,
+        })
+    return result
+
+
+def create_coil_entry(
+    db: Session,
+    *,
+    payload: dict,
+    current_user: User,
+    ip_address: str | None = None,
+) -> dict:
+    assert_mobile_user_access(current_user)
+    from app.models.production import WorkOrder
+
+    tracking_card_no = payload['tracking_card_no'].strip()
+    wo = db.query(WorkOrder).filter(WorkOrder.tracking_card_no == tracking_card_no).first()
+    if not wo:
+        wo = WorkOrder(
+            tracking_card_no=tracking_card_no,
+            alloy_grade=payload.get('alloy_grade'),
+            process_route_code='mobile',
+            overall_status='created',
+            created_by=current_user.id,
+        )
+        db.add(wo)
+        db.flush()
+
+    workshop_id = current_user.workshop_id
+    if not workshop_id:
+        scope = build_scope_summary(current_user)
+        workshop_id = scope.workshop_id
+
+    entry = WorkOrderEntry(
+        work_order_id=wo.id,
+        workshop_id=workshop_id or 0,
+        machine_id=getattr(current_user, 'machine_id', None),
+        shift_id=payload['shift_id'],
+        business_date=payload['business_date'],
+        input_weight=payload.get('input_weight'),
+        output_weight=payload.get('output_weight'),
+        input_spec=payload.get('input_spec'),
+        output_spec=payload.get('output_spec'),
+        scrap_weight=payload.get('scrap_weight'),
+        operator_notes=payload.get('operator_notes'),
+        entry_type='mobile_coil',
+    )
+    if payload.get('input_weight') and payload.get('output_weight'):
+        inp = float(payload['input_weight'])
+        out = float(payload['output_weight'])
+        if inp > 0:
+            entry.yield_rate = round(out / inp, 4)
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+
+    return {
+        'id': entry.id,
+        'tracking_card_no': wo.tracking_card_no,
+        'alloy_grade': wo.alloy_grade,
+        'input_spec': entry.input_spec,
+        'output_spec': entry.output_spec,
+        'input_weight': float(entry.input_weight) if entry.input_weight is not None else None,
+        'output_weight': float(entry.output_weight) if entry.output_weight is not None else None,
+        'scrap_weight': float(entry.scrap_weight) if entry.scrap_weight is not None else None,
+        'operator_notes': entry.operator_notes,
+        'business_date': entry.business_date,
+        'created_at': None,
+    }
