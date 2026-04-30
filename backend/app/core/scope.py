@@ -19,6 +19,8 @@ MOBILE_ROLES = {
     'contracts',
     'inventory_keeper',
     'utility_manager',
+    'machine_operator',
+    'consumable_stat',
 }
 REVIEWER_ROLES = {'statistician', 'workshop_director', 'reviewer', 'stat'}
 MANAGER_ROLES = {'factory_director', 'senior_manager', 'manager'}
@@ -65,6 +67,8 @@ def build_scope_summary(user: User) -> ScopeSummary:
     elif role in MANAGER_ROLES and data_scope_type == 'self_team':
         data_scope_type = 'self_workshop' if getattr(user, 'workshop_id', None) else 'all'
     elif role in REVIEWER_ROLES and data_scope_type == 'self_team' and getattr(user, 'team_id', None) is None:
+        data_scope_type = 'self_workshop'
+    elif role in MOBILE_ROLES and data_scope_type == 'self_team' and getattr(user, 'team_id', None) is None:
         data_scope_type = 'self_workshop'
     assigned_shift_ids = []
     raw_shift_ids = getattr(user, 'assigned_shift_ids', None) or []

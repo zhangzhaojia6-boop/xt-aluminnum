@@ -675,12 +675,11 @@ def _sync_to_shift_production(
 
 def _required_submit_fields(payload: dict) -> list[str]:
     field_labels = {
-        'attendance_count': '出勤人数',
         'input_weight': '投入重量',
         'output_weight': '产出重量',
     }
     missing: list[str] = []
-    for field in ('attendance_count', 'input_weight', 'output_weight'):
+    for field in ('input_weight', 'output_weight'):
         value = payload.get(field)
         if value is None or value == '':
             missing.append(field_labels[field])

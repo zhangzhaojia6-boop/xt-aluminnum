@@ -7,14 +7,14 @@ const USER_KEY = 'aluminum_bypass_user'
 const MACHINE_KEY = 'aluminum_bypass_machine'
 
 function readStoredToken() {
-  return localStorage.getItem(TOKEN_KEY) || ''
+  return sessionStorage.getItem(TOKEN_KEY) || ''
 }
 
 function readStoredJson(key) {
   try {
-    return JSON.parse(localStorage.getItem(key) || 'null')
+    return JSON.parse(sessionStorage.getItem(key) || 'null')
   } catch {
-    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
     return null
   }
 }
@@ -133,37 +133,37 @@ export const useAuthStore = defineStore('auth', {
       this.token = token
       this.user = normalizeUser(user)
       this.machineContext = normalizeMachine(machineContext)
-      localStorage.setItem(TOKEN_KEY, token)
-      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      sessionStorage.setItem(TOKEN_KEY, token)
+      sessionStorage.setItem(USER_KEY, JSON.stringify(this.user))
       if (this.machineContext) {
-        localStorage.setItem(MACHINE_KEY, JSON.stringify(this.machineContext))
+        sessionStorage.setItem(MACHINE_KEY, JSON.stringify(this.machineContext))
       } else {
-        localStorage.removeItem(MACHINE_KEY)
+        sessionStorage.removeItem(MACHINE_KEY)
       }
     },
     setMachineContext(machineContext) {
       this.machineContext = normalizeMachine(machineContext)
       if (this.machineContext) {
-        localStorage.setItem(MACHINE_KEY, JSON.stringify(this.machineContext))
+        sessionStorage.setItem(MACHINE_KEY, JSON.stringify(this.machineContext))
       } else {
-        localStorage.removeItem(MACHINE_KEY)
+        sessionStorage.removeItem(MACHINE_KEY)
       }
     },
     setToken(token) {
       this.token = token || ''
       if (this.token) {
-        localStorage.setItem(TOKEN_KEY, this.token)
+        sessionStorage.setItem(TOKEN_KEY, this.token)
       } else {
-        localStorage.removeItem(TOKEN_KEY)
+        sessionStorage.removeItem(TOKEN_KEY)
       }
     },
     logout() {
       this.token = ''
       this.user = null
       this.machineContext = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
-      localStorage.removeItem(MACHINE_KEY)
+      sessionStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(USER_KEY)
+      sessionStorage.removeItem(MACHINE_KEY)
     },
     async login(payload) {
       const result = await loginApi(payload)
@@ -201,7 +201,7 @@ export const useAuthStore = defineStore('auth', {
       if (this.token === '') return null
       const user = await meApi()
       this.user = normalizeUser(user)
-      localStorage.setItem(USER_KEY, JSON.stringify(this.user))
+      sessionStorage.setItem(USER_KEY, JSON.stringify(this.user))
       return this.user
     },
     async workshopQuickEntry({ workshop_code, role }) {

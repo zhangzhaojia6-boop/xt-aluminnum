@@ -5,7 +5,6 @@
         <strong>{{ roleLabel }}</strong>
         <span>{{ workshopName }} · {{ shiftName }} · {{ businessDate }}</span>
       </div>
-      <button class="ue-identity__logout" @click="handleLogout">切换</button>
     </header>
 
     <div v-if="loading" class="ue-loading">加载中…</div>
@@ -33,6 +32,35 @@
               <option value="">请选择</option>
               <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
             </select>
+            <div v-else-if="field.type === 'spec'" class="ue-spec-row">
+              <input
+                v-model="specParts[field.name + '_0']"
+                type="text"
+                inputmode="decimal"
+                class="ue-input ue-spec-input"
+                placeholder="厚"
+                @input="syncSpec(field)"
+              />
+              <span class="ue-spec-sep">×</span>
+              <input
+                v-model="specParts[field.name + '_1']"
+                type="text"
+                inputmode="decimal"
+                class="ue-input ue-spec-input"
+                placeholder="宽"
+                @input="syncSpec(field)"
+              />
+              <span class="ue-spec-sep">×</span>
+              <input
+                v-if="!field.spec_suffix"
+                v-model="specParts[field.name + '_2']"
+                type="text"
+                class="ue-input ue-spec-input"
+                placeholder="长/C"
+                @input="syncSpec(field)"
+              />
+              <span v-else class="ue-input ue-spec-input ue-spec-fixed">{{ field.spec_suffix }}</span>
+            </div>
             <input
               v-else-if="field.type === 'number'"
               v-model.number="form[field.name]"
@@ -80,6 +108,14 @@
         <button class="ue-submit" :disabled="submitting" @click="handleSubmit">
           {{ submitting ? '提交中…' : (mode === 'per_coil' ? '录入本卷' : '提交') }}
         </button>
+        <button
+          v-if="mode === 'per_coil' && lastCoilData"
+          class="ue-split-btn"
+          :disabled="submitting"
+          @click="handleSplitCoil"
+        >
+          本卷分切（一坯两规格）
+        </button>
       </div>
 
       <section v-if="history.length" class="ue-group">
@@ -97,7 +133,6 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth.js'
 import {
@@ -110,18 +145,19 @@ import {
   createCoilEntry,
 } from '../../api/mobile.js'
 
-const router = useRouter()
 const auth = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
 const submitting = ref(false)
 const form = reactive({})
+const specParts = reactive({})
 const groups = ref([])
 const readonlyFields = ref([])
 const mode = ref('per_shift')
 const history = ref([])
 const coilSeq = ref(1)
+const lastCoilData = ref(null)
 
 const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
@@ -173,6 +209,20 @@ function computeReadonly(rf) {
   }
 }
 
+function syncSpec(field) {
+  const p0 = specParts[field.name + '_0'] || ''
+  const p1 = specParts[field.name + '_1'] || ''
+  const p2 = field.spec_suffix || specParts[field.name + '_2'] || ''
+  form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
+}
+
+function initSpecParts(fieldName, value, suffix) {
+  const parts = (value || '').split(/[×xX*]/)
+  specParts[fieldName + '_0'] = parts[0] || ''
+  specParts[fieldName + '_1'] = parts[1] || ''
+  if (!suffix) specParts[fieldName + '_2'] = parts[2] || ''
+}
+
 function summarize(item) {
   const d = item.data || item
   const parts = []
@@ -184,9 +234,21 @@ function summarize(item) {
   return parts.join(' ') || JSON.stringify(d).slice(0, 40)
 }
 
-function handleLogout() {
-  auth.logout()
-  router.replace('/login')
+function handleSplitCoil() {
+  if (!lastCoilData.value) return
+  const prev = lastCoilData.value
+  for (const key of Object.keys(form)) {
+    if (key === 'output_weight' || key === 'output_spec') {
+      form[key] = typeof form[key] === 'number' ? null : ''
+    } else if (key in prev) {
+      form[key] = prev[key]
+    }
+  }
+  for (const g of groups.value) {
+    for (const f of g.fields) {
+      if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
+    }
+  }
 }
 
 async function loadData() {
@@ -210,6 +272,7 @@ async function loadData() {
     for (const g of groups.value) {
       for (const f of g.fields) {
         if (!(f.name in form)) form[f.name] = f.type === 'number' ? null : ''
+        if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
       }
     }
 
@@ -256,6 +319,7 @@ async function handleSubmit() {
       }
       const saved = await createCoilEntry(coilPayload)
       ElMessage.success(`第${coilSeq.value}卷 录入成功`)
+      lastCoilData.value = { ...form }
       history.value.unshift(saved?.data ? saved : { seq: coilSeq.value, ...form })
       coilSeq.value++
       for (const key of Object.keys(form)) {
@@ -493,6 +557,51 @@ onMounted(loadData)
 
 .ue-submit:active { transform: scale(0.96); }
 .ue-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ue-split-btn {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  border: 1.5px solid var(--xt-primary, #3b82f6);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--xt-primary, #3b82f6);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ue-split-btn:active { background: rgba(59,130,246,0.08); }
+
+.ue-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ue-spec-input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.ue-spec-sep {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--xt-text-tertiary, #999);
+  flex-shrink: 0;
+}
+
+.ue-spec-fixed {
+  background: var(--xt-bg-panel, #fff);
+  border-color: transparent;
+  color: var(--xt-text-secondary, #666);
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}
 
 .ue-history {
   background: var(--xt-bg-panel, #fff);

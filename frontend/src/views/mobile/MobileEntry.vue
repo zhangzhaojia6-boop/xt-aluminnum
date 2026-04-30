@@ -7,9 +7,6 @@
           <h1>{{ pageTitle }}</h1>
           <p>{{ pageSubtitle }}</p>
         </div>
-        <el-button text size="small" class="mobile-logout-btn" @click="handleLogout">
-          切换账号
-        </el-button>
       </div>
 
       <el-alert
