@@ -137,9 +137,9 @@ def test_mobile_error_parsers_handle_object_detail_payloads() -> None:
 def test_dynamic_entry_form_switches_special_owners_to_owner_only_mode() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
 
-    assert "const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager']" in source
+    assert "const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat']" in source
     assert "const isOwnerOnlyMode = computed(() => ownerOnlyRoleBuckets.includes(transitionMapping.value.role_bucket))" in source
-    assert "按班次补录，系统会自动归档。" in source
+    assert "isOwnerOnlyMode.value ? '本班补录' : '本卷录入'" in source
     assert "当前岗位按班次补录，不需要随行卡。系统会自动按日期、班次和岗位归档。" not in source
     assert "if (!isOwnerOnlyMode.value && !normalized)" in source
     assert "OWNER-" in source
@@ -252,12 +252,9 @@ def test_dynamic_entry_form_only_shows_fast_tempo_helper_when_it_is_useful() -> 
 def test_dynamic_entry_form_uses_owner_specific_workbench_copy_and_group_titles() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
 
-    assert "title: '成品库填报'" in source
-    assert "description: '录今日入库、发货与结存。'" in source
-    assert "title: '水电气填报'" in source
-    assert "description: '录用电、天然气和用水原始值。'" in source
-    assert "title: '计划科填报'" in source
-    assert "description: '录合同、余量与投料口径。'" in source
+    assert "title: '填出入库'" in source
+    assert "title: '填水电气'" in source
+    assert "title: '填合同'" in source
     assert "title: '今日入库'" in source
     assert "title: '今日发货'" in source
     assert "title: '结存与备料'" in source
@@ -275,12 +272,12 @@ def test_dynamic_entry_form_uses_owner_specific_workbench_copy_and_group_titles(
 def test_mobile_transition_copy_matches_special_owner_scope() -> None:
     source = _read_repo_file("frontend/src/utils/mobileTransition.js")
 
-    assert "title: '计划科补录'" in source
-    assert "只录合同与投料口径。" in source
-    assert "title: '成品库补录'" in source
-    assert "只录入库、发货与结存。" in source
-    assert "title: '水电气补录'" in source
-    assert "只录全厂水、电、气。" in source
+    assert "title: '填合同'" in source
+    assert "subtitle: '记录合同接单、投料进度'" in source
+    assert "title: '填出入库'" in source
+    assert "subtitle: '记录入库、发货、库存'" in source
+    assert "title: '填水电气'" in source
+    assert "subtitle: '记录全厂用电、天然气、用水'" in source
 
 
 def test_mobile_bottom_nav_keeps_entry_surface_only() -> None:

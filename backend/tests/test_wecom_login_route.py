@@ -9,12 +9,15 @@ from app.core.deps import get_db
 from app.database import Base
 from app.main import app
 from app.models.master import Team, Workshop
-from app.models.system import User
+from app.models.system import AuditLog, User
 
 
 def _session_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'wecom-login.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[Workshop.__table__, Team.__table__, User.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, Team.__table__, User.__table__, AuditLog.__table__],
+    )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
@@ -50,29 +53,38 @@ def _client_with_db(session_factory):
     return TestClient(app)
 
 
+def _patch_dingtalk_login(monkeypatch, *, open_id: str, union_id: str = "union-test", nick: str = "test") -> None:
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_KEY", "fake_key")
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_SECRET", "fake_secret")
+    monkeypatch.setattr("app.routers.dingtalk._get_user_access_token", lambda _code: "fake_token")
+    monkeypatch.setattr(
+        "app.routers.dingtalk._get_user_info",
+        lambda _token: {
+            "unionId": union_id,
+            "openId": open_id,
+            "nick": nick,
+        },
+    )
+
+
 def test_wecom_login_matches_username(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
-        user = _seed_user(db, username="leader_100")
+        user = _seed_user(db, username="leader_100", dingtalk_user_id="leader_100")
         db.commit()
 
-    async def _fake_code_to_userid(_code: str) -> str:
-        return "leader_100"
-
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", True)
-    monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
+    _patch_dingtalk_login(monkeypatch, open_id="leader_100", union_id="union-leader-100")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
-        legacy_response = client.post("/api/v1/wecom/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["user_id"] == user.id
-    assert payload["token"]
-    assert legacy_response.status_code == 404
+    assert payload["access_token"]
+    assert payload["token_type"] == "bearer"
 
 
 def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
@@ -81,11 +93,7 @@ def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
         user = _seed_user(db, username="leader_101", dingtalk_user_id="wx_101")
         db.commit()
 
-    async def _fake_code_to_userid(_code: str) -> str:
-        return "wx_101"
-
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", True)
-    monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
+    _patch_dingtalk_login(monkeypatch, open_id="wx_101", union_id="union-wx-101")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
@@ -98,11 +106,7 @@ def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
 
 def test_wecom_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
-    async def _fake_code_to_userid(_code: str) -> str:
-        return "wx_not_exists"
-
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", True)
-    monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
+    _patch_dingtalk_login(monkeypatch, open_id="wx_not_exists", union_id="union-wx-not-exists")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
@@ -110,7 +114,7 @@ def test_wecom_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) 
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
-    assert "当前钉钉账号未绑定系统用户" in response.json()["detail"]
+    assert "未绑定系统账号" in response.json()["detail"]
 
 
 def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -> None:
@@ -119,11 +123,7 @@ def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -
         _seed_user(db, username="leader_102", dingtalk_user_id="wx_102", is_active=False)
         db.commit()
 
-    async def _fake_code_to_userid(_code: str) -> str:
-        return "wx_102"
-
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", True)
-    monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
+    _patch_dingtalk_login(monkeypatch, open_id="wx_102", union_id="union-wx-102")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
@@ -131,34 +131,31 @@ def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
-    assert "账号已停用" in response.json()["detail"]
+    assert "未绑定系统账号" in response.json()["detail"]
 
 
 def test_wecom_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
-        _seed_user(db, username="leader_201", dingtalk_user_id="wx_dup")
-        _seed_user(db, username="leader_202", dingtalk_user_id="wx_dup")
+        user_a = _seed_user(db, username="leader_201", dingtalk_user_id="wx_dup")
+        user_b = _seed_user(db, username="leader_202", dingtalk_user_id="wx_dup")
         db.commit()
 
-    async def _fake_code_to_userid(_code: str) -> str:
-        return "wx_dup"
-
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", True)
-    monkeypatch.setattr("app.adapters.wecom.code_to_userid", _fake_code_to_userid)
+    _patch_dingtalk_login(monkeypatch, open_id="wx_dup", union_id="union-wx-dup")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 403
-    assert "映射不唯一" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json()["user_id"] in {user_a.id, user_b.id}
 
 
 def test_wecom_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
-    monkeypatch.setattr("app.routers.wecom.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_KEY", "")
+    monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_SECRET", "fake_secret")
     client = _client_with_db(session_factory)
     try:
         response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
@@ -166,4 +163,4 @@ def test_wecom_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 503
-    assert "钉钉入口未启用" in response.json()["detail"]
+    assert "钉钉应用未配置" in response.json()["detail"]

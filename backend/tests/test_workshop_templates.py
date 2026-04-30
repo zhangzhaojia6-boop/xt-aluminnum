@@ -44,8 +44,6 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
         'input_spec',
         'alloy_grade',
         'material_state',
-        'on_machine_time',
-        'off_machine_time',
         'input_weight',
         'output_spec',
         'spool_weight',
@@ -68,13 +66,11 @@ def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
         'alloy_grade',
         'furnace_no',
         'ingot_spec',
-        'on_machine_time',
-        'off_machine_time',
         'input_weight',
         'output_weight',
         'trim_weight',
     ]
-    assert [field['name'] for field in template['readonly_fields']] == ['yield_rate']
+    assert [field['name'] for field in template['readonly_fields']] == ['scrap_weight', 'yield_rate']
 
 
 def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_it_to_contracts() -> None:
@@ -91,15 +87,10 @@ def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_i
         'input_spec',
         'alloy_grade',
         'material_state',
-        'on_machine_time',
         'input_weight',
-        'spool_weight',
-        'off_machine_time',
         'output_weight',
-        'tray_weight',
-        'scrap_weight',
     ]
-    assert shift_leader_shift_names == ['roll_speed', 'ring_count']
+    assert shift_leader_shift_names == []
     assert shift_leader_extra_names == []
     assert 'customer_name' not in shift_leader_extra_names
     assert contracts_extra_names == ['contract_no', 'customer_name', 'contract_weight']

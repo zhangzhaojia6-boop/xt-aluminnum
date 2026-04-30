@@ -64,7 +64,7 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'LZ1450': 'cold_roll',
     'LZ3': 'cold_roll',
     'JZ': 'finishing',
-    'JZ2': 'straightening',
+    'JZ2': 'finishing',
     'JQ': 'shearing',
     'CPK': 'inventory',
 }
