@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, UploadFile
@@ -668,7 +668,7 @@ def update_shift_data_status(
         )
 
     _status_transition_guard(item.data_status, action)
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     target_status = ACTION_STATUS_MAP[action]
 
     if action in {'reject', 'void'} and not (reason or '').strip():

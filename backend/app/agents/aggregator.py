@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -211,7 +211,7 @@ class AggregatorAgent(BaseAgent):
         entity.text_summary = boss_summary
         entity.generated_scope = production_report.get("canonical_scope", CANONICAL_SCOPE)
         entity.output_mode = "both"
-        entity.generated_at = datetime.now(UTC)
+        entity.generated_at = datetime.now(timezone.utc)
         entity.final_text_summary = boss_summary
 
         self.record_decision(
@@ -226,7 +226,7 @@ class AggregatorAgent(BaseAgent):
         if settings.AUTO_PUBLISH_ENABLED:
             entity.status = "published"
             entity.published_by = None
-            entity.published_at = datetime.now(UTC)
+            entity.published_at = datetime.now(timezone.utc)
             self.record_decision(
                 AgentAction.AUTO_PUBLISH,
                 "daily_report",

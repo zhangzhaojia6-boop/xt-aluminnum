@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from typing import Any
 
@@ -161,7 +161,7 @@ class ReporterAgent(BaseAgent):
         )
         if emitted:
             report_data["auto_publish_workflow_key"] = push_key
-            report_data["auto_publish_workflow_at"] = datetime.now(UTC).isoformat()
+            report_data["auto_publish_workflow_at"] = datetime.now(timezone.utc).isoformat()
             log_pilot_event(
                 "auto_publish_workflow_completed",
                 report_id=report.id,
@@ -272,7 +272,7 @@ class ReporterAgent(BaseAgent):
         report_data["auto_push_last_key"] = push_key
         report_data["auto_push_sent_count"] = sent_count
         report_data["auto_push_failed_count"] = failed_count
-        report_data["auto_push_last_at"] = datetime.now(UTC).isoformat()
+        report_data["auto_push_last_at"] = datetime.now(timezone.utc).isoformat()
         app_connection_payload = app_connection_service.build_app_connection_payload(
             report=report,
             report_data=report_data,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 import hashlib
 import importlib
 import json
@@ -128,7 +128,7 @@ def _detect_business_date(sheet_name: str, frame: pd.DataFrame, *, year_hint: in
         if text:
             candidates.append(text)
 
-    year = year_hint or datetime.now(UTC).year
+    year = year_hint or datetime.now(timezone.utc).year
     for text in candidates:
         match = re.search(r'(?:(\d{4})[-/.年])?(\d{1,2})[-/.月](\d{1,2})', text)
         if not match:

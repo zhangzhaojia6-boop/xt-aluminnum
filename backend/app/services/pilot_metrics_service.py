@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from typing import Iterable
 
 from sqlalchemy import func
@@ -15,13 +15,13 @@ from app.services.mobile_report_service import summarize_mobile_reporting
 
 
 def _to_utc(dt: datetime | None) -> datetime | None:
-    """将时间统一转换为 UTC 感知时间。"""
+    """将时间统一转换为 timezone.utc 感知时间。"""
 
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _percentile(values: Iterable[float], percentile: float) -> float | None:

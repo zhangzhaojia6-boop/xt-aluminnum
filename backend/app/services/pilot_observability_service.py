@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import json
 import logging
 from typing import Any
@@ -18,7 +18,7 @@ def log_pilot_event(event_name: str, /, **fields: Any) -> None:
 
     payload: dict[str, Any] = {
         "event": event_name,
-        "occurred_at": datetime.now(UTC).isoformat(),
+        "occurred_at": datetime.now(timezone.utc).isoformat(),
     }
     payload.update(fields)
     logger.info(json.dumps(payload, ensure_ascii=False, default=str, sort_keys=True))

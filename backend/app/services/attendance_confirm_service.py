@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -115,8 +115,8 @@ def _load_dingtalk_clock_map(
         db.query(AttendanceClockRecord)
         .filter(
             AttendanceClockRecord.employee_id.in_(employee_ids),
-            AttendanceClockRecord.clock_time >= start_dt.astimezone(UTC),
-            AttendanceClockRecord.clock_time <= end_dt.astimezone(UTC),
+            AttendanceClockRecord.clock_time >= start_dt.astimezone(timezone.utc),
+            AttendanceClockRecord.clock_time <= end_dt.astimezone(timezone.utc),
         )
         .order_by(AttendanceClockRecord.clock_time.asc(), AttendanceClockRecord.id.asc())
         .all()
@@ -500,7 +500,7 @@ def submit_confirmation(
         )
 
     confirmation.confirmed_by = current_user.id
-    confirmation.confirmed_at = datetime.now(UTC)
+    confirmation.confirmed_at = datetime.now(timezone.utc)
     confirmation.status = 'confirmed'
 
     db.flush()
@@ -675,7 +675,7 @@ def update_anomaly_review(
     detail.hr_status = hr_status
     detail.hr_review_note = (note or '').strip() or None
     detail.hr_reviewed_by = current_user.id
-    detail.hr_reviewed_at = datetime.now(UTC)
+    detail.hr_reviewed_at = datetime.now(timezone.utc)
     if hr_status in {'verified', 'resolved'}:
         confirmation.status = 'hr_reviewed'
     db.flush()

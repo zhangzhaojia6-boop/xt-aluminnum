@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -149,7 +149,7 @@ class ReminderAgent(BaseAgent):
             item.id: item for item in db.query(ShiftConfig).filter(ShiftConfig.id.in_(shift_ids)).all()
         } if shift_ids else {}
 
-        now_local = datetime.now(UTC).astimezone()
+        now_local = datetime.now(timezone.utc).astimezone()
         for item in expected_rows:
             key = (item.business_date, item.shift_config_id, item.workshop_id, item.team_id)
             if key in report_key_set:
@@ -198,7 +198,7 @@ class ReminderAgent(BaseAgent):
                     reminder_status="sent",
                     reminder_channel="wecom" if settings.WECOM_APP_ENABLED else "system",
                     reminder_count=next_count,
-                    last_reminded_at=datetime.now(UTC),
+                    last_reminded_at=datetime.now(timezone.utc),
                     note=None,
                 )
                 db.add(entity)
@@ -231,7 +231,7 @@ class ReminderAgent(BaseAgent):
                 reminder_status="sent",
                 reminder_channel="wecom" if settings.WECOM_APP_ENABLED else "system",
                 reminder_count=next_count,
-                last_reminded_at=datetime.now(UTC),
+                last_reminded_at=datetime.now(timezone.utc),
                 note="自动升级提醒管理员",
             )
             db.add(escalation)

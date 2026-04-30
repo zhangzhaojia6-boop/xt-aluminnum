@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -927,7 +927,7 @@ def generate_daily_reports(
         if item not in VALID_REPORT_TYPES:
             raise ValueError(f'unsupported report_type: {item}')
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     entities: list[DailyReport] = []
     for current_type in report_types:
         report_data, text_summary = _generate_report_payload(
@@ -1011,7 +1011,7 @@ def review_report(
 
     entity.status = 'reviewed'
     entity.reviewed_by = operator.id
-    entity.reviewed_at = datetime.now(UTC)
+    entity.reviewed_at = datetime.now(timezone.utc)
     db.flush()
     record_audit(
         db,
@@ -1136,7 +1136,7 @@ def finalize_report(
             raise ValueError('only admin can force finalize when blockers exist')
 
     entity.final_confirmed_by = operator.id
-    entity.final_confirmed_at = datetime.now(UTC)
+    entity.final_confirmed_at = datetime.now(timezone.utc)
     entity.is_final_version = True
     if not entity.final_text_summary:
         entity.final_text_summary = entity.text_summary
@@ -1183,7 +1183,7 @@ def publish_report(
 
     entity.status = 'published'
     entity.published_by = operator.id
-    entity.published_at = datetime.now(UTC)
+    entity.published_at = datetime.now(timezone.utc)
 
     published_shift_count = 0
     if entity.report_type == 'production':

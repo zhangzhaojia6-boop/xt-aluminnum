@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 from urllib import parse, request
@@ -190,7 +190,7 @@ class DingTalkService:
             timestamp = float(value)
             if timestamp > 10_000_000_000:
                 timestamp /= 1000
-            return datetime.fromtimestamp(timestamp, tz=UTC).isoformat()
+            return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
         if isinstance(value, str):
             return value
         return None
@@ -323,7 +323,7 @@ def sync_clock_records(db, *, start_date: str, end_date: str) -> dict[str, int]:
             if isinstance(clock_time_raw, str):
                 clock_time = datetime.fromisoformat(clock_time_raw)
             if clock_time.tzinfo is None:
-                clock_time = clock_time.replace(tzinfo=UTC)
+                clock_time = clock_time.replace(tzinfo=timezone.utc)
 
             entity = db.query(AttendanceClockRecord).filter(AttendanceClockRecord.dingtalk_id == dingtalk_id).first()
             if entity is None:
@@ -336,7 +336,7 @@ def sync_clock_records(db, *, start_date: str, end_date: str) -> dict[str, int]:
             entity.employee_id = _resolve_employee_id(db, row)
             entity.clock_type = clock_type
             entity.clock_time = clock_time
-            entity.synced_at = datetime.now(UTC)
+            entity.synced_at = datetime.now(timezone.utc)
             synced += 1
         except Exception:  # noqa: BLE001
             failed += 1
@@ -346,7 +346,7 @@ def sync_clock_records(db, *, start_date: str, end_date: str) -> dict[str, int]:
 
 
 def sync_recent_clock_records(now: datetime | None = None) -> dict[str, int]:
-    current = now or datetime.now(UTC)
+    current = now or datetime.now(timezone.utc)
     sessionmaker = get_sessionmaker()
     db = sessionmaker()
     try:

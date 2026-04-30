@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -54,7 +54,7 @@ def dispatch_app_connection_payload(
     result = {
         'status': 'disabled',
         'push_mode': mode,
-        'sent_at': datetime.now(UTC).isoformat(),
+        'sent_at': datetime.now(timezone.utc).isoformat(),
         'http_status': None,
         'detail': None,
     }
