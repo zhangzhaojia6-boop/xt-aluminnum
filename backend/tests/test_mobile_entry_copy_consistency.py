@@ -177,14 +177,16 @@ def test_dynamic_entry_form_owner_only_mode_skips_tracking_card_and_machine_summ
 
 def test_dynamic_entry_form_uses_shift_fields_and_trims_review_copy() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+    tools_source = _read_repo_file("frontend/src/components/mobile/EntryToolsPanel.vue")
 
     assert "const shiftFields = computed(() => template.value?.shift_fields || [])" in source
     assert "if (hasShiftConfirmationFields.value) return '班末确认'" in source
     assert "<template #header>{{ supplementalCardTitle }}</template>" in source
     assert "<template #header>确认提交</template>" in source
-    assert "<template #header>工具与记录</template>" in source
-    assert "title=\"拍照记录\"" in source
-    assert "title=\"批量粘贴\"" in source
+    assert "<EntryToolsPanel" in source
+    assert "<template #header>工具与记录</template>" in tools_source
+    assert "title=\"拍照记录\"" in tools_source
+    assert "title=\"批量粘贴\"" in tools_source
     assert "label: '已填'" in source
     assert "label: '识别来源'" not in source
 
@@ -212,10 +214,12 @@ def test_dynamic_entry_form_trims_operator_surface_copy() -> None:
 
 def test_dynamic_entry_form_trims_redundant_helper_copy() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+    tools_source = _read_repo_file("frontend/src/components/mobile/EntryToolsPanel.vue")
 
     assert "当前账号暂时无法填报。" in source
-    assert "队列 {{ batchQueue.length }} 卷" in source
-    assert "制表符分列，每行一卷。" in source
+    assert ':batch-queue-length="batchQueue.length"' in source
+    assert "队列 {{ batchQueueLength }} 卷" in tools_source
+    assert "制表符分列，每行一卷。" in tools_source
     assert "{{ isOwnerOnlyMode ? ownerModeConfig.coreCardTitle : '填写' }}" in source
     assert "ownerModeConfig.title" in source
     assert "前序记录" in source
@@ -271,23 +275,25 @@ def test_dynamic_entry_form_only_shows_fast_tempo_helper_when_it_is_useful() -> 
 
 
 def test_dynamic_entry_form_uses_owner_specific_workbench_copy_and_group_titles() -> None:
-    source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+    config_source = _read_repo_file("frontend/src/config/ownerModeConfig.js")
 
-    assert "title: '填出入库'" in source
-    assert "title: '填水电气'" in source
-    assert "title: '填合同'" in source
-    assert "title: '今日入库'" in source
-    assert "title: '今日发货'" in source
-    assert "title: '结存与备料'" in source
-    assert "title: '用电'" in source
-    assert "title: '天然气'" in source
-    assert "title: '用水'" in source
-    assert "title: '当日合同'" in source
-    assert "title: '月累计与余合同'" in source
-    assert "title: '投料与坯料'" in source
-    assert "ownerModeConfig.title" in source
-    assert "ownerCoreSections" in source
-    assert "ownerSupplementalSections" in source
+    assert "title: '填出入库'" in config_source
+    assert "title: '填水电气'" in config_source
+    assert "title: '填合同'" in config_source
+    assert "title: '今日入库'" in config_source
+    assert "title: '今日发货'" in config_source
+    assert "title: '结存与备料'" in config_source
+    assert "title: '用电'" in config_source
+    assert "title: '天然气'" in config_source
+    assert "title: '用水'" in config_source
+    assert "title: '当日合同'" in config_source
+    assert "title: '月累计与余合同'" in config_source
+    assert "title: '投料与坯料'" in config_source
+
+    vue_source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+    assert "ownerModeConfig.title" in vue_source
+    assert "ownerCoreSections" in vue_source
+    assert "ownerSupplementalSections" in vue_source
 
 
 def test_mobile_transition_copy_matches_special_owner_scope() -> None:

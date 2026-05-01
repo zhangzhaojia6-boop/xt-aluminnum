@@ -208,43 +208,16 @@
               >
                 <div class="mobile-section-title">{{ section.title }}</div>
                 <div class="mobile-form-grid">
-                  <div
+                  <EntryFieldInput
                     v-for="field in section.fields"
                     :key="`${section.title}-${field.name}`"
-                    :class="['mobile-field', field.name === 'operator_notes' ? 'mobile-field-wide' : '']"
-                  >
-                    <label class="mobile-field-label">
-                      <span>
-                        <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                        {{ displayFieldLabel(field) }}
-                        <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                      </span>
-                      <span
-                        v-if="ocrMetaForField(field.name)"
-                        :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                      >
-                        {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                      </span>
-                    </label>
-                    <el-time-picker
-                      v-if="field.type === 'time'"
-                      v-model="formValues[field.name]"
-                      value-format="HH:mm:ss"
-                      format="HH:mm"
-                      placeholder="选择时间"
-                      :disabled="isEntryEditingDisabled"
-                      class="mobile-time-picker"
-                    />
-                    <el-input
-                      v-else
-                      v-model="formValues[field.name]"
-                      :type="field.type === 'textarea' ? 'textarea' : 'text'"
-                      :rows="field.type === 'textarea' ? 3 : undefined"
-                      :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
+                    :field="field"
+                    v-model="formValues[field.name]"
                     :disabled="isEntryEditingDisabled"
+                    :required="isFieldRequired(field)"
+                    :ocr-meta="ocrMetaForField(field.name)"
+                    :wide="field.name === 'operator_notes'"
                   />
-                </div>
               </div>
             </section>
             </template>
@@ -252,43 +225,16 @@
             <section v-else-if="entryFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">{{ isOwnerOnlyMode ? '本班原始值' : '本卷原始值' }}</div>
               <div class="mobile-form-grid">
-                <div
+                <EntryFieldInput
                   v-for="field in entryFields"
                   :key="field.name"
-                  :class="['mobile-field', field.name === 'operator_notes' ? 'mobile-field-wide' : '']"
-                >
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                    </span>
-                    <span
-                      v-if="ocrMetaForField(field.name)"
-                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                    >
-                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                    </span>
-                  </label>
-                  <el-time-picker
-                    v-if="field.type === 'time'"
-                    v-model="formValues[field.name]"
-                    value-format="HH:mm:ss"
-                    format="HH:mm"
-                    placeholder="选择时间"
-                    :disabled="isEntryEditingDisabled"
-                    class="mobile-time-picker"
-                  />
-                  <el-input
-                    v-else
-                    v-model="formValues[field.name]"
-                    :type="field.type === 'textarea' ? 'textarea' : 'text'"
-                    :rows="field.type === 'textarea' ? 3 : undefined"
-                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                  :ocr-meta="ocrMetaForField(field.name)"
+                  :wide="field.name === 'operator_notes'"
+                />
               </div>
             </section>
           </div>
@@ -314,27 +260,15 @@
               >
                 <div class="mobile-section-title">{{ section.title }}</div>
                 <div class="mobile-form-grid">
-                  <div v-for="field in section.fields" :key="`${section.title}-${field.name}`" class="mobile-field">
-                    <label class="mobile-field-label">
-                      <span>
-                        <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                        {{ displayFieldLabel(field) }}
-                        <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                      </span>
-                      <span
-                        v-if="ocrMetaForField(field.name)"
-                        :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                      >
-                        {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                      </span>
-                    </label>
-                    <el-input
-                      v-model="formValues[field.name]"
-                      :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                      :placeholder="fieldPlaceholder(field)"
-                      :disabled="isEntryEditingDisabled"
-                    />
-                  </div>
+                  <EntryFieldInput
+                    v-for="field in section.fields"
+                    :key="`${section.title}-${field.name}`"
+                    :field="field"
+                    v-model="formValues[field.name]"
+                    :disabled="isEntryEditingDisabled"
+                    :required="isFieldRequired(field)"
+                    :ocr-meta="ocrMetaForField(field.name)"
+                  />
                 </div>
               </section>
             </template>
@@ -342,122 +276,74 @@
             <section v-else-if="shiftFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">{{ isOwnerOnlyMode ? '岗位归档字段' : '班末补充确认' }}</div>
               <div class="mobile-form-grid">
-                <div v-for="field in shiftFields" :key="field.name" class="mobile-field">
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                    </span>
-                    <span
-                      v-if="ocrMetaForField(field.name)"
-                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                    >
-                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                    </span>
-                  </label>
-                  <el-input
-                    v-model="formValues[field.name]"
-                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                <EntryFieldInput
+                  v-for="field in shiftFields"
+                  :key="field.name"
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                  :ocr-meta="ocrMetaForField(field.name)"
+                />
               </div>
             </section>
 
             <section v-if="operatorConfirmationFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">异常与班末确认</div>
               <div class="mobile-form-grid">
-                <div v-for="field in operatorConfirmationFields" :key="field.name" class="mobile-field mobile-field-wide">
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                    </span>
-                  </label>
-                  <el-input
-                    v-model="formValues[field.name]"
-                    type="textarea"
-                    :rows="3"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                <EntryFieldInput
+                  v-for="field in operatorConfirmationFields"
+                  :key="field.name"
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                  wide
+                />
               </div>
             </section>
 
             <section v-if="extraFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">{{ isOwnerOnlyMode ? '补录字段' : '车间字段' }}</div>
               <div class="mobile-form-grid">
-                <div v-for="field in extraFields" :key="field.name" class="mobile-field">
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                    </span>
-                    <span
-                      v-if="ocrMetaForField(field.name)"
-                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                    >
-                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                    </span>
-                  </label>
-                  <el-input
-                    v-model="formValues[field.name]"
-                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                <EntryFieldInput
+                  v-for="field in extraFields"
+                  :key="field.name"
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                  :ocr-meta="ocrMetaForField(field.name)"
+                />
               </div>
             </section>
 
             <section v-if="machineFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">机台字段</div>
               <div class="mobile-form-grid">
-                <div v-for="field in machineFields" :key="field.name" class="mobile-field">
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                      <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
-                    </span>
-                  </label>
-                  <el-input
-                    v-model="formValues[field.name]"
-                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                <EntryFieldInput
+                  v-for="field in machineFields"
+                  :key="field.name"
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                />
               </div>
             </section>
 
             <section v-if="qcFields.length" class="mobile-dynamic-section">
               <div class="mobile-section-title">质检字段</div>
               <div class="mobile-form-grid">
-                <div v-for="field in qcFields" :key="field.name" class="mobile-field">
-                  <label class="mobile-field-label">
-                    <span>
-                      <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
-                      {{ displayFieldLabel(field) }}
-                    </span>
-                    <span
-                      v-if="ocrMetaForField(field.name)"
-                      :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
-                    >
-                      {{ confidenceLabel(ocrMetaForField(field.name)?.confidence) }}
-                    </span>
-                  </label>
-                  <el-input
-                    v-model="formValues[field.name]"
-                    :inputmode="field.type === 'number' ? 'decimal' : 'text'"
-                    :placeholder="fieldPlaceholder(field)"
-                    :disabled="isEntryEditingDisabled"
-                  />
-                </div>
+                <EntryFieldInput
+                  v-for="field in qcFields"
+                  :key="field.name"
+                  :field="field"
+                  v-model="formValues[field.name]"
+                  :disabled="isEntryEditingDisabled"
+                  :required="isFieldRequired(field)"
+                  :ocr-meta="ocrMetaForField(field.name)"
+                />
               </div>
             </section>
           </div>
@@ -479,76 +365,18 @@
           </div>
         </el-card>
 
-        <el-card v-if="hasSecondaryContent" class="panel mobile-card" data-testid="entry-secondary-sections">
-          <template #header>工具与记录</template>
-          <el-collapse class="mobile-collapse">
-        <el-collapse-item v-if="hasOcrContext" title="拍照记录" name="ocr">
-          <div class="mobile-static-grid">
-            <div class="mobile-static-chip">
-              <span>识别记录</span>
-              <strong>#{{ ocrState.submissionId }}</strong>
-            </div>
-            <div class="mobile-static-chip">
-              <span>状态</span>
-              <strong>{{ ocrState.verified ? '已核对' : '待核对' }}</strong>
-            </div>
-          </div>
-          <div v-if="ocrState.imageUrl" class="mobile-ocr-preview">
-            <img :src="ocrState.imageUrl" alt="识别留存图片">
-          </div>
-          <div class="mobile-actions">
-            <el-button plain @click="goOcrCapture">重新拍照</el-button>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item v-if="currentWorkOrder?.previous_stage_output" title="前序来料快照" name="previous">
-          <div class="mobile-history-grid">
-            <div>
-              <span>来源车间</span>
-              <strong>{{ currentWorkOrder.previous_stage_output.workshop || '-' }}</strong>
-            </div>
-            <div>
-              <span>产出重量</span>
-              <strong>{{ formatNumber(currentWorkOrder.previous_stage_output.output_weight) }}</strong>
-            </div>
-            <div>
-              <span>产出规格</span>
-              <strong>{{ currentWorkOrder.previous_stage_output.output_spec || '-' }}</strong>
-            </div>
-            <div>
-              <span>完成时间</span>
-              <strong>{{ formatDateTime(currentWorkOrder.previous_stage_output.completed_at) }}</strong>
-            </div>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item v-if="readonlyDisplayItems.length" title="系统字段" name="readonly">
-          <div class="mobile-static-grid">
-            <div v-for="item in readonlyDisplayItems" :key="item.name" class="mobile-static-chip">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </div>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item v-if="template && isFastTempo && !isOwnerOnlyMode" title="批量粘贴" name="batch">
-          <div class="mobile-history-note">制表符分列，每行一卷。</div>
-          <div class="mobile-field mobile-field-wide">
-            <el-input
-              v-model="batchText"
-              type="textarea"
-              :rows="6"
-              placeholder="示例：批次号〔制表符〕上机重量〔制表符〕下机重量..."
-              :disabled="isEntryEditingDisabled"
-            />
-          </div>
-          <div class="mobile-actions">
-            <el-button :disabled="isEntryEditingDisabled" @click="applyBatchPaste">载入队列</el-button>
-            <div class="mobile-history-note">队列 {{ batchQueue.length }} 卷</div>
-          </div>
-        </el-collapse-item>
-          </el-collapse>
-        </el-card>
+        <EntryToolsPanel
+          :ocr-state="ocrState"
+          :has-ocr-context="hasOcrContext"
+          :previous-stage-output="currentWorkOrder?.previous_stage_output"
+          :readonly-items="readonlyDisplayItems"
+          :show-batch-paste="Boolean(template && isFastTempo && !isOwnerOnlyMode)"
+          v-model:batch-text="batchText"
+          :batch-queue-length="batchQueue.length"
+          :disabled="isEntryEditingDisabled"
+          @ocr-recapture="goOcrCapture"
+          @apply-batch="applyBatchPaste"
+        />
       </template>
     </MobileSwipeWorkspace>
 
@@ -616,7 +444,7 @@
   </div>
 </template>
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -635,20 +463,30 @@ import {
   verifyOcrFields
 } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
-import { formatDateTime, formatNumber, formatStatusLabel } from '../../utils/display.js'
+import { formatStatusLabel } from '../../utils/display.js'
 import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
-import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard.js'
+import { isWithinSubmitCooldown } from '../../utils/submitGuard.js'
+import { safeEvaluate } from '../../utils/expressionEvaluator.js'
+import { OWNER_MODE_CONFIG, CONSUMABLE_SECTIONS_BY_WORKSHOP } from '../../config/ownerModeConfig.js'
+import {
+  toNumber, isEmptyValue, emptyFieldValue,
+  normalizeFieldValue, formatFieldValue, formatFieldValueForDisplay,
+  displayFieldLabel
+} from '../../utils/fieldValueHelpers.js'
+import { useOcrState } from '../../composables/useOcrState.js'
+import { useSubmitCooldown } from '../../composables/useSubmitCooldown.js'
+import EntryFieldInput from '../../components/mobile/EntryFieldInput.vue'
+import EntryToolsPanel from '../../components/mobile/EntryToolsPanel.vue'
 import MobileSwipeWorkspace from '../../components/mobile/MobileSwipeWorkspace.vue'
-
-const OCR_STORAGE_PREFIX = 'aluminum-ocr-submission:'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { enqueuePendingRequest } = useRetryQueue()
+const { ocrState, ocrMetaForField, clearOcrState, loadOcrFromStorage: loadOcrFromStorageRaw, saveOcrToStorage, removeOcrStorage } = useOcrState()
 
 const loading = ref(true)
 const loadError = ref(null)
@@ -663,13 +501,6 @@ const template = ref(null)
 const equipmentOptions = ref([])
 const currentWorkOrder = ref(null)
 const currentEntry = ref(null)
-const ocrState = reactive({
-  submissionId: null,
-  imageUrl: '',
-  rawText: '',
-  fields: {},
-  verified: false
-})
 const currentShift = reactive({
   business_date: '',
   shift_id: null,
@@ -696,10 +527,8 @@ const formState = reactive({
 const formValues = reactive({})
 const completionMode = ref('in_progress')
 const justSubmitted = ref(false)
-const lastSubmitTime = ref(0)
-const submitCooldownActive = ref(false)
+const { lastSubmitTime, submitCooldownActive, startCooldown: startSubmitCooldown } = useSubmitCooldown()
 const entryCreateIdempotencyKey = ref(buildClientUuid())
-let submitCooldownTimer = null
 
 const OPERATOR_CONFIRMATION_FIELD = {
   name: 'operator_notes',
@@ -791,177 +620,6 @@ const ROLE_COLOR_MAP = {
 const roleColor = computed(() => ROLE_COLOR_MAP[transitionMapping.value.role_bucket] || 'var(--m-role-operator)')
 const ownerOnlyRoleBuckets = ['contracts', 'inventory_keeper', 'utility_manager', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat']
 const isOwnerOnlyMode = computed(() => ownerOnlyRoleBuckets.includes(transitionMapping.value.role_bucket))
-const OWNER_MODE_CONFIG = {
-  inventory_keeper: {
-    title: '填出入库',
-    coreCardTitle: '今日进出',
-    coreStepTitle: '进出',
-    supplementalCardTitle: '结存复核',
-    supplementalStepTitle: '结存',
-    coreSections: [
-      {
-        title: '今日入库',
-        fieldNames: [
-          'storage_inbound_weight',
-          'storage_inbound_area',
-          'plant_to_park_inbound_weight',
-          'park_to_storage_inbound_weight',
-        ],
-      },
-      {
-        title: '今日发货',
-        fieldNames: [
-          'shipment_weight',
-          'shipment_area',
-          'month_to_date_shipment_weight',
-          'month_to_date_shipment_area',
-        ],
-      },
-    ],
-    supplementalSections: [
-      {
-        title: '结存与备料',
-        fieldNames: [
-          'month_to_date_inbound_weight',
-          'month_to_date_inbound_area',
-          'consignment_weight',
-          'finished_inventory_weight',
-          'shearing_prepared_weight',
-        ],
-      },
-    ],
-  },
-  utility_manager: {
-    title: '填水电气',
-    coreCardTitle: '介质录入',
-    coreStepTitle: '介质',
-    supplementalCardTitle: '水量补录',
-    supplementalStepTitle: '用水',
-    coreSections: [
-      {
-        title: '用电',
-        fieldNames: [
-          'total_electricity_kwh',
-          'new_plant_electricity_kwh',
-          'park_electricity_kwh',
-        ],
-      },
-      {
-        title: '天然气',
-        fieldNames: [
-          'cast_roll_gas_m3',
-          'smelting_gas_m3',
-          'heating_furnace_gas_m3',
-          'boiler_gas_m3',
-          'total_gas_m3',
-        ],
-      },
-    ],
-    supplementalSections: [
-      {
-        title: '用水',
-        fieldNames: ['groundwater_ton', 'tap_water_ton'],
-      },
-    ],
-  },
-  contracts: {
-    title: '填合同',
-    coreCardTitle: '合同进度',
-    coreStepTitle: '合同',
-    supplementalCardTitle: '投料补录',
-    supplementalStepTitle: '投料',
-    coreSections: [
-      {
-        title: '当日合同',
-        fieldNames: ['daily_contract_weight', 'daily_hot_roll_contract_weight'],
-      },
-      {
-        title: '月累计与余合同',
-        fieldNames: [
-          'month_to_date_contract_weight',
-          'month_to_date_hot_roll_contract_weight',
-          'remaining_contract_weight',
-          'remaining_hot_roll_contract_weight',
-          'remaining_contract_delta_weight',
-        ],
-      },
-    ],
-    supplementalSections: [
-      {
-        title: '投料与坯料',
-        fieldNames: [
-          'billet_inventory_weight',
-          'daily_input_weight',
-          'month_to_date_input_weight',
-        ],
-      },
-    ],
-  },
-  energy_stat: {
-    title: '填能耗',
-    coreCardTitle: '能耗录入',
-    coreStepTitle: '能耗',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [
-      { title: '电耗与气耗', fieldNames: ['energy_kwh', 'gas_m3'] },
-    ],
-    supplementalSections: [],
-  },
-  maintenance_lead: {
-    title: '报停机',
-    coreCardTitle: '停机录入',
-    coreStepTitle: '停机',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [
-      { title: '停机记录', fieldNames: ['downtime_minutes', 'downtime_reason'] },
-    ],
-    supplementalSections: [],
-  },
-  hydraulic_lead: {
-    title: '报油耗',
-    coreCardTitle: '耗油录入',
-    coreStepTitle: '耗油',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [
-      { title: '液压油与齿轮油', fieldNames: ['hydraulic_oil_32', 'hydraulic_oil_46', 'gear_oil'] },
-    ],
-    supplementalSections: [],
-  },
-  consumable_stat: {
-    title: '报辅材',
-    coreCardTitle: '辅材录入',
-    coreStepTitle: '辅材',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [],
-    supplementalSections: [],
-  },
-  qc: {
-    title: '填质检',
-    coreCardTitle: '质检录入',
-    coreStepTitle: '质检',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [
-      { title: '质检结论', fieldNames: ['qc_grade', 'qc_notes'] },
-    ],
-    supplementalSections: [],
-  },
-  weigher: {
-    title: '核重量',
-    coreCardTitle: '核实重量',
-    coreStepTitle: '称重',
-    supplementalCardTitle: '补充',
-    supplementalStepTitle: '补充',
-    coreSections: [
-      { title: '核实重量', fieldNames: ['verified_input_weight', 'verified_output_weight'] },
-    ],
-    supplementalSections: [],
-  },
-}
 const defaultOwnerModeConfig = {
   title: roleBucketMeta.value.title,
   coreCardTitle: '补录',
@@ -970,20 +628,6 @@ const defaultOwnerModeConfig = {
   supplementalStepTitle: '补录',
   coreSections: [],
   supplementalSections: [],
-}
-const CONSUMABLE_SECTIONS_BY_WORKSHOP = {
-  casting: [
-    { title: '铸轧辅材', fieldNames: ['liquefied_gas_per_ton', 'titanium_wire_per_ton', 'steel_strip_per_ton', 'magnesium_per_ton', 'manganese_per_ton', 'iron_per_ton', 'copper_per_ton'] },
-  ],
-  hot_roll: [
-    { title: '热轧辅材', fieldNames: ['hot_roll_emulsion_per_ton'] },
-  ],
-  cold_roll: [
-    { title: '冷轧辅材', fieldNames: ['rolling_oil_per_ton', 'filter_agent_per_ton', 'diatomite_per_ton', 'white_earth_per_ton', 'filter_cloth_daily', 'high_temp_tape_daily', 'regen_oil_out', 'regen_oil_in'] },
-  ],
-  finishing: [
-    { title: '精整辅材', fieldNames: ['rolling_oil_per_ton', 'd40_per_ton', 'steel_plate_per_ton', 'steel_strip_per_ton', 'steel_buckle_per_ton', 'high_temp_tape_daily'] },
-  ],
 }
 const ownerModeConfig = computed(() => {
   const bucket = transitionMapping.value.role_bucket
@@ -1144,12 +788,6 @@ const batchColumnLabels = computed(() =>
 )
 
 const hasOcrContext = computed(() => Boolean(ocrState.submissionId))
-const hasSecondaryContent = computed(() => Boolean(
-  hasOcrContext.value ||
-  currentWorkOrder.value?.previous_stage_output ||
-  readonlyDisplayItems.value.length ||
-  isFastTempo.value
-))
 const reviewSummaryItems = computed(() => {
   const items = [
     { label: isOwnerOnlyMode.value ? '岗位归档' : '批次号', value: activeTrackingCardNo.value || '-' },
@@ -1237,10 +875,6 @@ function requestErrorMessage(error, fallback = '提交失败') {
   return error?.message || fallback
 }
 
-function ocrStorageKey(submissionId) {
-  return `${OCR_STORAGE_PREFIX}${submissionId}`
-}
-
 function buildOwnerOnlyTrackingCardNo() {
   const workshopCode = String(currentShift.workshop_code || currentShift.workshop_id || 'WS').trim().toUpperCase()
   const businessDate = String(formState.business_date || currentShift.business_date || '').replace(/-/g, '')
@@ -1254,50 +888,6 @@ const activeTrackingCardNo = computed(() => {
   }
   return normalizeTrackingCard(trackingCardNo.value)
 })
-
-function ocrMetaForField(fieldName) {
-  return ocrState.fields?.[fieldName] || null
-}
-
-function confidenceTone(confidence) {
-  if (confidence === null || confidence === undefined) return 'warn'
-  if (confidence >= 0.85) return 'good'
-  if (confidence >= 0.6) return 'warn'
-  return 'danger'
-}
-
-function confidenceLabel(confidence) {
-  if (confidence === null || confidence === undefined) return '待核对'
-  return `${Math.round(confidence * 100)}%`
-}
-
-function clearOcrState({ clearStorage = false } = {}) {
-  if (clearStorage && ocrState.submissionId) {
-    sessionStorage.removeItem(ocrStorageKey(ocrState.submissionId))
-  }
-  ocrState.submissionId = null
-  ocrState.imageUrl = ''
-  ocrState.rawText = ''
-  ocrState.fields = {}
-  ocrState.verified = false
-}
-
-function clearSubmitCooldownTimer() {
-  if (submitCooldownTimer) {
-    clearTimeout(submitCooldownTimer)
-    submitCooldownTimer = null
-  }
-}
-
-function startSubmitCooldown() {
-  lastSubmitTime.value = Date.now()
-  submitCooldownActive.value = true
-  clearSubmitCooldownTimer()
-  submitCooldownTimer = setTimeout(() => {
-    submitCooldownActive.value = false
-    submitCooldownTimer = null
-  }, SUBMIT_COOLDOWN_MS)
-}
 
 function isCurrentStep(stepKey) {
   return currentStepKey.value === stepKey
@@ -1376,11 +966,6 @@ function applyLocalDraft(snapshot) {
   ocrState.verified = Boolean(snapshot.ocrState?.verified)
 }
 
-function emptyFieldValue(field) {
-  if (field.type === 'number') return null
-  return ''
-}
-
 function resetFormValues({ keepHeader = false } = {}) {
   const previousHeaderValues = {}
   editableFields.value.forEach((field) => {
@@ -1409,180 +994,13 @@ function initializeTemplateForm() {
 }
 
 function loadOcrFromStorage() {
-  clearOcrState()
-  const submissionId = Number(route.query.ocr_submission_id || 0)
-  if (!submissionId) return
-  const raw = sessionStorage.getItem(ocrStorageKey(submissionId))
-  if (!raw) return
-
-  try {
-    const payload = JSON.parse(raw)
-    ocrState.submissionId = submissionId
-    ocrState.imageUrl = payload.image_url || ''
-    ocrState.rawText = payload.raw_text || ''
-    ocrState.fields = payload.fields || {}
-    ocrState.verified = Boolean(payload.status === 'verified' || payload.verified)
-
-    editableFields.value.forEach((field) => {
-      const meta = payload.fields?.[field.name]
-      if (!meta || meta.value === null || meta.value === undefined || meta.value === '') return
-      if (isEmptyValue(formValues[field.name])) {
-        formValues[field.name] = formatFieldValue(field, meta.value)
-      }
-    })
-  } catch {
-    clearOcrState({ clearStorage: true })
-  }
-}
-
-function toNumber(value) {
-  if (value === '' || value === null || value === undefined) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function isEmptyValue(value) {
-  if (value === null || value === undefined) return true
-  if (typeof value === 'string') return value.trim() === ''
-  if (Array.isArray(value)) return value.length === 0
-  if (typeof value === 'object') return Object.keys(value).length === 0
-  return false
-}
-
-const SAFE_EXPRESSION_PATTERN = /^[A-Za-z0-9_+\-*/().%\s]+$/
-
-function operatorPrecedence(operator) {
-  if (operator === '+' || operator === '-') return 1
-  if (operator === '*' || operator === '/' || operator === '%') return 2
-  return 0
-}
-
-function applyMathOperator(values, operator) {
-  if (values.length < 2) return false
-  const right = Number(values.pop())
-  const left = Number(values.pop())
-  let result = null
-
-  if (operator === '+') result = left + right
-  else if (operator === '-') result = left - right
-  else if (operator === '*') result = left * right
-  else if (operator === '/') result = right === 0 ? null : left / right
-  else if (operator === '%') result = right === 0 ? null : left % right
-
-  if (result === null || !Number.isFinite(result)) return false
-  values.push(result)
-  return true
-}
-
-function safeEvaluate(expression, variables) {
-  const source = String(expression || '').trim()
-  if (!source || !SAFE_EXPRESSION_PATTERN.test(source)) return null
-
-  const tokens = source.match(/[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|[()+\-*/%]/g) || []
-  if (!tokens.length) return null
-
-  const values = []
-  const operators = []
-  let previousTokenType = 'start'
-
-  for (const token of tokens) {
-    if (/^\d+(?:\.\d+)?$/.test(token)) {
-      values.push(Number(token))
-      previousTokenType = 'value'
-      continue
-    }
-
-    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token)) {
-      values.push(Number(variables[token] ?? 0))
-      previousTokenType = 'value'
-      continue
-    }
-
-    if (token === '(') {
-      operators.push(token)
-      previousTokenType = '('
-      continue
-    }
-
-    if (token === ')') {
-      while (operators.length && operators[operators.length - 1] !== '(') {
-        if (!applyMathOperator(values, operators.pop())) return null
-      }
-      if (operators.length === 0 || operators.pop() !== '(') return null
-      previousTokenType = 'value'
-      continue
-    }
-
-    if ('+-*/%'.includes(token)) {
-      if (token === '-' && (previousTokenType === 'start' || previousTokenType === 'operator' || previousTokenType === '(')) {
-        values.push(0)
-      }
-
-      while (
-        operators.length &&
-        operators[operators.length - 1] !== '(' &&
-        operatorPrecedence(operators[operators.length - 1]) >= operatorPrecedence(token)
-      ) {
-        if (!applyMathOperator(values, operators.pop())) return null
-      }
-      operators.push(token)
-      previousTokenType = 'operator'
-      continue
-    }
-
-    return null
-  }
-
-  while (operators.length) {
-    const operator = operators.pop()
-    if (operator === '(' || operator === ')') return null
-    if (!applyMathOperator(values, operator)) return null
-  }
-
-  if (values.length !== 1) return null
-  const finalValue = Number(values[0])
-  return Number.isFinite(finalValue) ? finalValue : null
-}
-
-function normalizeFieldValue(field, rawValue) {
-  if (rawValue === null || rawValue === undefined || rawValue === '') return null
-  if (field.type === 'number') return toNumber(rawValue)
-  if (field.type === 'time') {
-    const text = String(rawValue)
-    if (!text.trim()) return null
-    return text.length === 5 ? `${text}:00` : text
-  }
-  return String(rawValue).trim()
-}
-
-function formatFieldValue(field, rawValue) {
-  if (rawValue === null || rawValue === undefined) return emptyFieldValue(field)
-  if (field.type === 'time') return String(rawValue).slice(0, 8)
-  return rawValue
-}
-
-function formatFieldValueForDisplay(field, rawValue) {
-  if (rawValue === null || rawValue === undefined || rawValue === '') return '-'
-  if (field.type === 'number') {
-    const digits = Number.isInteger(Number(rawValue)) ? 0 : 2
-    const formatted = formatNumber(rawValue, digits)
-    return field.unit ? `${formatted} ${field.unit}` : formatted
-  }
-  if (field.type === 'time') return String(rawValue).slice(0, 5)
-  return String(rawValue)
-}
-
-function displayFieldLabel(field) {
-  if (!field) return ''
-  if (field.name === 'operator_notes') return '备注'
-  return field.label || field.name || ''
-}
-
-function fieldPlaceholder(field) {
-  const label = displayFieldLabel(field)
-  if (field.type === 'number') return '数字'
-  if (field.type === 'time') return '时间'
-  return label || '填写'
+  loadOcrFromStorageRaw({
+    submissionId: Number(route.query.ocr_submission_id || 0),
+    editableFields: editableFields.value,
+    formValues,
+    formatFieldValue,
+    isEmptyValue,
+  })
 }
 
 function resolvePersistedFieldValue(field, workOrder = currentWorkOrder.value, entry = currentEntry.value) {
@@ -1811,17 +1229,7 @@ async function verifyOcrIfNeeded(requestConfig = {}) {
   )
 
   ocrState.verified = payload.status === 'verified'
-  sessionStorage.setItem(
-    ocrStorageKey(ocrState.submissionId),
-    JSON.stringify({
-      ocr_submission_id: ocrState.submissionId,
-      image_url: ocrState.imageUrl,
-      raw_text: ocrState.rawText,
-      fields: ocrState.fields,
-      status: payload.status,
-      verified: ocrState.verified
-    })
-  )
+  saveOcrToStorage()
 }
 
 function isFieldRequired(field) {
@@ -1899,7 +1307,7 @@ async function persistEntry(requestConfig = {}) {
   })
   currentEntry.value = created
   if (ocrState.submissionId) {
-    sessionStorage.removeItem(ocrStorageKey(ocrState.submissionId))
+    removeOcrStorage()
   }
   return created
 }
@@ -2149,9 +1557,6 @@ async function loadPage() {
 
 onMounted(loadPage)
 
-onBeforeUnmount(() => {
-  clearSubmitCooldownTimer()
-})
 </script>
 
 <style scoped>
