@@ -228,6 +228,16 @@ def test_dynamic_entry_form_trims_redundant_helper_copy() -> None:
     assert "确认后正式提交。" not in source
 
 
+def test_dynamic_entry_form_removes_placeholder_trace_and_voice_stubs() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+
+    assert "entry-external-trace" not in source
+    assert "entry-mes-trace-card" not in source
+    assert "isVoiceFieldSupported" not in source
+    assert "toggleVoicePrefill" not in source
+    assert "voiceListeningField" not in source
+
+
 def test_dynamic_entry_form_uses_field_facing_step_titles_and_trimmed_summary_strip() -> None:
     source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
 

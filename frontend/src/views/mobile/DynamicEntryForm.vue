@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="mobile-shell mobile-shell--entry-form" data-testid="dynamic-entry-form">
   <el-result
       v-if="loadError"
@@ -155,15 +155,6 @@
           </div>
         </el-card>
 
-        <el-card v-if="!isOwnerOnlyMode" class="panel mobile-card entry-external-trace-card" data-testid="entry-mes-trace-card">
-          <template #header>外部系统线索</template>
-          <div class="entry-external-trace">
-            <span>前工序事实</span>
-            <span>后工序同步</span>
-            <span>不补后续码</span>
-          </div>
-        </el-card>
-
         <el-card v-if="!isOwnerOnlyMode && isSlowTempo" class="panel mobile-card">
           <template #header>本班交接</template>
           <div class="mobile-field mobile-field-wide">
@@ -228,16 +219,6 @@
                         {{ displayFieldLabel(field) }}
                         <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                       </span>
-                      <el-button
-                        v-if="isVoiceFieldSupported(field)"
-                        text
-                        type="primary"
-                        size="small"
-                        :disabled="isEntryEditingDisabled"
-                        @click.stop="toggleVoicePrefill(field)"
-                      >
-                        {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                      </el-button>
                       <span
                         v-if="ocrMetaForField(field.name)"
                         :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -282,16 +263,6 @@
                       {{ displayFieldLabel(field) }}
                       <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                     </span>
-                    <el-button
-                      v-if="isVoiceFieldSupported(field)"
-                      text
-                      type="primary"
-                      size="small"
-                      :disabled="isEntryEditingDisabled"
-                      @click.stop="toggleVoicePrefill(field)"
-                    >
-                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                    </el-button>
                     <span
                       v-if="ocrMetaForField(field.name)"
                       :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -350,16 +321,6 @@
                         {{ displayFieldLabel(field) }}
                         <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                       </span>
-                      <el-button
-                        v-if="isVoiceFieldSupported(field)"
-                        text
-                        type="primary"
-                        size="small"
-                        :disabled="isEntryEditingDisabled"
-                        @click.stop="toggleVoicePrefill(field)"
-                      >
-                        {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                      </el-button>
                       <span
                         v-if="ocrMetaForField(field.name)"
                         :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -388,16 +349,6 @@
                       {{ displayFieldLabel(field) }}
                       <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                     </span>
-                    <el-button
-                      v-if="isVoiceFieldSupported(field)"
-                      text
-                      type="primary"
-                      size="small"
-                      :disabled="isEntryEditingDisabled"
-                      @click.stop="toggleVoicePrefill(field)"
-                    >
-                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                    </el-button>
                     <span
                       v-if="ocrMetaForField(field.name)"
                       :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -446,16 +397,6 @@
                       {{ displayFieldLabel(field) }}
                       <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                     </span>
-                    <el-button
-                      v-if="isVoiceFieldSupported(field)"
-                      text
-                      type="primary"
-                      size="small"
-                      :disabled="isEntryEditingDisabled"
-                      @click.stop="toggleVoicePrefill(field)"
-                    >
-                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                    </el-button>
                     <span
                       v-if="ocrMetaForField(field.name)"
                       :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -483,16 +424,6 @@
                       {{ displayFieldLabel(field) }}
                       <span v-if="field.unit" class="mobile-field-unit">({{ field.unit }})</span>
                     </span>
-                    <el-button
-                      v-if="isVoiceFieldSupported(field)"
-                      text
-                      type="primary"
-                      size="small"
-                      :disabled="isEntryEditingDisabled"
-                      @click.stop="toggleVoicePrefill(field)"
-                    >
-                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                    </el-button>
                   </label>
                   <el-input
                     v-model="formValues[field.name]"
@@ -513,16 +444,6 @@
                       <span v-if="isFieldRequired(field)" class="mobile-required">*</span>
                       {{ displayFieldLabel(field) }}
                     </span>
-                    <el-button
-                      v-if="isVoiceFieldSupported(field)"
-                      text
-                      type="primary"
-                      size="small"
-                      :disabled="isEntryEditingDisabled"
-                      @click.stop="toggleVoicePrefill(field)"
-                    >
-                      {{ voiceListeningField === field.name ? '停止语音' : '语音录入' }}
-                    </el-button>
                     <span
                       v-if="ocrMetaForField(field.name)"
                       :class="['mobile-ocr-badge', `is-${confidenceTone(ocrMetaForField(field.name)?.confidence)}`]"
@@ -749,7 +670,6 @@ const ocrState = reactive({
   fields: {},
   verified: false
 })
-const voiceListeningField = ref('')
 const currentShift = reactive({
   business_date: '',
   shift_id: null,
@@ -1349,14 +1269,6 @@ function confidenceTone(confidence) {
 function confidenceLabel(confidence) {
   if (confidence === null || confidence === undefined) return '待核对'
   return `${Math.round(confidence * 100)}%`
-}
-
-function isVoiceFieldSupported(_field) {
-  return false
-}
-
-function toggleVoicePrefill(_field) {
-  voiceListeningField.value = ''
 }
 
 function clearOcrState({ clearStorage = false } = {}) {
@@ -2251,7 +2163,7 @@ onBeforeUnmount(() => {
 .mobile-shell--entry-form .mobile-top h1 {
   margin-bottom: 0;
   letter-spacing: 0;
-  font-family: var(--font-display, 'SF Pro Display', system-ui);
+  font-family: var(--xt-font-display);
 }
 
 .mobile-shell--entry-form :deep(.panel.mobile-card .el-card__header) {
@@ -2299,7 +2211,7 @@ onBeforeUnmount(() => {
 .mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button) {
   min-width: 0;
   min-height: 48px;
-  border-radius: 12px;
+  border-radius: var(--xt-radius-lg);
 }
 
 .mobile-shell--entry-form :deep(.mobile-sticky-actions__buttons .el-button--primary) {
@@ -2312,47 +2224,26 @@ onBeforeUnmount(() => {
 }
 
 .mobile-shell--entry-form :deep(.panel.mobile-card) {
-  border-radius: 16px;
-  box-shadow: var(--shadow-card);
+  border-radius: var(--xt-radius-2xl);
+  box-shadow: var(--xt-shadow-sm);
 }
 
 .mobile-shell--entry-form :deep(.mobile-static-chip),
 .mobile-shell--entry-form :deep(.mobile-summary-chip),
 .mobile-shell--entry-form :deep(.mobile-history-item),
 .mobile-shell--entry-form :deep(.mobile-inline-state) {
-  border-radius: 14px;
+  border-radius: var(--xt-radius-xl);
 }
 
 .mobile-shell--entry-form :deep(.mobile-static-chip strong),
 .mobile-shell--entry-form :deep(.mobile-summary-chip strong) {
   letter-spacing: 0;
-  font-family: var(--font-number, 'SF Pro Display', 'DIN Alternate', system-ui);
+  font-family: var(--xt-font-number);
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button),
 .mobile-shell--entry-form :deep(.mobile-actions .el-button) {
-  border-radius: 12px;
-}
-
-.entry-external-trace {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--xt-space-2);
-}
-
-.entry-external-trace span {
-  min-width: 0;
-  padding: 9px 10px;
-  overflow: hidden;
-  border: 1px solid var(--xt-border-light);
   border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-panel-soft);
-  color: var(--xt-text-secondary);
-  font-size: var(--xt-text-sm);
-  font-weight: 850;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mobile-shell--entry-form :deep(.mobile-inline-actions .el-button:active),
