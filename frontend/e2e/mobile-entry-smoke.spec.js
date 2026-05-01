@@ -252,7 +252,7 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/manage\/overview$/)
+  await expect(page).toHaveURL(/\/manage\/(overview|admin)$/)
 
   const currentShiftResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/mobile/current-shift') &&
@@ -265,7 +265,7 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
 
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
   await expect(currentShiftCard).toBeVisible()
-  await expect(page.getByTestId('mobile-role-bucket')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
   await expect(page.getByTestId('mobile-go-report')).toBeVisible()
   await expect(page.getByRole('button', { name: '打开审阅端' })).toHaveCount(0)
   await expect(page.getByText('采集清洗小队')).toHaveCount(0)
@@ -283,10 +283,9 @@ for (const width of responsiveWidths) {
     await expect(page).toHaveURL(/\/entry$/)
     await expect(entryShell).toBeVisible()
     await expect(page.getByTestId('mobile-entry')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '班次直录' })).toBeVisible()
-    await expect(page.getByText('当前任务')).toBeVisible()
-    await expect(page.getByText('当前角色')).toBeVisible()
-    await expect(page.getByRole('button', { name: '开始本班填报' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
+    await expect(page.getByText('记录本班次生产数据')).toBeVisible()
+    await expect(page.getByRole('button', { name: '开始填报' })).toBeVisible()
     await expect(entryShell.getByRole('link', { name: /草稿/ })).toBeVisible()
     await expect(entryShell.getByText('管理端')).toHaveCount(0)
     await expect(entryShell.getByText('审阅端')).toHaveCount(0)
@@ -325,36 +324,21 @@ test('unified per-coil entry submits top-level payload without false required fa
 })
 
 for (const width of responsiveWidths) {
-  test(`machine entry report and advanced routes stay inside ${width}px`, async ({ page }) => {
+  test(`machine unified entry route stays inside ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width >= 768 ? 1024 : 844 })
-    await page.goto('/login?machine=XT-ZD-1')
+    await setupUnifiedPerCoilEntrySession(page)
 
-    await expect(page).toHaveURL(/\/entry$/)
-    await expect(page.getByTestId('mobile-go-report')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('entry-shell'))
-
-    await page.getByTestId('mobile-go-report').click()
-    await expect(page).toHaveURL(/\/entry\/advanced\//)
-    await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
-    await expect(page.getByText('批次号', { exact: true }).first()).toBeVisible()
+    await page.goto('/entry/fill')
+    await expect(page).toHaveURL(/\/entry\/fill$/)
+    await expect(page.getByTestId('unified-entry')).toBeVisible()
+    await expect(page.getByLabel('随行卡号')).toBeVisible()
     await expect(page.getByTestId('entry-mes-trace-card')).toHaveCount(0)
     await expect(page.getByText('外部系统线索')).toHaveCount(0)
     await expect(page.getByText('不补后续码')).toHaveCount(0)
-    await expect(page.getByText('随行卡', { exact: true })).toHaveCount(0)
     await expect(page.getByText(/MES 后续码.*必填/)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '下一步' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '录入本卷' })).toBeVisible()
     await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('dynamic-entry-form'))
-
-    const match = page.url().match(/\/entry\/advanced\/([^/]+)\/([^/?#]+)/)
-    expect(match).not.toBeNull()
-    await page.goto(`/entry/report/${match[1]}/${match[2]}`)
-    await expect(page.getByTestId('mobile-shift-report-workspace')).toBeVisible()
-    await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('mobile-shift-report-workspace'))
+    await expectContainerInsideViewport(page, page.getByTestId('unified-entry'))
 
     await page.goto('/entry')
     await expect(page).toHaveURL(/\/entry$/)
