@@ -9,6 +9,7 @@ from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary, can_view_work_order_entries
 from app.main import app
 from app.models.system import User
+from app.routers.mobile import entry_fields
 from app.services.mobile_report_service import ShiftContext, get_current_shift, get_mobile_bootstrap
 
 
@@ -335,6 +336,34 @@ def test_get_current_shift_allows_machine_user_when_other_owner_report_exists(mo
     assert payload['can_submit'] is True
     assert payload['report_status'] == 'coil_entry'
     assert payload['ownership_note'] is None
+
+
+def test_entry_fields_returns_tracking_card_for_machine_operator() -> None:
+    class EntryFieldsDB:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=2, code='ZR2', name='铸二车间', workshop_type='casting')
+
+    current_user = User(
+        id=21,
+        username='machine-21',
+        password_hash='x',
+        name='铸二车间 1#机',
+        role='machine_operator',
+        workshop_id=2,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    payload = entry_fields(db=EntryFieldsDB(), current_user=current_user)
+
+    assert payload['mode'] == 'per_coil'
+    assert payload['submit_target'] == 'coil_entry'
+    assert payload['identity_field'] == 'tracking_card_no'
+    first_fields = payload['groups'][0]['fields']
+    assert first_fields[0]['name'] == 'tracking_card_no'
+    assert first_fields[0]['label'] == '随行卡号'
+    assert first_fields[0]['required'] is True
+    assert all(field['name'] != 'batch_no' or field['label'] == '批号' for field in first_fields)
 
 
 def test_get_current_shift_shows_config_hint_when_no_shift(monkeypatch) -> None:

@@ -264,6 +264,23 @@ def _filter_fields_by_role(fields: list[dict], role: str) -> list[dict]:
     return result
 
 
+def _tracking_card_field() -> dict:
+    return {
+        'name': 'tracking_card_no',
+        'label': '随行卡号',
+        'type': 'text',
+        'required': True,
+        'role_write': ['machine_operator', 'shift_leader', 'mobile_user', 'team_leader'],
+    }
+
+
+def _with_tracking_card_field(fields: list[dict]) -> list[dict]:
+    copied = [dict(field) for field in fields]
+    if any(field.get('name') == 'tracking_card_no' for field in copied):
+        return copied
+    return [_tracking_card_field(), *copied]
+
+
 @router.get('/entry-fields', name='mobile-entry-fields')
 def entry_fields(
     db: Session = Depends(get_db),
@@ -309,6 +326,8 @@ def entry_fields(
         sections = mapping.get('sections', ['entry'])
         if 'entry' in sections:
             ef = _filter_fields_by_role(template.get('entry_fields', []), role)
+            if is_per_coil:
+                ef = _with_tracking_card_field(ef)
             if ef:
                 groups.append({'label': '产量数据' if is_per_coil else '基础数据', 'fields': ef})
         if 'shift' in sections:
@@ -331,6 +350,8 @@ def entry_fields(
         'groups': groups,
         'readonly_fields': readonly_filtered,
         'mode': 'per_coil' if is_per_coil else 'per_shift',
+        'submit_target': 'coil_entry' if is_per_coil else 'shift_report',
+        'identity_field': 'tracking_card_no' if is_per_coil else None,
         'workshop_type': ws_type,
         'role': role,
         'role_label': mapping.get('label', '填报'),

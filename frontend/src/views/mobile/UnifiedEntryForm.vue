@@ -164,6 +164,8 @@ const specParts = reactive({})
 const groups = ref([])
 const readonlyFields = ref([])
 const mode = ref('per_shift')
+const submitTarget = ref('shift_report')
+const identityField = ref(null)
 const history = ref([])
 const coilSeq = ref(1)
 const lastCoilData = ref(null)
@@ -260,7 +262,8 @@ function validateVisibleRequiredFields() {
 
 function buildCoilEntryPayload(sc) {
   const values = normalizedFormValues()
-  const trackingCardNo = String(values.tracking_card_no || '').trim()
+  const trackingKey = identityField.value || 'tracking_card_no'
+  const trackingCardNo = String(values[trackingKey] || '').trim()
   return {
     tracking_card_no: trackingCardNo,
     alloy_grade: values.alloy_grade || null,
@@ -351,6 +354,8 @@ async function loadData() {
     groups.value = fields.groups || []
     readonlyFields.value = fields.readonly_fields || []
     mode.value = fields.mode || 'per_shift'
+    submitTarget.value = fields.submit_target || (fields.mode === 'per_coil' ? 'coil_entry' : 'shift_report')
+    identityField.value = fields.identity_field || null
 
     for (const g of groups.value) {
       for (const f of g.fields) {
@@ -392,7 +397,7 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    if (mode.value === 'per_coil') {
+    if (submitTarget.value === 'coil_entry') {
       const saved = await createCoilEntry(buildCoilEntryPayload(sc))
       ElMessage.success(`第${coilSeq.value}卷 录入成功`)
       lastCoilData.value = { ...form }
