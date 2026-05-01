@@ -67,7 +67,7 @@ test('admin master route renders the master data smoke surface', async ({ page }
   await expect(page).toHaveURL(/\/manage\/master$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(adminAside.locator('.xt-manage__nav-item.is-active', { hasText: '主数据' })).toBeVisible()
-  await expect(adminAside.getByText('系统设置')).toBeVisible()
+  await expect(adminAside.getByRole('link', { name: '设置 运行' })).toBeVisible()
   await expect(masterCenter.getByRole('heading', { name: '主数据与模板中心' })).toBeVisible()
   await expect(masterCenter.getByRole('button', { name: '新增车间' })).toBeVisible()
   await expect(masterCenter.getByRole('columnheader', { name: '编码' })).toBeVisible()
@@ -189,7 +189,7 @@ test('manager lands in manage shell with admin navigation under current access m
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   const manageSidebar = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   await expect(manageSidebar.getByText('主数据')).toBeVisible()
-  await expect(manageSidebar.getByText('系统设置')).toBeVisible()
+  await expect(manageSidebar.getByRole('link', { name: '设置 运行' })).toBeVisible()
   await expect(page.getByRole('button', { name: '管理端' })).toHaveCount(0)
 })
 

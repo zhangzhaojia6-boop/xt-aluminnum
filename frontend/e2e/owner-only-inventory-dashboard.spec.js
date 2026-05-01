@@ -32,7 +32,7 @@ test('inventory owner uses the entry inventory surface without review or admin a
 
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
-  await expect(page.getByRole('heading', { name: '成品库填报' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '填出入库' })).toBeVisible()
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByTestId('entry-work-order-card')).toHaveCount(0)
   await expect(page.getByText('今日入库', { exact: true })).toBeVisible()

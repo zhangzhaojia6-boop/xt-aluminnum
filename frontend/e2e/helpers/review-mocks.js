@@ -21,6 +21,12 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       JSON.stringify(user)
     )
     localStorage.removeItem('aluminum_bypass_machine')
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem(
+      'aluminum_bypass_user',
+      JSON.stringify(user)
+    )
+    sessionStorage.removeItem('aluminum_bypass_machine')
   }, { token, user })
 
   const runtimeTrace = {

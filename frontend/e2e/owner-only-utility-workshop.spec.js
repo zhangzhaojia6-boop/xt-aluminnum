@@ -29,6 +29,14 @@ async function setWorkshopTargetDate(page, businessDate) {
   await expect(dateInput).toHaveValue(businessDate)
 }
 
+async function fillMobileField(container, label, value) {
+  await container
+    .locator('.mobile-field', { hasText: label })
+    .first()
+    .getByRole('textbox')
+    .fill(String(value))
+}
+
 test('utility owner can submit and workshop dashboard reflects owner-only water usage', async ({ browser, page }) => {
   await page.goto('/login')
   await page.getByTestId('login-username').fill(utilityUsername)
@@ -39,7 +47,7 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
 
-  await expect(page.getByRole('heading', { name: '水电气填报' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '填水电气' })).toBeVisible()
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByText('用电', { exact: true })).toBeVisible()
   await expect(page.getByText('天然气', { exact: true })).toBeVisible()
@@ -47,14 +55,14 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
   const totalGas = 30 + (Date.now() % 10)
   const groundWater = 5 + (Date.now() % 3)
   const tapWater = 3 + (Date.now() % 2)
-  await page.getByTestId('entry-core-form').getByPlaceholder('请输入全厂用电').fill(String(totalElectricity))
-  await page.getByTestId('entry-core-form').getByPlaceholder('请输入天然气总量').fill(String(totalGas))
+  await fillMobileField(page.getByTestId('entry-core-form'), '全厂用电', totalElectricity)
+  await fillMobileField(page.getByTestId('entry-core-form'), '天然气总量', totalGas)
 
   await page.getByRole('button', { name: '下一步' }).click()
   await expect(page.getByText('用水', { exact: true })).toBeVisible()
   const supplementalPage = page.locator('.mobile-swipe-workspace__page[data-page-key="supplemental"]')
-  await supplementalPage.getByPlaceholder('请输入地下水').first().fill(String(groundWater))
-  await supplementalPage.getByPlaceholder('请输入自来水').first().fill(String(tapWater))
+  await fillMobileField(supplementalPage, '地下水', groundWater)
+  await fillMobileField(supplementalPage, '自来水', tapWater)
   await page.getByRole('button', { name: '下一步' }).click()
   await expect(page.getByText('确认提交', { exact: true })).toBeVisible()
   const submitResponse = page.waitForResponse((response) =>

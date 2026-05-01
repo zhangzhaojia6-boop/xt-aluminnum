@@ -32,7 +32,7 @@ test('contract owner uses the entry contract surface without review or admin acc
 
   await page.getByTestId('mobile-go-report').click()
   await expect(page).toHaveURL(/\/(mobile\/report-advanced|entry\/advanced)\//)
-  await expect(page.getByRole('heading', { name: '计划科填报' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '填合同' })).toBeVisible()
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByText('当日合同', { exact: true })).toBeVisible()
   await expect(page.getByText('月累计与余合同', { exact: true })).toBeVisible()
