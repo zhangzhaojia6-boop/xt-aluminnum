@@ -9,10 +9,30 @@ async function seedStoredSession(page, token, user, machineContext = null) {
   await page.addInitScript(({ token, user, machineContext }) => {
     localStorage.setItem('aluminum_bypass_token', token)
     localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
     if (machineContext) {
       localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
     } else {
       localStorage.removeItem('aluminum_bypass_machine')
+      sessionStorage.removeItem('aluminum_bypass_machine')
+    }
+  }, { token, user, machineContext })
+}
+
+async function writeStoredSession(page, token, user, machineContext = null) {
+  await page.evaluate(({ token, user, machineContext }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    if (machineContext) {
+      localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+    } else {
+      localStorage.removeItem('aluminum_bypass_machine')
+      sessionStorage.removeItem('aluminum_bypass_machine')
     }
   }, { token, user, machineContext })
 }
@@ -115,6 +135,116 @@ async function setupFillOnlyEntrySession(page) {
   })
 }
 
+async function setupUnifiedPerCoilEntrySession(page) {
+  const token = 'playwright-coil-token'
+  const user = {
+    id: 21,
+    username: 'machine-21',
+    name: '铸二车间 1#机',
+    role: 'machine_operator',
+    is_mobile_user: true,
+    is_reviewer: false,
+    is_manager: false,
+    data_scope_type: 'self_workshop',
+    workshop_id: 2,
+    assigned_shift_ids: []
+  }
+  const machineContext = {
+    machine_id: 21,
+    machine_code: 'ZR2-1',
+    machine_name: '1#机',
+    workshop_id: 2,
+    workshop_name: '铸二车间',
+    qr_code: 'XT-ZR2-1'
+  }
+  await seedStoredSession(page, token, user, machineContext)
+
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(user)
+    })
+  })
+
+  await page.route('**/api/v1/mobile/current-shift', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        business_date: '2026-05-01',
+        shift_id: 1,
+        shift_name: '白班',
+        workshop_id: 2,
+        workshop_name: '铸二车间',
+        workshop_type: 'casting',
+        machine_id: 21,
+        machine_code: 'ZR2-1',
+        machine_name: '1#机',
+        report_status: 'coil_entry',
+        can_submit: true,
+        is_machine_bound: true
+      })
+    })
+  })
+
+  await page.route('**/api/v1/mobile/entry-fields', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mode: 'per_coil',
+        submit_target: 'coil_entry',
+        identity_field: 'tracking_card_no',
+        role: 'machine_operator',
+        role_label: '产量数据',
+        groups: [{
+          label: '产量数据',
+          fields: [
+            { name: 'tracking_card_no', label: '随行卡号', type: 'text', required: true },
+            { name: 'alloy_grade', label: '合金', type: 'text', required: true },
+            { name: 'input_weight', label: '投入重量', type: 'number', unit: 'kg', required: true },
+            { name: 'output_weight', label: '产出重量', type: 'number', unit: 'kg', required: true }
+          ]
+        }],
+        readonly_fields: []
+      })
+    })
+  })
+
+  await page.route('**/api/v1/mobile/coil-list/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([])
+    })
+  })
+
+  await page.route('**/api/v1/mobile/coil-entry', async (route) => {
+    const body = route.request().postDataJSON()
+    expect(body.tracking_card_no).toBe('TC-001')
+    expect(body.input_weight).toBe(100)
+    expect(body.output_weight).toBe(96)
+    expect(body.data).toBeUndefined()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 1,
+        tracking_card_no: body.tracking_card_no,
+        alloy_grade: body.alloy_grade,
+        input_weight: body.input_weight,
+        output_weight: body.output_weight,
+        scrap_weight: body.scrap_weight || 0,
+        business_date: body.business_date
+      })
+    })
+  })
+
+  await page.goto('/login')
+  await writeStoredSession(page, token, user, machineContext)
+}
+
 test('admin mobile entry shows the manual-first mobile fallback entry', async ({ page }) => {
   await page.goto('/login')
 
@@ -177,6 +307,21 @@ test('fill-only operator lands on entry and cannot see review or admin navigatio
   await expect(entryShell.getByText('管理端')).toHaveCount(0)
   await expect(entryShell.getByText('审阅端')).toHaveCount(0)
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
+})
+
+test('unified per-coil entry submits top-level payload without false required failure', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setupUnifiedPerCoilEntrySession(page)
+
+  await page.goto('/entry/fill')
+  await page.getByLabel('随行卡号').fill('TC-001')
+  await page.getByLabel('合金').fill('5052')
+  await page.getByLabel(/投入重量/).fill('100')
+  await page.getByLabel(/产出重量/).fill('96')
+  await page.getByRole('button', { name: '录入本卷' }).click()
+
+  await expect(page.getByText('第1卷 录入成功')).toBeVisible()
+  await expect(page.getByText(/required|必填项未填写/i)).toHaveCount(0)
 })
 
 for (const width of responsiveWidths) {
