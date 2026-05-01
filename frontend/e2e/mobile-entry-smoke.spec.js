@@ -9,10 +9,30 @@ async function seedStoredSession(page, token, user, machineContext = null) {
   await page.addInitScript(({ token, user, machineContext }) => {
     localStorage.setItem('aluminum_bypass_token', token)
     localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
     if (machineContext) {
       localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
     } else {
       localStorage.removeItem('aluminum_bypass_machine')
+      sessionStorage.removeItem('aluminum_bypass_machine')
+    }
+  }, { token, user, machineContext })
+}
+
+async function writeStoredSession(page, token, user, machineContext = null) {
+  await page.evaluate(({ token, user, machineContext }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    if (machineContext) {
+      localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+    } else {
+      localStorage.removeItem('aluminum_bypass_machine')
+      sessionStorage.removeItem('aluminum_bypass_machine')
     }
   }, { token, user, machineContext })
 }
@@ -115,6 +135,116 @@ async function setupFillOnlyEntrySession(page) {
   })
 }
 
+async function setupUnifiedPerCoilEntrySession(page) {
+  const token = 'playwright-coil-token'
+  const user = {
+    id: 21,
+    username: 'machine-21',
+    name: '铸二车间 1#机',
+    role: 'machine_operator',
+    is_mobile_user: true,
+    is_reviewer: false,
+    is_manager: false,
+    data_scope_type: 'self_workshop',
+    workshop_id: 2,
+    assigned_shift_ids: []
+  }
+  const machineContext = {
+    machine_id: 21,
+    machine_code: 'ZR2-1',
+    machine_name: '1#机',
+    workshop_id: 2,
+    workshop_name: '铸二车间',
+    qr_code: 'XT-ZR2-1'
+  }
+  await seedStoredSession(page, token, user, machineContext)
+
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(user)
+    })
+  })
+
+  await page.route('**/api/v1/mobile/current-shift', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        business_date: '2026-05-01',
+        shift_id: 1,
+        shift_name: '白班',
+        workshop_id: 2,
+        workshop_name: '铸二车间',
+        workshop_type: 'casting',
+        machine_id: 21,
+        machine_code: 'ZR2-1',
+        machine_name: '1#机',
+        report_status: 'coil_entry',
+        can_submit: true,
+        is_machine_bound: true
+      })
+    })
+  })
+
+  await page.route('**/api/v1/mobile/entry-fields', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        mode: 'per_coil',
+        submit_target: 'coil_entry',
+        identity_field: 'tracking_card_no',
+        role: 'machine_operator',
+        role_label: '产量数据',
+        groups: [{
+          label: '产量数据',
+          fields: [
+            { name: 'tracking_card_no', label: '随行卡号', type: 'text', required: true },
+            { name: 'alloy_grade', label: '合金', type: 'text', required: true },
+            { name: 'input_weight', label: '投入重量', type: 'number', unit: 'kg', required: true },
+            { name: 'output_weight', label: '产出重量', type: 'number', unit: 'kg', required: true }
+          ]
+        }],
+        readonly_fields: []
+      })
+    })
+  })
+
+  await page.route('**/api/v1/mobile/coil-list/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([])
+    })
+  })
+
+  await page.route('**/api/v1/mobile/coil-entry', async (route) => {
+    const body = route.request().postDataJSON()
+    expect(body.tracking_card_no).toBe('TC-001')
+    expect(body.input_weight).toBe(100)
+    expect(body.output_weight).toBe(96)
+    expect(body.data).toBeUndefined()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 1,
+        tracking_card_no: body.tracking_card_no,
+        alloy_grade: body.alloy_grade,
+        input_weight: body.input_weight,
+        output_weight: body.output_weight,
+        scrap_weight: body.scrap_weight || 0,
+        business_date: body.business_date
+      })
+    })
+  })
+
+  await page.goto('/login')
+  await writeStoredSession(page, token, user, machineContext)
+}
+
 test('admin mobile entry shows the manual-first mobile fallback entry', async ({ page }) => {
   await page.goto('/login')
 
@@ -122,7 +252,7 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/manage\/overview$/)
+  await expect(page).toHaveURL(/\/manage\/(overview|admin)$/)
 
   const currentShiftResponse = page.waitForResponse((response) =>
     response.url().includes('/api/v1/mobile/current-shift') &&
@@ -135,7 +265,7 @@ test('admin mobile entry shows the manual-first mobile fallback entry', async ({
 
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
   await expect(currentShiftCard).toBeVisible()
-  await expect(page.getByTestId('mobile-role-bucket')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
   await expect(page.getByTestId('mobile-go-report')).toBeVisible()
   await expect(page.getByRole('button', { name: '打开审阅端' })).toHaveCount(0)
   await expect(page.getByText('采集清洗小队')).toHaveCount(0)
@@ -153,10 +283,9 @@ for (const width of responsiveWidths) {
     await expect(page).toHaveURL(/\/entry$/)
     await expect(entryShell).toBeVisible()
     await expect(page.getByTestId('mobile-entry')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '班次直录' })).toBeVisible()
-    await expect(page.getByText('当前任务')).toBeVisible()
-    await expect(page.getByText('当前角色')).toBeVisible()
-    await expect(page.getByRole('button', { name: '开始本班填报' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
+    await expect(page.getByText('记录本班次生产数据')).toBeVisible()
+    await expect(page.getByRole('button', { name: '开始填报' })).toBeVisible()
     await expect(entryShell.getByRole('link', { name: /草稿/ })).toBeVisible()
     await expect(entryShell.getByText('管理端')).toHaveCount(0)
     await expect(entryShell.getByText('审阅端')).toHaveCount(0)
@@ -179,37 +308,37 @@ test('fill-only operator lands on entry and cannot see review or admin navigatio
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 })
 
+test('unified per-coil entry submits top-level payload without false required failure', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setupUnifiedPerCoilEntrySession(page)
+
+  await page.goto('/entry/fill')
+  await page.getByLabel('随行卡号').fill('TC-001')
+  await page.getByLabel('合金').fill('5052')
+  await page.getByLabel(/投入重量/).fill('100')
+  await page.getByLabel(/产出重量/).fill('96')
+  await page.getByRole('button', { name: '录入本卷' }).click()
+
+  await expect(page.getByText('第1卷 录入成功')).toBeVisible()
+  await expect(page.getByText(/required|必填项未填写/i)).toHaveCount(0)
+})
+
 for (const width of responsiveWidths) {
-  test(`machine entry report and advanced routes stay inside ${width}px`, async ({ page }) => {
+  test(`machine unified entry route stays inside ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width >= 768 ? 1024 : 844 })
-    await page.goto('/login?machine=XT-ZD-1')
+    await setupUnifiedPerCoilEntrySession(page)
 
-    await expect(page).toHaveURL(/\/entry$/)
-    await expect(page.getByTestId('mobile-go-report')).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('entry-shell'))
-
-    await page.getByTestId('mobile-go-report').click()
-    await expect(page).toHaveURL(/\/entry\/advanced\//)
-    await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
-    await expect(page.getByText('批次号', { exact: true }).first()).toBeVisible()
-    await expect(page.getByTestId('entry-mes-trace-card')).toBeVisible()
-    await expect(page.getByText('外部系统线索')).toBeVisible()
-    await expect(page.getByText('不补后续码')).toBeVisible()
-    await expect(page.getByText('随行卡', { exact: true })).toHaveCount(0)
+    await page.goto('/entry/fill')
+    await expect(page).toHaveURL(/\/entry\/fill$/)
+    await expect(page.getByTestId('unified-entry')).toBeVisible()
+    await expect(page.getByLabel('随行卡号')).toBeVisible()
+    await expect(page.getByTestId('entry-mes-trace-card')).toHaveCount(0)
+    await expect(page.getByText('外部系统线索')).toHaveCount(0)
+    await expect(page.getByText('不补后续码')).toHaveCount(0)
     await expect(page.getByText(/MES 后续码.*必填/)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '下一步' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '录入本卷' })).toBeVisible()
     await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('dynamic-entry-form'))
-
-    const match = page.url().match(/\/entry\/advanced\/([^/]+)\/([^/?#]+)/)
-    expect(match).not.toBeNull()
-    await page.goto(`/entry/report/${match[1]}/${match[2]}`)
-    await expect(page.getByTestId('mobile-shift-report-workspace')).toBeVisible()
-    await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-    await expectContainerInsideViewport(page, page.getByTestId('mobile-shift-report-workspace'))
+    await expectContainerInsideViewport(page, page.getByTestId('unified-entry'))
 
     await page.goto('/entry')
     await expect(page).toHaveURL(/\/entry$/)

@@ -57,6 +57,17 @@ def test_mobile_entry_handles_bootstrap_load_failure_as_error_state() -> None:
     assert "加载当前班次失败，请稍后重试或改用账号登录。" in source
 
 
+def test_unified_entry_form_builds_endpoint_specific_payloads() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/UnifiedEntryForm.vue")
+
+    assert "function buildCoilEntryPayload" in source
+    assert "function buildMobileReportPayload" in source
+    assert "data: { ...form }" not in source
+    assert "await createCoilEntry(buildCoilEntryPayload(sc))" in source
+    assert "const payload = buildMobileReportPayload(sc)" in source
+    assert "await submitMobileReport(payload)" in source
+
+
 def test_mobile_report_route_defaults_to_shift_report_form() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
@@ -215,6 +226,16 @@ def test_dynamic_entry_form_trims_redundant_helper_copy() -> None:
     assert "当前车间尚未配置机台，先允许按班次录入。" not in source
     assert "当前随行卡在本车间还没有前序班次记录。" not in source
     assert "确认后正式提交。" not in source
+
+
+def test_dynamic_entry_form_removes_placeholder_trace_and_voice_stubs() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/DynamicEntryForm.vue")
+
+    assert "entry-external-trace" not in source
+    assert "entry-mes-trace-card" not in source
+    assert "isVoiceFieldSupported" not in source
+    assert "toggleVoicePrefill" not in source
+    assert "voiceListeningField" not in source
 
 
 def test_dynamic_entry_form_uses_field_facing_step_titles_and_trimmed_summary_strip() -> None:

@@ -31,8 +31,8 @@ test('machine account can submit a mobile entry', async ({ page }) => {
   await expect(page).toHaveURL(/\/entry\/advanced\//)
   await expect(page.getByTestId('dynamic-entry-form')).toBeVisible()
   await expect(page.getByTestId('entry-summary-strip')).toBeVisible()
-  await expect(page.getByTestId('entry-mes-trace-card')).toBeVisible()
-  await expect(page.getByText('外部系统线索')).toBeVisible()
+  await expect(page.getByTestId('entry-mes-trace-card')).toHaveCount(0)
+  await expect(page.getByText('外部系统线索')).toHaveCount(0)
   await expectNoHorizontalOverflow(page)
 
   await page.locator('.mobile-inline-actions input').first().fill(trackingCard)

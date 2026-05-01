@@ -818,8 +818,8 @@ onBeforeUnmount(() => {
 
 .entry-calc-strip strong {
   color: var(--xt-primary);
-  font-family: var(--font-number);
-  font-size: 24px;
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
   line-height: 1;
 }
 

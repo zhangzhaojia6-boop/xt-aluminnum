@@ -41,6 +41,7 @@ class MobileCurrentShiftOut(BaseModel):
 class MobileReportPayload(BaseModel):
     business_date: date
     shift_id: int = Field(gt=0)
+    data: dict[str, object] = Field(default_factory=dict)
     attendance_count: int | None = Field(default=None, ge=0)
     input_weight: float | None = Field(default=None, ge=0)
     output_weight: float | None = Field(default=None, ge=0)

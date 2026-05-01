@@ -2,12 +2,56 @@ from datetime import date
 from datetime import datetime
 
 from app.agents.base import AgentAction, AgentDecision
+from app.services import mobile_report_service
 from app.services.mobile_report_service import (
     _build_agent_decision_snapshot,
     _required_submit_fields,
     calculate_mobile_report_metrics,
     summarize_mobile_reporting,
 )
+
+
+def _normalize_payload_for_test(payload: dict) -> dict:
+    normalize = getattr(mobile_report_service, '_normalize_mobile_report_payload', None)
+    assert callable(normalize), '_normalize_mobile_report_payload should be implemented'
+    return normalize(payload)
+
+
+def test_normalize_mobile_report_payload_flattens_unified_entry_data() -> None:
+    payload = _normalize_payload_for_test(
+        {
+            'business_date': date(2026, 5, 1),
+            'shift_id': 1,
+            'data': {
+                'attendance_count': 8,
+                'input_weight': 120.5,
+                'output_weight': 118.0,
+                'scrap_weight': 2.5,
+                'operator_notes': '本班正常',
+            },
+        }
+    )
+
+    assert payload['input_weight'] == 120.5
+    assert payload['output_weight'] == 118.0
+    assert payload['scrap_weight'] == 2.5
+    assert payload['attendance_count'] == 8
+    assert payload['note'] == '本班正常'
+
+
+def test_required_submit_fields_reads_normalized_payload() -> None:
+    payload = _normalize_payload_for_test(
+        {
+            'business_date': date(2026, 5, 1),
+            'shift_id': 1,
+            'data': {
+                'input_weight': 100,
+                'output_weight': 96,
+            },
+        }
+    )
+
+    assert _required_submit_fields(payload) == []
 
 
 def test_calculate_mobile_report_metrics_from_raw_values() -> None:

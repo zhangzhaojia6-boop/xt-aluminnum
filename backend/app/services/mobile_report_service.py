@@ -686,6 +686,45 @@ def _required_submit_fields(payload: dict) -> list[str]:
     return missing
 
 
+MOBILE_REPORT_DATA_KEY_MAP = {
+    'operator_notes': 'note',
+}
+
+MOBILE_REPORT_ALLOWED_DATA_KEYS = {
+    'attendance_count',
+    'input_weight',
+    'output_weight',
+    'scrap_weight',
+    'storage_prepared',
+    'storage_finished',
+    'shipment_weight',
+    'contract_received',
+    'electricity_daily',
+    'gas_daily',
+    'has_exception',
+    'exception_type',
+    'operator_notes',
+    'note',
+    'optional_photo_url',
+}
+
+
+def _normalize_mobile_report_payload(payload: dict) -> dict:
+    normalized = dict(payload)
+    nested = normalized.pop('data', None) or {}
+    if not isinstance(nested, dict):
+        nested = {}
+
+    for source_key, value in nested.items():
+        if source_key not in MOBILE_REPORT_ALLOWED_DATA_KEYS:
+            continue
+        target_key = MOBILE_REPORT_DATA_KEY_MAP.get(source_key, source_key)
+        if normalized.get(target_key) is None:
+            normalized[target_key] = value
+
+    return normalized
+
+
 def _build_current_shift_fallback(
     *,
     current_user: User,
@@ -736,6 +775,10 @@ def _resolve_entry_mode(role: str) -> str:
     if role in ('utility_manager', 'inventory_keeper', 'contracts'):
         return 'owner_daily_entry'
     return 'coil_entry'
+
+
+def _uses_shift_report_ownership(current_user: User) -> bool:
+    return _resolve_entry_mode(current_user.role or '') != 'coil_entry'
 
 
 def get_mobile_bootstrap(db: Session, *, current_user: User) -> dict:
@@ -926,6 +969,7 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         'attendance_exception_count': 0,
         'attendance_pending_count': 0,
     }
+    uses_report_ownership = _uses_shift_report_ownership(current_user)
     report = None
     if context.shift is not None:
         from app.services import attendance_confirm_service
@@ -936,19 +980,20 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
             workshop_id=context.workshop.id,
             shift_id=context.shift.id,
         )
-        report = _find_mobile_report(
-            db,
-            business_date=context.business_date,
-            shift_id=context.shift.id,
-            workshop_id=context.workshop.id,
-            team_id=context.team.id if context.team else None,
-        )
-    ownership_note = _ownership_note(report=report, current_user=current_user)
+        if uses_report_ownership:
+            report = _find_mobile_report(
+                db,
+                business_date=context.business_date,
+                shift_id=context.shift.id,
+                workshop_id=context.workshop.id,
+                team_id=context.team.id if context.team else None,
+            )
+    ownership_note = _ownership_note(report=report, current_user=current_user) if uses_report_ownership else None
     if context.shift is None:
         ownership_note = '当前车间未配置可用班次，请联系管理员在“班次配置”中启用班次。'
     can_submit = context.shift is not None
     report_id = report.id if report else None
-    report_status = report.report_status if report else 'unreported'
+    report_status = report.report_status if report else ('coil_entry' if context.shift and not uses_report_ownership else 'unreported')
     if ownership_note and not summary.is_admin:
         can_submit = False
         report_id = None
@@ -1057,6 +1102,7 @@ def save_or_submit_report(
     user_agent: str | None = None,
 ) -> dict:
     assert_mobile_user_access(current_user)
+    payload = _normalize_mobile_report_payload(payload)
     workshop, team = _resolve_workshop_team(db, current_user)
     shift = db.get(ShiftConfig, int(payload['shift_id']))
     if shift is None or not shift.is_active:
