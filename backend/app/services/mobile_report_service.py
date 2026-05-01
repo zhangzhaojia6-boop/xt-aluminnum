@@ -777,6 +777,10 @@ def _resolve_entry_mode(role: str) -> str:
     return 'coil_entry'
 
 
+def _uses_shift_report_ownership(current_user: User) -> bool:
+    return _resolve_entry_mode(current_user.role or '') != 'coil_entry'
+
+
 def get_mobile_bootstrap(db: Session, *, current_user: User) -> dict:
     assert_mobile_user_access(current_user)
     payload = dingtalk_service.service.build_mobile_bootstrap(current_user)
@@ -965,6 +969,7 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         'attendance_exception_count': 0,
         'attendance_pending_count': 0,
     }
+    uses_report_ownership = _uses_shift_report_ownership(current_user)
     report = None
     if context.shift is not None:
         from app.services import attendance_confirm_service
@@ -975,19 +980,20 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
             workshop_id=context.workshop.id,
             shift_id=context.shift.id,
         )
-        report = _find_mobile_report(
-            db,
-            business_date=context.business_date,
-            shift_id=context.shift.id,
-            workshop_id=context.workshop.id,
-            team_id=context.team.id if context.team else None,
-        )
-    ownership_note = _ownership_note(report=report, current_user=current_user)
+        if uses_report_ownership:
+            report = _find_mobile_report(
+                db,
+                business_date=context.business_date,
+                shift_id=context.shift.id,
+                workshop_id=context.workshop.id,
+                team_id=context.team.id if context.team else None,
+            )
+    ownership_note = _ownership_note(report=report, current_user=current_user) if uses_report_ownership else None
     if context.shift is None:
         ownership_note = '当前车间未配置可用班次，请联系管理员在“班次配置”中启用班次。'
     can_submit = context.shift is not None
     report_id = report.id if report else None
-    report_status = report.report_status if report else 'unreported'
+    report_status = report.report_status if report else ('coil_entry' if context.shift and not uses_report_ownership else 'unreported')
     if ownership_note and not summary.is_admin:
         can_submit = False
         report_id = None

@@ -271,6 +271,72 @@ def test_get_current_shift_returns_machine_bound_context(monkeypatch) -> None:
     ]
 
 
+def test_get_current_shift_allows_machine_user_when_other_owner_report_exists(monkeypatch) -> None:
+    current_user = User(
+        id=20,
+        username='machine-20',
+        password_hash='x',
+        name='铸二车间 2#机',
+        role='machine_operator',
+        workshop_id=2,
+        is_mobile_user=True,
+        is_active=True,
+    )
+    existing_report = SimpleNamespace(id=88, owner_user_id=99, leader_user_id=99, report_status='draft')
+
+    monkeypatch.setattr(
+        'app.services.mobile_report_service.assert_mobile_user_access',
+        lambda *_args, **_kwargs: SimpleNamespace(is_admin=False),
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service._infer_current_shift',
+        lambda *_args, **_kwargs: ShiftContext(
+            business_date=date(2026, 3, 28),
+            shift=type('Shift', (), {'id': 1, 'code': 'A', 'name': '白班'})(),
+            workshop=type('Workshop', (), {'id': 2, 'code': 'ZR2', 'name': '铸二车间'})(),
+            team=None,
+            machine=type(
+                'Machine',
+                (),
+                {
+                    'id': 20,
+                    'code': 'ZR2-2',
+                    'name': '2#机',
+                    'shift_mode': 'three',
+                    'assigned_shift_ids': [1, 2, 3],
+                    'custom_fields': [],
+                },
+            )(),
+        ),
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service.dingtalk_service.service.resolve_mobile_identity',
+        lambda *_args, **_kwargs: {'entry_channel': 'qr_machine', 'dingtalk_ready': False, 'dingtalk_hint': None},
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service._find_mobile_report',
+        lambda *_args, **_kwargs: existing_report,
+    )
+    monkeypatch.setattr('app.services.mobile_report_service._active_reminders_for_context', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        'app.services.attendance_confirm_service.get_shift_confirmation_snapshot',
+        lambda *_args, **_kwargs: {
+            'attendance_confirmation_id': None,
+            'attendance_machine_id': None,
+            'attendance_machine_name': None,
+            'attendance_status': 'not_started',
+            'attendance_exception_count': 0,
+            'attendance_pending_count': 0,
+        },
+    )
+
+    payload = get_current_shift(DummyDB(), current_user=current_user)
+
+    assert payload['can_submit'] is True
+    assert payload['report_status'] == 'coil_entry'
+    assert payload['ownership_note'] is None
+
+
 def test_get_current_shift_shows_config_hint_when_no_shift(monkeypatch) -> None:
     current_user = User(
         id=19,
