@@ -57,6 +57,16 @@ def test_mobile_entry_handles_bootstrap_load_failure_as_error_state() -> None:
     assert "加载当前班次失败，请稍后重试或改用账号登录。" in source
 
 
+def test_unified_entry_form_builds_endpoint_specific_payloads() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/UnifiedEntryForm.vue")
+
+    assert "function buildCoilEntryPayload" in source
+    assert "function buildMobileReportPayload" in source
+    assert "data: { ...form }" not in source
+    assert "await createCoilEntry(buildCoilEntryPayload(sc))" in source
+    assert "await submitMobileReport(buildMobileReportPayload(sc))" in source
+
+
 def test_mobile_report_route_defaults_to_shift_report_form() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
