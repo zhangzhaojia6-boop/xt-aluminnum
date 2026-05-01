@@ -54,6 +54,7 @@ jobs:
           cp .env.example .env
           sed -i 's/^SECRET_KEY=.*/SECRET_KEY=ci-very-strong-secret-key-0123456789abcdef/' .env
           sed -i 's/^INIT_ADMIN_PASSWORD=.*/INIT_ADMIN_PASSWORD=Round10CiAdmin!2026/' .env
+          sed -i 's/^AUTO_PIPELINE_REQUIRE_READY=.*/AUTO_PIPELINE_REQUIRE_READY=false/' .env
           mkdir -p ssl
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -keyout ssl/key.pem \
