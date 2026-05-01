@@ -89,8 +89,9 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: frontend
       - name: Run Playwright smoke
-        run: npm run e2e
+        run: npm run e2e:smoke
         working-directory: frontend
+        timeout-minutes: 5
       - name: Capture compose logs
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
