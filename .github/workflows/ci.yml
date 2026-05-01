@@ -41,7 +41,7 @@ jobs:
       - backend-tests
       - frontend-build
     env:
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+      PLAYWRIGHT_BASE_URL: https://127.0.0.1
       PLAYWRIGHT_USERNAME: admin
       PLAYWRIGHT_PASSWORD: Round10CiAdmin!2026
     steps:
@@ -54,6 +54,11 @@ jobs:
           cp .env.example .env
           sed -i 's/^SECRET_KEY=.*/SECRET_KEY=ci-very-strong-secret-key-0123456789abcdef/' .env
           sed -i 's/^INIT_ADMIN_PASSWORD=.*/INIT_ADMIN_PASSWORD=Round10CiAdmin!2026/' .env
+          mkdir -p ssl
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout ssl/key.pem \
+            -out ssl/cert.pem \
+            -subj "/CN=127.0.0.1"
       - name: Validate compose file
         run: docker compose config
       - name: Validate production compose file
@@ -61,17 +66,18 @@ jobs:
       - name: Start stack
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
       - name: Wait for healthz
-        run: timeout 180 bash -c 'until curl -fsS http://127.0.0.1:8080/healthz; do sleep 3; done'
+        run: timeout 180 bash -c 'until curl -kfsS https://127.0.0.1/healthz; do sleep 3; done'
       - name: Wait for readyz
-        run: timeout 180 bash -c 'until curl -fsS http://127.0.0.1:8080/readyz; do sleep 3; done'
+        run: timeout 180 bash -c 'until curl -kfsS https://127.0.0.1/readyz; do sleep 3; done'
       - name: Check exposed ports in prod overlay
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
       - name: Verify login through nginx
         run: |
           curl -fsS \
-            -X POST http://127.0.0.1:8080/api/v1/auth/login \
+            -k \
+            -X POST "$PLAYWRIGHT_BASE_URL/api/v1/auth/login" \
             -H "Content-Type: application/json" \
-            -d '{"username":"admin","password":"ChangeThisAdminPassword!2026"}' \
+            -d "{\"username\":\"$PLAYWRIGHT_USERNAME\",\"password\":\"$PLAYWRIGHT_PASSWORD\"}" \
             | python -c "import json, sys; assert json.load(sys.stdin)['access_token']"
       - name: Install frontend dependencies
         run: npm ci
