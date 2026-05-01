@@ -64,7 +64,8 @@ def test_unified_entry_form_builds_endpoint_specific_payloads() -> None:
     assert "function buildMobileReportPayload" in source
     assert "data: { ...form }" not in source
     assert "await createCoilEntry(buildCoilEntryPayload(sc))" in source
-    assert "await submitMobileReport(buildMobileReportPayload(sc))" in source
+    assert "const payload = buildMobileReportPayload(sc)" in source
+    assert "await submitMobileReport(payload)" in source
 
 
 def test_mobile_report_route_defaults_to_shift_report_form() -> None:

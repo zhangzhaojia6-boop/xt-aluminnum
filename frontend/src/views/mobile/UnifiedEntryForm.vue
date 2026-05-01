@@ -19,8 +19,9 @@
       <section v-for="(group, gi) in groups" :key="gi" class="ue-group">
         <h3 class="ue-group__title">{{ group.label }}</h3>
         <div class="ue-fields">
-          <div v-for="field in group.fields" :key="field.name" class="ue-field">
+          <div v-for="field in group.fields" :key="field.name" class="ue-field" :data-testid="`field-${field.name}`">
             <label class="ue-field__label">
+              <span v-if="field.required" class="mobile-required">*</span>
               {{ field.label }}
               <span v-if="field.unit" class="ue-field__unit">{{ field.unit }}</span>
             </label>
@@ -28,6 +29,7 @@
               v-if="field.type === 'select' && field.options"
               v-model="form[field.name]"
               class="ue-input ue-input--select"
+              :aria-label="field.label"
             >
               <option value="">请选择</option>
               <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
@@ -39,6 +41,7 @@
                 inputmode="decimal"
                 class="ue-input ue-spec-input"
                 placeholder="厚"
+                :aria-label="`${field.label} 厚`"
                 @input="syncSpec(field)"
               />
               <span class="ue-spec-sep">×</span>
@@ -48,6 +51,7 @@
                 inputmode="decimal"
                 class="ue-input ue-spec-input"
                 placeholder="宽"
+                :aria-label="`${field.label} 宽`"
                 @input="syncSpec(field)"
               />
               <span class="ue-spec-sep">×</span>
@@ -57,6 +61,7 @@
                 type="text"
                 class="ue-input ue-spec-input"
                 placeholder="长/C"
+                :aria-label="`${field.label} 长`"
                 @input="syncSpec(field)"
               />
               <span v-else class="ue-input ue-spec-input ue-spec-fixed">{{ field.spec_suffix }}</span>
@@ -68,6 +73,7 @@
               inputmode="decimal"
               step="any"
               class="ue-input ue-input--number"
+              :aria-label="field.label"
               :placeholder="field.hint || field.label"
             />
             <input
@@ -75,12 +81,14 @@
               v-model="form[field.name]"
               type="time"
               class="ue-input"
+              :aria-label="field.label"
             />
             <textarea
               v-else-if="field.type === 'textarea'"
               v-model="form[field.name]"
               class="ue-input ue-input--textarea"
               rows="2"
+              :aria-label="field.label"
               :placeholder="field.hint || field.label"
             />
             <input
@@ -88,6 +96,7 @@
               v-model="form[field.name]"
               type="text"
               class="ue-input"
+              :aria-label="field.label"
               :placeholder="field.hint || field.label"
             />
           </div>
@@ -216,6 +225,80 @@ function syncSpec(field) {
   form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
 }
 
+function isEmptyValue(value) {
+  return value === null || value === undefined || String(value).trim() === ''
+}
+
+function normalizeNumberValue(value) {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function normalizedFormValues() {
+  const values = {}
+  for (const group of groups.value) {
+    for (const field of group.fields) {
+      const value = form[field.name]
+      values[field.name] = field.type === 'number' ? normalizeNumberValue(value) : value
+    }
+  }
+  return values
+}
+
+function validateVisibleRequiredFields() {
+  for (const group of groups.value) {
+    for (const field of group.fields) {
+      if (field.required && isEmptyValue(form[field.name])) {
+        ElMessage.warning(`请先填写：${field.label}`)
+        return false
+      }
+    }
+  }
+  return true
+}
+
+function buildCoilEntryPayload(sc) {
+  const values = normalizedFormValues()
+  const trackingCardNo = String(values.tracking_card_no || '').trim()
+  return {
+    tracking_card_no: trackingCardNo,
+    alloy_grade: values.alloy_grade || null,
+    input_spec: values.input_spec || null,
+    output_spec: values.output_spec || null,
+    on_machine_time: values.on_machine_time || null,
+    off_machine_time: values.off_machine_time || null,
+    input_weight: values.input_weight,
+    output_weight: values.output_weight,
+    scrap_weight: values.scrap_weight,
+    operator_name: values.operator_name || auth.displayName || '',
+    operator_notes: values.operator_notes || '',
+    business_date: sc.business_date,
+    shift_id: sc.shift_id,
+  }
+}
+
+function buildMobileReportPayload(sc) {
+  const values = normalizedFormValues()
+  return {
+    business_date: sc.business_date,
+    shift_id: sc.shift_id,
+    attendance_count: normalizeNumberValue(values.attendance_count),
+    input_weight: normalizeNumberValue(values.input_weight),
+    output_weight: normalizeNumberValue(values.output_weight),
+    scrap_weight: normalizeNumberValue(values.scrap_weight),
+    storage_prepared: normalizeNumberValue(values.storage_prepared),
+    storage_finished: normalizeNumberValue(values.storage_finished),
+    shipment_weight: normalizeNumberValue(values.shipment_weight),
+    contract_received: normalizeNumberValue(values.contract_received),
+    electricity_daily: normalizeNumberValue(values.electricity_daily),
+    gas_daily: normalizeNumberValue(values.gas_daily),
+    has_exception: Boolean(values.has_exception),
+    exception_type: values.exception_type || null,
+    note: values.operator_notes || values.note || null,
+  }
+}
+
 function initSpecParts(fieldName, value, suffix) {
   const parts = (value || '').split(/[×xX*]/)
   specParts[fieldName + '_0'] = parts[0] || ''
@@ -305,19 +388,12 @@ async function handleSubmit() {
   if (submitting.value) return
   const sc = shiftContext.value
   if (!sc?.shift_id) return
+  if (!validateVisibleRequiredFields()) return
 
   submitting.value = true
   try {
     if (mode.value === 'per_coil') {
-      const coilPayload = {
-        business_date: sc.business_date,
-        shift_id: sc.shift_id,
-        workshop_id: sc.workshop_id,
-        machine_id: sc.machine_id,
-        seq: coilSeq.value,
-        data: { ...form },
-      }
-      const saved = await createCoilEntry(coilPayload)
+      const saved = await createCoilEntry(buildCoilEntryPayload(sc))
       ElMessage.success(`第${coilSeq.value}卷 录入成功`)
       lastCoilData.value = { ...form }
       history.value.unshift(saved?.data ? saved : { seq: coilSeq.value, ...form })
@@ -326,13 +402,7 @@ async function handleSubmit() {
         form[key] = typeof form[key] === 'number' ? null : ''
       }
     } else {
-      const payload = {
-        business_date: sc.business_date,
-        shift_id: sc.shift_id,
-        workshop_id: sc.workshop_id,
-        team_id: sc.team_id,
-        data: { ...form },
-      }
+      const payload = buildMobileReportPayload(sc)
       await saveMobileReport(payload)
       await submitMobileReport(payload)
       ElMessage.success('提交成功')
@@ -446,6 +516,11 @@ onMounted(loadData)
   color: var(--xt-text);
   margin-bottom: 6px;
 }
+
+.mobile-required {
+  color: var(--xt-danger);
+}
+
 .ue-field__unit {
   font-size: 12px;
   font-weight: 400;
