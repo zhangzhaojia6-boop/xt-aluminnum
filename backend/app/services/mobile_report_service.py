@@ -777,8 +777,11 @@ def _resolve_entry_mode(role: str) -> str:
     return 'coil_entry'
 
 
+SHIFT_REPORT_OWNERSHIP_ROLES = {'shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'}
+
+
 def _uses_shift_report_ownership(current_user: User) -> bool:
-    return _resolve_entry_mode(current_user.role or '') != 'coil_entry'
+    return (current_user.role or '').strip() in SHIFT_REPORT_OWNERSHIP_ROLES
 
 
 def get_mobile_bootstrap(db: Session, *, current_user: User) -> dict:
@@ -993,7 +996,8 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         ownership_note = '当前车间未配置可用班次，请联系管理员在“班次配置”中启用班次。'
     can_submit = context.shift is not None
     report_id = report.id if report else None
-    report_status = report.report_status if report else ('coil_entry' if context.shift and not uses_report_ownership else 'unreported')
+    entry_mode = _resolve_entry_mode(current_user.role or '')
+    report_status = report.report_status if report else ('coil_entry' if context.shift and entry_mode == 'coil_entry' else 'unreported')
     if ownership_note and not summary.is_admin:
         can_submit = False
         report_id = None

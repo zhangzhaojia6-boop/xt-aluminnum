@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.permissions import get_current_mobile_user
-from app.core.workshop_templates import DEFAULT_WORKSHOP_TEMPLATES, WORKSHOP_TYPE_BY_WORKSHOP_CODE, resolve_workshop_type
+from app.core.workshop_templates import WORKSHOP_TYPE_BY_WORKSHOP_CODE, get_workshop_template_definition, resolve_workshop_type
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.mobile import (
@@ -302,8 +302,8 @@ def entry_fields(
         except Exception:
             ws_type = 'casting'
 
-    template = DEFAULT_WORKSHOP_TEMPLATES.get(ws_type, {})
     role = current_user.role or ''
+    template = get_workshop_template_definition(ws_code or ws_type, db=db)
     mapping = ROLE_FIELD_MAPPING.get(role, ROLE_FIELD_MAPPING.get('shift_leader', {}))
 
     groups = []

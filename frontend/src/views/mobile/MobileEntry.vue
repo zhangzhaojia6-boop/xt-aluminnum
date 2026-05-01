@@ -107,7 +107,7 @@
         </div>
 
         <div class="mobile-entry-stage__cta">
-          <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goUnifiedEntry">
+          <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
             开始填报
           </el-button>
           <div class="mobile-entry-stage__status">
@@ -117,7 +117,7 @@
         </div>
 
         <div class="mobile-entry-stage__quick-grid">
-          <el-button type="primary" plain @click="goUnifiedEntry">填报</el-button>
+          <el-button type="primary" plain @click="goReport">填报</el-button>
           <el-button plain @click="goReportHistory">历史记录</el-button>
         </div>
       </div>
@@ -190,6 +190,7 @@ const advancedRoleBuckets = [
   'energy_stat',
   'maintenance_lead',
   'hydraulic_lead',
+  'consumable_stat',
   'contracts',
   'inventory_keeper',
   'utility_manager'
@@ -327,17 +328,13 @@ async function retryAuth() {
   }
 }
 
-function goUnifiedEntry() {
-  if (!current.value?.shift_id) return
-  router.push({ name: 'mobile-unified-entry' })
-}
-
 function goReport() {
   if (!current.value?.shift_id) return
   const bucket = transitionMapping.value.role_bucket
   let reportRouteName
   if (bucket === 'machine_operator') {
-    reportRouteName = 'mobile-coil-entry'
+    router.push({ name: 'mobile-unified-entry' })
+    return
   } else if (advancedRoleBuckets.includes(bucket)) {
     reportRouteName = 'mobile-report-form-advanced'
   } else {

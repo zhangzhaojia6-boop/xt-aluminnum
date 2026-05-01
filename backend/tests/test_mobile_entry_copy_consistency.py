@@ -57,6 +57,25 @@ def test_mobile_entry_handles_bootstrap_load_failure_as_error_state() -> None:
     assert "加载当前班次失败，请稍后重试或改用账号登录。" in source
 
 
+def test_mobile_entry_routes_field_owners_to_advanced_entry() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/MobileEntry.vue")
+
+    assert 'data-testid="mobile-go-report" @click="goReport"' in source
+    assert '<el-button type="primary" plain @click="goReport">填报</el-button>' in source
+    assert "'consumable_stat'" in source
+    assert "reportRouteName = 'mobile-report-form-advanced'" in source
+
+
+def test_mobile_photo_upload_lets_browser_set_multipart_boundary() -> None:
+    source = _read_repo_file("frontend/src/api/mobile.js")
+
+    upload_section = source.split("export async function uploadMobileReportPhoto", 1)[1]
+    upload_section = upload_section.split("export async function fetchMobileHistory", 1)[0]
+
+    assert "'Content-Type': 'multipart/form-data'" not in upload_section
+    assert 'headers: { "Content-Type": "multipart/form-data" }' not in upload_section
+
+
 def test_unified_entry_form_builds_endpoint_specific_payloads() -> None:
     source = _read_repo_file("frontend/src/views/mobile/UnifiedEntryForm.vue")
 

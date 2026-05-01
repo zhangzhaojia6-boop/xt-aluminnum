@@ -106,9 +106,7 @@ export async function uploadMobileReportPhoto({ businessDate, shiftId, file }) {
   formData.append('business_date', businessDate)
   formData.append('shift_id', String(shiftId))
   formData.append('file', file)
-  const { data } = await api.post('/mobile/report/upload-photo', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  const { data } = await api.post('/mobile/report/upload-photo', formData)
   return data
 }
 
