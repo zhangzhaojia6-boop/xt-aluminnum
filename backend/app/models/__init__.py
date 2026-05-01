@@ -12,7 +12,7 @@ from app.models.attendance import (
 )
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
-from app.models.energy import EnergyImportRecord
+from app.models.energy import EnergyImportRecord, MachineEnergyRecord
 from app.models.mes import MesCoilSnapshot, MesImportRecord, MesSyncCursor, MesSyncRunLog
 from app.models.production import (
     FieldAmendment,
@@ -59,6 +59,7 @@ __all__ = [
     'WorkOrderEntry',
     'FieldAmendment',
     'EnergyImportRecord',
+    'MachineEnergyRecord',
     'MesImportRecord',
     'MesCoilSnapshot',
     'MesSyncCursor',

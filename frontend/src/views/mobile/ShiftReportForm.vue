@@ -175,8 +175,27 @@
 
       <template #energy>
         <el-card class="panel mobile-card">
-          <template #header>能耗原始值</template>
-          <div class="mobile-form-grid">
+          <template #header>能耗填报（按设备）</template>
+          <div v-if="form.machine_energy_records.length" class="mobile-energy-machine-list">
+            <div v-for="(rec, idx) in form.machine_energy_records" :key="rec.machine_id || idx" class="mobile-energy-machine-row">
+              <div class="mobile-energy-machine-name">{{ rec.machine_name || `设备${idx + 1}` }}</div>
+              <div class="mobile-form-grid">
+                <div class="mobile-field">
+                  <label>电耗 (kWh)</label>
+                  <el-input v-model.number="rec.energy_kwh" :disabled="!canEdit" inputmode="decimal" placeholder="电耗" />
+                </div>
+                <div class="mobile-field">
+                  <label>气耗 (m³)</label>
+                  <el-input v-model.number="rec.gas_m3" :disabled="!canEdit" inputmode="decimal" placeholder="气耗" />
+                </div>
+              </div>
+            </div>
+            <div class="mobile-energy-total">
+              <span>合计电耗: {{ energyTotalKwh }}</span>
+              <span>合计气耗: {{ energyTotalGas }}</span>
+            </div>
+          </div>
+          <div v-else class="mobile-form-grid">
             <div class="mobile-field">
               <label>日电耗</label>
               <el-input v-model.number="form.electricity_daily" :disabled="!canEdit" inputmode="decimal" placeholder="日电耗" />
@@ -368,6 +387,7 @@ const form = reactive({
   contract_received: null,
   electricity_daily: null,
   gas_daily: null,
+  machine_energy_records: [],
   has_exception: false,
   exception_type: '',
   note: '',
@@ -407,6 +427,15 @@ const swipePages = [
 ]
 const entryFlowSteps = ['班次', '数字', '能耗', '异常', '提交']
 const currentPageIndex = computed(() => swipePages.findIndex((page) => page.key === activePageKey.value))
+
+const energyTotalKwh = computed(() => {
+  const total = form.machine_energy_records.reduce((sum, r) => sum + (Number(r.energy_kwh) || 0), 0)
+  return total ? total.toFixed(2) : '-'
+})
+const energyTotalGas = computed(() => {
+  const total = form.machine_energy_records.reduce((sum, r) => sum + (Number(r.gas_m3) || 0), 0)
+  return total ? total.toFixed(2) : '-'
+})
 const currentPage = computed(() => swipePages[Math.max(currentPageIndex.value, 0)] || swipePages[0])
 const isFirstPage = computed(() => currentPageIndex.value <= 0)
 const isLastPage = computed(() => currentPageIndex.value >= swipePages.length - 1)
@@ -546,6 +575,20 @@ function assignForm(data) {
   form.contract_received = data.contract_received
   form.electricity_daily = data.electricity_daily
   form.gas_daily = data.gas_daily
+  const savedRecords = data.machine_energy_records || []
+  const machines = data.workshop_machines || []
+  if (machines.length) {
+    const savedMap = Object.fromEntries(savedRecords.map((r) => [r.machine_id, r]))
+    form.machine_energy_records = machines.map((m) => ({
+      machine_id: m.machine_id,
+      machine_code: m.machine_code,
+      machine_name: m.machine_name,
+      energy_kwh: savedMap[m.machine_id]?.energy_kwh ?? null,
+      gas_m3: savedMap[m.machine_id]?.gas_m3 ?? null,
+    }))
+  } else {
+    form.machine_energy_records = savedRecords.map((r) => ({ ...r }))
+  }
   form.has_exception = Boolean(data.has_exception)
   form.exception_type = data.exception_type || ''
   form.note = data.note || ''
@@ -586,6 +629,9 @@ function buildPayload() {
     contract_received: form.contract_received,
     electricity_daily: form.electricity_daily,
     gas_daily: form.gas_daily,
+    machine_energy_records: form.machine_energy_records.filter(
+      (r) => r.energy_kwh !== null || r.gas_m3 !== null
+    ),
     has_exception: form.has_exception,
     exception_type: form.exception_type || null,
     note: form.note || null,
@@ -872,5 +918,35 @@ onBeforeUnmount(() => {
   .entry-calc-strip {
     grid-template-columns: 1fr;
   }
+}
+
+.mobile-energy-machine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-energy-machine-row {
+  border: 1px solid var(--el-border-color-lighter, #ebeef5);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.mobile-energy-machine-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary);
+}
+
+.mobile-energy-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
+  margin-top: 4px;
 }
 </style>

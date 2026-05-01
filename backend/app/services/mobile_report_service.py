@@ -18,6 +18,7 @@ from app.core.permissions import assert_mobile_report_access, assert_mobile_user
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
 from app.models.attendance import AttendanceSchedule
+from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Team, Workshop
 from app.models.production import (
     MobileReminderRecord,
@@ -607,6 +608,8 @@ def _serialize_mobile_report(
         'agent_decision_errors': decision_snapshot.get('agent_decision_errors', []),
         'agent_decision_at': decision_snapshot.get('agent_decision_at'),
         'active_reminders': active_reminders,
+        'machine_energy_records': _load_machine_energy_records(db, report_id=report.id) if report else [],
+        'workshop_machines': _get_workshop_machines(db, workshop_id=workshop.id),
         'submitted_at': report.submitted_at if report else None,
         'last_saved_at': report.last_saved_at if report else None,
         'updated_at': report.updated_at if report else None,
@@ -706,6 +709,7 @@ MOBILE_REPORT_ALLOWED_DATA_KEYS = {
     'operator_notes',
     'note',
     'optional_photo_url',
+    'machine_energy_records',
 }
 
 
@@ -723,6 +727,82 @@ def _normalize_mobile_report_payload(payload: dict) -> dict:
             normalized[target_key] = value
 
     return normalized
+
+
+def _save_machine_energy_records(db: Session, *, report_id: int, records: list[dict]) -> None:
+    db.query(MachineEnergyRecord).filter(MachineEnergyRecord.shift_report_id == report_id).delete()
+    for rec in records:
+        if rec.get('energy_kwh') is None and rec.get('gas_m3') is None:
+            continue
+        db.add(MachineEnergyRecord(
+            shift_report_id=report_id,
+            machine_id=rec.get('machine_id'),
+            machine_code=rec.get('machine_code', ''),
+            machine_name=rec.get('machine_name', ''),
+            energy_kwh=rec.get('energy_kwh'),
+            gas_m3=rec.get('gas_m3'),
+        ))
+
+
+def _load_machine_energy_records(db: Session, *, report_id: int) -> list[dict]:
+    rows = (
+        db.query(MachineEnergyRecord)
+        .filter(MachineEnergyRecord.shift_report_id == report_id)
+        .order_by(MachineEnergyRecord.id.asc())
+        .all()
+    )
+    return [
+        {
+            'id': row.id,
+            'machine_id': row.machine_id,
+            'machine_code': row.machine_code,
+            'machine_name': row.machine_name,
+            'energy_kwh': _to_float(row.energy_kwh),
+            'gas_m3': _to_float(row.gas_m3),
+        }
+        for row in rows
+    ]
+
+
+def _sum_machine_energy(records: list[dict]) -> tuple[float | None, float | None]:
+    kwh_values = [r.get('energy_kwh') or 0 for r in records if r.get('energy_kwh') is not None]
+    gas_values = [r.get('gas_m3') or 0 for r in records if r.get('gas_m3') is not None]
+    total_kwh = sum(kwh_values) if kwh_values else None
+    total_gas = sum(gas_values) if gas_values else None
+    return total_kwh, total_gas
+
+
+def _get_workshop_machines(db: Session, *, workshop_id: int) -> list[dict]:
+    machines = (
+        db.query(Equipment)
+        .filter(
+            Equipment.workshop_id == workshop_id,
+            Equipment.equipment_type != 'virtual_workshop_qr',
+            Equipment.equipment_type != 'virtual_role_qr',
+            Equipment.operational_status == 'running',
+        )
+        .order_by(Equipment.sort_order.asc(), Equipment.id.asc())
+        .all()
+    )
+    if not machines:
+        machines = (
+            db.query(Equipment)
+            .filter(
+                Equipment.workshop_id == workshop_id,
+                Equipment.equipment_type == 'virtual_role_qr',
+                Equipment.qr_code.like('XT-%-OP'),
+            )
+            .order_by(Equipment.sort_order.asc(), Equipment.id.asc())
+            .all()
+        )
+    return [
+        {
+            'machine_id': m.id,
+            'machine_code': m.code,
+            'machine_name': m.name,
+        }
+        for m in machines
+    ]
 
 
 def _build_current_shift_fallback(
@@ -1054,6 +1134,7 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         if context.shift is not None
         else [],
         **attendance_snapshot,
+        'workshop_machines': _get_workshop_machines(db, workshop_id=context.workshop.id),
         'can_submit': can_submit,
     }
 
@@ -1168,6 +1249,12 @@ def save_or_submit_report(
     report.optional_photo_url = payload.get('optional_photo_url')
     report.last_saved_at = _local_now()
 
+    machine_energy_records = payload.get('machine_energy_records') or []
+    if machine_energy_records:
+        total_kwh, total_gas = _sum_machine_energy(machine_energy_records)
+        report.electricity_daily = total_kwh
+        report.gas_daily = total_gas
+
     decision_snapshot = None
     if submit:
         missing = _required_submit_fields(payload)
@@ -1219,6 +1306,8 @@ def save_or_submit_report(
         action = 'mobile_report_save'
 
     db.flush()
+    if machine_energy_records:
+        _save_machine_energy_records(db, report_id=report.id, records=machine_energy_records)
     record_entity_change(
         db,
         user=current_user,

@@ -67,6 +67,7 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'JZ2': 'finishing',
     'JQ': 'shearing',
     'CPK': 'inventory',
+    'ZXTF': 'annealing',
 }
 
 WORKSHOP_TYPE_ALIASES = {
@@ -81,6 +82,7 @@ WORKSHOP_TYPE_ALIASES = {
     'casting': 'casting',
     'inventory': 'inventory',
     'warehouse': 'inventory',
+    'annealing': 'annealing',
 }
 
 ENERGY_OWNER_FIELDS = [
@@ -825,6 +827,41 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         ],
         'supports_ocr': False,
     },
+    'annealing': {
+        'display_name': '在线退火车间',
+        'tempo': 'fast',
+        'entry_fields': [
+            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'alloy_grade', 'label': '合金', 'type': 'text', 'required': True},
+            {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
+            {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+        ],
+        'shift_fields': [],
+        'extra_fields': [
+            *ENERGY_OWNER_FIELDS,
+            *MAINTENANCE_OWNER_FIELDS,
+            *CONTRACT_OWNER_FIELDS,
+        ],
+        'qc_fields': QC_OWNER_FIELDS,
+        'readonly_fields': [
+            {
+                'name': 'scrap_weight',
+                'label': '废料重量',
+                'type': 'number',
+                'unit': 'kg',
+                'compute': 'input_weight - output_weight',
+            },
+            {
+                'name': 'yield_rate',
+                'label': '成品率',
+                'type': 'number',
+                'unit': '%',
+                'compute': 'output_weight / input_weight * 100',
+            },
+        ],
+        'supports_ocr': False,
+    },
 }
 
 WORKSHOP_TEMPLATES = DEFAULT_WORKSHOP_TEMPLATES
@@ -1153,6 +1190,8 @@ def resolve_workshop_type(
         return 'shearing'
     if code == 'CPK' or '成品库' in name or '库存' in name:
         return 'inventory'
+    if code == 'ZXTF' or '退火' in name:
+        return 'annealing'
     if 'cold' in lowered_name:
         return 'cold_roll'
     if 'finish' in lowered_name:
