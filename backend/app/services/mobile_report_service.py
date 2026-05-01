@@ -686,6 +686,45 @@ def _required_submit_fields(payload: dict) -> list[str]:
     return missing
 
 
+MOBILE_REPORT_DATA_KEY_MAP = {
+    'operator_notes': 'note',
+}
+
+MOBILE_REPORT_ALLOWED_DATA_KEYS = {
+    'attendance_count',
+    'input_weight',
+    'output_weight',
+    'scrap_weight',
+    'storage_prepared',
+    'storage_finished',
+    'shipment_weight',
+    'contract_received',
+    'electricity_daily',
+    'gas_daily',
+    'has_exception',
+    'exception_type',
+    'operator_notes',
+    'note',
+    'optional_photo_url',
+}
+
+
+def _normalize_mobile_report_payload(payload: dict) -> dict:
+    normalized = dict(payload)
+    nested = normalized.pop('data', None) or {}
+    if not isinstance(nested, dict):
+        nested = {}
+
+    for source_key, value in nested.items():
+        if source_key not in MOBILE_REPORT_ALLOWED_DATA_KEYS:
+            continue
+        target_key = MOBILE_REPORT_DATA_KEY_MAP.get(source_key, source_key)
+        if normalized.get(target_key) is None:
+            normalized[target_key] = value
+
+    return normalized
+
+
 def _build_current_shift_fallback(
     *,
     current_user: User,
@@ -1057,6 +1096,7 @@ def save_or_submit_report(
     user_agent: str | None = None,
 ) -> dict:
     assert_mobile_user_access(current_user)
+    payload = _normalize_mobile_report_payload(payload)
     workshop, team = _resolve_workshop_team(db, current_user)
     shift = db.get(ShiftConfig, int(payload['shift_id']))
     if shift is None or not shift.is_active:
