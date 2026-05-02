@@ -432,6 +432,13 @@ def create_coil_entry(
         operator_notes=payload.get('operator_notes'),
         entry_type='mobile_coil',
     )
+    if entry.scrap_weight is None and entry.input_weight and entry.output_weight:
+        inp = float(entry.input_weight)
+        out = float(entry.output_weight)
+        spool = float(payload.get('spool_weight') or 0)
+        trim = float(payload.get('trim_weight') or 0)
+        tray = float(payload.get('tray_weight') or 0)
+        entry.scrap_weight = round(inp - out - spool - trim - tray, 2)
     if payload.get('input_weight') and payload.get('output_weight'):
         inp = float(payload['input_weight'])
         out = float(payload['output_weight'])
