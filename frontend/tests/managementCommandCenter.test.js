@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
@@ -8,6 +9,11 @@ import {
   statusTextForCell,
   statusToneForCell,
 } from '../src/utils/managementCommandCenter.js'
+
+const liveDashboardSource = readFileSync(
+  new URL('../src/views/reports/LiveDashboard.vue', import.meta.url),
+  'utf8',
+)
 
 const baseAggregation = {
   overall_progress: {
@@ -100,4 +106,13 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
   assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '填报审核', '日报交付', '异常质量'])
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === 'AI 工作台'), false)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/admin/settings'), false)
+})
+
+test('LiveDashboard keeps the command matrix contained on narrow screens', () => {
+  assert.match(liveDashboardSource, /class="live-dashboard__export-button"/)
+  assert.match(liveDashboardSource, /aria-label="导出电子表格"/)
+  assert.match(liveDashboardSource, /\.live-dashboard__workshops\s*{[^}]*min-width:\s*0/s)
+  assert.match(liveDashboardSource, /\.live-dashboard__collapse\s*{[^}]*min-width:\s*0/s)
+  assert.match(liveDashboardSource, /\.live-workshop__board\s*{[^}]*overflow:\s*hidden/s)
+  assert.match(liveDashboardSource, /\.live-board__scroller\s*{[^}]*max-width:\s*100%/s)
 })
