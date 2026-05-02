@@ -277,12 +277,6 @@
             </section>
           </div>
 
-          <div v-if="!isOwnerOnlyMode" class="mobile-dynamic-summary mobile-dynamic-summary--footer">
-            <div class="mobile-summary-chip">
-              <span>自动成材率</span>
-              <strong :class="yieldClass">{{ yieldDisplay }}</strong>
-            </div>
-          </div>
         </el-card>
       </template>
 
@@ -776,22 +770,9 @@ const showFastEntryHelper = computed(() => Boolean(
   (submittedCount.value || batchQueue.value.length || canContinueNext.value)
 ))
 const entryType = computed(() => (isSlowTempo.value ? completionMode.value : 'completed'))
-const yieldRate = computed(() => {
-  const inputWeight = toNumber(formValues.input_weight)
-  const outputWeight = toNumber(formValues.output_weight)
-  if (inputWeight === null || outputWeight === null || inputWeight <= 0) return null
-  return Number(((outputWeight / inputWeight) * 100).toFixed(2))
-})
-const yieldDisplay = computed(() => (yieldRate.value === null ? '-' : `${yieldRate.value.toFixed(2)}%`))
 const filledEditableFieldCount = computed(() =>
   editableFields.value.filter((field) => !isEmptyValue(normalizeFieldValue(field, formValues[field.name]))).length
 )
-const yieldClass = computed(() => {
-  if (yieldRate.value === null) return 'yield-pill yield-pill--neutral'
-  if (yieldRate.value >= 98) return 'yield-pill yield-pill--good'
-  if (yieldRate.value >= 95) return 'yield-pill yield-pill--warn'
-  return 'yield-pill yield-pill--danger'
-})
 const historyEntries = computed(() => {
   const entries = currentWorkOrder.value?.entries || []
   if (!entries.length) return []
@@ -805,6 +786,7 @@ const historyEntries = computed(() => {
 })
 const readonlyDisplayItems = computed(() =>
   readonlyFields.value
+    .filter((field) => !field.hidden)
     .map((field) => {
       const value = resolveReadonlyFieldValue(field)
       if (isEmptyValue(value)) return null
@@ -854,10 +836,6 @@ const reviewSummaryItems = computed(() => {
     { label: '已填', value: `${filledEditableFieldCount.value}/${editableFields.value.length}` },
     { label: '提交方式', value: isSlowTempo.value ? (completionMode.value === 'completed' ? '本班完工' : '本班接续') : '本班完工' }
   ]
-
-  if (!isOwnerOnlyMode.value && yieldRate.value !== null) {
-    items.splice(4, 0, { label: '成材率', value: yieldDisplay.value })
-  }
 
   return items
 })
