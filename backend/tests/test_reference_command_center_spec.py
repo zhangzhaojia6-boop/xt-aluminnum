@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from tests.path_helpers import REPO_ROOT
@@ -416,9 +420,11 @@ def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> N
 
 
 def test_visual_diff_gate_supports_per_module_threshold() -> None:
-    script = _read_repo_file("frontend/tmp_visual_diff.py")
+    script = _read_repo_file("frontend/tools/visual-audit/visual-diff.py")
 
     assert "REFERENCE_UI_TARGET_IMAGE" in script
+    assert "C:/Users/" not in script
+    assert "Downloads" not in script
     assert "DIFF_THRESHOLD_PERCENT" in script
     assert "TARGET_PANELS" in script
     assert "module_id" in script
@@ -433,6 +439,108 @@ def test_visual_diff_gate_supports_per_module_threshold() -> None:
     assert "visual-diff-report.json" in script
     assert "VISUAL_DIFF_ENFORCE" in script
     assert "target-crops" in script
+
+
+def test_visual_diff_runner_requires_target_env_or_arg(tmp_path: Path) -> None:
+    script_path = _repo_file("frontend/tools/visual-audit/visual-diff.py")
+    env = os.environ.copy()
+    env.pop("REFERENCE_UI_TARGET_IMAGE", None)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--out", str(tmp_path / "report.json")],
+        cwd=_resolve_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "REFERENCE_UI_TARGET_IMAGE" in result.stderr
+
+
+def test_visual_diff_custom_threshold_clears_passing_error(tmp_path: Path) -> None:
+    from PIL import Image
+
+    script_path = _repo_file("frontend/tools/visual-audit/visual-diff.py")
+    target_path = tmp_path / "target.png"
+    screenshot_dir = tmp_path / "screenshots"
+    report_path = tmp_path / "visual-diff-report.json"
+    screenshot_dir.mkdir()
+    Image.new("RGB", (1672, 941), (244, 247, 251)).save(target_path)
+    Image.new("RGB", (584, 275), (0, 0, 0)).save(screenshot_dir / "01-review-overview.png")
+    env = os.environ.copy()
+    env.pop("REFERENCE_UI_TARGET_IMAGE", None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--module",
+            "01",
+            "--target",
+            str(target_path),
+            "--screenshots",
+            str(screenshot_dir),
+            "--out",
+            str(report_path),
+            "--threshold",
+            "100",
+        ],
+        cwd=_resolve_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    row = json.loads(report_path.read_text(encoding="utf-8"))["results"][0]
+    assert row["status"] == "pass"
+    assert row["error"] == ""
+    assert row["threshold_percent"] == 100.0
+
+
+def test_visual_diff_missing_screenshot_stays_failed_with_wide_threshold(tmp_path: Path) -> None:
+    from PIL import Image
+
+    script_path = _repo_file("frontend/tools/visual-audit/visual-diff.py")
+    target_path = tmp_path / "target.png"
+    screenshot_dir = tmp_path / "screenshots"
+    report_path = tmp_path / "visual-diff-report.json"
+    screenshot_dir.mkdir()
+    Image.new("RGB", (1672, 941), (244, 247, 251)).save(target_path)
+    env = os.environ.copy()
+    env.pop("REFERENCE_UI_TARGET_IMAGE", None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--module",
+            "01",
+            "--target",
+            str(target_path),
+            "--screenshots",
+            str(screenshot_dir),
+            "--out",
+            str(report_path),
+            "--threshold",
+            "100",
+        ],
+        cwd=_resolve_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    row = report["results"][0]
+    assert row["status"] == "fail"
+    assert row["error"] == "missing screenshot"
+    assert report["summary"]["failed"] == 1
 
 
 def test_factory_board_module_05_is_table_first_like_reference_panel() -> None:

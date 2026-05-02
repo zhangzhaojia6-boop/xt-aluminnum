@@ -3,13 +3,11 @@ import os
 import paramiko
 import stat
 
-HOST = '8.140.218.13'
-USER = 'root'
-PASS = 'zzj200123.'
-DOMAIN = 'xtmijd.com'
+HOST = os.environ.get('DEPLOY_HOST', '8.140.218.13')
+USER = os.environ.get('DEPLOY_USER', 'root')
+DOMAIN = os.environ.get('DEPLOY_DOMAIN', 'xtmijd.com')
 BACKEND_DIR = '/srv/aluminum-bypass/backend'
 FRONTEND_DIR = '/srv/aluminum-bypass/frontend/dist'
-DB_URL = 'postgresql+psycopg2://bypass_user:xt_bypass_2026@127.0.0.1:5432/aluminum_bypass'
 
 LOCAL_BACKEND = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 LOCAL_FRONTEND_DIST = os.path.abspath(os.path.join(LOCAL_BACKEND, '..', 'frontend', 'dist'))
@@ -17,6 +15,13 @@ LOCAL_FRONTEND_DIST = os.path.abspath(os.path.join(LOCAL_BACKEND, '..', 'fronten
 SKIP_DIRS = {'.venv', 'venv', '.git', 'node_modules', '__pycache__', 'dist',
              '.pytest-cache', '.pytest-cache-2', '.pytest-run-2', 'uploads'}
 SKIP_FILES = {'.env', '.env.example', '.dockerignore', '.codex-preview.db'}
+
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name, '').strip()
+    if not value:
+        raise RuntimeError(f'{name} is required')
+    return value
 
 
 def run(ssh, cmd, timeout=120):
@@ -152,10 +157,17 @@ WantedBy=multi-user.target
 # PLACEHOLDER_MAIN
 
 def main():
+    ssh_password = require_env('DEPLOY_SSH_PASSWORD')
+    db_url = require_env('DEPLOY_DATABASE_URL')
+    secret_key = require_env('DEPLOY_SECRET_KEY')
+    admin_password = require_env('DEPLOY_INIT_ADMIN_PASSWORD')
+    admin_username = os.environ.get('DEPLOY_INIT_ADMIN_USERNAME', 'admin').strip() or 'admin'
+    admin_name = os.environ.get('DEPLOY_INIT_ADMIN_NAME', '系统管理员').strip() or '系统管理员'
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     print(f'Connecting to {HOST}...')
-    ssh.connect(HOST, port=443, username=USER, password=PASS)
+    ssh.connect(HOST, port=443, username=USER, password=ssh_password)
 
     # Step 1: Stop old Docker containers
     print('\n[1/7] Stopping old Docker containers...')
@@ -187,11 +199,11 @@ def main():
 
     # Write .env
     env_lines = [
-        f'DATABASE_URL={DB_URL}',
-        'SECRET_KEY=xt-aluminum-bypass-prod-secret-key-2026-min32chars',
-        'INIT_ADMIN_USERNAME=admin',
-        'INIT_ADMIN_PASSWORD=admin123',
-        'INIT_ADMIN_NAME=系统管理员',
+        f'DATABASE_URL={db_url}',
+        f'SECRET_KEY={secret_key}',
+        f'INIT_ADMIN_USERNAME={admin_username}',
+        f'INIT_ADMIN_PASSWORD={admin_password}',
+        f'INIT_ADMIN_NAME={admin_name}',
     ]
     with sftp.open(f'{BACKEND_DIR}/.env', 'w') as f:
         f.write('\n'.join(env_lines) + '\n')
@@ -262,4 +274,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

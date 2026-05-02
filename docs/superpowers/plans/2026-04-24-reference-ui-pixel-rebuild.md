@@ -24,7 +24,7 @@
 
 - Spec: `docs/superpowers/specs/2026-04-24-reference-ui-pixel-rebuild-design.md`
 - Previous reference plan: `docs/superpowers/plans/2026-04-24-reference-ui-command-center.md`
-- Target image: `C:/Users/xt/Downloads/cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png`
+- Target image: local reference image supplied outside the repository, passed via `REFERENCE_UI_TARGET_IMAGE` or `--target`
 - Visual audit entry: `frontend/tmp_visual_audit.cjs`
 
 ## File Structure

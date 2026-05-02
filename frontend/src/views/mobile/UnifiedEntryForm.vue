@@ -25,15 +25,18 @@
               {{ field.label }}
               <span v-if="field.unit" class="ue-field__unit">{{ field.unit }}</span>
             </label>
-            <select
+            <el-select
               v-if="field.type === 'select'"
               v-model="form[field.name]"
-              class="ue-input ue-input--select"
+              filterable
+              allow-create
+              default-first-option
+              :placeholder="field.hint || '选择或输入'"
               :aria-label="field.label"
+              class="ue-el-select"
             >
-              <option value="">请选择</option>
-              <option v-for="opt in resolveFieldOptions(field)" :key="opt" :value="opt">{{ opt }}</option>
-            </select>
+              <el-option v-for="opt in resolveFieldOptions(field)" :key="opt.value ?? opt" :label="opt.label ?? opt" :value="opt.value ?? opt" />
+            </el-select>
             <div v-else-if="field.type === 'spec'" class="ue-spec-row">
               <input
                 v-model="specParts[field.name + '_0']"

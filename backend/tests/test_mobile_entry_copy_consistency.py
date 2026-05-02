@@ -66,6 +66,18 @@ def test_mobile_entry_routes_field_owners_to_advanced_entry() -> None:
     assert "reportRouteName = 'mobile-report-form-advanced'" in source
 
 
+def test_coil_entry_alloy_options_failure_keeps_page_usable() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/CoilEntryWorkbench.vue")
+    helper = _read_repo_file("frontend/src/utils/coilEntryStartup.js")
+
+    assert "DEFAULT_ALLOY_GRADES" in source
+    assert "loadCoilEntryStartup" in source
+    assert "const [bootstrap, currentShift] = await Promise.all" in helper
+    assert "fetchFieldOptions" in source
+    assert "fetchFieldOptions('alloy-grades')" in helper
+    assert "alloyGrades = DEFAULT_ALLOY_GRADES" in helper
+
+
 def test_mobile_photo_upload_lets_browser_set_multipart_boundary() -> None:
     source = _read_repo_file("frontend/src/api/mobile.js")
 
