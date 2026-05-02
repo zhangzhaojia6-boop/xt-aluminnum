@@ -349,69 +349,30 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
 import { TrendCharts } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 
-import { buildAssistantFallback, fetchAssistantCapabilities } from '../../api/assistant'
-import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
 import AgentRuntimeFlow from '../../components/review/AgentRuntimeFlow.vue'
 import ReviewAssistantDock from '../../components/review/ReviewAssistantDock.vue'
 import ReviewAssistantWorkbench from '../../components/review/ReviewAssistantWorkbench.vue'
 import ReviewCommandDeck from '../../components/review/ReviewCommandDeck.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { XtExecutionRail, XtFactoryMap, XtWorkshopGlyph } from '../../components/xt'
+import { useAssistantIntegration } from '../../composables/useAssistantIntegration'
+import { useFactoryDashboard } from '../../composables/useFactoryDashboard'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
+import {
+  reportStatusLabel,
+  reportStatusTagType,
+  reportStatusHint,
+  reportingSourceClass,
+  toFactoryStatus,
+  workshopTypeFromName
+} from '../../utils/reportStatus'
 
 const route = useRoute()
-
-function reportStatusLabel(status) {
-  const map = {
-    submitted: '主操已报',
-    reviewed: '系统处理中',
-    auto_confirmed: '已入汇总',
-    returned: '退回补录',
-    draft: '填报中',
-    unreported: '待上报',
-    late: '迟报'
-  }
-  return map[status] || status || '待上报'
-}
-
-function reportStatusTagType(status) {
-  const map = {
-    submitted: 'success',
-    reviewed: 'success',
-    auto_confirmed: 'success',
-    returned: 'danger',
-    draft: 'primary',
-    unreported: 'warning',
-    late: 'danger'
-  }
-  return map[status] || 'info'
-}
-
-function reportStatusHint(status) {
-  const map = {
-    submitted: '主操已报',
-    reviewed: '系统处理中',
-    auto_confirmed: '已入汇总',
-    returned: '退回补录',
-    draft: '填报中',
-    unreported: '待上报',
-    late: '迟报'
-  }
-  return map[status] || '同步中'
-}
-
-function reportingSourceClass(item) {
-  const normalized = String(item?.source_variant || '').toLowerCase()
-  if (normalized === 'owner') return 'is-owner'
-  if (normalized === 'mobile') return 'is-mobile'
-  return 'is-import'
-}
 
 function prefersExpandedDetail() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
@@ -425,21 +386,21 @@ function resolveInitialTargetDate() {
 }
 
 const targetDate = ref(resolveInitialTargetDate())
-const loading = ref(false)
-const data = ref({})
-const delivery = ref({})
-const lastRefreshAt = ref('')
-const assistantOpen = ref(false)
-const assistantLoading = ref(false)
-const assistantSeedQuery = ref('')
-const assistantShortcutSeed = ref(null)
-const assistantCapabilities = ref(buildAssistantFallback())
+const {
+  loading, data, delivery,
+  leaderMetrics, runtimeTrace,
+  dailySnapshots, monthArchive, yearArchive,
+  monthToDateOutput, lastRefreshLabel, retentionSummary,
+  load
+} = useFactoryDashboard(targetDate)
+const {
+  assistantOpen, assistantLoading,
+  assistantSeedQuery, assistantShortcutSeed,
+  assistantCapabilities, assistantQuickActions,
+  handleAssistantOpen, handleAssistantShortcut
+} = useAssistantIntegration()
 const detailTab = ref('reporting')
 const detailExpanded = ref(prefersExpandedDetail())
-const lastLoadErrorMessage = ref('')
-const leaderMetrics = computed(() => data.value.leader_metrics || {})
-const historyDigest = computed(() => data.value.history_digest || {})
-const runtimeTrace = computed(() => data.value.runtime_trace || {})
 const runtimeSourceIndex = computed(() => {
   const index = {}
   for (const lane of runtimeTrace.value.source_lanes || []) {
@@ -450,14 +411,7 @@ const runtimeSourceIndex = computed(() => {
   }
   return index
 })
-const dailySnapshots = computed(() => historyDigest.value.daily_snapshots || [])
-const monthArchive = computed(() => historyDigest.value.month_archive || {})
-const yearArchive = computed(() => historyDigest.value.year_archive || {})
 const maxTrendOutput = computed(() => Math.max(...dailySnapshots.value.map((item) => Number(item.output_weight) || 0), 1))
-const monthToDateOutput = computed(() => data.value.month_to_date_output ?? data.value.leader_metrics?.month_to_date_output ?? null)
-const lastRefreshLabel = computed(() => (lastRefreshAt.value ? dayjs(lastRefreshAt.value).format('HH:mm:ss') : '--:--:--'))
-const retentionSummary = computed(() => `${monthArchive.value.reported_days ?? 0} 天归档`)
-const assistantQuickActions = computed(() => assistantCapabilities.value.quick_actions || buildAssistantFallback().quick_actions)
 const exceptionCounts = computed(() => {
   const lane = data.value.exception_lane || {}
   return {
@@ -607,7 +561,6 @@ const workshopGlyphs = computed(() => {
     }
   })
 })
-let assistantShortcutSequence = 0
 const heroCards = computed(() => [
   {
     key: 'today-output',
@@ -655,15 +608,6 @@ const heroCards = computed(() => [
     tone: 'primary'
   }
 ])
-let refreshTimer = null
-
-function mergeAssistantCapabilities(payload = {}) {
-  return {
-    ...buildAssistantFallback(),
-    ...payload,
-    groups: payload.groups || buildAssistantFallback().groups
-  }
-}
 
 function trendBarWidth(value) {
   const safeValue = Number(value) || 0
@@ -682,107 +626,6 @@ function sourceTagText(lane) {
 function sourceTagClass(lane) {
   return lane?.status ? `is-${lane.status}` : ''
 }
-
-function toFactoryStatus(status) {
-  const value = String(status || '').toLowerCase()
-  if (['danger', 'error', 'failed', 'blocked', 'returned', 'late'].includes(value)) return 'danger'
-  if (['warning', 'alert', 'pending', 'fallback', 'mixed', 'unreported'].includes(value)) return 'warning'
-  return 'normal'
-}
-
-function workshopTypeFromName(name) {
-  const value = String(name || '')
-  if (/铸|熔|锭/.test(value)) return 'casting'
-  if (/热轧|热/.test(value)) return 'hot_roll'
-  if (/冷轧|冷/.test(value)) return 'cold_roll'
-  if (/拉矫|矫/.test(value)) return 'leveling'
-  if (/退火/.test(value)) return 'online_annealing'
-  if (/库|仓|成品/.test(value)) return 'inventory'
-  if (/跨|链路|调度/.test(value)) return 'cross_workshop_flow'
-  return 'finishing'
-}
-
-function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试') {
-  const detail = error?.response?.data?.detail
-  if (Array.isArray(detail)) {
-    return detail.map((item) => item?.msg || item).join('；')
-  }
-  if (detail && typeof detail === 'object') {
-    return detail.message || detail.msg || fallback
-  }
-  if (typeof detail === 'string' && detail.trim()) {
-    return detail.trim()
-  }
-  return error?.message || fallback
-}
-
-function handleAssistantOpen() {
-  assistantSeedQuery.value = ''
-  assistantShortcutSeed.value = null
-  assistantOpen.value = true
-}
-
-function handleAssistantShortcut(action) {
-  const query = action?.query || action?.label || ''
-  assistantShortcutSequence += 1
-  assistantSeedQuery.value = query
-  assistantShortcutSeed.value = {
-    key: action?.key || `assistant-shortcut-${assistantShortcutSequence}`,
-    mode: action?.mode || 'answer',
-    query,
-    token: `assistant-shortcut-${assistantShortcutSequence}`
-  }
-  assistantOpen.value = true
-}
-
-async function load() {
-  loading.value = true
-  try {
-    const [dashboardPayload, deliveryPayload] = await Promise.all([
-      fetchFactoryDashboard({ target_date: targetDate.value }),
-      fetchDeliveryStatus({ target_date: targetDate.value })
-    ])
-    data.value = dashboardPayload
-    delivery.value = deliveryPayload
-    lastRefreshAt.value = new Date().toISOString()
-    lastLoadErrorMessage.value = ''
-  } catch (error) {
-    const message = requestErrorMessage(error, '数据加载失败，请稍后重试')
-    if (message !== lastLoadErrorMessage.value) {
-      ElMessage.error(message)
-      lastLoadErrorMessage.value = message
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadAssistant() {
-  assistantLoading.value = true
-  try {
-    const payload = await fetchAssistantCapabilities()
-    assistantCapabilities.value = mergeAssistantCapabilities(payload)
-  } catch {
-    assistantCapabilities.value = buildAssistantFallback()
-  } finally {
-    assistantLoading.value = false
-  }
-}
-
-watch(targetDate, () => load())
-
-onMounted(() => {
-  load()
-  loadAssistant()
-  refreshTimer = setInterval(load, 30000)
-})
-
-onUnmounted(() => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
-})
 </script>
 
 <style scoped>

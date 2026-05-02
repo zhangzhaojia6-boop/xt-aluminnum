@@ -132,9 +132,11 @@ def test_shift_report_form_copy_matches_manual_phase() -> None:
     assert "04 填报流程页" in source
     assert "goDesktop" not in source
     assert "canAccessDesktop" not in source
-    assert "function requestErrorMessage(error, fallback = '操作失败')" in source
-    assert "Array.isArray(detail)" in source
-    assert "detail.message || detail.msg || fallback" in source
+    helpers = _read_repo_file("frontend/src/utils/reportStatus.js")
+    assert "function requestErrorMessage(error, fallback" in helpers
+    assert "Array.isArray(detail)" in helpers
+    assert "detail.message || detail.msg || fallback" in helpers
+    assert "requestErrorMessage" in source
     assert "ElMessage.error(requestErrorMessage(error, '暂存失败'))" in source
     assert "ElMessage.error(requestErrorMessage(error, '提交失败'))" in source
     assert "ElMessage.error(requestErrorMessage(error, '图片上传失败，请重试'))" in source
@@ -728,18 +730,20 @@ def test_review_assistant_dock_uses_short_status_copy() -> None:
 
 def test_factory_dashboard_shortcuts_seed_real_queries_for_assistant() -> None:
     source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
+    composable = _read_repo_file("frontend/src/composables/useAssistantIntegration.js")
 
     assert ":quick-actions=\"assistantQuickActions\"" in source
-    assert "const assistantQuickActions = computed(() => assistantCapabilities.value.quick_actions || buildAssistantFallback().quick_actions)" in source
+    assert "const assistantQuickActions = computed(() =>" in composable
+    assert "assistantCapabilities.value.quick_actions || buildAssistantFallback().quick_actions" in composable
     assert "const assistantShortcutActions = [" not in source
-    assert "assistantShortcutSequence += 1" in source
-    assert "assistantShortcutSeed.value = {" in source
-    assert "assistantSeedQuery.value = ''" in source
-    assert "assistantShortcutSeed.value = null" in source
-    assert "const query = action?.query || action?.label || ''" in source
-    assert "key: action?.key || `assistant-shortcut-${assistantShortcutSequence}`" in source
-    assert "mode: action?.mode || 'answer'" in source
-    assert "token: `assistant-shortcut-${assistantShortcutSequence}`" in source
+    assert "assistantShortcutSequence += 1" in composable
+    assert "assistantShortcutSeed.value = {" in composable
+    assert "assistantSeedQuery.value = ''" in composable
+    assert "assistantShortcutSeed.value = null" in composable
+    assert "const query = action?.query || action?.label || ''" in composable
+    assert "key: action?.key || `assistant-shortcut-${assistantShortcutSequence}`" in composable
+    assert "mode: action?.mode || 'answer'" in composable
+    assert "token: `assistant-shortcut-${assistantShortcutSequence}`" in composable
 
 
 def test_review_layout_and_workbench_share_short_copy_language() -> None:
@@ -812,7 +816,7 @@ def test_factory_dashboard_exposes_inventory_owner_metrics() -> None:
 
 
 def test_factory_dashboard_maps_auto_confirmed_and_returned_statuses() -> None:
-    source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
+    source = _read_repo_file("frontend/src/utils/reportStatus.js")
 
     assert "auto_confirmed: '已入汇总'" in source
     assert "returned: '退回补录'" in source
@@ -841,15 +845,16 @@ def test_login_review_surface_uses_manage_canonical_landing() -> None:
 
 
 def test_review_dashboards_parse_structured_load_errors() -> None:
-    factory_source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
+    report_status = _read_repo_file("frontend/src/utils/reportStatus.js")
+    composable = _read_repo_file("frontend/src/composables/useFactoryDashboard.js")
     workshop_source = _read_repo_file("frontend/src/views/dashboard/WorkshopDirector.vue")
 
-    assert "function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试')" in factory_source
-    assert "detail.message || detail.msg || fallback" in factory_source
-    assert "const lastLoadErrorMessage = ref('')" in factory_source
-    assert "lastLoadErrorMessage.value = ''" in factory_source
-    assert "if (message !== lastLoadErrorMessage.value)" in factory_source
-    assert "ElMessage.error(message)" in factory_source
+    assert "function requestErrorMessage(error, fallback" in report_status
+    assert "detail.message || detail.msg || fallback" in report_status
+    assert "const lastLoadErrorMessage = ref('')" in composable
+    assert "lastLoadErrorMessage.value = ''" in composable
+    assert "if (message !== lastLoadErrorMessage.value)" in composable
+    assert "ElMessage.error(message)" in composable
     assert "function requestErrorMessage(error, fallback = '加载失败')" in workshop_source
     assert "detail.message || detail.msg || fallback" in workshop_source
     assert "const lastLoadErrorMessage = ref('')" in workshop_source
@@ -859,7 +864,7 @@ def test_review_dashboards_parse_structured_load_errors() -> None:
 
 
 def test_factory_dashboard_trims_reporting_status_hints_to_dashboard_language() -> None:
-    source = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
+    source = _read_repo_file("frontend/src/utils/reportStatus.js")
 
     assert "submitted: '主操已报'" in source
     assert "reviewed: '系统处理中'" in source

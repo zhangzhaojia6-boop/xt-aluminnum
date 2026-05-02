@@ -341,7 +341,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -353,9 +353,12 @@ import {
 } from '../../api/mobile'
 import { useLocalDraft } from '../../composables/useLocalDraft'
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
+import { useSubmitCooldown } from '../../composables/useSubmitCooldown'
 import { useAuthStore } from '../../stores/auth'
 import { formatNumber, formatStatusLabel } from '../../utils/display'
-import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
+import { requestErrorMessage } from '../../utils/reportStatus'
+import { shiftReportStatusTagType as statusTagType, isMeaningfulLocalDraft } from '../../utils/shiftReportHelpers'
+import { isWithinSubmitCooldown } from '../../utils/submitGuard'
 import MobileSwipeWorkspace from '../../components/mobile/MobileSwipeWorkspace.vue'
 import ReminderList from './ReminderList.vue'
 
@@ -363,14 +366,13 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { enqueuePendingRequest } = useRetryQueue()
+const { lastSubmitTime, submitCooldownActive, startCooldown: startSubmitCooldown } = useSubmitCooldown()
 const saving = ref(false)
 const submitting = ref(false)
 const uploadingPhoto = ref(false)
 const loadError = ref('')
 const loading = ref(false)
 const fileInputRef = ref(null)
-const lastSubmitTime = ref(0)
-const submitCooldownActive = ref(false)
 const activePageKey = ref('overview')
 const showExtendedProduction = ref(false)
 const report = reactive({})
@@ -393,7 +395,6 @@ const form = reactive({
   note: '',
   optional_photo_url: ''
 })
-let submitCooldownTimer = null
 
 const canEdit = computed(() => !['submitted', 'approved', 'auto_confirmed', 'locked'].includes(report.report_status))
 const submitDisabled = computed(() => Boolean(loadError.value) || !canEdit.value || submitting.value || submitCooldownActive.value)
@@ -491,37 +492,6 @@ const localDraftSnapshot = computed(() => ({
   }
 }))
 
-function statusTagType(status) {
-  if (status === 'submitted' || status === 'approved' || status === 'auto_confirmed') return 'success'
-  if (status === 'returned') return 'danger'
-  if (status === 'draft') return 'warning'
-  return 'info'
-}
-
-function isMeaningfulLocalDraft(snapshot) {
-  if (!snapshot?.form) return false
-  return [
-    'attendance_count',
-    'input_weight',
-    'output_weight',
-    'scrap_weight',
-    'storage_prepared',
-    'storage_finished',
-    'shipment_weight',
-    'contract_received',
-    'electricity_daily',
-    'gas_daily',
-    'exception_type',
-    'note',
-    'optional_photo_url'
-  ].some((field) => {
-    const value = snapshot.form[field]
-    if (value === null || value === undefined) return false
-    if (typeof value === 'string') return value.trim() !== ''
-    return true
-  })
-}
-
 function applyLocalDraft(snapshot) {
   if (!snapshot?.form) return
   Object.assign(form, snapshot.form)
@@ -543,23 +513,6 @@ const {
   enabled: computed(() => Boolean(form.business_date) && Boolean(form.shift_id)),
   isMeaningful: isMeaningfulLocalDraft
 })
-
-function clearSubmitCooldownTimer() {
-  if (submitCooldownTimer) {
-    clearTimeout(submitCooldownTimer)
-    submitCooldownTimer = null
-  }
-}
-
-function startSubmitCooldown() {
-  lastSubmitTime.value = Date.now()
-  submitCooldownActive.value = true
-  clearSubmitCooldownTimer()
-  submitCooldownTimer = setTimeout(() => {
-    submitCooldownActive.value = false
-    submitCooldownTimer = null
-  }, SUBMIT_COOLDOWN_MS)
-}
 
 function assignForm(data) {
   Object.assign(report, data)
@@ -651,17 +604,6 @@ function validateBeforeSubmit() {
     return false
   }
   return true
-}
-
-function requestErrorMessage(error, fallback = '操作失败') {
-  const detail = error?.response?.data?.detail
-  if (Array.isArray(detail)) {
-    return detail.map((item) => item?.msg || item).join('; ')
-  }
-  if (detail && typeof detail === 'object') {
-    return detail.message || detail.msg || fallback
-  }
-  return detail || error?.message || fallback
 }
 
 async function queueMobileReport({ action, url, payload, clearDraftOnReplay = false }) {
@@ -773,10 +715,6 @@ onMounted(async () => {
   } catch (error) {
     loadError.value = requestErrorMessage(error, '加载班次填报失败，请返回入口后重试。')
   }
-})
-
-onBeforeUnmount(() => {
-  clearSubmitCooldownTimer()
 })
 </script>
 

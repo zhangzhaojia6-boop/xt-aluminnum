@@ -153,6 +153,8 @@ import {
   fetchCoilList,
   createCoilEntry,
 } from '../../api/mobile.js'
+import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
+import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
 
 const auth = useAuthStore()
 
@@ -206,18 +208,7 @@ const ROLE_COLORS = {
 const roleColor = computed(() => ROLE_COLORS[auth.role] || 'oklch(51% 0.17 255)')
 
 function computeReadonly(rf) {
-  if (!rf.compute) return '—'
-  try {
-    const expr = rf.compute.replace(/[a-z_]+/g, (m) => {
-      const v = Number(form[m])
-      return isNaN(v) ? '0' : String(v)
-    })
-    const val = Function(`"use strict"; return (${expr})`)()
-    if (!isFinite(val)) return '—'
-    return rf.unit === '%' ? val.toFixed(1) + '%' : val.toFixed(1) + (rf.unit ? ' ' + rf.unit : '')
-  } catch {
-    return '—'
-  }
+  return computeReadonlyValue(rf.compute, form, rf.unit)
 }
 
 function syncSpec(field) {
@@ -225,16 +216,6 @@ function syncSpec(field) {
   const p1 = specParts[field.name + '_1'] || ''
   const p2 = field.spec_suffix || specParts[field.name + '_2'] || ''
   form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
-}
-
-function isEmptyValue(value) {
-  return value === null || value === undefined || String(value).trim() === ''
-}
-
-function normalizeNumberValue(value) {
-  if (value === null || value === undefined || value === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
 }
 
 function normalizedFormValues() {
