@@ -31,6 +31,7 @@ from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user
 from app.services.pilot_observability_service import log_pilot_event
+from app.services.work_order._utils import _normalize_flow_payload
 
 
 def _report_key(row) -> tuple[date, int, int, int | None]:
@@ -332,6 +333,7 @@ def list_coil_entries(
     result = []
     for r in rows:
         wo = wo_map.get(r.work_order_id)
+        extra_payload = dict(r.extra_payload or {})
         result.append({
             'id': r.id,
             'tracking_card_no': wo.tracking_card_no if wo else '',
@@ -342,6 +344,9 @@ def list_coil_entries(
             'output_weight': float(r.output_weight) if r.output_weight is not None else None,
             'scrap_weight': float(r.scrap_weight) if r.scrap_weight is not None else None,
             'operator_notes': r.operator_notes,
+            'extra_payload': extra_payload,
+            'previous_process': extra_payload.get('previous_process') or extra_payload.get('flow', {}).get('previous_process'),
+            'next_process': extra_payload.get('next_process') or extra_payload.get('flow', {}).get('next_process'),
             'business_date': r.business_date,
             'created_at': r.created_at if hasattr(r, 'created_at') else None,
         })
@@ -420,6 +425,7 @@ def create_coil_entry(
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
+    extra_payload = _build_coil_flow_extra_payload(payload)
 
     entry = WorkOrderEntry(
         work_order_id=wo.id,
@@ -435,6 +441,7 @@ def create_coil_entry(
         output_spec=payload.get('output_spec'),
         scrap_weight=payload.get('scrap_weight'),
         operator_notes=payload.get('operator_notes'),
+        extra_payload=extra_payload,
         entry_type='mobile_coil',
     )
     if entry.scrap_weight is None and entry.input_weight and entry.output_weight:
@@ -470,6 +477,24 @@ def create_coil_entry(
         'output_weight': float(entry.output_weight) if entry.output_weight is not None else None,
         'scrap_weight': float(entry.scrap_weight) if entry.scrap_weight is not None else None,
         'operator_notes': entry.operator_notes,
+        'extra_payload': dict(entry.extra_payload or {}),
+        'previous_process': (entry.extra_payload or {}).get('previous_process') or (entry.extra_payload or {}).get('flow', {}).get('previous_process'),
+        'next_process': (entry.extra_payload or {}).get('next_process') or (entry.extra_payload or {}).get('flow', {}).get('next_process'),
         'business_date': entry.business_date,
         'created_at': None,
     }
+
+
+def _build_coil_flow_extra_payload(payload: dict) -> dict:
+    extra_payload = dict(payload.get('extra_payload') or {})
+    if 'flow' in extra_payload:
+        extra_payload['flow'] = _normalize_flow_payload(extra_payload.get('flow'))
+
+    legacy_flow = {
+        key: payload.get(key)
+        for key in ('previous_process', 'next_process')
+        if payload.get(key) not in (None, '')
+    }
+    if legacy_flow and 'flow' not in extra_payload:
+        extra_payload.update(legacy_flow)
+    return extra_payload

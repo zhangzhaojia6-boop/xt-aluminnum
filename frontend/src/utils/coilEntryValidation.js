@@ -1,3 +1,5 @@
+import { validateFlowSelection } from './coilFlowFields.js'
+
 function cleanText(value) {
   return String(value ?? '').trim()
 }
@@ -26,6 +28,11 @@ export function validateCoilEntryForm(form = {}) {
   }
   if (outputWeight > inputWeight) {
     return '产出重量不能大于投入重量'
+  }
+
+  const flowMessage = validateFlowSelection(form.flow)
+  if (flowMessage) {
+    return flowMessage
   }
 
   return null

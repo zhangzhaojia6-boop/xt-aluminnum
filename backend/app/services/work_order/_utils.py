@@ -46,6 +46,17 @@ ENTRY_METADATA_FIELDS = {'machine_id', 'shift_id', 'business_date', 'entry_type'
 
 JSON_PAYLOAD_FIELDS = {'extra_payload', 'qc_payload'}
 
+FLOW_PAYLOAD_FIELDS = {
+    'previous_workshop',
+    'previous_process',
+    'current_workshop',
+    'current_process',
+    'next_workshop',
+    'next_process',
+    'flow_source',
+    'flow_confirmed_at',
+}
+
 ENTRY_LOCKED_STATUSES = {'submitted', 'approved'}
 
 ENTRY_METADATA_ROLE_ALLOWLIST = {'shift_leader', 'contracts', 'inventory_keeper', 'utility_manager', 'energy_stat'}
@@ -82,6 +93,47 @@ def _json_ready(value: Any) -> Any:
     if isinstance(value, Decimal):
         return float(value)
     return value
+
+
+def _clean_flow_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _normalize_flow_source(value: Any) -> str:
+    source = str(value or '').strip()
+    if source in {'manual', 'manual_pending_match'}:
+        return 'manual_pending_match'
+    return source or 'mes_projection'
+
+
+def _normalize_flow_payload(value: Any) -> dict[str, Any]:
+    if value in (None, ''):
+        return {}
+    if not isinstance(value, dict):
+        raise _http_error(status.HTTP_403_FORBIDDEN, 'flow payload must be an object')
+
+    unknown = sorted(set(value.keys()) - FLOW_PAYLOAD_FIELDS)
+    if unknown:
+        raise _http_error(status.HTTP_403_FORBIDDEN, f'cannot modify flow fields: {", ".join(unknown)}')
+
+    normalized = {
+        key: cleaned
+        for key, item in value.items()
+        if (cleaned := _clean_flow_value(item)) not in (None, '')
+    }
+    if normalized:
+        normalized['flow_source'] = _normalize_flow_source(normalized.get('flow_source'))
+    return normalized
+
+
+def _normalize_extra_payload_flow(values: dict[str, Any]) -> dict[str, Any]:
+    if not values or 'flow' not in values:
+        return values
+    normalized = dict(values)
+    normalized['flow'] = _normalize_flow_payload(normalized.get('flow'))
+    return normalized
 
 def _normalize_override_reason(value: str | None) -> str | None:
     normalized = (value or '').strip()

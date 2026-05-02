@@ -191,7 +191,9 @@ def _filter_template_payload_values(
 ) -> dict[str, Any]:
     values = payload or {}
     if not values or template_key is None:
-        return values
+        return _normalize_extra_payload_flow(values) if target == 'extra' else values
+    if target == 'extra':
+        values = _normalize_extra_payload_flow(values)
     template = get_workshop_template(template_key, user_role=user_role, db=db)
     visible_fields = [
         *template['entry_fields'],
@@ -202,6 +204,8 @@ def _filter_template_payload_values(
     ]
     visible_names = {field['name'] for field in visible_fields if field.get('target') == target}
     visible_names.add('machine_energy_records')
+    if target == 'extra':
+        visible_names.add('flow')
     return {key: value for key, value in values.items() if key in visible_names}
 
 def _normalize_template_section_payload(
@@ -215,6 +219,8 @@ def _normalize_template_section_payload(
     values = payload or {}
     if not values:
         return {}
+    if target == 'extra':
+        values = _normalize_extra_payload_flow(values)
     if template_key is None:
         return values
     template = get_workshop_template(template_key, user_role=user_role, db=db)
@@ -226,6 +232,8 @@ def _normalize_template_section_payload(
     ]
     editable_names = {field['name'] for field in editable_fields if field.get('target') == target and field.get('editable')}
     editable_names.add('machine_energy_records')
+    if target == 'extra':
+        editable_names.add('flow')
     unknown = sorted(set(values.keys()) - editable_names)
     if unknown:
         raise _http_error(status.HTTP_403_FORBIDDEN, f'cannot modify template fields: {", ".join(unknown)}')

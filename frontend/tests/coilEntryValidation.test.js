@@ -41,3 +41,21 @@ test('validateCoilEntryForm accepts valid coil weights', () => {
     null
   )
 })
+
+test('validateCoilEntryForm requires manual destination when flow has no next process', () => {
+  assert.equal(
+    validateCoilEntryForm({
+      tracking_card_no: 'RA-001',
+      input_weight: 100,
+      output_weight: 96,
+      flow: {
+        flow_source: 'mes_projection',
+        current_workshop: '冷轧',
+        current_process: '轧制',
+        next_workshop: '',
+        next_process: ''
+      }
+    }),
+    '请填写下道车间和工序'
+  )
+})

@@ -217,6 +217,88 @@ def test_create_entry_endpoint_accepts_ocr_submission_id(monkeypatch) -> None:
     app.dependency_overrides.clear()
 
 
+def test_create_entry_endpoint_forwards_flow_payload(monkeypatch) -> None:
+    calls = []
+
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user() -> User:
+        return User(
+            id=1,
+            username='leader',
+            password_hash='x',
+            name='Leader',
+            role='shift_leader',
+            workshop_id=1,
+            is_mobile_user=True,
+            is_active=True,
+        )
+
+    def fake_add_entry(db, *, work_order_id, payload, operator, idempotency_key=None, ip_address=None, user_agent=None):
+        assert payload['extra_payload']['flow']['current_process'] == '轧制'
+        assert payload['extra_payload']['flow']['flow_source'] == 'mes_projection'
+        calls.append(payload['extra_payload']['flow'])
+        now = datetime(2026, 5, 2, 10, 0, 0)
+        return {
+            'id': 17,
+            'work_order_id': work_order_id,
+            'workshop_id': 1,
+            'machine_id': 2,
+            'shift_id': 3,
+            'business_date': date(2026, 5, 2),
+            'input_weight': 1000,
+            'output_weight': 960,
+            'verified_input_weight': None,
+            'verified_output_weight': None,
+            'yield_rate': 96.0,
+            'entry_type': 'completed',
+            'entry_status': 'draft',
+            'extra_payload': {'flow': payload['extra_payload']['flow']},
+            'qc_payload': {},
+            'locked_fields': [],
+            'submitted_at': None,
+            'verified_at': None,
+            'approved_at': None,
+            'created_by': 1,
+            'created_at': now,
+            'updated_at': now,
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.add_entry', fake_add_entry)
+
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/work-orders/1/entries',
+        json={
+            'workshop_id': 1,
+            'machine_id': 2,
+            'shift_id': 3,
+            'business_date': '2026-05-02',
+            'input_weight': 1000,
+            'output_weight': 960,
+            'entry_type': 'completed',
+            'extra_payload': {
+                'flow': {
+                    'current_workshop': '冷轧',
+                    'current_process': '轧制',
+                    'next_workshop': '精整',
+                    'next_process': '剪切',
+                    'flow_source': 'mes_projection',
+                }
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()['extra_payload']['flow']['next_process'] == '剪切'
+    assert len(calls) == 1
+
+    app.dependency_overrides.clear()
+
+
 def test_create_entry_endpoint_forwards_idempotency_key(monkeypatch) -> None:
     calls = []
 

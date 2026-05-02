@@ -2,8 +2,11 @@ from datetime import date, datetime, timezone
 from typing import Any
 from types import SimpleNamespace
 
+import pytest
+
 from app.adapters.mes_adapter import CardInfo
 from app.core.idempotency import IdempotencyRecord
+from app.services import work_order_service
 from app.services.work_order_service import (
     add_entry,
     build_previous_stage_output,
@@ -11,6 +14,7 @@ from app.services.work_order_service import (
     filter_entry_payloads_for_scope,
     mask_table_payload,
     submit_entry,
+    update_entry,
 )
 
 
@@ -109,6 +113,18 @@ class _DummyWorkOrderDB:
 
     def refresh(self, _entity):
         return None
+
+
+def _flow_template():
+    return {
+        'entry_fields': [],
+        'shift_fields': [],
+        'extra_fields': [
+            {'name': 'flow', 'target': 'extra', 'editable': True},
+        ],
+        'qc_fields': [],
+        'readonly_fields': [],
+    }
 
 
 class _DummyQuery:
@@ -274,6 +290,182 @@ def test_add_entry_strips_readonly_fields_before_persist(monkeypatch) -> None:
 
     assert 'yield_rate' not in captured_payload
     assert payload['yield_rate'] == 97.05
+
+
+def test_add_entry_accepts_confirmed_flow_payload(monkeypatch) -> None:
+    db = _DummyWorkOrderDB()
+    work_order = SimpleNamespace(id=1, current_station=None, overall_status='created')
+    workshop = SimpleNamespace(id=1, code='cold_roll', name='冷轧', workshop_type='cold_roll')
+    captured_payload: dict[str, Any] = {}
+
+    def fake_apply(entity, payload, *, user_role):
+        captured_payload.update(payload)
+        entity.extra_payload = payload.get('extra_payload')
+        entity.input_weight = payload.get('input_weight')
+        entity.output_weight = payload.get('output_weight')
+
+    monkeypatch.setattr('app.services.work_order_service._ensure_work_order', lambda *_args, **_kwargs: work_order)
+    monkeypatch.setattr('app.services.work_order_service._ensure_header_access', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.build_scope_summary', lambda *_args, **_kwargs: SimpleNamespace())
+    monkeypatch.setattr('app.services.work_order_service.resolve_work_order_entry_workshop_scope', lambda *_args, **_kwargs: 1)
+    monkeypatch.setattr('app.services.work_order_service.can_view_all_work_order_entries', lambda *_args, **_kwargs: False)
+    monkeypatch.setattr('app.services.work_order_service._ensure_workshop', lambda *_args, **_kwargs: workshop)
+    monkeypatch.setattr('app.services.work_order_service.resolve_template_key', lambda **_kwargs: ('cold_roll', None))
+    monkeypatch.setattr('app.services.work_order_service.get_workshop_template', lambda *_args, **_kwargs: _flow_template())
+    monkeypatch.setattr('app.services.work_order_service._ensure_machine', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service._ensure_shift', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
+    monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.05)
+    monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        'app.services.work_order_service._serialize_entry',
+        lambda _db, entity, *, user_role: {'id': entity.id, 'extra_payload': entity.extra_payload},
+    )
+
+    payload = add_entry(
+        db,
+        work_order_id=1,
+        payload={
+            'workshop_id': 1,
+            'business_date': date(2026, 5, 2),
+            'entry_type': 'completed',
+            'input_weight': 1000,
+            'output_weight': 960,
+            'extra_payload': {
+                'flow': {
+                    'previous_workshop': '热轧',
+                    'previous_process': '热轧出口',
+                    'current_workshop': '冷轧',
+                    'current_process': '轧制',
+                    'next_workshop': '精整',
+                    'next_process': '剪切',
+                    'flow_source': 'mes_projection',
+                    'flow_confirmed_at': '2026-05-02T08:30:00+08:00',
+                }
+            },
+        },
+        operator=_user(role='shift_leader', workshop_id=1),
+    )
+
+    assert payload['extra_payload']['flow'] == captured_payload['extra_payload']['flow']
+    assert payload['extra_payload']['flow']['flow_source'] == 'mes_projection'
+
+
+def test_flow_payload_rejects_unknown_fields(monkeypatch) -> None:
+    monkeypatch.setattr('app.services.work_order_service.get_workshop_template', lambda *_args, **_kwargs: _flow_template())
+
+    with pytest.raises(Exception) as exc_info:
+        work_order_service._normalize_template_section_payload(
+            {'flow': {'previous_process': '热轧', 'unexpected': 'x'}},
+            template_key='cold_roll',
+            db=object(),
+            user_role='shift_leader',
+            target='extra',
+        )
+
+    assert getattr(exc_info.value, 'status_code', None) == 403
+
+
+def test_update_entry_marks_manual_flow_pending_match(monkeypatch) -> None:
+    db = _DummyWorkOrderDB()
+    entry = SimpleNamespace(
+        id=77,
+        work_order_id=1,
+        workshop_id=1,
+        machine_id=None,
+        shift_id=1,
+        business_date=date(2026, 5, 2),
+        entry_status='draft',
+        entry_type='completed',
+        extra_payload={},
+        input_weight=1000,
+        output_weight=960,
+        verified_input_weight=None,
+        verified_output_weight=None,
+        scrap_weight=None,
+        spool_weight=None,
+        energy_kwh=None,
+        gas_m3=None,
+        locked_fields=[],
+    )
+    work_order = SimpleNamespace(id=1, overall_status='in_progress')
+
+    monkeypatch.setattr('app.services.work_order_service._ensure_entry', lambda *_args, **_kwargs: entry)
+    monkeypatch.setattr('app.services.work_order_service._ensure_entry_write_access', lambda *_args, **_kwargs: False)
+    monkeypatch.setattr('app.services.work_order_service._resolve_entry_template_key', lambda *_args, **_kwargs: 'cold_roll')
+    monkeypatch.setattr('app.services.work_order_service.get_workshop_template', lambda *_args, **_kwargs: _flow_template())
+    monkeypatch.setattr('app.services.work_order_service._ensure_write_target_scope', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 96.0)
+    monkeypatch.setattr('app.services.work_order_service._ensure_work_order', lambda *_args, **_kwargs: work_order)
+    monkeypatch.setattr('app.services.work_order_service._recompute_work_order_rollups', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.event_bus.publish', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        'app.services.work_order_service._serialize_entry',
+        lambda _db, entity, *, user_role: {'id': entity.id, 'extra_payload': entity.extra_payload},
+    )
+
+    payload = update_entry(
+        db,
+        entry_id=77,
+        payload={
+            'extra_payload': {
+                'flow': {
+                    'current_workshop': '冷轧',
+                    'current_process': '轧制',
+                    'next_workshop': '精整',
+                    'next_process': '剪切',
+                    'flow_source': 'manual',
+                }
+            }
+        },
+        operator=_user(role='shift_leader', workshop_id=1),
+    )
+
+    assert payload['extra_payload']['flow']['flow_source'] == 'manual_pending_match'
+
+
+def test_serialized_entry_keeps_flow_payload(monkeypatch) -> None:
+    db = SimpleNamespace(get=lambda *_args, **_kwargs: None)
+    entry = SimpleNamespace(
+        id=77,
+        work_order_id=1,
+        workshop_id=1,
+        machine_id=None,
+        shift_id=1,
+        business_date=date(2026, 5, 2),
+        input_weight=1000,
+        output_weight=960,
+        verified_input_weight=None,
+        verified_output_weight=None,
+        scrap_weight=None,
+        spool_weight=None,
+        energy_kwh=None,
+        gas_m3=None,
+        extra_payload={
+            'flow': {
+                'current_workshop': '冷轧',
+                'current_process': '轧制',
+                'next_workshop': '精整',
+                'next_process': '剪切',
+                'flow_source': 'mes_projection',
+            }
+        },
+        qc_payload={},
+        yield_rate=96.0,
+        entry_type='completed',
+        entry_status='submitted',
+        locked_fields=[],
+        created_by=101,
+        created_by_user_id=101,
+    )
+
+    monkeypatch.setattr('app.services.work_order_service._resolve_entry_template_key', lambda *_args, **_kwargs: 'cold_roll')
+    monkeypatch.setattr('app.services.work_order_service.get_workshop_template', lambda *_args, **_kwargs: _flow_template())
+
+    payload = work_order_service._serialize_entry(db, entry, user_role='shift_leader')
+
+    assert payload['extra_payload']['flow']['next_process'] == '剪切'
 
 
 def test_create_work_order_prefills_mes_card_info(monkeypatch) -> None:

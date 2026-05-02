@@ -109,7 +109,7 @@
       <div class="mobile-form-grid">
         <div class="mobile-field mobile-field-wide">
           <label><span class="mobile-required">*</span> 卷号</label>
-          <el-input v-model="form.tracking_card_no" placeholder="手工输入或扫码" />
+          <el-input v-model="form.tracking_card_no" placeholder="手工输入或扫码" @blur="loadFlowSuggestion" />
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 合金</label>
@@ -141,6 +141,38 @@
           <label><span class="mobile-required">*</span> 产出重量 kg</label>
           <el-input v-model.number="form.output_weight" type="number" inputmode="decimal" />
         </div>
+        <section class="mobile-field mobile-field-wide coil-flow">
+          <header>
+            <strong>流转确认</strong>
+            <el-button size="small" text :loading="flowLoading" @click="loadFlowSuggestion">同步</el-button>
+          </header>
+          <div class="coil-flow__grid">
+            <label>
+              <span>前车间</span>
+              <el-input v-model="form.flow.previous_workshop" :disabled="flowFieldState.previous.locked" />
+            </label>
+            <label>
+              <span>前工序</span>
+              <el-input v-model="form.flow.previous_process" :disabled="flowFieldState.previous.locked" />
+            </label>
+            <label>
+              <span>当前车间</span>
+              <el-input v-model="form.flow.current_workshop" :disabled="flowFieldState.current.locked" />
+            </label>
+            <label>
+              <span>当前工序</span>
+              <el-input v-model="form.flow.current_process" :disabled="flowFieldState.current.locked" />
+            </label>
+            <label>
+              <span>下道车间</span>
+              <el-input v-model="form.flow.next_workshop" :disabled="flowFieldState.next.locked" @input="markManualFlow" />
+            </label>
+            <label>
+              <span>下道工序</span>
+              <el-input v-model="form.flow.next_process" :disabled="flowFieldState.next.locked" @input="markManualFlow" />
+            </label>
+          </div>
+        </section>
         <div class="mobile-field mobile-field-wide">
           <label>备注</label>
           <el-input v-model="form.operator_notes" type="textarea" :rows="2" placeholder="有异常情况写这里" />
@@ -163,6 +195,7 @@ import { fetchCurrentShift, fetchFieldOptions, fetchMobileBootstrap } from '../.
 import { useAuthStore } from '../../stores/auth.js'
 import { api } from '../../api/index.js'
 import { validateCoilEntryForm } from '../../utils/coilEntryValidation.js'
+import { buildFlowPayload, resolveFlowFieldState } from '../../utils/coilFlowFields.js'
 import { DEFAULT_ALLOY_GRADES, loadCoilEntryStartup } from '../../utils/coilEntryStartup.js'
 
 const route = useRoute()
@@ -174,6 +207,7 @@ const coilList = ref([])
 const showEntryDialog = ref(false)
 const showSummaryDialog = ref(false)
 const submitting = ref(false)
+const flowLoading = ref(false)
 const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
@@ -191,6 +225,16 @@ const yieldRate = computed(() => {
 
 const alloyGrades = ref(DEFAULT_ALLOY_GRADES)
 
+const emptyFlow = () => ({
+  previous_workshop: '',
+  previous_process: '',
+  current_workshop: '',
+  current_process: '',
+  next_workshop: '',
+  next_process: '',
+  flow_source: 'manual',
+  flow_confirmed_at: '',
+})
 const emptyForm = () => ({
   tracking_card_no: '',
   alloy_grade: '',
@@ -199,6 +243,7 @@ const emptyForm = () => ({
   input_weight: null,
   output_weight: null,
   operator_notes: '',
+  flow: emptyFlow(),
 })
 const form = ref(emptyForm())
 const suggestedScrap = computed(() => {
@@ -218,6 +263,7 @@ function joinSpec(parts) {
 }
 const inputSpecParts = computed(() => splitSpec(form.value.input_spec))
 const outputSpecParts = computed(() => splitSpec(form.value.output_spec))
+const flowFieldState = computed(() => resolveFlowFieldState(form.value.flow))
 function updateInputSpec(index, value) {
   const parts = splitSpec(form.value.input_spec)
   parts[index] = value
@@ -232,6 +278,43 @@ function updateOutputSpec(index, value) {
 function saveOperatorName() {
   if (operatorName.value) {
     localStorage.setItem('xt_operator_name', operatorName.value)
+  }
+}
+
+function markManualFlow() {
+  if (!flowFieldState.value.next.locked) {
+    form.value.flow.flow_source = 'manual'
+  }
+}
+
+function applyFlowSuggestion(flow) {
+  if (!flow) return
+  form.value.flow = {
+    previous_workshop: flow.previous_workshop || '',
+    previous_process: flow.previous_process || '',
+    current_workshop: flow.current_workshop || '',
+    current_process: flow.current_process || '',
+    next_workshop: flow.next_workshop || '',
+    next_process: flow.next_process || '',
+    flow_source: 'mes_projection',
+    flow_confirmed_at: new Date().toISOString(),
+  }
+}
+
+async function loadFlowSuggestion() {
+  const trackingCardNo = String(form.value.tracking_card_no || '').trim()
+  if (!trackingCardNo || flowLoading.value) return
+  flowLoading.value = true
+  try {
+    const { data: coils } = await api.get('/factory-command/coils', { skipErrorToast: true })
+    const coil = (coils || []).find((item) => item.tracking_card_no === trackingCardNo || item.coil_key === trackingCardNo)
+    if (!coil?.coil_key) return
+    const { data: flow } = await api.get(`/factory-command/coils/${encodeURIComponent(coil.coil_key)}/flow`, { skipErrorToast: true })
+    applyFlowSuggestion(flow)
+  } catch {
+    // Flow suggestion is best-effort; manual flow stays available.
+  } finally {
+    flowLoading.value = false
   }
 }
 
@@ -277,7 +360,9 @@ async function submitCoil() {
       operator_name: operatorName.value,
       business_date: currentShift.value?.business_date,
       shift_id: currentShift.value?.shift_id,
+      ...buildFlowPayload(form.value.flow),
     }
+    delete payload.flow
     await api.post('/mobile/coil-entry', payload)
     ElMessage.success('提交成功')
     form.value = emptyForm()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -207,6 +208,7 @@ class MobileCoilEntryPayload(BaseModel):
     scrap_weight: float | None = Field(default=None, ge=0)
     operator_name: str | None = Field(default=None, max_length=64)
     operator_notes: str | None = Field(default=None, max_length=1000)
+    extra_payload: dict[str, Any] | None = None
     business_date: date
     shift_id: int = Field(gt=0)
 
@@ -223,5 +225,8 @@ class MobileCoilEntryOut(BaseModel):
     output_weight: float | None = None
     scrap_weight: float | None = None
     operator_notes: str | None = None
+    extra_payload: dict[str, Any] = Field(default_factory=dict)
+    previous_process: str | None = None
+    next_process: str | None = None
     business_date: date
     created_at: datetime | None = None
