@@ -201,6 +201,43 @@
           <template #header>{{ isOwnerOnlyMode ? ownerModeConfig.coreCardTitle : '填写' }}</template>
           <div class="mobile-dynamic-form">
             <template v-if="isOwnerOnlyMode">
+              <template v-if="isEnergyMachineMode">
+                <section class="mobile-dynamic-section">
+                  <div class="mobile-section-title">按机列填报能耗</div>
+                  <div class="mobile-energy-machine-list">
+                    <div
+                      v-for="(rec, idx) in machineEnergyRecords"
+                      :key="rec.machine_id"
+                      class="mobile-energy-machine-row"
+                    >
+                      <div class="mobile-energy-machine-name">{{ rec.machine_name || rec.machine_code }}</div>
+                      <div class="mobile-energy-machine-inputs">
+                        <el-input
+                          v-model="machineEnergyRecords[idx].energy_kwh"
+                          type="number"
+                          inputmode="decimal"
+                          placeholder="电 kWh"
+                          :disabled="isEntryEditingDisabled"
+                          size="default"
+                        />
+                        <el-input
+                          v-model="machineEnergyRecords[idx].gas_m3"
+                          type="number"
+                          inputmode="decimal"
+                          placeholder="气 m³"
+                          :disabled="isEntryEditingDisabled"
+                          size="default"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mobile-energy-total">
+                    <span>合计电耗: <strong>{{ energyTotalKwh }}</strong> kWh</span>
+                    <span>合计气耗: <strong>{{ energyTotalGas }}</strong> m³</span>
+                  </div>
+                </section>
+              </template>
+              <template v-else>
               <section
                 v-for="section in ownerCoreSections"
                 :key="`core-${section.title}`"
@@ -220,6 +257,7 @@
                   />
               </div>
             </section>
+            </template>
             </template>
 
             <section v-else-if="entryFields.length" class="mobile-dynamic-section">
@@ -517,7 +555,9 @@ const currentShift = reactive({
   team_name: '',
   leader_name: '',
   ownership_note: '',
-  can_submit: false
+  can_submit: false,
+  workshop_machines: [],
+  machine_energy_records: []
 })
 const formState = reactive({
   business_date: String(route.params.businessDate || ''),
@@ -525,6 +565,19 @@ const formState = reactive({
   machine_id: null
 })
 const formValues = reactive({})
+const machineEnergyRecords = ref([])
+const isEnergyMachineMode = computed(() =>
+  transitionMapping.value.role_bucket === 'energy_stat' &&
+  machineEnergyRecords.value.length > 0
+)
+const energyTotalKwh = computed(() => {
+  const vals = machineEnergyRecords.value.map((r) => parseFloat(r.energy_kwh) || 0)
+  return vals.some((v) => v > 0) ? vals.reduce((a, b) => a + b, 0).toFixed(1) : '-'
+})
+const energyTotalGas = computed(() => {
+  const vals = machineEnergyRecords.value.map((r) => parseFloat(r.gas_m3) || 0)
+  return vals.some((v) => v > 0) ? vals.reduce((a, b) => a + b, 0).toFixed(1) : '-'
+})
 const completionMode = ref('in_progress')
 const justSubmitted = ref(false)
 const { lastSubmitTime, submitCooldownActive, startCooldown: startSubmitCooldown } = useSubmitCooldown()
@@ -993,6 +1046,26 @@ function initializeTemplateForm() {
   }
 }
 
+function initMachineEnergyRecords() {
+  if (transitionMapping.value.role_bucket !== 'energy_stat') return
+  const machines = currentShift.workshop_machines || []
+  const existing = currentShift.machine_energy_records || []
+  if (!machines.length) {
+    machineEnergyRecords.value = []
+    return
+  }
+  machineEnergyRecords.value = machines.map((m) => {
+    const prev = existing.find((r) => r.machine_id === m.machine_id)
+    return {
+      machine_id: m.machine_id,
+      machine_code: m.machine_code,
+      machine_name: m.machine_name,
+      energy_kwh: prev?.energy_kwh ?? '',
+      gas_m3: prev?.gas_m3 ?? ''
+    }
+  })
+}
+
 function loadOcrFromStorage() {
   loadOcrFromStorageRaw({
     submissionId: Number(route.query.ocr_submission_id || 0),
@@ -1095,6 +1168,22 @@ function hydrateFormFromWorkOrder(workOrder) {
   } else {
     completionMode.value = isSlowTempo.value ? 'in_progress' : 'completed'
   }
+  if (transitionMapping.value.role_bucket === 'energy_stat') {
+    const savedRecords = currentEntry.value?.extra_payload?.machine_energy_records || []
+    const machines = currentShift.workshop_machines || []
+    if (machines.length) {
+      machineEnergyRecords.value = machines.map((m) => {
+        const prev = savedRecords.find((r) => r.machine_id === m.machine_id)
+        return {
+          machine_id: m.machine_id,
+          machine_code: m.machine_code,
+          machine_name: m.machine_name,
+          energy_kwh: prev?.energy_kwh ?? '',
+          gas_m3: prev?.gas_m3 ?? ''
+        }
+      })
+    }
+  }
 }
 
 async function refreshWorkOrder() {
@@ -1176,6 +1265,15 @@ function collectEntryPayload() {
 
   payload.extra_payload = extraPayload
   payload.qc_payload = qcPayload
+  if (isEnergyMachineMode.value) {
+    payload.extra_payload.machine_energy_records = machineEnergyRecords.value.map((r) => ({
+      machine_id: r.machine_id,
+      machine_code: r.machine_code,
+      machine_name: r.machine_name,
+      energy_kwh: r.energy_kwh !== '' ? Number(r.energy_kwh) : null,
+      gas_m3: r.gas_m3 !== '' ? Number(r.gas_m3) : null
+    }))
+  }
   if (ocrState.submissionId && !currentEntry.value?.id) {
     payload.ocr_submission_id = ocrState.submissionId
   }
@@ -1537,6 +1635,7 @@ async function loadPage() {
       ? activeEquipment.filter((item) => Number(item.id) === Number(shiftPayload.machine_id))
       : activeEquipment
     initializeTemplateForm()
+    initMachineEnergyRecords()
     currentStepKey.value = isOwnerOnlyMode.value ? 'core' : 'work_order'
     if (isOwnerOnlyMode.value) {
       await refreshWorkOrder()
@@ -1679,5 +1778,43 @@ onMounted(loadPage)
 
 .mobile-top[style*="--role-color"] {
   border-left: 3px solid var(--role-color);
+}
+
+.mobile-energy-machine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-energy-machine-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border-radius: 6px;
+}
+
+.mobile-energy-machine-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.mobile-energy-machine-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mobile-energy-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light, #f0f2f5);
+  border-radius: 4px;
 }
 </style>
