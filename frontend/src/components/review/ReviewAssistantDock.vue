@@ -133,18 +133,21 @@ const summaryCards = computed(() => {
       key: 'briefings',
       title: '主动汇报',
       value: String(groups.length || 3),
+      detail: '分析 / 执行 / 出图',
       tone: 'primary'
     },
     {
       key: 'watchlist',
-      title: '关注列表',
+      title: '已接数据',
       value: String(integrations.length || 0),
+      detail: '首页 / 流程 / 交付',
       tone: 'neutral'
     },
     {
       key: 'evidence',
       title: '证据上下文',
       value: hasAutomation ? '在线' : '在线',
+      detail: '分析决策 + 执行交付',
       tone: 'success'
     }
   ]
