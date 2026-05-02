@@ -45,6 +45,13 @@ const ExceptionList = () => import('../views/attendance/ExceptionList.vue')
 const ReportDetail = () => import('../views/reports/ReportDetail.vue')
 const QualityDetail = () => import('../views/quality/QualityDetail.vue')
 const QRCodePrint = () => import('../views/master/QRCodePrint.vue')
+const FactoryOverview = () => import('../views/factory-command/FactoryOverview.vue')
+const ProductionFlowScreen = () => import('../views/factory-command/ProductionFlowScreen.vue')
+const MachineLineScreen = () => import('../views/factory-command/MachineLineScreen.vue')
+const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
+const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
+const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
+const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -164,7 +171,13 @@ const rawRoutes = [
     meta: { ...reviewMeta, title: '管理工作台', canonical: '/manage' },
     children: [
       { path: '', redirect: '/manage/overview' },
-      { path: 'overview', name: 'review-overview-home', component: LiveDashboard, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂实时态势', centerNo: '01', canonical: '/manage/overview' } },
+      { path: 'overview', name: 'review-overview-home', component: FactoryOverview, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂总览', centerNo: '01', canonical: '/manage/overview' } },
+      { path: 'factory/flow', name: 'factory-command-flow', component: ProductionFlowScreen, meta: { ...reviewMeta, title: '生产流转', centerNo: '05', canonical: '/manage/factory/flow' } },
+      { path: 'factory/machine-lines', name: 'factory-command-machine-lines', component: MachineLineScreen, meta: { ...reviewMeta, title: '车间机列', centerNo: '05', canonical: '/manage/factory/machine-lines' } },
+      { path: 'factory/coils', name: 'factory-command-coils', component: CoilTrace, meta: { ...reviewMeta, title: '卷级追踪', centerNo: '05', canonical: '/manage/factory/coils' } },
+      { path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen, meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
+      { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
+      { path: 'factory/exceptions', name: 'factory-command-exceptions', component: ExceptionMap, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/factory/exceptions' } },
       { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },
       { path: 'workshop', name: 'workshop-dashboard', component: WorkshopDirector, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/workshop' } },
       { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '审阅中心', centerNo: '07', canonical: '/manage/entry-center' } },
@@ -183,6 +196,7 @@ const rawRoutes = [
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
       { path: 'imports', name: 'manage-imports', component: ImportHistory, meta: { ...adminMeta, title: '导入历史', canonical: '/manage/imports' } },
       { path: 'ai', name: 'review-brain-center', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 工作台', centerNo: '11', canonical: '/manage/ai' } },
+      { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'admin', name: 'admin-overview', component: page('管理控制台', '14'), meta: { ...adminMeta, title: '管理控制台', centerNo: '14', canonical: '/manage/admin' } },
       { path: 'admin/settings', name: 'admin-ops-reliability', component: LiveDashboard, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },

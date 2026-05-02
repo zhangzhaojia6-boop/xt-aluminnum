@@ -18,15 +18,18 @@ const NAV_GROUPS = [
     label: '总览',
     commandGroup: '总览',
     items: [
-      { title: '工厂实时态势', shortLabel: '总览', path: '/manage/overview', icon: Monitor, access: 'review', commandGroup: '总览', secondaryGroup: '全局' }
+      { title: '工厂总览', shortLabel: '工厂总览', path: '/manage/overview', icon: Monitor, access: 'review', commandGroup: '总览', secondaryGroup: '全局' }
     ]
   },
   {
     label: '工厂状态',
     commandGroup: '工厂状态',
     items: [
-      { title: '工厂作业看板', shortLabel: '工厂', path: '/manage/factory', icon: Monitor, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
-      { title: '车间作业看板', shortLabel: '车间', path: '/manage/workshop', icon: Grid, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
+      { title: '生产流转', shortLabel: '流转', path: '/manage/factory/flow', icon: Connection, access: 'review', commandGroup: '工厂状态', secondaryGroup: '卷流' },
+      { title: '车间机列', shortLabel: '机列', path: '/manage/factory/machine-lines', icon: Grid, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
+      { title: '卷级追踪', shortLabel: '卷追踪', path: '/manage/factory/coils', icon: Tickets, access: 'review', commandGroup: '工厂状态', secondaryGroup: '追踪' },
+      { title: '库存去向', shortLabel: '去向', path: '/manage/factory/destinations', icon: List, access: 'review', commandGroup: '工厂状态', secondaryGroup: '库存' },
+      { title: '异常地图', shortLabel: '异常图', path: '/manage/factory/exceptions', icon: Warning, access: 'review', commandGroup: '工厂状态', secondaryGroup: '风险' },
       { title: '班次中心', shortLabel: '班次', path: '/manage/shift', icon: Document, access: 'review', commandGroup: '工厂状态', secondaryGroup: '节奏' }
     ]
   },
@@ -34,6 +37,7 @@ const NAV_GROUPS = [
     label: '经营效益',
     commandGroup: '经营效益',
     items: [
+      { title: '经营效益', shortLabel: '经营效益', path: '/manage/factory/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' },
       { title: '成本核算与效益中心', shortLabel: '成本效益', path: '/manage/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' }
     ]
   },
@@ -58,6 +62,13 @@ const NAV_GROUPS = [
       { title: '差异核对中心', shortLabel: '核对', path: '/manage/reconciliation', icon: Tickets, access: 'review', commandGroup: '异常质量', secondaryGroup: '核对' },
       { title: '质量与告警中心', shortLabel: '质量', path: '/manage/quality', icon: TrendCharts, access: 'review', commandGroup: '异常质量', secondaryGroup: '质量' },
       { title: '异常处置', shortLabel: '异常', path: '/manage/anomaly', icon: Warning, access: 'review', commandGroup: '异常质量', secondaryGroup: '处置' }
+    ]
+  },
+  {
+    label: 'AI 助手',
+    commandGroup: 'AI 助手',
+    items: [
+      { title: 'AI 助手', shortLabel: 'AI 助手', path: '/manage/ai-assistant', icon: TrendCharts, access: 'review', commandGroup: 'AI 助手', secondaryGroup: '站内' }
     ]
   },
   {
