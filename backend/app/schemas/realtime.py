@@ -16,6 +16,9 @@ class LiveShiftCellOut(BaseModel):
     attendance_status: str = 'not_started'
     attendance_exception_count: int = 0
     submission_status: str = 'not_started'
+    is_applicable: bool = True
+    status_tone: str = 'muted'
+    status_text: str = ''
 
 
 class LiveMachineSummaryOut(BaseModel):

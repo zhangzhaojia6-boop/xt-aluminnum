@@ -25,13 +25,14 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
     payload = aggregate_live_payload(
         workshops=[_workshop(1, '冷轧一车间')],
         machines=[
-            _machine(10, '1#轧机', 1, assigned_shift_ids=[1, 2, 3], sort_order=1),
+            _machine(10, '1#轧机', 1, assigned_shift_ids=[1, 2, 3, 4], sort_order=1),
             _machine(11, '2#轧机', 1, assigned_shift_ids=[1, 2], sort_order=2),
         ],
         shifts=[
             _shift(1, '白班', 1),
             _shift(2, '中班', 2),
             _shift(3, '夜班', 3),
+            _shift(4, '晚班', 4),
         ],
         entries=[
             {
@@ -61,6 +62,15 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
                 'output_weight': 118,
                 'scrap_weight': 2,
             },
+            {
+                'workshop_id': 1,
+                'machine_id': 10,
+                'shift_id': 4,
+                'entry_status': 'submitted',
+                'input_weight': 90,
+                'output_weight': 89,
+                'scrap_weight': 1,
+            },
         ],
         attendance={
             (1, 1): {'status': 'confirmed', 'exception_count': 1},
@@ -70,23 +80,24 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
             (1, 10, 1): 1,
             (1, 10, 2): 1,
             (1, 11, 1): 1,
+            (1, 10, 4): 1,
         },
     )
 
     assert payload['overall_progress'] == {
-        'submitted_cells': 2,
-        'total_cells': 5,
+        'submitted_cells': 3,
+        'total_cells': 6,
         'missing_cell_count': 2,
-        'attention_cell_count': 4,
-        'completion_rate': 40.0,
+        'attention_cell_count': 5,
+        'completion_rate': 50.0,
     }
 
     machine_one = payload['workshops'][0]['machines'][0]
     machine_two = payload['workshops'][0]['machines'][1]
 
     assert machine_one['shifts'][0]['submission_status'] == 'all_submitted'
-    assert machine_one['shifts'][0]['status_tone'] == 'success'
-    assert machine_one['shifts'][0]['status_text'] == '已填'
+    assert machine_one['shifts'][0]['status_tone'] == 'danger'
+    assert machine_one['shifts'][0]['status_text'] == '考勤异常'
 
     assert machine_one['shifts'][1]['submission_status'] == 'in_progress'
     assert machine_one['shifts'][1]['status_tone'] == 'warning'
@@ -99,6 +110,10 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
     assert machine_two['shifts'][0]['submission_status'] == 'all_submitted'
     assert machine_two['shifts'][0]['status_tone'] == 'danger'
     assert machine_two['shifts'][0]['status_text'] == '考勤异常'
+
+    assert machine_one['shifts'][3]['submission_status'] == 'all_submitted'
+    assert machine_one['shifts'][3]['status_tone'] == 'success'
+    assert machine_one['shifts'][3]['status_text'] == '已填'
 
     assert machine_two['shifts'][2]['submission_status'] == 'not_applicable'
     assert machine_two['shifts'][2]['status_tone'] == 'muted'

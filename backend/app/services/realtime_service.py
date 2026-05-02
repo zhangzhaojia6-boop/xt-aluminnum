@@ -43,6 +43,20 @@ def _prefer_number(primary: Decimal | float | int | None, fallback: Decimal | fl
     return _to_float(fallback)
 
 
+def _build_cell_status(*, is_applicable: bool, submission_status: str, attendance_status: str, attendance_exception_count: int) -> dict:
+    if not is_applicable:
+        return {'status_tone': 'muted', 'status_text': '不适用'}
+    if attendance_exception_count > 0:
+        return {'status_tone': 'danger', 'status_text': '考勤异常'}
+    if submission_status == 'not_started':
+        return {'status_tone': 'danger', 'status_text': '缺报'}
+    if submission_status == 'in_progress':
+        return {'status_tone': 'warning', 'status_text': '进行中'}
+    if attendance_status == 'pending':
+        return {'status_tone': 'warning', 'status_text': '考勤待确认'}
+    return {'status_tone': 'success', 'status_text': '已填'}
+
+
 def _resolve_workshop_filter(*, current_user: User, workshop_id: int | None) -> int | None:
     summary = build_scope_summary(current_user)
     if not can_view_work_order_entries(summary):
@@ -79,6 +93,8 @@ def aggregate_live_payload(
     workshop_items: list[dict] = []
     submitted_cells = 0
     total_cells = 0
+    missing_cell_count = 0
+    attention_cell_count = 0
     factory_input = 0.0
     factory_output = 0.0
     factory_scrap = 0.0
@@ -103,6 +119,12 @@ def aggregate_live_payload(
                 is_applicable = shift.id in applicable_shift_ids
                 attendance_state = attendance.get((workshop.id, shift.id), {'status': 'not_started', 'exception_count': 0})
                 if not is_applicable:
+                    cell_status = _build_cell_status(
+                        is_applicable=False,
+                        submission_status='not_applicable',
+                        attendance_status='not_applicable',
+                        attendance_exception_count=0,
+                    )
                     shift_items.append(
                         {
                             'shift_id': shift.id,
@@ -118,6 +140,7 @@ def aggregate_live_payload(
                             'attendance_exception_count': 0,
                             'submission_status': 'not_applicable',
                             'is_applicable': False,
+                            **cell_status,
                         }
                     )
                     continue
@@ -148,6 +171,18 @@ def aggregate_live_payload(
                     submission_status = 'in_progress'
                 if submitted_count > 0:
                     submitted_cells += 1
+                attendance_status = attendance_state['status']
+                attendance_exception_count = int(attendance_state.get('exception_count', 0))
+                cell_status = _build_cell_status(
+                    is_applicable=True,
+                    submission_status=submission_status,
+                    attendance_status=attendance_status,
+                    attendance_exception_count=attendance_exception_count,
+                )
+                if submission_status == 'not_started':
+                    missing_cell_count += 1
+                if cell_status['status_tone'] in {'danger', 'warning'}:
+                    attention_cell_count += 1
 
                 machine_input += input_total
                 machine_output += output_total
@@ -163,10 +198,11 @@ def aggregate_live_payload(
                         'total_scrap': scrap_total,
                         'yield_rate': _round_rate(input_total, output_total),
                         'yield_rate_source': 'runtime_compat',
-                        'attendance_status': attendance_state['status'],
-                        'attendance_exception_count': int(attendance_state.get('exception_count', 0)),
+                        'attendance_status': attendance_status,
+                        'attendance_exception_count': attendance_exception_count,
                         'submission_status': submission_status,
                         'is_applicable': True,
+                        **cell_status,
                     }
                 )
 
@@ -234,7 +270,13 @@ def aggregate_live_payload(
         )
 
     return {
-        'overall_progress': {'submitted_cells': submitted_cells, 'total_cells': total_cells},
+        'overall_progress': {
+            'submitted_cells': submitted_cells,
+            'total_cells': total_cells,
+            'missing_cell_count': missing_cell_count,
+            'attention_cell_count': attention_cell_count,
+            'completion_rate': round((submitted_cells / total_cells) * 100, 2) if total_cells else 0.0,
+        },
         'workshops': workshop_items,
         'factory_total': {
             'input': round(factory_input, 2),
