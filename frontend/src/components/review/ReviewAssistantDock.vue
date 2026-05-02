@@ -130,24 +130,21 @@ const summaryCards = computed(() => {
 
   return [
     {
-      key: 'capabilities',
-      title: '能力域',
+      key: 'briefings',
+      title: '主动汇报',
       value: String(groups.length || 3),
-      detail: '分析 / 执行 / 出图',
       tone: 'primary'
     },
     {
-      key: 'integrations',
-      title: '已接数据',
+      key: 'watchlist',
+      title: '关注列表',
       value: String(integrations.length || 0),
-      detail: '首页 / 流程 / 交付',
       tone: 'neutral'
     },
     {
-      key: 'agents',
-      title: '双助手',
+      key: 'evidence',
+      title: '证据上下文',
       value: hasAutomation ? '在线' : '在线',
-      detail: '分析决策 + 执行交付',
       tone: 'success'
     }
   ]
@@ -243,9 +240,6 @@ const shortcutActions = computed(() => {
 
 .review-assistant-dock__status-card span {
   color: var(--xt-text-secondary);
-}
-
-.review-assistant-dock__status-card span {
   font-size: 12px;
 }
 

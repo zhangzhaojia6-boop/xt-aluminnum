@@ -42,6 +42,10 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
+          <button class="xt-manage__assistant-trigger" type="button" @click="assistantOpen = true">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>AI 助手</span>
+          </button>
           <el-dropdown trigger="click">
             <button class="xt-manage__user" type="button">
               <el-avatar :size="28">{{ userInitial }}</el-avatar>
@@ -105,14 +109,17 @@
         </RouterLink>
       </div>
     </el-dialog>
+
+    <AiAssistantDrawer v-model="assistantOpen" :context="assistantContext" />
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
+import { ChatDotRound, Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
 
+import AiAssistantDrawer from '../components/ai/AiAssistantDrawer.vue'
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
@@ -124,6 +131,7 @@ const auth = useAuthStore()
 const collapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const drawerOpen = ref(false)
 const searchOpen = ref(false)
+const assistantOpen = ref(false)
 const keyword = ref('')
 
 const userName = computed(() => auth.displayName || auth.user?.name || auth.user?.username || '用户')
@@ -135,6 +143,13 @@ const filteredSearchItems = computed(() => {
   if (!value) return searchItems.value
   return searchItems.value.filter((item) => item.title.toLowerCase().includes(value) || item.path.toLowerCase().includes(value))
 })
+const assistantContext = computed(() => ({
+  route: route.path,
+  scope: {
+    type: 'route',
+    key: route.path || '/manage/overview'
+  }
+}))
 
 function isActive(path) {
   return route.path === path || route.path.startsWith(`${path}/`)
@@ -299,6 +314,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .xt-manage__collapse-btn,
 .xt-manage__hamburger,
 .xt-manage__search-trigger,
+.xt-manage__assistant-trigger,
 .xt-manage__user {
   border: 0;
   background: transparent;
@@ -313,6 +329,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .xt-manage__collapse-btn:active,
 .xt-manage__hamburger:active,
 .xt-manage__search-trigger:active,
+.xt-manage__assistant-trigger:active,
 .xt-manage__user:active {
   transform: scale(0.96);
 }
@@ -327,6 +344,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   .xt-manage__collapse-btn:hover,
   .xt-manage__hamburger:hover,
   .xt-manage__search-trigger:hover,
+  .xt-manage__assistant-trigger:hover,
   .xt-manage__user:hover {
     background: var(--xt-bg-panel-soft);
     color: var(--xt-text);
@@ -390,6 +408,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
 .xt-manage__topbar-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+}
+
+.xt-manage__assistant-trigger {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+  padding: 0 var(--xt-space-3);
+  border-radius: 8px;
+  background: var(--xt-bg-ink);
+  color: var(--xt-text-inverse);
+  font-size: var(--xt-text-sm);
+  font-weight: 850;
 }
 
 .xt-manage__user {
@@ -458,6 +492,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 @media (max-width: 767px) {
   .xt-manage__search-trigger kbd {
     display: none;
+  }
+
+  .xt-manage__assistant-trigger span,
+  .xt-manage__user span {
+    display: none;
+  }
+
+  .xt-manage__assistant-trigger {
+    width: 38px;
+    justify-content: center;
+    padding: 0;
   }
 }
 </style>

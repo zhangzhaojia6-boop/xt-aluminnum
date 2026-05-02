@@ -56,7 +56,7 @@ const overview = computed(() => store.overview || {})
 const freshness = computed(() => overview.value.freshness || {})
 
 async function askAi(scope) {
-  await askFactoryCommandAi({ question: '当前工厂状态和优先风险是什么？', scope })
+  await askFactoryCommandAi({ question: '当前工厂状态和优先风险是什么？', scope: { type: scope.type, key: scope.key } })
 }
 
 onMounted(async () => {

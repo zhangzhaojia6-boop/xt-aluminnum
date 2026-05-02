@@ -14,11 +14,23 @@
       <header class="ai-workstation__bar">
         <div>
           <h1>{{ store.currentConversation?.title || 'AI 工作台' }}</h1>
-          <span>{{ statusText }} · 预测 / 分析 / 执行</span>
+          <span>{{ statusText }} · 证据上下文</span>
         </div>
       </header>
 
-      <div ref="messagesRef" class="ai-workstation__messages">
+      <nav class="ai-workstation__tabs" aria-label="AI 工作台区域">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          type="button"
+          :class="{ 'is-active': activeTab === tab.value }"
+          @click="activeTab = tab.value"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <div v-if="activeTab === 'conversation'" ref="messagesRef" class="ai-workstation__messages">
         <XtAiThinking
           v-if="showThinkingState"
           :streaming="store.streaming || store.loadingMessages"
@@ -32,7 +44,15 @@
         <div v-else class="ai-workstation__state">暂无消息</div>
       </div>
 
-      <form class="ai-workstation__composer" @submit.prevent="send">
+      <div v-else-if="activeTab === 'briefings'" class="ai-workstation__panel">
+        <AiBriefingInbox />
+      </div>
+
+      <div v-else class="ai-workstation__panel">
+        <AiWatchlistPanel />
+      </div>
+
+      <form v-if="activeTab === 'conversation'" class="ai-workstation__composer" @submit.prevent="send">
         <div class="ai-workstation__composer-shell">
           <span class="ai-workstation__composer-mark">AI</span>
           <textarea
@@ -62,6 +82,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useAiChatStore } from '../../stores/ai-chat'
+import AiBriefingInbox from '../../components/ai/AiBriefingInbox.vue'
+import AiWatchlistPanel from '../../components/ai/AiWatchlistPanel.vue'
 import { XtAiThinking } from '../../components/xt'
 import AiChatMessage from './AiChatMessage.vue'
 import AiConversationList from './AiConversationList.vue'
@@ -69,6 +91,12 @@ import AiConversationList from './AiConversationList.vue'
 const store = useAiChatStore()
 const input = ref('')
 const messagesRef = ref(null)
+const activeTab = ref('conversation')
+const tabs = [
+  { value: 'conversation', label: '对话' },
+  { value: 'briefings', label: '主动汇报' },
+  { value: 'watchlist', label: '关注列表' }
+]
 
 const canSend = computed(() => Boolean(input.value.trim()) && !store.streaming && !store.loadingMessages)
 const activeToolCalls = computed(() => {
@@ -174,6 +202,39 @@ async function send() {
   font-size: 13px;
 }
 
+.ai-workstation__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel);
+}
+
+.ai-workstation__tabs button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    background-color var(--xt-motion-fast) var(--xt-ease),
+    color var(--xt-motion-fast) var(--xt-ease),
+    transform var(--xt-motion-fast) var(--xt-ease);
+}
+
+.ai-workstation__tabs button:active {
+  transform: scale(0.96);
+}
+
+.ai-workstation__tabs button.is-active {
+  background: var(--xt-primary);
+  color: #fff;
+}
+
 .ai-workstation__messages {
   display: grid;
   align-content: start;
@@ -186,6 +247,13 @@ async function send() {
     linear-gradient(rgba(15, 23, 42, 0.02) 1px, transparent 1px),
     var(--xt-bg-panel-soft);
   background-size: 34px 34px;
+}
+
+.ai-workstation__panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--xt-bg-panel-soft);
 }
 
 .ai-workstation__state {

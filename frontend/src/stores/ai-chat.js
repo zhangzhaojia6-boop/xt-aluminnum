@@ -40,11 +40,14 @@ function normalizeConversation(conversation) {
 }
 
 function normalizeMessage(message) {
+  const answer = message?.payload?.answer || {}
   return {
     role: message?.role || 'assistant',
     content: message?.content || '',
     timestamp: message?.timestamp || message?.created_at || Date.now(),
-    toolCalls: message?.toolCalls || message?.tool_calls || []
+    toolCalls: message?.toolCalls || message?.tool_calls || answer.evidence_refs || answer.evidenceRefs || [],
+    missingData: message?.missingData || answer.missing_data || answer.missingData || [],
+    payload: message?.payload || null
   }
 }
 
@@ -136,10 +139,10 @@ export const useAiChatStore = defineStore('ai-chat', {
         this.loadingMessages = false
       }
     },
-    async createConversation() {
+    async createConversation(payload = {}) {
       this.lastError = ''
       try {
-        const data = await createAssistantConversation()
+        const data = await createAssistantConversation(payload)
         const conversation = normalizeConversation(data)
         if (conversation.id) {
           this.conversations = [conversation, ...this.conversations.filter((item) => item.id !== conversation.id)]
@@ -194,10 +197,12 @@ export const useAiChatStore = defineStore('ai-chat', {
         throw error
       }
     },
-    async sendMessage(content) {
+    async sendMessage(content, options = {}) {
       const text = String(content || '').trim()
       if (!text || this.streaming) return
-      if (!this.currentId) await this.createConversation()
+      const messageScope = options.scope || options.context?.scope || null
+      const messageIntent = options.intent || 'factory_status'
+      if (!this.currentId) await this.createConversation(messageScope ? { scope: messageScope } : {})
 
       const userMessage = normalizeMessage({ role: 'user', content: text })
       const assistantMessage = normalizeMessage({ role: 'assistant', content: '', toolCalls: [] })
@@ -208,10 +213,16 @@ export const useAiChatStore = defineStore('ai-chat', {
 
       try {
         try {
-          const data = await sendAssistantMessage(this.currentId, { content: text })
+          const data = await sendAssistantMessage(this.currentId, {
+            content: text,
+            intent: messageIntent,
+            scope: messageScope || undefined
+          })
           const answer = data?.answer || data?.assistant_message?.payload?.answer || {}
           assistantMessage.content = answer.answer || data?.assistant_message?.content || ''
           assistantMessage.toolCalls = answer.evidence_refs || []
+          assistantMessage.missingData = answer.missing_data || []
+          assistantMessage.payload = { answer }
           const conversation = this.conversations.find((item) => item.id === this.currentId)
           if (conversation) conversation.updated_at = new Date().toISOString()
           return data
