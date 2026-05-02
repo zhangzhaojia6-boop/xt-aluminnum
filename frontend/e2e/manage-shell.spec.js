@@ -20,6 +20,18 @@ test.describe('ManageShell layout', () => {
 
     await expect(page.locator('.xt-manage--collapsed')).toBeVisible()
   })
+
+  test('cost center is visible from the management navigation', async ({ page }) => {
+    await setupReviewSessionAndMocks(page)
+    await page.goto('/manage/overview')
+
+    await expect(page.locator('.xt-manage__nav-item', { hasText: '成本效益' })).toBeVisible()
+    await page.locator('.xt-manage__nav-item', { hasText: '成本效益' }).click()
+    await expect(page).toHaveURL(/\/manage\/cost$/)
+    await expect(page.getByTestId('review-cost-center')).toBeVisible()
+    await expect(page.getByText('收入估算')).toBeVisible()
+    await expect(page.getByText('毛利估算')).toBeVisible()
+  })
 })
 
 

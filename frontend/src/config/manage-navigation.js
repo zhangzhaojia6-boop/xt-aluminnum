@@ -1,4 +1,5 @@
 import {
+  Coin,
   Connection,
   Document,
   Grid,
@@ -27,6 +28,13 @@ const NAV_GROUPS = [
       { title: '工厂作业看板', shortLabel: '工厂', path: '/manage/factory', icon: Monitor, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
       { title: '车间作业看板', shortLabel: '车间', path: '/manage/workshop', icon: Grid, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
       { title: '班次中心', shortLabel: '班次', path: '/manage/shift', icon: Document, access: 'review', commandGroup: '工厂状态', secondaryGroup: '节奏' }
+    ]
+  },
+  {
+    label: '经营效益',
+    commandGroup: '经营效益',
+    items: [
+      { title: '成本核算与效益中心', shortLabel: '成本效益', path: '/manage/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' }
     ]
   },
   {

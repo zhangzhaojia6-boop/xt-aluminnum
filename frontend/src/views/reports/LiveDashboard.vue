@@ -18,38 +18,71 @@
       <el-button :icon="RefreshRight" @click="loadDashboardSurface()">刷新</el-button>
     </template>
 
-    <section class="command-status-strip">
-      <article class="command-status-card command-status-card--output">
-        <span>今日产出</span>
-        <strong>{{ formatWeight(commandSummary.todayOutput) }}</strong>
-        <em>kg</em>
+    <section class="management-overview-strip">
+      <article class="management-overview-card management-overview-card--primary">
+        <span>今日产量</span>
+        <strong>{{ formatWeight(managementOverview.outputWeight) }}</strong>
+        <em>吨</em>
       </article>
-      <article class="command-status-card command-status-card--progress">
-        <span>提交进度</span>
-        <strong>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }}</strong>
-        <em>{{ commandSummary.completionRate }}%</em>
+      <article class="management-overview-card">
+        <span>损耗重量</span>
+        <strong>{{ formatWeight(managementOverview.lossWeight) }}</strong>
+        <em>{{ managementOverview.lossRate == null ? '损耗率 --' : `损耗率 ${formatPercent(managementOverview.lossRate)}` }}</em>
       </article>
-      <article class="command-status-card command-status-card--missing" :class="{ 'is-danger': commandSummary.missingCellCount > 0 }">
-        <span>缺报单元</span>
-        <strong>{{ commandSummary.missingCellCount }}</strong>
-        <em>机列班次</em>
-      </article>
-      <article class="command-status-card command-status-card--attention" :class="{ 'is-warning': commandSummary.attentionCellCount > 0 }">
-        <span>关注单元</span>
-        <strong>{{ commandSummary.attentionCellCount }}</strong>
-        <em>需处理</em>
-      </article>
-      <article class="command-status-card command-status-card--yield">
-        <span>正式成材率</span>
-        <strong :class="yieldToneClass(commandSummary.yieldRate)">{{ formatPercent(commandSummary.yieldRate) }}</strong>
+      <article class="management-overview-card">
+        <span>成材率</span>
+        <strong :class="yieldToneClass(managementOverview.yieldRate)">{{ formatPercent(managementOverview.yieldRate) }}</strong>
         <em>{{ commandSummary.dataSourceLabel }}</em>
       </article>
-      <article class="command-status-card command-status-card--refresh">
-        <span>更新时间</span>
-        <strong>{{ lastRefreshLabel }}</strong>
-        <em>延迟 {{ commandSummary.syncLagLabel }}</em>
+      <article class="management-overview-card" :class="marginToneClass" aria-label="毛利估算">
+        <span>{{ managementOverview.marginLabel }}</span>
+        <strong>{{ managementOverview.estimatedMargin == null ? '--' : `¥ ${formatWeight(managementOverview.estimatedMargin)}` }}</strong>
+        <em>经营估算</em>
+      </article>
+      <article class="management-overview-card" :class="{ 'is-danger': managementOverview.blockerCount > 0 }">
+        <span>风险项</span>
+        <strong>{{ managementOverview.blockerCount }}</strong>
+        <em>缺报 {{ managementOverview.blockerBreakdown.missingCells }} · 异常 {{ managementOverview.blockerBreakdown.anomalyCount }} · 交付 {{ managementOverview.blockerBreakdown.deliveryBlocker }} · 发布 {{ managementOverview.blockerBreakdown.pendingPublish }} · 关注 {{ managementOverview.blockerBreakdown.attentionCells }}</em>
       </article>
     </section>
+
+    <section class="management-flow" aria-label="经营链路">
+      <div class="management-flow__head">
+        <strong>经营链路</strong>
+        <span>{{ targetDate }}</span>
+      </div>
+      <div class="management-flow__nodes">
+        <div class="management-flow__node">
+          <span>投入</span>
+          <strong>{{ formatWeight(managementOverview.inputWeight) }}</strong>
+        </div>
+        <div class="management-flow__node">
+          <span>生产</span>
+          <strong>{{ formatWeight(managementOverview.outputWeight) }}</strong>
+        </div>
+        <div class="management-flow__node">
+          <span>损耗</span>
+          <strong>{{ formatWeight(managementOverview.lossWeight) }}</strong>
+        </div>
+        <div class="management-flow__node">
+          <span>入库/发货</span>
+          <strong>成品 {{ formatWeight(managementOverview.storageFinishedWeight) }} / 发货 {{ formatWeight(managementOverview.shipmentWeight) }}</strong>
+        </div>
+        <div class="management-flow__node">
+          <span>成本/毛利</span>
+          <strong>{{ managementOverview.estimatedMargin == null ? '待配置' : managementOverview.marginLabel }}</strong>
+        </div>
+        <div class="management-flow__node">
+          <span>日报交付</span>
+          <strong>{{ managementOverview.deliveryReady ? '可交付' : '待补齐' }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <div class="live-dashboard__section-title">
+      <strong>机列填报明细</strong>
+      <span>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }} 班次</span>
+    </div>
 
     <div class="live-dashboard__workshops" v-loading="loading">
       <el-empty
@@ -254,6 +287,7 @@ import { Download, RefreshRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
@@ -268,6 +302,7 @@ import {
   statusTextForCell,
   statusToneForCell
 } from '../../utils/managementCommandCenter'
+import { buildManagementOverview, marginTone } from '../../utils/managementOverview'
 
 const authStore = useAuthStore()
 
@@ -278,6 +313,8 @@ const drawerLoading = ref(false)
 const activePanels = ref([])
 const activeCell = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
+const factorySnapshot = ref({})
+const deliverySnapshot = ref({})
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
@@ -352,6 +389,12 @@ const overallProgressText = computed(() => {
   return `${submitted}/${total} 班次`
 })
 const commandSummary = computed(() => buildCommandCenterSummary(aggregation.value))
+const managementOverview = computed(() => buildManagementOverview({
+  aggregation: aggregation.value,
+  dashboard: factorySnapshot.value,
+  delivery: deliverySnapshot.value
+}))
+const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const lastRefreshLabel = computed(() => (lastLoadedAt.value ? dayjs(lastLoadedAt.value).format('HH:mm:ss') : '--'))
 
@@ -441,13 +484,19 @@ async function loadAggregation({ silent = false } = {}) {
   }
 
   try {
-    const data = await fetchLiveAggregation({
+    const liveData = await fetchLiveAggregation({
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
-    aggregation.value = data
+    const [factoryResult, deliveryResult] = await Promise.allSettled([
+      fetchFactoryDashboard({ target_date: targetDate.value }),
+      fetchDeliveryStatus({ target_date: targetDate.value })
+    ])
+    aggregation.value = liveData
+    factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
+    deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
-    activePanels.value = sortWorkshopsForCommandCenter(data.workshops || []).map((item) => String(item.workshop_id))
+    activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
       await loadDrawer(activeCell.value, { preserveOpen: true })
     }
@@ -790,6 +839,138 @@ onBeforeUnmount(() => {
 .live-dashboard__connection-dot.is-danger {
   background: var(--command-red);
   box-shadow: 0 0 0 4px rgba(194, 65, 52, 0.13);
+}
+
+.management-overview-strip {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.management-overview-card {
+  display: grid;
+  align-content: space-between;
+  min-height: 112px;
+  padding: 15px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.07);
+}
+
+.management-overview-card--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, rgba(9, 96, 238, 0.98), rgba(15, 142, 234, 0.96));
+  color: #fff;
+}
+
+.management-overview-card span,
+.management-flow__node span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.management-overview-card strong {
+  color: var(--command-ink);
+  font-family: var(--xt-font-number);
+  font-size: 30px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.management-overview-card--primary span,
+.management-overview-card--primary strong,
+.management-overview-card--primary em {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.management-overview-card em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.management-overview-card.is-success {
+  border-color: rgba(22, 138, 85, 0.24);
+}
+
+.management-overview-card.is-danger {
+  border-color: rgba(194, 65, 52, 0.24);
+}
+
+.management-overview-card.is-muted {
+  background: var(--xt-bg-panel-muted);
+}
+
+.management-flow {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: #fff;
+}
+
+.management-flow__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.management-flow__head strong {
+  color: var(--command-ink);
+  font-weight: 900;
+}
+
+.management-flow__head span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.management-flow__nodes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.management-flow__node {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+}
+
+.management-flow__node strong {
+  color: var(--command-blue-deep);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.live-dashboard__section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 10px;
+  color: var(--command-ink);
+  font-weight: 900;
+}
+
+.live-dashboard__section-title span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .command-status-strip {
@@ -1236,6 +1417,14 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1200px) {
+  .management-overview-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .management-flow__nodes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .command-status-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1264,14 +1453,18 @@ onBeforeUnmount(() => {
     justify-content: center;
   }
 
+  .management-overview-strip,
+  .management-flow__nodes,
   .command-status-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .management-overview-card,
   .command-status-card {
     min-height: 92px;
   }
 
+  .management-overview-card strong,
   .command-status-card strong {
     font-size: 24px;
   }
@@ -1288,6 +1481,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 480px) {
+  .management-overview-strip,
+  .management-flow__nodes,
   .command-status-strip {
     grid-template-columns: 1fr;
   }

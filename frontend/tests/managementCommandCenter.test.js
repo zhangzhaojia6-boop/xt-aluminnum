@@ -14,6 +14,10 @@ const liveDashboardSource = readFileSync(
   new URL('../src/views/reports/LiveDashboard.vue', import.meta.url),
   'utf8',
 )
+const costCenterSource = readFileSync(
+  new URL('../src/views/review/CostAccountingCenter.vue', import.meta.url),
+  'utf8',
+)
 
 const baseAggregation = {
   overall_progress: {
@@ -106,9 +110,37 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
     isAdmin: false,
   })
 
-  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '填报审核', '日报交付', '异常质量'])
+  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '经营效益', '填报审核', '日报交付', '异常质量'])
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/cost'), true)
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === '成本效益'), true)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === 'AI 工作台'), false)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/admin/settings'), false)
+})
+
+test('LiveDashboard first screen uses management-readable labels', () => {
+  assert.match(liveDashboardSource, /今日产量/)
+  assert.match(liveDashboardSource, /损耗重量/)
+  assert.match(liveDashboardSource, /成材率/)
+  assert.match(liveDashboardSource, /毛利估算|亏损估算/)
+  assert.match(liveDashboardSource, /风险项/)
+  assert.match(liveDashboardSource, /经营链路/)
+  assert.match(liveDashboardSource, /blockerBreakdown/)
+  assert.match(liveDashboardSource, /deliveryBlocker/)
+  assert.match(liveDashboardSource, /Promise\.allSettled/)
+  assert.match(liveDashboardSource, /storageFinishedWeight/)
+  assert.match(liveDashboardSource, /shipmentWeight/)
+  assert.match(liveDashboardSource, /入库\/发货[\s\S]*storageFinishedWeight[\s\S]*shipmentWeight/)
+  assert.doesNotMatch(liveDashboardSource, /<span>入库\/发货<\/span>[\s\S]{0,160}deliveryReady/)
+})
+
+test('CostAccountingCenter starts with a readable operating ledger', () => {
+  assert.match(costCenterSource, /收入估算/)
+  assert.match(costCenterSource, /成本估算/)
+  assert.match(costCenterSource, /毛利估算/)
+  assert.match(costCenterSource, /每吨成本/)
+  assert.doesNotMatch(costCenterSource, /revenuePerTon:\s*1200/)
+  assert.match(costCenterSource, /process-mobile-list/)
+  assert.match(costCenterSource, /高级参数/)
 })
 
 test('LiveDashboard keeps the command matrix contained on narrow screens', () => {
