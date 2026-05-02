@@ -194,8 +194,3 @@ export async function updateWorkshopTemplateConfig(templateKey, payload) {
   const { data } = await api.put(`/master/workshop-templates/${templateKey}`, payload)
   return data
 }
-
-export async function fetchYieldRateDeprecationMap() {
-  const { data } = await api.get('/master/yield-rate-deprecation-map')
-  return data
-}

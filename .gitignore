@@ -25,6 +25,7 @@ frontend/playwright-report/
 frontend/test-results/
 test-results/
 frontend/tmp-review-home.png
+frontend/tmp_*.cjs
 frontend/frontend/
 ssl/
 .vercel/

@@ -1,3 +1,4 @@
+from datetime import time
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -8,6 +9,7 @@ from app.core.deps import get_current_user, get_db
 from app.database import Base
 from app.main import app
 from app.models.master import Employee, Workshop
+from app.models.shift import ShiftConfig
 from app.models.system import User
 
 
@@ -85,6 +87,46 @@ def test_list_employees_returns_paginated_payload() -> None:
     assert payload['limit'] == 100
     assert len(payload['items']) == 100
     assert payload['items'][0]['employee_no'] == 'E001'
+
+    app.dependency_overrides.clear()
+
+
+def test_shifts_compat_endpoint_matches_shift_configs_listing() -> None:
+    shifts = [
+        SimpleNamespace(
+            id=index,
+            code=code,
+            name=name,
+            shift_type='day',
+            start_time=time(7, 0),
+            end_time=time(15, 0),
+            is_cross_day=False,
+            business_day_offset=0,
+            late_tolerance_minutes=30,
+            early_tolerance_minutes=30,
+            workshop_id=None,
+            sort_order=index,
+            is_active=True,
+        )
+        for index, code, name in [(1, 'A', '白班'), (2, 'B', '小夜')]
+    ]
+
+    def fake_get_db():
+        yield _FakeDB({ShiftConfig: shifts})
+
+    def fake_get_user() -> User:
+        return User(id=1, username='admin', password_hash='x', name='Admin', role='admin', is_active=True)
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    client = TestClient(app)
+    canonical = client.get('/api/v1/master/shift-configs')
+    compat = client.get('/api/v1/master/shifts')
+
+    assert canonical.status_code == 200
+    assert compat.status_code == 200
+    assert compat.json() == canonical.json()
 
     app.dependency_overrides.clear()
 

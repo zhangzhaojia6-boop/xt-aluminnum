@@ -527,6 +527,10 @@ def list_shift_configs(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     _ = current_user
+    return _list_shift_config_page(db, skip=skip, limit=limit)
+
+
+def _list_shift_config_page(db: Session, *, skip: int, limit: int) -> dict:
     query = db.query(ShiftConfig).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc())
     return _paginate_query(query, skip=skip, limit=limit)
 
@@ -539,8 +543,7 @@ def list_shifts_compat(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     _ = current_user
-    query = db.query(ShiftConfig).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc())
-    return _paginate_query(query, skip=skip, limit=limit)
+    return _list_shift_config_page(db, skip=skip, limit=limit)
 
 
 @router.post('/shift-configs', response_model=ShiftConfigOut, status_code=status.HTTP_201_CREATED)
