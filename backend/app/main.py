@@ -126,6 +126,7 @@ async def lifespan(_: FastAPI):
             with session_factory() as session:
                 try:
                     mes_sync_service.sync_coil_snapshots(db=session)
+                    mes_sync_service.sync_mes_projection(db=session)
                     session.commit()
                 except Exception:
                     session.rollback()

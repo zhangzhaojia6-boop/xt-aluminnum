@@ -13,7 +13,7 @@ from app.models.attendance import (
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
-from app.models.mes import MesCoilSnapshot, MesImportRecord, MesSyncCursor, MesSyncRunLog
+from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesImportRecord, MesMachineLineSnapshot, MesSyncCursor, MesSyncRunLog
 from app.models.production import (
     FieldAmendment,
     MobileReminderRecord,
@@ -62,6 +62,8 @@ __all__ = [
     'MachineEnergyRecord',
     'MesImportRecord',
     'MesCoilSnapshot',
+    'MesMachineLineSnapshot',
+    'CoilFlowEvent',
     'MesSyncCursor',
     'MesSyncRunLog',
     'DataQualityIssue',
