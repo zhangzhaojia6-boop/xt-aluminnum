@@ -162,6 +162,7 @@ import { ElMessage } from 'element-plus'
 import { fetchCurrentShift, fetchFieldOptions, fetchMobileBootstrap } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
 import { api } from '../../api/index.js'
+import { validateCoilEntryForm } from '../../utils/coilEntryValidation.js'
 import { DEFAULT_ALLOY_GRADES, loadCoilEntryStartup } from '../../utils/coilEntryStartup.js'
 
 const route = useRoute()
@@ -263,8 +264,9 @@ async function loadCoils() {
 }
 
 async function submitCoil() {
-  if (!form.value.tracking_card_no || !form.value.input_weight || !form.value.output_weight) {
-    ElMessage.warning('请填写必填字段')
+  const validationMessage = validateCoilEntryForm(form.value)
+  if (validationMessage) {
+    ElMessage.warning(validationMessage)
     return
   }
   submitting.value = true
