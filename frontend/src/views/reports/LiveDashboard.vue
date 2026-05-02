@@ -1,8 +1,8 @@
 <template>
   <ReferencePageFrame
     module-number="12"
-    title="系统运维与观测"
-    :tags="['实时运营', '提交进度', '探针']"
+    title="工厂实时态势"
+    :tags="['全厂', '机列填报', '实时状态']"
     class="live-dashboard"
     data-testid="live-dashboard"
   >
@@ -13,64 +13,53 @@
         <span>{{ connectionLabel }}</span>
       </div>
       <div class="live-dashboard__progress-pill">
-        全厂提交进度 {{ overallProgressText }}
-      </div>
-      <div class="live-dashboard__progress-pill">
-        数据源 {{ aggregation.data_source === 'mes_projection' ? 'MES 投影' : '工单兼容口径' }}
-      </div>
-      <div class="live-dashboard__progress-pill">
-        延迟 {{ syncLagText }}
+        {{ commandSummary.dataSourceLabel }}
       </div>
       <el-button :icon="RefreshRight" @click="loadDashboardSurface()">刷新</el-button>
     </template>
 
-    <StatePanel
-      type="info"
-      class="live-dashboard__truth-note"
-      title="正式口径：全厂/车间总成材率优先使用成品率矩阵；机台/班次/批次层仍显示 runtime compat 成材率。"
-    />
-
-    <section class="stat-grid live-dashboard__ops-strip">
-      <KpiCard
-        v-for="item in opsCards"
-        :key="item.label"
-        :label="item.label"
-        :value="item.value"
-        :hint="item.hint"
-        :tone="item.tone"
-      />
+    <section class="command-status-strip">
+      <article class="command-status-card command-status-card--output">
+        <span>今日产出</span>
+        <strong>{{ formatWeight(commandSummary.todayOutput) }}</strong>
+        <em>kg</em>
+      </article>
+      <article class="command-status-card">
+        <span>提交进度</span>
+        <strong>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }}</strong>
+        <em>{{ commandSummary.completionRate }}%</em>
+      </article>
+      <article class="command-status-card" :class="{ 'is-danger': commandSummary.missingCellCount > 0 }">
+        <span>缺报单元</span>
+        <strong>{{ commandSummary.missingCellCount }}</strong>
+        <em>机列班次</em>
+      </article>
+      <article class="command-status-card" :class="{ 'is-warning': commandSummary.attentionCellCount > 0 }">
+        <span>关注单元</span>
+        <strong>{{ commandSummary.attentionCellCount }}</strong>
+        <em>需处理</em>
+      </article>
+      <article class="command-status-card">
+        <span>正式成材率</span>
+        <strong :class="yieldToneClass(commandSummary.yieldRate)">{{ formatPercent(commandSummary.yieldRate) }}</strong>
+        <em>{{ commandSummary.dataSourceLabel }}</em>
+      </article>
+      <article class="command-status-card">
+        <span>更新时间</span>
+        <strong>{{ lastRefreshLabel }}</strong>
+        <em>延迟 {{ commandSummary.syncLagLabel }}</em>
+      </article>
     </section>
-
-    <div class="live-dashboard__summary">
-      <div class="stat-card">
-        <div class="stat-label">已提交班次</div>
-        <div class="stat-value">{{ aggregation.overall_progress?.submitted_cells ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">全厂投入</div>
-        <div class="stat-value">{{ formatWeight(aggregation.factory_total?.input) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">全厂产出</div>
-        <div class="stat-value">{{ formatWeight(aggregation.factory_total?.output) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">全厂正式成材率</div>
-        <div :class="['stat-value', yieldToneClass(aggregation.factory_total?.yield_rate)]">
-          {{ formatPercent(aggregation.factory_total?.yield_rate) }}
-        </div>
-      </div>
-    </div>
 
     <div class="live-dashboard__workshops" v-loading="loading">
       <el-empty
-        v-if="!loading && !aggregation.workshops.length"
+        v-if="!loading && !sortedWorkshops.length"
         description="当前日期暂无实时卷数据"
       />
 
       <el-collapse v-else v-model="activePanels" class="live-dashboard__collapse">
         <el-collapse-item
-          v-for="workshop in aggregation.workshops"
+          v-for="workshop in sortedWorkshops"
           :key="workshop.workshop_id"
           :name="String(workshop.workshop_id)"
           class="live-dashboard__collapse-item"
@@ -117,6 +106,7 @@
                     :class="[
                       'live-cell',
                       `is-${shift.submission_status}`,
+                      `tone-${statusToneForCell(shift)}`,
                       { 'is-disabled': !shift.is_applicable },
                       { 'is-updated': isUpdated(cellKey(workshop.workshop_id, machine.machine_id, shift.shift_id)) }
                     ]"
@@ -124,6 +114,7 @@
                     @click="openDrawer(workshop, machine, shift)"
                   >
                     <span class="live-cell__symbol">{{ submissionSymbol(shift.submission_status) }}</span>
+                    <strong>{{ statusTextForCell(shift) }}</strong>
                     <span class="live-cell__count">{{ shift.is_applicable ? `${shift.submitted_count} 卷` : '—' }}</span>
                     <span :class="['live-cell__yield', yieldToneClass(shift.yield_rate)]">
                       {{ shift.is_applicable ? `兼容率 ${formatPercent(shift.yield_rate)}` : '—' }}
@@ -256,18 +247,20 @@ import { Download, RefreshRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { fetchAssistantLiveProbe } from '../../api/assistant'
 import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
-import KpiCard from '../../components/cards/KpiCard.vue'
-import StatePanel from '../../components/feedback/StatePanel.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
-import { formatNumber } from '../../utils/display'
 import {
   numberValue, formatWeight, formatPercent, yieldToneClass,
   submissionSymbol, formatAttendance, formatEntryStatus, formatEntryType
 } from '../../utils/liveDashboardFormatters'
+import {
+  buildCommandCenterSummary,
+  sortWorkshopsForCommandCenter,
+  statusTextForCell,
+  statusToneForCell
+} from '../../utils/managementCommandCenter'
 
 const authStore = useAuthStore()
 
@@ -280,14 +273,7 @@ const activeCell = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
-const opsSnapshot = ref({
-  healthStatus: '未知',
-  pipelineStatus: '未检测',
-  probeStatus: '未检测',
-  probeHint: 'text=- / image=-',
-  appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
-  responseMs: '--'
-})
+const lastLoadedAt = ref('')
 
 let reloadTimer = null
 const handledEventIds = new Set()
@@ -340,7 +326,7 @@ function buildWorkshopProgress(workshop) {
 }
 
 const factorySummaryRows = computed(() => {
-  const rows = aggregation.value.workshops.map(createSummaryRow)
+  const rows = sortedWorkshops.value.map(createSummaryRow)
   rows.push({
     workshop_name: '全厂汇总',
     machine_count: rows.reduce((sum, item) => sum + numberValue(item.machine_count), 0),
@@ -358,74 +344,9 @@ const overallProgressText = computed(() => {
   const total = aggregation.value.overall_progress?.total_cells ?? 0
   return `${submitted}/${total} 班次`
 })
-const syncLagText = computed(() => {
-  const lag = Number(aggregation.value.mes_sync_status?.lag_seconds)
-  if (!Number.isFinite(lag)) return '--'
-  if (lag < 60) return `${lag.toFixed(0)}s`
-  return `${(lag / 60).toFixed(1)}m`
-})
-
-const estimatedErrorRate = computed(() => {
-  const total = numberValue(aggregation.value.overall_progress?.total_cells)
-  if (!total) return '--'
-
-  let issueCount = 0
-  for (const workshop of aggregation.value.workshops || []) {
-    for (const machine of workshop.machines || []) {
-      for (const shift of machine.shifts || []) {
-        if (!shift?.is_applicable) continue
-        if (shift.submission_status !== 'all_submitted') issueCount += 1
-        if (numberValue(shift.attendance_exception_count) > 0) issueCount += 1
-      }
-    }
-  }
-  const rate = (issueCount / total) * 100
-  return `${Math.max(0, rate).toFixed(1)}%`
-})
-
-const opsCards = computed(() => {
-  const responseMs = Number(String(opsSnapshot.value.responseMs).replace('ms', '').trim())
-  const responseTone = !Number.isFinite(responseMs)
-    ? 'neutral'
-    : (responseMs <= 600 ? 'success' : responseMs <= 1500 ? 'warning' : 'danger')
-  const errorRate = Number(String(estimatedErrorRate.value).replace('%', '').trim())
-  const errorTone = !Number.isFinite(errorRate)
-    ? 'neutral'
-    : (errorRate <= 5 ? 'success' : errorRate <= 15 ? 'warning' : 'danger')
-
-  return [
-    {
-      label: '系统健康',
-      value: opsSnapshot.value.healthStatus,
-      hint: opsSnapshot.value.pipelineStatus,
-      tone: opsSnapshot.value.healthStatus === '健康' ? 'success' : 'danger'
-    },
-    {
-      label: 'AI 探针',
-      value: opsSnapshot.value.probeStatus,
-      hint: opsSnapshot.value.probeHint,
-      tone: opsSnapshot.value.probeStatus === '就绪' ? 'success' : 'warning'
-    },
-    {
-      label: '构建版本',
-      value: opsSnapshot.value.appVersion,
-      hint: '前端构建版本',
-      tone: 'info'
-    },
-    {
-      label: '错误率',
-      value: estimatedErrorRate.value,
-      hint: '按实时班次异常估算',
-      tone: errorTone
-    },
-    {
-      label: '响应时间',
-      value: opsSnapshot.value.responseMs,
-      hint: 'healthz + readyz 探测',
-      tone: responseTone
-    }
-  ]
-})
+const commandSummary = computed(() => buildCommandCenterSummary(aggregation.value))
+const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
+const lastRefreshLabel = computed(() => (lastLoadedAt.value ? dayjs(lastLoadedAt.value).format('HH:mm:ss') : '--'))
 
 const streamScope = computed(() => {
   if (authStore.isAdmin || authStore.isManager || authStore.role === 'statistician' || authStore.role === 'stat') {
@@ -434,7 +355,7 @@ const streamScope = computed(() => {
   return authStore.user?.workshop_id ? String(authStore.user.workshop_id) : 'all'
 })
 
-const { status: streamStatus, lastEventAt } = useRealtimeStream(streamScope, {
+const { status: streamStatus } = useRealtimeStream(streamScope, {
   enabled: true,
   onEvent: handleRealtimeEvent
 })
@@ -507,15 +428,6 @@ function clearHandledEvents() {
   handledEventIds.clear()
 }
 
-async function parseResponseJson(response) {
-  if (!response?.ok) return null
-  try {
-    return await response.json()
-  } catch {
-    return null
-  }
-}
-
 async function loadAggregation({ silent = false } = {}) {
   if (!silent) {
     loading.value = true
@@ -527,7 +439,8 @@ async function loadAggregation({ silent = false } = {}) {
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
     aggregation.value = data
-    activePanels.value = data.workshops.map((item) => String(item.workshop_id))
+    lastLoadedAt.value = new Date().toISOString()
+    activePanels.value = sortWorkshopsForCommandCenter(data.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
       await loadDrawer(activeCell.value, { preserveOpen: true })
     }
@@ -536,53 +449,8 @@ async function loadAggregation({ silent = false } = {}) {
   }
 }
 
-async function loadOpsSnapshot() {
-  const startedAt = Date.now()
-  try {
-    const [healthResponse, readyResponse, probePayload] = await Promise.all([
-      fetch('/healthz'),
-      fetch('/readyz'),
-      fetchAssistantLiveProbe()
-    ])
-
-    const [healthPayload, readyPayload] = await Promise.all([
-      parseResponseJson(healthResponse),
-      parseResponseJson(readyResponse)
-    ])
-
-    const healthStatus = healthPayload?.status === 'ok' ? '健康' : '异常'
-    const pipelineReady = Boolean(readyPayload?.details?.pipeline?.hard_gate_passed)
-    const pipelineStatus = pipelineReady ? '管道就绪' : '管道阻塞'
-    const probeStatus = probePayload?.overall_ok ? '就绪' : '阻塞'
-    const probeHint = probePayload
-      ? `text=${probePayload.text_probe_ok ? 'ok' : 'fail'} / image=${probePayload.image_probe_ok ? 'ok' : 'fail'}`
-      : 'text=- / image=-'
-
-    opsSnapshot.value = {
-      ...opsSnapshot.value,
-      healthStatus,
-      pipelineStatus,
-      probeStatus,
-      probeHint,
-      responseMs: `${Date.now() - startedAt}ms`
-    }
-  } catch {
-    opsSnapshot.value = {
-      ...opsSnapshot.value,
-      healthStatus: '异常',
-      pipelineStatus: '未检测',
-      probeStatus: '未检测',
-      probeHint: 'text=- / image=-',
-      responseMs: `${Date.now() - startedAt}ms`
-    }
-  }
-}
-
 async function loadDashboardSurface() {
-  await Promise.all([
-    loadAggregation(),
-    loadOpsSnapshot()
-  ])
+  await loadAggregation()
 }
 
 function scheduleReload() {
@@ -668,6 +536,10 @@ function applyAttendanceConfirmed(payload) {
     if (!shift) return
     shift.attendance_exception_count = numberValue(payload.exception_count)
     shift.attendance_status = numberValue(payload.exception_count) > 0 ? 'pending' : 'confirmed'
+    delete shift.status_tone
+    delete shift.status_text
+    shift.status_tone = statusToneForCell(shift)
+    shift.status_text = statusTextForCell(shift)
   })
   markUpdated(attendanceKey(payload.workshop_id, payload.shift_id))
 }
@@ -781,3 +653,417 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.live-dashboard {
+  --command-ink: oklch(18% 0.028 250);
+  --command-rail: oklch(24% 0.026 248);
+  --command-metal: oklch(96% 0.011 104);
+  --command-green: oklch(53% 0.13 158);
+  --command-amber: oklch(62% 0.12 75);
+  --command-red: oklch(55% 0.15 28);
+}
+
+.live-dashboard__connection,
+.live-dashboard__progress-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: var(--xt-shadow-xs);
+}
+
+.live-dashboard__connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-text-muted);
+}
+
+.live-dashboard__connection-dot.is-good {
+  background: var(--command-green);
+}
+
+.live-dashboard__connection-dot.is-warn {
+  background: var(--command-amber);
+}
+
+.live-dashboard__connection-dot.is-danger {
+  background: var(--command-red);
+}
+
+.command-status-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(5, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.command-status-card {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-height: 104px;
+  padding: 16px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-xl);
+  background: linear-gradient(135deg, var(--xt-bg-panel-strong), var(--command-metal));
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.command-status-card::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  width: 32px;
+  height: 3px;
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-border-strong);
+  opacity: 0.55;
+}
+
+.command-status-card span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.command-status-card strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-size: 30px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.018em;
+  line-height: 1;
+}
+
+.command-status-card em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.command-status-card--output {
+  background: linear-gradient(135deg, var(--command-ink), var(--command-rail));
+}
+
+.command-status-card--output span,
+.command-status-card--output em {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.command-status-card--output strong {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.command-status-card.is-danger::after {
+  background: var(--command-red);
+  opacity: 1;
+}
+
+.command-status-card.is-warning::after {
+  background: var(--command-amber);
+  opacity: 1;
+}
+
+.live-dashboard__workshops {
+  display: grid;
+  gap: 12px;
+}
+
+.live-dashboard__collapse {
+  border: 0;
+}
+
+.live-dashboard__collapse :deep(.el-collapse-item) {
+  margin-bottom: 12px;
+  border-radius: var(--xt-radius-xl);
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+  overflow: hidden;
+}
+
+.live-dashboard__collapse :deep(.el-collapse-item__header) {
+  min-height: 58px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel-strong);
+}
+
+.live-dashboard__collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+}
+
+.live-workshop__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+}
+
+.live-workshop__title strong {
+  display: block;
+  color: var(--xt-text);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.live-workshop__title span,
+.live-workshop__title-meta span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-workshop__title-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-board__scroller {
+  overflow-x: auto;
+  padding: 14px;
+}
+
+.live-board__table {
+  display: grid;
+  min-width: 880px;
+  gap: 1px;
+  border-radius: var(--xt-radius-lg);
+  background: var(--xt-border-light);
+  overflow: hidden;
+}
+
+.live-board__row--grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.live-board__row--head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.live-board__stub,
+.live-board__head-cell,
+.live-board__total-cell,
+.live-summary-cell,
+.live-attendance-cell,
+.live-cell {
+  min-height: 64px;
+  padding: 10px 12px;
+  background: var(--xt-bg-panel-strong);
+}
+
+.live-board__stub,
+.live-board__head-cell {
+  display: flex;
+  align-items: center;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-board__stub--machine {
+  color: var(--xt-text);
+}
+
+.live-cell {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 3px 8px;
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition-property: transform, box-shadow, background-color;
+  transition-duration: var(--xt-motion-fast);
+  transition-timing-function: var(--xt-ease);
+}
+
+.live-cell:active {
+  transform: scale(0.98);
+}
+
+.live-cell:focus-visible {
+  outline: none;
+  box-shadow: var(--app-focus-ring);
+}
+
+.live-cell__symbol {
+  grid-row: 1 / span 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--xt-radius-pill);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-cell strong {
+  color: var(--xt-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.live-cell__count,
+.live-cell__yield {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-cell.tone-success {
+  background: var(--xt-success-light);
+}
+
+.live-cell.tone-success .live-cell__symbol {
+  background: var(--command-green);
+}
+
+.live-cell.tone-warning {
+  background: var(--xt-warning-light);
+}
+
+.live-cell.tone-warning .live-cell__symbol {
+  background: var(--command-amber);
+}
+
+.live-cell.tone-danger {
+  background: var(--xt-danger-light);
+}
+
+.live-cell.tone-danger .live-cell__symbol {
+  background: var(--command-red);
+}
+
+.live-cell.tone-muted,
+.live-cell.is-disabled {
+  background: var(--xt-bg-panel-muted);
+  color: var(--xt-text-muted);
+  cursor: default;
+}
+
+.live-cell.tone-muted .live-cell__symbol,
+.live-cell.is-disabled .live-cell__symbol {
+  background: var(--xt-text-muted);
+}
+
+.live-cell.is-updated {
+  box-shadow: inset 0 0 0 2px var(--xt-primary);
+}
+
+.live-board__total-cell,
+.live-summary-cell,
+.live-attendance-cell {
+  display: grid;
+  gap: 3px;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-board__total-cell strong,
+.live-summary-cell strong {
+  color: var(--xt-text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.live-board__total-cell--accent {
+  background: var(--xt-primary-light);
+}
+
+.live-board__total-cell--muted {
+  color: var(--xt-text-muted);
+}
+
+.live-dashboard__bottom {
+  margin-top: 14px;
+}
+
+.live-dashboard__table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.live-dashboard__table-header strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.live-dashboard__table-header p {
+  margin: 4px 0 0;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+}
+
+.live-drawer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.live-drawer__meta span {
+  padding: 6px 9px;
+  border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (hover: hover) {
+  .live-cell:not(.is-disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--xt-shadow-sm);
+  }
+}
+
+@media (max-width: 1200px) {
+  .command-status-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .command-status-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .command-status-card {
+    min-height: 92px;
+  }
+
+  .command-status-card strong {
+    font-size: 24px;
+  }
+
+  .live-workshop__title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+</style>

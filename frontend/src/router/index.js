@@ -165,7 +165,7 @@ const rawRoutes = [
     meta: { ...reviewMeta, title: '管理工作台', canonical: '/manage' },
     children: [
       { path: '', redirect: '/manage/overview' },
-      { path: 'overview', name: 'review-overview-home', component: OverviewCenter, alias: ['dashboard'], meta: { ...reviewMeta, title: '系统总览主视图', centerNo: '01', canonical: '/manage/overview' } },
+      { path: 'overview', name: 'review-overview-home', component: LiveDashboard, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂实时态势', centerNo: '01', canonical: '/manage/overview' } },
       { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },
       { path: 'workshop', name: 'workshop-dashboard', component: WorkshopDirector, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/workshop' } },
       { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '审阅中心', centerNo: '07', canonical: '/manage/entry-center' } },
