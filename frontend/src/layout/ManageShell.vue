@@ -165,7 +165,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .xt-manage {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--xt-bg-shell);
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.78), rgba(255, 255, 255, 0.96) 38%, rgba(246, 248, 252, 0.98));
   color: var(--xt-text);
 }
 
@@ -176,9 +177,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   width: var(--xt-sidebar-width);
   display: flex;
   flex-direction: column;
-  background: var(--xt-command-surface-strong);
-  border-right: 1px solid var(--xt-border-light);
-  box-shadow: 1px 0 0 var(--xt-border-light);
+  background: rgba(255, 255, 255, 0.96);
+  border-right: 1px solid rgba(43, 93, 178, 0.12);
+  box-shadow: 1px 0 0 rgba(43, 93, 178, 0.05);
   transition: width var(--xt-motion-normal) var(--xt-ease);
 }
 
@@ -192,7 +193,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-4);
-  border-bottom: 1px solid var(--xt-border-light);
+  border-bottom: 1px solid rgba(43, 93, 178, 0.12);
   color: var(--xt-text);
   text-decoration: none;
 }
@@ -200,10 +201,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 .xt-manage__brand-text {
   margin-left: auto;
   padding: 3px var(--xt-space-2);
-  border: 1px solid var(--xt-border-light);
+  border: 1px solid rgba(11, 99, 246, 0.18);
   border-radius: var(--xt-radius-pill);
-  background: var(--xt-bg-ink);
-  color: rgba(255, 255, 255, 0.82);
+  background: var(--xt-primary-light);
+  color: var(--xt-primary);
   font-size: var(--xt-text-xs);
   font-weight: 700;
   letter-spacing: 0;
@@ -233,6 +234,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__nav-item {
+  position: relative;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -261,10 +263,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 }
 
 .xt-manage__nav-item.is-active {
-  background: var(--xt-primary-light);
+  background: #fff;
   color: var(--xt-primary);
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--xt-primary-border);
+  box-shadow:
+    inset 3px 0 0 var(--xt-primary),
+    inset 0 0 0 1px rgba(11, 99, 246, 0.15),
+    0 8px 20px rgba(11, 99, 246, 0.07);
 }
 
 .xt-manage__nav-label {
@@ -314,7 +319,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
 .xt-manage__collapse-btn {
   height: 48px;
-  border-top: 1px solid var(--xt-border-light);
+  border-top: 1px solid rgba(43, 93, 178, 0.12);
   color: var(--xt-text-muted);
 }
 
@@ -347,9 +352,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-5);
-  background: color-mix(in srgb, var(--xt-bg-panel) 90%, var(--xt-bg-shell));
-  border-bottom: 1px solid var(--xt-border-light);
-  box-shadow: 0 1px 0 var(--xt-border-light);
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(43, 93, 178, 0.12);
+  box-shadow: 0 1px 0 rgba(43, 93, 178, 0.04), 0 12px 30px rgba(25, 62, 118, 0.05);
+  backdrop-filter: blur(12px);
 }
 
 .xt-manage__hamburger {
@@ -363,18 +369,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
-  border: 1px solid var(--xt-border);
+  border: 1px solid rgba(43, 93, 178, 0.16);
   border-radius: var(--xt-radius-pill);
   color: var(--xt-text-muted);
-  background: var(--xt-bg-panel-soft);
+  background: #fff;
 }
 
 .xt-manage__search-trigger kbd {
   margin-left: auto;
   padding: 1px var(--xt-space-2);
-  border: 1px solid var(--xt-border);
+  border: 1px solid rgba(43, 93, 178, 0.12);
   border-radius: var(--xt-radius-pill);
-  background: var(--xt-bg-panel);
+  background: var(--xt-primary-light);
   color: var(--xt-text-muted);
   font-family: var(--xt-font-mono);
   font-size: 11px;

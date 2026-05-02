@@ -24,27 +24,27 @@
         <strong>{{ formatWeight(commandSummary.todayOutput) }}</strong>
         <em>kg</em>
       </article>
-      <article class="command-status-card">
+      <article class="command-status-card command-status-card--progress">
         <span>提交进度</span>
         <strong>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }}</strong>
         <em>{{ commandSummary.completionRate }}%</em>
       </article>
-      <article class="command-status-card" :class="{ 'is-danger': commandSummary.missingCellCount > 0 }">
+      <article class="command-status-card command-status-card--missing" :class="{ 'is-danger': commandSummary.missingCellCount > 0 }">
         <span>缺报单元</span>
         <strong>{{ commandSummary.missingCellCount }}</strong>
         <em>机列班次</em>
       </article>
-      <article class="command-status-card" :class="{ 'is-warning': commandSummary.attentionCellCount > 0 }">
+      <article class="command-status-card command-status-card--attention" :class="{ 'is-warning': commandSummary.attentionCellCount > 0 }">
         <span>关注单元</span>
         <strong>{{ commandSummary.attentionCellCount }}</strong>
         <em>需处理</em>
       </article>
-      <article class="command-status-card">
+      <article class="command-status-card command-status-card--yield">
         <span>正式成材率</span>
         <strong :class="yieldToneClass(commandSummary.yieldRate)">{{ formatPercent(commandSummary.yieldRate) }}</strong>
         <em>{{ commandSummary.dataSourceLabel }}</em>
       </article>
-      <article class="command-status-card">
+      <article class="command-status-card command-status-card--refresh">
         <span>更新时间</span>
         <strong>{{ lastRefreshLabel }}</strong>
         <em>延迟 {{ commandSummary.syncLagLabel }}</em>
@@ -663,16 +663,88 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .live-dashboard {
-  --command-ink: oklch(18% 0.028 250);
-  --command-rail: oklch(24% 0.026 248);
-  --command-metal: oklch(96% 0.011 104);
+  --command-blue: oklch(56% 0.22 260);
+  --command-blue-deep: oklch(42% 0.19 260);
+  --command-blue-soft: oklch(96% 0.025 254);
+  --command-cyan: oklch(66% 0.14 215);
+  --command-ink: oklch(17% 0.025 252);
+  --command-rail: oklch(23% 0.028 252);
+  --command-panel: rgba(255, 255, 255, 0.92);
+  --command-line: rgba(43, 93, 178, 0.13);
+  --command-metal: oklch(98% 0.008 248);
   --command-green: oklch(53% 0.13 158);
   --command-amber: oklch(62% 0.12 75);
   --command-red: oklch(55% 0.15 28);
+  --command-radius: 8px;
+  --command-radius-sm: 6px;
+}
+
+.live-dashboard :deep(.reference-page) {
+  border: 1px solid rgba(43, 93, 178, 0.08);
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.78), rgba(255, 255, 255, 0.88) 34%, rgba(245, 248, 253, 0.98));
+}
+
+.live-dashboard :deep(.reference-page__header) {
+  align-items: stretch;
+  padding: 16px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 18px 46px rgba(25, 62, 118, 0.08);
+}
+
+.live-dashboard :deep(.reference-page__title-group) {
+  align-content: center;
+}
+
+.live-dashboard :deep(.reference-page__number) {
+  border-color: transparent;
+  background: var(--command-blue);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(11, 99, 246, 0.18);
+}
+
+.live-dashboard :deep(.reference-page__system) {
+  color: var(--command-blue);
+  font-weight: 850;
+}
+
+.live-dashboard :deep(.reference-page h1) {
+  color: var(--command-ink);
+  letter-spacing: 0;
+}
+
+.live-dashboard :deep(.reference-page__tags span) {
+  border-color: rgba(11, 99, 246, 0.14);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+}
+
+.live-dashboard :deep(.reference-page__actions) {
+  align-items: center;
+  gap: 10px;
 }
 
 .live-dashboard :deep(.reference-page__body) {
   min-width: 0;
+}
+
+.live-dashboard :deep(.reference-page__actions .el-date-editor) {
+  width: 146px;
+}
+
+.live-dashboard :deep(.reference-page__actions .el-input__wrapper) {
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: #fff;
+  box-shadow: none;
+}
+
+.live-dashboard :deep(.reference-page__actions .el-button) {
+  min-height: 36px;
+  border-radius: var(--command-radius-sm);
+  font-weight: 800;
 }
 
 .live-dashboard__connection,
@@ -682,12 +754,19 @@ onBeforeUnmount(() => {
   gap: 7px;
   min-height: 36px;
   padding: 0 12px;
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-bg-panel-soft);
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: #fff;
   color: var(--xt-text-secondary);
   font-size: 13px;
-  font-weight: 700;
-  box-shadow: var(--xt-shadow-xs);
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.live-dashboard__progress-pill {
+  border-color: rgba(11, 99, 246, 0.18);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
 }
 
 .live-dashboard__connection-dot {
@@ -695,61 +774,78 @@ onBeforeUnmount(() => {
   height: 8px;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-text-muted);
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.16);
 }
 
 .live-dashboard__connection-dot.is-good {
   background: var(--command-green);
+  box-shadow: 0 0 0 4px rgba(22, 138, 85, 0.13);
 }
 
 .live-dashboard__connection-dot.is-warn {
   background: var(--command-amber);
+  box-shadow: 0 0 0 4px rgba(183, 121, 31, 0.14);
 }
 
 .live-dashboard__connection-dot.is-danger {
   background: var(--command-red);
+  box-shadow: 0 0 0 4px rgba(194, 65, 52, 0.13);
 }
 
 .command-status-strip {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(5, minmax(150px, 1fr));
+  grid-template-columns: minmax(260px, 1.45fr) repeat(5, minmax(148px, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
 
 .command-status-card {
+  --status-accent: var(--command-blue);
   position: relative;
   display: grid;
-  gap: 5px;
-  min-height: 104px;
-  padding: 16px;
+  align-content: space-between;
+  gap: 7px;
+  min-height: 108px;
+  padding: 15px;
   overflow: hidden;
-  border-radius: var(--xt-radius-xl);
-  background: linear-gradient(135deg, var(--xt-bg-panel-strong), var(--command-metal));
-  box-shadow: var(--xt-shadow-sm);
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.07);
+}
+
+.command-status-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--status-accent);
 }
 
 .command-status-card::after {
   content: '';
   position: absolute;
-  right: 14px;
+  right: 12px;
   bottom: 12px;
-  width: 32px;
-  height: 3px;
-  border-radius: var(--xt-radius-pill);
-  background: var(--xt-border-strong);
-  opacity: 0.55;
+  width: 28px;
+  height: 18px;
+  border-right: 2px solid color-mix(in srgb, var(--status-accent) 32%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--status-accent) 32%, transparent);
+  opacity: 0.86;
 }
 
 .command-status-card span {
-  color: var(--xt-text-secondary);
+  color: var(--xt-text-muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .command-status-card strong {
-  color: var(--xt-text);
+  position: relative;
+  z-index: 1;
+  color: var(--command-ink);
   font-family: var(--xt-font-number);
-  font-size: 30px;
+  font-size: 29px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -757,14 +853,40 @@ onBeforeUnmount(() => {
 }
 
 .command-status-card em {
-  color: var(--xt-text-muted);
+  position: relative;
+  z-index: 1;
+  color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .command-status-card--output {
-  background: linear-gradient(135deg, var(--command-ink), var(--command-rail));
+  --status-accent: var(--command-cyan);
+  border-color: transparent;
+  background:
+    linear-gradient(135deg, rgba(9, 96, 238, 0.98), rgba(15, 142, 234, 0.96) 58%, rgba(18, 172, 190, 0.9));
+  box-shadow: 0 18px 42px rgba(11, 99, 246, 0.21);
+}
+
+.command-status-card--progress {
+  --status-accent: var(--command-blue);
+}
+
+.command-status-card--missing {
+  --status-accent: var(--xt-border-strong);
+}
+
+.command-status-card--attention {
+  --status-accent: var(--command-cyan);
+}
+
+.command-status-card--yield {
+  --status-accent: var(--command-green);
+}
+
+.command-status-card--refresh {
+  --status-accent: var(--xt-text-muted);
 }
 
 .command-status-card--output span,
@@ -776,14 +898,20 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.92);
 }
 
-.command-status-card.is-danger::after {
-  background: var(--command-red);
-  opacity: 1;
+.command-status-card--output::after {
+  width: 34px;
+  height: 22px;
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
-.command-status-card.is-warning::after {
-  background: var(--command-amber);
-  opacity: 1;
+.command-status-card.is-danger {
+  --status-accent: var(--command-red);
+  border-color: rgba(194, 65, 52, 0.22);
+}
+
+.command-status-card.is-warning {
+  --status-accent: var(--command-amber);
+  border-color: rgba(183, 121, 31, 0.24);
 }
 
 .live-dashboard__workshops {
@@ -799,17 +927,18 @@ onBeforeUnmount(() => {
 
 .live-dashboard__collapse :deep(.el-collapse-item) {
   margin-bottom: 12px;
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 14px 36px rgba(25, 62, 118, 0.07);
   overflow: hidden;
 }
 
 .live-dashboard__collapse :deep(.el-collapse-item__header) {
   min-height: 58px;
   padding: 0 16px;
-  border-bottom: 1px solid var(--xt-border-light);
-  background: var(--xt-bg-panel-strong);
+  border-bottom: 1px solid var(--command-line);
+  background: #fff;
 }
 
 .live-dashboard__collapse :deep(.el-collapse-item__wrap) {
@@ -819,6 +948,7 @@ onBeforeUnmount(() => {
 
 .live-dashboard__collapse :deep(.el-collapse-item__content) {
   min-width: 0;
+  padding-bottom: 0;
 }
 
 .live-workshop__title {
@@ -832,7 +962,7 @@ onBeforeUnmount(() => {
 
 .live-workshop__title strong {
   display: block;
-  color: var(--xt-text);
+  color: var(--command-ink);
   font-size: 16px;
   font-weight: 900;
 }
@@ -852,6 +982,17 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 
+.live-workshop__title-meta span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+}
+
 .live-workshop__board {
   min-width: 0;
   overflow: hidden;
@@ -862,15 +1003,17 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 14px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.98));
 }
 
 .live-board__table {
   display: grid;
   min-width: 880px;
   gap: 1px;
-  border-radius: var(--xt-radius-lg);
-  background: var(--xt-border-light);
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-line);
   overflow: hidden;
 }
 
@@ -894,20 +1037,27 @@ onBeforeUnmount(() => {
 .live-cell {
   min-height: 64px;
   padding: 10px 12px;
-  background: var(--xt-bg-panel-strong);
+  background: #fff;
 }
 
 .live-board__stub,
 .live-board__head-cell {
   display: flex;
   align-items: center;
-  color: var(--xt-text-secondary);
+  color: var(--xt-text-muted);
   font-size: 12px;
   font-weight: 900;
 }
 
+.live-board__row--head .live-board__stub,
+.live-board__head-cell {
+  min-height: 44px;
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+}
+
 .live-board__stub--machine {
-  color: var(--xt-text);
+  color: var(--command-ink);
 }
 
 .live-cell {
@@ -919,6 +1069,7 @@ onBeforeUnmount(() => {
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: inset 3px 0 0 transparent;
   transition-property: transform, box-shadow, background-color;
   transition-duration: var(--xt-motion-fast);
   transition-timing-function: var(--xt-ease);
@@ -947,7 +1098,7 @@ onBeforeUnmount(() => {
 }
 
 .live-cell strong {
-  color: var(--xt-text);
+  color: var(--command-ink);
   font-size: 14px;
   font-weight: 900;
 }
@@ -960,7 +1111,8 @@ onBeforeUnmount(() => {
 }
 
 .live-cell.tone-success {
-  background: var(--xt-success-light);
+  background: color-mix(in srgb, var(--xt-success-light) 72%, #fff);
+  box-shadow: inset 3px 0 0 var(--command-green);
 }
 
 .live-cell.tone-success .live-cell__symbol {
@@ -968,7 +1120,8 @@ onBeforeUnmount(() => {
 }
 
 .live-cell.tone-warning {
-  background: var(--xt-warning-light);
+  background: color-mix(in srgb, var(--xt-warning-light) 72%, #fff);
+  box-shadow: inset 3px 0 0 var(--command-amber);
 }
 
 .live-cell.tone-warning .live-cell__symbol {
@@ -976,7 +1129,8 @@ onBeforeUnmount(() => {
 }
 
 .live-cell.tone-danger {
-  background: var(--xt-danger-light);
+  background: color-mix(in srgb, var(--xt-danger-light) 72%, #fff);
+  box-shadow: inset 3px 0 0 var(--command-red);
 }
 
 .live-cell.tone-danger .live-cell__symbol {
@@ -996,7 +1150,7 @@ onBeforeUnmount(() => {
 }
 
 .live-cell.is-updated {
-  box-shadow: inset 0 0 0 2px var(--xt-primary);
+  box-shadow: inset 0 0 0 2px var(--command-blue);
 }
 
 .live-board__total-cell,
@@ -1011,13 +1165,14 @@ onBeforeUnmount(() => {
 
 .live-board__total-cell strong,
 .live-summary-cell strong {
-  color: var(--xt-text);
+  color: var(--command-ink);
   font-size: 14px;
   font-weight: 900;
 }
 
 .live-board__total-cell--accent {
-  background: var(--xt-primary-light);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
 }
 
 .live-board__total-cell--muted {
@@ -1027,6 +1182,15 @@ onBeforeUnmount(() => {
 .live-dashboard__bottom {
   min-width: 0;
   margin-top: 14px;
+  border-color: var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 14px 36px rgba(25, 62, 118, 0.07);
+}
+
+.live-dashboard__bottom :deep(.el-card__header) {
+  border-bottom-color: var(--command-line);
+  background: #fff;
 }
 
 .live-dashboard__table-header {
@@ -1038,6 +1202,7 @@ onBeforeUnmount(() => {
 }
 
 .live-dashboard__table-header strong {
+  color: var(--command-ink);
   font-size: 16px;
   font-weight: 900;
 }
@@ -1055,9 +1220,10 @@ onBeforeUnmount(() => {
 
 .live-drawer__meta span {
   padding: 6px 9px;
-  border-radius: var(--xt-radius-md);
-  background: var(--xt-bg-panel-soft);
-  color: var(--xt-text-secondary);
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
   font-size: 12px;
   font-weight: 800;
 }
@@ -1076,6 +1242,28 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
+  .live-dashboard :deep(.reference-page__header) {
+    display: grid;
+    padding: 12px;
+  }
+
+  .live-dashboard :deep(.reference-page__actions) {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .live-dashboard :deep(.reference-page__actions .el-date-editor) {
+    width: 100%;
+  }
+
+  .live-dashboard__connection,
+  .live-dashboard__progress-pill,
+  .live-dashboard :deep(.reference-page__actions .el-button) {
+    width: 100%;
+    justify-content: center;
+  }
+
   .command-status-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1096,6 +1284,12 @@ onBeforeUnmount(() => {
 
   .live-dashboard__table-header {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .command-status-strip {
+    grid-template-columns: 1fr;
   }
 }
 </style>
