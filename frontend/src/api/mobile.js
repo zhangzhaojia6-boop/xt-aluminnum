@@ -1,4 +1,6 @@
-import { api } from './index.js'
+import axios from 'axios'
+
+import { api, apiBaseUrl } from './index.js'
 
 function mergeConfig(baseConfig = {}, overrideConfig = {}) {
   return {
@@ -28,6 +30,14 @@ export async function fetchEntryFields() {
 
 export async function fetchWorkshopTemplate(templateKey) {
   const { data } = await api.get(`/templates/${templateKey}`)
+  return data
+}
+
+export async function fetchFieldOptions(source) {
+  const normalizedSource = String(source || '').trim().replace(/_/g, '-')
+  if (!normalizedSource) return []
+  const configBaseUrl = apiBaseUrl.replace(/\/v1$/, '')
+  const { data } = await axios.get(`${configBaseUrl}/config/${normalizedSource}`)
   return data
 }
 
@@ -142,14 +152,5 @@ export async function fetchCoilList(businessDate, shiftId) {
 
 export async function createCoilEntry(payload) {
   const { data } = await api.post('/mobile/coil-entry', payload)
-  return data
-}
-
-const _optionsCache = new Map()
-
-export async function fetchFieldOptions(source) {
-  if (_optionsCache.has(source)) return _optionsCache.get(source)
-  const { data } = await api.get(`/config/${source}`)
-  _optionsCache.set(source, data)
   return data
 }

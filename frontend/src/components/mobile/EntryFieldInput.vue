@@ -26,15 +26,21 @@
     <el-select
       v-else-if="field.type === 'select'"
       :model-value="modelValue"
+      :placeholder="placeholder"
+      :disabled="disabled"
+      :loading="loadingOptions"
       filterable
       allow-create
       default-first-option
-      :placeholder="placeholder"
-      :disabled="disabled"
       class="mobile-select"
-      @update:model-value="$emit('update:modelValue', $event)"
+      @update:model-value="emit('update:modelValue', $event)"
     >
-      <el-option v-for="opt in resolvedOptions" :key="opt" :label="opt" :value="opt" />
+      <el-option
+        v-for="option in normalizedOptions"
+        :key="option.value"
+        :label="option.label"
+        :value="option.value"
+      />
     </el-select>
     <div v-else-if="field.type === 'spec'" class="mobile-spec-row">
       <el-input
@@ -58,6 +64,7 @@
       <el-input
         v-if="!field.spec_suffix"
         :model-value="specParts[2]"
+        inputmode="decimal"
         placeholder="长/C"
         :disabled="disabled"
         class="mobile-spec-input"
@@ -79,10 +86,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { confidenceLabel, confidenceTone } from '../../composables/useOcrState.js'
-import { displayFieldLabel, fieldPlaceholder } from '../../utils/fieldValueHelpers.js'
 import { fetchFieldOptions } from '../../api/mobile.js'
+import { displayFieldLabel, fieldPlaceholder } from '../../utils/fieldValueHelpers.js'
+
+const optionCache = new Map()
 
 const props = defineProps({
   field: { type: Object, required: true },
@@ -97,43 +106,79 @@ const emit = defineEmits(['update:modelValue'])
 
 const label = computed(() => displayFieldLabel(props.field))
 const placeholder = computed(() => fieldPlaceholder(props.field))
-
+const loadingOptions = ref(false)
 const dynamicOptions = ref([])
-const resolvedOptions = computed(() => {
-  if (props.field.options) return props.field.options
+const selectOptions = computed(() => {
+  if (Array.isArray(props.field.options) && props.field.options.length) {
+    return props.field.options
+  }
   return dynamicOptions.value
 })
+const normalizedOptions = computed(() =>
+  selectOptions.value.map((option) => {
+    if (typeof option === 'object' && option !== null) {
+      const value = option.value ?? option.label
+      return { label: option.label ?? value, value }
+    }
+    return { label: option, value: option }
+  })
+)
+const specParts = computed(() => splitSpecValue(props.modelValue))
 
-onMounted(async () => {
-  if (props.field.type === 'select' && props.field.options_source) {
-    try {
-      dynamicOptions.value = await fetchFieldOptions(props.field.options_source)
-    } catch { /* fallback to empty */ }
-  }
-})
-
-function parseSpec(value) {
-  const parts = (value || '').split(/[×xX*]/)
+function splitSpecValue(value) {
+  const parts = String(value || '')
+    .split(/[×xX*]/)
+    .map((part) => part.trim())
   return [parts[0] || '', parts[1] || '', parts[2] || '']
 }
 
-const specParts = ref(parseSpec(props.modelValue))
-
-watch(() => props.modelValue, (val) => {
-  const parsed = parseSpec(val)
-  if (parsed.join('×') !== specParts.value.join('×')) {
-    specParts.value = parsed
+function formatSpecValue(parts) {
+  const cleanParts = parts.map((part) => String(part || '').trim())
+  const suffix = String(props.field.spec_suffix || '').trim()
+  if (suffix) {
+    const editableParts = cleanParts.slice(0, 2)
+    if (!editableParts.some(Boolean)) return ''
+    return [...editableParts, suffix].filter(Boolean).join('×')
   }
-})
+
+  let lastFilledIndex = cleanParts.length - 1
+  while (lastFilledIndex >= 0 && !cleanParts[lastFilledIndex]) {
+    lastFilledIndex -= 1
+  }
+  if (lastFilledIndex < 0) return ''
+  return cleanParts.slice(0, lastFilledIndex + 1).join('×')
+}
 
 function updateSpecPart(index, value) {
-  const parts = [...specParts.value]
+  const parts = splitSpecValue(props.modelValue)
   parts[index] = value
-  specParts.value = parts
-  const suffix = props.field.spec_suffix
-  const segments = suffix ? [parts[0], parts[1], suffix] : parts
-  emit('update:modelValue', segments.filter(Boolean).join('×'))
+  emit('update:modelValue', formatSpecValue(parts))
 }
+
+async function loadOptions() {
+  const source = props.field.options_source
+  if (props.field.type !== 'select' || props.field.options?.length || !source) {
+    dynamicOptions.value = []
+    return
+  }
+  if (optionCache.has(source)) {
+    dynamicOptions.value = optionCache.get(source)
+    return
+  }
+  loadingOptions.value = true
+  try {
+    const options = await fetchFieldOptions(source)
+    dynamicOptions.value = Array.isArray(options) ? options : []
+    optionCache.set(source, dynamicOptions.value)
+  } catch {
+    dynamicOptions.value = []
+  } finally {
+    loadingOptions.value = false
+  }
+}
+
+onMounted(loadOptions)
+watch(() => [props.field.type, props.field.options_source, props.field.options], loadOptions)
 </script>
 
 <style scoped>
