@@ -321,7 +321,7 @@ onMounted(loadData)
   font-family: var(--xt-font-display);
   font-size: var(--xt-text-xl);
   font-weight: 850;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
 }
 
 .coil-identity__main span,
@@ -384,7 +384,7 @@ onMounted(loadData)
   font-size: var(--xt-text-2xl);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
 }
 
 .coil-list {
@@ -485,7 +485,7 @@ onMounted(loadData)
   font-size: var(--xt-text-2xl);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
 }
 
 @media (max-width: 400px) {

@@ -562,7 +562,7 @@ function sourceTagClass(lane) {
   font-size: 13px;
   font-weight: 700;
   color: var(--xt-text-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .core-metric-card__value {
@@ -570,7 +570,7 @@ function sourceTagClass(lane) {
   font-size: clamp(28px, 3vw, 40px);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.1;
   margin-top: var(--xt-space-2);
   color: var(--xt-text);
@@ -614,7 +614,7 @@ function sourceTagClass(lane) {
   font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .secondary-metric__value.is-ok {
@@ -697,7 +697,7 @@ function sourceTagClass(lane) {
 
 .reporting-status-table :deep(thead .cell) {
   font-size: 11px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--xt-gray-600);
 }
 
