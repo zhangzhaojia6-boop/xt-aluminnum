@@ -67,8 +67,68 @@ def upgrade() -> None:
     op.create_index('ix_ai_context_packs_intent', 'ai_context_packs', ['intent'], unique=False)
     op.create_index('ix_ai_context_packs_source_hash', 'ai_context_packs', ['source_hash'], unique=False)
 
+    op.create_table(
+        'ai_briefing_events',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('public_id', sa.String(length=64), nullable=False),
+        sa.Column('briefing_type', sa.String(length=64), nullable=False),
+        sa.Column('severity', sa.String(length=32), nullable=False, server_default='info'),
+        sa.Column('title', sa.String(length=128), nullable=False),
+        sa.Column('scope_key', sa.String(length=128), nullable=True),
+        sa.Column('payload', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('read', sa.Boolean(), nullable=False, server_default=sa.text('false')),
+        sa.Column('follow_up_status', sa.String(length=32), nullable=False, server_default='none'),
+        sa.Column('delivery_suppressed', sa.Boolean(), nullable=False, server_default=sa.text('false')),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('public_id'),
+    )
+    op.create_index('ix_ai_briefing_events_id', 'ai_briefing_events', ['id'], unique=False)
+    op.create_index('ix_ai_briefing_events_public_id', 'ai_briefing_events', ['public_id'], unique=True)
+    op.create_index('ix_ai_briefing_events_briefing_type', 'ai_briefing_events', ['briefing_type'], unique=False)
+    op.create_index('ix_ai_briefing_events_severity', 'ai_briefing_events', ['severity'], unique=False)
+    op.create_index('ix_ai_briefing_events_scope_key', 'ai_briefing_events', ['scope_key'], unique=False)
+
+    op.create_table(
+        'ai_watchlist_items',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('public_id', sa.String(length=64), nullable=False),
+        sa.Column('owner_user_id', sa.Integer(), nullable=True),
+        sa.Column('watch_type', sa.String(length=64), nullable=False),
+        sa.Column('scope_key', sa.String(length=128), nullable=False),
+        sa.Column('trigger_rules', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('quiet_hours', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('frequency', sa.String(length=32), nullable=False, server_default='hourly'),
+        sa.Column('channels', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column('active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('public_id'),
+    )
+    op.create_index('ix_ai_watchlist_items_id', 'ai_watchlist_items', ['id'], unique=False)
+    op.create_index('ix_ai_watchlist_items_public_id', 'ai_watchlist_items', ['public_id'], unique=True)
+    op.create_index('ix_ai_watchlist_items_owner_user_id', 'ai_watchlist_items', ['owner_user_id'], unique=False)
+    op.create_index('ix_ai_watchlist_items_watch_type', 'ai_watchlist_items', ['watch_type'], unique=False)
+    op.create_index('ix_ai_watchlist_items_scope_key', 'ai_watchlist_items', ['scope_key'], unique=False)
+
 
 def downgrade() -> None:
+    op.drop_index('ix_ai_watchlist_items_scope_key', table_name='ai_watchlist_items')
+    op.drop_index('ix_ai_watchlist_items_watch_type', table_name='ai_watchlist_items')
+    op.drop_index('ix_ai_watchlist_items_owner_user_id', table_name='ai_watchlist_items')
+    op.drop_index('ix_ai_watchlist_items_public_id', table_name='ai_watchlist_items')
+    op.drop_index('ix_ai_watchlist_items_id', table_name='ai_watchlist_items')
+    op.drop_table('ai_watchlist_items')
+
+    op.drop_index('ix_ai_briefing_events_scope_key', table_name='ai_briefing_events')
+    op.drop_index('ix_ai_briefing_events_severity', table_name='ai_briefing_events')
+    op.drop_index('ix_ai_briefing_events_briefing_type', table_name='ai_briefing_events')
+    op.drop_index('ix_ai_briefing_events_public_id', table_name='ai_briefing_events')
+    op.drop_index('ix_ai_briefing_events_id', table_name='ai_briefing_events')
+    op.drop_table('ai_briefing_events')
+
     op.drop_index('ix_ai_context_packs_source_hash', table_name='ai_context_packs')
     op.drop_index('ix_ai_context_packs_intent', table_name='ai_context_packs')
     op.drop_index('ix_ai_context_packs_owner_user_id', table_name='ai_context_packs')

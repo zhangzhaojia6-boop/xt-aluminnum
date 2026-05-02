@@ -132,6 +132,17 @@ async def lifespan(_: FastAPI):
                     session.rollback()
                     logger.exception('MES sync failed')
 
+        def _run_ai_briefing():
+            from app.services import ai_briefing_service
+
+            with session_factory() as session:
+                try:
+                    ai_briefing_service.generate_briefing(session, briefing_type='hourly_inspection', hide_normal=True)
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    logger.exception('AI briefing generation failed')
+
         scheduler.add_job(
             _run_orchestration_pipeline,
             'interval',
@@ -156,6 +167,15 @@ async def lifespan(_: FastAPI):
             'interval',
             minutes=30,
             id='reminder_sweep',
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        scheduler.add_job(
+            _run_ai_briefing,
+            'interval',
+            hours=1,
+            id='ai_hourly_briefing',
             replace_existing=True,
             coalesce=True,
             max_instances=1,

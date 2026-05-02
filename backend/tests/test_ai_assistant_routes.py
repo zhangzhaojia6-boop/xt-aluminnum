@@ -20,6 +20,8 @@ def _fake_db():
 def teardown_function() -> None:
     app.dependency_overrides.clear()
     ai.conversations_db.clear()
+    ai.briefings_db.clear()
+    ai.watchlist_db.clear()
 
 
 def test_assistant_conversation_routes_and_compatibility(monkeypatch):
@@ -63,3 +65,51 @@ def test_assistant_conversation_routes_and_compatibility(monkeypatch):
 
     compatible = client.post('/api/v1/ai/conversations')
     assert compatible.status_code == 200
+
+
+def test_briefing_and_watchlist_routes(monkeypatch):
+    app.dependency_overrides[get_current_user] = _manager_user
+    app.dependency_overrides[get_db] = _fake_db
+    monkeypatch.setattr(
+        'app.routers.ai.ai_briefing_service.generate_briefing',
+        lambda *args, **kwargs: {
+            'id': 'brief-1',
+            'briefing_type': 'opening_shift',
+            'severity': 'warning',
+            'title': '开班简报',
+            'payload': {'rules_fired': []},
+            'read': False,
+            'follow_up_status': 'none',
+        },
+    )
+
+    client = TestClient(app)
+    generated = client.post('/api/v1/ai/briefings/generate-now', json={'briefing_type': 'opening_shift'})
+    assert generated.status_code == 200
+    briefing_id = generated.json()['id']
+
+    listed = client.get('/api/v1/ai/briefings')
+    assert listed.status_code == 200
+    assert listed.json()[0]['id'] == briefing_id
+
+    assert client.post(f'/api/v1/ai/briefings/{briefing_id}/read').status_code == 200
+    assert client.post(f'/api/v1/ai/briefings/{briefing_id}/follow-up').status_code == 200
+
+    created_watch = client.post(
+        '/api/v1/ai/watchlist',
+        json={
+            'watch_type': 'machine',
+            'scope_key': '冷轧:01',
+            'trigger_rules': ['delay_hours_high'],
+            'quiet_hours': {'start': '22:00', 'end': '07:00'},
+            'frequency': 'hourly',
+            'channels': ['in_app'],
+            'active': True,
+        },
+    )
+    assert created_watch.status_code == 200
+    watch_id = created_watch.json()['id']
+
+    assert client.get('/api/v1/ai/watchlist').json()[0]['id'] == watch_id
+    assert client.patch(f'/api/v1/ai/watchlist/{watch_id}', json={'active': False}).json()['active'] is False
+    assert client.delete(f'/api/v1/ai/watchlist/{watch_id}').status_code == 200

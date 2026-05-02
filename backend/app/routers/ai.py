@@ -14,14 +14,19 @@ from app.core.deps import get_current_user, get_db
 from app.models.system import User
 from app.schemas.ai_assistant import (
     AiAskIn,
+    AiBriefingGenerateIn,
+    AiBriefingOut,
     AiAnswerOut,
     AiConversationCreateIn,
     AiConversationMessageResponseOut,
     AiConversationOut,
     AiMessageCreateIn,
     AiMessageOut,
+    AiWatchlistCreateIn,
+    AiWatchlistOut,
+    AiWatchlistPatchIn,
 )
-from app.services import ai_context_service
+from app.services import ai_briefing_service, ai_context_service
 
 router = APIRouter(tags=['ai'])
 
@@ -36,6 +41,8 @@ class ConversationRename(BaseModel):
 
 
 conversations_db: dict[str, dict] = {}
+briefings_db: list[dict] = []
+watchlist_db: dict[str, dict] = {}
 
 
 def _now() -> str:
@@ -219,3 +226,97 @@ def ask_assistant(
         intent=body.intent,
         scope=body.scope or {},
     )
+
+
+@router.get('/briefings', response_model=list[AiBriefingOut])
+def list_briefings(current_user: User = Depends(get_current_user)) -> list[dict]:
+    _ = current_user
+    return briefings_db
+
+
+@router.post('/briefings/generate-now', response_model=AiBriefingOut)
+def generate_briefing_now(
+    body: AiBriefingGenerateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ = current_user
+    event = ai_briefing_service.generate_briefing(
+        db,
+        briefing_type=body.briefing_type,
+        hide_normal=body.hide_normal,
+    )
+    briefings_db.insert(0, event)
+    return event
+
+
+@router.post('/briefings/{briefing_id}/read', response_model=AiBriefingOut)
+def mark_briefing_read(briefing_id: str, current_user: User = Depends(get_current_user)) -> dict:
+    _ = current_user
+    event = _find_briefing(briefing_id)
+    event['read'] = True
+    return event
+
+
+@router.post('/briefings/{briefing_id}/follow-up', response_model=AiBriefingOut)
+def mark_briefing_follow_up(briefing_id: str, current_user: User = Depends(get_current_user)) -> dict:
+    _ = current_user
+    event = _find_briefing(briefing_id)
+    event['follow_up_status'] = 'followed'
+    return event
+
+
+@router.get('/watchlist', response_model=list[AiWatchlistOut])
+def list_watchlist(current_user: User = Depends(get_current_user)) -> list[dict]:
+    _ = current_user
+    return list(watchlist_db.values())
+
+
+@router.post('/watchlist', response_model=AiWatchlistOut)
+def create_watchlist_item(
+    body: AiWatchlistCreateIn,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    item_id = f'watch-{uuid4().hex[:12]}'
+    item = {
+        'id': item_id,
+        'watch_type': body.watch_type,
+        'scope_key': body.scope_key,
+        'trigger_rules': body.trigger_rules,
+        'quiet_hours': body.quiet_hours,
+        'frequency': body.frequency,
+        'channels': body.channels,
+        'active': body.active,
+        'owner_user_id': getattr(current_user, 'id', None),
+    }
+    watchlist_db[item_id] = item
+    return item
+
+
+@router.patch('/watchlist/{watch_id}', response_model=AiWatchlistOut)
+def update_watchlist_item(
+    watch_id: str,
+    body: AiWatchlistPatchIn,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ = current_user
+    item = watchlist_db.get(watch_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail='Watchlist item not found')
+    for key, value in body.model_dump(exclude_unset=True).items():
+        item[key] = value
+    return item
+
+
+@router.delete('/watchlist/{watch_id}')
+def delete_watchlist_item(watch_id: str, current_user: User = Depends(get_current_user)) -> dict[str, bool]:
+    _ = current_user
+    watchlist_db.pop(watch_id, None)
+    return {'ok': True}
+
+
+def _find_briefing(briefing_id: str) -> dict:
+    for event in briefings_db:
+        if event.get('id') == briefing_id:
+            return event
+    raise HTTPException(status_code=404, detail='Briefing not found')
