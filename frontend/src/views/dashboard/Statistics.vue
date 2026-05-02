@@ -18,20 +18,37 @@
         <div class="stat-value">{{ stats.pending_shift_count ?? 0 }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">兼容中间态班次</div>
-        <div class="stat-value">{{ stats.reviewed_shift_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">主口径已就绪班次</div>
-        <div class="stat-value">{{ stats.confirmed_shift_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-label">手机上报率</div>
         <div class="stat-value">{{ stats.mobile_reporting_summary?.reporting_rate ?? 0 }}%</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">未报班次</div>
         <div class="stat-value">{{ stats.unreported_shift_count ?? 0 }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">未处理差异</div>
+        <div class="stat-value">{{ stats.open_reconciliation_count ?? 0 }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">交付状态</div>
+        <div class="stat-value">{{ delivery.delivery_ready ? '可交付' : '未就绪' }}</div>
+      </div>
+    </div>
+
+    <div v-if="!moreMetricsExpanded" class="stat-more-toggle stat-reveal stat-reveal--1">
+      <button type="button" class="stat-more-btn" @click="moreMetricsExpanded = true">
+        展开更多指标 (10)
+      </button>
+    </div>
+
+    <div v-show="moreMetricsExpanded" class="stat-grid stat-reveal stat-reveal--1" v-loading="loading">
+      <div class="stat-card">
+        <div class="stat-label">兼容中间态班次</div>
+        <div class="stat-value">{{ stats.reviewed_shift_count ?? 0 }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">主口径已就绪班次</div>
+        <div class="stat-value">{{ stats.confirmed_shift_count ?? 0 }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">迟报班次</div>
@@ -42,20 +59,12 @@
         <div class="stat-value">{{ stats.today_reminder_count ?? 0 }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">未处理差异</div>
-        <div class="stat-value">{{ stats.open_reconciliation_count ?? 0 }}</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-label">质量阻断</div>
         <div class="stat-value">{{ delivery.blocker_count ?? 0 }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">交付条件满足</div>
         <div class="stat-value">{{ formatBooleanLabel(stats.can_finalize) }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">交付状态</div>
-        <div class="stat-value">{{ delivery.delivery_ready ? '可交付' : '未就绪' }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">MES 同步延迟</div>
@@ -75,103 +84,96 @@
       </div>
     </div>
 
-    <el-card class="panel stat-reveal stat-reveal--2" v-loading="loading">
-      <template #header>MES 同步状态</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="最近同步">{{ stats.mes_sync_status?.last_synced_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="最近事件">{{ stats.mes_sync_status?.last_event_at || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="Lag">{{ syncLagText }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ stats.mes_sync_status?.last_run_status || 'idle' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+    <el-collapse v-model="expandedPanels" class="stat-collapse stat-reveal stat-reveal--2">
+      <el-collapse-item title="待处理班次" name="pending">
+        <el-table :data="stats.pending_shift_items || []" stripe class="dashboard-table">
+          <el-table-column prop="id" label="编号" width="80" />
+          <el-table-column prop="business_date" label="业务日期" width="120" />
+          <el-table-column prop="workshop_id" label="车间编号" width="100" />
+          <el-table-column prop="shift_config_id" label="班次编号" width="100" />
+          <el-table-column prop="version_no" label="版本号" width="90" />
+          <el-table-column prop="data_status" label="状态" width="120">
+            <template #default="{ row }">
+              {{ formatStatusLabel(row.data_status) }}
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-collapse-item>
 
-    <el-card class="panel stat-reveal stat-reveal--2" v-loading="loading">
-      <template #header>成品率矩阵正式口径</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="矩阵日期">{{ yieldMatrixLane.business_date ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="快照数">{{ yieldMatrixLane.snapshot_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="公司总成品率">{{ formatNumber(yieldMatrixLane.company_total_yield) }}</el-descriptions-item>
-        <el-descriptions-item label="质量状态">{{ formatStatusLabel(yieldMatrixLane.quality_status) }}</el-descriptions-item>
-        <el-descriptions-item label="M 指标">{{ formatNumber(yieldMatrixLane.mp_targets?.M) }}</el-descriptions-item>
-        <el-descriptions-item label="P 指标">{{ formatNumber(yieldMatrixLane.mp_targets?.P) }}</el-descriptions-item>
-        <el-descriptions-item label="主交付范围">{{ yieldMatrixLane.primary_delivery_scope ?? '-' }}</el-descriptions-item>
-        <el-descriptions-item label="交付范围">{{ (yieldMatrixLane.delivery_scopes || []).join('、') || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <el-table :data="yieldMatrixWorkshopRows" stripe>
-        <el-table-column prop="workshop_key" label="矩阵口径" min-width="180" />
-        <el-table-column prop="yield_rate" label="正式成品率" min-width="120">
-          <template #default="{ row }">{{ formatNumber(row.yield_rate) }}</template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <el-collapse-item title="MES 同步状态" name="mes">
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="最近同步">{{ stats.mes_sync_status?.last_synced_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="最近事件">{{ stats.mes_sync_status?.last_event_at || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Lag">{{ syncLagText }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ stats.mes_sync_status?.last_run_status || 'idle' }}</el-descriptions-item>
+        </el-descriptions>
+      </el-collapse-item>
 
+      <el-collapse-item title="成品率矩阵" name="yield">
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="矩阵日期">{{ yieldMatrixLane.business_date ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="快照数">{{ yieldMatrixLane.snapshot_count ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="公司总成品率">{{ formatNumber(yieldMatrixLane.company_total_yield) }}</el-descriptions-item>
+          <el-descriptions-item label="质量状态">{{ formatStatusLabel(yieldMatrixLane.quality_status) }}</el-descriptions-item>
+          <el-descriptions-item label="M 指标">{{ formatNumber(yieldMatrixLane.mp_targets?.M) }}</el-descriptions-item>
+          <el-descriptions-item label="P 指标">{{ formatNumber(yieldMatrixLane.mp_targets?.P) }}</el-descriptions-item>
+          <el-descriptions-item label="主交付范围">{{ yieldMatrixLane.primary_delivery_scope ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="交付范围">{{ (yieldMatrixLane.delivery_scopes || []).join('、') || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-table :data="yieldMatrixWorkshopRows" stripe class="dashboard-table">
+          <el-table-column prop="workshop_key" label="矩阵口径" min-width="180" />
+          <el-table-column prop="yield_rate" label="正式成品率" min-width="120">
+            <template #default="{ row }">{{ formatNumber(row.yield_rate) }}</template>
+          </el-table-column>
+        </el-table>
+      </el-collapse-item>
 
-    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
-      <template #header>合同口径观察</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="快照数">{{ stats.contract_lane?.snapshot_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="当日合同">{{ formatNumber(stats.contract_lane?.daily_contract_weight) }}</el-descriptions-item>
-        <el-descriptions-item label="月累计合同">{{ formatNumber(stats.contract_lane?.month_to_date_contract_weight) }}</el-descriptions-item>
-        <el-descriptions-item label="质量状态">{{ formatStatusLabel(stats.contract_lane?.quality_status) }}</el-descriptions-item>
-      </el-descriptions>
-      <div class="note">作用域：{{ (stats.contract_lane?.delivery_scopes || []).join('、') || '未识别' }}</div>
-      <el-table :data="stats.contract_lane?.items || []" stripe>
-        <el-table-column prop="sheet_name" label="Sheet" />
-        <el-table-column prop="business_date" label="业务日期" width="120" />
-        <el-table-column prop="delivery_scope" label="作用域" width="160" />
-        <el-table-column prop="daily_contract_weight" label="当日合同">
-          <template #default="{ row }">{{ formatNumber(row.daily_contract_weight) }}</template>
-        </el-table-column>
-        <el-table-column prop="month_to_date_contract_weight" label="月累计合同">
-          <template #default="{ row }">{{ formatNumber(row.month_to_date_contract_weight) }}</template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <el-collapse-item title="合同口径观察" name="contract">
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="快照数">{{ stats.contract_lane?.snapshot_count ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="当日合同">{{ formatNumber(stats.contract_lane?.daily_contract_weight) }}</el-descriptions-item>
+          <el-descriptions-item label="月累计合同">{{ formatNumber(stats.contract_lane?.month_to_date_contract_weight) }}</el-descriptions-item>
+          <el-descriptions-item label="质量状态">{{ formatStatusLabel(stats.contract_lane?.quality_status) }}</el-descriptions-item>
+        </el-descriptions>
+        <el-table :data="stats.contract_lane?.items || []" stripe class="dashboard-table">
+          <el-table-column prop="sheet_name" label="Sheet" />
+          <el-table-column prop="business_date" label="业务日期" width="120" />
+          <el-table-column prop="delivery_scope" label="作用域" width="160" />
+          <el-table-column prop="daily_contract_weight" label="当日合同">
+            <template #default="{ row }">{{ formatNumber(row.daily_contract_weight) }}</template>
+          </el-table-column>
+          <el-table-column prop="month_to_date_contract_weight" label="月累计合同">
+            <template #default="{ row }">{{ formatNumber(row.month_to_date_contract_weight) }}</template>
+          </el-table-column>
+        </el-table>
+      </el-collapse-item>
 
-    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
-      <template #header>日报产出状态</template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="已生成日报">{{ delivery.reports_generated ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="兼容中间态日报">{{ delivery.reports_reviewed_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="已输出日报">{{ delivery.reports_published_count ?? 0 }}</el-descriptions-item>
-        <el-descriptions-item label="兼容统计字段">{{ delivery.reports_published ?? 0 }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+      <el-collapse-item title="日报产出状态" name="delivery">
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="已生成日报">{{ delivery.reports_generated ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="兼容中间态日报">{{ delivery.reports_reviewed_count ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="已输出日报">{{ delivery.reports_published_count ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="兼容统计字段">{{ delivery.reports_published ?? 0 }}</el-descriptions-item>
+        </el-descriptions>
+      </el-collapse-item>
 
-    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
-      <template #header>待处理班次</template>
-      <el-table :data="stats.pending_shift_items || []" stripe>
-        <el-table-column prop="id" label="编号" width="80" />
-        <el-table-column prop="business_date" label="业务日期" width="120" />
-        <el-table-column prop="workshop_id" label="车间编号" width="100" />
-        <el-table-column prop="shift_config_id" label="班次编号" width="100" />
-        <el-table-column prop="version_no" label="版本号" width="90" />
-        <el-table-column prop="data_status" label="状态" width="120">
-          <template #default="{ row }">
-            {{ formatStatusLabel(row.data_status) }}
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <el-collapse-item title="催报概览" name="reminder">
+        <el-table :data="stats.reminder_summary?.recent_items || []" stripe class="dashboard-table">
+          <el-table-column prop="reminder_type" label="提醒类型">
+            <template #default="{ row }">{{ formatReminderTypeLabel(row.reminder_type) }}</template>
+          </el-table-column>
+          <el-table-column prop="reminder_status" label="状态">
+            <template #default="{ row }">{{ formatStatusLabel(row.reminder_status) }}</template>
+          </el-table-column>
+          <el-table-column prop="reminder_count" label="次数" width="80" />
+          <el-table-column prop="last_reminded_at" label="最近催报时间" />
+        </el-table>
+      </el-collapse-item>
 
-    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
-      <template #header>催报概览</template>
-      <el-table :data="stats.reminder_summary?.recent_items || []" stripe>
-        <el-table-column prop="reminder_type" label="提醒类型">
-          <template #default="{ row }">{{ formatReminderTypeLabel(row.reminder_type) }}</template>
-        </el-table-column>
-        <el-table-column prop="reminder_status" label="状态">
-          <template #default="{ row }">{{ formatStatusLabel(row.reminder_status) }}</template>
-        </el-table-column>
-        <el-table-column prop="reminder_count" label="次数" width="80" />
-        <el-table-column prop="last_reminded_at" label="最近催报时间" />
-      </el-table>
-    </el-card>
-
-    <el-card class="panel stat-reveal stat-reveal--3" v-loading="loading">
-      <template #header>交付缺口</template>
-      <div class="note">{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
-    </el-card>
+      <el-collapse-item title="交付缺口" name="gap">
+        <div class="note">{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}</div>
+      </el-collapse-item>
+    </el-collapse>
   </div>
 </template>
 
@@ -193,6 +195,8 @@ const loading = ref(false)
 const stats = ref({})
 const delivery = ref({})
 const lastRefreshAt = ref('')
+const moreMetricsExpanded = ref(false)
+const expandedPanels = ref(['pending'])
 const yieldMatrixLane = computed(() => stats.value.yield_matrix_lane || {})
 const syncLagText = computed(() => {
   const lag = Number(stats.value.mes_sync_status?.lag_seconds)
@@ -334,5 +338,48 @@ onUnmounted(() => {
 
 @keyframes stat-reveal {
   to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-more-toggle {
+  text-align: center;
+  padding: 0 0 var(--xt-space-4);
+}
+
+.stat-more-btn {
+  background: none;
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-pill, 999px);
+  padding: var(--xt-space-2) var(--xt-space-5);
+  font-size: var(--xt-text-xs);
+  font-weight: 600;
+  color: var(--xt-text-secondary);
+  cursor: pointer;
+  transition: all var(--xt-motion-fast, 0.15s);
+}
+
+.stat-more-btn:hover {
+  border-color: var(--xt-primary-border);
+  color: var(--xt-primary);
+}
+
+.stat-collapse {
+  margin-bottom: var(--xt-space-4);
+}
+
+.stat-collapse :deep(.el-collapse-item__header) {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--xt-text);
+  padding: var(--xt-space-3) var(--xt-space-4);
+}
+
+.stat-collapse :deep(.el-collapse-item__content) {
+  padding: 0 var(--xt-space-4) var(--xt-space-4);
+}
+
+.dashboard-table {
+  --el-table-border-color: var(--xt-border-light);
+  --el-table-header-bg-color: var(--xt-bg-page);
+  font-size: 13px;
 }
 </style>

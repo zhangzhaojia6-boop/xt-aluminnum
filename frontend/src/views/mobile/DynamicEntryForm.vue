@@ -277,12 +277,6 @@
             </section>
           </div>
 
-          <div v-if="!isOwnerOnlyMode" class="mobile-dynamic-summary mobile-dynamic-summary--footer">
-            <div class="mobile-summary-chip">
-              <span>自动成材率</span>
-              <strong :class="yieldClass">{{ yieldDisplay }}</strong>
-            </div>
-          </div>
         </el-card>
       </template>
 
@@ -805,6 +799,7 @@ const historyEntries = computed(() => {
 })
 const readonlyDisplayItems = computed(() =>
   readonlyFields.value
+    .filter((field) => !field.hidden)
     .map((field) => {
       const value = resolveReadonlyFieldValue(field)
       if (isEmptyValue(value)) return null

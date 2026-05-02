@@ -26,13 +26,13 @@
               <span v-if="field.unit" class="ue-field__unit">{{ field.unit }}</span>
             </label>
             <select
-              v-if="field.type === 'select' && field.options"
+              v-if="field.type === 'select'"
               v-model="form[field.name]"
               class="ue-input ue-input--select"
               :aria-label="field.label"
             >
               <option value="">请选择</option>
-              <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
+              <option v-for="opt in resolveFieldOptions(field)" :key="opt" :value="opt">{{ opt }}</option>
             </select>
             <div v-else-if="field.type === 'spec'" class="ue-spec-row">
               <input
@@ -103,10 +103,10 @@
         </div>
       </section>
 
-      <section v-if="readonlyFields.length" class="ue-group ue-group--readonly">
+      <section v-if="visibleReadonlyFields.length" class="ue-group ue-group--readonly">
         <h3 class="ue-group__title">自动计算</h3>
         <div class="ue-readonly-row">
-          <div v-for="rf in readonlyFields" :key="rf.name" class="ue-readonly-item">
+          <div v-for="rf in visibleReadonlyFields" :key="rf.name" class="ue-readonly-item">
             <span class="ue-readonly-item__label">{{ rf.label }}</span>
             <strong class="ue-readonly-item__value">{{ computeReadonly(rf) }}</strong>
           </div>
@@ -152,6 +152,7 @@ import {
   fetchMobileReport,
   fetchCoilList,
   createCoilEntry,
+  fetchFieldOptions,
 } from '../../api/mobile.js'
 import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
 import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
@@ -165,6 +166,7 @@ const form = reactive({})
 const specParts = reactive({})
 const groups = ref([])
 const readonlyFields = ref([])
+const visibleReadonlyFields = computed(() => readonlyFields.value.filter(rf => !rf.hidden))
 const mode = ref('per_shift')
 const submitTarget = ref('shift_report')
 const identityField = ref(null)
@@ -206,6 +208,26 @@ const ROLE_COLORS = {
   utility_manager: 'oklch(52% 0.13 158)',
 }
 const roleColor = computed(() => ROLE_COLORS[auth.role] || 'oklch(51% 0.17 255)')
+
+const dynamicOptionsMap = reactive({})
+
+function resolveFieldOptions(field) {
+  if (field.options) return field.options
+  return dynamicOptionsMap[field.options_source] || []
+}
+
+async function loadDynamicOptions(fields) {
+  const sources = new Set()
+  for (const f of fields) {
+    if (f.type === 'select' && f.options_source && !f.options) sources.add(f.options_source)
+  }
+  for (const src of sources) {
+    if (dynamicOptionsMap[src]) continue
+    try {
+      dynamicOptionsMap[src] = await fetchFieldOptions(src)
+    } catch { /* ignore */ }
+  }
+}
 
 function computeReadonly(rf) {
   return computeReadonlyValue(rf.compute, form, rf.unit)
@@ -344,6 +366,9 @@ async function loadData() {
         if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
       }
     }
+
+    const allFields = groups.value.flatMap(g => g.fields)
+    loadDynamicOptions(allFields)
 
     if (shift.report_id && mode.value === 'per_shift') {
       try {

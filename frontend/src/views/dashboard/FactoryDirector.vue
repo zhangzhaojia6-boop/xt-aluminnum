@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <div class="review-home-hero__war-room">
+      <div class="review-home-hero__war-room" style="display:none">
         <XtFactoryMap
           compact
           :nodes="factoryMapNodes"
@@ -40,7 +40,7 @@
         </div>
       </div>
 
-      <div class="review-home-hero__workshop-ribbon">
+      <div class="review-home-hero__workshop-ribbon" style="display:none">
         <button
           v-for="workshop in workshopGlyphs"
           :key="workshop.key"
@@ -54,7 +54,50 @@
         </button>
       </div>
 
-      <div class="review-home-hero__grid">
+      <div class="review-home-hero__core-metrics">
+        <div class="core-metric-card">
+          <div class="core-metric-card__label">今日产量</div>
+          <div class="core-metric-card__value">{{ formatNumber(leaderMetrics.today_total_output) }}</div>
+          <div class="core-metric-card__unit">吨</div>
+        </div>
+        <div class="core-metric-card">
+          <div class="core-metric-card__label">缺报班次</div>
+          <div
+            class="core-metric-card__value"
+            :class="{ 'core-metric-card__value--alert': (data.exception_lane?.unreported_shift_count ?? 0) > 0 }"
+          >
+            {{ data.exception_lane?.unreported_shift_count ?? 0 }}
+          </div>
+        </div>
+        <div class="core-metric-card">
+          <div class="core-metric-card__label">异常与退回</div>
+          <div
+            class="core-metric-card__value"
+            :class="{ 'core-metric-card__value--alert': factoryAbnormalCount > 0 }"
+          >
+            {{ factoryAbnormalCount }}
+          </div>
+        </div>
+      </div>
+
+      <div class="review-home-hero__secondary-metrics">
+        <div class="secondary-metric">
+          <span class="secondary-metric__label">交付进度</span>
+          <strong class="secondary-metric__value" :class="delivery.delivery_ready ? 'is-ok' : 'is-gap'">
+            {{ delivery.delivery_ready ? '可交付' : '待补齐' }}
+          </strong>
+        </div>
+        <div class="secondary-metric">
+          <span class="secondary-metric__label">单吨能耗</span>
+          <strong class="secondary-metric__value">{{ formatNumber(leaderMetrics.energy_per_ton) }}</strong>
+        </div>
+        <div class="secondary-metric">
+          <span class="secondary-metric__label">月累计</span>
+          <strong class="secondary-metric__value">{{ formatNumber(monthToDateOutput) }} 吨</strong>
+        </div>
+      </div>
+
+      <div class="review-home-hero__grid" style="display:none">
         <div class="review-home-hero__metrics">
           <div class="review-home-hero__section-title">
             <el-icon><TrendCharts /></el-icon>
@@ -765,6 +808,96 @@ function sourceTagClass(lane) {
   gap: 12px;
 }
 
+.review-home-hero__core-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--xt-space-4);
+  margin-top: var(--xt-space-2);
+}
+
+.core-metric-card {
+  background: var(--xt-bg-panel-soft);
+  border-radius: var(--xt-radius-xl);
+  border: 1px solid var(--xt-border-light);
+  padding: var(--xt-space-5) var(--xt-space-4);
+  text-align: center;
+  box-shadow: var(--xt-shadow-sm);
+  transition: transform var(--app-motion-fast) var(--app-motion-curve),
+    box-shadow var(--app-motion-fast) var(--app-motion-curve);
+}
+
+.core-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--xt-shadow-md);
+}
+
+.core-metric-card__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--xt-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.core-metric-card__value {
+  font-family: var(--xt-font-number);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: var(--xt-space-2);
+  color: var(--xt-text);
+}
+
+.core-metric-card__value--alert {
+  color: var(--xt-danger);
+}
+
+.core-metric-card__unit {
+  font-size: 13px;
+  color: var(--xt-text-muted);
+  margin-top: 2px;
+}
+
+.review-home-hero__secondary-metrics {
+  display: flex;
+  gap: var(--xt-space-3);
+  margin-top: var(--xt-space-2);
+}
+
+.secondary-metric {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3) var(--xt-space-4);
+  background: var(--xt-bg-panel-soft);
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+}
+
+.secondary-metric__label {
+  font-size: 13px;
+  color: var(--xt-text-muted);
+  white-space: nowrap;
+}
+
+.secondary-metric__value {
+  font-family: var(--xt-font-number);
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.secondary-metric__value.is-ok {
+  color: var(--xt-success);
+}
+
+.secondary-metric__value.is-gap {
+  color: var(--xt-warning);
+}
+
 .review-home-hero__war-room {
   grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
   align-items: stretch;
@@ -1071,6 +1204,24 @@ function sourceTagClass(lane) {
   .review-home-hero__grid,
   .review-factory .stat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .review-home-hero__core-metrics {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--xt-space-2);
+  }
+
+  .core-metric-card {
+    padding: var(--xt-space-3) var(--xt-space-2);
+  }
+
+  .core-metric-card__value {
+    font-size: 24px;
+  }
+
+  .review-home-hero__secondary-metrics {
+    flex-direction: column;
+    gap: var(--xt-space-2);
   }
 
   .review-home-hero__toolbar,

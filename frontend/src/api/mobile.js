@@ -144,3 +144,12 @@ export async function createCoilEntry(payload) {
   const { data } = await api.post('/mobile/coil-entry', payload)
   return data
 }
+
+const _optionsCache = new Map()
+
+export async function fetchFieldOptions(source) {
+  if (_optionsCache.has(source)) return _optionsCache.get(source)
+  const { data } = await api.get(`/config/${source}`)
+  _optionsCache.set(source, data)
+  return data
+}
