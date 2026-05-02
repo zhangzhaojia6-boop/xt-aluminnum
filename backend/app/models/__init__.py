@@ -10,6 +10,7 @@ from app.models.attendance import (
     ShiftSwap,
     ShiftAttendanceConfirmation,
 )
+from app.models.assistant import AiContextPack, AiConversation, AiMessage
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
@@ -50,6 +51,9 @@ __all__ = [
     'AttendanceException',
     'AttendanceProcessLog',
     'ShiftAttendanceConfirmation',
+    'AiConversation',
+    'AiMessage',
+    'AiContextPack',
     'EmployeeAttendanceDetail',
     'ShiftProductionData',
     'MobileShiftReport',

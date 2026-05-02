@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+from typing import Any, Mapping
+
+from sqlalchemy.orm import Session
+
+from app.models.assistant import AiContextPack
+from app.services import factory_command_service
+
+
+_SENSITIVE_KEY_PARTS = ('password', 'secret', 'token', 'credential', 'api_key', 'apikey')
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        sanitized: dict[str, Any] = {}
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if any(part in lowered for part in _SENSITIVE_KEY_PARTS):
+                continue
+            sanitized[str(key)] = _sanitize(item)
+        return sanitized
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    return value
+
+
+def _source_hash(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()[:32]
+
+
+def _delay_hours(item: Mapping[str, Any]) -> float:
+    try:
+        return float(item.get('delay_hours') or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _rules_for(coils: list[Mapping[str, Any]], freshness: Mapping[str, Any]) -> list[dict[str, Any]]:
+    rules: list[dict[str, Any]] = []
+    if freshness.get('status') in {'stale', 'offline_or_blocked'}:
+        rules.append(
+            {
+                'key': 'sync_stale',
+                'severity': 'warning',
+                'evidence_refs': [{'kind': 'sync', 'key': 'mes_projection'}],
+                'recommended_next_actions': ['检查外部 MES 同步状态'],
+            }
+        )
+    if any(_delay_hours(coil) > 0 for coil in coils):
+        rules.append(
+            {
+                'key': 'delay_hours_high',
+                'severity': 'warning',
+                'evidence_refs': [
+                    {'kind': 'coil', 'key': str(coil.get('coil_key') or '')}
+                    for coil in coils
+                    if _delay_hours(coil) > 0
+                ][:5],
+                'recommended_next_actions': ['查看停滞卷证据', '确认下一工序资源'],
+            }
+        )
+    return rules
+
+
+def build_context_pack(
+    db: Session,
+    *,
+    user: Any,
+    intent: str,
+    scope: dict[str, Any] | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    current = now or _now()
+    scope_payload = scope or {'type': 'factory', 'key': 'all'}
+    freshness = factory_command_service.build_freshness(db)
+    machine_lines = _sanitize(factory_command_service.list_machine_lines(db))
+    coils = _sanitize(factory_command_service.list_coils(db))
+    top_abnormal_coils = [
+        coil
+        for coil in coils
+        if isinstance(coil, Mapping) and (_delay_hours(coil) > 0 or not coil.get('current_process'))
+    ][:8]
+    route_refs = [
+        {
+            'coil_key': coil.get('coil_key'),
+            'current_process': coil.get('current_process'),
+            'next_process': coil.get('next_process'),
+        }
+        for coil in coils
+        if isinstance(coil, Mapping)
+    ][:12]
+    known_missing_data = []
+    if freshness.get('status') in {'stale', 'offline_or_blocked'}:
+        known_missing_data.append('mes_stale')
+
+    pack = {
+        'intent': intent,
+        'scope': scope_payload,
+        'freshness': freshness,
+        'top_abnormal_coils': top_abnormal_coils,
+        'machine_line_metrics': machine_lines,
+        'route_refs': route_refs,
+        'rules_fired': _rules_for(coils, freshness),
+        'known_missing_data': known_missing_data,
+        'created_at': current.isoformat(),
+    }
+    safe_pack = _sanitize(pack)
+    if hasattr(db, 'add'):
+        entity = AiContextPack(
+            owner_user_id=getattr(user, 'id', None),
+            intent=intent,
+            scope_payload=scope_payload,
+            payload=safe_pack,
+            source_hash=_source_hash(safe_pack),
+            expires_at=current + timedelta(minutes=10),
+        )
+        db.add(entity)
+        if hasattr(db, 'flush'):
+            db.flush()
+    return safe_pack
+
+
+def answer_from_context(
+    db: Session,
+    *,
+    user: Any,
+    question: str,
+    intent: str = 'factory_status',
+    scope: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    pack = build_context_pack(db, user=user, intent=intent, scope=scope)
+    missing_data = list(pack.get('known_missing_data') or [])
+    freshness_status = (pack.get('freshness') or {}).get('status')
+    confidence = 'high'
+    if freshness_status == 'stale':
+        confidence = 'medium'
+    if freshness_status == 'offline_or_blocked':
+        confidence = 'low'
+    evidence_refs = []
+    for rule in pack.get('rules_fired') or []:
+        evidence_refs.extend(rule.get('evidence_refs') or [])
+    if not evidence_refs and pack.get('machine_line_metrics'):
+        first_line = pack['machine_line_metrics'][0]
+        evidence_refs.append({'kind': 'machine', 'key': str(first_line.get('line_code') or '')})
+
+    if pack.get('top_abnormal_coils'):
+        answer = f"已找到 {len(pack['top_abnormal_coils'])} 条需关注卷，建议先看停滞和缺下工序记录。"
+    else:
+        answer = '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
+
+    return {
+        'answer': answer,
+        'confidence': confidence,
+        'evidence_refs': evidence_refs[:8],
+        'missing_data': missing_data,
+        'recommended_next_actions': ['查看证据卷', '打开工厂总览', '创建关注项'],
+        'can_create_watch': True,
+    }

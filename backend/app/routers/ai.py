@@ -8,9 +8,20 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_db
 from app.models.system import User
+from app.schemas.ai_assistant import (
+    AiAskIn,
+    AiAnswerOut,
+    AiConversationCreateIn,
+    AiConversationMessageResponseOut,
+    AiConversationOut,
+    AiMessageCreateIn,
+    AiMessageOut,
+)
+from app.services import ai_context_service
 
 router = APIRouter(tags=['ai'])
 
@@ -125,3 +136,86 @@ def stop_generation(conversation_id: str, current_user: User = Depends(get_curre
     if conversation_id not in conversations_db:
         raise HTTPException(status_code=404, detail='Conversation not found')
     return {'ok': True}
+
+
+@router.get('/assistant/conversations', response_model=list[AiConversationOut])
+def list_assistant_conversations(current_user: User = Depends(get_current_user)) -> list[dict]:
+    _ = current_user
+    return list_conversations(current_user)
+
+
+@router.post('/assistant/conversations', response_model=AiConversationOut)
+def create_assistant_conversation(
+    body: AiConversationCreateIn | None = None,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    conversation = create_conversation(current_user)
+    if body and body.title:
+        stored = conversations_db[conversation['id']]
+        stored['title'] = body.title.strip() or stored['title']
+        stored['scope'] = body.scope or {}
+        stored['updated_at'] = _now()
+        return _public_conversation(stored)
+    return conversation
+
+
+@router.get('/assistant/conversations/{conversation_id}/messages', response_model=list[AiMessageOut])
+def list_assistant_messages(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    _ = current_user
+    conversation = conversations_db.get(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail='Conversation not found')
+    return conversation.get('messages', [])
+
+
+@router.post('/assistant/conversations/{conversation_id}/messages', response_model=AiConversationMessageResponseOut)
+def create_assistant_message(
+    conversation_id: str,
+    body: AiMessageCreateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    conversation = conversations_db.get(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail='Conversation not found')
+
+    timestamp = _now()
+    user_message = {'role': 'user', 'content': body.content, 'timestamp': timestamp, 'payload': {'scope': body.scope or {}}}
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=current_user,
+        question=body.content,
+        intent=body.intent,
+        scope=body.scope or {},
+    )
+    assistant_message = {
+        'role': 'assistant',
+        'content': answer['answer'],
+        'timestamp': _now(),
+        'payload': {'answer': answer},
+    }
+    conversation.setdefault('messages', []).extend([user_message, assistant_message])
+    conversation['updated_at'] = assistant_message['timestamp']
+    return {
+        'user_message': user_message,
+        'assistant_message': assistant_message,
+        'answer': answer,
+    }
+
+
+@router.post('/assistant/ask', response_model=AiAnswerOut)
+def ask_assistant(
+    body: AiAskIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    return ai_context_service.answer_from_context(
+        db,
+        user=current_user,
+        question=body.question,
+        intent=body.intent,
+        scope=body.scope or {},
+    )
