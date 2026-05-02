@@ -180,7 +180,15 @@
             <strong>全厂日汇总</strong>
             <p>自动汇总，不需要手工加总。</p>
           </div>
-          <el-button type="primary" plain :icon="Download" @click="exportSummary">导出电子表格</el-button>
+          <el-button
+            class="live-dashboard__export-button"
+            type="primary"
+            :icon="Download"
+            circle
+            aria-label="导出电子表格"
+            title="导出电子表格"
+            @click="exportSummary"
+          />
         </div>
       </template>
 
@@ -664,6 +672,10 @@ onBeforeUnmount(() => {
   --command-red: oklch(55% 0.15 28);
 }
 
+.live-dashboard :deep(.reference-page__body) {
+  min-width: 0;
+}
+
 .live-dashboard__connection,
 .live-dashboard__progress-pill {
   display: inline-flex;
@@ -778,9 +790,11 @@ onBeforeUnmount(() => {
 .live-dashboard__workshops {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .live-dashboard__collapse {
+  min-width: 0;
   border: 0;
 }
 
@@ -800,7 +814,12 @@ onBeforeUnmount(() => {
 }
 
 .live-dashboard__collapse :deep(.el-collapse-item__wrap) {
+  min-width: 0;
   border-bottom: 0;
+}
+
+.live-dashboard__collapse :deep(.el-collapse-item__content) {
+  min-width: 0;
 }
 
 .live-workshop__title {
@@ -808,6 +827,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  min-width: 0;
   gap: 16px;
 }
 
@@ -828,12 +848,21 @@ onBeforeUnmount(() => {
 .live-workshop__title-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   font-variant-numeric: tabular-nums;
 }
 
+.live-workshop__board {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .live-board__scroller {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 14px;
 }
 
@@ -997,6 +1026,7 @@ onBeforeUnmount(() => {
 }
 
 .live-dashboard__bottom {
+  min-width: 0;
   margin-top: 14px;
 }
 
@@ -1004,6 +1034,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   gap: 16px;
 }
 
@@ -1016,6 +1047,10 @@ onBeforeUnmount(() => {
   margin: 4px 0 0;
   color: var(--xt-text-secondary);
   font-size: 12px;
+}
+
+.live-dashboard__export-button {
+  flex: 0 0 auto;
 }
 
 .live-drawer__meta {
@@ -1064,6 +1099,10 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .live-dashboard__table-header {
+    align-items: flex-start;
   }
 }
 </style>
