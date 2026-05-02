@@ -289,7 +289,7 @@ adapter 负责：
 
 `frontend/tmp_visual_audit.cjs` 升级为像素级参考图审计入口：
 
-- 读取目标图 `C:/Users/xt/Downloads/cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png`。
+- 读取仓库外提供的目标图，通过 `REFERENCE_UI_TARGET_IMAGE` 或 `--target` 传入。
 - 校验目标图尺寸 1672x941。
 - 对 16 个面板建立 moduleId -> route -> screenshot 映射。
 - 检查每页编号、中文标题、卡片密度、KPI 数量、主表/主图、操作区。

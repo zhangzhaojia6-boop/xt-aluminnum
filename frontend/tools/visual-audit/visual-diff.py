@@ -11,7 +11,7 @@ from typing import Iterable
 from PIL import Image, ImageChops, ImageFilter, ImageStat
 
 
-REFERENCE_UI_TARGET_IMAGE = "C:/Users/xt/Downloads/cb3b60f0-1a5d-43e4-94bc-9d4cf4274aa5.png"
+REFERENCE_UI_TARGET_IMAGE = os.environ.get("REFERENCE_UI_TARGET_IMAGE", "")
 DIFF_THRESHOLD_PERCENT = 10.0
 FULL_REFERENCE_CANVAS = (1672, 941)
 PIXEL_TOLERANCE = 18
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--module", dest="module_id", default="", help="Only compare one module id, e.g. 01.")
     parser.add_argument("--threshold", dest="threshold_percent", type=float, default=DIFF_THRESHOLD_PERCENT)
     parser.add_argument("--tolerance", dest="pixel_tolerance", type=int, default=PIXEL_TOLERANCE)
-    parser.add_argument("--target", default=os.environ.get("REFERENCE_UI_TARGET_IMAGE", REFERENCE_UI_TARGET_IMAGE))
+    parser.add_argument("--target", default=REFERENCE_UI_TARGET_IMAGE)
     parser.add_argument("--screenshots", default=str(Path("tmp") / "visual-audit"))
     parser.add_argument("--out", default=str(Path("tmp") / "visual-audit" / "visual-diff-report.json"))
     parser.add_argument("--enforce", action="store_true", default=os.environ.get("VISUAL_DIFF_ENFORCE") == "1")
@@ -155,16 +155,16 @@ def compare_panel(
         "target_crop": str(crop_dir / f"{panel.module_id}-{panel.title}.png"),
         "generated_panel": str(generated_path),
         "screenshot": str(screenshot_path),
-        "threshold_percent": DIFF_THRESHOLD_PERCENT,
         "diff_percent": diff,
         **metrics,
-        "status": "pass" if diff <= DIFF_THRESHOLD_PERCENT else "fail",
-        "error": "" if diff <= DIFF_THRESHOLD_PERCENT else f"diff {diff}% exceeds threshold",
+        "error": "",
     }, generated
 
 
 def main() -> int:
     args = parse_args()
+    if not args.target:
+        raise ValueError("Set REFERENCE_UI_TARGET_IMAGE or pass --target with the full reference image path.")
     target_path = Path(args.target)
     screenshot_dir = Path(args.screenshots)
     out_path = Path(args.out)
@@ -185,8 +185,13 @@ def main() -> int:
         if generated_panel is not None:
             generated_canvas.paste(generated_panel, panel.box[:2])
         row["threshold_percent"] = threshold
-        row["status"] = "pass" if float(row["diff_percent"]) <= threshold else "fail"
-        if row["status"] == "fail" and not row.get("error"):
+        if row.get("error"):
+            row["status"] = "fail"
+        else:
+            row["status"] = "pass" if float(row["diff_percent"]) <= threshold else "fail"
+        if row["status"] == "pass":
+            row["error"] = ""
+        elif not row.get("error"):
             row["error"] = f"diff {row['diff_percent']}% exceeds threshold"
         rows.append(row)
 

@@ -2,7 +2,7 @@
   <section class="reference-page" :data-module="moduleNumber">
     <header class="reference-page__header">
       <div class="reference-page__title-group">
-        <span class="reference-page__number">{{ paddedNumber }}</span>
+        <span v-if="moduleNumber" class="reference-page__number">{{ paddedNumber }}</span>
         <div class="reference-page__title-copy">
           <span class="reference-page__system">鑫泰数据中枢 · 运行中心</span>
           <h1>{{ title }}</h1>
@@ -27,7 +27,7 @@ import { computed } from 'vue'
 const props = defineProps({
   moduleNumber: {
     type: [Number, String],
-    required: true
+    default: null
   },
   title: {
     type: String,

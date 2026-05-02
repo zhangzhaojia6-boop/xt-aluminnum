@@ -1,5 +1,14 @@
 .git
 .github
+.env
+.env.*
+!.env.example
+.vercel
+.vercel/
+ssl
+ssl/
+backups
+backups/
 .pytest_cache
 backend/.pytest_cache
 backend/.pytest-run-*/
@@ -12,3 +21,5 @@ frontend/test-results
 **/__pycache__
 **/.DS_Store
 *.pyc
+*.pem
+*.key

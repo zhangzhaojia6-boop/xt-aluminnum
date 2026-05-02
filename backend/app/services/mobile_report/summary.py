@@ -309,15 +309,20 @@ def list_coil_entries(
     current_user: User,
 ) -> list[dict]:
     assert_mobile_user_access(current_user)
-    rows = (
+    workshop_id = current_user.workshop_id
+    if not workshop_id:
+        scope = build_scope_summary(current_user)
+        workshop_id = scope.workshop_id
+    query = (
         db.query(WorkOrderEntry)
         .filter(
             WorkOrderEntry.business_date == business_date,
             WorkOrderEntry.shift_id == shift_id,
         )
-        .order_by(WorkOrderEntry.id.desc())
-        .all()
     )
+    if workshop_id:
+        query = query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    rows = query.order_by(WorkOrderEntry.id.desc()).all()
     from app.models.production import WorkOrder
     wo_ids = {r.work_order_id for r in rows}
     wo_map = {}

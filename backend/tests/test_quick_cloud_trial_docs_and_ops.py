@@ -1,5 +1,8 @@
+import importlib.util
 import os
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = (
@@ -11,6 +14,16 @@ REPO_ROOT = (
 
 def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding='utf-8-sig')
+
+
+def _load_deploy_production_module():
+    module_path = REPO_ROOT / 'backend/scripts/deploy_production.py'
+    spec = importlib.util.spec_from_file_location('deploy_production_under_test', module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_gitignore_covers_quick_trial_artifacts() -> None:
@@ -28,6 +41,11 @@ def test_gitignore_covers_quick_trial_artifacts() -> None:
 def test_backend_dockerignore_excludes_pytest_runtime_artifacts() -> None:
     source = _read('backend/.dockerignore')
 
+    assert '.env' in source
+    assert '.env.*' in source
+    assert '!.env.example' in source
+    assert '*.pem' in source
+    assert '*.key' in source
     assert '.pytest-run-*/' in source
     assert '.pytest-cache/' in source
     assert '.pytest-cache-2/' in source
@@ -40,8 +58,41 @@ def test_backend_dockerignore_excludes_pytest_runtime_artifacts() -> None:
 def test_root_dockerignore_covers_backend_pytest_runtime_dirs() -> None:
     source = _read('.dockerignore')
 
+    assert '.env' in source
+    assert '.env.*' in source
+    assert '!.env.example' in source
+    assert 'ssl/' in source
+    assert 'backups/' in source
+    assert '.vercel/' in source
+    assert '*.pem' in source
+    assert '*.key' in source
     assert 'backend/.pytest-run-*/' in source
     assert 'backend/.pytest_cache' in source
+
+
+def test_full_deploy_script_requires_external_secret_values() -> None:
+    source = _read('backend/scripts/deploy_production.py')
+
+    assert "DEPLOY_SSH_PASSWORD" in source
+    assert "DEPLOY_DATABASE_URL" in source
+    assert "DEPLOY_SECRET_KEY" in source
+    assert "DEPLOY_INIT_ADMIN_PASSWORD" in source
+    assert "password=ssh_password" in source
+    assert "PASS =" not in source
+    assert "DB_URL =" not in source
+    assert "admin123" not in source
+    assert "prod-secret-key" not in source
+
+
+def test_full_deploy_script_require_env_fails_fast(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_deploy_production_module()
+
+    monkeypatch.delenv('DEPLOY_SSH_PASSWORD', raising=False)
+    with pytest.raises(RuntimeError, match='DEPLOY_SSH_PASSWORD is required'):
+        module.require_env('DEPLOY_SSH_PASSWORD')
+
+    monkeypatch.setenv('DEPLOY_SSH_PASSWORD', 'from-env')
+    assert module.require_env('DEPLOY_SSH_PASSWORD') == 'from-env'
 
 
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:

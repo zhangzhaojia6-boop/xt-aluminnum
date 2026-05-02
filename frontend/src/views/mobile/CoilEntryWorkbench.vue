@@ -113,25 +113,25 @@
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 合金</label>
-          <el-select v-model="form.alloy_grade" filterable allow-create placeholder="选择或输入">
-            <el-option v-for="g in alloyGrades" :key="g" :label="g" :value="g" />
+          <el-select v-model="form.alloy_grade" filterable allow-create default-first-option placeholder="选择或输入">
+            <el-option v-for="g in alloyGrades" :key="g.value ?? g" :label="g.label ?? g" :value="g.value ?? g" />
           </el-select>
         </div>
         <div class="mobile-field">
           <label>来料规格</label>
-          <el-input v-model="form.input_spec" placeholder="厚×宽" />
+          <div class="mobile-spec-row">
+            <el-input :model-value="inputSpecParts[0]" inputmode="decimal" placeholder="厚" @update:model-value="updateInputSpec(0, $event)" />
+            <span class="mobile-spec-sep">×</span>
+            <el-input :model-value="inputSpecParts[1]" inputmode="decimal" placeholder="宽" @update:model-value="updateInputSpec(1, $event)" />
+          </div>
         </div>
         <div class="mobile-field">
           <label>成品规格</label>
-          <el-input v-model="form.output_spec" placeholder="厚×宽" />
-        </div>
-        <div class="mobile-field">
-          <label>上机时间</label>
-          <el-time-picker v-model="form.on_machine_time" format="HH:mm" value-format="HH:mm" placeholder="可不填" style="width:100%" />
-        </div>
-        <div class="mobile-field">
-          <label>下机时间</label>
-          <el-time-picker v-model="form.off_machine_time" format="HH:mm" value-format="HH:mm" placeholder="可不填" style="width:100%" />
+          <div class="mobile-spec-row">
+            <el-input :model-value="outputSpecParts[0]" inputmode="decimal" placeholder="厚" @update:model-value="updateOutputSpec(0, $event)" />
+            <span class="mobile-spec-sep">×</span>
+            <el-input :model-value="outputSpecParts[1]" inputmode="decimal" placeholder="宽" @update:model-value="updateOutputSpec(1, $event)" />
+          </div>
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 投入重量 kg</label>
@@ -140,11 +140,6 @@
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 产出重量 kg</label>
           <el-input v-model.number="form.output_weight" type="number" inputmode="decimal" />
-        </div>
-        <div class="mobile-field">
-          <label>废料 kg</label>
-          <el-input :model-value="suggestedScrap" disabled />
-          <span class="mobile-field-unit">自动算 = 投入 − 产出</span>
         </div>
         <div class="mobile-field mobile-field-wide">
           <label>备注</label>
@@ -164,9 +159,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import { fetchCurrentShift, fetchMobileBootstrap } from '../../api/mobile.js'
+import { fetchCurrentShift, fetchFieldOptions, fetchMobileBootstrap } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
 import { api } from '../../api/index.js'
+import { DEFAULT_ALLOY_GRADES, loadCoilEntryStartup } from '../../utils/coilEntryStartup.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -192,15 +188,13 @@ const yieldRate = computed(() => {
   return ((totalOutput.value / totalInput.value) * 100).toFixed(1)
 })
 
-const alloyGrades = ['1060', '1100', '3003', '3004', '3105', '5052', '5083', '5754', '6061', '8011', '8079']
+const alloyGrades = ref(DEFAULT_ALLOY_GRADES)
 
 const emptyForm = () => ({
   tracking_card_no: '',
   alloy_grade: '',
   input_spec: '',
   output_spec: '',
-  on_machine_time: null,
-  off_machine_time: null,
   input_weight: null,
   output_weight: null,
   operator_notes: '',
@@ -212,6 +206,28 @@ const suggestedScrap = computed(() => {
   return inp > 0 && out > 0 ? (inp - out).toFixed(1) : ''
 })
 
+function splitSpec(value) {
+  const parts = String(value || '').split(/[×xX*]/).map(p => p.trim())
+  return [parts[0] || '', parts[1] || '']
+}
+function joinSpec(parts) {
+  const clean = parts.map(p => String(p || '').trim())
+  if (!clean.some(Boolean)) return ''
+  return clean.filter(Boolean).join('×')
+}
+const inputSpecParts = computed(() => splitSpec(form.value.input_spec))
+const outputSpecParts = computed(() => splitSpec(form.value.output_spec))
+function updateInputSpec(index, value) {
+  const parts = splitSpec(form.value.input_spec)
+  parts[index] = value
+  form.value.input_spec = joinSpec(parts)
+}
+function updateOutputSpec(index, value) {
+  const parts = splitSpec(form.value.output_spec)
+  parts[index] = value
+  form.value.output_spec = joinSpec(parts)
+}
+
 function saveOperatorName() {
   if (operatorName.value) {
     localStorage.setItem('xt_operator_name', operatorName.value)
@@ -220,9 +236,14 @@ function saveOperatorName() {
 
 async function loadData() {
   try {
-    const [bs, cs] = await Promise.all([fetchMobileBootstrap(), fetchCurrentShift()])
-    bootstrap.value = bs
-    currentShift.value = cs
+    const startup = await loadCoilEntryStartup({
+      fetchMobileBootstrap,
+      fetchCurrentShift,
+      fetchFieldOptions,
+    })
+    bootstrap.value = startup.bootstrap
+    currentShift.value = startup.currentShift
+    alloyGrades.value = startup.alloyGrades
     await loadCoils()
   } catch (e) {
     ElMessage.error('加载失败')
@@ -469,5 +490,27 @@ onMounted(loadData)
   .coil-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.mobile-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-spec-row .el-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-spec-row .el-input :deep(.el-input__inner) {
+  text-align: center;
+}
+
+.mobile-spec-sep {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--xt-text-muted);
+  flex-shrink: 0;
 }
 </style>
