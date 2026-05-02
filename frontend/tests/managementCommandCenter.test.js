@@ -60,6 +60,9 @@ test('status helpers map submission and attendance states to readable tones', ()
   assert.equal(statusToneForCell({ submission_status: 'all_submitted', is_applicable: true, attendance_exception_count: 1 }), 'danger')
   assert.equal(statusTextForCell({ submission_status: 'all_submitted', is_applicable: true, attendance_exception_count: 1 }), '考勤异常')
 
+  assert.equal(statusToneForCell({ submission_status: 'all_submitted', is_applicable: true, attendance_status: 'not_started' }), 'warning')
+  assert.equal(statusTextForCell({ submission_status: 'all_submitted', is_applicable: true, attendance_status: 'not_started' }), '考勤待确认')
+
   assert.equal(statusToneForCell({ submission_status: 'not_applicable', is_applicable: false }), 'muted')
   assert.equal(statusTextForCell({ submission_status: 'not_applicable', is_applicable: false }), '不适用')
 })

@@ -52,7 +52,7 @@ def _build_cell_status(*, is_applicable: bool, submission_status: str, attendanc
         return {'status_tone': 'danger', 'status_text': '缺报'}
     if submission_status == 'in_progress':
         return {'status_tone': 'warning', 'status_text': '进行中'}
-    if attendance_status == 'pending':
+    if attendance_status in {'pending', 'not_started'}:
         return {'status_tone': 'warning', 'status_text': '考勤待确认'}
     return {'status_tone': 'success', 'status_text': '已填'}
 
@@ -117,7 +117,7 @@ def aggregate_live_payload(
 
             for shift in ordered_shifts:
                 is_applicable = shift.id in applicable_shift_ids
-                attendance_state = attendance.get((workshop.id, shift.id), {'status': 'not_started', 'exception_count': 0})
+                attendance_state = attendance.get((workshop.id, shift.id), {'status': 'not_applicable', 'exception_count': 0})
                 if not is_applicable:
                     cell_status = _build_cell_status(
                         is_applicable=False,

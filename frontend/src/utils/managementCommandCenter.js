@@ -15,7 +15,7 @@ export function statusToneForCell(cell = {}) {
   if (numberValue(cell.attendance_exception_count) > 0) return 'danger'
   if (cell.submission_status === 'not_started') return 'danger'
   if (cell.submission_status === 'in_progress') return 'warning'
-  if (cell.attendance_status === 'pending') return 'warning'
+  if (['pending', 'not_started'].includes(cell.attendance_status)) return 'warning'
   if (cell.submission_status === 'all_submitted') return 'success'
   return 'muted'
 }
@@ -26,7 +26,7 @@ export function statusTextForCell(cell = {}) {
   if (numberValue(cell.attendance_exception_count) > 0) return '考勤异常'
   if (cell.submission_status === 'not_started') return '缺报'
   if (cell.submission_status === 'in_progress') return '进行中'
-  if (cell.attendance_status === 'pending') return '考勤待确认'
+  if (['pending', 'not_started'].includes(cell.attendance_status)) return '考勤待确认'
   if (cell.submission_status === 'all_submitted') return '已填'
   return '未开始'
 }

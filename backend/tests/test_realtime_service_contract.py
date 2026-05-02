@@ -118,3 +118,56 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
     assert machine_two['shifts'][2]['submission_status'] == 'not_applicable'
     assert machine_two['shifts'][2]['status_tone'] == 'muted'
     assert machine_two['shifts'][2]['status_text'] == '不适用'
+
+
+def test_live_aggregation_marks_scheduled_unconfirmed_attendance_as_attention():
+    payload = aggregate_live_payload(
+        workshops=[_workshop(1, '冷轧一车间')],
+        machines=[_machine(10, '1#轧机', 1, assigned_shift_ids=[1], sort_order=1)],
+        shifts=[_shift(1, '白班', 1)],
+        entries=[
+            {
+                'workshop_id': 1,
+                'machine_id': 10,
+                'shift_id': 1,
+                'entry_status': 'submitted',
+                'input_weight': 100,
+                'output_weight': 96,
+                'scrap_weight': 4,
+            },
+        ],
+        attendance={(1, 1): {'status': 'not_started', 'exception_count': 0}},
+        expected_counts={(1, 10, 1): 1},
+    )
+
+    cell = payload['workshops'][0]['machines'][0]['shifts'][0]
+    assert payload['overall_progress']['attention_cell_count'] == 1
+    assert cell['status_tone'] == 'warning'
+    assert cell['status_text'] == '考勤待确认'
+
+
+def test_live_aggregation_does_not_warn_when_attendance_has_no_schedule():
+    payload = aggregate_live_payload(
+        workshops=[_workshop(1, '冷轧一车间')],
+        machines=[_machine(10, '1#轧机', 1, assigned_shift_ids=[1], sort_order=1)],
+        shifts=[_shift(1, '白班', 1)],
+        entries=[
+            {
+                'workshop_id': 1,
+                'machine_id': 10,
+                'shift_id': 1,
+                'entry_status': 'submitted',
+                'input_weight': 100,
+                'output_weight': 96,
+                'scrap_weight': 4,
+            },
+        ],
+        attendance={},
+        expected_counts={(1, 10, 1): 1},
+    )
+
+    cell = payload['workshops'][0]['machines'][0]['shifts'][0]
+    assert payload['overall_progress']['attention_cell_count'] == 0
+    assert cell['attendance_status'] == 'not_applicable'
+    assert cell['status_tone'] == 'success'
+    assert cell['status_text'] == '已填'
