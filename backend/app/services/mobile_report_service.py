@@ -773,6 +773,8 @@ def _sum_machine_energy(records: list[dict]) -> tuple[float | None, float | None
 
 
 def _get_workshop_machines(db: Session, *, workshop_id: int) -> list[dict]:
+    if not hasattr(db, 'query'):
+        return []
     machines = (
         db.query(Equipment)
         .filter(
@@ -790,7 +792,7 @@ def _get_workshop_machines(db: Session, *, workshop_id: int) -> list[dict]:
             .filter(
                 Equipment.workshop_id == workshop_id,
                 Equipment.equipment_type == 'virtual_role_qr',
-                Equipment.qr_code.like('XT-%-OP'),
+                Equipment.qr_code.like('XT-%-%-OP'),
             )
             .order_by(Equipment.sort_order.asc(), Equipment.id.asc())
             .all()
