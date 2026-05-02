@@ -44,6 +44,49 @@ class ScheduleItem:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(slots=True)
+class MesCraft:
+    source_id: str
+    name: str
+    code: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MesDevice:
+    source_id: str
+    name: str
+    code: str | None = None
+    workshop_name: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MesStockItem:
+    coil_key: str
+    tracking_card_no: str
+    weight: float | None = None
+    destination: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MesWipTotal:
+    workshop_name: str
+    doing_count: int | None = None
+    doing_weight: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MesMachineLineSource:
+    line_code: str
+    line_name: str
+    workshop_name: str | None = None
+    slot_no: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 class MesAdapter(ABC):
     @abstractmethod
     def get_tracking_card_info(self, card_no: str) -> CardInfo | None:
@@ -66,6 +109,30 @@ class MesAdapter(ABC):
     @abstractmethod
     def push_completion(self, card_no: str, output_weight: float | None, yield_rate: float | None) -> bool:
         raise NotImplementedError
+
+    def list_crafts(self) -> list[MesCraft]:
+        return []
+
+    def list_devices(self) -> list[MesDevice]:
+        return []
+
+    def list_follow_cards(self, *, limit: int = 200) -> list[CoilSnapshot]:
+        _ = limit
+        return []
+
+    def list_dispatch(self, *, limit: int = 200) -> list[CoilSnapshot]:
+        _ = limit
+        return []
+
+    def list_wip_totals(self) -> list[MesWipTotal]:
+        return []
+
+    def list_stock(self, *, limit: int = 200) -> list[MesStockItem]:
+        _ = limit
+        return []
+
+    def list_machine_line_sources(self) -> list[MesMachineLineSource]:
+        return []
 
 
 class NullMesAdapter(MesAdapter):

@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from app.adapters.mes_adapter import NullMesAdapter, get_mes_adapter, set_mes_adapter
+from app.adapters.mvc_mes_adapter import MvcMesAdapter
 from app.main import create_mes_adapter
 
 
@@ -35,6 +36,17 @@ def test_create_mes_adapter_returns_null_adapter(monkeypatch) -> None:
     adapter = create_mes_adapter()
 
     assert isinstance(adapter, NullMesAdapter)
+
+
+def test_create_mes_adapter_returns_mvc_adapter(monkeypatch) -> None:
+    monkeypatch.setattr('app.main.settings.MES_ADAPTER', 'mvc', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_MVC_BASE_URL', 'https://mes.example.com', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_MVC_USERNAME', 'mes-user', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_MVC_PASSWORD', 'mes-pass', raising=False)
+
+    adapter = create_mes_adapter()
+
+    assert isinstance(adapter, MvcMesAdapter)
 
 
 def test_create_mes_adapter_rejects_unknown_adapter(monkeypatch) -> None:

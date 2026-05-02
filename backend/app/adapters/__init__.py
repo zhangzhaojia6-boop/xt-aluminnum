@@ -1,6 +1,11 @@
 from app.adapters.mes_adapter import (
     CardInfo,
     CoilSnapshot,
+    MesCraft,
+    MesDevice,
+    MesMachineLineSource,
+    MesStockItem,
+    MesWipTotal,
     MesAdapter,
     NullMesAdapter,
     ScheduleItem,
@@ -11,6 +16,11 @@ from app.adapters.mes_adapter import (
 __all__ = [
     'CardInfo',
     'CoilSnapshot',
+    'MesCraft',
+    'MesDevice',
+    'MesMachineLineSource',
+    'MesStockItem',
+    'MesWipTotal',
     'MesAdapter',
     'NullMesAdapter',
     'ScheduleItem',

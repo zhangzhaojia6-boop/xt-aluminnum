@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     MES_API_TIMEOUT_SECONDS: float = 8.0
     MES_API_TRACKING_CARD_INFO_PATH: str = '/tracking-cards/{card_no}'
     MES_API_COIL_SNAPSHOTS_PATH: str = '/coil-snapshots'
+    MES_MVC_BASE_URL: str | None = None
+    MES_MVC_USERNAME: str | None = None
+    MES_MVC_PASSWORD: str | None = None
+    MES_MVC_TIMEOUT_SECONDS: float = 8.0
     MES_SYNC_LIMIT: int = 200
     MES_SYNC_WINDOW_MINUTES: int = 10
     MES_SYNC_POLL_MINUTES: int = 1
@@ -216,6 +220,9 @@ class Settings(BaseSettings):
         if self.MES_API_TIMEOUT_SECONDS <= 0:
             issues.append('MES_API_TIMEOUT_SECONDS must be greater than 0')
 
+        if self.MES_MVC_TIMEOUT_SECONDS <= 0:
+            issues.append('MES_MVC_TIMEOUT_SECONDS must be greater than 0')
+
         if self.MES_SYNC_LIMIT <= 0:
             issues.append('MES_SYNC_LIMIT must be greater than 0')
 
@@ -340,8 +347,8 @@ class Settings(BaseSettings):
             issues.append('MOBILE_DATA_ENTRY_MODE must be one of manual_only, scan_assisted, or mes_assisted')
 
         mes_adapter_name = (self.MES_ADAPTER or 'null').strip().lower()
-        if mes_adapter_name not in {'null', 'rest_api'}:
-            issues.append('MES_ADAPTER must be null or rest_api')
+        if mes_adapter_name not in {'null', 'rest_api', 'mvc'}:
+            issues.append('MES_ADAPTER must be null, rest_api, or mvc')
 
         if mobile_data_entry_mode == 'manual_only' and self.MOBILE_SCAN_ASSIST_ENABLED:
             issues.append('manual_only cannot enable MOBILE_SCAN_ASSIST_ENABLED')
@@ -350,7 +357,7 @@ class Settings(BaseSettings):
             issues.append('manual_only cannot enable MOBILE_MES_DISPLAY_ENABLED')
 
         if mobile_data_entry_mode == 'mes_assisted' and mes_adapter_name == 'null':
-            issues.append('mes_assisted requires MES_ADAPTER=rest_api')
+            issues.append('mes_assisted requires MES_ADAPTER=rest_api or mvc')
 
         if mes_adapter_name == 'rest_api':
             missing_mes_fields = [
@@ -364,6 +371,19 @@ class Settings(BaseSettings):
             ]
             if missing_mes_fields:
                 issues.append(f"MES_ADAPTER=rest_api is missing {', '.join(missing_mes_fields)}")
+
+        if mes_adapter_name == 'mvc':
+            missing_mes_mvc_fields = [
+                field_name
+                for field_name, field_value in (
+                    ('MES_MVC_BASE_URL', self.MES_MVC_BASE_URL),
+                    ('MES_MVC_USERNAME', self.MES_MVC_USERNAME),
+                    ('MES_MVC_PASSWORD', self.MES_MVC_PASSWORD),
+                )
+                if _is_blank(field_value)
+            ]
+            if missing_mes_mvc_fields:
+                issues.append(f"MES_ADAPTER=mvc is missing {', '.join(missing_mes_mvc_fields)}")
 
         if not issues:
             return

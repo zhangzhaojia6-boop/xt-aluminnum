@@ -41,6 +41,15 @@ def create_mes_adapter() -> MesAdapter:
             tracking_card_info_path=settings.mes_api_tracking_card_info_path_normalized,
             coil_snapshots_path=settings.mes_api_coil_snapshots_path_normalized,
         )
+    if adapter_name == 'mvc':
+        from app.adapters.mvc_mes_adapter import MvcMesAdapter
+
+        return MvcMesAdapter(
+            base_url=str(settings.MES_MVC_BASE_URL or '').strip(),
+            username=str(settings.MES_MVC_USERNAME or '').strip(),
+            password=str(settings.MES_MVC_PASSWORD or ''),
+            timeout_seconds=settings.MES_MVC_TIMEOUT_SECONDS,
+        )
     raise RuntimeError(f'Unsupported MES_ADAPTER: {settings.MES_ADAPTER}')
 
 
