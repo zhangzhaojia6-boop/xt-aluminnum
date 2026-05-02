@@ -178,7 +178,6 @@
         <div class="live-dashboard__table-header">
           <div>
             <strong>全厂日汇总</strong>
-            <p>自动汇总，不需要手工加总。</p>
           </div>
           <el-button
             class="live-dashboard__export-button"
@@ -753,7 +752,7 @@ onBeforeUnmount(() => {
   font-size: 30px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.018em;
+  letter-spacing: 0;
   line-height: 1;
 }
 
@@ -1041,12 +1040,6 @@ onBeforeUnmount(() => {
 .live-dashboard__table-header strong {
   font-size: 16px;
   font-weight: 900;
-}
-
-.live-dashboard__table-header p {
-  margin: 4px 0 0;
-  color: var(--xt-text-secondary);
-  font-size: 12px;
 }
 
 .live-dashboard__export-button {
