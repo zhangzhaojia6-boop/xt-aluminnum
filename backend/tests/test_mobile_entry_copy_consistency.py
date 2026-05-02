@@ -529,7 +529,7 @@ def test_reference_admin_modules_use_numbered_cn_titles() -> None:
 
     modules = {
         "frontend/src/views/review/IngestionCenter.vue": ("06", "数据接入与字段映射中心"),
-        "frontend/src/views/reports/LiveDashboard.vue": ("12", "系统运维与观测"),
+        "frontend/src/views/reports/LiveDashboard.vue": ("12", "工厂实时态势"),
         "frontend/src/views/review/GovernanceCenter.vue": ("13", "权限与治理中心"),
         "frontend/src/views/master/WorkshopTemplateConfig.vue": ("14", "主数据与模板中心"),
     }
@@ -707,7 +707,9 @@ def test_factory_dashboard_highlights_two_agent_squads_and_direct_pipeline() -> 
     assert "今日上报状态" in source
     assert "今日关注" in source
     assert "近 7 日留存趋势" in source
-    assert "核心指标" in source
+    assert "今日产量" in source
+    assert "缺报班次" in source
+    assert "异常与退回" in source
     assert "流程状态" not in source
 
 
@@ -716,11 +718,9 @@ def test_factory_dashboard_trims_review_home_copy_to_action_language() -> None:
 
     assert "最近更新：{{ lastRefreshLabel }}" in source
     assert "缺口：{{ formatDeliveryMissingSteps(delivery.missing_steps).join('；') }}" in source
-    assert "hint: '主线指标。'" in source
-    assert "hint: '先补原始值。'" in source
-    assert "hint: '先清异常。'" in source
-    assert "hint: '盯住波动。'" in source
-    assert "hint: `月累计 ${formatNumber(monthToDateOutput.value)} 吨。`" in source
+    assert "style=\"display:none\"" not in source
+    assert "ReviewCommandDeck" not in source
+    assert "XtFactoryMap" not in source
     assert "岗位直录进入采集清洗小队，分析决策小队自动收口，结果直接领导直达。" not in source
     assert "更新 {{ lastRefreshLabel }}" not in source
 
@@ -915,9 +915,8 @@ def test_review_dashboards_use_runtime_trace_component() -> None:
     factory = _read_repo_file("frontend/src/views/dashboard/FactoryDirector.vue")
     workshop = _read_repo_file("frontend/src/views/dashboard/WorkshopDirector.vue")
 
-    assert "AgentRuntimeFlow" in factory
+    assert "AgentRuntimeFlow" not in factory
     assert "AgentRuntimeFlow" in workshop
-    assert "title=\"\"" in factory
     assert "先看来源，再看结果" in workshop
 
 

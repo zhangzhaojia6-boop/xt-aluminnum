@@ -67,7 +67,13 @@ def test_aggregate_live_payload_groups_workshops_machines_and_shifts() -> None:
         expected_counts=expected_counts,
     )
 
-    assert payload['overall_progress'] == {'submitted_cells': 1, 'total_cells': 4}
+    assert payload['overall_progress'] == {
+        'submitted_cells': 1,
+        'total_cells': 4,
+        'missing_cell_count': 2,
+        'attention_cell_count': 4,
+        'completion_rate': 25.0,
+    }
     assert payload['factory_total']['output'] == 17.4
     assert payload['workshops'][0]['workshop_name'] == '冷轧2050车间'
     assert payload['workshops'][0]['workshop_total']['yield_rate'] == 96.67
@@ -102,7 +108,13 @@ def test_aggregate_live_payload_marks_unassigned_machine_shifts_not_applicable()
     )
 
     machine = payload['workshops'][0]['machines'][0]
-    assert payload['overall_progress'] == {'submitted_cells': 0, 'total_cells': 2}
+    assert payload['overall_progress'] == {
+        'submitted_cells': 0,
+        'total_cells': 2,
+        'missing_cell_count': 2,
+        'attention_cell_count': 2,
+        'completion_rate': 0.0,
+    }
     assert len(machine['shifts']) == 3
     assert machine['shifts'][2]['is_applicable'] is False
     assert machine['shifts'][2]['submission_status'] == 'not_applicable'

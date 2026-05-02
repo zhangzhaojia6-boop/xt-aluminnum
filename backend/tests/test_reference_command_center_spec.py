@@ -225,7 +225,7 @@ def test_review_overview_uses_single_reference_module_01() -> None:
     assert "XtKpi" in overview
     assert "XtTable" in overview
     assert "name: 'review-overview-home'" in router
-    assert "component: OverviewCenter" in router
+    assert "component: LiveDashboard" in router
     assert "canonical: '/manage/overview'" in router
 
 
@@ -573,7 +573,7 @@ def test_reference_modules_use_distinct_target_panel_layouts() -> None:
         "frontend/src/views/reports/ReportList.vue": ("module-number=\"08\"", "日报与交付中心"),
         "frontend/src/views/quality/QualityCenter.vue": ("module-number=\"09\"", "质量与告警中心"),
         "frontend/src/views/review/CostAccountingCenter.vue": ("module-number=\"10\"", "成本核算与效益中心"),
-        "frontend/src/views/reports/LiveDashboard.vue": ("module-number=\"12\"", "系统运维与观测"),
+        "frontend/src/views/reports/LiveDashboard.vue": ("module-number=\"12\"", "工厂实时态势"),
         "frontend/src/views/review/GovernanceCenter.vue": ("module-number=\"13\"", "权限与治理中心"),
         "frontend/src/views/master/WorkshopTemplateConfig.vue": ("module-number=\"14\"", "主数据与模板中心"),
     }
