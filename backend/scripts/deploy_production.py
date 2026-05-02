@@ -167,7 +167,7 @@ def main():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     print(f'Connecting to {HOST}...')
-    ssh.connect(HOST, port=443, username=USER, password=ssh_password)
+    ssh.connect(HOST, port=2222, username=USER, password=ssh_password)
 
     # Step 1: Stop old Docker containers
     print('\n[1/7] Stopping old Docker containers...')
