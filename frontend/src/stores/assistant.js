@@ -6,6 +6,16 @@ import {
   fetchAssistantLiveProbe,
   queryAssistant
 } from '../api/assistant'
+import {
+  createWatchlistItem,
+  fetchBriefings,
+  fetchWatchlist,
+  followUpBriefing,
+  generateBriefingNow,
+  markBriefingRead,
+  updateWatchlistItem
+} from '../api/ai-assistant'
+import { normalizeBriefing, normalizeWatchlistItem } from '../utils/aiAssistantContracts'
 
 export const useAssistantStore = defineStore('assistant', {
   state: () => ({
@@ -15,6 +25,10 @@ export const useAssistantStore = defineStore('assistant', {
     loadingProbe: false,
     querying: false,
     history: [],
+    briefings: [],
+    watchlist: [],
+    loadingBriefings: false,
+    loadingWatchlist: false,
     lastError: ''
   }),
   actions: {
@@ -68,6 +82,61 @@ export const useAssistantStore = defineStore('assistant', {
       } finally {
         this.querying = false
       }
+    },
+    async loadBriefings() {
+      if (this.loadingBriefings) return this.briefings
+      this.loadingBriefings = true
+      this.lastError = ''
+      try {
+        const rows = await fetchBriefings()
+        this.briefings = rows.map(normalizeBriefing)
+        return this.briefings
+      } catch (error) {
+        this.lastError = error?.message || '加载主动汇报失败'
+        throw error
+      } finally {
+        this.loadingBriefings = false
+      }
+    },
+    async generateBriefing(briefingType = 'opening_shift') {
+      const briefing = normalizeBriefing(await generateBriefingNow({ briefing_type: briefingType }))
+      this.briefings = [briefing, ...this.briefings.filter((item) => item.id !== briefing.id)]
+      return briefing
+    },
+    async markBriefingRead(id) {
+      const briefing = normalizeBriefing(await markBriefingRead(id))
+      this.briefings = this.briefings.map((item) => (item.id === briefing.id ? briefing : item))
+      return briefing
+    },
+    async followUpBriefing(id) {
+      const briefing = normalizeBriefing(await followUpBriefing(id))
+      this.briefings = this.briefings.map((item) => (item.id === briefing.id ? briefing : item))
+      return briefing
+    },
+    async loadWatchlist() {
+      if (this.loadingWatchlist) return this.watchlist
+      this.loadingWatchlist = true
+      this.lastError = ''
+      try {
+        const rows = await fetchWatchlist()
+        this.watchlist = rows.map(normalizeWatchlistItem)
+        return this.watchlist
+      } catch (error) {
+        this.lastError = error?.message || '加载关注列表失败'
+        throw error
+      } finally {
+        this.loadingWatchlist = false
+      }
+    },
+    async createWatch(payload) {
+      const watch = normalizeWatchlistItem(await createWatchlistItem(payload))
+      this.watchlist = [watch, ...this.watchlist.filter((item) => item.id !== watch.id)]
+      return watch
+    },
+    async updateWatch(id, payload) {
+      const watch = normalizeWatchlistItem(await updateWatchlistItem(id, payload))
+      this.watchlist = this.watchlist.map((item) => (item.id === watch.id ? watch : item))
+      return watch
     }
   }
 })

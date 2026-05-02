@@ -2,6 +2,12 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 
 import { apiBaseUrl } from '../api'
+import {
+  createAssistantConversation,
+  fetchAssistantConversations,
+  fetchAssistantMessages,
+  sendAssistantMessage
+} from '../api/ai-assistant'
 import { useAuthStore } from './auth'
 
 const aiBaseUrl = `${apiBaseUrl}/ai`
@@ -93,7 +99,13 @@ export const useAiChatStore = defineStore('ai-chat', {
       this.loadingConversations = true
       this.lastError = ''
       try {
-        const { data } = await aiApi.get('/conversations')
+        let data
+        try {
+          data = await fetchAssistantConversations()
+        } catch {
+          const response = await aiApi.get('/conversations')
+          data = response.data
+        }
         this.conversations = resolveConversationList(data)
         return this.conversations
       } catch (error) {
@@ -109,7 +121,13 @@ export const useAiChatStore = defineStore('ai-chat', {
       this.lastError = ''
       this.currentId = conversationId
       try {
-        const { data } = await aiApi.get(`/conversations/${conversationId}`)
+        let data
+        try {
+          data = await fetchAssistantMessages(conversationId)
+        } catch {
+          const response = await aiApi.get(`/conversations/${conversationId}`)
+          data = response.data
+        }
         this.messages = resolveMessageList(data)
       } catch (error) {
         this.lastError = error?.response?.data?.detail || error?.message || '加载消息失败'
@@ -121,7 +139,7 @@ export const useAiChatStore = defineStore('ai-chat', {
     async createConversation() {
       this.lastError = ''
       try {
-        const { data } = await aiApi.post('/conversations')
+        const data = await createAssistantConversation()
         const conversation = normalizeConversation(data)
         if (conversation.id) {
           this.conversations = [conversation, ...this.conversations.filter((item) => item.id !== conversation.id)]
@@ -130,8 +148,19 @@ export const useAiChatStore = defineStore('ai-chat', {
         }
         return conversation
       } catch (error) {
-        this.lastError = error?.response?.data?.detail || error?.message || '创建对话失败'
-        throw error
+        try {
+          const { data } = await aiApi.post('/conversations')
+          const conversation = normalizeConversation(data)
+          if (conversation.id) {
+            this.conversations = [conversation, ...this.conversations.filter((item) => item.id !== conversation.id)]
+            this.currentId = conversation.id
+            this.messages = []
+          }
+          return conversation
+        } catch (fallbackError) {
+          this.lastError = fallbackError?.response?.data?.detail || fallbackError?.message || error?.message || '创建对话失败'
+          throw fallbackError
+        }
       }
     },
     async deleteConversation(id) {
@@ -178,6 +207,18 @@ export const useAiChatStore = defineStore('ai-chat', {
       this.abortController = new AbortController()
 
       try {
+        try {
+          const data = await sendAssistantMessage(this.currentId, { content: text })
+          const answer = data?.answer || data?.assistant_message?.payload?.answer || {}
+          assistantMessage.content = answer.answer || data?.assistant_message?.content || ''
+          assistantMessage.toolCalls = answer.evidence_refs || []
+          const conversation = this.conversations.find((item) => item.id === this.currentId)
+          if (conversation) conversation.updated_at = new Date().toISOString()
+          return data
+        } catch {
+          // Fall back to the legacy streaming route for deployments without assistant persistence.
+        }
+
         const response = await fetch(resolveAiUrl('/chat'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
