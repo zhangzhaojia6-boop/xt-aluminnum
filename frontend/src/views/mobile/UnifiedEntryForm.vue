@@ -103,10 +103,10 @@
         </div>
       </section>
 
-      <section v-if="readonlyFields.length" class="ue-group ue-group--readonly">
+      <section v-if="visibleReadonlyFields.length" class="ue-group ue-group--readonly">
         <h3 class="ue-group__title">自动计算</h3>
         <div class="ue-readonly-row">
-          <div v-for="rf in readonlyFields" :key="rf.name" class="ue-readonly-item">
+          <div v-for="rf in visibleReadonlyFields" :key="rf.name" class="ue-readonly-item">
             <span class="ue-readonly-item__label">{{ rf.label }}</span>
             <strong class="ue-readonly-item__value">{{ computeReadonly(rf) }}</strong>
           </div>
@@ -176,6 +176,9 @@ const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
 const shiftName = computed(() => shiftContext.value?.shift_name || '')
 const businessDate = computed(() => shiftContext.value?.business_date || '')
+const visibleReadonlyFields = computed(() =>
+  readonlyFields.value.filter((rf) => !rf.hidden)
+)
 const roleLabel = computed(() => {
   const labels = {
     machine_operator: '主操',
