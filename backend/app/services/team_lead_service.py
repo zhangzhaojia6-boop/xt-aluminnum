@@ -141,7 +141,7 @@ def build_overview(db: Session, *, leader_user: User, target_date: date) -> dict
         for item in reported_rows
     }
 
-    pending_groups: dict[tuple[int | None, int | None, int | None], list[str]] = defaultdict(list)
+    pending_groups: dict[tuple[int | None, int | None, int | None], list[dict[str, Any]]] = defaultdict(list)
     for schedule in schedules:
         schedule_key = (schedule.business_date, schedule.shift_config_id, schedule.workshop_id, schedule.team_id)
         has_report = schedule_key in reported_key_set
@@ -149,8 +149,14 @@ def build_overview(db: Session, *, leader_user: User, target_date: date) -> dict
         if has_report and has_attendance:
             continue
         employee = employee_map.get(int(schedule.employee_id))
+        employee_name = employee.name if employee is not None else f'员工{schedule.employee_id}'
+        employee_id = int(schedule.employee_id)
         pending_groups[(schedule.workshop_id, schedule.shift_config_id, schedule.team_id)].append(
-            employee.name if employee is not None else f'员工{schedule.employee_id}'
+            {
+                'employee_id': employee_id,
+                'name': employee_name,
+                'route': f'/team-lead/worker/{employee_id}/{target_date.isoformat()}?shift_id={schedule.shift_config_id}',
+            }
         )
 
     pending_list = [

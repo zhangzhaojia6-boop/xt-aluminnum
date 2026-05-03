@@ -7,6 +7,7 @@ const loginSource = readFileSync(new URL('../src/views/Login.vue', import.meta.u
 const apiSource = readFileSync(new URL('../src/api/team-lead.js', import.meta.url), 'utf8')
 const shellSource = readFileSync(new URL('../src/views/team/TeamLeadShell.vue', import.meta.url), 'utf8')
 const overviewSource = readFileSync(new URL('../src/views/team/TeamLeadOverview.vue', import.meta.url), 'utf8')
+const workerDetailSource = readFileSync(new URL('../src/views/team/TeamLeadWorkerDetail.vue', import.meta.url), 'utf8')
 
 test('team lead route and login dispatch are wired', () => {
   assert.match(routerSource, /path: '\/team-lead'/)
@@ -25,6 +26,9 @@ test('team lead api and shell expose five quadrants without helper copy', () => 
   assert.match(overviewSource, /reported_count/)
   assert.match(overviewSource, /returned_count/)
   assert.match(overviewSource, /reminder_count/)
-  assert.match(overviewSource, /\/entry\/report\/\$\{item\.business_date\}\/\$\{item\.shift_id\}/)
+  assert.match(routerSource, /team-lead-worker-detail/)
+  assert.match(overviewSource, /normalizedMembers/)
+  assert.match(overviewSource, /member\.route/)
+  assert.match(workerDetailSource, /team-lead-worker-detail/)
   assert.doesNotMatch(overviewSource, /helperText|description|tooltip|explanation|rationale/)
 })

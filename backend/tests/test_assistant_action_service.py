@@ -167,3 +167,43 @@ def test_execute_action_rejects_scoped_manager_global_date_action(monkeypatch) -
 
     assert exc.value.status_code == 403
     assert called is False
+
+
+def test_execute_action_rejects_assigned_manager_unassigned_shift_reminder(monkeypatch) -> None:
+    called = False
+    db = _FakeScopedDB(shift=SimpleNamespace(id=5, workshop_id=1))
+
+    def fake_handler(*, db, payload):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(assistant_action_service, 'ACTION_REGISTRY', {'call_reminder': fake_handler})
+    monkeypatch.setattr(
+        assistant_action_service.pilot_observability_service,
+        'log_pilot_event',
+        lambda *args, **kwargs: None,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        assistant_action_service.execute_action(
+            db=db,
+            user=SimpleNamespace(
+                id=7,
+                role='manager',
+                workshop_id=1,
+                team_id=None,
+                data_scope_type='assigned',
+                assigned_shift_ids=[1],
+                is_manager=True,
+            ),
+            action_payload={
+                'action': 'call_reminder',
+                'target_type': 'shift_config',
+                'target_id': 5,
+                'target_date': '2026-05-03',
+            },
+        )
+
+    assert exc.value.status_code == 403
+    assert called is False

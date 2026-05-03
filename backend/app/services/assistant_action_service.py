@@ -141,7 +141,7 @@ def _row_matches_scope(scope: ScopeSummary, row) -> bool:
     row_shift_id = getattr(row, 'shift_config_id', None)
 
     if scope.data_scope_type == 'assigned':
-        if scope.assigned_shift_ids and row_shift_id is not None and int(row_shift_id) not in scope.assigned_shift_ids:
+        if row_shift_id is None or int(row_shift_id) not in scope.assigned_shift_ids:
             return False
     if scope.workshop_id is not None and row_workshop_id is not None and int(row_workshop_id) != int(scope.workshop_id):
         return False
@@ -163,6 +163,8 @@ def _shift_in_scope(db: Session, *, shift_config_id: int, scope: ScopeSummary) -
         return True
     if scope.is_admin or scope.data_scope_type == 'all':
         return True
+    if scope.data_scope_type == 'assigned' and int(shift_config_id) not in scope.assigned_shift_ids:
+        return False
     shift_workshop_id = getattr(shift, 'workshop_id', None)
     return scope.workshop_id is not None and shift_workshop_id is not None and int(shift_workshop_id) == int(scope.workshop_id)
 

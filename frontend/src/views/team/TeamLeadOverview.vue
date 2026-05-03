@@ -13,10 +13,17 @@
         <div v-if="loading" class="team-lead-overview__state">加载中</div>
         <ul v-else-if="payload.pending_list?.length">
           <li v-for="item in payload.pending_list" :key="`${item.workshop}-${item.shift}-${item.team}`">
-            <RouterLink class="team-lead-overview__pending-link" :to="pendingRoute(item)">
-              <strong>{{ item.workshop }} · {{ item.shift }} · {{ item.team }}</strong>
-              <span>{{ item.members.join('、') }}</span>
-            </RouterLink>
+            <strong>{{ item.workshop }} · {{ item.shift }} · {{ item.team }}</strong>
+            <div class="team-lead-overview__member-list">
+              <RouterLink
+                v-for="member in normalizedMembers(item)"
+                :key="member.key"
+                class="team-lead-overview__pending-link"
+                :to="pendingRoute(item, member)"
+              >
+                {{ member.name }}
+              </RouterLink>
+            </div>
           </li>
         </ul>
         <div v-else class="team-lead-overview__state">已清</div>
@@ -82,7 +89,23 @@ const healthLabel = computed(() => {
   return '绿'
 })
 
-function pendingRoute(item) {
+function normalizedMembers(item) {
+  return (item?.members || []).map((member, index) => {
+    if (typeof member === 'string') {
+      return { key: `${item.shift_id}-${index}-${member}`, name: member, route: '' }
+    }
+    return {
+      key: member.employee_id || `${item.shift_id}-${index}-${member.name}`,
+      name: member.name || `员工${member.employee_id || index + 1}`,
+      route: member.route || ''
+    }
+  })
+}
+
+function pendingRoute(item, member) {
+  if (member?.route) {
+    return member.route
+  }
   if (item?.business_date && item?.shift_id) {
     return `/entry/report/${item.business_date}/${item.shift_id}`
   }
@@ -181,9 +204,20 @@ function pendingRoute(item) {
   background: var(--xt-bg-panel-soft);
 }
 
+.team-lead-overview__member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .team-lead-overview__pending-link {
-  display: grid;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: 999px;
+  background: var(--xt-bg-panel);
   color: inherit;
   text-decoration: none;
 }

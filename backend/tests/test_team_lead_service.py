@@ -82,7 +82,13 @@ def test_build_overview_counts_five_quadrants_and_lists(tmp_path) -> None:
     assert payload['returned_list'][0]['returned_reason'] == '产出需核对'
     assert payload['pending_list'][0]['business_date'] == '2026-05-03'
     assert payload['pending_list'][0]['shift_id'] == 1
-    assert payload['pending_list'][0]['members'] == ['李四']
+    assert payload['pending_list'][0]['members'] == [
+        {
+            'employee_id': 102,
+            'name': '李四',
+            'route': '/team-lead/worker/102/2026-05-03?shift_id=1',
+        }
+    ]
     assert payload['reminder_list'][0]['count'] == 2
 
 
@@ -111,4 +117,15 @@ def test_build_overview_flags_unreported_shift_even_when_attendance_complete(tmp
     assert payload['shift_health'] == 'yellow'
     assert payload['pending_list'][0]['shift_id'] == 1
     assert payload['pending_list'][0]['team'] == '甲班'
-    assert payload['pending_list'][0]['members'] == ['张三', '李四']
+    assert payload['pending_list'][0]['members'] == [
+        {
+            'employee_id': 101,
+            'name': '张三',
+            'route': '/team-lead/worker/101/2026-05-03?shift_id=1',
+        },
+        {
+            'employee_id': 102,
+            'name': '李四',
+            'route': '/team-lead/worker/102/2026-05-03?shift_id=1',
+        },
+    ]

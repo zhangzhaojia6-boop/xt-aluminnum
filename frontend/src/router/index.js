@@ -52,6 +52,7 @@ const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScre
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
 const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
+const TeamLeadWorkerDetail = () => import('../views/team/TeamLeadWorkerDetail.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -180,6 +181,12 @@ const rawRoutes = [
     name: 'team-lead',
     component: TeamLeadShell,
     meta: { ...teamLeadMeta, title: '班长一屏', canonical: '/team-lead' }
+  },
+  {
+    path: '/team-lead/worker/:employeeId/:businessDate',
+    name: 'team-lead-worker-detail',
+    component: TeamLeadWorkerDetail,
+    meta: { ...teamLeadMeta, title: '人员详情', canonical: '/team-lead/worker/:employeeId/:businessDate' }
   },
   {
     path: '/manage',

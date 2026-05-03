@@ -22,6 +22,72 @@ test('scan lookup composable supports dingtalk and browser scanners', () => {
   assert.doesNotMatch(scanLookupSource, /throw new Error\('browser_scanner_unavailable'\)/)
 })
 
+test('scan lookup composable runs browser barcode detector path', async () => {
+  let stopped = false
+  let detected = false
+  const originalWindow = globalThis.window
+  const originalDocument = globalThis.document
+  const originalNavigator = globalThis.navigator
+
+  const { api } = await import('../src/api/index.js')
+  const originalGet = api.get
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      BarcodeDetector: class {
+        async detect() {
+          detected = true
+          return [{ rawValue: 'QR-BROWSER-1' }]
+        }
+      }
+    }
+  })
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        return {
+          muted: false,
+          playsInline: false,
+          srcObject: null,
+          async play() {}
+        }
+      }
+    }
+  })
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        async getUserMedia() {
+          return { getTracks: () => [{ stop() { stopped = true } }] }
+        }
+      }
+    }
+  })
+  api.get = async (path, config) => {
+    assert.equal(path, '/mobile/scan-lookup')
+    assert.equal(config.params.qr, 'QR-BROWSER-1')
+    return { data: { source: 'coil_snapshot', header_fields: { tracking_card_no: 'TRACK-BROWSER-1' }, lock_keys: [], lock_token: 'token' } }
+  }
+
+  try {
+    const { useScanLookup } = await import('../src/composables/useScanLookup.js')
+    const lookup = useScanLookup()
+    assert.equal(lookup.canScan.value, true)
+    const result = await lookup.scanLookup()
+    assert.equal(result.header_fields.tracking_card_no, 'TRACK-BROWSER-1')
+    assert.equal(detected, true)
+    assert.equal(stopped, true)
+  } finally {
+    api.get = originalGet
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: originalWindow })
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: originalNavigator })
+  }
+})
+
 test('coil entry workbench applies scanned fields and locked snapshot', () => {
   assert.match(coilEntrySource, /scanLookup/)
   assert.match(coilEntrySource, /扫码带出/)
