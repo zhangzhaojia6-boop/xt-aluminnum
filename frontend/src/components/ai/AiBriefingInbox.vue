@@ -34,6 +34,28 @@
           <span>证据 {{ briefing.evidenceCount }}</span>
           <span>{{ briefing.scopeKey || 'factory:all' }}</span>
         </div>
+        <div v-if="canExecuteActions && actionableRules(briefing).length" class="ai-briefing-inbox__quick-actions">
+          <div
+            v-for="rule in actionableRules(briefing)"
+            :key="`${briefing.id}-${rule.key}`"
+            class="ai-briefing-inbox__quick-row"
+          >
+            <el-button-group>
+              <el-button
+                v-for="(action, index) in rule.suggested_actions.slice(0, 3)"
+                :key="`${action.action}-${action.target_type}-${action.target_id}-${index}`"
+                size="small"
+                type="primary"
+                plain
+                :loading="executingKey === actionKey(briefing, rule, action, index)"
+                data-testid="assistant-action-button"
+                @click="handleExecuteAction(briefing, rule, action, index)"
+              >
+                {{ action.label }}
+              </el-button>
+            </el-button-group>
+          </div>
+        </div>
         <div class="ai-briefing-inbox__actions">
           <el-button size="small" :disabled="briefing.read" @click="handleRead(briefing)">已读</el-button>
           <el-button size="small" type="primary" plain @click="handleFollowUp(briefing)">跟进</el-button>
@@ -51,10 +73,13 @@ import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 
 import { useAssistantStore } from '../../stores/assistant'
+import { useAuthStore } from '../../stores/auth'
 
 const store = useAssistantStore()
+const authStore = useAuthStore()
 const activeFilter = ref('all')
 const generating = ref(false)
+const executingKey = ref('')
 const ignoredIds = ref(new Set())
 const stateFilters = [
   { value: 'all', label: '全部' },
@@ -68,6 +93,7 @@ const visibleBriefings = computed(() => {
   if (activeFilter.value === 'all') return store.briefings
   return store.briefings.filter((briefing) => briefingState(briefing) === activeFilter.value)
 })
+const canExecuteActions = computed(() => authStore.isAdmin || authStore.role === 'manager' || authStore.isManager)
 
 onMounted(async () => {
   try {
@@ -96,6 +122,15 @@ function stateLabel(briefing) {
   return '未读'
 }
 
+function actionableRules(briefing) {
+  const rules = briefing?.payload?.rules_fired || briefing?.payload?.rulesFired || []
+  return rules.filter((rule) => Array.isArray(rule.suggested_actions) && rule.suggested_actions.length)
+}
+
+function actionKey(briefing, rule, action, index) {
+  return `${briefing.id}:${rule.key}:${action.action}:${action.target_type}:${action.target_id}:${index}`
+}
+
 async function handleGenerate() {
   generating.value = true
   try {
@@ -104,6 +139,20 @@ async function handleGenerate() {
     ElMessage.error(store.lastError || '生成主动汇报失败')
   } finally {
     generating.value = false
+  }
+}
+
+async function handleExecuteAction(briefing, rule, action, index) {
+  const key = actionKey(briefing, rule, action, index)
+  executingKey.value = key
+  try {
+    await store.executeBriefingAction(action)
+    await store.loadBriefings()
+    ElMessage.success('已处置')
+  } catch {
+    ElMessage.error(store.lastError || '处置失败')
+  } finally {
+    executingKey.value = ''
   }
 }
 
@@ -143,6 +192,7 @@ function handleIgnore(briefing) {
 .ai-briefing-inbox__head,
 .ai-briefing-inbox__item-head,
 .ai-briefing-inbox__meta,
+.ai-briefing-inbox__quick-row,
 .ai-briefing-inbox__actions {
   display: flex;
   align-items: center;
@@ -237,6 +287,19 @@ function handleIgnore(briefing) {
 .ai-briefing-inbox__actions {
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.ai-briefing-inbox__quick-actions {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--xt-bg-panel-soft);
+}
+
+.ai-briefing-inbox__quick-row {
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .ai-briefing-inbox__state {

@@ -20,7 +20,7 @@ from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
 from app.routers.config import router as config_router
-from app.routers import ai, assistant, attendance, auth, command, dashboard, dingtalk, energy, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, templates, users, work_orders
+from app.routers import ai, assistant, assistant_actions, attendance, auth, command, dashboard, dingtalk, energy, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, templates, users, work_orders
 from app.services import dingtalk_service
 
 scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if BackgroundScheduler else None
@@ -213,6 +213,7 @@ app.include_router(users.router, prefix=f'{settings.API_V1_PREFIX}/users')
 app.include_router(master.router, prefix=f'{settings.API_V1_PREFIX}/master')
 app.include_router(imports.router, prefix=f'{settings.API_V1_PREFIX}/imports')
 app.include_router(assistant.router, prefix=f'{settings.API_V1_PREFIX}/assistant')
+app.include_router(assistant_actions.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(command.router, prefix=f'{settings.API_V1_PREFIX}/command')
 app.include_router(command.admin_router, prefix=f'{settings.API_V1_PREFIX}/admin')
 app.include_router(dashboard.router, prefix=f'{settings.API_V1_PREFIX}/dashboard')

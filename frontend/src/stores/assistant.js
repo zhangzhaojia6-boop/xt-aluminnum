@@ -8,6 +8,7 @@ import {
 } from '../api/assistant'
 import {
   createWatchlistItem,
+  executeAssistantAction,
   fetchBriefings,
   fetchWatchlist,
   followUpBriefing,
@@ -112,6 +113,15 @@ export const useAssistantStore = defineStore('assistant', {
       const briefing = normalizeBriefing(await followUpBriefing(id))
       this.briefings = this.briefings.map((item) => (item.id === briefing.id ? briefing : item))
       return briefing
+    },
+    async executeBriefingAction(action) {
+      this.lastError = ''
+      try {
+        return await executeAssistantAction(action)
+      } catch (error) {
+        this.lastError = error?.response?.data?.detail || error?.message || '处置失败'
+        throw error
+      }
     },
     async loadWatchlist() {
       if (this.loadingWatchlist) return this.watchlist

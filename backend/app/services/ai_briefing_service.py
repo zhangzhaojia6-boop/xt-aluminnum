@@ -12,6 +12,9 @@ from app.services import ai_rules_service, factory_command_service
 
 
 _SEVERITY_ORDER = {'info': 0, 'warning': 1, 'critical': 2}
+_RETURNED_RULE_KEYS = {'returned_report', 'mobile_report_returned', 'validation_failed'}
+_REMINDER_RULE_KEYS = {'returned_report', 'missing_report', 'report_missing', 'submission_missing'}
+_RECONCILE_RULE_KEYS = {'weight_anomaly', 'input_output_diff', 'reconciliation_diff'}
 
 
 def _max_severity(rules: list[dict[str, Any]]) -> str:
@@ -32,6 +35,84 @@ def _title_for(briefing_type: str) -> str:
         'handover': '交接摘要',
         'manager_briefing': '管理层简报',
     }.get(briefing_type, 'AI 汇报')
+
+
+def _first_value(payload: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = payload.get(key)
+        if value not in (None, ''):
+            return value
+    return None
+
+
+def _reason_for(rule: dict[str, Any]) -> str:
+    reason = rule.get('reason')
+    if reason:
+        return str(reason)
+    actions = rule.get('recommended_next_actions') or []
+    if actions:
+        return str(actions[0])
+    return str(rule.get('key') or '异常处置')
+
+
+def _suggested_actions_for(rule: dict[str, Any]) -> list[dict[str, Any]]:
+    key = str(rule.get('key') or '')
+    reason = _reason_for(rule)
+    actions: list[dict[str, Any]] = []
+
+    if key in _RETURNED_RULE_KEYS:
+        report_id = _first_value(rule, 'report_id', 'target_id')
+        if report_id is not None:
+            actions.append(
+                {
+                    'action': 'call_validator',
+                    'target_type': 'mobile_shift_report',
+                    'target_id': report_id,
+                    'label': '重新校验',
+                    'reason': reason,
+                }
+            )
+
+    if key in _REMINDER_RULE_KEYS:
+        shift_config_id = _first_value(rule, 'shift_config_id')
+        target_date = _first_value(rule, 'target_date', 'business_date', 'date')
+        if shift_config_id is not None and target_date is not None:
+            actions.append(
+                {
+                    'action': 'call_reminder',
+                    'target_type': 'shift_config',
+                    'target_id': shift_config_id,
+                    'target_date': str(target_date),
+                    'label': '催报班次',
+                    'reason': reason,
+                }
+            )
+
+    if key in _RECONCILE_RULE_KEYS:
+        target_date = _first_value(rule, 'target_date', 'business_date', 'date', 'target_id')
+        if target_date is not None:
+            actions.append(
+                {
+                    'action': 'call_reconciler',
+                    'target_type': 'business_date',
+                    'target_id': str(target_date),
+                    'target_date': str(target_date),
+                    'label': '核对差异',
+                    'reason': reason,
+                }
+            )
+
+    return actions[:3]
+
+
+def _attach_suggested_actions(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            **rule,
+            'suggested_actions': _suggested_actions_for(rule),
+        }
+        for rule in rules
+    ]
 
 
 def _save_event(
@@ -92,7 +173,7 @@ def generate_briefing(
 ) -> dict[str, Any]:
     overview = _call_scoped(factory_command_service.build_overview, db, scope=scope)
     machine_lines = _call_scoped(factory_command_service.list_machine_lines, db, scope=scope)
-    rules = _call_scoped(ai_rules_service.evaluate_rules, db, scope=scope)
+    rules = _attach_suggested_actions(_call_scoped(ai_rules_service.evaluate_rules, db, scope=scope))
     priority_lines = sorted(machine_lines, key=lambda item: (item.get('stalled_count', 0), item.get('active_tons', 0)), reverse=True)[:5]
     payload = {
         'wip_tons': overview.get('wip_tons', 0),
@@ -123,6 +204,7 @@ def generate_watchlist_briefing(
         for rule in _call_scoped(ai_rules_service.evaluate_rules, db, scope=scope)
         if not getattr(watch, 'trigger_rules', None) or rule.get('key') in getattr(watch, 'trigger_rules', [])
     ]
+    rules = _attach_suggested_actions(rules)
     quiet = _is_quiet_hour(getattr(watch, 'quiet_hours', None), current_time=current_time)
     payload = {
         'watch_type': getattr(watch, 'watch_type', ''),

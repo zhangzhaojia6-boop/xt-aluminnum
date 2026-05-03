@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from app.agents.base import AgentAction, AgentDecision, BaseAgent
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData
-from app.services import rule_config_service
 
 
 def _to_float(value) -> float | None:
@@ -103,6 +102,8 @@ class ReconcilerAgent(BaseAgent):
             report = report_map.get(int(item.id))
             reasons: list[str] = []
             workshop_code = workshop_codes.get(int(item.workshop_id)) if getattr(item, 'workshop_id', None) is not None else None
+            from app.services import rule_config_service
+
             tolerance = float(
                 rule_config_service.get_threshold(
                     'RECONCILIATION_TOLERANCE_PERCENT',

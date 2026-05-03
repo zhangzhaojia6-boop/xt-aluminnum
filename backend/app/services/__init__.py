@@ -1,6 +1,7 @@
 from app.services import (
     attendance_confirm_service,
     attendance_service,
+    assistant_action_service,
     audit_service,
     bootstrap,
     contract_canonical_service,
@@ -29,6 +30,7 @@ from app.services import (
 __all__ = [
     'attendance_service',
     'attendance_confirm_service',
+    'assistant_action_service',
     'audit_service',
     'bootstrap',
     'contract_canonical_service',

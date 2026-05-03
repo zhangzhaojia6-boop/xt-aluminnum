@@ -45,6 +45,11 @@ export async function generateBriefingNow(payload = {}) {
   return data
 }
 
+export async function executeAssistantAction(payload = {}) {
+  const { data } = await api.post('/assistant/actions', payload)
+  return data
+}
+
 export async function fetchWatchlist() {
   const { data } = await api.get('/ai/watchlist')
   return data
