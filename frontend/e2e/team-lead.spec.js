@@ -18,6 +18,9 @@ async function setupTeamLeadSession(page) {
   const token = 'playwright-team-lead-token'
 
   await page.addInitScript(({ token, user }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    localStorage.removeItem('aluminum_bypass_machine')
     sessionStorage.setItem('aluminum_bypass_token', token)
     sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
     sessionStorage.removeItem('aluminum_bypass_machine')

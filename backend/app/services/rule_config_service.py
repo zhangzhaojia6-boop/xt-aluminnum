@@ -128,18 +128,16 @@ def resolve_threshold(key: str, *, workshop_code: str | None = None, db: Session
         if cached and cached.expires_at > now:
             return cached.resolved
 
+    if db is None:
+        resolved = _fallback_threshold(key, normalized_workshop)
+        _CACHE[cache_key] = _CachedValue(expires_at=now + CACHE_TTL_SECONDS, resolved=resolved)
+        return resolved
+
     try:
-        if db is None:
-            SessionLocal = get_sessionmaker()
-            with SessionLocal() as session:
-                resolved = _load_resolved_threshold(session, key=key, workshop_code=normalized_workshop)
-        else:
-            resolved = _load_resolved_threshold(db, key=key, workshop_code=normalized_workshop)
+        resolved = _load_resolved_threshold(db, key=key, workshop_code=normalized_workshop)
     except SQLAlchemyError:
         resolved = _fallback_threshold(key, normalized_workshop)
 
-    if db is None:
-        _CACHE[cache_key] = _CachedValue(expires_at=now + CACHE_TTL_SECONDS, resolved=resolved)
     return resolved
 
 

@@ -24,6 +24,17 @@ def test_get_threshold_uses_fallback_when_db_is_empty(tmp_path) -> None:
     assert value == DEFAULT_THRESHOLDS['MIN_WEIGHT']
 
 
+def test_get_threshold_without_db_uses_fallback_without_runtime_connection(monkeypatch) -> None:
+    rule_config_service.invalidate_cache()
+
+    def fail_sessionmaker():
+        raise AssertionError('runtime database should not be opened without an explicit db')
+
+    monkeypatch.setattr(rule_config_service, 'get_sessionmaker', fail_sessionmaker)
+
+    assert rule_config_service.get_threshold('MIN_WEIGHT') == DEFAULT_THRESHOLDS['MIN_WEIGHT']
+
+
 def test_get_threshold_prefers_workshop_then_factory_then_fallback(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     rule_config_service.invalidate_cache()
@@ -74,4 +85,3 @@ def test_set_threshold_invalidates_cache_immediately(tmp_path) -> None:
         )
 
         assert rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01', db=db) == 45
-

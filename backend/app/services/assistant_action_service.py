@@ -6,11 +6,7 @@ from typing import Any, Callable
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.agents.aggregator import aggregator_agent
 from app.agents.base import AgentDecision
-from app.agents.reconciler import reconciler_agent
-from app.agents.reminder import reminder_agent
-from app.agents.validator import validator_agent
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport
 from app.models.system import User
@@ -70,6 +66,8 @@ def _workshop_code_for_report(db: Session, report: MobileShiftReport) -> str | N
 
 
 def _call_validator(*, db: Session, payload: dict[str, Any]) -> list[AgentDecision]:
+    from app.agents.validator import validator_agent
+
     report_id = _parse_int(payload.get('report_id') or payload.get('target_id'), field_name='report_id')
     report = db.query(MobileShiftReport).filter(MobileShiftReport.id == report_id).first()
     if report is None:
@@ -91,11 +89,15 @@ def _call_validator(*, db: Session, payload: dict[str, Any]) -> list[AgentDecisi
 
 
 def _call_reconciler(*, db: Session, payload: dict[str, Any]) -> list[AgentDecision]:
+    from app.agents.reconciler import reconciler_agent
+
     target_date = _parse_date(payload.get('target_date') or payload.get('target_id'))
     return reconciler_agent.execute(db=db, target_date=target_date)
 
 
 def _call_reminder(*, db: Session, payload: dict[str, Any]) -> list[AgentDecision]:
+    from app.agents.reminder import reminder_agent
+
     target_date = _parse_date(payload.get('target_date') or payload.get('business_date') or payload.get('date'))
     shift_config_id = payload.get('shift_config_id')
     if shift_config_id is None and payload.get('target_type') == 'shift_config':
@@ -108,6 +110,8 @@ def _call_reminder(*, db: Session, payload: dict[str, Any]) -> list[AgentDecisio
 
 
 def _call_aggregator(*, db: Session, payload: dict[str, Any]) -> list[AgentDecision]:
+    from app.agents.aggregator import aggregator_agent
+
     target_date = _parse_date(payload.get('target_date') or payload.get('target_id'))
     return aggregator_agent.execute(db=db, target_date=target_date)
 
