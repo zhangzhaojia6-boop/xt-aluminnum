@@ -167,7 +167,7 @@ test('fill-only operator cannot access admin master ops ingestion or governance'
   await expect(page.getByTestId('review-governance-center')).toHaveCount(0)
 })
 
-test('manager lands in manage shell with admin navigation under current access model', async ({ page }) => {
+test('manager lands in manage shell without admin navigation', async ({ page }) => {
   await setupReviewSessionAndMocks(page, {
     token: 'playwright-review-manager-token',
     user: {
@@ -188,9 +188,14 @@ test('manager lands in manage shell with admin navigation under current access m
   await expect(page).toHaveURL(/\/manage\/overview$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   const manageSidebar = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
-  await expect(manageSidebar.getByRole('link', { name: '主数据 模板' })).toBeVisible()
+  await expect(manageSidebar.getByRole('link', { name: '主数据 模板' })).toHaveCount(0)
+  await expect(manageSidebar.getByRole('link', { name: '数据接入 接入' })).toHaveCount(0)
   await expect(manageSidebar.getByRole('link', { name: '设置 运行' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '管理端' })).toHaveCount(0)
+
+  await page.goto('/manage/master')
+  await expect(page).toHaveURL(/\/manage\/overview$/)
+  await expect(page.getByTestId('admin-master-center')).toHaveCount(0)
 })
 
 test('super admin can switch between admin entry and review surfaces', async ({ page }) => {

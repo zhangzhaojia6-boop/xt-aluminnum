@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.services import mes_sync_service
 
@@ -51,6 +51,13 @@ class _MigrationMissingDB(_FakeDB):
     def query(self, model):
         if model is mes_sync_service.MesCoilSnapshot:
             return _RaisingQuery()
+        return super().query(model)
+
+
+class _MissingCursorTableDB(_FakeDB):
+    def query(self, model):
+        if model is mes_sync_service.MesSyncCursor:
+            raise OperationalError('SELECT mes_sync_cursors.cursor_key', {}, Exception('no such table: mes_sync_cursors'))
         return super().query(model)
 
 
@@ -112,6 +119,18 @@ def test_latest_sync_status_reports_projection_migration_missing(monkeypatch):
     assert payload['source'] == 'local_entry'
     assert payload['action_required'] == 'run_migration'
     assert payload['lag_seconds'] is None
+
+
+def test_latest_sync_status_reports_migration_missing_when_cursor_table_is_missing(monkeypatch):
+    monkeypatch.setattr(mes_sync_service.settings, 'MES_ADAPTER', 'rest_api')
+    db = _MissingCursorTableDB()
+
+    payload = mes_sync_service.latest_sync_status(db, now=datetime(2026, 4, 11, 2, 6, tzinfo=UTC))
+
+    assert payload['configured'] is True
+    assert payload['migration_ready'] is False
+    assert payload['status'] == 'migration_missing'
+    assert payload['action_required'] == 'run_migration'
 
 
 def test_latest_sync_status_reports_failed_run(monkeypatch):

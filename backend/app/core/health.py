@@ -44,6 +44,16 @@ def _check_upload_dir() -> None:
         raise RuntimeError(f'upload dir is not writable: {upload_dir}')
 
 
+def _sanitize_mes_sync_status(payload: dict) -> dict:
+    sanitized = dict(payload)
+    if sanitized.get('status') == 'failed':
+        if sanitized.get('error_message'):
+            sanitized['error_message'] = 'redacted'
+        if sanitized.get('last_error'):
+            sanitized['last_error'] = 'redacted'
+    return sanitized
+
+
 def inspect_pipeline_readiness(*, target_date: date | None = None) -> dict:
     from app.services.config_readiness_service import inspect_pilot_config
 
@@ -110,7 +120,7 @@ def build_readiness_payload() -> tuple[bool, dict]:
                 mes_sync_status = mes_sync_service.latest_sync_status(db)
             finally:
                 db.close()
-            details['mes_sync'] = mes_sync_status
+            details['mes_sync'] = _sanitize_mes_sync_status(mes_sync_status)
             sync_status = mes_sync_status.get('status')
             lag_seconds = mes_sync_status.get('lag_seconds')
             if sync_status in {'migration_missing', 'failed'}:
@@ -125,8 +135,17 @@ def build_readiness_payload() -> tuple[bool, dict]:
             else:
                 checks['mes_sync'] = 'stale'
         except Exception as exc:  # noqa: BLE001
+            ready = False
             checks['mes_sync'] = f'error:{exc.__class__.__name__}'
-            details['mes_sync'] = {'error': str(exc)}
+            details['mes_sync'] = {
+                'configured': True,
+                'migration_ready': False,
+                'status': 'failed',
+                'source': 'mes_projection',
+                'lag_seconds': None,
+                'action_required': 'check_mes_sync',
+                'error': exc.__class__.__name__,
+            }
 
     payload = {
         'status': 'ready' if ready else 'not_ready',

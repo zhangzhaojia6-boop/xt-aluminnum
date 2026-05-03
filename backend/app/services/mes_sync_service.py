@@ -262,7 +262,19 @@ def _is_projection_shape_error(exc: Exception) -> bool:
     if not isinstance(exc, (ProgrammingError, OperationalError)):
         return False
     text = str(exc).lower()
-    return any(token in text for token in ('mes_coil_snapshots', 'no such column', 'undefined column', 'does not exist', 'unknown column'))
+    return any(
+        token in text
+        for token in (
+            'mes_coil_snapshots',
+            'mes_sync_cursors',
+            'mes_sync_run_logs',
+            'no such table',
+            'no such column',
+            'undefined column',
+            'does not exist',
+            'unknown column',
+        )
+    )
 
 
 def _ensure_cursor(db: Session, *, cursor_key: str) -> MesSyncCursor:
@@ -607,13 +619,13 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
         return _base_sync_status(cursor_key=cursor_key, configured=False)
 
     current = now or _utcnow()
-    cursor = _query_first(db.query(MesSyncCursor).filter(MesSyncCursor.cursor_key == cursor_key))
-    latest_run = _query_first(
-        db.query(MesSyncRunLog)
-        .filter(MesSyncRunLog.cursor_key == cursor_key)
-        .order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc())
-    )
     try:
+        cursor = _query_first(db.query(MesSyncCursor).filter(MesSyncCursor.cursor_key == cursor_key))
+        latest_run = _query_first(
+            db.query(MesSyncRunLog)
+            .filter(MesSyncRunLog.cursor_key == cursor_key)
+            .order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc())
+        )
         lag_seconds = compute_sync_lag_seconds(db, cursor_key=cursor_key, now=current)
     except Exception as exc:  # noqa: BLE001
         if _is_projection_shape_error(exc):

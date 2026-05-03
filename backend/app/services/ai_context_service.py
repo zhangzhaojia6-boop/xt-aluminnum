@@ -13,6 +13,15 @@ from app.services import factory_command_service
 
 
 _SENSITIVE_KEY_PARTS = ('password', 'secret', 'token', 'credential', 'api_key', 'apikey')
+_SYNC_DEGRADED_STATUSES = {'stale', 'failed', 'unconfigured', 'migration_missing', 'offline_or_blocked'}
+_SYNC_CRITICAL_STATUSES = {'failed', 'migration_missing', 'offline_or_blocked'}
+_SYNC_MISSING_DATA_KEYS = {
+    'stale': 'mes_stale',
+    'failed': 'mes_failed',
+    'unconfigured': 'mes_unconfigured',
+    'migration_missing': 'mes_projection_unready',
+    'offline_or_blocked': 'mes_offline',
+}
 
 
 def _now() -> datetime:
@@ -47,11 +56,12 @@ def _delay_hours(item: Mapping[str, Any]) -> float:
 
 def _rules_for(coils: list[Mapping[str, Any]], freshness: Mapping[str, Any]) -> list[dict[str, Any]]:
     rules: list[dict[str, Any]] = []
-    if freshness.get('status') in {'stale', 'offline_or_blocked'}:
+    freshness_status = str(freshness.get('status') or '')
+    if freshness_status in _SYNC_DEGRADED_STATUSES:
         rules.append(
             {
                 'key': 'sync_stale',
-                'severity': 'warning',
+                'severity': 'critical' if freshness_status in _SYNC_CRITICAL_STATUSES else 'warning',
                 'evidence_refs': [{'kind': 'sync', 'key': 'mes_projection'}],
                 'recommended_next_actions': ['检查外部 MES 同步状态'],
             }
@@ -163,8 +173,9 @@ def build_context_pack(
         if isinstance(coil, Mapping)
     ][:12]
     known_missing_data = []
-    if freshness.get('status') in {'stale', 'offline_or_blocked'}:
-        known_missing_data.append('mes_stale')
+    missing_data_key = _SYNC_MISSING_DATA_KEYS.get(str(freshness.get('status') or ''))
+    if missing_data_key:
+        known_missing_data.append(missing_data_key)
 
     pack = {
         'intent': intent,
@@ -205,9 +216,9 @@ def answer_from_context(
     missing_data = list(pack.get('known_missing_data') or [])
     freshness_status = (pack.get('freshness') or {}).get('status')
     confidence = 'high'
-    if freshness_status == 'stale':
+    if freshness_status in {'stale', 'unconfigured'}:
         confidence = 'medium'
-    if freshness_status == 'offline_or_blocked':
+    if freshness_status in _SYNC_CRITICAL_STATUSES:
         confidence = 'low'
     evidence_refs = []
     for rule in pack.get('rules_fired') or []:

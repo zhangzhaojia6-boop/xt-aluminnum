@@ -8,14 +8,19 @@ from app.core.scope import ScopeSummary
 from app.services import factory_command_service
 
 
+_SYNC_DEGRADED_STATUSES = {'stale', 'failed', 'unconfigured', 'migration_missing', 'offline_or_blocked'}
+_SYNC_CRITICAL_STATUSES = {'failed', 'migration_missing', 'offline_or_blocked'}
+
+
 def evaluate_rules(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
     rules: list[dict[str, Any]] = []
     freshness = factory_command_service.build_freshness(db)
-    if freshness.get('status') in {'stale', 'offline_or_blocked'}:
+    freshness_status = str(freshness.get('status') or '')
+    if freshness_status in _SYNC_DEGRADED_STATUSES:
         rules.append(
             {
                 'key': 'sync_stale',
-                'severity': 'critical' if freshness.get('status') == 'offline_or_blocked' else 'warning',
+                'severity': 'critical' if freshness_status in _SYNC_CRITICAL_STATUSES else 'warning',
                 'evidence_refs': [{'kind': 'sync', 'key': 'mes_projection'}],
                 'recommended_next_actions': ['检查外部 MES 同步任务'],
             }

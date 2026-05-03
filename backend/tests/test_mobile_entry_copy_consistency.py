@@ -370,7 +370,8 @@ def test_phase1_desktop_landing_skips_statistics_and_review_defaults() -> None:
 
     assert "if (authStore.canAccessStatisticsDashboard) return { name: 'statistics-dashboard' }" not in source
     assert "if (authStore.canAccessReviewDesk) return { name: 'shift-center' }" not in source
-    assert "if (authStore.isAdmin || authStore.isManager) return { name: 'admin-overview' }" in source
+    assert "if (authStore.isAdmin || authStore.isManager) return { name: 'admin-overview' }" not in source
+    assert "if (authStore.adminSurface) return { name: 'admin-overview' }" in source
 
 
 def test_phase1_layout_hides_review_and_statistics_navigation() -> None:

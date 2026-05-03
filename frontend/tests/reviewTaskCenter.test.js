@@ -18,6 +18,8 @@ test('review task center is an exception supplement surface, not manual approval
   }
 
   assert.match(review, /reconciliation_open_count/)
+  assert.match(review, /const reconciliationOpenCount = computed/)
+  assert.match(review, /const diffCount = reconciliationOpenCount/)
   assert.match(review, /mes_sync_status/)
   assert.doesNotMatch(review, /\['submitted', 'reviewed', 'auto_confirmed'\]/)
 })

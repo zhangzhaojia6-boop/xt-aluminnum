@@ -27,7 +27,8 @@ function normalizeUser(user) {
     data_scope_type: user.data_scope_type || 'self_team',
     is_mobile_user: Boolean(user.is_mobile_user),
     is_reviewer: Boolean(user.is_reviewer),
-    is_manager: Boolean(user.is_manager)
+    is_manager: Boolean(user.is_manager),
+    admin_surface: Boolean(user.admin_surface)
   }
 }
 
@@ -86,10 +87,10 @@ export const useAuthStore = defineStore('auth', {
       return this.canAccessReviewSurface
     },
     canAccessDesktopConfig() {
-      return this.isAdmin || this.isManager
+      return this.adminSurface
     },
     adminSurface() {
-      return this.canAccessDesktopConfig
+      return this.isAdmin || Boolean(this.user?.admin_surface)
     },
     superAdminSurface() {
       return this.isAdmin && this.entrySurface && this.reviewSurface && this.adminSurface

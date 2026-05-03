@@ -182,6 +182,6 @@ test('review navigation does not expose roadmap as a formal center', async ({ pa
   const reviewAside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   const roadmapItem = reviewAside.locator('.xt-manage__nav-item', { hasText: '路线图' })
 
-  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '总览' })).toBeVisible()
+  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '工厂状态' })).toBeVisible()
   await expect(roadmapItem).toHaveCount(0)
 })

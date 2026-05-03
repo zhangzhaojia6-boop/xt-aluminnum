@@ -12,16 +12,10 @@ import {
 
 const NAV_GROUPS = [
   {
-    label: '总览',
-    commandGroup: '总览',
-    items: [
-      { title: '工厂总览', shortLabel: '工厂总览', path: '/manage/overview', icon: Monitor, access: 'review', commandGroup: '总览', secondaryGroup: '全局' }
-    ]
-  },
-  {
     label: '工厂状态',
     commandGroup: '工厂状态',
     items: [
+      { title: '工厂总览', shortLabel: '工厂总览', path: '/manage/overview', icon: Monitor, access: 'review', commandGroup: '工厂状态', secondaryGroup: '全局' },
       { title: '生产流转', shortLabel: '流转', path: '/manage/factory/flow', icon: Connection, access: 'review', commandGroup: '工厂状态', secondaryGroup: '卷流' },
       { title: '车间机列', shortLabel: '机列', path: '/manage/factory/machine-lines', icon: Grid, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
       { title: '卷级追踪', shortLabel: '卷追踪', path: '/manage/factory/coils', icon: Tickets, access: 'review', commandGroup: '工厂状态', secondaryGroup: '追踪' },
@@ -73,7 +67,7 @@ const NAV_GROUPS = [
 
 function canAccess(auth, access) {
   if (access === 'review') return Boolean(auth?.canAccessReviewSurface || auth?.reviewSurface)
-  if (access === 'admin') return Boolean(auth?.canAccessDesktopConfig || auth?.adminSurface || auth?.isAdmin)
+  if (access === 'admin') return Boolean(auth?.adminSurface || auth?.isAdmin)
   return true
 }
 

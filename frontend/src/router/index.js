@@ -115,7 +115,6 @@ function adminLanding(authStore) {
 
 function configLanding(authStore) {
   if (authStore.adminSurface) return { name: 'admin-overview' }
-  if (authStore.isAdmin || authStore.isManager) return { name: 'admin-overview' }
   return { name: 'login' }
 }
 

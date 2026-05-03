@@ -138,3 +138,58 @@ def test_build_readiness_payload_reports_mes_projection_migration_missing(monkey
     assert ready is False
     assert payload["checks"]["mes_sync"] == "migration_missing"
     assert payload["details"]["mes_sync"]["action_required"] == "run_migration"
+
+
+def test_build_readiness_payload_redacts_failed_mes_sync_error(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "rest_api")
+    monkeypatch.setattr(
+        "app.services.mes_sync_service.latest_sync_status",
+        lambda _db: {
+            "status": "failed",
+            "configured": True,
+            "migration_ready": True,
+            "source": "mes_projection",
+            "lag_seconds": None,
+            "error_message": "SELECT secret FROM mes_sync_run_logs",
+            "last_error": "dsn=vendor-token",
+            "action_required": "check_vendor",
+        },
+    )
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is False
+    assert payload["checks"]["mes_sync"] == "failed"
+    assert payload["details"]["mes_sync"]["status"] == "failed"
+    assert payload["details"]["mes_sync"]["error_message"] == "redacted"
+    assert payload["details"]["mes_sync"]["last_error"] == "redacted"
+    assert "SELECT secret" not in repr(payload["details"]["mes_sync"])
+    assert "vendor-token" not in repr(payload["details"]["mes_sync"])
+
+
+def test_build_readiness_payload_marks_mes_exception_not_ready_and_sanitizes_details(monkeypatch):
+    class FakeDB:
+        def close(self):
+            return None
+
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "rest_api")
+    monkeypatch.setattr("app.core.health.get_sessionmaker", lambda: lambda: FakeDB())
+
+    def broken_latest_sync_status(_db):
+        raise RuntimeError("SELECT secret FROM mes_sync_cursors")
+
+    monkeypatch.setattr("app.services.mes_sync_service.latest_sync_status", broken_latest_sync_status)
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is False
+    assert payload["checks"]["mes_sync"] == "error:RuntimeError"
+    assert payload["details"]["mes_sync"]["status"] == "failed"
+    assert payload["details"]["mes_sync"]["error"] == "RuntimeError"
+    assert "SELECT secret" not in repr(payload["details"]["mes_sync"])

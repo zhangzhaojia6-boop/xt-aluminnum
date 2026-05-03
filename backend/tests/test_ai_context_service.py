@@ -79,3 +79,60 @@ def test_stale_mes_data_adds_missing_data_and_limits_confidence(monkeypatch):
     assert answer['confidence'] == 'medium'
     assert 'mes_stale' in answer['missing_data']
     assert {'answer', 'confidence', 'evidence_refs', 'missing_data', 'recommended_next_actions', 'can_create_watch'} <= set(answer)
+
+
+def test_failed_mes_data_is_low_confidence_and_fires_sync_rule(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'failed', 'lag_seconds': None})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='现在异常是什么？',
+        intent='factory_status',
+        scope={'type': 'factory', 'key': 'all'},
+    )
+    pack = db.added[0].payload
+
+    assert answer['confidence'] == 'low'
+    assert 'mes_failed' in answer['missing_data']
+    assert pack['rules_fired'][0]['key'] == 'sync_stale'
+    assert pack['rules_fired'][0]['severity'] == 'critical'
+
+
+def test_unconfigured_mes_data_is_medium_confidence(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'unconfigured', 'lag_seconds': None})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='现在异常是什么？',
+        intent='factory_status',
+        scope={'type': 'factory', 'key': 'all'},
+    )
+
+    assert answer['confidence'] == 'medium'
+    assert 'mes_unconfigured' in answer['missing_data']
+
+
+def test_offline_mes_data_is_low_confidence(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'offline_or_blocked', 'lag_seconds': None})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='现在异常是什么？',
+        intent='factory_status',
+        scope={'type': 'factory', 'key': 'all'},
+    )
+
+    assert answer['confidence'] == 'low'
+    assert 'mes_offline' in answer['missing_data']

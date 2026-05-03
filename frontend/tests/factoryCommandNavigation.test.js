@@ -39,11 +39,26 @@ test('manager navigation exposes factory command branches and keeps ingestion ad
   assert.equal(managerItems.some((item) => item.path === '/manage/factory/exceptions'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/ai-assistant'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/ingestion'), false)
+  assert.deepEqual(managerGroups.map((group) => group.label), ['工厂状态', '经营效益', '异常质量', 'AI 助手'])
 
   for (const retiredLabel of ['班次中心', '填报审核', '导入历史', '别名映射', '系统设置', '权限治理', '成本核算与效益中心']) {
     assert.equal(managerGroups.some((group) => group.label === retiredLabel || group.commandGroup === retiredLabel), false)
     assert.equal(managerItems.some((item) => item.title === retiredLabel || item.shortLabel === retiredLabel), false)
   }
+})
+
+test('desktop config permission alone does not expose admin navigation in management shell', () => {
+  const groups = manageNavGroups({
+    canAccessReviewSurface: true,
+    reviewSurface: true,
+    canAccessDesktopConfig: true,
+    adminSurface: false,
+    isAdmin: false
+  })
+  const items = groups.flatMap((group) => group.items)
+
+  assert.equal(items.some((item) => item.title === '主数据与模板中心'), false)
+  assert.equal(items.some((item) => item.path === '/manage/ingestion'), false)
 })
 
 test('admin navigation keeps necessary configuration without exposing low frequency fragments', () => {

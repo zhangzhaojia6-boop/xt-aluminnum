@@ -95,8 +95,9 @@ const rawTasks = computed(() => {
 
 const missingTasks = computed(() => rawTasks.value.filter((item) => ['unreported', 'late', 'draft'].includes(item.status)))
 const returnedTasks = computed(() => rawTasks.value.filter((item) => item.status === 'returned'))
+const reconciliationOpenCount = computed(() => Number(dashboard.value.exception_lane?.reconciliation_open_count || 0) || 0)
 const diffTasks = computed(() => {
-  const count = Number(dashboard.value.exception_lane?.reconciliation_open_count || 0)
+  const count = reconciliationOpenCount.value
   if (count <= 0) return []
   return [
     {
@@ -137,7 +138,7 @@ const filteredTasks = computed(() => {
 
 const missingCount = computed(() => missingTasks.value.length)
 const returnedCount = computed(() => returnedTasks.value.length)
-const diffCount = computed(() => diffTasks.value.length)
+const diffCount = reconciliationOpenCount
 
 const riskHighlights = computed(() => {
   const exceptionLane = dashboard.value.exception_lane || {}
