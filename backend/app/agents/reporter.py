@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -25,15 +24,18 @@ from app.core.workflow_events import attach_workflow_event, build_workflow_event
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services import app_connection_service
+from app.services import dingtalk_service
 from app.services import leader_summary_service
 from app.services import report_service
 from app.services.pilot_observability_service import log_pilot_event
 
 
-def _wecom_userid(user: User) -> str | None:
-    """提取可用于企业微信发送的用户标识。"""
-
-    return (user.dingtalk_user_id or user.username or "").strip() or None
+def _resolve_notify_identity(user: User) -> tuple[str, str]:
+    dingtalk_user_id = str(getattr(user, "dingtalk_user_id", None) or "").strip()
+    if settings.DINGTALK_ENABLED and dingtalk_user_id:
+        return "dingtalk", dingtalk_user_id
+    fallback = str(getattr(user, "username", None) or getattr(user, "id", "") or "").strip()
+    return "system", fallback or "unknown"
 
 
 def _build_push_key(report: DailyReport) -> str:
@@ -103,23 +105,19 @@ class ReporterAgent(BaseAgent):
         """初始化报告 Agent。"""
         super().__init__("reporter")
 
-    def _send_message(self, userid: str, content: str) -> tuple[bool, str]:
-        """发送企业微信应用消息，返回发送是否成功与说明。"""
+    def _send_message(self, user: User, content: str) -> tuple[bool, str]:
+        """Send a report notification through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
             self.logger.info("自动推送已关闭，仅记录推送日志。")
             return True, "auto_push_disabled"
-        if not settings.WECOM_APP_ENABLED:
-            self.logger.info("企业微信应用未启用，日报推送仅记录：%s", content)
-            return True, "wecom_app_disabled"
 
-        from app.adapters.wecom import send_app_message
+        channel, identity = _resolve_notify_identity(user)
+        if channel == "dingtalk":
+            return dingtalk_service.send_work_notification(identity, content)
 
-        response = asyncio.run(send_app_message(userid, content))
-        errcode = int(response.get("errcode", 0)) if isinstance(response, dict) else 0
-        if errcode != 0:
-            return False, f"wecom_errcode={errcode}"
-        return True, "sent"
+        self.logger.info("[notify] %s | %s", identity, content)
+        return True, "stdout_sink"
 
     def _ensure_auto_publish_workflow(self, *, db: Session, report: DailyReport) -> dict[str, Any]:
         report_data: dict[str, Any] = dict(report.report_data or {})
@@ -251,10 +249,7 @@ class ReporterAgent(BaseAgent):
         sent_count = 0
         failed_count = 0
         for leader in leaders:
-            userid = _wecom_userid(leader)
-            if not userid:
-                continue
-            ok, detail = self._send_message(userid, message)
+            ok, detail = self._send_message(leader, message)
             if ok:
                 sent_count += 1
             else:

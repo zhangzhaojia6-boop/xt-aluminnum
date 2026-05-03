@@ -24,10 +24,11 @@ def _build_settings(**overrides) -> Settings:
         'WORKFLOW_ENABLED': True,
         'AUTO_PUBLISH_ENABLED': True,
         'AUTO_PUSH_ENABLED': True,
-        'WECOM_APP_ENABLED': True,
-        'WECOM_CORP_ID': 'corp-id',
-        'WECOM_AGENT_ID': '1000002',
-        'WECOM_APP_SECRET': 'secret',
+        'DINGTALK_ENABLED': True,
+        'DINGTALK_CORP_ID': 'corp-id',
+        'DINGTALK_APP_KEY': 'app-key',
+        'DINGTALK_APP_SECRET': 'secret',
+        'DINGTALK_AGENT_ID': '1000002',
         'LLM_ENABLED': True,
         'LLM_API_BASE': 'https://example.invalid/llm',
         'LLM_API_KEY': 'llm-key',
@@ -95,7 +96,7 @@ def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integ
         runtime_settings=_build_settings(
             WORKFLOW_ENABLED=False,
             LLM_ENABLED=False,
-            WECOM_APP_ENABLED=False,
+            DINGTALK_ENABLED=False,
             APP_CONNECTION_ENABLED=False,
         ),
         sessionmaker_factory=_sessionmaker_ok,
@@ -104,5 +105,5 @@ def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integ
     assert payload['module_usable'] is False
     assert any(item['code'] == 'WORKFLOW_DISABLED' for item in payload['hard_issues'])
     assert any(item['code'] == 'LLM_DISABLED' for item in payload['hard_issues'])
-    assert any(item['code'] == 'WECOM_APP_DISABLED' for item in payload['hard_issues'])
+    assert any(item['code'] == 'DINGTALK_DISABLED' for item in payload['hard_issues'])
     assert any(item['code'] == 'APP_CONNECTION_DISABLED' for item in payload['hard_issues'])

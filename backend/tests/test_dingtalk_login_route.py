@@ -13,7 +13,7 @@ from app.models.system import AuditLog, User
 
 
 def _session_factory(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'wecom-login.db'}", future=True)
+    engine = create_engine(f"sqlite:///{tmp_path / 'dingtalk-login.db'}", future=True)
     Base.metadata.create_all(
         engine,
         tables=[Workshop.__table__, Team.__table__, User.__table__, AuditLog.__table__],
@@ -67,7 +67,7 @@ def _patch_dingtalk_login(monkeypatch, *, open_id: str, union_id: str = "union-t
     )
 
 
-def test_wecom_login_matches_username(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_matches_username(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         user = _seed_user(db, username="leader_100", dingtalk_user_id="leader_100")
@@ -87,7 +87,7 @@ def test_wecom_login_matches_username(tmp_path, monkeypatch) -> None:
     assert payload["token_type"] == "bearer"
 
 
-def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         user = _seed_user(db, username="leader_101", dingtalk_user_id="wx_101")
@@ -104,7 +104,7 @@ def test_wecom_login_matches_dingtalk_userid(tmp_path, monkeypatch) -> None:
     assert response.json()["user_id"] == user.id
 
 
-def test_wecom_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     _patch_dingtalk_login(monkeypatch, open_id="wx_not_exists", union_id="union-wx-not-exists")
     client = _client_with_db(session_factory)
@@ -117,7 +117,7 @@ def test_wecom_login_returns_readable_403_when_not_found(tmp_path, monkeypatch) 
     assert "未绑定系统账号" in response.json()["detail"]
 
 
-def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         _seed_user(db, username="leader_102", dingtalk_user_id="wx_102", is_active=False)
@@ -134,7 +134,7 @@ def test_wecom_login_returns_readable_403_when_inactive(tmp_path, monkeypatch) -
     assert "未绑定系统账号" in response.json()["detail"]
 
 
-def test_wecom_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         user_a = _seed_user(db, username="leader_201", dingtalk_user_id="wx_dup")
@@ -152,7 +152,7 @@ def test_wecom_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) 
     assert response.json()["user_id"] in {user_a.id, user_b.id}
 
 
-def test_wecom_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_KEY", "")
     monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_SECRET", "fake_secret")

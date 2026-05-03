@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     DINGTALK_APP_KEY: str | None = None
     DINGTALK_APP_SECRET: str | None = None
     DINGTALK_AGENT_ID: str | None = None
+    DINGTALK_ENABLED: bool = False
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
@@ -98,10 +99,10 @@ class Settings(BaseSettings):
     WECOM_BOT_WORKSHOP_WEBHOOK_MAP: str | None = None
     WECOM_BOT_TEAM_WEBHOOK_MAP: str | None = None
     WECOM_BOT_TIMEOUT_SECONDS: float = 8.0
-    WECOM_APP_ENABLED: bool = False
-    WECOM_CORP_ID: str | None = None
-    WECOM_AGENT_ID: str | None = None
-    WECOM_APP_SECRET: str | None = None
+    WECOM_APP_ENABLED: bool = False  # deprecated: user messaging moved to DingTalk
+    WECOM_CORP_ID: str | None = None  # deprecated: kept for legacy env compatibility
+    WECOM_AGENT_ID: str | None = None  # deprecated: kept for legacy env compatibility
+    WECOM_APP_SECRET: str | None = None  # deprecated: kept for legacy env compatibility
     LLM_ENABLED: bool = False
     LLM_API_BASE: str | None = None
     LLM_API_KEY: str | None = None
@@ -199,9 +200,6 @@ class Settings(BaseSettings):
         if self.WECOM_BOT_ENABLED and not self.WORKFLOW_ENABLED:
             issues.append('WECOM_BOT_ENABLED requires WORKFLOW_ENABLED=true')
 
-        if self.WECOM_APP_ENABLED and not self.WORKFLOW_ENABLED:
-            issues.append('WECOM_APP_ENABLED requires WORKFLOW_ENABLED=true')
-
         try:
             workshop_webhooks = self.wecom_bot_workshop_webhook_map
         except ValueError as exc:
@@ -281,24 +279,6 @@ class Settings(BaseSettings):
             )
             if not has_any_wecom_target:
                 issues.append('WECOM_BOT_ENABLED requires at least one webhook target when dry-run is disabled')
-
-        if self.WECOM_APP_ENABLED:
-            missing_wecom_app_fields = [
-                field_name
-                for field_name, field_value in (
-                    ('WECOM_CORP_ID', self.WECOM_CORP_ID),
-                    ('WECOM_AGENT_ID', self.WECOM_AGENT_ID),
-                    ('WECOM_APP_SECRET', self.WECOM_APP_SECRET),
-                )
-                if _is_blank(field_value)
-            ]
-            if missing_wecom_app_fields:
-                if len(missing_wecom_app_fields) == 3:
-                    issues.append(
-                        'WECOM_APP_ENABLED requires WECOM_CORP_ID, WECOM_AGENT_ID, and WECOM_APP_SECRET'
-                    )
-                else:
-                    issues.append(f"WECOM_APP_ENABLED is missing {', '.join(missing_wecom_app_fields)}")
 
         if self.LLM_ENABLED:
             missing_llm_fields = [

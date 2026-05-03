@@ -232,11 +232,9 @@ function parseErrorMessage(error, fallback) {
     const scopeLabel = formatScopeLabel(scopeSummary.data_scope_type)
     const entryModeMap = {
       dingtalk_h5: '钉钉工作台',
-      wecom_h5: '钉钉工作台',
       web_debug: '浏览器调试'
     }
     const identitySourceMap = {
-      wecom_oauth: '钉钉免登',
       dingtalk_oauth: '钉钉免登',
       dingtalk_runtime: '钉钉运行时',
       dingtalk_binding: '钉钉绑定',

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
+from app.agents import reporter as reporter_module
 from app.agents.reporter import ReporterAgent
 
 
@@ -85,9 +86,41 @@ def test_reporter_agent_skips_without_published_report() -> None:
     assert decisions == []
 
 
+def test_reporter_agent_sends_dingtalk_notification_when_user_is_bound(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
+    calls = []
+    monkeypatch.setattr(
+        reporter_module,
+        "dingtalk_service",
+        SimpleNamespace(send_work_notification=lambda userid, content: calls.append((userid, content)) or (True, "dingtalk_stub")),
+        raising=False,
+    )
+    user = SimpleNamespace(username="manager", name="车间主任", dingtalk_user_id="dt_manager")
+    agent = ReporterAgent()
+
+    ok, detail = agent._send_message(user, "日报内容")
+
+    assert ok is True
+    assert detail == "dingtalk_stub"
+    assert calls == [("dt_manager", "日报内容")]
+
+
+def test_reporter_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
+    user = SimpleNamespace(username="manager", name="车间主任", dingtalk_user_id=None)
+    agent = ReporterAgent()
+
+    ok, detail = agent._send_message(user, "日报内容")
+
+    assert ok is True
+    assert detail == "stdout_sink"
+
+
 def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -127,7 +160,7 @@ def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:
     report = _build_report()
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda userid, content: (sent.append((userid, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -146,7 +179,7 @@ def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:
 
 def test_reporter_agent_prefers_yield_matrix_company_total(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -158,7 +191,7 @@ def test_reporter_agent_prefers_yield_matrix_company_total(monkeypatch) -> None:
     report.report_data["yield_matrix_lane"] = {"company_total_yield": 94.4, "quality_status": "ready"}
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda userid, content: (sent.append((userid, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -168,7 +201,7 @@ def test_reporter_agent_prefers_yield_matrix_company_total(monkeypatch) -> None:
 
 def test_reporter_agent_ignores_unverified_yield_matrix(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -180,7 +213,7 @@ def test_reporter_agent_ignores_unverified_yield_matrix(monkeypatch) -> None:
     report.report_data["yield_matrix_lane"] = {"company_total_yield": 94.4, "quality_status": "warning"}
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda userid, content: (sent.append((userid, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -190,7 +223,7 @@ def test_reporter_agent_ignores_unverified_yield_matrix(monkeypatch) -> None:
 
 def test_reporter_agent_skips_duplicate_push(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -221,7 +254,7 @@ def test_reporter_agent_skips_duplicate_push(monkeypatch) -> None:
 
 def test_reporter_agent_respects_auto_push_toggle(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", False)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -252,7 +285,7 @@ def test_reporter_agent_respects_auto_push_toggle(monkeypatch) -> None:
 
 def test_reporter_agent_skips_auto_workflow_emit_for_manual_publish(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
-    monkeypatch.setattr("app.agents.reporter.settings.WECOM_APP_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
     monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
     monkeypatch.setattr(
@@ -275,7 +308,7 @@ def test_reporter_agent_skips_auto_workflow_emit_for_manual_publish(monkeypatch)
     report.published_by = 9
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda userid, content: (True, "sent"))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content: (True, "sent"))
 
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 

@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date, datetime, timezone
 
 from sqlalchemy import or_
@@ -25,16 +24,19 @@ from app.models.master import Workshop
 from app.models.production import MobileReminderRecord, MobileShiftReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
+from app.services import dingtalk_service
 from app.services.mobile_reminder_service import _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
 MOBILE_ROLE_NAMES = {"team_leader", "deputy_leader", "mobile_user"}
 
 
-def _wecom_userid(user: User) -> str | None:
-    """提取可用于企业微信发送的用户标识。"""
-
-    return (user.dingtalk_user_id or user.username or "").strip() or None
+def _resolve_notify_identity(user: User) -> tuple[str, str]:
+    dingtalk_user_id = str(getattr(user, "dingtalk_user_id", None) or "").strip()
+    if settings.DINGTALK_ENABLED and dingtalk_user_id:
+        return "dingtalk", dingtalk_user_id
+    fallback = str(getattr(user, "username", None) or getattr(user, "id", "") or "").strip()
+    return "system", fallback or "unknown"
 
 
 class ReminderAgent(BaseAgent):
@@ -44,31 +46,33 @@ class ReminderAgent(BaseAgent):
         """初始化催报 Agent。"""
         super().__init__("reminder")
 
-    def _send_reminder_message(self, userid: str, content: str) -> None:
-        """发送催报消息；企业微信未启用时仅记录日志。"""
+    def _send_reminder_message(self, user: User, content: str) -> tuple[bool, str]:
+        """Send a reminder through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
             self.logger.info("自动推送已关闭，催报消息仅记录：%s", content)
-            return
-        if not settings.WECOM_APP_ENABLED:
-            self.logger.info("企业微信未启用，催报消息仅记录：%s", content)
-            return
-        from app.adapters.wecom import send_app_message
+            return True, "auto_push_disabled"
 
-        asyncio.run(send_app_message(userid, content))
+        channel, identity = _resolve_notify_identity(user)
+        if channel == "dingtalk":
+            return dingtalk_service.send_work_notification(identity, content)
 
-    def _send_escalation_message(self, userid: str, content: str) -> None:
-        """发送升级消息；企业微信未启用时仅记录日志。"""
+        self.logger.info("[notify] %s | %s", identity, content)
+        return True, "stdout_sink"
+
+    def _send_escalation_message(self, user: User, content: str) -> tuple[bool, str]:
+        """Send an escalation through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
             self.logger.info("自动推送已关闭，升级消息仅记录：%s", content)
-            return
-        if not settings.WECOM_APP_ENABLED:
-            self.logger.info("企业微信未启用，升级消息仅记录：%s", content)
-            return
-        from app.adapters.wecom import send_app_message
+            return True, "auto_push_disabled"
 
-        asyncio.run(send_app_message(userid, content))
+        channel, identity = _resolve_notify_identity(user)
+        if channel == "dingtalk":
+            return dingtalk_service.send_work_notification(identity, content)
+
+        self.logger.info("[notify] %s | %s", identity, content)
+        return True, "stdout_sink"
 
     def _resolve_leader(self, db: Session, *, workshop_id: int, team_id: int | None) -> User | None:
         """按班组优先、车间兜底查找负责人。"""
@@ -196,7 +200,7 @@ class ReminderAgent(BaseAgent):
                     leader_user_id=leader.id,
                     reminder_type=reminder_type,
                     reminder_status="sent",
-                    reminder_channel="wecom" if settings.WECOM_APP_ENABLED else "system",
+                    reminder_channel=_resolve_notify_identity(leader)[0],
                     reminder_count=next_count,
                     last_reminded_at=datetime.now(timezone.utc),
                     note=None,
@@ -204,11 +208,9 @@ class ReminderAgent(BaseAgent):
                 db.add(entity)
                 message = (
                     f"【催报提醒】{workshop_name} {shift_name} 的生产数据尚未提交，"
-                    f"请尽快在企业微信中完成填报。（第{next_count}次提醒）"
+                    f"请尽快在钉钉中完成填报。（第{next_count}次提醒）"
                 )
-                user_id = _wecom_userid(leader)
-                if user_id:
-                    self._send_reminder_message(user_id, message)
+                self._send_reminder_message(leader, message)
                 self.record_decision(
                     AgentAction.AUTO_REMIND,
                     "mobile_reminder_record",
@@ -229,7 +231,7 @@ class ReminderAgent(BaseAgent):
                 leader_user_id=leader.id,
                 reminder_type="escalation",
                 reminder_status="sent",
-                reminder_channel="wecom" if settings.WECOM_APP_ENABLED else "system",
+                reminder_channel=_resolve_notify_identity(leader)[0],
                 reminder_count=next_count,
                 last_reminded_at=datetime.now(timezone.utc),
                 note="自动升级提醒管理员",
@@ -238,14 +240,11 @@ class ReminderAgent(BaseAgent):
 
             admin_users = self._admin_users(db)
             for admin_user in admin_users:
-                admin_userid = _wecom_userid(admin_user)
-                if not admin_userid:
-                    continue
                 escalation_message = (
                     f"【催报升级】{workshop_name} {shift_name} 已催报{next_count}次未响应，"
                     f"请管理员关注。负责人：{leader.name}"
                 )
-                self._send_escalation_message(admin_userid, escalation_message)
+                self._send_escalation_message(admin_user, escalation_message)
 
             self.record_decision(
                 AgentAction.AUTO_ALERT,

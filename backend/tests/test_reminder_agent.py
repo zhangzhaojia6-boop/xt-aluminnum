@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, time
 from types import SimpleNamespace
 
+from app.agents import reminder as reminder_module
 from app.agents.reminder import ReminderAgent
 
 
@@ -66,6 +67,7 @@ class _FakeDB:
 
 
 def test_reminder_agent_message_template(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
     sent = []
     agent = ReminderAgent()
     monkeypatch.setattr(agent, "_send_reminder_message", lambda userid, content: sent.append((userid, content)))
@@ -83,9 +85,12 @@ def test_reminder_agent_message_template(monkeypatch) -> None:
     assert "【催报提醒】铸轧车间 早班 的生产数据尚未提交" in decisions[0].reason
     assert "第1次提醒" in decisions[0].reason
     assert sent and "第1次提醒" in sent[0][1]
+    assert db.added[0].reminder_channel == "dingtalk"
+    assert "钉钉" in decisions[0].reason
 
 
 def test_reminder_agent_escalation_template(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
     sent = []
     agent = ReminderAgent()
     monkeypatch.setattr(agent, "_send_escalation_message", lambda userid, content: sent.append((userid, content)))
@@ -103,6 +108,39 @@ def test_reminder_agent_escalation_template(monkeypatch) -> None:
     assert decisions[0].action.value == "auto_alert"
     assert "【催报升级】铸轧车间 早班 已催报4次未响应" in decisions[0].reason
     assert sent and "负责人：李四" in sent[0][1]
+    assert db.added[0].reminder_channel == "dingtalk"
+
+
+def test_reminder_agent_sends_dingtalk_notification_when_user_is_bound(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
+    calls = []
+    monkeypatch.setattr(
+        reminder_module,
+        "dingtalk_service",
+        SimpleNamespace(send_work_notification=lambda userid, content: calls.append((userid, content)) or (True, "dingtalk_stub")),
+        raising=False,
+    )
+    user = SimpleNamespace(username="leader", name="张三", dingtalk_user_id="dt_leader")
+    agent = ReminderAgent()
+
+    ok, detail = agent._send_reminder_message(user, "催报内容")
+
+    assert ok is True
+    assert detail == "dingtalk_stub"
+    assert calls == [("dt_leader", "催报内容")]
+
+
+def test_reminder_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
+    user = SimpleNamespace(username="leader", name="张三", dingtalk_user_id=None)
+    agent = ReminderAgent()
+
+    ok, detail = agent._send_reminder_message(user, "催报内容")
+
+    assert ok is True
+    assert detail == "stdout_sink"
 
 
 def test_reminder_agent_treats_auto_confirmed_as_ready(monkeypatch) -> None:

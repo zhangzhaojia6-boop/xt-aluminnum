@@ -52,6 +52,7 @@ def test_workflow_related_feature_flags_default_to_disabled() -> None:
     assert settings.AUTO_PUBLISH_ENABLED is True
     assert settings.AUTO_PUSH_ENABLED is True
     assert settings.AUTO_PIPELINE_REQUIRE_READY is True
+    assert settings.DINGTALK_ENABLED is False
     assert settings.WECOM_BOT_ENABLED is False
     assert settings.WECOM_BOT_DRY_RUN is False
     assert settings.WECOM_APP_ENABLED is False
@@ -107,17 +108,14 @@ def test_validate_runtime_settings_rejects_invalid_wecom_bot_target_maps() -> No
     assert 'WECOM_BOT_TEAM_WEBHOOK_MAP must be a JSON object' in str(caught[0].message)
 
 
-def test_validate_runtime_settings_rejects_missing_wecom_app_credentials_in_production() -> None:
+def test_validate_runtime_settings_allows_deprecated_wecom_app_flag_without_credentials() -> None:
     settings = build_settings(
         APP_ENV='production',
         WORKFLOW_ENABLED=True,
         WECOM_APP_ENABLED=True,
     )
 
-    with pytest.raises(RuntimeError) as exc_info:
-        settings.validate_runtime_settings()
-
-    assert 'WECOM_APP_ENABLED requires WECOM_CORP_ID, WECOM_AGENT_ID, and WECOM_APP_SECRET' in str(exc_info.value)
+    settings.validate_runtime_settings()
 
 
 def test_validate_runtime_settings_rejects_missing_llm_fields_in_production() -> None:

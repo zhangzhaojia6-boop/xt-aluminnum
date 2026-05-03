@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import importlib
+import sys
 from types import SimpleNamespace
 
 import httpx
@@ -65,6 +67,23 @@ def build_envelope(
         'workshop_id': workshop_id,
         'created_at': '2026-04-04T08:30:00+00:00',
     }
+
+
+def test_wecom_user_message_path_is_removed() -> None:
+    sys.modules.pop('app.routers.wecom', None)
+    sys.modules.pop('app.services.wecom_mapping_service', None)
+
+    with pytest.raises(ImportError):
+        importlib.import_module('app.routers.wecom')
+    with pytest.raises(ImportError):
+        importlib.import_module('app.services.wecom_mapping_service')
+
+    from app.adapters import wecom
+    from app.adapters.wecom import WeComGroupBotPublisher
+
+    assert WeComGroupBotPublisher is not None
+    assert not hasattr(wecom, 'send_app_message')
+    assert not hasattr(wecom, 'code_to_userid')
 
 
 @pytest.mark.parametrize(

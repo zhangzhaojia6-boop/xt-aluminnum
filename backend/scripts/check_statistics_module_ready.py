@@ -1,6 +1,6 @@
 """统计模块可用性自检脚本。
 
-用于在配置 `LLM API`、应用连接 API 和企业微信触达后，
+用于在配置 `LLM API`、应用连接 API 和钉钉触达后，
 快速判断统计模块是否达到“配置后即可用”的最低门槛。
 """
 
@@ -143,27 +143,35 @@ def inspect_statistics_module_ready(
     else:
         llm_ready = True
 
-    wecom_ready = False
-    if not runtime.WECOM_APP_ENABLED:
+    dingtalk_ready = False
+    if not runtime.DINGTALK_ENABLED:
         issues.append(
             _issue(
                 level='hard',
-                code='WECOM_APP_DISABLED',
-                message='WECOM_APP_ENABLED=false，领导微信日报触达未启用。',
-                suggestion='将 WECOM_APP_ENABLED 设为 true，并补齐企业微信应用配置。',
+                code='DINGTALK_DISABLED',
+                message='DINGTALK_ENABLED=false，领导钉钉日报触达未启用。',
+                suggestion='将 DINGTALK_ENABLED 设为 true，并补齐钉钉应用配置。',
             )
         )
-    elif any(_is_blank(value) for value in (runtime.WECOM_CORP_ID, runtime.WECOM_AGENT_ID, runtime.WECOM_APP_SECRET)):
+    elif any(
+        _is_blank(value)
+        for value in (
+            runtime.DINGTALK_CORP_ID,
+            runtime.DINGTALK_APP_KEY,
+            runtime.DINGTALK_APP_SECRET,
+            runtime.DINGTALK_AGENT_ID,
+        )
+    ):
         issues.append(
             _issue(
                 level='hard',
-                code='WECOM_APP_CONFIG_MISSING',
-                message='企业微信应用已启用，但 WECOM_CORP_ID / WECOM_AGENT_ID / WECOM_APP_SECRET 仍有缺失。',
-                suggestion='补齐企业微信应用配置。',
+                code='DINGTALK_CONFIG_MISSING',
+                message='钉钉应用已启用，但 DINGTALK_CORP_ID / DINGTALK_APP_KEY / DINGTALK_APP_SECRET / DINGTALK_AGENT_ID 仍有缺失。',
+                suggestion='补齐钉钉应用配置。',
             )
         )
     else:
-        wecom_ready = True
+        dingtalk_ready = True
 
     app_connection_mode = runtime.app_connection_push_mode_normalized
     app_connection_ready = False
@@ -212,7 +220,7 @@ def inspect_statistics_module_ready(
     local_runnable = runtime_valid and database_ok
     hard_issues = [item for item in issues if item['level'] == 'hard']
     warning_issues = [item for item in issues if item['level'] == 'warning']
-    module_usable = local_runnable and not hard_issues and llm_ready and wecom_ready and app_connection_ready
+    module_usable = local_runnable and not hard_issues and llm_ready and dingtalk_ready and app_connection_ready
 
     return {
         'hard_gate_passed': module_usable,
@@ -226,7 +234,7 @@ def inspect_statistics_module_ready(
             'auto_publish_enabled': runtime.AUTO_PUBLISH_ENABLED,
             'auto_push_enabled': runtime.AUTO_PUSH_ENABLED,
             'llm_enabled': runtime.LLM_ENABLED,
-            'wecom_app_enabled': runtime.WECOM_APP_ENABLED,
+            'dingtalk_enabled': runtime.DINGTALK_ENABLED,
             'app_connection_enabled': runtime.APP_CONNECTION_ENABLED,
             'app_connection_push_mode': app_connection_mode,
             'runtime_valid': runtime_valid,

@@ -42,7 +42,13 @@ class DingTalkService:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.config.corp_id and self.config.app_key and self.config.app_secret and self.config.agent_id)
+        return bool(
+            settings.DINGTALK_ENABLED
+            and self.config.corp_id
+            and self.config.app_key
+            and self.config.app_secret
+            and self.config.agent_id
+        )
 
     def resolve_mobile_identity(self, user: User | None) -> dict[str, str | bool | None]:
         has_user_binding = bool(user and (user.dingtalk_user_id or user.dingtalk_union_id))
@@ -257,6 +263,19 @@ class DingTalkService:
 
 
 service = DingTalkService()
+
+
+def send_work_notification(userid: str, content: str) -> tuple[bool, str]:
+    user_id = str(userid or '').strip()
+    if not user_id:
+        return False, 'dingtalk_user_missing'
+    if not service.enabled:
+        logger.info('[notify] dingtalk dry-run %s | %s', user_id, content)
+        return True, 'dingtalk_stub'
+    result = service.send_text('数据中枢通知', content)
+    if result.get('success'):
+        return True, str(result.get('message') or 'dingtalk_sent')
+    return False, str(result.get('message') or 'dingtalk_failed')
 
 
 def _normalize_clock_type(value: str | None) -> str | None:
