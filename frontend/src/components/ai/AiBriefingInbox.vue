@@ -48,6 +48,7 @@
                 type="primary"
                 plain
                 :loading="executingKey === actionKey(briefing, rule, action, index)"
+                :disabled="Boolean(executingKey)"
                 data-testid="assistant-action-button"
                 @click="handleExecuteAction(briefing, rule, action, index)"
               >

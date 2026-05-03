@@ -18,4 +18,5 @@ test('briefing inbox renders suggested action buttons for manager roles', () => 
   assert.match(inboxSource, /data-testid="assistant-action-button"/)
   assert.match(inboxSource, /canExecuteActions/)
   assert.match(inboxSource, /handleExecuteAction/)
+  assert.match(inboxSource, /:disabled="Boolean\(executingKey\)"/)
 })
