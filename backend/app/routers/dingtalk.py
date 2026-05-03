@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone
 from urllib import request as urllib_request
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,9 @@ from app.config import settings
 from app.core.auth import create_access_token
 from app.database import get_db
 from app.models.system import User
+from app.schemas.auth import LoginResponse, UserInfo
 from app.services.audit_service import log_action
+from app.services import dingtalk_service
 
 logger = logging.getLogger(__name__)
 
@@ -132,4 +134,59 @@ async def dingtalk_login(req: DingtalkLoginRequest, db: Session = Depends(get_db
         "token_type": "bearer",
         "user_id": user.id,
         "display_name": user.name or user.username,
+    }
+
+
+@router.post("/h5-login", response_model=LoginResponse)
+def dingtalk_h5_login(
+    request: Request,
+    req: DingtalkLoginRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    if not dingtalk_service.service.is_h5_configured():
+        raise HTTPException(status_code=400, detail='dingtalk_not_configured')
+
+    try:
+        identity = dingtalk_service.service.exchange_code(req.code)
+    except dingtalk_service.DingTalkNotConfigured as exc:
+        raise HTTPException(status_code=400, detail='dingtalk_not_configured') from exc
+    except dingtalk_service.DingTalkCodeInvalid as exc:
+        logger.warning('钉钉 H5 code 换 userid 失败: %s', exc)
+        raise HTTPException(status_code=401, detail='dingtalk_code_invalid') from exc
+
+    dingtalk_user_id = identity.get('userid') or ''
+    try:
+        user, token = dingtalk_service.service.issue_jwt_for_dingtalk_user(
+            db,
+            dingtalk_user_id=dingtalk_user_id,
+            dingtalk_union_id=identity.get('unionid'),
+        )
+    except dingtalk_service.DingTalkUserNotBound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                'code': 'dingtalk_user_not_bound',
+                'dingtalk_user_id': exc.dingtalk_user_id,
+                'dingtalk_union_id': exc.dingtalk_union_id,
+            },
+        ) from exc
+
+    log_action(
+        db,
+        user_id=user.id,
+        user_name=user.name,
+        action='login',
+        module='dingtalk',
+        table_name='users',
+        record_id=user.id,
+        reason='钉钉H5免登',
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get('user-agent'),
+    )
+    user_info = UserInfo.model_validate(user)
+    return {
+        'access_token': token,
+        'token_type': 'bearer',
+        'user': user_info.model_dump(),
+        'machine_info': None,
     }

@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import logging
+import time
 from urllib import parse, request
 
 from app.config import settings
+from app.core.auth import create_access_token
 from app.database import get_sessionmaker
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.models.attendance import AttendanceClockRecord
@@ -25,6 +27,21 @@ class DingTalkConfig:
     agent_id: str | None
 
 
+class DingTalkNotConfigured(RuntimeError):
+    pass
+
+
+class DingTalkCodeInvalid(RuntimeError):
+    pass
+
+
+class DingTalkUserNotBound(RuntimeError):
+    def __init__(self, dingtalk_user_id: str, dingtalk_union_id: str | None = None) -> None:
+        self.dingtalk_user_id = dingtalk_user_id
+        self.dingtalk_union_id = dingtalk_union_id
+        super().__init__('dingtalk_user_not_bound')
+
+
 class DingTalkService:
     """Placeholder for future DingTalk integration.
 
@@ -39,6 +56,8 @@ class DingTalkService:
             app_secret=settings.DINGTALK_APP_SECRET,
             agent_id=settings.DINGTALK_AGENT_ID,
         )
+        self._access_token: str | None = None
+        self._access_token_expires_at = 0.0
 
     @property
     def enabled(self) -> bool:
@@ -49,6 +68,9 @@ class DingTalkService:
             and self.config.app_secret
             and self.config.agent_id
         )
+
+    def is_h5_configured(self) -> bool:
+        return bool(self.config.corp_id and self.config.app_key and self.config.app_secret)
 
     def resolve_mobile_identity(self, user: User | None) -> dict[str, str | bool | None]:
         has_user_binding = bool(user and (user.dingtalk_user_id or user.dingtalk_union_id))
@@ -122,9 +144,23 @@ class DingTalkService:
             raw = response.read().decode(charset)
         return json.loads(raw or '{}')
 
-    def _get_access_token(self) -> str:
-        if not self.enabled:
-            raise RuntimeError('DingTalk is not configured')
+    @staticmethod
+    def _ensure_success(payload: dict) -> None:
+        errcode = payload.get('errcode')
+        code = payload.get('code')
+        if errcode not in {None, 0, '0'}:
+            raise RuntimeError(str(payload.get('errmsg') or payload))
+        if code not in {None, 0, '0'}:
+            raise RuntimeError(str(payload.get('message') or payload))
+
+    def fetch_access_token(self) -> str:
+        if not (self.config.app_key and self.config.app_secret):
+            raise DingTalkNotConfigured('dingtalk_not_configured')
+
+        now = time.monotonic()
+        if self._access_token and self._access_token_expires_at > now:
+            return self._access_token
+
         query = parse.urlencode(
             {
                 'appkey': self.config.app_key or '',
@@ -132,10 +168,72 @@ class DingTalkService:
             }
         )
         payload = self._request_json(method='GET', url=f'https://oapi.dingtalk.com/gettoken?{query}')
+        try:
+            self._ensure_success(payload)
+        except RuntimeError as exc:
+            raise DingTalkCodeInvalid(str(exc)) from exc
+
         access_token = payload.get('access_token') or payload.get('accessToken')
-        if access_token:
-            return str(access_token)
-        raise RuntimeError(payload.get('errmsg') or payload.get('message') or 'failed to obtain DingTalk access token')
+        if not access_token:
+            raise DingTalkCodeInvalid(str(payload.get('errmsg') or payload.get('message') or 'dingtalk_code_invalid'))
+        expires_in = int(payload.get('expires_in') or payload.get('expiresIn') or 7200)
+        self._access_token = str(access_token)
+        self._access_token_expires_at = now + max(expires_in - 300, 60)
+        return self._access_token
+
+    def exchange_code(self, code: str) -> dict[str, str]:
+        if not self.is_h5_configured():
+            raise DingTalkNotConfigured('dingtalk_not_configured')
+        auth_code = str(code or '').strip()
+        if not auth_code:
+            raise DingTalkCodeInvalid('dingtalk_code_invalid')
+
+        access_token = self.fetch_access_token()
+        try:
+            payload = self._request_json(
+                method='POST',
+                url=f'https://oapi.dingtalk.com/topapi/v2/user/getuserinfo?access_token={parse.quote(access_token)}',
+                payload={'code': auth_code},
+            )
+            self._ensure_success(payload)
+        except Exception as exc:  # noqa: BLE001
+            raise DingTalkCodeInvalid(str(exc)) from exc
+
+        result = payload.get('result') if isinstance(payload.get('result'), dict) else payload
+        userid = str(result.get('userid') or result.get('userId') or result.get('user_id') or '').strip()
+        unionid = str(result.get('unionid') or result.get('unionId') or result.get('union_id') or '').strip()
+        if not userid:
+            raise DingTalkCodeInvalid('dingtalk_code_invalid')
+        return {'userid': userid, 'unionid': unionid}
+
+    def issue_jwt_for_dingtalk_user(
+        self,
+        db,
+        dingtalk_user_id: str,
+        dingtalk_union_id: str | None = None,
+    ) -> tuple[User, str]:
+        user_id = str(dingtalk_user_id or '').strip()
+        union_id = str(dingtalk_union_id or '').strip() or None
+        if not user_id:
+            raise DingTalkUserNotBound(user_id, union_id)
+
+        user = db.query(User).filter(User.dingtalk_user_id == user_id, User.is_active.is_(True)).first()
+        if user is None and union_id:
+            user = db.query(User).filter(User.dingtalk_union_id == union_id, User.is_active.is_(True)).first()
+        if user is None:
+            raise DingTalkUserNotBound(user_id, union_id)
+
+        if union_id and not user.dingtalk_union_id:
+            user.dingtalk_union_id = union_id
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+        return user, create_access_token(subject=str(user.id))
+
+    def _get_access_token(self) -> str:
+        if not self.enabled:
+            raise RuntimeError('DingTalk is not configured')
+        return self.fetch_access_token()
 
     def _load_bound_dingtalk_user_ids(self) -> list[str]:
         sessionmaker = get_sessionmaker()
@@ -261,16 +359,43 @@ class DingTalkService:
             return {'success': False, 'message': 'DingTalk is not configured'}
         return {'success': True, 'message': f'queued: {title}', 'content': content[:120]}
 
+    def send_work_notification(self, userid: str, content: str) -> tuple[bool, str]:
+        user_id = str(userid or '').strip()
+        if not user_id:
+            return False, 'dingtalk_user_missing'
+        if getattr(settings, 'DINGTALK_NOTIFY_DRY_RUN', False):
+            logger.info('[notify] dingtalk dry-run %s | %s', user_id, content)
+            return True, 'dingtalk_dry_run'
+        if not self.enabled:
+            return False, 'dingtalk_not_configured'
+
+        try:
+            access_token = self.fetch_access_token()
+            payload = {
+                'agent_id': int(self.config.agent_id) if str(self.config.agent_id or '').isdigit() else self.config.agent_id,
+                'userid_list': user_id,
+                'msg': {
+                    'msgtype': 'text',
+                    'text': {'content': str(content or '')},
+                },
+            }
+            response = self._request_json(
+                method='POST',
+                url=f'https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2?access_token={parse.quote(access_token)}',
+                payload=payload,
+            )
+            self._ensure_success(response)
+            return True, 'dingtalk_sent'
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('DingTalk work notification failed: %s', exc)
+            return False, str(exc) or 'dingtalk_send_failed'
+
 
 service = DingTalkService()
 
 
 def send_work_notification(userid: str, content: str) -> tuple[bool, str]:
-    user_id = str(userid or '').strip()
-    if not user_id:
-        return False, 'dingtalk_user_missing'
-    logger.info('[notify] dingtalk stub %s | %s', user_id, content)
-    return True, 'dingtalk_stub'
+    return service.send_work_notification(userid, content)
 
 
 def _normalize_clock_type(value: str | None) -> str | None:

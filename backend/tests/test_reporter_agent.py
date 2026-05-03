@@ -119,17 +119,18 @@ def test_reporter_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monk
     assert detail == "stdout_sink"
 
 
-def test_dingtalk_work_notification_is_phase_one_stub(monkeypatch) -> None:
+def test_dingtalk_work_notification_uses_dry_run_without_network(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.dingtalk_service.settings.DINGTALK_NOTIFY_DRY_RUN", True, raising=False)
     monkeypatch.setattr(
         dingtalk_service.service,
-        "send_text",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("real DingTalk send is Phase 3")),
+        "_request_json",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("dry run should not call DingTalk")),
     )
 
     ok, detail = dingtalk_service.send_work_notification("dt_manager", "日报内容")
 
     assert ok is True
-    assert detail == "dingtalk_stub"
+    assert detail == "dingtalk_dry_run"
 
 
 def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:

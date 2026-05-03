@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     DINGTALK_APP_SECRET: str | None = None
     DINGTALK_AGENT_ID: str | None = None
     DINGTALK_ENABLED: bool = False
+    DINGTALK_NOTIFY_DRY_RUN: bool = False
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True

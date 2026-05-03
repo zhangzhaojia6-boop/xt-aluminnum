@@ -94,6 +94,12 @@ function resolveRuntimeAuthCode(query = {}) {
   return candidates.find((value) => typeof value === 'string' && value.trim()) || ''
 }
 
+function isDingTalkRuntimeClient() {
+  if (typeof window === 'undefined') return false
+  const userAgent = window.navigator?.userAgent || ''
+  return Boolean(window.dd) || /DingTalk/i.test(userAgent)
+}
+
 function prefersMobileSurface(authStore, to) {
   if (!isCompactClient() || !authStore.canAccessFillSurface) return false
   if (to.meta.zone === 'entry' || to.name === 'login') return false
@@ -311,7 +317,9 @@ export function installRouterGuards(routerInstance, authStore) {
     const auth = authStore || useAuthStore()
     const matchedAccess = [...to.matched].reverse().find((record) => record.meta?.access)?.meta.access
     const access = to.meta.access || matchedAccess
-    const hasRuntimeAuthCode = to.name === 'mobile-entry' && Boolean(resolveRuntimeAuthCode(to.query))
+    const hasRuntimeAuthCode = to.name === 'mobile-entry' && (
+      Boolean(resolveRuntimeAuthCode(to.query)) || isDingTalkRuntimeClient()
+    )
 
     if (auth.token && to.name === 'login') {
       return defaultLanding(auth)

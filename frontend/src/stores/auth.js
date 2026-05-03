@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { dingtalkLoginApi, loginApi, meApi, qrLoginApi, workshopQuickEntryApi } from '../api/auth.js'
+import { dingtalkH5LoginApi } from '../api/dingtalk.js'
 
 const TOKEN_KEY = 'aluminum_bypass_token'
 const USER_KEY = 'aluminum_bypass_user'
@@ -172,9 +173,14 @@ export const useAuthStore = defineStore('auth', {
       return result
     },
     async dingtalkLogin(code) {
-      const result = await dingtalkLoginApi({ code })
+      const result = await dingtalkH5LoginApi({ code })
       const token = result.access_token || result.token || ''
       if (token === '') throw new Error('钉钉登录未返回令牌')
+
+      if (result.user) {
+        this.setSession(token, result.user, result.machine_info || null)
+        return { ...result, access_token: token }
+      }
 
       this.setToken(token)
       this.setMachineContext(null)

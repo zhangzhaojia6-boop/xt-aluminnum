@@ -201,6 +201,12 @@ function resolveAuthCode() {
   return resolveQueryValue('authCode') || resolveQueryValue('auth_code') || resolveQueryValue('code')
 }
 
+function isDingTalkRuntime() {
+  if (typeof window === 'undefined') return false
+  const userAgent = window.navigator?.userAgent || ''
+  return Boolean(window.dd) || /DingTalk/i.test(userAgent)
+}
+
 function surfaceLandingPath(surface) {
   if (surface === 'entry' && auth.entrySurface) return '/entry'
   if (surface === 'review' && auth.reviewSurface) return '/manage/overview'
@@ -294,6 +300,10 @@ function applyWorkshopContext() {
 }
 
 onMounted(async () => {
+  if (isDingTalkRuntime() && !resolveAuthCode()) {
+    await router.replace({ name: 'mobile-entry', query: route.query })
+    return
+  }
   const dingtalkLoggedIn = await tryDingtalkLogin()
   if (dingtalkLoggedIn) return
   await tryQrLogin()

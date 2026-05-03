@@ -213,6 +213,72 @@ function resolveAuthCode() {
   return code ? code.trim() : ''
 }
 
+function isDingTalkRuntime() {
+  if (typeof window === 'undefined') return false
+  const userAgent = window.navigator?.userAgent || ''
+  return Boolean(window.dd) || /DingTalk/i.test(userAgent)
+}
+
+function resolveDingTalkCorpId() {
+  if (typeof window === 'undefined') return ''
+  return import.meta.env.VITE_DINGTALK_CORP_ID || window.__DINGTALK_CORP_ID__ || ''
+}
+
+async function loadDingTalkJsApi() {
+  if (window.dd) return window.dd
+  if (typeof window.loadDingTalkJsApi === 'function') {
+    return window.loadDingTalkJsApi()
+  }
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = '/dingtalk-jsapi-loader.js'
+    script.async = true
+    script.onload = resolve
+    script.onerror = () => reject(new Error('dingtalk_jsapi_loader_failed'))
+    document.head.appendChild(script)
+  })
+  return window.loadDingTalkJsApi()
+}
+
+function getDingTalkAuthCode(dd, corpId) {
+  return new Promise((resolve, reject) => {
+    const onSuccess = (result) => {
+      const code = result?.code || result?.authCode || result?.auth_code || ''
+      if (code) {
+        resolve(code)
+      } else {
+        reject(new Error('dingtalk_auth_code_missing'))
+      }
+    }
+    const onFail = (error) => reject(error || new Error('dingtalk_auth_failed'))
+
+    if (typeof dd.config === 'function') {
+      dd.config({
+        corpId,
+        jsApiList: ['runtime.permission.requestAuthCode', 'biz.util.scan']
+      })
+    }
+    if (dd.runtime?.permission?.requestAuthCode) {
+      dd.runtime.permission.requestAuthCode({ corpId, onSuccess, onFail })
+      return
+    }
+    if (typeof dd.getAuthCode === 'function') {
+      dd.getAuthCode({ corpId, success: onSuccess, fail: onFail })
+      return
+    }
+    reject(new Error('dingtalk_auth_api_missing'))
+  })
+}
+
+async function resolveRuntimeAuthCode() {
+  const queryCode = resolveAuthCode()
+  if (queryCode || !isDingTalkRuntime()) return queryCode
+  const corpId = resolveDingTalkCorpId()
+  if (!corpId) return ''
+  const dd = await loadDingTalkJsApi()
+  return getDingTalkAuthCode(dd, corpId)
+}
+
 function parseErrorMessage(error, fallback) {
   const detail = error?.response?.data?.detail
   if (Array.isArray(detail)) {
@@ -247,12 +313,12 @@ function parseErrorMessage(error, fallback) {
 })
 
 async function ensureDingtalkSession() {
-  const code = resolveAuthCode()
-  if (auth.isLoggedIn || !code) return true
-
+  if (auth.isLoggedIn) return true
   authenticating.value = true
   authError.value = ''
   try {
+    const code = await resolveRuntimeAuthCode()
+    if (!code) return true
     await auth.dingtalkLogin(code)
     const nextQuery = { ...route.query }
     delete nextQuery.code
@@ -262,7 +328,9 @@ async function ensureDingtalkSession() {
     await router.replace({ name: 'mobile-entry', query: nextQuery })
     return true
   } catch (error) {
-    authError.value = parseErrorMessage(error, '钉钉登录失败，请联系管理员检查账号映射。')
+    authError.value = isDingTalkRuntime()
+      ? '钉钉鉴权失败，改用账号登录'
+      : parseErrorMessage(error, '钉钉登录失败，请联系管理员检查账号映射。')
     return false
   } finally {
     authenticating.value = false
