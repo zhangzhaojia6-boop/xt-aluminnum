@@ -23,6 +23,11 @@ export async function fetchCurrentShift() {
   return data
 }
 
+export async function fetchScanLookup(qr) {
+  const { data } = await api.get('/mobile/scan-lookup', { params: { qr } })
+  return data
+}
+
 export async function fetchEntryFields() {
   const { data } = await api.get('/mobile/entry-fields')
   return data

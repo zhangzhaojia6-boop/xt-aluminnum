@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -22,10 +22,11 @@ from app.schemas.mobile import (
     MobileReminderRecordOut,
     MobileReportHistoryResponse,
     MobileReportPayload,
+    MobileScanLookupOut,
     MobileShiftReportHistoryItemOut,
     MobileShiftReportOut,
 )
-from app.services import factory_command_service, mobile_reminder_service, mobile_report_service
+from app.services import factory_command_service, mobile_reminder_service, mobile_report_service, scan_lookup_service
 
 router = APIRouter(tags=['mobile'])
 
@@ -50,6 +51,19 @@ def current_shift(
 ) -> MobileCurrentShiftOut:
     payload = mobile_report_service.get_current_shift(db, current_user=current_user)
     return MobileCurrentShiftOut(**payload)
+
+
+@router.get('/scan-lookup', response_model=MobileScanLookupOut, name='mobile-scan-lookup')
+def scan_lookup(
+    qr: str = Query(min_length=1, max_length=256),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileScanLookupOut:
+    try:
+        payload = scan_lookup_service.lookup_qr(db, qr=qr)
+    except scan_lookup_service.ScanLookupNotFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='qr_not_found') from exc
+    return MobileScanLookupOut(**payload)
 
 
 @router.get('/report/{business_date}/{shift_id}', response_model=MobileShiftReportOut, name='mobile-report-detail')

@@ -63,6 +63,9 @@
     </div>
 
     <div class="coil-actions">
+      <el-button v-if="canScan" size="large" plain :loading="scanning" class="xt-pressable" @click="handleScanLookup()">
+        扫码带出
+      </el-button>
       <el-button type="primary" size="large" class="xt-pressable" @click="showEntryDialog = true">
         录一卷
       </el-button>
@@ -109,20 +112,20 @@
       <div class="mobile-form-grid">
         <div class="mobile-field mobile-field-wide">
           <label><span class="mobile-required">*</span> 卷号</label>
-          <el-input v-model="form.tracking_card_no" placeholder="手工输入或扫码" @blur="loadFlowSuggestion" />
+          <el-input v-model="form.tracking_card_no" :disabled="isLockedField('tracking_card_no')" placeholder="手工输入或扫码" @blur="loadFlowSuggestion" />
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 合金</label>
-          <el-select v-model="form.alloy_grade" filterable allow-create default-first-option placeholder="选择或输入">
+          <el-select v-model="form.alloy_grade" :disabled="isLockedField('alloy_grade')" filterable allow-create default-first-option placeholder="选择或输入">
             <el-option v-for="g in alloyGrades" :key="g.value ?? g" :label="g.label ?? g" :value="g.value ?? g" />
           </el-select>
         </div>
         <div class="mobile-field">
           <label>来料规格</label>
           <div class="mobile-spec-row">
-            <el-input :model-value="inputSpecParts[0]" inputmode="decimal" placeholder="厚" @update:model-value="updateInputSpec(0, $event)" />
+            <el-input :model-value="inputSpecParts[0]" :disabled="isLockedField('input_spec')" inputmode="decimal" placeholder="厚" @update:model-value="updateInputSpec(0, $event)" />
             <span class="mobile-spec-sep">×</span>
-            <el-input :model-value="inputSpecParts[1]" inputmode="decimal" placeholder="宽" @update:model-value="updateInputSpec(1, $event)" />
+            <el-input :model-value="inputSpecParts[1]" :disabled="isLockedField('input_spec')" inputmode="decimal" placeholder="宽" @update:model-value="updateInputSpec(1, $event)" />
           </div>
         </div>
         <div class="mobile-field">
@@ -197,6 +200,7 @@ import { api } from '../../api/index.js'
 import { validateCoilEntryForm } from '../../utils/coilEntryValidation.js'
 import { buildFlowPayload, resolveFlowFieldState } from '../../utils/coilFlowFields.js'
 import { DEFAULT_ALLOY_GRADES, loadCoilEntryStartup } from '../../utils/coilEntryStartup.js'
+import { useScanLookup } from '../../composables/useScanLookup.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -209,6 +213,8 @@ const showSummaryDialog = ref(false)
 const submitting = ref(false)
 const flowLoading = ref(false)
 const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
+const lockedFieldsSnapshot = ref({})
+const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
 const workshopName = computed(() => currentShift.value?.workshop_name || bootstrap.value?.workshop_name || '-')
@@ -301,6 +307,58 @@ function applyFlowSuggestion(flow) {
   }
 }
 
+function currentLockValue(key) {
+  if (key in form.value) return form.value[key]
+  if (key in form.value.flow) return form.value.flow[key]
+  return undefined
+}
+
+function isLockedField(name) {
+  return Object.prototype.hasOwnProperty.call(lockedFieldsSnapshot.value, name)
+}
+
+function applyLockedSnapshot(lockKeys = []) {
+  const snapshot = {}
+  for (const key of lockKeys) {
+    const value = currentLockValue(key)
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      snapshot[key] = value
+    }
+  }
+  lockedFieldsSnapshot.value = snapshot
+}
+
+function applyScanLookupResult(result) {
+  const fields = result?.header_fields || {}
+  if (fields.tracking_card_no) form.value.tracking_card_no = fields.tracking_card_no
+  if (fields.alloy_grade) form.value.alloy_grade = fields.alloy_grade
+  if (fields.input_spec || fields.spec_display) form.value.input_spec = fields.input_spec || fields.spec_display
+  if (fields.current_workshop || fields.current_process || fields.next_workshop || fields.next_process) {
+    form.value.flow = {
+      ...form.value.flow,
+      current_workshop: fields.current_workshop || form.value.flow.current_workshop,
+      current_process: fields.current_process || form.value.flow.current_process,
+      next_workshop: fields.next_workshop || form.value.flow.next_workshop,
+      next_process: fields.next_process || form.value.flow.next_process,
+      flow_source: 'scan_lookup',
+      flow_confirmed_at: new Date().toISOString(),
+    }
+  }
+  applyLockedSnapshot(result?.lock_keys || [])
+  showEntryDialog.value = true
+}
+
+async function handleScanLookup(qr) {
+  try {
+    const result = qr ? await scanLookup(qr) : await scan()
+    if (!result) return
+    applyScanLookupResult(result)
+    ElMessage.success(result.source === 'machine_identity' ? '已识别机台' : '已带出卷头字段')
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || '扫码失败')
+  }
+}
+
 async function loadFlowSuggestion() {
   const trackingCardNo = String(form.value.tracking_card_no || '').trim()
   if (!trackingCardNo || flowLoading.value) return
@@ -360,12 +418,14 @@ async function submitCoil() {
       operator_name: operatorName.value,
       business_date: currentShift.value?.business_date,
       shift_id: currentShift.value?.shift_id,
+      locked_fields_snapshot: lockedFieldsSnapshot.value,
       ...buildFlowPayload(form.value.flow),
     }
     delete payload.flow
     await api.post('/mobile/coil-entry', payload)
     ElMessage.success('提交成功')
     form.value = emptyForm()
+    lockedFieldsSnapshot.value = {}
     showEntryDialog.value = false
     await loadCoils()
   } catch (e) {

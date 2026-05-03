@@ -398,6 +398,44 @@ def _aggregate_coil_to_shift(db: Session, *, business_date: date, shift_id: int,
         db.add(spd)
     db.commit()
 
+
+def _normalized_locked_value(value) -> str:
+    if value is None:
+        return ''
+    if isinstance(value, Decimal):
+        value = float(value)
+    return str(value).strip()
+
+
+def _locked_payload_value(payload: dict, key: str):
+    if key in payload:
+        return payload.get(key), True
+    extra_payload = dict(payload.get('extra_payload') or {})
+    if key in extra_payload:
+        return extra_payload.get(key), True
+    flow = extra_payload.get('flow')
+    if isinstance(flow, dict) and key in flow:
+        return flow.get(key), True
+    return None, False
+
+
+def _validate_locked_fields(payload: dict) -> list[str]:
+    snapshot = payload.get('locked_fields_snapshot')
+    if not isinstance(snapshot, dict) or not snapshot:
+        return []
+
+    tampered: list[str] = []
+    for key, expected in snapshot.items():
+        current, found = _locked_payload_value(payload, str(key))
+        if not found:
+            continue
+        if _normalized_locked_value(current) != _normalized_locked_value(expected):
+            tampered.append(str(key))
+    if tampered:
+        raise HTTPException(status_code=409, detail='locked_field_tampered')
+    return [str(key) for key in snapshot.keys()]
+
+
 def create_coil_entry(
     db: Session,
     *,
@@ -425,6 +463,7 @@ def create_coil_entry(
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
+    locked_fields = _validate_locked_fields(payload)
     extra_payload = _build_coil_flow_extra_payload(payload)
 
     entry = WorkOrderEntry(
@@ -443,6 +482,7 @@ def create_coil_entry(
         operator_notes=payload.get('operator_notes'),
         extra_payload=extra_payload,
         entry_type='mobile_coil',
+        locked_fields=locked_fields or None,
     )
     if entry.scrap_weight is None and entry.input_weight and entry.output_weight:
         inp = float(entry.input_weight)
@@ -489,6 +529,8 @@ def _build_coil_flow_extra_payload(payload: dict) -> dict:
     extra_payload = dict(payload.get('extra_payload') or {})
     if 'flow' in extra_payload:
         extra_payload['flow'] = _normalize_flow_payload(extra_payload.get('flow'))
+    if payload.get('locked_fields_snapshot'):
+        extra_payload['locked_fields_snapshot'] = dict(payload.get('locked_fields_snapshot') or {})
 
     legacy_flow = {
         key: payload.get(key)

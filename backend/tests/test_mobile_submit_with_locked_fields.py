@@ -1,0 +1,138 @@
+from __future__ import annotations
+
+from datetime import date, time
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.deps import get_db
+from app.core.permissions import get_current_mobile_user
+from app.database import Base
+from app.main import app
+from app.models.master import Equipment, Workshop
+from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.shift import ShiftConfig
+from app.models.system import User
+
+
+def _session_factory(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mobile-locked-fields.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            Equipment.__table__,
+            ShiftConfig.__table__,
+            User.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            ShiftProductionData.__table__,
+        ],
+    )
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
+def _client_with_db(session_factory):
+    def fake_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def fake_mobile_user() -> User:
+        return User(
+            id=1,
+            username='operator',
+            password_hash='x',
+            name='主操',
+            role='machine_operator',
+            workshop_id=1,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_reviewer=False,
+            is_manager=False,
+            is_active=True,
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_mobile_user] = fake_mobile_user
+    return TestClient(app)
+
+
+def _seed_reference_data(session_factory) -> None:
+    with session_factory() as db:
+        workshop = Workshop(code='ZR2', name='铸二车间', workshop_type='casting', sort_order=1, is_active=True)
+        db.add(workshop)
+        db.flush()
+        db.add(
+            ShiftConfig(
+                code='D',
+                name='白班',
+                shift_type='day',
+                start_time=time(8, 0),
+                end_time=time(20, 0),
+                workshop_id=workshop.id,
+                is_active=True,
+            )
+        )
+        db.commit()
+
+
+def test_mobile_coil_entry_rejects_tampered_locked_fields(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-LOCK-1',
+                'alloy_grade': '3003',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+                'locked_fields_snapshot': {
+                    'tracking_card_no': 'TRACK-LOCK-1',
+                    'alloy_grade': '6061',
+                    'input_spec': '1.2×1200',
+                },
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'locked_field_tampered'
+
+
+def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-LOCK-2',
+                'alloy_grade': '6061',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+                'locked_fields_snapshot': {
+                    'tracking_card_no': 'TRACK-LOCK-2',
+                    'alloy_grade': '6061',
+                    'input_spec': '1.2×1200',
+                },
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()['tracking_card_no'] == 'TRACK-LOCK-2'

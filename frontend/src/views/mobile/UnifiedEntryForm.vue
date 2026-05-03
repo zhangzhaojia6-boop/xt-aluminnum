@@ -16,6 +16,12 @@
         <span class="ue-coil-shift">{{ shiftName }} · 已录{{ history.length }}卷</span>
       </div>
 
+      <div v-if="mode === 'per_coil' && canScan" class="ue-scan-row">
+        <button class="ue-scan-btn" :disabled="scanning" @click="handleScanLookup()">
+          {{ scanning ? '扫码中…' : '扫码带出' }}
+        </button>
+      </div>
+
       <section v-for="(group, gi) in groups" :key="gi" class="ue-group">
         <h3 class="ue-group__title">{{ group.label }}</h3>
         <div class="ue-fields">
@@ -33,6 +39,7 @@
               default-first-option
               :placeholder="field.hint || '选择或输入'"
               :aria-label="field.label"
+              :disabled="isLockedField(field.name)"
               class="ue-el-select"
             >
               <el-option v-for="opt in resolveFieldOptions(field)" :key="opt.value ?? opt" :label="opt.label ?? opt" :value="opt.value ?? opt" />
@@ -45,6 +52,7 @@
                 class="ue-input ue-spec-input"
                 placeholder="厚"
                 :aria-label="`${field.label} 厚`"
+                :disabled="isLockedField(field.name)"
                 @input="syncSpec(field)"
               />
               <span class="ue-spec-sep">×</span>
@@ -55,6 +63,7 @@
                 class="ue-input ue-spec-input"
                 placeholder="宽"
                 :aria-label="`${field.label} 宽`"
+                :disabled="isLockedField(field.name)"
                 @input="syncSpec(field)"
               />
               <span class="ue-spec-sep">×</span>
@@ -65,6 +74,7 @@
                 class="ue-input ue-spec-input"
                 placeholder="长/C"
                 :aria-label="`${field.label} 长`"
+                :disabled="isLockedField(field.name)"
                 @input="syncSpec(field)"
               />
               <span v-else class="ue-input ue-spec-input ue-spec-fixed">{{ field.spec_suffix }}</span>
@@ -78,6 +88,7 @@
               class="ue-input ue-input--number"
               :aria-label="field.label"
               :placeholder="field.hint || field.label"
+              :disabled="isLockedField(field.name)"
             />
             <input
               v-else-if="field.type === 'time'"
@@ -85,6 +96,7 @@
               type="time"
               class="ue-input"
               :aria-label="field.label"
+              :disabled="isLockedField(field.name)"
             />
             <textarea
               v-else-if="field.type === 'textarea'"
@@ -93,6 +105,7 @@
               rows="2"
               :aria-label="field.label"
               :placeholder="field.hint || field.label"
+              :disabled="isLockedField(field.name)"
             />
             <input
               v-else
@@ -101,6 +114,7 @@
               class="ue-input"
               :aria-label="field.label"
               :placeholder="field.hint || field.label"
+              :disabled="isLockedField(field.name)"
             />
           </div>
         </div>
@@ -159,6 +173,7 @@ import {
 } from '../../api/mobile.js'
 import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
 import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
+import { useScanLookup } from '../../composables/useScanLookup.js'
 
 const auth = useAuthStore()
 
@@ -167,6 +182,7 @@ const error = ref('')
 const submitting = ref(false)
 const form = reactive({})
 const specParts = reactive({})
+const lockedFieldsSnapshot = ref({})
 const groups = ref([])
 const readonlyFields = ref([])
 const visibleReadonlyFields = computed(() =>
@@ -178,6 +194,7 @@ const identityField = ref(null)
 const history = ref([])
 const coilSeq = ref(1)
 const lastCoilData = ref(null)
+const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
@@ -245,6 +262,57 @@ function syncSpec(field) {
   form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
 }
 
+function isLockedField(name) {
+  return Object.prototype.hasOwnProperty.call(lockedFieldsSnapshot.value, name)
+}
+
+function currentLockValue(key) {
+  if (key in form) return form[key]
+  return undefined
+}
+
+function applyLockedSnapshot(lockKeys = []) {
+  const snapshot = {}
+  for (const key of lockKeys) {
+    const value = currentLockValue(key)
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      snapshot[key] = value
+    }
+  }
+  lockedFieldsSnapshot.value = snapshot
+}
+
+function applyScanLookupResult(result) {
+  const fields = result?.header_fields || {}
+  const mapped = {
+    tracking_card_no: fields.tracking_card_no,
+    alloy_grade: fields.alloy_grade,
+    input_spec: fields.input_spec || fields.spec_display,
+  }
+  for (const [key, value] of Object.entries(mapped)) {
+    if (value !== undefined && value !== null && key in form) {
+      form[key] = value
+    }
+  }
+  for (const g of groups.value) {
+    for (const f of g.fields) {
+      if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
+    }
+  }
+  applyLockedSnapshot(result?.lock_keys || [])
+}
+
+async function handleScanLookup(qr) {
+  try {
+    const result = qr ? await scanLookup(qr) : await scan()
+    if (!result) return
+    applyScanLookupResult(result)
+    ElMessage.success(result.source === 'machine_identity' ? '已识别机台' : '已带出卷头字段')
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || '扫码失败')
+  }
+}
+
 function normalizedFormValues() {
   const values = {}
   for (const group of groups.value) {
@@ -286,6 +354,7 @@ function buildCoilEntryPayload(sc) {
     operator_notes: values.operator_notes || '',
     business_date: sc.business_date,
     shift_id: sc.shift_id,
+    locked_fields_snapshot: lockedFieldsSnapshot.value,
   }
 }
 
@@ -417,6 +486,7 @@ async function handleSubmit() {
       for (const key of Object.keys(form)) {
         form[key] = typeof form[key] === 'number' ? null : ''
       }
+      lockedFieldsSnapshot.value = {}
     } else {
       const payload = buildMobileReportPayload(sc)
       await saveMobileReport(payload)
@@ -494,6 +564,25 @@ onMounted(loadData)
 .ue-coil-shift {
   font-size: 13px;
   color: var(--xt-text-muted);
+}
+
+.ue-scan-row {
+  padding: 12px 16px 0;
+}
+
+.ue-scan-btn {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--xt-primary);
+  border-radius: 10px;
+  background: var(--xt-bg-panel);
+  color: var(--xt-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ue-scan-btn:active {
+  transform: scale(0.98);
 }
 
 .ue-group {

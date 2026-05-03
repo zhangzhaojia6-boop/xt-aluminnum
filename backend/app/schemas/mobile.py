@@ -209,6 +209,7 @@ class MobileCoilEntryPayload(BaseModel):
     operator_name: str | None = Field(default=None, max_length=64)
     operator_notes: str | None = Field(default=None, max_length=1000)
     extra_payload: dict[str, Any] | None = None
+    locked_fields_snapshot: dict[str, Any] | None = None
     business_date: date
     shift_id: int = Field(gt=0)
 
@@ -245,3 +246,9 @@ class MobileCoilFlowSuggestionOut(BaseModel):
     flow_source: str = 'mes_projection'
     match_status: str = 'matched'
     candidate_count: int = 1
+
+
+class MobileScanLookupOut(BaseModel):
+    source: str
+    header_fields: dict[str, Any] = Field(default_factory=dict)
+    lock_keys: list[str] = Field(default_factory=list)
