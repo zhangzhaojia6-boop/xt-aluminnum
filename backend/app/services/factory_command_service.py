@@ -235,8 +235,18 @@ def _local_mobile_report_rows(db: Session, *, target_date: date, scope: ScopeSum
 
 
 def _local_rows(db: Session, *, target_date: date, scope: ScopeSummary | None = None) -> list[Any]:
-    rows = _local_shift_rows(db, target_date=target_date, scope=scope)
-    return rows or _local_mobile_report_rows(db, target_date=target_date, scope=scope)
+    shift_rows = _local_shift_rows(db, target_date=target_date, scope=scope)
+    shift_ids = {
+        int(getattr(row, 'id'))
+        for row in shift_rows
+        if getattr(row, 'id', None) is not None
+    }
+    mobile_rows = [
+        row
+        for row in _local_mobile_report_rows(db, target_date=target_date, scope=scope)
+        if getattr(row, 'linked_production_data_id', None) not in shift_ids
+    ]
+    return [*shift_rows, *mobile_rows]
 
 
 def _workshop_name_map(db: Session) -> dict[int, str]:
