@@ -225,7 +225,8 @@ def test_coil_flow_returns_previous_current_next_and_destination(monkeypatch):
     assert flow['current_process'] == '退火'
     assert flow['next_process'] == '拉弯矫'
     assert flow['destination']['kind'] == 'allocation'
-    assert flow['freshness']['status'] == 'offline_or_blocked'
+    assert flow['freshness']['status'] == 'stale'
+    assert flow['freshness']['risk_tone'] == 'high'
 
 
 def test_coil_flow_does_not_return_out_of_scope_event(monkeypatch):
@@ -259,11 +260,55 @@ def test_coil_flow_does_not_return_out_of_scope_event(monkeypatch):
 def test_freshness_thresholds(monkeypatch):
     db = _FakeDB()
 
-    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 119})
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 119, 'status': 'fresh'})
     assert factory_command_service.build_freshness(db)['status'] == 'fresh'
 
-    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 301})
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 301, 'status': 'fresh'})
     assert factory_command_service.build_freshness(db)['status'] == 'stale'
 
-    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 901})
-    assert factory_command_service.build_freshness(db)['status'] == 'offline_or_blocked'
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 901, 'status': 'fresh'})
+    high_risk = factory_command_service.build_freshness(db)
+    assert high_risk['status'] == 'stale'
+    assert high_risk['risk_tone'] == 'high'
+
+
+def test_freshness_preserves_unconfigured_and_migration_states(monkeypatch):
+    db = _FakeDB()
+
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'unconfigured',
+            'configured': False,
+            'migration_ready': True,
+            'source': 'local_entry',
+            'action_required': 'configure_mes',
+            'lag_seconds': None,
+        },
+    )
+
+    unconfigured = factory_command_service.build_freshness(db)
+
+    assert unconfigured['status'] == 'unconfigured'
+    assert unconfigured['source'] == 'local_entry'
+    assert unconfigured['action_required'] == 'configure_mes'
+
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'migration_missing',
+            'configured': True,
+            'migration_ready': False,
+            'source': 'local_entry',
+            'action_required': 'run_migration',
+            'lag_seconds': None,
+        },
+    )
+
+    migration_missing = factory_command_service.build_freshness(db)
+
+    assert migration_missing['status'] == 'migration_missing'
+    assert migration_missing['migration_ready'] is False
+    assert migration_missing['action_required'] == 'run_migration'

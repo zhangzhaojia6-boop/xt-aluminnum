@@ -221,20 +221,26 @@ def _estimate(*, missing_data: list[str] | None = None, label: str = '经营估�
 def build_freshness(db: Session, *, now=None) -> dict[str, Any]:
     status = latest_sync_status(db, now=now)
     lag_seconds = status.get('lag_seconds')
-    if lag_seconds is None:
-        freshness_status = 'offline_or_blocked'
-    elif lag_seconds > 900:
-        freshness_status = 'offline_or_blocked'
+    source_status = status.get('status')
+    if source_status in {'unconfigured', 'migration_missing', 'failed'}:
+        freshness_status = source_status
+    elif lag_seconds is None:
+        freshness_status = source_status or 'idle'
     elif lag_seconds > 300:
         freshness_status = 'stale'
     else:
         freshness_status = 'fresh'
+    risk_tone = 'high' if lag_seconds is not None and lag_seconds > 900 else 'normal'
     return {
         'status': freshness_status,
         'lag_seconds': lag_seconds,
         'last_synced_at': status.get('last_synced_at'),
         'last_event_at': status.get('last_event_at'),
-        'source': 'mes_projection',
+        'source': status.get('source') or 'mes_projection',
+        'configured': status.get('configured', True),
+        'migration_ready': status.get('migration_ready', True),
+        'action_required': status.get('action_required', 'none'),
+        'risk_tone': risk_tone,
     }
 
 

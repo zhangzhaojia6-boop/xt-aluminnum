@@ -100,3 +100,41 @@ def test_build_readiness_payload_includes_mes_sync_details_when_mes_adapter_enab
     assert ready is True
     assert payload["checks"]["mes_sync"] == "ok"
     assert payload["details"]["mes_sync"]["lag_seconds"] == 120.0
+
+
+def test_build_readiness_payload_reports_mes_unconfigured_as_ready(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "null")
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is True
+    assert payload["checks"]["mes_sync"] == "unconfigured"
+    assert payload["details"]["mes_sync"]["status"] == "unconfigured"
+    assert payload["details"]["mes_sync"]["action_required"] == "configure_mes"
+
+
+def test_build_readiness_payload_reports_mes_projection_migration_missing(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "rest_api")
+    monkeypatch.setattr(
+        "app.services.mes_sync_service.latest_sync_status",
+        lambda _db: {
+            "status": "migration_missing",
+            "configured": True,
+            "migration_ready": False,
+            "source": "local_entry",
+            "lag_seconds": None,
+            "action_required": "run_migration",
+        },
+    )
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is False
+    assert payload["checks"]["mes_sync"] == "migration_missing"
+    assert payload["details"]["mes_sync"]["action_required"] == "run_migration"

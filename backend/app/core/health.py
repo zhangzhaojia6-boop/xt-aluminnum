@@ -92,7 +92,17 @@ def build_readiness_payload() -> tuple[bool, dict]:
             'reason': 'AUTO_PIPELINE_REQUIRE_READY=false',
         }
 
-    if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
+    if (settings.MES_ADAPTER or 'null').strip().lower() == 'null':
+        checks['mes_sync'] = 'unconfigured'
+        details['mes_sync'] = {
+            'configured': False,
+            'migration_ready': True,
+            'status': 'unconfigured',
+            'source': 'local_entry',
+            'lag_seconds': None,
+            'action_required': 'configure_mes',
+        }
+    else:
         try:
             session_factory = get_sessionmaker()
             db = session_factory()
@@ -101,8 +111,14 @@ def build_readiness_payload() -> tuple[bool, dict]:
             finally:
                 db.close()
             details['mes_sync'] = mes_sync_status
+            sync_status = mes_sync_status.get('status')
             lag_seconds = mes_sync_status.get('lag_seconds')
-            if lag_seconds is None:
+            if sync_status in {'migration_missing', 'failed'}:
+                ready = False
+                checks['mes_sync'] = sync_status
+            elif sync_status == 'unconfigured':
+                checks['mes_sync'] = 'unconfigured'
+            elif lag_seconds is None:
                 checks['mes_sync'] = 'idle'
             elif float(lag_seconds) <= max(settings.MES_SYNC_POLL_MINUTES, 1) * 300:
                 checks['mes_sync'] = 'ok'

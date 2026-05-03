@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Mapping
 
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.adapters import get_mes_adapter
@@ -207,6 +208,61 @@ def _query_first(query):
         rows = query.all()
         return rows[0] if rows else None
     return None
+
+
+def _adapter_configured() -> bool:
+    return (settings.MES_ADAPTER or 'null').strip().lower() != 'null'
+
+
+def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
+    return {
+        'cursor_key': cursor_key,
+        'cursor_value': None,
+        'configured': configured,
+        'migration_ready': True,
+        'status': 'idle' if configured else 'unconfigured',
+        'source': 'mes_projection' if configured else 'local_entry',
+        'lag_seconds': None,
+        'last_synced_at': None,
+        'last_event_at': None,
+        'last_run_status': 'idle',
+        'last_run_started_at': None,
+        'last_run_finished_at': None,
+        'fetched_count': 0,
+        'upserted_count': 0,
+        'replayed_count': 0,
+        'error_message': None,
+        'last_error': None,
+        'action_required': 'none' if configured else 'configure_mes',
+    }
+
+
+def _projection_migration_missing_status(*, cursor_key: str) -> dict[str, Any]:
+    payload = _base_sync_status(cursor_key=cursor_key, configured=True)
+    payload.update(
+        {
+            'migration_ready': False,
+            'status': 'migration_missing',
+            'source': 'local_entry',
+            'action_required': 'run_migration',
+        }
+    )
+    return payload
+
+
+def _status_from_lag(lag_seconds: float | None) -> str:
+    if lag_seconds is None:
+        return 'idle'
+    if lag_seconds > 300:
+        return 'stale'
+    return 'fresh'
+
+
+def _is_projection_shape_error(exc: Exception) -> bool:
+    if not isinstance(exc, (ProgrammingError, OperationalError)):
+        return False
+    text = str(exc).lower()
+    return any(token in text for token in ('mes_coil_snapshots', 'no such column', 'undefined column', 'does not exist', 'unknown column'))
 
 
 def _ensure_cursor(db: Session, *, cursor_key: str) -> MesSyncCursor:
@@ -547,6 +603,9 @@ def compute_sync_lag_seconds(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, 
 
 
 def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: datetime | None = None) -> dict[str, Any]:
+    if not _adapter_configured():
+        return _base_sync_status(cursor_key=cursor_key, configured=False)
+
     current = now or _utcnow()
     cursor = _query_first(db.query(MesSyncCursor).filter(MesSyncCursor.cursor_key == cursor_key))
     latest_run = _query_first(
@@ -554,17 +613,34 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
         .filter(MesSyncRunLog.cursor_key == cursor_key)
         .order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc())
     )
+    try:
+        lag_seconds = compute_sync_lag_seconds(db, cursor_key=cursor_key, now=current)
+    except Exception as exc:  # noqa: BLE001
+        if _is_projection_shape_error(exc):
+            return _projection_migration_missing_status(cursor_key=cursor_key)
+        raise
+
+    last_run_status = latest_run.status if latest_run else 'idle'
+    status = 'failed' if last_run_status == 'failed' else _status_from_lag(lag_seconds)
+    action_required = 'check_vendor' if status == 'failed' else 'none'
+    error_message = latest_run.error_message if latest_run else None
     return {
         'cursor_key': cursor_key,
         'cursor_value': cursor.cursor_value if cursor else None,
+        'configured': True,
+        'migration_ready': True,
+        'status': status,
+        'source': 'mes_projection',
         'last_event_at': cursor.last_event_at.isoformat() if cursor and cursor.last_event_at else None,
         'last_synced_at': cursor.last_synced_at.isoformat() if cursor and cursor.last_synced_at else None,
-        'lag_seconds': compute_sync_lag_seconds(db, cursor_key=cursor_key, now=current),
-        'last_run_status': latest_run.status if latest_run else 'idle',
+        'lag_seconds': lag_seconds,
+        'last_run_status': last_run_status,
         'last_run_started_at': latest_run.started_at.isoformat() if latest_run else None,
         'last_run_finished_at': latest_run.finished_at.isoformat() if latest_run and latest_run.finished_at else None,
         'fetched_count': latest_run.fetched_count if latest_run else 0,
         'upserted_count': latest_run.upserted_count if latest_run else 0,
         'replayed_count': latest_run.replayed_count if latest_run else 0,
-        'error_message': latest_run.error_message if latest_run else None,
+        'error_message': error_message,
+        'last_error': error_message,
+        'action_required': action_required,
     }

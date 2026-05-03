@@ -11,6 +11,10 @@ class FactoryCommandFreshnessOut(BaseModel):
     last_synced_at: str | None = None
     last_event_at: str | None = None
     source: str = 'mes_projection'
+    configured: bool = True
+    migration_ready: bool = True
+    action_required: str = 'none'
+    risk_tone: str = 'normal'
 
 
 class FactoryEstimateOut(BaseModel):
