@@ -42,11 +42,17 @@ def _normalize_and_clear_duplicates(column_name: str) -> None:
             WHERE {column_name} IS NOT NULL
               AND trim({column_name}) <> ''
               AND id NOT IN (
-                SELECT min(id)
-                FROM users
-                WHERE {column_name} IS NOT NULL
-                  AND trim({column_name}) <> ''
-                GROUP BY {column_name}
+                SELECT keep_id
+                FROM (
+                  SELECT COALESCE(
+                    MIN(CASE WHEN is_active IS TRUE THEN id ELSE NULL END),
+                    MIN(id)
+                  ) AS keep_id
+                  FROM users
+                  WHERE {column_name} IS NOT NULL
+                    AND trim({column_name}) <> ''
+                  GROUP BY {column_name}
+                ) AS kept_users
               )
             """
         )
