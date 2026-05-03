@@ -51,6 +51,7 @@ const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
 const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
+const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -120,6 +121,7 @@ function configLanding(authStore) {
 }
 
 function defaultLanding(authStore) {
+  if (isTeamLeadRole(authStore)) return { name: 'team-lead' }
   if (isCompactClient() && authStore.canAccessFillSurface) return { name: 'mobile-entry' }
   if (authStore.canAccessFillSurface && !authStore.canAccessReviewSurface) return { name: 'mobile-entry' }
   if (authStore.defaultSurface === 'admin') return adminLanding(authStore)
@@ -133,6 +135,11 @@ function defaultLanding(authStore) {
 const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }
 const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }
 const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }
+const teamLeadMeta = { requiresAuth: true, zone: 'team-lead', access: 'team_lead' }
+
+function isTeamLeadRole(authStore) {
+  return ['team_leader', 'deputy_leader'].includes(authStore.role)
+}
 
 const rawRoutes = [
   {
@@ -161,6 +168,12 @@ const rawRoutes = [
       { path: 'profile', name: 'entry-profile', component: MobileEntry, meta: { ...entryMeta, title: '我的', centerNo: '03' } },
       { path: 'dynamic-entry-form', name: 'dynamic-entry-form', redirect: { name: 'mobile-entry' } }
     ]
+  },
+  {
+    path: '/team-lead',
+    name: 'team-lead',
+    component: TeamLeadShell,
+    meta: { ...teamLeadMeta, title: '班长一屏', canonical: '/team-lead' }
   },
   {
     path: '/manage',
@@ -330,7 +343,7 @@ export function installRouterGuards(routerInstance, authStore) {
       }
     }
 
-    if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
+    if (auth.isFillOnlyRole && !isTeamLeadRole(auth) && to.meta.zone !== 'entry' && to.name !== 'login') {
       return { name: 'mobile-entry' }
     }
 
@@ -367,6 +380,9 @@ export function installRouterGuards(routerInstance, authStore) {
       return defaultLanding(auth)
     }
     if (access === 'manager' && !(auth.isAdmin || auth.isManager)) {
+      return defaultLanding(auth)
+    }
+    if (access === 'team_lead' && !(auth.isAdmin || isTeamLeadRole(auth))) {
       return defaultLanding(auth)
     }
     if (access === 'admin_strict' && !auth.isAdmin) {

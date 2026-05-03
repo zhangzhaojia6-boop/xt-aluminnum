@@ -209,6 +209,7 @@ function surfaceLandingPath(surface) {
 }
 
 function resolveDefaultLandingPath() {
+  if (['team_leader', 'deputy_leader'].includes(auth.role)) return '/team-lead'
   const selectedLanding = surfaceLandingPath(selectedSurface.value)
   if (selectedLanding) return selectedLanding
   if (auth.defaultSurface === 'entry') return '/entry'
