@@ -265,8 +265,10 @@ def test_review_modules_are_schema_driven_command_pages() -> None:
         ("name: 'factory-dashboard'", "component: FactoryDirector", "centerNo: '05'", "canonical: '/manage/factory'"),
         ("name: 'review-report-center'", "component: ReportList", "centerNo: '08'", "canonical: '/manage/reports'"),
         ("name: 'review-quality-center'", "component: QualityCenter", "centerNo: '09'", "canonical: '/manage/quality'"),
-        ("name: 'review-cost-accounting'", "component: CostAccountingCenter", "centerNo: '10'", "canonical: '/manage/cost'"),
-        ("name: 'review-brain-center'", "component: AiWorkstation", "centerNo: '11'", "canonical: '/manage/ai'"),
+        ("name: 'factory-command-cost'", "component: CostBenefitScreen", "centerNo: '10'", "canonical: '/manage/factory/cost'"),
+        ("name: 'factory-ai-assistant'", "component: AiWorkstation", "centerNo: '11'", "canonical: '/manage/ai-assistant'"),
+        ("name: 'review-cost-accounting'", "redirect: '/manage/factory/cost'", "centerNo: '10'", "canonical: '/manage/factory/cost'"),
+        ("name: 'review-brain-center'", "redirect: '/manage/ai-assistant'", "centerNo: '11'", "canonical: '/manage/ai-assistant'"),
     ]
     for tokens in expected:
         route_index = manage_routes.index(tokens[0])
@@ -651,7 +653,8 @@ def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> 
         ("canonical: '/manage/reports'", "'08'"),
         ("canonical: '/manage/quality'", "'09'"),
         ("canonical: '/manage/reconciliation'", "'09'"),
-        ("canonical: '/manage/cost'", "'10'"),
+        ("canonical: '/manage/factory/cost'", "'10'"),
+        ("canonical: '/manage/ai-assistant'", "'11'"),
         ("canonical: '/manage/ingestion'", "'06'"),
         ("canonical: '/manage/master'", "'14'"),
         ("canonical: '/manage/admin/templates'", "'14'"),

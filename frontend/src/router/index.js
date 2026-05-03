@@ -23,7 +23,6 @@ const ReconciliationDetail = () => import('../views/reconciliation/Reconciliatio
 const AnomalyReview = () => import('../views/attendance/AnomalyReview.vue')
 const QualityCenter = () => import('../views/quality/QualityCenter.vue')
 const Statistics = () => import('../views/dashboard/Statistics.vue')
-const CostAccountingCenter = () => import('../views/review/CostAccountingCenter.vue')
 const ReportList = () => import('../views/reports/ReportList.vue')
 const IngestionCenter = () => import('../views/review/IngestionCenter.vue')
 const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
@@ -186,14 +185,14 @@ const rawRoutes = [
       { path: 'quality', name: 'review-quality-center', component: QualityCenter, meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/quality' } },
       { path: 'quality/detail/:id', name: 'quality-detail', component: QualityDetail, meta: { ...reviewMeta, title: '质量详情' } },
       { path: 'statistics', name: 'statistics-dashboard', component: Statistics, meta: { ...reviewMeta, title: '统计中心', canonical: '/manage/statistics' } },
-      { path: 'cost', name: 'review-cost-accounting', component: CostAccountingCenter, meta: { ...reviewMeta, title: '成本核算与效益中心', centerNo: '10', canonical: '/manage/cost' } },
+      { path: 'cost', name: 'review-cost-accounting', redirect: '/manage/factory/cost', meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
       { path: 'reports/detail/:id', name: 'report-detail', component: ReportDetail, meta: { ...reviewMeta, title: '日报详情' } },
       { path: 'ingestion', name: 'admin-ingestion-center', component: IngestionCenter, meta: { ...adminMeta, title: '数据接入与字段映射中心', centerNo: '06', canonical: '/manage/ingestion' } },
       { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据与模板中心', centerNo: '14', canonical: '/manage/master' } },
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
       { path: 'imports', name: 'manage-imports', component: ImportHistory, meta: { ...adminMeta, title: '导入历史', canonical: '/manage/imports' } },
-      { path: 'ai', name: 'review-brain-center', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 工作台', centerNo: '11', canonical: '/manage/ai' } },
+      { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'admin', name: 'admin-overview', component: page('管理控制台', '14'), meta: { ...adminMeta, title: '管理控制台', centerNo: '14', canonical: '/manage/admin' } },
       { path: 'admin/settings', name: 'admin-ops-reliability', component: LiveDashboard, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
@@ -217,10 +216,10 @@ const rawRoutes = [
   { path: '/review/ops', name: 'review-ops-reliability', redirect: '/manage/admin/settings' },
   { path: '/review/governance', name: 'review-governance-center', redirect: '/manage/admin/governance' },
   { path: '/review/templates', name: 'review-template-center', redirect: '/manage/admin/templates' },
-  { path: '/review/cost-accounting', redirect: '/manage/cost' },
-  { path: '/review/cost', redirect: '/manage/cost' },
+  { path: '/review/cost-accounting', redirect: '/manage/factory/cost' },
+  { path: '/review/cost', redirect: '/manage/factory/cost' },
   { path: '/review/roadmap', redirect: '/manage/overview' },
-  { path: '/review/brain', redirect: '/manage/ai' },
+  { path: '/review/brain', redirect: '/manage/ai-assistant' },
   { path: '/review/:pathMatch(.*)*', redirect: '/manage/overview' },
   { path: '/admin', redirect: '/manage/admin' },
   { path: '/admin/overview', redirect: '/manage/admin' },
@@ -247,7 +246,7 @@ const rawRoutes = [
   { path: '/alerts/quality', redirect: '/manage/quality' },
   { path: '/ops/reliability', redirect: '/manage/admin/settings' },
   { path: '/governance', redirect: '/manage/admin/governance' },
-  { path: '/cost/accounting', redirect: '/manage/cost' },
+  { path: '/cost/accounting', redirect: '/manage/factory/cost' },
   { path: '/roadmap/next', redirect: '/manage/overview' },
   { path: '/dashboard', redirect: '/manage/overview' },
   { path: '/dashboard/factory', redirect: '/manage/factory' },

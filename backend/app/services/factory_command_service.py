@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Any, Iterable, Mapping
 
+from sqlalchemy import and_, false, or_
 from sqlalchemy.orm import Session
 
 from app.core.scope import ScopeSummary
@@ -130,6 +131,115 @@ def _matches_destination_filter(row: Any, destination: str | None) -> bool:
     return _destination(row)['kind'] == value
 
 
+def _is_sqlalchemy_query(query: Any) -> bool:
+    return hasattr(query, 'column_descriptions') and hasattr(query, 'offset') and hasattr(query, 'limit')
+
+
+def _scope_coil_expression(tokens: set[str] | None):
+    if tokens is None:
+        return None
+    if not tokens:
+        return false()
+    return or_(MesCoilSnapshot.current_workshop.in_(tokens), MesCoilSnapshot.workshop_code.in_(tokens))
+
+
+def _workshop_expression(workshop: str | None):
+    text = str(workshop or '').strip()
+    if not text:
+        return None
+    return or_(MesCoilSnapshot.current_workshop == text, MesCoilSnapshot.workshop_code == text)
+
+
+def _filter_text_expression(query: str | None):
+    text = str(query or '').strip()
+    if not text:
+        return None
+    pattern = f'%{text}%'
+    return or_(
+        MesCoilSnapshot.coil_id.ilike(pattern),
+        MesCoilSnapshot.tracking_card_no.ilike(pattern),
+        MesCoilSnapshot.batch_no.ilike(pattern),
+        MesCoilSnapshot.material_code.ilike(pattern),
+        MesCoilSnapshot.machine_code.ilike(pattern),
+        MesCoilSnapshot.current_workshop.ilike(pattern),
+        MesCoilSnapshot.current_process.ilike(pattern),
+        MesCoilSnapshot.next_process.ilike(pattern),
+    )
+
+
+def _present_expression(column):
+    return and_(column.isnot(None), column != '')
+
+
+def _absent_expression(column):
+    return or_(column.is_(None), column == '')
+
+
+def _destination_expression(destination: str | None):
+    value = str(destination or '').strip()
+    if not value:
+        return None
+    no_delivery = MesCoilSnapshot.delivery_date.is_(None)
+    no_allocation = MesCoilSnapshot.allocation_date.is_(None)
+    not_finished_stock = and_(
+        MesCoilSnapshot.in_stock_date.is_(None),
+        or_(MesCoilSnapshot.status_name.is_(None), MesCoilSnapshot.status_name != '已入库'),
+    )
+    if value == 'delivery':
+        return MesCoilSnapshot.delivery_date.isnot(None)
+    if value == 'allocation':
+        return and_(no_delivery, MesCoilSnapshot.allocation_date.isnot(None))
+    if value == 'finished_stock':
+        return and_(
+            no_delivery,
+            no_allocation,
+            or_(MesCoilSnapshot.in_stock_date.isnot(None), MesCoilSnapshot.status_name == '已入库'),
+        )
+    if value == 'in_progress':
+        return and_(
+            no_delivery,
+            no_allocation,
+            not_finished_stock,
+            or_(_present_expression(MesCoilSnapshot.current_process), _present_expression(MesCoilSnapshot.next_process)),
+        )
+    if value == 'unknown':
+        return and_(
+            no_delivery,
+            no_allocation,
+            not_finished_stock,
+            _absent_expression(MesCoilSnapshot.current_process),
+            _absent_expression(MesCoilSnapshot.next_process),
+        )
+    return false()
+
+
+def _paged_coils(
+    db: Session,
+    *,
+    scope: ScopeSummary | None = None,
+    limit: int,
+    offset: int,
+    workshop: str | None = None,
+    destination: str | None = None,
+    query: str | None = None,
+) -> list[Any]:
+    coil_query = db.query(MesCoilSnapshot)
+    if not _is_sqlalchemy_query(coil_query):
+        rows = _filter_coils(_scoped_coils(db, scope=scope), workshop=workshop, destination=destination, query=query)
+        return rows[offset : offset + limit]
+
+    expressions = (
+        _scope_coil_expression(_scope_workshop_tokens(db, scope)),
+        _workshop_expression(workshop),
+        _destination_expression(destination),
+        _filter_text_expression(query),
+    )
+    for expression in expressions:
+        if expression is not None:
+            coil_query = coil_query.filter(expression)
+    return list(coil_query.order_by(MesCoilSnapshot.id.asc()).offset(offset).limit(limit).all())
+
+
 def _filter_coils(
     rows: Iterable[Any],
     *,
@@ -163,8 +273,12 @@ def _scoped_machine_lines(db: Session, *, scope: ScopeSummary | None = None) -> 
 
 
 def _latest_events_by_coil(db: Session, coil_keys: set[str]) -> dict[str, Any]:
+    if not coil_keys:
+        return {}
     latest: dict[str, Any] = {}
-    for event in _all(db, CoilFlowEvent):
+    query = db.query(CoilFlowEvent)
+    events = query.filter(CoilFlowEvent.coil_key.in_(coil_keys)).all() if _is_sqlalchemy_query(query) else _all(db, CoilFlowEvent)
+    for event in events:
         if event.coil_key not in coil_keys:
             continue
         current = latest.get(event.coil_key)
@@ -394,13 +508,15 @@ def list_coils(
 ) -> list[dict[str, Any]]:
     normalized_limit = _bounded_limit(limit)
     normalized_offset = _bounded_offset(offset)
-    rows = _filter_coils(
-        _scoped_coils(db, scope=scope),
+    rows = _paged_coils(
+        db,
+        scope=scope,
+        limit=normalized_limit,
+        offset=normalized_offset,
         workshop=workshop,
         destination=destination,
         query=query,
     )
-    rows = rows[normalized_offset : normalized_offset + normalized_limit]
     events = _latest_events_by_coil(db, {row.coil_id for row in rows})
     line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
     return [

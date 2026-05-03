@@ -3,8 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from app.models.master import Workshop
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
+from app.models.master import Workshop
 from app.services import factory_command_service
 
 
@@ -71,6 +74,13 @@ def _coil(**overrides):
     }
     payload.update(overrides)
     return SimpleNamespace(**payload)
+
+
+def _sqlalchemy_session(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'factory-command-service.db'}", future=True)
+    for table in (MesCoilSnapshot.__table__, MesMachineLineSnapshot.__table__, CoilFlowEvent.__table__):
+        table.create(bind=engine)
+    return sessionmaker(bind=engine, future=True)()
 
 
 def test_factory_overview_groups_projection_rows_and_labels_estimates(monkeypatch):
@@ -191,6 +201,37 @@ def test_list_coils_applies_filters_offset_and_limit(monkeypatch):
     )
 
     assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:3']
+
+
+def test_list_coils_pushes_filters_and_page_to_database(monkeypatch, tmp_path):
+    db = _sqlalchemy_session(tmp_path)
+    db.add_all(
+        [
+            MesCoilSnapshot(coil_id='MES:1', tracking_card_no='LZ-1', batch_no='BATCH-1', current_workshop='冷轧', current_process='轧制', next_process='退火'),
+            MesCoilSnapshot(coil_id='MES:2', tracking_card_no='LZ-2', batch_no='BATCH-2', current_workshop='冷轧', current_process='轧制', next_process='退火'),
+            MesCoilSnapshot(coil_id='MES:3', tracking_card_no='LZ-3', batch_no='BATCH-3', current_workshop='冷轧', current_process='轧制', next_process='退火'),
+            MesCoilSnapshot(coil_id='MES:4', tracking_card_no='TH-1', batch_no='BATCH-4', current_workshop='退火', current_process='退火', next_process='精整'),
+            MesCoilSnapshot(coil_id='MES:5', tracking_card_no='LZ-STOCK', batch_no='BATCH-5', current_workshop='冷轧', status_name='已入库', in_stock_date=datetime(2026, 5, 2, 8, 0, tzinfo=UTC)),
+            MesCoilSnapshot(coil_id='MES:6', tracking_card_no='EMPTY-1', batch_no='BATCH-6', current_workshop='冷轧', current_process='', next_process=''),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(factory_command_service, '_scoped_coils', lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('full coil scan')))
+
+    coils = factory_command_service.list_coils(
+        db,
+        limit=2,
+        offset=1,
+        workshop='冷轧',
+        destination='in_progress',
+        query='LZ',
+    )
+
+    assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:3']
+
+    unknown_coils = factory_command_service.list_coils(db, limit=10, destination='unknown', query='EMPTY')
+
+    assert [item['coil_key'] for item in unknown_coils] == ['MES:6']
 
 
 def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):

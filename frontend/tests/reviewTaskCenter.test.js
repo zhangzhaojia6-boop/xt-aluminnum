@@ -16,6 +16,10 @@ test('review task center is an exception supplement surface, not manual approval
   for (const expected of ['异常与补录', '缺报', '退回', '差异', '同步滞后']) {
     assert.match(review, new RegExp(expected))
   }
+
+  assert.match(review, /reconciliation_open_count/)
+  assert.match(review, /mes_sync_status/)
+  assert.doesNotMatch(review, /\['submitted', 'reviewed', 'auto_confirmed'\]/)
 })
 
 test('shift center no longer exposes production shift import in the management path', () => {

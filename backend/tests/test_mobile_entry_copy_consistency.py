@@ -563,7 +563,7 @@ def test_review_router_closes_core_centers_for_target_granularity() -> None:
     assert "name: 'review-brain-center'" in source
     assert "centerNo: '11'" in source
     assert "path: '/ops/reliability', redirect: '/manage/admin/settings'" in source
-    assert "path: '/cost/accounting', redirect: '/manage/cost'" in source
+    assert "path: '/cost/accounting', redirect: '/manage/factory/cost'" in source
     assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
     assert "path: '/master/workshop-templates'" in source
     assert "redirect: '/manage/admin/templates'" in source

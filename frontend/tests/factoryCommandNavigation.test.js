@@ -68,3 +68,10 @@ test('admin navigation keeps necessary configuration without exposing low freque
 test('legacy shift management path redirects into master data', () => {
   assert.match(routerSource, /path: 'shift', redirect: '\/manage\/master'/)
 })
+
+test('legacy cost and ai paths redirect to the slim management surfaces', () => {
+  assert.match(routerSource, /path: 'cost', name: 'review-cost-accounting', redirect: '\/manage\/factory\/cost'/)
+  assert.match(routerSource, /path: 'ai', name: 'review-brain-center', redirect: '\/manage\/ai-assistant'/)
+  assert.match(routerSource, /path: '\/review\/cost-accounting', redirect: '\/manage\/factory\/cost'/)
+  assert.match(routerSource, /path: '\/review\/brain', redirect: '\/manage\/ai-assistant'/)
+})

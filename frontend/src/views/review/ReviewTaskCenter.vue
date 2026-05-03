@@ -18,7 +18,7 @@
 
     <section class="review-task-center__main">
       <ReferenceModuleCard module-number="07" title="异常列表">
-        <template #actions>
+        <div class="review-task-center__toolbar">
           <el-radio-group v-model="tab" size="small">
             <el-radio-button label="missing">缺报</el-radio-button>
             <el-radio-button label="returned">退回</el-radio-button>
@@ -26,7 +26,7 @@
             <el-radio-button label="stale">同步滞后</el-radio-button>
           </el-radio-group>
           <el-button size="small" :disabled="!filteredTasks.length">导出异常</el-button>
-        </template>
+        </div>
         <ReferenceDataTable :data="filteredTasks" stripe v-loading="loading">
           <el-table-column prop="workshop" label="来源车间" min-width="130" />
           <el-table-column prop="shift" label="班次" width="90" />
@@ -95,8 +95,38 @@ const rawTasks = computed(() => {
 
 const missingTasks = computed(() => rawTasks.value.filter((item) => ['unreported', 'late', 'draft'].includes(item.status)))
 const returnedTasks = computed(() => rawTasks.value.filter((item) => item.status === 'returned'))
-const diffTasks = computed(() => rawTasks.value.filter((item) => ['submitted', 'reviewed', 'auto_confirmed'].includes(item.status)))
-const staleTasks = computed(() => rawTasks.value.filter((item) => ['sync_stale', 'stale'].includes(item.status)))
+const diffTasks = computed(() => {
+  const count = Number(dashboard.value.exception_lane?.reconciliation_open_count || 0)
+  if (count <= 0) return []
+  return [
+    {
+      status: 'diff_open',
+      workshop: '全厂',
+      workshopId: null,
+      shift: '-',
+      anomaly: `差异核对 ${count} 项`,
+      aiSuggestion: '先核对系统口径与补录来源，关闭影响日报的差异。',
+      risk: count > 3 ? '高' : '中'
+    }
+  ]
+})
+const staleTasks = computed(() => {
+  const syncStatus = dashboard.value.mes_sync_status || {}
+  const status = String(syncStatus.status || syncStatus.last_run_status || '')
+  const lagSeconds = Number(syncStatus.lag_seconds || 0)
+  if (!['stale', 'failed', 'migration_missing', 'unconfigured', 'offline_or_blocked'].includes(status) && lagSeconds <= 300) return []
+  return [
+    {
+      status: status || 'sync_stale',
+      workshop: '数据接入',
+      workshopId: null,
+      shift: '-',
+      anomaly: syncAnomalyLabel(syncStatus),
+      aiSuggestion: buildSuggestionByStatus('sync_stale'),
+      risk: status === 'failed' || status === 'migration_missing' || lagSeconds > 900 ? '高' : '中'
+    }
+  ]
+})
 
 const filteredTasks = computed(() => {
   if (tab.value === 'returned') return returnedTasks.value
@@ -126,6 +156,16 @@ function buildSuggestionByStatus(status) {
   if (status === 'reviewed' || status === 'auto_confirmed') return '保持当前节奏，关注新增异常。'
   if (status === 'sync_stale' || status === 'stale') return '先核对数据同步状态，再处理受影响记录。'
   return '按班次闭环，优先处理阻塞项。'
+}
+
+function syncAnomalyLabel(syncStatus = {}) {
+  const status = String(syncStatus.status || syncStatus.last_run_status || '')
+  if (status === 'failed') return '同步失败'
+  if (status === 'migration_missing') return '投影未就绪'
+  if (status === 'unconfigured') return 'MES 未配置'
+  const lagSeconds = Number(syncStatus.lag_seconds || 0)
+  if (lagSeconds > 0) return `同步滞后 ${Math.ceil(lagSeconds / 60)} 分钟`
+  return '同步滞后'
 }
 
 function riskTagType(risk) {
@@ -172,6 +212,15 @@ onMounted(load)
 
 .review-task-center__main {
   grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.review-task-center__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .review-task-center__risk-list {

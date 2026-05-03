@@ -80,9 +80,15 @@ def test_ai_center_is_formal_and_roadmap_is_isolated_redirect() -> None:
 
     brain_anchor = manage_routes.index("path: 'ai',")
     brain_block = manage_routes[brain_anchor : brain_anchor + 320]
-    assert "component: AiWorkstation" in brain_block
+    assert "redirect: '/manage/ai-assistant'" in brain_block
     assert "centerNo: '11'" in brain_block
-    assert "canonical: '/manage/ai'" in brain_block
+    assert "canonical: '/manage/ai-assistant'" in brain_block
+
+    assistant_anchor = manage_routes.index("path: 'ai-assistant',")
+    assistant_block = manage_routes[assistant_anchor : assistant_anchor + 320]
+    assert "component: AiWorkstation" in assistant_block
+    assert "centerNo: '11'" in assistant_block
+    assert "canonical: '/manage/ai-assistant'" in assistant_block
 
     assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
     assert "name: 'review-roadmap-center'" not in source
