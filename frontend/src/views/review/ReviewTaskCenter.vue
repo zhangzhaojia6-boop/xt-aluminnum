@@ -1,8 +1,8 @@
 <template>
   <ReferencePageFrame
     module-number="07"
-    title="审阅中心"
-    :tags="['待审', '已审', '已驳回']"
+    title="异常与补录"
+    :tags="['缺报', '退回', '差异', '同步滞后']"
     data-testid="review-task-center"
   >
     <template #actions>
@@ -11,22 +11,21 @@
     </template>
 
     <section class="review-task-center__kpis">
-      <ReferenceKpiTile label="待审" :value="pendingCount" unit="项" icon="待" status="warning" />
-      <ReferenceKpiTile label="已审" :value="approvedCount" unit="项" icon="审" status="success" />
-      <ReferenceKpiTile label="已驳回" :value="rejectedCount" unit="项" icon="驳" status="danger" />
+      <ReferenceKpiTile label="缺报" :value="missingCount" unit="项" icon="缺" status="warning" />
+      <ReferenceKpiTile label="退回" :value="returnedCount" unit="项" icon="退" status="danger" />
+      <ReferenceKpiTile label="差异" :value="diffCount" unit="项" icon="差" status="warning" />
     </section>
 
     <section class="review-task-center__main">
-      <ReferenceModuleCard module-number="07" title="任务列表">
+      <ReferenceModuleCard module-number="07" title="异常列表">
         <template #actions>
           <el-radio-group v-model="tab" size="small">
-            <el-radio-button label="pending">待审</el-radio-button>
-            <el-radio-button label="approved">已审</el-radio-button>
-            <el-radio-button label="rejected">已驳回</el-radio-button>
+            <el-radio-button label="missing">缺报</el-radio-button>
+            <el-radio-button label="returned">退回</el-radio-button>
+            <el-radio-button label="diff">差异</el-radio-button>
+            <el-radio-button label="stale">同步滞后</el-radio-button>
           </el-radio-group>
-          <el-button size="small" :disabled="!filteredTasks.length">批量通过</el-button>
-          <el-button size="small" :disabled="!filteredTasks.length">批量驳回</el-button>
-          <el-button size="small" :disabled="!filteredTasks.length">导出清单</el-button>
+          <el-button size="small" :disabled="!filteredTasks.length">导出异常</el-button>
         </template>
         <ReferenceDataTable :data="filteredTasks" stripe v-loading="loading">
           <el-table-column prop="workshop" label="来源车间" min-width="130" />
@@ -72,7 +71,7 @@ import { fetchFactoryDashboard } from '../../api/dashboard'
 const router = useRouter()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
-const tab = ref('pending')
+const tab = ref('missing')
 const dashboard = ref({})
 
 const rawTasks = computed(() => {
@@ -94,19 +93,21 @@ const rawTasks = computed(() => {
   return list
 })
 
-const pendingTasks = computed(() => rawTasks.value.filter((item) => ['unreported', 'late', 'returned', 'draft', 'submitted'].includes(item.status)))
-const approvedTasks = computed(() => rawTasks.value.filter((item) => ['reviewed', 'auto_confirmed'].includes(item.status)))
-const rejectedTasks = computed(() => rawTasks.value.filter((item) => item.status === 'returned'))
+const missingTasks = computed(() => rawTasks.value.filter((item) => ['unreported', 'late', 'draft'].includes(item.status)))
+const returnedTasks = computed(() => rawTasks.value.filter((item) => item.status === 'returned'))
+const diffTasks = computed(() => rawTasks.value.filter((item) => ['submitted', 'reviewed', 'auto_confirmed'].includes(item.status)))
+const staleTasks = computed(() => rawTasks.value.filter((item) => ['sync_stale', 'stale'].includes(item.status)))
 
 const filteredTasks = computed(() => {
-  if (tab.value === 'approved') return approvedTasks.value
-  if (tab.value === 'rejected') return rejectedTasks.value
-  return pendingTasks.value
+  if (tab.value === 'returned') return returnedTasks.value
+  if (tab.value === 'diff') return diffTasks.value
+  if (tab.value === 'stale') return staleTasks.value
+  return missingTasks.value
 })
 
-const pendingCount = computed(() => pendingTasks.value.length)
-const approvedCount = computed(() => approvedTasks.value.length)
-const rejectedCount = computed(() => rejectedTasks.value.length)
+const missingCount = computed(() => missingTasks.value.length)
+const returnedCount = computed(() => returnedTasks.value.length)
+const diffCount = computed(() => diffTasks.value.length)
 
 const riskHighlights = computed(() => {
   const exceptionLane = dashboard.value.exception_lane || {}
@@ -121,8 +122,9 @@ function buildSuggestionByStatus(status) {
   if (status === 'returned') return '优先补齐异常字段，并补充图片说明后重提。'
   if (status === 'late') return '先确认班次关键字段，提交后再补扩展项。'
   if (status === 'unreported') return '先触达责任人补报，避免影响日报发布。'
-  if (status === 'submitted') return '检查来源完整性并推进自动确认。'
+  if (status === 'submitted') return '检查来源完整性并定位差异。'
   if (status === 'reviewed' || status === 'auto_confirmed') return '保持当前节奏，关注新增异常。'
+  if (status === 'sync_stale' || status === 'stale') return '先核对数据同步状态，再处理受影响记录。'
   return '按班次闭环，优先处理阻塞项。'
 }
 

@@ -22,7 +22,7 @@ def test_navigation_declares_15_center_blueprint_without_roadmap() -> None:
         ("no: '03'", "title: '独立填报端首页'", "zone: 'entry'", "path: '/entry'"),
         ("no: '05'", "title: '工厂作业看板'", "zone: 'review'", "path: '/review/factory'"),
         ("no: '06'", "title: '数据接入与字段映射中心'", "zone: 'admin'", "path: '/admin/ingestion'"),
-        ("no: '07'", "title: '审阅中心'", "zone: 'review'", "path: '/review/tasks'"),
+        ("no: '07'", "title: '异常与补录'", "zone: 'review'", "path: '/review/tasks'"),
         ("no: '08'", "title: '日报与交付中心'", "zone: 'review'", "path: '/review/reports'"),
         ("no: '09'", "title: '质量与告警中心'", "zone: 'review'", "path: '/review/quality'"),
         ("no: '10'", "title: '成本核算与效益中心'", "zone: 'review'", "path: '/review/cost-accounting'"),
@@ -177,11 +177,11 @@ def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
         ],
         "frontend/src/views/review/ReviewTaskCenter.vue": [
             "ReferencePageFrame",
-            "待审",
-            "已审",
-            "批量通过",
-            "批量驳回",
-            "导出清单",
+            "异常与补录",
+            "缺报",
+            "退回",
+            "差异",
+            "同步滞后",
         ],
     }
     for relative_path, tokens in checks.items():

@@ -7,7 +7,7 @@ export const centerNavigation = [
     path: '/review/overview',
     routeName: 'review-overview-home',
     icon: '总',
-    summary: '今日产量、达成率、异常、待审、交付状态'
+    summary: '今日产量、达成率、异常、补录、交付状态'
   },
   {
     id: 'entry',
@@ -42,12 +42,12 @@ export const centerNavigation = [
   {
     id: 'tasks',
     no: '07',
-    title: '审阅中心',
+    title: '异常与补录',
     zone: 'review',
     path: '/review/tasks',
     routeName: 'review-task-center',
-    icon: '审',
-    summary: '待审、已审、驳回、风险等级、AI 辅助建议'
+    icon: '补',
+    summary: '缺报、退回、差异、同步滞后、风险等级'
   },
   {
     id: 'reports',

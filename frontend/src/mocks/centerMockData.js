@@ -36,27 +36,27 @@ export const reviewOverviewMock = {
 }
 
 export const reviewTaskMock = {
-  tabs: ['待审', '已审', '已驳回'],
+  tabs: ['缺报', '退回', '差异', '同步滞后'],
   rows: [
     {
       id: 'r-001',
       workshop: '铸造一线',
       shift: '白班',
       submittedAt: '09:20',
-      anomalyType: '产量波动',
-      aiAdvice: '辅助建议：核对机台停机时长',
+      anomalyType: '缺报',
+      aiAdvice: '辅助建议：先触达责任人补报',
       risk: '中',
-      status: '待审'
+      status: '缺报'
     },
     {
       id: 'r-002',
       workshop: '精整区',
       shift: '夜班',
       submittedAt: '08:45',
-      anomalyType: '良率偏低',
-      aiAdvice: '辅助建议：查看缺陷分类',
+      anomalyType: '退回',
+      aiAdvice: '辅助建议：补齐异常字段后重提',
       risk: '高',
-      status: '待审'
+      status: '退回'
     },
     {
       id: 'r-003',
@@ -66,7 +66,7 @@ export const reviewTaskMock = {
       anomalyType: '交付差异',
       aiAdvice: '辅助建议：比对出库单',
       risk: '低',
-      status: '已审'
+      status: '差异'
     }
   ]
 }

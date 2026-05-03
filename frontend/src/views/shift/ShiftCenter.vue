@@ -2,16 +2,7 @@
   <div class="page-stack">
     <div class="page-header">
       <div>
-        <h1>班次观察台</h1>
-      </div>
-      <div class="header-actions">
-        <el-input v-model="templateCode" placeholder="模板编码（可选）" style="width: 180px" />
-        <el-select v-model="duplicateStrategy" style="width: 220px">
-          <el-option label="重复时默认拒绝" value="reject" />
-          <el-option label="新数据覆盖旧版本" value="supersede" />
-        </el-select>
-        <input type="file" accept=".csv,.xlsx" @change="onFileChange" />
-        <el-button type="primary" :loading="importing" :disabled="!uploadFile" @click="onImport">导入生产班次数据</el-button>
+        <h1>班次配置</h1>
       </div>
     </div>
 
@@ -81,7 +72,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchWorkshops } from '../../api/master'
-import { fetchShiftProductionData, importProductionFile } from '../../api/production'
+import { fetchShiftProductionData } from '../../api/production'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatStatusLabel } from '../../utils/display'
@@ -96,10 +87,6 @@ const filters = reactive({
 })
 const workshops = ref([])
 const items = ref([])
-const importing = ref(false)
-const uploadFile = ref(null)
-const templateCode = ref('')
-const duplicateStrategy = ref('reject')
 
 function statusTone(status) {
   if (status === 'confirmed') return 'success'
@@ -120,25 +107,6 @@ function observationLabel(row) {
   if (row.data_status === 'reviewed') return '已进入中间状态，可继续观察后续结果'
   if (row.data_status === 'confirmed') return '当前版本已稳定，可查看详情追踪来源'
   return '查看详情了解当前记录状态'
-}
-
-function onFileChange(event) {
-  uploadFile.value = event.target.files?.[0] || null
-}
-
-async function onImport() {
-  if (!uploadFile.value) return
-  importing.value = true
-  try {
-    const result = await importProductionFile(uploadFile.value, templateCode.value || null, duplicateStrategy.value)
-    const summary = result.summary
-    ElMessage.success(`导入完成：成功 ${summary.success_rows}，失败 ${summary.failed_rows}，跳过 ${summary.skipped_rows}`)
-    await load()
-  } catch {
-    ElMessage.error('导入失败')
-  } finally {
-    importing.value = false
-  }
 }
 
 function openDetail(id) {

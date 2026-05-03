@@ -178,7 +178,7 @@ const rawRoutes = [
       { path: 'factory/exceptions', name: 'factory-command-exceptions', component: ExceptionMap, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/factory/exceptions' } },
       { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },
       { path: 'workshop', name: 'workshop-dashboard', component: WorkshopDirector, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/workshop' } },
-      { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '审阅中心', centerNo: '07', canonical: '/manage/entry-center' } },
+      { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '异常与补录', centerNo: '07', canonical: '/manage/entry-center' } },
       { path: 'shift', redirect: '/manage/master' },
       { path: 'reconciliation', name: 'review-reconciliation-center', component: ReconciliationCenter, meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/reconciliation' } },
       { path: 'reconciliation/detail/:id', name: 'reconciliation-detail', component: ReconciliationDetail, meta: { ...reviewMeta, title: '差异详情' } },

@@ -507,7 +507,7 @@ def test_reference_login_and_entry_use_cn_titles_and_no_english_subtitles() -> N
 def test_reference_review_modules_use_numbered_cn_titles() -> None:
     modules = {
         "frontend/src/views/review/OverviewCenter.vue": ("01", "系统总览主视图"),
-        "frontend/src/views/review/ReviewTaskCenter.vue": ("07", "审阅中心"),
+        "frontend/src/views/review/ReviewTaskCenter.vue": ("07", "异常与补录"),
         "frontend/src/views/reports/ReportList.vue": ("08", "日报与交付中心"),
         "frontend/src/views/quality/QualityCenter.vue": ("09", "质量与告警中心"),
         "frontend/src/views/review/CostAccountingCenter.vue": ("10", "成本核算与效益中心"),

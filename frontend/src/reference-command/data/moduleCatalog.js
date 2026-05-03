@@ -73,7 +73,7 @@ export const referenceModules = Object.freeze([
   },
   {
     moduleId: '07',
-    title: '审阅中心',
+    title: '异常与补录',
     surface: 'review',
     routeName: 'review-task-center',
     routePath: '/review/tasks',
