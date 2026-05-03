@@ -183,6 +183,7 @@ const submitting = ref(false)
 const form = reactive({})
 const specParts = reactive({})
 const lockedFieldsSnapshot = ref({})
+const lockedFieldsToken = ref('')
 const groups = ref([])
 const readonlyFields = ref([])
 const visibleReadonlyFields = computed(() =>
@@ -300,6 +301,7 @@ function applyScanLookupResult(result) {
     }
   }
   applyLockedSnapshot(result?.lock_keys || [])
+  lockedFieldsToken.value = result?.lock_token || ''
 }
 
 async function handleScanLookup(qr) {
@@ -355,6 +357,7 @@ function buildCoilEntryPayload(sc) {
     business_date: sc.business_date,
     shift_id: sc.shift_id,
     locked_fields_snapshot: lockedFieldsSnapshot.value,
+    locked_fields_token: lockedFieldsToken.value,
   }
 }
 

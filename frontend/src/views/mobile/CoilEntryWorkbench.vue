@@ -214,6 +214,7 @@ const submitting = ref(false)
 const flowLoading = ref(false)
 const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
 const lockedFieldsSnapshot = ref({})
+const lockedFieldsToken = ref('')
 const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
@@ -345,6 +346,7 @@ function applyScanLookupResult(result) {
     }
   }
   applyLockedSnapshot(result?.lock_keys || [])
+  lockedFieldsToken.value = result?.lock_token || ''
   showEntryDialog.value = true
 }
 
@@ -419,6 +421,7 @@ async function submitCoil() {
       business_date: currentShift.value?.business_date,
       shift_id: currentShift.value?.shift_id,
       locked_fields_snapshot: lockedFieldsSnapshot.value,
+      locked_fields_token: lockedFieldsToken.value,
       ...buildFlowPayload(form.value.flow),
     }
     delete payload.flow
@@ -426,6 +429,7 @@ async function submitCoil() {
     ElMessage.success('提交成功')
     form.value = emptyForm()
     lockedFieldsSnapshot.value = {}
+    lockedFieldsToken.value = ''
     showEntryDialog.value = false
     await loadCoils()
   } catch (e) {

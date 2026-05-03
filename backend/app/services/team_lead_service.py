@@ -136,10 +136,17 @@ def build_overview(db: Session, *, leader_user: User, target_date: date) -> dict
     attended_count = len(attended_employee_ids)
     reported_rows = [item for item in reports if str(item.report_status) in REPORTED_STATUSES or item.returned_reason]
     returned_rows = [item for item in reports if str(item.report_status) == 'returned' or item.returned_reason]
+    reported_key_set = {
+        (item.business_date, item.shift_config_id, item.workshop_id, item.team_id)
+        for item in reported_rows
+    }
 
     pending_groups: dict[tuple[int | None, int | None, int | None], list[str]] = defaultdict(list)
     for schedule in schedules:
-        if int(schedule.employee_id) in attended_employee_ids:
+        schedule_key = (schedule.business_date, schedule.shift_config_id, schedule.workshop_id, schedule.team_id)
+        has_report = schedule_key in reported_key_set
+        has_attendance = int(schedule.employee_id) in attended_employee_ids
+        if has_report and has_attendance:
             continue
         employee = employee_map.get(int(schedule.employee_id))
         pending_groups[(schedule.workshop_id, schedule.shift_config_id, schedule.team_id)].append(

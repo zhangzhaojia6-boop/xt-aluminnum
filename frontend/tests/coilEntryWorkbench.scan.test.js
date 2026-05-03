@@ -16,20 +16,27 @@ test('scan lookup composable supports dingtalk and browser scanners', () => {
   assert.match(scanLookupSource, /useScanLookup/)
   assert.match(scanLookupSource, /dd\.biz\.util\.scan/)
   assert.match(scanLookupSource, /BarcodeDetector/)
-  assert.match(scanLookupSource, /const canScan = computed\(\(\) => Boolean\(dingtalkScanner\(\)\)\)/)
+  assert.match(scanLookupSource, /new globalThis\.window\.BarcodeDetector/)
+  assert.match(scanLookupSource, /\.detect\(/)
+  assert.match(scanLookupSource, /const canScan = computed\(\(\) => Boolean\(dingtalkScanner\(\)\) \|\| hasBrowserDetector\(\)\)/)
+  assert.doesNotMatch(scanLookupSource, /throw new Error\('browser_scanner_unavailable'\)/)
 })
 
 test('coil entry workbench applies scanned fields and locked snapshot', () => {
   assert.match(coilEntrySource, /scanLookup/)
   assert.match(coilEntrySource, /扫码带出/)
   assert.match(coilEntrySource, /lockedFieldsSnapshot/)
+  assert.match(coilEntrySource, /lockedFieldsToken/)
   assert.match(coilEntrySource, /:disabled="isLockedField\('tracking_card_no'\)"/)
   assert.match(coilEntrySource, /locked_fields_snapshot/)
+  assert.match(coilEntrySource, /locked_fields_token/)
 })
 
 test('unified entry form keeps scanned per-coil fields readonly', () => {
   assert.match(unifiedEntrySource, /scanLookup/)
   assert.match(unifiedEntrySource, /lockedFieldsSnapshot/)
+  assert.match(unifiedEntrySource, /lockedFieldsToken/)
   assert.match(unifiedEntrySource, /isLockedField\(field\.name\)/)
   assert.match(unifiedEntrySource, /locked_fields_snapshot/)
+  assert.match(unifiedEntrySource, /locked_fields_token/)
 })

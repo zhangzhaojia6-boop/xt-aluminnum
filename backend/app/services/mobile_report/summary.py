@@ -30,6 +30,7 @@ from app.models.system import User
 from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user
+from app.services.locked_fields_service import LockedFieldsTokenInvalid, verify_locked_fields_token
 from app.services.pilot_observability_service import log_pilot_event
 from app.services.work_order._utils import _normalize_flow_payload
 
@@ -419,10 +420,23 @@ def _locked_payload_value(payload: dict, key: str):
     return None, False
 
 
-def _validate_locked_fields(payload: dict) -> list[str]:
+def _trusted_locked_snapshot(payload: dict) -> dict:
+    token = payload.get('locked_fields_token')
+    if token:
+        try:
+            return verify_locked_fields_token(str(token))
+        except LockedFieldsTokenInvalid as exc:
+            raise HTTPException(status_code=409, detail='locked_field_tampered') from exc
     snapshot = payload.get('locked_fields_snapshot')
-    if not isinstance(snapshot, dict) or not snapshot:
-        return []
+    if isinstance(snapshot, dict) and snapshot:
+        raise HTTPException(status_code=409, detail='locked_field_tampered')
+    return {}
+
+
+def _validate_locked_fields(payload: dict) -> tuple[list[str], dict]:
+    snapshot = _trusted_locked_snapshot(payload)
+    if not snapshot:
+        return [], {}
 
     tampered: list[str] = []
     for key, expected in snapshot.items():
@@ -434,7 +448,7 @@ def _validate_locked_fields(payload: dict) -> list[str]:
             tampered.append(str(key))
     if tampered:
         raise HTTPException(status_code=409, detail='locked_field_tampered')
-    return [str(key) for key in snapshot.keys()]
+    return [str(key) for key in snapshot.keys()], dict(snapshot)
 
 
 def create_coil_entry(
@@ -464,8 +478,8 @@ def create_coil_entry(
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
-    locked_fields = _validate_locked_fields(payload)
-    extra_payload = _build_coil_flow_extra_payload(payload)
+    locked_fields, locked_snapshot = _validate_locked_fields(payload)
+    extra_payload = _build_coil_flow_extra_payload(payload, locked_fields_snapshot=locked_snapshot)
 
     entry = WorkOrderEntry(
         work_order_id=wo.id,
@@ -526,12 +540,12 @@ def create_coil_entry(
     }
 
 
-def _build_coil_flow_extra_payload(payload: dict) -> dict:
+def _build_coil_flow_extra_payload(payload: dict, *, locked_fields_snapshot: dict | None = None) -> dict:
     extra_payload = dict(payload.get('extra_payload') or {})
     if 'flow' in extra_payload:
         extra_payload['flow'] = _normalize_flow_payload(extra_payload.get('flow'))
-    if payload.get('locked_fields_snapshot'):
-        extra_payload['locked_fields_snapshot'] = dict(payload.get('locked_fields_snapshot') or {})
+    if locked_fields_snapshot:
+        extra_payload['locked_fields_snapshot'] = dict(locked_fields_snapshot)
 
     legacy_flow = {
         key: payload.get(key)

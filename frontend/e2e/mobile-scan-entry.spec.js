@@ -92,7 +92,8 @@ test('mobile coil entry scans a coil qr and submits locked header fields', async
           next_workshop: '退火车间',
           next_process: '退火'
         },
-        lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec', 'current_workshop', 'current_process', 'next_workshop', 'next_process']
+        lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec', 'current_workshop', 'current_process', 'next_workshop', 'next_process'],
+        lock_token: 'signed-lock-token'
       })
     })
   })
@@ -126,6 +127,7 @@ test('mobile coil entry scans a coil qr and submits locked header fields', async
   await page.getByRole('button', { name: '提交这卷' }).click()
 
   await expect.poll(() => submitPayload?.locked_fields_snapshot?.tracking_card_no).toBe('TRACK-SCAN-1')
+  expect(submitPayload.locked_fields_token).toBe('signed-lock-token')
   expect(submitPayload.locked_fields_snapshot.alloy_grade).toBe('6061')
   expect(submitPayload.locked_fields_snapshot.input_spec).toBe('1.2×1200')
 })

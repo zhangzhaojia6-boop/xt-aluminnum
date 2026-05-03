@@ -210,6 +210,7 @@ class MobileCoilEntryPayload(BaseModel):
     operator_notes: str | None = Field(default=None, max_length=1000)
     extra_payload: dict[str, Any] | None = None
     locked_fields_snapshot: dict[str, Any] | None = None
+    locked_fields_token: str | None = Field(default=None, max_length=4096)
     business_date: date
     shift_id: int = Field(gt=0)
 
@@ -252,3 +253,4 @@ class MobileScanLookupOut(BaseModel):
     source: str
     header_fields: dict[str, Any] = Field(default_factory=dict)
     lock_keys: list[str] = Field(default_factory=list)
+    lock_token: str | None = None

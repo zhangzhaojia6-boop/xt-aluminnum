@@ -7,8 +7,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.agents.base import AgentDecision
+from app.core.scope import ScopeSummary, build_scope_summary
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport
+from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import pilot_observability_service
 
@@ -130,6 +132,65 @@ def _require_admin_or_manager(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='仅管理员或管理者可处置')
 
 
+def _row_matches_scope(scope: ScopeSummary, row) -> bool:
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return True
+
+    row_workshop_id = getattr(row, 'workshop_id', None)
+    row_team_id = getattr(row, 'team_id', None)
+    row_shift_id = getattr(row, 'shift_config_id', None)
+
+    if scope.data_scope_type == 'assigned':
+        if scope.assigned_shift_ids and row_shift_id is not None and int(row_shift_id) not in scope.assigned_shift_ids:
+            return False
+    if scope.workshop_id is not None and row_workshop_id is not None and int(row_workshop_id) != int(scope.workshop_id):
+        return False
+    if scope.data_scope_type == 'self_team' and scope.team_id is not None:
+        return row_team_id is not None and int(row_team_id) == int(scope.team_id)
+    return scope.workshop_id is not None and row_workshop_id is not None
+
+
+def _report_in_scope(db: Session, *, report_id: int, scope: ScopeSummary) -> bool:
+    report = db.query(MobileShiftReport).filter(MobileShiftReport.id == report_id).first()
+    if report is None:
+        return True
+    return _row_matches_scope(scope, report)
+
+
+def _shift_in_scope(db: Session, *, shift_config_id: int, scope: ScopeSummary) -> bool:
+    shift = db.query(ShiftConfig).filter(ShiftConfig.id == shift_config_id).first()
+    if shift is None:
+        return True
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return True
+    shift_workshop_id = getattr(shift, 'workshop_id', None)
+    return scope.workshop_id is not None and shift_workshop_id is not None and int(shift_workshop_id) == int(scope.workshop_id)
+
+
+def _require_action_scope(db: Session, *, user: User, action: str, payload: dict[str, Any]) -> None:
+    scope = build_scope_summary(user)
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return
+
+    if action in {'call_reconciler', 'call_aggregator'}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权执行全厂处置')
+
+    if action == 'call_validator':
+        report_id = _parse_int(payload.get('report_id') or payload.get('target_id'), field_name='report_id')
+        if not _report_in_scope(db, report_id=report_id, scope=scope):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权处置该记录')
+        return
+
+    if action == 'call_reminder':
+        shift_config_id = payload.get('shift_config_id')
+        if shift_config_id is None and payload.get('target_type') == 'shift_config':
+            shift_config_id = payload.get('target_id')
+        if shift_config_id is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权执行全厂催报')
+        if not _shift_in_scope(db, shift_config_id=_parse_int(shift_config_id, field_name='shift_config_id'), scope=scope):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权处置该班次')
+
+
 def execute_action(*, db: Session, user: User, action_payload: dict[str, Any]) -> dict[str, Any]:
     action = str(action_payload.get('action') or '').strip()
     target_type = str(action_payload.get('target_type') or '').strip()
@@ -142,6 +203,7 @@ def execute_action(*, db: Session, user: User, action_payload: dict[str, Any]) -
         handler = ACTION_REGISTRY.get(action)
         if handler is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='未知处置动作')
+        _require_action_scope(db, user=user, action=action, payload=action_payload)
         decisions = handler(db=db, payload=action_payload)
         _commit_if_possible(db)
         success = True

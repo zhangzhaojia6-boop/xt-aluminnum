@@ -84,3 +84,31 @@ def test_build_overview_counts_five_quadrants_and_lists(tmp_path) -> None:
     assert payload['pending_list'][0]['shift_id'] == 1
     assert payload['pending_list'][0]['members'] == ['李四']
     assert payload['reminder_list'][0]['count'] == 2
+
+
+def test_build_overview_flags_unreported_shift_even_when_attendance_complete(tmp_path) -> None:
+    db = next(build_session(tmp_path))
+    target_date, leader = seed_team_lead_data(db)
+    db.query(MobileShiftReport).delete()
+    db.add(
+        AttendanceResult(
+            employee_id=102,
+            employee_no='E102',
+            employee_name='李四',
+            business_date=target_date,
+            workshop_id=1,
+            team_id=10,
+            shift_config_id=1,
+            attendance_status='normal',
+        )
+    )
+    db.commit()
+
+    payload = team_lead_service.build_overview(db, leader_user=leader, target_date=target_date)
+
+    assert payload['attended_count'] == 2
+    assert payload['reported_count'] == 0
+    assert payload['shift_health'] == 'yellow'
+    assert payload['pending_list'][0]['shift_id'] == 1
+    assert payload['pending_list'][0]['team'] == '甲班'
+    assert payload['pending_list'][0]['members'] == ['张三', '李四']
