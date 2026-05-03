@@ -7,6 +7,7 @@
     data-testid="admin-users-center"
   >
     <template #actions>
+      <el-button :loading="syncingDingtalk" @click="syncDingtalk">同步钉钉成员</el-button>
       <el-button type="primary" @click="openCreate">新增用户</el-button>
     </template>
 
@@ -146,7 +147,7 @@ import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vu
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchTeams, fetchWorkshops } from '../../api/master.js'
-import { createUser, deleteUser, fetchUsersPage, resetUserPassword, updateUser } from '../../api/users.js'
+import { createUser, deleteUser, fetchUsersPage, resetUserPassword, syncDingtalkUsers, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'
 
 const roleOptions = [
@@ -172,6 +173,7 @@ const roleOptions = [
 
 const loading = ref(false)
 const saving = ref(false)
+const syncingDingtalk = ref(false)
 const dialogVisible = ref(false)
 const resetDialogVisible = ref(false)
 const editingId = ref(null)
@@ -363,6 +365,21 @@ async function submitResetPassword() {
     resetDialogVisible.value = false
   } finally {
     saving.value = false
+  }
+}
+
+async function syncDingtalk() {
+  await ElMessageBox.confirm('确认从钉钉通讯录同步成员账号吗？', '提示', { type: 'warning' })
+  syncingDingtalk.value = true
+  try {
+    const result = await syncDingtalkUsers({ department_id: 1 })
+    const created = Number(result?.created_count || 0)
+    const updated = Number(result?.updated_count || 0)
+    ElMessage.success(`已同步${created}个，更新${updated}个`)
+    pageState.skip = 0
+    await load()
+  } finally {
+    syncingDingtalk.value = false
   }
 }
 

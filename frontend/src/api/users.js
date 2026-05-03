@@ -36,3 +36,7 @@ export async function deleteUser(id) {
 export async function resetUserPassword(id, payload) {
   return (await api.post(`/users/${id}/reset-password`, payload)).data
 }
+
+export async function syncDingtalkUsers(payload = {}) {
+  return (await api.post('/users/sync-dingtalk', payload)).data
+}

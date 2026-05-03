@@ -87,3 +87,41 @@ def test_send_work_notification_dry_run_skips_http(monkeypatch) -> None:
 
     assert ok is True
     assert detail == 'dingtalk_dry_run'
+
+
+def test_fetch_department_users_stops_when_dingtalk_has_more_string_is_false(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    calls = []
+
+    def fake_request_json(*, method, url, payload=None):
+        calls.append((method, url, payload))
+        if 'gettoken' in url:
+            return {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200}
+        if len(calls) == 2:
+            return {
+                'errcode': 0,
+                'result': {
+                    'has_more': 'true',
+                    'next_cursor': '100',
+                    'list': [{'userid': 'dt_100', 'unionid': 'union_100', 'mobile': '13900001000'}],
+                },
+            }
+        if len(calls) == 3:
+            return {
+                'errcode': 0,
+                'result': {
+                    'has_more': 'false',
+                    'next_cursor': '200',
+                    'list': [{'userid': 'dt_101', 'unionid': 'union_101', 'mobile': '13900001001'}],
+                },
+            }
+        raise AssertionError('string false should stop pagination')
+
+    monkeypatch.setattr(service, '_request_json', fake_request_json)
+
+    rows = service.fetch_department_users(1)
+
+    assert [row['userid'] for row in rows] == ['dt_100', 'dt_101']
+    assert calls[1][2]['dept_id'] == 1
+    assert calls[1][2]['cursor'] == 0
+    assert calls[2][2]['cursor'] == '100'

@@ -354,6 +354,46 @@ class DingTalkService:
                 offset += len(rows)
         return collected
 
+    def fetch_department_users(self, department_id: int = 1) -> list[dict]:
+        if not self.enabled:
+            raise DingTalkNotConfigured('dingtalk_not_configured')
+
+        access_token = self.fetch_access_token()
+        cursor: int | str = 0
+        collected: list[dict] = []
+
+        while True:
+            payload = {
+                'dept_id': int(department_id),
+                'cursor': cursor,
+                'size': 100,
+                'contain_access_limit': False,
+                'language': 'zh_CN',
+            }
+            response = self._request_json(
+                method='POST',
+                url=f'https://oapi.dingtalk.com/topapi/v2/user/list?access_token={parse.quote(access_token)}',
+                payload=payload,
+            )
+            self._ensure_success(response)
+
+            result = response.get('result') if isinstance(response.get('result'), dict) else {}
+            rows = result.get('list') if isinstance(result, dict) else []
+            if isinstance(rows, list):
+                collected.extend(item for item in rows if isinstance(item, dict))
+
+            has_more_value = result.get('has_more') if isinstance(result, dict) else False
+            if isinstance(has_more_value, str):
+                has_more = has_more_value.strip().lower() in {'true', '1', 'yes'}
+            else:
+                has_more = bool(has_more_value)
+            next_cursor = result.get('next_cursor') if isinstance(result, dict) else None
+            if not has_more or next_cursor in {None, ''}:
+                break
+            cursor = next_cursor
+
+        return collected
+
     def send_text(self, title: str, content: str) -> dict[str, str | bool]:
         if not self.enabled:
             return {'success': False, 'message': 'DingTalk is not configured'}

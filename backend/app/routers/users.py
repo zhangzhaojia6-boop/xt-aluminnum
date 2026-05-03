@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
@@ -8,8 +10,16 @@ from app.core.deps import get_current_user, get_db
 from app.models.master import Equipment, Team, Workshop
 from app.models.system import User
 from app.schemas.common import PaginatedResponse
-from app.schemas.users import UserCreateRequest, UserListItem, UserResetPasswordRequest, UserResetPasswordResponse, UserUpdateRequest
+from app.schemas.users import (
+    UserCreateRequest,
+    UserDingtalkSyncRequest,
+    UserListItem,
+    UserResetPasswordRequest,
+    UserResetPasswordResponse,
+    UserUpdateRequest,
+)
 from app.services.audit_service import record_entity_change
+from app.services import dingtalk_service
 
 
 router = APIRouter(tags=['users'])
@@ -98,6 +108,57 @@ def _load_bound_machine_map(db: Session, user_ids: list[int]) -> dict[int, tuple
     return result
 
 
+def _clean_contact_value(value) -> str | None:
+    cleaned = str(value or '').strip()
+    return cleaned or None
+
+
+def _normalize_dingtalk_contact(raw: dict) -> dict[str, str | None]:
+    user_id = _clean_contact_value(raw.get('userid') or raw.get('userId') or raw.get('user_id'))
+    union_id = _clean_contact_value(raw.get('unionid') or raw.get('unionId') or raw.get('union_id'))
+    mobile = _clean_contact_value(raw.get('mobile') or raw.get('phone') or raw.get('telephone'))
+    name = _clean_contact_value(raw.get('name') or raw.get('username') or raw.get('nick'))
+    return {
+        'dingtalk_user_id': user_id,
+        'dingtalk_union_id': union_id,
+        'mobile': mobile,
+        'name': name or mobile or user_id or union_id,
+    }
+
+
+def _find_dingtalk_sync_user(db: Session, contact: dict[str, str | None]) -> User | None:
+    user_id = contact.get('dingtalk_user_id')
+    union_id = contact.get('dingtalk_union_id')
+    mobile = contact.get('mobile')
+    if user_id:
+        user = db.query(User).filter(User.dingtalk_user_id == user_id).first()
+        if user is not None:
+            return user
+    if union_id:
+        user = db.query(User).filter(User.dingtalk_union_id == union_id).first()
+        if user is not None:
+            return user
+    for username in (mobile, user_id):
+        if username:
+            user = db.query(User).filter(User.username == username).first()
+            if user is not None:
+                return user
+    return None
+
+
+def _serialize_synced_user(user: User) -> dict:
+    return {
+        'id': user.id,
+        'username': user.username,
+        'name': user.name,
+        'role': user.role,
+        'dingtalk_user_id': user.dingtalk_user_id,
+        'dingtalk_union_id': user.dingtalk_union_id,
+        'is_mobile_user': user.is_mobile_user,
+        'is_active': user.is_active,
+    }
+
+
 def _serialize_user_item(
     db: Session,
     user: User,
@@ -159,6 +220,105 @@ def list_users(
         'total': total,
         'skip': skip,
         'limit': limit,
+    }
+
+
+@router.post('/sync-dingtalk', name='users-sync-dingtalk')
+def sync_dingtalk_users(
+    payload: UserDingtalkSyncRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _require_admin(current_user)
+
+    try:
+        contacts = dingtalk_service.service.fetch_department_users(payload.department_id)
+    except dingtalk_service.DingTalkNotConfigured as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='钉钉应用未配置') from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc) or '钉钉通讯录同步失败') from exc
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+    users: list[dict] = []
+
+    for raw_contact in contacts:
+        contact = _normalize_dingtalk_contact(raw_contact)
+        if not any(contact.get(key) for key in ('dingtalk_user_id', 'dingtalk_union_id', 'mobile')):
+            skipped_count += 1
+            continue
+
+        user = _find_dingtalk_sync_user(db, contact)
+        if user is None:
+            username = contact.get('mobile') or contact.get('dingtalk_user_id') or contact.get('dingtalk_union_id')
+            if not username or db.query(User).filter(User.username == username).first() is not None:
+                skipped_count += 1
+                continue
+            user = User(
+                username=username,
+                password_hash=get_password_hash(secrets.token_urlsafe(24)),
+                name=contact.get('name') or username,
+                role=payload.role,
+                dingtalk_user_id=contact.get('dingtalk_user_id'),
+                dingtalk_union_id=contact.get('dingtalk_union_id'),
+                data_scope_type=_resolve_scope_type(
+                    role=payload.role,
+                    workshop_id=None,
+                    team_id=None,
+                    is_reviewer=False,
+                    is_manager=False,
+                ),
+                is_mobile_user=payload.is_mobile_user,
+                is_reviewer=False,
+                is_manager=False,
+                is_active=True,
+            )
+            db.add(user)
+            db.flush()
+            created_count += 1
+        else:
+            changed = False
+            if contact.get('name') and user.name != contact['name']:
+                user.name = contact['name']
+                changed = True
+            if contact.get('dingtalk_user_id') and user.dingtalk_user_id != contact['dingtalk_user_id']:
+                user.dingtalk_user_id = contact['dingtalk_user_id']
+                changed = True
+            if contact.get('dingtalk_union_id') and user.dingtalk_union_id != contact['dingtalk_union_id']:
+                user.dingtalk_union_id = contact['dingtalk_union_id']
+                changed = True
+            if payload.is_mobile_user and not user.is_mobile_user:
+                user.is_mobile_user = True
+                changed = True
+            if changed:
+                db.flush()
+                updated_count += 1
+        users.append(_serialize_synced_user(user))
+
+    record_entity_change(
+        db,
+        user=current_user,
+        module='users',
+        entity_type='users',
+        entity_id=None,
+        action='sync_dingtalk',
+        new_value={
+            'department_id': payload.department_id,
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'skipped_count': skipped_count,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get('user-agent'),
+        auto_commit=False,
+    )
+    db.commit()
+    return {
+        'created_count': created_count,
+        'updated_count': updated_count,
+        'skipped_count': skipped_count,
+        'users': users,
     }
 
 

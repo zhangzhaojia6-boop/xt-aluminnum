@@ -85,6 +85,7 @@ def seed_reference_data(session_factory):
 def test_users_routes_are_registered() -> None:
     assert app.url_path_for('users-list') == '/api/v1/users/'
     assert app.url_path_for('users-create') == '/api/v1/users/'
+    assert app.url_path_for('users-sync-dingtalk') == '/api/v1/users/sync-dingtalk'
     assert app.url_path_for('users-update', user_id='5') == '/api/v1/users/5'
     assert app.url_path_for('users-delete', user_id='5') == '/api/v1/users/5'
     assert app.url_path_for('users-reset-password', user_id='5') == '/api/v1/users/5/reset-password'

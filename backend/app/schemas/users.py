@@ -98,3 +98,14 @@ class UserResetPasswordResponse(BaseModel):
     id: int
     username: str
     message: str
+
+
+class UserDingtalkSyncRequest(BaseModel):
+    department_id: int = Field(default=1, ge=1)
+    role: str = Field(default='shift_leader', min_length=1, max_length=32)
+    is_mobile_user: bool = True
+
+    @field_validator('role')
+    @classmethod
+    def strip_role(cls, value: str) -> str:
+        return value.strip()
