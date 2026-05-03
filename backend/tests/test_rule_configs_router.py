@@ -100,4 +100,3 @@ def test_rule_config_write_requires_admin(tmp_path) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
-

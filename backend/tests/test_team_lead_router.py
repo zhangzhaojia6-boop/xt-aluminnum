@@ -63,4 +63,3 @@ def test_team_lead_overview_router_rejects_worker_role(monkeypatch) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
-

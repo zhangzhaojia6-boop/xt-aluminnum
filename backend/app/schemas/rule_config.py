@@ -27,4 +27,3 @@ class RuleConfigUpsert(BaseModel):
 
 class RuleConfigUpdate(BaseModel):
     value: float | int
-

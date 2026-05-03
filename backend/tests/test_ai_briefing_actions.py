@@ -52,4 +52,3 @@ def test_generate_briefing_adds_suggested_actions_to_machine_actionable_rules(mo
     assert returned_actions[1]['target_id'] == 7
     assert rules['weight_anomaly']['suggested_actions'][0]['action'] == 'call_reconciler'
     assert rules['cost_estimate_missing']['suggested_actions'] == []
-

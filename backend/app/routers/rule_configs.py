@@ -54,7 +54,6 @@ def upsert_rule_config(
     db.refresh(item)
     return rule_config_service.payload_for(item)
 
-
 @router.put('/{config_id}', response_model=RuleConfigOut)
 def update_rule_config(
     config_id: int,
@@ -78,4 +77,3 @@ def update_rule_config(
     db.commit()
     db.refresh(item)
     return rule_config_service.payload_for(item)
-

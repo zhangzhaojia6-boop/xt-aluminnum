@@ -37,4 +37,3 @@ def execute_assistant_action(
         user=current_user,
         action_payload=payload.model_dump(exclude_none=True),
     )
-

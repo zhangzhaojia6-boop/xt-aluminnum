@@ -38,4 +38,3 @@ def test_assistant_action_router_executes_service(monkeypatch) -> None:
     assert response.json()['decisions'][0]['action'] == 'auto_reconcile'
     assert seen['db'] == 'db'
     assert seen['user_id'] == 7
-

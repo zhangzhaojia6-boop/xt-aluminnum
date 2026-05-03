@@ -27,4 +27,3 @@ def get_team_lead_overview(
 ) -> dict[str, Any]:
     _require_team_lead_access(current_user)
     return team_lead_service.build_overview(db, leader_user=current_user, target_date=date_value)
-

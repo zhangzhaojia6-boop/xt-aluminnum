@@ -91,4 +91,3 @@ def test_validator_returned_reason_includes_workshop_rule_tag(tmp_path, monkeypa
     assert len(decisions) == 1
     assert report.report_status == 'returned'
     assert '[规则:MAX_SINGLE_SHIFT_WEIGHT@LZ01]' in (report.returned_reason or '')
-
