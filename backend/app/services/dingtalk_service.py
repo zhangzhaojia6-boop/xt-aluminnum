@@ -42,6 +42,50 @@ class DingTalkUserNotBound(RuntimeError):
         super().__init__('dingtalk_user_not_bound')
 
 
+class DingTalkUserAmbiguous(RuntimeError):
+    def __init__(self, dingtalk_user_id: str, dingtalk_union_id: str | None = None) -> None:
+        self.dingtalk_user_id = dingtalk_user_id
+        self.dingtalk_union_id = dingtalk_union_id
+        super().__init__('dingtalk_user_ambiguous')
+
+
+def _active_users_by_dingtalk_field(db, column, value: str) -> list[User]:
+    query = db.query(User).filter(column == value, User.is_active.is_(True))
+    if hasattr(query, 'limit'):
+        return list(query.limit(2).all())
+    return list(query.all())
+
+
+def resolve_unique_dingtalk_user(
+    db,
+    *,
+    dingtalk_user_id: str | None,
+    dingtalk_union_id: str | None = None,
+) -> User | None:
+    user_id = str(dingtalk_user_id or '').strip()
+    union_id = str(dingtalk_union_id or '').strip() or None
+    matches: dict[int, User] = {}
+
+    if user_id:
+        for user in _active_users_by_dingtalk_field(db, User.dingtalk_user_id, user_id):
+            matches[int(user.id)] = user
+    if union_id:
+        for user in _active_users_by_dingtalk_field(db, User.dingtalk_union_id, union_id):
+            matches[int(user.id)] = user
+
+    if len(matches) > 1:
+        raise DingTalkUserAmbiguous(user_id, union_id)
+    if not matches:
+        return None
+
+    user = next(iter(matches.values()))
+    if user_id and user.dingtalk_user_id and user.dingtalk_user_id != user_id:
+        raise DingTalkUserAmbiguous(user_id, union_id)
+    if union_id and user.dingtalk_union_id and user.dingtalk_union_id != union_id:
+        raise DingTalkUserAmbiguous(user_id, union_id)
+    return user
+
+
 class DingTalkService:
     """Placeholder for future DingTalk integration.
 
@@ -217,12 +261,16 @@ class DingTalkService:
         if not user_id:
             raise DingTalkUserNotBound(user_id, union_id)
 
-        user = db.query(User).filter(User.dingtalk_user_id == user_id, User.is_active.is_(True)).first()
-        if user is None and union_id:
-            user = db.query(User).filter(User.dingtalk_union_id == union_id, User.is_active.is_(True)).first()
+        user = resolve_unique_dingtalk_user(
+            db,
+            dingtalk_user_id=user_id,
+            dingtalk_union_id=union_id,
+        )
         if user is None:
             raise DingTalkUserNotBound(user_id, union_id)
 
+        if user_id and not user.dingtalk_user_id:
+            user.dingtalk_user_id = user_id
         if union_id and not user.dingtalk_union_id:
             user.dingtalk_union_id = union_id
         user.last_login = datetime.now(timezone.utc)

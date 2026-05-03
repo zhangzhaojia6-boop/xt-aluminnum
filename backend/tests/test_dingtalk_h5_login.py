@@ -34,13 +34,20 @@ def _client_with_db(session_factory):
     return TestClient(app)
 
 
-def _seed_user(db, *, dingtalk_user_id: str = 'dt_100') -> User:
+def _seed_user(
+    db,
+    *,
+    username: str = 'leader_100',
+    dingtalk_user_id: str | None = 'dt_100',
+    dingtalk_union_id: str | None = None,
+) -> User:
     user = User(
-        username='leader_100',
+        username=username,
         password_hash=get_password_hash('Pass#2026'),
         name='一车间班长',
         role='team_leader',
         dingtalk_user_id=dingtalk_user_id,
+        dingtalk_union_id=dingtalk_union_id,
         data_scope_type='self_team',
         is_mobile_user=True,
         is_active=True,
@@ -98,6 +105,29 @@ def test_h5_login_returns_unbound_user_id(tmp_path, monkeypatch) -> None:
     assert response.status_code == 404
     assert response.json()['detail']['code'] == 'dingtalk_user_not_bound'
     assert response.json()['detail']['dingtalk_user_id'] == 'dt_unbound'
+
+
+def test_h5_login_rejects_conflicting_userid_and_unionid_bindings(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_user(db, username='leader_201', dingtalk_user_id='dt_conflict', dingtalk_union_id=None)
+        _seed_user(db, username='leader_202', dingtalk_user_id='dt_other', dingtalk_union_id='union_conflict')
+        db.commit()
+
+    monkeypatch.setattr(dingtalk_service.service, 'is_h5_configured', lambda: True)
+    monkeypatch.setattr(
+        dingtalk_service.service,
+        'exchange_code',
+        lambda _code: {'userid': 'dt_conflict', 'unionid': 'union_conflict'},
+    )
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post('/api/v1/dingtalk/h5-login', json={'code': 'abc'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail']['code'] == 'dingtalk_user_ambiguous'
 
 
 def test_h5_login_returns_login_response_shape(tmp_path, monkeypatch) -> None:

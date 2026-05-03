@@ -126,24 +126,33 @@ def _normalize_dingtalk_contact(raw: dict) -> dict[str, str | None]:
     }
 
 
-def _find_dingtalk_sync_user(db: Session, contact: dict[str, str | None]) -> User | None:
+def _find_users_by_field(db: Session, column, value: str) -> list[User]:
+    query = db.query(User).filter(column == value)
+    if hasattr(query, 'limit'):
+        return list(query.limit(2).all())
+    return list(query.all())
+
+
+def _find_dingtalk_sync_user(db: Session, contact: dict[str, str | None]) -> tuple[User | None, bool]:
     user_id = contact.get('dingtalk_user_id')
     union_id = contact.get('dingtalk_union_id')
     mobile = contact.get('mobile')
+    candidates: dict[int, User] = {}
     if user_id:
-        user = db.query(User).filter(User.dingtalk_user_id == user_id).first()
-        if user is not None:
-            return user
+        for user in _find_users_by_field(db, User.dingtalk_user_id, user_id):
+            candidates[int(user.id)] = user
     if union_id:
-        user = db.query(User).filter(User.dingtalk_union_id == union_id).first()
-        if user is not None:
-            return user
+        for user in _find_users_by_field(db, User.dingtalk_union_id, union_id):
+            candidates[int(user.id)] = user
     for username in (mobile, user_id):
         if username:
-            user = db.query(User).filter(User.username == username).first()
-            if user is not None:
-                return user
-    return None
+            for user in _find_users_by_field(db, User.username, username):
+                candidates[int(user.id)] = user
+    if len(candidates) > 1:
+        return None, True
+    if not candidates:
+        return None, False
+    return next(iter(candidates.values())), False
 
 
 def _serialize_synced_user(user: User) -> dict:
@@ -249,7 +258,10 @@ def sync_dingtalk_users(
             skipped_count += 1
             continue
 
-        user = _find_dingtalk_sync_user(db, contact)
+        user, has_binding_conflict = _find_dingtalk_sync_user(db, contact)
+        if has_binding_conflict:
+            skipped_count += 1
+            continue
         if user is None:
             username = contact.get('mobile') or contact.get('dingtalk_user_id') or contact.get('dingtalk_union_id')
             if not username or db.query(User).filter(User.username == username).first() is not None:

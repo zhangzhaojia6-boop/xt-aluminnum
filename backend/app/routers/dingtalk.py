@@ -70,15 +70,11 @@ def _get_user_info(user_access_token: str) -> dict:
 
 
 def _find_system_user(db: Session, union_id: str, user_id: str | None) -> User | None:
-    if user_id:
-        user = db.query(User).filter(User.dingtalk_user_id == user_id, User.is_active.is_(True)).first()
-        if user:
-            return user
-    if union_id:
-        user = db.query(User).filter(User.dingtalk_union_id == union_id, User.is_active.is_(True)).first()
-        if user:
-            return user
-    return None
+    return dingtalk_service.resolve_unique_dingtalk_user(
+        db,
+        dingtalk_user_id=user_id,
+        dingtalk_union_id=union_id,
+    )
 
 
 @router.post("/login")
@@ -105,7 +101,10 @@ async def dingtalk_login(req: DingtalkLoginRequest, db: Session = Depends(get_db
     if not union_id:
         raise HTTPException(status_code=401, detail="钉钉未返回用户标识")
 
-    user = _find_system_user(db, union_id=union_id, user_id=open_id)
+    try:
+        user = _find_system_user(db, union_id=union_id, user_id=open_id)
+    except dingtalk_service.DingTalkUserAmbiguous as exc:
+        raise HTTPException(status_code=409, detail="钉钉账号绑定异常，请联系管理员。") from exc
     if not user:
         raise HTTPException(
             status_code=403,
@@ -166,6 +165,15 @@ def dingtalk_h5_login(
             status_code=404,
             detail={
                 'code': 'dingtalk_user_not_bound',
+                'dingtalk_user_id': exc.dingtalk_user_id,
+                'dingtalk_union_id': exc.dingtalk_union_id,
+            },
+        ) from exc
+    except dingtalk_service.DingTalkUserAmbiguous as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                'code': 'dingtalk_user_ambiguous',
                 'dingtalk_user_id': exc.dingtalk_user_id,
                 'dingtalk_union_id': exc.dingtalk_union_id,
             },

@@ -21,7 +21,14 @@ def _session_factory(tmp_path):
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
-def _seed_user(db, *, username: str, dingtalk_user_id: str | None = None, is_active: bool = True) -> User:
+def _seed_user(
+    db,
+    *,
+    username: str,
+    dingtalk_user_id: str | None = None,
+    dingtalk_union_id: str | None = None,
+    is_active: bool = True,
+) -> User:
     workshop = Workshop(code=f"W_{username}", name=f"车间{username}", is_active=True, sort_order=1)
     db.add(workshop)
     db.flush()
@@ -32,6 +39,7 @@ def _seed_user(db, *, username: str, dingtalk_user_id: str | None = None, is_act
         role="team_leader",
         workshop_id=workshop.id,
         dingtalk_user_id=dingtalk_user_id,
+        dingtalk_union_id=dingtalk_union_id,
         data_scope_type="self_workshop",
         is_mobile_user=True,
         is_active=is_active,
@@ -134,11 +142,11 @@ def test_dingtalk_login_returns_readable_403_when_inactive(tmp_path, monkeypatch
     assert "未绑定系统账号" in response.json()["detail"]
 
 
-def test_dingtalk_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatch) -> None:
+def test_dingtalk_login_rejects_conflicting_userid_and_unionid_bindings(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
-        user_a = _seed_user(db, username="leader_201", dingtalk_user_id="wx_dup")
-        user_b = _seed_user(db, username="leader_202", dingtalk_user_id="wx_dup")
+        _seed_user(db, username="leader_201", dingtalk_user_id="wx_dup")
+        _seed_user(db, username="leader_202", dingtalk_union_id="union-wx-dup")
         db.commit()
 
     _patch_dingtalk_login(monkeypatch, open_id="wx_dup", union_id="union-wx-dup")
@@ -148,8 +156,8 @@ def test_dingtalk_login_returns_readable_403_when_ambiguous(tmp_path, monkeypatc
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 200
-    assert response.json()["user_id"] in {user_a.id, user_b.id}
+    assert response.status_code == 409
+    assert "绑定异常" in response.json()["detail"]
 
 
 def test_dingtalk_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
