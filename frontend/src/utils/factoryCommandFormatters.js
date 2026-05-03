@@ -1,6 +1,10 @@
 const freshnessLabels = {
   fresh: '实时',
   stale: '滞后',
+  unconfigured: '未配置',
+  migration_missing: '投影未就绪',
+  failed: '同步失败',
+  idle: '未同步',
   offline_or_blocked: '离线/阻塞'
 }
 
@@ -46,8 +50,9 @@ function roundTons(value) {
   return Math.round(toNumber(value) * 100) / 100
 }
 
-export function freshnessLabel(status) {
-  return freshnessLabels[status] || '未知'
+export function freshnessLabel(status, freshness = {}) {
+  if (status === 'stale' && freshness?.lag_seconds != null) return formatLagLabel(freshness.lag_seconds)
+  return freshnessLabels[status] || '未就绪'
 }
 
 export function sourceLabel(source) {

@@ -15,7 +15,11 @@ import {
 test('freshness label maps factory command sync states', () => {
   assert.equal(freshnessLabel('fresh'), '实时')
   assert.equal(freshnessLabel('stale'), '滞后')
-  assert.equal(freshnessLabel('offline_or_blocked'), '离线/阻塞')
+  assert.equal(freshnessLabel('stale', { lag_seconds: 360 }), '滞后 6 分钟')
+  assert.equal(freshnessLabel('unconfigured'), '未配置')
+  assert.equal(freshnessLabel('migration_missing'), '投影未就绪')
+  assert.equal(freshnessLabel('failed'), '同步失败')
+  assert.equal(freshnessLabel('unknown_state'), '未就绪')
 })
 
 test('source label maps factory command sources', () => {

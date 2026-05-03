@@ -8,8 +8,7 @@
       <div class="factory-command-shell__sync">
         <span>数据源 {{ sourceLabel(freshness?.source || 'mes_projection') }}</span>
         <span>最后同步 {{ formatSyncTime(freshness?.last_synced_at) }}</span>
-        <span>{{ formatLagLabel(freshness?.lag_seconds) }}</span>
-        <strong :class="`is-${freshness?.status || 'offline_or_blocked'}`">{{ freshnessLabel(freshness?.status) }}</strong>
+        <strong :class="`is-${freshness?.status || 'idle'}`">{{ freshnessLabel(freshness?.status, freshness) }}</strong>
       </div>
     </header>
 
@@ -28,7 +27,7 @@
 <script setup>
 import { RouterLink } from 'vue-router'
 
-import { formatLagLabel, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
+import { formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 
 defineProps({
   title: { type: String, required: true },
@@ -115,6 +114,13 @@ const tabs = [
   color: var(--fc-amber);
 }
 
+.factory-command-shell__sync strong.is-unconfigured,
+.factory-command-shell__sync strong.is-idle {
+  color: var(--xt-text-secondary);
+}
+
+.factory-command-shell__sync strong.is-migration_missing,
+.factory-command-shell__sync strong.is-failed,
 .factory-command-shell__sync strong.is-offline_or_blocked {
   color: var(--fc-red);
 }
