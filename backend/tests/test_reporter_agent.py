@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from app.agents import reporter as reporter_module
 from app.agents.reporter import ReporterAgent
+from app.services import dingtalk_service
 
 
 class _FakeQuery:
@@ -116,6 +117,19 @@ def test_reporter_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monk
 
     assert ok is True
     assert detail == "stdout_sink"
+
+
+def test_dingtalk_work_notification_is_phase_one_stub(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dingtalk_service.service,
+        "send_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("real DingTalk send is Phase 3")),
+    )
+
+    ok, detail = dingtalk_service.send_work_notification("dt_manager", "日报内容")
+
+    assert ok is True
+    assert detail == "dingtalk_stub"
 
 
 def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:

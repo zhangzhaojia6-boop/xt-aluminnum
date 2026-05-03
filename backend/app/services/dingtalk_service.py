@@ -269,13 +269,8 @@ def send_work_notification(userid: str, content: str) -> tuple[bool, str]:
     user_id = str(userid or '').strip()
     if not user_id:
         return False, 'dingtalk_user_missing'
-    if not service.enabled:
-        logger.info('[notify] dingtalk dry-run %s | %s', user_id, content)
-        return True, 'dingtalk_stub'
-    result = service.send_text('数据中枢通知', content)
-    if result.get('success'):
-        return True, str(result.get('message') or 'dingtalk_sent')
-    return False, str(result.get('message') or 'dingtalk_failed')
+    logger.info('[notify] dingtalk stub %s | %s', user_id, content)
+    return True, 'dingtalk_stub'
 
 
 def _normalize_clock_type(value: str | None) -> str | None:
