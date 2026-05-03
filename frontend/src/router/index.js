@@ -63,7 +63,6 @@ const PlaceholderPage = {
   setup(props) {
     return () => h('div', { class: 'xt-placeholder-page' }, [
       h('div', { class: 'xt-placeholder-page__card' }, [
-        props.moduleNumber ? h('span', { class: 'xt-placeholder-page__number' }, props.moduleNumber) : null,
         h('h1', props.title),
         h('p', '功能正在迁移中')
       ])

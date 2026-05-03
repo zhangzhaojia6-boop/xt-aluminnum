@@ -10,8 +10,8 @@
         <strong>{{ cost?.estimated_gross_margin ?? '--' }}</strong>
       </article>
       <article>
-        <span>缺口径</span>
-        <strong>{{ cost?.missing_data?.length || 0 }}</strong>
+        <span>待补口径</span>
+        <strong>{{ missingDataText }}</strong>
       </article>
       <button type="button" @click="askAi">问 AI</button>
     </section>
@@ -21,16 +21,26 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 
-import { askFactoryCommandAi } from '../../api/factory-command'
 import { useFactoryCommandStore } from '../../stores/factory-command'
+import { openAiAssistant } from '../../utils/assistantLauncher'
+import { formatMissingDataLabel } from '../../utils/factoryCommandFormatters'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
 const cost = computed(() => store.costBenefit || {})
 const freshness = computed(() => cost.value.freshness || store.overview?.freshness || {})
+const missingDataText = computed(() => {
+  const items = cost.value.missing_data || []
+  if (!items.length) return '已配置'
+  return items.map((item) => formatMissingDataLabel(item)).join('、')
+})
 
-async function askAi() {
-  await askFactoryCommandAi({ question: '经营估算缺哪些输入？', scope: { type: 'metric', key: 'cost-benefit' } })
+function askAi() {
+  openAiAssistant({
+    question: '经营估算缺哪些输入？',
+    scope: { type: 'metric', key: 'cost-benefit' },
+    freshness: freshness.value
+  })
 }
 
 onMounted(async () => {

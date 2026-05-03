@@ -230,3 +230,18 @@ class MobileCoilEntryOut(BaseModel):
     next_process: str | None = None
     business_date: date
     created_at: datetime | None = None
+
+
+class MobileCoilFlowSuggestionOut(BaseModel):
+    coil_key: str | None = None
+    tracking_card_no: str | None = None
+    previous_workshop: str | None = None
+    previous_process: str | None = None
+    current_workshop: str | None = None
+    current_process: str | None = None
+    next_workshop: str | None = None
+    next_process: str | None = None
+    destination: dict[str, Any] = Field(default_factory=dict)
+    flow_source: str = 'mes_projection'
+    match_status: str = 'matched'
+    candidate_count: int = 1

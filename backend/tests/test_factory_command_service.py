@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from app.models.master import Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
 from app.services import factory_command_service
 
@@ -28,10 +29,11 @@ class _Query:
 
 
 class _FakeDB:
-    def __init__(self, *, coils=None, lines=None, events=None):
+    def __init__(self, *, coils=None, lines=None, events=None, workshops=None):
         self.coils = coils or []
         self.lines = lines or []
         self.events = events or []
+        self.workshops = workshops or []
 
     def query(self, model):
         if model is MesCoilSnapshot:
@@ -40,6 +42,8 @@ class _FakeDB:
             return _Query(self.lines)
         if model is CoilFlowEvent:
             return _Query(self.events)
+        if model is Workshop:
+            return _Query(self.workshops)
         raise AssertionError(model)
 
 
@@ -87,8 +91,9 @@ def test_factory_overview_groups_projection_rows_and_labels_estimates(monkeypatc
 
     assert overview['freshness']['status'] == 'fresh'
     assert overview['wip_tons'] == 15.0
+    assert overview['today_output_tons'] == 2.0
     assert overview['stock_tons'] == 2.0
-    assert overview['abnormal_count'] == 2
+    assert overview['abnormal_count'] == 1
     assert overview['cost_estimate']['label'] == '经营估算'
     assert 'profit' not in ''.join(overview['cost_estimate'].keys()).lower()
     assert overview['missing_data'] == ['cost_inputs']
@@ -121,6 +126,76 @@ def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):
     assert lines[0]['margin_estimate']['label'] == '毛差估算'
 
 
+def test_machine_line_aliases_normalize_non_slot_machine_names(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='1450冷轧1/2号机', net_weight=10.0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='CRM-1450-1', net_weight=5.0),
+        ],
+        lines=[
+            SimpleNamespace(
+                line_code='冷轧:01',
+                line_name='1#轧机',
+                workshop_name='冷轧',
+                slot_no=1,
+                source_payload={'device_code': 'CRM-1450-1', 'source_aliases': ['1450冷轧1/2号机']},
+            ),
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    lines = factory_command_service.list_machine_lines(db)
+    coils = factory_command_service.list_coils(db)
+
+    assert [item['line_code'] for item in lines] == ['冷轧:01']
+    assert lines[0]['active_coil_count'] == 2
+    assert lines[0]['active_tons'] == 15.0
+    assert {item['line_code'] for item in coils} == {'冷轧:01'}
+
+
+def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):
+    scope = SimpleNamespace(is_admin=False, data_scope_type='self_workshop', workshop_id=1)
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', workshop_code='LZ', machine_code='1#轧机', net_weight=10.0),
+            _coil(coil_id='MES:2', current_workshop='退火', workshop_code='TH', machine_code='2#退火炉', net_weight=7.0),
+        ],
+        lines=[
+            SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1),
+            SimpleNamespace(line_code='退火:02', line_name='2#退火炉', workshop_name='退火', slot_no=2),
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    overview = factory_command_service.build_overview(db, scope=scope)
+    workshops = factory_command_service.list_workshops(db, scope=scope)
+    lines = factory_command_service.list_machine_lines(db, scope=scope)
+    coils = factory_command_service.list_coils(db, scope=scope)
+
+    assert overview['wip_tons'] == 10.0
+    assert [item['workshop_name'] for item in workshops] == ['冷轧']
+    assert [item['line_code'] for item in lines] == ['冷轧:01']
+    assert [item['coil_key'] for item in coils] == ['MES:1']
+    assert coils[0]['line_code'] == '冷轧:01'
+
+
+def test_flow_suggestion_returns_ambiguous_status_for_duplicate_tracking_card(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', tracking_card_no='BN-1', batch_no='BATCH-1'),
+            _coil(coil_id='MES:2', tracking_card_no='BN-1', batch_no='BATCH-2', next_process='精整'),
+        ]
+    )
+
+    suggestion = factory_command_service.find_coil_flow_suggestion(db, tracking_card_no='BN-1')
+
+    assert suggestion['flow_source'] == 'manual_pending_match'
+    assert suggestion['match_status'] == 'ambiguous'
+    assert suggestion['candidate_count'] == 2
+    assert suggestion.get('coil_key') is None
+
+
 def test_coil_flow_returns_previous_current_next_and_destination(monkeypatch):
     coil = _coil(
         coil_id='MES:1',
@@ -151,6 +226,34 @@ def test_coil_flow_returns_previous_current_next_and_destination(monkeypatch):
     assert flow['next_process'] == '拉弯矫'
     assert flow['destination']['kind'] == 'allocation'
     assert flow['freshness']['status'] == 'offline_or_blocked'
+
+
+def test_coil_flow_does_not_return_out_of_scope_event(monkeypatch):
+    scope = SimpleNamespace(is_admin=False, data_scope_type='self_workshop', workshop_id=1)
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        coils=[_coil(coil_id='MES:1', current_workshop='冷轧', workshop_code='LZ')],
+        events=[
+            SimpleNamespace(
+                coil_key='MES:2',
+                previous_workshop='冷轧',
+                previous_process='轧制',
+                current_workshop='退火',
+                current_process='退火',
+                next_workshop='精整',
+                next_process='拉弯矫',
+                event_time=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+            )
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    flow = factory_command_service.get_coil_flow(db, coil_key='MES:2', scope=scope)
+
+    assert flow['coil_key'] == 'MES:2'
+    assert flow['previous_process'] is None
+    assert flow['current_process'] is None
+    assert flow['destination']['kind'] == 'unknown'
 
 
 def test_freshness_thresholds(monkeypatch):

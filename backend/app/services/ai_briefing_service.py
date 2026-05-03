@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.core.scope import ScopeSummary
 from app.models.assistant import AiBriefingEvent
 from app.services import ai_rules_service, factory_command_service
 
@@ -39,6 +40,7 @@ def _save_event(
     briefing_type: str,
     severity: str,
     payload: dict[str, Any],
+    owner_user_id: int | None = None,
     scope_key: str | None = None,
     delivery_suppressed: bool = False,
 ) -> dict[str, Any]:
@@ -49,6 +51,7 @@ def _save_event(
         'severity': severity,
         'title': _title_for(briefing_type),
         'payload': payload,
+        'owner_user_id': owner_user_id,
         'read': False,
         'follow_up_status': 'none',
         'scope_key': scope_key,
@@ -58,6 +61,7 @@ def _save_event(
         db.add(
             AiBriefingEvent(
                 public_id=public_id,
+                owner_user_id=owner_user_id,
                 briefing_type=briefing_type,
                 severity=severity,
                 title=event['title'],
@@ -71,15 +75,24 @@ def _save_event(
     return event
 
 
+def _call_scoped(func, db: Session, *, scope: ScopeSummary | None):
+    try:
+        return func(db, scope=scope)
+    except TypeError:
+        return func(db)
+
+
 def generate_briefing(
     db: Session,
     *,
     briefing_type: str,
     hide_normal: bool = False,
+    owner_user_id: int | None = None,
+    scope: ScopeSummary | None = None,
 ) -> dict[str, Any]:
-    overview = factory_command_service.build_overview(db)
-    machine_lines = factory_command_service.list_machine_lines(db)
-    rules = ai_rules_service.evaluate_rules(db)
+    overview = _call_scoped(factory_command_service.build_overview, db, scope=scope)
+    machine_lines = _call_scoped(factory_command_service.list_machine_lines, db, scope=scope)
+    rules = _call_scoped(ai_rules_service.evaluate_rules, db, scope=scope)
     priority_lines = sorted(machine_lines, key=lambda item: (item.get('stalled_count', 0), item.get('active_tons', 0)), reverse=True)[:5]
     payload = {
         'wip_tons': overview.get('wip_tons', 0),
@@ -94,13 +107,20 @@ def generate_briefing(
         briefing_type=briefing_type,
         severity=_max_severity(rules),
         payload=payload,
+        owner_user_id=owner_user_id,
     )
 
 
-def generate_watchlist_briefing(db: Session, *, watch: Any, current_time: time | None = None) -> dict[str, Any]:
+def generate_watchlist_briefing(
+    db: Session,
+    *,
+    watch: Any,
+    current_time: time | None = None,
+    scope: ScopeSummary | None = None,
+) -> dict[str, Any]:
     rules = [
         rule
-        for rule in ai_rules_service.evaluate_rules(db)
+        for rule in _call_scoped(ai_rules_service.evaluate_rules, db, scope=scope)
         if not getattr(watch, 'trigger_rules', None) or rule.get('key') in getattr(watch, 'trigger_rules', [])
     ]
     quiet = _is_quiet_hour(getattr(watch, 'quiet_hours', None), current_time=current_time)
@@ -114,6 +134,7 @@ def generate_watchlist_briefing(db: Session, *, watch: Any, current_time: time |
         briefing_type='watchlist_update',
         severity=_max_severity(rules),
         payload=payload,
+        owner_user_id=getattr(watch, 'owner_user_id', None),
         scope_key=getattr(watch, 'scope_key', None),
         delivery_suppressed=quiet,
     )

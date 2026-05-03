@@ -11,6 +11,9 @@ test('management shell renders persistent assistant drawer', () => {
 
   assert.match(shell, /AiAssistantDrawer/)
   assert.match(shell, /assistantOpen/)
+  assert.match(shell, /AI_ASSISTANT_OPEN_EVENT/)
+  assert.match(shell, /initial-prompt/)
+  assert.match(shell, /openAssistantFromTopbar/)
   assert.match(shell, /AI 助手/)
 })
 
@@ -23,6 +26,8 @@ test('assistant drawer connects context conversation evidence briefings and watc
   assert.match(drawer, /AiBriefingInbox/)
   assert.match(drawer, /AiWatchlistPanel/)
   assert.match(drawer, /freshness|stale|offline/)
+  assert.match(drawer, /prompt-consumed/)
+  assert.match(drawer, /activePane\.value = 'conversation'/)
 })
 
 test('briefing inbox exposes unread read followed and ignored states', () => {
@@ -67,5 +72,6 @@ test('factory command screens offer scoped ask ai entry points', () => {
     const file = source(path)
     assert.match(file, /问 AI/)
     assert.match(file, /scope:\s*\{\s*type:/)
+    assert.match(file, /openAiAssistant/)
   }
 })

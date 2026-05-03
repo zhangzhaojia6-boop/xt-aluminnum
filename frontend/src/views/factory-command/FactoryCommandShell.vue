@@ -7,7 +7,8 @@
       </div>
       <div class="factory-command-shell__sync">
         <span>数据源 {{ sourceLabel(freshness?.source || 'mes_projection') }}</span>
-        <span>最后同步 {{ freshness?.last_synced_at || '--' }}</span>
+        <span>最后同步 {{ formatSyncTime(freshness?.last_synced_at) }}</span>
+        <span>{{ formatLagLabel(freshness?.lag_seconds) }}</span>
         <strong :class="`is-${freshness?.status || 'offline_or_blocked'}`">{{ freshnessLabel(freshness?.status) }}</strong>
       </div>
     </header>
@@ -27,7 +28,7 @@
 <script setup>
 import { RouterLink } from 'vue-router'
 
-import { freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
+import { formatLagLabel, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 
 defineProps({
   title: { type: String, required: true },

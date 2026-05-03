@@ -16,15 +16,19 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 
-import { askFactoryCommandAi } from '../../api/factory-command'
 import { useFactoryCommandStore } from '../../stores/factory-command'
+import { openAiAssistant } from '../../utils/assistantLauncher'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
 const freshness = computed(() => store.overview?.freshness || {})
 
-async function askAi(coil) {
-  await askFactoryCommandAi({ question: `这卷 ${coil.tracking_card_no} 的流转风险是什么？`, scope: { type: 'coil', key: coil.coil_key } })
+function askAi(coil) {
+  openAiAssistant({
+    question: `这卷 ${coil.tracking_card_no} 的流转风险是什么？`,
+    scope: { type: 'coil', key: coil.coil_key },
+    freshness: freshness.value
+  })
 }
 
 onMounted(async () => {

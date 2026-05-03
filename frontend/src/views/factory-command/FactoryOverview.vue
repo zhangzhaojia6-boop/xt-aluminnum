@@ -19,7 +19,12 @@
       <article class="fc-metric" :class="{ 'is-danger': overview?.abnormal_count > 0 }">
         <span>风险项</span>
         <strong>{{ overview?.abnormal_count ?? 0 }}</strong>
-        <em>最后同步 {{ freshness.last_synced_at || '--' }}</em>
+        <em>最后同步 {{ formatSyncTime(freshness.last_synced_at) }}</em>
+      </article>
+      <article class="fc-metric">
+        <span>同步滞后</span>
+        <strong>{{ formatLagLabel(freshness.lag_seconds) }}</strong>
+        <em>{{ freshnessLabel(freshness.status) }}</em>
       </article>
     </section>
 
@@ -40,23 +45,50 @@
         </div>
       </div>
     </section>
+
+    <section class="fc-panel">
+      <div class="fc-panel__head">
+        <strong>重点机列</strong>
+        <button type="button" @click="askAi({ type: 'machine', key: 'priority' })">问 AI</button>
+      </div>
+      <div class="fc-table">
+        <div class="fc-table__row is-head fc-table__row--lines">
+          <span>机列</span><span>车间</span><span>在制吨数</span><span>停滞卷数</span>
+        </div>
+        <div v-for="line in priorityLines" :key="line.line_code" class="fc-table__row fc-table__row--lines">
+          <span>{{ formatLineDisplay(line).title }}</span>
+          <span>{{ formatLineDisplay(line).meta }}</span>
+          <span>{{ line.active_tons ?? line.activeTons }}</span>
+          <span>{{ line.stalled_count ?? line.stalledCount }}</span>
+        </div>
+      </div>
+    </section>
   </FactoryCommandShell>
 </template>
 
 <script setup>
 import { computed, onMounted } from 'vue'
 
-import { askFactoryCommandAi } from '../../api/factory-command'
 import { useFactoryCommandStore } from '../../stores/factory-command'
-import { sourceLabel } from '../../utils/factoryCommandFormatters'
+import { openAiAssistant } from '../../utils/assistantLauncher'
+import { formatLagLabel, formatLineDisplay, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
 const overview = computed(() => store.overview || {})
 const freshness = computed(() => overview.value.freshness || {})
+const priorityLines = computed(() => [...store.machineLines].sort((a, b) => {
+  const stalledDiff = (b.stalled_count ?? b.stalledCount ?? 0) - (a.stalled_count ?? a.stalledCount ?? 0)
+  if (stalledDiff !== 0) return stalledDiff
+  return (b.active_tons ?? b.activeTons ?? 0) - (a.active_tons ?? a.activeTons ?? 0)
+}).slice(0, 5))
 
-async function askAi(scope) {
-  await askFactoryCommandAi({ question: '当前工厂状态和优先风险是什么？', scope: { type: scope.type, key: scope.key } })
+function askAi(scope) {
+  openAiAssistant({
+    question: '当前工厂状态和优先风险是什么？',
+    scope: { type: scope.type, key: scope.key },
+    freshness: freshness.value
+  })
 }
 
 onMounted(async () => {
@@ -71,7 +103,7 @@ onMounted(async () => {
 }
 
 .fc-grid--metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 12px;
 }
 
@@ -125,6 +157,10 @@ onMounted(async () => {
   padding: 14px;
 }
 
+.fc-panel + .fc-panel {
+  margin-top: 12px;
+}
+
 .fc-panel__head {
   display: flex;
   align-items: center;
@@ -164,6 +200,10 @@ onMounted(async () => {
   background: oklch(96% 0.025 254);
   color: var(--xt-text-secondary);
   font-weight: 900;
+}
+
+.fc-table__row--lines {
+  grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 1fr) repeat(2, minmax(90px, 1fr));
 }
 
 @media (max-width: 900px) {

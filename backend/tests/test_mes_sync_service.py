@@ -93,13 +93,13 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
         metadata={
             'Product': {'Id': 8842},
             'MaterialCode': '3003-H24',
-            'CustomerAlias': '华东客户',
-            'AlloyGrade': '3003',
-            'MaterialState': 'H24',
+            'CustomerSimple': '华东客户',
+            'Alloy': '3003',
+            'State': 'H24',
             'SpecThickness': '0.72',
             'SpecWidth': '1220',
             'SpecLength': 'C',
-            'Spec': '0.72*1220*C',
+            'Specification': '0.72*1220*C',
             'FeedingWeight': '12.4',
             'MaterialWeight': '12.1',
             'GrossWeight': '12.0',
@@ -116,7 +116,7 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
             'CardStatusName': '已排产',
             'ProductionStatus': 'doing',
             'DelayHour': '2.5',
-            'InStockDate': '2026-05-03T08:00:00Z',
+            'InStockDate': '/Date(1777795200000)/',
             'DeliveryDate': '2026-05-04T08:00:00Z',
             'AllocationDate': '2026-05-05T08:00:00Z',
         },
@@ -134,6 +134,10 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
     assert entity.coil_id == 'MES:8842'
     assert entity.mes_product_id == '8842'
     assert entity.material_code == '3003-H24'
+    assert entity.customer_alias == '华东客户'
+    assert entity.alloy_grade == '3003'
+    assert entity.material_state == 'H24'
+    assert entity.spec_display == '0.72*1220*C'
     assert entity.current_workshop == '冷轧'
     assert entity.current_process == '轧制'
     assert entity.current_process_sort == 20
@@ -144,6 +148,7 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
     assert entity.print_process_route_text == '铸轧 > 冷轧 > 退火'
     assert entity.status_name == '生产中'
     assert entity.delay_hours == 2.5
+    assert entity.in_stock_date is not None
     assert entity.last_seen_from_mes_at == datetime(2026, 5, 2, 8, 35, tzinfo=UTC)
 
 

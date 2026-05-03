@@ -56,6 +56,7 @@ class AiBriefingEvent(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     public_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    owner_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     briefing_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     severity: Mapped[str] = mapped_column(String(32), nullable=False, default='info', index=True)
     title: Mapped[str] = mapped_column(String(128), nullable=False)

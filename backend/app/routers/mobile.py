@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.permissions import get_current_mobile_user
+from app.core.scope import build_scope_summary
 from app.core.workshop_templates import WORKSHOP_TYPE_BY_WORKSHOP_CODE, get_workshop_template_definition, resolve_workshop_type
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.mobile import (
     MobileBootstrapOut,
     MobileCoilEntryOut,
+    MobileCoilFlowSuggestionOut,
     MobileCoilEntryPayload,
     MobileCurrentShiftOut,
     MobilePhotoUploadResponse,
@@ -23,7 +25,7 @@ from app.schemas.mobile import (
     MobileShiftReportHistoryItemOut,
     MobileShiftReportOut,
 )
-from app.services import mobile_reminder_service, mobile_report_service
+from app.services import factory_command_service, mobile_reminder_service, mobile_report_service
 
 router = APIRouter(tags=['mobile'])
 
@@ -222,6 +224,25 @@ def coil_list(
         current_user=current_user,
     )
     return [MobileCoilEntryOut(**e) for e in entries]
+
+
+@router.get('/coil-flow-suggestion', response_model=MobileCoilFlowSuggestionOut, name='mobile-coil-flow-suggestion')
+def coil_flow_suggestion(
+    tracking_card_no: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileCoilFlowSuggestionOut:
+    payload = factory_command_service.find_coil_flow_suggestion(
+        db,
+        tracking_card_no=tracking_card_no,
+        scope=build_scope_summary(current_user),
+    )
+    if payload is None:
+        return MobileCoilFlowSuggestionOut(destination={}, flow_source='manual_pending_match', match_status='not_found', candidate_count=0)
+    payload.setdefault('flow_source', 'mes_projection')
+    payload.setdefault('match_status', 'matched')
+    payload.setdefault('candidate_count', 1)
+    return MobileCoilFlowSuggestionOut(**payload)
 
 
 @router.post('/coil-entry', response_model=MobileCoilEntryOut, name='mobile-coil-entry')

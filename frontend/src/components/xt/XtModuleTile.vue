@@ -1,7 +1,6 @@
 <template>
   <article class="xt-module-tile" :class="{ 'is-compact': compact }" data-interactive="true">
     <div class="xt-module-tile__top">
-      <span class="xt-module-tile__number">{{ moduleNumber }}</span>
       <span class="xt-module-tile__status">{{ resolvedStatus }}</span>
     </div>
 
@@ -68,7 +67,6 @@ defineEmits(['action'])
 
 const moduleId = computed(() => props.module.id || props.module.key || props.module.variant || 'overview')
 const moduleVariant = computed(() => props.module.variant || moduleId.value)
-const moduleNumber = computed(() => props.module.number || props.module.no || '00')
 const moduleTitle = computed(() => props.module.shortTitle || props.module.title || props.module.label || '模块')
 const moduleSubtitle = computed(() => props.module.subtitle || props.module.description || '')
 const resolvedMetrics = computed(() => props.metrics.slice(0, 3))
@@ -125,14 +123,6 @@ function statusText(value) {
   align-items: center;
   justify-content: space-between;
   gap: var(--xt-space-2);
-}
-
-.xt-module-tile__number {
-  color: var(--xt-accent);
-  font-family: var(--xt-font-number);
-  font-size: var(--xt-text-sm);
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
 }
 
 .xt-module-tile__status {

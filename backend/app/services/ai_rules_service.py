@@ -4,10 +4,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.scope import ScopeSummary
 from app.services import factory_command_service
 
 
-def evaluate_rules(db: Session) -> list[dict[str, Any]]:
+def evaluate_rules(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
     rules: list[dict[str, Any]] = []
     freshness = factory_command_service.build_freshness(db)
     if freshness.get('status') in {'stale', 'offline_or_blocked'}:
@@ -20,7 +21,7 @@ def evaluate_rules(db: Session) -> list[dict[str, Any]]:
             }
         )
 
-    for coil in factory_command_service.list_coils(db):
+    for coil in factory_command_service.list_coils(db, scope=scope):
         if not coil.get('current_process') or not coil.get('next_process'):
             rules.append(
                 {
@@ -40,7 +41,7 @@ def evaluate_rules(db: Session) -> list[dict[str, Any]]:
                 }
             )
 
-    overview = factory_command_service.build_overview(db)
+    overview = factory_command_service.build_overview(db, scope=scope)
     if 'cost_inputs' in (overview.get('missing_data') or []):
         rules.append(
             {

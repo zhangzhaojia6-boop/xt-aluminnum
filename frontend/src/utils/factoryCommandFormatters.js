@@ -18,6 +18,25 @@ const destinationLabels = {
   unknown: '未知'
 }
 
+const ruleLabels = {
+  route_missing: '路线缺失',
+  delay_hours_high: '停滞超时',
+  sync_stale: '同步滞后',
+  weight_anomaly: '重量异常',
+  destination_unknown: '去向未知',
+  cost_estimate_missing: '经营口径缺失',
+  machine_line_cost_spike: '机列成本波动'
+}
+
+const missingDataLabels = {
+  cost_inputs: '成本系数未配置',
+  energy: '能耗数据缺失',
+  labor: '人工口径缺失',
+  material_loss: '损耗口径缺失',
+  mes_stale: 'MES 同步滞后',
+  route: '工艺路线缺失'
+}
+
 function toNumber(value, fallback = 0) {
   const number = Number(value)
   return Number.isFinite(number) ? number : fallback
@@ -37,6 +56,46 @@ export function sourceLabel(source) {
 
 export function destinationGroupLabel(kind) {
   return destinationLabels[kind] || destinationLabels.unknown
+}
+
+export function formatRuleLabel(key) {
+  return ruleLabels[key] || '待核实异常'
+}
+
+export function formatMissingDataLabel(key) {
+  return missingDataLabels[key] || String(key || '缺少数据')
+}
+
+export function formatLagLabel(value) {
+  if (value === null || value === undefined || value === '') return '未同步'
+  const seconds = toNumber(value, null)
+  if (seconds === null) return '未同步'
+  if (seconds < 60) return `滞后 ${Math.round(seconds)} 秒`
+  return `滞后 ${Math.round(seconds / 60)} 分钟`
+}
+
+export function formatSyncTime(value) {
+  if (!value) return '--'
+  const matched = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/)
+  if (matched) return `${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}`
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${month}-${day} ${hour}:${minute}`
+}
+
+export function formatLineDisplay(row = {}) {
+  const lineName = row.line_name || row.lineName
+  const workshopName = row.workshop_name || row.workshopName
+  const lineCode = row.line_code || row.lineCode
+  return {
+    title: lineName || (workshopName ? `${workshopName} 机列` : '未识别机列'),
+    meta: workshopName || '未识别车间',
+    code: lineCode || ''
+  }
 }
 
 export function formatMachineLineMetric(row = {}) {

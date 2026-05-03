@@ -296,7 +296,7 @@ function applyFlowSuggestion(flow) {
     current_process: flow.current_process || '',
     next_workshop: flow.next_workshop || '',
     next_process: flow.next_process || '',
-    flow_source: 'mes_projection',
+    flow_source: flow.flow_source || 'mes_projection',
     flow_confirmed_at: new Date().toISOString(),
   }
 }
@@ -306,10 +306,10 @@ async function loadFlowSuggestion() {
   if (!trackingCardNo || flowLoading.value) return
   flowLoading.value = true
   try {
-    const { data: coils } = await api.get('/factory-command/coils', { skipErrorToast: true })
-    const coil = (coils || []).find((item) => item.tracking_card_no === trackingCardNo || item.coil_key === trackingCardNo)
-    if (!coil?.coil_key) return
-    const { data: flow } = await api.get(`/factory-command/coils/${encodeURIComponent(coil.coil_key)}/flow`, { skipErrorToast: true })
+    const { data: flow } = await api.get('/mobile/coil-flow-suggestion', {
+      params: { tracking_card_no: trackingCardNo },
+      skipErrorToast: true
+    })
     applyFlowSuggestion(flow)
   } catch {
     // Flow suggestion is best-effort; manual flow stays available.

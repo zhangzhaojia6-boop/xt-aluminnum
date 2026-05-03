@@ -77,10 +77,10 @@ class AiBriefingOut(BaseModel):
 class AiWatchlistCreateIn(BaseModel):
     watch_type: str
     scope_key: str
-    trigger_rules: list[str] = []
+    trigger_rules: list[str] = Field(default_factory=list)
     quiet_hours: dict[str, Any] | None = None
     frequency: str = 'hourly'
-    channels: list[str] = ['in_app']
+    channels: list[str] = Field(default_factory=lambda: ['in_app'])
     active: bool = True
 
 

@@ -95,9 +95,13 @@ const props = defineProps({
   context: {
     type: Object,
     default: () => ({})
+  },
+  initialPrompt: {
+    type: String,
+    default: ''
   }
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'prompt-consumed'])
 
 const route = useRoute()
 const chatStore = useAiChatStore()
@@ -145,6 +149,18 @@ watch(
     }
   },
   { immediate: true }
+)
+
+watch(
+  () => [props.modelValue, props.initialPrompt],
+  async ([open, prompt]) => {
+    const text = String(prompt || '').trim()
+    if (!open || !text || chatStore.streaming) return
+    activePane.value = 'conversation'
+    draft.value = text
+    emit('prompt-consumed')
+    await send()
+  }
 )
 
 async function send() {

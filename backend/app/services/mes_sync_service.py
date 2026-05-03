@@ -87,6 +87,14 @@ def _parse_datetime(value: Any) -> datetime | None:
     text = str(value).strip()
     if not text:
         return None
+    if text.startswith('/Date(') and text.endswith(')/'):
+        milliseconds = _to_int(text[6:-2])
+        if milliseconds is None or milliseconds <= 0:
+            return None
+        try:
+            return datetime.fromtimestamp(milliseconds / 1000, tz=timezone.utc)
+        except (OSError, OverflowError, ValueError):
+            return None
     if text.endswith('Z'):
         text = text[:-1] + '+00:00'
     try:
@@ -124,13 +132,13 @@ def _projection_fields(snapshot: CoilSnapshot, synced_at: datetime) -> dict[str,
         'coil_id': _projected_coil_id(snapshot),
         'mes_product_id': _mes_product_id(snapshot),
         'material_code': _to_text(_metadata_value(metadata, 'MaterialCode', 'material_code')),
-        'customer_alias': _to_text(_metadata_value(metadata, 'CustomerAlias', 'CustomerName', 'customer_alias')),
-        'alloy_grade': _to_text(_metadata_value(metadata, 'AlloyGrade', 'alloy_grade')),
-        'material_state': _to_text(_metadata_value(metadata, 'MaterialState', 'material_state')),
+        'customer_alias': _to_text(_metadata_value(metadata, 'CustomerAlias', 'CustomerSimple', 'CustomerName', 'customer_alias')),
+        'alloy_grade': _to_text(_metadata_value(metadata, 'AlloyGrade', 'Alloy', 'alloy_grade')),
+        'material_state': _to_text(_metadata_value(metadata, 'MaterialState', 'State', 'StateName', 'material_state')),
         'spec_thickness': _to_float(_metadata_value(metadata, 'SpecThickness', 'Thickness')),
         'spec_width': _to_float(_metadata_value(metadata, 'SpecWidth', 'Width')),
         'spec_length': _to_text(_metadata_value(metadata, 'SpecLength', 'Length')),
-        'spec_display': _to_text(_metadata_value(metadata, 'Spec', 'SpecDisplay')),
+        'spec_display': _to_text(_metadata_value(metadata, 'Spec', 'SpecDisplay', 'Specification')),
         'feeding_weight': _to_float(_metadata_value(metadata, 'FeedingWeight')),
         'material_weight': _to_float(_metadata_value(metadata, 'MaterialWeight')),
         'gross_weight': _to_float(_metadata_value(metadata, 'GrossWeight')),

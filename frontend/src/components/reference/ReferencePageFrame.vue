@@ -2,7 +2,6 @@
   <section class="reference-page" :data-module="moduleNumber">
     <header class="reference-page__header">
       <div class="reference-page__title-group">
-        <span v-if="moduleNumber" class="reference-page__number">{{ paddedNumber }}</span>
         <div class="reference-page__title-copy">
           <span class="reference-page__system">鑫泰数据中枢 · 运行中心</span>
           <h1>{{ title }}</h1>
@@ -22,9 +21,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
+defineProps({
   moduleNumber: {
     type: [Number, String],
     default: null
@@ -38,6 +35,4 @@ const props = defineProps({
     default: () => []
   }
 })
-
-const paddedNumber = computed(() => String(props.moduleNumber).padStart(2, '0'))
 </script>

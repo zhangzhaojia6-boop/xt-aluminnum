@@ -64,3 +64,16 @@ test('manual route source is marked pending MES match', () => {
 
   assert.equal(payload.extra_payload.flow.flow_source, 'manual_pending_match')
 })
+
+test('ambiguous MES route suggestion keeps fields manually editable', () => {
+  const state = resolveFlowFieldState({
+    flow_source: 'ambiguous_match',
+    previous_process: '热轧出口',
+    current_process: '轧制',
+    next_process: '剪切'
+  })
+
+  assert.equal(state.previous.locked, false)
+  assert.equal(state.current.locked, false)
+  assert.equal(state.next.locked, false)
+})

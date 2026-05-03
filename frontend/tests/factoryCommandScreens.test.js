@@ -46,5 +46,6 @@ test('machine coil cost destination and exception screens expose required operat
   assert.match(cost, /经营估算/)
   assert.doesNotMatch(cost, /财务利润/)
   assert.match(destination, /成品库存/)
-  assert.match(exception, /route_missing|delay_hours_high|sync_stale/)
+  assert.match(exception, /formatRuleLabel/)
+  assert.doesNotMatch(exception, /\{\{\s*rule\.key\s*\}\}/)
 })

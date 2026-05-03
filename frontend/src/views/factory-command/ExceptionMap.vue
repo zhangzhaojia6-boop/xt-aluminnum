@@ -2,8 +2,8 @@
   <FactoryCommandShell title="异常地图" active="exceptions" :freshness="freshness">
     <section class="fc-exceptions">
       <article v-for="rule in rules" :key="rule.key">
-        <strong>{{ rule.label }}</strong>
-        <span>{{ rule.key }}</span>
+        <strong>{{ formatRuleLabel(rule.key) }}</strong>
+        <span>{{ rule.focus }}</span>
         <button type="button" @click="askAi(rule)">问 AI</button>
       </article>
     </section>
@@ -13,22 +13,27 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 
-import { askFactoryCommandAi } from '../../api/factory-command'
 import { useFactoryCommandStore } from '../../stores/factory-command'
+import { openAiAssistant } from '../../utils/assistantLauncher'
+import { formatRuleLabel } from '../../utils/factoryCommandFormatters'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
 const freshness = computed(() => store.overview?.freshness || {})
 const rules = [
-  { key: 'route_missing', label: '路线缺失' },
-  { key: 'delay_hours_high', label: '停滞超时' },
-  { key: 'sync_stale', label: '同步滞后' },
-  { key: 'weight_anomaly', label: '重量异常' },
-  { key: 'destination_unknown', label: '去向未知' }
+  { key: 'route_missing', focus: '下道工序未匹配' },
+  { key: 'delay_hours_high', focus: '卷停留超阈值' },
+  { key: 'sync_stale', focus: '生产数据未更新' },
+  { key: 'weight_anomaly', focus: '投入产出需复核' },
+  { key: 'destination_unknown', focus: '入库/调拨/发货不清' }
 ]
 
-async function askAi(rule) {
-  await askFactoryCommandAi({ question: `${rule.label} 的证据和下一步是什么？`, scope: { type: 'rule', key: rule.key } })
+function askAi(rule) {
+  openAiAssistant({
+    question: `${formatRuleLabel(rule.key)} 的证据和下一步是什么？`,
+    scope: { type: 'rule', key: rule.key },
+    freshness: freshness.value
+  })
 }
 
 onMounted(async () => {

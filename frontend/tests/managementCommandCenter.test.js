@@ -18,6 +18,22 @@ const costCenterSource = readFileSync(
   new URL('../src/views/review/CostAccountingCenter.vue', import.meta.url),
   'utf8',
 )
+const referenceFrameSource = readFileSync(
+  new URL('../src/components/reference/ReferencePageFrame.vue', import.meta.url),
+  'utf8',
+)
+const referenceCardSource = readFileSync(
+  new URL('../src/components/reference/ReferenceModuleCard.vue', import.meta.url),
+  'utf8',
+)
+const moduleTileSource = readFileSync(
+  new URL('../src/components/xt/XtModuleTile.vue', import.meta.url),
+  'utf8',
+)
+const routerSource = readFileSync(
+  new URL('../src/router/index.js', import.meta.url),
+  'utf8',
+)
 
 const baseAggregation = {
   overall_progress: {
@@ -110,11 +126,19 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
     isAdmin: false,
   })
 
-  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '经营效益', '填报审核', '日报交付', '异常质量', 'AI 助手'])
+  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '经营效益', '填报审核', '异常质量', 'AI 助手'])
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/cost'), true)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === '成本效益'), true)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === 'AI 助手'), true)
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/reports'), false)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/admin/settings'), false)
+})
+
+test('management shell components do not render numeric module badges', () => {
+  assert.doesNotMatch(referenceFrameSource, /reference-page__number/)
+  assert.doesNotMatch(referenceCardSource, /reference-card__number/)
+  assert.doesNotMatch(moduleTileSource, /xt-module-tile__number/)
+  assert.doesNotMatch(routerSource, /xt-placeholder-page__number/)
 })
 
 test('LiveDashboard first screen uses management-readable labels', () => {

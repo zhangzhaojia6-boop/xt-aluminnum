@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FactoryCommandFreshnessOut(BaseModel):
@@ -17,7 +17,7 @@ class FactoryEstimateOut(BaseModel):
     label: str
     estimated_cost: float | None = None
     estimated_gross_margin: float | None = None
-    missing_data: list[str] = []
+    missing_data: list[str] = Field(default_factory=list)
 
 
 class FactoryOverviewOut(BaseModel):
@@ -27,7 +27,7 @@ class FactoryOverviewOut(BaseModel):
     stock_tons: float = 0.0
     abnormal_count: int = 0
     cost_estimate: FactoryEstimateOut
-    missing_data: list[str] = []
+    missing_data: list[str] = Field(default_factory=list)
 
 
 class FactoryWorkshopOut(BaseModel):
@@ -56,6 +56,10 @@ class FactoryCoilListItemOut(BaseModel):
     tracking_card_no: str
     batch_no: str | None = None
     material_code: str | None = None
+    line_code: str | None = None
+    machine_code: str | None = None
+    previous_workshop: str | None = None
+    previous_process: str | None = None
     current_workshop: str | None = None
     current_process: str | None = None
     next_workshop: str | None = None
@@ -81,7 +85,7 @@ class FactoryCostBenefitOut(BaseModel):
     label: str
     estimated_cost: float | None = None
     estimated_gross_margin: float | None = None
-    missing_data: list[str] = []
+    missing_data: list[str] = Field(default_factory=list)
 
 
 class FactoryDestinationOut(BaseModel):

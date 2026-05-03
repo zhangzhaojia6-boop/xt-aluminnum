@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
+from app.core.scope import build_scope_summary
 from app.models.assistant import AiContextPack
 from app.services import factory_command_service
 
@@ -71,6 +72,63 @@ def _rules_for(coils: list[Mapping[str, Any]], freshness: Mapping[str, Any]) -> 
     return rules
 
 
+def _call_scoped(func, db: Session, *, scope):
+    try:
+        return func(db, scope=scope)
+    except TypeError:
+        return func(db)
+
+
+def _filter_for_assistant_scope(
+    *,
+    machine_lines: list[Any],
+    coils: list[Any],
+    scope_payload: Mapping[str, Any],
+) -> tuple[list[Any], list[Any]]:
+    scope_type = str(scope_payload.get('type') or 'factory')
+    scope_key = str(scope_payload.get('key') or 'all')
+    if scope_type == 'factory' or scope_key == 'all':
+        return machine_lines, coils
+    if scope_type == 'machine':
+        return (
+            [line for line in machine_lines if str(line.get('line_code') or '') == scope_key],
+            [
+                coil
+                for coil in coils
+                if scope_key
+                in {
+                    str(coil.get('line_code') or ''),
+                    str(coil.get('machine_code') or ''),
+                }
+            ],
+        )
+    if scope_type == 'coil':
+        return (
+            machine_lines,
+            [
+                coil
+                for coil in coils
+                if scope_key
+                in {
+                    str(coil.get('coil_key') or ''),
+                    str(coil.get('tracking_card_no') or ''),
+                    str(coil.get('batch_no') or ''),
+                }
+            ],
+        )
+    if scope_type in {'workshop', 'process'}:
+        key_fields = ('current_workshop', 'workshop_name') if scope_type == 'workshop' else ('current_process', 'next_process')
+        return (
+            [
+                line
+                for line in machine_lines
+                if scope_type != 'workshop' or str(line.get('workshop_name') or '') == scope_key
+            ],
+            [coil for coil in coils if any(str(coil.get(field) or '') == scope_key for field in key_fields)],
+        )
+    return machine_lines, coils
+
+
 def build_context_pack(
     db: Session,
     *,
@@ -82,8 +140,14 @@ def build_context_pack(
     current = now or _now()
     scope_payload = scope or {'type': 'factory', 'key': 'all'}
     freshness = factory_command_service.build_freshness(db)
-    machine_lines = _sanitize(factory_command_service.list_machine_lines(db))
-    coils = _sanitize(factory_command_service.list_coils(db))
+    data_scope = build_scope_summary(user)
+    machine_lines = _sanitize(_call_scoped(factory_command_service.list_machine_lines, db, scope=data_scope))
+    coils = _sanitize(_call_scoped(factory_command_service.list_coils, db, scope=data_scope))
+    machine_lines, coils = _filter_for_assistant_scope(
+        machine_lines=machine_lines,
+        coils=coils,
+        scope_payload=scope_payload,
+    )
     top_abnormal_coils = [
         coil
         for coil in coils

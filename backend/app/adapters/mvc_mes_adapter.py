@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Any, Callable, Mapping
 
 import httpx
@@ -70,7 +71,12 @@ def _datetime(value: Any) -> datetime | None:
         return None
     if text.startswith('/Date(') and text.endswith(')/'):
         milliseconds = _int(text[6:-2])
-        return datetime.fromtimestamp(milliseconds / 1000) if milliseconds is not None else None
+        if milliseconds is None or milliseconds <= 0:
+            return None
+        try:
+            return datetime.fromtimestamp(milliseconds / 1000)
+        except (OSError, OverflowError, ValueError):
+            return None
     if text.endswith('Z'):
         text = text[:-1] + '+00:00'
     try:
@@ -81,7 +87,7 @@ def _datetime(value: Any) -> datetime | None:
 
 def _nested_product_id(row: Mapping[str, Any]) -> str | None:
     product = _to_mapping(row.get('Product'))
-    return _text(product.get('Id') or row.get('ProductId') or row.get('ProductID'))
+    return _text(product.get('Id') or row.get('ProductId') or row.get('ProductID') or row.get('Id'))
 
 
 def _coil_key(row: Mapping[str, Any]) -> str:
@@ -111,6 +117,7 @@ class MvcMesAdapter(MesAdapter):
         self._timeout_seconds = timeout_seconds
         self._sender = sender or self._default_sender
         self._cookies: dict[str, str] = {}
+        self._request_verification_token: str | None = None
         self._logged_in = False
 
     def get_tracking_card_info(self, card_no: str) -> CardInfo | None:
@@ -164,7 +171,7 @@ class MvcMesAdapter(MesAdapter):
                 source_id=_text(row.get('Id') or row.get('Code') or row.get('Name')) or '',
                 code=_text(row.get('Code')),
                 name=_text(row.get('Name') or row.get('DeviceName')) or '',
-                workshop_name=_text(row.get('WorkShopName') or row.get('WorkshopName')),
+                workshop_name=_text(row.get('WorkShopName') or row.get('WorkshopName') or row.get('WorkShop')),
                 metadata=dict(row),
             )
             for row in rows
@@ -245,26 +252,33 @@ class MvcMesAdapter(MesAdapter):
         )
 
     def _post_table(self, path: str, *, limit: int = 200) -> list[Mapping[str, Any]]:
+        data = {
+            'draw': 1,
+            'start': 0,
+            'length': limit,
+        }
+        if self._request_verification_token:
+            data['__RequestVerificationToken'] = self._request_verification_token
         response = self._request(
             'POST',
             path,
-            data={
-                'draw': 1,
-                'start': 0,
-                'length': limit,
-            },
+            data=data,
         )
         payload = self._payload(response)
         return self._extract_rows(payload)
 
     def _request(self, method: str, path: str, *, data: Mapping[str, Any] | None = None) -> httpx.Response:
-        if not self._logged_in and path != '/Login/CheckLogin':
+        if not self._logged_in and path not in {'/Login/Index', '/Login/CheckLogin', '/Login/QueryLogin'}:
             self._login()
+        request_data = dict(data or {})
+        if method.upper() == 'POST' and self._request_verification_token and not path.startswith('/Login'):
+            request_data.setdefault('__RequestVerificationToken', self._request_verification_token)
         response = self._sender(
             method=method,
             url=f'{self._base_url}{path}',
-            data=dict(data or {}),
+            data=request_data,
             cookies=dict(self._cookies),
+            headers=self._headers(path),
             timeout=self._timeout_seconds,
         )
         self._store_cookies(response)
@@ -272,34 +286,84 @@ class MvcMesAdapter(MesAdapter):
         return response
 
     def _login(self) -> None:
+        token = self._ensure_request_verification_token()
         response = self._sender(
             method='POST',
             url=f'{self._base_url}/Login/CheckLogin',
             data={
-                'UserName': self._username,
+                '__RequestVerificationToken': token,
+                'Account': self._username,
                 'Password': self._password,
+                'MAC': '',
+                'ktsn': '',
             },
             cookies=dict(self._cookies),
+            headers=self._headers('/Login/CheckLogin'),
             timeout=self._timeout_seconds,
         )
         self._store_cookies(response)
         response.raise_for_status()
         payload = self._payload(response)
-        if payload.get('success') is False or payload.get('Success') is False:
+        if not self._is_success_payload(payload):
             message = _text(payload.get('message') or payload.get('Message')) or 'unknown error'
             raise RuntimeError(f'MES MVC login failed: {message}')
 
-        for path in ('/Login/QueryLogin', '/Right/GetUserRightList'):
+        query_login = self._sender(
+            method='POST',
+            url=f'{self._base_url}/Login/QueryLogin',
+            data={
+                '__RequestVerificationToken': token,
+                'Account': self._username,
+                'Password': self._password,
+            },
+            cookies=dict(self._cookies),
+            headers=self._headers('/Login/QueryLogin'),
+            timeout=self._timeout_seconds,
+        )
+        self._store_cookies(query_login)
+        query_login.raise_for_status()
+        query_payload = self._payload(query_login)
+        if not self._is_success_payload(query_payload):
+            message = _text(query_payload.get('message') or query_payload.get('Message')) or 'unknown error'
+            raise RuntimeError(f'MES MVC login failed: {message}')
+
+        for path in ('/Right/GetUserRightList',):
             followup = self._sender(
                 method='POST',
                 url=f'{self._base_url}{path}',
-                data={},
+                data={'__RequestVerificationToken': token},
                 cookies=dict(self._cookies),
+                headers=self._headers(path),
                 timeout=self._timeout_seconds,
             )
             self._store_cookies(followup)
             followup.raise_for_status()
         self._logged_in = True
+
+    def _ensure_request_verification_token(self) -> str:
+        if self._request_verification_token:
+            return self._request_verification_token
+        response = self._sender(
+            method='GET',
+            url=f'{self._base_url}/Login/Index',
+            data={},
+            cookies=dict(self._cookies),
+            headers=self._headers('/Login/Index'),
+            timeout=self._timeout_seconds,
+        )
+        self._store_cookies(response)
+        response.raise_for_status()
+        match = re.search(r'name=["\']__RequestVerificationToken["\'][^>]*value=["\']([^"\']+)["\']', response.text)
+        if not match:
+            raise RuntimeError('MES MVC login failed: missing request verification token')
+        self._request_verification_token = match.group(1)
+        return self._request_verification_token
+
+    def _headers(self, path: str) -> dict[str, str]:
+        return {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': f'{self._base_url}/Login/Index' if path.startswith('/Login') else f'{self._base_url}/',
+        }
 
     def _store_cookies(self, response: httpx.Response) -> None:
         cookies = getattr(response, 'cookies', None)
@@ -308,7 +372,10 @@ class MvcMesAdapter(MesAdapter):
 
     @staticmethod
     def _payload(response: httpx.Response) -> Mapping[str, Any]:
-        payload = response.json()
+        try:
+            payload = response.json()
+        except ValueError:
+            return {}
         if isinstance(payload, list):
             return {'data': payload}
         return payload if isinstance(payload, Mapping) else {}
@@ -319,6 +386,13 @@ class MvcMesAdapter(MesAdapter):
         if not isinstance(rows, list):
             return []
         return [row for row in rows if isinstance(row, Mapping)]
+
+    @staticmethod
+    def _is_success_payload(payload: Mapping[str, Any]) -> bool:
+        for key in ('status', 'Status', 'success', 'Success'):
+            if key in payload:
+                return payload.get(key) is True
+        return False
 
     @staticmethod
     def _default_sender(**kwargs) -> httpx.Response:

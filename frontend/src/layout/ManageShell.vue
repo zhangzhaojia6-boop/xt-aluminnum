@@ -42,7 +42,7 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
-          <button class="xt-manage__assistant-trigger" type="button" @click="assistantOpen = true">
+          <button class="xt-manage__assistant-trigger" type="button" @click="openAssistantFromTopbar">
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 助手</span>
           </button>
@@ -110,7 +110,12 @@
       </div>
     </el-dialog>
 
-    <AiAssistantDrawer v-model="assistantOpen" :context="assistantContext" />
+    <AiAssistantDrawer
+      v-model="assistantOpen"
+      :context="assistantContext"
+      :initial-prompt="assistantInitialPrompt"
+      @prompt-consumed="assistantInitialPrompt = ''"
+    />
   </div>
 </template>
 
@@ -123,6 +128,7 @@ import AiAssistantDrawer from '../components/ai/AiAssistantDrawer.vue'
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
+import { AI_ASSISTANT_OPEN_EVENT } from '../utils/assistantLauncher'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,6 +138,8 @@ const collapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const drawerOpen = ref(false)
 const searchOpen = ref(false)
 const assistantOpen = ref(false)
+const assistantContextOverride = ref(null)
+const assistantInitialPrompt = ref('')
 const keyword = ref('')
 
 const userName = computed(() => auth.displayName || auth.user?.name || auth.user?.username || '用户')
@@ -143,7 +151,7 @@ const filteredSearchItems = computed(() => {
   if (!value) return searchItems.value
   return searchItems.value.filter((item) => item.title.toLowerCase().includes(value) || item.path.toLowerCase().includes(value))
 })
-const assistantContext = computed(() => ({
+const assistantContext = computed(() => assistantContextOverride.value || ({
   route: route.path,
   scope: {
     type: 'route',
@@ -172,8 +180,34 @@ function handleKeydown(event) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+function handleAssistantOpen(event) {
+  const detail = event.detail || {}
+  assistantContextOverride.value = {
+    route: route.path,
+    scope: detail.scope || {
+      type: 'route',
+      key: route.path || '/manage/overview'
+    },
+    freshness: detail.freshness || {}
+  }
+  assistantInitialPrompt.value = String(detail.question || '').trim()
+  assistantOpen.value = true
+}
+
+function openAssistantFromTopbar() {
+  assistantContextOverride.value = null
+  assistantInitialPrompt.value = ''
+  assistantOpen.value = true
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener(AI_ASSISTANT_OPEN_EVENT, handleAssistantOpen)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener(AI_ASSISTANT_OPEN_EVENT, handleAssistantOpen)
+})
 </script>
 
 <style scoped>

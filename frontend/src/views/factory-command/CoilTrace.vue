@@ -24,8 +24,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { askFactoryCommandAi } from '../../api/factory-command'
 import { useFactoryCommandStore } from '../../stores/factory-command'
+import { openAiAssistant } from '../../utils/assistantLauncher'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
@@ -44,8 +44,12 @@ async function selectCoil(coil) {
   await store.loadCoilFlow(coil.coil_key)
 }
 
-async function askAi(flow) {
-  await askFactoryCommandAi({ question: `${flow.tracking_card_no} 的证据和下一步动作是什么？`, scope: { type: 'coil', key: flow.coil_key } })
+function askAi(flow) {
+  openAiAssistant({
+    question: `${flow.tracking_card_no} 的证据和下一步动作是什么？`,
+    scope: { type: 'coil', key: flow.coil_key },
+    freshness: freshness.value
+  })
 }
 
 onMounted(async () => {

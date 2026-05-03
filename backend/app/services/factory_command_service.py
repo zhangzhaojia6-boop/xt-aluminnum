@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Iterable
+from datetime import date, datetime, timezone
+from typing import Any, Iterable, Mapping
 
 from sqlalchemy.orm import Session
 
+from app.core.scope import ScopeSummary
+from app.models.master import Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
 from app.services.mes_sync_service import latest_sync_status
 
 
 def _all(db: Session, model: type) -> list[Any]:
     return list(db.query(model).all())
+
+
+def _query_first(query):
+    if hasattr(query, 'first'):
+        return query.first()
+    rows = query.all() if hasattr(query, 'all') else list(query)
+    return rows[0] if rows else None
 
 
 def _number(value: Any) -> float:
@@ -23,7 +33,11 @@ def _number(value: Any) -> float:
 
 
 def _is_stalled(row: Any) -> bool:
-    return _number(getattr(row, 'delay_hours', None)) > 0 or not getattr(row, 'current_process', None)
+    return (
+        _number(getattr(row, 'delay_hours', None)) > 0
+        or not getattr(row, 'current_process', None)
+        or not getattr(row, 'next_process', None)
+    )
 
 
 def _destination(row: Any) -> dict[str, str]:
@@ -44,6 +58,155 @@ def _weight(row: Any) -> float:
         if value is not None:
             return _number(value)
     return 0.0
+
+
+def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] | None:
+    if scope is None or scope.is_admin or scope.data_scope_type == 'all':
+        return None
+    if scope.workshop_id is None:
+        return set()
+    workshop = _query_first(db.query(Workshop).filter(Workshop.id == scope.workshop_id))
+    tokens = {str(scope.workshop_id)}
+    if workshop is not None:
+        tokens.update(
+            token
+            for token in (
+                getattr(workshop, 'name', None),
+                getattr(workshop, 'code', None),
+            )
+            if token
+        )
+    return {str(token).strip() for token in tokens if str(token).strip()}
+
+
+def _matches_workshop(value: Any, tokens: set[str] | None) -> bool:
+    if tokens is None:
+        return True
+    if not tokens:
+        return False
+    return str(value or '').strip() in tokens
+
+
+def _scoped_coils(db: Session, *, scope: ScopeSummary | None = None) -> list[Any]:
+    tokens = _scope_workshop_tokens(db, scope)
+    return [
+        row
+        for row in _all(db, MesCoilSnapshot)
+        if _matches_workshop(getattr(row, 'current_workshop', None), tokens)
+        or _matches_workshop(getattr(row, 'workshop_code', None), tokens)
+    ]
+
+
+def _scoped_machine_lines(db: Session, *, scope: ScopeSummary | None = None) -> list[Any]:
+    tokens = _scope_workshop_tokens(db, scope)
+    return [row for row in _all(db, MesMachineLineSnapshot) if _matches_workshop(getattr(row, 'workshop_name', None), tokens)]
+
+
+def _latest_events_by_coil(db: Session, coil_keys: set[str]) -> dict[str, Any]:
+    latest: dict[str, Any] = {}
+    for event in _all(db, CoilFlowEvent):
+        if event.coil_key not in coil_keys:
+            continue
+        current = latest.get(event.coil_key)
+        if current is None or _event_sort_key(event) > _event_sort_key(current):
+            latest[event.coil_key] = event
+    return latest
+
+
+def _slot_no(name: str | None) -> int | None:
+    text = str(name or '').strip()
+    if '#' not in text:
+        return None
+    try:
+        return int(float(text.split('#', 1)[0]))
+    except ValueError:
+        return None
+
+
+def _alias_key(value: Any) -> str:
+    return ''.join(str(value or '').strip().lower().split())
+
+
+def _iter_payload_aliases(payload: Any) -> Iterable[str]:
+    if not isinstance(payload, Mapping):
+        return []
+    aliases: list[str] = []
+    for key, value in payload.items():
+        lowered = str(key).lower()
+        if not any(part in lowered for part in ('alias', 'device', 'machine', 'line', 'code', 'name')):
+            continue
+        if isinstance(value, (list, tuple, set)):
+            aliases.extend(str(item) for item in value if item)
+        elif value:
+            aliases.append(str(value))
+    return aliases
+
+
+def _line_alias_map(line_rows: Iterable[Any]) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for line in line_rows:
+        line_code = str(getattr(line, 'line_code', '') or '').strip()
+        if not line_code:
+            continue
+        candidates = [
+            line_code,
+            getattr(line, 'line_name', None),
+            *list(_iter_payload_aliases(getattr(line, 'source_payload', None))),
+        ]
+        for candidate in candidates:
+            key = _alias_key(candidate)
+            if key:
+                aliases.setdefault(key, line_code)
+    return aliases
+
+
+def _coil_machine_aliases(row: Any) -> list[str]:
+    return [
+        str(value)
+        for value in (
+            getattr(row, 'machine_code', None),
+            *_iter_payload_aliases(getattr(row, 'source_payload', None)),
+        )
+        if value
+    ]
+
+
+def _line_code_for_coil(row: Any, line_aliases: Mapping[str, str]) -> str:
+    machine_code = str(getattr(row, 'machine_code', None) or '').strip()
+    if not machine_code:
+        return 'unknown'
+    for alias in _coil_machine_aliases(row):
+        line_code = line_aliases.get(_alias_key(alias))
+        if line_code:
+            return line_code
+    slot_no = _slot_no(machine_code)
+    workshop = str(getattr(row, 'current_workshop', None) or '').strip()
+    if workshop and slot_no is not None:
+        return f'{workshop}:{slot_no:02d}'
+    return machine_code
+
+
+def _event_sort_key(event: Any) -> tuple[float, int]:
+    value = getattr(event, 'event_time', None) or getattr(event, 'created_at', None)
+    timestamp = value.timestamp() if hasattr(value, 'timestamp') else 0.0
+    return (timestamp, getattr(event, 'id', 0) or 0)
+
+
+def _business_date(now: Any = None) -> date:
+    current = now or datetime.now(timezone.utc)
+    if isinstance(current, datetime):
+        return current.date()
+    if isinstance(current, date):
+        return current
+    return datetime.now(timezone.utc).date()
+
+
+def _same_business_date(value: Any, target: date) -> bool:
+    if isinstance(value, datetime):
+        return value.date() == target
+    if isinstance(value, date):
+        return value == target
+    return False
 
 
 def _estimate(*, missing_data: list[str] | None = None, label: str = '经营估算') -> dict[str, Any]:
@@ -75,18 +238,23 @@ def build_freshness(db: Session, *, now=None) -> dict[str, Any]:
     }
 
 
-def build_overview(db: Session, *, now=None) -> dict[str, Any]:
-    rows = _all(db, MesCoilSnapshot)
+def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) -> dict[str, Any]:
+    rows = _scoped_coils(db, scope=scope)
     freshness = build_freshness(db, now=now)
     stock_rows = [row for row in rows if _destination(row)['kind'] == 'finished_stock']
+    current_date = _business_date(now)
+    today_output_rows = [
+        row
+        for row in stock_rows
+        if _same_business_date(getattr(row, 'in_stock_date', None), current_date)
+    ]
     wip_rows = [row for row in rows if _destination(row)['kind'] == 'in_progress']
-    abnormal_count = sum(1 for row in rows if _number(getattr(row, 'delay_hours', None)) > 0)
-    abnormal_count += sum(1 for row in rows if not getattr(row, 'current_process', None))
+    abnormal_count = sum(1 for row in rows if _is_stalled(row))
     missing_data = ['cost_inputs']
     return {
         'freshness': freshness,
         'wip_tons': round(sum(_weight(row) for row in wip_rows), 4),
-        'today_output_tons': round(sum(_weight(row) for row in stock_rows), 4),
+        'today_output_tons': round(sum(_weight(row) for row in today_output_rows), 4),
         'stock_tons': round(sum(_weight(row) for row in stock_rows), 4),
         'abnormal_count': abnormal_count,
         'cost_estimate': _estimate(missing_data=missing_data),
@@ -94,10 +262,10 @@ def build_overview(db: Session, *, now=None) -> dict[str, Any]:
     }
 
 
-def list_workshops(db: Session) -> list[dict[str, Any]]:
+def list_workshops(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
     freshness = build_freshness(db)
     grouped: dict[str, list[Any]] = defaultdict(list)
-    for row in _all(db, MesCoilSnapshot):
+    for row in _scoped_coils(db, scope=scope):
         grouped[getattr(row, 'current_workshop', None) or '未识别车间'].append(row)
     items = []
     for workshop_name, rows in grouped.items():
@@ -113,14 +281,15 @@ def list_workshops(db: Session) -> list[dict[str, Any]]:
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
-def list_machine_lines(db: Session) -> list[dict[str, Any]]:
+def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
     freshness = build_freshness(db)
-    coils = _all(db, MesCoilSnapshot)
-    line_rows = _all(db, MesMachineLineSnapshot)
+    coils = _scoped_coils(db, scope=scope)
+    line_rows = _scoped_machine_lines(db, scope=scope)
     line_map = {row.line_code: row for row in line_rows}
     coil_groups: dict[str, list[Any]] = defaultdict(list)
+    line_aliases = _line_alias_map(line_rows)
     for coil in coils:
-        line_code = getattr(coil, 'machine_code', None) or 'unknown'
+        line_code = _line_code_for_coil(coil, line_aliases)
         coil_groups[line_code].append(coil)
 
     all_line_codes = set(line_map) | set(coil_groups)
@@ -147,27 +316,47 @@ def list_machine_lines(db: Session) -> list[dict[str, Any]]:
     return items
 
 
-def list_coils(db: Session) -> list[dict[str, Any]]:
+def list_coils(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
+    rows = _scoped_coils(db, scope=scope)
+    events = _latest_events_by_coil(db, {row.coil_id for row in rows})
+    line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
     return [
         {
             'coil_key': row.coil_id,
             'tracking_card_no': row.tracking_card_no,
             'batch_no': getattr(row, 'batch_no', None),
             'material_code': getattr(row, 'material_code', None),
+            'line_code': _line_code_for_coil(row, line_aliases),
+            'machine_code': getattr(row, 'machine_code', None),
+            'previous_workshop': getattr(events.get(row.coil_id), 'previous_workshop', None),
+            'previous_process': getattr(events.get(row.coil_id), 'previous_process', None),
             'current_workshop': getattr(row, 'current_workshop', None),
             'current_process': getattr(row, 'current_process', None),
             'next_workshop': getattr(row, 'next_workshop', None),
             'next_process': getattr(row, 'next_process', None),
             'destination': _destination(row),
         }
-        for row in _all(db, MesCoilSnapshot)
+        for row in rows
     ]
 
 
-def get_coil_flow(db: Session, *, coil_key: str) -> dict[str, Any]:
-    rows = [row for row in _all(db, MesCoilSnapshot) if row.coil_id == coil_key]
+def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = None) -> dict[str, Any]:
+    rows = [row for row in _scoped_coils(db, scope=scope) if row.coil_id == coil_key]
     row = rows[0] if rows else None
-    events = [event for event in _all(db, CoilFlowEvent) if event.coil_key == coil_key]
+    if row is None:
+        return {
+            'coil_key': coil_key,
+            'tracking_card_no': None,
+            'previous_workshop': None,
+            'previous_process': None,
+            'current_workshop': None,
+            'current_process': None,
+            'next_workshop': None,
+            'next_process': None,
+            'destination': {'kind': 'unknown', 'label': '未知'},
+            'freshness': build_freshness(db),
+        }
+    events = sorted([event for event in _all(db, CoilFlowEvent) if event.coil_key == coil_key], key=_event_sort_key)
     event = events[-1] if events else None
     return {
         'coil_key': coil_key,
@@ -183,7 +372,8 @@ def get_coil_flow(db: Session, *, coil_key: str) -> dict[str, Any]:
     }
 
 
-def build_cost_benefit(db: Session) -> dict[str, Any]:
+def build_cost_benefit(db: Session, *, scope: ScopeSummary | None = None) -> dict[str, Any]:
+    _ = scope
     freshness = build_freshness(db)
     estimate = _estimate()
     return {
@@ -195,10 +385,10 @@ def build_cost_benefit(db: Session) -> dict[str, Any]:
     }
 
 
-def list_destinations(db: Session) -> list[dict[str, Any]]:
+def list_destinations(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
     freshness = build_freshness(db)
     grouped: dict[str, list[Any]] = defaultdict(list)
-    for row in _all(db, MesCoilSnapshot):
+    for row in _scoped_coils(db, scope=scope):
         grouped[_destination(row)['kind']].append(row)
     labels = {
         'in_progress': '在制',
@@ -217,3 +407,35 @@ def list_destinations(db: Session) -> list[dict[str, Any]]:
         }
         for kind, rows in grouped.items()
     ]
+
+
+def find_coil_flow_suggestion(
+    db: Session,
+    *,
+    tracking_card_no: str,
+    scope: ScopeSummary | None = None,
+) -> dict[str, Any] | None:
+    normalized = str(tracking_card_no or '').strip().upper()
+    if not normalized:
+        return None
+    rows = [
+        row
+        for row in _scoped_coils(db, scope=scope)
+        if normalized
+        in {
+            str(getattr(row, 'coil_id', '') or '').strip().upper(),
+            str(getattr(row, 'tracking_card_no', '') or '').strip().upper(),
+            str(getattr(row, 'batch_no', '') or '').strip().upper(),
+        }
+    ]
+    if not rows:
+        return None
+    if len(rows) > 1:
+        return {
+            'tracking_card_no': tracking_card_no,
+            'destination': {},
+            'flow_source': 'manual_pending_match',
+            'match_status': 'ambiguous',
+            'candidate_count': len(rows),
+        }
+    return get_coil_flow(db, coil_key=rows[0].coil_id, scope=scope)

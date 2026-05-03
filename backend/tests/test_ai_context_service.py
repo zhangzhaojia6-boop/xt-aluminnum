@@ -30,7 +30,15 @@ def test_context_pack_includes_factory_scope_and_excludes_sensitive_fields(monke
         ai_context_service.factory_command_service,
         'list_coils',
         lambda _db: [
-            {'coil_key': 'MES:1', 'tracking_card_no': 'BN-1', 'current_process': '轧制', 'delay_hours': 4, 'source_payload': {'token': 'secret'}},
+            {
+                'coil_key': 'MES:1',
+                'tracking_card_no': 'BN-1',
+                'machine_code': '1#轧机',
+                'line_code': '冷轧:01',
+                'current_process': '轧制',
+                'delay_hours': 4,
+                'source_payload': {'token': 'secret'},
+            },
             {'coil_key': 'MES:2', 'tracking_card_no': 'BN-2', 'current_process': '退火', 'delay_hours': 0},
         ],
     )

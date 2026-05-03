@@ -3,7 +3,6 @@
     <header v-if="$slots.header || title || $slots.actions" class="reference-card__head">
       <div class="reference-card__title">
         <slot name="header">
-          <span v-if="moduleNumber" class="reference-card__number">{{ paddedNumber }}</span>
           <strong>{{ title }}</strong>
         </slot>
       </div>
@@ -35,6 +34,5 @@ const props = defineProps({
   }
 })
 
-const paddedNumber = computed(() => String(props.moduleNumber).padStart(2, '0'))
 const sizeClass = computed(() => `reference-card--${props.density}`)
 </script>

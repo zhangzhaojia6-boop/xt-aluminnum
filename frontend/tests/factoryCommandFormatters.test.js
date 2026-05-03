@@ -3,7 +3,11 @@ import assert from 'node:assert/strict'
 
 import {
   destinationGroupLabel,
+  formatLagLabel,
   formatMachineLineMetric,
+  formatMissingDataLabel,
+  formatRuleLabel,
+  formatSyncTime,
   freshnessLabel,
   sourceLabel
 } from '../src/utils/factoryCommandFormatters.js'
@@ -45,4 +49,14 @@ test('destination formatter maps operational groups', () => {
   assert.equal(destinationGroupLabel('allocation'), '已分配')
   assert.equal(destinationGroupLabel('delivery'), '交付')
   assert.equal(destinationGroupLabel('unknown'), '未知')
+})
+
+test('factory command labels hide internal keys from management pages', () => {
+  assert.equal(formatRuleLabel('route_missing'), '路线缺失')
+  assert.equal(formatRuleLabel('delay_hours_high'), '停滞超时')
+  assert.equal(formatMissingDataLabel('cost_inputs'), '成本系数未配置')
+  assert.equal(formatMissingDataLabel('energy'), '能耗数据缺失')
+  assert.equal(formatLagLabel(42), '滞后 42 秒')
+  assert.equal(formatLagLabel(3661), '滞后 61 分钟')
+  assert.equal(formatSyncTime('2026-05-02T08:30:00+08:00'), '05-02 08:30')
 })

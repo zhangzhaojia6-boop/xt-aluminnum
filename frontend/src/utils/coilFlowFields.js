@@ -4,7 +4,7 @@ function cleanText(value) {
 
 function flowSource(value) {
   const source = cleanText(value)
-  if (source === 'manual' || source === 'manual_pending_match') return 'manual_pending_match'
+  if (source === 'manual' || source === 'manual_pending_match' || source === 'ambiguous_match') return 'manual_pending_match'
   return source || 'mes_projection'
 }
 

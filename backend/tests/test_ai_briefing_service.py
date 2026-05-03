@@ -52,6 +52,39 @@ def test_hourly_inspection_can_hide_normal_items(monkeypatch):
     assert event['severity'] == 'info'
 
 
+def test_briefing_generation_uses_owner_and_scope(monkeypatch):
+    db = _FakeDB()
+    scope = SimpleNamespace(data_scope_type='self_workshop', workshop_id=1)
+    seen = {}
+
+    def build_overview(_db, *, scope=None):
+        seen['overview_scope'] = scope
+        return {'wip_tons': 3.0, 'abnormal_count': 1, 'freshness': {'status': 'fresh'}}
+
+    def list_machine_lines(_db, *, scope=None):
+        seen['line_scope'] = scope
+        return [{'line_code': '冷轧:01', 'stalled_count': 1, 'active_tons': 3.0}]
+
+    def evaluate_rules(_db, *, scope=None):
+        seen['rule_scope'] = scope
+        return [{'key': 'route_missing', 'severity': 'warning'}]
+
+    monkeypatch.setattr(ai_briefing_service.factory_command_service, 'build_overview', build_overview)
+    monkeypatch.setattr(ai_briefing_service.factory_command_service, 'list_machine_lines', list_machine_lines)
+    monkeypatch.setattr(ai_briefing_service.ai_rules_service, 'evaluate_rules', evaluate_rules)
+
+    event = ai_briefing_service.generate_briefing(
+        db,
+        briefing_type='opening_shift',
+        owner_user_id=7,
+        scope=scope,
+    )
+
+    assert event['owner_user_id'] == 7
+    assert seen == {'overview_scope': scope, 'line_scope': scope, 'rule_scope': scope}
+    assert db.added[0].owner_user_id == 7
+
+
 def test_exception_briefing_triggers_for_route_sync_weight_and_destination(monkeypatch):
     db = _FakeDB()
     monkeypatch.setattr(
@@ -76,8 +109,11 @@ def test_exception_briefing_triggers_for_route_sync_weight_and_destination(monke
 
 def test_watchlist_filters_briefing_scope_and_quiet_hours_only_suppress_delivery(monkeypatch):
     db = _FakeDB()
+    seen = {}
+    scope = {'type': 'machine', 'key': '冷轧:01'}
     watch = SimpleNamespace(
         id=1,
+        owner_user_id=7,
         watch_type='machine',
         scope_key='冷轧:01',
         trigger_rules=['delay_hours_high'],
@@ -86,13 +122,21 @@ def test_watchlist_filters_briefing_scope_and_quiet_hours_only_suppress_delivery
         channels=['in_app'],
         active=True,
     )
-    monkeypatch.setattr(ai_briefing_service.ai_rules_service, 'evaluate_rules', lambda _db: [{'key': 'delay_hours_high', 'severity': 'warning', 'evidence_refs': [{'kind': 'machine', 'key': '冷轧:01'}]}])
+
+    def evaluate_rules(_db, *, scope=None):
+        seen['rule_scope'] = scope
+        return [{'key': 'delay_hours_high', 'severity': 'warning', 'evidence_refs': [{'kind': 'machine', 'key': '冷轧:01'}]}]
+
+    monkeypatch.setattr(ai_briefing_service.ai_rules_service, 'evaluate_rules', evaluate_rules)
     monkeypatch.setattr(ai_briefing_service.factory_command_service, 'build_overview', lambda _db: {'wip_tons': 0, 'abnormal_count': 1, 'freshness': {'status': 'fresh'}})
     monkeypatch.setattr(ai_briefing_service.factory_command_service, 'list_machine_lines', lambda _db: [])
 
-    event = ai_briefing_service.generate_watchlist_briefing(db, watch=watch, current_time=time(8, 0))
+    event = ai_briefing_service.generate_watchlist_briefing(db, watch=watch, current_time=time(8, 0), scope=scope)
 
     assert event['briefing_type'] == 'watchlist_update'
+    assert event['owner_user_id'] == 7
     assert event['scope_key'] == '冷轧:01'
     assert event['delivery_suppressed'] is True
+    assert seen['rule_scope'] == scope
+    assert db.added[0].owner_user_id == 7
     assert db.added

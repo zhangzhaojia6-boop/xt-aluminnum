@@ -5,7 +5,6 @@ import {
   Grid,
   List,
   Monitor,
-  Printer,
   Setting,
   Tickets,
   TrendCharts,
@@ -46,13 +45,6 @@ const NAV_GROUPS = [
     commandGroup: '填报审核',
     items: [
       { title: '录入中心', shortLabel: '录入', path: '/manage/entry-center', icon: List, access: 'review', commandGroup: '填报审核', secondaryGroup: '岗位直录' }
-    ]
-  },
-  {
-    label: '日报交付',
-    commandGroup: '日报交付',
-    items: [
-      { title: '日报与交付中心', shortLabel: '日报', path: '/manage/reports', icon: Printer, access: 'review', commandGroup: '日报交付', secondaryGroup: '交付' }
     ]
   },
   {
