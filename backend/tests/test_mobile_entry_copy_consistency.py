@@ -580,7 +580,8 @@ def test_review_layout_exposes_multi_center_navigation_groups() -> None:
     assert "label: '数据接入'" in source
     assert "label: '权限治理'" in source
     assert "routeName: 'admin-ops-reliability'" in source
-    assert "routeName: 'review-cost-accounting'" in source
+    assert "routeName: 'factory-command-cost'" in source
+    assert "routeName: 'factory-ai-assistant'" in source
     assert "routeName: 'admin-governance-center'" in source
     assert "routeName: 'admin-roadmap-center'" not in source
     assert "routeName: 'mobile-entry'" not in re.search(

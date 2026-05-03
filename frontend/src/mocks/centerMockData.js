@@ -710,7 +710,7 @@ export const brainCenterMock = {
     {
       id: 'risk-cost-energy',
       name: '电耗与策略价偏高',
-      sourceCenter: '成本效益',
+      sourceCenter: '经营效益',
       sourceKey: 'energy',
       level: '中风险',
       tone: 'warning',
@@ -719,8 +719,8 @@ export const brainCenterMock = {
       recommendation: '系统提示：按经营估算口径查看成本解释，不形成结算结果',
       status: '观察',
       statusTone: 'info',
-      routeName: 'review-cost-accounting',
-      routeLabel: '看成本解释'
+      routeName: 'factory-command-cost',
+      routeLabel: '看经营估算'
     },
     {
       id: 'risk-ingestion-source',
@@ -838,7 +838,7 @@ export const brainCenterMock = {
   actions: [
     { key: 'reportBlockers', label: '查看日报阻塞', status: 'enabled', tone: 'danger', routeName: 'review-report-center', title: '跳转到日报与交付中心' },
     { key: 'qualityAlerts', label: '查看质量告警', status: 'enabled', tone: 'warning', routeName: 'review-quality-center', title: '跳转到质量与告警中心' },
-    { key: 'costExplain', label: '查看成本异常', status: 'enabled', tone: 'info', routeName: 'review-cost-accounting', title: '跳转到成本核算与效益中心' },
+    { key: 'costExplain', label: '查看经营异常', status: 'enabled', tone: 'info', routeName: 'factory-command-cost', title: '跳转到经营效益' },
     { key: 'ingestionIssues', label: '查看数据接入问题', status: 'permission', tone: 'warning', routeName: 'admin-ingestion-center', title: '需要管理端权限' },
     { key: 'generateSummary', label: '生成今日摘要', status: 'disabled', tone: 'neutral', title: '生成接口未接入，当前使用 fallback 辅助摘要' },
     { key: 'copySummary', label: '复制摘要', status: 'enabled', tone: 'success', routeName: '', title: '复制本页辅助摘要，不写入业务数据' }
@@ -905,7 +905,7 @@ export const opsCenterMock = {
     { id: 'gateway', name: 'gateway / nginx', statusLabel: 'fallback', tone: 'warning', latency: '98ms', lastCheck: '10:41', source: 'fallback', note: '网关状态未接入真实代理探针', actionLabel: '只读', actionStatus: 'disabled' },
     { id: 'scheduler', name: 'scheduler / jobs', statusLabel: 'degraded', tone: 'warning', latency: '210ms', lastCheck: '10:40', source: 'mixed', note: '定时任务只展示观测状态，不重启任务', actionLabel: '查看上线闸门', actionStatus: 'enabled', panel: 'gate' },
     { id: 'message', name: 'message / push', statusLabel: 'disabled', tone: 'neutral', latency: '-', lastCheck: '10:40', source: 'fallback', note: '消息推送未启用，不伪造送达成功', actionLabel: '只读', actionStatus: 'disabled' },
-    { id: 'ai-probe', name: 'AI probe', statusLabel: 'disabled', tone: 'neutral', latency: '-', lastCheck: '10:39', source: 'fallback', note: 'LLM probe 未启用，不显示 live 成功', actionLabel: '看 AI 总控', actionStatus: 'enabled', routeName: 'review-brain-center' },
+    { id: 'ai-probe', name: 'AI probe', statusLabel: 'disabled', tone: 'neutral', latency: '-', lastCheck: '10:39', source: 'fallback', note: 'LLM probe 未启用，不显示 live 成功', actionLabel: '看 AI 助手', actionStatus: 'enabled', routeName: 'factory-ai-assistant' },
     { id: 'report-pipeline', name: 'report pipeline', statusLabel: 'blocked', tone: 'danger', latency: '156ms', lastCheck: '10:39', source: 'mixed', note: '日报交付链路存在阻塞，需进入日报中心复核', actionLabel: '看日报', actionStatus: 'enabled', routeName: 'review-report-center' }
   ],
   trends: {

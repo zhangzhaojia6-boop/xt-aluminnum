@@ -72,20 +72,20 @@ export const centerNavigation = [
   {
     id: 'cost',
     no: '10',
-    title: '成本核算与效益中心',
+    title: '经营效益',
     zone: 'review',
-    path: '/review/cost-accounting',
-    routeName: 'review-cost-accounting',
-    icon: '本',
+    path: '/manage/factory/cost',
+    routeName: 'factory-command-cost',
+    icon: '效',
     summary: '经营估算、策略口径、能耗与人工'
   },
   {
     id: 'brain',
     no: '11',
-    title: 'AI 总控中心',
+    title: 'AI 助手',
     zone: 'review',
-    path: '/review/brain',
-    routeName: 'review-brain-center',
+    path: '/manage/ai-assistant',
+    routeName: 'factory-ai-assistant',
     icon: 'AI',
     summary: '生产摘要、风险事件、辅助建议'
   },
@@ -155,8 +155,10 @@ const routeMetaByName = {
   'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
   'review-reconciliation-center': { center: 'quality', group: '质量与核对', order: 7, icon: 'Connection', legacy: false, roles: ['review'], keepAlive: true },
-  'review-cost-accounting': { center: 'cost', group: '经营与智能', order: 8, icon: 'Coin', legacy: false, roles: ['review'], keepAlive: true },
-  'review-brain-center': { center: 'brain', group: '经营与智能', order: 9, icon: 'MagicStick', legacy: false, roles: ['review'], keepAlive: true },
+  'factory-command-cost': { center: 'cost', group: '经营与智能', order: 8, icon: 'Coin', legacy: false, roles: ['review'], keepAlive: true },
+  'factory-ai-assistant': { center: 'brain', group: '经营与智能', order: 9, icon: 'MagicStick', legacy: false, roles: ['review'], keepAlive: true },
+  'review-cost-accounting': { center: 'cost', group: '兼容入口', order: 108, icon: 'Coin', legacy: true, roles: ['review'], keepAlive: false },
+  'review-brain-center': { center: 'brain', group: '兼容入口', order: 109, icon: 'MagicStick', legacy: true, roles: ['review'], keepAlive: false },
 
   'admin-overview': { center: 'master', group: '管理总览', order: 1, icon: 'DataAnalysis', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-ingestion-center': { center: 'ingestion', group: '数据与模板', order: 2, icon: 'Connection', legacy: false, roles: ['admin'], keepAlive: true },
@@ -191,8 +193,10 @@ const commandMetaByName = {
   'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
   'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
-  'review-cost-accounting': { shortLabel: '成本', commandGroup: 'AI', secondaryGroup: '判断' },
-  'review-brain-center': { shortLabel: 'AI', commandGroup: 'AI', secondaryGroup: '总管' },
+  'factory-command-cost': { shortLabel: '经营效益', commandGroup: '经营效益', secondaryGroup: '估算' },
+  'factory-ai-assistant': { shortLabel: 'AI 助手', commandGroup: 'AI 助手', secondaryGroup: '站内' },
+  'review-cost-accounting': { shortLabel: '经营效益', commandGroup: '兼容入口', secondaryGroup: '估算' },
+  'review-brain-center': { shortLabel: 'AI 助手', commandGroup: '兼容入口', secondaryGroup: '站内' },
   'admin-ingestion-center': { shortLabel: '数据接入', commandGroup: '管理', secondaryGroup: '接入' },
   'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '模板' },
   'admin-template-center': { shortLabel: '模板', commandGroup: '管理', secondaryGroup: '模板' },
@@ -243,8 +247,8 @@ const reviewNavigation = [
     key: 'analysis',
     label: '经营与智能',
     items: [
-      { routeName: 'review-cost-accounting', label: '成本', access: 'review' },
-      { routeName: 'review-brain-center', label: 'AI', access: 'review' }
+      { routeName: 'factory-command-cost', label: '经营效益', access: 'review' },
+      { routeName: 'factory-ai-assistant', label: 'AI 助手', access: 'review' }
     ]
   }
 ]
