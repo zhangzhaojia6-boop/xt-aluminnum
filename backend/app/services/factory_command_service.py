@@ -11,6 +11,9 @@ from app.models.master import Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
 from app.services.mes_sync_service import latest_sync_status
 
+DEFAULT_COIL_LIST_LIMIT = 100
+MAX_COIL_LIST_LIMIT = 500
+
 
 def _all(db: Session, model: type) -> list[Any]:
     return list(db.query(model).all())
@@ -85,6 +88,63 @@ def _matches_workshop(value: Any, tokens: set[str] | None) -> bool:
     if not tokens:
         return False
     return str(value or '').strip() in tokens
+
+
+def _bounded_limit(value: int | None) -> int:
+    try:
+        limit = int(value if value is not None else DEFAULT_COIL_LIST_LIMIT)
+    except (TypeError, ValueError):
+        return DEFAULT_COIL_LIST_LIMIT
+    return max(1, min(limit, MAX_COIL_LIST_LIMIT))
+
+
+def _bounded_offset(value: int | None) -> int:
+    try:
+        offset = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(offset, 0)
+
+
+def _matches_filter_text(row: Any, query: str | None) -> bool:
+    text = str(query or '').strip().lower()
+    if not text:
+        return True
+    fields = (
+        'coil_id',
+        'tracking_card_no',
+        'batch_no',
+        'material_code',
+        'machine_code',
+        'current_workshop',
+        'current_process',
+        'next_process',
+    )
+    return any(text in str(getattr(row, field, '') or '').lower() for field in fields)
+
+
+def _matches_destination_filter(row: Any, destination: str | None) -> bool:
+    value = str(destination or '').strip()
+    if not value:
+        return True
+    return _destination(row)['kind'] == value
+
+
+def _filter_coils(
+    rows: Iterable[Any],
+    *,
+    workshop: str | None = None,
+    destination: str | None = None,
+    query: str | None = None,
+) -> list[Any]:
+    workshop_text = str(workshop or '').strip()
+    return [
+        row
+        for row in rows
+        if (not workshop_text or str(getattr(row, 'current_workshop', '') or '').strip() == workshop_text or str(getattr(row, 'workshop_code', '') or '').strip() == workshop_text)
+        and _matches_destination_filter(row, destination)
+        and _matches_filter_text(row, query)
+    ]
 
 
 def _scoped_coils(db: Session, *, scope: ScopeSummary | None = None) -> list[Any]:
@@ -322,8 +382,25 @@ def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None) -> lis
     return items
 
 
-def list_coils(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
-    rows = _scoped_coils(db, scope=scope)
+def list_coils(
+    db: Session,
+    *,
+    scope: ScopeSummary | None = None,
+    limit: int | None = DEFAULT_COIL_LIST_LIMIT,
+    offset: int | None = 0,
+    workshop: str | None = None,
+    destination: str | None = None,
+    query: str | None = None,
+) -> list[dict[str, Any]]:
+    normalized_limit = _bounded_limit(limit)
+    normalized_offset = _bounded_offset(offset)
+    rows = _filter_coils(
+        _scoped_coils(db, scope=scope),
+        workshop=workshop,
+        destination=destination,
+        query=query,
+    )
+    rows = rows[normalized_offset : normalized_offset + normalized_limit]
     events = _latest_events_by_coil(db, {row.coil_id for row in rows})
     line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
     return [

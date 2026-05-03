@@ -100,7 +100,7 @@ def test_factory_command_routes_are_registered(monkeypatch):
     )
     monkeypatch.setattr(
         'app.routers.factory_command.factory_command_service.list_coils',
-        lambda db, scope=None: [{'coil_key': 'MES:1', 'tracking_card_no': 'BN-1', 'current_process': '轧制', 'next_process': '退火', 'destination': {'kind': 'in_progress'}}],
+        lambda db, scope=None, **kwargs: [{'coil_key': 'MES:1', 'tracking_card_no': 'BN-1', 'current_process': '轧制', 'next_process': '退火', 'destination': {'kind': 'in_progress'}}],
     )
     monkeypatch.setattr(
         'app.routers.factory_command.factory_command_service.get_coil_flow',
@@ -143,7 +143,7 @@ def test_factory_command_routes_pass_data_scope(monkeypatch):
     app.dependency_overrides[get_db] = _fake_db
     app.dependency_overrides[get_current_user] = _scoped_manager_user
 
-    def scoped_coils(_db, *, scope=None):
+    def scoped_coils(_db, *, scope=None, **kwargs):
         assert scope is not None
         assert scope.data_scope_type == 'self_workshop'
         assert scope.workshop_id == 1
@@ -154,6 +154,37 @@ def test_factory_command_routes_pass_data_scope(monkeypatch):
     response = TestClient(app).get('/api/v1/factory-command/coils')
 
     assert response.status_code == 200
+
+
+def test_factory_command_coils_route_passes_filters_and_paging(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = _scoped_manager_user
+    seen = {}
+
+    def scoped_coils(_db, *, scope=None, limit=100, offset=0, workshop=None, destination=None, query=None):
+        seen.update(
+            {
+                'scope': scope,
+                'limit': limit,
+                'offset': offset,
+                'workshop': workshop,
+                'destination': destination,
+                'query': query,
+            }
+        )
+        return []
+
+    monkeypatch.setattr('app.routers.factory_command.factory_command_service.list_coils', scoped_coils)
+
+    response = TestClient(app).get('/api/v1/factory-command/coils?limit=20&offset=40&workshop=冷轧&destination=in_progress&query=BN')
+
+    assert response.status_code == 200
+    assert seen['scope'].data_scope_type == 'self_workshop'
+    assert seen['limit'] == 20
+    assert seen['offset'] == 40
+    assert seen['workshop'] == '冷轧'
+    assert seen['destination'] == 'in_progress'
+    assert seen['query'] == 'BN'
 
 
 def test_mes_sync_status_route(monkeypatch):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -46,9 +46,25 @@ def machine_lines(db: Session = Depends(get_db), current_user: User = Depends(ge
 
 
 @router.get('/coils', response_model=list[FactoryCoilListItemOut])
-def coils(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[FactoryCoilListItemOut]:
+def coils(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    workshop: str | None = None,
+    destination: str | None = None,
+    query: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[FactoryCoilListItemOut]:
     scope = _ensure_factory_command_access(current_user)
-    return factory_command_service.list_coils(db, scope=scope)
+    return factory_command_service.list_coils(
+        db,
+        scope=scope,
+        limit=limit,
+        offset=offset,
+        workshop=workshop,
+        destination=destination,
+        query=query,
+    )
 
 
 @router.get('/coils/{coil_key}/flow', response_model=FactoryCoilFlowOut)

@@ -153,6 +153,46 @@ def test_machine_line_aliases_normalize_non_slot_machine_names(monkeypatch):
     assert {item['line_code'] for item in coils} == {'冷轧:01'}
 
 
+def test_list_coils_defaults_to_bounded_page(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id=f'MES:{index}', tracking_card_no=f'BN-{index}', batch_no=f'BATCH-{index}')
+            for index in range(105)
+        ]
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    coils = factory_command_service.list_coils(db)
+
+    assert len(coils) == 100
+    assert coils[0]['coil_key'] == 'MES:0'
+    assert coils[-1]['coil_key'] == 'MES:99'
+
+
+def test_list_coils_applies_filters_offset_and_limit(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', tracking_card_no='LZ-1', current_workshop='冷轧', current_process='轧制'),
+            _coil(coil_id='MES:2', tracking_card_no='LZ-2', current_workshop='冷轧', current_process='轧制'),
+            _coil(coil_id='MES:3', tracking_card_no='LZ-3', current_workshop='冷轧', current_process='轧制'),
+            _coil(coil_id='MES:4', tracking_card_no='TH-1', current_workshop='退火', current_process='退火'),
+            _coil(coil_id='MES:5', tracking_card_no='LZ-STOCK', current_workshop='冷轧', current_process=None, next_process=None, status_name='已入库', in_stock_date=datetime(2026, 5, 2, 8, 0, tzinfo=UTC)),
+        ]
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    coils = factory_command_service.list_coils(
+        db,
+        limit=2,
+        offset=1,
+        workshop='冷轧',
+        destination='in_progress',
+        query='LZ',
+    )
+
+    assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:3']
+
+
 def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):
     scope = SimpleNamespace(is_admin=False, data_scope_type='self_workshop', workshop_id=1)
     db = _FakeDB(
