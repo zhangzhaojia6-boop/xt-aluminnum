@@ -194,3 +194,18 @@ export async function updateWorkshopTemplateConfig(templateKey, payload) {
   const { data } = await api.put(`/master/workshop-templates/${templateKey}`, payload)
   return data
 }
+
+export async function fetchRuleConfigs(params = {}) {
+  const { data } = await api.get('/rule-configs', { params })
+  return Array.isArray(data) ? data : []
+}
+
+export async function upsertRuleConfig(payload) {
+  const { data } = await api.post('/rule-configs', payload)
+  return data
+}
+
+export async function updateRuleConfig(id, payload) {
+  const { data } = await api.put(`/rule-configs/${id}`, payload)
+  return data
+}

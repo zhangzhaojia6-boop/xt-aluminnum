@@ -27,6 +27,7 @@ from app.models.production import (
 from app.models.quality import DataQualityIssue
 from app.models.reconciliation import DataReconciliationItem
 from app.models.reports import DailyReport
+from app.models.rule_config import RuleConfig
 from app.models.shift import ShiftConfig
 from app.models.system import AuditLog, SystemConfig, User
 
@@ -78,4 +79,5 @@ __all__ = [
     'ImportRow',
     'FieldMappingTemplate',
     'DailyReport',
+    'RuleConfig',
 ]

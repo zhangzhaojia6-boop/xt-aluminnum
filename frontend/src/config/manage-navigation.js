@@ -53,7 +53,8 @@ const NAV_GROUPS = [
     items: [
       { title: '主数据与模板中心', shortLabel: '主数据', path: '/manage/master', icon: Grid, access: 'admin', commandGroup: '主数据', secondaryGroup: '模板' },
       { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Grid, access: 'admin', commandGroup: '主数据', secondaryGroup: '权限' },
-      { title: '模板中心', shortLabel: '模板', path: '/manage/admin/templates', icon: Setting, access: 'admin', commandGroup: '主数据', secondaryGroup: '模板' }
+      { title: '模板中心', shortLabel: '模板', path: '/manage/admin/templates', icon: Setting, access: 'admin', commandGroup: '主数据', secondaryGroup: '模板' },
+      { title: '规则配置', shortLabel: '规则', path: '/manage/admin/rules', icon: Setting, access: 'admin', commandGroup: '主数据', secondaryGroup: '规则' }
     ]
   },
   {

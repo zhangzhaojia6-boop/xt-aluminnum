@@ -10,8 +10,9 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.agents.base import AgentAction, AgentDecision, BaseAgent
+from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData
-from app.rules.thresholds import RECONCILIATION_TOLERANCE_PERCENT
+from app.services import rule_config_service
 
 
 def _to_float(value) -> float | None:
@@ -44,6 +45,21 @@ def _append_reconcile_note(existing: str | None, reason: str) -> str:
     return f"{existing}\n{text}"
 
 
+def _workshop_code_map(db: Session, rows: list[ShiftProductionData]) -> dict[int, str]:
+    workshop_ids = {int(item.workshop_id) for item in rows if getattr(item, 'workshop_id', None) is not None}
+    if not workshop_ids:
+        return {}
+    try:
+        workshops = db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all()
+    except Exception:  # noqa: BLE001
+        return {}
+    return {
+        int(item.id): str(item.code)
+        for item in workshops
+        if getattr(item, 'id', None) is not None and getattr(item, 'code', None)
+    }
+
+
 class ReconcilerAgent(BaseAgent):
     """核对Agent：自动比对移动端报告与后台数据差异。"""
 
@@ -63,7 +79,6 @@ class ReconcilerAgent(BaseAgent):
         """
 
         self._decisions = []
-        tolerance = float(RECONCILIATION_TOLERANCE_PERCENT)
         rows = (
             db.query(ShiftProductionData)
             .filter(
@@ -82,10 +97,19 @@ class ReconcilerAgent(BaseAgent):
             .all()
         )
         report_map = {int(item.linked_production_data_id): item for item in reports if item.linked_production_data_id is not None}
+        workshop_codes = _workshop_code_map(db, rows)
 
         for item in rows:
             report = report_map.get(int(item.id))
             reasons: list[str] = []
+            workshop_code = workshop_codes.get(int(item.workshop_id)) if getattr(item, 'workshop_id', None) is not None else None
+            tolerance = float(
+                rule_config_service.get_threshold(
+                    'RECONCILIATION_TOLERANCE_PERCENT',
+                    workshop_code=workshop_code,
+                    db=db,
+                )
+            )
 
             if report is None:
                 reasons.append("无移动端报告关联")

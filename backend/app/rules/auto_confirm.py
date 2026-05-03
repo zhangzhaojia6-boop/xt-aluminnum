@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy.orm import Session
+
 from app.rules.validation import ValidationResult, validate_shift_report
 
 
@@ -20,7 +22,12 @@ class AutoConfirmResult:
     reason: str
 
 
-def evaluate_auto_confirm(data: dict, *, workshop_code: str | None = None) -> AutoConfirmResult:
+def evaluate_auto_confirm(
+    data: dict,
+    *,
+    workshop_code: str | None = None,
+    db: Session | None = None,
+) -> AutoConfirmResult:
     """
     评估是否自动确认。
 
@@ -34,7 +41,7 @@ def evaluate_auto_confirm(data: dict, *, workshop_code: str | None = None) -> Au
         AutoConfirmResult 对象
     """
 
-    validation = validate_shift_report(data, workshop_code=workshop_code)
+    validation = validate_shift_report(data, workshop_code=workshop_code, db=db)
     if validation.errors:
         return AutoConfirmResult(
             confirmed=False,

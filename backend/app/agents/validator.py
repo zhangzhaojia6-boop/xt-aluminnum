@@ -56,7 +56,7 @@ class ValidatorAgent(BaseAgent):
         - 在 notes 字段追加 "[自动校验] " 前缀
         """
         self._decisions = []
-        result = evaluate_auto_confirm(report_data, workshop_code=workshop_code)
+        result = evaluate_auto_confirm(report_data, workshop_code=workshop_code, db=db)
         from app.services.pilot_observability_service import log_pilot_event
 
         from app.models.production import MobileShiftReport, ShiftProductionData

@@ -32,6 +32,7 @@ const AliasMapping = () => import('../views/master/AliasMapping.vue')
 const ImportHistory = () => import('../views/imports/ImportHistory.vue')
 const UserManagement = () => import('../views/master/UserManagement.vue')
 const WorkshopTemplateConfig = () => import('../views/master/WorkshopTemplateConfig.vue')
+const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboard = () => import('../views/reports/LiveDashboard.vue')
 const FactoryDirector = () => import('../views/dashboard/FactoryDirector.vue')
 const WorkshopDirector = () => import('../views/dashboard/WorkshopDirector.vue')
@@ -198,6 +199,7 @@ const rawRoutes = [
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
       { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
       { path: 'admin/templates', name: 'admin-template-center', component: WorkshopTemplateConfig, meta: { ...adminMeta, title: '模板中心', centerNo: '14', canonical: '/manage/admin/templates' } },
+      { path: 'admin/rules', name: 'admin-rule-config-center', component: RuleConfigCenter, meta: { ...adminMeta, title: '规则配置', centerNo: '14', canonical: '/manage/admin/rules' } },
       { path: 'admin/ops', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/master', redirect: { name: 'admin-master-workshop' } },
       { path: 'admin/qr-print', name: 'admin-qr-print', component: QRCodePrint, meta: { ...adminMeta, title: 'QR 码打印', canonical: '/manage/admin/qr-print' } }
@@ -227,6 +229,7 @@ const rawRoutes = [
   { path: '/admin/master/workshop', redirect: '/manage/master' },
   { path: '/admin/master/templates', redirect: '/manage/admin/templates' },
   { path: '/admin/templates', redirect: '/manage/admin/templates' },
+  { path: '/admin/rules', redirect: '/manage/admin/rules' },
   { path: '/admin/users', redirect: '/manage/admin/users' },
   { path: '/admin/governance', redirect: '/manage/admin/governance' },
   { path: '/admin/ops', redirect: '/manage/admin/settings' },
@@ -275,6 +278,7 @@ const rawRoutes = [
   { path: '/master/yield-rate-map', name: 'master-yield-rate-map', redirect: '/manage/admin/templates' },
   { path: '/master/workshop-template', name: 'master-workshop-template', redirect: '/manage/admin/templates' },
   { path: '/master/workshop-templates', redirect: '/manage/admin/templates' },
+  { path: '/master/rules', redirect: '/manage/admin/rules' },
   { path: '/', redirect: '/manage/overview' },
   { path: '/:pathMatch(.*)*', redirect: '/manage/overview' }
 ]
