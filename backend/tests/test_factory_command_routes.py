@@ -69,9 +69,14 @@ def test_factory_command_routes_are_registered(monkeypatch):
         'app.routers.factory_command.factory_command_service.build_overview',
         lambda db, scope=None: {
             'freshness': freshness,
+            'source': 'local_shift_data',
             'wip_tons': 12.0,
             'today_output_tons': 3.0,
             'stock_tons': 4.0,
+            'total_input_tons': 15.0,
+            'total_output_tons': 3.0,
+            'yield_rate': 20.0,
+            'workshop_summary': [],
             'abnormal_count': 1,
             'cost_estimate': {'label': '经营估算', 'estimated_cost': None, 'estimated_gross_margin': None},
             'missing_data': ['cost_inputs'],
@@ -116,8 +121,10 @@ def test_factory_command_routes_are_registered(monkeypatch):
     )
 
     client = TestClient(app)
+    overview_response = client.get('/api/v1/factory-command/overview')
+    assert overview_response.status_code == 200
+    assert overview_response.json()['source'] == 'local_shift_data'
     for path in (
-        '/api/v1/factory-command/overview',
         '/api/v1/factory-command/workshops',
         '/api/v1/factory-command/machine-lines',
         '/api/v1/factory-command/coils',

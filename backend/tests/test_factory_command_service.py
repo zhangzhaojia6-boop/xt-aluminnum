@@ -7,7 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
-from app.models.master import Workshop
+from app.models.master import Equipment, Workshop
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.services import factory_command_service
 
 
@@ -32,11 +33,14 @@ class _Query:
 
 
 class _FakeDB:
-    def __init__(self, *, coils=None, lines=None, events=None, workshops=None):
+    def __init__(self, *, coils=None, lines=None, events=None, workshops=None, shift_rows=None, mobile_reports=None, equipment=None):
         self.coils = coils or []
         self.lines = lines or []
         self.events = events or []
         self.workshops = workshops or []
+        self.shift_rows = shift_rows or []
+        self.mobile_reports = mobile_reports or []
+        self.equipment = equipment or []
 
     def query(self, model):
         if model is MesCoilSnapshot:
@@ -47,6 +51,12 @@ class _FakeDB:
             return _Query(self.events)
         if model is Workshop:
             return _Query(self.workshops)
+        if model is ShiftProductionData:
+            return _Query(self.shift_rows)
+        if model is MobileShiftReport:
+            return _Query(self.mobile_reports)
+        if model is Equipment:
+            return _Query(self.equipment)
         raise AssertionError(model)
 
 
@@ -71,6 +81,25 @@ def _coil(**overrides):
         'allocation_date': None,
         'last_seen_from_mes_at': datetime(2026, 5, 2, 8, 0, tzinfo=UTC),
         'source_payload': {'safe': True},
+    }
+    payload.update(overrides)
+    return SimpleNamespace(**payload)
+
+
+def _shift_data(**overrides):
+    payload = {
+        'id': 1,
+        'business_date': datetime(2026, 5, 2, 8, 0, tzinfo=UTC).date(),
+        'shift_config_id': 1,
+        'workshop_id': 1,
+        'team_id': None,
+        'equipment_id': 101,
+        'input_weight': 12.0,
+        'output_weight': 10.0,
+        'qualified_weight': 9.8,
+        'scrap_weight': 0.2,
+        'data_status': 'confirmed',
+        'updated_at': datetime(2026, 5, 2, 9, 0, tzinfo=UTC),
     }
     payload.update(overrides)
     return SimpleNamespace(**payload)
@@ -107,6 +136,98 @@ def test_factory_overview_groups_projection_rows_and_labels_estimates(monkeypatc
     assert overview['cost_estimate']['label'] == '经营估算'
     assert 'profit' not in ''.join(overview['cost_estimate'].keys()).lower()
     assert overview['missing_data'] == ['cost_inputs']
+
+
+def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
+        shift_rows=[
+            _shift_data(input_weight=12.0, output_weight=10.0, qualified_weight=9.8),
+            _shift_data(id=2, equipment_id=102, input_weight=8.0, output_weight=7.5, qualified_weight=7.2, data_status='submitted'),
+            _shift_data(id=3, input_weight=99.0, output_weight=88.0, data_status='pending'),
+            _shift_data(id=4, business_date=datetime(2026, 5, 1, tzinfo=UTC).date(), input_weight=20.0, output_weight=18.0),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'unconfigured',
+            'configured': False,
+            'migration_ready': True,
+            'source': 'local_entry',
+            'lag_seconds': None,
+            'action_required': 'configure_mes',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'local_shift_data'
+    assert overview['freshness']['source'] == 'local_shift_data'
+    assert overview['total_input_tons'] == 20.0
+    assert overview['total_output_tons'] == 17.5
+    assert overview['today_output_tons'] == 17.5
+    assert overview['yield_rate'] == 87.5
+    assert overview['workshop_summary'] == [
+        {
+            'workshop_id': 1,
+            'workshop_name': '冷轧',
+            'row_count': 2,
+            'total_input_tons': 20.0,
+            'total_output_tons': 17.5,
+            'yield_rate': 87.5,
+        }
+    ]
+
+
+def test_factory_lists_fall_back_to_local_shift_data_when_projection_empty(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[
+            SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1),
+            SimpleNamespace(id=102, code='CRM-02', name='2#轧机', workshop_id=1),
+        ],
+        shift_rows=[
+            _shift_data(equipment_id=101, input_weight=12.0, output_weight=10.0),
+            _shift_data(id=2, equipment_id=102, input_weight=8.0, output_weight=7.5, data_status='submitted'),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {'status': 'migration_missing', 'source': 'local_entry', 'lag_seconds': None},
+    )
+
+    current_time = datetime(2026, 5, 2, 8, 1, tzinfo=UTC)
+    workshops = factory_command_service.list_workshops(db, now=current_time)
+    lines = factory_command_service.list_machine_lines(db, now=current_time)
+    coils = factory_command_service.list_coils(db)
+
+    assert workshops == [
+        {
+            'workshop_name': '冷轧',
+            'active_coil_count': 2,
+            'active_tons': 17.5,
+            'stalled_count': 0,
+            'freshness': {
+                'status': 'migration_missing',
+                'lag_seconds': None,
+                'last_synced_at': None,
+                'last_event_at': None,
+                'source': 'local_shift_data',
+                'configured': True,
+                'migration_ready': True,
+                'action_required': 'none',
+                'risk_tone': 'normal',
+            },
+        }
+    ]
+    assert [item['line_code'] for item in lines] == ['CRM-01', 'CRM-02']
+    assert [item['active_tons'] for item in lines] == [10.0, 7.5]
+    assert all(item['freshness']['source'] == 'local_shift_data' for item in lines)
+    assert coils == []
 
 
 def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):

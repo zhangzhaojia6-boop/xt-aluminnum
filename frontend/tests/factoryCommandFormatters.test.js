@@ -25,6 +25,7 @@ test('freshness label maps factory command sync states', () => {
 test('source label maps factory command sources', () => {
   assert.equal(sourceLabel('mes_projection'), 'MES 投影')
   assert.equal(sourceLabel('local_entry'), '本地填报')
+  assert.equal(sourceLabel('local_shift_data'), '手填口径')
   assert.equal(sourceLabel('mixed'), '混合来源')
 })
 

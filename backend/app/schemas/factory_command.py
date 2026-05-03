@@ -25,10 +25,15 @@ class FactoryEstimateOut(BaseModel):
 
 
 class FactoryOverviewOut(BaseModel):
+    source: str = 'mes_projection'
     freshness: FactoryCommandFreshnessOut
     wip_tons: float = 0.0
     today_output_tons: float = 0.0
     stock_tons: float = 0.0
+    total_input_tons: float = 0.0
+    total_output_tons: float = 0.0
+    yield_rate: float | None = None
+    workshop_summary: list[dict[str, Any]] = Field(default_factory=list)
     abnormal_count: int = 0
     cost_estimate: FactoryEstimateOut
     missing_data: list[str] = Field(default_factory=list)

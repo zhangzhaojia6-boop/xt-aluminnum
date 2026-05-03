@@ -5,19 +5,31 @@ from datetime import date, datetime, timezone
 from typing import Any, Iterable, Mapping
 
 from sqlalchemy import and_, false, or_
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.scope import ScopeSummary
-from app.models.master import Workshop
+from app.models.master import Equipment, Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.services.mes_sync_service import latest_sync_status
 
 DEFAULT_COIL_LIST_LIMIT = 100
 MAX_COIL_LIST_LIMIT = 500
+PROJECTION_FALLBACK_STATUSES = {'unconfigured', 'migration_missing', 'failed'}
+LOCAL_SHIFT_STATUSES = {'confirmed', 'submitted'}
+LOCAL_MOBILE_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 
 
 def _all(db: Session, model: type) -> list[Any]:
     return list(db.query(model).all())
+
+
+def _safe_all(db: Session, model: type) -> list[Any]:
+    try:
+        return _all(db, model)
+    except (OperationalError, ProgrammingError):
+        return []
 
 
 def _query_first(query):
@@ -133,6 +145,131 @@ def _matches_destination_filter(row: Any, destination: str | None) -> bool:
 
 def _is_sqlalchemy_query(query: Any) -> bool:
     return hasattr(query, 'column_descriptions') and hasattr(query, 'offset') and hasattr(query, 'limit')
+
+
+def _projection_available(db: Session) -> bool:
+    try:
+        query = db.query(MesCoilSnapshot)
+        if _is_sqlalchemy_query(query):
+            return query.limit(1).first() is not None
+        return _query_first(query) is not None
+    except (OperationalError, ProgrammingError):
+        return False
+
+
+def _should_use_local_shift_data(db: Session, freshness: Mapping[str, Any]) -> bool:
+    return freshness.get('status') in PROJECTION_FALLBACK_STATUSES and not _projection_available(db)
+
+
+def _local_freshness(freshness: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(freshness)
+    payload['source'] = 'local_shift_data'
+    return payload
+
+
+def _scope_workshop_ids(scope: ScopeSummary | None) -> set[int] | None:
+    if scope is None or scope.is_admin or scope.data_scope_type == 'all':
+        return None
+    if scope.workshop_id is None:
+        return set()
+    return {int(scope.workshop_id)}
+
+
+def _matches_workshop_id(value: Any, workshop_ids: set[int] | None) -> bool:
+    if workshop_ids is None:
+        return True
+    if not workshop_ids:
+        return False
+    try:
+        return int(value) in workshop_ids
+    except (TypeError, ValueError):
+        return False
+
+
+def _local_shift_rows(db: Session, *, target_date: date, scope: ScopeSummary | None = None) -> list[Any]:
+    workshop_ids = _scope_workshop_ids(scope)
+    try:
+        query = db.query(ShiftProductionData)
+        if _is_sqlalchemy_query(query):
+            query = query.filter(
+                ShiftProductionData.business_date == target_date,
+                ShiftProductionData.data_status.in_(LOCAL_SHIFT_STATUSES),
+            )
+            if workshop_ids is not None:
+                query = query.filter(ShiftProductionData.workshop_id.in_(workshop_ids))
+            return list(query.all())
+        rows = _all(db, ShiftProductionData)
+    except (OperationalError, ProgrammingError):
+        return []
+    return [
+        row
+        for row in rows
+        if getattr(row, 'business_date', None) == target_date
+        and getattr(row, 'data_status', None) in LOCAL_SHIFT_STATUSES
+        and _matches_workshop_id(getattr(row, 'workshop_id', None), workshop_ids)
+    ]
+
+
+def _local_mobile_report_rows(db: Session, *, target_date: date, scope: ScopeSummary | None = None) -> list[Any]:
+    workshop_ids = _scope_workshop_ids(scope)
+    try:
+        query = db.query(MobileShiftReport)
+        if _is_sqlalchemy_query(query):
+            query = query.filter(
+                MobileShiftReport.business_date == target_date,
+                MobileShiftReport.report_status.in_(LOCAL_MOBILE_REPORT_STATUSES),
+            )
+            if workshop_ids is not None:
+                query = query.filter(MobileShiftReport.workshop_id.in_(workshop_ids))
+            return list(query.all())
+        rows = _all(db, MobileShiftReport)
+    except (OperationalError, ProgrammingError):
+        return []
+    return [
+        row
+        for row in rows
+        if getattr(row, 'business_date', None) == target_date
+        and getattr(row, 'report_status', None) in LOCAL_MOBILE_REPORT_STATUSES
+        and _matches_workshop_id(getattr(row, 'workshop_id', None), workshop_ids)
+    ]
+
+
+def _local_rows(db: Session, *, target_date: date, scope: ScopeSummary | None = None) -> list[Any]:
+    rows = _local_shift_rows(db, target_date=target_date, scope=scope)
+    return rows or _local_mobile_report_rows(db, target_date=target_date, scope=scope)
+
+
+def _workshop_name_map(db: Session) -> dict[int, str]:
+    return {
+        int(row.id): str(row.name)
+        for row in _safe_all(db, Workshop)
+        if getattr(row, 'id', None) is not None
+    }
+
+
+def _equipment_map(db: Session) -> dict[int, Any]:
+    return {
+        int(row.id): row
+        for row in _safe_all(db, Equipment)
+        if getattr(row, 'id', None) is not None
+    }
+
+
+def _row_sort_time(row: Any) -> tuple[float, int]:
+    value = (
+        getattr(row, 'submitted_at', None)
+        or getattr(row, 'confirmed_at', None)
+        or getattr(row, 'updated_at', None)
+        or getattr(row, 'created_at', None)
+    )
+    timestamp = value.timestamp() if hasattr(value, 'timestamp') else 0.0
+    return (timestamp, int(getattr(row, 'id', 0) or 0))
+
+
+def _local_issue_count(row: Any) -> int:
+    if hasattr(row, 'issue_count'):
+        return int(getattr(row, 'issue_count', 0) or 0)
+    return 1 if getattr(row, 'has_exception', False) else 0
 
 
 def _scope_coil_expression(tokens: set[str] | None):
@@ -418,9 +555,71 @@ def build_freshness(db: Session, *, now=None) -> dict[str, Any]:
     }
 
 
+def _build_overview_from_shift_data(
+    db: Session,
+    *,
+    freshness: Mapping[str, Any],
+    target_date: date,
+    scope: ScopeSummary | None = None,
+) -> dict[str, Any]:
+    rows = _local_rows(db, target_date=target_date, scope=scope)
+    total_input = sum(_number(getattr(row, 'input_weight', None)) for row in rows)
+    total_output = sum(_number(getattr(row, 'output_weight', None)) for row in rows)
+    total_qualified = sum(
+        _number(getattr(row, 'qualified_weight', None))
+        if getattr(row, 'qualified_weight', None) is not None
+        else _number(getattr(row, 'output_weight', None))
+        for row in rows
+    )
+    wip_tons = max(total_input - total_output, 0.0)
+    missing_data = ['cost_inputs']
+    workshop_summary = []
+    workshop_names = _workshop_name_map(db)
+    grouped: dict[int, list[Any]] = defaultdict(list)
+    for row in rows:
+        workshop_id = getattr(row, 'workshop_id', None)
+        if workshop_id is not None:
+            grouped[int(workshop_id)].append(row)
+    for workshop_id, workshop_rows in grouped.items():
+        workshop_input = sum(_number(getattr(row, 'input_weight', None)) for row in workshop_rows)
+        workshop_output = sum(_number(getattr(row, 'output_weight', None)) for row in workshop_rows)
+        workshop_summary.append(
+            {
+                'workshop_id': workshop_id,
+                'workshop_name': workshop_names.get(workshop_id, f'车间{workshop_id}'),
+                'row_count': len(workshop_rows),
+                'total_input_tons': round(workshop_input, 4),
+                'total_output_tons': round(workshop_output, 4),
+                'yield_rate': round(workshop_output / workshop_input * 100, 2) if workshop_input else None,
+            }
+        )
+    return {
+        'source': 'local_shift_data',
+        'freshness': _local_freshness(freshness),
+        'wip_tons': round(wip_tons, 4),
+        'today_output_tons': round(total_output, 4),
+        'stock_tons': round(total_qualified, 4),
+        'total_input_tons': round(total_input, 4),
+        'total_output_tons': round(total_output, 4),
+        'yield_rate': round(total_output / total_input * 100, 2) if total_input else None,
+        'workshop_summary': sorted(workshop_summary, key=lambda item: item['total_output_tons'], reverse=True),
+        'abnormal_count': sum(1 for row in rows if _local_issue_count(row) > 0),
+        'cost_estimate': _estimate(missing_data=missing_data),
+        'missing_data': missing_data,
+    }
+
+
 def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) -> dict[str, Any]:
-    rows = _scoped_coils(db, scope=scope)
     freshness = build_freshness(db, now=now)
+    if _should_use_local_shift_data(db, freshness):
+        return _build_overview_from_shift_data(
+            db,
+            freshness=freshness,
+            target_date=_business_date(now),
+            scope=scope,
+        )
+
+    rows = _scoped_coils(db, scope=scope)
     stock_rows = [row for row in rows if _destination(row)['kind'] == 'finished_stock']
     current_date = _business_date(now)
     today_output_rows = [
@@ -431,19 +630,60 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) 
     wip_rows = [row for row in rows if _destination(row)['kind'] == 'in_progress']
     abnormal_count = sum(1 for row in rows if _is_stalled(row))
     missing_data = ['cost_inputs']
+    today_output_tons = round(sum(_weight(row) for row in today_output_rows), 4)
     return {
+        'source': freshness.get('source') or 'mes_projection',
         'freshness': freshness,
         'wip_tons': round(sum(_weight(row) for row in wip_rows), 4),
-        'today_output_tons': round(sum(_weight(row) for row in today_output_rows), 4),
+        'today_output_tons': today_output_tons,
         'stock_tons': round(sum(_weight(row) for row in stock_rows), 4),
+        'total_input_tons': 0.0,
+        'total_output_tons': today_output_tons,
+        'yield_rate': None,
+        'workshop_summary': [],
         'abnormal_count': abnormal_count,
         'cost_estimate': _estimate(missing_data=missing_data),
         'missing_data': missing_data,
     }
 
 
-def list_workshops(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
-    freshness = build_freshness(db)
+def _list_workshops_from_shift_data(
+    db: Session,
+    *,
+    freshness: Mapping[str, Any],
+    target_date: date,
+    scope: ScopeSummary | None = None,
+) -> list[dict[str, Any]]:
+    grouped: dict[int, list[Any]] = defaultdict(list)
+    for row in _local_rows(db, target_date=target_date, scope=scope):
+        workshop_id = getattr(row, 'workshop_id', None)
+        if workshop_id is not None:
+            grouped[int(workshop_id)].append(row)
+    workshop_names = _workshop_name_map(db)
+    items = []
+    for workshop_id, rows in grouped.items():
+        items.append(
+            {
+                'workshop_name': workshop_names.get(workshop_id, f'车间{workshop_id}'),
+                'active_coil_count': len(rows),
+                'active_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
+                'stalled_count': sum(1 for row in rows if _local_issue_count(row) > 0),
+                'freshness': _local_freshness(freshness),
+            }
+        )
+    return sorted(items, key=lambda item: item['active_tons'], reverse=True)
+
+
+def list_workshops(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
+    freshness = build_freshness(db, now=now)
+    if _should_use_local_shift_data(db, freshness):
+        return _list_workshops_from_shift_data(
+            db,
+            freshness=freshness,
+            target_date=_business_date(now),
+            scope=scope,
+        )
+
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in _scoped_coils(db, scope=scope):
         grouped[getattr(row, 'current_workshop', None) or '未识别车间'].append(row)
@@ -461,8 +701,53 @@ def list_workshops(db: Session, *, scope: ScopeSummary | None = None) -> list[di
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
-def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None) -> list[dict[str, Any]]:
-    freshness = build_freshness(db)
+def _list_machine_lines_from_shift_data(
+    db: Session,
+    *,
+    freshness: Mapping[str, Any],
+    target_date: date,
+    scope: ScopeSummary | None = None,
+) -> list[dict[str, Any]]:
+    grouped: dict[int, list[Any]] = defaultdict(list)
+    for row in _local_shift_rows(db, target_date=target_date, scope=scope):
+        equipment_id = getattr(row, 'equipment_id', None)
+        if equipment_id is not None:
+            grouped[int(equipment_id)].append(row)
+    equipment_by_id = _equipment_map(db)
+    workshop_names = _workshop_name_map(db)
+    items = []
+    for equipment_id, rows in grouped.items():
+        latest_row = max(rows, key=_row_sort_time)
+        equipment = equipment_by_id.get(equipment_id)
+        workshop_id = getattr(latest_row, 'workshop_id', None)
+        line_code = str(getattr(equipment, 'code', None) or f'equipment:{equipment_id}')
+        items.append(
+            {
+                'line_code': line_code,
+                'line_name': getattr(equipment, 'name', None),
+                'workshop_name': workshop_names.get(int(workshop_id), f'车间{workshop_id}') if workshop_id is not None else None,
+                'active_coil_count': len(rows),
+                'active_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
+                'finished_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
+                'stalled_count': sum(1 for row in rows if _local_issue_count(row) > 0),
+                'cost_estimate': _estimate(),
+                'margin_estimate': _estimate(label='毛差估算'),
+                'freshness': _local_freshness(freshness),
+            }
+        )
+    return sorted(items, key=lambda item: item['line_code'])
+
+
+def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
+    freshness = build_freshness(db, now=now)
+    if _should_use_local_shift_data(db, freshness):
+        return _list_machine_lines_from_shift_data(
+            db,
+            freshness=freshness,
+            target_date=_business_date(now),
+            scope=scope,
+        )
+
     coils = _scoped_coils(db, scope=scope)
     line_rows = _scoped_machine_lines(db, scope=scope)
     line_map = {row.line_code: row for row in line_rows}
@@ -506,6 +791,10 @@ def list_coils(
     destination: str | None = None,
     query: str | None = None,
 ) -> list[dict[str, Any]]:
+    freshness = build_freshness(db)
+    if _should_use_local_shift_data(db, freshness):
+        return []
+
     normalized_limit = _bounded_limit(limit)
     normalized_offset = _bounded_offset(offset)
     rows = _paged_coils(
