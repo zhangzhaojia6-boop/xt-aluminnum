@@ -241,3 +241,53 @@ def test_dingtalk_sync_skips_contact_when_binding_belongs_to_another_user(tmp_pa
         mobile_user = db.execute(select(User).where(User.username == '13900002002')).scalar_one()
         assert mobile_user.dingtalk_user_id is None
         assert mobile_user.dingtalk_union_id is None
+
+
+def test_dingtalk_sync_skips_inactive_username_match(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_admin(db)
+        db.add(
+            User(
+                username='13900002003',
+                password_hash='x',
+                name='停用旧账号',
+                role='shift_leader',
+                data_scope_type='assigned',
+                is_mobile_user=False,
+                is_reviewer=False,
+                is_manager=False,
+                is_active=False,
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(
+        dingtalk_service.service,
+        'fetch_department_users',
+        lambda department_id=1: [
+            {
+                'userid': 'dt_inactive',
+                'unionid': 'union_inactive',
+                'name': '停用旧账号',
+                'mobile': '13900002003',
+            }
+        ],
+    )
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post('/api/v1/users/sync-dingtalk', json={'department_id': 1})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['created_count'] == 0
+    assert payload['updated_count'] == 0
+    assert payload['skipped_count'] == 1
+    assert payload['users'] == []
+
+    with session_factory() as db:
+        inactive_user = db.execute(select(User).where(User.username == '13900002003')).scalar_one()
+        assert inactive_user.dingtalk_user_id is None
+        assert inactive_user.dingtalk_union_id is None

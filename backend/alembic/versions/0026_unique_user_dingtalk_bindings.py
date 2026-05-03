@@ -28,6 +28,15 @@ def _normalize_and_clear_duplicates(column_name: str) -> None:
         sa.text(
             f"""
             UPDATE users
+            SET {column_name} = trim({column_name})
+            WHERE {column_name} IS NOT NULL
+            """
+        )
+    )
+    op.execute(
+        sa.text(
+            f"""
+            UPDATE users
             SET {column_name} = NULL
             WHERE {column_name} IS NOT NULL
               AND trim({column_name}) = ''

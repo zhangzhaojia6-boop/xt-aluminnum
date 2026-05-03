@@ -138,20 +138,30 @@ def _find_dingtalk_sync_user(db: Session, contact: dict[str, str | None]) -> tup
     union_id = contact.get('dingtalk_union_id')
     mobile = contact.get('mobile')
     candidates: dict[int, User] = {}
+    inactive_candidate_found = False
     if user_id:
         for user in _find_users_by_field(db, User.dingtalk_user_id, user_id):
-            candidates[int(user.id)] = user
+            if user.is_active:
+                candidates[int(user.id)] = user
+            else:
+                inactive_candidate_found = True
     if union_id:
         for user in _find_users_by_field(db, User.dingtalk_union_id, union_id):
-            candidates[int(user.id)] = user
+            if user.is_active:
+                candidates[int(user.id)] = user
+            else:
+                inactive_candidate_found = True
     for username in (mobile, user_id):
         if username:
             for user in _find_users_by_field(db, User.username, username):
-                candidates[int(user.id)] = user
+                if user.is_active:
+                    candidates[int(user.id)] = user
+                else:
+                    inactive_candidate_found = True
     if len(candidates) > 1:
         return None, True
     if not candidates:
-        return None, False
+        return None, inactive_candidate_found
     return next(iter(candidates.values())), False
 
 
