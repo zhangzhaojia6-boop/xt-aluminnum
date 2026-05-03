@@ -1,14 +1,12 @@
 import {
   Coin,
   Connection,
-  Document,
   Grid,
   List,
   Monitor,
   Setting,
   Tickets,
   TrendCharts,
-  Upload,
   Warning
 } from '@element-plus/icons-vue'
 
@@ -28,29 +26,21 @@ const NAV_GROUPS = [
       { title: '车间机列', shortLabel: '机列', path: '/manage/factory/machine-lines', icon: Grid, access: 'review', commandGroup: '工厂状态', secondaryGroup: '作业' },
       { title: '卷级追踪', shortLabel: '卷追踪', path: '/manage/factory/coils', icon: Tickets, access: 'review', commandGroup: '工厂状态', secondaryGroup: '追踪' },
       { title: '库存去向', shortLabel: '去向', path: '/manage/factory/destinations', icon: List, access: 'review', commandGroup: '工厂状态', secondaryGroup: '库存' },
-      { title: '异常地图', shortLabel: '异常图', path: '/manage/factory/exceptions', icon: Warning, access: 'review', commandGroup: '工厂状态', secondaryGroup: '风险' },
-      { title: '班次中心', shortLabel: '班次', path: '/manage/shift', icon: Document, access: 'review', commandGroup: '工厂状态', secondaryGroup: '节奏' }
+      { title: '异常地图', shortLabel: '异常图', path: '/manage/factory/exceptions', icon: Warning, access: 'review', commandGroup: '工厂状态', secondaryGroup: '风险' }
     ]
   },
   {
     label: '经营效益',
     commandGroup: '经营效益',
     items: [
-      { title: '经营效益', shortLabel: '经营效益', path: '/manage/factory/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' },
-      { title: '成本核算与效益中心', shortLabel: '成本效益', path: '/manage/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' }
-    ]
-  },
-  {
-    label: '填报审核',
-    commandGroup: '填报审核',
-    items: [
-      { title: '录入中心', shortLabel: '录入', path: '/manage/entry-center', icon: List, access: 'review', commandGroup: '填报审核', secondaryGroup: '岗位直录' }
+      { title: '经营效益', shortLabel: '经营效益', path: '/manage/factory/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' }
     ]
   },
   {
     label: '异常质量',
     commandGroup: '异常质量',
     items: [
+      { title: '异常与补录', shortLabel: '补录', path: '/manage/entry-center', icon: List, access: 'review', commandGroup: '异常质量', secondaryGroup: '补录' },
       { title: '差异核对中心', shortLabel: '核对', path: '/manage/reconciliation', icon: Tickets, access: 'review', commandGroup: '异常质量', secondaryGroup: '核对' },
       { title: '质量与告警中心', shortLabel: '质量', path: '/manage/quality', icon: TrendCharts, access: 'review', commandGroup: '异常质量', secondaryGroup: '质量' },
       { title: '异常处置', shortLabel: '异常', path: '/manage/anomaly', icon: Warning, access: 'review', commandGroup: '异常质量', secondaryGroup: '处置' }
@@ -73,14 +63,10 @@ const NAV_GROUPS = [
     ]
   },
   {
-    label: '系统管理',
-    commandGroup: '系统管理',
+    label: '数据接入',
+    commandGroup: '数据接入',
     items: [
-      { title: '数据接入与字段映射中心', shortLabel: '数据接入', path: '/manage/ingestion', icon: Connection, access: 'admin', commandGroup: '系统管理', secondaryGroup: '接入' },
-      { title: '别名映射', shortLabel: '别名', path: '/manage/alias', icon: Connection, access: 'admin', commandGroup: '系统管理', secondaryGroup: '模板' },
-      { title: '导入历史', shortLabel: '导入', path: '/manage/imports', icon: Upload, access: 'admin', commandGroup: '系统管理', secondaryGroup: '接入' },
-      { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统管理', secondaryGroup: '运行' },
-      { title: '权限与治理中心', shortLabel: '治理', path: '/manage/admin/governance', icon: Setting, access: 'admin', commandGroup: '系统管理', secondaryGroup: '权限' }
+      { title: '数据接入与字段映射中心', shortLabel: '数据接入', path: '/manage/ingestion', icon: Connection, access: 'admin', commandGroup: '数据接入', secondaryGroup: '接入' }
     ]
   }
 ]

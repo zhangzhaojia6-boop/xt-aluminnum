@@ -126,9 +126,10 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
     isAdmin: false,
   })
 
-  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '经营效益', '填报审核', '异常质量', 'AI 助手'])
-  assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/cost'), true)
-  assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === '成本效益'), true)
+  assert.deepEqual(groups.map((group) => group.label), ['总览', '工厂状态', '经营效益', '异常质量', 'AI 助手'])
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/factory/cost'), true)
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === '成本效益'), false)
+  assert.equal(groups.flatMap((group) => group.items).some((item) => item.title === '异常与补录'), true)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.shortLabel === 'AI 助手'), true)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/reports'), false)
   assert.equal(groups.flatMap((group) => group.items).some((item) => item.path === '/manage/admin/settings'), false)

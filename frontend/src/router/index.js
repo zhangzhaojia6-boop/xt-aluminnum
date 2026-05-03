@@ -17,7 +17,6 @@ const OCRCapture = () => import('../views/mobile/OCRCapture.vue')
 const ShiftReportHistory = () => import('../views/mobile/ShiftReportHistory.vue')
 const EntryDrafts = () => import('../views/entry/EntryDrafts.vue')
 const ReviewTaskCenter = () => import('../views/review/ReviewTaskCenter.vue')
-const ShiftCenter = () => import('../views/shift/ShiftCenter.vue')
 const ShiftDetail = () => import('../views/shift/ShiftDetail.vue')
 const ReconciliationCenter = () => import('../views/reconciliation/ReconciliationCenter.vue')
 const ReconciliationDetail = () => import('../views/reconciliation/ReconciliationDetail.vue')
@@ -180,7 +179,7 @@ const rawRoutes = [
       { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },
       { path: 'workshop', name: 'workshop-dashboard', component: WorkshopDirector, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/workshop' } },
       { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '审阅中心', centerNo: '07', canonical: '/manage/entry-center' } },
-      { path: 'shift', name: 'manage-shift', component: ShiftCenter, meta: { ...reviewMeta, title: '班次中心', canonical: '/manage/shift' } },
+      { path: 'shift', redirect: '/manage/master' },
       { path: 'reconciliation', name: 'review-reconciliation-center', component: ReconciliationCenter, meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/reconciliation' } },
       { path: 'reconciliation/detail/:id', name: 'reconciliation-detail', component: ReconciliationDetail, meta: { ...reviewMeta, title: '差异详情' } },
       { path: 'anomaly', name: 'manage-anomaly', component: AnomalyReview, meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/anomaly' } },

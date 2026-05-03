@@ -34,6 +34,37 @@ test('manager navigation exposes factory command branches and keeps ingestion ad
   assert.equal(managerItems.some((item) => item.path === '/manage/overview' && item.shortLabel === '工厂总览'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/factory/flow'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/factory/machine-lines'), true)
+  assert.equal(managerItems.some((item) => item.path === '/manage/factory/coils'), true)
+  assert.equal(managerItems.some((item) => item.path === '/manage/factory/destinations'), true)
+  assert.equal(managerItems.some((item) => item.path === '/manage/factory/exceptions'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/ai-assistant'), true)
   assert.equal(managerItems.some((item) => item.path === '/manage/ingestion'), false)
+
+  for (const retiredLabel of ['班次中心', '填报审核', '导入历史', '别名映射', '系统设置', '权限治理', '成本核算与效益中心']) {
+    assert.equal(managerGroups.some((group) => group.label === retiredLabel || group.commandGroup === retiredLabel), false)
+    assert.equal(managerItems.some((item) => item.title === retiredLabel || item.shortLabel === retiredLabel), false)
+  }
+})
+
+test('admin navigation keeps necessary configuration without exposing low frequency fragments', () => {
+  const adminGroups = manageNavGroups({
+    canAccessReviewSurface: true,
+    reviewSurface: true,
+    canAccessDesktopConfig: true,
+    adminSurface: true,
+    isAdmin: true
+  })
+  const adminItems = adminGroups.flatMap((group) => group.items)
+
+  assert.equal(adminItems.some((item) => item.title === '主数据与模板中心'), true)
+  assert.equal(adminItems.some((item) => item.title === '用户管理'), true)
+  assert.equal(adminItems.some((item) => item.title.includes('数据接入')), true)
+  assert.equal(adminItems.some((item) => item.title === '导入历史'), false)
+  assert.equal(adminItems.some((item) => item.title === '别名映射'), false)
+  assert.equal(adminItems.some((item) => item.title === '系统设置'), false)
+  assert.equal(adminItems.some((item) => item.title.includes('权限与治理')), false)
+})
+
+test('legacy shift management path redirects into master data', () => {
+  assert.match(routerSource, /path: 'shift', redirect: '\/manage\/master'/)
 })
