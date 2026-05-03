@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_password_hash
@@ -272,50 +273,64 @@ def sync_dingtalk_users(
         if has_binding_conflict:
             skipped_count += 1
             continue
-        if user is None:
-            username = contact.get('mobile') or contact.get('dingtalk_user_id') or contact.get('dingtalk_union_id')
-            if not username or db.query(User).filter(User.username == username).first() is not None:
-                skipped_count += 1
-                continue
-            user = User(
-                username=username,
-                password_hash=get_password_hash(secrets.token_urlsafe(24)),
-                name=contact.get('name') or username,
-                role=payload.role,
-                dingtalk_user_id=contact.get('dingtalk_user_id'),
-                dingtalk_union_id=contact.get('dingtalk_union_id'),
-                data_scope_type=_resolve_scope_type(
-                    role=payload.role,
-                    workshop_id=None,
-                    team_id=None,
-                    is_reviewer=False,
-                    is_manager=False,
-                ),
-                is_mobile_user=payload.is_mobile_user,
-                is_reviewer=False,
-                is_manager=False,
-                is_active=True,
-            )
-            db.add(user)
-            db.flush()
-            created_count += 1
-        else:
-            changed = False
-            if contact.get('name') and user.name != contact['name']:
-                user.name = contact['name']
-                changed = True
-            if contact.get('dingtalk_user_id') and user.dingtalk_user_id != contact['dingtalk_user_id']:
-                user.dingtalk_user_id = contact['dingtalk_user_id']
-                changed = True
-            if contact.get('dingtalk_union_id') and user.dingtalk_union_id != contact['dingtalk_union_id']:
-                user.dingtalk_union_id = contact['dingtalk_union_id']
-                changed = True
-            if payload.is_mobile_user and not user.is_mobile_user:
-                user.is_mobile_user = True
-                changed = True
-            if changed:
-                db.flush()
-                updated_count += 1
+        if dingtalk_service.has_dingtalk_binding_conflict(
+            db,
+            dingtalk_user_id=contact.get('dingtalk_user_id'),
+            dingtalk_union_id=contact.get('dingtalk_union_id'),
+            target_user_id=int(user.id) if user is not None else None,
+        ):
+            skipped_count += 1
+            continue
+
+        try:
+            with db.begin_nested():
+                if user is None:
+                    username = contact.get('mobile') or contact.get('dingtalk_user_id') or contact.get('dingtalk_union_id')
+                    if not username or db.query(User).filter(User.username == username).first() is not None:
+                        skipped_count += 1
+                        continue
+                    user = User(
+                        username=username,
+                        password_hash=get_password_hash(secrets.token_urlsafe(24)),
+                        name=contact.get('name') or username,
+                        role=payload.role,
+                        dingtalk_user_id=contact.get('dingtalk_user_id'),
+                        dingtalk_union_id=contact.get('dingtalk_union_id'),
+                        data_scope_type=_resolve_scope_type(
+                            role=payload.role,
+                            workshop_id=None,
+                            team_id=None,
+                            is_reviewer=False,
+                            is_manager=False,
+                        ),
+                        is_mobile_user=payload.is_mobile_user,
+                        is_reviewer=False,
+                        is_manager=False,
+                        is_active=True,
+                    )
+                    db.add(user)
+                    db.flush()
+                    created_count += 1
+                else:
+                    changed = False
+                    if contact.get('name') and user.name != contact['name']:
+                        user.name = contact['name']
+                        changed = True
+                    if contact.get('dingtalk_user_id') and user.dingtalk_user_id != contact['dingtalk_user_id']:
+                        user.dingtalk_user_id = contact['dingtalk_user_id']
+                        changed = True
+                    if contact.get('dingtalk_union_id') and user.dingtalk_union_id != contact['dingtalk_union_id']:
+                        user.dingtalk_union_id = contact['dingtalk_union_id']
+                        changed = True
+                    if payload.is_mobile_user and not user.is_mobile_user:
+                        user.is_mobile_user = True
+                        changed = True
+                    if changed:
+                        db.flush()
+                        updated_count += 1
+        except IntegrityError:
+            skipped_count += 1
+            continue
         users.append(_serialize_synced_user(user))
 
     record_entity_change(

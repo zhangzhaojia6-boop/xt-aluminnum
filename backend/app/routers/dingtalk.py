@@ -12,6 +12,7 @@ from urllib import request as urllib_request
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -111,10 +112,24 @@ async def dingtalk_login(req: DingtalkLoginRequest, db: Session = Depends(get_db
             detail=f"钉钉用户 {nick or union_id[:8]} 未绑定系统账号，请联系管理员。",
         )
 
+    try:
+        dingtalk_service.ensure_dingtalk_binding_available(
+            db,
+            user,
+            dingtalk_user_id=open_id,
+            dingtalk_union_id=union_id,
+        )
+    except dingtalk_service.DingTalkUserAmbiguous as exc:
+        raise HTTPException(status_code=409, detail="钉钉账号绑定异常，请联系管理员。") from exc
+
     if not user.dingtalk_union_id:
         user.dingtalk_union_id = union_id
     user.last_login = datetime.now(timezone.utc)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="钉钉账号绑定异常，请联系管理员。") from exc
 
     token = create_access_token(user.id)
     log_action(

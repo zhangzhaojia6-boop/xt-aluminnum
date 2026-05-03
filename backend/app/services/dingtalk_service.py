@@ -7,6 +7,8 @@ import logging
 import time
 from urllib import parse, request
 
+from sqlalchemy.exc import IntegrityError
+
 from app.config import settings
 from app.core.auth import create_access_token
 from app.database import get_sessionmaker
@@ -84,6 +86,50 @@ def resolve_unique_dingtalk_user(
     if union_id and user.dingtalk_union_id and user.dingtalk_union_id != union_id:
         raise DingTalkUserAmbiguous(user_id, union_id)
     return user
+
+
+def has_dingtalk_binding_conflict(
+    db,
+    *,
+    dingtalk_user_id: str | None,
+    dingtalk_union_id: str | None = None,
+    target_user_id: int | None = None,
+) -> bool:
+    values = (
+        (User.dingtalk_user_id, str(dingtalk_user_id or '').strip()),
+        (User.dingtalk_union_id, str(dingtalk_union_id or '').strip()),
+    )
+    for column, value in values:
+        if not value:
+            continue
+        query = db.query(User).filter(column == value)
+        if target_user_id is not None:
+            query = query.filter(User.id != target_user_id)
+        if query.first() is not None:
+            return True
+    return False
+
+
+def ensure_dingtalk_binding_available(
+    db,
+    user: User,
+    *,
+    dingtalk_user_id: str | None,
+    dingtalk_union_id: str | None = None,
+) -> None:
+    user_id = str(dingtalk_user_id or '').strip()
+    union_id = str(dingtalk_union_id or '').strip() or None
+    if user_id and user.dingtalk_user_id and user.dingtalk_user_id != user_id:
+        raise DingTalkUserAmbiguous(user_id, union_id)
+    if union_id and user.dingtalk_union_id and user.dingtalk_union_id != union_id:
+        raise DingTalkUserAmbiguous(user_id, union_id)
+    if has_dingtalk_binding_conflict(
+        db,
+        dingtalk_user_id=user_id,
+        dingtalk_union_id=union_id,
+        target_user_id=int(user.id),
+    ):
+        raise DingTalkUserAmbiguous(user_id, union_id)
 
 
 class DingTalkService:
@@ -269,12 +315,22 @@ class DingTalkService:
         if user is None:
             raise DingTalkUserNotBound(user_id, union_id)
 
+        ensure_dingtalk_binding_available(
+            db,
+            user,
+            dingtalk_user_id=user_id,
+            dingtalk_union_id=union_id,
+        )
         if user_id and not user.dingtalk_user_id:
             user.dingtalk_user_id = user_id
         if union_id and not user.dingtalk_union_id:
             user.dingtalk_union_id = union_id
         user.last_login = datetime.now(timezone.utc)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise DingTalkUserAmbiguous(user_id, union_id) from exc
         db.refresh(user)
         return user, create_access_token(subject=str(user.id))
 

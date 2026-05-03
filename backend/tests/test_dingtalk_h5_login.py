@@ -40,6 +40,7 @@ def _seed_user(
     username: str = 'leader_100',
     dingtalk_user_id: str | None = 'dt_100',
     dingtalk_union_id: str | None = None,
+    is_active: bool = True,
 ) -> User:
     user = User(
         username=username,
@@ -50,7 +51,7 @@ def _seed_user(
         dingtalk_union_id=dingtalk_union_id,
         data_scope_type='self_team',
         is_mobile_user=True,
-        is_active=True,
+        is_active=is_active,
     )
     db.add(user)
     db.flush()
@@ -128,6 +129,39 @@ def test_h5_login_rejects_conflicting_userid_and_unionid_bindings(tmp_path, monk
 
     assert response.status_code == 409
     assert response.json()['detail']['code'] == 'dingtalk_user_ambiguous'
+
+
+def test_h5_login_rejects_inactive_stale_union_binding(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        active_user = _seed_user(db, username='leader_203', dingtalk_user_id='dt_stale', dingtalk_union_id=None)
+        _seed_user(
+            db,
+            username='leader_204',
+            dingtalk_user_id='dt_old',
+            dingtalk_union_id='union_stale',
+            is_active=False,
+        )
+        db.commit()
+
+    monkeypatch.setattr(dingtalk_service.service, 'is_h5_configured', lambda: True)
+    monkeypatch.setattr(
+        dingtalk_service.service,
+        'exchange_code',
+        lambda _code: {'userid': 'dt_stale', 'unionid': 'union_stale'},
+    )
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post('/api/v1/dingtalk/h5-login', json={'code': 'abc'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail']['code'] == 'dingtalk_user_ambiguous'
+    with session_factory() as db:
+        user = db.get(User, active_user.id)
+        assert user is not None
+        assert user.dingtalk_union_id is None
 
 
 def test_h5_login_returns_login_response_shape(tmp_path, monkeypatch) -> None:

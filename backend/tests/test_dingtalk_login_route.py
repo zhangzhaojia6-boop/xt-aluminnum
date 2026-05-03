@@ -160,6 +160,34 @@ def test_dingtalk_login_rejects_conflicting_userid_and_unionid_bindings(tmp_path
     assert "绑定异常" in response.json()["detail"]
 
 
+def test_dingtalk_login_rejects_inactive_stale_union_binding(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        user = _seed_user(db, username="leader_203", dingtalk_user_id="wx_stale")
+        _seed_user(
+            db,
+            username="leader_204",
+            dingtalk_user_id="wx_old",
+            dingtalk_union_id="union-stale",
+            is_active=False,
+        )
+        db.commit()
+
+    _patch_dingtalk_login(monkeypatch, open_id="wx_stale", union_id="union-stale")
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post("/api/v1/dingtalk/login", json={"code": "abc"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "绑定异常" in response.json()["detail"]
+    with session_factory() as db:
+        stored = db.get(User, user.id)
+        assert stored is not None
+        assert stored.dingtalk_union_id is None
+
+
 def test_dingtalk_login_returns_503_when_disabled(tmp_path, monkeypatch) -> None:
     session_factory = _session_factory(tmp_path)
     monkeypatch.setattr("app.routers.dingtalk.settings.DINGTALK_APP_KEY", "")
