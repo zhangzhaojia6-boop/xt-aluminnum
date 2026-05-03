@@ -16,6 +16,7 @@ test('scan lookup composable supports dingtalk and browser scanners', () => {
   assert.match(scanLookupSource, /useScanLookup/)
   assert.match(scanLookupSource, /dd\.biz\.util\.scan/)
   assert.match(scanLookupSource, /BarcodeDetector/)
+  assert.match(scanLookupSource, /const canScan = computed\(\(\) => Boolean\(dingtalkScanner\(\)\)\)/)
 })
 
 test('coil entry workbench applies scanned fields and locked snapshot', () => {

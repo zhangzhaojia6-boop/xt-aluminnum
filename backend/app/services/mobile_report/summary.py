@@ -427,7 +427,8 @@ def _validate_locked_fields(payload: dict) -> list[str]:
     tampered: list[str] = []
     for key, expected in snapshot.items():
         current, found = _locked_payload_value(payload, str(key))
-        if not found:
+        if not found and _normalized_locked_value(expected):
+            tampered.append(str(key))
             continue
         if _normalized_locked_value(current) != _normalized_locked_value(expected):
             tampered.append(str(key))

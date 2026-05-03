@@ -136,3 +136,32 @@ def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.json()['tracking_card_no'] == 'TRACK-LOCK-2'
+
+
+def test_mobile_coil_entry_rejects_missing_locked_flow_fields(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-LOCK-3',
+                'alloy_grade': '6061',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+                'locked_fields_snapshot': {
+                    'tracking_card_no': 'TRACK-LOCK-3',
+                    'current_process': '冷轧',
+                    'next_process': '退火',
+                },
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'locked_field_tampered'

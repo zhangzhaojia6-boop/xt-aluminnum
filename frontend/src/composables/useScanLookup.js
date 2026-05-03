@@ -39,7 +39,7 @@ async function scanWithBarcodeDetector() {
 
 export function useScanLookup() {
   const scanning = ref(false)
-  const canScan = computed(() => Boolean(dingtalkScanner()) || hasBrowserDetector())
+  const canScan = computed(() => Boolean(dingtalkScanner()))
 
   async function scanLookup(qr) {
     const value = qr || (dingtalkScanner() ? await scanWithDingtalk() : await scanWithBarcodeDetector())
