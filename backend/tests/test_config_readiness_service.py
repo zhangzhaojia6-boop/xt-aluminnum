@@ -45,7 +45,11 @@ def test_inspect_pilot_config_reports_hard_issues_when_base_config_missing() -> 
     assert "NO_ACTIVE_WORKSHOP" in hard_codes
     assert "NO_ACTIVE_SHIFT" in hard_codes
     assert "NO_MOBILE_USER" in hard_codes
-    assert "SCHEDULE_EMPTY" in hard_codes
+    assert "SCHEDULE_EMPTY" not in hard_codes
+    warning_codes = {item["code"] for item in result["warning_issues"]}
+    assert "SCHEDULE_EMPTY" in warning_codes
+    assert result["checks"]["schedule"]["status"] == "warning"
+    assert result["checks"]["schedule"]["action_required"] == "seed_schedule"
 
 
 def test_inspect_pilot_config_passes_with_minimum_valid_setup() -> None:
@@ -174,6 +178,181 @@ def test_inspect_pilot_config_allows_warning_only_gate() -> None:
     assert result["hard_issues"] == []
     warning_codes = {item["code"] for item in result["warning_issues"]}
     assert warning_codes == {"NO_ACTIVE_EQUIPMENT"}
+
+
+def test_inspect_pilot_config_warns_when_no_equipment_user_bindings() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    user = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=None,
+        is_active=True,
+    )
+    schedule = SimpleNamespace(
+        business_date=date(2026, 4, 6),
+        shift_config_id=11,
+        workshop_id=1,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [user],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is True
+    assert result["checks"]["equipment_binding"]["status"] == "warning"
+    warning_codes = {item["code"] for item in result["warning_issues"]}
+    assert "EQUIPMENT_USER_BINDING_EMPTY" in warning_codes
+
+
+def test_inspect_pilot_config_errors_when_equipment_binding_points_to_missing_user() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    user = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=999,
+        is_active=True,
+    )
+    schedule = SimpleNamespace(
+        business_date=date(2026, 4, 6),
+        shift_config_id=11,
+        workshop_id=1,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [user],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is False
+    assert result["checks"]["equipment_binding"]["status"] == "error"
+    hard_codes = {item["code"] for item in result["hard_issues"]}
+    assert "EQUIPMENT_USER_BINDING_INVALID" in hard_codes
+
+
+def test_inspect_pilot_config_warns_when_no_schedule_data_exists() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    user = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=7,
+        is_active=True,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [user],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is True
+    assert result["checks"]["schedule"]["status"] == "warning"
+    assert result["checks"]["schedule"]["action_required"] == "seed_schedule"
+    warning_codes = {item["code"] for item in result["warning_issues"]}
+    assert "SCHEDULE_EMPTY" in warning_codes
+
+
+def test_inspect_pilot_config_errors_when_schedule_exists_but_target_date_is_empty() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    user = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=7,
+        is_active=True,
+    )
+    old_schedule = SimpleNamespace(
+        business_date=date(2026, 4, 5),
+        shift_config_id=11,
+        workshop_id=1,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [user],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [old_schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is False
+    assert result["checks"]["schedule"]["status"] == "error"
+    hard_codes = {item["code"] for item in result["hard_issues"]}
+    assert "SCHEDULE_EMPTY" in hard_codes
 
 
 def test_inspect_pilot_config_accepts_inactive_same_workshop_machine_binding() -> None:

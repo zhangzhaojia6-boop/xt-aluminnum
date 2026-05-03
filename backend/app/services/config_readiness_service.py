@@ -54,10 +54,84 @@ def _issue(
     return payload
 
 
+def evaluate_equipment_binding(equipment_rows: list[Any], user_map: dict[int, Any]) -> dict[str, Any]:
+    """Evaluate machine-user binding readiness without blocking empty rollout data."""
+
+    if not equipment_rows:
+        return {
+            "status": "warning",
+            "action_required": "seed_equipment",
+            "detail": "no_active_equipment",
+        }
+
+    bound_rows = [item for item in equipment_rows if item.bound_user_id is not None]
+    if not bound_rows:
+        return {
+            "status": "warning",
+            "action_required": "bind_machine_users",
+            "detail": "no_equipment_user_binding",
+        }
+
+    bad_binding: list[str] = []
+    for item in bound_rows:
+        user = user_map.get(item.bound_user_id)
+        if user is None:
+            bad_binding.append(f"{item.code}({item.name})")
+            continue
+        if user.workshop_id != item.workshop_id:
+            bad_binding.append(f"{item.code}({item.name})")
+
+    if bad_binding:
+        return {
+            "status": "error",
+            "action_required": "fix_machine_user_binding",
+            "detail": "invalid_equipment_user_binding",
+            "sample": bad_binding,
+        }
+
+    return {
+        "status": "ok",
+        "action_required": None,
+        "detail": "bound_machine_users_available",
+    }
+
+
+def evaluate_schedule(schedule_rows: list[Any], *, target_date: date) -> dict[str, Any]:
+    """Differentiate first-run empty schedule data from missing target-day data."""
+
+    if not schedule_rows:
+        return {
+            "status": "warning",
+            "action_required": "seed_schedule",
+            "detail": "no_schedule_data",
+            "target_date": target_date.isoformat(),
+            "rows": [],
+        }
+
+    target_rows = [row for row in schedule_rows if row.business_date == target_date]
+    if not target_rows:
+        return {
+            "status": "error",
+            "action_required": "seed_schedule",
+            "detail": "target_date_schedule_empty",
+            "target_date": target_date.isoformat(),
+            "rows": [],
+        }
+
+    return {
+        "status": "ok",
+        "action_required": None,
+        "detail": "target_date_schedule_available",
+        "target_date": target_date.isoformat(),
+        "rows": target_rows,
+    }
+
+
 def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
     """检查试点运行必需配置是否完整。"""
 
     issues: list[dict[str, Any]] = []
+    checks: dict[str, dict[str, Any]] = {}
 
     workshops = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_ids = {item.id for item in workshops}
@@ -171,32 +245,47 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
             )
 
         user_map = {item.id: item for item in db.query(User).all()}
-        bad_binding = []
-        for item in equipment_rows:
-            if item.bound_user_id is None:
-                continue
-            user = user_map.get(item.bound_user_id)
-            if user is None:
-                bad_binding.append(f"{item.code}({item.name})")
-                continue
-            if user.workshop_id != item.workshop_id:
-                bad_binding.append(f"{item.code}({item.name})")
-        if bad_binding:
+        equipment_binding = evaluate_equipment_binding(equipment_rows, user_map)
+        checks["equipment_binding"] = {
+            key: value
+            for key, value in equipment_binding.items()
+            if key != "rows"
+        }
+        if equipment_binding["status"] == "error":
             issues.append(
                 _issue(
                     level="hard",
                     code="EQUIPMENT_USER_BINDING_INVALID",
                     message="存在机台账号绑定异常（账号不存在或跨车间绑定）。",
                     suggestion="请重新绑定机台账号，保证账号与设备在同一车间。",
-                    sample=bad_binding,
+                    sample=equipment_binding.get("sample", []),
                 )
             )
+        elif equipment_binding["detail"] == "no_equipment_user_binding":
+            issues.append(
+                _issue(
+                    level="warning",
+                    code="EQUIPMENT_USER_BINDING_EMPTY",
+                    message="启用设备尚未绑定机台账号。",
+                    suggestion="可继续启动试点；如采用机台填报，请逐台绑定机台账号。",
+                )
+            )
+    if "equipment_binding" not in checks:
+        checks["equipment_binding"] = {
+            "status": "warning",
+            "action_required": "seed_equipment",
+            "detail": "no_active_equipment",
+        }
 
-    schedules = db.query(AttendanceSchedule).filter(AttendanceSchedule.business_date == target_date).all()
+    schedule_rows = db.query(AttendanceSchedule).all()
+    schedule_check = evaluate_schedule(schedule_rows, target_date=target_date)
+    schedules = schedule_check.pop("rows")
+    checks["schedule"] = schedule_check
     if not schedules:
+        issue_level = "warning" if schedule_check["status"] == "warning" else "hard"
         issues.append(
             _issue(
-                level="hard",
+                level=issue_level,
                 code="SCHEDULE_EMPTY",
                 message=f"{target_date.isoformat()} 的应报清单为空。",
                 suggestion="请先导入或生成当日排班/应报清单，再开始试点。",
@@ -258,6 +347,7 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
         "hard_gate_passed": len(hard_issues) == 0,
         "hard_issues": hard_issues,
         "warning_issues": warning_issues,
+        "checks": checks,
         "stats": {
             "active_workshop_count": len(workshops),
             "active_shift_count": len(shifts),

@@ -81,6 +81,34 @@ def test_build_readiness_payload_includes_pipeline_gate(monkeypatch):
     assert payload["details"]["pipeline"]["hard_issues"][0]["code"] == "SCHEDULE_EMPTY"
 
 
+def test_build_readiness_payload_keeps_warning_pipeline_ready(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", True)
+    monkeypatch.setattr(
+        "app.core.health.inspect_pipeline_readiness",
+        lambda target_date=None: {
+            "target_date": "2026-04-06",
+            "hard_gate_passed": True,
+            "hard_issues": [],
+            "warning_issues": [{"code": "SCHEDULE_EMPTY"}],
+            "checks": {
+                "equipment_binding": {"status": "warning", "action_required": "bind_machine_users"},
+                "schedule": {"status": "warning", "action_required": "seed_schedule"},
+            },
+            "stats": {},
+        },
+    )
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is True
+    assert payload["status"] == "ready"
+    assert payload["checks"]["pipeline"] == "warning"
+    assert payload["checks"]["equipment_binding"] == "warning"
+    assert payload["checks"]["schedule"] == "warning"
+
+
 def test_build_readiness_payload_includes_mes_sync_details_when_mes_adapter_enabled(monkeypatch):
     monkeypatch.setattr("app.core.health._check_database", lambda: None)
     monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)

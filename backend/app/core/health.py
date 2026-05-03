@@ -86,8 +86,14 @@ def build_readiness_payload() -> tuple[bool, dict]:
         try:
             pipeline_payload = inspect_pipeline_readiness()
             details['pipeline'] = pipeline_payload
+            for check_name, check_payload in (pipeline_payload.get('checks') or {}).items():
+                if isinstance(check_payload, dict) and check_payload.get('status'):
+                    checks[check_name] = str(check_payload['status'])
             if pipeline_payload.get('hard_gate_passed'):
-                checks['pipeline'] = 'ok'
+                if pipeline_payload.get('warning_issues'):
+                    checks['pipeline'] = 'warning'
+                else:
+                    checks['pipeline'] = 'ok'
             else:
                 ready = False
                 checks['pipeline'] = 'blocked'
