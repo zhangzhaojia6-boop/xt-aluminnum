@@ -105,4 +105,5 @@ test('unified entry form keeps scanned per-coil fields readonly', () => {
   assert.match(unifiedEntrySource, /isLockedField\(field\.name\)/)
   assert.match(unifiedEntrySource, /locked_fields_snapshot/)
   assert.match(unifiedEntrySource, /locked_fields_token/)
+  assert.match(unifiedEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)
 })

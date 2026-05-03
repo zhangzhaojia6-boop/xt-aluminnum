@@ -9,6 +9,27 @@ from app.rules.thresholds import DEFAULT_THRESHOLDS
 from app.services import rule_config_service
 
 
+class _CountingQuery:
+    def __init__(self, db):
+        self.db = db
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        self.db.first_calls += 1
+        return self.db.row
+
+
+class _CountingDB:
+    def __init__(self, row):
+        self.row = row
+        self.first_calls = 0
+
+    def query(self, *args, **kwargs):
+        return _CountingQuery(self)
+
+
 def build_sessionmaker(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'rule-config-service.db'}", future=True)
     Base.metadata.create_all(engine, tables=[RuleConfig.__table__])
@@ -59,6 +80,29 @@ def test_get_threshold_prefers_workshop_then_factory_then_fallback(tmp_path) -> 
         assert rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01', db=db) == 50
         assert rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ02', db=db) == 80
         assert rule_config_service.get_threshold('MIN_ATTENDANCE', workshop_code='LZ01', db=db) == DEFAULT_THRESHOLDS['MIN_ATTENDANCE']
+
+
+def test_db_backed_threshold_lookup_uses_ttl_cache() -> None:
+    rule_config_service.invalidate_cache()
+    db = _CountingDB(row=RuleConfig(scope_type='workshop', scope_key='LZ01', key='MAX_SINGLE_SHIFT_WEIGHT', value='50', value_type='int'))
+
+    first = rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01', db=db)
+    second = rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01', db=db)
+
+    assert first == 50
+    assert second == 50
+    assert db.first_calls == 1
+
+
+def test_db_backed_threshold_lookup_ignores_runtime_fallback_cache() -> None:
+    rule_config_service.invalidate_cache()
+    assert rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01') == DEFAULT_THRESHOLDS['MAX_SINGLE_SHIFT_WEIGHT']
+    db = _CountingDB(row=RuleConfig(scope_type='workshop', scope_key='LZ01', key='MAX_SINGLE_SHIFT_WEIGHT', value='50', value_type='int'))
+
+    value = rule_config_service.get_threshold('MAX_SINGLE_SHIFT_WEIGHT', workshop_code='LZ01', db=db)
+
+    assert value == 50
+    assert db.first_calls == 1
 
 
 def test_set_threshold_invalidates_cache_immediately(tmp_path) -> None:

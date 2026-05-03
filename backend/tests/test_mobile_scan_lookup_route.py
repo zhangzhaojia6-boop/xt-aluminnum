@@ -78,7 +78,11 @@ def test_mobile_scan_lookup_route_returns_header_fields(tmp_path) -> None:
     assert payload['header_fields']['input_spec'] == '1.2×1200'
     locked_fields = verify_locked_fields_token(payload['lock_token'])
     assert locked_fields['tracking_card_no'] == 'TRACK-ROUTE-1'
-    assert locked_fields['current_process'] == '冷轧'
+    assert locked_fields == {
+        'tracking_card_no': 'TRACK-ROUTE-1',
+        'alloy_grade': '6061',
+        'input_spec': '1.2×1200',
+    }
 
 
 def test_mobile_scan_lookup_route_returns_readable_404(tmp_path) -> None:

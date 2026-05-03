@@ -30,7 +30,7 @@ class _CachedValue:
     resolved: ResolvedThreshold
 
 
-_CACHE: dict[tuple[str | None, str], _CachedValue] = {}
+_CACHE: dict[tuple[str | None, str, str], _CachedValue] = {}
 
 
 def invalidate_cache() -> None:
@@ -120,13 +120,13 @@ def _load_resolved_threshold(db: Session, *, key: str, workshop_code: str | None
 def resolve_threshold(key: str, *, workshop_code: str | None = None, db: Session | None = None) -> ResolvedThreshold:
     _default_value(key)
     normalized_workshop = (workshop_code or "").strip() or None
-    cache_key = (normalized_workshop, key)
+    cache_mode = "db" if db is not None else "fallback"
+    cache_key = (normalized_workshop, key, cache_mode)
     now = time.monotonic()
 
-    if db is None:
-        cached = _CACHE.get(cache_key)
-        if cached and cached.expires_at > now:
-            return cached.resolved
+    cached = _CACHE.get(cache_key)
+    if cached and cached.expires_at > now:
+        return cached.resolved
 
     if db is None:
         resolved = _fallback_threshold(key, normalized_workshop)
@@ -138,6 +138,7 @@ def resolve_threshold(key: str, *, workshop_code: str | None = None, db: Session
     except SQLAlchemyError:
         resolved = _fallback_threshold(key, normalized_workshop)
 
+    _CACHE[cache_key] = _CachedValue(expires_at=now + CACHE_TTL_SECONDS, resolved=resolved)
     return resolved
 
 

@@ -8,6 +8,7 @@ from app.database import Base
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesCoilSnapshot
 from app.services import scan_lookup_service
+from app.services.locked_fields_service import verify_locked_fields_token
 
 
 def _session_factory(tmp_path):
@@ -62,8 +63,13 @@ def test_scan_lookup_hits_mes_coil_qr_first(tmp_path) -> None:
     assert payload['header_fields']['next_workshop'] == '退火车间'
     assert payload['header_fields']['next_process'] == '退火'
     assert payload['header_fields']['material_weight'] == 1580.0
-    assert 'tracking_card_no' in payload['lock_keys']
-    assert 'alloy_grade' in payload['lock_keys']
+    assert payload['lock_keys'] == ['tracking_card_no', 'alloy_grade', 'input_spec']
+    locked_fields = verify_locked_fields_token(payload['lock_token'])
+    assert locked_fields == {
+        'tracking_card_no': 'TRACK-QR-1',
+        'alloy_grade': '6061',
+        'input_spec': '1.2×1200',
+    }
 
 
 def test_scan_lookup_hits_tracking_card_first_snapshot_when_qr_misses(tmp_path) -> None:
@@ -112,7 +118,8 @@ def test_scan_lookup_hits_equipment_qr(tmp_path) -> None:
         'equipment_name': '1#机',
         'workshop_id': 1,
     }
-    assert payload['lock_keys'] == ['equipment_code', 'equipment_name', 'workshop_id']
+    assert payload['lock_keys'] == []
+    assert payload['lock_token'] is None
 
 
 def test_scan_lookup_raises_not_found_when_qr_unknown(tmp_path) -> None:

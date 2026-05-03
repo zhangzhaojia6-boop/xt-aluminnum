@@ -16,7 +16,6 @@ from app.services.mes_sync_service import latest_sync_status
 
 DEFAULT_COIL_LIST_LIMIT = 100
 MAX_COIL_LIST_LIMIT = 500
-PROJECTION_FALLBACK_STATUSES = {'unconfigured', 'migration_missing', 'failed'}
 LOCAL_SHIFT_STATUSES = {'confirmed', 'submitted'}
 LOCAL_MOBILE_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 
@@ -158,7 +157,8 @@ def _projection_available(db: Session) -> bool:
 
 
 def _should_use_local_shift_data(db: Session, freshness: Mapping[str, Any]) -> bool:
-    return freshness.get('status') in PROJECTION_FALLBACK_STATUSES and not _projection_available(db)
+    _ = freshness
+    return not _projection_available(db)
 
 
 def _local_freshness(freshness: Mapping[str, Any]) -> dict[str, Any]:

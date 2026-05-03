@@ -182,6 +182,33 @@ def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(m
     ]
 
 
+def test_factory_overview_falls_back_to_local_shift_data_when_fresh_projection_is_empty(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
+        shift_rows=[
+            _shift_data(input_weight=11.0, output_weight=9.5, qualified_weight=9.3),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T08:00:00+00:00',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'local_shift_data'
+    assert overview['freshness']['source'] == 'local_shift_data'
+    assert overview['total_input_tons'] == 11.0
+    assert overview['total_output_tons'] == 9.5
+
+
 def test_factory_lists_fall_back_to_local_shift_data_when_projection_empty(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],

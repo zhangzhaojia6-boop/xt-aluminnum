@@ -490,6 +490,7 @@ async function handleSubmit() {
         form[key] = typeof form[key] === 'number' ? null : ''
       }
       lockedFieldsSnapshot.value = {}
+      lockedFieldsToken.value = ''
     } else {
       const payload = buildMobileReportPayload(sc)
       await saveMobileReport(payload)

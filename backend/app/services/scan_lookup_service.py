@@ -9,6 +9,8 @@ from app.models.master import Equipment
 from app.models.mes import MesCoilSnapshot
 from app.services.locked_fields_service import sign_locked_fields
 
+SUBMISSION_LOCK_KEYS = ('tracking_card_no', 'alloy_grade', 'input_spec')
+
 
 class ScanLookupNotFound(RuntimeError):
     pass
@@ -56,11 +58,7 @@ def _coil_payload(row: MesCoilSnapshot, *, source: str) -> dict:
             'material_weight': row.material_weight,
         }
     )
-    lock_keys = [
-        key
-        for key in ('tracking_card_no', 'alloy_grade', 'input_spec', 'current_workshop', 'current_process', 'next_workshop', 'next_process')
-        if header_fields.get(key) not in (None, '')
-    ]
+    lock_keys = [key for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')]
     locked_snapshot = {key: header_fields[key] for key in lock_keys if key in header_fields}
     return {
         'source': source,
@@ -81,8 +79,8 @@ def _machine_payload(row: Equipment) -> dict:
     return {
         'source': 'machine_identity',
         'header_fields': header_fields,
-        'lock_keys': list(header_fields.keys()),
-        'lock_token': sign_locked_fields(header_fields) if header_fields else None,
+        'lock_keys': [],
+        'lock_token': None,
     }
 
 

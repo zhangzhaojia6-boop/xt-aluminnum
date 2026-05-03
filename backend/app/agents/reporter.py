@@ -114,7 +114,11 @@ class ReporterAgent(BaseAgent):
 
         channel, identity = _resolve_notify_identity(user)
         if channel == "dingtalk":
-            return dingtalk_service.send_work_notification(identity, content)
+            ok, detail = dingtalk_service.send_work_notification(identity, content)
+            if ok:
+                return ok, detail
+            self.logger.info("[notify] %s | %s", identity, content)
+            return True, f"stdout_sink_after_dingtalk_failed:{detail}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"
