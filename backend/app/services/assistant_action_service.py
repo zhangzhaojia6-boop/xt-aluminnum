@@ -124,12 +124,25 @@ ACTION_REGISTRY: dict[str, ActionHandler] = {
     'call_reminder': _call_reminder,
     'call_aggregator': _call_aggregator,
 }
+GLOBAL_ACTIONS = {'call_reconciler', 'call_aggregator'}
+ACTION_MANAGER_ROLES = {'admin', 'manager', 'factory_director', 'senior_manager'}
 
 
 def _require_admin_or_manager(user: User) -> None:
     role = getattr(user, 'role', '')
-    if role not in {'admin', 'manager'} and not bool(getattr(user, 'is_manager', False)):
+    if role not in ACTION_MANAGER_ROLES and not bool(getattr(user, 'is_manager', False)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='仅管理员或管理者可处置')
+
+
+def _raw_data_scope_type(user: User) -> str:
+    return str(getattr(user, 'data_scope_type', '') or '').strip().lower()
+
+
+def _has_explicit_global_action_scope(user: User, scope: ScopeSummary) -> bool:
+    role = str(getattr(user, 'role', '') or '').strip()
+    if scope.is_admin or role in {'factory_director', 'senior_manager'}:
+        return True
+    return _raw_data_scope_type(user) == 'all' and (role == 'manager' or bool(getattr(user, 'is_manager', False)))
 
 
 def _row_matches_scope(scope: ScopeSummary, row) -> bool:
@@ -171,10 +184,12 @@ def _shift_in_scope(db: Session, *, shift_config_id: int, scope: ScopeSummary) -
 
 def _require_action_scope(db: Session, *, user: User, action: str, payload: dict[str, Any]) -> None:
     scope = build_scope_summary(user)
-    if scope.is_admin or scope.data_scope_type == 'all':
+    if scope.is_admin or _has_explicit_global_action_scope(user, scope):
         return
+    if scope.data_scope_type == 'all':
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号未绑定处置范围')
 
-    if action in {'call_reconciler', 'call_aggregator'}:
+    if action in GLOBAL_ACTIONS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权执行全厂处置')
 
     if action == 'call_validator':

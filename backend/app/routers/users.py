@@ -152,7 +152,7 @@ def _find_dingtalk_sync_user(db: Session, contact: dict[str, str | None]) -> tup
                 candidates[int(user.id)] = user
             else:
                 inactive_candidate_found = True
-    for username in (mobile, user_id):
+    for username in (mobile,):
         if username:
             for user in _find_users_by_field(db, User.username, username):
                 if user.is_active:

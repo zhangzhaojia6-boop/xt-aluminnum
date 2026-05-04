@@ -113,6 +113,42 @@ def test_mobile_coil_entry_rejects_snapshot_without_lock_token(tmp_path) -> None
     assert response.json()['detail'] == 'locked_field_tampered'
 
 
+def test_mobile_coil_entry_rejects_registered_coil_tamper_without_lock_token(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-LOCK-REGISTERED',
+                tracking_card_no='TRACK-REGISTERED-1',
+                qr_code='QR-REGISTERED-1',
+                alloy_grade='6061',
+                spec_display='1.2×1200',
+            )
+        )
+        db.commit()
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-REGISTERED-1',
+                'alloy_grade': '7075',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'locked_field_tampered'
+
+
 def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)

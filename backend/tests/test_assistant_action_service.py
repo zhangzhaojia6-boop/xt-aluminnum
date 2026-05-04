@@ -69,7 +69,7 @@ def test_execute_action_routes_to_registered_agent_and_logs(monkeypatch) -> None
 
     result = assistant_action_service.execute_action(
         db=db,
-        user=SimpleNamespace(id=7, role='manager'),
+        user=SimpleNamespace(id=7, role='manager', data_scope_type='all'),
         action_payload={'action': 'call_reconciler', 'target_type': 'business_date', 'target_id': '2026-05-03'},
     )
 
@@ -78,6 +78,32 @@ def test_execute_action_routes_to_registered_agent_and_logs(monkeypatch) -> None
     assert events[0][0] == 'assistant_action_invoked'
     assert events[0][1]['user_id'] == 7
     assert events[0][1]['success'] is True
+
+
+def test_execute_action_rejects_implicit_global_manager_without_scope(monkeypatch) -> None:
+    called = False
+
+    def fake_handler(*, db, payload):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(assistant_action_service, 'ACTION_REGISTRY', {'call_reconciler': fake_handler})
+    monkeypatch.setattr(
+        assistant_action_service.pilot_observability_service,
+        'log_pilot_event',
+        lambda *args, **kwargs: None,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        assistant_action_service.execute_action(
+            db=_FakeDB(),
+            user=SimpleNamespace(id=7, role='manager'),
+            action_payload={'action': 'call_reconciler', 'target_type': 'business_date', 'target_id': '2026-05-03'},
+        )
+
+    assert exc.value.status_code == 403
+    assert called is False
 
 
 def test_execute_action_rejects_non_manager_and_logs(monkeypatch) -> None:

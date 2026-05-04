@@ -420,7 +420,7 @@ def _locked_payload_value(payload: dict, key: str):
     return None, False
 
 
-def _trusted_locked_snapshot(payload: dict) -> dict:
+def _trusted_locked_snapshot(db: Session, payload: dict) -> dict:
     token = payload.get('locked_fields_token')
     if token:
         try:
@@ -430,11 +430,16 @@ def _trusted_locked_snapshot(payload: dict) -> dict:
     snapshot = payload.get('locked_fields_snapshot')
     if isinstance(snapshot, dict) and snapshot:
         raise HTTPException(status_code=409, detail='locked_field_tampered')
-    return {}
+    from app.services import scan_lookup_service
+
+    return scan_lookup_service.submission_locked_snapshot_for_tracking_card(
+        db,
+        tracking_card_no=str(payload.get('tracking_card_no') or ''),
+    )
 
 
-def _validate_locked_fields(payload: dict) -> tuple[list[str], dict]:
-    snapshot = _trusted_locked_snapshot(payload)
+def _validate_locked_fields(db: Session, payload: dict) -> tuple[list[str], dict]:
+    snapshot = _trusted_locked_snapshot(db, payload)
     if not snapshot:
         return [], {}
 
@@ -478,7 +483,7 @@ def create_coil_entry(
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
-    locked_fields, locked_snapshot = _validate_locked_fields(payload)
+    locked_fields, locked_snapshot = _validate_locked_fields(db, payload)
     extra_payload = _build_coil_flow_extra_payload(payload, locked_fields_snapshot=locked_snapshot)
 
     entry = WorkOrderEntry(

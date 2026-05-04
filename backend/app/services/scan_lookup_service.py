@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from app.models.master import Equipment
@@ -59,7 +60,7 @@ def _coil_payload(row: MesCoilSnapshot, *, source: str) -> dict:
         }
     )
     lock_keys = [key for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')]
-    locked_snapshot = {key: header_fields[key] for key in lock_keys if key in header_fields}
+    locked_snapshot = _submission_locked_snapshot(header_fields)
     return {
         'source': source,
         'header_fields': header_fields,
@@ -82,6 +83,32 @@ def _machine_payload(row: Equipment) -> dict:
         'lock_keys': [],
         'lock_token': None,
     }
+
+
+def _submission_locked_snapshot(header_fields: dict[str, Any]) -> dict[str, Any]:
+    return {key: header_fields[key] for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')}
+
+
+def _has_coil_snapshot_table(db: Session) -> bool:
+    bind = db.get_bind()
+    return inspect(bind).has_table(MesCoilSnapshot.__tablename__)
+
+
+def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_no: str) -> dict[str, Any]:
+    value = str(tracking_card_no or '').strip()
+    if not value:
+        return {}
+    if not _has_coil_snapshot_table(db):
+        return {}
+    row = (
+        db.query(MesCoilSnapshot)
+        .filter(MesCoilSnapshot.tracking_card_no == value)
+        .order_by(MesCoilSnapshot.id.asc())
+        .first()
+    )
+    if row is None:
+        return {}
+    return _submission_locked_snapshot(_coil_payload(row, source='tracking_card')['header_fields'])
 
 
 def lookup_qr(db: Session, *, qr: str) -> dict:
