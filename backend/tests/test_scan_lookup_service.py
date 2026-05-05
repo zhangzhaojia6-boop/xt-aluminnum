@@ -74,13 +74,29 @@ def test_scan_lookup_hits_mes_coil_qr_first(tmp_path) -> None:
     }
 
 
-def test_scan_lookup_hits_tracking_card_first_snapshot_when_qr_misses(tmp_path) -> None:
+def test_scan_lookup_hits_tracking_card_latest_snapshot_when_qr_misses(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
             [
-                MesCoilSnapshot(coil_id='MES-TC-1', tracking_card_no='TRACK-SAME', qr_code='QR-A', batch_no='FIRST', alloy_grade='3003'),
-                MesCoilSnapshot(coil_id='MES-TC-2', tracking_card_no='TRACK-SAME', qr_code='QR-B', batch_no='SECOND', alloy_grade='5052'),
+                MesCoilSnapshot(
+                    coil_id='MES-TC-1',
+                    tracking_card_no='TRACK-SAME',
+                    qr_code='QR-A',
+                    batch_no='FIRST',
+                    alloy_grade='3003',
+                    spec_display='1.0×1000',
+                    updated_from_mes_at=datetime(2026, 5, 3, 8, tzinfo=timezone.utc),
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES-TC-2',
+                    tracking_card_no='TRACK-SAME',
+                    qr_code='QR-B',
+                    batch_no='SECOND',
+                    alloy_grade='5052',
+                    spec_display='2.0×1200',
+                    updated_from_mes_at=datetime(2026, 5, 3, 9, tzinfo=timezone.utc),
+                ),
             ]
         )
         db.commit()
@@ -89,8 +105,14 @@ def test_scan_lookup_hits_tracking_card_first_snapshot_when_qr_misses(tmp_path) 
         payload = scan_lookup_service.lookup_qr(db, qr='TRACK-SAME')
 
     assert payload['source'] == 'tracking_card'
-    assert payload['header_fields']['batch_no'] == 'FIRST'
-    assert payload['header_fields']['alloy_grade'] == '3003'
+    assert payload['header_fields']['batch_no'] == 'SECOND'
+    assert payload['header_fields']['alloy_grade'] == '5052'
+    locked_fields = verify_locked_fields_token(payload['lock_token'])
+    assert locked_fields == {
+        'tracking_card_no': 'TRACK-SAME',
+        'alloy_grade': '5052',
+        'input_spec': '2.0×1200',
+    }
 
 
 def test_submission_locked_snapshot_uses_latest_mes_snapshot(tmp_path) -> None:

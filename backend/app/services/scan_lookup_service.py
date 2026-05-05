@@ -98,15 +98,10 @@ def _has_coil_snapshot_table(db: Session) -> bool:
     return inspect(bind).has_table(MesCoilSnapshot.__tablename__)
 
 
-def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_no: str) -> dict[str, Any]:
-    value = str(tracking_card_no or '').strip()
-    if not value:
-        return {}
-    if not _has_coil_snapshot_table(db):
-        raise ScanLookupUnavailable('mes_coil_snapshots_missing')
-    row = (
+def _latest_tracking_card_snapshot(db: Session, tracking_card_no: str) -> MesCoilSnapshot | None:
+    return (
         db.query(MesCoilSnapshot)
-        .filter(MesCoilSnapshot.tracking_card_no == value)
+        .filter(MesCoilSnapshot.tracking_card_no == tracking_card_no)
         .order_by(
             MesCoilSnapshot.updated_from_mes_at.is_(None).asc(),
             MesCoilSnapshot.updated_from_mes_at.desc(),
@@ -114,6 +109,15 @@ def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_n
         )
         .first()
     )
+
+
+def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_no: str) -> dict[str, Any]:
+    value = str(tracking_card_no or '').strip()
+    if not value:
+        return {}
+    if not _has_coil_snapshot_table(db):
+        raise ScanLookupUnavailable('mes_coil_snapshots_missing')
+    row = _latest_tracking_card_snapshot(db, value)
     if row is None:
         return {}
     return _submission_locked_snapshot(_coil_payload(row, source='tracking_card')['header_fields'])
@@ -128,12 +132,7 @@ def lookup_qr(db: Session, *, qr: str) -> dict:
     if row is not None:
         return _coil_payload(row, source='coil_snapshot')
 
-    row = (
-        db.query(MesCoilSnapshot)
-        .filter(MesCoilSnapshot.tracking_card_no == value)
-        .order_by(MesCoilSnapshot.id.asc())
-        .first()
-    )
+    row = _latest_tracking_card_snapshot(db, value)
     if row is not None:
         return _coil_payload(row, source='tracking_card')
 

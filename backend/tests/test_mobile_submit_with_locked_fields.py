@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -268,6 +268,57 @@ def test_mobile_coil_entry_accepts_scan_lookup_token_with_submission_fields(tmp_
 
     assert response.status_code == 200
     assert response.json()['tracking_card_no'] == 'TRACK-LOOKUP-1'
+
+
+def test_mobile_coil_entry_rejects_old_fields_from_tracking_card_lookup(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesCoilSnapshot(
+                    coil_id='MES-LOOKUP-OLD',
+                    tracking_card_no='TRACK-LOOKUP-SAME',
+                    qr_code='QR-LOOKUP-OLD',
+                    alloy_grade='6061',
+                    spec_display='1.0×1000',
+                    updated_from_mes_at=datetime(2026, 5, 3, 8, tzinfo=timezone.utc),
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES-LOOKUP-NEW',
+                    tracking_card_no='TRACK-LOOKUP-SAME',
+                    qr_code='QR-LOOKUP-NEW',
+                    alloy_grade='7075',
+                    spec_display='2.0×1200',
+                    updated_from_mes_at=datetime(2026, 5, 3, 9, tzinfo=timezone.utc),
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        lookup_payload = scan_lookup_service.lookup_qr(db, qr='TRACK-LOOKUP-SAME')
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-LOOKUP-SAME',
+                'alloy_grade': '6061',
+                'input_spec': '1.0×1000',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+                'locked_fields_token': lookup_payload['lock_token'],
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'locked_field_tampered'
 
 
 def test_mobile_coil_entry_rejects_missing_locked_flow_fields(tmp_path) -> None:
