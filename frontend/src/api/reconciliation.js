@@ -10,12 +10,12 @@ export async function fetchReconciliationItems(params = {}) {
   return data
 }
 
-export async function confirmReconciliationItem(id, note = null) {
+export async function confirmReconciliationItem(id, note) {
   const { data } = await api.post(`/reconciliation/items/${id}/confirm`, { note })
   return data
 }
 
-export async function ignoreReconciliationItem(id, note = null) {
+export async function ignoreReconciliationItem(id, note) {
   const { data } = await api.post(`/reconciliation/items/${id}/ignore`, { note })
   return data
 }

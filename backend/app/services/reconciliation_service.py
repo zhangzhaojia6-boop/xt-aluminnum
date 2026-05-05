@@ -320,6 +320,13 @@ def generate_reconciliation(
     return created
 
 
+def _normalize_action_note(note: str | None) -> str:
+    normalized = (note or '').strip()
+    if not normalized:
+        raise ValueError('resolve_note is required')
+    return normalized
+
+
 def update_item_status(
     db: Session,
     *,
@@ -337,17 +344,15 @@ def update_item_status(
     elif action == 'ignore':
         new_status = 'ignored'
     elif action == 'correct':
-        if not note:
-            raise ValueError('resolve_note is required for correct')
         new_status = 'corrected'
     else:
         raise ValueError('unsupported action')
+    note = _normalize_action_note(note)
 
     item.status = new_status
     item.resolved_by = operator.id
     item.resolved_at = datetime.utcnow()
-    if note:
-        item.resolve_note = note
+    item.resolve_note = note
     db.flush()
 
     record_audit(

@@ -103,6 +103,4 @@ def correct_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReconciliationItemOut:
-    if not body.note:
-        raise HTTPException(status_code=400, detail='resolve_note is required')
     return _update_item(item_id=item_id, action='correct', body=body, db=db, current_user=current_user)

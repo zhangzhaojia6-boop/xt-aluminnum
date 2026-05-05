@@ -63,6 +63,7 @@
 | R53 | 试运行环境弱默认只 warning | `backend/app/config.py`、`backend/tests/test_runtime_config.py` | `trial`、`uat`、`preprod` 等试运行环境纳入 production-like，弱密钥/初始密码 fail-fast |
 | R54 | 车间主数据弹窗缺少前端必填校验 | `frontend/src/views/master/Workshop.vue`、`frontend/tests/workshopFormValidation.test.js` | 对 `code` / `name` 增加 Element Plus 必填校验，保存前 trim，并用前端 node 测试锁定 |
 | R55 | 质量处置原因可为空 | `frontend/src/views/quality/QualityCenter.vue`、`backend/app/schemas/quality.py`、`backend/tests/test_quality_checks.py` | 前端 prompt 增加非空校验并 trim 后提交，后端 action schema/service 拒绝空说明，路由测试锁定 |
+| R56 | 差异处理理由硬编码或允许空值 | `frontend/src/views/reconciliation/ReconciliationCenter.vue`、`backend/app/schemas/reconciliation.py`、`backend/tests/test_reconciliation_flow.py` | 确认/忽略/修正三类动作都要求输入说明，前端 trim 后提交，后端 action schema/service 拒绝空说明 |
 
 ## 待处理问题清单
 
@@ -72,7 +73,6 @@
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
-| F17 | 中 | 审计链 | 差异处理理由硬编码或允许空值 | `frontend/src/views/reconciliation/ReconciliationCenter.vue` | 三类处置动作都要求输入说明 |
 | F18 | 中 | 数据真实性 | 总览页仍永久使用 mock/fallback 标记 | `frontend/src/views/review/OverviewCenter.vue` | 区分真实数据和回退数据 |
 | F19 | 中 | 报表测试 | 报表页 E2E 只测静态外观 | `frontend/e2e/review-runtime.spec.js` | 断言请求参数和详情跳转 |
 | F20 | 中 | 质量测试 | 质量页关键动作无 E2E | `frontend/src/views/quality/QualityCenter.vue` | 覆盖运行检查、详情、处置 |

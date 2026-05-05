@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ReconciliationGenerateRequest(BaseModel):
@@ -33,4 +33,12 @@ class ReconciliationItemOut(BaseModel):
 
 
 class ReconciliationActionRequest(BaseModel):
-    note: str | None = Field(default=None, max_length=500)
+    note: str = Field(min_length=1, max_length=500)
+
+    @field_validator('note')
+    @classmethod
+    def normalize_note(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError('resolve_note is required')
+        return normalized

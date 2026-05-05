@@ -88,9 +88,21 @@ import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatReconciliationTypeLabel, formatStatusLabel } from '../../utils/display'
+import {
+  RECONCILIATION_DISPOSITION_REQUIRED_MESSAGE,
+  hasReconciliationDispositionNote,
+  normalizeReconciliationDispositionNote,
+} from '../../utils/reconciliationDispositionValidation'
 
 const router = useRouter()
 const items = ref([])
+const reconciliationDispositionPromptOptions = {
+  confirmButtonText: '提交',
+  cancelButtonText: '取消',
+  inputType: 'text',
+  inputValidator: hasReconciliationDispositionNote,
+  inputErrorMessage: RECONCILIATION_DISPOSITION_REQUIRED_MESSAGE,
+}
 const filters = reactive({
   business_date: dayjs().format('YYYY-MM-DD'),
   reconciliation_type: '',
@@ -131,26 +143,31 @@ function statusTone(status) {
 }
 
 async function onConfirm(row) {
-  await confirmReconciliationItem(row.id, '已确认业务口径')
+  const note = await promptForReconciliationNote('请输入确认说明', '确认差异')
+  await confirmReconciliationItem(row.id, note)
   ElMessage.success('已确认')
   await load()
 }
 
 async function onIgnore(row) {
-  await ignoreReconciliationItem(row.id, '当前无需处理')
+  const note = await promptForReconciliationNote('请输入忽略说明', '忽略差异')
+  await ignoreReconciliationItem(row.id, note)
   ElMessage.success('已忽略')
   await load()
 }
 
 async function onCorrect(row) {
-  const { value } = await ElMessageBox.prompt('请输入修正说明', '修正说明', {
-    confirmButtonText: '提交',
-    cancelButtonText: '取消',
-    inputType: 'text'
-  })
-  await correctReconciliationItem(row.id, value)
+  const note = await promptForReconciliationNote('请输入修正说明', '修正说明')
+  await correctReconciliationItem(row.id, note)
   ElMessage.success('已修正')
   await load()
+}
+
+async function promptForReconciliationNote(message, title) {
+  const { value } = await ElMessageBox.prompt(message, title, {
+    ...reconciliationDispositionPromptOptions,
+  })
+  return normalizeReconciliationDispositionNote(value)
 }
 
 onMounted(load)
