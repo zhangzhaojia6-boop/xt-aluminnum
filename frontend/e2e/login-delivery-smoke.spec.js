@@ -51,6 +51,23 @@ test('compact clients land on mobile entry instead of review home by default', a
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 })
 
+test('compact manage routes default to entry unless desktop query is set', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 })
+  await setupReviewSessionAndMocks(page)
+
+  await page.goto('/manage/overview')
+
+  await expect(page).toHaveURL(/\/entry$/)
+  await expect(page.getByTestId('entry-shell')).toBeVisible()
+  await expect(page.getByTestId('manage-shell')).toHaveCount(0)
+
+  await page.goto('/manage/overview?desktop=1')
+
+  await expect(page).toHaveURL(/\/manage\/overview\?desktop=1$/)
+  await expect(page.getByTestId('manage-shell')).toBeVisible()
+  await expect(page.getByTestId('entry-shell')).toHaveCount(0)
+})
+
 test('stored admin session is routed to the permission default without role choice', async ({ page }) => {
   await setupReviewSessionAndMocks(page)
 

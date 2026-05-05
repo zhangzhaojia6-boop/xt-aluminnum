@@ -32,6 +32,7 @@
 | R22 | `/manage/admin` 占位页审计项已过期 | `frontend/src/router/index.js`、`frontend/e2e/admin-surface.spec.js` | `/manage/admin` 跳转真实运行页 `/manage/admin/settings`，E2E 断言 `live-dashboard` 可见且 `.xt-placeholder-page` 为 0 |
 | R23 | 侧栏折叠记忆缺少刷新验证 | `frontend/e2e/manage-shell.spec.js` | 折叠后断言 `localStorage`，刷新后仍保持折叠，再展开并断言状态回写 |
 | R24 | 管理壳层抽屉与搜索缺少 E2E | `frontend/e2e/manage-shell.spec.js` | 增加移动抽屉跳转、搜索弹层打开、关键词过滤和搜索结果跳转验证 |
+| R25 | `desktop=1` 桌面豁免未契约化 | `frontend/e2e/login-delivery-smoke.spec.js` | 小屏填报可用账号默认 `/manage/overview` 回 `/entry`，带 `desktop=1` 时保留管理端 |
 
 ## 待处理问题清单
 
@@ -41,7 +42,6 @@
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
 | F11 | 中 | 路由守卫 | `installRouterGuards` 缺少单元测试 | `frontend/src/router/index.js` | 覆盖 fill-only、admin、compact、runtime auth code |
-| F12 | 中 | 移动适配 | `desktop=1` 桌面豁免未被契约化 | `frontend/src/router/index.js` | 移动视口下验证默认跳转和豁免 |
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
 | F14 | 高 | 数据校验 | 统一填报仅校验非空，缺少重量业务规则 | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 增加非负、投入产出关系校验 |
 | F15 | 中 | 表单校验 | 车间主数据弹窗缺少前端必填校验 | `frontend/src/views/master/Workshop.vue` | 对 code/name 增加 rules 和失败用例 |
