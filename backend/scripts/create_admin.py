@@ -18,7 +18,6 @@ def create_admin(username: str, password: str, name: str) -> User:
     try:
         user = db.query(User).filter(User.username == username).first()
         if user:
-            user.password_hash = get_password_hash(password)
             user.name = name
             user.role = 'admin'
             user.data_scope_type = 'all'

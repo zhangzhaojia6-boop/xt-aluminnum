@@ -197,7 +197,6 @@ def seed_field_mapping_templates(db: Session) -> None:
 def ensure_admin_user(db: Session) -> User:
     user = db.query(User).filter(User.username == settings.INIT_ADMIN_USERNAME).first()
     if user:
-        user.password_hash = get_password_hash(settings.INIT_ADMIN_PASSWORD)
         user.name = settings.INIT_ADMIN_NAME
         user.role = 'admin'
         user.data_scope_type = 'all'
