@@ -16,7 +16,7 @@
 - `/review/brain` 当前使用 `brainCenterMock` fallback / mixed 证据读面，对齐高清目标图 `11-ai-control.png`；生成今日摘要与追问在无真实接口时禁用，证据查看、审阅/日报/质量/成本跳转与复制摘要保持只读/导航语义。AI 仅作为辅助解释与建议，不自动执行生产、质量、成本、排产或交付动作。
 - `/admin/ops` 当前使用 `opsCenterMock` fallback / mixed 只读观测数据，对齐高清目标图 `12-ops-observability.png`；刷新探针、查看 readiness、查看健康检查、查看上线闸门只做页面状态切换，回滚预检、导出诊断、查看日志保持 disabled。本页属于管理端运维观测面，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
 - `/admin/governance` 当前使用 `governanceCenterMock` fallback / mixed 只读治理数据，对齐高清目标图 `13-governance.png`；查看审计、查看角色矩阵、查看风险账号、进入主数据、进入运维观测、刷新权限视图为只读/导航动作，导出审计与保存策略保持 disabled。本页属于管理端权限治理面，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
-- `/admin/master` 当前使用 `masterCenterMock` fallback / mixed 只读配置底座数据，对齐高清目标图 `14-master-template.png`；查看车间、班组、机台、用户、模板、字段规则、刷新主数据为筛选/跳转/只读动作，导出配置、发布模板、保存字段规则保持 disabled。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实或真实模板发布。
+- `/admin/master` 当前重定向到 `/manage/master`，由 `Workshop.vue` 直接调用 `/api/v1/master/workshops` 真实接口承接车间主数据的查看、新增、编辑和删除；`/admin/master/templates` 独立进入 `WorkshopTemplateConfig.vue`。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实。
 
 ## 本轮处理方向
 

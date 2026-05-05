@@ -691,6 +691,27 @@ def test_router_exposes_reference_admin_short_paths() -> None:
     assert "path: '/admin/users', redirect: '/manage/admin/users'" in source
 
 
+def test_master_route_docs_match_live_workshop_center() -> None:
+    router = _read_repo_file("frontend/src/router/index.js")
+    workshop = _read_repo_file("frontend/src/views/master/Workshop.vue")
+    master_api = _read_repo_file("frontend/src/api/master.js")
+    docs = "\n".join(
+        [
+            _read_repo_file("docs/current-route-map.md"),
+            _read_repo_file("docs/known-gaps-and-todos.md"),
+            _read_repo_file("docs/CODEBASE_AUDIT.md"),
+        ]
+    )
+
+    assert "path: 'master', name: 'admin-master-workshop', component: Workshop" in router
+    assert "fetchWorkshopsPage" in workshop
+    assert "createWorkshop" in workshop
+    assert "export const workshopApi = crud('workshops')" in master_api
+    assert "export const masterCenterMock" not in _read_repo_file("frontend/src/mocks/centerMockData.js")
+    assert "masterCenterMock" not in docs
+    assert "/admin/master` 当前使用" not in docs
+
+
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
