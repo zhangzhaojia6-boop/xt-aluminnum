@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
+import { shouldIgnoreHttpsErrors } from './helpers/tls.js'
 
 const utilityUsername = firstEnv('PLAYWRIGHT_UTILITY_USERNAME')
 const utilityPassword = firstEnv('PLAYWRIGHT_UTILITY_PASSWORD')
@@ -42,7 +43,7 @@ async function fillMobileField(container, label, value) {
     .fill(String(value))
 }
 
-test('utility owner can submit and workshop dashboard reflects owner-only water usage', async ({ browser, page }) => {
+test('utility owner can submit and workshop dashboard reflects owner-only water usage', async ({ browser, page }, testInfo) => {
   skipWithoutCredentials([
     ['PLAYWRIGHT_UTILITY_USERNAME', utilityUsername],
     ['PLAYWRIGHT_UTILITY_PASSWORD', utilityPassword],
@@ -86,7 +87,11 @@ test('utility owner can submit and workshop dashboard reflects owner-only water 
   const submitPayload = await (await submitResponse).json()
   const submittedBusinessDate = resolveBusinessDate(submitPayload)
 
-  const adminContext = await browser.newContext({ ignoreHTTPSErrors: true })
+  const configuredBaseURL = testInfo.project.use.baseURL
+  const adminContext = await browser.newContext({
+    baseURL: configuredBaseURL,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL: configuredBaseURL })
+  })
   const adminPage = await adminContext.newPage()
   try {
     await adminPage.goto('/login')

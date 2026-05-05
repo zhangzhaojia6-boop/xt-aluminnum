@@ -3,6 +3,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { shouldIgnoreHttpsErrors } from './e2e/helpers/tls.js'
+
 function loadLocalEnvFallbacks() {
   const envPath = path.resolve('..', '.env')
   if (!fs.existsSync(envPath)) return
@@ -34,6 +36,8 @@ function loadLocalEnvFallbacks() {
 
 loadLocalEnvFallbacks()
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost'
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
@@ -42,9 +46,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://localhost',
+    baseURL,
     headless: true,
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL }),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure'
   }

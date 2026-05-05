@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+import { shouldIgnoreHttpsErrors } from './helpers/tls.js'
+
 const adminUser = {
   id: 1,
   username: 'admin',
@@ -115,7 +117,7 @@ test('admin can save workshop template fields and machine user consumes the upda
   expect(configuredBaseURL).toBeTruthy()
   const machineContext = await browser.newContext({
     baseURL: configuredBaseURL,
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL: configuredBaseURL }),
     viewport: { width: 430, height: 932 },
     isMobile: true,
     hasTouch: true
