@@ -1,11 +1,12 @@
 """Incremental deploy: upload changed files, run migration + seed, restart."""
 import paramiko
 import os
+import re
+import shlex
 import time
 
-HOST = os.environ.get('ZXTF_DEPLOY_HOST', '')
-USER = os.environ.get('ZXTF_DEPLOY_USER', '')
-PASS = os.environ.get('ZXTF_DEPLOY_PASSWORD', '')
+PORT = int(os.environ.get('ZXTF_DEPLOY_SSH_PORT', '2222'))
+SUDO = os.environ.get('ZXTF_DEPLOY_SUDO', 'sudo -n').strip() or 'sudo -n'
 BACKEND_DIR = '/srv/aluminum-bypass/backend'
 FRONTEND_DIR = '/srv/aluminum-bypass/frontend/dist'
 
@@ -25,6 +26,34 @@ CHANGED_BACKEND_FILES = [
 ]
 
 SKIP = {'.venv', 'venv', '.git', 'node_modules', '__pycache__', 'dist', '.pytest-cache', 'uploads'}
+SAFE_LINUX_USERNAME = re.compile(r'^[a-z_][a-z0-9_-]{0,31}$')
+
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name, '').strip()
+    if not value:
+        raise RuntimeError(f'{name} is required')
+    return value
+
+
+def require_existing_file_env(name: str) -> str:
+    value = require_env(name)
+    if not os.path.isfile(value):
+        raise RuntimeError(f'{name} must point to an existing file')
+    return value
+
+
+def require_deploy_user() -> str:
+    user = require_env('ZXTF_DEPLOY_USER')
+    if user == 'root':
+        raise RuntimeError('ZXTF_DEPLOY_USER must be a least-privilege non-root user')
+    if not SAFE_LINUX_USERNAME.fullmatch(user):
+        raise RuntimeError('ZXTF_DEPLOY_USER must be a safe Linux username')
+    return user
+
+
+def sudo_cmd(cmd: str) -> str:
+    return f'{SUDO} sh -lc {shlex.quote(cmd)}'
 
 
 def run(ssh, cmd, timeout=120):
@@ -52,7 +81,7 @@ def upload_dir_recursive(sftp, local_path, remote_path, ssh):
             try:
                 sftp.stat(remote_item)
             except FileNotFoundError:
-                ssh.exec_command(f'mkdir -p {remote_item}')[1].read()
+                ssh.exec_command(f'mkdir -p {shlex.quote(remote_item)}')[1].read()
             upload_dir_recursive(sftp, local_item, remote_item, ssh)
         else:
             if item.endswith(('.pyc', '.pyo')):
@@ -61,23 +90,29 @@ def upload_dir_recursive(sftp, local_path, remote_path, ssh):
 
 
 def main():
-    missing = [
-        name
-        for name, value in (
-            ('ZXTF_DEPLOY_HOST', HOST),
-            ('ZXTF_DEPLOY_USER', USER),
-            ('ZXTF_DEPLOY_PASSWORD', PASS),
-        )
-        if not value
-    ]
-    if missing:
-        raise RuntimeError(f"Missing deploy environment variables: {', '.join(missing)}")
+    host = require_env('ZXTF_DEPLOY_HOST')
+    deploy_user = require_deploy_user()
+    ssh_key_path = require_existing_file_env('ZXTF_DEPLOY_SSH_KEY_PATH')
+    known_hosts_path = require_existing_file_env('ZXTF_DEPLOY_KNOWN_HOSTS')
+    ssh_key_passphrase = os.environ.get('ZXTF_DEPLOY_SSH_KEY_PASSPHRASE') or None
 
-    print(f'Connecting to {HOST}...')
+    print(f'Connecting to {deploy_user}@{host}:{PORT}...')
     ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(HOST, username=USER, password=PASS, timeout=15, allow_agent=False, look_for_keys=False)
+    ssh.load_host_keys(known_hosts_path)
+    ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+    ssh.connect(
+        host,
+        port=PORT,
+        username=deploy_user,
+        key_filename=ssh_key_path,
+        passphrase=ssh_key_passphrase,
+        timeout=15,
+        allow_agent=False,
+        look_for_keys=False,
+    )
     print('Connected!')
+
+    run(ssh, sudo_cmd(f'chown -R {deploy_user}:{deploy_user} {shlex.quote(BACKEND_DIR)} {shlex.quote(FRONTEND_DIR)}'))
 
     print('\n[1/5] Uploading changed backend files...')
     sftp = ssh.open_sftp()
@@ -88,7 +123,7 @@ def main():
         try:
             sftp.stat(remote_dir)
         except FileNotFoundError:
-            ssh.exec_command(f'mkdir -p {remote_dir}')[1].read()
+            ssh.exec_command(f'mkdir -p {shlex.quote(remote_dir)}')[1].read()
         sftp.put(local_file, remote_file)
         print(f'  uploaded {rel_path}')
 
@@ -104,16 +139,16 @@ def main():
     run(ssh, f'cd {BACKEND_DIR} && .venv/bin/python scripts/seed_annealing_workshop.py 2>&1')
 
     print('\n[5/5] Restarting backend service...')
-    run(ssh, f'chown -R www-data:www-data {BACKEND_DIR}')
-    run(ssh, f'chown -R www-data:www-data {FRONTEND_DIR}')
-    run(ssh, 'systemctl restart aluminum-bypass')
+    run(ssh, sudo_cmd(f'chown -R www-data:www-data {shlex.quote(BACKEND_DIR)}'))
+    run(ssh, sudo_cmd(f'chown -R www-data:www-data {shlex.quote(FRONTEND_DIR)}'))
+    run(ssh, sudo_cmd('systemctl restart aluminum-bypass'))
     time.sleep(3)
-    out, _ = run(ssh, 'systemctl is-active aluminum-bypass')
+    out, _ = run(ssh, sudo_cmd('systemctl is-active aluminum-bypass'))
     if 'active' in out:
         print('\n  Backend service is running!')
     else:
         print('\n  WARNING: service may not be running')
-        run(ssh, 'journalctl -u aluminum-bypass --no-pager -n 15')
+        run(ssh, sudo_cmd('journalctl -u aluminum-bypass --no-pager -n 15'))
 
     print('\n=== Verification ===')
     run(ssh, 'curl -s -o /dev/null -w "healthz: %{http_code}" http://127.0.0.1:8000/healthz')

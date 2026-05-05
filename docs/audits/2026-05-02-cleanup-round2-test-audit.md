@@ -8,7 +8,7 @@
 
 | ID | 问题 | 证据 | 修复 |
 |---|---|---|---|
-| R01 | 生产部署脚本硬编码 SSH 登录密码 | `backend/scripts/deploy_production.py` | 改为 `DEPLOY_SSH_PASSWORD`，缺失时 fail-fast |
+| R01 | 生产部署脚本硬编码 SSH 登录密码 | `backend/scripts/deploy_production.py` | 先改为外置环境变量；R75 已进一步替换为 SSH key + known_hosts |
 | R02 | 生产部署脚本硬编码数据库 DSN | `backend/scripts/deploy_production.py` | 改为 `DEPLOY_DATABASE_URL` |
 | R03 | 生产部署脚本硬编码应用密钥 | `backend/scripts/deploy_production.py` | 改为 `DEPLOY_SECRET_KEY` |
 | R04 | 生产部署脚本硬编码弱初始管理员密码 | `backend/scripts/deploy_production.py` | 改为 `DEPLOY_INIT_ADMIN_PASSWORD` |
@@ -82,12 +82,12 @@
 | R72 | 后端手工 smoke 脚本依赖本地服务和 live token | `backend/tests/test_qr_login.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `smoke_entry_fields.py`、`smoke_shift.py`，改用 TestClient 覆盖 QR 登录到移动填报字段和当前班次接口链路 |
 | R73 | QR PDF 制品入库 | `.gitignore`、`docs/快速试跑运维手册.md`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf`，改为运行态 `/manage/admin/qr-print` 生成并忽略后续 PDF 制品 |
 | R74 | 高分辨率 UI 截图体积无门禁 | `docs/ui-reference/highres/*.png`、`docs/ui-reference/REFERENCE_MANIFEST.md`、`backend/tests/test_reference_command_center_spec.py` | 重压缩 15 张 highres PNG，保持 `1672 x 941` 尺寸，并用 `<= 5.6 MB` 总量门禁锁定 |
+| R75 | 生产/增量部署 SSH 仍允许 root/密码/自动信任主机 | `backend/scripts/deploy_production.py`、`backend/scripts/deploy_zxtf_update.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 改为非 root deploy 用户、SSH key、固定 known_hosts、`RejectPolicy` 和显式 `sudo -n` |
 
 ## 待处理问题清单
 
 | ID | 等级 | 类别 | 问题 | 位置 | 建议 |
 |---|---|---|---|---|---|
-| S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
 | S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
 

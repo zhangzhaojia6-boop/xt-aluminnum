@@ -73,26 +73,89 @@ def test_root_dockerignore_covers_backend_pytest_runtime_dirs() -> None:
 def test_full_deploy_script_requires_external_secret_values() -> None:
     source = _read('backend/scripts/deploy_production.py')
 
-    assert "DEPLOY_SSH_PASSWORD" in source
+    assert "DEPLOY_SSH_KEY_PATH" in source
+    assert "DEPLOY_KNOWN_HOSTS" in source
     assert "DEPLOY_DATABASE_URL" in source
     assert "DEPLOY_SECRET_KEY" in source
     assert "DEPLOY_INIT_ADMIN_PASSWORD" in source
-    assert "password=ssh_password" in source
+    assert "DEPLOY_SSH_PASSWORD" not in source
+    assert "password=ssh_password" not in source
     assert "PASS =" not in source
     assert "DB_URL =" not in source
     assert "admin123" not in source
     assert "prod-secret-key" not in source
 
 
+def test_full_deploy_script_uses_key_based_known_hosts_non_root_ssh() -> None:
+    source = _read('backend/scripts/deploy_production.py')
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+
+    assert 'DEPLOY_SSH_PASSWORD' not in source
+    assert 'DEPLOY_SSH_KEY_PATH' in source
+    assert 'DEPLOY_KNOWN_HOSTS' in source
+    assert 'DEPLOY_USER' in source
+    assert "DEPLOY_USER must be a least-privilege non-root user" in source
+    assert 'paramiko.RejectPolicy()' in source
+    assert 'AutoAddPolicy' not in source
+    assert 'key_filename=ssh_key_path' in source
+    assert 'password=ssh_password' not in source
+    assert 'allow_agent=False' in source
+    assert 'look_for_keys=False' in source
+    assert '| S01 |' not in audit
+    assert '| R75 |' in audit
+
+
 def test_full_deploy_script_require_env_fails_fast(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_deploy_production_module()
 
-    monkeypatch.delenv('DEPLOY_SSH_PASSWORD', raising=False)
-    with pytest.raises(RuntimeError, match='DEPLOY_SSH_PASSWORD is required'):
-        module.require_env('DEPLOY_SSH_PASSWORD')
+    monkeypatch.delenv('DEPLOY_DATABASE_URL', raising=False)
+    with pytest.raises(RuntimeError, match='DEPLOY_DATABASE_URL is required'):
+        module.require_env('DEPLOY_DATABASE_URL')
 
-    monkeypatch.setenv('DEPLOY_SSH_PASSWORD', 'from-env')
-    assert module.require_env('DEPLOY_SSH_PASSWORD') == 'from-env'
+    monkeypatch.setenv('DEPLOY_DATABASE_URL', 'from-env')
+    assert module.require_env('DEPLOY_DATABASE_URL') == 'from-env'
+
+
+def test_full_deploy_script_rejects_missing_known_hosts_and_root_user(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_deploy_production_module()
+
+    monkeypatch.delenv('DEPLOY_USER', raising=False)
+    with pytest.raises(RuntimeError, match='DEPLOY_USER is required'):
+        module.require_deploy_user()
+
+    monkeypatch.setenv('DEPLOY_USER', 'root')
+    with pytest.raises(RuntimeError, match='least-privilege non-root'):
+        module.require_deploy_user()
+
+    monkeypatch.setenv('DEPLOY_USER', 'deploy;rm')
+    with pytest.raises(RuntimeError, match='safe Linux username'):
+        module.require_deploy_user()
+
+    monkeypatch.setenv('DEPLOY_USER', 'deploy')
+    assert module.require_deploy_user() == 'deploy'
+
+    monkeypatch.setenv('DEPLOY_KNOWN_HOSTS', str(tmp_path / 'missing_known_hosts'))
+    with pytest.raises(RuntimeError, match='DEPLOY_KNOWN_HOSTS must point to an existing file'):
+        module.require_existing_file_env('DEPLOY_KNOWN_HOSTS')
+
+
+def test_incremental_deploy_script_uses_key_based_known_hosts_non_root_ssh() -> None:
+    source = _read('backend/scripts/deploy_zxtf_update.py')
+
+    assert 'ZXTF_DEPLOY_PASSWORD' not in source
+    assert 'ZXTF_DEPLOY_SSH_KEY_PATH' in source
+    assert 'ZXTF_DEPLOY_KNOWN_HOSTS' in source
+    assert 'ZXTF_DEPLOY_USER' in source
+    assert 'least-privilege non-root' in source
+    assert 'paramiko.RejectPolicy()' in source
+    assert 'AutoAddPolicy' not in source
+    assert 'key_filename=ssh_key_path' in source
+    assert 'password=' not in source
+    assert 'allow_agent=False' in source
+    assert 'look_for_keys=False' in source
 
 
 def test_compose_passes_external_runtime_flags_to_backend() -> None:
