@@ -47,6 +47,72 @@ def test_navigation_declares_15_center_blueprint_without_roadmap() -> None:
     assert "admin-roadmap-center" not in source
 
 
+def test_refactor_blueprint_documents_canonical_manage_routes() -> None:
+    blueprint = _read("docs/REFACTOR_BLUEPRINT.md")
+
+    for current_line in [
+        "- `/manage/overview`",
+        "- `/manage/factory`",
+        "- `/manage/workshop`",
+        "- `/manage/entry-center`",
+        "- `/manage/reports`",
+        "- `/manage/quality`",
+        "- `/manage/reconciliation`",
+        "- `/manage/factory/cost`",
+        "- `/manage/ai-assistant`",
+        "- `/manage/ingestion`",
+        "- `/manage/admin/settings`",
+        "- `/manage/admin/governance`",
+        "- `/manage/master`",
+        "- `/manage/admin/templates`",
+        "- 01 系统总览主视图：`/manage/overview`",
+        "- 05 工厂作业看板：`/manage/factory`",
+        "- 06 数据接入与字段映射中心：`/manage/ingestion`",
+        "- 07 异常与补录：`/manage/entry-center`",
+        "- 08 日报与交付中心：`/manage/reports`",
+        "- 09 质量与告警中心：`/manage/quality`",
+        "- 10 成本核算与效益中心：`/manage/factory/cost`",
+        "- 11 AI 助手：`/manage/ai-assistant`",
+        "- 12 系统运维与可观测：`/manage/admin/settings`",
+        "- 13 权限与治理中心：`/manage/admin/governance`",
+        "- 14 主数据与模板中心：`/manage/master`",
+        "- `/dashboard/*` -> `/manage/*`",
+        "- `/master/*` -> `/manage/*`",
+        "- `/review/*` 和 `/admin/*` -> `/manage/*`",
+    ]:
+        assert current_line in blueprint
+
+    for stale_line in [
+        "- `/review/overview`",
+        "- `/review/factory`",
+        "- `/review/tasks`",
+        "- `/review/reports`",
+        "- `/review/quality`",
+        "- `/review/cost-accounting`",
+        "- `/review/brain`",
+        "- `/admin/ingestion`",
+        "- `/admin/master`",
+        "- `/admin/master/templates`",
+        "- `/admin/governance`",
+        "- `/admin/ops`",
+        "- 01 系统总览主视图：`/review/overview`",
+        "- 05 工厂作业看板：`/review/factory`",
+        "- 06 数据接入与字段映射中心：`/admin/ingestion`",
+        "- 07 审阅中心：`/review/tasks`",
+        "- 08 日报与交付中心：`/review/reports`",
+        "- 09 质量与告警中心：`/review/quality`",
+        "- 10 成本核算与效益中心：`/review/cost-accounting`",
+        "- 11 AI 总控中心：`/review/brain`",
+        "- 12 系统运维与观测：`/admin/ops`",
+        "- 13 权限与治理中心：`/admin/governance`",
+        "- 14 主数据与模板中心：`/admin/master`",
+        "- `/dashboard/*` -> `/review/*`",
+        "- `/master/*` -> `/admin/master/*`",
+        "- `/review/roadmap` -> `/review/overview`",
+    ]:
+        assert stale_line not in blueprint
+
+
 def test_core_routes_have_zone_access_title_center_and_canonical_meta() -> None:
     source = _read("frontend/src/router/index.js")
 
