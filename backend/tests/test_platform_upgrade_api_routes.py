@@ -46,8 +46,7 @@ def _override_user() -> None:
 def teardown_function() -> None:
     app.dependency_overrides.clear()
     ai.conversations_db.clear()
-    for notification in notifications.notifications_db:
-        notification['read'] = False
+    notifications.notification_read_state.clear()
 
 
 def test_ai_conversation_and_chat_stream_routes(tmp_path) -> None:

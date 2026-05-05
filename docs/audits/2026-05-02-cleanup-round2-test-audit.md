@@ -52,6 +52,8 @@
 | R42 | `/me` 与 `/logout` 无接口测试 | `backend/tests/test_auth_routes.py` | 覆盖 `/me` 成功/无效 token 失败和 `/logout` 响应契约 |
 | R43 | `virtual_workshop_qr` 分支未测 | `backend/tests/test_qr_login.py` | 覆盖虚拟车间二维码返回 `workshop_redirect` 且不签发 token |
 | R44 | `virtual_role_qr` 自动建号和异常分支未测 | `backend/tests/test_qr_login.py` | 覆盖角色码自动建号、已存在用户复用、缺车间 404 和无效角色码 400 |
+| R45 | 通知已读状态跨用户污染 | `backend/app/routers/notifications.py`、`backend/tests/test_notification_routes.py` | 通知模板与已读状态拆分，已读状态按用户 id 隔离 |
+| R46 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py`、`backend/tests/test_notification_routes.py` | 缺失通知改为 404 `通知不存在`，并用接口测试锁定 |
 
 ## 待处理问题清单
 
@@ -86,8 +88,6 @@
 | S14 | 中 | 制品入库 | QR PDF 已跟踪 | `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf` | 改脱敏样例或迁移制品仓库 |
 | S15 | 低 | 仓库体积 | 高分辨率 UI 截图较多 | `docs/ui-reference/highres/*.png` | 压缩或转 manifest/缩略图 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
-| B06 | 中 | 状态隔离 | 通知数据是模块级全局列表 | `backend/app/routers/notifications.py` | 用户维度隔离并补测试 |
-| B07 | 低 | 错误语义 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py` | 明确 404 或锁定 200 语义 |
 | B21 | 低 | 未接入代码 | `deterministic_orchestration_service.py` 无引用无测试 | `backend/app/services` | 确认废弃后删除或补入口和测试 |
 | B22 | 低 | Schema 漂移 | 未引用 auth schema 与 QR 返回模型不一致 | `backend/app/schemas/auth.py` | 删除未用 schema 或声明 response_model |
 
