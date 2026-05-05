@@ -85,6 +85,7 @@
 | R75 | 生产/增量部署 SSH 仍允许 root/密码/自动信任主机 | `backend/scripts/deploy_production.py`、`backend/scripts/deploy_zxtf_update.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 改为非 root deploy 用户、SSH key、固定 known_hosts、`RejectPolicy` 和显式 `sudo -n` |
 | R76 | E2E helper 直接写 token 到 storage | `frontend/e2e/helpers/mock-login.js`、`frontend/e2e/helpers/review-mocks.js`、`frontend/e2e/helpers/unified-entry-mocks.js`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | helper 改为 mock `/auth/login` 后通过登录页提交，由 auth store 写入会话 |
 | R77 | 后端默认测试套件混入前端源码契约断言 | `backend/pytest.ini`、`backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py`、`backend/tests/test_frontend_refactor_blueprint.py` | 前端源码契约测试标记为 `frontend_contract`，默认后端 pytest 排除，需用 `-m frontend_contract` 单独运行 |
+| R78 | AI 能力兜底显示为在线能力 | `backend/app/services/assistant_service.py`、`frontend/src/api/assistant.js`、`frontend/src/components/review/ReviewAssistantDock.vue`、`frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_assistant_routes.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 未配置 LLM 或前端 fallback 时改为 `connected=false`、`planned` 集成、`0 / 0 / 未联通`，live 模式保留在线能力 |
 
 ## 待处理问题清单
 
@@ -96,5 +97,5 @@
 - 待处理问题清单当前为空。
 - 当前主线验证：`python -m pytest backend/tests -q`，结果 `646 passed，119 deselected，30 warnings`。
 - 前端源码契约验证：`python -m pytest backend/tests -m frontend_contract -q`，结果 `119 passed，646 deselected`。
-- 前端单测与构建：`npm --prefix frontend test` 结果 `106 passed`；`npm --prefix frontend run build` 通过。
+- 前端单测与构建：`npm --prefix frontend test` 结果 `107 passed`；`npm --prefix frontend run build` 通过。
 - 初始 agent 基线已由 R77 拆分：默认后端 pytest 不再混入前端源码契约断言，前端契约改用 `frontend_contract` marker 单独运行。

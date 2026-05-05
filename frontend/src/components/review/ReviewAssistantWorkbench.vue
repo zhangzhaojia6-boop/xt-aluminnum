@@ -43,7 +43,7 @@
         </div>
         <div class="review-assistant-workbench__status-card">
           <span>已接数据源</span>
-          <strong>{{ capabilityState.integrations.length }} 个</strong>
+          <strong>{{ connectedIntegrationCount }} 个</strong>
         </div>
       </div>
 
@@ -186,6 +186,13 @@ const assistantResult = ref({
 const capabilityState = ref({
   ...assistantCapabilityFallback,
   ...props.capabilities
+})
+
+const connectedIntegrationCount = computed(() => {
+  if (capabilityState.value.connected !== true) return 0
+  return (capabilityState.value.integrations || []).filter((item) => (
+    typeof item === 'string' || item?.status === 'live'
+  )).length
 })
 
 function normalizeCapabilityKeys(items = []) {

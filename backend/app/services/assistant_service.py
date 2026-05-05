@@ -195,7 +195,7 @@ def _build_image_svg(*, caption: str, badge_text: str) -> str:
 def build_assistant_capabilities(*, settings: Settings | None = None) -> AssistantCapabilitiesResponseOut:
     runtime = settings or runtime_settings
     llm_enabled = _llm_ready(runtime)
-    realtime_status = 'live' if llm_enabled else 'mock_ready'
+    realtime_status = 'live' if llm_enabled else 'planned'
 
     integrations = [
         AssistantIntegrationOut(key='dashboard', label='审阅首页', status=realtime_status),
@@ -226,12 +226,16 @@ def build_assistant_capabilities(*, settings: Settings | None = None) -> Assista
         ),
     ]
     return AssistantCapabilitiesResponseOut(
-        connected=True,
+        connected=llm_enabled,
         assistant_status='live' if llm_enabled else 'mock_ready',
-        capabilities=[
-            AssistantCapabilityOut(key='query', label='分析决策 / 执行交付', entrypoint='/api/v1/assistant/query'),
-            AssistantCapabilityOut(key='generate_image', label='图像生成', entrypoint='/api/v1/assistant/generate-image'),
-        ],
+        capabilities=(
+            [
+                AssistantCapabilityOut(key='query', label='分析决策 / 执行交付', entrypoint='/api/v1/assistant/query'),
+                AssistantCapabilityOut(key='generate_image', label='图像生成', entrypoint='/api/v1/assistant/generate-image'),
+            ]
+            if llm_enabled
+            else []
+        ),
         integrations=integrations,
         quick_actions=[
             AssistantQuickActionOut(
@@ -258,23 +262,23 @@ def build_assistant_capabilities(*, settings: Settings | None = None) -> Assista
             AssistantSummaryCardOut(
                 key='capabilities',
                 title='能力域',
-                value=str(len(groups)),
+                value=str(len(groups) if llm_enabled else 0),
                 detail='分析 / 执行 / 出图',
                 tone='primary',
             ),
             AssistantSummaryCardOut(
                 key='integrations',
                 title='已接数据',
-                value=str(len(integrations)),
+                value=str(len(integrations) if llm_enabled else 0),
                 detail='首页 / 流程 / 交付',
                 tone='neutral',
             ),
             AssistantSummaryCardOut(
                 key='agents',
                 title='双助手',
-                value='在线',
+                value='在线' if llm_enabled else '未联通',
                 detail='分析决策 + 执行交付',
-                tone='success',
+                tone='success' if llm_enabled else 'neutral',
             ),
         ],
     )

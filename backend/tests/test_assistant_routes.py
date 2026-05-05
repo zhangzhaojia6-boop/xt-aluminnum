@@ -38,12 +38,13 @@ def test_assistant_capabilities_returns_deterministic_mock_contract(monkeypatch:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload['connected'] is True
+    assert payload['connected'] is False
     assert payload['assistant_status'] == 'mock_ready'
-    assert payload['capabilities'][0]['key'] == 'query'
-    assert payload['capabilities'][0]['entrypoint'] == '/api/v1/assistant/query'
+    assert payload['capabilities'] == []
     assert payload['integrations'][0]['key'] == 'dashboard'
+    assert payload['integrations'][0]['status'] == 'planned'
     assert payload['integrations'][-1]['key'] == 'delivery_status'
+    assert payload['integrations'][-1]['status'] == 'planned'
     assert payload['quick_actions'][0] == {
         'key': 'priority-blocker',
         'label': '阻塞优先级',
@@ -60,23 +61,23 @@ def test_assistant_capabilities_returns_deterministic_mock_contract(monkeypatch:
         {
             'key': 'capabilities',
             'title': '能力域',
-            'value': '3',
+            'value': '0',
             'detail': '分析 / 执行 / 出图',
             'tone': 'primary',
         },
         {
             'key': 'integrations',
             'title': '已接数据',
-            'value': '3',
+            'value': '0',
             'detail': '首页 / 流程 / 交付',
             'tone': 'neutral',
         },
         {
             'key': 'agents',
             'title': '双助手',
-            'value': '在线',
+            'value': '未联通',
             'detail': '分析决策 + 执行交付',
-            'tone': 'success',
+            'tone': 'neutral',
         },
     ]
 
@@ -172,7 +173,9 @@ def test_assistant_capabilities_switch_to_live_when_llm_enabled(monkeypatch: pyt
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload['connected'] is True
     assert payload['assistant_status'] == 'live'
+    assert [capability['key'] for capability in payload['capabilities']] == ['query', 'generate_image']
     assert payload['summary_cards'][-1]['value'] == '在线'
     assert payload['integrations'][0]['status'] == 'live'
 
@@ -192,7 +195,9 @@ def test_assistant_capabilities_switch_to_live_when_endpoint_id_only(monkeypatch
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload['connected'] is True
     assert payload['assistant_status'] == 'live'
+    assert [capability['key'] for capability in payload['capabilities']] == ['query', 'generate_image']
     assert payload['integrations'][0]['status'] == 'live'
 
     app.dependency_overrides.clear()

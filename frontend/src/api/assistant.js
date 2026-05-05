@@ -4,14 +4,11 @@ export function buildAssistantFallback() {
   return {
     connected: false,
     assistant_status: 'mock_ready',
-    capabilities: [
-      { key: 'query', label: '分析决策 / 执行交付', entrypoint: '/api/v1/assistant/query' },
-      { key: 'generate_image', label: '图像生成', entrypoint: '/api/v1/assistant/generate-image' }
-    ],
+    capabilities: [],
     integrations: [
-      { key: 'dashboard', label: '审阅首页', status: 'mock_ready' },
-      { key: 'runtime_trace', label: '流程追踪', status: 'mock_ready' },
-      { key: 'delivery_status', label: '交付状态', status: 'mock_ready' }
+      { key: 'dashboard', label: '审阅首页', status: 'planned' },
+      { key: 'runtime_trace', label: '流程追踪', status: 'planned' },
+      { key: 'delivery_status', label: '交付状态', status: 'planned' }
     ],
     quick_actions: [
       { key: 'priority-blocker', label: '阻塞优先级', mode: 'answer', query: '今天先处理哪个阻塞项最有效？' },
@@ -22,23 +19,23 @@ export function buildAssistantFallback() {
       {
         key: 'capabilities',
         title: '能力域',
-        value: '3',
+        value: '0',
         detail: '分析 / 执行 / 出图',
         tone: 'primary'
       },
       {
         key: 'integrations',
         title: '已接数据',
-        value: '3',
+        value: '0',
         detail: '首页 / 流程 / 交付',
         tone: 'neutral'
       },
       {
         key: 'agents',
         title: '双助手',
-        value: '在线',
+        value: '未联通',
         detail: '分析决策 + 执行交付',
-        tone: 'success'
+        tone: 'neutral'
       }
     ],
     groups: [

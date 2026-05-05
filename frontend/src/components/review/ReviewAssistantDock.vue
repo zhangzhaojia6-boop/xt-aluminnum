@@ -117,38 +117,42 @@ function shortcutIconToneClass(action) {
   return 'is-primary'
 }
 
+function countLiveIntegrations(items = [], connected = false) {
+  if (!connected) return 0
+  return items.filter((item) => typeof item === 'string' || item?.status === 'live').length
+}
+
 const summaryCards = computed(() => {
   const cards = Array.isArray(props.capabilities?.summary_cards) ? props.capabilities.summary_cards : []
   if (cards.length) {
     return cards
   }
 
+  const connected = props.capabilities?.connected === true
   const groups = Array.isArray(props.capabilities?.groups) ? props.capabilities.groups : []
   const integrations = Array.isArray(props.capabilities?.integrations) ? props.capabilities.integrations : []
-  const capabilities = Array.isArray(props.capabilities?.capabilities) ? props.capabilities.capabilities : []
-  const hasAutomation = capabilities.some((item) => (typeof item === 'string' ? item : item?.key) === 'automation')
 
   return [
     {
       key: 'briefings',
       title: '主动汇报',
-      value: String(groups.length || 3),
+      value: String(connected ? groups.length : 0),
       detail: '分析 / 执行 / 出图',
       tone: 'primary'
     },
     {
       key: 'watchlist',
       title: '已接数据',
-      value: String(integrations.length || 0),
+      value: String(countLiveIntegrations(integrations, connected)),
       detail: '首页 / 流程 / 交付',
       tone: 'neutral'
     },
     {
       key: 'evidence',
       title: '证据上下文',
-      value: hasAutomation ? '在线' : '在线',
+      value: connected ? '在线' : '未联通',
       detail: '分析决策 + 执行交付',
-      tone: 'success'
+      tone: connected ? 'success' : 'neutral'
     }
   ]
 })
