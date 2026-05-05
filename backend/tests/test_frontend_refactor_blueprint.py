@@ -18,18 +18,18 @@ def test_navigation_declares_15_center_blueprint_without_roadmap() -> None:
 
     assert "export const centerNavigation" in source
     required = [
-        ("no: '01'", "title: '系统总览主视图'", "zone: 'review'", "path: '/review/overview'"),
+        ("no: '01'", "title: '系统总览主视图'", "zone: 'review'", "path: '/manage/overview'"),
         ("no: '03'", "title: '独立填报端首页'", "zone: 'entry'", "path: '/entry'"),
-        ("no: '05'", "title: '工厂作业看板'", "zone: 'review'", "path: '/review/factory'"),
-        ("no: '06'", "title: '数据接入与字段映射中心'", "zone: 'admin'", "path: '/admin/ingestion'"),
-        ("no: '07'", "title: '异常与补录'", "zone: 'review'", "path: '/review/tasks'"),
-        ("no: '08'", "title: '日报与交付中心'", "zone: 'review'", "path: '/review/reports'"),
-        ("no: '09'", "title: '质量与告警中心'", "zone: 'review'", "path: '/review/quality'"),
+        ("no: '05'", "title: '工厂作业看板'", "zone: 'review'", "path: '/manage/factory'"),
+        ("no: '06'", "title: '数据接入与字段映射中心'", "zone: 'admin'", "path: '/manage/ingestion'"),
+        ("no: '07'", "title: '异常与补录'", "zone: 'review'", "path: '/manage/entry-center'"),
+        ("no: '08'", "title: '日报与交付中心'", "zone: 'review'", "path: '/manage/reports'"),
+        ("no: '09'", "title: '质量与告警中心'", "zone: 'review'", "path: '/manage/quality'"),
         ("no: '10'", "title: '经营效益'", "zone: 'review'", "path: '/manage/factory/cost'"),
         ("no: '11'", "title: 'AI 助手'", "zone: 'review'", "path: '/manage/ai-assistant'"),
-        ("no: '12'", "title: '系统运维与观测'", "zone: 'admin'", "path: '/admin/ops'"),
-        ("no: '13'", "title: '权限与治理中心'", "zone: 'admin'", "path: '/admin/governance'"),
-        ("no: '14'", "title: '主数据与模板中心'", "zone: 'admin'", "path: '/admin/master'"),
+        ("no: '12'", "title: '系统运维与观测'", "zone: 'admin'", "path: '/manage/admin/settings'"),
+        ("no: '13'", "title: '权限与治理中心'", "zone: 'admin'", "path: '/manage/admin/governance'"),
+        ("no: '14'", "title: '主数据与模板中心'", "zone: 'admin'", "path: '/manage/master'"),
     ]
     for tokens in required:
         for token in tokens:

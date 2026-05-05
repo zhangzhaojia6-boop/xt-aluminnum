@@ -4,7 +4,7 @@ export const centerNavigation = [
     no: '01',
     title: '系统总览主视图',
     zone: 'review',
-    path: '/review/overview',
+    path: '/manage/overview',
     routeName: 'review-overview-home',
     icon: '总',
     summary: '今日产量、达成率、异常、补录、交付状态'
@@ -24,7 +24,7 @@ export const centerNavigation = [
     no: '05',
     title: '工厂作业看板',
     zone: 'review',
-    path: '/review/factory',
+    path: '/manage/factory',
     routeName: 'factory-dashboard',
     icon: '厂',
     summary: '产线产量、OEE、异常、趋势'
@@ -34,7 +34,7 @@ export const centerNavigation = [
     no: '06',
     title: '数据接入与字段映射中心',
     zone: 'admin',
-    path: '/admin/ingestion',
+    path: '/manage/ingestion',
     routeName: 'admin-ingestion-center',
     icon: '接',
     summary: '数据源、字段映射、导入批次、错误率'
@@ -44,7 +44,7 @@ export const centerNavigation = [
     no: '07',
     title: '异常与补录',
     zone: 'review',
-    path: '/review/tasks',
+    path: '/manage/entry-center',
     routeName: 'review-task-center',
     icon: '补',
     summary: '缺报、退回、差异、同步滞后、风险等级'
@@ -54,7 +54,7 @@ export const centerNavigation = [
     no: '08',
     title: '日报与交付中心',
     zone: 'review',
-    path: '/review/reports',
+    path: '/manage/reports',
     routeName: 'review-report-center',
     icon: '报',
     summary: '日报、交付清单、导出状态'
@@ -64,7 +64,7 @@ export const centerNavigation = [
     no: '09',
     title: '质量与告警中心',
     zone: 'review',
-    path: '/review/quality',
+    path: '/manage/quality',
     routeName: 'review-quality-center',
     icon: '质',
     summary: '质量告警、处理状态、追溯'
@@ -94,7 +94,7 @@ export const centerNavigation = [
     no: '12',
     title: '系统运维与观测',
     zone: 'admin',
-    path: '/admin/ops',
+    path: '/manage/admin/settings',
     routeName: 'admin-ops-reliability',
     icon: '运',
     summary: 'health、ready、版本、响应时间'
@@ -104,7 +104,7 @@ export const centerNavigation = [
     no: '13',
     title: '权限与治理中心',
     zone: 'admin',
-    path: '/admin/governance',
+    path: '/manage/admin/governance',
     routeName: 'admin-governance-center',
     icon: '权',
     summary: '角色矩阵、审计日志、数据权限'
@@ -114,7 +114,7 @@ export const centerNavigation = [
     no: '14',
     title: '主数据与模板中心',
     zone: 'admin',
-    path: '/admin/master',
+    path: '/manage/master',
     routeName: 'admin-master-workshop',
     icon: '主',
     summary: '车间、班组、员工、机台、模板'

@@ -770,6 +770,49 @@ def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
         assert legacy_mock not in docs
 
 
+def test_current_route_map_lists_canonical_manage_center_paths() -> None:
+    route_map = _read_repo_file("docs/current-route-map.md")
+
+    for row in [
+        "- 01 系统总览主视图：`/manage/overview`",
+        "- 05 工厂作业看板：`/manage/factory`",
+        "- 06 数据接入与字段映射中心：`/manage/ingestion`",
+        "- 07 审阅中心：`/manage/entry-center`",
+        "- 08 日报与交付中心：`/manage/reports`",
+        "- 09 质量与告警中心：`/manage/quality`",
+        "- 10 经营效益：`/manage/factory/cost`",
+        "- 11 AI 助手：`/manage/ai-assistant`",
+        "- 12 系统运维与可观测：`/manage/admin/settings`",
+        "- 13 权限与治理中心：`/manage/admin/governance`",
+        "- 14 主数据与模板中心：`/manage/master`",
+        "- `/review/*`：审阅端兼容入口，正式审阅/管理页面统一落到 `/manage/*`",
+        "- `/admin/*`：管理端兼容入口，正式管理页面统一落到 `/manage/*`",
+        "`/review/reconciliation` -> `/manage/reconciliation` -> `review-reconciliation-center`",
+        "`/review/workshop` -> `/manage/workshop` -> `workshop-dashboard`",
+        "`/review/roadmap` -> `/manage/overview`",
+        "`/admin` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`",
+    ]:
+        assert row in route_map
+
+    for stale in [
+        "- 01 系统总览主视图：`/review/overview`",
+        "- 05 工厂作业看板：`/review/factory`",
+        "- 07 审阅中心：`/review/tasks`",
+        "- 08 日报与交付中心：`/review/reports`",
+        "- 09 质量与告警中心：`/review/quality`",
+        "- 11 AI 总控中心：`/review/brain`",
+        "- `/review/*`：审阅端主入口",
+        "- `/admin/*`：管理端主入口",
+        "`/review/overview` -> `review-overview-home` -> `CommandOverview.vue`",
+        "`/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`",
+        "`/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`",
+        "`/review/roadmap` -> `/review/overview`",
+        "`/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`",
+        "`/admin` -> `admin-overview` -> `CommandModulePage.vue`",
+    ]:
+        assert stale not in route_map
+
+
 def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     docs = "\n".join(

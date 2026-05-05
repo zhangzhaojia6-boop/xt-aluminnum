@@ -1,27 +1,27 @@
-# 当前路由地图（2026-04-25）
+# 当前路由地图（2026-05-05）
 
 ## 入口层
 
 - `/login`：账号登录 + 钉钉免登 code 兼容（`frontend/src/reference-command/pages/CommandLogin.vue`）
 - `/entry/*`：录入端主入口；`/mobile/*` 仅保留兼容重定向
-- `/review/*`：审阅端主入口，覆盖总览、工厂/车间看板、审阅、日报、质量、差异、成本、AI 总控
-- `/admin/*`：管理端主入口，覆盖数据接入、主数据、模板、用户、治理、运维
+- `/review/*`：审阅端兼容入口，正式审阅/管理页面统一落到 `/manage/*`
+- `/admin/*`：管理端兼容入口，正式管理页面统一落到 `/manage/*`
 - `/`（desktop 壳）+ `/master/*` 等：历史配置/兼容后台，继续 redirect 或降级保留
 
 ## 正式中心导航（现状）
 
-- 01 系统总览主视图：`/review/overview`
+- 01 系统总览主视图：`/manage/overview`
 - 03 独立填报端首页：`/entry`
-- 05 工厂作业看板：`/review/factory`
-- 06 数据接入与字段映射中心：`/admin/ingestion`
-- 07 审阅中心：`/review/tasks`
-- 08 日报与交付中心：`/review/reports`
-- 09 质量与告警中心：`/review/quality`
+- 05 工厂作业看板：`/manage/factory`
+- 06 数据接入与字段映射中心：`/manage/ingestion`
+- 07 审阅中心：`/manage/entry-center`
+- 08 日报与交付中心：`/manage/reports`
+- 09 质量与告警中心：`/manage/quality`
 - 10 经营效益：`/manage/factory/cost`
-- 11 AI 总控中心：`/review/brain`
-- 12 系统运维与可观测：`/admin/ops`
-- 13 权限与治理中心：`/admin/governance`
-- 14 主数据与模板中心：`/admin/master`
+- 11 AI 助手：`/manage/ai-assistant`
+- 12 系统运维与可观测：`/manage/admin/settings`
+- 13 权限与治理中心：`/manage/admin/governance`
+- 14 主数据与模板中心：`/manage/master`
 
 ## 移动填报链路（现状）
 
@@ -36,18 +36,18 @@
 
 ## 审阅/管理链路（现状）
 
-- `/review/overview` -> `review-overview-home` -> `CommandOverview.vue`，正式中心：系统总览主视图。
-- `/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`，正式中心：审阅中心。
+- `/review/overview` -> `/manage/overview` -> `review-overview-home` -> `FactoryOverview.vue`，正式中心：系统总览主视图。
+- `/review/tasks` -> `/manage/entry-center` -> `review-task-center` -> `ReviewTaskCenter.vue`，正式中心：审阅中心。
 - `/review/reports` -> `/manage/reports` -> `review-report-center` -> `ReportList.vue`，正式中心：日报与交付中心；当前通过 `frontend/src/api/reports.js` 调用 `/api/v1/reports`、详情、审核、发布、最终版和导出接口，不再走读面 mock。
 - `/review/cost-accounting`、`/review/cost`、`/manage/cost` -> `/manage/factory/cost` -> `factory-command-cost` -> `CostBenefitScreen.vue`，正式中心：经营效益；当前通过 factory-command store 调用 `/api/v1/factory-command/cost-benefit`，展示经营估算、毛差估算和待补口径，不作为财务结算依据。`CostAccountingCenter.vue` 和 `frontend/src/services/costing/*` 保留为历史参考契约，不是 `/manage/factory/cost` 的运行时页面。
 - `/review/quality` -> `/manage/quality` -> `review-quality-center` -> `QualityCenter.vue`，正式中心：质量与告警中心；当前通过 `frontend/src/api/quality.js` 调用质量检查、问题列表、解决和忽略接口，本页不承接生产事实写入。
-- `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
-- `/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`，正式中心：工厂作业看板。
-- `/review/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
+- `/review/reconciliation` -> `/manage/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
+- `/review/factory` -> `/manage/factory` -> `factory-dashboard` -> `FactoryDirector.vue`，正式中心：工厂作业看板。
+- `/review/workshop` -> `/manage/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
 - `/review/brain` -> `/manage/ai-assistant` -> `factory-ai-assistant` -> `AiWorkstation.vue`，正式中心：AI 助手；当前通过 `useAiChatStore` 接会话、消息、主动汇报和关注列表，不使用前端读面 mock。后端是否 live 由 assistant 能力与模型配置决定，AI 仅提供辅助解释与建议，不自动执行质量、成本、排产或交付动作。
-- `/review/roadmap` -> `/review/overview`，路线图入口隔离。
-- `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`，管理能力不再挂在审阅端。
-- `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。
+- `/review/roadmap` -> `/manage/overview`，路线图入口隔离。
+- `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> 对应 `/manage/*` 管理路由，管理能力不再挂在审阅端。
+- `/admin` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`，管理端默认落点。
 - `/admin/ingestion` -> `/manage/ingestion` -> `admin-ingestion-center` -> `IngestionCenter.vue`，正式中心：数据接入与字段映射中心；当前调用导入历史、排班、打卡、生产、能源、MES 导出与通用导入接口。本页不表示外部 MES/ERP 已正式联通。
 - `/admin/governance` -> `/manage/admin/governance` -> `admin-governance-center` -> `GovernanceCenter.vue`，正式中心：权限与治理中心；当前基于 auth store 展示权限边界，管理员可通过用户接口读取角色分布。本页不绕过后端权限模型，不直接修改生产事实或真实授权策略。
 - `/admin/ops` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`，正式中心：系统设置 / 运维状态入口；当前调用 dashboard、factory-command 与管理概览数据展示 ready/freshness/机列填报状态。本页不执行部署、回滚、重启或自动修复。
@@ -69,7 +69,7 @@
 - 核心链路：
   - 登录（账号/钉钉）
   - 录入端（主操 + owner）
-  - 系统总览、工厂/车间看板、审阅中心、日报交付、质量告警、差异核对、成本核算、AI 总控
+  - 系统总览、工厂/车间看板、审阅中心、日报交付、质量告警、差异核对、经营效益、AI 助手
   - 数据接入、主数据模板、用户权限、治理与运维
 - legacy/兼容入口：
   - `/worker` -> 重定向到 `/entry`
