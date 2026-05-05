@@ -38,6 +38,7 @@
 | R28 | 日报审核路由只要求登录 | `backend/app/routers/reports.py`、`backend/tests/test_report_route_permissions.py` | 审核动作限制为 reviewer/manager/admin，并验证填报角色 403 且不调用服务 |
 | R29 | 日报发布路由只要求登录 | `backend/app/routers/reports.py`、`backend/tests/test_report_route_permissions.py` | 发布动作限制为 manager/admin，并验证 reviewer 403、manager 可发布 |
 | R30 | 日报流水线可由任意登录用户触发 | `backend/app/routers/reports.py`、`backend/tests/test_report_route_permissions.py` | 流水线执行复用发布权限，验证填报角色 403、manager 可执行 |
+| R31 | 日报最终确认角色边界过宽 | `backend/app/services/report/report_generation.py`、`backend/tests/test_report_generation.py` | 最终确认限制为 manager/admin；有质量 blocker 的强制最终确认仍仅 admin，并用服务层测试锁定 |
 
 ## 待处理问题清单
 
@@ -82,7 +83,6 @@
 | B09 | 低 | 测试设计 | 一个测试混合 search/export/notification | `backend/tests/test_platform_upgrade_api_routes.py` | 拆成三个单行为测试 |
 | B10 | 中 | 报表测试 | 报表列表与详情没有接口测试 | `backend/app/routers/reports.py` | 覆盖过滤、详情命中、404 |
 | B11 | 中 | 导出测试 | 导出仅覆盖 json/csv happy path | `backend/app/routers/reports.py` | 补 xlsx、缺 pandas、400、404 |
-| B14 | 高 | 权限边界 | finalize_report 无 blocker 时角色边界过宽 | `backend/app/services/report/report_generation.py` | 明确最终确认角色 |
 | B16 | 中 | 错误映射 | 报表路由 ValueError 到 400 缺少测试 | `backend/app/routers/reports.py` | 每个路由补异常映射用例 |
 | B17 | 高 | 工单测试 | 工单主链路多路由无行为测试 | `backend/app/routers/work_orders.py` | 覆盖创建、详情、列表、entry 更新、amendment |
 | B18 | 低 | Header 校验 | 非法 `X-Idempotency-Key` 400 分支无测 | `backend/app/routers/work_orders.py` | 增加非法 UUID 测试 |

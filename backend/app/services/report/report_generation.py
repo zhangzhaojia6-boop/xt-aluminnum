@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.event_bus import event_bus
 from app.core.field_permissions import normalize_role
+from app.core.scope import build_scope_summary
 from app.core.workflow_events import attach_workflow_event, build_workflow_event
 from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.attendance import AttendanceSchedule
@@ -939,6 +940,15 @@ def run_daily_pipeline(
         db.refresh(item)
     return False, None, open_reconciliation, is_final_version, boss_summary, reports
 
+def _can_finalize_report(operator: User) -> bool:
+    summary = build_scope_summary(operator)
+    return summary.is_admin or summary.is_manager
+
+
+def _is_admin(operator: User) -> bool:
+    return build_scope_summary(operator).is_admin
+
+
 def finalize_report(
     db: Session,
     *,
@@ -952,12 +962,14 @@ def finalize_report(
         raise ValueError('report not found')
     if entity.status not in {'reviewed', 'published'}:
         raise ValueError('only reviewed or published report can be finalized')
+    if not _can_finalize_report(operator):
+        raise ValueError('only manager or admin can finalize report')
 
     blocker_count = quality_service.count_open_blockers(db, business_date=entity.report_date)
     if blocker_count > 0:
         if not force:
             raise ValueError(f'存在 {blocker_count} 条质量阻断问题，禁止最终发布')
-        if operator.role != 'admin':
+        if not _is_admin(operator):
             raise ValueError('only admin can force finalize when blockers exist')
 
     entity.final_confirmed_by = operator.id

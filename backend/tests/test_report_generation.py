@@ -1,15 +1,151 @@
 from datetime import date, datetime
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_user, get_db
 from app.main import app
+from app.models.reports import DailyReport
 from app.models.system import User
+from app.services.report import report_generation
 
 
 class DummyDB:
     pass
+
+
+class FinalizeDB:
+    def __init__(self, report: SimpleNamespace) -> None:
+        self.report = report
+        self.flushed = False
+        self.committed = False
+        self.refreshed = False
+
+    def get(self, model, report_id: int):
+        assert model is DailyReport
+        return self.report if report_id == self.report.id else None
+
+    def flush(self) -> None:
+        self.flushed = True
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def refresh(self, entity) -> None:
+        assert entity is self.report
+        self.refreshed = True
+
+
+def _reviewed_report() -> SimpleNamespace:
+    return SimpleNamespace(
+        id=21,
+        report_date=date(2026, 3, 25),
+        report_type='production',
+        workshop_id=None,
+        status='reviewed',
+        text_summary='summary',
+        final_text_summary=None,
+        final_confirmed_by=None,
+        final_confirmed_at=None,
+        is_final_version=False,
+        quality_gate_status='pending',
+        quality_gate_summary=None,
+        delivery_ready=False,
+    )
+
+
+def _operator(*, user_id: int, role: str, is_manager: bool = False, is_reviewer: bool = False) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=user_id,
+        role=role,
+        is_manager=is_manager,
+        is_reviewer=is_reviewer,
+        is_mobile_user=False,
+        workshop_id=None,
+        team_id=None,
+        data_scope_type='all',
+        assigned_shift_ids=[],
+    )
+
+
+def _stub_finalize_dependencies(monkeypatch, *, blocker_count: int = 0) -> None:
+    monkeypatch.setattr(
+        report_generation.quality_service,
+        'count_open_blockers',
+        lambda db, *, business_date: blocker_count,
+    )
+    monkeypatch.setattr(
+        report_generation.quality_service,
+        'blocker_summary',
+        lambda db, *, business_date: {'has_blockers': blocker_count > 0, 'open_count': blocker_count},
+    )
+    monkeypatch.setattr(
+        report_generation,
+        'build_delivery_status',
+        lambda db, *, target_date: {'delivery_ready': True},
+        raising=False,
+    )
+    monkeypatch.setattr(report_generation, 'record_audit', lambda *args, **kwargs: None)
+
+
+def test_finalize_report_rejects_reviewer_without_manager_authority(monkeypatch) -> None:
+    report = _reviewed_report()
+    db = FinalizeDB(report)
+    _stub_finalize_dependencies(monkeypatch)
+
+    with pytest.raises(ValueError, match='only manager or admin can finalize report'):
+        report_generation.finalize_report(
+            db,
+            report_id=report.id,
+            operator=_operator(user_id=3, role='reviewer', is_reviewer=True),
+        )
+
+    assert report.final_confirmed_by is None
+    assert report.is_final_version is False
+    assert db.flushed is False
+    assert db.committed is False
+
+
+def test_finalize_report_allows_manager_without_blockers(monkeypatch) -> None:
+    report = _reviewed_report()
+    db = FinalizeDB(report)
+    _stub_finalize_dependencies(monkeypatch)
+
+    result = report_generation.finalize_report(
+        db,
+        report_id=report.id,
+        operator=_operator(user_id=4, role='manager', is_manager=True),
+    )
+
+    assert result is report
+    assert report.final_confirmed_by == 4
+    assert report.is_final_version is True
+    assert report.final_text_summary == 'summary'
+    assert report.quality_gate_status == 'passed'
+    assert report.delivery_ready is True
+    assert db.flushed is True
+    assert db.committed is True
+    assert db.refreshed is True
+
+
+def test_finalize_report_keeps_blocker_force_admin_only(monkeypatch) -> None:
+    report = _reviewed_report()
+    db = FinalizeDB(report)
+    _stub_finalize_dependencies(monkeypatch, blocker_count=1)
+
+    with pytest.raises(ValueError, match='only admin can force finalize when blockers exist'):
+        report_generation.finalize_report(
+            db,
+            report_id=report.id,
+            operator=_operator(user_id=5, role='manager', is_manager=True),
+            force=True,
+        )
+
+    assert report.final_confirmed_by is None
+    assert report.is_final_version is False
+    assert db.flushed is False
+    assert db.committed is False
 
 
 def test_generate_report_endpoint(monkeypatch) -> None:
