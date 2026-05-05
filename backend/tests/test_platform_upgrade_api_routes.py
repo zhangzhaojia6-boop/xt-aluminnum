@@ -74,18 +74,30 @@ def test_ai_conversation_and_chat_stream_routes(tmp_path) -> None:
         db.close()
 
 
-def test_search_export_and_notification_routes() -> None:
+def test_search_route_returns_navigation_match() -> None:
     _override_user()
-    client = TestClient(app)
 
+    client = TestClient(app)
     search = client.get('/api/v1/search', params={'q': 'AI'})
+
     assert search.status_code == 200
     assert search.json()['navigation'][0]['path'] == '/manage/ai'
 
+
+def test_export_route_returns_attachment() -> None:
+    _override_user()
+
+    client = TestClient(app)
     exported = client.post('/api/v1/export/overview', json={'format': 'csv'})
+
     assert exported.status_code == 200
     assert exported.headers['content-disposition'].startswith('attachment;')
 
+
+def test_notification_routes_read_flow() -> None:
+    _override_user()
+
+    client = TestClient(app)
     unread = client.get('/api/v1/notifications/unread-count')
     assert unread.status_code == 200
     assert unread.json()['count'] >= 1
