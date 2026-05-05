@@ -158,6 +158,7 @@ def test_incremental_deploy_script_uses_key_based_known_hosts_non_root_ssh() -> 
     assert 'look_for_keys=False' in source
 
 
+@pytest.mark.frontend_contract
 def test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed() -> None:
     helper_paths = [
         'frontend/e2e/helpers/review-mocks.js',
@@ -179,6 +180,32 @@ def test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed() -> No
     assert 'login-submit' in login_helper
     assert '| S10 |' not in audit
     assert '| R76 |' in audit
+
+
+def test_frontend_source_contract_tests_are_marker_isolated_from_backend_suite() -> None:
+    pytest_ini = _read('backend/pytest.ini')
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+
+    assert 'addopts = -m "not frontend_contract"' in pytest_ini
+    assert 'frontend_contract: frontend source contract checks kept out of the default backend suite' in pytest_ini
+    assert '| B01 |' not in audit
+    assert '| R77 |' in audit
+
+    file_level_contracts = [
+        'backend/tests/test_mobile_entry_copy_consistency.py',
+        'backend/tests/test_reference_command_center_spec.py',
+        'backend/tests/test_frontend_refactor_blueprint.py',
+    ]
+    for path in file_level_contracts:
+        source = _read(path)
+        assert 'import pytest' in source
+        assert 'pytestmark = pytest.mark.frontend_contract' in source
+
+    rebranding_source = _read('backend/tests/test_rebranding.py')
+    assert '@pytest.mark.frontend_contract\ndef test_user_facing_brand_strings_are_updated' in rebranding_source
+
+    quick_docs_source = _read('backend/tests/test_quick_cloud_trial_docs_and_ops.py')
+    assert '@pytest.mark.frontend_contract\ndef test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed' in quick_docs_source
 
 
 def test_compose_passes_external_runtime_flags_to_backend() -> None:

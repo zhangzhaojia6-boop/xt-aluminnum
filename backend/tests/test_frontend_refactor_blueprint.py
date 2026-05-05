@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tests.path_helpers import REPO_ROOT
+
+pytestmark = pytest.mark.frontend_contract
 
 
 def _repo_file(relative_path: str) -> Path:

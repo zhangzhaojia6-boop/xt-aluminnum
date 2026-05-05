@@ -1,4 +1,6 @@
 from app.services import bootstrap
+import pytest
+
 from tests.path_helpers import REPO_ROOT
 
 
@@ -26,6 +28,7 @@ def test_bootstrap_defaults_use_xintai_branding_and_chinese_shift_labels() -> No
     }
 
 
+@pytest.mark.frontend_contract
 def test_user_facing_brand_strings_are_updated() -> None:
     repo_root = _repo_root()
     login_text = (repo_root / 'frontend' / 'src' / 'views' / 'Login.vue').read_text(encoding='utf-8')

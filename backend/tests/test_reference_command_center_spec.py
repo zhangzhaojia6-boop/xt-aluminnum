@@ -6,7 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from tests.path_helpers import REPO_ROOT
+
+pytestmark = pytest.mark.frontend_contract
 
 
 def _resolve_repo_root() -> Path:

@@ -84,12 +84,12 @@
 | R74 | 高分辨率 UI 截图体积无门禁 | `docs/ui-reference/highres/*.png`、`docs/ui-reference/REFERENCE_MANIFEST.md`、`backend/tests/test_reference_command_center_spec.py` | 重压缩 15 张 highres PNG，保持 `1672 x 941` 尺寸，并用 `<= 5.6 MB` 总量门禁锁定 |
 | R75 | 生产/增量部署 SSH 仍允许 root/密码/自动信任主机 | `backend/scripts/deploy_production.py`、`backend/scripts/deploy_zxtf_update.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 改为非 root deploy 用户、SSH key、固定 known_hosts、`RejectPolicy` 和显式 `sudo -n` |
 | R76 | E2E helper 直接写 token 到 storage | `frontend/e2e/helpers/mock-login.js`、`frontend/e2e/helpers/review-mocks.js`、`frontend/e2e/helpers/unified-entry-mocks.js`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | helper 改为 mock `/auth/login` 后通过登录页提交，由 auth store 写入会话 |
+| R77 | 后端默认测试套件混入前端源码契约断言 | `backend/pytest.ini`、`backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py`、`backend/tests/test_frontend_refactor_blueprint.py` | 前端源码契约测试标记为 `frontend_contract`，默认后端 pytest 排除，需用 `-m frontend_contract` 单独运行 |
 
 ## 待处理问题清单
 
 | ID | 等级 | 类别 | 问题 | 位置 | 建议 |
 |---|---|---|---|---|---|
-| B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
 
 ## 测试记录
 
