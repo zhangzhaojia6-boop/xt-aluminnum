@@ -888,6 +888,13 @@ def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
     assert "数据接入中心正式落到 `/manage/ingestion`" in docs
 
 
+def test_mes_wip_data_audit_points_to_current_manage_surfaces() -> None:
+    audit = _read_repo_file("docs/MES_WIP_DATA_AUDIT.md")
+
+    assert "前端展示位置：`/manage/factory`、`/manage/overview`、`/manage/ingestion`" in audit
+    assert "前端展示位置：`/review/factory`、`/review/overview`、`/admin/ingestion`" not in audit
+
+
 def test_current_route_map_lists_canonical_manage_center_paths() -> None:
     route_map = _read_repo_file("docs/current-route-map.md")
 

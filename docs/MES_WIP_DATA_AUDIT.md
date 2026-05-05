@@ -9,7 +9,7 @@
 
 - 数据类型：fallback read-model
 - 数据口径：MES 截图（2026-04-27）
-- 前端展示位置：`/review/factory`、`/review/overview`、`/admin/ingestion`
+- 前端展示位置：`/manage/factory`、`/manage/overview`、`/manage/ingestion`
 - 后端变更：无
 - 数据库变更：无
 - payload 变更：无

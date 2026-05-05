@@ -8,12 +8,11 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 
 ## 当前分支
 
-- `ui重构`
+- `main`
 
 ## 推荐部署方式
 
 - 通过 Git 分支或 PR 触发 Vercel Preview。
-- 暂不 merge `main`。
 - 暂不执行生产部署。
 - 暂不把 Vercel 作为 Phase 1 试跑环境。
 
@@ -59,15 +58,15 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 
 - `/login`
 - `/entry`
-- `/review/overview`
-- `/review/brain`
-- `/review/reports`
-- `/review/quality`
-- `/review/cost-accounting`
-- `/admin/ingestion`
-- `/admin/ops`
-- `/admin/governance`
-- `/admin/master`
+- `/manage/overview`
+- `/manage/ai-assistant`
+- `/manage/reports`
+- `/manage/quality`
+- `/manage/factory/cost`
+- `/manage/ingestion`
+- `/manage/admin/settings`
+- `/manage/admin/governance`
+- `/manage/master`
 
 ## 轻测试检查项
 
@@ -98,7 +97,7 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 ## 后续命令
 
 ```powershell
-git push -u origin ui重构
+git push
 ```
 
 在 Vercel 中导入仓库，或等待 Git integration 生成 Preview。

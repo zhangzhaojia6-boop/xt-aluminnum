@@ -70,6 +70,38 @@ def test_root_dockerignore_covers_backend_pytest_runtime_dirs() -> None:
     assert 'backend/.pytest_cache' in source
 
 
+def test_vercel_preview_uses_current_manage_smoke_paths() -> None:
+    source = _read('docs/VERCEL_PREVIEW.md')
+
+    for current_token in [
+        '- `main`',
+        '- `/login`',
+        '- `/entry`',
+        '- `/manage/overview`',
+        '- `/manage/ai-assistant`',
+        '- `/manage/reports`',
+        '- `/manage/quality`',
+        '- `/manage/factory/cost`',
+        '- `/manage/ingestion`',
+        '- `/manage/admin/settings`',
+        '- `/manage/admin/governance`',
+        '- `/manage/master`',
+    ]:
+        assert current_token in source
+
+    for stale_token in [
+        '- `ui重构`',
+        '- 暂不 merge `main`。',
+        '- `/review/brain`',
+        '- `/review/cost-accounting`',
+        '- `/admin/ingestion`',
+        '- `/admin/ops`',
+        '- `/admin/governance`',
+        '- `/admin/master`',
+    ]:
+        assert stale_token not in source
+
+
 def test_full_deploy_script_requires_external_secret_values() -> None:
     source = _read('backend/scripts/deploy_production.py')
 
