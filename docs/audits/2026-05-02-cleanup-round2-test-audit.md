@@ -86,6 +86,7 @@
 | R76 | E2E helper 直接写 token 到 storage | `frontend/e2e/helpers/mock-login.js`、`frontend/e2e/helpers/review-mocks.js`、`frontend/e2e/helpers/unified-entry-mocks.js`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | helper 改为 mock `/auth/login` 后通过登录页提交，由 auth store 写入会话 |
 | R77 | 后端默认测试套件混入前端源码契约断言 | `backend/pytest.ini`、`backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py`、`backend/tests/test_frontend_refactor_blueprint.py` | 前端源码契约测试标记为 `frontend_contract`，默认后端 pytest 排除，需用 `-m frontend_contract` 单独运行 |
 | R78 | AI 能力兜底显示为在线能力 | `backend/app/services/assistant_service.py`、`frontend/src/api/assistant.js`、`frontend/src/components/review/ReviewAssistantDock.vue`、`frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_assistant_routes.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 未配置 LLM 或前端 fallback 时改为 `connected=false`、`planned` 集成、`0 / 0 / 未联通`，live 模式保留在线能力 |
+| R79 | AI 工作台顶部固定显示已接上下文 | `frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_mobile_entry_copy_consistency.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 顶部文案改为从 `capabilityState.connected` 派生，fallback 时显示 `生产上下文未联通`，live 时保留原有已接上下文文案 |
 
 ## 待处理问题清单
 

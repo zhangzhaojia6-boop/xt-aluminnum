@@ -34,6 +34,10 @@ test('assistant fallback does not present mock mode as online capability', () =>
   assert.match(workbenchSource, /connectedIntegrationCount/)
   assert.match(workbenchSource, /capabilityState\.value\.connected !== true/)
   assert.match(workbenchSource, /item\?\.status === 'live'/)
+  assert.match(workbenchSource, /const assistantHeroCopy = computed/)
+  assert.match(workbenchSource, /capabilityState\.value\.connected === true/)
+  assert.match(workbenchSource, /生产上下文未联通/)
+  assert.doesNotMatch(workbenchSource, /<p>已接生产上下文，可直接用于审阅与交付。<\/p>/)
 
   assert.match(dockSource, /function countLiveIntegrations/)
   assert.match(dockSource, /props\.capabilities\?\.connected === true/)

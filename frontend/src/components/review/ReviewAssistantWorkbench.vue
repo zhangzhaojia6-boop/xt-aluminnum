@@ -10,7 +10,7 @@
       <div class="review-assistant-workbench__hero">
         <div class="review-assistant-workbench__eyebrow">AI 审阅工作台</div>
         <h2>问答 · 取数 · 图卡 · 动作</h2>
-        <p>已接生产上下文，可直接用于审阅与交付。</p>
+        <p>{{ assistantHeroCopy }}</p>
       </div>
 
       <div class="review-assistant-workbench__composer">
@@ -187,6 +187,12 @@ const capabilityState = ref({
   ...assistantCapabilityFallback,
   ...props.capabilities
 })
+
+const assistantHeroCopy = computed(() => (
+  capabilityState.value.connected === true
+    ? '已接生产上下文，可直接用于审阅与交付。'
+    : '生产上下文未联通'
+))
 
 const connectedIntegrationCount = computed(() => {
   if (capabilityState.value.connected !== true) return 0

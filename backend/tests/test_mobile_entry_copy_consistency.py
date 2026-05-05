@@ -846,7 +846,11 @@ def test_review_layout_and_workbench_share_short_copy_language() -> None:
     assert "智能生产数据系统" not in layout
     assert "AI 审阅工作台" in workbench
     assert "问答 · 取数 · 图卡 · 动作" in workbench
+    assert "{{ assistantHeroCopy }}" in workbench
+    assert "const assistantHeroCopy = computed(() =>" in workbench
+    assert "capabilityState.value.connected === true" in workbench
     assert "已接生产上下文，可直接用于审阅与交付。" in workbench
+    assert "生产上下文未联通" in workbench
     assert "已接数据源" in workbench
     assert "图卡" in workbench
     assert "出说明图" not in workbench
