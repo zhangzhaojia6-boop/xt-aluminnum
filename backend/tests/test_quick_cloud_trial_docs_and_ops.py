@@ -149,6 +149,11 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert '一键上线闸门' in ops
     assert '--skip-ai' in ops
     assert '--skip-role-smoke' in ops
+    assert 'docker compose exec -T backend python scripts/check_statistics_module_ready.py' in ops
+    assert 'MES_ADAPTER=mvc' in ops
+    assert 'DINGTALK_ENABLED=true' in ops
+    assert 'APP_CONNECTION_PUSH_MODE=enabled' in ops
+    assert '不要把上述真实值写入文档或提交到 GitHub' in ops
 
 
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
