@@ -27,6 +27,8 @@
 | R17 | 前端 node 单测缺少标准入口 | `frontend/package.json` | 增加 `test` 与 `test:unit` |
 | R18 | `BrainCenter.vue` 零引用问题已处理 | `frontend/src/views/assistant/BrainCenter.vue` | 删除死代码，正式 AI 入口保留 `AiWorkstation.vue` |
 | R19 | `ReviewLayout.vue` 零引用问题已处理 | `frontend/src/views/review/ReviewLayout.vue` | 删除死代码，正式审阅/管理壳层保留 `ManageShell.vue` |
+| R20 | 兼容重定向缺少 query/hash 保留 | `frontend/src/router/index.js` | `/review/*`、`/admin/*` 改为 `preserveRouteState(...)` |
+| R21 | 移动深链参数保留缺少测试 | `backend/tests/test_mobile_entry_copy_consistency.py` | 增加 `/mobile/report/*`、`/mobile/report-advanced/*`、`/mobile/ocr/*` 契约测试 |
 
 ## 待处理问题清单
 
@@ -35,8 +37,6 @@
 | F01 | 中 | 前端路由 | `/manage/admin` 仍是占位页，E2E 还断言占位页可见 | `frontend/src/router/index.js`、`frontend/e2e/admin-surface.spec.js` | 替换为真实后台页面或让测试验证真实模块 |
 | F04 | 低 | 死代码 | 多个主数据旧页面零引用但兼容路由还在 | `frontend/src/views/master/*` | 清理孤儿页面或补兼容路由测试 |
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
-| F06 | 中 | 路由测试 | 兼容重定向未覆盖 query/hash 保留 | `frontend/src/router/index.js` | 为 `/review/*`、`/admin/*` 增加路由回归 |
-| F07 | 中 | 移动深链 | `/mobile/report/*`、`/mobile/ocr/*` 重定向缺少测试 | `frontend/src/router/index.js` | 增加深链参数保留测试 |
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
 | F09 | 低 | 测试准确性 | 侧栏折叠记忆只点击不刷新验证 | `frontend/e2e/manage-shell.spec.js` | reload 后断言 localStorage 状态生效 |
 | F10 | 中 | 导航测试 | 抽屉导航、搜索弹层、关键词过滤无测试 | `frontend/src/layout/ManageShell.vue` | 增加键盘搜索和移动抽屉 E2E |

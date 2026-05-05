@@ -50,6 +50,37 @@ def test_worker_redirect_preserves_query_for_wecom_and_qr_handoff() -> None:
     assert "query: to.query" in source
 
 
+def test_legacy_review_and_admin_redirects_preserve_query_and_hash() -> None:
+    source = _read_repo_file("frontend/src/router/index.js")
+
+    assert "function preserveRouteState(path)" in source
+
+    expected_redirects = [
+        "path: '/review', redirect: preserveRouteState('/manage/overview')",
+        "path: '/review/reports', redirect: preserveRouteState('/manage/reports')",
+        "path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/overview')",
+        "path: '/admin', redirect: preserveRouteState('/manage/admin/settings')",
+        "path: '/admin/master/templates', redirect: preserveRouteState('/manage/admin/templates')",
+        "path: '/admin/:pathMatch(.*)*', redirect: preserveRouteState('/manage/admin/settings')",
+    ]
+
+    for redirect in expected_redirects:
+        assert redirect in source
+
+
+def test_mobile_deep_link_redirects_preserve_query_hash_and_params() -> None:
+    source = _read_repo_file("frontend/src/router/index.js")
+
+    expected_routes = [
+        "{ path: '/mobile/report/:businessDate/:shiftId', redirect: (to) => ({ path: `/entry/report/${to.params.businessDate}/${to.params.shiftId}`, query: to.query, hash: to.hash }) }",
+        "{ path: '/mobile/report-advanced/:businessDate/:shiftId', redirect: (to) => ({ path: `/entry/advanced/${to.params.businessDate}/${to.params.shiftId}`, query: to.query, hash: to.hash }) }",
+        "{ path: '/mobile/ocr/:businessDate/:shiftId', redirect: (to) => ({ path: `/entry/ocr/${to.params.businessDate}/${to.params.shiftId}`, query: to.query, hash: to.hash }) }",
+    ]
+
+    for route in expected_routes:
+        assert route in source
+
+
 def test_mobile_entry_handles_bootstrap_load_failure_as_error_state() -> None:
     source = _read_repo_file("frontend/src/views/mobile/MobileEntry.vue")
 

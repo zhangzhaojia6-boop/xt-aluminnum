@@ -685,10 +685,10 @@ def test_router_exposes_reference_admin_short_paths() -> None:
     assert "path: 'master'," in source
     assert "path: 'admin/templates'," in source
     assert "path: 'admin/users'," in source
-    assert "path: '/admin/ingestion', redirect: '/manage/ingestion'" in source
+    assert "path: '/admin/ingestion', redirect: preserveRouteState('/manage/ingestion')" in source
     assert "redirect: { name: 'admin-master-workshop' }" in source
-    assert "path: '/admin/templates', redirect: '/manage/admin/templates'" in source
-    assert "path: '/admin/users', redirect: '/manage/admin/users'" in source
+    assert "path: '/admin/templates', redirect: preserveRouteState('/manage/admin/templates')" in source
+    assert "path: '/admin/users', redirect: preserveRouteState('/manage/admin/users')" in source
 
 
 def test_master_route_docs_match_live_workshop_center() -> None:
@@ -826,7 +826,7 @@ def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
 
     assert "const CostAccountingCenter" not in router
     assert "../views/review/CostAccountingCenter.vue" not in router
-    assert "{ path: '/review/cost-accounting', redirect: '/manage/factory/cost' }" in router
+    assert "{ path: '/review/cost-accounting', redirect: preserveRouteState('/manage/factory/cost') }" in router
     assert "path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen" in router
     assert "loadCostBenefit" in _read_repo_file("frontend/src/views/factory-command/CostBenefitScreen.vue")
     assert "evaluateCostScenario" in reference_center
@@ -838,7 +838,7 @@ def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "{ path: '/review/roadmap', redirect: '/manage/overview' }" in source
+    assert "{ path: '/review/roadmap', redirect: preserveRouteState('/manage/overview') }" in source
     assert "name: 'review-roadmap-center'" not in source
     assert "moduleId: '16'" not in source
 
