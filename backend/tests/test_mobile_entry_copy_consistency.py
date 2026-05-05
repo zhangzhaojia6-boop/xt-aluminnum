@@ -1033,21 +1033,31 @@ def test_pilot_docs_use_entry_as_formal_field_route() -> None:
     checklist = _read_repo_file("docs/pilot-readiness-checklist.md")
 
     for token in [
-        "企业微信或浏览器打开 `https://localhost/entry`",
+        "浏览器或钉钉打开 `https://localhost/entry`",
         "当前正式移动填报入口（H5）",
         "旧 `https://localhost/mobile` 可兼容跳转到 `/entry`",
         "始终从 `/entry` 返回当前班次继续处理",
+        "python scripts/dingtalk_cli.py status --json",
+        "python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json",
     ]:
         assert token in sop
 
     for token in [
-        "企业微信或浏览器进入后统一落到 `/entry` 主入口",
+        "浏览器或钉钉进入后统一落到 `/entry` 主入口",
         "`/mobile` 仅作为兼容跳转",
         "现场人员统一从 `/entry` 开始",
+        "钉钉或浏览器账号能登录",
+        "python scripts/check_pilot_config.py --date <目标日期> --json",
+        "python scripts/check_pilot_metrics.py --date <目标日期> --json",
     ]:
         assert token in checklist
 
     for stale_token in [
+        "企业微信或浏览器打开 `https://localhost/entry`",
+        "企业微信或浏览器进入后统一落到 `/entry` 主入口",
+        "企业微信账号能登录",
+        "check_wecom_account_mapping.py",
+        "2026-04-06",
         "企业微信打开 `https://localhost/mobile`",
         "这是当前唯一移动填报入口",
         "始终从 `/mobile` 返回当前班次继续处理",

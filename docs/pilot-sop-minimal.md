@@ -1,7 +1,7 @@
 # 试点最小SOP（现场值班版）
 
 ## 1. 入口怎么进
-- 工人：企业微信或浏览器打开 `https://localhost/entry`，这是当前正式移动填报入口（H5）。
+- 工人：浏览器或钉钉打开 `https://localhost/entry`，这是当前正式移动填报入口（H5）。
 - 旧 `https://localhost/mobile` 可兼容跳转到 `/entry`，不作为新培训入口。
 - 管理：驾驶舱查看日报与上报率，必要时执行配置与账号自检脚本。
 
@@ -13,7 +13,8 @@
 - 批量排查命令：
 ```bash
 cd backend
-python scripts/check_wecom_account_mapping.py --input wecom_users.txt --json
+python scripts/dingtalk_cli.py status --json
+python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json
 ```
 
 ## 3. 被退回怎么办
@@ -40,12 +41,12 @@ AUTO_PUBLISH_ENABLED=false
 - 每日复盘指标：
 ```bash
 cd backend
-python scripts/check_pilot_metrics.py --date 2026-04-06 --json
+python scripts/check_pilot_metrics.py --date <目标日期> --json
 ```
 - 配置自检：
 ```bash
 cd backend
-python scripts/check_pilot_config.py --date 2026-04-06 --json
+python scripts/check_pilot_config.py --date <目标日期> --json
 ```
 
 

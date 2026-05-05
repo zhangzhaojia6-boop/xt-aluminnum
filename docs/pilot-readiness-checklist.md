@@ -16,7 +16,7 @@
 ```bash
 cd backend
 python -m pytest tests/test_health.py tests/test_config_readiness_service.py -q
-python scripts/check_pilot_config.py --date 2026-04-06 --json
+python scripts/check_pilot_config.py --date <目标日期> --json
 ```
 - 通过标准：
   - `/readyz` 语义对应的测试通过。
@@ -34,7 +34,7 @@ python -m pytest \
   tests/test_reminder_agent.py -q
 ```
 - 通过标准：
-  - 企业微信或浏览器进入后统一落到 `/entry` 主入口，不依赖并列工人端入口。
+  - 浏览器或钉钉进入后统一落到 `/entry` 主入口，不依赖并列工人端入口。
   - `/mobile` 仅作为兼容跳转，不作为新培训入口。
   - 自动确认链路通过，最终状态保持为：
     - `MobileShiftReport.report_status=approved`
@@ -59,8 +59,8 @@ python -m pytest \
   - 自动发布/自动推送开关可分别关闭，不影响数据留痕。
 
 ## 2. 现场 smoke checklist（建议逐项打勾）
-- [ ] 从企业微信或浏览器进入后，现场人员统一从 `/entry` 开始，不需要跳转到其他工人端入口；`/mobile` 仅作为兼容跳转。
-- [ ] 企业微信账号能登录；失败时提示是“未绑定 / 停用 / 冲突 / 账号无效”中的一种。
+- [ ] 从浏览器或钉钉进入后，现场人员统一从 `/entry` 开始，不需要跳转到其他工人端入口；`/mobile` 仅作为兼容跳转。
+- [ ] 钉钉或浏览器账号能登录；失败时提示是“未绑定 / 停用 / 冲突 / 账号无效”中的一种。
 - [ ] 提交一条正常数据，系统自动进入 `approved`。
 - [ ] 提交一条“产出 > 投入”的测试数据，系统自动退回，且页面能看到 `returned_reason`。
 - [ ] 同班次修正后重新提交，确认可从 `returned` 回到 `approved`。
@@ -71,9 +71,9 @@ python -m pytest \
 ## 3. 每日复盘命令
 ```bash
 cd backend
-python scripts/check_pilot_metrics.py --date 2026-04-06 --json
-python scripts/check_pilot_anomalies.py --date 2026-04-06 --json
-python scripts/check_pilot_config.py --date 2026-04-06 --json
+python scripts/check_pilot_metrics.py --date <目标日期> --json
+python scripts/check_pilot_anomalies.py --date <目标日期> --json
+python scripts/check_pilot_config.py --date <目标日期> --json
 ```
 重点看：
 - 上报率 `reporting_rate`
@@ -92,7 +92,7 @@ AUTO_PUSH_ENABLED=false
 - 若连续出现退回原因不可读、跨班组可见、日报口径不一致：立即停止放量，回到只读/人工值守。
 
 ## 5. 结论记录模板
-- 检查日期：2026-04-06
+- 检查日期：
 - 检查人：
 - Gate A：通过 / 不通过
 - Gate B：通过 / 不通过

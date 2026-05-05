@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import importlib
+from pathlib import Path
 import sys
 from types import SimpleNamespace
 
@@ -11,6 +12,9 @@ import pytest
 from app.config import Settings
 from app.core.workflow_dispatcher import WorkflowDispatcher
 from app.core.workflow_events import build_workflow_event
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_settings(**overrides) -> Settings:
@@ -72,6 +76,8 @@ def build_envelope(
 def test_wecom_user_message_path_is_removed() -> None:
     sys.modules.pop('app.routers.wecom', None)
     sys.modules.pop('app.services.wecom_mapping_service', None)
+
+    assert not (BACKEND_ROOT / 'scripts/check_wecom_account_mapping.py').exists()
 
     with pytest.raises(ImportError):
         importlib.import_module('app.routers.wecom')
