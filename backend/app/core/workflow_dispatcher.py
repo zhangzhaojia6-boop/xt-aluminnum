@@ -173,7 +173,7 @@ class WorkflowDispatcher:
             reason=reason,
             workflow_event=dict(workflow_event),
         )
-        logger.info('Workflow retry placeholder created for %s via %s attempt %s', dispatch_key, publisher, attempt)
+        logger.info('Workflow retry recorded for %s via %s attempt %s', dispatch_key, publisher, attempt)
         return entry
 
     def send_to_dead_letter(
@@ -192,7 +192,7 @@ class WorkflowDispatcher:
             reason=reason,
             workflow_event=dict(workflow_event),
         )
-        logger.warning('Workflow dead-letter placeholder created for %s via %s', dispatch_key, publisher)
+        logger.warning('Workflow dead-letter recorded for %s via %s', dispatch_key, publisher)
         return entry
 
     def _record_outcome(self, outcome: WorkflowDispatchOutcome) -> None:

@@ -86,7 +86,7 @@ def test_dispatcher_marks_successful_dispatches_as_duplicates_on_repeat() -> Non
     assert duplicate.publisher_results == ()
 
 
-def test_dispatcher_creates_retry_placeholder_when_publisher_fails() -> None:
+def test_dispatcher_records_retry_entry_when_publisher_fails() -> None:
     class BrokenPublisher:
         name = 'broken'
 
@@ -112,7 +112,7 @@ def test_dispatcher_creates_retry_placeholder_when_publisher_fails() -> None:
     assert outcome.dead_letter_entry is None
 
 
-def test_dispatcher_creates_dead_letter_placeholder_when_max_attempts_are_exhausted() -> None:
+def test_dispatcher_records_dead_letter_entry_when_max_attempts_are_exhausted() -> None:
     class BrokenPublisher:
         name = 'broken'
 

@@ -1,13 +1,13 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-05 12:35:21 +08:00
+更新时间：2026-05-05 12:47:12 +08:00
 
 ## 1. 仓库状态
 
 - 仓库：`https://github.com/zhangzhaojia6-boop/xt-aluminnum.git`
 - 当前主线：`main`
-- 当前本地 HEAD：`b029db8 feat: 增加外部正式联通上线闸门`
-- 当前远端 `origin/main`：`b029db8`
+- 当前记录基准：`9130fb3 docs: 记录 Vercel 主线部署状态`
+- 本地与远端状态以 `git status --short --branch` 和 `git rev-parse --short origin/main` 为准
 - PR 状态：`#1 fix: 收口管理占位路由与就绪配置阻断` 已合并并关闭
 - 推荐服务器目录：`/srv/aluminum-bypass`
 - 推荐部署命令：
@@ -73,7 +73,7 @@ db 容器: PostgreSQL 15
 
 ## 4. 本地验证记录
 
-在 `main@b029db8` 上已完成：
+在 `main@b029db8` 上已完成核心全量验证：
 
 - `python -m pytest backend/tests -q`：670 passed，30 warnings
 - `npm --prefix frontend test`：82 passed
@@ -83,6 +83,8 @@ db 容器: PostgreSQL 15
 - `curl -k https://127.0.0.1/readyz`：HTTP 200
 - `bash scripts/go_live_gate.sh https://example.invalid --dry-run --require-external`：正确显示 `GATE_EXTERNAL`
 - `bash scripts/launch_cloud_trial.sh https://example.invalid --dry-run --require-external --pull`：正确透传 `--require-external`
+
+在 `main@9130fb3` 上已同步 Vercel 主线部署记录；本轮后续只做 workflow 运行日志措辞收口。
 
 本地 Docker 状态：
 
@@ -144,13 +146,13 @@ MES_API_KEY=...
 - `https://8.140.218.13/readyz`：HTTP 404。
 - `http://8.140.218.13/readyz`：HTTP 503。
 
-Vercel 主线探测：2026-05-05 12:35 左右。
+Vercel 主线探测：2026-05-05 12:47 左右。
 
-- GitHub commit status：`Vercel=success`，目标提交 `b029db8`。
+- GitHub commit status：最近一次可确认记录为 `Vercel=success`，目标提交 `b029db8`；`9130fb3` 的 GitHub REST 查询当前被 rate limit 阻断，Vercel MCP 当前返回 403。
 - `https://xt-aluminnum.vercel.app/`：HTTP 200。
 - `https://xt-aluminnum.vercel.app/entry`：HTTP 200，返回前端挂载页。
 - `https://xt-aluminnum.vercel.app/manage/admin`：HTTP 200，返回前端挂载页。
-- `https://xt-aluminnum.vercel.app/readyz`：无后端 readyz 响应。
+- `https://xt-aluminnum.vercel.app/readyz`：HTTP 200，但返回的是前端 SPA shell，不是后端 readyz JSON。
 
 结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、MES、钉钉或应用连接 API 已正式联通。ECS 仍需恢复 SSH 或提供服务器执行结果后再验收。
 
