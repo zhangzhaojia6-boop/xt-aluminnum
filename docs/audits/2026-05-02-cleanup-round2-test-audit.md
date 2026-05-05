@@ -33,6 +33,7 @@
 | R23 | 侧栏折叠记忆缺少刷新验证 | `frontend/e2e/manage-shell.spec.js` | 折叠后断言 `localStorage`，刷新后仍保持折叠，再展开并断言状态回写 |
 | R24 | 管理壳层抽屉与搜索缺少 E2E | `frontend/e2e/manage-shell.spec.js` | 增加移动抽屉跳转、搜索弹层打开、关键词过滤和搜索结果跳转验证 |
 | R25 | `desktop=1` 桌面豁免未契约化 | `frontend/e2e/login-delivery-smoke.spec.js` | 小屏填报可用账号默认 `/manage/overview` 回 `/entry`，带 `desktop=1` 时保留管理端 |
+| R26 | 统一填报缺少重量业务规则 | `frontend/src/views/mobile/UnifiedEntryForm.vue`、`frontend/src/utils/entryWeightValidation.js` | 提交前校验可见重量非负、产出不大于投入、产出加废料不大于投入，并用 node 单测锁定 |
 
 ## 待处理问题清单
 
@@ -43,7 +44,6 @@
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
 | F11 | 中 | 路由守卫 | `installRouterGuards` 缺少单元测试 | `frontend/src/router/index.js` | 覆盖 fill-only、admin、compact、runtime auth code |
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
-| F14 | 高 | 数据校验 | 统一填报仅校验非空，缺少重量业务规则 | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 增加非负、投入产出关系校验 |
 | F15 | 中 | 表单校验 | 车间主数据弹窗缺少前端必填校验 | `frontend/src/views/master/Workshop.vue` | 对 code/name 增加 rules 和失败用例 |
 | F16 | 中 | 审计链 | 质量处置原因可为空 | `frontend/src/views/quality/QualityCenter.vue` | prompt 增加非空校验 |
 | F17 | 中 | 审计链 | 差异处理理由硬编码或允许空值 | `frontend/src/views/reconciliation/ReconciliationCenter.vue` | 三类处置动作都要求输入说明 |

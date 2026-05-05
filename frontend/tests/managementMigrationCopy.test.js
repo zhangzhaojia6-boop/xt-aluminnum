@@ -12,8 +12,8 @@ test('management routes no longer expose migration placeholders', () => {
   assert.doesNotMatch(routerSource, /功能正在迁移中/)
   assert.doesNotMatch(routerSource, /component: page\(/)
   assert.match(routerSource, /path: 'admin'[^}]+redirect: '\/manage\/admin\/settings'/s)
-  assert.match(routerSource, /path: '\/admin', redirect: '\/manage\/admin\/settings'/)
-  assert.match(routerSource, /path: '\/admin\/overview', redirect: '\/manage\/admin\/settings'/)
+  assert.match(routerSource, /path: '\/admin', redirect: preserveRouteState\('\/manage\/admin\/settings'\)/)
+  assert.match(routerSource, /path: '\/admin\/overview', redirect: preserveRouteState\('\/manage\/admin\/settings'\)/)
 })
 
 test('management overview does not label active admin modules as migrating', () => {

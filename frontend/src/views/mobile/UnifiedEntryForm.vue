@@ -173,6 +173,7 @@ import {
 } from '../../api/mobile.js'
 import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
 import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
+import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 
 const auth = useAuthStore()
@@ -338,6 +339,16 @@ function validateVisibleRequiredFields() {
   return true
 }
 
+function validateBusinessRules() {
+  const visibleFields = groups.value.flatMap((group) => group.fields || [])
+  const message = validateEntryWeights(form, visibleFields)
+  if (message) {
+    ElMessage.warning(message)
+    return false
+  }
+  return true
+}
+
 function buildCoilEntryPayload(sc) {
   const values = normalizedFormValues()
   const trackingKey = identityField.value || 'tracking_card_no'
@@ -477,6 +488,7 @@ async function handleSubmit() {
   const sc = shiftContext.value
   if (!sc?.shift_id) return
   if (!validateVisibleRequiredFields()) return
+  if (!validateBusinessRules()) return
 
   submitting.value = true
   try {
