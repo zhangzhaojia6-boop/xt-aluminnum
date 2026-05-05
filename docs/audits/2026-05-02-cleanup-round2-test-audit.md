@@ -48,6 +48,8 @@
 | R38 | `report_service.py` 动态兼容壳增加导入复杂度 | `backend/tests/test_service_compat_shims.py` | 锁定旧 `app.services.report_service` 路径与 package identity，并验证 monkeypatch 传播到子模块 |
 | R39 | 空白搜索会返回全部导航 | `backend/app/routers/search.py`、`backend/tests/test_search_routes.py` | strip 后为空的 query 返回 422，正常 AI 搜索行为保持 |
 | R40 | 一个测试混合 search/export/notification | `backend/tests/test_platform_upgrade_api_routes.py` | 拆成搜索、导出、通知三个单行为测试 |
+| R41 | `/api/v1/auth/login` 缺少真正接口测试 | `backend/tests/test_auth_routes.py` | 覆盖登录成功、错密、禁用用户、初始管理员创建，并验证登录审计记录 |
+| R42 | `/me` 与 `/logout` 无接口测试 | `backend/tests/test_auth_routes.py` | 覆盖 `/me` 成功/无效 token 失败和 `/logout` 响应契约 |
 
 ## 待处理问题清单
 
@@ -82,8 +84,6 @@
 | S14 | 中 | 制品入库 | QR PDF 已跟踪 | `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf` | 改脱敏样例或迁移制品仓库 |
 | S15 | 低 | 仓库体积 | 高分辨率 UI 截图较多 | `docs/ui-reference/highres/*.png` | 压缩或转 manifest/缩略图 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
-| B02 | 高 | 认证测试 | `/api/v1/auth/login` 缺少真正接口测试 | `backend/app/routers/auth.py` | 覆盖成功、错密、禁用用户、首登初始化 |
-| B03 | 中 | 认证测试 | `/me` 与 `/logout` 无接口测试 | `backend/app/routers/auth.py` | 补鉴权成功/失败和响应契约 |
 | B04 | 中 | QR 兼容 | `virtual_workshop_qr` 分支未测 | `backend/app/routers/auth.py` | 覆盖 workshop_redirect |
 | B05 | 高 | QR 兼容 | `virtual_role_qr` 自动建号和异常分支未测 | `backend/app/routers/auth.py` | 覆盖角色码、缺车间、已存在用户 |
 | B06 | 中 | 状态隔离 | 通知数据是模块级全局列表 | `backend/app/routers/notifications.py` | 用户维度隔离并补测试 |
