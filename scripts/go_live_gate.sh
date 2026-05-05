@@ -4,6 +4,7 @@ set -eu
 DRY_RUN=0
 SKIP_AI=0
 SKIP_ROLE_SMOKE=0
+REQUIRE_EXTERNAL=0
 PARSED_BASE_URL=""
 PARSED_TARGET_DATE=""
 
@@ -21,28 +22,32 @@ while [ "$#" -gt 0 ]; do
       SKIP_ROLE_SMOKE=1
       shift
       ;;
+    --require-external)
+      REQUIRE_EXTERNAL=1
+      shift
+      ;;
     --date)
       if [ "$#" -lt 2 ]; then
         echo "参数错误：--date 需要 YYYY-MM-DD" >&2
-        echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--dry-run]" >&2
+        echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--require-external] [--dry-run]" >&2
         exit 1
       fi
       PARSED_TARGET_DATE="$2"
       shift 2
       ;;
     --help|-h)
-      echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--dry-run]"
+      echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--require-external] [--dry-run]"
       exit 0
       ;;
     -*)
       echo "不支持的参数: $1" >&2
-      echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--dry-run]" >&2
+      echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--require-external] [--dry-run]" >&2
       exit 1
       ;;
     *)
       if [ -n "$PARSED_BASE_URL" ]; then
         echo "不支持的参数: $1" >&2
-        echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--dry-run]" >&2
+        echo "用法: $0 [https://domain] [--date YYYY-MM-DD] [--skip-ai] [--skip-role-smoke] [--require-external] [--dry-run]" >&2
         exit 1
       fi
       PARSED_BASE_URL="$1"
@@ -184,6 +189,10 @@ run_role_smoke_tests() {
     -q
 }
 
+run_external_connection_gate() {
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T backend python scripts/check_statistics_module_ready.py --json
+}
+
 run_restore_dry_run() {
   latest_backup_file="$1"
   ./scripts/restore_db.sh --dry-run "$latest_backup_file"
@@ -196,6 +205,11 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "将执行:"
   echo " - GATE_STACK: ./scripts/check_trial_stack.sh \"$BASE_URL\""
   echo " - GATE_PILOT: docker compose ... exec -T backend python scripts/check_pilot_config.py --date \"$TARGET_DATE\" --json"
+  if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then
+    echo " - GATE_EXTERNAL: docker compose ... exec -T backend python scripts/check_statistics_module_ready.py --json"
+  else
+    echo " - GATE_EXTERNAL: 跳过（加 --require-external 后强制正式外部联通）"
+  fi
   if [ "$SKIP_AI" -eq 0 ]; then
     echo " - GATE_AI: backend AI live 探针（assistant query/image + leader summary）"
   fi
@@ -224,6 +238,24 @@ if [ "$PILOT_STATUS" -eq 0 ]; then
 else
   add_fail "GATE_PILOT" "试点配置硬门槛（check_pilot_config）"
   echo "[GATE_PILOT] 失败"
+fi
+
+if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then
+  echo "[GATE_EXTERNAL] 开始：外部正式联通闸门"
+  set +e
+  EXTERNAL_OUTPUT="$(run_external_connection_gate 2>&1)"
+  EXTERNAL_STATUS=$?
+  set -e
+  printf '%s\n' "$EXTERNAL_OUTPUT"
+  if [ "$EXTERNAL_STATUS" -eq 0 ]; then
+    add_pass "GATE_EXTERNAL" "外部正式联通闸门"
+    echo "[GATE_EXTERNAL] 通过"
+  else
+    add_fail "GATE_EXTERNAL" "外部正式联通闸门（MES/Workflow/钉钉/应用连接 API）"
+    echo "[GATE_EXTERNAL] 失败"
+  fi
+else
+  echo "[GATE_EXTERNAL] 跳过：未加 --require-external"
 fi
 
 if [ "$SKIP_AI" -eq 0 ]; then

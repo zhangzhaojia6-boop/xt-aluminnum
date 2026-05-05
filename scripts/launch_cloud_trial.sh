@@ -11,11 +11,12 @@ EXTRA_GATE_ARGS=""
 
 usage() {
   cat <<'EOF'
-用法: scripts/launch_cloud_trial.sh [https://domain] [--date YYYY-MM-DD] [--pull] [--skip-pull] [--skip-ai] [--skip-role-smoke] [--dry-run]
+用法: scripts/launch_cloud_trial.sh [https://domain] [--date YYYY-MM-DD] [--pull] [--skip-pull] [--skip-ai] [--skip-role-smoke] [--require-external] [--dry-run]
 
 说明:
 - 默认不执行 git pull，避免意外覆盖本地改动。
 - 加上 --pull 时先执行 git pull，再执行部署与上线闸门。
+- 加上 --require-external 时，上线闸门会强制检查 MES、Workflow、钉钉和应用连接 API。
 - --dry-run 仅打印将执行的命令，不实际触发部署和闸门探测。
 EOF
 }
@@ -35,6 +36,10 @@ while [ "$#" -gt 0 ]; do
     --skip-role-smoke)
       SKIP_ROLE_SMOKE=1
       EXTRA_GATE_ARGS="$EXTRA_GATE_ARGS --skip-role-smoke"
+      shift
+      ;;
+    --require-external)
+      EXTRA_GATE_ARGS="$EXTRA_GATE_ARGS --require-external"
       shift
       ;;
     --date)
@@ -111,4 +116,3 @@ echo "[3/3] 上线闸门总检"
 ./scripts/go_live_gate.sh "$BASE_URL" $DATE_ARG $EXTRA_GATE_ARGS
 
 echo "一键链路完成，结果请参考 go_live_gate 输出。"
-

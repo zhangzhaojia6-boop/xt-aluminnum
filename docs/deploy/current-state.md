@@ -162,6 +162,12 @@ git pull --ff-only origin main
 ./scripts/launch_cloud_trial.sh https://你的域名 --pull
 ```
 
+如果 MES、钉钉和应用连接 API 已填入真实配置，正式上线时必须加外部联通闸门：
+
+```bash
+./scripts/launch_cloud_trial.sh https://你的域名 --pull --require-external
+```
+
 上线后必须确认：
 
 ```bash

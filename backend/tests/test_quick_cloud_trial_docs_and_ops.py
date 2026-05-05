@@ -149,6 +149,7 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert '一键上线闸门' in ops
     assert '--skip-ai' in ops
     assert '--skip-role-smoke' in ops
+    assert '--require-external' in ops
     assert 'docker compose exec -T backend python scripts/check_statistics_module_ready.py' in ops
     assert 'MES_ADAPTER=mvc' in ops
     assert 'DINGTALK_ENABLED=true' in ops
@@ -160,6 +161,7 @@ def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     deploy = _read('scripts/deploy_trial.sh')
     check = _read('scripts/check_trial_stack.sh')
     gate = _read('scripts/go_live_gate.sh')
+    launcher = _read('scripts/launch_cloud_trial.sh')
 
     assert 'for compose_file in docker-compose.yml docker-compose.prod.yml; do' in deploy
     assert 'DRY_RUN=0' in deploy
@@ -261,10 +263,14 @@ def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     assert 'DRY_RUN=0' in gate
     assert 'SKIP_AI=0' in gate
     assert 'SKIP_ROLE_SMOKE=0' in gate
+    assert 'REQUIRE_EXTERNAL=0' in gate
     assert '--skip-ai' in gate
     assert '--skip-role-smoke' in gate
+    assert '--require-external' in gate
     assert './scripts/check_trial_stack.sh "$BASE_URL"' in gate
     assert 'docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T backend python scripts/check_pilot_config.py --date "$TARGET_DATE" --json' in gate
+    assert 'docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T backend python scripts/check_statistics_module_ready.py --json' in gate
+    assert 'GATE_EXTERNAL' in gate
     assert 'check_ai_runtime_live' in gate
     assert 'run_role_smoke_tests' in gate
     assert './scripts/backup_db.sh --dry-run' in gate
@@ -272,6 +278,12 @@ def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     assert './scripts/restore_db.sh --dry-run "$latest_backup_file"' in gate
     assert 'GO_LIVE_READY=true' in gate
     assert 'GO_LIVE_READY=false' in gate
+    assert 'SKIP_PULL=1' in launcher
+    assert '--pull' in launcher
+    assert '--skip-pull' in launcher
+    assert '--require-external' in launcher
+    assert './scripts/deploy_trial.sh' in launcher
+    assert './scripts/go_live_gate.sh "$BASE_URL" $DATE_ARG $EXTRA_GATE_ARGS' in launcher
 
 
 def test_quick_trial_ops_docs_note_required_running_services() -> None:

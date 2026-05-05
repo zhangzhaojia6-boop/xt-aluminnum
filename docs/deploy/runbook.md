@@ -199,6 +199,12 @@ cd /srv/aluminum-bypass
 ./scripts/launch_cloud_trial.sh https://your.domain.example --pull
 ```
 
+如果 MES、钉钉和应用连接 API 已全部填写真实配置，并希望上线闸门强制检查外部正式联通：
+
+```bash
+./scripts/launch_cloud_trial.sh https://your.domain.example --pull --require-external
+```
+
 演练模式：
 
 ```bash
