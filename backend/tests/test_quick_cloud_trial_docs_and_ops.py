@@ -142,6 +142,19 @@ def test_cleanup_audit_marks_deterministic_orchestration_boundary_resolved() -> 
     assert '无引用无测试' not in source
 
 
+def test_backend_smoke_scripts_are_replaced_by_testclient_coverage() -> None:
+    scripts_dir = REPO_ROOT / 'backend/scripts'
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+
+    assert list(scripts_dir.glob('test_*.py')) == []
+    assert not (scripts_dir / 'smoke_entry_fields.py').exists()
+    assert not (scripts_dir / 'smoke_shift.py').exists()
+    assert '| S12 |' not in audit
+    assert '| R72 |' in audit
+    assert '`backend/tests/test_qr_login.py`' in audit
+    assert '后端手工测试脚本打固定 localhost 和 live token' not in audit
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 

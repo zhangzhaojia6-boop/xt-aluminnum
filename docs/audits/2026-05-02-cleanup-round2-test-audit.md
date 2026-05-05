@@ -79,6 +79,7 @@
 | R69 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | compose smoke 改为运行时生成一次性 secret/admin password，并对日志加 mask |
 | R70 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 按 backend 容器 app 用户 UID/GID 创建 `0770` 上传目录 |
 | R71 | 确定性编排服务审计描述过期 | `backend/app/services/deterministic_orchestration_service.py`、`backend/tests/test_deterministic_orchestration_service.py` | 确认 report runtime trace 构建链路已引用该服务，并补健康、阻塞和坏输入容错直接测试 |
+| R72 | 后端手工 smoke 脚本依赖本地服务和 live token | `backend/tests/test_qr_login.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `smoke_entry_fields.py`、`smoke_shift.py`，改用 TestClient 覆盖 QR 登录到移动填报字段和当前班次接口链路 |
 
 ## 待处理问题清单
 
@@ -86,7 +87,6 @@
 |---|---|---|---|---|---|
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
 | S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
-| S12 | 中 | 脚本可复现性 | 后端手工测试脚本打固定 localhost 和 live token | `backend/scripts/test_*.py` | 改 pytest + TestClient |
 | S14 | 中 | 制品入库 | QR PDF 已跟踪 | `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf` | 改脱敏样例或迁移制品仓库 |
 | S15 | 低 | 仓库体积 | 高分辨率 UI 截图较多 | `docs/ui-reference/highres/*.png` | 压缩或转 manifest/缩略图 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |

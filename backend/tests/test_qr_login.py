@@ -1,3 +1,6 @@
+from datetime import date
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,13 +9,22 @@ from app.core.auth import get_password_hash, verify_password
 from app.core.deps import get_db
 from app.database import Base
 from app.main import app
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, Workshop, WorkshopTemplateConfig
 from app.models.system import AuditLog, User
 
 
 def build_sessionmaker(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'qr-login.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[Workshop.__table__, User.__table__, Equipment.__table__, AuditLog.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkshopTemplateConfig.__table__,
+            User.__table__,
+            Equipment.__table__,
+            AuditLog.__table__,
+        ],
+    )
     return sessionmaker(bind=engine, future=True)
 
 
@@ -93,11 +105,13 @@ def _seed_role_qr(
     qr_code: str,
     workshop: bool = True,
     existing_user: bool = False,
+    workshop_code: str = 'LW',
+    workshop_name: str = '冷轧车间',
 ) -> int | None:
     with session_factory() as db:
         workshop_id = 999
         if workshop:
-            workshop_row = Workshop(code='LW', name='冷轧车间', sort_order=3, is_active=True)
+            workshop_row = Workshop(code=workshop_code, name=workshop_name, sort_order=3, is_active=True)
             db.add(workshop_row)
             db.flush()
             workshop_id = workshop_row.id
@@ -303,3 +317,127 @@ def test_qr_login_virtual_role_rejects_invalid_role_suffix(tmp_path) -> None:
 
     assert response.status_code == 400
     assert response.json()['detail'] == '无效角色码'
+
+
+@pytest.mark.parametrize(
+    ('code', 'qr_code', 'expected_role', 'expected_mode', 'expected_submit_target'),
+    [
+        ('ZR2-EN', 'XT-ZR2-EN', 'energy_stat', 'per_shift', 'shift_report'),
+        ('ZR2-MT', 'XT-ZR2-MT', 'maintenance_lead', 'per_shift', 'shift_report'),
+        ('ZR2-HY', 'XT-ZR2-HY', 'hydraulic_lead', 'per_shift', 'shift_report'),
+        ('ZR2-1-OP', 'XT-ZR2-1-OP', 'machine_operator', 'per_coil', 'coil_entry'),
+    ],
+)
+def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
+    tmp_path,
+    *,
+    code: str,
+    qr_code: str,
+    expected_role: str,
+    expected_mode: str,
+    expected_submit_target: str,
+) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    _seed_role_qr(
+        session_factory,
+        code=code,
+        qr_code=qr_code,
+        workshop_code='ZR2',
+        workshop_name='铸二车间',
+    )
+    _override_db(session_factory)
+
+    client = TestClient(app)
+    login_response = client.post('/api/v1/auth/qr-login', json={'qr_code': qr_code})
+    assert login_response.status_code == 200
+    login_payload = login_response.json()
+    assert login_payload['access_token']
+    assert login_payload['user']['role'] == expected_role
+
+    fields_response = client.get(
+        '/api/v1/mobile/entry-fields',
+        headers={'Authorization': f"Bearer {login_payload['access_token']}"},
+    )
+
+    assert fields_response.status_code == 200
+    fields_payload = fields_response.json()
+    assert fields_payload['mode'] == expected_mode
+    assert fields_payload['submit_target'] == expected_submit_target
+    assert isinstance(fields_payload['groups'], list)
+    assert fields_payload['groups']
+    assert all(isinstance(group.get('fields'), list) for group in fields_payload['groups'])
+    assert fields_payload['groups'][0]['fields']
+    if expected_role == 'machine_operator':
+        assert fields_payload['identity_field'] == 'tracking_card_no'
+        first_group_fields = fields_payload['groups'][0]['fields']
+        assert first_group_fields[0]['name'] == 'tracking_card_no'
+    else:
+        assert fields_payload['identity_field'] is None
+
+
+def test_qr_role_login_can_fetch_current_shift_with_testclient(tmp_path, monkeypatch) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    _seed_role_qr(
+        session_factory,
+        code='ZR2-EN',
+        qr_code='XT-ZR2-EN',
+        workshop_code='ZR2',
+        workshop_name='铸二车间',
+    )
+    _override_db(session_factory)
+
+    def fake_current_shift(_db, *, current_user):
+        assert current_user.username == 'ZR2-EN'
+        assert current_user.role == 'energy_stat'
+        return {
+            'business_date': date(2026, 5, 6),
+            'shift_id': None,
+            'shift_code': None,
+            'shift_name': None,
+            'workshop_id': current_user.workshop_id,
+            'workshop_code': 'ZR2',
+            'workshop_name': '铸二车间',
+            'workshop_type': 'casting',
+            'machine_id': None,
+            'machine_code': None,
+            'machine_name': None,
+            'is_machine_bound': False,
+            'machine_custom_fields': [],
+            'team_id': None,
+            'team_name': None,
+            'leader_name': current_user.name,
+            'report_id': None,
+            'report_status': 'unreported',
+            'entry_channel': 'qr_role',
+            'dingtalk_ready': False,
+            'dingtalk_hint': None,
+            'ownership_note': None,
+            'active_reminders': [],
+            'attendance_confirmation_id': None,
+            'attendance_machine_id': None,
+            'attendance_machine_name': None,
+            'attendance_status': 'not_started',
+            'attendance_exception_count': 0,
+            'attendance_pending_count': 0,
+            'can_submit': True,
+        }
+
+    monkeypatch.setattr('app.routers.mobile.mobile_report_service.get_current_shift', fake_current_shift)
+
+    client = TestClient(app)
+    login_response = client.post('/api/v1/auth/qr-login', json={'qr_code': 'XT-ZR2-EN'})
+    assert login_response.status_code == 200
+    token = login_response.json()['access_token']
+
+    shift_response = client.get(
+        '/api/v1/mobile/current-shift',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert shift_response.status_code == 200
+    payload = shift_response.json()
+    assert payload['business_date'] == '2026-05-06'
+    assert payload['workshop_code'] == 'ZR2'
+    assert payload['leader_name'] == 'ZR2-EN 角色码'
+    assert payload['entry_channel'] == 'qr_role'
+    assert payload['can_submit'] is True
