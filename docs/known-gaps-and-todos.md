@@ -29,7 +29,9 @@
 ## 6. 上线闸门依赖目标业务日应报清单
 
 - 当前 `readyz` 与试跑排班种子脚本均使用 `DEFAULT_TIMEZONE=Asia/Shanghai` 解析目标业务日
-- 容器内 `/readyz` 已可返回 `target_date_schedule_available`；正式试跑前仍需执行一次 `docker compose exec -T backend python scripts/init_real_master_data.py`，确保目标业务日应报清单存在，避免 `SCHEDULE_EMPTY`
+- compose 启动链路已自动执行 `python scripts/init_real_master_data.py`，会在服务启动时初始化目标业务日应报清单
+- 已运行容器跨目标业务日或跳过重启时，正式试跑前再执行 `docker compose exec -T backend python scripts/init_real_master_data.py` 刷新目标日应报清单，避免 `SCHEDULE_EMPTY`
+- 容器内 `/readyz` 已可返回 `target_date_schedule_available`
 
 ## 7. 主数据与模板中心仍需补齐一站式覆盖
 

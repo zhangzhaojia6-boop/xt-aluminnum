@@ -655,11 +655,17 @@ def test_known_gaps_describes_schedule_gate_with_configured_timezone() -> None:
     gaps = _read('docs/known-gaps-and-todos.md')
     health = _read('backend/app/core/health.py')
     schedule_seed = _read('backend/app/services/pilot_schedule_seed.py')
+    compose = _read('docker-compose.yml')
+    prod_compose = _read('docker-compose.prod.yml')
 
     assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in health
     assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in schedule_seed
+    assert 'python scripts/init_real_master_data.py &&' in compose
+    assert 'python scripts/init_real_master_data.py &&' in prod_compose
     assert 'UTC 自然日' not in gaps
     assert 'DEFAULT_TIMEZONE=Asia/Shanghai' in gaps
+    assert 'compose 启动链路已自动执行 `python scripts/init_real_master_data.py`' in gaps
+    assert '已运行容器跨目标业务日或跳过重启时' in gaps
     assert 'target_date_schedule_available' in gaps
     assert 'SCHEDULE_EMPTY' in gaps
 
