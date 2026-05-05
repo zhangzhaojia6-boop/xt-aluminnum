@@ -46,6 +46,7 @@
 | R36 | 非法 `X-Idempotency-Key` 400 分支无测 | `backend/tests/test_work_order_routes.py` | 覆盖非法 UUID header 返回 400，并验证服务层不会被调用 |
 | R37 | `work_order_service.py` 动态兼容壳增加导入复杂度 | `backend/tests/test_service_compat_shims.py` | 锁定旧 `app.services.work_order_service` 路径与 package identity，并验证 monkeypatch 传播到子模块 |
 | R38 | `report_service.py` 动态兼容壳增加导入复杂度 | `backend/tests/test_service_compat_shims.py` | 锁定旧 `app.services.report_service` 路径与 package identity，并验证 monkeypatch 传播到子模块 |
+| R39 | 空白搜索会返回全部导航 | `backend/app/routers/search.py`、`backend/tests/test_search_routes.py` | strip 后为空的 query 返回 422，正常 AI 搜索行为保持 |
 
 ## 待处理问题清单
 
@@ -86,7 +87,6 @@
 | B05 | 高 | QR 兼容 | `virtual_role_qr` 自动建号和异常分支未测 | `backend/app/routers/auth.py` | 覆盖角色码、缺车间、已存在用户 |
 | B06 | 中 | 状态隔离 | 通知数据是模块级全局列表 | `backend/app/routers/notifications.py` | 用户维度隔离并补测试 |
 | B07 | 低 | 错误语义 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py` | 明确 404 或锁定 200 语义 |
-| B08 | 中 | 搜索校验 | 空白搜索会 strip 成空串并返回全部导航 | `backend/app/routers/search.py` | strip 后空串返回 422 或空结果 |
 | B09 | 低 | 测试设计 | 一个测试混合 search/export/notification | `backend/tests/test_platform_upgrade_api_routes.py` | 拆成三个单行为测试 |
 | B21 | 低 | 未接入代码 | `deterministic_orchestration_service.py` 无引用无测试 | `backend/app/services` | 确认废弃后删除或补入口和测试 |
 | B22 | 低 | Schema 漂移 | 未引用 auth schema 与 QR 返回模型不一致 | `backend/app/schemas/auth.py` | 删除未用 schema 或声明 response_model |

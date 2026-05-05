@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import get_current_user
 from app.models.system import User
@@ -14,7 +14,10 @@ def global_search(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, list[dict]]:
     _ = current_user
-    query = q.strip().lower()
+    stripped_query = q.strip()
+    if not stripped_query:
+        raise HTTPException(status_code=422, detail='q must not be blank')
+    query = stripped_query.lower()
     navigation = [
         {'title': '总览', 'path': '/manage/overview', 'group': 'manage'},
         {'title': '填报中心', 'path': '/entry', 'group': 'entry'},
