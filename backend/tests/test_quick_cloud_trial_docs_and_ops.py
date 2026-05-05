@@ -347,6 +347,10 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert 'git pull' in deployment
     assert '一个车间' in deployment
     assert '企业微信正式入口先不接' in deployment
+    assert '现场主数据已完成' not in deployment
+    assert '现场主数据已具备初始化脚本与 `/readyz` 闸门' in deployment
+    assert '正式试跑前需按目标车间复核车间、班次、角色、模板、专项 owner、管理员账号' in deployment
+    assert '现场主数据和试点账号尚需最终过一遍' in deployment
     assert '1 个管理员' in uat
     assert '1 个车间的主操或机台账号 1 人' in uat
     assert '专项 owner' in uat
