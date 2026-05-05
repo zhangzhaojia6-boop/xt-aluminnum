@@ -142,6 +142,11 @@ test('management shell components do not render numeric module badges', () => {
   assert.doesNotMatch(routerSource, /xt-placeholder-page__number/)
 })
 
+test('reference page frame uses canonical product identity', () => {
+  assert.match(referenceFrameSource, /鑫泰铝业 数据中枢 · 运行中心/)
+  assert.doesNotMatch(referenceFrameSource, /鑫泰数据中枢 · 运行中心/)
+})
+
 test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /今日产量/)
   assert.match(liveDashboardSource, /损耗重量/)

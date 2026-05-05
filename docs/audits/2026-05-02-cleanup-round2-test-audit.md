@@ -87,6 +87,7 @@
 | R77 | 后端默认测试套件混入前端源码契约断言 | `backend/pytest.ini`、`backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py`、`backend/tests/test_frontend_refactor_blueprint.py` | 前端源码契约测试标记为 `frontend_contract`，默认后端 pytest 排除，需用 `-m frontend_contract` 单独运行 |
 | R78 | AI 能力兜底显示为在线能力 | `backend/app/services/assistant_service.py`、`frontend/src/api/assistant.js`、`frontend/src/components/review/ReviewAssistantDock.vue`、`frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_assistant_routes.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 未配置 LLM 或前端 fallback 时改为 `connected=false`、`planned` 集成、`0 / 0 / 未联通`，live 模式保留在线能力 |
 | R79 | AI 工作台顶部固定显示已接上下文 | `frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_mobile_entry_copy_consistency.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 顶部文案改为从 `capabilityState.connected` 派生，fallback 时显示 `生产上下文未联通`，live 时保留原有已接上下文文案 |
+| R80 | 参考页面框架仍显示旧产品名 | `frontend/src/components/reference/ReferencePageFrame.vue`、`backend/tests/test_rebranding.py`、`frontend/tests/managementCommandCenter.test.js` | 共享页面框架改为显示 `鑫泰铝业 数据中枢 · 运行中心`，测试禁止旧文案 `鑫泰数据中枢 · 运行中心` 回归 |
 
 ## 待处理问题清单
 
@@ -98,5 +99,5 @@
 - 待处理问题清单当前为空。
 - 当前主线验证：`python -m pytest backend/tests -q`，结果 `646 passed，119 deselected，30 warnings`。
 - 前端源码契约验证：`python -m pytest backend/tests -m frontend_contract -q`，结果 `119 passed，646 deselected`。
-- 前端单测与构建：`npm --prefix frontend test` 结果 `107 passed`；`npm --prefix frontend run build` 通过。
+- 前端单测与构建：`npm --prefix frontend test` 结果 `108 passed`；`npm --prefix frontend run build` 通过。
 - 初始 agent 基线已由 R77 拆分：默认后端 pytest 不再混入前端源码契约断言，前端契约改用 `frontend_contract` marker 单独运行。

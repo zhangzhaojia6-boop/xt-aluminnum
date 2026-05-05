@@ -35,6 +35,9 @@ def test_user_facing_brand_strings_are_updated() -> None:
     manage_shell_text = (repo_root / 'frontend' / 'src' / 'layout' / 'ManageShell.vue').read_text(encoding='utf-8')
     entry_shell_text = (repo_root / 'frontend' / 'src' / 'layout' / 'EntryShell.vue').read_text(encoding='utf-8')
     app_shell_text = (repo_root / 'frontend' / 'src' / 'layout' / 'AppShell.vue').read_text(encoding='utf-8')
+    reference_frame_text = (
+        repo_root / 'frontend' / 'src' / 'components' / 'reference' / 'ReferencePageFrame.vue'
+    ).read_text(encoding='utf-8')
     router_text = (repo_root / 'frontend' / 'src' / 'router' / 'index.js').read_text(encoding='utf-8')
     index_text = (repo_root / 'frontend' / 'index.html').read_text(encoding='utf-8')
     config_text = (repo_root / 'backend' / 'app' / 'config.py').read_text(encoding='utf-8')
@@ -46,6 +49,8 @@ def test_user_facing_brand_strings_are_updated() -> None:
     assert '现场填报' in entry_shell_text
     assert '鑫' in app_shell_text
     assert '鑫泰铝业 数据中枢' in app_shell_text
+    assert '鑫泰铝业 数据中枢 · 运行中心' in reference_frame_text
+    assert '鑫泰数据中枢 · 运行中心' not in reference_frame_text
     assert "const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'" in router_text
     assert '<title>鑫泰铝业</title>' in index_text
     assert "APP_NAME: str = '鑫泰铝业'" in config_text
