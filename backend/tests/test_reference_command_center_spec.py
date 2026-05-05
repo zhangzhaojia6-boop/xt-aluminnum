@@ -23,6 +23,12 @@ def _repo_file(relative_path: str) -> Path:
     return _resolve_repo_root() / relative_path
 
 
+def _read_png_size(path: Path) -> tuple[int, int]:
+    buffer = path.read_bytes()
+    assert buffer[:8] == b"\x89PNG\r\n\x1a\n", f"{path} is not a PNG file"
+    return int.from_bytes(buffer[16:20], "big"), int.from_bytes(buffer[20:24], "big")
+
+
 VISUAL_AUDIT_TOOL = "frontend/tools/visual-audit/command-center-audit.cjs"
 
 
@@ -419,6 +425,42 @@ def test_reference_visual_audit_tracks_spec_routes_and_surface_boundaries() -> N
     assert "ensureLayoutHook" in source
     assert "layoutHook: '.cmd-layout--mapping-center'" in source
     assert "layoutHook: '.cmd-layout--roadmap'" not in source
+
+
+def test_highres_reference_images_keep_size_budget_and_dimensions() -> None:
+    image_dir = _repo_file("docs/ui-reference/highres")
+    manifest = _read_repo_file("docs/ui-reference/REFERENCE_MANIFEST.md")
+    expected_images = [
+        "01-overview.png",
+        "02-login.png",
+        "03-entry-home.png",
+        "04-entry-flow.png",
+        "05-factory-board.png",
+        "06-ingestion-mapping.png",
+        "07-review-tasks.png",
+        "08-reports-delivery.png",
+        "09-quality-alerts.png",
+        "10-cost-benefit.png",
+        "11-ai-control.png",
+        "12-ops-observability.png",
+        "13-governance.png",
+        "14-master-template.png",
+        "15-entry-responsive.png",
+    ]
+
+    total_bytes = 0
+    for filename in expected_images:
+        path = image_dir / filename
+        assert path.exists(), filename
+        assert _read_png_size(path) == (1672, 941), filename
+        total_bytes += path.stat().st_size
+
+    assert len(list(image_dir.glob("*.png"))) == len(expected_images)
+    assert total_bytes <= 5_600_000
+    assert "尺寸门槛" in manifest
+    assert "1672 x 941" in manifest
+    assert "体积门槛" in manifest
+    assert "<= 5.6 MB" in manifest
 
 
 def test_visual_diff_gate_supports_per_module_threshold() -> None:

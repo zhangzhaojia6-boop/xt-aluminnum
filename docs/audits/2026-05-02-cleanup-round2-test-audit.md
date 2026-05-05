@@ -81,6 +81,7 @@
 | R71 | 确定性编排服务审计描述过期 | `backend/app/services/deterministic_orchestration_service.py`、`backend/tests/test_deterministic_orchestration_service.py` | 确认 report runtime trace 构建链路已引用该服务，并补健康、阻塞和坏输入容错直接测试 |
 | R72 | 后端手工 smoke 脚本依赖本地服务和 live token | `backend/tests/test_qr_login.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `smoke_entry_fields.py`、`smoke_shift.py`，改用 TestClient 覆盖 QR 登录到移动填报字段和当前班次接口链路 |
 | R73 | QR PDF 制品入库 | `.gitignore`、`docs/快速试跑运维手册.md`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf`，改为运行态 `/manage/admin/qr-print` 生成并忽略后续 PDF 制品 |
+| R74 | 高分辨率 UI 截图体积无门禁 | `docs/ui-reference/highres/*.png`、`docs/ui-reference/REFERENCE_MANIFEST.md`、`backend/tests/test_reference_command_center_spec.py` | 重压缩 15 张 highres PNG，保持 `1672 x 941` 尺寸，并用 `<= 5.6 MB` 总量门禁锁定 |
 
 ## 待处理问题清单
 
@@ -88,7 +89,6 @@
 |---|---|---|---|---|---|
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
 | S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
-| S15 | 低 | 仓库体积 | 高分辨率 UI 截图较多 | `docs/ui-reference/highres/*.png` | 压缩或转 manifest/缩略图 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
 
 ## 测试记录

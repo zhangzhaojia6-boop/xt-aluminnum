@@ -171,6 +171,20 @@ def test_qr_pdf_artifacts_are_not_tracked_in_repository() -> None:
     assert '`docs/workshop_qr_codes.pdf`' in audit
 
 
+def test_highres_reference_images_have_size_budget_and_audit_record() -> None:
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+    manifest = _read('docs/ui-reference/REFERENCE_MANIFEST.md')
+
+    assert '| S15 |' not in audit
+    assert '| R74 |' in audit
+    assert '`docs/ui-reference/highres/*.png`' in audit
+    assert '`backend/tests/test_reference_command_center_spec.py`' in audit
+    assert '尺寸门槛' in manifest
+    assert '1672 x 941' in manifest
+    assert '体积门槛' in manifest
+    assert '<= 5.6 MB' in manifest
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 
