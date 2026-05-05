@@ -1,12 +1,12 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-05 12:47:12 +08:00
+更新时间：2026-05-05 14:02:19 +08:00
 
 ## 1. 仓库状态
 
 - 仓库：`https://github.com/zhangzhaojia6-boop/xt-aluminnum.git`
 - 当前主线：`main`
-- 当前记录基准：`9130fb3 docs: 记录 Vercel 主线部署状态`
+- 当前记录基准：当前 `main` HEAD
 - 本地与远端状态以 `git status --short --branch` 和 `git rev-parse --short origin/main` 为准
 - PR 状态：`#1 fix: 收口管理占位路由与就绪配置阻断` 已合并并关闭
 - 推荐服务器目录：`/srv/aluminum-bypass`
@@ -73,18 +73,22 @@ db 容器: PostgreSQL 15
 
 ## 4. 本地验证记录
 
-在 `main@b029db8` 上已完成核心全量验证：
+在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：670 passed，30 warnings
-- `npm --prefix frontend test`：82 passed
-- `npm --prefix frontend run e2e -- e2e/admin-surface.spec.js --grep "admin surface is separate"`：1 passed
+- `python -m pytest backend/tests -q`：676 passed，30 warnings
+- `node --test tests/*.test.js`：82 passed
+- `npm run build`：通过
 - `git diff --check`：通过
+
+此前在 `main@b029db8` 上已完成部署闸门与容器可用性验证：
+
+- `npm --prefix frontend run e2e -- e2e/admin-surface.spec.js --grep "admin surface is separate"`：1 passed
 - `docker compose config --quiet`：通过
 - `curl -k https://127.0.0.1/readyz`：HTTP 200
 - `bash scripts/go_live_gate.sh https://example.invalid --dry-run --require-external`：正确显示 `GATE_EXTERNAL`
 - `bash scripts/launch_cloud_trial.sh https://example.invalid --dry-run --require-external --pull`：正确透传 `--require-external`
 
-在 `main@9130fb3` 上已同步 Vercel 主线部署记录；本轮后续只做 workflow 运行日志措辞收口。
+`main@9130fb3` 之后，主线继续完成 workflow 状态措辞、中心页真实路由、未使用 mock、排班闸门时区、成本历史契约和 canonical 中心导航路径收口；当前文档以当前 `main` HEAD 为准。
 
 本地 Docker 状态：
 
@@ -148,7 +152,7 @@ MES_API_KEY=...
 
 Vercel 主线探测：2026-05-05 12:47 左右。
 
-- GitHub commit status：最近一次可确认记录为 `Vercel=success`，目标提交 `b029db8`；`9130fb3` 的 GitHub REST 查询当前被 rate limit 阻断，Vercel MCP 当前返回 403。
+- GitHub commit status：最近一次可确认记录为 `Vercel=success`，目标提交 `b029db8`；之后提交的 GitHub REST 查询曾被 rate limit 阻断，Vercel MCP 当前返回 403，本轮未把 Vercel 作为后端或外部联通证据。
 - `https://xt-aluminnum.vercel.app/`：HTTP 200。
 - `https://xt-aluminnum.vercel.app/entry`：HTTP 200，返回前端挂载页。
 - `https://xt-aluminnum.vercel.app/manage/admin`：HTTP 200，返回前端挂载页。

@@ -157,6 +157,20 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert '不要把上述真实值写入文档或提交到 GitHub' in ops
 
 
+def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> None:
+    state = _read('docs/deploy/current-state.md')
+
+    assert '当前记录基准：当前 `main` HEAD' in state
+    assert '`python -m pytest backend/tests -q`：676 passed，30 warnings' in state
+    assert '`node --test tests/*.test.js`：82 passed' in state
+    assert '`npm run build`：通过' in state
+    assert '`git diff --check`：通过' in state
+    assert 'Vercel 当前只能作为前端静态部署证据' in state
+    assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
+    assert '670 passed' not in state
+    assert '本轮后续只做 workflow 运行日志措辞收口' not in state
+
+
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     deploy = _read('scripts/deploy_trial.sh')
     check = _read('scripts/check_trial_stack.sh')
