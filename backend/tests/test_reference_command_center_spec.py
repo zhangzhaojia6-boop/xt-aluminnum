@@ -770,6 +770,28 @@ def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
         assert legacy_mock not in docs
 
 
+def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
+    router = _read_repo_file("frontend/src/router/index.js")
+    docs = "\n".join(
+        [
+            _read_repo_file("docs/current-route-map.md"),
+            _read_repo_file("docs/CODEBASE_AUDIT.md"),
+        ]
+    )
+    reference_center = _read_repo_file("frontend/src/views/review/CostAccountingCenter.vue")
+    costing_engine = _read_repo_file("frontend/src/services/costing/engine.ts")
+
+    assert "const CostAccountingCenter" not in router
+    assert "../views/review/CostAccountingCenter.vue" not in router
+    assert "{ path: '/review/cost-accounting', redirect: '/manage/factory/cost' }" in router
+    assert "path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen" in router
+    assert "loadCostBenefit" in _read_repo_file("frontend/src/views/factory-command/CostBenefitScreen.vue")
+    assert "evaluateCostScenario" in reference_center
+    assert "export function evaluateCostScenario" in costing_engine
+    assert "CostAccountingCenter.vue` 和 `frontend/src/services/costing/*` 保留为历史参考契约" in docs
+    assert "不是 `/manage/factory/cost` 的运行时页面" in docs
+
+
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 

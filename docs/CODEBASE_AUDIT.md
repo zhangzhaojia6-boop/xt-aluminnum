@@ -11,7 +11,7 @@
 - 高清目标图已切换为 `docs/ui-reference/highres/` 基线，文件名按 01-15 中心编号规整；`/review/reports` 对齐 `08-reports-delivery.png`。
 - `/review/reports` 已收口到 `/manage/reports` 的 `ReportList.vue`，通过 `frontend/src/api/reports.js` 读取日报、详情、审核、发布、最终版和导出接口。
 - `/review/quality` 已收口到 `/manage/quality` 的 `QualityCenter.vue`，通过 `frontend/src/api/quality.js` 执行质量检查、问题列表、解决和忽略。
-- `/review/cost-accounting` 已作为 legacy redirect 收口到 `/manage/factory/cost`，由 `CostBenefitScreen.vue` 通过 `/api/v1/factory-command/cost-benefit` 展示经营估算，不作为财务结算或月度入账依据。
+- `/review/cost-accounting` 已作为 legacy redirect 收口到 `/manage/factory/cost`，由 `CostBenefitScreen.vue` 通过 `/api/v1/factory-command/cost-benefit` 展示经营估算，不作为财务结算或月度入账依据。`CostAccountingCenter.vue` 和 `frontend/src/services/costing/*` 保留为历史参考契约，不是 `/manage/factory/cost` 的运行时页面。
 - `/admin/ingestion` 已收口到 `/manage/ingestion` 的 `IngestionCenter.vue`，调用导入历史和各类导入接口；本页不表示外部 MES/ERP 已正式联通。
 - `/review/brain` 已收口到 `/manage/ai-assistant` 的 `AiWorkstation.vue`，通过 AI chat store 接会话、消息、主动汇报和关注列表；AI 仅作为辅助解释与建议，不自动执行生产、质量、成本、排产或交付动作。
 - `/admin/ops` 已收口到 `/manage/admin/settings` 的 `LiveDashboard.vue`，展示 dashboard、factory-command 与管理概览数据；不执行部署、回滚、重启或自动修复。
