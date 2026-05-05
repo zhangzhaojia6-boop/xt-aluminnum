@@ -10,12 +10,12 @@ export async function fetchQualityIssues(params = {}) {
   return data
 }
 
-export async function resolveQualityIssue(id, note = null) {
+export async function resolveQualityIssue(id, note) {
   const { data } = await api.post(`/quality/issues/${id}/resolve`, { note })
   return data
 }
 
-export async function ignoreQualityIssue(id, note = null) {
+export async function ignoreQualityIssue(id, note) {
   const { data } = await api.post(`/quality/issues/${id}/ignore`, { note })
   return data
 }

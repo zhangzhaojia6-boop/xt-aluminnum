@@ -12,6 +12,25 @@ class DummyDB:
     pass
 
 
+def _quality_issue_response(*, status: str, note: str | None = None) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=1,
+        business_date=date(2026, 3, 26),
+        issue_type='missing_data',
+        source_type='quality',
+        dimension_key='quality',
+        field_name='status',
+        issue_level='blocker',
+        issue_desc='质量问题',
+        status=status,
+        resolved_by=4,
+        resolved_at=datetime(2026, 3, 26, 10, 0, 0),
+        resolve_note=note,
+        created_at=datetime(2026, 3, 26, 9, 0, 0),
+        updated_at=datetime(2026, 3, 26, 10, 0, 0),
+    )
+
+
 def test_quality_run_and_list(monkeypatch) -> None:
     def fake_get_db():
         yield DummyDB()
@@ -77,3 +96,72 @@ def test_quality_run_and_list(monkeypatch) -> None:
     assert issues.json()[0]['issue_type'] == 'unreconciled'
 
     app.dependency_overrides.clear()
+
+
+def test_quality_actions_reject_blank_note(monkeypatch) -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user() -> User:
+        return User(id=4, username='qc', password_hash='x', name='QC', role='admin', is_active=True)
+
+    calls: list[str | None] = []
+
+    def fake_resolve(db, *, issue_id, operator, note=None):
+        calls.append(note)
+        return _quality_issue_response(status='resolved', note=note)
+
+    def fake_ignore(db, *, issue_id, operator, note=None):
+        calls.append(note)
+        return _quality_issue_response(status='ignored', note=note)
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    monkeypatch.setattr('app.routers.quality.quality_service.resolve_issue', fake_resolve)
+    monkeypatch.setattr('app.routers.quality.quality_service.ignore_issue', fake_ignore)
+
+    try:
+        client = TestClient(app)
+        for path in ('/api/v1/quality/issues/1/resolve', '/api/v1/quality/issues/1/ignore'):
+            for payload in ({}, {'note': None}, {'note': '   '}):
+                response = client.post(path, json=payload)
+                assert response.status_code == 422
+        assert calls == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_quality_actions_trim_note_before_service(monkeypatch) -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user() -> User:
+        return User(id=4, username='qc', password_hash='x', name='QC', role='admin', is_active=True)
+
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_resolve(db, *, issue_id, operator, note=None):
+        calls.append(('resolve', note))
+        return _quality_issue_response(status='resolved', note=note)
+
+    def fake_ignore(db, *, issue_id, operator, note=None):
+        calls.append(('ignore', note))
+        return _quality_issue_response(status='ignored', note=note)
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    monkeypatch.setattr('app.routers.quality.quality_service.resolve_issue', fake_resolve)
+    monkeypatch.setattr('app.routers.quality.quality_service.ignore_issue', fake_ignore)
+
+    try:
+        client = TestClient(app)
+        resolve_response = client.post('/api/v1/quality/issues/1/resolve', json={'note': ' 已复核完成 '})
+        ignore_response = client.post('/api/v1/quality/issues/1/ignore', json={'note': ' 暂不纳入本期 '})
+
+        assert resolve_response.status_code == 200
+        assert ignore_response.status_code == 200
+        assert resolve_response.json()['resolve_note'] == '已复核完成'
+        assert ignore_response.json()['resolve_note'] == '暂不纳入本期'
+        assert calls == [('resolve', '已复核完成'), ('ignore', '暂不纳入本期')]
+    finally:
+        app.dependency_overrides.clear()

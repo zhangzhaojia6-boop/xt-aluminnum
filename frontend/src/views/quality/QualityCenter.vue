@@ -91,10 +91,21 @@ import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vu
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchQualityIssues, ignoreQualityIssue, resolveQualityIssue, runQualityChecks } from '../../api/quality'
 import { formatQualityIssueTypeLabel, formatSourceTypeLabel, formatStatusLabel } from '../../utils/display'
+import {
+  QUALITY_DISPOSITION_REQUIRED_MESSAGE,
+  hasQualityDispositionNote,
+  normalizeQualityDispositionNote,
+} from '../../utils/qualityDispositionValidation'
 
 const router = useRouter()
 const items = ref([])
 const checking = ref(false)
+const qualityDispositionPromptOptions = {
+  confirmButtonText: '提交',
+  cancelButtonText: '取消',
+  inputValidator: hasQualityDispositionNote,
+  inputErrorMessage: QUALITY_DISPOSITION_REQUIRED_MESSAGE,
+}
 const filters = reactive({
   business_date: dayjs().format('YYYY-MM-DD'),
   issue_type: '',
@@ -137,20 +148,20 @@ function statusTone(status) {
 
 async function onResolve(row) {
   const { value } = await ElMessageBox.prompt('请输入处理说明', '标记为已解决', {
-    confirmButtonText: '提交',
-    cancelButtonText: '取消'
+    ...qualityDispositionPromptOptions,
   })
-  await resolveQualityIssue(row.id, value)
+  const note = normalizeQualityDispositionNote(value)
+  await resolveQualityIssue(row.id, note)
   ElMessage.success('已标记解决')
   await load()
 }
 
 async function onIgnore(row) {
   const { value } = await ElMessageBox.prompt('请输入忽略原因', '忽略说明', {
-    confirmButtonText: '提交',
-    cancelButtonText: '取消'
+    ...qualityDispositionPromptOptions,
   })
-  await ignoreQualityIssue(row.id, value)
+  const note = normalizeQualityDispositionNote(value)
+  await ignoreQualityIssue(row.id, note)
   ElMessage.success('已忽略')
   await load()
 }

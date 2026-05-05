@@ -333,6 +333,13 @@ def run_quality_checks(
     return created
 
 
+def _normalize_action_note(note: str | None) -> str:
+    normalized = (note or '').strip()
+    if not normalized:
+        raise ValueError('resolve_note is required')
+    return normalized
+
+
 def resolve_issue(
     db: Session,
     *,
@@ -340,6 +347,7 @@ def resolve_issue(
     operator: User,
     note: str | None = None,
 ) -> DataQualityIssue:
+    note = _normalize_action_note(note)
     issue = db.get(DataQualityIssue, issue_id)
     if issue is None:
         raise ValueError('quality issue not found')
@@ -371,6 +379,7 @@ def ignore_issue(
     operator: User,
     note: str | None = None,
 ) -> DataQualityIssue:
+    note = _normalize_action_note(note)
     issue = db.get(DataQualityIssue, issue_id)
     if issue is None:
         raise ValueError('quality issue not found')
