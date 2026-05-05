@@ -649,3 +649,14 @@ def test_known_gaps_master_runtime_scope_matches_workshop_page() -> None:
     assert 'title="车间主数据"' in workshop
     assert '/manage/master` 运行页已标为 `车间主数据`' in gaps
     assert '一站式主数据中心' in gaps
+
+
+def test_launch_readiness_uses_current_ai_assistant_runtime_name() -> None:
+    checklist = _read('docs/launch-readiness-checklist.md')
+    router = _read('frontend/src/router/index.js')
+
+    assert 'AI 大脑' not in checklist
+    assert 'Brain Center' not in checklist
+    assert 'AI 助手' in checklist
+    assert '/manage/ai-assistant' in checklist
+    assert "path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation" in router
