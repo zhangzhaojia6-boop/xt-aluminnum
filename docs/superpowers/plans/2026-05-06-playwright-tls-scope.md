@@ -15,7 +15,7 @@
 **Files:**
 - Add: `frontend/tests/playwrightTls.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add a test that imports `shouldIgnoreHttpsErrors` from `frontend/e2e/helpers/tls.js` and asserts:
 
@@ -29,18 +29,20 @@ assert.equal(shouldIgnoreHttpsErrors({ baseURL: 'https://mes.xintaily.com', allo
 
 Also read `frontend/playwright.config.js` and assert it uses `shouldIgnoreHttpsErrors` instead of hardcoded `ignoreHTTPSErrors: true`.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm run test -- playwrightTls.test.js`
 
 Expected: FAIL because the helper file does not exist and config is still hardcoded.
+
+Result: historical red completed before implementation; current TLS unit guard passes and covers local HTTPS, remote HTTPS, explicit opt-in, and hardcoded config regression.
 
 ### Task 2: Add Shared TLS Helper
 
 **Files:**
 - Add: `frontend/e2e/helpers/tls.js`
 
-- [ ] **Step 1: Implement local HTTPS detection**
+- [x] **Step 1: Implement local HTTPS detection**
 
 Add pure helpers:
 
@@ -55,11 +57,13 @@ export function shouldIgnoreHttpsErrors({ baseURL, allowInsecureTLS } = {}) {
 }
 ```
 
-- [ ] **Step 2: Verify helper tests**
+- [x] **Step 2: Verify helper tests**
 
 Run: `npm run test -- playwrightTls.test.js`
 
 Expected: still fail until config imports the helper.
+
+Result: `frontend/e2e/helpers/tls.js` implements local HTTPS detection and explicit `PLAYWRIGHT_ALLOW_INSECURE_TLS` opt-in; the helper is covered by `frontend/tests/playwrightTls.test.js`.
 
 ### Task 3: Use Helper In Playwright Contexts
 
@@ -68,7 +72,7 @@ Expected: still fail until config imports the helper.
 - Modify: `frontend/e2e/workshop-template-config.spec.js`
 - Modify: `frontend/e2e/owner-only-utility-workshop.spec.js`
 
-- [ ] **Step 1: Update global config**
+- [x] **Step 1: Update global config**
 
 Compute:
 
@@ -83,30 +87,32 @@ baseURL,
 ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL })
 ```
 
-- [ ] **Step 2: Update explicit contexts**
+- [x] **Step 2: Update explicit contexts**
 
 For `browser.newContext(...)`, pass the configured `baseURL` and set `ignoreHTTPSErrors` through the same helper.
 
-- [ ] **Step 3: Verify green**
+- [x] **Step 3: Verify green**
 
 Run: `npm run test -- playwrightTls.test.js`
 
 Expected: PASS.
+
+Result: `frontend/playwright.config.js`, `frontend/e2e/workshop-template-config.spec.js`, and `frontend/e2e/owner-only-utility-workshop.spec.js` all route `ignoreHTTPSErrors` through `shouldIgnoreHttpsErrors`.
 
 ### Task 4: Update Audit And Validate
 
 **Files:**
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
 
-- [ ] **Step 1: Add resolved audit row**
+- [x] **Step 1: Add resolved audit row**
 
 Add `R68` under "已直接修复" describing S11.
 
-- [ ] **Step 2: Remove S11 from pending issues**
+- [x] **Step 2: Remove S11 from pending issues**
 
 Delete the `S11` row.
 
-- [ ] **Step 3: Run verification**
+- [x] **Step 3: Run verification**
 
 Run:
 
@@ -120,6 +126,14 @@ git diff --check
 
 Expected: all commands exit 0; no whitespace errors.
 
+Result:
+- `node --test tests/playwrightTls.test.js` -> `2 passed`
+- `npm --prefix frontend test` -> `110 passed`
+- `npm --prefix frontend run build` -> pass
+- `python -m pytest backend/tests/test_reference_command_center_spec.py backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q` -> `113 passed`
+- `python -m pytest backend/tests -q --durations=10` -> `651 passed, 123 deselected, 30 warnings`
+- `git diff --check` -> pass
+
 ### Task 5: Commit And Push
 
 **Files:**
@@ -131,11 +145,11 @@ Expected: all commands exit 0; no whitespace errors.
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
 - Add: `docs/superpowers/plans/2026-05-06-playwright-tls-scope.md`
 
-- [ ] **Step 1: Stage and check**
+- [x] **Step 1: Stage and check**
 
 Run `git diff --cached --check` after staging.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 Run:
 
@@ -143,7 +157,7 @@ Run:
 git commit -m "test: 收窄 playwright tls 忽略范围"
 ```
 
-- [ ] **Step 3: Push and confirm remote alignment**
+- [x] **Step 3: Push and confirm remote alignment**
 
 Run:
 
