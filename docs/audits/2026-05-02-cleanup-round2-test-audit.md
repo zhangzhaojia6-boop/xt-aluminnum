@@ -44,6 +44,8 @@
 | R34 | 导出仅覆盖 json/csv happy path | `backend/tests/test_report_export.py` | 补 xlsx happy path、缺 pandas 400、非法格式 400、缺报表 404 |
 | R35 | 工单主链路多路由无行为测试 | `backend/tests/test_work_order_routes.py` | 覆盖工单创建、详情、列表过滤、entry 更新和 amendment 创建的路由参数转发与响应契约 |
 | R36 | 非法 `X-Idempotency-Key` 400 分支无测 | `backend/tests/test_work_order_routes.py` | 覆盖非法 UUID header 返回 400，并验证服务层不会被调用 |
+| R37 | `work_order_service.py` 动态兼容壳增加导入复杂度 | `backend/tests/test_service_compat_shims.py` | 锁定旧 `app.services.work_order_service` 路径与 package identity，并验证 monkeypatch 传播到子模块 |
+| R38 | `report_service.py` 动态兼容壳增加导入复杂度 | `backend/tests/test_service_compat_shims.py` | 锁定旧 `app.services.report_service` 路径与 package identity，并验证 monkeypatch 传播到子模块 |
 
 ## 待处理问题清单
 
@@ -86,8 +88,6 @@
 | B07 | 低 | 错误语义 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py` | 明确 404 或锁定 200 语义 |
 | B08 | 中 | 搜索校验 | 空白搜索会 strip 成空串并返回全部导航 | `backend/app/routers/search.py` | strip 后空串返回 422 或空结果 |
 | B09 | 低 | 测试设计 | 一个测试混合 search/export/notification | `backend/tests/test_platform_upgrade_api_routes.py` | 拆成三个单行为测试 |
-| B19 | 中 | 兼容壳 | `work_order_service.py` 动态兼容壳增加导入复杂度 | `backend/app/services/work_order_service.py` | 补兼容导出测试，长期收敛 |
-| B20 | 中 | 兼容壳 | `report_service.py` 动态兼容壳增加导入复杂度 | `backend/app/services/report_service.py` | 补兼容导出测试，长期收敛 |
 | B21 | 低 | 未接入代码 | `deterministic_orchestration_service.py` 无引用无测试 | `backend/app/services` | 确认废弃后删除或补入口和测试 |
 | B22 | 低 | Schema 漂移 | 未引用 auth schema 与 QR 返回模型不一致 | `backend/app/schemas/auth.py` | 删除未用 schema 或声明 response_model |
 
