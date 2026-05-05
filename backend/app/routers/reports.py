@@ -6,10 +6,11 @@ import csv
 import json
 from io import BytesIO, StringIO
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.scope import build_scope_summary
 from app.models.system import User
 from app.schemas.reports import (
     DailyReportOut,
@@ -23,6 +24,18 @@ from app.schemas.reports import (
 from app.services import report_service
 
 router = APIRouter(tags=['reports'])
+
+
+def _ensure_report_review_access(current_user: User) -> None:
+    summary = build_scope_summary(current_user)
+    if not (summary.is_admin or summary.is_reviewer or summary.is_manager):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Report review access denied')
+
+
+def _ensure_report_publish_access(current_user: User) -> None:
+    summary = build_scope_summary(current_user)
+    if not (summary.is_admin or summary.is_manager):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Report publish access denied')
 
 
 @router.post('/generate', response_model=ReportGenerateResponse)
@@ -88,6 +101,7 @@ def review_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DailyReportOut:
+    _ensure_report_review_access(current_user)
     try:
         entity = report_service.review_report(
             db,
@@ -107,6 +121,7 @@ def publish_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DailyReportOut:
+    _ensure_report_publish_access(current_user)
     try:
         entity = report_service.publish_report(
             db,
@@ -125,6 +140,7 @@ def run_daily_pipeline(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReportPipelineResponse:
+    _ensure_report_publish_access(current_user)
     blocked, message, open_count, is_final_version, boss_text, reports = report_service.run_daily_pipeline(
         db,
         report_date=body.report_date,
