@@ -617,6 +617,31 @@ def test_create_entry_endpoint_forwards_idempotency_key(monkeypatch) -> None:
     app.dependency_overrides.clear()
 
 
+def test_create_entry_endpoint_rejects_invalid_idempotency_key(monkeypatch) -> None:
+    monkeypatch.setattr(
+        'app.routers.work_orders.work_order_service.add_entry',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError('service should not run')),
+    )
+    _override_user(_user('shift_leader', user_id=12))
+
+    response = TestClient(app).post(
+        '/api/v1/work-orders/1/entries',
+        headers={'X-Idempotency-Key': 'not-a-uuid'},
+        json={
+            'workshop_id': 1,
+            'machine_id': 2,
+            'shift_id': 3,
+            'business_date': '2026-03-27',
+            'input_weight': 9500,
+            'output_weight': 9220,
+            'entry_type': 'completed',
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'X-Idempotency-Key must be a UUID'
+
+
 def test_approve_amendment_endpoint_calls_service(monkeypatch) -> None:
     calls = []
 
