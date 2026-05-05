@@ -42,6 +42,9 @@ def test_command_review_surface_is_surface_scoped() -> None:
     assert {'01', '05', '07', '08', '09', '10', '11'}.issubset(module_ids)
     assert '16' not in module_ids
     assert '06' not in module_ids
+    module_11 = next(item for item in payload['modules'] if item['module_id'] == '11')
+    assert module_11['title'] == 'AI 助手'
+    assert all(item['title'] != 'AI 总控中心' for item in payload['modules'])
     first_kpi = payload['modules'][0]['kpis'][0]
     assert {'label', 'value', 'unit', 'trend', 'status', 'icon_key'}.issubset(first_kpi)
 

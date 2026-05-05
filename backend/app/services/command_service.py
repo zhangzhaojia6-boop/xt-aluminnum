@@ -112,7 +112,7 @@ def _build_review_modules(*, target_date: date) -> list[CommandModuleOut]:
         _module(module_id='08', title='日报与交付中心', surface='review', status_summary=[f'{target_date.isoformat()} 日报交付状态可追踪。']),
         _module(module_id='09', title='质量与告警中心', surface='review', status_summary=['质量告警与差异核对保持联动。']),
         _module(module_id='10', title='成本核算与效益中心', surface='review', status_summary=['按策略引擎输出吨耗与校差记录。']),
-        _module(module_id='11', title='AI 总控中心', surface='review', status_summary=['AI 建议为辅助建议，必须展示 mock/live 来源。']),
+        _module(module_id='11', title='AI 助手', surface='review', status_summary=['AI 建议为辅助建议，必须展示来源状态。']),
     ]
 
 

@@ -24,8 +24,8 @@
 
       <aside class="review-overview-center__ai-manager">
         <div class="review-overview-center__ai-head">
-          <span>AI 总管</span>
-          <strong>预测 / 分析 / 执行</strong>
+          <span>AI 助手</span>
+          <strong>摘要 / 证据 / 建议</strong>
         </div>
         <p>{{ aiManagerBrief }}</p>
         <div class="review-overview-center__ai-actions">
@@ -116,7 +116,7 @@
           </div>
           <div class="review-overview-center__wip-meta">
             <span :class="['source-badge', `is-${mesWipSummary.sourceTone}`]">{{ mesWipSummary.sourceLabel }}</span>
-            <button type="button" class="review-overview-center__wip-link" @click="go('review-brain-center')">查看详情</button>
+            <button type="button" class="review-overview-center__wip-link" @click="go('factory-ai-assistant')">查看详情</button>
           </div>
         </div>
       </ReferenceModuleCard>
@@ -160,7 +160,7 @@ const quickEntries = [
   { name: 'review-report-center', label: '日报', hint: '交付与发布' },
   { name: 'review-quality-center', label: '质量', hint: '告警与处理' },
   { name: 'review-cost-accounting', label: '成本', hint: '策略核算' },
-  { name: 'review-brain-center', label: 'AI', hint: '摘要与问答' },
+  { name: 'factory-ai-assistant', label: 'AI', hint: '摘要与问答' },
   { name: 'admin-ingestion-center', label: '接入', hint: '导入 / 映射' },
   { name: 'admin-ops-reliability', label: '运维', hint: '健康与探针' }
 ]
@@ -176,7 +176,7 @@ const referenceModules = [
   { number: '08', title: '日报与交付中心', shortTitle: '日报', subtitle: '自动交付', owner: '审阅端', variant: 'report', routeName: 'review-report-center', status: 'success', statusLabel: '在线' },
   { number: '09', title: '质量与告警中心', shortTitle: '质量', subtitle: '阈值预警', owner: '审阅端', variant: 'quality', routeName: 'review-quality-center', status: 'success', statusLabel: '在线' },
   { number: '10', title: '成本核算与效益中心', shortTitle: '成本', subtitle: '收益核算', owner: '审阅端', variant: 'cost', routeName: 'review-cost-accounting', status: 'success', statusLabel: '在线' },
-  { number: '11', title: 'AI 总控中心', shortTitle: 'AI 总管', subtitle: '预测执行', owner: '审阅端', variant: 'brain', routeName: 'review-brain-center', status: 'success', statusLabel: '在线' },
+  { number: '11', title: 'AI 助手', shortTitle: 'AI 助手', subtitle: '站内助手', owner: '审阅端', variant: 'brain', routeName: 'factory-ai-assistant', status: 'success', statusLabel: '在线' },
   { number: '12', title: '系统运维与观测', shortTitle: '运维', subtitle: '健康探针', owner: '管理端', variant: 'ops', routeName: 'admin-ops-reliability', status: 'success', statusLabel: '在线' },
   { number: '13', title: '权限与治理中心', shortTitle: '治理', subtitle: '角色隔离', owner: '管理端', variant: 'governance', routeName: 'admin-governance-center', status: 'success', statusLabel: '在线' },
   { number: '14', title: '主数据与模板中心', shortTitle: '主数据', subtitle: '车间模板', owner: '管理端', variant: 'master', routeName: 'admin-master-workshop', status: 'success', statusLabel: '在线' }
@@ -250,7 +250,7 @@ const factoryMapNodes = computed(() => [
   },
   {
     key: 'ai',
-    label: 'AI 总管',
+    label: 'AI 助手',
     short: 'AI',
     status: pendingReviewCount.value ? 'warning' : 'normal',
     x: '75%',
@@ -354,11 +354,11 @@ const aiManagerActions = computed(() => [
     routeName: 'factory-dashboard'
   },
   {
-    key: 'execute',
-    label: '执行',
-    detail: delivery.value.delivery_ready ? '保持自动发布节奏' : '进入 AI 工作台生成动作',
+    key: 'assistant',
+    label: '建议',
+    detail: delivery.value.delivery_ready ? '保持关注建议' : '进入 AI 助手查看建议',
     status: delivery.value.delivery_ready ? 'normal' : 'warning',
-    routeName: 'review-brain-center'
+    routeName: 'factory-ai-assistant'
   }
 ])
 

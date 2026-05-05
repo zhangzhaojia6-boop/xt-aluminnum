@@ -58,6 +58,16 @@ test('ai workstation exposes assistant inbox tabs without stale capability copy'
   assert.doesNotMatch(workstation, /预测 \/ 分析 \/ 执行/)
 })
 
+test('overview center uses canonical assistant label and route', () => {
+  const overview = source('../src/views/review/OverviewCenter.vue')
+
+  assert.match(overview, /AI 助手/)
+  assert.match(overview, /factory-ai-assistant/)
+  assert.doesNotMatch(overview, /AI 总控中心/)
+  assert.doesNotMatch(overview, /review-brain-center/)
+  assert.doesNotMatch(overview, /进入 AI 工作台生成动作/)
+})
+
 test('factory command screens offer scoped ask ai entry points', () => {
   const screens = [
     '../src/views/factory-command/FactoryOverview.vue',
