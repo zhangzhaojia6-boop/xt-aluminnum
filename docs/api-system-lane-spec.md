@@ -9,7 +9,7 @@
 当前 API 已经自然分成 4 个正式层，再加 1 个横切访问层：
 
 1. **身份与权限横切层**
-   - 入口：`/api/v1/auth/*`、`/api/v1/wecom/*`
+   - 入口：`/api/v1/auth/*`、`/api/v1/dingtalk/*`
    - 约束：`backend/app/core/permissions.py`
    - 作用：不承载业务事实，只负责“谁能进、能看什么、能改什么”。
 
@@ -40,19 +40,19 @@
 ### 2.1 横切层：身份、权限、入口
 
 **正式职责**
-- 统一用户/设备/企业微信进入系统。
+- 统一用户/设备/钉钉 H5 / 浏览器进入系统；企业微信用户登录路径已下线。
 - 统一作用域校验，而不是在业务路由里散落判断。
 
 **当前证据**
 - `backend/app/routers/auth.py`：账号登录、扫码登录、`/me`
-- `backend/app/routers/dingtalk.py`：当前默认身份入口
-- `backend/app/routers/wecom.py`：企业微信兼容登录、JS-SDK 签名
+- `backend/app/routers/dingtalk.py`：钉钉 H5 身份入口
+- `backend/app/adapters/wecom/group_bot.py`：workflow publisher 的企业微信群机器人
 - `backend/app/core/permissions.py`：mobile / reviewer / manager / admin 几类作用域入口
 
 **规范定义**
-- 身份入口保留多通道：账号密码、扫码机台、钉钉优先，企业微信兼容保留。
+- 身份入口保留多通道：账号密码、扫码机台、钉钉优先；企业微信用户登录不再作为正式身份入口。
 - 权限判断必须下沉到 `core/permissions.py` 这一类横切层，不允许业务服务各写一套。
-- 钉钉/企业微信登录都属于“身份入口”，不是管理 API，也不是生产主流程 API。
+- 钉钉登录属于身份入口；企业微信群机器人不属于身份入口，只属于 workflow publisher。
 
 ### 2.2 L1：生产主流程 API（正式主口径）
 
@@ -163,7 +163,7 @@
 
 | 对象 | 当前系统主存储/服务 | canonical 写入口 | canonical 读入口 | 说明 |
 | --- | --- | --- | --- | --- |
-| User / Session | `auth.py`、`dingtalk.py`、`wecom.py`、`users.py` | `/api/v1/auth/*`、`/api/v1/dingtalk/login`、`/api/v1/users/*` | `/api/v1/auth/me` | 身份对象，不承载业务产量事实 |
+| User / Session | `auth.py`、`dingtalk.py`、`users.py` | `/api/v1/auth/*`、`/api/v1/dingtalk/login`、`/api/v1/users/*` | `/api/v1/auth/me` | 身份对象，不承载业务产量事实 |
 | Workshop / Team / Equipment / ShiftConfig | `master.py`、`equipment_service.py` | `/api/v1/master/*` | `/api/v1/master/*`、bootstrap | 主数据对象 |
 | AttendanceSchedule | `attendance.py`、`config_readiness_service.py` | 导入/排班导入 | attendance read / readyz | 应报清单基础对象 |
 | MobileShiftReport | `mobile_report_service.py` | `/api/v1/mobile/report/save|submit|upload-photo` | mobile detail/history、dashboard 汇总 | 现场主填报对象 |

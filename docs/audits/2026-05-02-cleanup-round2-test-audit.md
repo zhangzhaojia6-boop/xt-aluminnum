@@ -98,7 +98,7 @@
 ## 测试记录
 
 - 待处理问题清单当前为空。
-- 当前主线验证：`python -m pytest backend/tests -q --durations=10`，结果 `651 passed，123 deselected，30 warnings`。
-- 前端源码契约验证：`python -m pytest backend/tests -m frontend_contract -q`，结果 `123 passed，651 deselected`。
+- 当前主线验证：`python -m pytest backend/tests -q --durations=10`，结果 `652 passed，123 deselected，30 warnings`。
+- 前端源码契约验证：`python -m pytest backend/tests -m frontend_contract -q`，结果 `123 passed，652 deselected`。
 - 前端单测与构建：`npm --prefix frontend test` 结果 `110 passed`；`npm --prefix frontend run build` 通过。
 - 初始 agent 基线已由 R77 拆分：默认后端 pytest 不再混入前端源码契约断言，前端契约改用 `frontend_contract` marker 单独运行。

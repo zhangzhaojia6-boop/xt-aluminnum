@@ -75,8 +75,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：651 passed，123 deselected，30 warnings
-- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，651 deselected
+- `python -m pytest backend/tests -q --durations=10`：652 passed，123 deselected，30 warnings
+- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，652 deselected
 - `npm --prefix frontend test`：110 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过

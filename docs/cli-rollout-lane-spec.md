@@ -1,6 +1,6 @@
 # CLI / Scripts / Rollout Lane Spec
 
-> 日期：2026-04-06
+> 日期：当前 main 基线
 > 目的：把当前仓库里的命令、脚本、放量门槛统一分成 dev / trial / ops / rollback 四层，并给出“local runnable / can trial / formal-use”三档标准与当前证据映射。
 
 ## 1. 三档标准
@@ -23,7 +23,7 @@
 - 允许发现阻断问题，但不允许把“阻断”误判成“可正式上线”。
 
 最低证据：
-- live `/readyz`、`check_pilot_*`、`check_wecom_*` 之类命令可以实际跑通；
+- live `/readyz`、`check_pilot_*`、`check_owner_account_bindings.py`、`dingtalk_cli.py` 之类命令可以实际跑通；
 - 输出包含明确 pass / block / warning / error 语义。
 
 ### C. formal-use
@@ -37,50 +37,45 @@
 3. 降级与回滚命令已明确；
 4. 如果涉及数据变更，先有备份。
 
-## 2. 当前证据快照（2026-04-06）
+## 2. 当前证据快照
 
-### 已验证证据
-- `curl -k https://localhost/healthz` → **200 OK**。
-- `curl -k https://localhost/readyz` → **503**，`pipeline=blocked`。
-- `docker compose ps` 显示 `db` / `backend` / `nginx` 均为运行态，且 `backend` 为 `healthy`。
-- `docker compose exec -T backend sh -lc 'cd /app && pytest tests/test_health.py tests/test_config_readiness_service.py -q'` → **9 passed**。
-- `docker compose exec -T backend sh -lc 'cd /app && python scripts/check_pilot_config.py --date 2026-04-06 --json'` → `hard_gate_passed=false`。
-- `docker compose exec -T backend sh -lc 'cd /app && python scripts/check_pilot_metrics.py --date 2026-04-06 --json'` 可执行，返回 `reporting_rate=0.0` 且提示“应报清单为空”。
-- `docker compose exec -T backend sh -lc 'cd /app && python scripts/check_pilot_anomalies.py --date 2026-04-06 --json'` 可执行，当前返回 0 条异常。
-- `check_wecom_account_mapping.py --help`、`check_pilot_config.py --help`、`check_pilot_metrics.py --help`、`check_pilot_anomalies.py --help` 均可执行。
-- `docker compose exec -T backend sh -lc 'cd /app && pytest tests/test_runtime_config.py tests/test_generate_env_script.py -q'` 当前 **1 failed / 8 passed**；失败原因是容器内缺少根目录 `/scripts/generate_env.py`。
-- `docker compose run --rm backend sh -lc 'pytest -q'` 当前 **5 failed / 238 passed**；其中 4 个失败都指向 backend 镜像看不到仓库根目录文件，另 1 个失败为 `test_alembic_version_width.py` 断言当前版本目录里应存在长度 >32 的 revision id。
-- `cd frontend && npm run build` → **passed**。
+### 已验证本地证据
+- `python -m pytest backend/tests -q --durations=10` → **652 passed，123 deselected，30 warnings**。
+- `python -m pytest backend/tests -m frontend_contract -q` → **123 passed，652 deselected**。
+- `python -m pytest backend/tests/test_wecom_group_bot.py -q` → **10 passed**，覆盖企业微信群机器人 publisher，同时确认企业微信用户消息路径已移除。
+- `python -m pytest backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q` → **76 passed**。
+- `git diff --check` → 通过；仅有既有 LF/CRLF 提示。
+- `python scripts/check_pilot_config.py --date <目标日期> --json` 是 Gate A 配置预检入口。
+- `python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json` 是 owner / 机列账号绑定预检入口。
+- `python scripts/dingtalk_cli.py status --json` 是钉钉配置状态预检入口。
 
-### 当前阻断
-live `/readyz` 与 `check_pilot_config.py --date 2026-04-06 --json` 一致显示以下硬阻断：
-- `EQUIPMENT_USER_BINDING_INVALID`
-- `SCHEDULE_EMPTY`
-
-这意味着：**当前环境可 trial，不可 formal-use。**
+### 当前放量判断
+当前 main 已有 dev / trial / rollback 基础骨架，但本文件不再把旧日期的 live 阻断当成当前证据。正式放量前必须重新跑现场 `/readyz`、Gate A / B / C，并保存当次输出。
 
 ### 关键解释
-`docker compose` 的容器健康检查现在探测的是 `/healthz`，不是 `/readyz`。因此：
+`docker compose` 的容器健康检查探测的是 `/healthz`，不是 `/readyz`。因此：
 - `backend=healthy` 只代表“服务活着”；
 - **不代表** “已通过试点放量门槛”；
-- 放量必须以 `/readyz` 和 Gate A/B/C 为准。
+- 放量必须以 `/readyz` 和 Gate A / B / C 为准。
 
 ## 3. 命令 / 脚本分层
 
 | 层级 | 命令/脚本 | 用途 | 当前标准 | 备注 |
 |---|---|---|---|---|
-| dev | `docker compose up -d --build` | 本地拉起整套栈 | local runnable | 已有 live 栈在跑 |
+| dev | `docker compose up -d --build` | 本地拉起整套栈 | local runnable | 需要现场按当前 `.env` 重跑 |
 | dev | `docker compose ps` | 看服务状态 | local runnable | 只能证明进程/容器状态 |
-| dev | `curl -k https://localhost/healthz` | 活性检查 | local runnable | 当前 200 |
-| dev | `docker compose exec -T backend ... pytest tests/test_health.py tests/test_config_readiness_service.py -q` | 验证 readyz 语义与配置门禁 | local runnable | 当前 9 passed |
+| dev | `curl -k https://localhost/healthz` | 活性检查 | local runnable | 需在目标栈重跑 |
+| dev | `python -m pytest backend/tests -q --durations=10` | 后端默认测试基线 | local runnable | 当前 652 passed，123 deselected，30 warnings |
+| dev | `python -m pytest backend/tests -m frontend_contract -q` | 前端静态合同基线 | local runnable | 当前 123 passed，652 deselected |
 | dev | `scripts/generate_env.py` | 生成根目录 `.env` 模板 | host-only local runnable | 是根目录脚本，不属于 backend 镜像内脚本 |
-| dev | `cd frontend && npm run build` | 前端构建验证 | local runnable | 2026-04-06 已通过 |
-| trial | `curl -k https://localhost/readyz` | 现场前 readiness 总闸门 | can trial | 当前 503 blocked |
-| trial | `python scripts/check_pilot_config.py --date <日期> --json` | Gate A 配置预检 | can trial | 当前 hard gate 未通过 |
-| trial | `python scripts/check_pilot_metrics.py --date <日期> --json` | 每日试点复盘 | can trial | 当前可跑，但无应报数据 |
-| trial | `python scripts/check_pilot_anomalies.py --date <日期> --json` | 每日异常复盘 | can trial | 当前可跑，0 异常 |
-| trial | `python scripts/check_wecom_account_mapping.py --input <文件> --json` | 账号映射清单预检 | can trial | 本次仅验证了 `--help` |
-| trial | `docs/pilot-readiness-checklist.md` 三个 Gate 命令 | 试点前预检留痕 | can trial → formal-use 入口 | 当前只拿到 Gate A 的部分证据 |
+| dev | `cd frontend && npm run build` | 前端构建验证 | local runnable | 需在前端改动后重跑 |
+| trial | `curl -k https://localhost/readyz` | 现场前 readiness 总闸门 | can trial | 正式放量前必须刷新证据 |
+| trial | `python scripts/check_pilot_config.py --date <目标日期> --json` | Gate A 配置预检 | can trial | 使用目标业务日，不写死日期 |
+| trial | `python scripts/check_pilot_metrics.py --date <目标日期> --json` | 每日试点复盘 | can trial | 依赖试点样本数据 |
+| trial | `python scripts/check_pilot_anomalies.py --date <目标日期> --json` | 每日异常复盘 | can trial | 需结合填报样本判断 |
+| trial | `python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json` | owner / 机列账号绑定预检 | can trial | 用于浏览器 / 钉钉试跑前核对 |
+| trial | `python scripts/dingtalk_cli.py status --json` | 钉钉集成状态预检 | can trial | 不替代真实 H5 登录验收 |
+| trial | `docs/pilot-readiness-checklist.md` 三个 Gate 命令 | 试点前预检留痕 | can trial → formal-use 入口 | 需要当次现场输出 |
 | ops | `docker compose exec backend alembic upgrade head` | 正式环境 DB 迁移 | formal-use | 需备份后执行 |
 | ops | `python scripts/init_master_data.py` | 初始化基础主数据 | formal-use | backend 容器启动命令已串联 |
 | ops | `python scripts/init_real_master_data.py` | 初始化真实主数据 | formal-use | backend 容器启动命令已串联 |
@@ -88,7 +83,7 @@ live `/readyz` 与 `check_pilot_config.py --date 2026-04-06 --json` 一致显示
 | ops | `docker compose -f docker-compose.yml -f docker-compose.prod.yml config/up` | 生产覆盖验证/拉起 | formal-use | README 已列出；不属于日常试点排查 |
 | rollback | `AUTO_PUBLISH_ENABLED=false` | 停自动发布 | formal-use rollback | 保留填报/校验/汇总 |
 | rollback | `AUTO_PUSH_ENABLED=false` | 停消息推送 | formal-use rollback | 保留业务链路留痕 |
-| rollback | `WORKFLOW_ENABLED=false` / `WECOM_BOT_ENABLED=false` / `WECOM_APP_ENABLED=false` | 停工作流触达 | formal-use rollback | `docs/workflow-rollout.md` 已定义 |
+| rollback | `WORKFLOW_ENABLED=false` / `WECOM_BOT_ENABLED=false` | 停工作流触达 | formal-use rollback | `docs/workflow-rollout.md` 已定义 |
 | rollback | `scripts/backup_db.sh` / `.ps1` | 回滚前备份 | formal-use rollback | 应先于迁移/正式放量 |
 | rollback | `scripts/restore_db.sh` / `.ps1` | 数据库恢复 | formal-use rollback | 属于强回滚动作 |
 
@@ -97,25 +92,29 @@ live `/readyz` 与 `check_pilot_config.py --date 2026-04-06 --json` 一致显示
 | 对象 | local runnable | can trial | formal-use | 结论 |
 |---|---|---|---|---|
 | `/healthz` | 是 | 否 | 否 | 只能证明服务活着 |
-| `/readyz` | 是 | 是 | 否 | 当前 503 blocked |
-| Gate A 定向 pytest | 是 | 是 | 否 | 语义测试通过，但 live gate 未过 |
-| `check_pilot_config.py` | 是 | 是 | 否 | 当前明确阻断放量 |
-| `check_pilot_metrics.py` | 是 | 是 | 否 | 当前无试点样本数据 |
-| `check_pilot_anomalies.py` | 是 | 是 | 否 | 当前无异常，不代表可放量 |
-| `check_wecom_account_mapping.py` | 是（help） | 待补清单实跑 | 否 | 需要现场账号清单 |
+| `/readyz` | 是 | 是 | 待现场刷新 | 需要目标环境当次输出 |
+| 后端默认 pytest | 是 | 是 | 否 | 覆盖代码基线，不替代 live gate |
+| 前端静态合同 pytest | 是 | 是 | 否 | 覆盖合同漂移，不替代浏览器验收 |
+| `check_pilot_config.py` | 是 | 是 | 待现场刷新 | 使用目标业务日 |
+| `check_pilot_metrics.py` | 是 | 是 | 待现场刷新 | 依赖试点样本数据 |
+| `check_pilot_anomalies.py` | 是 | 是 | 待现场刷新 | 需结合填报样本判断 |
+| `check_owner_account_bindings.py` | 是 | 是 | 待现场刷新 | 需要目标车间编码与账号清单 |
+| `dingtalk_cli.py status` | 是 | 是 | 待现场刷新 | 只证明配置状态，不证明 H5 端到端登录 |
 | `scripts/generate_env.py` | 是（host） | 不直接作为 trial gate | 否 | 是 bootstrap 工具，不是放量证据 |
 | backup / restore | 否（不建议日常试跑） | 否 | 是 | 属于正式运维/回滚命令 |
 
 ## 5. 当前结论
 
-截至 **2026-04-06**：
+截至当前 main 基线：
 - 该仓库的 CLI / scripts 体系已经具备 **dev + trial + rollback** 基础骨架；
-- **formal-use 仍未满足**，因为 live readiness 已明确返回 `503 not_ready`；
-- 当前最重要的放量前动作不是“继续拉环境”，而是先清掉：
-  1. `EQUIPMENT_USER_BINDING_INVALID`
-  2. `SCHEDULE_EMPTY`
+- **formal-use 仍不能仅凭本地测试宣布满足**，必须刷新目标环境 `/readyz`、Gate A / B / C 和回滚留痕；
+- 当前优先动作是按目标业务日和目标车间重跑：
+  1. `python scripts/check_pilot_config.py --date <目标日期> --json`
+  2. `python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json`
+  3. `python scripts/dingtalk_cli.py status --json`
+  4. live `/readyz`
 
-只有在这两个硬阻断清零后，才值得继续补 Gate B / Gate C 的正式留痕。
+只有这些现场证据同时成立后，才进入 formal-use 判断。
 
 ## 6. 一个需要特别注意的执行边界
 

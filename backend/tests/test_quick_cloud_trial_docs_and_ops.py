@@ -338,8 +338,8 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '以 `2026-04-20` 本地最新验证为准' not in source
     assert '387 passed' not in source
     assert '4 passed' not in source
-    assert '`python -m pytest backend/tests -q --durations=10` → `651 passed，123 deselected，30 warnings`' in source
-    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，651 deselected`' in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `652 passed，123 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，652 deselected`' in source
     assert '`npm --prefix frontend test` → `110 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
@@ -392,8 +392,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：651 passed，123 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，651 deselected' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：652 passed，123 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，652 deselected' in state
     assert '`npm --prefix frontend test`：110 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
@@ -404,8 +404,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
-    assert '651 passed，123 deselected，30 warnings' in audit
-    assert '123 passed，651 deselected' in audit
+    assert '652 passed，123 deselected，30 warnings' in audit
+    assert '123 passed，652 deselected' in audit
     assert '110 passed' in audit
     assert '513 passed / 5 failed' not in audit
 
@@ -760,3 +760,52 @@ def test_operational_docs_use_current_entry_and_manage_routes() -> None:
         assert stale_token not in launch
         assert stale_token not in identity
         assert stale_token not in supplier
+
+
+def test_api_and_cli_lane_docs_match_current_identity_boundaries() -> None:
+    api = _read('docs/api-system-lane-spec.md')
+    cli = _read('docs/cli-rollout-lane-spec.md')
+
+    for token in [
+        '`/api/v1/auth/*`、`/api/v1/dingtalk/*`',
+        '统一用户/设备/钉钉 H5 / 浏览器进入系统',
+        '`backend/app/routers/dingtalk.py`：钉钉 H5 身份入口',
+        '`backend/app/adapters/wecom/group_bot.py`：workflow publisher 的企业微信群机器人',
+        '企业微信用户登录路径已下线',
+        '企业微信群机器人不属于身份入口',
+        '| User / Session | `auth.py`、`dingtalk.py`、`users.py` |',
+    ]:
+        assert token in api
+
+    for stale_token in [
+        '`/api/v1/wecom/*`',
+        '`backend/app/routers/wecom.py`',
+        '`wecom.py`、`users.py`',
+        '企业微信兼容登录',
+        '企业微信兼容保留',
+        '钉钉/企业微信登录都属于“身份入口”',
+    ]:
+        assert stale_token not in api
+
+    for token in [
+        '> 日期：当前 main 基线',
+        'python scripts/check_pilot_config.py --date <目标日期> --json',
+        'python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json',
+        'python scripts/dingtalk_cli.py status --json',
+        '652 passed，123 deselected，30 warnings',
+        '浏览器 / 钉钉',
+        'WECOM_BOT_ENABLED=false',
+    ]:
+        assert token in cli
+
+    for stale_token in [
+        '2026-04-06',
+        'check_wecom_account_mapping.py',
+        'check_wecom_*',
+        'WECOM_APP_ENABLED=false',
+        '当前 503 blocked',
+        'EQUIPMENT_USER_BINDING_INVALID',
+        'SCHEDULE_EMPTY',
+        'hard_gate_passed=false',
+    ]:
+        assert stale_token not in cli
