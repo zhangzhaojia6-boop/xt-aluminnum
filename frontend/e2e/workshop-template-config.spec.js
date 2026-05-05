@@ -1,7 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'https://127.0.0.1'
-
 const adminUser = {
   id: 1,
   username: 'admin',
@@ -51,7 +49,7 @@ function fulfillJson(route, payload) {
   })
 }
 
-test('admin can save workshop template fields and machine user consumes the updated template', async ({ page }) => {
+test('admin can save workshop template fields and machine user consumes the updated template', async ({ page }, testInfo) => {
   const fieldName = `qa_entry_${Date.now()}`
   const fieldLabel = `测试字段${Date.now()}`
   let template = {
@@ -113,7 +111,10 @@ test('admin can save workshop template fields and machine user consumes the upda
   expect(template.entry_fields.some((field) => field.name === fieldName && field.label === fieldLabel)).toBeTruthy()
 
   const browser = page.context().browser()
+  const configuredBaseURL = testInfo.project.use.baseURL
+  expect(configuredBaseURL).toBeTruthy()
   const machineContext = await browser.newContext({
+    baseURL: configuredBaseURL,
     ignoreHTTPSErrors: true,
     viewport: { width: 430, height: 932 },
     isMobile: true,
@@ -182,7 +183,7 @@ test('admin can save workshop template fields and machine user consumes the upda
   await machinePage.route('**/api/v1/mobile/coil-list/**', (route) => fulfillJson(route, []))
 
   try {
-    await machinePage.goto(`${baseURL}/entry`)
+    await machinePage.goto('/entry')
     await expect(machinePage.getByTestId('mobile-entry')).toBeVisible()
     await machinePage.getByTestId('mobile-go-report').click()
     await expect(machinePage).toHaveURL(/\/entry\/fill$/)

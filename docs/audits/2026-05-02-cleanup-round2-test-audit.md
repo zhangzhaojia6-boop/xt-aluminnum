@@ -68,6 +68,8 @@
 | R58 | 差异核对中心缺少浏览器级关键流覆盖 | `frontend/e2e/reconciliation-center.spec.js` | 覆盖列表与详情、生成差异请求、确认/忽略/修正三类处置说明，以及填报角色隔离 |
 | R59 | 质量中心缺少浏览器级关键流覆盖 | `frontend/e2e/quality-center.spec.js` | 覆盖列表与详情、运行质量检查请求、标记已解决/忽略处置说明，以及填报角色隔离 |
 | R60 | 日报与交付中心缺少浏览器级关键流覆盖 | `frontend/e2e/reports-center.spec.js` | 覆盖列表过滤请求参数、日报详情跳转与关键字段，以及填报角色隔离 |
+| R61 | 二级浏览器上下文硬编码 baseURL | `frontend/e2e/workshop-template-config.spec.js` | 改为继承 Playwright 全局 `baseURL`，二级机台端页面用相对路径进入 |
+| R62 | owner 工具车间 E2E 使用 UTC fallback 业务日期 | `frontend/e2e/owner-only-utility-workshop.spec.js` | fallback 改为本地业务日期格式，避免跨时区日期漂移 |
 
 ## 待处理问题清单
 
@@ -78,8 +80,6 @@
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
 | F22 | 中 | 凭据卫生 | E2E 内置账号口令 | `frontend/e2e/*.spec.js` | 改为环境变量注入 |
-| F23 | 低 | 测试配置 | 次级 browser context 硬编码 baseURL | `frontend/e2e/workshop-template-config.spec.js` | 复用 Playwright 全局 baseURL |
-| F24 | 低 | 测试稳定性 | 测试用 UTC 截业务日期 | `frontend/e2e/owner-only-utility-workshop.spec.js` | 使用固定业务日期或本地时区 |
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
 | S08 | 中 | CI 凭据 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml` | 使用 GitHub Secrets 或运行时随机值 |
 | S09 | 中 | CI 权限 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml` | 改最小权限和明确 owner/group |

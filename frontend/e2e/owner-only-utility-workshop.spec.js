@@ -15,9 +15,17 @@ function parseMetric(text) {
   return match ? Number(match[0]) : 0
 }
 
+function currentLocalBusinessDate() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function resolveBusinessDate(payload) {
   const value = payload?.business_date
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : new Date().toISOString().slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : currentLocalBusinessDate()
 }
 
 async function setWorkshopTargetDate(page, businessDate) {
