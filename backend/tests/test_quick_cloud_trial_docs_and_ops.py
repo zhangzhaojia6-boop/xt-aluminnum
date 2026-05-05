@@ -412,3 +412,16 @@ def test_quick_trial_docs_include_dry_run_mode() -> None:
     assert '--dry-run|--check-only' in checks
     assert '--dry-run|--check-only' in backup
     assert '--dry-run|--check-only' in restore
+
+
+def test_known_gaps_describes_schedule_gate_with_configured_timezone() -> None:
+    gaps = _read('docs/known-gaps-and-todos.md')
+    health = _read('backend/app/core/health.py')
+    schedule_seed = _read('backend/app/services/pilot_schedule_seed.py')
+
+    assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in health
+    assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in schedule_seed
+    assert 'UTC 自然日' not in gaps
+    assert 'DEFAULT_TIMEZONE=Asia/Shanghai' in gaps
+    assert 'target_date_schedule_available' in gaps
+    assert 'SCHEDULE_EMPTY' in gaps

@@ -26,10 +26,10 @@
 - 优先保证运行与权限正确
 - 分批迁移到统一 AppShell card/table/form 组件
 
-## 6. 上线闸门依赖“次日应报清单”预置
+## 6. 上线闸门依赖目标业务日应报清单
 
-- 当前 `readyz` 使用 UTC 自然日校验排班，跨日后若无次日排班会触发 `SCHEDULE_EMPTY`
-- 试跑前需执行一次 `docker compose exec -T backend python scripts/init_real_master_data.py` 预置当日应报清单
+- 当前 `readyz` 与试跑排班种子脚本均使用 `DEFAULT_TIMEZONE=Asia/Shanghai` 解析目标业务日
+- 容器内 `/readyz` 已可返回 `target_date_schedule_available`；正式试跑前仍需执行一次 `docker compose exec -T backend python scripts/init_real_master_data.py`，确保目标业务日应报清单存在，避免 `SCHEDULE_EMPTY`
 
 ## 7. 主数据与模板中心仍需补齐一站式覆盖
 
