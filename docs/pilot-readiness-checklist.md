@@ -34,7 +34,8 @@ python -m pytest \
   tests/test_reminder_agent.py -q
 ```
 - 通过标准：
-  - 企业微信或浏览器进入后统一落到 `/mobile` 主入口，不依赖并列工人端入口。
+  - 企业微信或浏览器进入后统一落到 `/entry` 主入口，不依赖并列工人端入口。
+  - `/mobile` 仅作为兼容跳转，不作为新培训入口。
   - 自动确认链路通过，最终状态保持为：
     - `MobileShiftReport.report_status=approved`
     - `ShiftProductionData.data_status=confirmed`
@@ -58,7 +59,7 @@ python -m pytest \
   - 自动发布/自动推送开关可分别关闭，不影响数据留痕。
 
 ## 2. 现场 smoke checklist（建议逐项打勾）
-- [ ] 从企业微信或浏览器进入后，现场人员统一从 `/mobile` 开始，不需要跳转到其他工人端入口。
+- [ ] 从企业微信或浏览器进入后，现场人员统一从 `/entry` 开始，不需要跳转到其他工人端入口；`/mobile` 仅作为兼容跳转。
 - [ ] 企业微信账号能登录；失败时提示是“未绑定 / 停用 / 冲突 / 账号无效”中的一种。
 - [ ] 提交一条正常数据，系统自动进入 `approved`。
 - [ ] 提交一条“产出 > 投入”的测试数据，系统自动退回，且页面能看到 `returned_reason`。

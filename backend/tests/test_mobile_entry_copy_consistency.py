@@ -1026,3 +1026,33 @@ def test_pilot_checklist_does_not_require_mes_for_phase1_go_live() -> None:
 
     assert "Phase 1 不以 MES 联调为上线前提" in checklist
     assert "主操手工直录可独立跑通" in checklist
+
+
+def test_pilot_docs_use_entry_as_formal_field_route() -> None:
+    sop = _read_repo_file("docs/pilot-sop-minimal.md")
+    checklist = _read_repo_file("docs/pilot-readiness-checklist.md")
+
+    for token in [
+        "企业微信或浏览器打开 `https://localhost/entry`",
+        "当前正式移动填报入口（H5）",
+        "旧 `https://localhost/mobile` 可兼容跳转到 `/entry`",
+        "始终从 `/entry` 返回当前班次继续处理",
+    ]:
+        assert token in sop
+
+    for token in [
+        "企业微信或浏览器进入后统一落到 `/entry` 主入口",
+        "`/mobile` 仅作为兼容跳转",
+        "现场人员统一从 `/entry` 开始",
+    ]:
+        assert token in checklist
+
+    for stale_token in [
+        "企业微信打开 `https://localhost/mobile`",
+        "这是当前唯一移动填报入口",
+        "始终从 `/mobile` 返回当前班次继续处理",
+        "统一落到 `/mobile` 主入口",
+        "统一从 `/mobile` 开始",
+    ]:
+        assert stale_token not in sop
+        assert stale_token not in checklist

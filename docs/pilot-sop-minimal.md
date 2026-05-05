@@ -1,7 +1,8 @@
 # 试点最小SOP（现场值班版）
 
 ## 1. 入口怎么进
-- 工人：企业微信打开 `https://localhost/mobile`，这是当前唯一移动填报入口（H5）。
+- 工人：企业微信或浏览器打开 `https://localhost/entry`，这是当前正式移动填报入口（H5）。
+- 旧 `https://localhost/mobile` 可兼容跳转到 `/entry`，不作为新培训入口。
 - 管理：驾驶舱查看日报与上报率，必要时执行配置与账号自检脚本。
 
 ## 2. 登录失败怎么办
@@ -17,7 +18,7 @@ python scripts/check_wecom_account_mapping.py --input wecom_users.txt --json
 
 ## 3. 被退回怎么办
 - 工人按 `returned_reason` 逐条修改后重新提交。
-- 始终从 `/mobile` 返回当前班次继续处理，不需要切换到其他工人端页面。
+- 始终从 `/entry` 返回当前班次继续处理，不需要切换到其他工人端页面。
 - 重点检查：
 - 产出是否大于投入
 - 出勤是否缺失
