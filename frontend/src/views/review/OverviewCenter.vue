@@ -108,14 +108,14 @@
         <div class="review-overview-center__wip">
           <div class="review-overview-center__wip-row">
             <span>在制料总计</span>
-            <strong>{{ mesWipSummary.wipTotalTon }} t</strong>
+            <strong>{{ mesWipSummary.wipTotalTonLabel }}</strong>
           </div>
           <div class="review-overview-center__wip-row">
-            <span>当日投料量</span>
-            <strong>{{ mesWipSummary.dailyFeedTon }} t</strong>
+            <span>当日同步产量</span>
+            <strong>{{ mesWipSummary.dailyOutputTonLabel }}</strong>
           </div>
           <div class="review-overview-center__wip-meta">
-            <span class="source-badge is-fallback">fallback</span>
+            <span :class="['source-badge', `is-${mesWipSummary.sourceTone}`]">{{ mesWipSummary.sourceLabel }}</span>
             <button type="button" class="review-overview-center__wip-link" @click="go('review-brain-center')">查看详情</button>
           </div>
         </div>
@@ -135,14 +135,16 @@ import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vu
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { XtExecutionRail, XtFactoryMap, XtModuleTile } from '../../components/xt'
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
-import { mesWipSnapshotMock } from '../../mocks/centerMockData.js'
+import { fetchFactoryCommandOverview } from '../../api/factory-command'
 import { formatDeliveryMissingSteps, formatNumber } from '../../utils/display'
+import { buildOverviewWipSummary } from '../../utils/overviewWipSummary'
 
 const router = useRouter()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const dashboard = ref({})
 const delivery = ref({})
+const factoryCommandOverview = ref({})
 
 const productionLines = [
   { name: '铸轧区', status: 'success' },
@@ -387,7 +389,7 @@ const aiRiskSummary = computed(() => {
   return risks.slice(0, 3)
 })
 
-const mesWipSummary = mesWipSnapshotMock.summary
+const mesWipSummary = computed(() => buildOverviewWipSummary(factoryCommandOverview.value, dashboard.value))
 
 function toFactoryStatus(status) {
   const value = String(status || '').toLowerCase()
@@ -415,14 +417,24 @@ function moduleMetrics(item) {
 async function load() {
   loading.value = true
   try {
-    const [dashboardPayload, deliveryPayload] = await Promise.all([
+    const [dashboardPayload, deliveryPayload, factoryCommandPayload] = await Promise.all([
       fetchFactoryDashboard({ target_date: targetDate.value }),
-      fetchDeliveryStatus({ target_date: targetDate.value })
+      fetchDeliveryStatus({ target_date: targetDate.value }),
+      fetchFactoryCommandOverviewSafe(),
     ])
     dashboard.value = dashboardPayload || {}
     delivery.value = deliveryPayload || {}
+    factoryCommandOverview.value = factoryCommandPayload || {}
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchFactoryCommandOverviewSafe() {
+  try {
+    return await fetchFactoryCommandOverview()
+  } catch {
+    return { source: 'unavailable', freshness: { status: 'failed' } }
   }
 }
 
@@ -593,6 +605,37 @@ onMounted(load)
   justify-content: space-between;
   gap: 8px;
   padding-top: 4px;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: 999px;
+  color: var(--xt-text-secondary);
+  background: var(--xt-bg-panel-soft);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.source-badge.is-success {
+  border-color: var(--xt-success-border);
+  color: var(--xt-success);
+  background: var(--xt-success-light);
+}
+
+.source-badge.is-warning {
+  border-color: var(--xt-warning-border);
+  color: var(--xt-warning);
+  background: var(--xt-warning-light);
+}
+
+.source-badge.is-danger {
+  border-color: var(--xt-danger-border);
+  color: var(--xt-danger);
+  background: var(--xt-danger-light);
 }
 
 .review-overview-center__wip-link {
