@@ -56,6 +56,7 @@
 | R46 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py`、`backend/tests/test_notification_routes.py` | 缺失通知改为 404 `通知不存在`，并用接口测试锁定 |
 | R47 | QR 登录 schema 与真实返回不一致 | `backend/app/schemas/auth.py`、`backend/app/routers/auth.py`、`backend/tests/test_auth_schema_contract.py` | `QrLoginResponse` 改为 token/车间跳转 union，并挂到 `/auth/qr-login` OpenAPI 响应 |
 | R48 | QR 首次建号使用统一初始密码 | `backend/app/routers/auth.py`、`backend/tests/test_qr_login.py` | 虚拟角色 QR 自动建号改为不可知随机密码 hash，账号登录需管理员显式重置 |
+| R49 | 批量 seeded 账号默认口令一致 | `backend/scripts/seed_multi_role_accounts.py`、`backend/tests/test_seed_multi_role_accounts.py` | 多角色 seed 每个新账号单独生成不可知随机密码 hash，不再共享默认口令 |
 
 ## 待处理问题清单
 
@@ -79,7 +80,6 @@
 | S02 | 中 | 配置默认 | 后端配置保留带密码样式的默认数据库 URL | `backend/app/config.py` | 要求显式注入或使用无密码占位 |
 | S03 | 中 | 迁移配置 | Alembic 配置保留默认 DSN | `backend/alembic.ini` | 从环境变量读取迁移 DSN |
 | S04 | 中 | 弱默认 | 非 production 环境弱密钥只 warning | `backend/app/config.py` | staging/试运行环境也 fail-fast |
-| S06 | 高 | 默认密码 | 批量 seeded 账号默认口令一致 | `backend/scripts/seed_multi_role_accounts.py` | 随机生成并强制首次改密 |
 | S07 | 高 | 管理员重置 | 生产 compose 每次启动可能重置 admin 密码 | `docker-compose.prod.yml`、`backend/scripts/create_admin.py` | 仅首次初始化，已存在用户禁止覆盖密码 |
 | S08 | 中 | CI 凭据 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml` | 使用 GitHub Secrets 或运行时随机值 |
 | S09 | 中 | CI 权限 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml` | 改最小权限和明确 owner/group |

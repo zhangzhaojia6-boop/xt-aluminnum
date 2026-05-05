@@ -4,6 +4,7 @@
 Idempotent: skips accounts that already exist.
 Usage: python -m scripts.seed_multi_role_accounts
 """
+import secrets
 import sys
 from pathlib import Path
 
@@ -32,14 +33,15 @@ FACTORY_ROLES = [
     ('contracts', 'FACTORY-CT', '计划科'),
 ]
 
-DEFAULT_PASSWORD = 'xt123456'
+
+def _create_random_password_hash() -> str:
+    return get_password_hash(secrets.token_urlsafe(24))
 
 
 def main() -> None:
     SessionLocal = get_sessionmaker()
     db = SessionLocal()
     try:
-        pw_hash = get_password_hash(DEFAULT_PASSWORD)
         created = 0
         skipped = 0
 
@@ -59,7 +61,7 @@ def main() -> None:
                     continue
                 user = User(
                     username=username,
-                    password_hash=pw_hash,
+                    password_hash=_create_random_password_hash(),
                     name=f'{ws.name}{label}',
                     role=role,
                     workshop_id=ws.id,
@@ -76,7 +78,7 @@ def main() -> None:
                 continue
             user = User(
                 username=username,
-                password_hash=pw_hash,
+                password_hash=_create_random_password_hash(),
                 name=label,
                 role=role,
                 is_mobile_user=True,
