@@ -376,10 +376,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：646 passed，119 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：119 passed，646 deselected' in state
-    assert '`npm --prefix frontend test`：106 passed' in state
-    assert '`npm run build`：通过' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：651 passed，123 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，651 deselected' in state
+    assert '`npm --prefix frontend test`：110 passed' in state
+    assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
@@ -388,8 +388,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
-    assert '646 passed，119 deselected，30 warnings' in audit
-    assert '119 passed，646 deselected' in audit
+    assert '651 passed，123 deselected，30 warnings' in audit
+    assert '123 passed，651 deselected' in audit
+    assert '110 passed' in audit
     assert '513 passed / 5 failed' not in audit
 
 
