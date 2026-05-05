@@ -1,3 +1,5 @@
+import { loginThroughMockedPassword } from './mock-login'
+
 const defaultReviewUser = {
   id: 1,
   username: 'admin',
@@ -19,21 +21,6 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     contentType: 'application/json',
     body: JSON.stringify(body)
   })
-
-  await page.addInitScript(({ token, user }) => {
-    localStorage.setItem('aluminum_bypass_token', token)
-    localStorage.setItem(
-      'aluminum_bypass_user',
-      JSON.stringify(user)
-    )
-    localStorage.removeItem('aluminum_bypass_machine')
-    sessionStorage.setItem('aluminum_bypass_token', token)
-    sessionStorage.setItem(
-      'aluminum_bypass_user',
-      JSON.stringify(user)
-    )
-    sessionStorage.removeItem('aluminum_bypass_machine')
-  }, { token, user })
 
   await page.route('**/api/v1/auth/me', async (route) => {
     await fulfillJson(route, user)
@@ -656,5 +643,12 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
         signals: []
       })
     })
+  })
+
+  await loginThroughMockedPassword(page, {
+    token,
+    user,
+    username: session.username,
+    password: session.password
   })
 }

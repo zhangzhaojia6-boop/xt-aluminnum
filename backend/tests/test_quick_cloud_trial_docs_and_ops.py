@@ -158,6 +158,29 @@ def test_incremental_deploy_script_uses_key_based_known_hosts_non_root_ssh() -> 
     assert 'look_for_keys=False' in source
 
 
+def test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed() -> None:
+    helper_paths = [
+        'frontend/e2e/helpers/review-mocks.js',
+        'frontend/e2e/helpers/unified-entry-mocks.js',
+    ]
+    for helper_path in helper_paths:
+        source = _read(helper_path)
+        assert "localStorage.setItem('aluminum_bypass_token'" not in source
+        assert "sessionStorage.setItem('aluminum_bypass_token'" not in source
+        assert "page.evaluate(({ token" not in source
+        assert "addInitScript(({ token" not in source
+
+    login_helper = _read('frontend/e2e/helpers/mock-login.js')
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+
+    assert "**/api/v1/auth/login" in login_helper
+    assert 'login-username' in login_helper
+    assert 'login-password' in login_helper
+    assert 'login-submit' in login_helper
+    assert '| S10 |' not in audit
+    assert '| R76 |' in audit
+
+
 def test_compose_passes_external_runtime_flags_to_backend() -> None:
     source = _read('docker-compose.yml')
 

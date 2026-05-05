@@ -1,5 +1,7 @@
 import { expect } from '@playwright/test'
 
+import { loginThroughMockedPassword } from './mock-login'
+
 export async function setupUnifiedPerCoilEntrySession(page, options = {}) {
   const trackingCard = options.trackingCard || 'TC-001'
   const inputWeight = options.inputWeight ?? 100
@@ -25,15 +27,6 @@ export async function setupUnifiedPerCoilEntrySession(page, options = {}) {
     workshop_name: '铸二车间',
     qr_code: 'XT-ZR2-1'
   }
-
-  await page.addInitScript(({ token, user, machineContext }) => {
-    localStorage.setItem('aluminum_bypass_token', token)
-    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-    sessionStorage.setItem('aluminum_bypass_token', token)
-    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-  }, { token, user, machineContext })
 
   await page.route('**/api/v1/auth/me', async (route) => {
     await route.fulfill({
@@ -153,13 +146,5 @@ export async function setupUnifiedPerCoilEntrySession(page, options = {}) {
     })
   })
 
-  await page.goto('/login')
-  await page.evaluate(({ token, user, machineContext }) => {
-    localStorage.setItem('aluminum_bypass_token', token)
-    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-    sessionStorage.setItem('aluminum_bypass_token', token)
-    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-  }, { token, user, machineContext })
+  await loginThroughMockedPassword(page, { token, user, machineContext })
 }

@@ -83,12 +83,12 @@
 | R73 | QR PDF 制品入库 | `.gitignore`、`docs/快速试跑运维手册.md`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 删除 `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf`，改为运行态 `/manage/admin/qr-print` 生成并忽略后续 PDF 制品 |
 | R74 | 高分辨率 UI 截图体积无门禁 | `docs/ui-reference/highres/*.png`、`docs/ui-reference/REFERENCE_MANIFEST.md`、`backend/tests/test_reference_command_center_spec.py` | 重压缩 15 张 highres PNG，保持 `1672 x 941` 尺寸，并用 `<= 5.6 MB` 总量门禁锁定 |
 | R75 | 生产/增量部署 SSH 仍允许 root/密码/自动信任主机 | `backend/scripts/deploy_production.py`、`backend/scripts/deploy_zxtf_update.py`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 改为非 root deploy 用户、SSH key、固定 known_hosts、`RejectPolicy` 和显式 `sudo -n` |
+| R76 | E2E helper 直接写 token 到 storage | `frontend/e2e/helpers/mock-login.js`、`frontend/e2e/helpers/review-mocks.js`、`frontend/e2e/helpers/unified-entry-mocks.js`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | helper 改为 mock `/auth/login` 后通过登录页提交，由 auth store 写入会话 |
 
 ## 待处理问题清单
 
 | ID | 等级 | 类别 | 问题 | 位置 | 建议 |
 |---|---|---|---|---|---|
-| S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
 
 ## 测试记录
