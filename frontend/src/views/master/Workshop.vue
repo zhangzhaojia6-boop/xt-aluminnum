@@ -57,11 +57,11 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑车间' : '新增车间'" width="520px">
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="编码">
+      <el-form ref="formRef" :model="form" :rules="workshopRules" label-width="100px">
+        <el-form-item label="编码" prop="code">
           <el-input v-model="form.code" />
         </el-form-item>
-        <el-form-item label="名称">
+        <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item label="排序">
@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { createWorkshop, deleteWorkshop, fetchWorkshopsPage, updateWorkshop } from '../../api/master.js'
@@ -88,8 +88,10 @@ import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vu
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { XtWorkshopGlyph } from '../../components/xt'
+import { normalizeWorkshopPayload } from '../../utils/workshopFormValidation.js'
 
 const items = ref([])
+const formRef = ref(null)
 const dialogVisible = ref(false)
 const loading = ref(false)
 const saving = ref(false)
@@ -107,6 +109,10 @@ const form = reactive({
   sort_order: 0,
   is_active: true
 })
+const workshopRules = {
+  code: [{ required: true, whitespace: true, message: '请输入车间编码', trigger: 'blur' }],
+  name: [{ required: true, whitespace: true, message: '请输入车间名称', trigger: 'blur' }]
+}
 
 const currentPage = computed(() => Math.floor(pageState.skip / pageState.limit) + 1)
 const workshopVisuals = computed(() => {
@@ -159,25 +165,36 @@ function resetForm() {
 function openCreate() {
   resetForm()
   dialogVisible.value = true
+  clearFormValidation()
 }
 
 function openEdit(row) {
   editingId.value = row.id
-  form.code = row.code
-  form.name = row.name
+  form.code = row.code || ''
+  form.name = row.name || ''
   form.sort_order = row.sort_order || 0
   form.is_active = row.is_active
   dialogVisible.value = true
+  clearFormValidation()
 }
 
 async function save() {
+  if (!formRef.value) return
+
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
+
+  const payload = normalizeWorkshopPayload(form)
   saving.value = true
   try {
     if (editingId.value) {
-      await updateWorkshop(editingId.value, { ...form })
+      await updateWorkshop(editingId.value, payload)
       ElMessage.success('更新成功')
     } else {
-      await createWorkshop({ ...form })
+      await createWorkshop(payload)
       ElMessage.success('新增成功')
       pageState.skip = 0
     }
@@ -186,6 +203,10 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+function clearFormValidation() {
+  nextTick(() => formRef.value?.clearValidate())
 }
 
 async function remove(row) {
