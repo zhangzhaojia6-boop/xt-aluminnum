@@ -133,14 +133,34 @@ def test_reference_command_catalog_declares_15_target_modules_without_roadmap_pa
         assert title in catalog
 
     for current_token in [
+        "routePath: '/manage/overview'",
+        "routePath: '/manage/factory'",
+        "routePath: '/manage/ingestion'",
+        "routePath: '/manage/entry-center'",
+        "routePath: '/manage/reports'",
+        "routePath: '/manage/quality'",
+        "routePath: '/manage/factory/cost'",
         "routeName: 'factory-ai-assistant'",
         "routePath: '/manage/ai-assistant'",
+        "routePath: '/manage/admin/settings'",
+        "routePath: '/manage/admin/governance'",
+        "routePath: '/manage/master'",
     ]:
         assert current_token in catalog
 
     for stale_token in [
         "AI 总控中心",
+        "routePath: '/review/overview'",
+        "routePath: '/review/factory'",
+        "routePath: '/admin/ingestion'",
+        "routePath: '/review/tasks'",
+        "routePath: '/review/reports'",
+        "routePath: '/review/quality'",
+        "routePath: '/review/cost-accounting'",
         "routePath: '/review/brain'",
+        "routePath: '/admin/ops'",
+        "routePath: '/admin/governance'",
+        "routePath: '/admin/master'",
     ]:
         assert stale_token not in catalog
 
@@ -324,26 +344,51 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
 
     assert "# UI 复刻规范（参考图级生产指挥中心执行规格）" in spec
     required_rows = [
-        "| 01 | 系统总览主视图 | 审阅端 | `/review/overview` |",
+        "| 01 | 系统总览主视图 | 审阅端 | `/manage/overview` |",
         "| 02 | 登录与角色入口 | 公共入口 | `/login` |",
         "| 03 | 独立填报端首页 | 录入端 | `/entry` |",
         "| 04 | 填报流程页 | 录入端 | `/entry/report/*`、`/entry/advanced/*` |",
+        "| 05 | 工厂作业看板 | 审阅端 | `/manage/factory` |",
+        "| 06 | 数据接入与字段映射中心 | 管理端 | `/manage/ingestion` |",
+        "| 07 | 异常与补录 | 审阅端 | `/manage/entry-center` |",
+        "| 08 | 日报与交付中心 | 审阅端 | `/manage/reports` |",
+        "| 09 | 质量与告警中心 | 审阅端 | `/manage/quality` |",
+        "| 10 | 成本核算与效益中心 | 审阅端 | `/manage/factory/cost` |",
+        "| 11 | AI 助手 | 审阅端 | `/manage/ai-assistant` |",
+        "| 12 | 系统运维与可观测 | 管理端 | `/manage/admin/settings` |",
+        "| 13 | 权限与治理中心 | 管理端 | `/manage/admin/governance` |",
+        "| 14 | 主数据与模板中心 | 管理端 | `/manage/master`、`/manage/admin/templates` |",
+        "| 15 | 响应式录入体验 | 全局验收 | `/entry` 全链路 |",
+    ]
+    for row in required_rows:
+        assert row in spec
+
+    for stale_row in [
+        "| 01 | 系统总览主视图 | 审阅端 | `/review/overview` |",
         "| 05 | 工厂作业看板 | 审阅端 | `/review/factory` |",
         "| 06 | 数据接入与字段映射中心 | 管理端 | `/admin/ingestion` |",
         "| 07 | 异常与补录 | 审阅端 | `/review/tasks` |",
         "| 08 | 日报与交付中心 | 审阅端 | `/review/reports` |",
         "| 09 | 质量与告警中心 | 审阅端 | `/review/quality` |",
         "| 10 | 成本核算与效益中心 | 审阅端 | `/review/cost-accounting` |",
-        "| 11 | AI 助手 | 审阅端 | `/manage/ai-assistant` |",
+        "| 11 | AI 总控中心 | 审阅端 | `/review/brain` |",
         "| 12 | 系统运维与观测 | 管理端 | `/admin/ops` |",
         "| 13 | 权限与治理中心 | 管理端 | `/admin/governance` |",
         "| 14 | 主数据与模板中心 | 管理端 | `/admin/master`、`/admin/master/templates` |",
-        "| 15 | 响应式录入体验 | 全局验收 | `/entry` 全链路 |",
-    ]
-    for row in required_rows:
-        assert row in spec
+    ]:
+        assert stale_row not in spec
 
-    assert "| 11 | AI 总控中心 | 审阅端 | `/review/brain` |" not in spec
+    for route_line in [
+        "访问 `/review/*`、`/admin/*` 或 `/manage/*` 必须回跳 `/entry`",
+        "`/manage/overview`",
+        "`/manage/factory`",
+        "`/manage/entry-center`",
+        "`/manage/admin/settings`",
+        "`/manage/admin/templates`",
+        "`/review/*` 和 `/admin/*` 保留兼容重定向",
+    ]:
+        assert route_line in spec
+
     assert "移动端预览模块取消" in spec
     assert "| 16 |" not in spec
     assert "/review/roadmap" not in spec
@@ -479,6 +524,11 @@ def test_highres_reference_images_keep_size_budget_and_dimensions() -> None:
     assert "| 11 | `11-ai-control.png` | AI 助手 |" in manifest
     assert "/manage/ai-assistant" in manifest
     assert "AI 总控中心" not in manifest
+    assert "当前优先页面：`/manage/master`" in manifest
+    for formal_route in ["/manage/master", "/manage/admin/settings", "/manage/admin/governance"]:
+        assert formal_route in manifest
+    for stale_route in ["- `/admin/ops` 是", "- `/admin/governance` 是", "- `/admin/master` 是"]:
+        assert stale_route not in manifest
     assert "体积门槛" in manifest
     assert "<= 5.6 MB" in manifest
 
@@ -831,8 +881,11 @@ def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
         "CommandModulePage.vue`，正式中心：AI 总控中心",
         "CommandModulePage.vue`，正式中心：权限治理中心",
         "CommandModulePage.vue`，正式中心：系统运维与可观测",
+        "数据接入中心归属 `/admin/ingestion`",
     ]:
         assert legacy_mock not in docs
+
+    assert "数据接入中心正式落到 `/manage/ingestion`" in docs
 
 
 def test_current_route_map_lists_canonical_manage_center_paths() -> None:

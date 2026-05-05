@@ -7,7 +7,7 @@
 - `frontend/src/reference-command/components/CommandPage.vue` 承载多个中心页，短期继续保留，避免本轮扩成多页面重写。
 - 多个中心页仍使用 fallback/mock 数据，需要持续显式展示 `MockDataNotice` 或 source 标识。
 - 成本中心定位为经营估算 / 策略口径，不是财务结算。
-- 数据接入中心归属 `/admin/ingestion`，`/review/ingestion` 只做 legacy redirect。
+- 数据接入中心正式落到 `/manage/ingestion`，`/admin/ingestion` 与 `/review/ingestion` 只做 legacy redirect。
 - 高清目标图已切换为 `docs/ui-reference/highres/` 基线，文件名按 01-15 中心编号规整；`/review/reports` 对齐 `08-reports-delivery.png`。
 - `/review/reports` 已收口到 `/manage/reports` 的 `ReportList.vue`，通过 `frontend/src/api/reports.js` 读取日报、详情、审核、发布、最终版和导出接口。
 - `/review/quality` 已收口到 `/manage/quality` 的 `QualityCenter.vue`，通过 `frontend/src/api/quality.js` 执行质量检查、问题列表、解决和忽略。
