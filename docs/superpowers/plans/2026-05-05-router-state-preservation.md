@@ -79,6 +79,8 @@ Results:
 - `python -m pytest backend/tests -q` -> `680 passed`
 - `git diff --check` -> pass
 
-- [ ] **Step 3: Commit and push**
+- [x] **Step 3: Commit and push**
 
 Commit with a conventional message and push `main` to `origin/main` after verification passes.
+
+Result: committed and pushed `305e60143e0d21f922f1139b7dfbc3e8fb292ea6` (`fix: 保留兼容路由状态`) to `origin/main`.
