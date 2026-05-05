@@ -37,6 +37,23 @@ def _session_factory(tmp_path):
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
+def _session_factory_without_mes_snapshot(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mobile-locked-fields-no-mes.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            Equipment.__table__,
+            ShiftConfig.__table__,
+            User.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            ShiftProductionData.__table__,
+        ],
+    )
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
 def _client_with_db(session_factory):
     def fake_get_db():
         db = session_factory()
@@ -135,6 +152,30 @@ def test_mobile_coil_entry_rejects_registered_coil_tamper_without_lock_token(tmp
             json={
                 'tracking_card_no': 'TRACK-REGISTERED-1',
                 'alloy_grade': '7075',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()['detail'] == 'locked_field_tampered'
+
+
+def test_mobile_coil_entry_rejects_tokenless_submit_when_mes_snapshot_table_missing(tmp_path) -> None:
+    session_factory = _session_factory_without_mes_snapshot(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-NO-MES-TABLE',
+                'alloy_grade': '6061',
                 'input_spec': '1.2×1200',
                 'input_weight': 1000,
                 'output_weight': 960,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -89,6 +91,42 @@ def test_scan_lookup_hits_tracking_card_first_snapshot_when_qr_misses(tmp_path) 
     assert payload['source'] == 'tracking_card'
     assert payload['header_fields']['batch_no'] == 'FIRST'
     assert payload['header_fields']['alloy_grade'] == '3003'
+
+
+def test_submission_locked_snapshot_uses_latest_mes_snapshot(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesCoilSnapshot(
+                    coil_id='MES-LOCK-OLD',
+                    tracking_card_no='TRACK-LOCK-SAME',
+                    alloy_grade='6061',
+                    spec_display='1.0×1000',
+                    updated_from_mes_at=datetime(2026, 5, 3, 8, tzinfo=timezone.utc),
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES-LOCK-NEW',
+                    tracking_card_no='TRACK-LOCK-SAME',
+                    alloy_grade='7075',
+                    spec_display='2.0×1200',
+                    updated_from_mes_at=datetime(2026, 5, 3, 9, tzinfo=timezone.utc),
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        snapshot = scan_lookup_service.submission_locked_snapshot_for_tracking_card(
+            db,
+            tracking_card_no='TRACK-LOCK-SAME',
+        )
+
+    assert snapshot == {
+        'tracking_card_no': 'TRACK-LOCK-SAME',
+        'alloy_grade': '7075',
+        'input_spec': '2.0×1200',
+    }
 
 
 def test_scan_lookup_hits_equipment_qr(tmp_path) -> None:

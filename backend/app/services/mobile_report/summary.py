@@ -432,10 +432,13 @@ def _trusted_locked_snapshot(db: Session, payload: dict) -> dict:
         raise HTTPException(status_code=409, detail='locked_field_tampered')
     from app.services import scan_lookup_service
 
-    return scan_lookup_service.submission_locked_snapshot_for_tracking_card(
-        db,
-        tracking_card_no=str(payload.get('tracking_card_no') or ''),
-    )
+    try:
+        return scan_lookup_service.submission_locked_snapshot_for_tracking_card(
+            db,
+            tracking_card_no=str(payload.get('tracking_card_no') or ''),
+        )
+    except scan_lookup_service.ScanLookupUnavailable as exc:
+        raise HTTPException(status_code=409, detail='locked_field_tampered') from exc
 
 
 def _validate_locked_fields(db: Session, payload: dict) -> tuple[list[str], dict]:

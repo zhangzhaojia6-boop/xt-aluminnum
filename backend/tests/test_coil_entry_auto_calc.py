@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
+from app.models.mes import MesCoilSnapshot
 from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -19,6 +20,7 @@ def build_session(tmp_path):
             Workshop.__table__,
             ShiftConfig.__table__,
             User.__table__,
+            MesCoilSnapshot.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             ShiftProductionData.__table__,

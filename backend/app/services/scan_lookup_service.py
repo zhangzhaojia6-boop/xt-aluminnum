@@ -17,6 +17,10 @@ class ScanLookupNotFound(RuntimeError):
     pass
 
 
+class ScanLookupUnavailable(RuntimeError):
+    pass
+
+
 def _to_plain(value: Any) -> Any:
     if isinstance(value, Decimal):
         return float(value)
@@ -99,11 +103,15 @@ def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_n
     if not value:
         return {}
     if not _has_coil_snapshot_table(db):
-        return {}
+        raise ScanLookupUnavailable('mes_coil_snapshots_missing')
     row = (
         db.query(MesCoilSnapshot)
         .filter(MesCoilSnapshot.tracking_card_no == value)
-        .order_by(MesCoilSnapshot.id.asc())
+        .order_by(
+            MesCoilSnapshot.updated_from_mes_at.is_(None).asc(),
+            MesCoilSnapshot.updated_from_mes_at.desc(),
+            MesCoilSnapshot.id.desc(),
+        )
         .first()
     )
     if row is None:
