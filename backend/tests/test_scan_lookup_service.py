@@ -19,6 +19,12 @@ def _session_factory(tmp_path):
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
+def _session_factory_without_mes(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'scan-lookup-without-mes.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[Workshop.__table__, Equipment.__table__])
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
 def _seed_workshop(db) -> Workshop:
     workshop = Workshop(code='ZR2', name='铸二车间', workshop_type='casting', sort_order=1, is_active=True)
     db.add(workshop)
@@ -71,6 +77,47 @@ def test_scan_lookup_hits_mes_coil_qr_first(tmp_path) -> None:
         'tracking_card_no': 'TRACK-QR-1',
         'alloy_grade': '6061',
         'input_spec': '1.2×1200',
+    }
+
+
+def test_scan_lookup_uses_latest_mes_coil_qr_snapshot(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesCoilSnapshot(
+                    coil_id='MES-QR-OLD',
+                    tracking_card_no='TRACK-QR-SAME',
+                    qr_code='QR-SAME',
+                    batch_no='OLD',
+                    alloy_grade='3003',
+                    spec_display='1.0×1000',
+                    updated_from_mes_at=datetime(2026, 5, 3, 8, tzinfo=timezone.utc),
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES-QR-NEW',
+                    tracking_card_no='TRACK-QR-SAME',
+                    qr_code='QR-SAME',
+                    batch_no='NEW',
+                    alloy_grade='5052',
+                    spec_display='2.0×1200',
+                    updated_from_mes_at=datetime(2026, 5, 3, 9, tzinfo=timezone.utc),
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-SAME')
+
+    assert payload['source'] == 'coil_snapshot'
+    assert payload['header_fields']['batch_no'] == 'NEW'
+    assert payload['header_fields']['alloy_grade'] == '5052'
+    locked_fields = verify_locked_fields_token(payload['lock_token'])
+    assert locked_fields == {
+        'tracking_card_no': 'TRACK-QR-SAME',
+        'alloy_grade': '5052',
+        'input_spec': '2.0×1200',
     }
 
 
@@ -180,6 +227,35 @@ def test_scan_lookup_hits_equipment_qr(tmp_path) -> None:
     }
     assert payload['lock_keys'] == []
     assert payload['lock_token'] is None
+
+
+def test_scan_lookup_hits_equipment_qr_when_mes_table_missing(tmp_path) -> None:
+    session_factory = _session_factory_without_mes(tmp_path)
+    with session_factory() as db:
+        workshop = _seed_workshop(db)
+        db.add(
+            Equipment(
+                code='ZD-NO-MES',
+                name='无快照表机台',
+                workshop_id=workshop.id,
+                equipment_type='ingot_caster',
+                operational_status='running',
+                shift_mode='three',
+                qr_code='XT-NO-MES',
+                is_active=True,
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='XT-NO-MES')
+
+    assert payload['source'] == 'machine_identity'
+    assert payload['header_fields'] == {
+        'equipment_code': 'ZD-NO-MES',
+        'equipment_name': '无快照表机台',
+        'workshop_id': 1,
+    }
 
 
 def test_scan_lookup_raises_not_found_when_qr_unknown(tmp_path) -> None:
