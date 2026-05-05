@@ -161,7 +161,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     state = _read('docs/deploy/current-state.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：677 passed，30 warnings' in state
+    assert '`python -m pytest backend/tests -q`：678 passed，30 warnings' in state
     assert '`node --test tests/*.test.js`：82 passed' in state
     assert '`npm run build`：通过' in state
     assert '`git diff --check`：通过' in state

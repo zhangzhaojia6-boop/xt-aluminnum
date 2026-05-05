@@ -26,13 +26,13 @@
 | R16 | 文档泄漏本机绝对路径 | `docs/superpowers/*reference-ui-pixel-rebuild*` | 改为仓库外目标图占位说明 |
 | R17 | 前端 node 单测缺少标准入口 | `frontend/package.json` | 增加 `test` 与 `test:unit` |
 | R18 | `BrainCenter.vue` 零引用问题已处理 | `frontend/src/views/assistant/BrainCenter.vue` | 删除死代码，正式 AI 入口保留 `AiWorkstation.vue` |
+| R19 | `ReviewLayout.vue` 零引用问题已处理 | `frontend/src/views/review/ReviewLayout.vue` | 删除死代码，正式审阅/管理壳层保留 `ManageShell.vue` |
 
 ## 待处理问题清单
 
 | ID | 等级 | 类别 | 问题 | 位置 | 建议 |
 |---|---|---|---|---|---|
 | F01 | 中 | 前端路由 | `/manage/admin` 仍是占位页，E2E 还断言占位页可见 | `frontend/src/router/index.js`、`frontend/e2e/admin-surface.spec.js` | 替换为真实后台页面或让测试验证真实模块 |
-| F03 | 低 | 死代码 | `ReviewLayout.vue` 零引用 | `frontend/src/views/review/ReviewLayout.vue` | 删除或恢复使用 |
 | F04 | 低 | 死代码 | 多个主数据旧页面零引用但兼容路由还在 | `frontend/src/views/master/*` | 清理孤儿页面或补兼容路由测试 |
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
 | F06 | 中 | 路由测试 | 兼容重定向未覆盖 query/hash 保留 | `frontend/src/router/index.js` | 为 `/review/*`、`/admin/*` 增加路由回归 |

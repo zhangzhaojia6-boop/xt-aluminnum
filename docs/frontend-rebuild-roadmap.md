@@ -13,7 +13,7 @@
 ## 当前基线
 
 - 已有可运行路由与权限守卫： [index.js](/D:/zzj Claude code/aluminum-bypass/frontend/src/router/index.js)
-- 审阅端已有可用页面骨架： [ReviewLayout.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/review/ReviewLayout.vue)
+- 审阅/管理端统一壳层： [ManageShell.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/layout/ManageShell.vue)
 - 移动填报已有完整主链路： `mobile-entry/report/advanced/ocr/attendance/history`
 - 样式集中于 [styles.css](/D:/zzj Claude code/aluminum-bypass/frontend/src/styles.css)，但缺少独立 design tokens/theme/navigation 配置层
 
@@ -32,7 +32,7 @@
 1. `frontend/src/design/*` + `frontend/src/config/navigation.*`
 2. `frontend/src/layout/AppShell.vue` + `frontend/src/layout/EntryShell.vue`
 3. `frontend/src/router/index.js`（meta 增强 + entry 独立端 + legacy 兼容）
-4. `frontend/src/views/review/ReviewLayout.vue` / `frontend/src/views/Layout.vue`
+4. `frontend/src/layout/ManageShell.vue` / `frontend/src/views/Layout.vue`
 5. `frontend/src/views/Login.vue`
 6. `frontend/src/views/review/OverviewCenter.vue`（新增）
 7. `frontend/src/views/review/ReviewTaskCenter.vue`（新增）

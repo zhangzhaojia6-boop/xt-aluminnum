@@ -536,6 +536,19 @@ def test_legacy_brain_center_dead_file_is_removed() -> None:
     assert "frontend/src/views/assistant/BrainCenter.vue" not in roadmap
 
 
+def test_legacy_review_layout_dead_file_is_removed() -> None:
+    repo_root = _resolve_repo_root()
+    router = _read_repo_file("frontend/src/router/index.js")
+    audit = _read_repo_file("docs/audits/2026-05-02-cleanup-round2-test-audit.md")
+    roadmap = _read_repo_file("docs/frontend-rebuild-roadmap.md")
+
+    assert not (repo_root / "frontend/src/views/review/ReviewLayout.vue").exists()
+    assert "const ManageShell = () => import('../layout/ManageShell.vue')" in router
+    assert "views/review/ReviewLayout.vue" not in router
+    assert "`ReviewLayout.vue` 零引用问题已处理" in audit
+    assert "frontend/src/views/review/ReviewLayout.vue" not in roadmap
+
+
 def test_reference_admin_modules_use_numbered_cn_titles() -> None:
     router_source = _read_repo_file("frontend/src/router/index.js")
     assert "const ManageShell = () => import('../layout/ManageShell.vue')" in router_source
