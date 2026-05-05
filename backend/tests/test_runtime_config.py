@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import pytest
+from sqlalchemy.engine import make_url
 
 from app.config import EXAMPLE_ADMIN_PASSWORD, EXAMPLE_SECRET_KEY, Settings
 
@@ -19,6 +22,30 @@ def build_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
+def _read_alembic_sqlalchemy_url() -> str:
+    alembic_ini = Path(__file__).resolve().parents[1] / 'alembic.ini'
+    for line in alembic_ini.read_text(encoding='utf-8').splitlines():
+        normalized = line.strip()
+        if normalized.startswith('sqlalchemy.url'):
+            return normalized.split('=', 1)[1].strip()
+    raise AssertionError('sqlalchemy.url is missing from backend/alembic.ini')
+
+
+def test_default_database_url_has_no_embedded_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+
+    settings = Settings(_env_file=None)
+    url = make_url(settings.DATABASE_URL)
+
+    assert url.password in (None, '')
+
+
+def test_alembic_ini_fallback_url_has_no_embedded_password() -> None:
+    url = make_url(_read_alembic_sqlalchemy_url())
+
+    assert url.password in (None, '')
+
+
 def test_validate_runtime_settings_rejects_placeholder_values_in_production() -> None:
     settings = Settings(
         APP_ENV='production',
@@ -31,6 +58,20 @@ def test_validate_runtime_settings_rejects_placeholder_values_in_production() ->
         settings.validate_runtime_settings()
 
     assert 'Unsafe runtime configuration' in str(exc_info.value)
+
+
+def test_validate_runtime_settings_rejects_placeholder_values_in_trial() -> None:
+    settings = Settings(
+        APP_ENV='trial',
+        DATABASE_URL='postgresql+psycopg2://user:pass@localhost:5432/test',
+        SECRET_KEY=EXAMPLE_SECRET_KEY,
+        INIT_ADMIN_PASSWORD=EXAMPLE_ADMIN_PASSWORD,
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        settings.validate_runtime_settings()
+
+    assert 'Unsafe runtime configuration for trial' in str(exc_info.value)
 
 
 def test_validate_runtime_settings_warns_in_development() -> None:

@@ -23,6 +23,16 @@ WEAK_ADMIN_PASSWORD_VALUES = {
     EXAMPLE_ADMIN_PASSWORD,
     DEFAULT_DEV_ADMIN_PASSWORD,
 }
+PRODUCTION_LIKE_APP_ENVS = {
+    'production',
+    'prod',
+    'staging',
+    'stage',
+    'trial',
+    'uat',
+    'preprod',
+    'pre-production',
+}
 
 
 def _is_blank(value: str | None) -> bool:
@@ -53,7 +63,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = '/api/v1'
     APP_ENV: str = 'development'
 
-    DATABASE_URL: str = 'postgresql+psycopg2://bypass_user:password@localhost:5432/aluminum_bypass'
+    DATABASE_URL: str = 'postgresql+psycopg2://bypass_user@localhost:5432/aluminum_bypass'
     SECRET_KEY: str = DEFAULT_DEV_SECRET_KEY
     ALGORITHM: str = 'HS256'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
@@ -158,7 +168,7 @@ class Settings(BaseSettings):
 
     @property
     def is_production_like(self) -> bool:
-        return self.app_env_normalized in {'production', 'prod', 'staging'}
+        return self.app_env_normalized in PRODUCTION_LIKE_APP_ENVS
 
     @property
     def wecom_bot_workshop_webhook_map(self) -> dict[str, str]:

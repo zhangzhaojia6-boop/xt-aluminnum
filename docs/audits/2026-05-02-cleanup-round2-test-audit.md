@@ -58,6 +58,9 @@
 | R48 | QR 首次建号使用统一初始密码 | `backend/app/routers/auth.py`、`backend/tests/test_qr_login.py` | 虚拟角色 QR 自动建号改为不可知随机密码 hash，账号登录需管理员显式重置 |
 | R49 | 批量 seeded 账号默认口令一致 | `backend/scripts/seed_multi_role_accounts.py`、`backend/tests/test_seed_multi_role_accounts.py` | 多角色 seed 每个新账号单独生成不可知随机密码 hash，不再共享默认口令 |
 | R50 | 生产启动可能重置已有管理员密码 | `backend/scripts/create_admin.py`、`backend/app/services/bootstrap.py`、`backend/tests/test_admin_bootstrap.py` | 已存在管理员保留原密码 hash，仅首次创建时写入初始化密码 |
+| R51 | 后端配置保留带密码样式的默认数据库 URL | `backend/app/config.py`、`backend/tests/test_runtime_config.py` | 默认 `DATABASE_URL` 改为无嵌入口令的开发占位，并用 SQLAlchemy URL 解析测试锁定 |
+| R52 | Alembic 配置保留默认 DSN | `backend/alembic.ini`、`backend/tests/test_runtime_config.py` | `sqlalchemy.url` 改为无嵌入口令占位，运行时仍由 `alembic/env.py` 从 `Settings` 覆盖 |
+| R53 | 试运行环境弱默认只 warning | `backend/app/config.py`、`backend/tests/test_runtime_config.py` | `trial`、`uat`、`preprod` 等试运行环境纳入 production-like，弱密钥/初始密码 fail-fast |
 
 ## 待处理问题清单
 
@@ -78,9 +81,6 @@
 | F23 | 低 | 测试配置 | 次级 browser context 硬编码 baseURL | `frontend/e2e/workshop-template-config.spec.js` | 复用 Playwright 全局 baseURL |
 | F24 | 低 | 测试稳定性 | 测试用 UTC 截业务日期 | `frontend/e2e/owner-only-utility-workshop.spec.js` | 使用固定业务日期或本地时区 |
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
-| S02 | 中 | 配置默认 | 后端配置保留带密码样式的默认数据库 URL | `backend/app/config.py` | 要求显式注入或使用无密码占位 |
-| S03 | 中 | 迁移配置 | Alembic 配置保留默认 DSN | `backend/alembic.ini` | 从环境变量读取迁移 DSN |
-| S04 | 中 | 弱默认 | 非 production 环境弱密钥只 warning | `backend/app/config.py` | staging/试运行环境也 fail-fast |
 | S08 | 中 | CI 凭据 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml` | 使用 GitHub Secrets 或运行时随机值 |
 | S09 | 中 | CI 权限 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml` | 改最小权限和明确 owner/group |
 | S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
