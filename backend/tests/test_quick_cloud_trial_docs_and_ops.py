@@ -155,6 +155,22 @@ def test_backend_smoke_scripts_are_replaced_by_testclient_coverage() -> None:
     assert '后端手工测试脚本打固定 localhost 和 live token' not in audit
 
 
+def test_qr_pdf_artifacts_are_not_tracked_in_repository() -> None:
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+    gitignore = _read('.gitignore')
+    ops = _read('docs/快速试跑运维手册.md')
+
+    assert not (REPO_ROOT / 'docs/role_qr_codes.pdf').exists()
+    assert not (REPO_ROOT / 'docs/workshop_qr_codes.pdf').exists()
+    assert 'docs/*qr_codes.pdf' in gitignore
+    assert '/manage/admin/qr-print' in ops
+    assert '二维码打印制品不提交到 Git' in ops
+    assert '| S14 |' not in audit
+    assert '| R73 |' in audit
+    assert '`docs/role_qr_codes.pdf`' in audit
+    assert '`docs/workshop_qr_codes.pdf`' in audit
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 

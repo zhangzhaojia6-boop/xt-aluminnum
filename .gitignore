@@ -13,6 +13,7 @@ node_modules/
 dist/
 uploads/
 backups/
+docs/*qr_codes.pdf
 *.log
 .DS_Store
 .omx/
