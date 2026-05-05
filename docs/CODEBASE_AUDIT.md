@@ -9,13 +9,13 @@
 - 成本中心定位为经营估算 / 策略口径，不是财务结算。
 - 数据接入中心归属 `/admin/ingestion`，`/review/ingestion` 只做 legacy redirect。
 - 高清目标图已切换为 `docs/ui-reference/highres/` 基线，文件名按 01-15 中心编号规整；`/review/reports` 对齐 `08-reports-delivery.png`。
-- `/review/reports` 当前使用 `reportsCenterMock` fallback 读面数据，口径为 `auto_confirmed` / 已自动确认；导出 PDF、导出 Excel、发送/交付、重新生成均保持 disabled，不写入生产事实。
-- `/review/quality` 当前使用 `qualityCenterMock` fallback 读面数据，对齐高清目标图 `09-quality-alerts.png`；标记处理中、关闭、导出告警清单、查看历史等处置动作保持 disabled，AI 仅作为辅助分诊，不自动关闭告警。
-- `/review/cost-accounting` 当前使用 `costCenterMock` fallback 经营估算 / 策略口径，对齐高清目标图 `10-cost-benefit.png`；调整方案、导出保持 disabled，查看日报影响、查看质量风险、看工厂看板为跳转动作。本页不承接生产事实写入，不作为财务结算或月度入账依据。
-- `/admin/ingestion` 当前使用 `ingestionCenterMock` fallback 管理端配置治理数据，对齐高清目标图 `06-ingestion-mapping.png`；上传文件、配置映射、重新处理、导出错误清单保持 disabled，查看错误、查看口径和相关中心跳转为只读/导航动作。本页不承接生产事实写入，不表示 MES/ERP 正式联通。
-- `/review/brain` 当前使用 `brainCenterMock` fallback / mixed 证据读面，对齐高清目标图 `11-ai-control.png`；生成今日摘要与追问在无真实接口时禁用，证据查看、审阅/日报/质量/成本跳转与复制摘要保持只读/导航语义。AI 仅作为辅助解释与建议，不自动执行生产、质量、成本、排产或交付动作。
-- `/admin/ops` 当前使用 `opsCenterMock` fallback / mixed 只读观测数据，对齐高清目标图 `12-ops-observability.png`；刷新探针、查看 readiness、查看健康检查、查看上线闸门只做页面状态切换，回滚预检、导出诊断、查看日志保持 disabled。本页属于管理端运维观测面，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
-- `/admin/governance` 当前使用 `governanceCenterMock` fallback / mixed 只读治理数据，对齐高清目标图 `13-governance.png`；查看审计、查看角色矩阵、查看风险账号、进入主数据、进入运维观测、刷新权限视图为只读/导航动作，导出审计与保存策略保持 disabled。本页属于管理端权限治理面，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
+- `/review/reports` 已收口到 `/manage/reports` 的 `ReportList.vue`，通过 `frontend/src/api/reports.js` 读取日报、详情、审核、发布、最终版和导出接口。
+- `/review/quality` 已收口到 `/manage/quality` 的 `QualityCenter.vue`，通过 `frontend/src/api/quality.js` 执行质量检查、问题列表、解决和忽略。
+- `/review/cost-accounting` 已作为 legacy redirect 收口到 `/manage/factory/cost`，由 `CostBenefitScreen.vue` 通过 `/api/v1/factory-command/cost-benefit` 展示经营估算，不作为财务结算或月度入账依据。
+- `/admin/ingestion` 已收口到 `/manage/ingestion` 的 `IngestionCenter.vue`，调用导入历史和各类导入接口；本页不表示外部 MES/ERP 已正式联通。
+- `/review/brain` 已收口到 `/manage/ai-assistant` 的 `AiWorkstation.vue`，通过 AI chat store 接会话、消息、主动汇报和关注列表；AI 仅作为辅助解释与建议，不自动执行生产、质量、成本、排产或交付动作。
+- `/admin/ops` 已收口到 `/manage/admin/settings` 的 `LiveDashboard.vue`，展示 dashboard、factory-command 与管理概览数据；不执行部署、回滚、重启或自动修复。
+- `/admin/governance` 已收口到 `/manage/admin/governance` 的 `GovernanceCenter.vue`，基于 auth store 和用户接口展示权限边界与角色分布，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
 - `/admin/master` 当前重定向到 `/manage/master`，由 `Workshop.vue` 直接调用 `/api/v1/master/workshops` 真实接口承接车间主数据的查看、新增、编辑和删除；`/admin/master/templates` 独立进入 `WorkshopTemplateConfig.vue`。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实。
 
 ## 本轮处理方向

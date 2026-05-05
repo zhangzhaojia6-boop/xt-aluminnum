@@ -38,19 +38,19 @@
 
 - `/review/overview` -> `review-overview-home` -> `CommandOverview.vue`，正式中心：系统总览主视图。
 - `/review/tasks` -> `review-task-center` -> `CommandReviewTasks.vue`，正式中心：审阅中心。
-- `/review/reports` -> `review-report-center` -> `CommandModulePage.vue`，正式中心：日报与交付中心；当前按高清目标图 `08-reports-delivery.png` 对齐，使用 fallback 读面数据、`auto_confirmed` / 已自动确认口径，导出 PDF、导出 Excel、发送/交付、重新生成在无真实接口时禁用，本页不承接生产事实写入。
-- `/review/cost-accounting` -> `review-cost-accounting` -> `CommandModulePage.vue`，正式中心：成本核算与效益中心；当前按高清目标图 `10-cost-benefit.png` 对齐，使用 fallback 经营估算 / 策略口径展示吨铝成本、人工、电耗、天然气、辅材 / 损耗、构成趋势与风险摘要。调整方案、导出在无真实接口时禁用；查看日报影响、查看质量风险、看工厂看板为审阅端跳转。本页不承接生产事实写入，不作为财务结算依据。
-- `/review/quality` -> `review-quality-center` -> `CommandModulePage.vue`，正式中心：质量与告警中心；当前按高清目标图 `09-quality-alerts.png` 对齐，使用 fallback 读面数据展示质量告警、严重度、处置状态、日报交付影响与 AI 辅助分诊。查看详情、标记处理中、关闭、导出告警清单、查看历史在无真实处置接口时禁用；进入审阅任务与查看日报影响为审阅端跳转。本页不承接生产事实写入。
+- `/review/reports` -> `/manage/reports` -> `review-report-center` -> `ReportList.vue`，正式中心：日报与交付中心；当前通过 `frontend/src/api/reports.js` 调用 `/api/v1/reports`、详情、审核、发布、最终版和导出接口，不再走读面 mock。
+- `/review/cost-accounting`、`/review/cost`、`/manage/cost` -> `/manage/factory/cost` -> `factory-command-cost` -> `CostBenefitScreen.vue`，正式中心：经营效益；当前通过 factory-command store 调用 `/api/v1/factory-command/cost-benefit`，展示经营估算、毛差估算和待补口径，不作为财务结算依据。
+- `/review/quality` -> `/manage/quality` -> `review-quality-center` -> `QualityCenter.vue`，正式中心：质量与告警中心；当前通过 `frontend/src/api/quality.js` 调用质量检查、问题列表、解决和忽略接口，本页不承接生产事实写入。
 - `/review/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
 - `/review/factory` -> `factory-dashboard` -> `CommandModulePage.vue`，正式中心：工厂作业看板。
 - `/review/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
-- `/review/brain` -> `review-brain-center` -> `CommandModulePage.vue`，正式中心：AI 总控中心；当前按高清目标图 `11-ai-control.png` 对齐，使用 `brainCenterMock` fallback / mixed 证据读面汇总生产、日报、质量、成本和数据接入风险。生成今日摘要与追问在无真实接口时禁用；查看证据、去审阅任务、看日报阻塞、看质量告警、看成本解释、复制摘要为只读/导航动作；看数据接入问题需管理端权限。本页仅提供辅助解释与建议，不承接生产事实写入，不自动执行质量、成本、排产或交付动作。
+- `/review/brain` -> `/manage/ai-assistant` -> `factory-ai-assistant` -> `AiWorkstation.vue`，正式中心：AI 助手；当前通过 `useAiChatStore` 接会话、消息、主动汇报和关注列表，不使用前端读面 mock。后端是否 live 由 assistant 能力与模型配置决定，AI 仅提供辅助解释与建议，不自动执行质量、成本、排产或交付动作。
 - `/review/roadmap` -> `/review/overview`，路线图入口隔离。
 - `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> `/admin/*`，管理能力不再挂在审阅端。
 - `/admin` -> `admin-overview` -> `CommandModulePage.vue`，管理端默认落点。
-- `/admin/ingestion` -> `admin-ingestion-center` -> `CommandModulePage.vue`，正式中心：数据接入与字段映射中心；当前按高清目标图 `06-ingestion-mapping.png` 对齐，使用 fallback 管理端配置治理数据展示数据源状态、字段映射、导入概览、导入历史与错误说明。上传文件、配置映射、重新处理、导出错误清单在无真实接口时禁用；查看错误、查看口径和相关中心跳转保持只读。本页不承接生产事实写入，不表示 MES/ERP 正式联通。
-- `/admin/governance` -> `admin-governance-center` -> `CommandModulePage.vue`，正式中心：权限治理中心；当前按高清目标图 `13-governance.png` 对齐，使用 `governanceCenterMock` fallback / mixed 只读治理数据展示权限 KPI、角色矩阵、数据权限边界、审计日志、治理风险、系统设置与操作区。查看审计、查看角色矩阵、查看风险账号、进入主数据、进入运维观测、刷新权限视图为只读/导航动作；导出审计、保存策略在无真实接口时禁用。本页不绕过后端权限模型，不直接修改生产事实或真实授权策略。
-- `/admin/ops` -> `admin-ops-reliability` -> `CommandModulePage.vue`，正式中心：系统运维与可观测；当前按高清目标图 `12-ops-observability.png` 对齐，使用 `opsCenterMock` fallback / mixed 只读观测数据展示 healthz、readyz、hard gate、服务探针、错误率、响应时间、版本与部署信息、风险与日志摘要。刷新探针、查看 readiness、查看健康检查和查看上线闸门只做页面只读状态切换；回滚预检、导出诊断、查看日志在无真实接口时禁用。本页不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
+- `/admin/ingestion` -> `/manage/ingestion` -> `admin-ingestion-center` -> `IngestionCenter.vue`，正式中心：数据接入与字段映射中心；当前调用导入历史、排班、打卡、生产、能源、MES 导出与通用导入接口。本页不表示外部 MES/ERP 已正式联通。
+- `/admin/governance` -> `/manage/admin/governance` -> `admin-governance-center` -> `GovernanceCenter.vue`，正式中心：权限与治理中心；当前基于 auth store 展示权限边界，管理员可通过用户接口读取角色分布。本页不绕过后端权限模型，不直接修改生产事实或真实授权策略。
+- `/admin/ops` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`，正式中心：系统设置 / 运维状态入口；当前调用 dashboard、factory-command 与管理概览数据展示 ready/freshness/机列填报状态。本页不执行部署、回滚、重启或自动修复。
 - `/admin/master` -> `/manage/master` -> `admin-master-workshop` -> `Workshop.vue`，正式中心：主数据与模板中心；车间清单、新增、编辑、删除已走 `frontend/src/api/master.js` 的 `/api/v1/master/workshops` 真实接口，页面不再依赖 `CommandModulePage.vue` 读面 mock。`/admin/master/templates` -> `/manage/admin/templates` -> `WorkshopTemplateConfig.vue`，模板中心仍独立承接字段模板配置。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实。
 
 ## Desktop 兼容链路（现状）

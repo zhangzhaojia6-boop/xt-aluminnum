@@ -712,6 +712,64 @@ def test_master_route_docs_match_live_workshop_center() -> None:
     assert "/admin/master` 当前使用" not in docs
 
 
+def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
+    router = _read_repo_file("frontend/src/router/index.js")
+    docs = "\n".join(
+        [
+            _read_repo_file("docs/current-route-map.md"),
+            _read_repo_file("docs/CODEBASE_AUDIT.md"),
+        ]
+    )
+    files = {
+        "reports": _read_repo_file("frontend/src/views/reports/ReportList.vue"),
+        "quality": _read_repo_file("frontend/src/views/quality/QualityCenter.vue"),
+        "ingestion": _read_repo_file("frontend/src/views/review/IngestionCenter.vue"),
+        "ai": _read_repo_file("frontend/src/views/ai/AiWorkstation.vue"),
+        "ops": _read_repo_file("frontend/src/views/reports/LiveDashboard.vue"),
+        "governance": _read_repo_file("frontend/src/views/review/GovernanceCenter.vue"),
+        "factory_cost": _read_repo_file("frontend/src/views/factory-command/CostBenefitScreen.vue"),
+        "factory_command_api": _read_repo_file("frontend/src/api/factory-command.js"),
+    }
+
+    for route_slice in [
+        "name: 'review-report-center', component: ReportList",
+        "name: 'review-quality-center', component: QualityCenter",
+        "name: 'admin-ingestion-center', component: IngestionCenter",
+        "name: 'factory-ai-assistant', component: AiWorkstation",
+        "name: 'admin-ops-reliability', component: LiveDashboard",
+        "name: 'admin-governance-center', component: GovernanceCenter",
+        "path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen",
+    ]:
+        assert route_slice in router
+
+    assert "fetchReports" in files["reports"]
+    assert "fetchQualityIssues" in files["quality"]
+    assert "runQualityChecks" in files["quality"]
+    assert "fetchImportHistory" in files["ingestion"]
+    assert "uploadImport" in files["ingestion"]
+    assert "useAiChatStore" in files["ai"]
+    assert "loadDashboardSurface" in files["ops"]
+    assert "fetchUsersPage" in files["governance"]
+    assert "loadCostBenefit" in files["factory_cost"]
+    assert "fetchFactoryCommandCostBenefit" in files["factory_command_api"]
+
+    for legacy_mock in [
+        "reportsCenterMock",
+        "qualityCenterMock",
+        "costCenterMock",
+        "ingestionCenterMock",
+        "brainCenterMock",
+        "opsCenterMock",
+        "governanceCenterMock",
+        "CommandModulePage.vue`，正式中心：日报与交付中心",
+        "CommandModulePage.vue`，正式中心：质量与告警中心",
+        "CommandModulePage.vue`，正式中心：AI 总控中心",
+        "CommandModulePage.vue`，正式中心：权限治理中心",
+        "CommandModulePage.vue`，正式中心：系统运维与可观测",
+    ]:
+        assert legacy_mock not in docs
+
+
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
