@@ -1,5 +1,7 @@
 # 企业微信单入口收口复核记录（2026-04-08）
 
+> 2026-05-06 更新：本文件保留 2026-04-08 历史复核结论；当前正式现场填报入口为 `/entry`，`/mobile` 仅作为 legacy redirect。当前执行口径以 `docs/pilot-sop-minimal.md`、`docs/pilot-readiness-checklist.md` 和 `docs/current-route-map.md` 为准。
+
 ## 本次复核范围
 - README 对外口径
 - `docs/pilot-sop-minimal.md`

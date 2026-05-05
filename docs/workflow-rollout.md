@@ -304,3 +304,29 @@
 
 ### Next Step
 - 将前端剩余历史入口文案继续收口到企业微信 `/mobile` 主链路，并在现场试点时只培训这一条路径。
+
+## Step 9 - 正式现场填报入口改为 /entry (2026-05-06)
+
+### Completed Items
+- 当前正式现场填报入口为 `/entry`。
+- `/mobile` 仅保留为兼容跳转，不再作为新培训或新清单里的正式入口。
+- `docs/pilot-sop-minimal.md` 与 `docs/pilot-readiness-checklist.md` 已同步为 `/entry` 口径。
+- `docs/wecom-single-entry-review-2026-04-08.md` 保留历史复核记录，并增加 2026-05-06 superseded 说明。
+
+### Changed Files
+- `docs/pilot-sop-minimal.md`
+- `docs/pilot-readiness-checklist.md`
+- `docs/wecom-single-entry-review-2026-04-08.md`
+- `docs/workflow-rollout.md`
+
+### Review Notes
+- 后端 `/api/v1/mobile/*` 仍是业务 API 命名，不等同于前端正式现场入口路径。
+- 前端 `/mobile/*` redirect 继续保留，以保护旧二维码、旧书签和旧培训材料。
+- 新的现场 SOP、readiness checklist、供应商对接和上线轻测清单都应指向 `/entry`。
+
+### Verification Commands
+- `python -m pytest backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q`
+- `git diff --check`
+
+### Next Step
+- 若继续清理历史文档，只追加 superseded 说明，不重写当时已经发生的历史结论。

@@ -1056,3 +1056,25 @@ def test_pilot_docs_use_entry_as_formal_field_route() -> None:
     ]:
         assert stale_token not in sop
         assert stale_token not in checklist
+
+
+def test_historical_mobile_entry_docs_are_marked_superseded() -> None:
+    review = _read_repo_file("docs/wecom-single-entry-review-2026-04-08.md")
+    rollout = _read_repo_file("docs/workflow-rollout.md")
+
+    for token in [
+        "2026-05-06 更新",
+        "本文件保留 2026-04-08 历史复核结论",
+        "当前正式现场填报入口为 `/entry`",
+        "`/mobile` 仅作为 legacy redirect",
+    ]:
+        assert token in review
+
+    for token in [
+        "## Step 9 - 正式现场填报入口改为 /entry (2026-05-06)",
+        "当前正式现场填报入口为 `/entry`",
+        "`/mobile` 仅保留为兼容跳转",
+        "docs/pilot-sop-minimal.md",
+        "docs/pilot-readiness-checklist.md",
+    ]:
+        assert token in rollout
