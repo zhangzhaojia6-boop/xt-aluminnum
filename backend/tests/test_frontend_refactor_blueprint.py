@@ -196,15 +196,26 @@ def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
             assert token in source
 
 
-def test_mock_data_is_centralized_for_first_round_centers() -> None:
+def test_center_mock_data_only_keeps_mes_wip_snapshot_fallback() -> None:
     source = _read("frontend/src/mocks/centerMockData.js")
 
-    for export_name in [
+    assert "export const mesWipSnapshotMock" in source
+    assert "MES截图口径 / 待正式对接" in source
+
+    for removed_export in [
         "entryHomeMock",
         "reviewOverviewMock",
         "reviewTaskMock",
+        "factoryBoardMock",
+        "reportsCenterMock",
+        "qualityCenterMock",
+        "costCenterMock",
+        "ingestionCenterMock",
+        "brainCenterMock",
+        "opsCenterMock",
+        "governanceCenterMock",
     ]:
-        assert f"export const {export_name}" in source
+        assert f"export const {removed_export}" not in source
 
     for forbidden in ["最终结论", "财务结算"]:
         assert forbidden not in source
