@@ -79,7 +79,7 @@ def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.post('/qr-login', name='auth-qr-login')
+@router.post('/qr-login', response_model=QrLoginResponse, name='auth-qr-login')
 def qr_login(
     request: Request,
     body: QrLoginRequest,

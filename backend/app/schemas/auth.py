@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional, Union
 
 
 class LoginRequest(BaseModel):
@@ -45,14 +45,13 @@ class LoginResponse(BaseModel):
     machine_info: Optional[MachineInfo] = None
 
 
-class QrLoginResponse(LoginResponse):
-    machine_info: MachineInfo
-
-
 class WorkshopQrResponse(BaseModel):
-    type: str = 'workshop_redirect'
+    type: Literal['workshop_redirect'] = 'workshop_redirect'
     workshop_code: str
     workshop_name: str
+
+
+QrLoginResponse = Union[LoginResponse, WorkshopQrResponse]
 
 
 class WorkshopQuickEntryRequest(BaseModel):
