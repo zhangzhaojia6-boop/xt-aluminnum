@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test'
+import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
-const inventoryUsername = process.env.PLAYWRIGHT_OWNER_USERNAME || 'CPK-A-INV'
-const inventoryPassword = process.env.PLAYWRIGHT_OWNER_PASSWORD || '506371'
+const inventoryUsername = firstEnv('PLAYWRIGHT_INVENTORY_USERNAME')
+const inventoryPassword = firstEnv('PLAYWRIGHT_INVENTORY_PASSWORD')
 
 async function loginAsInventoryOwner(page) {
+  skipWithoutCredentials([
+    ['PLAYWRIGHT_INVENTORY_USERNAME', inventoryUsername],
+    ['PLAYWRIGHT_INVENTORY_PASSWORD', inventoryPassword]
+  ])
+
   await page.goto('/login')
   await page.getByTestId('login-username').fill(inventoryUsername)
   await page.getByTestId('login-password').fill(inventoryPassword)

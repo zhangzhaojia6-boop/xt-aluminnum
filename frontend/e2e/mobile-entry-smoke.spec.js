@@ -1,28 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
-const username = process.env.PLAYWRIGHT_USERNAME || 'admin'
-const password = process.env.PLAYWRIGHT_PASSWORD || process.env.INIT_ADMIN_PASSWORD || 'Admin#Gate2026_Strong'
+const username = firstEnv('PLAYWRIGHT_USERNAME', 'INIT_ADMIN_USERNAME')
+const password = firstEnv('PLAYWRIGHT_PASSWORD', 'INIT_ADMIN_PASSWORD')
 const responsiveWidths = [375, 390, 414, 768]
 
 async function seedStoredSession(page, token, user, machineContext = null) {
   await page.addInitScript(({ token, user, machineContext }) => {
-    localStorage.setItem('aluminum_bypass_token', token)
-    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    sessionStorage.setItem('aluminum_bypass_token', token)
-    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
-    if (machineContext) {
-      localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
-    } else {
-      localStorage.removeItem('aluminum_bypass_machine')
-      sessionStorage.removeItem('aluminum_bypass_machine')
-    }
-  }, { token, user, machineContext })
-}
-
-async function writeStoredSession(page, token, user, machineContext = null) {
-  await page.evaluate(({ token, user, machineContext }) => {
     localStorage.setItem('aluminum_bypass_token', token)
     localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
     sessionStorage.setItem('aluminum_bypass_token', token)
@@ -167,6 +152,25 @@ async function setupUnifiedPerCoilEntrySession(page) {
     })
   })
 
+  await page.route('**/api/v1/mobile/bootstrap', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        entry_mode: 'web_debug',
+        current_identity_source: 'machine',
+        current_scope_summary: { data_scope_type: 'self_workshop' },
+        workshop_id: 2,
+        workshop_name: '铸二车间',
+        workshop_type: 'casting',
+        machine_id: 21,
+        machine_code: 'ZR2-1',
+        machine_name: '1#机',
+        is_machine_bound: true
+      })
+    })
+  })
+
   await page.route('**/api/v1/mobile/current-shift', async (route) => {
     await route.fulfill({
       status: 200,
@@ -184,6 +188,22 @@ async function setupUnifiedPerCoilEntrySession(page) {
         report_status: 'coil_entry',
         can_submit: true,
         is_machine_bound: true
+      })
+    })
+  })
+
+  await page.route('**/api/v1/templates/casting', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        supports_ocr: false,
+        role_bucket: 'operator',
+        entry_fields: [],
+        shift_fields: [],
+        extra_fields: [],
+        qc_fields: [],
+        readonly_fields: []
       })
     })
   })
@@ -240,12 +260,14 @@ async function setupUnifiedPerCoilEntrySession(page) {
       })
     })
   })
-
-  await page.goto('/login')
-  await writeStoredSession(page, token, user, machineContext)
 }
 
 test('admin mobile entry shows the manual-first mobile fallback entry', async ({ page }) => {
+  skipWithoutCredentials([
+    ['PLAYWRIGHT_USERNAME or INIT_ADMIN_USERNAME', username],
+    ['PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', password]
+  ])
+
   await page.goto('/login')
 
   await page.getByTestId('login-username').fill(username)

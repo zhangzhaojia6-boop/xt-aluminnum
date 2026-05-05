@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test'
+import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
-const username = process.env.PLAYWRIGHT_USERNAME || 'admin'
-const password = process.env.PLAYWRIGHT_PASSWORD || process.env.INIT_ADMIN_PASSWORD || 'Admin#Gate2026_Strong'
+const username = firstEnv('PLAYWRIGHT_USERNAME', 'INIT_ADMIN_USERNAME')
+const password = firstEnv('PLAYWRIGHT_PASSWORD', 'INIT_ADMIN_PASSWORD')
 
 test('production compose serves login and authenticated manage route', async ({ page }) => {
+  skipWithoutCredentials([
+    ['PLAYWRIGHT_USERNAME or INIT_ADMIN_USERNAME', username],
+    ['PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', password]
+  ])
+
   await page.goto('/login')
 
   await expect(page.getByTestId('login-brand')).toBeVisible()

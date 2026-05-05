@@ -1,13 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
-const utilityUsername = process.env.PLAYWRIGHT_UTILITY_USERNAME || 'CPK-A-UTILITY'
-const utilityPassword = process.env.PLAYWRIGHT_UTILITY_PASSWORD || '591767'
-const adminUsername = process.env.PLAYWRIGHT_ADMIN_USERNAME || 'admin'
-const adminPassword =
-  process.env.PLAYWRIGHT_ADMIN_PASSWORD ||
-  process.env.PLAYWRIGHT_PASSWORD ||
-  process.env.INIT_ADMIN_PASSWORD ||
-  'Admin#Gate2026_Strong'
+const utilityUsername = firstEnv('PLAYWRIGHT_UTILITY_USERNAME')
+const utilityPassword = firstEnv('PLAYWRIGHT_UTILITY_PASSWORD')
+const adminUsername = firstEnv('PLAYWRIGHT_ADMIN_USERNAME', 'PLAYWRIGHT_USERNAME', 'INIT_ADMIN_USERNAME')
+const adminPassword = firstEnv('PLAYWRIGHT_ADMIN_PASSWORD', 'PLAYWRIGHT_PASSWORD', 'INIT_ADMIN_PASSWORD')
 
 function parseMetric(text) {
   const normalized = String(text || '').replace(/,/g, '')
@@ -46,6 +43,13 @@ async function fillMobileField(container, label, value) {
 }
 
 test('utility owner can submit and workshop dashboard reflects owner-only water usage', async ({ browser, page }) => {
+  skipWithoutCredentials([
+    ['PLAYWRIGHT_UTILITY_USERNAME', utilityUsername],
+    ['PLAYWRIGHT_UTILITY_PASSWORD', utilityPassword],
+    ['PLAYWRIGHT_ADMIN_USERNAME or PLAYWRIGHT_USERNAME or INIT_ADMIN_USERNAME', adminUsername],
+    ['PLAYWRIGHT_ADMIN_PASSWORD or PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', adminPassword]
+  ])
+
   await page.goto('/login')
   await page.getByTestId('login-username').fill(utilityUsername)
   await page.getByTestId('login-password').fill(utilityPassword)

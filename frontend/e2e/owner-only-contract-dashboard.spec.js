@@ -1,9 +1,15 @@
 import { expect, test } from '@playwright/test'
+import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
-const contractUsername = process.env.PLAYWRIGHT_CONTRACT_USERNAME || 'CPK-A-PLAN'
-const contractPassword = process.env.PLAYWRIGHT_CONTRACT_PASSWORD || '101901'
+const contractUsername = firstEnv('PLAYWRIGHT_CONTRACT_USERNAME')
+const contractPassword = firstEnv('PLAYWRIGHT_CONTRACT_PASSWORD')
 
 async function loginAsContractOwner(page) {
+  skipWithoutCredentials([
+    ['PLAYWRIGHT_CONTRACT_USERNAME', contractUsername],
+    ['PLAYWRIGHT_CONTRACT_PASSWORD', contractPassword]
+  ])
+
   await page.goto('/login')
   await page.getByTestId('login-username').fill(contractUsername)
   await page.getByTestId('login-password').fill(contractPassword)
