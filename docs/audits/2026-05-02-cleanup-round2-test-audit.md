@@ -40,6 +40,8 @@
 | R30 | 日报流水线可由任意登录用户触发 | `backend/app/routers/reports.py`、`backend/tests/test_report_route_permissions.py` | 流水线执行复用发布权限，验证填报角色 403、manager 可执行 |
 | R31 | 日报最终确认角色边界过宽 | `backend/app/services/report/report_generation.py`、`backend/tests/test_report_generation.py` | 最终确认限制为 manager/admin；有质量 blocker 的强制最终确认仍仅 admin，并用服务层测试锁定 |
 | R32 | 报表路由 ValueError 到 400 缺少测试 | `backend/app/routers/reports.py`、`backend/tests/test_report_route_permissions.py` | 覆盖生成、审核、发布、最终确认、日报流水线的 ValueError 映射；日报流水线补齐 400 映射 |
+| R33 | 报表列表与详情没有接口测试 | `backend/tests/test_report_export.py` | 覆盖列表过滤参数传递、详情命中和详情 404 |
+| R34 | 导出仅覆盖 json/csv happy path | `backend/tests/test_report_export.py` | 补 xlsx happy path、缺 pandas 400、非法格式 400、缺报表 404 |
 
 ## 待处理问题清单
 
@@ -82,8 +84,6 @@
 | B07 | 低 | 错误语义 | 通知不存在时返回 `ok=false` 缺少契约 | `backend/app/routers/notifications.py` | 明确 404 或锁定 200 语义 |
 | B08 | 中 | 搜索校验 | 空白搜索会 strip 成空串并返回全部导航 | `backend/app/routers/search.py` | strip 后空串返回 422 或空结果 |
 | B09 | 低 | 测试设计 | 一个测试混合 search/export/notification | `backend/tests/test_platform_upgrade_api_routes.py` | 拆成三个单行为测试 |
-| B10 | 中 | 报表测试 | 报表列表与详情没有接口测试 | `backend/app/routers/reports.py` | 覆盖过滤、详情命中、404 |
-| B11 | 中 | 导出测试 | 导出仅覆盖 json/csv happy path | `backend/app/routers/reports.py` | 补 xlsx、缺 pandas、400、404 |
 | B17 | 高 | 工单测试 | 工单主链路多路由无行为测试 | `backend/app/routers/work_orders.py` | 覆盖创建、详情、列表、entry 更新、amendment |
 | B18 | 低 | Header 校验 | 非法 `X-Idempotency-Key` 400 分支无测 | `backend/app/routers/work_orders.py` | 增加非法 UUID 测试 |
 | B19 | 中 | 兼容壳 | `work_order_service.py` 动态兼容壳增加导入复杂度 | `backend/app/services/work_order_service.py` | 补兼容导出测试，长期收敛 |
