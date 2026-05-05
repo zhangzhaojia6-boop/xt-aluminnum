@@ -1,13 +1,13 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-05 12:26:25 +08:00
+更新时间：2026-05-05 12:35:21 +08:00
 
 ## 1. 仓库状态
 
 - 仓库：`https://github.com/zhangzhaojia6-boop/xt-aluminnum.git`
 - 当前主线：`main`
-- 当前本地 HEAD：`2151beb fix: 修复扫码快照回退逻辑`
-- 当前远端 `origin/main`：`2151beb`
+- 当前本地 HEAD：`b029db8 feat: 增加外部正式联通上线闸门`
+- 当前远端 `origin/main`：`b029db8`
 - PR 状态：`#1 fix: 收口管理占位路由与就绪配置阻断` 已合并并关闭
 - 推荐服务器目录：`/srv/aluminum-bypass`
 - 推荐部署命令：
@@ -73,7 +73,7 @@ db 容器: PostgreSQL 15
 
 ## 4. 本地验证记录
 
-在 `main@2151beb` 上已完成：
+在 `main@b029db8` 上已完成：
 
 - `python -m pytest backend/tests -q`：670 passed，30 warnings
 - `npm --prefix frontend test`：82 passed
@@ -81,6 +81,8 @@ db 容器: PostgreSQL 15
 - `git diff --check`：通过
 - `docker compose config --quiet`：通过
 - `curl -k https://127.0.0.1/readyz`：HTTP 200
+- `bash scripts/go_live_gate.sh https://example.invalid --dry-run --require-external`：正确显示 `GATE_EXTERNAL`
+- `bash scripts/launch_cloud_trial.sh https://example.invalid --dry-run --require-external --pull`：正确透传 `--require-external`
 
 本地 Docker 状态：
 
@@ -133,16 +135,24 @@ MES_API_BASE=...
 MES_API_KEY=...
 ```
 
-## 6. 远端服务器探测记录
+## 6. 远端与 Vercel 探测记录
 
-最近一次只读探测：2026-05-05 12:20 左右。
+最近一次 ECS 只读探测：2026-05-05 12:20 左右。
 
 - `8.140.218.13:22`：连接被远端关闭或超时，当前不能 SSH 登录。
 - `8.140.218.13:443`：TCP 可达，但 SSH over 443 被远端关闭。
 - `https://8.140.218.13/readyz`：HTTP 404。
 - `http://8.140.218.13/readyz`：HTTP 503。
 
-结论：当前无法确认这台 ECS 是否运行最新 `main@2151beb`，也无法读取服务器侧 `.env` 的 key 状态。不要把公网端口响应当成数据中枢已部署成功的证据；必须恢复 SSH 或提供服务器执行结果后再验收。
+Vercel 主线探测：2026-05-05 12:35 左右。
+
+- GitHub commit status：`Vercel=success`，目标提交 `b029db8`。
+- `https://xt-aluminnum.vercel.app/`：HTTP 200。
+- `https://xt-aluminnum.vercel.app/entry`：HTTP 200，返回前端挂载页。
+- `https://xt-aluminnum.vercel.app/manage/admin`：HTTP 200，返回前端挂载页。
+- `https://xt-aluminnum.vercel.app/readyz`：无后端 readyz 响应。
+
+结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、MES、钉钉或应用连接 API 已正式联通。ECS 仍需恢复 SSH 或提供服务器执行结果后再验收。
 
 ## 7. 一条命令更新上线
 
