@@ -42,6 +42,16 @@ def test_mobile_entry_copy_uses_single_dingtalk_priority() -> None:
     assert 'data-testid="mobile-go-ocr"' not in source
 
 
+def test_mobile_entry_has_no_unbound_template_branch() -> None:
+    source = _read_repo_file("frontend/src/views/mobile/MobileEntry.vue")
+
+    assert "fetchWorkshopTemplate" not in source
+    assert "ocrSupported" not in source
+    assert "function handleLogout" not in source
+    assert "function goAdvancedReport" not in source
+    assert "function goOcr" not in source
+
+
 def test_worker_redirect_preserves_query_for_wecom_and_qr_handoff() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 

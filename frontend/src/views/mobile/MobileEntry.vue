@@ -135,7 +135,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { fetchCurrentShift, fetchMobileBootstrap, fetchWorkshopTemplate } from '../../api/mobile.js'
+import { fetchCurrentShift, fetchMobileBootstrap } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
 import { formatScopeLabel, formatStatusLabel } from '../../utils/display.js'
 import {
@@ -169,7 +169,6 @@ const authError = ref('')
 const loadError = ref('')
 const bootstrap = ref({})
 const current = ref({})
-const ocrSupported = ref(false)
 const hasCurrentShift = computed(() => Boolean(current.value?.shift_id))
 
 const isMachineBound = computed(() => Boolean(current.value?.is_machine_bound || bootstrap.value?.is_machine_bound || auth.isMachineBound))
@@ -355,18 +354,6 @@ async function load() {
     ])
     bootstrap.value = bootstrapData
     current.value = currentData
-
-    const templateKey = currentData?.workshop_code || currentData?.workshop_type
-    if (templateKey) {
-      try {
-        const template = await fetchWorkshopTemplate(templateKey)
-        ocrSupported.value = Boolean(template?.supports_ocr)
-      } catch {
-        ocrSupported.value = false
-      }
-    } else {
-      ocrSupported.value = false
-    }
   } catch (error) {
     bootstrap.value = {}
     current.value = {}
@@ -374,11 +361,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-}
-
-function handleLogout() {
-  auth.logout()
-  router.replace('/login')
 }
 
 async function retryAuth() {
@@ -408,28 +390,6 @@ function goReport() {
   }
   router.push({
     name: reportRouteName,
-    params: {
-      businessDate: current.value.business_date,
-      shiftId: current.value.shift_id
-    }
-  })
-}
-
-function goAdvancedReport() {
-  if (!current.value?.shift_id) return
-  router.push({
-    name: 'mobile-report-form-advanced',
-    params: {
-      businessDate: current.value.business_date,
-      shiftId: current.value.shift_id
-    }
-  })
-}
-
-function goOcr() {
-  if (!current.value?.shift_id || !ocrSupported.value) return
-  router.push({
-    name: 'mobile-ocr-capture',
     params: {
       businessDate: current.value.business_date,
       shiftId: current.value.shift_id

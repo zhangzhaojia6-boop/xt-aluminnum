@@ -72,6 +72,7 @@
 | R62 | owner 工具车间 E2E 使用 UTC fallback 业务日期 | `frontend/e2e/owner-only-utility-workshop.spec.js` | fallback 改为本地业务日期格式，避免跨时区日期漂移 |
 | R63 | E2E 内置真实账号口令 | `frontend/e2e/helpers/credentials.js`、`frontend/e2e/*smoke.spec.js`、`frontend/e2e/owner-only-*.spec.js` | 真实登录类 E2E 改为环境变量注入，缺失时跳过 credentialed 用例，不再保留默认真实口令 |
 | R64 | 登录 query 分支缺少浏览器级覆盖 | `frontend/e2e/login-query-branches.spec.js` | 覆盖钉钉 auth code redirect 清洗、机台二维码登录、车间二维码跳转提示和直接车间 query 提示 |
+| R65 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue`、`backend/tests/test_mobile_entry_copy_consistency.py` | 删除无入口绑定的模板请求、OCR 状态和未调用函数，并用契约测试锁定 |
 
 ## 待处理问题清单
 
@@ -79,7 +80,6 @@
 |---|---|---|---|---|---|
 | F04 | 低 | 死代码 | 多个主数据旧页面零引用但兼容路由还在 | `frontend/src/views/master/*` | 清理孤儿页面或补兼容路由测试 |
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
-| F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
 | S08 | 中 | CI 凭据 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml` | 使用 GitHub Secrets 或运行时随机值 |
 | S09 | 中 | CI 权限 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml` | 改最小权限和明确 owner/group |
