@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.auth import get_password_hash
+from app.core.auth import get_password_hash, verify_password
 from app.core.deps import get_db
 from app.database import Base
 from app.main import app
@@ -253,6 +253,8 @@ def test_qr_login_virtual_role_creates_mobile_operator_user(tmp_path) -> None:
         user = db.query(User).filter(User.username == 'LW-OP').one()
         assert user.role == 'machine_operator'
         assert user.is_mobile_user is True
+        assert verify_password('xt123456', user.password_hash) is False
+        assert user.pin_code is None
         audit = db.query(AuditLog).filter(AuditLog.action == 'qr_login').one()
         assert audit.user_id == user.id
         assert audit.table_name == 'equipment'

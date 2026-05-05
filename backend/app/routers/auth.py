@@ -1,4 +1,5 @@
-﻿from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -113,7 +114,7 @@ def qr_login(
         if user is None:
             user = User(
                 username=username,
-                password_hash=get_password_hash('xt123456'),
+                password_hash=get_password_hash(secrets.token_urlsafe(24)),
                 name=equipment.name or f'{workshop.name}{role_label}',
                 role=system_role,
                 workshop_id=workshop.id,
