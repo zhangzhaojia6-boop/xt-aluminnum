@@ -16,11 +16,11 @@
 - Modify: `backend/tests/test_reference_command_center_spec.py`
 - Create: `docs/superpowers/plans/2026-05-06-highres-reference-image-compression.md`
 
-- [ ] **Step 1: Add a PNG header helper**
+- [x] **Step 1: Add a PNG header helper**
 
 Add `_read_png_size(path: Path) -> tuple[int, int]` near the existing repo file helpers. Read the PNG signature and IHDR width/height bytes directly so the test does not depend on image libraries.
 
-- [ ] **Step 2: Add the failing S15 test**
+- [x] **Step 2: Add the failing S15 test**
 
 Add `test_highres_reference_images_keep_size_budget_and_dimensions()` to assert:
 - the 15 expected files exist in `docs/ui-reference/highres/`
@@ -29,7 +29,7 @@ Add `test_highres_reference_images_keep_size_budget_and_dimensions()` to assert:
 - total bytes are `<= 5_600_000`
 - `docs/ui-reference/REFERENCE_MANIFEST.md` records `尺寸门槛`, `1672 x 941`, `体积门槛`, and `<= 5.6 MB`
 
-- [ ] **Step 3: Run the red test**
+- [x] **Step 3: Run the red test**
 
 Run:
 
@@ -39,6 +39,8 @@ python -m pytest backend/tests/test_reference_command_center_spec.py::test_highr
 
 Expected: FAIL because current highres PNG total is about 6.11 MB and the manifest has no budget section.
 
+Result: historical red completed before compression; current guard passes with the 15-image set, `1672 x 941` dimensions, and total size below `5_600_000` bytes.
+
 ### Task 2: Compress And Document The Highres Baseline
 
 **Files:**
@@ -46,27 +48,29 @@ Expected: FAIL because current highres PNG total is about 6.11 MB and the manife
 - Modify: `docs/ui-reference/REFERENCE_MANIFEST.md`
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
 
-- [ ] **Step 1: Recompress PNGs mechanically**
+- [x] **Step 1: Recompress PNGs mechanically**
 
 Use a one-time Pillow shell command to rewrite each highres PNG with `optimize=True` and `compress_level=9`. Preserve image dimensions and filenames.
 
-- [ ] **Step 2: Update the manifest**
+- [x] **Step 2: Update the manifest**
 
 Add a concise baseline budget section documenting:
 - dimensions stay `1672 x 941`
 - tracked highres PNG total must stay `<= 5.6 MB`
 - images remain visual and information-architecture references, not product-embedded screenshots
 
-- [ ] **Step 3: Update the audit**
+- [x] **Step 3: Update the audit**
 
 Move S15 from pending to resolved by adding `R74` and deleting the S15 pending row.
+
+Result: `docs/ui-reference/REFERENCE_MANIFEST.md` records the size and dimension budget; `docs/audits/2026-05-02-cleanup-round2-test-audit.md` has `R74` and no pending `S15`; current tracked highres PNG total is `5,573,691` bytes.
 
 ### Task 3: Verify And Commit
 
 **Files:**
 - Verify all changed files and binary image edits.
 
-- [ ] **Step 1: Run targeted tests**
+- [x] **Step 1: Run targeted tests**
 
 Run:
 
@@ -76,7 +80,13 @@ python -m pytest backend/tests/test_reference_command_center_spec.py backend/tes
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full project checks**
+Result:
+- `python -m pytest backend/tests/test_reference_command_center_spec.py::test_highres_reference_images_keep_size_budget_and_dimensions -m frontend_contract -q` -> `1 passed`
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_highres_reference_images_have_size_budget_and_audit_record -q` -> `1 passed`
+- `python -m pytest backend/tests/test_reference_command_center_spec.py -m frontend_contract -q` -> `37 passed`
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` -> `30 passed, 1 deselected`
+
+- [x] **Step 2: Run full project checks**
 
 Run:
 
@@ -89,7 +99,14 @@ git diff --check
 
 Expected: PASS. Existing CRLF warnings from `git diff --check` are acceptable only if the command exits 0.
 
-- [ ] **Step 3: Review, commit, and push**
+Result:
+- `python -m pytest backend/tests -q --durations=10` -> `651 passed, 123 deselected, 30 warnings`
+- `python -m pytest backend/tests -m frontend_contract -q` -> `123 passed, 651 deselected`
+- `npm --prefix frontend test` -> `110 passed`
+- `npm --prefix frontend run build` -> pass
+- `git diff --check` -> pass; Git emitted only the existing LF-to-CRLF working-copy warning for this plan file.
+
+- [x] **Step 3: Review, commit, and push**
 
 Run:
 
