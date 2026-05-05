@@ -5,15 +5,15 @@
 - [x] `npm --prefix frontend run build` 通过
 - [x] `/login` 可访问
 - [x] `/entry` 可访问
-- [x] `/review/overview` 可访问
-- [x] `/review/factory`、`/review/workshop` 可访问
-- [x] legacy 路径（`/mobile/*`、`/dashboard/*`）可兼容跳转
+- [x] `/manage/overview` 可访问
+- [x] `/manage/factory`、`/manage/workshop` 可访问
+- [x] legacy 路径（`/mobile/*`、`/dashboard/*`、`/review/*`）可兼容跳转
 
 ## B. 权限边界
 
 - [x] fill-only 角色登录后默认落地 `/entry`
-- [x] fill-only 访问 `/review/*` 被拦截并回跳 `/entry`
-- [x] 管理/审阅角色可访问 review + desktop 配置面
+- [x] fill-only 访问 `/manage/*`、`/review/*` 被拦截并回跳 `/entry`
+- [x] 管理/审阅角色可访问管理工作台和配置面
 - [x] 未登录访问受保护路由会回到 `/login`
 
 ## C. 核心页面

@@ -692,3 +692,48 @@ def test_launch_readiness_uses_current_ai_assistant_runtime_name() -> None:
     assert 'AI 助手' in checklist
     assert '/manage/ai-assistant' in checklist
     assert "path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation" in router
+
+
+def test_operational_docs_use_current_entry_and_manage_routes() -> None:
+    launch = _read('docs/launch-readiness-checklist.md')
+    identity = _read('docs/企业微信生产入口准备清单.md')
+    supplier = _read('docs/供应商对接手册-前端重构版.md')
+
+    for token in [
+        '`/manage/overview` 可访问',
+        '`/manage/factory`、`/manage/workshop` 可访问',
+    ]:
+        assert token in launch
+
+    for token in [
+        '浏览器可直接访问 `/entry` 与 `/manage/factory`',
+        '手机填报入口：`https://<你的正式域名>/entry`',
+        '审阅入口：`https://<你的正式域名>/manage/factory`',
+        '旧 `/mobile` 可兼容跳转到 `/entry`',
+    ]:
+        assert token in identity
+
+    for token in [
+        '审阅端：`/manage/overview`',
+        '厂级看板：`/manage/factory`',
+        '车间看板：`/manage/workshop`',
+        '`/review/*` 与 `/admin/*` 保留兼容 redirect 到 `/manage/*`',
+        '先联通登录、`/manage/factory` 与 `/entry`',
+    ]:
+        assert token in supplier
+
+    for stale_token in [
+        '`/review/overview` 可访问',
+        '`/review/factory`、`/review/workshop` 可访问',
+        '浏览器可直接访问 `/mobile` 与 `/review/factory`',
+        '手机填报入口：`https://<你的正式域名>/mobile`',
+        '审阅入口：`https://<你的正式域名>/review/factory`',
+        '浏览器访问 `/mobile` 与 `/review/factory` 已通过',
+        '审阅端：`/review/overview`',
+        '厂级看板：`/review/factory`',
+        '车间看板：`/review/workshop`',
+        '先联通登录、`/review/factory` 与 `/entry`',
+    ]:
+        assert stale_token not in launch
+        assert stale_token not in identity
+        assert stale_token not in supplier
