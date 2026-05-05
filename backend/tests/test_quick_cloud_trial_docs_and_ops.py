@@ -629,3 +629,23 @@ def test_known_gaps_describes_schedule_gate_with_configured_timezone() -> None:
     assert 'DEFAULT_TIMEZONE=Asia/Shanghai' in gaps
     assert 'target_date_schedule_available' in gaps
     assert 'SCHEDULE_EMPTY' in gaps
+
+
+def test_known_gaps_e2e_baseline_reflects_current_playwright_specs() -> None:
+    gaps = _read('docs/known-gaps-and-todos.md')
+    e2e_specs = sorted((REPO_ROOT / 'frontend/e2e').glob('*.spec.js'))
+
+    assert '13 条前端 e2e' not in gaps
+    assert f'{len(e2e_specs)} 个 Playwright spec 文件' in gaps
+    assert 'quality-center.spec.js' in gaps
+    assert 'reconciliation-center.spec.js' in gaps
+    assert 'reports-center.spec.js' in gaps
+
+
+def test_known_gaps_master_runtime_scope_matches_workshop_page() -> None:
+    gaps = _read('docs/known-gaps-and-todos.md')
+    workshop = _read('frontend/src/views/master/Workshop.vue')
+
+    assert 'title="车间主数据"' in workshop
+    assert '/manage/master` 运行页已标为 `车间主数据`' in gaps
+    assert '一站式主数据中心' in gaps

@@ -13,7 +13,7 @@
 
 ## 3. 旧 E2E 用例对结构依赖较强
 
-- 已完成首轮重构对齐（13 条前端 e2e 全部通过）
+- 当前 `frontend/e2e` 已有 20 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
 - 后续新增页面结构时继续优先复用 `frontend/e2e/helpers/review-mocks.js`，避免环境依赖导致假失败
 
 ## 4. Entry 独立端与 mobile 兼容期并存
@@ -33,5 +33,5 @@
 
 ## 7. 主数据与模板中心仍需补齐一站式覆盖
 
-- `/admin/master` 已重定向到 `/manage/master`，当前由 `Workshop.vue` 通过 `/api/v1/master/workshops` 真实接口承接车间主数据查看、新增、编辑和删除
+- `/admin/master` 已重定向到 `/manage/master`；`/manage/master` 运行页已标为 `车间主数据`，当前由 `Workshop.vue` 通过 `/api/v1/master/workshops` 真实接口承接车间主数据查看、新增、编辑和删除
 - 班组、员工、机台、别名、字典与字段模板仍分散在独立页面或后续配置面；后续若做一站式主数据中心，需要先补接口聚合方案和权限边界文档
