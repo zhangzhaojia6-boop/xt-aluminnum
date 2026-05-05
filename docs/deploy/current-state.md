@@ -1,19 +1,20 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-01 16:40:04 +08:00
+更新时间：2026-05-05 12:26:25 +08:00
 
 ## 1. 仓库状态
 
 - 仓库：`https://github.com/zhangzhaojia6-boop/xt-aluminnum.git`
-- 分支：`main`
-- 当前本地 HEAD：`3a3ebc6 feat: add ZXTF annealing workshop and per-machine energy reporting`
-- 上一个已知云端 QA 提交：`6931c8d test: stabilize customer workflow e2e`
+- 当前主线：`main`
+- 当前本地 HEAD：`2151beb fix: 修复扫码快照回退逻辑`
+- 当前远端 `origin/main`：`2151beb`
+- PR 状态：`#1 fix: 收口管理占位路由与就绪配置阻断` 已合并并关闭
 - 推荐服务器目录：`/srv/aluminum-bypass`
 - 推荐部署命令：
 
 ```bash
 cd /srv/aluminum-bypass
-./scripts/launch_cloud_trial.sh https://your.domain.example --pull --skip-ai
+./scripts/launch_cloud_trial.sh https://你的域名 --pull --skip-ai
 ```
 
 ## 2. 当前产品口径
@@ -24,14 +25,21 @@ cd /srv/aluminum-bypass
 
 - `/entry`：岗位填报端。
 - `/entry/fill`：机台主操统一按卷填报。
-- `/manage`：管理与审阅入口。
+- `/manage`：管理入口。
 - `/manage/factory`：工厂驾驶舱。
-- `/manage/admin/templates`：主数据与模板中心。
+- `/manage/admin/settings`：管理配置入口。
 
 兼容入口：
 
 - `/mobile` 会重定向到 `/entry`。
 - `/review/*` 会重定向到 `/manage/*`。
+- `/manage/admin`、`/admin`、`/admin/overview` 会重定向到 `/manage/admin/settings`。
+
+已收口事项：
+
+- 旧管理占位路由已移除。
+- 主路径不再暴露“改造中”“待迁移”等占位文案。
+- PR review 反馈的扫码取旧 MES 快照问题已修复：重复 QR 取最新快照，缺少 `mes_coil_snapshots` 表时仍可回退设备二维码。
 
 ## 3. 默认部署形态
 
@@ -61,115 +69,130 @@ db 容器: PostgreSQL 15
 - `ssl/cert.pem`
 - `ssl/key.pem`
 
-## 4. 环境变量状态
+不要把 `.env`、证书、密钥、数据库备份提交到 Git。
 
-`.env` 不提交到 Git。服务器上建议通过以下命令生成：
+## 4. 本地验证记录
 
-```bash
-python3 scripts/generate_env.py --app-env production --domain your.domain.example
+在 `main@2151beb` 上已完成：
+
+- `python -m pytest backend/tests -q`：670 passed，30 warnings
+- `npm --prefix frontend test`：82 passed
+- `npm --prefix frontend run e2e -- e2e/admin-surface.spec.js --grep "admin surface is separate"`：1 passed
+- `git diff --check`：通过
+- `docker compose config --quiet`：通过
+- `curl -k https://127.0.0.1/readyz`：HTTP 200
+
+本地 Docker 状态：
+
+- `db`：healthy
+- `backend`：healthy
+- `nginx`：running
+
+## 5. 当前 readyz 与配置闸门
+
+本地 `/readyz` 已通过，返回的关键状态：
+
+- `database=ok`
+- `uploads=ok`
+- `equipment_binding=ok`
+- `schedule=ok`
+- `pipeline=ok`
+- `mes_sync=unconfigured`
+
+`docker compose exec -T backend python scripts/check_statistics_module_ready.py --json` 仍然是预期 hard fail。原因不是数据库或代码阻断，而是正式外部联通尚未配置真实值：
+
+- `MES_UNCONFIGURED`
+- `WORKFLOW_DISABLED`
+- `DINGTALK_DISABLED`
+- `APP_CONNECTION_DISABLED`
+
+正式联通前必须在服务器 `.env` 写入真实值：
+
+```dotenv
+MES_ADAPTER=mvc
+MES_MVC_BASE_URL=...
+MES_MVC_USERNAME=...
+MES_MVC_PASSWORD=...
+WORKFLOW_ENABLED=true
+DINGTALK_ENABLED=true
+DINGTALK_CORP_ID=...
+DINGTALK_APP_KEY=...
+DINGTALK_APP_SECRET=...
+DINGTALK_AGENT_ID=...
+APP_CONNECTION_ENABLED=true
+APP_CONNECTION_PUSH_MODE=enabled
+APP_CONNECTION_API_BASE=...
+APP_CONNECTION_API_KEY=...
 ```
 
-上线前至少确认：
+如果现场使用 REST 形式的外部 MES，则改为：
 
-- `APP_ENV=production`
-- `POSTGRES_PASSWORD` 已替换强随机值。
-- `SECRET_KEY` 已替换 32 位以上强随机值。
-- `INIT_ADMIN_PASSWORD` 已替换 12 位以上强密码。
-- `CORS_ORIGINS=https://your.domain.example`
-- `VITE_API_BASE_URL=/api/v1`
-
-首轮浏览器试跑建议：
-
-- `MES_ADAPTER=null`
-- `WORKFLOW_ENABLED=false`
-- `WECOM_APP_ENABLED=false`
-- `WECOM_BOT_ENABLED=false`
-- `LLM_ENABLED=false`
-- `APP_CONNECTION_ENABLED=false`
-
-## 5. 最近验证记录
-
-在 `6931c8d` 前后完成过一次完整本地 QA：
-
-- `npm run e2e`：48 passed
-- `npm run build`：通过
-- `python -m pytest`：514 passed, 28 warnings
-
-当前 HEAD 已前进到 `3a3ebc6`，正式部署前仍应在本地或服务器重新跑：
-
-```bash
-cd frontend
-npm run build
-npm run e2e
-
-cd ../backend
-python -m pytest
+```dotenv
+MES_ADAPTER=rest_api
+MES_API_BASE=...
+MES_API_KEY=...
 ```
 
-如果服务器资源有限，至少执行：
+## 6. 远端服务器探测记录
 
-```bash
-./scripts/launch_cloud_trial.sh https://your.domain.example --pull --skip-ai
-```
+最近一次只读探测：2026-05-05 12:20 左右。
 
-并确认 `go_live_gate` 通过。
+- `8.140.218.13:22`：连接被远端关闭或超时，当前不能 SSH 登录。
+- `8.140.218.13:443`：TCP 可达，但 SSH over 443 被远端关闭。
+- `https://8.140.218.13/readyz`：HTTP 404。
+- `http://8.140.218.13/readyz`：HTTP 503。
 
-## 6. 已知本地工作树注意事项
+结论：当前无法确认这台 ECS 是否运行最新 `main@2151beb`，也无法读取服务器侧 `.env` 的 key 状态。不要把公网端口响应当成数据中枢已部署成功的证据；必须恢复 SSH 或提供服务器执行结果后再验收。
 
-当前本地工作树存在未跟踪草稿文件，部署文档提交时不要误带：
+## 7. 一条命令更新上线
 
-- `backend/scripts/deploy_zxtf_update.py`
-- `docs/superpowers/plans/2026-05-01-backend-service-split.md`
-- `docs/superpowers/plans/2026-05-01-frontend-large-file-treatment.md`
-
-这些文件是否保留、提交或删除，需要另行确认。
-
-## 7. 首次上云待办
-
-1. 阿里云安全组开放 TCP `80`、`443`，TCP `22` 仅允许管理 IP。
-2. 服务器安装 `git`、`curl`、`docker`、`docker compose plugin`、`python3`。
-3. 在 `/srv/aluminum-bypass` clone 当前仓库。
-4. 生成并检查 `.env`。
-5. 放入正式 HTTPS 证书。
-6. 执行：
-
-```bash
-TRIAL_BASE_URL=https://your.domain.example ./scripts/deploy_trial.sh
-```
-
-7. 浏览器验证 `/`、`/entry`、`/manage/factory`。
-8. 使用管理员和一个机台/主操账号做真实登录和测试填报。
-
-## 8. 日常发布流程
-
-本地：
-
-```bash
-git status --short
-# 修改代码
-# 跑相关测试
-git add <verified files>
-git commit -m "type: message"
-git push origin main
-```
-
-服务器：
+服务器 SSH 恢复后执行：
 
 ```bash
 cd /srv/aluminum-bypass
-./scripts/launch_cloud_trial.sh https://your.domain.example --pull --skip-ai
+git fetch origin
+git status --short --branch
+git pull --ff-only origin main
+./scripts/launch_cloud_trial.sh https://你的域名 --pull --skip-ai
 ```
 
-上线后：
+如果 AI 已正式配置并希望一起检查：
 
 ```bash
-./scripts/check_trial_stack.sh https://your.domain.example
-docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+./scripts/launch_cloud_trial.sh https://你的域名 --pull
 ```
+
+上线后必须确认：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+./scripts/check_trial_stack.sh https://你的域名
+docker compose exec -T backend python scripts/check_statistics_module_ready.py
+curl -kfsS https://你的域名/healthz
+curl -kfsS https://你的域名/readyz
+```
+
+## 8. 生产环境变量底线
+
+服务器 `.env` 至少确认：
+
+- `APP_ENV=production`
+- `POSTGRES_PASSWORD` 已替换强随机值
+- `SECRET_KEY` 已替换 32 位以上强随机值
+- `INIT_ADMIN_PASSWORD` 已替换 12 位以上强密码
+- `CORS_ORIGINS=https://你的域名`
+- `VITE_API_BASE_URL=/api/v1`
+
+外部正式联通至少确认：
+
+- MES adapter 已启用并能访问真实外部 MES。
+- Workflow 已启用。
+- 钉钉应用配置完整。
+- 应用连接 API 已启用，且 push mode 为 `enabled`。
 
 ## 9. 回滚锚点
 
-部署前记录：
+当前主线回滚锚点：
 
 ```bash
 git rev-parse --short HEAD
@@ -181,7 +204,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
 ```bash
 git checkout <last-good-commit>
-TRIAL_BASE_URL=https://your.domain.example ./scripts/deploy_trial.sh
+TRIAL_BASE_URL=https://你的域名 ./scripts/deploy_trial.sh
 ```
 
 数据库回滚必须先做备份校验，不要直接覆盖生产库。
