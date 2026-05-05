@@ -12,6 +12,81 @@ class DummyDB:
     pass
 
 
+def _fake_get_db():
+    yield DummyDB()
+
+
+def _user(role: str = 'admin', *, user_id: int = 1) -> User:
+    return User(
+        id=user_id,
+        username=role,
+        password_hash='x',
+        name=role,
+        role=role,
+        workshop_id=1,
+        is_active=True,
+    )
+
+
+def _override_user(user: User | None = None) -> None:
+    app.dependency_overrides[get_db] = _fake_get_db
+    app.dependency_overrides[get_current_user] = lambda: user or _user()
+
+
+def _work_order_payload(**overrides):
+    now = datetime(2026, 3, 27, 8, 0, 0)
+    payload = {
+        'id': 1,
+        'tracking_card_no': 'RA240001',
+        'process_route_code': 'RA',
+        'alloy_grade': 'A1050',
+        'contract_no': 'HT-2026-001',
+        'customer_name': 'ACME',
+        'contract_weight': 9220,
+        'current_station': '冷轧',
+        'previous_stage_output': None,
+        'overall_status': 'in_progress',
+        'created_by': 1,
+        'created_at': now,
+        'updated_at': now,
+        'entries': [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _entry_payload(**overrides):
+    now = datetime(2026, 3, 27, 10, 0, 0)
+    payload = {
+        'id': 19,
+        'work_order_id': 1,
+        'workshop_id': 1,
+        'machine_id': 2,
+        'shift_id': 3,
+        'business_date': date(2026, 3, 27),
+        'input_weight': 9500,
+        'output_weight': 9220,
+        'verified_input_weight': None,
+        'verified_output_weight': None,
+        'yield_rate': 97.05,
+        'entry_type': 'completed',
+        'entry_status': 'draft',
+        'locked_fields': [],
+        'submitted_at': None,
+        'verified_at': None,
+        'approved_at': None,
+        'created_by': 1,
+        'created_at': now,
+        'updated_at': now,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def teardown_function() -> None:
+    app.dependency_overrides.clear()
+
+
 def test_work_order_routes_are_registered() -> None:
     assert app.url_path_for('template-detail', workshop_type='casting') == '/api/v1/templates/casting'
     assert app.url_path_for('work-orders-create') == '/api/v1/work-orders/'
@@ -21,6 +96,165 @@ def test_work_order_routes_are_registered() -> None:
     assert app.url_path_for('work-order-entry-submit', entry_id='9') == '/api/v1/work-orders/entries/9/submit'
     assert app.url_path_for('field-amendment-create') == '/api/v1/amendments/'
     assert app.url_path_for('field-amendment-approve', amendment_id='5') == '/api/v1/amendments/5/approve'
+
+
+def test_create_work_order_endpoint_calls_service(monkeypatch) -> None:
+    calls = []
+
+    def fake_create(db, *, payload, operator, ip_address=None, user_agent=None):
+        assert payload == {
+            'tracking_card_no': 'RA240001',
+            'alloy_grade': 'A1050',
+            'contract_no': 'HT-2026-001',
+            'customer_name': 'ACME',
+            'contract_weight': 9220.0,
+        }
+        assert operator.id == 7
+        assert ip_address == 'testclient'
+        assert user_agent
+        calls.append(payload['tracking_card_no'])
+        return _work_order_payload(created_by=7)
+
+    _override_user(_user('contracts', user_id=7))
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.create_work_order', fake_create)
+
+    response = TestClient(app).post(
+        '/api/v1/work-orders/',
+        json={
+            'tracking_card_no': 'RA240001',
+            'alloy_grade': 'A1050',
+            'contract_no': 'HT-2026-001',
+            'customer_name': 'ACME',
+            'contract_weight': 9220,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()['tracking_card_no'] == 'RA240001'
+    assert response.json()['created_by'] == 7
+    assert calls == ['RA240001']
+
+
+def test_work_order_detail_endpoint_calls_service(monkeypatch) -> None:
+    calls = []
+
+    def fake_detail(db, *, tracking_card_no, current_user):
+        assert tracking_card_no == 'RA240001'
+        assert current_user.id == 8
+        calls.append(tracking_card_no)
+        return _work_order_payload()
+
+    _override_user(_user('manager', user_id=8))
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.get_work_order_by_tracking_card', fake_detail)
+
+    response = TestClient(app).get('/api/v1/work-orders/RA240001')
+
+    assert response.status_code == 200
+    assert response.json()['tracking_card_no'] == 'RA240001'
+    assert calls == ['RA240001']
+
+
+def test_list_work_orders_endpoint_calls_service_with_filters(monkeypatch) -> None:
+    captured = {}
+
+    def fake_list(db, *, current_user, workshop_id, business_date, status):
+        captured['user_id'] = current_user.id
+        captured['workshop_id'] = workshop_id
+        captured['business_date'] = business_date
+        captured['status'] = status
+        return [_work_order_payload()]
+
+    _override_user(_user('manager', user_id=9))
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.list_work_orders', fake_list)
+
+    response = TestClient(app).get(
+        '/api/v1/work-orders/',
+        params={'workshop_id': 1, 'business_date': '2026-03-27', 'status': 'in_progress'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]['tracking_card_no'] == 'RA240001'
+    assert captured == {
+        'user_id': 9,
+        'workshop_id': 1,
+        'business_date': date(2026, 3, 27),
+        'status': 'in_progress',
+    }
+
+
+def test_update_work_order_entry_endpoint_calls_service(monkeypatch) -> None:
+    calls = []
+
+    def fake_update(db, *, entry_id, payload, operator, override_reason=None, ip_address=None, user_agent=None):
+        assert entry_id == 19
+        assert payload == {'output_weight': 9230.0, 'override_reason': 'scale correction'}
+        assert operator.id == 10
+        assert override_reason == 'scale correction'
+        assert ip_address == 'testclient'
+        assert user_agent
+        calls.append(entry_id)
+        return _entry_payload(output_weight=9230)
+
+    _override_user(_user('shift_leader', user_id=10))
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.update_entry', fake_update)
+
+    response = TestClient(app).patch(
+        '/api/v1/work-orders/entries/19',
+        json={'output_weight': 9230, 'override_reason': 'scale correction'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['output_weight'] == 9230
+    assert calls == [19]
+
+
+def test_create_amendment_endpoint_calls_service(monkeypatch) -> None:
+    calls = []
+
+    def fake_request(db, *, payload, operator):
+        assert payload == {
+            'table_name': 'work_order_entries',
+            'record_id': 19,
+            'field_name': 'output_weight',
+            'new_value': '9230',
+            'reason': 'scale correction',
+        }
+        assert operator.id == 11
+        calls.append(payload['record_id'])
+        now = datetime(2026, 3, 27, 11, 0, 0)
+        return {
+            'id': 6,
+            'table_name': 'work_order_entries',
+            'record_id': 19,
+            'field_name': 'output_weight',
+            'old_value': '9220',
+            'new_value': '9230',
+            'reason': 'scale correction',
+            'requested_by': 11,
+            'requested_at': now,
+            'approved_by': None,
+            'approved_at': None,
+            'status': 'pending',
+        }
+
+    _override_user(_user('shift_leader', user_id=11))
+    monkeypatch.setattr('app.routers.work_orders.work_order_service.request_amendment', fake_request)
+
+    response = TestClient(app).post(
+        '/api/v1/amendments/',
+        json={
+            'table_name': 'work_order_entries',
+            'record_id': 19,
+            'field_name': 'output_weight',
+            'new_value': '9230',
+            'reason': 'scale correction',
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()['status'] == 'pending'
+    assert response.json()['requested_by'] == 11
+    assert calls == [19]
 
 
 def test_submit_endpoint_calls_work_order_service(monkeypatch) -> None:
