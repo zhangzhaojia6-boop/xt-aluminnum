@@ -56,6 +56,27 @@ def _fake_report(status: str = 'reviewed') -> SimpleNamespace:
     )
 
 
+def _raise_value_error(*_args, **_kwargs):
+    raise ValueError('boom')
+
+
+def _assert_report_value_error_maps_to_400(
+    monkeypatch,
+    *,
+    service_name: str,
+    path: str,
+    payload: dict,
+    user: User,
+) -> None:
+    monkeypatch.setattr(f'app.routers.reports.report_service.{service_name}', _raise_value_error)
+    _override_user(user)
+
+    response = TestClient(app, raise_server_exceptions=False).post(path, json=payload)
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'boom'
+
+
 def teardown_function() -> None:
     app.dependency_overrides.clear()
 
@@ -129,3 +150,53 @@ def test_daily_pipeline_allows_manager_role(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()['is_final_version'] is True
+
+
+def test_report_generate_maps_value_error_to_400(monkeypatch) -> None:
+    _assert_report_value_error_maps_to_400(
+        monkeypatch,
+        service_name='generate_daily_reports',
+        path='/api/v1/reports/generate',
+        payload={'report_date': '2026-03-25', 'report_type': 'production'},
+        user=_user('admin', is_reviewer=True, is_manager=True),
+    )
+
+
+def test_report_review_maps_value_error_to_400(monkeypatch) -> None:
+    _assert_report_value_error_maps_to_400(
+        monkeypatch,
+        service_name='review_report',
+        path='/api/v1/reports/5/review',
+        payload={'note': 'x'},
+        user=_user('reviewer', is_reviewer=True, is_manager=False),
+    )
+
+
+def test_report_publish_maps_value_error_to_400(monkeypatch) -> None:
+    _assert_report_value_error_maps_to_400(
+        monkeypatch,
+        service_name='publish_report',
+        path='/api/v1/reports/5/publish',
+        payload={'note': 'x'},
+        user=_user('manager', is_reviewer=False, is_manager=True),
+    )
+
+
+def test_report_finalize_maps_value_error_to_400(monkeypatch) -> None:
+    _assert_report_value_error_maps_to_400(
+        monkeypatch,
+        service_name='finalize_report',
+        path='/api/v1/reports/5/finalize',
+        payload={'note': 'x', 'force': False},
+        user=_user('manager', is_reviewer=False, is_manager=True),
+    )
+
+
+def test_daily_pipeline_maps_value_error_to_400(monkeypatch) -> None:
+    _assert_report_value_error_maps_to_400(
+        monkeypatch,
+        service_name='run_daily_pipeline',
+        path='/api/v1/reports/run-daily-pipeline',
+        payload={'report_date': '2026-03-25'},
+        user=_user('manager', is_reviewer=False, is_manager=True),
+    )

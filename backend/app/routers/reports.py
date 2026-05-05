@@ -141,14 +141,17 @@ def run_daily_pipeline(
     current_user: User = Depends(get_current_user),
 ) -> ReportPipelineResponse:
     _ensure_report_publish_access(current_user)
-    blocked, message, open_count, is_final_version, boss_text, reports = report_service.run_daily_pipeline(
-        db,
-        report_date=body.report_date,
-        scope=body.scope,
-        output_mode=body.output_mode,
-        force=body.force,
-        operator=current_user,
-    )
+    try:
+        blocked, message, open_count, is_final_version, boss_text, reports = report_service.run_daily_pipeline(
+            db,
+            report_date=body.report_date,
+            scope=body.scope,
+            output_mode=body.output_mode,
+            force=body.force,
+            operator=current_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return ReportPipelineResponse(
         blocked=blocked,
         message=message,
