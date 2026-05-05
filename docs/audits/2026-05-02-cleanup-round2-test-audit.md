@@ -93,6 +93,8 @@
 
 ## 测试记录
 
-- 前端 agent 基线：`node --test frontend/tests/mobileSwipe.test.js frontend/tests/offlineResilience.test.js frontend/tests/submitGuard.test.js frontend/tests/useRealtimeStream.test.js`，结果 `11 passed / 0 failed`。
-- 后端 agent 基线：`python -m pytest backend/tests -q`，结果 `513 passed / 5 failed`；失败点来自后端测试读取前端源码的跨层断言。
-- 本轮修复后的最终验证记录以提交前命令输出为准。
+- 待处理问题清单当前为空。
+- 当前主线验证：`python -m pytest backend/tests -q`，结果 `646 passed，119 deselected，30 warnings`。
+- 前端源码契约验证：`python -m pytest backend/tests -m frontend_contract -q`，结果 `119 passed，646 deselected`。
+- 前端单测与构建：`npm --prefix frontend test` 结果 `106 passed`；`npm --prefix frontend run build` 通过。
+- 初始 agent 基线已由 R77 拆分：默认后端 pytest 不再混入前端源码契约断言，前端契约改用 `frontend_contract` marker 单独运行。

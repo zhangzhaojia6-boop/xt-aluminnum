@@ -341,16 +341,24 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
 
 def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> None:
     state = _read('docs/deploy/current-state.md')
+    audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：678 passed，30 warnings' in state
-    assert '`node --test tests/*.test.js`：82 passed' in state
+    assert '`python -m pytest backend/tests -q`：646 passed，119 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：119 passed，646 deselected' in state
+    assert '`npm --prefix frontend test`：106 passed' in state
     assert '`npm run build`：通过' in state
     assert '`git diff --check`：通过' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
+    assert '678 passed' not in state
     assert '670 passed' not in state
+    assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
+    assert '待处理问题清单当前为空' in audit
+    assert '646 passed，119 deselected，30 warnings' in audit
+    assert '119 passed，646 deselected' in audit
+    assert '513 passed / 5 failed' not in audit
 
 
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
