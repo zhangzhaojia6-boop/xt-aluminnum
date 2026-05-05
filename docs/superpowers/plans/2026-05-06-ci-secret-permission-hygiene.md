@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `backend/tests/test_quick_cloud_trial_docs_and_ops.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add a test reading `.github/workflows/ci.yml` and asserting:
 
@@ -33,22 +33,24 @@ assert 'backend_uid="$(docker compose run --rm --no-deps --entrypoint id backend
 assert 'sudo install -d -m 0770 -o "$backend_uid" -g "$backend_gid" backend/uploads' in source
 ```
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_ci_workflow_generates_ephemeral_secrets_and_scoped_upload_permissions -q`
 
 Expected: FAIL because the workflow still contains fixed values and `chmod 777`.
+
+Result: historical red completed before implementation; current guard passes and locks ephemeral CI secrets plus scoped upload permissions.
 
 ### Task 2: Generate CI Secrets At Runtime
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Remove fixed credential env values**
+- [x] **Step 1: Remove fixed credential env values**
 
 Keep `PLAYWRIGHT_BASE_URL`, but remove fixed `PLAYWRIGHT_USERNAME` / `PLAYWRIGHT_PASSWORD` from job-level env.
 
-- [ ] **Step 2: Generate values in Prepare env**
+- [x] **Step 2: Generate values in Prepare env**
 
 Inside `Prepare env`, add:
 
@@ -70,12 +72,14 @@ sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$CI_SECRET_KEY|" .env
 sed -i "s|^INIT_ADMIN_PASSWORD=.*|INIT_ADMIN_PASSWORD=$CI_ADMIN_PASSWORD|" .env
 ```
 
+Result: `.github/workflows/ci.yml` keeps only `PLAYWRIGHT_BASE_URL` in the compose-smoke job env, generates `CI_SECRET_KEY` and `CI_ADMIN_PASSWORD` in `Prepare env`, masks both values, exports Playwright credentials through `$GITHUB_ENV`, and writes the generated values into `.env`.
+
 ### Task 3: Scope Upload Permissions
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Remove world-writable setup**
+- [x] **Step 1: Remove world-writable setup**
 
 Delete:
 
@@ -84,7 +88,7 @@ mkdir -p backend/uploads
 chmod 777 backend/uploads
 ```
 
-- [ ] **Step 2: Add backend user permission step**
+- [x] **Step 2: Add backend user permission step**
 
 Add a step before `Start stack`:
 
@@ -97,26 +101,28 @@ Add a step before `Start stack`:
     sudo install -d -m 0770 -o "$backend_uid" -g "$backend_gid" backend/uploads
 ```
 
-- [ ] **Step 3: Verify green**
+- [x] **Step 3: Verify green**
 
 Run: `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_ci_workflow_generates_ephemeral_secrets_and_scoped_upload_permissions -q`
 
 Expected: PASS.
+
+Result: `chmod 777` is absent; `Prepare backend upload permissions` builds the backend image, reads the backend container UID/GID, and creates `backend/uploads` with `0770` ownership scoped to that user/group.
 
 ### Task 4: Update Audit And Validate
 
 **Files:**
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
 
-- [ ] **Step 1: Add resolved audit rows**
+- [x] **Step 1: Add resolved audit rows**
 
 Add `R69` for S08 and `R70` for S09.
 
-- [ ] **Step 2: Remove S08 and S09 from pending issues**
+- [x] **Step 2: Remove S08 and S09 from pending issues**
 
 Delete both rows.
 
-- [ ] **Step 3: Run verification**
+- [x] **Step 3: Run verification**
 
 Run:
 
@@ -130,6 +136,13 @@ git diff --check
 
 Expected: all commands exit 0; no whitespace errors.
 
+Result:
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_ci_workflow_generates_ephemeral_secrets_and_scoped_upload_permissions -q` -> `1 passed`
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` -> `30 passed, 1 deselected`
+- `python -m pytest backend/tests/test_reference_command_center_spec.py backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q` -> `113 passed`
+- `python -m pytest backend/tests -q --durations=10` -> `651 passed, 123 deselected, 30 warnings`
+- `git diff --check` -> pass
+
 ### Task 5: Commit And Push
 
 **Files:**
@@ -138,11 +151,11 @@ Expected: all commands exit 0; no whitespace errors.
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
 - Add: `docs/superpowers/plans/2026-05-06-ci-secret-permission-hygiene.md`
 
-- [ ] **Step 1: Stage and check**
+- [x] **Step 1: Stage and check**
 
 Run `git diff --cached --check` after staging.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 Run:
 
@@ -150,7 +163,7 @@ Run:
 git commit -m "ci: 生成临时密钥并收窄上传目录权限"
 ```
 
-- [ ] **Step 3: Push and confirm remote alignment**
+- [x] **Step 3: Push and confirm remote alignment**
 
 Run:
 
