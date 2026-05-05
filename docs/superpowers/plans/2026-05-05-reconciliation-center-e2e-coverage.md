@@ -89,7 +89,16 @@ npx playwright test e2e/reconciliation-center.spec.js
 
 Expected: all commands pass.
 
-- [ ] **Step 3: Review diff, commit, push**
+Recovery verification on 2026-05-06:
+
+- `npx playwright test e2e/reconciliation-center.spec.js`: FAIL against default `https://localhost`; confirm/ignore used stale static assets without the prompt.
+- `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:4207'; npx playwright test e2e/reconciliation-center.spec.js`: PASS, `5 passed`.
+- `npm run test`: PASS, `108 passed`.
+- `python -m pytest backend/tests/test_mobile_entry_copy_consistency.py backend/tests/test_reference_command_center_spec.py -m frontend_contract -q`: PASS, `110 passed`.
+- `npm run build`: PASS.
+- `python -m pytest backend/tests -q --durations=10`: PASS, `646 passed, 119 deselected, 30 warnings`.
+
+- [x] **Step 3: Review diff, commit, push**
 
 Review for scope drift and test reliability, then commit with:
 
@@ -98,3 +107,5 @@ git add docs/superpowers/plans/2026-05-05-reconciliation-center-e2e-coverage.md 
 git commit -m "test: 覆盖差异核对中心关键流程"
 git push
 ```
+
+Implementation commit `d730700 test: 覆盖差异核对中心关键流程` is an ancestor of current `main`.
