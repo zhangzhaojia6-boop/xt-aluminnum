@@ -19,6 +19,16 @@ test.describe('ManageShell layout', () => {
     await page.locator('.xt-manage__collapse-btn').click()
 
     await expect(page.locator('.xt-manage--collapsed')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('xt-sidebar-collapsed'))).toBe('true')
+
+    await page.reload()
+
+    await expect(page.locator('.xt-manage--collapsed')).toBeVisible()
+
+    await page.locator('.xt-manage__collapse-btn').click()
+
+    await expect(page.locator('.xt-manage--collapsed')).toHaveCount(0)
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('xt-sidebar-collapsed'))).toBe('false')
   })
 
   test('factory cost benefit surface is visible from the management navigation', async ({ page }) => {
