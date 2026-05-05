@@ -2,11 +2,12 @@
 
 ## 入口层
 
-- `/login`：账号登录 + 钉钉免登 code 兼容（`frontend/src/reference-command/pages/CommandLogin.vue`）
+- `/login`：账号登录 + 钉钉免登 code 兼容（`frontend/src/views/Login.vue`）
 - `/entry/*`：录入端主入口；`/mobile/*` 仅保留兼容重定向
 - `/review/*`：审阅端兼容入口，正式审阅/管理页面统一落到 `/manage/*`
 - `/admin/*`：管理端兼容入口，正式管理页面统一落到 `/manage/*`
 - `/`（desktop 壳）+ `/master/*` 等：历史配置/兼容后台，继续 redirect 或降级保留
+- `frontend/src/reference-command/pages/*`：历史参考原型，不作为当前生产路由页面；运行时以 `frontend/src/views/*` 与 `frontend/src/layout/*` 为准
 
 ## 正式中心导航（现状）
 
@@ -25,7 +26,7 @@
 
 ## 移动填报链路（现状）
 
-- `/entry` -> `mobile-entry` -> `CommandEntryHome.vue`
+- `/entry` -> `mobile-entry` -> `MobileEntry.vue`
 - `/entry/report/:businessDate/:shiftId` -> `mobile-report-form` -> `ShiftReportForm.vue`
 - `/entry/advanced/:businessDate/:shiftId` -> `mobile-report-form-advanced` -> `DynamicEntryForm.vue`
 - `/entry/ocr/:businessDate/:shiftId` -> `mobile-ocr-capture` -> `OCRCapture.vue`

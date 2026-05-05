@@ -813,6 +813,18 @@ def test_current_route_map_lists_canonical_manage_center_paths() -> None:
         assert stale not in route_map
 
 
+def test_reference_command_pages_are_marked_as_archived_prototypes() -> None:
+    readme = _read_repo_file("frontend/src/reference-command/pages/README.md")
+    route_map = _read_repo_file("docs/current-route-map.md")
+    router = _read_repo_file("frontend/src/router/index.js")
+
+    assert "历史参考原型" in readme
+    assert "不挂载到生产路由" in readme
+    assert "../reference-command/pages" not in router
+    assert "frontend/src/reference-command/pages/CommandLogin.vue" not in route_map
+    assert "`/entry` -> `mobile-entry` -> `MobileEntry.vue`" in route_map
+
+
 def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     docs = "\n".join(
