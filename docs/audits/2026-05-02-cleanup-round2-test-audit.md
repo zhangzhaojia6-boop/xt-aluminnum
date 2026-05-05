@@ -65,6 +65,7 @@
 | R55 | 质量处置原因可为空 | `frontend/src/views/quality/QualityCenter.vue`、`backend/app/schemas/quality.py`、`backend/tests/test_quality_checks.py` | 前端 prompt 增加非空校验并 trim 后提交，后端 action schema/service 拒绝空说明，路由测试锁定 |
 | R56 | 差异处理理由硬编码或允许空值 | `frontend/src/views/reconciliation/ReconciliationCenter.vue`、`backend/app/schemas/reconciliation.py`、`backend/tests/test_reconciliation_flow.py` | 确认/忽略/修正三类动作都要求输入说明，前端 trim 后提交，后端 action schema/service 拒绝空说明 |
 | R57 | 总览页永久使用 mock/fallback 在制料数据 | `frontend/src/views/review/OverviewCenter.vue`、`frontend/tests/overviewWipSummary.test.js` | 移除 `mesWipSnapshotMock`，改读 factory-command overview 真实/本地口径，失败时显示 `--` 和明确来源状态 |
+| R58 | 差异核对中心缺少浏览器级关键流覆盖 | `frontend/e2e/reconciliation-center.spec.js` | 覆盖列表与详情、生成差异请求、确认/忽略/修正三类处置说明，以及填报角色隔离 |
 
 ## 待处理问题清单
 
@@ -76,7 +77,6 @@
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
 | F19 | 中 | 报表测试 | 报表页 E2E 只测静态外观 | `frontend/e2e/review-runtime.spec.js` | 断言请求参数和详情跳转 |
 | F20 | 中 | 质量测试 | 质量页关键动作无 E2E | `frontend/src/views/quality/QualityCenter.vue` | 覆盖运行检查、详情、处置 |
-| F21 | 高 | 核对测试 | 差异核对中心几乎无自动化 | `frontend/src/views/reconciliation/ReconciliationCenter.vue` | 新增生成和三类处置 E2E |
 | F22 | 中 | 凭据卫生 | E2E 内置账号口令 | `frontend/e2e/*.spec.js` | 改为环境变量注入 |
 | F23 | 低 | 测试配置 | 次级 browser context 硬编码 baseURL | `frontend/e2e/workshop-template-config.spec.js` | 复用 Playwright 全局 baseURL |
 | F24 | 低 | 测试稳定性 | 测试用 UTC 截业务日期 | `frontend/e2e/owner-only-utility-workshop.spec.js` | 使用固定业务日期或本地时区 |
