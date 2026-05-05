@@ -116,6 +116,22 @@ def test_compose_passes_external_runtime_flags_to_backend() -> None:
         assert expected in source
 
 
+def test_ci_workflow_generates_ephemeral_secrets_and_scoped_upload_permissions() -> None:
+    source = _read('.github/workflows/ci.yml')
+
+    assert 'Round10CiAdmin!2026' not in source
+    assert 'ci-very-strong-secret-key-0123456789abcdef' not in source
+    assert 'chmod 777' not in source
+    assert 'openssl rand -hex 32' in source
+    assert 'CI_ADMIN_PASSWORD="CiAdmin-$(openssl rand -hex 12)!"' in source
+    assert '::add-mask::$CI_SECRET_KEY' in source
+    assert '::add-mask::$CI_ADMIN_PASSWORD' in source
+    assert 'PLAYWRIGHT_PASSWORD=$CI_ADMIN_PASSWORD' in source
+    assert 'docker compose build backend' in source
+    assert 'backend_uid="$(docker compose run --rm --no-deps --entrypoint id backend -u)"' in source
+    assert 'sudo install -d -m 0770 -o "$backend_uid" -g "$backend_gid" backend/uploads' in source
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 

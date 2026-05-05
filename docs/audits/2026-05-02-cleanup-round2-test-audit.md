@@ -76,14 +76,14 @@
 | R66 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages/README.md`、`docs/current-route-map.md` | 保留为历史参考原型并标明不挂载生产路由，路线图改回真实运行页 |
 | R67 | 多个主数据旧页面零引用但兼容路由还在 | `frontend/src/views/master/README.md`、`frontend/src/router/index.js` | 标明历史兼容页不挂载生产路由，并用契约测试锁定 `/master/*` 重定向 |
 | R68 | Playwright 默认忽略 HTTPS 错误 | `frontend/playwright.config.js`、`frontend/e2e/helpers/tls.js` | 改为仅本地 HTTPS 或显式环境变量时忽略证书错误，并覆盖二级 context |
+| R69 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | compose smoke 改为运行时生成一次性 secret/admin password，并对日志加 mask |
+| R70 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 按 backend 容器 app 用户 UID/GID 创建 `0770` 上传目录 |
 
 ## 待处理问题清单
 
 | ID | 等级 | 类别 | 问题 | 位置 | 建议 |
 |---|---|---|---|---|---|
 | S01 | 高 | SSH 安全 | 部署脚本仍使用 root + 密码登录 + `AutoAddPolicy` | `backend/scripts/deploy_production.py` | 改 SSH key、固定 known_hosts、最小权限用户 |
-| S08 | 中 | CI 凭据 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml` | 使用 GitHub Secrets 或运行时随机值 |
-| S09 | 中 | CI 权限 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml` | 改最小权限和明确 owner/group |
 | S10 | 中 | 测试鉴权 | E2E 直接写 token 到 storage | `frontend/e2e/helpers` | 关键链路走真实登录 |
 | S12 | 中 | 脚本可复现性 | 后端手工测试脚本打固定 localhost 和 live token | `backend/scripts/test_*.py` | 改 pytest + TestClient |
 | S14 | 中 | 制品入库 | QR PDF 已跟踪 | `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf` | 改脱敏样例或迁移制品仓库 |
