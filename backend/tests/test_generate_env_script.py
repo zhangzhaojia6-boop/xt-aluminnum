@@ -31,6 +31,10 @@ def test_build_env_content_for_quick_trial_production() -> None:
 
     assert 'APP_ENV=production' in content
     assert 'CORS_ORIGINS=https://trial.example.com' in content
+    assert 'DINGTALK_ENABLED=false' in content
+    assert 'MOBILE_DATA_ENTRY_MODE=manual_only' in content
+    assert 'MES_MVC_BASE_URL=' in content
     assert 'WECOM_APP_ENABLED=false' in content
     assert 'AUTO_PUBLISH_ENABLED=true' in content
     assert 'LLM_ENDPOINT_ID=' in content
+    assert 'LLM_IMAGE_ENDPOINT_ID=' in content

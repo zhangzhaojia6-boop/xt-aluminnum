@@ -33,6 +33,8 @@ def _build_settings(**overrides) -> Settings:
         'LLM_API_BASE': 'https://example.invalid/llm',
         'LLM_API_KEY': 'llm-key',
         'LLM_MODEL': 'gpt-5.4-mini',
+        'MES_ADAPTER': 'rest_api',
+        'MES_API_BASE': 'https://example.invalid/mes',
         'APP_CONNECTION_ENABLED': True,
         'APP_CONNECTION_PUSH_MODE': 'enabled',
         'APP_CONNECTION_API_BASE': 'https://example.invalid/app-connection',
@@ -70,9 +72,24 @@ def test_inspect_statistics_module_ready_passes_with_minimum_valid_setup() -> No
     assert payload['external_connection_enabled'] is True
     assert payload['hard_gate_passed'] is True
     assert payload['hard_issues'] == []
+    assert payload['stats']['llm_model_ref_set'] is True
 
 
-def test_inspect_statistics_module_ready_allows_dry_run_app_connection_but_flags_external_not_enabled() -> None:
+def test_inspect_statistics_module_ready_accepts_llm_endpoint_id_without_model() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(LLM_MODEL='', LLM_ENDPOINT_ID='ep-20260505-test'),
+        sessionmaker_factory=_sessionmaker_ok,
+    )
+
+    assert payload['module_usable'] is True
+    assert payload['hard_gate_passed'] is True
+    assert payload['hard_issues'] == []
+    assert payload['stats']['llm_model_ref_set'] is True
+
+
+def test_inspect_statistics_module_ready_blocks_dry_run_app_connection() -> None:
     module = _load_script_module()
 
     payload = module.inspect_statistics_module_ready(
@@ -84,9 +101,10 @@ def test_inspect_statistics_module_ready_allows_dry_run_app_connection_but_flags
         sessionmaker_factory=_sessionmaker_ok,
     )
 
-    assert payload['module_usable'] is True
+    assert payload['module_usable'] is False
     assert payload['external_connection_enabled'] is False
-    assert any(item['code'] == 'APP_CONNECTION_DRY_RUN_ONLY' for item in payload['warning_issues'])
+    assert payload['hard_gate_passed'] is False
+    assert any(item['code'] == 'APP_CONNECTION_DRY_RUN_ONLY' for item in payload['hard_issues'])
 
 
 def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integrations_are_disabled() -> None:
@@ -107,3 +125,40 @@ def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integ
     assert any(item['code'] == 'LLM_DISABLED' for item in payload['hard_issues'])
     assert any(item['code'] == 'DINGTALK_DISABLED' for item in payload['hard_issues'])
     assert any(item['code'] == 'APP_CONNECTION_DISABLED' for item in payload['hard_issues'])
+    dingtalk_issue = next(item for item in payload['hard_issues'] if item['code'] == 'DINGTALK_DISABLED')
+    assert dingtalk_issue['required_env'] == [
+        'DINGTALK_ENABLED',
+        'DINGTALK_CORP_ID',
+        'DINGTALK_APP_KEY',
+        'DINGTALK_APP_SECRET',
+        'DINGTALK_AGENT_ID',
+    ]
+    app_connection_issue = next(item for item in payload['hard_issues'] if item['code'] == 'APP_CONNECTION_DISABLED')
+    assert app_connection_issue['required_env'] == [
+        'APP_CONNECTION_ENABLED',
+        'APP_CONNECTION_PUSH_MODE',
+        'APP_CONNECTION_API_BASE',
+        'APP_CONNECTION_API_KEY',
+    ]
+
+
+def test_inspect_statistics_module_ready_reports_mes_when_not_configured() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(MES_ADAPTER='null', MES_API_BASE=None),
+        sessionmaker_factory=_sessionmaker_ok,
+    )
+
+    assert payload['module_usable'] is False
+    assert payload['hard_gate_passed'] is False
+    assert payload['stats']['mes_adapter'] == 'null'
+    assert payload['stats']['mes_ready'] is False
+    mes_issue = next(item for item in payload['hard_issues'] if item['code'] == 'MES_UNCONFIGURED')
+    assert mes_issue['required_env'] == [
+        'MES_ADAPTER',
+        'MES_API_BASE',
+        'MES_MVC_BASE_URL',
+        'MES_MVC_USERNAME',
+        'MES_MVC_PASSWORD',
+    ]

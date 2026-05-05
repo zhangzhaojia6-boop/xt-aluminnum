@@ -57,7 +57,7 @@ def test_core_routes_have_zone_access_title_center_and_canonical_meta() -> None:
         ("path: '/login'", "zone: 'public'", "access: 'public'", "canonical: '/login'"),
         ("path: '/entry'", "component: EntryShell", "canonical: '/entry'"),
         ("path: '/manage'", "component: ManageShell", "canonical: '/manage'"),
-        ("path: 'admin'", "name: 'admin-overview'", "canonical: '/manage/admin'"),
+        ("path: 'admin'", "name: 'admin-overview'", "redirect: '/manage/admin/settings'", "canonical: '/manage/admin/settings'"),
     ]
     for tokens in core:
         anchor = source.index(tokens[0])

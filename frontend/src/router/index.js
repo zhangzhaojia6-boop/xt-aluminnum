@@ -1,4 +1,3 @@
-﻿import { h } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { resolveRouteMeta } from '../config/navigation'
@@ -56,25 +55,6 @@ const TeamLeadWorkerDetail = () => import('../views/team/TeamLeadWorkerDetail.vu
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
-const PlaceholderPage = {
-  props: {
-    title: { type: String, required: true },
-    moduleNumber: { type: String, default: '' }
-  },
-  setup(props) {
-    return () => h('div', { class: 'xt-placeholder-page' }, [
-      h('div', { class: 'xt-placeholder-page__card' }, [
-        h('h1', props.title),
-        h('p', '功能正在迁移中')
-      ])
-    ])
-  }
-}
-
-function page(title, moduleNumber = '') {
-  return { render: () => h(PlaceholderPage, { title, moduleNumber }) }
-}
-
 function withMeta(route) {
   return {
     ...route,
@@ -118,12 +98,12 @@ function reviewLanding(authStore) {
 }
 
 function adminLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-overview' }
+  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
   return { name: 'login' }
 }
 
 function configLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-overview' }
+  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
   return { name: 'login' }
 }
 
@@ -220,7 +200,7 @@ const rawRoutes = [
       { path: 'imports', name: 'manage-imports', component: ImportHistory, meta: { ...adminMeta, title: '导入历史', canonical: '/manage/imports' } },
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
-      { path: 'admin', name: 'admin-overview', component: page('管理控制台', '14'), meta: { ...adminMeta, title: '管理控制台', centerNo: '14', canonical: '/manage/admin' } },
+      { path: 'admin', name: 'admin-overview', redirect: '/manage/admin/settings', meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/settings', name: 'admin-ops-reliability', component: LiveDashboard, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
       { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
@@ -248,8 +228,8 @@ const rawRoutes = [
   { path: '/review/roadmap', redirect: '/manage/overview' },
   { path: '/review/brain', redirect: '/manage/ai-assistant' },
   { path: '/review/:pathMatch(.*)*', redirect: '/manage/overview' },
-  { path: '/admin', redirect: '/manage/admin' },
-  { path: '/admin/overview', redirect: '/manage/admin' },
+  { path: '/admin', redirect: '/manage/admin/settings' },
+  { path: '/admin/overview', redirect: '/manage/admin/settings' },
   { path: '/admin/ingestion', redirect: '/manage/ingestion' },
   { path: '/admin/master', redirect: '/manage/master' },
   { path: '/admin/master/workshop', redirect: '/manage/master' },

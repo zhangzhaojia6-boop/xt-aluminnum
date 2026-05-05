@@ -14,6 +14,12 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
   const token = session.token || 'playwright-review-token'
   const user = session.user || defaultReviewUser
 
+  const fulfillJson = (route, body) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(body)
+  })
+
   await page.addInitScript(({ token, user }) => {
     localStorage.setItem('aluminum_bypass_token', token)
     localStorage.setItem(
@@ -28,6 +34,10 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     )
     sessionStorage.removeItem('aluminum_bypass_machine')
   }, { token, user })
+
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await fulfillJson(route, user)
+  })
 
   const runtimeTrace = {
     source_lanes: [
@@ -145,6 +155,95 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       yield_rate: 97.27
     }
   }
+
+  const factoryCommandFreshness = {
+    source: 'work_order_runtime',
+    status: 'fresh',
+    lag_seconds: 45,
+    last_synced_at: '2026-04-23T08:00:00Z'
+  }
+
+  const factoryCommandOverview = {
+    wip_tons: 80,
+    today_output_tons: 1175,
+    stock_tons: 52,
+    abnormal_count: 1,
+    freshness: factoryCommandFreshness
+  }
+
+  const factoryCommandMachineLines = [
+    {
+      line_code: 'XT-ZD-1',
+      line_name: 'XT-ZD-1',
+      workshop_name: '挤压车间',
+      active_coil_count: 10,
+      active_tons: 80,
+      finished_tons: 52,
+      stalled_count: 1,
+      cost_estimate: { estimated_cost: 210000, missing_data: [] },
+      margin_estimate: { estimated_gross_margin: 70000, missing_data: [] }
+    }
+  ]
+
+  const factoryCommandCoils = [
+    {
+      coil_key: 'TK-20260423-001',
+      tracking_card_no: 'TK-20260423-001',
+      batch_no: 'B20260423',
+      material_code: '6061',
+      previous_process: '熔铸',
+      current_process: '挤压',
+      next_process: '时效',
+      destination: { kind: 'warehouse', label: '成品库' }
+    }
+  ]
+
+  await page.route('**/api/v1/factory-command/overview', async (route) => {
+    await fulfillJson(route, factoryCommandOverview)
+  })
+
+  await page.route('**/api/v1/factory-command/workshops', async (route) => {
+    await fulfillJson(route, [
+      {
+        workshop_name: '挤压车间',
+        active_coil_count: 10,
+        active_tons: 80,
+        stalled_count: 1
+      }
+    ])
+  })
+
+  await page.route('**/api/v1/factory-command/machine-lines', async (route) => {
+    await fulfillJson(route, factoryCommandMachineLines)
+  })
+
+  await page.route('**/api/v1/factory-command/coils', async (route) => {
+    await fulfillJson(route, factoryCommandCoils)
+  })
+
+  await page.route('**/api/v1/factory-command/coils/*/flow', async (route) => {
+    await fulfillJson(route, {
+      ...factoryCommandCoils[0],
+      freshness: factoryCommandFreshness
+    })
+  })
+
+  await page.route('**/api/v1/factory-command/cost-benefit', async (route) => {
+    await fulfillJson(route, {
+      estimated_revenue: 280000,
+      estimated_cost: 210000,
+      estimated_margin: 70000,
+      missing_data: [],
+      freshness: factoryCommandFreshness
+    })
+  })
+
+  await page.route('**/api/v1/factory-command/destinations', async (route) => {
+    await fulfillJson(route, [
+      { kind: 'warehouse', label: '成品库', tons: 52 },
+      { kind: 'shipment', label: '发货', tons: 48 }
+    ])
+  })
 
   await page.route('**/api/v1/dashboard/factory-director**', async (route) => {
     await route.fulfill({

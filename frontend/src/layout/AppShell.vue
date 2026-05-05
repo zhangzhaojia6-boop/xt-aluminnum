@@ -164,7 +164,7 @@ function goReview() {
 
 function goAdmin() {
   navOpen.value = false
-  router.push({ name: 'admin-overview' })
+  router.push({ name: 'admin-ops-reliability' })
 }
 
 async function logout() {

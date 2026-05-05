@@ -371,7 +371,7 @@ def test_phase1_desktop_landing_skips_statistics_and_review_defaults() -> None:
     assert "if (authStore.canAccessStatisticsDashboard) return { name: 'statistics-dashboard' }" not in source
     assert "if (authStore.canAccessReviewDesk) return { name: 'shift-center' }" not in source
     assert "if (authStore.isAdmin || authStore.isManager) return { name: 'admin-overview' }" not in source
-    assert "if (authStore.adminSurface) return { name: 'admin-overview' }" in source
+    assert "if (authStore.adminSurface) return { name: 'admin-ops-reliability' }" in source
 
 
 def test_phase1_layout_hides_review_and_statistics_navigation() -> None:
@@ -387,7 +387,8 @@ def test_layout_trims_admin_navigation_to_phase1_minimum_controls() -> None:
     source = _read_repo_file("frontend/src/config/navigation.js")
 
     assert "const adminNavigation = [" in source
-    assert "group: '管理总览'" in source
+    assert "group: '管理总览'" not in source
+    assert "group: '兼容入口'" in source
     assert "label: '数据接入'" in source
     assert "label: '权限治理'" in source
     assert "routeName: 'admin-master-workshop'" in source
@@ -525,8 +526,10 @@ def test_reference_admin_modules_use_numbered_cn_titles() -> None:
     router_source = _read_repo_file("frontend/src/router/index.js")
     assert "const ManageShell = () => import('../layout/ManageShell.vue')" in router_source
     assert "name: 'admin-overview'" in router_source
-    assert "component: page('管理控制台', '14')" in router_source
-    assert "centerNo: '14'" in router_source
+    assert "redirect: '/manage/admin/settings'" in router_source
+    assert "component: page('管理控制台', '14')" not in router_source
+    assert "name: 'admin-ops-reliability'" in router_source
+    assert "canonical: '/manage/admin/settings'" in router_source
 
     modules = {
         "frontend/src/views/review/IngestionCenter.vue": ("06", "数据接入与字段映射中心"),

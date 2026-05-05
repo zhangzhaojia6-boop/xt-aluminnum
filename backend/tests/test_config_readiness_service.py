@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
-from app.services.config_readiness_service import inspect_pilot_config
+from app.services.config_readiness_service import (
+    build_owner_workshop_binding_plan,
+    inspect_pilot_config,
+)
 
 
 class _FakeQuery:
@@ -308,6 +311,293 @@ def test_inspect_pilot_config_warns_when_no_schedule_data_exists() -> None:
     assert result["checks"]["schedule"]["action_required"] == "seed_schedule"
     warning_codes = {item["code"] for item in result["warning_issues"]}
     assert "SCHEDULE_EMPTY" in warning_codes
+
+
+def test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    leader = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    factory_manager = SimpleNamespace(
+        id=8,
+        username="factory-manager",
+        name="厂级管理员",
+        is_active=True,
+        is_mobile_user=True,
+        role="manager",
+        workshop_id=None,
+        team_id=None,
+    )
+    admin = SimpleNamespace(
+        id=9,
+        username="admin",
+        name="系统管理员",
+        is_active=True,
+        is_mobile_user=True,
+        role="admin",
+        workshop_id=None,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=7,
+        is_active=True,
+    )
+    schedule = SimpleNamespace(
+        business_date=date(2026, 4, 6),
+        shift_config_id=11,
+        workshop_id=1,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [leader, factory_manager, admin],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is True
+    hard_codes = {item["code"] for item in result["hard_issues"]}
+    warning_codes = {item["code"] for item in result["warning_issues"]}
+    assert "MOBILE_USER_WORKSHOP_MISSING" not in hard_codes
+    assert "MOBILE_USER_WORKSHOP_OPTIONAL" in warning_codes
+
+
+def test_inspect_pilot_config_hard_blocks_owner_roles_without_workshop() -> None:
+    workshop = SimpleNamespace(id=1, name="铸轧车间", is_active=True)
+    shift = SimpleNamespace(id=11, workshop_id=1, is_active=True)
+    leader = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="team_leader",
+        workshop_id=1,
+        team_id=None,
+    )
+    owner_roles = [
+        SimpleNamespace(
+            id=8,
+            username="FACTORY-CT",
+            name="计划科",
+            is_active=True,
+            is_mobile_user=True,
+            role="contracts",
+            workshop_id=None,
+            team_id=None,
+        ),
+        SimpleNamespace(
+            id=9,
+            username="FACTORY-IK",
+            name="成品库负责人",
+            is_active=True,
+            is_mobile_user=True,
+            role="inventory_keeper",
+            workshop_id=None,
+            team_id=None,
+        ),
+        SimpleNamespace(
+            id=10,
+            username="FACTORY-UM",
+            name="水电气负责人",
+            is_active=True,
+            is_mobile_user=True,
+            role="utility_manager",
+            workshop_id=None,
+            team_id=None,
+        ),
+    ]
+    equipment = SimpleNamespace(
+        code="ZR-01",
+        name="1#机",
+        workshop_id=1,
+        bound_user_id=7,
+        is_active=True,
+    )
+    schedule = SimpleNamespace(
+        business_date=date(2026, 4, 6),
+        shift_config_id=11,
+        workshop_id=1,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": [workshop],
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [leader, *owner_roles],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["hard_gate_passed"] is False
+    missing = next(item for item in result["hard_issues"] if item["code"] == "MOBILE_USER_WORKSHOP_MISSING")
+    assert "FACTORY-CT(计划科)" in missing["sample"]
+    assert "FACTORY-IK(成品库负责人)" in missing["sample"]
+    assert "FACTORY-UM(水电气负责人)" in missing["sample"]
+    assert "check_owner_account_bindings.py --json" in missing["suggestion"]
+
+
+def test_owner_workshop_binding_plan_targets_unscoped_factory_owner_accounts() -> None:
+    cpk = SimpleNamespace(id=11, code="CPK", name="成品库", is_active=True)
+    admin = SimpleNamespace(
+        id=1,
+        username="admin",
+        name="系统管理员",
+        is_active=True,
+        is_mobile_user=True,
+        role="admin",
+        workshop_id=None,
+        team_id=None,
+        data_scope_type="all",
+    )
+    bound_owner = SimpleNamespace(
+        id=2,
+        username="CPK-A-INV",
+        name="成品库白班",
+        is_active=True,
+        is_mobile_user=True,
+        role="inventory_keeper",
+        workshop_id=11,
+        team_id=None,
+        data_scope_type="self_workshop",
+    )
+    factory_owners = [
+        SimpleNamespace(
+            id=3,
+            username="FACTORY-CT",
+            name="计划科",
+            is_active=True,
+            is_mobile_user=True,
+            role="contracts",
+            workshop_id=None,
+            team_id=None,
+            data_scope_type="factory",
+        ),
+        SimpleNamespace(
+            id=4,
+            username="FACTORY-IK",
+            name="成品库负责人",
+            is_active=True,
+            is_mobile_user=True,
+            role="inventory_keeper",
+            workshop_id=None,
+            team_id=None,
+            data_scope_type="factory",
+        ),
+        SimpleNamespace(
+            id=5,
+            username="FACTORY-UM",
+            name="水电气负责人",
+            is_active=True,
+            is_mobile_user=True,
+            role="utility_manager",
+            workshop_id=None,
+            team_id=None,
+            data_scope_type="factory",
+        ),
+    ]
+    unknown_owner = SimpleNamespace(
+        id=6,
+        username="UNSCOPED-PLAN",
+        name="未知计划账号",
+        is_active=True,
+        is_mobile_user=True,
+        role="contracts",
+        workshop_id=None,
+        team_id=None,
+        data_scope_type="factory",
+    )
+    db = _FakeDB({"Workshop": [cpk], "User": [admin, bound_owner, *factory_owners, unknown_owner]})
+
+    result = build_owner_workshop_binding_plan(db, target_workshop_code="CPK")
+
+    assert result["target_workshop"] == {"id": 11, "code": "CPK", "name": "成品库"}
+    assert result["needs_repair"] is True
+    assert result["can_apply"] is True
+    assert [item["username"] for item in result["repairs"]] == ["FACTORY-CT", "FACTORY-IK", "FACTORY-UM"]
+    assert {item["target_workshop_code"] for item in result["repairs"]} == {"CPK"}
+    assert unknown_owner.workshop_id is None
+
+
+def test_apply_owner_workshop_binding_plan_only_updates_repair_candidates() -> None:
+    cpk = SimpleNamespace(id=11, code="CPK", name="成品库", is_active=True)
+    admin = SimpleNamespace(
+        id=1,
+        username="admin",
+        name="系统管理员",
+        is_active=True,
+        is_mobile_user=True,
+        role="admin",
+        workshop_id=None,
+        team_id=None,
+        data_scope_type="all",
+    )
+    owner = SimpleNamespace(
+        id=3,
+        username="FACTORY-CT",
+        name="计划科",
+        is_active=True,
+        is_mobile_user=True,
+        role="contracts",
+        workshop_id=None,
+        team_id=None,
+        data_scope_type="factory",
+    )
+    db = _FakeDB({"Workshop": [cpk], "User": [admin, owner]})
+
+    result = build_owner_workshop_binding_plan(db, target_workshop_code="CPK", apply=True)
+
+    assert result["applied"] is True
+    assert result["applied_count"] == 1
+    assert owner.workshop_id == 11
+    assert owner.data_scope_type == "self_workshop"
+    assert admin.workshop_id is None
+    assert admin.data_scope_type == "all"
+
+
+def test_apply_owner_workshop_binding_plan_does_not_write_when_target_missing() -> None:
+    owner = SimpleNamespace(
+        id=3,
+        username="FACTORY-CT",
+        name="计划科",
+        is_active=True,
+        is_mobile_user=True,
+        role="contracts",
+        workshop_id=None,
+        team_id=None,
+        data_scope_type="factory",
+    )
+    db = _FakeDB({"Workshop": [], "User": [owner]})
+
+    result = build_owner_workshop_binding_plan(db, target_workshop_code="CPK", apply=True)
+
+    assert result["can_apply"] is False
+    assert result["applied"] is False
+    assert result["applied_count"] == 0
+    assert owner.workshop_id is None
+    assert owner.data_scope_type == "factory"
+    assert [item["code"] for item in result["blockers"]] == ["TARGET_WORKSHOP_NOT_FOUND"]
 
 
 def test_inspect_pilot_config_errors_when_schedule_exists_but_target_date_is_empty() -> None:

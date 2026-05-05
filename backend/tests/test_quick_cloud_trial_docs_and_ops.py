@@ -95,6 +95,27 @@ def test_full_deploy_script_require_env_fails_fast(monkeypatch: pytest.MonkeyPat
     assert module.require_env('DEPLOY_SSH_PASSWORD') == 'from-env'
 
 
+def test_compose_passes_external_runtime_flags_to_backend() -> None:
+    source = _read('docker-compose.yml')
+
+    required_backend_env = [
+        'MOBILE_DATA_ENTRY_MODE: ${MOBILE_DATA_ENTRY_MODE:-manual_only}',
+        'MOBILE_SCAN_ASSIST_ENABLED: ${MOBILE_SCAN_ASSIST_ENABLED:-false}',
+        'MOBILE_MES_DISPLAY_ENABLED: ${MOBILE_MES_DISPLAY_ENABLED:-false}',
+        'MES_MVC_BASE_URL: ${MES_MVC_BASE_URL:-}',
+        'MES_MVC_USERNAME: ${MES_MVC_USERNAME:-}',
+        'MES_MVC_PASSWORD: ${MES_MVC_PASSWORD:-}',
+        'MES_MVC_TIMEOUT_SECONDS: ${MES_MVC_TIMEOUT_SECONDS:-8}',
+        'DINGTALK_ENABLED: ${DINGTALK_ENABLED:-false}',
+        'LLM_ENDPOINT_ID: ${LLM_ENDPOINT_ID:-}',
+        'LLM_IMAGE_MODEL: ${LLM_IMAGE_MODEL:-}',
+        'LLM_IMAGE_ENDPOINT_ID: ${LLM_IMAGE_ENDPOINT_ID:-}',
+        'APP_CONNECTION_PUSH_MODE: ${APP_CONNECTION_PUSH_MODE:-disabled}',
+    ]
+    for expected in required_backend_env:
+        assert expected in source
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 

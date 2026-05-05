@@ -28,13 +28,23 @@ def _is_blank(value: str | None) -> bool:
     return value is None or not str(value).strip()
 
 
-def _issue(*, level: str, code: str, message: str, suggestion: str) -> dict[str, Any]:
-    return {
+def _issue(
+    *,
+    level: str,
+    code: str,
+    message: str,
+    suggestion: str,
+    required_env: list[str] | None = None,
+) -> dict[str, Any]:
+    payload = {
         'level': level,
         'code': code,
         'message': message,
         'suggestion': suggestion,
     }
+    if required_env:
+        payload['required_env'] = required_env
+    return payload
 
 
 def inspect_statistics_module_ready(
@@ -91,6 +101,70 @@ def inspect_statistics_module_ready(
             )
         )
 
+    mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
+    mes_ready = False
+    if mes_adapter == 'null':
+        issues.append(
+            _issue(
+                level='hard',
+                code='MES_UNCONFIGURED',
+                message='MES_ADAPTER=null，外部 MES 数据源未启用。',
+                suggestion='将 MES_ADAPTER 设为 rest_api 或 mvc，并补齐对应连接配置。',
+                required_env=[
+                    'MES_ADAPTER',
+                    'MES_API_BASE',
+                    'MES_MVC_BASE_URL',
+                    'MES_MVC_USERNAME',
+                    'MES_MVC_PASSWORD',
+                ],
+            )
+        )
+    elif mes_adapter == 'rest_api':
+        if _is_blank(runtime.MES_API_BASE):
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='MES_REST_CONFIG_MISSING',
+                    message='MES_ADAPTER=rest_api，但 MES_API_BASE 缺失。',
+                    suggestion='补齐 MES_API_BASE，并确认外部 MES REST 接口可访问。',
+                    required_env=['MES_ADAPTER', 'MES_API_BASE', 'MES_API_KEY'],
+                )
+            )
+        else:
+            mes_ready = True
+    elif mes_adapter == 'mvc':
+        missing_mvc_fields = [
+            field_name
+            for field_name, field_value in (
+                ('MES_MVC_BASE_URL', runtime.MES_MVC_BASE_URL),
+                ('MES_MVC_USERNAME', runtime.MES_MVC_USERNAME),
+                ('MES_MVC_PASSWORD', runtime.MES_MVC_PASSWORD),
+            )
+            if _is_blank(field_value)
+        ]
+        if missing_mvc_fields:
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='MES_MVC_CONFIG_MISSING',
+                    message=f"MES_ADAPTER=mvc，但 {', '.join(missing_mvc_fields)} 缺失。",
+                    suggestion='补齐 MES_MVC_BASE_URL / MES_MVC_USERNAME / MES_MVC_PASSWORD。',
+                    required_env=['MES_ADAPTER', *missing_mvc_fields],
+                )
+            )
+        else:
+            mes_ready = True
+    else:
+        issues.append(
+            _issue(
+                level='hard',
+                code='MES_ADAPTER_INVALID',
+                message=f'MES_ADAPTER={runtime.MES_ADAPTER} 不受支持。',
+                suggestion='将 MES_ADAPTER 设为 null、rest_api 或 mvc。',
+                required_env=['MES_ADAPTER'],
+            )
+        )
+
     if not runtime.WORKFLOW_ENABLED:
         issues.append(
             _issue(
@@ -98,6 +172,7 @@ def inspect_statistics_module_ready(
                 code='WORKFLOW_DISABLED',
                 message='WORKFLOW_ENABLED=false，统计模块自动日报与外发链路未启用。',
                 suggestion='将 WORKFLOW_ENABLED 设为 true。',
+                required_env=['WORKFLOW_ENABLED'],
             )
         )
 
@@ -108,6 +183,7 @@ def inspect_statistics_module_ready(
                 code='AUTO_PUBLISH_DISABLED',
                 message='AUTO_PUBLISH_ENABLED=false，日报不会自动发布。',
                 suggestion='将 AUTO_PUBLISH_ENABLED 设为 true。',
+                required_env=['AUTO_PUBLISH_ENABLED'],
             )
         )
 
@@ -118,6 +194,7 @@ def inspect_statistics_module_ready(
                 code='AUTO_PUSH_DISABLED',
                 message='AUTO_PUSH_ENABLED=false，自动触达链路未启用。',
                 suggestion='将 AUTO_PUSH_ENABLED 设为 true。',
+                required_env=['AUTO_PUSH_ENABLED'],
             )
         )
 
@@ -128,20 +205,39 @@ def inspect_statistics_module_ready(
                 level='hard',
                 code='LLM_DISABLED',
                 message='LLM_ENABLED=false，LLM 摘要增强未启用。',
-                suggestion='将 LLM_ENABLED 设为 true，并配置 LLM_API_BASE / LLM_API_KEY / LLM_MODEL。',
-            )
-        )
-    elif any(_is_blank(value) for value in (runtime.LLM_API_BASE, runtime.LLM_API_KEY, runtime.LLM_MODEL)):
-        issues.append(
-            _issue(
-                level='hard',
-                code='LLM_CONFIG_MISSING',
-                message='LLM 已启用，但 LLM_API_BASE / LLM_API_KEY / LLM_MODEL 仍有缺失。',
-                suggestion='补齐 LLM API 地址、密钥和模型名。',
+                suggestion='将 LLM_ENABLED 设为 true，并配置 LLM_API_BASE / LLM_API_KEY / LLM_MODEL 或 LLM_ENDPOINT_ID。',
+                required_env=['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_ENDPOINT_ID'],
             )
         )
     else:
-        llm_ready = True
+        missing_llm_fields = [
+            field_name
+            for field_name, field_value in (
+                ('LLM_API_BASE', runtime.LLM_API_BASE),
+                ('LLM_API_KEY', runtime.LLM_API_KEY),
+            )
+            if _is_blank(field_value)
+        ]
+        has_llm_model_ref = not _is_blank(runtime.LLM_MODEL) or not _is_blank(runtime.LLM_ENDPOINT_ID)
+        if not has_llm_model_ref:
+            missing_llm_fields.append('(LLM_MODEL or LLM_ENDPOINT_ID)')
+        if missing_llm_fields:
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='LLM_CONFIG_MISSING',
+                    message=f"LLM 已启用，但 {', '.join(missing_llm_fields)} 仍有缺失。",
+                    suggestion='补齐 LLM API 地址、密钥和模型名或 endpoint ID。',
+                    required_env=[
+                        'LLM_API_BASE',
+                        'LLM_API_KEY',
+                        'LLM_MODEL',
+                        'LLM_ENDPOINT_ID',
+                    ],
+                )
+            )
+        else:
+            llm_ready = True
 
     dingtalk_ready = False
     if not runtime.DINGTALK_ENABLED:
@@ -151,6 +247,13 @@ def inspect_statistics_module_ready(
                 code='DINGTALK_DISABLED',
                 message='DINGTALK_ENABLED=false，领导钉钉日报触达未启用。',
                 suggestion='将 DINGTALK_ENABLED 设为 true，并补齐钉钉应用配置。',
+                required_env=[
+                    'DINGTALK_ENABLED',
+                    'DINGTALK_CORP_ID',
+                    'DINGTALK_APP_KEY',
+                    'DINGTALK_APP_SECRET',
+                    'DINGTALK_AGENT_ID',
+                ],
             )
         )
     elif any(
@@ -168,6 +271,12 @@ def inspect_statistics_module_ready(
                 code='DINGTALK_CONFIG_MISSING',
                 message='钉钉应用已启用，但 DINGTALK_CORP_ID / DINGTALK_APP_KEY / DINGTALK_APP_SECRET / DINGTALK_AGENT_ID 仍有缺失。',
                 suggestion='补齐钉钉应用配置。',
+                required_env=[
+                    'DINGTALK_CORP_ID',
+                    'DINGTALK_APP_KEY',
+                    'DINGTALK_APP_SECRET',
+                    'DINGTALK_AGENT_ID',
+                ],
             )
         )
     else:
@@ -183,6 +292,12 @@ def inspect_statistics_module_ready(
                 code='APP_CONNECTION_DISABLED',
                 message='APP_CONNECTION_ENABLED=false，统计模块对外连接面未启用。',
                 suggestion='将 APP_CONNECTION_ENABLED 设为 true。',
+                required_env=[
+                    'APP_CONNECTION_ENABLED',
+                    'APP_CONNECTION_PUSH_MODE',
+                    'APP_CONNECTION_API_BASE',
+                    'APP_CONNECTION_API_KEY',
+                ],
             )
         )
     elif app_connection_mode == 'disabled':
@@ -191,17 +306,26 @@ def inspect_statistics_module_ready(
                 level='hard',
                 code='APP_CONNECTION_PUSH_DISABLED',
                 message='APP_CONNECTION_PUSH_MODE=disabled，应用连接 API 未进入 dry-run 或 enabled 状态。',
-                suggestion='将 APP_CONNECTION_PUSH_MODE 设为 dry_run 或 enabled。',
+                suggestion='将 APP_CONNECTION_PUSH_MODE 设为 enabled，并补齐应用连接 API 配置。',
+                required_env=[
+                    'APP_CONNECTION_PUSH_MODE',
+                    'APP_CONNECTION_API_BASE',
+                    'APP_CONNECTION_API_KEY',
+                ],
             )
         )
     elif app_connection_mode == 'dry_run':
-        app_connection_ready = True
         issues.append(
             _issue(
-                level='warning',
+                level='hard',
                 code='APP_CONNECTION_DRY_RUN_ONLY',
                 message='应用连接 API 当前仅处于 dry-run 状态。',
-                suggestion='如需真实对外连接，请补齐 APP_CONNECTION_API_BASE / APP_CONNECTION_API_KEY 并切到 enabled。',
+                suggestion='补齐 APP_CONNECTION_API_BASE / APP_CONNECTION_API_KEY，并将 APP_CONNECTION_PUSH_MODE 切到 enabled。',
+                required_env=[
+                    'APP_CONNECTION_PUSH_MODE',
+                    'APP_CONNECTION_API_BASE',
+                    'APP_CONNECTION_API_KEY',
+                ],
             )
         )
     elif any(_is_blank(value) for value in (runtime.APP_CONNECTION_API_BASE, runtime.APP_CONNECTION_API_KEY)):
@@ -211,6 +335,7 @@ def inspect_statistics_module_ready(
                 code='APP_CONNECTION_CONFIG_MISSING',
                 message='应用连接 API 已启用，但 APP_CONNECTION_API_BASE / APP_CONNECTION_API_KEY 仍有缺失。',
                 suggestion='补齐应用连接 API 地址和密钥。',
+                required_env=['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
             )
         )
     else:
@@ -220,7 +345,14 @@ def inspect_statistics_module_ready(
     local_runnable = runtime_valid and database_ok
     hard_issues = [item for item in issues if item['level'] == 'hard']
     warning_issues = [item for item in issues if item['level'] == 'warning']
-    module_usable = local_runnable and not hard_issues and llm_ready and dingtalk_ready and app_connection_ready
+    module_usable = (
+        local_runnable
+        and not hard_issues
+        and mes_ready
+        and llm_ready
+        and dingtalk_ready
+        and app_connection_ready
+    )
 
     return {
         'hard_gate_passed': module_usable,
@@ -233,7 +365,10 @@ def inspect_statistics_module_ready(
             'workflow_enabled': runtime.WORKFLOW_ENABLED,
             'auto_publish_enabled': runtime.AUTO_PUBLISH_ENABLED,
             'auto_push_enabled': runtime.AUTO_PUSH_ENABLED,
+            'mes_adapter': mes_adapter,
+            'mes_ready': mes_ready,
             'llm_enabled': runtime.LLM_ENABLED,
+            'llm_model_ref_set': not _is_blank(runtime.LLM_MODEL) or not _is_blank(runtime.LLM_ENDPOINT_ID),
             'dingtalk_enabled': runtime.DINGTALK_ENABLED,
             'app_connection_enabled': runtime.APP_CONNECTION_ENABLED,
             'app_connection_push_mode': app_connection_mode,
@@ -263,6 +398,8 @@ def main() -> int:
             for item in result['hard_issues']:
                 print(f"- [{item['code']}] {item['message']}")
                 print(f"  处理建议：{item['suggestion']}")
+                if item.get('required_env'):
+                    print(f"  需配置：{', '.join(item['required_env'])}")
         if result['warning_issues']:
             print('\n建议修复问题：')
             for item in result['warning_issues']:

@@ -160,7 +160,7 @@ const routeMetaByName = {
   'review-cost-accounting': { center: 'cost', group: '兼容入口', order: 108, icon: 'Coin', legacy: true, roles: ['review'], keepAlive: false },
   'review-brain-center': { center: 'brain', group: '兼容入口', order: 109, icon: 'MagicStick', legacy: true, roles: ['review'], keepAlive: false },
 
-  'admin-overview': { center: 'master', group: '管理总览', order: 1, icon: 'DataAnalysis', legacy: false, roles: ['admin'], keepAlive: true },
+  'admin-overview': { center: 'ops', group: '兼容入口', order: 100, icon: 'Cpu', legacy: true, roles: ['admin'], keepAlive: false },
   'admin-ingestion-center': { center: 'ingestion', group: '数据与模板', order: 2, icon: 'Connection', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-template-center': { center: 'master', group: '数据与模板', order: 3, icon: 'SetUp', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-master-workshop': { center: 'master', group: '数据与模板', order: 4, icon: 'OfficeBuilding', legacy: false, roles: ['admin'], keepAlive: true },
@@ -258,7 +258,6 @@ const adminNavigation = [
     key: 'admin-main',
     label: '管理端',
     items: [
-      { routeName: 'admin-overview', label: '管理', access: 'admin' },
       { routeName: 'admin-ingestion-center', label: '数据接入', access: 'admin' },
       { routeName: 'admin-master-workshop', label: '主数据', access: 'admin' },
       { routeName: 'admin-template-center', label: '模板中心', access: 'admin' },

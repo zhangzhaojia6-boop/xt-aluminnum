@@ -32,6 +32,121 @@ MOBILE_ROLES = {
     "utility_manager",
 }
 
+FACTORY_WIDE_MOBILE_ROLES = {
+    "admin",
+    "manager",
+    "factory_director",
+    "factory_manager",
+    "senior_manager",
+    "stat",
+    "statistician",
+}
+
+OWNER_WORKSHOP_BINDING_ROLES = {"contracts", "inventory_keeper", "utility_manager"}
+FACTORY_OWNER_BINDING_USERNAMES = {"FACTORY-CT", "FACTORY-IK", "FACTORY-UM"}
+
+
+def _mobile_user_requires_workshop(user: Any) -> bool:
+    """Return whether a mobile-capable account must be scoped to one workshop."""
+
+    role = str(getattr(user, "role", "") or "").strip().lower()
+    if getattr(user, "team_id", None) is not None:
+        return True
+    if role in FACTORY_WIDE_MOBILE_ROLES:
+        return False
+    return bool(getattr(user, "is_mobile_user", False)) or role in MOBILE_ROLES
+
+
+def build_owner_workshop_binding_plan(
+    db: Session,
+    *,
+    target_workshop_code: str = "CPK",
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Build a targeted repair plan for unscoped factory owner accounts.
+
+    The default path is dry-run. When apply=True, callers are still
+    responsible for committing the database transaction.
+    """
+
+    workshops = db.query(Workshop).all()
+    target_code = str(target_workshop_code or "").strip().upper()
+    target_workshop = next(
+        (
+            item
+            for item in workshops
+            if str(getattr(item, "code", "") or "").strip().upper() == target_code
+            and getattr(item, "is_active", True)
+        ),
+        None,
+    )
+    users = db.query(User).all()
+    repairs: list[dict[str, Any]] = []
+    blockers: list[dict[str, Any]] = []
+
+    if target_workshop is None:
+        blockers.append(
+            {
+                "code": "TARGET_WORKSHOP_NOT_FOUND",
+                "message": f"未找到启用中的目标车间 {target_code}。",
+                "suggestion": "请先确认成品库车间主数据已初始化并启用。",
+            }
+        )
+
+    for user in users:
+        role = str(getattr(user, "role", "") or "").strip().lower()
+        username = str(getattr(user, "username", "") or "").strip().upper()
+        if role not in OWNER_WORKSHOP_BINDING_ROLES:
+            continue
+        if username not in FACTORY_OWNER_BINDING_USERNAMES:
+            continue
+        if getattr(user, "workshop_id", None) is not None:
+            continue
+        if not getattr(user, "is_active", True):
+            continue
+        if not (getattr(user, "is_mobile_user", False) or role in MOBILE_ROLES):
+            continue
+
+        repair = {
+            "user_id": getattr(user, "id", None),
+            "username": getattr(user, "username", ""),
+            "name": getattr(user, "name", ""),
+            "role": role,
+            "current_workshop_id": getattr(user, "workshop_id", None),
+            "target_workshop_id": getattr(target_workshop, "id", None) if target_workshop else None,
+            "target_workshop_code": getattr(target_workshop, "code", target_code) if target_workshop else target_code,
+            "target_workshop_name": getattr(target_workshop, "name", "") if target_workshop else "",
+            "action": "bind_owner_to_workshop",
+            "can_apply": target_workshop is not None,
+        }
+        repairs.append(repair)
+
+        if apply and target_workshop is not None:
+            user.workshop_id = target_workshop.id
+            if getattr(user, "data_scope_type", None) in {None, "", "factory"}:
+                user.data_scope_type = "self_workshop"
+
+    applied_count = len([item for item in repairs if item["can_apply"]]) if apply and target_workshop is not None else 0
+    return {
+        "target_workshop_code": target_code,
+        "target_workshop": (
+            {
+                "id": target_workshop.id,
+                "code": target_workshop.code,
+                "name": target_workshop.name,
+            }
+            if target_workshop is not None
+            else None
+        ),
+        "needs_repair": bool(repairs),
+        "can_apply": bool(repairs) and not blockers and all(item["can_apply"] for item in repairs),
+        "dry_run": not apply,
+        "applied": bool(apply and applied_count),
+        "applied_count": applied_count,
+        "repairs": repairs,
+        "blockers": blockers,
+    }
+
 
 def _issue(
     *,
@@ -187,15 +302,37 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
             )
         )
     else:
-        no_workshop_users = [f"{user.username}({user.name})" for user in mobile_users if user.workshop_id is None]
+        no_workshop_users = [
+            f"{user.username}({user.name})"
+            for user in mobile_users
+            if user.workshop_id is None and _mobile_user_requires_workshop(user)
+        ]
         if no_workshop_users:
             issues.append(
                 _issue(
                     level="hard",
                     code="MOBILE_USER_WORKSHOP_MISSING",
                     message="存在未绑定车间的移动填报账号。",
-                    suggestion="请在用户管理中为账号绑定车间归属。",
+                    suggestion=(
+                        "请在用户管理中为账号绑定车间归属；可先运行 "
+                        "python scripts/check_owner_account_bindings.py --json 生成 dry-run 修复清单。"
+                    ),
                     sample=no_workshop_users,
+                )
+            )
+        factory_wide_unscoped_users = [
+            f"{user.username}({user.name})"
+            for user in mobile_users
+            if user.workshop_id is None and not _mobile_user_requires_workshop(user)
+        ]
+        if factory_wide_unscoped_users:
+            issues.append(
+                _issue(
+                    level="warning",
+                    code="MOBILE_USER_WORKSHOP_OPTIONAL",
+                    message="存在全厂或配置类移动账号未绑定车间。",
+                    suggestion="不阻断试点；如需让账号直接参与车间填报，请再绑定车间归属。",
+                    sample=factory_wide_unscoped_users,
                 )
             )
 

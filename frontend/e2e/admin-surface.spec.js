@@ -22,9 +22,11 @@ test('admin surface is separate from review and entry surfaces', async ({ page }
   await loginAsAdmin(page)
   await page.goto('/manage/admin')
 
+  await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.locator('.xt-manage__content').getByRole('heading', { name: '管理控制台' })).toBeVisible()
-  await expect(page.locator('.xt-placeholder-page')).toBeVisible()
+  await expect(page.getByTestId('live-dashboard')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '工厂实时态势' })).toBeVisible()
+  await expect(page.locator('.xt-placeholder-page')).toHaveCount(0)
   await expect(page.getByText('现场填报')).toHaveCount(0)
   await expect(page.getByTestId('entry-shell')).toHaveCount(0)
 })
