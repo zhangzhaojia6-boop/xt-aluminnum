@@ -132,6 +132,16 @@ def test_ci_workflow_generates_ephemeral_secrets_and_scoped_upload_permissions()
     assert 'sudo install -d -m 0770 -o "$backend_uid" -g "$backend_gid" backend/uploads' in source
 
 
+def test_cleanup_audit_marks_deterministic_orchestration_boundary_resolved() -> None:
+    source = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
+
+    assert '| B21 |' not in source
+    assert '| R71 |' in source
+    assert '`backend/app/services/deterministic_orchestration_service.py`' in source
+    assert '`backend/tests/test_deterministic_orchestration_service.py`' in source
+    assert '无引用无测试' not in source
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 

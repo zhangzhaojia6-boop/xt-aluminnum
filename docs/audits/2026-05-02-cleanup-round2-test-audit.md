@@ -78,6 +78,7 @@
 | R68 | Playwright 默认忽略 HTTPS 错误 | `frontend/playwright.config.js`、`frontend/e2e/helpers/tls.js` | 改为仅本地 HTTPS 或显式环境变量时忽略证书错误，并覆盖二级 context |
 | R69 | CI 写死测试密码和固定密钥 | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | compose smoke 改为运行时生成一次性 secret/admin password，并对日志加 mask |
 | R70 | CI 使用 `chmod 777 backend/uploads` | `.github/workflows/ci.yml`、`backend/tests/test_quick_cloud_trial_docs_and_ops.py` | 按 backend 容器 app 用户 UID/GID 创建 `0770` 上传目录 |
+| R71 | 确定性编排服务审计描述过期 | `backend/app/services/deterministic_orchestration_service.py`、`backend/tests/test_deterministic_orchestration_service.py` | 确认 report runtime trace 构建链路已引用该服务，并补健康、阻塞和坏输入容错直接测试 |
 
 ## 待处理问题清单
 
@@ -89,7 +90,6 @@
 | S14 | 中 | 制品入库 | QR PDF 已跟踪 | `docs/role_qr_codes.pdf`、`docs/workshop_qr_codes.pdf` | 改脱敏样例或迁移制品仓库 |
 | S15 | 低 | 仓库体积 | 高分辨率 UI 截图较多 | `docs/ui-reference/highres/*.png` | 压缩或转 manifest/缩略图 |
 | B01 | 高 | 测试边界 | 后端测试直接断言前端源码，本次后端全测 5 个失败均来自这类断言 | `backend/tests/test_*copy*`、`backend/tests/test_reference_command_center_spec.py` | 迁出前端规范断言或用 marker 隔离 |
-| B21 | 低 | 未接入代码 | `deterministic_orchestration_service.py` 无引用无测试 | `backend/app/services` | 确认废弃后删除或补入口和测试 |
 
 ## 测试记录
 
