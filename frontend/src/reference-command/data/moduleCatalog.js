@@ -121,15 +121,15 @@ export const referenceModules = Object.freeze([
   },
   {
     moduleId: '11',
-    title: 'AI 总控中心',
+    title: 'AI 助手',
     surface: 'review',
-    routeName: 'review-brain-center',
-    routePath: '/review/brain',
-    layout: 'ai-brain',
+    routeName: 'factory-ai-assistant',
+    routePath: '/manage/ai-assistant',
+    layout: 'ai-assistant',
     kpiKeys: ['summary', 'risks', 'actions', 'confidence'],
-    primary: { type: 'insightList', source: 'brain' },
-    side: { type: 'assistant', source: 'brain' },
-    actions: ['ask', 'dispatch']
+    primary: { type: 'insightList', source: 'assistant' },
+    side: { type: 'assistant', source: 'assistant' },
+    actions: ['ask', 'viewBriefings']
   },
   {
     moduleId: '12',

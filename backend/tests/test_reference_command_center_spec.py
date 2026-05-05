@@ -124,13 +124,25 @@ def test_reference_command_catalog_declares_15_target_modules_without_roadmap_pa
         "日报与交付中心",
         "质量与告警中心",
         "成本核算与效益中心",
-        "AI 总控中心",
+        "AI 助手",
         "系统运维与观测",
         "权限与治理中心",
         "主数据与模板中心",
         "响应式录入体验",
     ]:
         assert title in catalog
+
+    for current_token in [
+        "routeName: 'factory-ai-assistant'",
+        "routePath: '/manage/ai-assistant'",
+    ]:
+        assert current_token in catalog
+
+    for stale_token in [
+        "AI 总控中心",
+        "routePath: '/review/brain'",
+    ]:
+        assert stale_token not in catalog
 
     for surface in ["surface: 'entry'", "surface: 'review'", "surface: 'admin'", "surface: 'system'"]:
         assert surface in catalog
@@ -322,7 +334,7 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
         "| 08 | 日报与交付中心 | 审阅端 | `/review/reports` |",
         "| 09 | 质量与告警中心 | 审阅端 | `/review/quality` |",
         "| 10 | 成本核算与效益中心 | 审阅端 | `/review/cost-accounting` |",
-        "| 11 | AI 总控中心 | 审阅端 | `/review/brain` |",
+        "| 11 | AI 助手 | 审阅端 | `/manage/ai-assistant` |",
         "| 12 | 系统运维与观测 | 管理端 | `/admin/ops` |",
         "| 13 | 权限与治理中心 | 管理端 | `/admin/governance` |",
         "| 14 | 主数据与模板中心 | 管理端 | `/admin/master`、`/admin/master/templates` |",
@@ -331,6 +343,7 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
     for row in required_rows:
         assert row in spec
 
+    assert "| 11 | AI 总控中心 | 审阅端 | `/review/brain` |" not in spec
     assert "移动端预览模块取消" in spec
     assert "| 16 |" not in spec
     assert "/review/roadmap" not in spec
@@ -463,6 +476,9 @@ def test_highres_reference_images_keep_size_budget_and_dimensions() -> None:
     assert total_bytes <= 5_600_000
     assert "尺寸门槛" in manifest
     assert "1672 x 941" in manifest
+    assert "| 11 | `11-ai-control.png` | AI 助手 |" in manifest
+    assert "/manage/ai-assistant" in manifest
+    assert "AI 总控中心" not in manifest
     assert "体积门槛" in manifest
     assert "<= 5.6 MB" in manifest
 

@@ -26,7 +26,7 @@
 | 08 | `08-reports-delivery.png` | 日报与交付中心 |
 | 09 | `09-quality-alerts.png` | 质量与告警中心 |
 | 10 | `10-cost-benefit.png` | 成本核算与效益中心 |
-| 11 | `11-ai-control.png` | AI 总控中心 |
+| 11 | `11-ai-control.png` | AI 助手 |
 | 12 | `12-ops-observability.png` | 系统运维与可观测 |
 | 13 | `13-governance.png` | 权限与治理中心 |
 | 14 | `14-master-template.png` | 主数据与模板中心 |
@@ -96,7 +96,7 @@
 - `/review/reports` 是日报生成、导出与交付状态读面，不承接生产事实写入。
 - `/review/quality` 是质量告警与处置状态读面，当前为 fallback 数据；AI 仅作辅助分诊，处置写动作在无真实接口时禁用，不承接生产事实写入。
 - `/review/cost-accounting` 是经营估算 / 策略口径读面，当前为 fallback 数据；调整方案与导出在无真实接口时禁用，不承接生产事实写入，不作为财务结算依据。
-- `/review/brain` 是审阅端 AI 总控中心，当前为 fallback / mixed 证据读面；AI 仅作辅助解释与建议，生成与追问在无真实接口时禁用，不自动执行质量、成本、排产或交付动作。
+- `/manage/ai-assistant` 是审阅端 AI 助手，当前为 fallback / mixed 证据读面；AI 仅作辅助解释与建议，生成与追问在无真实接口时禁用，不自动执行质量、成本、排产或交付动作。
 - `/admin/ops` 是管理端运维观测面，当前为 fallback / mixed 只读观测数据；刷新、readiness、健康检查和上线闸门仅做只读状态查看，回滚预检、导出诊断和查看日志在无真实接口时禁用，不执行部署、回滚、重启或自动修复，不伪造 health / ready / AI probe 成功。
 - `/admin/governance` 是管理端权限治理面，当前为 fallback / mixed 只读治理数据；查看审计、角色矩阵、风险账号和相关中心跳转仅做只读/导航动作，导出审计与保存策略在无真实接口时禁用，不绕过后端权限模型，不直接修改生产事实或真实授权策略。
 - `/admin/master` 是管理端主数据配置面，当前为 fallback / mixed 只读配置底座数据；查看、筛选、跳转和刷新仅做只读/导航动作，导出配置、发布模板和保存字段规则在无真实接口时禁用，不绕过后端主数据与权限模型，不直接修改生产事实或真实模板发布。
