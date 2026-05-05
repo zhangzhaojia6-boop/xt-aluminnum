@@ -34,6 +34,7 @@
 | R24 | 管理壳层抽屉与搜索缺少 E2E | `frontend/e2e/manage-shell.spec.js` | 增加移动抽屉跳转、搜索弹层打开、关键词过滤和搜索结果跳转验证 |
 | R25 | `desktop=1` 桌面豁免未契约化 | `frontend/e2e/login-delivery-smoke.spec.js` | 小屏填报可用账号默认 `/manage/overview` 回 `/entry`，带 `desktop=1` 时保留管理端 |
 | R26 | 统一填报缺少重量业务规则 | `frontend/src/views/mobile/UnifiedEntryForm.vue`、`frontend/src/utils/entryWeightValidation.js` | 提交前校验可见重量非负、产出不大于投入、产出加废料不大于投入，并用 node 单测锁定 |
+| R27 | 路由守卫缺少单元决策覆盖 | `frontend/src/router/guardRules.js`、`frontend/src/router/index.js` | 抽出纯决策层并覆盖 fill-only、admin、小屏桌面豁免和运行时 auth code |
 
 ## 待处理问题清单
 
@@ -42,7 +43,6 @@
 | F04 | 低 | 死代码 | 多个主数据旧页面零引用但兼容路由还在 | `frontend/src/views/master/*` | 清理孤儿页面或补兼容路由测试 |
 | F05 | 低 | 原型残留 | `reference-command/pages/*` 整套参考页未挂载 | `frontend/src/reference-command/pages` | 迁出原型树或加 README 标识 |
 | F08 | 中 | 登录测试 | 免登、机台、车间 query 分支未覆盖 | `frontend/src/views/Login.vue` | 增加登录分支和 query 清洗用例 |
-| F11 | 中 | 路由守卫 | `installRouterGuards` 缺少单元测试 | `frontend/src/router/index.js` | 覆盖 fill-only、admin、compact、runtime auth code |
 | F13 | 低 | 死分支 | 移动首页存在无模板绑定函数 | `frontend/src/views/mobile/MobileEntry.vue` | 删除死分支或恢复入口 |
 | F15 | 中 | 表单校验 | 车间主数据弹窗缺少前端必填校验 | `frontend/src/views/master/Workshop.vue` | 对 code/name 增加 rules 和失败用例 |
 | F16 | 中 | 审计链 | 质量处置原因可为空 | `frontend/src/views/quality/QualityCenter.vue` | prompt 增加非空校验 |

@@ -2,6 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { resolveRouteMeta } from '../config/navigation'
 import { useAuthStore } from '../stores/auth'
+import {
+  isCompactClient,
+  isDingTalkRuntimeClient,
+  resolveGuardDecision,
+  resolveRouteAccess,
+  resolveRuntimeAuthCode,
+} from './guardRules.js'
 
 const Login = () => import('../views/Login.vue')
 const EntryShell = () => import('../layout/EntryShell.vue')
@@ -67,70 +74,10 @@ function preserveRouteState(path) {
   return (to) => ({ path, query: to.query, hash: to.hash })
 }
 
-function isCompactClient() {
-  if (typeof window === 'undefined') return false
-  const userAgent = window.navigator?.userAgent || ''
-  const matchesViewport = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches
-  return matchesViewport || /MicroMessenger|wxwork|DingTalk|iPhone|iPad|Android|Mobile/i.test(userAgent)
-}
-
-function resolveRuntimeAuthCode(query = {}) {
-  const candidates = [query.authCode, query.auth_code, query.code]
-  return candidates.find((value) => typeof value === 'string' && value.trim()) || ''
-}
-
-function isDingTalkRuntimeClient() {
-  if (typeof window === 'undefined') return false
-  const userAgent = window.navigator?.userAgent || ''
-  return Boolean(window.dd) || /DingTalk/i.test(userAgent)
-}
-
-function prefersMobileSurface(authStore, to) {
-  if (!isCompactClient() || !authStore.canAccessFillSurface) return false
-  if (to.meta.zone === 'entry' || to.name === 'login') return false
-  if (typeof to.query?.desktop === 'string' && to.query.desktop === '1') return false
-  return to.meta.zone === 'manage' || to.meta.zone === 'review' || to.meta.zone === 'desktop'
-}
-
-function reviewLanding(authStore) {
-  if (authStore.canAccessReviewSurface) return { name: 'review-overview-home' }
-  if (authStore.canAccessFactoryDashboard) return { name: 'factory-dashboard' }
-  if (authStore.canAccessWorkshopDashboard) return { name: 'workshop-dashboard' }
-  const config = configLanding(authStore)
-  if (config.name !== 'login') return config
-  return { name: 'login' }
-}
-
-function adminLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
-  return { name: 'login' }
-}
-
-function configLanding(authStore) {
-  if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
-  return { name: 'login' }
-}
-
-function defaultLanding(authStore) {
-  if (isTeamLeadRole(authStore)) return { name: 'team-lead' }
-  if (isCompactClient() && authStore.canAccessFillSurface) return { name: 'mobile-entry' }
-  if (authStore.canAccessFillSurface && !authStore.canAccessReviewSurface) return { name: 'mobile-entry' }
-  if (authStore.defaultSurface === 'admin') return adminLanding(authStore)
-  if (authStore.defaultSurface === 'review') return reviewLanding(authStore)
-  const review = reviewLanding(authStore)
-  if (review.name !== 'login') return review
-  if (authStore.canAccessFillSurface) return { name: 'mobile-entry' }
-  return { name: 'login' }
-}
-
 const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }
 const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }
 const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }
 const teamLeadMeta = { requiresAuth: true, zone: 'team-lead', access: 'team_lead' }
-
-function isTeamLeadRole(authStore) {
-  return ['team_leader', 'deputy_leader'].includes(authStore.role)
-}
 
 const rawRoutes = [
   {
@@ -306,33 +253,25 @@ const router = createRouter({
 export function installRouterGuards(routerInstance, authStore) {
   routerInstance.beforeEach(async (to) => {
     const auth = authStore || useAuthStore()
-    const matchedAccess = [...to.matched].reverse().find((record) => record.meta?.access)?.meta.access
-    const access = to.meta.access || matchedAccess
+    const access = resolveRouteAccess(to)
+    const compactClient = isCompactClient()
     const hasRuntimeAuthCode = to.name === 'mobile-entry' && (
       Boolean(resolveRuntimeAuthCode(to.query)) || isDingTalkRuntimeClient()
     )
 
-    if (auth.token && to.name === 'login') {
-      return defaultLanding(auth)
-    }
-
-    if (access === 'public') {
+    const earlyDecision = resolveGuardDecision({
+      to,
+      auth,
+      access,
+      hasRuntimeAuthCode,
+      compactClient,
+      profileReady: Boolean(auth.user),
+    })
+    if (earlyDecision === true) {
       document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
       return true
     }
-
-    if (to.meta.requiresAuth && !auth.token) {
-      if (hasRuntimeAuthCode) {
-        document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
-        return true
-      }
-      return { name: 'login', query: { redirect: to.fullPath } }
-    }
-
-    if (!auth.token) {
-      document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
-      return true
-    }
+    if (earlyDecision) return earlyDecision
 
     if (!auth.user) {
       try {
@@ -342,60 +281,8 @@ export function installRouterGuards(routerInstance, authStore) {
       }
     }
 
-    if (auth.isFillOnlyRole && !isTeamLeadRole(auth) && to.meta.zone !== 'entry' && to.name !== 'login') {
-      return { name: 'mobile-entry' }
-    }
-
-    if (prefersMobileSurface(auth, to)) {
-      return { name: 'mobile-entry' }
-    }
-
-    if (to.meta.zone === 'entry' && !auth.canAccessFillSurface) {
-      return auth.canAccessReviewSurface ? reviewLanding(auth) : { name: 'login' }
-    }
-    if ((to.meta.zone === 'review' || to.meta.zone === 'manage') && access !== 'admin' && !auth.canAccessReviewSurface) {
-      return auth.canAccessFillSurface ? { name: 'mobile-entry' } : { name: 'login' }
-    }
-    if (access === 'admin' && !auth.adminSurface) {
-      return defaultLanding(auth)
-    }
-    if (to.meta.zone === 'desktop' && !auth.adminSurface) {
-      return defaultLanding(auth)
-    }
-
-    if (access === 'entry' && !auth.canAccessFillSurface) {
-      return defaultLanding(auth)
-    }
-    if (access === 'review' && !auth.canAccessReviewSurface) {
-      return defaultLanding(auth)
-    }
-    if (access === 'review' && !auth.canAccessReviewDesk) {
-      return defaultLanding(auth)
-    }
-    if (access === 'review_surface' && !auth.canAccessReviewSurface) {
-      return defaultLanding(auth)
-    }
-    if (access === 'desktop_config' && !auth.adminSurface) {
-      return defaultLanding(auth)
-    }
-    if (access === 'manager' && !(auth.isAdmin || auth.isManager)) {
-      return defaultLanding(auth)
-    }
-    if (access === 'team_lead' && !(auth.isAdmin || isTeamLeadRole(auth))) {
-      return defaultLanding(auth)
-    }
-    if (access === 'admin_strict' && !auth.isAdmin) {
-      return defaultLanding(auth)
-    }
-    if (access === 'factory_dashboard' && !auth.canAccessFactoryDashboard) {
-      return defaultLanding(auth)
-    }
-    if (access === 'workshop_dashboard' && !auth.canAccessWorkshopDashboard) {
-      return defaultLanding(auth)
-    }
-    if (access === 'statistics_dashboard' && !auth.canAccessStatisticsDashboard) {
-      return defaultLanding(auth)
-    }
+    const decision = resolveGuardDecision({ to, auth, access, hasRuntimeAuthCode, compactClient })
+    if (decision !== true) return decision
 
     document.title = to.meta.title ? `${to.meta.title} - ${appTitle}` : appTitle
     return true

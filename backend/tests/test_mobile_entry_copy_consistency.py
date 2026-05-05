@@ -397,12 +397,14 @@ def test_entry_shell_owns_bottom_navigation_without_page_duplicates() -> None:
 
 
 def test_phase1_desktop_landing_skips_statistics_and_review_defaults() -> None:
-    source = _read_repo_file("frontend/src/router/index.js")
+    router_source = _read_repo_file("frontend/src/router/index.js")
+    guard_source = _read_repo_file("frontend/src/router/guardRules.js")
+    source = router_source + guard_source
 
     assert "if (authStore.canAccessStatisticsDashboard) return { name: 'statistics-dashboard' }" not in source
     assert "if (authStore.canAccessReviewDesk) return { name: 'shift-center' }" not in source
     assert "if (authStore.isAdmin || authStore.isManager) return { name: 'admin-overview' }" not in source
-    assert "if (authStore.adminSurface) return { name: 'admin-ops-reliability' }" in source
+    assert "if (authStore.adminSurface) return { name: 'admin-ops-reliability' }" in guard_source
 
 
 def test_phase1_layout_hides_review_and_statistics_navigation() -> None:
