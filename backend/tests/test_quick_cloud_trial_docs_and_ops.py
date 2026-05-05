@@ -335,6 +335,14 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
 
     assert '`git status --short` 不再包含测试缓存、临时截图和误生成目录' in source
     assert 'GitHub 远端已接入，云主机可直接拉代码' in source
+    assert '以 `2026-04-20` 本地最新验证为准' not in source
+    assert '387 passed' not in source
+    assert '4 passed' not in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `651 passed，123 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，651 deselected`' in source
+    assert '`npm --prefix frontend test` → `110 passed`' in source
+    assert '`npm --prefix frontend run build` → 通过' in source
+    assert '`git diff --check` → 通过' in source
 
 
 def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
