@@ -47,7 +47,7 @@ test('admin compatibility shortcuts land on manage modules', async ({ page }) =>
   await page.goto('/manage/master')
   await expect(page).toHaveURL(/\/manage\/master$/)
   await expect(page.getByTestId('admin-master-center')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '主数据与模板中心' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车间主数据' })).toBeVisible()
 
   await page.goto('/manage/admin/templates')
   await expect(page).toHaveURL(/\/manage\/admin\/templates$/)
@@ -72,7 +72,7 @@ test('admin master route renders the master data smoke surface', async ({ page }
   await expect(adminAside.getByRole('link', { name: '设置 运行' })).toHaveCount(0)
   await expect(adminAside.getByRole('link', { name: '别名 模板' })).toHaveCount(0)
   await expect(adminAside.getByRole('link', { name: '导入 接入' })).toHaveCount(0)
-  await expect(masterCenter.getByRole('heading', { name: '主数据与模板中心' })).toBeVisible()
+  await expect(masterCenter.getByRole('heading', { name: '车间主数据' })).toBeVisible()
   await expect(masterCenter.getByRole('button', { name: '新增车间' })).toBeVisible()
   await expect(masterCenter.getByRole('columnheader', { name: '编码' })).toBeVisible()
   await expect(masterCenter.getByRole('columnheader', { name: '名称' })).toBeVisible()

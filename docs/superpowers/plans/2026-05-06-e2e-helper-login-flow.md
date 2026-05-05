@@ -16,7 +16,7 @@
 - Modify: `backend/tests/test_quick_cloud_trial_docs_and_ops.py`
 - Create: `docs/superpowers/plans/2026-05-06-e2e-helper-login-flow.md`
 
-- [ ] **Step 1: Add a helper auth storage guard**
+- [x] **Step 1: Add a helper auth storage guard**
 
 Assert `frontend/e2e/helpers/review-mocks.js` and `frontend/e2e/helpers/unified-entry-mocks.js` no longer call:
 - `localStorage.setItem('aluminum_bypass_token'`
@@ -24,7 +24,7 @@ Assert `frontend/e2e/helpers/review-mocks.js` and `frontend/e2e/helpers/unified-
 - token-bearing `addInitScript`
 - token-bearing `page.evaluate`
 
-- [ ] **Step 2: Require a mocked login helper**
+- [x] **Step 2: Require a mocked login helper**
 
 Assert `frontend/e2e/helpers/mock-login.js` exists and includes:
 - `**/api/v1/auth/login`
@@ -32,7 +32,7 @@ Assert `frontend/e2e/helpers/mock-login.js` exists and includes:
 - `login-password`
 - `login-submit`
 
-- [ ] **Step 3: Run the red guard**
+- [x] **Step 3: Run the red guard**
 
 Run:
 
@@ -42,6 +42,8 @@ python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_e2e_
 
 Expected: FAIL because the helpers still seed token storage directly and the shared mock-login helper does not exist.
 
+Result: historical red completed before implementation; current guard is marked `frontend_contract` and passes when explicitly selected.
+
 ### Task 2: Move Helper Sessions Behind Login
 
 **Files:**
@@ -49,7 +51,7 @@ Expected: FAIL because the helpers still seed token storage directly and the sha
 - Modify: `frontend/e2e/helpers/review-mocks.js`
 - Modify: `frontend/e2e/helpers/unified-entry-mocks.js`
 
-- [ ] **Step 1: Create `loginThroughMockedPassword`**
+- [x] **Step 1: Create `loginThroughMockedPassword`**
 
 Create a helper that:
 - registers `**/api/v1/auth/login`
@@ -59,24 +61,27 @@ Create a helper that:
 - clicks `login-submit`
 - waits for an authenticated landing URL
 
-- [ ] **Step 2: Update review mocks**
+- [x] **Step 2: Update review mocks**
 
 Remove direct storage writes from `setupReviewSessionAndMocks`. After all API mocks are registered, call `loginThroughMockedPassword(page, { token, user })`.
 
-- [ ] **Step 3: Update unified entry mocks**
+- [x] **Step 3: Update unified entry mocks**
 
 Remove direct storage writes from `setupUnifiedPerCoilEntrySession`. After all API mocks are registered, call `loginThroughMockedPassword(page, { token, user, machineContext })`.
+
+Result: `frontend/e2e/helpers/mock-login.js` now mocks `/api/v1/auth/login`, fills the login page controls, and lets the auth store create the session; both review and unified-entry helper files call it instead of writing auth token storage directly.
 
 ### Task 3: Audit And Verify
 
 **Files:**
 - Modify: `docs/audits/2026-05-02-cleanup-round2-test-audit.md`
+- Modify: `frontend/e2e/admin-surface.spec.js` after verification exposed stale `/manage/master` title assertions
 
-- [ ] **Step 1: Move S10 to resolved**
+- [x] **Step 1: Move S10 to resolved**
 
 Add `R76` for helper login-flow hardening and remove pending `S10`.
 
-- [ ] **Step 2: Run targeted checks**
+- [x] **Step 2: Run targeted checks**
 
 Run:
 
@@ -87,7 +92,12 @@ npm --prefix frontend run e2e -- admin-surface.spec.js manage-shell.spec.js mobi
 
 Expected: PASS.
 
-- [ ] **Step 3: Run full checks**
+Result:
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_e2e_helpers_use_mocked_login_flow_instead_of_storage_token_seed -m frontend_contract -q` -> `1 passed`
+- First `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js manage-shell.spec.js mobile-entry-smoke.spec.js` -> `23 passed, 2 failed`; both failures were stale `/manage/master` heading assertions expecting `主数据与模板中心` after R81 had narrowed the runtime page to `车间主数据`.
+- After updating the two admin-surface assertions to `车间主数据`, the same Playwright command -> `25 passed`
+
+- [x] **Step 3: Run full checks**
 
 Run:
 
@@ -100,12 +110,19 @@ git diff --check
 
 Expected: PASS. Existing CRLF warnings are acceptable only if `git diff --check` exits 0.
 
-- [ ] **Step 4: Review, commit, and push**
+Result:
+- `python -m pytest backend/tests -q --durations=10` -> `651 passed, 123 deselected, 30 warnings`
+- `python -m pytest backend/tests -m frontend_contract -q` -> `123 passed, 651 deselected`
+- `npm --prefix frontend test` -> `110 passed`
+- `npm --prefix frontend run build` -> pass
+- `git diff --check` -> pass; Git emitted only existing LF-to-CRLF working-copy warnings for the changed files.
+
+- [x] **Step 4: Review, commit, and push**
 
 Commit:
 
 ```powershell
-git add backend/tests/test_quick_cloud_trial_docs_and_ops.py frontend/e2e/helpers/mock-login.js frontend/e2e/helpers/review-mocks.js frontend/e2e/helpers/unified-entry-mocks.js docs/audits/2026-05-02-cleanup-round2-test-audit.md docs/superpowers/plans/2026-05-06-e2e-helper-login-flow.md
+git add backend/tests/test_quick_cloud_trial_docs_and_ops.py frontend/e2e/helpers/mock-login.js frontend/e2e/helpers/review-mocks.js frontend/e2e/helpers/unified-entry-mocks.js frontend/e2e/admin-surface.spec.js docs/audits/2026-05-02-cleanup-round2-test-audit.md docs/superpowers/plans/2026-05-06-e2e-helper-login-flow.md
 git commit -m "test: 让 e2e helpers 走登录流"
 git push
 ```
