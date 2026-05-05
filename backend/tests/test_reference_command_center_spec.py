@@ -825,6 +825,32 @@ def test_reference_command_pages_are_marked_as_archived_prototypes() -> None:
     assert "`/entry` -> `mobile-entry` -> `MobileEntry.vue`" in route_map
 
 
+def test_legacy_master_routes_redirect_without_mounting_orphan_pages() -> None:
+    router = _read_repo_file("frontend/src/router/index.js")
+    route_map = _read_repo_file("docs/current-route-map.md")
+    readme = _read_repo_file("frontend/src/views/master/README.md")
+
+    for redirect in [
+        "{ path: '/master/team', name: 'master-team', redirect: '/manage/master' }",
+        "{ path: '/master/employee', name: 'master-employee', redirect: '/manage/master' }",
+        "{ path: '/master/equipment', name: 'master-equipment', redirect: '/manage/master' }",
+        "{ path: '/master/shift-config', name: 'master-shift-config', redirect: '/manage/master' }",
+    ]:
+        assert redirect in router
+
+    for orphan_import in [
+        "const Employee = () => import('../views/master/Employee.vue')",
+        "const Equipment = () => import('../views/master/Equipment.vue')",
+        "const MachineWizard = () => import('../views/master/MachineWizard.vue')",
+        "const ShiftConfig = () => import('../views/master/ShiftConfig.vue')",
+        "const Team = () => import('../views/master/Team.vue')",
+    ]:
+        assert orphan_import not in router
+
+    assert "不挂载到生产路由" in readme
+    assert "`/master/team`、`/master/employee`、`/master/equipment`、`/master/shift-config` -> `/manage/master`" in route_map
+
+
 def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     docs = "\n".join(

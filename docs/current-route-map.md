@@ -57,6 +57,10 @@
 ## Desktop 兼容链路（现状）
 
 - `imports/*`, `energy/*`, `attendance/*`, `shift/*`, `reports/*`, `reconciliation/*`, `quality/*`, `master/*`
+- `/master/team`、`/master/employee`、`/master/equipment`、`/master/shift-config` -> `/manage/master`
+- `/master/alias` -> `/manage/alias`
+- `/master/workshop-template`、`/master/workshop-templates`、`/master/yield-rate-map` -> `/manage/admin/templates`
+- `/master/rules` -> `/manage/admin/rules`
 - 核心壳层与权限： [Layout.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/Layout.vue) + [index.js](/D:/zzj Claude code/aluminum-bypass/frontend/src/router/index.js)
 
 ## 权限与落点（现状）
