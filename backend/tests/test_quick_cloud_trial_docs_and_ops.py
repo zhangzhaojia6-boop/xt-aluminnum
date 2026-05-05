@@ -365,6 +365,8 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert '1 个车间的主操或机台账号 1 人' in uat
     assert '专项 owner' in uat
     assert 'GitHub / 上云前封装准备' in readme
+    assert 'UI 语义收口施工' not in readme
+    assert '本地可运行 + 关键验证基线已通过 + 可进入发布冻结与单车间试跑准备' in readme
     assert './scripts/deploy_trial.sh' in ops
     assert './scripts/check_trial_stack.sh' in ops
     assert '默认检查 `https://localhost`' in ops
