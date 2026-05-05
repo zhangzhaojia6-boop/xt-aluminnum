@@ -42,3 +42,11 @@ test('Workshop dialog wires required validation before save', () => {
   assert.match(workshopPageSource, /formRef\.value\.validate\(\)/)
   assert.match(workshopPageSource, /normalizeWorkshopPayload\(form\)/)
 })
+
+test('Workshop page labels the runtime surface as workshop master data', () => {
+  assert.match(workshopPageSource, /title="车间主数据"/)
+  assert.match(workshopPageSource, /:tags="\['车间清单', '新增编辑删除', '主数据治理'\]"/)
+  assert.doesNotMatch(workshopPageSource, /title="主数据与模板中心"/)
+  assert.doesNotMatch(workshopPageSource, /班组员工/)
+  assert.doesNotMatch(workshopPageSource, /机台班次/)
+})

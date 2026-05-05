@@ -1,8 +1,8 @@
 <template>
   <ReferencePageFrame
     module-number="14"
-    title="主数据与模板中心"
-    :tags="['车间主数据', '班组员工', '机台班次']"
+    title="车间主数据"
+    :tags="['车间清单', '新增编辑删除', '主数据治理']"
     class="page-stack admin-master-center"
     data-testid="admin-master-center"
   >

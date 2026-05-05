@@ -752,6 +752,9 @@ def test_master_route_docs_match_live_workshop_center() -> None:
     assert "path: 'master', name: 'admin-master-workshop', component: Workshop" in router
     assert "fetchWorkshopsPage" in workshop
     assert "createWorkshop" in workshop
+    assert 'title="车间主数据"' in workshop
+    assert "班组员工" not in workshop
+    assert "机台班次" not in workshop
     assert "export const workshopApi = crud('workshops')" in master_api
     assert "export const masterCenterMock" not in _read_repo_file("frontend/src/mocks/centerMockData.js")
     assert "masterCenterMock" not in docs

@@ -52,7 +52,7 @@
 - `/admin/ingestion` -> `/manage/ingestion` -> `admin-ingestion-center` -> `IngestionCenter.vue`，正式中心：数据接入与字段映射中心；当前调用导入历史、排班、打卡、生产、能源、MES 导出与通用导入接口。本页不表示外部 MES/ERP 已正式联通。
 - `/admin/governance` -> `/manage/admin/governance` -> `admin-governance-center` -> `GovernanceCenter.vue`，正式中心：权限与治理中心；当前基于 auth store 展示权限边界，管理员可通过用户接口读取角色分布。本页不绕过后端权限模型，不直接修改生产事实或真实授权策略。
 - `/admin/ops` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`，正式中心：系统设置 / 运维状态入口；当前调用 dashboard、factory-command 与管理概览数据展示 ready/freshness/机列填报状态。本页不执行部署、回滚、重启或自动修复。
-- `/admin/master` -> `/manage/master` -> `admin-master-workshop` -> `Workshop.vue`，正式中心：主数据与模板中心；车间清单、新增、编辑、删除已走 `frontend/src/api/master.js` 的 `/api/v1/master/workshops` 真实接口，页面不再依赖 `CommandModulePage.vue` 读面 mock。`/admin/master/templates` -> `/manage/admin/templates` -> `WorkshopTemplateConfig.vue`，模板中心仍独立承接字段模板配置。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实。
+- `/admin/master` -> `/manage/master` -> `admin-master-workshop` -> `Workshop.vue`，运行页：车间主数据；车间清单、新增、编辑、删除已走 `frontend/src/api/master.js` 的 `/api/v1/master/workshops` 真实接口，页面不再依赖 `CommandModulePage.vue` 读面 mock。`/admin/master/templates` -> `/manage/admin/templates` -> `WorkshopTemplateConfig.vue`，模板中心仍独立承接字段模板配置。主数据与模板中心是导航分组，不表示 `/manage/master` 已承接班组、员工、机台和字段模板的一站式配置。本页属于管理端主数据配置面，不绕过后端主数据与权限模型，不直接修改生产事实。
 
 ## Desktop 兼容链路（现状）
 

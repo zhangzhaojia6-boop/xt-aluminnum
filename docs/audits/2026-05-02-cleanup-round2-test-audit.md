@@ -88,6 +88,7 @@
 | R78 | AI 能力兜底显示为在线能力 | `backend/app/services/assistant_service.py`、`frontend/src/api/assistant.js`、`frontend/src/components/review/ReviewAssistantDock.vue`、`frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_assistant_routes.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 未配置 LLM 或前端 fallback 时改为 `connected=false`、`planned` 集成、`0 / 0 / 未联通`，live 模式保留在线能力 |
 | R79 | AI 工作台顶部固定显示已接上下文 | `frontend/src/components/review/ReviewAssistantWorkbench.vue`、`backend/tests/test_mobile_entry_copy_consistency.py`、`frontend/tests/assistantFallbackTruthfulness.test.js` | 顶部文案改为从 `capabilityState.connected` 派生，fallback 时显示 `生产上下文未联通`，live 时保留原有已接上下文文案 |
 | R80 | 参考页面框架仍显示旧产品名 | `frontend/src/components/reference/ReferencePageFrame.vue`、`backend/tests/test_rebranding.py`、`frontend/tests/managementCommandCenter.test.js` | 共享页面框架改为显示 `鑫泰铝业 数据中枢 · 运行中心`，测试禁止旧文案 `鑫泰数据中枢 · 运行中心` 回归 |
+| R81 | `/manage/master` 运行页标题过度承诺一站式主数据与模板中心 | `frontend/src/views/master/Workshop.vue`、`frontend/tests/workshopFormValidation.test.js`、`backend/tests/test_reference_command_center_spec.py`、`docs/current-route-map.md` | 运行页改为 `车间主数据`，标签限定车间清单、新增编辑删除和主数据治理；路由地图说明主数据与模板中心只是导航分组，班组、员工、机台和模板仍由独立配置面承接 |
 
 ## 待处理问题清单
 
