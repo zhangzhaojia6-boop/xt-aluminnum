@@ -513,13 +513,27 @@ def test_reference_review_modules_use_numbered_cn_titles() -> None:
         "frontend/src/views/reports/ReportList.vue": ("08", "日报与交付中心"),
         "frontend/src/views/quality/QualityCenter.vue": ("09", "质量与告警中心"),
         "frontend/src/views/review/CostAccountingCenter.vue": ("10", "成本核算与效益中心"),
-        "frontend/src/views/assistant/BrainCenter.vue": ("11", "AI 总控中心"),
     }
     for path, (number, title) in modules.items():
         source = _read_repo_file(path)
         assert f'module-number="{number}"' in source
         assert title in source
         assert "ReferencePageFrame" in source
+
+
+def test_legacy_brain_center_dead_file_is_removed() -> None:
+    repo_root = _resolve_repo_root()
+    router = _read_repo_file("frontend/src/router/index.js")
+    ai_workstation = _read_repo_file("frontend/src/views/ai/AiWorkstation.vue")
+    audit = _read_repo_file("docs/audits/2026-05-02-cleanup-round2-test-audit.md")
+    roadmap = _read_repo_file("docs/frontend-rebuild-roadmap.md")
+
+    assert not (repo_root / "frontend/src/views/assistant/BrainCenter.vue").exists()
+    assert "path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation" in router
+    assert "path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant'" in router
+    assert "AI 工作台" in ai_workstation
+    assert "`BrainCenter.vue` 零引用问题已处理" in audit
+    assert "frontend/src/views/assistant/BrainCenter.vue" not in roadmap
 
 
 def test_reference_admin_modules_use_numbered_cn_titles() -> None:

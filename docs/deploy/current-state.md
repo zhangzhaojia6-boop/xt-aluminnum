@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-05 14:02:19 +08:00
+更新时间：2026-05-05 14:23:37 +08:00
 
 ## 1. 仓库状态
 
@@ -75,7 +75,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：676 passed，30 warnings
+- `python -m pytest backend/tests -q`：677 passed，30 warnings
 - `node --test tests/*.test.js`：82 passed
 - `npm run build`：通过
 - `git diff --check`：通过

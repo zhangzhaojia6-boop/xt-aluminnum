@@ -8,7 +8,7 @@
 - 统一设计系统与壳层
 - 独立填报端（Entry）
 - 成本策略引擎（可配置）
-- AI 总大脑（跨中心落点）
+- AI 助手（跨中心落点）
 
 ## 当前基线
 
@@ -38,7 +38,7 @@
 7. `frontend/src/views/review/ReviewTaskCenter.vue`（新增）
 8. `frontend/src/views/review/IngestionCenter.vue`（新增）
 9. `frontend/src/services/costing/*` + `frontend/src/views/review/CostAccountingCenter.vue`
-10. `frontend/src/stores/assistant.*` + `frontend/src/views/assistant/BrainCenter.vue`
+10. `frontend/src/stores/assistant.*` + `frontend/src/views/ai/AiWorkstation.vue`
 
 ## 风险清单
 
