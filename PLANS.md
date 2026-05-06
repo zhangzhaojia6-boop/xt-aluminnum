@@ -59,8 +59,10 @@
 - 管理端导入历史已接入“每日产量/映射门禁”只读卡片和 `/api/v1/imports/daily-production/mapping-preview`，能直接看到已匹配、待机列、未解析数量及未解析标签，不再只靠运维命令查看 staging 映射状态。
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 标签、编码、类型里推导，显示 `车间 ...` / `机列 ...`，不改变硬规则、不写正式产量事实表；生产核对显示 `1650/1850` 暂无直接 active 机列，精整/拉矫/在线退火存在多候选或虚拟角色，需要人工确认。
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
-- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count/draft_entry_count/total_entry_count` 与单元格 `draft_count`，前端显示 `已进入正式`、`草稿待提交`、`缺报班次`，帮助区分测试草稿未进入正式产量，而不提升或写入任何 draft 数据。
+- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count/draft_entry_count/total_entry_count` 与单元格 `draft_count`，前端显示 `已进入正式`、`草稿待提交`、`缺报班次`；未绑定 draft 测试也会进入 `草稿待提交` 数量，但不提升、不写入、不进入正式产量。
 - 管理端未吃到当前测试填报的根因已定位：生产库现有 `work_order_entries draft=156`、`mobile_shift_reports draft=3`、`mobile_coil_agg voided=28`，没有活动 `submitted/verified/approved` 卷级源；当前线上代码已写新卷为 `submitted` 并聚合，旧 draft 只能重新提交或走人工提升门禁。
+- 本轮已部署到 `main@efc8ed3`：公网 `/readyz` ready，MES 同步 `fetched_count=50/upserted_count=50`；导入历史候选线上探针为 `total_rows=16/ready_rows=7/unresolved_rows=9/candidate_rows=9`，部署脚本已补 `npm rebuild` 避免 ECS 上 `npm ci` 后 `.bin/vite` 缺失。
+- 本轮已部署到 `main@2f888bb`：管理端实时聚合改为从入口 `entries` 统计总填报接入，未绑定机列/班次的草稿也进入 `draft_entry_count/total_entry_count`，但不进入机列产量吨数；公网 API 探针返回 `formal_entry_count=0/draft_entry_count=17/total_entry_count=17`，17 条均缺机列或班次，MES 同步仍为 `fetched_count=50/upserted_count=50`。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
@@ -70,7 +72,7 @@
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：720 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：721 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed

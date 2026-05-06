@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 22:01:02 +08:00
+更新时间：2026-05-06 22:45:16 +08:00
 
 ## 1. 仓库状态
 
@@ -57,7 +57,7 @@ cd /srv/aluminum-bypass
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
 - 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
-- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`，用于解释测试填报停留在 draft 时为何不进入正式产量。
+- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
 
 ## 3. 默认部署形态
 
@@ -104,7 +104,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：720 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：721 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
@@ -118,12 +119,13 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
+- `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：8 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
 - `npm --prefix frontend test`：121 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
-- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`70ed599` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
+- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`2f888bb` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
 
 此前在 `main@b029db8` 上已完成部署闸门与容器可用性验证：
 
@@ -196,7 +198,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 20:22 左右。
+最近一次 ECS 修复验证：2026-05-06 22:45 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -214,6 +216,9 @@ MES_API_KEY=...
 - 本轮已部署 `main@d5da2ca`：历史 `每日产量` 工作簿只读 canonical 预览与日期误判修复已上线；生产 synthetic parser 返回 `valid_business_date=2026-05-03`、`valid_daily_output_tons=60.38`、`valid_quality_status=ready`，无日期样本返回 `missing_business_date=null`、`missing_quality_status=blocked`，确认普通小数 `1.14` 不会再被当作日期。
 - 本轮已部署 `main@cc22abd`：MES 投影同步已隔离单源失败，`sync_mes_projection` 逐来源返回 `success/failed`；SQLAlchemy/事务错误仍向上抛出让整轮回滚。生产重启后 `http://8.140.218.13/readyz` 与 `127.0.0.1:8000/readyz` 均返回 200，`mes_sync.configured=true`、`mes_sync.last_run_status=success`、`mes_sync.fetched_count=50`、`mes_sync.upserted_count=50`，服务进程 `aluminum-bypass.service` 为 active。
 - 本轮已部署 `main@1aa32bf`：历史 `每日产量` 映射预览已上线；生产只读预览 `ImportBatch id=1` 返回 `total_rows=16`、`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，未推断标签保持 blocked，复验 `shift_rows_delta=0`。
+- 本轮已部署 `main@efc8ed3`：包含管理端“填报接入”只读条、导入历史映射候选提示，以及 systemd 部署脚本 `npm ci` 后执行 `npm rebuild` 的构建稳定性修复；公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`，线上资源包含 `填报接入`、`草稿待提交`、`candidate_workshops`、`candidate_equipment`。
+- 本轮已部署 `main@2f888bb`：管理端实时聚合已修正未绑定草稿入口计数，公网 `/api/v1/aggregation/live?business_date=2026-05-06` 返回 `status_code=200`、`data_source=work_order_runtime`、`formal_entry_count=0`、`draft_entry_count=17`、`total_entry_count=17`；生产只读探针确认 17 条 `work_order_entries` 均缺 `machine_id` 或 `shift_id`，所以会显示在“填报接入”总数，不进入机列产量吨数。
+- 生产只读探针确认当前 `每日产量` 映射候选：`total_rows=16`、`ready_rows=7`、`unresolved_rows=9`、`candidate_rows=9`；填报侧现状仍是 `work_order_entries draft=156`、`mobile_shift_reports draft=3`、`mobile_coil_agg/voided=28`，所以当前测试填报未进入正式管理产量的根因仍是草稿态未提交，不是 MES 或管理端接口断链；未绑定 draft 也会进入管理端 `草稿待提交` 可见性口径。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。

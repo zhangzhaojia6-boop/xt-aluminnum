@@ -4,7 +4,7 @@
 
 **Goal:** Make current fill-test data visible in the management realtime surface by showing submitted versus draft intake counts without promoting draft records into formal production facts.
 
-**Architecture:** Extend the existing realtime aggregation payload with formal, draft, and total entry counts. Reuse `LiveDashboard.vue` as the management surface and render a compact status strip from the existing `/api/v1/realtime/aggregation/live` response. No `ShiftProductionData` rows are created or mutated.
+**Architecture:** Extend the existing realtime aggregation payload with formal, draft, and total entry counts. Counts are computed across all entries so unbound draft tests remain visible, while formal output totals still only use eligible cell rows. Reuse `LiveDashboard.vue` as the management surface and render a compact status strip from the existing `/api/v1/realtime/aggregation/live` response. No `ShiftProductionData` rows are created or mutated.
 
 **Tech Stack:** FastAPI, Pydantic, existing realtime service, Vue 3, node static tests, pytest.
 
@@ -18,7 +18,7 @@
 - Modify: `backend/tests/test_realtime_service.py`
 
 - [x] Add failing test coverage for `overall_progress.formal_entry_count`, `overall_progress.draft_entry_count`, `overall_progress.total_entry_count`, and per-cell `draft_count`.
-- [x] Implement counts in `aggregate_live_payload()` from existing `entries` without changing weight totals or submission status semantics.
+- [x] Implement counts in `aggregate_live_payload()` from existing `entries` without changing weight totals or submission status semantics; unbound draft entries count toward intake visibility but not output totals.
 - [x] Expose `draft_count` on `LiveShiftCellOut`.
 - [x] Run `python -m pytest backend/tests/test_realtime_service.py -q` -> 4 passed.
 
@@ -38,8 +38,19 @@
 
 - [x] Run focused backend and frontend tests.
 - [x] Run `npm --prefix frontend run build` -> passed.
-- [x] Run `python -m pytest backend/tests -q` -> 720 passed, 124 deselected, 31 warnings.
+- [x] Run `python -m pytest backend/tests -q` -> 721 passed, 124 deselected, 31 warnings.
 - [x] Run `npm --prefix frontend test` -> 121 passed.
 - [x] Run `git diff --check` -> passed with Windows LF/CRLF warnings only.
 - [x] Review diff for read-only behavior and UI scope.
-- [ ] Commit, push, deploy, and verify `/readyz`.
+- [x] Run `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q` -> 8 passed.
+- [x] Commit, push, deploy, and verify `/readyz` -> `main@efc8ed3` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; production data probe returned `work_order_entries draft=156`, `mobile_shift_reports draft=3`, `mobile_coil_agg/voided=28`.
+
+### Task 4: Unbound Draft Intake Regression
+
+- [x] Add failing regression coverage for a draft `WorkOrderEntry` without `machine_id` or `shift_id`: it must count in `overall_progress.draft_entry_count/total_entry_count`, while factory and cell output totals stay unchanged.
+- [x] Move aggregate entry counts to the full `entries` list before cell filtering; keep per-cell counts and production tons scoped to bound machine+shift rows.
+- [x] Run `python -m pytest backend/tests/test_realtime_service.py::test_aggregate_live_payload_groups_workshops_machines_and_shifts -q` before the fix -> failed on `draft_entry_count` and `total_entry_count`.
+- [x] Run `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q` -> 8 passed.
+- [x] Run `python -m pytest backend/tests -q` -> 721 passed, 124 deselected, 31 warnings.
+- [x] Run `git diff --check` -> passed with Windows LF/CRLF warnings only.
+- [x] Commit, push, deploy, and verify production API -> `main@2f888bb` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; `/api/v1/aggregation/live?business_date=2026-05-06` returned `formal_entry_count=0`, `draft_entry_count=17`, `total_entry_count=17`.
