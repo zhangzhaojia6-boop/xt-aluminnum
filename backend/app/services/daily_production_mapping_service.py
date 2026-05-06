@@ -16,10 +16,48 @@ class MappingRule:
     equipment_required: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class DailyProductionMappingRow:
+    row_index: int | None
+    business_date: str | None
+    source_unit: str | None
+    workshop_label: str | None
+    project_label: str | None
+    daily_input_tons: float | None
+    month_to_date_input_tons: float | None
+    daily_output_tons: float | None
+    month_to_date_output_tons: float | None
+    daily_scrap_tons: float | None
+    month_to_date_scrap_tons: float | None
+    status: str
+    expected_workshop_code: str | None
+    expected_equipment_code: str | None
+    workshop_id: int | None
+    workshop_code: str | None
+    workshop_name: str | None
+    equipment_id: int | None
+    equipment_code: str | None
+    equipment_name: str | None
+    issues: list[dict[str, Any]]
+
+
+@dataclass(frozen=True, slots=True)
+class DailyProductionMappingPreview:
+    batch_id: int | None
+    batch_no: str | None
+    business_date: str | None
+    source_unit: str | None
+    total_rows: int
+    ready_rows: int
+    needs_equipment_mapping_rows: int
+    unresolved_rows: int
+    rows: list[DailyProductionMappingRow]
+
+
 DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('铸锭', ''): MappingRule(workshop_code='ZD'),
-    ('铸轧', '铸二'): MappingRule(workshop_code='ZR2'),
-    ('铸轧', '铸三'): MappingRule(workshop_code='ZR3'),
+    ('铸轧', '铸二'): MappingRule(workshop_code='ZR2', equipment_code='ZR2'),
+    ('铸轧', '铸三'): MappingRule(workshop_code='ZR3', equipment_code='ZR3'),
     ('热轧', '铣床'): MappingRule(workshop_code='RZ', equipment_code='RZ-XC', equipment_required=True),
     ('热轧', '热轧'): MappingRule(workshop_code='RZ', equipment_code='RZ-ZJ', equipment_required=True),
     ('冷轧', '2050'): MappingRule(workshop_code='LZ2050', equipment_code='LZ2050-1', equipment_required=True),
@@ -61,7 +99,7 @@ def _resolve_row(
     source_unit: str | None,
     workshops: dict[str, Workshop],
     equipment: dict[str, Equipment],
-) -> dict[str, Any]:
+) -> DailyProductionMappingRow:
     workshop_label = row_payload.get('workshop_label')
     project_label = row_payload.get('project_label')
     rule = DAILY_PRODUCTION_MAPPING_RULES.get(
@@ -97,46 +135,51 @@ def _resolve_row(
             }
         )
 
-    return {
-        'row_index': row_payload.get('row_index'),
-        'business_date': source_business_date,
-        'source_unit': source_unit,
-        'workshop_label': workshop_label,
-        'project_label': project_label,
-        'daily_input_tons': row_payload.get('daily_input_tons'),
-        'month_to_date_input_tons': row_payload.get('month_to_date_input_tons'),
-        'daily_output_tons': row_payload.get('daily_output_tons'),
-        'month_to_date_output_tons': row_payload.get('month_to_date_output_tons'),
-        'daily_scrap_tons': row_payload.get('daily_scrap_tons'),
-        'month_to_date_scrap_tons': row_payload.get('month_to_date_scrap_tons'),
-        'status': status,
-        'workshop_id': workshop.id if workshop else None,
-        'workshop_code': workshop.code if workshop else None,
-        'workshop_name': workshop.name if workshop else None,
-        'equipment_id': machine.id if machine else None,
-        'equipment_code': machine.code if machine else None,
-        'equipment_name': machine.name if machine else None,
-        'issues': issues,
-    }
+    return DailyProductionMappingRow(
+        row_index=row_payload.get('row_index'),
+        business_date=source_business_date,
+        source_unit=source_unit,
+        workshop_label=workshop_label,
+        project_label=project_label,
+        daily_input_tons=row_payload.get('daily_input_tons'),
+        month_to_date_input_tons=row_payload.get('month_to_date_input_tons'),
+        daily_output_tons=row_payload.get('daily_output_tons'),
+        month_to_date_output_tons=row_payload.get('month_to_date_output_tons'),
+        daily_scrap_tons=row_payload.get('daily_scrap_tons'),
+        month_to_date_scrap_tons=row_payload.get('month_to_date_scrap_tons'),
+        status=status,
+        expected_workshop_code=rule.workshop_code if rule else None,
+        expected_equipment_code=rule.equipment_code if rule else None,
+        workshop_id=workshop.id if workshop else None,
+        workshop_code=workshop.code if workshop else None,
+        workshop_name=workshop.name if workshop else None,
+        equipment_id=machine.id if machine else None,
+        equipment_code=machine.code if machine else None,
+        equipment_name=machine.name if machine else None,
+        issues=issues,
+    )
 
 
-def build_daily_production_mapping_preview(db: Session, *, batch_id: int | None = None) -> dict[str, Any]:
+def build_daily_production_mapping_preview(
+    db: Session, *, batch_id: int | None = None
+) -> DailyProductionMappingPreview:
     batch = db.get(ImportBatch, batch_id) if batch_id is not None else _latest_daily_production_batch(db)
     if batch is None:
-        return {
-            'batch_id': None,
-            'batch_no': None,
-            'business_date': None,
-            'total_rows': 0,
-            'ready_rows': 0,
-            'needs_equipment_mapping_rows': 0,
-            'unresolved_rows': 0,
-            'rows': [],
-        }
+        return DailyProductionMappingPreview(
+            batch_id=None,
+            batch_no=None,
+            business_date=None,
+            source_unit=None,
+            total_rows=0,
+            ready_rows=0,
+            needs_equipment_mapping_rows=0,
+            unresolved_rows=0,
+            rows=[],
+        )
 
     workshops = _workshops_by_code(db)
     equipment = _equipment_by_code(db)
-    resolved_rows: list[dict[str, Any]] = []
+    resolved_rows: list[DailyProductionMappingRow] = []
     business_date = None
     source_unit = None
 
@@ -156,16 +199,16 @@ def build_daily_production_mapping_preview(db: Session, *, batch_id: int | None 
                     )
                 )
 
-    return {
-        'batch_id': batch.id,
-        'batch_no': batch.batch_no,
-        'business_date': business_date,
-        'source_unit': source_unit,
-        'total_rows': len(resolved_rows),
-        'ready_rows': len([item for item in resolved_rows if item['status'] == 'ready']),
-        'needs_equipment_mapping_rows': len(
-            [item for item in resolved_rows if item['status'] == 'needs_equipment_mapping']
+    return DailyProductionMappingPreview(
+        batch_id=batch.id,
+        batch_no=batch.batch_no,
+        business_date=business_date,
+        source_unit=source_unit,
+        total_rows=len(resolved_rows),
+        ready_rows=len([item for item in resolved_rows if item.status == 'ready']),
+        needs_equipment_mapping_rows=len(
+            [item for item in resolved_rows if item.status == 'needs_equipment_mapping']
         ),
-        'unresolved_rows': len([item for item in resolved_rows if item['status'] == 'unresolved_workshop']),
-        'rows': resolved_rows,
-    }
+        unresolved_rows=len([item for item in resolved_rows if item.status == 'unresolved_workshop']),
+        rows=resolved_rows,
+    )
