@@ -225,9 +225,19 @@ def _deactivate_placeholder_rows(db: Session, model) -> None:
 
 def _deactivate_legacy_rows(db: Session) -> None:
     inactive_workshop_ids: set[int] = set()
+    virtual_qr_workshop_ids = {
+        item
+        for item in db.execute(
+            select(Equipment.workshop_id).where(Equipment.equipment_type.in_(VIRTUAL_QR_EQUIPMENT_TYPES))
+        ).scalars()
+        if item is not None
+    }
 
     workshops = db.execute(select(Workshop)).scalars().all()
     for item in workshops:
+        if item.id in virtual_qr_workshop_ids:
+            item.is_active = True
+            continue
         if item.code not in REAL_WORKSHOP_CODES:
             item.is_active = False
             inactive_workshop_ids.add(item.id)
@@ -239,7 +249,7 @@ def _deactivate_legacy_rows(db: Session) -> None:
 
     equipment_rows = db.execute(select(Equipment)).scalars().all()
     for item in equipment_rows:
-        if item.equipment_type in VIRTUAL_QR_EQUIPMENT_TYPES and item.workshop_id not in inactive_workshop_ids:
+        if item.equipment_type in VIRTUAL_QR_EQUIPMENT_TYPES:
             continue
         if item.code not in REAL_EQUIPMENT_CODES or item.workshop_id in inactive_workshop_ids:
             item.is_active = False
@@ -511,9 +521,11 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
     )
     for equipment in rows:
         workshop = db.get(Workshop, equipment.workshop_id)
-        if workshop is None or not workshop.is_active:
+        if workshop is None:
             equipment.is_active = False
             continue
+        if not workshop.is_active:
+            workshop.is_active = True
 
         qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
         mapping = ROLE_QR_SUFFIX_MAP.get(qr_suffix)
