@@ -24,6 +24,7 @@ class LiveShiftCellOut(BaseModel):
 class LiveMachineSummaryOut(BaseModel):
     machine_id: int
     machine_name: str
+    machine_binding_status: str = 'bound'
     shifts: list[LiveShiftCellOut] = Field(default_factory=list)
     day_total: dict = Field(default_factory=dict)
 

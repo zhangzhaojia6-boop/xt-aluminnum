@@ -213,10 +213,14 @@ def aggregate_live_payload(
             workshop_input += machine_input
             workshop_output += machine_output
             workshop_scrap += machine_scrap
+            machine_binding_status = getattr(machine, 'machine_binding_status', None)
+            if not machine_binding_status:
+                machine_binding_status = 'unbound' if int(machine.id) < 0 else 'bound'
             machine_items.append(
                 {
                     'machine_id': machine.id,
                     'machine_name': machine.name,
+                    'machine_binding_status': machine_binding_status,
                     'shifts': shift_items,
                     'day_total': {
                         'input': round(machine_input, 2),
@@ -411,6 +415,7 @@ def _build_local_shift_runtime_inputs(*, machines, shifts, rows) -> tuple[list, 
                         id=machine_id,
                         workshop_id=workshop_id,
                         name=f'未绑定机列 / {shift_name}',
+                        machine_binding_status='unbound',
                         assigned_shift_ids=[shift_id],
                         sort_order=100000 + shift_sort,
                     )

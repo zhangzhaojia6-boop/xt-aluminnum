@@ -164,7 +164,9 @@ def test_mobile_shift_aggregate_rows_create_unbound_live_machine() -> None:
 
     unbound_machine = payload['workshops'][0]['machines'][1]
     assert payload['factory_total']['output'] == 74_110.0
+    assert payload['workshops'][0]['machines'][0]['machine_binding_status'] == 'bound'
     assert unbound_machine['machine_name'] == '未绑定机列 / 3班'
+    assert unbound_machine['machine_binding_status'] == 'unbound'
     assert unbound_machine['shifts'][1]['submitted_count'] == 1
     assert unbound_machine['shifts'][1]['submission_status'] == 'all_submitted'
     assert unbound_machine['shifts'][1]['total_output'] == 74_110.0
