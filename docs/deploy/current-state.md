@@ -43,6 +43,8 @@ cd /srv/aluminum-bypass
 - 管理端已上线卷级实时填报可见性：`pending + mobile_coil_agg` 作为 `卷级直录` 待确认流入展示，正式已确认日报口径不被普通 `pending` 数据污染。
 - 工厂指挥中心已上线混合来源消费：MES 投影已存在时，`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录，来源标为 `mixed`。
 - 按卷填报链路已改为读取 `equipment.bound_user_id` 机列绑定：绑定账号新增卷记录会写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成 `mobile_coil_agg` 聚合行；本轮未对生产历史未绑定聚合行做回填。
+- 按卷填报提交口径已收紧：`/mobile/coil-entry` 新增记录写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细，draft 历史卷不再进入管理端实时产量。
+- 生产库只读 dry-run 已定位历史 draft-only 聚合候选：2026-05-01 至 2026-05-06 共 28 行 `mobile_coil_agg` 来源卷全为 draft，合计 1153.11 吨有效产量；本轮未 void 或重写生产数据。
 - 普通移动班次报表同步管理端数据时也会读取机列绑定：同车间绑定账号写入 `ShiftProductionData.equipment_id`，已有同机列聚合行时保持未绑定汇总，避免覆盖卷级聚合。
 - 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
@@ -95,6 +97,8 @@ db 容器: PostgreSQL 15
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
 - `python -m pytest backend/tests -q`：709 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：5 passed
+- `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：31 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
