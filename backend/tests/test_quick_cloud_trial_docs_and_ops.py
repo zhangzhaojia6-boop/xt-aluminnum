@@ -472,7 +472,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：696 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
+    assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed' in state
     assert '`python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
     assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
@@ -480,6 +482,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected' in state
     assert '工厂指挥中心已上线混合来源消费' in state
     assert '`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录' in state
+    assert '普通移动班次报表同步管理端数据时也会读取机列绑定' in state
+    assert '`ShiftProductionData.equipment_id`' in state
+    assert '工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`' in state
     assert '外部联通 readiness 已显式提示钉钉人员绑定缺口' in state
     assert '`DINGTALK_NO_BOUND_USERS` warning' in state
     assert 'MES 同步批内重复投影已收口' in state
@@ -487,7 +492,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 18:47 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 19:40 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -539,6 +544,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`' in state
     assert '本轮已部署 `main@fd96768`' in state
     assert '`aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`' in state
+    assert '本轮已部署 `main@1a1139c`' in state
+    assert '`schema_preserves_machine_binding_status=true`' in state
+    assert '`checked_equipment_id=12`、`rollback_mobile_shift_report_equipment_id=12`' in state
+    assert '`mobile_shift_report_binding_ok=true`' in state
     assert '本轮已部署 `main@180d84d`' in state
     assert '`warning_issues=DINGTALK_NO_BOUND_USERS`' in state
     assert '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`' in state
@@ -548,7 +557,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '生产 MES MVC 预检已通过' in state
     assert '`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`' in state
     assert '`login_page.status=reachable`、`token_present=true`、`login.status=success`' in state
-    assert '`mes_coil_snapshots_count=50`' in state
+    assert '`mes_coil_snapshots_count=52`' in state
     assert '`mes_machine_line_snapshots_count=50`' in state
     assert '生产内部 workflow 开关已启用' in state
     assert '`backups/.env.workflow-backup-20260506-170534`' in state
@@ -942,13 +951,17 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '- [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转',
         'MES MVC 联通阻塞已解除',
         '`coil_snapshots fetched=50 upserted=50`',
-        '`mes_coil_snapshots_count=50`',
+        '`mes_coil_snapshots_count=52`',
         '管理端工厂指挥中心已验证混合来源',
         '`overview_source=mixed`',
         '`raw_mobile_coil_agg_output_kg=120460.0`',
         '`overview_total_output=120.46`',
         '`machine_lines_len=56`',
         '`unbound_machine_lines_len=5`',
+        '机列绑定贯通到管理端',
+        '`ShiftProductionData.equipment_id`',
+        '`machine_binding_status`',
+        '`mobile_shift_report_binding_ok=true`',
         '对账服务已验证卷级吨口径',
         '`reconciliation_output_total_tons=120.46`',
         '`production_vs_mes` 与 `energy_vs_production`',

@@ -42,8 +42,9 @@
 - Phase 1 代码闭环：readyz warning 语义、企业微信用户消息路径下线、工厂指挥中心手填回退、后端回归均已有自动化覆盖。
 - Phase 2 代码闭环：规则阈值按车间配置、AI 助手建议到 agent 一键处置、班长一屏均已有后端和前端自动化覆盖。
 - Phase 3 代码闭环：钉钉 H5 登录服务、钉钉通讯录同步入口、扫码带出与锁字段校验均已有后端和前端自动化覆盖。
-- MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=50`。
+- MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=52`。
 - 管理端工厂指挥中心已验证混合来源：生产 `overview_source=mixed`，当天卷级直录原始 `raw_mobile_coil_agg_output_kg=120460.0`，管理口径 `overview_total_output=120.46`，`machine_lines_len=56`，`unbound_machine_lines_len=5`。
+- 机列绑定贯通到管理端：普通移动班次报表会把同车间绑定账号写入 `ShiftProductionData.equipment_id`，工厂指挥 `machine-lines` API 响应模型保留 `machine_binding_status`，生产回滚事务探针 `mobile_shift_report_binding_ok=true`。
 - 对账服务已验证卷级吨口径：生产 `reconciliation_output_total_tons=120.46`，`production_vs_mes` 与 `energy_vs_production` 不再把 `mobile_coil_agg` raw kg 当吨比较。
 - 自动汇总 Agent 已验证卷级吨口径：confirmed `mobile_coil_agg` 行进入自动日报/老板摘要前先折吨，生产代码探针 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
@@ -57,7 +58,9 @@
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：696 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
+- `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过

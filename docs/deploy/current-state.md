@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 17:48:38 +08:00
+更新时间：2026-05-06 19:40:00 +08:00
 
 ## 1. 仓库状态
 
@@ -43,6 +43,8 @@ cd /srv/aluminum-bypass
 - 管理端已上线卷级实时填报可见性：`pending + mobile_coil_agg` 作为 `卷级直录` 待确认流入展示，正式已确认日报口径不被普通 `pending` 数据污染。
 - 工厂指挥中心已上线混合来源消费：MES 投影已存在时，`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录，来源标为 `mixed`。
 - 按卷填报链路已改为读取 `equipment.bound_user_id` 机列绑定：绑定账号新增卷记录会写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成 `mobile_coil_agg` 聚合行；本轮未对生产历史未绑定聚合行做回填。
+- 普通移动班次报表同步管理端数据时也会读取机列绑定：同车间绑定账号写入 `ShiftProductionData.equipment_id`，已有同机列聚合行时保持未绑定汇总，避免覆盖卷级聚合。
+- 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 
@@ -91,7 +93,9 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：696 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
+- `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed
 - `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
@@ -173,7 +177,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 18:47 左右。
+最近一次 ECS 修复验证：2026-05-06 19:40 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -184,9 +188,10 @@ MES_API_KEY=...
 - 本轮已部署 `main@bff456b`：卷级填报 raw kg 已在工厂指挥、实时聚合、日报和能源汇总入口统一折算为吨；生产探针保留 `raw_mobile_coil_agg_output_kg=120460.0`，同时返回 `overview_total_input_tons=149.51`、`overview_total_output_tons=120.46`、`overview_today_output_tons=120.46`、`unbound_output_tons=120.46`、`live_factory_output=120.46`。
 - 本轮已部署 `main@182508f`：对账服务 `production_vs_mes` 与 `energy_vs_production` 的生产侧产量改为按 `mobile_coil_agg` raw kg 折吨后分组；生产只读探针返回 `reconciliation_output_total_tons=120.46`，正产量行为 `JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`。
 - 本轮已部署 `main@fd96768`：自动汇总 Agent 生成日报/老板摘要时不再用 SQL raw sum，confirmed `mobile_coil_agg` 行会先折吨再写入 `total_output_weight`、`total_input_weight` 和车间明细；生产代码探针返回 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
+- 本轮已部署 `main@1a1139c`：普通移动班次报表同步到管理端时保留同车间机列绑定，工厂指挥 `machine-lines` API 响应模型保留 `machine_binding_status`；生产回滚事务探针返回 `schema_preserves_machine_binding_status=true`、`checked_equipment_id=12`、`rollback_mobile_shift_report_equipment_id=12`、`mobile_shift_report_binding_ok=true`。
 - 本轮已部署 `main@180d84d`：外部联通 readiness 新增钉钉人员绑定 warning；生产 `scripts/check_statistics_module_ready.py --json` 返回 `warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`，同时 hard issue 仍为 `LLM_DISABLED,APP_CONNECTION_DISABLED`。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
-- 生产库 MES 投影已落库：`mes_coil_snapshots_count=50`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
+- 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
 - 生产钉钉配置已启用：备份 `backend/.env` 到忽略目录 `backups/.env.dingtalk-backup-20260506-171247` 后仅修改 `DINGTALK_ENABLED=true`；`scripts/dingtalk_cli.py token --json` 返回 `ok=true`、`configured=true`、`token_received=true`、`token_length=32`。当前生产库 `active_users_with_dingtalk_id=0`、`active_employees_with_dingtalk_id=0`，所以还不能宣称工作通知已送达。
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
