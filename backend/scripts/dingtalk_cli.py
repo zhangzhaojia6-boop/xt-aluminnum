@@ -14,6 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.database import get_sessionmaker
+from app.models.system import User
 from app.services import dingtalk_service
 
 
@@ -99,6 +100,97 @@ def check_access_token(service: Any = dingtalk_service.service) -> dict[str, Any
     }
 
 
+def _normalize_contact(raw: dict) -> dict[str, str | None]:
+    def clean(value: Any) -> str | None:
+        text = str(value or '').strip()
+        return text or None
+
+    return {
+        'dingtalk_user_id': clean(raw.get('userid') or raw.get('userId') or raw.get('user_id')),
+        'dingtalk_union_id': clean(raw.get('unionid') or raw.get('unionId') or raw.get('union_id')),
+        'mobile': clean(raw.get('mobile') or raw.get('phone') or raw.get('telephone')),
+    }
+
+
+def _missing_scope_from_error(exc: Exception) -> str | None:
+    text = str(exc)
+    if 'qyapi_get_department_member' in text:
+        return 'qyapi_get_department_member'
+    return None
+
+
+def check_department_contacts(
+    *,
+    department_id: int = 1,
+    service: Any = dingtalk_service.service,
+    sessionmaker_factory: Callable[[], Any] | None = None,
+) -> dict[str, Any]:
+    status = build_status_payload(service)
+    if not status['configured']:
+        return {
+            'ok': False,
+            'configured': False,
+            'department_id': department_id,
+            'department_access': False,
+            'dry_run_only': True,
+            'missing': status['missing'],
+            'message': 'DingTalk is not configured',
+        }
+
+    try:
+        contacts = service.fetch_department_users(department_id)
+    except Exception as exc:  # noqa: BLE001
+        missing_scope = _missing_scope_from_error(exc)
+        return {
+            'ok': False,
+            'configured': True,
+            'department_id': department_id,
+            'department_access': False,
+            'dry_run_only': True,
+            'missing_scope': missing_scope,
+            'message': f'DingTalk missing scope: {missing_scope}' if missing_scope else f'{exc.__class__.__name__}: contact fetch failed',
+        }
+
+    normalized = [_normalize_contact(item) for item in contacts if isinstance(item, dict)]
+    payload: dict[str, Any] = {
+        'ok': True,
+        'configured': True,
+        'department_id': department_id,
+        'department_access': True,
+        'dry_run_only': True,
+        'contact_count': len(normalized),
+        'contacts_with_mobile': sum(1 for item in normalized if item.get('mobile')),
+        'contacts_with_user_id': sum(1 for item in normalized if item.get('dingtalk_user_id')),
+    }
+
+    make_session = sessionmaker_factory or get_sessionmaker
+    sessionmaker = make_session()
+    db = sessionmaker()
+    try:
+        active_users = db.query(User).filter(User.is_active.is_(True)).all()
+        usernames = {str(user.username or '').strip() for user in active_users if str(user.username or '').strip()}
+        bound_user_ids = {str(user.dingtalk_user_id or '').strip() for user in active_users if str(user.dingtalk_user_id or '').strip()}
+        bound_union_ids = {str(user.dingtalk_union_id or '').strip() for user in active_users if str(user.dingtalk_union_id or '').strip()}
+        payload.update(
+            {
+                'active_user_count': len(active_users),
+                'active_user_with_dingtalk_binding_count': len(bound_user_ids | bound_union_ids),
+                'would_match_existing_by_mobile_count': sum(1 for item in normalized if item.get('mobile') in usernames),
+                'already_bound_contact_count': sum(
+                    1
+                    for item in normalized
+                    if item.get('dingtalk_user_id') in bound_user_ids or item.get('dingtalk_union_id') in bound_union_ids
+                ),
+            }
+        )
+    finally:
+        close = getattr(db, 'close', None)
+        if callable(close):
+            close()
+
+    return payload
+
+
 def sync_clock_payload(
     *,
     start_date: str,
@@ -159,6 +251,19 @@ def _print_payload(payload: dict[str, Any], *, json_mode: bool, command: str) ->
             print(f"message={payload.get('message', 'unknown')}")
         return
 
+    if command == 'contacts':
+        print(f"department_contacts={'ok' if payload['ok'] else 'failed'}")
+        print(f"department_id={payload.get('department_id')}")
+        print(f"dry_run_only={str(payload.get('dry_run_only')).lower()}")
+        if payload.get('missing_scope'):
+            print(f"missing_scope={payload['missing_scope']}")
+        if payload.get('ok'):
+            print(f"contact_count={payload.get('contact_count', 0)}")
+            print(f"would_match_existing_by_mobile_count={payload.get('would_match_existing_by_mobile_count', 0)}")
+        else:
+            print(f"message={payload.get('message', 'unknown')}")
+        return
+
     if command == 'sync-clock':
         summary = payload.get('summary') or {}
         print(f"clock_sync={'ok' if payload['ok'] else 'failed'}")
@@ -187,6 +292,10 @@ def _build_parser() -> argparse.ArgumentParser:
     token_parser = subparsers.add_parser('token')
     token_parser.add_argument('--json', action='store_true', help='Output JSON only')
 
+    contacts_parser = subparsers.add_parser('contacts')
+    contacts_parser.add_argument('--department-id', type=int, default=1, help='DingTalk department id')
+    contacts_parser.add_argument('--json', action='store_true', help='Output JSON only')
+
     today = date.today().isoformat()
     sync_parser = subparsers.add_parser('sync-clock')
     sync_parser.add_argument('--start-date', default=today, help='Start date, YYYY-MM-DD')
@@ -210,6 +319,12 @@ def main(
         payload = build_status_payload(service)
     elif args.command == 'token':
         payload = check_access_token(service)
+    elif args.command == 'contacts':
+        payload = check_department_contacts(
+            department_id=args.department_id,
+            service=service,
+            sessionmaker_factory=sessionmaker_factory,
+        )
     elif args.command == 'sync-clock':
         payload = sync_clock_payload(
             start_date=args.start_date,
