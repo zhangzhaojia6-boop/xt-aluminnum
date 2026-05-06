@@ -132,6 +132,50 @@ export function buildUnboundFillSummary(workshops = [], limit = 3) {
   }
 }
 
+export function buildMachineOwnershipSummary(workshops = []) {
+  const summary = {
+    totalOutput: 0,
+    boundOutput: 0,
+    unboundOutput: 0,
+    boundMachineCount: 0,
+    unboundMachineCount: 0,
+  }
+
+  workshops.forEach((workshop) => {
+    const machines = workshop.machines || []
+    machines.forEach((machine) => {
+      const output = numberValue(machine.day_total?.output ?? machine.dayTotal?.output)
+      if (output <= 0) return
+
+      summary.totalOutput += output
+      if (isUnboundMachine(machine)) {
+        summary.unboundOutput += output
+        summary.unboundMachineCount += 1
+      } else {
+        summary.boundOutput += output
+        summary.boundMachineCount += 1
+      }
+    })
+  })
+
+  const totalOutput = Number(summary.totalOutput.toFixed(2))
+  const boundOutput = Number(summary.boundOutput.toFixed(2))
+  const unboundOutput = Number(summary.unboundOutput.toFixed(2))
+  const machineCount = summary.boundMachineCount + summary.unboundMachineCount
+
+  return {
+    totalOutput,
+    boundOutput,
+    unboundOutput,
+    boundMachineCount: summary.boundMachineCount,
+    unboundMachineCount: summary.unboundMachineCount,
+    machineCount,
+    ownershipRate: totalOutput > 0 ? Number(((boundOutput / totalOutput) * 100).toFixed(2)) : 0,
+    unboundRate: totalOutput > 0 ? Number(((unboundOutput / totalOutput) * 100).toFixed(2)) : 0,
+    needsBinding: unboundOutput > 0,
+  }
+}
+
 export function buildShiftOutputRhythm(workshops = []) {
   const shiftsByName = new Map()
 

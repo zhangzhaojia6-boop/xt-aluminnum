@@ -94,6 +94,37 @@
       </RouterLink>
     </section>
 
+    <section
+      class="live-machine-ownership"
+      :class="{ 'is-warning': machineOwnershipSummary.needsBinding }"
+      aria-label="机列归属率"
+    >
+      <div class="live-machine-ownership__head">
+        <strong>机列归属率</strong>
+        <span>{{ machineOwnershipSummary.boundMachineCount }} 已归属 · {{ machineOwnershipSummary.unboundMachineCount }} 待归属</span>
+      </div>
+      <div class="live-machine-ownership__body">
+        <div class="live-machine-ownership__meter" aria-hidden="true">
+          <i class="is-bound" :style="{ width: `${machineOwnershipSummary.ownershipRate}%` }"></i>
+          <i class="is-unbound" :style="{ width: `${machineOwnershipSummary.unboundRate}%` }"></i>
+        </div>
+        <div class="live-machine-ownership__stats">
+          <span>
+            <strong>{{ formatPercent(machineOwnershipSummary.ownershipRate) }}</strong>
+            <em>已归属</em>
+          </span>
+          <span>
+            <strong>{{ formatWeight(machineOwnershipSummary.unboundOutput) }}</strong>
+            <em>吨待归属</em>
+          </span>
+          <span>
+            <strong>{{ machineOwnershipSummary.machineCount }}</strong>
+            <em>产出机列</em>
+          </span>
+        </div>
+      </div>
+    </section>
+
     <section class="live-output-distribution" aria-label="卷级直录分布">
       <div class="live-output-distribution__head">
         <strong>卷级直录分布</strong>
@@ -403,6 +434,7 @@ import {
   submissionSymbol, formatAttendance, formatEntryStatus, formatEntryType
 } from '../../utils/liveDashboardFormatters'
 import {
+  buildMachineOwnershipSummary,
   buildOutputDistribution,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
@@ -534,6 +566,7 @@ const outputDistributionSummary = computed(() => {
   return `${outputDistributionRows.value.length} 个机列 · ${formatWeight(total)} 吨`
 })
 const unboundFillSummary = computed(() => buildUnboundFillSummary(sortedWorkshops.value, 3))
+const machineOwnershipSummary = computed(() => buildMachineOwnershipSummary(sortedWorkshops.value))
 const unboundAccountRoute = computed(() => {
   const query = { machine_binding: 'unbound' }
   if (route.query.desktop === '1') query.desktop = '1'
@@ -1298,6 +1331,119 @@ onBeforeUnmount(() => {
   transform: scale(0.98);
 }
 
+.live-machine-ownership {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.58fr) 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(39, 88, 146, 0.15);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(230, 244, 255, 0.78), rgba(255, 255, 255, 0.96)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.live-machine-ownership.is-warning {
+  border-color: rgba(183, 121, 31, 0.24);
+}
+
+.live-machine-ownership__head {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.live-machine-ownership__head strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.live-machine-ownership__head span {
+  overflow: hidden;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-machine-ownership__body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-machine-ownership__meter {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(39, 88, 146, 0.1);
+}
+
+.live-machine-ownership__meter i {
+  display: block;
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  transition: width 260ms ease;
+}
+
+.live-machine-ownership__meter .is-bound {
+  background: linear-gradient(90deg, var(--command-green), var(--command-cyan));
+}
+
+.live-machine-ownership__meter .is-unbound {
+  background: linear-gradient(90deg, var(--command-amber), var(--command-red));
+}
+
+.live-machine-ownership__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.live-machine-ownership__stats span {
+  min-width: 0;
+  min-height: 50px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.live-machine-ownership__stats strong {
+  overflow: hidden;
+  color: var(--command-blue-deep);
+  font-family: var(--xt-font-number);
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-machine-ownership__stats em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-machine-ownership.is-warning .live-machine-ownership__stats span:nth-child(2) strong {
+  color: var(--command-amber);
+}
+
 .live-output-distribution {
   display: grid;
   gap: 12px;
@@ -2047,6 +2193,10 @@ onBeforeUnmount(() => {
     align-items: stretch;
   }
 
+  .live-machine-ownership {
+    grid-template-columns: 1fr;
+  }
+
   .management-flow__nodes {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2109,6 +2259,10 @@ onBeforeUnmount(() => {
     gap: 4px;
   }
 
+  .live-machine-ownership__head span {
+    white-space: normal;
+  }
+
   .live-shift-rhythm__head {
     align-items: flex-start;
     flex-direction: column;
@@ -2160,6 +2314,10 @@ onBeforeUnmount(() => {
   .management-flow__nodes,
   .live-output-distribution__rows,
   .command-status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .live-machine-ownership__stats {
     grid-template-columns: 1fr;
   }
 }

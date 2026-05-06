@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
+  buildMachineOwnershipSummary,
   buildOutputDistribution,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
@@ -215,6 +216,54 @@ test('buildUnboundFillSummary totals direct entries that still need machine owne
   assert.equal(summary.rows[0].output, 74110)
 })
 
+test('buildMachineOwnershipSummary separates bound output from unbound fill output', () => {
+  const summary = buildMachineOwnershipSummary([
+    {
+      workshop_name: '2050冷轧车间',
+      machines: [
+        {
+          machine_id: 5021,
+          machine_name: '1#轧机',
+          machine_binding_status: 'bound',
+          day_total: { output: 50000, input: 53000 },
+        },
+        {
+          machine_id: -5003,
+          machine_name: '未绑定机列 / 夜班',
+          day_total: { output: 74110, input: 78100 },
+        },
+      ],
+    },
+    {
+      workshop_name: '精整车间',
+      machines: [
+        {
+          machine_id: -8003,
+          machine_name: '未绑定机列 / 夜班',
+          machineBindingStatus: 'unbound',
+          day_total: { output: 46350, input: 48700 },
+        },
+        {
+          machine_id: 8008,
+          machine_name: '无产出机列',
+          machine_binding_status: 'bound',
+          day_total: { output: 0, input: 1200 },
+        },
+      ],
+    },
+  ])
+
+  assert.equal(summary.totalOutput, 170460)
+  assert.equal(summary.boundOutput, 50000)
+  assert.equal(summary.unboundOutput, 120460)
+  assert.equal(summary.machineCount, 3)
+  assert.equal(summary.boundMachineCount, 1)
+  assert.equal(summary.unboundMachineCount, 2)
+  assert.equal(summary.ownershipRate, 29.33)
+  assert.equal(summary.unboundRate, 70.67)
+  assert.equal(summary.needsBinding, true)
+})
+
 test('status helpers map submission and attendance states to readable tones', () => {
   assert.equal(statusToneForCell({ submission_status: 'all_submitted', is_applicable: true }), 'success')
   assert.equal(statusTextForCell({ submission_status: 'all_submitted', is_applicable: true }), '已填')
@@ -325,6 +374,10 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /绑定账号/)
   assert.match(liveDashboardSource, /unboundAccountRoute/)
   assert.match(liveDashboardSource, /machine_binding: 'unbound'/)
+  assert.match(liveDashboardSource, /机列归属率/)
+  assert.match(liveDashboardSource, /machineOwnershipSummary/)
+  assert.match(liveDashboardSource, /live-machine-ownership/)
+  assert.match(liveDashboardSource, /buildMachineOwnershipSummary/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)
