@@ -164,7 +164,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 14:47 左右。
+最近一次 ECS 修复验证：2026-05-06 14:50 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -200,6 +200,7 @@ MES_API_KEY=...
 - 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120460.0`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9100.0`、`2050冷轧车间|未绑定机列 / 夜班=74110.0`、`精整车间|未绑定机列 / 夜班=37250.0`。
 - 管理端班次节奏探针基于同一实时聚合返回 `夜班=111360.0/2个机列`、`白班=9100.0/1个机列`。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
+- 2026-05-06 14:50 左右刷新 MES 前置核对：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；生产运行配置中 `MES_ADAPTER` 当前等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空。当前阻塞是生产 MES 运行配置缺失，不是公网链路不可达。
 - 线上部署代码的 `/api/v1/dashboard/external-readiness` 管理端探针返回 `status_code=200`、`hard_gate_passed=False`、`module_usable=False`、`external_connection_enabled=False`，`hard_issue_codes=MES_UNCONFIGURED,WORKFLOW_DISABLED,LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`。
 - `/readyz` 关键状态：
   - `environment=production`
