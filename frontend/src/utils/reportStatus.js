@@ -39,6 +39,7 @@ export function reportStatusHint(status) {
 
 export function reportingSourceClass(item) {
   const normalized = String(item?.source_variant || '').toLowerCase()
+  if (normalized === 'coil') return 'is-coil'
   if (normalized === 'owner') return 'is-owner'
   if (normalized === 'mobile') return 'is-mobile'
   return 'is-import'

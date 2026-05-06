@@ -789,6 +789,9 @@ def test_factory_dashboard_highlights_two_agent_squads_and_direct_pipeline() -> 
     assert "今日产量" in source
     assert "缺报班次" in source
     assert "异常与退回" in source
+    assert "review-factory-live-chart" in source
+    assert "chartPolyline('output_weight')" in source
+    assert "dailySnapshots" in source
     assert "流程状态" not in source
 
 

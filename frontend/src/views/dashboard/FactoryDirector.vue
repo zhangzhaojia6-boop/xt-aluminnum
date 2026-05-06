@@ -85,6 +85,82 @@
       :shortcut-seed="assistantShortcutSeed"
     />
 
+    <section
+      class="review-factory-live-chart panel review-factory-reveal review-factory-reveal--3"
+      data-testid="review-factory-live-chart"
+    >
+      <div class="review-factory-live-chart__header">
+        <div class="review-factory-live-chart__title">
+          <span>七日走势</span>
+          <strong>{{ liveChartHeadline }}</strong>
+        </div>
+        <div class="review-factory-live-chart__legend">
+          <span v-for="item in liveChartLegend" :key="item.key" :class="['chart-legend-item', `is-${item.key}`]">
+            <i />
+            {{ item.label }}
+          </span>
+        </div>
+      </div>
+
+      <div class="review-factory-live-chart__body">
+        <svg
+          class="live-chart-svg"
+          :viewBox="`0 0 ${chartBox.width} ${chartBox.height}`"
+          role="img"
+          aria-label="近七日产量、入库、发货走势"
+        >
+          <defs>
+            <linearGradient id="factory-output-area" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity="0.2" />
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g class="live-chart-grid">
+            <line
+              v-for="line in chartGridLines"
+              :key="line"
+              :x1="chartBox.padX"
+              :x2="chartBox.padX + chartBox.innerWidth"
+              :y1="chartYForRatio(line)"
+              :y2="chartYForRatio(line)"
+            />
+          </g>
+          <polygon
+            v-if="chartPolyline('output_weight')"
+            class="chart-area is-output_weight"
+            :points="chartAreaPoints('output_weight')"
+          />
+          <polyline class="chart-line is-output_weight" :points="chartPolyline('output_weight')" />
+          <polyline class="chart-line is-storage_finished_weight" :points="chartPolyline('storage_finished_weight')" />
+          <polyline class="chart-line is-shipment_weight" :points="chartPolyline('shipment_weight')" />
+          <g v-for="point in chartSeriesPoints('output_weight')" :key="`output-${point.key}`" class="chart-point is-output_weight">
+            <circle :cx="point.x" :cy="point.y" r="4" />
+          </g>
+          <g v-for="point in chartSeriesPoints('storage_finished_weight')" :key="`storage-${point.key}`" class="chart-point is-storage_finished_weight">
+            <circle :cx="point.x" :cy="point.y" r="3.4" />
+          </g>
+          <g v-for="point in chartSeriesPoints('shipment_weight')" :key="`shipment-${point.key}`" class="chart-point is-shipment_weight">
+            <circle :cx="point.x" :cy="point.y" r="3.4" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="review-factory-live-chart__footer">
+        <div>
+          <span>最新产量</span>
+          <strong>{{ formatNumber(latestSnapshot.output_weight) }} 吨</strong>
+        </div>
+        <div>
+          <span>最新入库</span>
+          <strong>{{ formatNumber(latestSnapshot.storage_finished_weight) }} 吨</strong>
+        </div>
+        <div>
+          <span>最新发货</span>
+          <strong>{{ formatNumber(latestSnapshot.shipment_weight) }} 吨</strong>
+        </div>
+      </div>
+    </section>
+
     <section class="review-factory-detail-toggle review-factory-reveal review-factory-reveal--3">
       <button type="button" class="review-factory-detail-toggle__btn" @click="detailExpanded = !detailExpanded">
         {{ detailExpanded ? '收起运行详情' : '展开运行详情' }}
@@ -400,6 +476,34 @@ const runtimeSourceIndex = computed(() => {
   return index
 })
 const maxTrendOutput = computed(() => Math.max(...dailySnapshots.value.map((item) => Number(item.output_weight) || 0), 1))
+const chartBox = {
+  width: 720,
+  height: 210,
+  padX: 36,
+  padTop: 22,
+  padBottom: 30,
+  innerWidth: 648,
+  innerHeight: 158
+}
+const chartGridLines = [0, 0.25, 0.5, 0.75, 1]
+const liveChartLegend = [
+  { key: 'output_weight', label: '产量' },
+  { key: 'storage_finished_weight', label: '入库' },
+  { key: 'shipment_weight', label: '发货' }
+]
+const latestSnapshot = computed(() => dailySnapshots.value[dailySnapshots.value.length - 1] || {})
+const liveChartMax = computed(() => {
+  const values = dailySnapshots.value.flatMap((item) => [
+    Number(item.output_weight) || 0,
+    Number(item.storage_finished_weight) || 0,
+    Number(item.shipment_weight) || 0
+  ])
+  return Math.max(...values, 1)
+})
+const liveChartHeadline = computed(() => {
+  const value = latestSnapshot.value.output_weight
+  return value == null ? '产量 - 吨' : `产量 ${formatNumber(value)} 吨`
+})
 const exceptionCounts = computed(() => {
   const lane = data.value.exception_lane || {}
   return {
@@ -429,6 +533,41 @@ function sourceTagText(lane) {
 
 function sourceTagClass(lane) {
   return lane?.status ? `is-${lane.status}` : ''
+}
+
+function chartYForRatio(ratio) {
+  return Math.round(chartBox.padTop + chartBox.innerHeight * ratio)
+}
+
+function chartPoint(item, index, key) {
+  const count = Math.max(dailySnapshots.value.length - 1, 1)
+  const value = Number(item?.[key]) || 0
+  const x = chartBox.padX + (index / count) * chartBox.innerWidth
+  const y = chartBox.padTop + chartBox.innerHeight - (value / liveChartMax.value) * chartBox.innerHeight
+  return {
+    key: item?.date || `${key}-${index}`,
+    x: Math.round(x * 10) / 10,
+    y: Math.round(y * 10) / 10
+  }
+}
+
+function chartSeriesPoints(key) {
+  return dailySnapshots.value.map((item, index) => chartPoint(item, index, key))
+}
+
+function chartPolyline(key) {
+  return chartSeriesPoints(key).map((point) => `${point.x},${point.y}`).join(' ')
+}
+
+function chartAreaPoints(key) {
+  const points = chartSeriesPoints(key)
+  if (!points.length) return ''
+  const baseline = chartBox.padTop + chartBox.innerHeight
+  return [
+    `${chartBox.padX},${baseline}`,
+    ...points.map((point) => `${point.x},${point.y}`),
+    `${chartBox.padX + chartBox.innerWidth},${baseline}`
+  ].join(' ')
 }
 </script>
 
@@ -628,6 +767,173 @@ function sourceTagClass(lane) {
 .review-factory .stat-grid {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--xt-space-3);
+}
+
+.review-factory-live-chart {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: var(--xt-radius-lg);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.92), rgb(248 250 252 / 0.96)),
+    var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.review-factory-live-chart__header,
+.review-factory-live-chart__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-factory-live-chart__title {
+  display: grid;
+  gap: 4px;
+}
+
+.review-factory-live-chart__title span,
+.review-factory-live-chart__footer span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--xt-text-muted);
+}
+
+.review-factory-live-chart__title strong {
+  font-family: var(--xt-font-number);
+  font-size: 24px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--xt-text);
+}
+
+.review-factory-live-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel-soft);
+  color: var(--xt-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-legend-item i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chart-legend-item.is-output_weight {
+  color: var(--xt-primary);
+}
+
+.chart-legend-item.is-storage_finished_weight {
+  color: var(--xt-success);
+}
+
+.chart-legend-item.is-shipment_weight {
+  color: var(--xt-warning);
+}
+
+.review-factory-live-chart__body {
+  overflow: hidden;
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background:
+    linear-gradient(90deg, rgb(15 23 42 / 0.02) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(15 23 42 / 0.03), rgb(255 255 255 / 0.72));
+  background-size: 44px 100%, 100% 100%;
+}
+
+.live-chart-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 24 / 7;
+  min-height: 190px;
+}
+
+.live-chart-grid line {
+  stroke: var(--xt-border-light);
+  stroke-width: 1;
+}
+
+.chart-area {
+  color: var(--xt-primary);
+  fill: url("#factory-output-area");
+}
+
+.chart-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.6;
+}
+
+.chart-line.is-output_weight {
+  stroke: var(--xt-primary);
+}
+
+.chart-line.is-storage_finished_weight {
+  stroke: var(--xt-success);
+}
+
+.chart-line.is-shipment_weight {
+  stroke: var(--xt-warning);
+}
+
+.chart-point circle {
+  fill: var(--xt-bg-panel);
+  stroke-width: 3;
+}
+
+.chart-point.is-output_weight circle {
+  stroke: var(--xt-primary);
+}
+
+.chart-point.is-storage_finished_weight circle {
+  stroke: var(--xt-success);
+}
+
+.chart-point.is-shipment_weight circle {
+  stroke: var(--xt-warning);
+}
+
+.review-factory-live-chart__footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.review-factory-live-chart__footer > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--xt-radius-lg);
+  border: 1px solid var(--xt-border-light);
+  background: var(--xt-bg-panel-soft);
+}
+
+.review-factory-live-chart__footer strong {
+  font-family: var(--xt-font-number);
+  font-size: 16px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--xt-text);
 }
 
 .review-factory-detail-toggle {
@@ -865,6 +1171,19 @@ function sourceTagClass(lane) {
   .review-home-hero__secondary-metrics {
     flex-direction: column;
     gap: var(--xt-space-2);
+  }
+
+  .review-factory-live-chart__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .review-factory-live-chart__legend {
+    justify-content: flex-start;
+  }
+
+  .review-factory-live-chart__footer {
+    grid-template-columns: 1fr;
   }
 
   .review-home-hero__toolbar,

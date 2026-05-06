@@ -377,6 +377,13 @@ def _workshop_reporting_meta(report_status: str) -> dict[str, str]:
         'status_hint': hint_map.get(report_status, '系统正在同步当前班次状态'),
     }
 
+def _coil_reporting_meta() -> dict[str, str]:
+    return {
+        'source_label': '卷级直录',
+        'source_variant': 'coil',
+        'status_hint': '现场卷级数据已进入待确认汇总',
+    }
+
 def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dict]:
     workshops = (
         db.query(Workshop)
@@ -410,13 +417,30 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
         reports_by_workshop.setdefault(int(row.workshop_id), []).append(row)
         report_key_status[(int(row.workshop_id), row.team_id, int(row.shift_config_id))] = _mobile_report_decision_status(row)
 
+    coil_rows = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.business_date == target_date,
+            ShiftProductionData.data_status == 'pending',
+            ShiftProductionData.data_source == 'mobile_coil_agg',
+        )
+        .all()
+    )
+    coil_output_by_workshop: dict[int, float] = {}
+    for row in coil_rows:
+        wid = int(row.workshop_id)
+        coil_output_by_workshop[wid] = coil_output_by_workshop.get(wid, 0.0) + _to_float(row.output_weight)
+
     merged: list[dict] = []
     for workshop in workshops:
         wid = int(workshop.id)
         workshop_reports = reports_by_workshop.get(wid, [])
+        coil_output = coil_output_by_workshop.get(wid)
         expected_keys = expected_by_workshop.get(wid, set())
         statuses = [_mobile_report_decision_status(row) for row in workshop_reports]
-        if expected_keys:
+        if not statuses and coil_output is not None:
+            statuses.append('draft')
+        elif expected_keys:
             for key in expected_keys:
                 if (wid, key[0], key[1]) not in report_key_status:
                     statuses.append('unreported')
@@ -424,6 +448,10 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
             statuses.append('unreported')
         report_status = min(statuses, key=lambda item: _REPORT_STATUS_PRIORITY.get(item, 99))
         output_weight = round(sum(_to_float(row.output_weight) for row in workshop_reports), 2) if workshop_reports else None
+        source_meta = _workshop_reporting_meta(report_status)
+        if not workshop_reports and coil_output is not None:
+            output_weight = round(coil_output, 2)
+            source_meta = _coil_reporting_meta()
         merged.append(
             {
                 'workshop_id': wid,
@@ -431,7 +459,7 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
                 'workshop_code': workshop.code,
                 'report_status': report_status,
                 'output_weight': output_weight,
-                **_workshop_reporting_meta(report_status),
+                **source_meta,
             }
         )
 

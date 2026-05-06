@@ -7,8 +7,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.attendance import AttendanceSchedule
-from app.models.master import Employee, Team, Workshop
-from app.models.production import MobileShiftReport
+from app.models.master import Employee, Equipment, Team, Workshop
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.report_service import _build_workshop_reporting_status
@@ -25,7 +25,9 @@ def build_session(tmp_path):
             ShiftConfig.__table__,
             AttendanceSchedule.__table__,
             User.__table__,
+            Equipment.__table__,
             MobileShiftReport.__table__,
+            ShiftProductionData.__table__,
         ],
     )
     return sessionmaker(bind=engine, future=True)()
@@ -67,5 +69,46 @@ def test_build_workshop_reporting_status_marks_workshop_unreported_when_expected
 
         assert items[0]['workshop_code'] == 'ZR2'
         assert items[0]['report_status'] == 'unreported'
+    finally:
+        db.close()
+
+
+def test_build_workshop_reporting_status_surfaces_live_coil_aggregate(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ', name='冷轧车间', workshop_type='rolling', sort_order=1, is_active=True)
+        shift = ShiftConfig(id=1, code='A', name='白班', shift_type='day', start_time=time(8, 0), end_time=time(16, 0), is_cross_day=False, sort_order=1, is_active=True)
+        equipment = Equipment(id=101, code='CRM-01', name='1#轧机', workshop_id=1, is_active=True)
+        db.add_all([workshop, shift, equipment])
+        db.flush()
+        db.add(
+            ShiftProductionData(
+                id=1,
+                business_date=date(2026, 5, 6),
+                shift_config_id=1,
+                workshop_id=1,
+                team_id=None,
+                equipment_id=101,
+                output_weight=42.5,
+                data_source='mobile_coil_agg',
+                data_status='pending',
+            )
+        )
+        db.commit()
+
+        items = _build_workshop_reporting_status(db, date(2026, 5, 6))
+
+        assert items == [
+            {
+                'workshop_id': 1,
+                'workshop_name': '冷轧车间',
+                'workshop_code': 'LZ',
+                'report_status': 'draft',
+                'output_weight': 42.5,
+                'source_label': '卷级直录',
+                'source_variant': 'coil',
+                'status_hint': '现场卷级数据已进入待确认汇总',
+            }
+        ]
     finally:
         db.close()

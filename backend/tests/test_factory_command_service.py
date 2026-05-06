@@ -182,6 +182,44 @@ def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(m
     ]
 
 
+def test_factory_overview_includes_pending_mobile_coil_aggregates(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
+        shift_rows=[
+            _shift_data(input_weight=12.0, output_weight=10.0, qualified_weight=9.8),
+            _shift_data(id=2, input_weight=99.0, output_weight=88.0, data_status='pending', data_source='import'),
+            _shift_data(
+                id=3,
+                input_weight=4.0,
+                output_weight=3.5,
+                qualified_weight=3.5,
+                data_status='pending',
+                data_source='mobile_coil_agg',
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'unconfigured',
+            'configured': False,
+            'migration_ready': True,
+            'source': 'local_entry',
+            'lag_seconds': None,
+            'action_required': 'configure_mes',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'local_shift_data'
+    assert overview['total_input_tons'] == 16.0
+    assert overview['total_output_tons'] == 13.5
+    assert overview['workshop_summary'][0]['row_count'] == 2
+
+
 def test_factory_overview_falls_back_to_local_shift_data_when_fresh_projection_is_empty(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],

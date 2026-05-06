@@ -17,6 +17,7 @@ from app.services.mes_sync_service import latest_sync_status
 DEFAULT_COIL_LIST_LIMIT = 100
 MAX_COIL_LIST_LIMIT = 500
 LOCAL_SHIFT_STATUSES = {'confirmed', 'submitted'}
+LOCAL_PENDING_SHIFT_SOURCES = {'mobile_coil_agg'}
 LOCAL_MOBILE_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 
 
@@ -193,7 +194,13 @@ def _local_shift_rows(db: Session, *, target_date: date, scope: ScopeSummary | N
         if _is_sqlalchemy_query(query):
             query = query.filter(
                 ShiftProductionData.business_date == target_date,
-                ShiftProductionData.data_status.in_(LOCAL_SHIFT_STATUSES),
+                or_(
+                    ShiftProductionData.data_status.in_(LOCAL_SHIFT_STATUSES),
+                    and_(
+                        ShiftProductionData.data_status == 'pending',
+                        ShiftProductionData.data_source.in_(LOCAL_PENDING_SHIFT_SOURCES),
+                    ),
+                ),
             )
             if workshop_ids is not None:
                 query = query.filter(ShiftProductionData.workshop_id.in_(workshop_ids))
@@ -205,7 +212,13 @@ def _local_shift_rows(db: Session, *, target_date: date, scope: ScopeSummary | N
         row
         for row in rows
         if getattr(row, 'business_date', None) == target_date
-        and getattr(row, 'data_status', None) in LOCAL_SHIFT_STATUSES
+        and (
+            getattr(row, 'data_status', None) in LOCAL_SHIFT_STATUSES
+            or (
+                getattr(row, 'data_status', None) == 'pending'
+                and getattr(row, 'data_source', None) in LOCAL_PENDING_SHIFT_SOURCES
+            )
+        )
         and _matches_workshop_id(getattr(row, 'workshop_id', None), workshop_ids)
     ]
 
