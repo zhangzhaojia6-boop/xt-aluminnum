@@ -477,7 +477,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：111 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 12:09 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 12:26 左右。' in state
+    assert '管理端外部 MES 状态条显示运行配置缺口' in state
+    assert '`LiveDashboard-BNcHeouG.js` 已包含 `required_env`、`缺少配置` 和 `MES_MVC_BASE_URL`' in state
     assert '管理端车间机列页支持把未绑定 `mobile_coil_agg` 实时填报按车间/班次归入“未绑定机列”' in state
     assert '`MachineLineScreen-DL7qgGJc.js` / `MachineLineScreen-FDnJ2hSk.css` 已包含 `未绑定机列`、`machine_binding_status` 和 `fc-line__bar`' in state
     assert '管理端用户管理页支持绑定机列' in state
@@ -495,6 +497,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`environment=production`' in state
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=unconfigured`' in state
+    assert '`required_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`' in state
     assert '`active_mobile_user_count=329`' in state
     assert '`active_workshop_count=12`' in state
     assert '`active_equipment_count=136`' in state

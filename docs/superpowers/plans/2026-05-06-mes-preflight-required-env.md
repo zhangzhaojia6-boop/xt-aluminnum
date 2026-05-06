@@ -16,7 +16,7 @@
 - [x] 后端实现：在同步状态 payload、schema、router 中透出安全字段 `required_env`。
 - [x] 前端 TDD：增加管理端实时态势测试，覆盖 `required_env` / 缺少配置展示。
 - [x] 前端实现：在外部 MES 状态条展示缺失配置字段。
-- [ ] 验证并提交部署：跑聚焦测试、前端测试、构建、diff check，提交、推送、部署并验证线上产物。
+- [x] 验证并提交部署：跑聚焦测试、前端测试、构建、diff check，提交、推送、部署并验证线上产物。
 
 ## Verification
 
