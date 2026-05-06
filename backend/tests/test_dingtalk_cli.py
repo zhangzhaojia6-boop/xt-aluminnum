@@ -161,6 +161,40 @@ def test_contacts_check_reports_sanitized_counts_and_local_matches(tmp_path) -> 
     assert 'contacts' not in payload
 
 
+def test_contacts_check_counts_bound_users_not_binding_identifiers(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'dingtalk-cli-bound-users.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[User.__table__])
+    Session = sessionmaker(bind=engine, future=True)
+    with Session() as db:
+        db.add(
+            User(
+                username='bound-operator',
+                password_hash='x',
+                name='已绑定主操',
+                role='machine_operator',
+                is_mobile_user=True,
+                is_active=True,
+                dingtalk_user_id='dt-user-1',
+                dingtalk_union_id='union-1',
+            )
+        )
+        db.commit()
+
+    payload = MODULE.check_department_contacts(
+        department_id=1,
+        service=_FakeDingTalkService(
+            corp_id='corp',
+            app_key='key',
+            app_secret='secret',
+            agent_id='agent',
+        ),
+        sessionmaker_factory=lambda: Session,
+    )
+
+    assert payload['active_user_with_dingtalk_binding_count'] == 1
+    assert payload['already_bound_contact_count'] == 1
+
+
 def test_main_contacts_json_reports_permission_scope_without_leaking_contact_values(capsys) -> None:
     class PermissionDeniedService(_FakeDingTalkService):
         def fetch_department_users(self, department_id: int = 1) -> list[dict]:

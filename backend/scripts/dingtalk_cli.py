@@ -171,10 +171,15 @@ def check_department_contacts(
         usernames = {str(user.username or '').strip() for user in active_users if str(user.username or '').strip()}
         bound_user_ids = {str(user.dingtalk_user_id or '').strip() for user in active_users if str(user.dingtalk_user_id or '').strip()}
         bound_union_ids = {str(user.dingtalk_union_id or '').strip() for user in active_users if str(user.dingtalk_union_id or '').strip()}
+        bound_users = [
+            user
+            for user in active_users
+            if str(user.dingtalk_user_id or '').strip() or str(user.dingtalk_union_id or '').strip()
+        ]
         payload.update(
             {
                 'active_user_count': len(active_users),
-                'active_user_with_dingtalk_binding_count': len(bound_user_ids | bound_union_ids),
+                'active_user_with_dingtalk_binding_count': len(bound_users),
                 'would_match_existing_by_mobile_count': sum(1 for item in normalized if item.get('mobile') in usernames),
                 'already_bound_contact_count': sum(
                     1

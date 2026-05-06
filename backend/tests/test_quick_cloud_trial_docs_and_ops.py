@@ -472,7 +472,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：696 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：699 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：16 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed' in state
     assert '`python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed' in state
@@ -492,7 +493,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 19:40 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 19:53 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -548,6 +549,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`schema_preserves_machine_binding_status=true`' in state
     assert '`checked_equipment_id=12`、`rollback_mobile_shift_report_equipment_id=12`' in state
     assert '`mobile_shift_report_binding_ok=true`' in state
+    assert '本轮已拉取 `main@d59dc49`' in state
+    assert '`scripts/dingtalk_cli.py contacts --department-id 1 --json` 只读诊断' in state
+    assert '`department_access=false`、`dry_run_only=true`' in state
     assert '本轮已部署 `main@180d84d`' in state
     assert '`warning_issues=DINGTALK_NO_BOUND_USERS`' in state
     assert '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`' in state
@@ -570,6 +574,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`active_users_with_dingtalk_id=0`' in state
     assert '生产只读拉取钉钉部门用户失败' in state
     assert '`qyapi_get_department_member` 权限' in state
+    assert '命令只输出统计和权限状态，不回显成员姓名、手机号、userid 或 token' in state
     assert '还不能宣称工作通知已送达' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
     assert '远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD' in state
@@ -979,6 +984,9 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '`token_received=true`',
         '钉钉通讯录同步阻塞已定位',
         '`qyapi_get_department_member`',
+        '钉钉通讯录权限已具备可重复只读诊断',
+        '`scripts/dingtalk_cli.py contacts --department-id 1 --json`',
+        '不会写用户表或回显成员明细',
         '`DINGTALK_NO_BOUND_USERS`',
         '`active_dingtalk_user_count=0`',
         '`active_dingtalk_employee_count=0`',
