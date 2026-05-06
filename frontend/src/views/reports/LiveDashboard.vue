@@ -44,6 +44,11 @@
         <strong>{{ managementOverview.blockerCount }}</strong>
         <em>缺报 {{ managementOverview.blockerBreakdown.missingCells }} · 异常 {{ managementOverview.blockerBreakdown.anomalyCount }} · 交付 {{ managementOverview.blockerBreakdown.deliveryBlocker }} · 发布 {{ managementOverview.blockerBreakdown.pendingPublish }} · 关注 {{ managementOverview.blockerBreakdown.attentionCells }}</em>
       </article>
+      <article class="management-overview-card" :class="{ 'is-success': externalReadinessReady, 'is-danger': externalHardIssueCount > 0 }">
+        <span>外部联通闸门</span>
+        <strong>{{ externalReadinessLabel }}</strong>
+        <em>{{ externalIssueLabel }}</em>
+      </article>
     </section>
 
     <section class="mes-connection-strip" aria-label="外部 MES">
@@ -303,7 +308,7 @@ import { Download, RefreshRight } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
+import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchMesSyncStatus } from '../../api/mes'
 import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
@@ -333,6 +338,7 @@ const aggregation = ref(createEmptyAggregation(targetDate.value))
 const factorySnapshot = ref({})
 const deliverySnapshot = ref({})
 const mesSyncStatus = ref({})
+const externalReadiness = ref({})
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
@@ -412,6 +418,25 @@ const managementOverview = computed(() => buildManagementOverview({
   dashboard: factorySnapshot.value,
   delivery: deliverySnapshot.value
 }))
+const externalHardIssues = computed(() => {
+  const hardIssues = externalReadiness.value.hard_issues || externalReadiness.value.hardIssues || []
+  return Array.isArray(hardIssues) ? hardIssues : []
+})
+const externalHardIssueCount = computed(() => externalHardIssues.value.length)
+const externalReadinessLoaded = computed(() => Object.keys(externalReadiness.value || {}).length > 0)
+const externalReadinessReady = computed(() => (
+  externalReadinessLoaded.value &&
+  (externalReadiness.value.hard_gate_passed === true || externalReadiness.value.hardGatePassed === true)
+))
+const externalReadinessLabel = computed(() => {
+  if (!externalReadinessLoaded.value) return '待核对'
+  return externalReadinessReady.value ? '已通过' : `${externalHardIssueCount.value} 项阻塞`
+})
+const externalIssueLabel = computed(() => {
+  if (!externalReadinessLoaded.value) return '接口待返回'
+  if (!externalHardIssues.value.length) return '外部链路就绪'
+  return externalHardIssues.value.slice(0, 3).map((item) => item.code).filter(Boolean).join(' / ')
+})
 const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const lastRefreshLabel = computed(() => (lastLoadedAt.value ? dayjs(lastLoadedAt.value).format('HH:mm:ss') : '--'))
@@ -553,15 +578,17 @@ async function loadAggregation({ silent = false } = {}) {
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
-    const [factoryResult, deliveryResult, mesResult] = await Promise.allSettled([
+    const [factoryResult, deliveryResult, mesResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
-      fetchMesSyncStatus()
+      fetchMesSyncStatus(),
+      fetchExternalReadiness()
     ])
     aggregation.value = liveData
     factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
     deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
     mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
+    externalReadiness.value = externalResult.status === 'fulfilled' ? externalResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
     activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
@@ -910,7 +937,7 @@ onBeforeUnmount(() => {
 
 .management-overview-strip {
   display: grid;
-  grid-template-columns: minmax(240px, 1.35fr) repeat(4, minmax(150px, 1fr));
+  grid-template-columns: minmax(220px, 1.25fr) repeat(5, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }

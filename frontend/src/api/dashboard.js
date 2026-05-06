@@ -34,6 +34,11 @@ export async function fetchDeliveryStatus(params = {}) {
   return normalizeDeliveryStatus(data)
 }
 
+export async function fetchExternalReadiness() {
+  const { data } = await api.get('/dashboard/external-readiness')
+  return data
+}
+
 export async function fetchFactoryDirectorSummary(params = {}) {
   return fetchFactoryDashboard(params)
 }
@@ -47,6 +52,7 @@ export const dashboardApi = {
   getWorkshopData: fetchWorkshopDashboard,
   getStatisticsData: fetchStatisticsDashboard,
   getDeliveryStatus: fetchDeliveryStatus,
+  getExternalReadiness: fetchExternalReadiness,
   getFactoryDirectorSummary: fetchFactoryDirectorSummary,
   getStatisticsReviewSummary: fetchStatisticsReviewSummary
 }

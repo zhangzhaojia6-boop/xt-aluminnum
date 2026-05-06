@@ -789,6 +789,73 @@ def test_workshop_dashboard_rejects_reviewer_as_main_review_entry(monkeypatch) -
     app.dependency_overrides.clear()
 
 
+def test_external_readiness_dashboard_route_exposes_hard_issues(monkeypatch) -> None:
+    def fake_get_user():
+        return SimpleNamespace(
+            id=10,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    monkeypatch.setattr(
+        'app.routers.dashboard.inspect_statistics_module_ready',
+        lambda: {
+            'hard_gate_passed': False,
+            'module_usable': False,
+            'external_connection_enabled': False,
+            'hard_issues': [
+                {
+                    'level': 'hard',
+                    'code': 'MES_UNCONFIGURED',
+                    'message': 'MES_ADAPTER=null，外部 MES 数据源未启用。',
+                    'suggestion': '补齐 MES。',
+                    'required_env': ['MES_ADAPTER', 'MES_MVC_BASE_URL'],
+                }
+            ],
+            'warning_issues': [],
+            'stats': {'mes_adapter': 'null'},
+        },
+        raising=False,
+    )
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    response = TestClient(app).get('/api/v1/dashboard/external-readiness')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['hard_gate_passed'] is False
+    assert payload['hard_issues'][0]['code'] == 'MES_UNCONFIGURED'
+    assert payload['hard_issues'][0]['required_env'] == ['MES_ADAPTER', 'MES_MVC_BASE_URL']
+
+    app.dependency_overrides.clear()
+
+
+def test_external_readiness_dashboard_route_rejects_mobile_user(monkeypatch) -> None:
+    def fake_get_user():
+        return SimpleNamespace(
+            id=11,
+            role='machine_operator',
+            is_admin=False,
+            is_manager=False,
+            is_reviewer=False,
+            workshop_id=1,
+            data_scope_type='self_workshop',
+        )
+
+    monkeypatch.setattr('app.routers.dashboard.inspect_statistics_module_ready', lambda: {}, raising=False)
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    response = TestClient(app).get('/api/v1/dashboard/external-readiness')
+
+    assert response.status_code == 403
+
+    app.dependency_overrides.clear()
+
+
 def test_runtime_trace_builder_uses_real_dashboard_inputs() -> None:
     runtime_trace = report_service._build_runtime_trace(
         history_digest={'daily_snapshots': [{'date': '2026-04-04'}] * 7},

@@ -12,6 +12,7 @@ from app.core.scope import build_scope_summary
 from app.schemas.dashboard import DeliveryStatusOut, FactoryDashboardResponse, WorkshopDashboardResponse
 from app.models.system import User
 from app.services import report_service
+from scripts.check_statistics_module_ready import inspect_statistics_module_ready
 
 router = APIRouter(tags=['dashboard'])
 
@@ -89,6 +90,16 @@ def delivery_status(
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
     return report_service.build_delivery_status(db, target_date=target_date or date.today())
+
+
+@router.get('/external-readiness')
+def external_readiness(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard_external_readiness', limit=20, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return inspect_statistics_module_ready()
 
 
 @router.get('/factory', response_model=FactoryDashboardResponse, response_model_exclude_none=True)
