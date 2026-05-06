@@ -176,6 +176,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
 
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
@@ -183,6 +184,8 @@ import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vu
 import { fetchEquipment, fetchTeams, fetchWorkshops } from '../../api/master.js'
 import { createUser, deleteUser, fetchUsersPage, resetUserPassword, syncDingtalkUsers, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'
+
+const route = useRoute()
 
 const roleOptions = [
   { value: 'admin', label: '系统管理员' },
@@ -266,6 +269,27 @@ const machineFilterOptions = computed(() => {
 })
 
 const currentPage = computed(() => Math.floor(pageState.skip / pageState.limit) + 1)
+
+function routeQueryValue(value) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function applyRouteFilters() {
+  const machineBinding = routeQueryValue(route.query.machine_binding)
+  if (machineBinding === 'bound' || machineBinding === 'unbound') {
+    filters.machineBinding = machineBinding
+  }
+
+  const boundMachineId = Number(routeQueryValue(route.query.bound_machine_id))
+  if (Number.isFinite(boundMachineId) && boundMachineId > 0) {
+    filters.boundMachineId = boundMachineId
+    filters.machineBinding = 'bound'
+  }
+
+  if (filters.machineBinding === 'unbound') {
+    filters.boundMachineId = null
+  }
+}
 
 function resetFormState() {
   form.username = ''
@@ -481,6 +505,7 @@ onMounted(async () => {
     workshops.value = workshopItems
     teams.value = teamItems
     equipment.value = equipmentItems
+    applyRouteFilters()
     await load()
   } catch {
     ElMessage.error('加载失败')

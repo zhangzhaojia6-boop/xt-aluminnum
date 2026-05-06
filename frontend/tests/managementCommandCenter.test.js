@@ -323,6 +323,8 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /unboundFillSummary/)
   assert.match(liveDashboardSource, /live-unbound-fill/)
   assert.match(liveDashboardSource, /绑定账号/)
+  assert.match(liveDashboardSource, /unboundAccountRoute/)
+  assert.match(liveDashboardSource, /machine_binding: 'unbound'/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

@@ -31,3 +31,10 @@ test('user management page filters accounts by machine-line binding', () => {
   assert.match(userManagementSource, /machine_binding/)
   assert.match(userManagementSource, /handleMachineBindingFilterChange/)
 })
+
+test('user management page can open directly on unbound account filter', () => {
+  assert.match(userManagementSource, /useRoute/)
+  assert.match(userManagementSource, /applyRouteFilters/)
+  assert.match(userManagementSource, /route\.query\.machine_binding/)
+  assert.match(userManagementSource, /route\.query\.bound_machine_id/)
+})

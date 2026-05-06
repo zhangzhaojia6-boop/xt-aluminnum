@@ -88,7 +88,7 @@
           <b>{{ formatWeight(row.output) }} 吨</b>
         </span>
       </div>
-      <RouterLink v-if="authStore.isAdmin" class="live-unbound-fill__action" to="/manage/admin/users">
+      <RouterLink v-if="authStore.isAdmin" class="live-unbound-fill__action" :to="unboundAccountRoute">
         <el-icon><Setting /></el-icon>
         <span>绑定账号</span>
       </RouterLink>
@@ -390,6 +390,7 @@
 import { Download, RefreshRight, Setting } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchMesSyncStatus } from '../../api/mes'
@@ -413,6 +414,7 @@ import {
 import { buildManagementOverview, marginTone } from '../../utils/managementOverview'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
@@ -532,6 +534,11 @@ const outputDistributionSummary = computed(() => {
   return `${outputDistributionRows.value.length} 个机列 · ${formatWeight(total)} 吨`
 })
 const unboundFillSummary = computed(() => buildUnboundFillSummary(sortedWorkshops.value, 3))
+const unboundAccountRoute = computed(() => {
+  const query = { machine_binding: 'unbound' }
+  if (route.query.desktop === '1') query.desktop = '1'
+  return { path: '/manage/admin/users', query }
+})
 const shiftOutputRhythmRows = computed(() => buildShiftOutputRhythm(sortedWorkshops.value))
 const shiftOutputRhythmSummary = computed(() => {
   if (!shiftOutputRhythmRows.value.length) return '暂无产量'
