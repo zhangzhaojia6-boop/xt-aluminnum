@@ -182,6 +182,7 @@ MES_API_KEY=...
 - 生产前端资源 `FactoryDirector-CzchESVl.js` 已包含 `review-factory-live-chart`。
 - 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=15`，`pending_mobile_coil_agg_rows=4`，`pending_mobile_coil_agg_output=120460.0`。
 - 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；工厂指挥服务 `factory_command_total_output_tons=120460.0`。
+- ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
 - `/readyz` 关键状态：
   - `environment=production`
   - `database=ok`
