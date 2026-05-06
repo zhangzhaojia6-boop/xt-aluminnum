@@ -353,43 +353,58 @@ def list_coil_entries(
         })
     return result
 
-def _aggregate_coil_to_shift(db: Session, *, business_date: date, shift_id: int, workshop_id: int):
-    agg = (
-        db.query(
-            func.sum(WorkOrderEntry.input_weight).label('total_input'),
-            func.sum(WorkOrderEntry.output_weight).label('total_output'),
-            func.sum(WorkOrderEntry.scrap_weight).label('total_scrap'),
-            func.count(WorkOrderEntry.id).label('coil_count'),
-        )
-        .filter(
-            WorkOrderEntry.business_date == business_date,
-            WorkOrderEntry.shift_id == shift_id,
-            WorkOrderEntry.workshop_id == workshop_id,
-        )
-        .first()
+def _aggregate_coil_to_shift(
+    db: Session,
+    *,
+    business_date: date,
+    shift_id: int,
+    workshop_id: int,
+    machine_id: int | None = None,
+):
+    entry_query = db.query(
+        func.sum(WorkOrderEntry.input_weight).label('total_input'),
+        func.sum(WorkOrderEntry.output_weight).label('total_output'),
+        func.sum(WorkOrderEntry.scrap_weight).label('total_scrap'),
+        func.count(WorkOrderEntry.id).label('coil_count'),
+    ).filter(
+        WorkOrderEntry.business_date == business_date,
+        WorkOrderEntry.shift_id == shift_id,
+        WorkOrderEntry.workshop_id == workshop_id,
     )
+    if machine_id is None:
+        entry_query = entry_query.filter(WorkOrderEntry.machine_id.is_(None))
+    else:
+        entry_query = entry_query.filter(WorkOrderEntry.machine_id == machine_id)
+    agg = entry_query.first()
     if not agg or not agg.coil_count:
         return
-    spd = (
+    spd_query = (
         db.query(ShiftProductionData)
         .filter(
             ShiftProductionData.business_date == business_date,
             ShiftProductionData.shift_config_id == shift_id,
             ShiftProductionData.workshop_id == workshop_id,
+            ShiftProductionData.data_source == 'mobile_coil_agg',
             ShiftProductionData.data_status != 'voided',
         )
-        .first()
     )
+    if machine_id is None:
+        spd_query = spd_query.filter(ShiftProductionData.equipment_id.is_(None))
+    else:
+        spd_query = spd_query.filter(ShiftProductionData.equipment_id == machine_id)
+    spd = spd_query.first()
     if spd:
         spd.input_weight = float(agg.total_input or 0)
         spd.output_weight = float(agg.total_output or 0)
         spd.scrap_weight = float(agg.total_scrap or 0)
         spd.data_source = 'mobile_coil_agg'
+        spd.equipment_id = machine_id
     else:
         spd = ShiftProductionData(
             business_date=business_date,
             shift_config_id=shift_id,
             workshop_id=workshop_id,
+            equipment_id=machine_id,
             input_weight=float(agg.total_input or 0),
             output_weight=float(agg.total_output or 0),
             scrap_weight=float(agg.total_scrap or 0),
@@ -482,7 +497,8 @@ def create_coil_entry(
         db.add(wo)
         db.flush()
 
-    workshop_id = current_user.workshop_id
+    bound_machine = get_bound_machine_for_user(db, user_id=current_user.id)
+    workshop_id = bound_machine.workshop_id if bound_machine else current_user.workshop_id
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
@@ -492,7 +508,7 @@ def create_coil_entry(
     entry = WorkOrderEntry(
         work_order_id=wo.id,
         workshop_id=workshop_id or 0,
-        machine_id=getattr(current_user, 'machine_id', None),
+        machine_id=bound_machine.id if bound_machine else None,
         shift_id=payload['shift_id'],
         business_date=payload['business_date'],
         on_machine_time=payload.get('on_machine_time'),
@@ -528,6 +544,7 @@ def create_coil_entry(
         business_date=payload['business_date'],
         shift_id=payload['shift_id'],
         workshop_id=entry.workshop_id,
+        machine_id=entry.machine_id,
     )
 
     return {
