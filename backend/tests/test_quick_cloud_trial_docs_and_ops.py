@@ -477,7 +477,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：113 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 13:10 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 13:26 左右。' in state
+    assert '管理端实时态势第一屏新增“卷级直录分布”' in state
+    assert '`LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`' in state
     assert '管理端实时态势主聚合接入 `mobile_coil_agg` 卷级直录 fallback' in state
     assert '`LiveDashboard-CeSbJ94X.js` 已包含 `卷级直录` 和 `local_shift_data`' in state
     assert '管理端实时态势页新增“外部联通闸门”卡' in state

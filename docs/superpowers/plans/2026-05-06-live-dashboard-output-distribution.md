@@ -16,7 +16,7 @@
 - [x] 前端实现：在 `frontend/src/utils/managementCommandCenter.js` 新增 `buildOutputDistribution()`。
 - [x] 页面 TDD：在 `managementCommandCenter.test.js` 静态断言 `LiveDashboard.vue` 包含 `live-output-distribution`、`卷级直录分布`、`outputDistributionRows`。
 - [x] 页面实现：在 `frontend/src/views/reports/LiveDashboard.vue` 的 MES 状态条后加入产量分布条，并补桌面/移动响应式 CSS。
-- [ ] 验证、提交、部署并确认线上前端资产包含 `卷级直录分布`。
+- [x] 验证、提交、部署并确认线上前端资产包含 `卷级直录分布`。
 
 ## Verification
 
