@@ -31,6 +31,37 @@ def _to_float(value) -> float:
         return 0.0
 
 
+def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
+    value = _to_float(getattr(item, field_name, None))
+    if getattr(item, 'data_source', None) == 'mobile_coil_agg':
+        return value / 1000
+    return value
+
+
+def _production_output_map(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_code_map: dict[int, str],
+    shift_code_map: dict[int, str],
+) -> dict[tuple[str | None, str | None], float]:
+    rows = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.business_date == business_date,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .all()
+    )
+    production_map: dict[tuple[str | None, str | None], float] = {}
+    for row in rows:
+        workshop_code = workshop_code_map.get(row.workshop_id)
+        shift_code = shift_code_map.get(row.shift_config_id)
+        key = (workshop_code, shift_code)
+        production_map[key] = production_map.get(key, 0.0) + _shift_weight_tons(row, 'output_weight')
+    return production_map
+
+
 def count_open_items(db: Session, *, business_date: date) -> int:
     return int(
         db.query(func.count(DataReconciliationItem.id))
@@ -193,24 +224,12 @@ def generate_reconciliation(
                 )
 
     if 'production_vs_mes' in types:
-        production_rows = (
-            db.query(
-                ShiftProductionData.workshop_id,
-                ShiftProductionData.shift_config_id,
-                func.sum(ShiftProductionData.output_weight).label('output_weight'),
-            )
-            .filter(
-                ShiftProductionData.business_date == business_date,
-                ShiftProductionData.data_status != 'voided',
-            )
-            .group_by(ShiftProductionData.workshop_id, ShiftProductionData.shift_config_id)
-            .all()
+        production_map = _production_output_map(
+            db,
+            business_date=business_date,
+            workshop_code_map=workshop_code_map,
+            shift_code_map=shift_code_map,
         )
-        production_map: dict[tuple[str | None, str | None], float] = {}
-        for workshop_id, shift_id, output_weight in production_rows:
-            workshop_code = workshop_code_map.get(workshop_id)
-            shift_code = shift_code_map.get(shift_id)
-            production_map[(workshop_code, shift_code)] = _to_float(output_weight)
 
         mes_rows = (
             db.query(
@@ -264,24 +283,12 @@ def generate_reconciliation(
         for workshop_code, shift_code, energy_total in energy_rows:
             energy_map[(workshop_code, shift_code)] = _to_float(energy_total)
 
-        production_rows = (
-            db.query(
-                ShiftProductionData.workshop_id,
-                ShiftProductionData.shift_config_id,
-                func.sum(ShiftProductionData.output_weight).label('output_weight'),
-            )
-            .filter(
-                ShiftProductionData.business_date == business_date,
-                ShiftProductionData.data_status != 'voided',
-            )
-            .group_by(ShiftProductionData.workshop_id, ShiftProductionData.shift_config_id)
-            .all()
+        production_map = _production_output_map(
+            db,
+            business_date=business_date,
+            workshop_code_map=workshop_code_map,
+            shift_code_map=shift_code_map,
         )
-        production_map: dict[tuple[str | None, str | None], float] = {}
-        for workshop_id, shift_id, output_weight in production_rows:
-            workshop_code = workshop_code_map.get(workshop_id)
-            shift_code = shift_code_map.get(shift_id)
-            production_map[(workshop_code, shift_code)] = _to_float(output_weight)
 
         keys = set(energy_map.keys()) | set(production_map.keys())
         for workshop_code, shift_code in keys:
