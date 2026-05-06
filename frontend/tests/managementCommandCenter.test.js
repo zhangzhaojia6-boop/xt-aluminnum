@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
+  buildOutputDistribution,
   dataSourceLabel,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -70,6 +71,51 @@ test('buildCommandCenterSummary exposes first-screen factory status', () => {
 
 test('data source labels expose local coil fill as direct entry', () => {
   assert.equal(dataSourceLabel('local_shift_data'), '卷级直录')
+})
+
+test('buildOutputDistribution ranks live machine output and marks unbound lines', () => {
+  const rows = buildOutputDistribution([
+    {
+      workshop_name: '2050冷轧车间',
+      machines: [
+        {
+          machine_id: -5003,
+          machine_name: '未绑定机列 / 夜班',
+          day_total: { output: 74110 },
+          shifts: [
+            { shift_name: '白班', total_output: 0 },
+            { shift_name: '夜班', total_output: 74110 },
+          ],
+        },
+        {
+          machine_id: 12,
+          machine_name: '2#轧机',
+          day_total: { output: 9100 },
+          shifts: [{ shift_name: '白班', total_output: 9100 }],
+        },
+      ],
+    },
+    {
+      workshop_name: '精整车间',
+      machines: [
+        {
+          machine_id: -8003,
+          machine_name: '未绑定机列 / 夜班',
+          day_total: { output: 37250 },
+          shifts: [{ shift_name: '夜班', total_output: 37250 }],
+        },
+      ],
+    },
+  ], 2)
+
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].workshopName, '2050冷轧车间')
+  assert.equal(rows[0].machineName, '未绑定机列 / 夜班')
+  assert.equal(rows[0].bindingLabel, '未绑定')
+  assert.equal(rows[0].share, 100)
+  assert.equal(rows[0].shiftLabel, '夜班')
+  assert.equal(rows[1].output, 37250)
+  assert.equal(rows[1].share, 50.26)
 })
 
 test('status helpers map submission and attendance states to readable tones', () => {
@@ -170,6 +216,9 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /外部联通闸门/)
   assert.match(liveDashboardSource, /接口待返回/)
   assert.match(liveDashboardSource, /hard_issues|hardIssues/)
+  assert.match(liveDashboardSource, /live-output-distribution/)
+  assert.match(liveDashboardSource, /卷级直录分布/)
+  assert.match(liveDashboardSource, /outputDistributionRows/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

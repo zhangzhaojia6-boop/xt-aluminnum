@@ -54,6 +54,37 @@ export function dataSourceLabel(dataSource) {
   return '未知来源'
 }
 
+export function buildOutputDistribution(workshops = [], limit = 5) {
+  const rows = workshops.flatMap((workshop) =>
+    (workshop.machines || []).map((machine) => {
+      const output = numberValue(machine.day_total?.output)
+      const input = numberValue(machine.day_total?.input)
+      const shifts = (machine.shifts || [])
+        .filter((shift) => numberValue(shift.total_output) > 0)
+        .map((shift) => String(shift.shift_name || '').trim())
+        .filter(Boolean)
+
+      return {
+        workshopName: workshop.workshop_name || '--',
+        machineName: machine.machine_name || '--',
+        machineId: machine.machine_id,
+        bindingLabel: Number(machine.machine_id) < 0 ? '未绑定' : '已绑定',
+        shiftLabel: shifts.length ? shifts.join(' / ') : '全班次',
+        output,
+        input,
+      }
+    })
+  )
+    .filter((row) => row.output > 0)
+    .sort((left, right) => right.output - left.output)
+
+  const maxOutput = rows[0]?.output || 0
+  return rows.slice(0, Math.max(Number(limit) || 0, 0)).map((row) => ({
+    ...row,
+    share: maxOutput > 0 ? Number(((row.output / maxOutput) * 100).toFixed(2)) : 0,
+  }))
+}
+
 export function formatSyncLag(seconds) {
   const lag = Number(seconds)
   if (!Number.isFinite(lag)) return '--'
