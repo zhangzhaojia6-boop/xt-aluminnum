@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 08:12:17 +08:00
+更新时间：2026-05-06 08:35:56 +08:00
 
 ## 1. 仓库状态
 
@@ -71,12 +71,23 @@ db 容器: PostgreSQL 15
 
 不要把 `.env`、证书、密钥、数据库备份提交到 Git。
 
+当前 ECS 真实运行形态仍是历史 systemd 托管：
+
+```text
+公网 80/443
+  -> 宿主机 nginx
+  -> aluminum-bypass.service: 127.0.0.1:8000
+  -> 宿主机 PostgreSQL
+```
+
+当前 ECS 已按 systemd 形态完成本轮更新；Docker Compose 仍是后续统一部署形态，但切换前不要直接抢占宿主机 80/443 端口。
+
 ## 4. 本地验证记录
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：652 passed，123 deselected，30 warnings
-- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，652 deselected
+- `python -m pytest backend/tests -q --durations=10`：653 passed，123 deselected，30 warnings
+- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，653 deselected
 - `npm --prefix frontend test`：110 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
@@ -112,6 +123,7 @@ db 容器: PostgreSQL 15
 
 - `MES_UNCONFIGURED`
 - `WORKFLOW_DISABLED`
+- `LLM_DISABLED`
 - `DINGTALK_DISABLED`
 - `APP_CONNECTION_DISABLED`
 
@@ -144,38 +156,44 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 只读探测：2026-05-06 08:06 左右。
+最近一次 ECS 修复验证：2026-05-06 08:35 左右。
 
-- `8.140.218.13:22`：TCP 可达，但本轮未验证 SSH 用户认证。
-- `8.140.218.13:443`：TCP 可达。
-- `https://8.140.218.13/readyz`：HTTP 404，仍未命中后端 readyz JSON。
-- `http://8.140.218.13/readyz`：HTTP 503，返回后端 readyz JSON。
-- HTTP readyz 的关键阻断：
-  - `MOBILE_USER_WORKSHOP_MISSING`：存在未绑定车间的移动填报账号，样例包含 `FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT`、`admin`。
-  - `SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）：远端应报清单为空，`schedule_row_count=0`。
-- 诊断：`admin` 在当前主线属于 factory-wide 移动账号，不应成为 hard issue；本地测试 `test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts` 已锁定该语义。远端 readyz 样例仍包含 `admin`，优先按远端代码或镜像未更新处理，再处理真实 owner 绑定和应报清单。
-- 服务器内建议验证/修复顺序：
+- SSH：`root@8.140.218.13` key 登录可用。
+- 远端仓库：`/srv/aluminum-bypass` 已快进到 `8d87821`，`HEAD` 与 `origin/main` 对齐，工作区干净。
+- 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
+- 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-082932.dump`。
+- 已执行后端依赖安装、Alembic `0022` 到 `0026` 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。
+- `init_real_master_data.py` 同步默认试点排班 `378` 条；目标日 `2026-05-06` readyz 统计 `schedule_row_count=189`。
+- 已执行前端构建：`VITE_API_BASE_URL=/api/v1 npm run build`。
+- 已修复 systemd backend `.env`：`APP_ENV=production`，`INIT_ADMIN_PASSWORD` 使用强密码；不输出真实密钥。
+- 已执行 owner 账号绑定修复：`FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT` 绑定到 `CPK`。
+- `http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。
+- `/readyz` 关键状态：
+  - `environment=production`
+  - `database=ok`
+  - `uploads=ok`
+  - `equipment_binding=ok`
+  - `schedule=ok`
+  - `pipeline=ok`
+  - `hard_gate_passed=true`
+  - `mes_sync=unconfigured`
 
-```bash
-cd /srv/aluminum-bypass
-git fetch origin
-git pull --ff-only origin main
-git rev-parse --short HEAD
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build backend nginx
-docker compose exec -T backend python -m pytest tests/test_config_readiness_service.py::test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts -q
-docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --json
-docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --apply --json
-docker compose exec -T backend python scripts/init_real_master_data.py
-docker compose exec -T backend python scripts/check_pilot_config.py --date 2026-05-06 --json
-curl -kfsS http://8.140.218.13/readyz
-```
+本机到 `xtmijd.com` 的 DNS 解析当前失败；使用 `--resolve xtmijd.com:443:8.140.218.13` 探测 HTTPS 出现连接 reset。因此本轮公网正向证据以 `http://8.140.218.13/readyz` 和服务器本机 nginx 路由探测为准，HTTPS 域名链路仍需单独收口。
+
+外部正式联通闸门仍未通过，`python scripts/check_statistics_module_ready.py --json` 当前 hard fail 为：
+
+- `MES_UNCONFIGURED`
+- `WORKFLOW_DISABLED`
+- `LLM_DISABLED`
+- `DINGTALK_DISABLED`
+- `APP_CONNECTION_DISABLED`
 
 Vercel 主线探测：
 
 - 最近一次可确认正向记录仍是 2026-05-05 12:47 左右：`/`、`/entry`、`/manage/admin` 返回前端挂载页，`/readyz` 返回前端 SPA shell 而不是后端 readyz JSON。
 - 2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通，`curl -4 https://xt-aluminnum.vercel.app/` 连接超时；因此本轮不把 Vercel 作为当前可达证据。
 
-结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、外部 MES、钉钉或应用连接 API 已正式联通。ECS 当前已有 22/443 TCP 可达迹象，但仍需恢复 SSH 用户认证或提供服务器执行结果，并先修复 owner 车间绑定与目标日应报清单后再验收。
+结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、外部 MES、钉钉或应用连接 API 已正式联通。ECS 当前后端、数据库、填报排班和 nginx 基础路由已恢复到 ready；正式完全体仍取决于外部 MES、Workflow、LLM、钉钉和应用连接 API 的真实配置与验收。
 
 ## 7. 一条命令更新上线
 
@@ -209,6 +227,25 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 docker compose exec -T backend python scripts/check_statistics_module_ready.py
 curl -kfsS https://你的域名/healthz
 curl -kfsS https://你的域名/readyz
+```
+
+当前 ECS systemd 形态的临时更新命令：
+
+```bash
+cd /srv/aluminum-bypass
+git fetch origin
+git pull --ff-only origin main
+cd backend
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/alembic upgrade head
+.venv/bin/python scripts/init_master_data.py
+.venv/bin/python scripts/init_real_master_data.py
+.venv/bin/python scripts/create_admin.py
+cd ../frontend
+VITE_API_BASE_URL=/api/v1 npm run build
+systemctl restart aluminum-bypass
+curl -fsS http://127.0.0.1:8000/healthz
+curl -fsS http://127.0.0.1:8000/readyz
 ```
 
 ## 8. 生产环境变量底线

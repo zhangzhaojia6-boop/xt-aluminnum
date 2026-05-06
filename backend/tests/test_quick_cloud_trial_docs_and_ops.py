@@ -365,8 +365,8 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '以 `2026-04-20` 本地最新验证为准' not in source
     assert '387 passed' not in source
     assert '4 passed' not in source
-    assert '`python -m pytest backend/tests -q --durations=10` → `652 passed，123 deselected，30 warnings`' in source
-    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，652 deselected`' in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `653 passed，123 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，653 deselected`' in source
     assert '`npm --prefix frontend test` → `110 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
@@ -421,21 +421,21 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：652 passed，123 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，652 deselected' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：653 passed，123 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，653 deselected' in state
     assert '`npm --prefix frontend test`：110 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 只读探测：2026-05-06 08:06 左右。' in state
-    assert '`8.140.218.13:22`：TCP 可达，但本轮未验证 SSH 用户认证。' in state
-    assert '`http://8.140.218.13/readyz`：HTTP 503，返回后端 readyz JSON。' in state
-    assert '`MOBILE_USER_WORKSHOP_MISSING`' in state
-    assert '`SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）' in state
-    assert '`admin` 在当前主线属于 factory-wide 移动账号，不应成为 hard issue' in state
-    assert 'test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts' in state
-    assert '远端 readyz 样例仍包含 `admin`，优先按远端代码或镜像未更新处理' in state
-    assert 'docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --apply --json' in state
-    assert 'docker compose exec -T backend python scripts/init_real_master_data.py' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 08:35 左右。' in state
+    assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
+    assert '远端仓库：`/srv/aluminum-bypass` 已快进到 `8d87821`' in state
+    assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
+    assert '`http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。' in state
+    assert '`environment=production`' in state
+    assert '`hard_gate_passed=true`' in state
+    assert '`mes_sync=unconfigured`' in state
+    assert '`FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT` 绑定到 `CPK`' in state
+    assert '`LLM_DISABLED`' in state
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
@@ -444,8 +444,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
-    assert '652 passed，123 deselected，30 warnings' in audit
-    assert '123 passed，652 deselected' in audit
+    assert '653 passed，123 deselected，30 warnings' in audit
+    assert '123 passed，653 deselected' in audit
     assert '110 passed' in audit
     assert '513 passed / 5 failed' not in audit
 
@@ -836,7 +836,7 @@ def test_api_and_cli_lane_docs_match_current_identity_boundaries() -> None:
         'python scripts/check_pilot_config.py --date <目标日期> --json',
         'python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json',
         'python scripts/dingtalk_cli.py status --json',
-        '652 passed，123 deselected，30 warnings',
+        '653 passed，123 deselected，30 warnings',
         '浏览器 / 钉钉',
         'WECOM_BOT_ENABLED=false',
     ]:
