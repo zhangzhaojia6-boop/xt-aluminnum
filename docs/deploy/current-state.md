@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 21:20:00 +08:00
+更新时间：2026-05-06 22:01:02 +08:00
 
 ## 1. 仓库状态
 
@@ -121,6 +121,7 @@ db 容器: PostgreSQL 15
 - `npm --prefix frontend test`：120 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
+- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`70ed599` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
 
 此前在 `main@b029db8` 上已完成部署闸门与容器可用性验证：
 

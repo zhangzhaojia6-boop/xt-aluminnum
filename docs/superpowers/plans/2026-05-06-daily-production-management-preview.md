@@ -40,4 +40,4 @@
 - [x] `python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings
 - [x] `npm --prefix frontend test`：120 passed
 - [x] `git diff --check`：passed with Windows LF/CRLF warnings only
-- [ ] Commit, push, pull production, verify `/readyz`.
+- [x] Commit, push, pull production, verify `/readyz`：`70ed599` deployed，`/readyz` ready，`mes_sync last_run_status=success`，`fetched_count=50`，`upserted_count=50`.
