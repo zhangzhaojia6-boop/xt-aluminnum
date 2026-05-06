@@ -40,8 +40,8 @@
 ## 2. 当前证据快照
 
 ### 已验证本地证据
-- `python -m pytest backend/tests -q --durations=10` → **668 passed，124 deselected，30 warnings**。
-- `python -m pytest backend/tests -m frontend_contract -q` → **124 passed，668 deselected**。
+- `python -m pytest backend/tests -q --durations=10` → **669 passed，124 deselected，30 warnings**。
+- `python -m pytest backend/tests -m frontend_contract -q` → **124 passed，669 deselected**。
 - `python -m pytest backend/tests/test_wecom_group_bot.py -q` → **10 passed**，覆盖企业微信群机器人 publisher，同时确认企业微信用户消息路径已移除。
 - `python -m pytest backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q` → **76 passed**。
 - `git diff --check` → 通过；仅有既有 LF/CRLF 提示。
@@ -65,8 +65,8 @@
 | dev | `docker compose up -d --build` | 本地拉起整套栈 | local runnable | 需要现场按当前 `.env` 重跑 |
 | dev | `docker compose ps` | 看服务状态 | local runnable | 只能证明进程/容器状态 |
 | dev | `curl -k https://localhost/healthz` | 活性检查 | local runnable | 需在目标栈重跑 |
-| dev | `python -m pytest backend/tests -q --durations=10` | 后端默认测试基线 | local runnable | 当前 668 passed，124 deselected，30 warnings |
-| dev | `python -m pytest backend/tests -m frontend_contract -q` | 前端静态合同基线 | local runnable | 当前 124 passed，668 deselected |
+| dev | `python -m pytest backend/tests -q --durations=10` | 后端默认测试基线 | local runnable | 当前 669 passed，124 deselected，30 warnings |
+| dev | `python -m pytest backend/tests -m frontend_contract -q` | 前端静态合同基线 | local runnable | 当前 124 passed，669 deselected |
 | dev | `scripts/generate_env.py` | 生成根目录 `.env` 模板 | host-only local runnable | 是根目录脚本，不属于 backend 镜像内脚本 |
 | dev | `cd frontend && npm run build` | 前端构建验证 | local runnable | 需在前端改动后重跑 |
 | trial | `curl -k https://localhost/readyz` | 现场前 readiness 总闸门 | can trial | 正式放量前必须刷新证据 |

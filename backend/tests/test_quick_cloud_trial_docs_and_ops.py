@@ -416,8 +416,8 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '以 `2026-04-20` 本地最新验证为准' not in source
     assert '387 passed' not in source
     assert '→ `4 passed`' not in source
-    assert '`python -m pytest backend/tests -q --durations=10` → `668 passed，124 deselected，30 warnings`' in source
-    assert '`python -m pytest backend/tests -m frontend_contract -q` → `124 passed，668 deselected`' in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `669 passed，124 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `124 passed，669 deselected`' in source
     assert '`npm --prefix frontend test` → `111 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
@@ -472,8 +472,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：668 passed，124 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，668 deselected' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：669 passed，124 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，669 deselected' in state
     assert '`npm --prefix frontend test`：111 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
@@ -520,8 +520,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
-    assert '668 passed，124 deselected，30 warnings' in audit
-    assert '124 passed，668 deselected' in audit
+    assert '669 passed，124 deselected，30 warnings' in audit
+    assert '124 passed，669 deselected' in audit
     assert '111 passed' in audit
     assert '513 passed / 5 failed' not in audit
 
@@ -951,7 +951,7 @@ def test_api_and_cli_lane_docs_match_current_identity_boundaries() -> None:
         'python scripts/check_pilot_config.py --date <目标日期> --json',
         'python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json',
         'python scripts/dingtalk_cli.py status --json',
-        '668 passed，124 deselected，30 warnings',
+        '669 passed，124 deselected，30 warnings',
         '浏览器 / 钉钉',
         'WECOM_BOT_ENABLED=false',
     ]:

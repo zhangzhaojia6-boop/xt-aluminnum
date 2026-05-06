@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 
 from app.services import realtime_service
@@ -119,6 +120,54 @@ def test_aggregate_live_payload_marks_unassigned_machine_shifts_not_applicable()
     assert machine['shifts'][2]['is_applicable'] is False
     assert machine['shifts'][2]['submission_status'] == 'not_applicable'
     assert machine['shifts'][2]['attendance_status'] == 'not_applicable'
+
+
+def test_mobile_shift_aggregate_rows_create_unbound_live_machine() -> None:
+    workshops = [
+        SimpleNamespace(id=5, name='2050冷轧车间'),
+    ]
+    machines = [
+        SimpleNamespace(id=12, workshop_id=5, name='2#轧机', assigned_shift_ids=[1, 3], sort_order=2),
+    ]
+    shifts = [
+        SimpleNamespace(id=1, name='1班', sort_order=1),
+        SimpleNamespace(id=3, name='3班', sort_order=3),
+    ]
+    rows = [
+        SimpleNamespace(
+            id=501,
+            workshop_id=5,
+            equipment_id=None,
+            shift_config_id=3,
+            business_date=date(2026, 5, 6),
+            input_weight=80_000.0,
+            output_weight=74_110.0,
+            scrap_weight=1_500.0,
+            data_status='pending',
+            data_source='mobile_coil_agg',
+        )
+    ]
+
+    local_machines, entries = realtime_service._build_local_shift_runtime_inputs(
+        machines=machines,
+        shifts=shifts,
+        rows=rows,
+    )
+    payload = realtime_service.aggregate_live_payload(
+        workshops=workshops,
+        machines=local_machines,
+        shifts=shifts,
+        entries=entries,
+        attendance={(5, 3): {'status': 'confirmed', 'exception_count': 0}},
+        expected_counts={},
+    )
+
+    unbound_machine = payload['workshops'][0]['machines'][1]
+    assert payload['factory_total']['output'] == 74_110.0
+    assert unbound_machine['machine_name'] == '未绑定机列 / 3班'
+    assert unbound_machine['shifts'][1]['submitted_count'] == 1
+    assert unbound_machine['shifts'][1]['submission_status'] == 'all_submitted'
+    assert unbound_machine['shifts'][1]['total_output'] == 74_110.0
 
 
 def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() -> None:

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
+  dataSourceLabel,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
   statusToneForCell,
@@ -65,6 +66,10 @@ test('buildCommandCenterSummary exposes first-screen factory status', () => {
   assert.equal(summary.yieldRate, 97.32)
   assert.equal(summary.dataSourceLabel, 'MES 投影')
   assert.equal(summary.syncLagLabel, '42s')
+})
+
+test('data source labels expose local coil fill as direct entry', () => {
+  assert.equal(dataSourceLabel('local_shift_data'), '卷级直录')
 })
 
 test('status helpers map submission and attendance states to readable tones', () => {

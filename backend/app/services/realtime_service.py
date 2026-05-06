@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -17,12 +18,15 @@ from app.core.scope import (
 from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, ShiftAttendanceConfirmation
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import attendance_confirm_service
 from app.services import mes_sync_service
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
+
+LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
+LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -366,6 +370,94 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
     ]
 
 
+def _load_local_shift_rows(db: Session, *, business_date: date, workshop_id: int | None) -> list[ShiftProductionData]:
+    query = db.query(ShiftProductionData).filter(
+        ShiftProductionData.business_date == business_date,
+        ShiftProductionData.data_source == LOCAL_SHIFT_DATA_SOURCE,
+        ShiftProductionData.data_status.in_(LOCAL_SHIFT_DATA_STATUSES),
+    )
+    if workshop_id is not None:
+        query = query.filter(ShiftProductionData.workshop_id == workshop_id)
+    return query.all()
+
+
+def _unbound_shift_machine_id(workshop_id: int, shift_id: int) -> int:
+    return -((int(workshop_id) * 1000) + int(shift_id))
+
+
+def _build_local_shift_runtime_inputs(*, machines, shifts, rows) -> tuple[list, list[dict]]:
+    machine_items = list(machines)
+    shift_by_id = {int(item.id): item for item in shifts if getattr(item, 'id', None) is not None}
+    unbound_keys: set[tuple[int, int]] = set()
+    entries: list[dict] = []
+
+    for row in rows:
+        workshop_id = getattr(row, 'workshop_id', None)
+        shift_id = getattr(row, 'shift_config_id', None)
+        if workshop_id is None or shift_id is None:
+            continue
+        workshop_id = int(workshop_id)
+        shift_id = int(shift_id)
+        machine_id = getattr(row, 'equipment_id', None)
+        if machine_id is None:
+            machine_id = _unbound_shift_machine_id(workshop_id, shift_id)
+            key = (workshop_id, shift_id)
+            if key not in unbound_keys:
+                shift = shift_by_id.get(shift_id)
+                shift_name = getattr(shift, 'name', None) or f'{shift_id}班'
+                shift_sort = int(getattr(shift, 'sort_order', shift_id) or shift_id)
+                machine_items.append(
+                    SimpleNamespace(
+                        id=machine_id,
+                        workshop_id=workshop_id,
+                        name=f'未绑定机列 / {shift_name}',
+                        assigned_shift_ids=[shift_id],
+                        sort_order=100000 + shift_sort,
+                    )
+                )
+                unbound_keys.add(key)
+        else:
+            machine_id = int(machine_id)
+
+        business_date_value = getattr(row, 'business_date', None)
+        yield_value = getattr(row, 'yield_rate', None)
+        entries.append(
+            {
+                'id': getattr(row, 'id', None),
+                'tracking_card_no': f"SHIFT-{getattr(row, 'id', '')}",
+                'work_order_id': None,
+                'workshop_id': workshop_id,
+                'machine_id': machine_id,
+                'shift_id': shift_id,
+                'business_date': business_date_value.isoformat() if business_date_value else None,
+                'input_weight': _to_float(getattr(row, 'input_weight', None)),
+                'output_weight': _to_float(getattr(row, 'output_weight', None)),
+                'scrap_weight': _to_float(getattr(row, 'scrap_weight', None)),
+                'yield_rate': float(yield_value) if yield_value is not None else None,
+                'yield_rate_source': 'local_shift_data',
+                'entry_status': 'submitted',
+                'entry_type': LOCAL_SHIFT_DATA_SOURCE,
+                'tracking_card_status': getattr(row, 'data_status', None) or 'pending',
+                'data_source': LOCAL_SHIFT_DATA_SOURCE,
+            }
+        )
+
+    return machine_items, entries
+
+
+def _drop_local_entries_for_existing_cells(entry_rows: list[dict], local_entries: list[dict]) -> list[dict]:
+    occupied = {
+        (item.get('workshop_id'), item.get('machine_id'), item.get('shift_id'))
+        for item in entry_rows
+        if item.get('workshop_id') is not None and item.get('machine_id') is not None and item.get('shift_id') is not None
+    }
+    return [
+        item
+        for item in local_entries
+        if (item.get('workshop_id'), item.get('machine_id'), item.get('shift_id')) not in occupied
+    ]
+
+
 def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: int | None) -> list[dict]:
     workshop_rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_id_by_code = {str(item.code or '').strip().upper(): item.id for item in workshop_rows if item.code}
@@ -533,11 +625,27 @@ def build_live_aggregation(
         machines_query = machines_query.filter(Equipment.id == -1)
 
     mes_rows = _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+    machines = machines_query.order_by(Equipment.id.asc()).all()
+    shifts = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc()).all()
+    if mes_rows:
+        entries = mes_rows
+        data_source = 'mes_projection'
+    else:
+        entry_rows = _load_entry_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+        local_machines, local_entries = _build_local_shift_runtime_inputs(
+            machines=machines,
+            shifts=shifts,
+            rows=_load_local_shift_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
+        )
+        local_entries = _drop_local_entries_for_existing_cells(entry_rows, local_entries)
+        machines = local_machines
+        entries = [*entry_rows, *local_entries]
+        data_source = 'local_shift_data' if local_entries else 'work_order_runtime'
     payload = aggregate_live_payload(
         workshops=workshops,
-        machines=machines_query.order_by(Equipment.id.asc()).all(),
-        shifts=db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc()).all(),
-        entries=mes_rows or _load_entry_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
+        machines=machines,
+        shifts=shifts,
+        entries=entries,
         attendance=_build_attendance_summary(db, business_date=business_date, workshop_id=scoped_workshop_id),
         expected_counts=_build_expected_count_map(db, business_date=business_date, workshop_id=scoped_workshop_id),
     )
@@ -548,7 +656,7 @@ def build_live_aggregation(
     )
     payload['business_date'] = business_date.isoformat()
     payload['mes_sync_status'] = mes_sync_service.latest_sync_status(db)
-    payload['data_source'] = 'mes_projection' if mes_rows else 'work_order_runtime'
+    payload['data_source'] = data_source
     return payload
 
 
