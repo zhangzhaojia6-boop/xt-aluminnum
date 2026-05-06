@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,32 @@ REPO_ROOT = (
 
 def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding='utf-8-sig')
+
+
+DEPLOYMENT_SHELL_SCRIPTS = [
+    'scripts/backup_db.sh',
+    'scripts/check_trial_stack.sh',
+    'scripts/deploy_trial.sh',
+    'scripts/go_live_gate.sh',
+    'scripts/launch_cloud_trial.sh',
+    'scripts/restore_db.sh',
+]
+
+
+def test_deployment_shell_scripts_are_executable_in_git_index() -> None:
+    output = subprocess.check_output(
+        ['git', 'ls-files', '-s', *DEPLOYMENT_SHELL_SCRIPTS],
+        cwd=REPO_ROOT,
+        text=True,
+    )
+
+    modes = {
+        parts[3]: parts[0]
+        for line in output.splitlines()
+        if (parts := line.split(maxsplit=3))
+    }
+
+    assert modes == {path: '100755' for path in DEPLOYMENT_SHELL_SCRIPTS}
 
 
 def _load_deploy_production_module():
