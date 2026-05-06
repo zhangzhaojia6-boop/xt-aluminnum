@@ -178,7 +178,15 @@ MES_API_KEY=...
   - `hard_gate_passed=true`
   - `mes_sync=unconfigured`
 
-本机到 `xtmijd.com` 的 DNS 解析当前失败；使用 `--resolve xtmijd.com:443:8.140.218.13` 探测 HTTPS 出现连接 reset。因此本轮公网正向证据以 `http://8.140.218.13/readyz` 和服务器本机 nginx 路由探测为准，HTTPS 域名链路仍需单独收口。
+域名链路诊断：
+
+- `xtmijd.com` 当前只返回 SOA，无 A 记录，不能作为可访问域名使用。
+- `www.xtmijd.com` 已解析到 `8.140.218.13`。
+- 从服务器本机用 SNI 验证 `xtmijd.com:443 -> 127.0.0.1` 和 `xtmijd.com:443 -> 8.140.218.13`，`/readyz` 均为 HTTP 200，说明 nginx HTTPS server、证书文件和后端反代链路可用。
+- 从本机公网访问 `http://www.xtmijd.com/readyz` 返回阿里云 `Server: Beaver` 的 `Non-compliance ICP Filing` 403 页面。
+- 从本机公网访问 `https://www.xtmijd.com/readyz` 在 TLS 握手阶段 connection reset。
+
+结论：HTTPS 域名链路当前阻塞在域名备案/接入合规层，不是应用 readyz、nginx upstream 或后端代码问题。本轮公网正向证据以 `http://8.140.218.13/readyz` 为准；正式对外域名需要完成 ICP 备案/接入或换用已备案域名。
 
 外部正式联通闸门仍未通过，`python scripts/check_statistics_module_ready.py --json` 当前 hard fail 为：
 
@@ -193,7 +201,7 @@ Vercel 主线探测：
 - 最近一次可确认正向记录仍是 2026-05-05 12:47 左右：`/`、`/entry`、`/manage/admin` 返回前端挂载页，`/readyz` 返回前端 SPA shell 而不是后端 readyz JSON。
 - 2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通，`curl -4 https://xt-aluminnum.vercel.app/` 连接超时；因此本轮不把 Vercel 作为当前可达证据。
 
-结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、外部 MES、钉钉或应用连接 API 已正式联通。ECS 当前后端、数据库、填报排班和 nginx 基础路由已恢复到 ready；正式完全体仍取决于外部 MES、Workflow、LLM、钉钉和应用连接 API 的真实配置与验收。
+结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、外部 MES、钉钉或应用连接 API 已正式联通。ECS 当前后端、数据库、填报排班和 nginx 基础路由已恢复到 ready；正式完全体仍取决于域名备案/接入、外部 MES、Workflow、LLM、钉钉和应用连接 API 的真实配置与验收。
 
 ## 7. 一条命令更新上线
 

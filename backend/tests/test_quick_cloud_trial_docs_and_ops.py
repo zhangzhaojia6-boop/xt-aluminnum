@@ -435,6 +435,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=unconfigured`' in state
     assert '`FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT` 绑定到 `CPK`' in state
+    assert '`xtmijd.com` 当前只返回 SOA，无 A 记录' in state
+    assert '`www.xtmijd.com` 已解析到 `8.140.218.13`' in state
+    assert '`Non-compliance ICP Filing` 403' in state
+    assert '阻塞在域名备案/接入合规层' in state
     assert '`LLM_DISABLED`' in state
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
