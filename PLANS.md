@@ -44,7 +44,8 @@
 - Phase 3 代码闭环：钉钉 H5 登录服务、钉钉通讯录同步入口、扫码带出与锁字段校验均已有后端和前端自动化覆盖。
 - MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=50`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
-- 外部联通仍未完全完成：`LLM_DISABLED`、`DINGTALK_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
+- 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
+- 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
 本轮核验命令：
@@ -67,7 +68,7 @@
 - [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转
 
 ### Notes
-- MES MVC 与内部 workflow 已完成生产验证；正式完全体前仍需持续同步监控、真实钉钉/LLM/应用连接 API 与正式域名联通。
+- MES MVC、内部 workflow 和钉钉 token 已完成生产验证；正式完全体前仍需持续同步监控、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通。
 - 不把本地测试通过误写成现场 UAT 完成；现场 UAT 需要目标车间、真实账号、真实钉钉客户端和正式域名证据。
 - 星标项全部在这三个 phase 里；非星标项（一键代提、双录校验、reminder 智能化等）作为 backlog 不列入
 

@@ -532,6 +532,12 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`backups/.env.workflow-backup-20260506-170534`' in state
     assert '`WORKFLOW_ENABLED=true`' in state
     assert '`NullWorkflowPublisher` 接收 workflow 事件' in state
+    assert '生产钉钉配置已启用' in state
+    assert '`backups/.env.dingtalk-backup-20260506-171247`' in state
+    assert '`DINGTALK_ENABLED=true`' in state
+    assert '`token_received=true`' in state
+    assert '`active_users_with_dingtalk_id=0`' in state
+    assert '还不能宣称工作通知已送达' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
     assert '远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD' in state
     assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
@@ -549,7 +555,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '当时生产运行配置中 `MES_ADAPTER` 等效为 `null`' in state
     assert '2026-05-06 16:55 左右生产 MES 已切到 MVC 配置并完成同步' in state
     assert '`MES_ADAPTER=mvc`、`mes_ready=true`' in state
-    assert '`hard_issue_codes=LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`' in state
+    assert '`hard_issue_codes=LLM_DISABLED,APP_CONNECTION_DISABLED`' in state
     assert '`environment=production`' in state
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=idle`' in state
@@ -559,6 +565,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`mes_sync.upserted_count=50`' in state
     assert '`mes_sync.action_required=none`' in state
     assert '`workflow_enabled=true`' in state
+    assert '`dingtalk_enabled=true`' in state
     assert '`active_mobile_user_count=329`' in state
     assert '`active_workshop_count=12`' in state
     assert '`active_equipment_count=136`' in state
@@ -569,7 +576,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`Non-compliance ICP Filing` 403' in state
     assert '阻塞在域名备案/接入合规层' in state
     assert '`LLM_DISABLED`' in state
-    assert '但 `MES_UNCONFIGURED` 与 `WORKFLOW_DISABLED` 已解除' in state
+    assert '但 `MES_UNCONFIGURED`、`WORKFLOW_DISABLED` 与 `DINGTALK_DISABLED` 已解除' in state
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
@@ -912,10 +919,12 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '内部 workflow 开关已启用',
         '`WORKFLOW_ENABLED=true`',
         '`NullWorkflowPublisher`',
+        '钉钉应用配置已启用并完成 token 预检',
+        '`DINGTALK_ENABLED=true`',
+        '`token_received=true`',
         '`LLM_DISABLED`',
-        '`DINGTALK_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
-        '真实钉钉客户端免登录、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT',
+        '真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',
     ]:
         assert token in plan
 
