@@ -45,6 +45,7 @@ cd /srv/aluminum-bypass
 - 按卷填报链路已改为读取 `equipment.bound_user_id` 机列绑定：绑定账号新增卷记录会写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成 `mobile_coil_agg` 聚合行；本轮未对生产历史未绑定聚合行做回填。
 - 按卷填报提交口径已收紧：`/mobile/coil-entry` 新增记录写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细；重算时没有合格源卷会 void 旧聚合，draft 历史卷不再进入管理端实时产量。
 - 生产库历史 draft-only 聚合已修正：先创建并校验 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump`，再将 2026-05-01 至 2026-05-06 共 28 行来源卷全为 draft 的 `mobile_coil_agg` 置为 `voided`，源卷明细未删除；复验 `active_mobile_coil_agg=0`、`draft_only_candidate_count=0`。
+- 管理端未显示当前测试填报的直接原因已复核：生产库 `work_order_entries` 仍为 `draft=156`、`mobile_shift_reports` 为 `draft=3`，`ShiftProductionData` 仅有 `mobile_coil_agg/voided=28`；线上当前代码已包含 `entry_status='submitted'` 和 `_aggregate_coil_to_shift()`，旧 draft 测试卷需重新提交或走带 dry-run 的人工提升门禁，不能静默转正式产量。
 - 普通移动班次报表同步管理端数据时也会读取机列绑定：同车间绑定账号写入 `ShiftProductionData.equipment_id`，已有同机列聚合行时保持未绑定汇总，避免覆盖卷级聚合。
 - 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
@@ -54,6 +55,7 @@ cd /srv/aluminum-bypass
 - 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
 - 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
+- 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
 
 ## 3. 默认部署形态
 
@@ -100,7 +102,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：718 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
@@ -116,7 +118,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
-- `npm --prefix frontend test`：119 passed
+- `npm --prefix frontend test`：120 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
 

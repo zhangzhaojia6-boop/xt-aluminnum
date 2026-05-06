@@ -472,7 +472,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：718 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
@@ -515,13 +515,20 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`unresolved_rows=9`' in state
     assert '`冷轧/1650`' in state
     assert '`在线退火/园区北线`' in state
+    assert '`GET /api/v1/imports/daily-production/mapping-preview`' in state
+    assert '每日产量/映射门禁' in state
     assert '按卷填报提交口径已收紧' in state
     assert '`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细' in state
     assert '重算时没有合格源卷会 void 旧聚合' in state
     assert '28 行来源卷全为 draft 的 `mobile_coil_agg` 置为 `voided`' in state
     assert '`active_mobile_coil_agg=0`' in state
     assert '`draft_only_candidate_count=0`' in state
-    assert '`npm --prefix frontend test`：119 passed' in state
+    assert '管理端未显示当前测试填报的直接原因已复核' in state
+    assert '`work_order_entries` 仍为 `draft=156`' in state
+    assert '`mobile_shift_reports` 为 `draft=3`' in state
+    assert '`ShiftProductionData` 仅有 `mobile_coil_agg/voided=28`' in state
+    assert "当前代码已包含 `entry_status='submitted'`" in state
+    assert '`npm --prefix frontend test`：120 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
     assert '最近一次 ECS 修复验证：2026-05-06 20:22 左右。' in state

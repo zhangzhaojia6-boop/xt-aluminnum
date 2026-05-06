@@ -1,7 +1,7 @@
 ﻿from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ImportBatchOut(BaseModel):
@@ -55,3 +55,39 @@ class ImportUploadResponse(BaseModel):
     batch: ImportBatchOut
     rows: list[ImportRowOut]
     summary: ImportSummary
+
+
+class DailyProductionMappingRowOut(BaseModel):
+    row_index: int | None = None
+    business_date: str | None = None
+    source_unit: str | None = None
+    workshop_label: str | None = None
+    project_label: str | None = None
+    daily_input_tons: float | None = None
+    month_to_date_input_tons: float | None = None
+    daily_output_tons: float | None = None
+    month_to_date_output_tons: float | None = None
+    daily_scrap_tons: float | None = None
+    month_to_date_scrap_tons: float | None = None
+    status: str
+    expected_workshop_code: str | None = None
+    expected_equipment_code: str | None = None
+    workshop_id: int | None = None
+    workshop_code: str | None = None
+    workshop_name: str | None = None
+    equipment_id: int | None = None
+    equipment_code: str | None = None
+    equipment_name: str | None = None
+    issues: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DailyProductionMappingPreviewOut(BaseModel):
+    batch_id: int | None = None
+    batch_no: str | None = None
+    business_date: str | None = None
+    source_unit: str | None = None
+    total_rows: int
+    ready_rows: int
+    needs_equipment_mapping_rows: int
+    unresolved_rows: int
+    rows: list[DailyProductionMappingRowOut]

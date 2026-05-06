@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -52,6 +52,10 @@ class DailyProductionMappingPreview:
     needs_equipment_mapping_rows: int
     unresolved_rows: int
     rows: list[DailyProductionMappingRow]
+
+
+def serialize_daily_production_mapping_preview(preview: DailyProductionMappingPreview) -> dict[str, Any]:
+    return asdict(preview)
 
 
 DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {

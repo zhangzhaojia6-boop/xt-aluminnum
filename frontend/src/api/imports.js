@@ -12,6 +12,12 @@ export async function fetchImportHistory() {
   return data
 }
 
+export async function fetchDailyProductionMappingPreview(batchId) {
+  const params = batchId ? { batch_id: batchId } : undefined
+  const { data } = await api.get('/imports/daily-production/mapping-preview', { params })
+  return data
+}
+
 export const uploadImport = async (file, importType = 'generic') => {
   const formData = new FormData()
   formData.append('file', file)
