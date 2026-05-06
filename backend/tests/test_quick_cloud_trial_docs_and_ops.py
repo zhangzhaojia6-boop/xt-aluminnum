@@ -477,7 +477,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：111 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 11:18 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 12:09 左右。' in state
+    assert '管理端车间机列页支持把未绑定 `mobile_coil_agg` 实时填报按车间/班次归入“未绑定机列”' in state
+    assert '`MachineLineScreen-DL7qgGJc.js` / `MachineLineScreen-FDnJ2hSk.css` 已包含 `未绑定机列`、`machine_binding_status` 和 `fc-line__bar`' in state
     assert '管理端用户管理页支持绑定机列' in state
     assert '`UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`' in state
     assert '管理端运维页新增外部 MES 状态条' in state
@@ -486,6 +488,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD' in state
     assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
     assert '`http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。' in state
+    assert '`http://8.140.218.13/manage/factory/machine-lines`：HTTP 200，返回前端 SPA。' in state
+    assert '`LINES=4`' in state
+    assert '`workshop:5:shift:3:unbound=74110.0`' in state
+    assert '`machine_binding_status=unbound`、`freshness.source=local_shift_data`' in state
     assert '`environment=production`' in state
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=unconfigured`' in state
