@@ -471,7 +471,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：110 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 09:22 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 09:34 左右。' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
     assert '远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD' in state
     assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
@@ -480,6 +480,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=unconfigured`' in state
     assert '`active_mobile_user_count=329`' in state
+    assert '`active_workshop_count=12`' in state
     assert '`active_equipment_count=136`' in state
     assert '`FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT` 绑定到 `CPK`' in state
     assert '`virtual_role_qr_active=96`，`virtual_role_qr_bound=96`' in state
