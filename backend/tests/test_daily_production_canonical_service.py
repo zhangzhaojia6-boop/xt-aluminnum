@@ -65,6 +65,25 @@ def test_parse_daily_production_sheet_flags_suspicious_ten_thousand_scale_output
     ]
 
 
+def test_parse_daily_production_sheet_does_not_treat_decimal_metric_as_date() -> None:
+    frame = pd.DataFrame(
+        [
+            ['综合报表', None, None, None, None, None, None, None, None, None, None, None],
+            ['车间   项目', None, '投料量', None, '日产量', None, '日均', '产生废料', None, '月成品率', '指标', '对比'],
+            [None, None, '日合', '累计', '日合', '累计', None, '日合', '累计', None, None, None],
+            ['铸轧', '铸二', 25, 63, 24.18, 61.86, None, 0.82, 1.14, 0.9819, 0.949, 0.0329],
+        ]
+    )
+
+    parsed = parse_daily_production_sheet('综合报表', frame, year_hint=2026)
+
+    assert parsed.status == 'failed'
+    assert parsed.business_date is None
+    assert parsed.mapped_data['business_date'] is None
+    assert parsed.mapped_data['daily_output_tons'] == 24.18
+    assert parsed.mapped_data['quality_status'] == 'blocked'
+
+
 def test_parse_daily_production_workbook_only_uses_summary_sheet(tmp_path) -> None:
     workbook = tmp_path / '鑫泰每日产量5月.xlsx'
     with pd.ExcelWriter(workbook, engine='openpyxl') as writer:

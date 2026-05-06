@@ -68,16 +68,20 @@ def _detect_business_date(sheet_name: str, frame: pd.DataFrame, *, year_hint: in
 
     year = year_hint or datetime.now(timezone.utc).year
     for text in candidates:
-        match = re.search(r'(?:(\d{4})[-/.年])?(\d{1,2})[-/.月](\d{1,2})', text)
-        if not match:
-            continue
-        parsed_year = int(match.group(1) or year)
-        month = int(match.group(2))
-        day = int(match.group(3))
-        try:
-            return date(parsed_year, month, day)
-        except ValueError:
-            continue
+        numeric_match = re.search(r'(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})', text)
+        if numeric_match:
+            try:
+                return date(int(numeric_match.group(1)), int(numeric_match.group(2)), int(numeric_match.group(3)))
+            except ValueError:
+                continue
+
+        chinese_match = re.search(r'(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日?', text)
+        if chinese_match:
+            parsed_year = int(chinese_match.group(1) or year)
+            try:
+                return date(parsed_year, int(chinese_match.group(2)), int(chinese_match.group(3)))
+            except ValueError:
+                continue
     return None
 
 

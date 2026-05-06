@@ -47,6 +47,7 @@ cd /srv/aluminum-bypass
 - 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
+- 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
 
 ## 3. 默认部署形态
 
@@ -93,7 +94,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：699 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：708 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed

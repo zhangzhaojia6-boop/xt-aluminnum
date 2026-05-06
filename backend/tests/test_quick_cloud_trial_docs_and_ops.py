@@ -472,7 +472,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：699 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：708 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
     assert '`python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed' in state
@@ -490,6 +491,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`DINGTALK_NO_BOUND_USERS` warning' in state
     assert 'MES 同步批内重复投影已收口' in state
     assert '`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重' in state
+    assert '历史 `每日产量` 工作簿已接入只读 canonical 预览' in state
+    assert '超过 `10000t` 的日产量标为疑似 kg 口径' in state
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
