@@ -472,15 +472,18 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：710 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：714 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
+    assert '`python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed' in state
+    assert '`python -m pytest backend/tests/test_import_service_contract_report.py backend/tests/test_import_service_yield_matrix.py -q`：2 passed' in state
     assert '`python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed' in state
     assert '`python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
+    assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：17 passed' in state
     assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
     assert '`python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed' in state
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected' in state
@@ -493,8 +496,14 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`DINGTALK_NO_BOUND_USERS` warning' in state
     assert 'MES 同步批内重复投影已收口' in state
     assert '`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重' in state
+    assert 'MES MVC 会话恢复已增强' in state
+    assert '会清理 cookie/token 后重新登录并重放请求' in state
     assert '历史 `每日产量` 工作簿已接入只读 canonical 预览' in state
     assert '超过 `10000t` 的日产量标为疑似 kg 口径' in state
+    assert '真实日报导入门禁' in state
+    assert '`import_type=daily_production_report`' in state
+    assert '`daily_output_tons=1935.649`' in state
+    assert '`shift_production_data_rows=0`' in state
     assert '按卷填报提交口径已收紧' in state
     assert '`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细' in state
     assert '重算时没有合格源卷会 void 旧聚合' in state
@@ -599,17 +608,17 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
     assert '`http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。' in state
     assert '`http://8.140.218.13/manage/factory/machine-lines`：HTTP 200，返回前端 SPA。' in state
-    assert '`machine_lines_len=56`' in state
-    assert '`unbound_machine_lines_len=5`' in state
-    assert '`raw_mobile_coil_agg_input_kg=149510.0`' in state
-    assert '`raw_mobile_coil_agg_scrap_kg=18050.0`' in state
-    assert '`unbound_output_total=120.46`' in state
-    assert '`machine_binding_status=unbound`、`freshness.source=local_shift_data`' in state
-    assert '`/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`' in state
-    assert '`factory_output=120.46`' in state
-    assert '`2050冷轧车间|未绑定机列 / 夜班=74.11`' in state
-    assert '`夜班=111.36/2个机列`、`白班=9.1/1个机列`' in state
-    assert '不再把 `120460.0` kg 写入对账差异值' in state
+    assert '`mobile_coil_entries=17` 历史明细仍保留' in state
+    assert '`active_mobile_coil_agg=0`、`draft_only_candidate_count=0`' in state
+    assert '`overview_source=mes_projection`' in state
+    assert '`factory_command_total_output_tons=0`' in state
+    assert '`overview_workshop_summary_len=0`' in state
+    assert '`machine_lines_len=51`' in state
+    assert '`local_source_line_count=0`' in state
+    assert '`/api/v1/aggregation/live?business_date=2026-05-06` 当前服务探针返回 `data_source=work_order_runtime`' in state
+    assert '`factory_output=0.0`、`positive_live_cell_count=0`' in state
+    assert '不再显示历史 draft-only 临时机列产量' in state
+    assert '历史 `120460.0kg -> 120.46t` 只作为已验证过的折吨行为证据' in state
     assert '未在生产库触发自动日报生成或写入新日报' in state
     assert '2026-05-06 14:50 左右刷新 MES 前置核对时' in state
     assert '耗时约 `0.268s`' in state
@@ -975,15 +984,16 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '- [x] Phase 3 代码闭环已验证',
         '- [ ] 真实外部联通闸门通过',
         '- [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转',
-        'MES MVC 联通阻塞已解除',
+        'MES MVC 联通阻塞已解除并补强会话恢复',
         '`coil_snapshots fetched=50 upserted=50`',
         '`mes_coil_snapshots_count=52`',
+        '表格请求被打回登录页时会清 session 后重登重试',
         '管理端工厂指挥中心已验证混合来源',
         '`overview_source=mixed`',
-        '`raw_mobile_coil_agg_output_kg=120460.0`',
-        '`overview_total_output=120.46`',
-        '`machine_lines_len=56`',
-        '`unbound_machine_lines_len=5`',
+        '`overview_source=mes_projection`',
+        '`factory_command_total_output_tons=0`',
+        '`machine_lines_len=51`',
+        '`local_source_line_count=0`',
         '机列绑定贯通到管理端',
         '`ShiftProductionData.equipment_id`',
         '`machine_binding_status`',
@@ -1013,6 +1023,9 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '`active_dingtalk_employee_count=0`',
         '生产 synthetic 验证 `valid_business_date=2026-05-03`',
         '无日期样本保持 `missing_business_date=null`',
+        '历史 `每日产量` 导入闸门已接入 import staging',
+        '`first_daily_output_tons=1935.649`',
+        '`shift_rows_after=0`',
         '`LLM_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
         '通讯录成员读取权限、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',

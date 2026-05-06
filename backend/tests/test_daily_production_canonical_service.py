@@ -2,7 +2,30 @@ from __future__ import annotations
 
 import pandas as pd
 
-from app.services.daily_production_canonical_service import parse_daily_production_sheet, parse_daily_production_workbook
+from app.services.daily_production_canonical_service import (
+    daily_production_row_summary_fields,
+    parse_daily_production_sheet,
+    parse_daily_production_workbook,
+)
+
+
+def test_daily_production_row_summary_fields_are_stable() -> None:
+    assert daily_production_row_summary_fields() == [
+        'business_date',
+        'source_batch_id',
+        'sheet_name',
+        'source_unit',
+        'row_count',
+        'daily_input_tons',
+        'month_to_date_input_tons',
+        'daily_output_tons',
+        'month_to_date_output_tons',
+        'daily_scrap_tons',
+        'month_to_date_scrap_tons',
+        'lineage_hash',
+        'quality_status',
+        'issues',
+    ]
 
 
 def test_parse_daily_production_sheet_extracts_date_rows_and_ton_totals() -> None:

@@ -49,6 +49,7 @@ cd /srv/aluminum-bypass
 - 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
+- MES MVC 会话恢复已增强：表格查询若被会话过期打回登录页，会清理 cookie/token 后重新登录并重放请求；二次仍返回登录页才报错，避免短期 session 过期让同步长期卡住。
 - 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
 
 ## 3. 默认部署形态
@@ -96,15 +97,17 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：710 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：714 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
+- `python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed
+- `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：17 passed
 - `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
@@ -234,12 +237,12 @@ MES_API_KEY=...
 - `http://8.140.218.13/manage/factory`：HTTP 200，返回前端 SPA。
 - `http://8.140.218.13/manage/factory/machine-lines`：HTTP 200，返回前端 SPA。
 - 生产前端资源 `FactoryDirector-CzchESVl.js` 已包含 `review-factory-live-chart`。
-- 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=17`，`pending_mobile_coil_agg_rows=5`，`raw_mobile_coil_agg_input_kg=149510.0`，`raw_mobile_coil_agg_output_kg=120460.0`，`raw_mobile_coil_agg_scrap_kg=18050.0`。
-- 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；MES 投影存在时工厂指挥服务返回 `overview_source=mixed`、`factory_command_total_output_tons=120.46`、`overview_total_input_tons=149.51`。
-- 工厂指挥服务 `list_machine_lines()` 已返回 `machine_lines_len=56`，其中 `unbound_machine_lines_len=5`、`unbound_output_total=120.46`；未绑定机列保留 `machine_binding_status=unbound`、`freshness.source=local_shift_data`。
-- 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120.46`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9.1`、`2050冷轧车间|未绑定机列 / 夜班=74.11`、`精整车间|未绑定机列 / 夜班=37.25`。
-- 管理端班次节奏探针基于同一实时聚合返回 `夜班=111.36/2个机列`、`白班=9.1/1个机列`。
-- 对账服务生产侧只读探针基于同一批 `mobile_coil_agg` 返回 `reconciliation_output_total_tons=120.46`、`JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`，不再把 `120460.0` kg 写入对账差异值。
+- 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=17` 历史明细仍保留；28 行 draft-only `mobile_coil_agg` 已置为 `voided`，当前 `active_mobile_coil_agg=0`、`draft_only_candidate_count=0`。
+- 管理端上报状态服务仍保留卷级直录入口语义；draft-only 聚合修正后，工厂指挥服务当前返回 `overview_source=mes_projection`、`factory_command_total_output_tons=0`、`overview_today_output_tons=0`、`overview_workshop_summary_len=0`。
+- 工厂指挥服务 `list_machine_lines()` 当前返回 `machine_lines_len=51`，其中 `local_source_line_count=0`；历史未绑定 draft 测试行不再作为 `local_shift_data` 机列进入管理端实时产量。
+- 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 当前服务探针返回 `data_source=work_order_runtime`、`factory_output=0.0`、`positive_live_cell_count=0`，不再显示历史 draft-only 临时机列产量。
+- 管理端班次节奏在无 submitted/verified/approved 卷级直录时不再展示历史 draft-only 产量节奏。
+- 对账服务仍保留卷级 kg 折吨代码路径；生产 draft-only 聚合置为 `voided` 后，历史 `120460.0kg -> 120.46t` 只作为已验证过的折吨行为证据，不再作为当前活动产量。
 - 自动汇总 Agent 的部署探针使用 synthetic confirmed `mobile_coil_agg` 行验证代码路径：`250000.0kg -> aggregator_output_tons=250.0`、`260000.0kg -> aggregator_input_tons=260.0`；未在生产库触发自动日报生成或写入新日报。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
 - 2026-05-06 14:50 左右刷新 MES 前置核对时：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；当时生产运行配置中 `MES_ADAPTER` 等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空，阻塞在生产 MES 运行配置缺失。
@@ -348,7 +351,21 @@ cd backend
 - 钉钉应用配置完整。
 - 应用连接 API 已启用，且 push mode 为 `enabled`。
 
-## 9. 回滚锚点
+## 9. 真实日报导入门禁
+
+2026-05-06 已把 `daily_production_report` 接入现有 `ImportBatch` / `ImportRow` 审计区，作为真实报表进入正式生产事实表前的 dry-run 门禁。
+
+已验证：
+
+- `python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed。
+- `python -m pytest backend/tests/test_import_service_contract_report.py backend/tests/test_import_service_yield_matrix.py -q`：2 passed。
+- 本地内存 SQLite 受控导入 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`，`import_type=daily_production_report`，`total_rows=1`，`success_rows=1`，`failed_rows=0`。
+- 解析结果：`business_date=2026-05-03`，`source_unit=t`，`row_count=16`，`daily_input_tons=1985.674`，`daily_output_tons=1935.649`，`month_to_date_output_tons=11258.775`，`daily_scrap_tons=50.025`，`issues=[]`。
+- 同次导入 `shift_production_data_rows=0`，确认该门禁只写导入审计区，不写正式生产事实表。
+
+下一道门禁：把导入行转为正式生产数据前，必须先做车间/机列映射、班次归属、日累计与月累计口径确认，并继续拦截 `>10000t` 的疑似 kg/t 错配数据。
+
+## 10. 回滚锚点
 
 当前主线回滚锚点：
 

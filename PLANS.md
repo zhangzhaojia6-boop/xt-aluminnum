@@ -42,8 +42,8 @@
 - Phase 1 代码闭环：readyz warning 语义、企业微信用户消息路径下线、工厂指挥中心手填回退、后端回归均已有自动化覆盖。
 - Phase 2 代码闭环：规则阈值按车间配置、AI 助手建议到 agent 一键处置、班长一屏均已有后端和前端自动化覆盖。
 - Phase 3 代码闭环：钉钉 H5 登录服务、钉钉通讯录同步入口、扫码带出与锁字段校验均已有后端和前端自动化覆盖。
-- MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=52`。
-- 管理端工厂指挥中心已验证混合来源：生产 `overview_source=mixed`，当天卷级直录原始 `raw_mobile_coil_agg_output_kg=120460.0`，管理口径 `overview_total_output=120.46`，`machine_lines_len=56`，`unbound_machine_lines_len=5`。
+- MES MVC 联通阻塞已解除并补强会话恢复：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=52`；表格请求被打回登录页时会清 session 后重登重试。
+- 管理端工厂指挥中心已验证混合来源和草稿隔离：此前生产 `overview_source=mixed` 验证过卷级直录折吨链路；draft-only 聚合置为 `voided` 后，当前返回 `overview_source=mes_projection`、`factory_command_total_output_tons=0`、`machine_lines_len=51`、`local_source_line_count=0`。
 - 机列绑定贯通到管理端：普通移动班次报表会把同车间绑定账号写入 `ShiftProductionData.equipment_id`，工厂指挥 `machine-lines` API 响应模型保留 `machine_binding_status`，生产回滚事务探针 `mobile_shift_report_binding_ok=true`。
 - 对账服务已验证卷级吨口径：生产 `reconciliation_output_total_tons=120.46`，`production_vs_mes` 与 `energy_vs_production` 不再把 `mobile_coil_agg` raw kg 当吨比较。
 - 自动汇总 Agent 已验证卷级吨口径：confirmed `mobile_coil_agg` 行进入自动日报/老板摘要前先折吨，生产代码探针 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
@@ -54,6 +54,7 @@
 - 外部联通 readiness 已支持可选通讯录权限核验：`--check-dingtalk-contacts` 返回 `DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`，不会写用户表或回显成员明细。
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
 - 历史 `每日产量` 工作簿已具备只读 dry-run 预览：综合日报表按吨单位映射日/月投料、产出、废料，车间标签向下继承，并拦截 `10000t` 以上疑似 kg 口径异常；生产 synthetic 验证 `valid_business_date=2026-05-03`，无日期样本保持 `missing_business_date=null`，暂不写库。
+- 历史 `每日产量` 导入闸门已接入 import staging：真实工作簿 dry-run `first_daily_output_tons=1935.649`、`first_source_unit=t`、`shift_rows_after=0`，仅写 `ImportBatch/ImportRow`，暂不写正式产量事实表。
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
@@ -62,11 +63,14 @@
 
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
+- `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：17 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：710 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：714 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
+- `python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed
+- `python -m pytest backend/tests/test_import_service_contract_report.py backend/tests/test_import_service_yield_matrix.py -q`：2 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed

@@ -13,6 +13,22 @@ import pandas as pd
 
 
 SUSPICIOUS_DAILY_OUTPUT_TONS = 10_000.0
+DAILY_PRODUCTION_FIELD_ORDER = [
+    'business_date',
+    'source_batch_id',
+    'sheet_name',
+    'source_unit',
+    'row_count',
+    'daily_input_tons',
+    'month_to_date_input_tons',
+    'daily_output_tons',
+    'month_to_date_output_tons',
+    'daily_scrap_tons',
+    'month_to_date_scrap_tons',
+    'lineage_hash',
+    'quality_status',
+    'issues',
+]
 
 
 @dataclass(slots=True)
@@ -23,6 +39,10 @@ class ParsedDailyProductionSheet:
     raw_data: dict[str, Any]
     status: str
     error_msg: str | None
+
+
+def daily_production_row_summary_fields() -> list[str]:
+    return list(DAILY_PRODUCTION_FIELD_ORDER)
 
 
 def _normalize_text(value: Any) -> str:

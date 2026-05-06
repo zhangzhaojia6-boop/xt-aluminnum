@@ -18,6 +18,10 @@ from app.models.system import User
 from app.services.audit_service import record_audit
 from app.services import master_service
 from app.services.contract_canonical_service import contract_row_summary_fields, parse_contract_workbook
+from app.services.daily_production_canonical_service import (
+    daily_production_row_summary_fields,
+    parse_daily_production_workbook,
+)
 from app.services.yield_matrix_canonical_service import (
     parse_yield_matrix_workbook,
     yield_matrix_row_summary_fields,
@@ -395,6 +399,38 @@ def store_import_file(
             )
             rows.append(row)
             db.add(row)
+        failed_rows = len([item for item in rows if item.status != 'success'])
+        error_summary = '; '.join(filter(None, [item.error_msg for item in rows])) or None
+    elif import_type == 'daily_production_report':
+        parsed_rows = parse_daily_production_workbook(
+            stored_path,
+            source_batch_id=batch.id,
+            year_hint=(batch.created_at.year if batch.created_at else None),
+        )
+        summary_columns = daily_production_row_summary_fields()
+        if not parsed_rows:
+            row = ImportRow(
+                batch_id=batch.id,
+                row_number=1,
+                raw_data={'file_name': upload_file.filename or stored_filename, 'expected_sheet': '综合报表'},
+                mapped_data=None,
+                status='failed',
+                error_msg='每日产量工作簿未找到综合报表，请检查是否为生产系统综合日报表。',
+            )
+            rows.append(row)
+            db.add(row)
+        else:
+            for index, item in enumerate(parsed_rows, start=1):
+                row = ImportRow(
+                    batch_id=batch.id,
+                    row_number=index,
+                    raw_data=item.raw_data,
+                    mapped_data=item.mapped_data,
+                    status=item.status,
+                    error_msg=item.error_msg,
+                )
+                rows.append(row)
+                db.add(row)
         failed_rows = len([item for item in rows if item.status != 'success'])
         error_summary = '; '.join(filter(None, [item.error_msg for item in rows])) or None
     elif import_type == 'yield_rate_matrix':
