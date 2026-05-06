@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -201,6 +203,13 @@ REAL_EQUIPMENT_CODES = {
     for equipment_rows in EQUIPMENT_BY_WORKSHOP.values()
     for row in equipment_rows
 }
+VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
+ROLE_QR_SUFFIX_MAP = {
+    'OP': ('machine_operator', '主操'),
+    'EN': ('energy_stat', '电工'),
+    'HY': ('hydraulic_lead', '液压'),
+    'MT': ('maintenance_lead', '机修'),
+}
 
 
 def _is_placeholder_text(value: str | None) -> bool:
@@ -230,6 +239,8 @@ def _deactivate_legacy_rows(db: Session) -> None:
 
     equipment_rows = db.execute(select(Equipment)).scalars().all()
     for item in equipment_rows:
+        if item.equipment_type in VIRTUAL_QR_EQUIPMENT_TYPES and item.workshop_id not in inactive_workshop_ids:
+            continue
         if item.code not in REAL_EQUIPMENT_CODES or item.workshop_id in inactive_workshop_ids:
             item.is_active = False
 
@@ -488,6 +499,67 @@ def seed_special_owner_users(db: Session, workshops_by_code: dict[str, Workshop]
                 )
 
 
+def seed_virtual_role_qr_accounts(db: Session) -> None:
+    rows = (
+        db.execute(
+            select(Equipment)
+            .where(Equipment.equipment_type == 'virtual_role_qr')
+            .order_by(Equipment.workshop_id.asc(), Equipment.sort_order.asc(), Equipment.id.asc())
+        )
+        .scalars()
+        .all()
+    )
+    for equipment in rows:
+        workshop = db.get(Workshop, equipment.workshop_id)
+        if workshop is None or not workshop.is_active:
+            equipment.is_active = False
+            continue
+
+        qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
+        mapping = ROLE_QR_SUFFIX_MAP.get(qr_suffix)
+        if mapping is None:
+            equipment.is_active = False
+            continue
+
+        system_role, role_label = mapping
+        username = equipment.code.upper()
+        user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
+        if user is None:
+            user = User(
+                username=username,
+                password_hash=get_password_hash(secrets.token_urlsafe(24)),
+                name=equipment.name or f'{workshop.name}{role_label}',
+                role=system_role,
+                workshop_id=workshop.id,
+                team_id=None,
+                data_scope_type='self_workshop',
+                assigned_shift_ids=[],
+                is_mobile_user=True,
+                is_reviewer=False,
+                is_manager=False,
+                is_active=True,
+            )
+            db.add(user)
+            db.flush()
+        else:
+            user.name = equipment.name or f'{workshop.name}{role_label}'
+            user.role = system_role
+            user.workshop_id = workshop.id
+            user.team_id = None
+            user.data_scope_type = 'self_workshop'
+            user.assigned_shift_ids = list(user.assigned_shift_ids or [])
+            user.is_mobile_user = True
+            user.is_reviewer = False
+            user.is_manager = False
+            user.is_active = True
+            if not user.password_hash:
+                user.password_hash = get_password_hash(secrets.token_urlsafe(24))
+
+        equipment.operational_status = 'running'
+        equipment.bound_user_id = user.id
+        equipment.is_active = True
+
+
 def seed_real_master_data(db: Session) -> None:
     _deactivate_placeholder_rows(db, Workshop)
     _deactivate_placeholder_rows(db, Team)
@@ -498,5 +570,6 @@ def seed_real_master_data(db: Session) -> None:
     seed_real_teams(db, workshops_by_code)
     seed_real_equipment(db, workshops_by_code)
     seed_special_owner_users(db, workshops_by_code)
+    seed_virtual_role_qr_accounts(db)
 
     db.commit()

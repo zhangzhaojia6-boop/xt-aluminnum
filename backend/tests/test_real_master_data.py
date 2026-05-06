@@ -299,6 +299,63 @@ def test_seed_real_master_data_keeps_existing_machine_account_binding_and_pin(tm
         db.close()
 
 
+def test_seed_real_master_data_reactivates_role_qr_and_binds_role_accounts(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(code='ZR2', name='旧铸二', sort_order=99, is_active=True)
+        db.add(workshop)
+        db.commit()
+        db.refresh(workshop)
+        db.add_all(
+            [
+                Equipment(
+                    code='ZR2-1-OP',
+                    name='铸二车间 1# 主操',
+                    workshop_id=workshop.id,
+                    equipment_type='virtual_role_qr',
+                    operational_status='running',
+                    qr_code='XT-ZR2-1-OP',
+                    is_active=False,
+                ),
+                Equipment(
+                    code='ZR2-EN',
+                    name='铸二车间 电工',
+                    workshop_id=workshop.id,
+                    equipment_type='virtual_role_qr',
+                    operational_status='running',
+                    qr_code='XT-ZR2-EN',
+                    is_active=False,
+                ),
+            ]
+        )
+        db.commit()
+
+        seed_real_master_data(db)
+
+        operator_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZR2-1-OP')).scalar_one()
+        electrician_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZR2-EN')).scalar_one()
+        operator_user = db.execute(select(User).where(User.username == 'ZR2-1-OP')).scalar_one()
+        electrician_user = db.execute(select(User).where(User.username == 'ZR2-EN')).scalar_one()
+
+        assert operator_qr.is_active is True
+        assert electrician_qr.is_active is True
+        assert operator_qr.bound_user_id == operator_user.id
+        assert electrician_qr.bound_user_id == electrician_user.id
+
+        assert operator_user.role == 'machine_operator'
+        assert electrician_user.role == 'energy_stat'
+        assert operator_user.workshop_id == operator_qr.workshop_id
+        assert electrician_user.workshop_id == electrician_qr.workshop_id
+        assert operator_user.is_mobile_user is True
+        assert electrician_user.is_mobile_user is True
+        assert operator_user.is_active is True
+        assert electrician_user.is_active is True
+    finally:
+        db.close()
+
+
 def test_docker_compose_runs_real_master_data_init_after_base_init() -> None:
     compose_text = (REPO_ROOT / 'docker-compose.yml').read_text(encoding='utf-8')
     prod_text = (REPO_ROOT / 'docker-compose.prod.yml').read_text(encoding='utf-8')
