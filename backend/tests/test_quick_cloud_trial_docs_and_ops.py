@@ -397,6 +397,12 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：110 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
+    assert '最近一次 ECS 只读探测：2026-05-06 08:06 左右。' in state
+    assert '`8.140.218.13:22`：TCP 可达，但本轮未验证 SSH 用户认证。' in state
+    assert '`http://8.140.218.13/readyz`：HTTP 503，返回后端 readyz JSON。' in state
+    assert '`MOBILE_USER_WORKSHOP_MISSING`' in state
+    assert '`SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）' in state
+    assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
     assert '678 passed' not in state

@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 06:35:11 +08:00
+更新时间：2026-05-06 08:07:33 +08:00
 
 ## 1. 仓库状态
 
@@ -144,26 +144,26 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 只读探测：2026-05-05 12:20 左右。
+最近一次 ECS 只读探测：2026-05-06 08:06 左右。
 
-- `8.140.218.13:22`：连接被远端关闭或超时，当前不能 SSH 登录。
-- `8.140.218.13:443`：TCP 可达，但 SSH over 443 被远端关闭。
-- `https://8.140.218.13/readyz`：HTTP 404。
-- `http://8.140.218.13/readyz`：HTTP 503。
+- `8.140.218.13:22`：TCP 可达，但本轮未验证 SSH 用户认证。
+- `8.140.218.13:443`：TCP 可达。
+- `https://8.140.218.13/readyz`：HTTP 404，仍未命中后端 readyz JSON。
+- `http://8.140.218.13/readyz`：HTTP 503，返回后端 readyz JSON。
+- HTTP readyz 的关键阻断：
+  - `MOBILE_USER_WORKSHOP_MISSING`：存在未绑定车间的移动填报账号，样例包含 `FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT`、`admin`。
+  - `SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）：远端应报清单为空，`schedule_row_count=0`。
 
-Vercel 主线探测：2026-05-05 12:47 左右。
+Vercel 主线探测：
 
-- GitHub commit status：最近一次可确认记录为 `Vercel=success`，目标提交 `b029db8`；之后提交的 GitHub REST 查询曾被 rate limit 阻断，Vercel MCP 当前返回 403，本轮未把 Vercel 作为后端或外部联通证据。
-- `https://xt-aluminnum.vercel.app/`：HTTP 200。
-- `https://xt-aluminnum.vercel.app/entry`：HTTP 200，返回前端挂载页。
-- `https://xt-aluminnum.vercel.app/manage/admin`：HTTP 200，返回前端挂载页。
-- `https://xt-aluminnum.vercel.app/readyz`：HTTP 200，但返回的是前端 SPA shell，不是后端 readyz JSON。
+- 最近一次可确认正向记录仍是 2026-05-05 12:47 左右：`/`、`/entry`、`/manage/admin` 返回前端挂载页，`/readyz` 返回前端 SPA shell 而不是后端 readyz JSON。
+- 2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通，`curl -4 https://xt-aluminnum.vercel.app/` 连接超时；因此本轮不把 Vercel 作为当前可达证据。
 
-结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、MES、钉钉或应用连接 API 已正式联通。ECS 仍需恢复 SSH 或提供服务器执行结果后再验收。
+结论：Vercel 当前只能作为前端静态部署证据，不能证明后端、数据库、外部 MES、钉钉或应用连接 API 已正式联通。ECS 当前已有 22/443 TCP 可达迹象，但仍需恢复 SSH 用户认证或提供服务器执行结果，并先修复 owner 车间绑定与目标日应报清单后再验收。
 
 ## 7. 一条命令更新上线
 
-服务器 SSH 恢复后执行：
+服务器 SSH 用户认证可用后执行：
 
 ```bash
 cd /srv/aluminum-bypass
