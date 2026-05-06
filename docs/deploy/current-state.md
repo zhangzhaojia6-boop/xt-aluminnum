@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 13:37:00 +08:00
+更新时间：2026-05-06 16:45:34 +08:00
 
 ## 1. 仓库状态
 
@@ -41,6 +41,7 @@ cd /srv/aluminum-bypass
 - 主路径不再暴露“改造中”“待迁移”等占位文案。
 - PR review 反馈的扫码取旧 MES 快照问题已修复：重复 QR 取最新快照，缺少 `mes_coil_snapshots` 表时仍可回退设备二维码。
 - 管理端已上线卷级实时填报可见性：`pending + mobile_coil_agg` 作为 `卷级直录` 待确认流入展示，正式已确认日报口径不被普通 `pending` 数据污染。
+- MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 
 ## 3. 默认部署形态
 
@@ -87,9 +88,10 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：674 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q --durations=10`：675 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed
 - `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
-- `python -m pytest backend/tests -m frontend_contract -q`：124 passed，674 deselected
+- `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过

@@ -50,6 +50,14 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _to_float(value: Any) -> float | None:
     if value in (None, ''):
         return None
@@ -166,6 +174,13 @@ def _projection_fields(snapshot: CoilSnapshot, synced_at: datetime) -> dict[str,
 
 def _projection_update_fields(projection: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in projection.items() if key != 'coil_id'}
+
+
+def _dedupe_snapshots_by_projected_id(rows: list[CoilSnapshot]) -> list[CoilSnapshot]:
+    deduped: dict[str, CoilSnapshot] = {}
+    for row in rows:
+        deduped[_projected_coil_id(row)] = row
+    return list(deduped.values())
 
 
 def _apply_projection(entity: Any, projection: Mapping[str, Any]) -> None:
@@ -327,33 +342,34 @@ def _upsert_snapshot(db: Session, *, snapshot: CoilSnapshot, synced_at: datetime
     payload = _serialize_snapshot(snapshot)
     business_date = (snapshot.updated_at or snapshot.event_time).date() if (snapshot.updated_at or snapshot.event_time) else None
     if existing is None:
-        db.add(
-            MesCoilSnapshot(
-                coil_id=coil_id,
-                tracking_card_no=snapshot.tracking_card_no,
-                qr_code=snapshot.qr_code,
-                batch_no=snapshot.batch_no,
-                contract_no=snapshot.contract_no,
-                **_projection_update_fields(projection),
-                workshop_code=snapshot.workshop_code,
-                process_code=snapshot.process_code,
-                machine_code=snapshot.machine_code,
-                shift_code=snapshot.shift_code,
-                status=snapshot.status,
-                business_date=business_date,
-                event_time=snapshot.event_time,
-                updated_from_mes_at=snapshot.updated_at or snapshot.event_time,
-                last_synced_at=synced_at,
-                source_payload=payload,
-            )
+        entity = MesCoilSnapshot(
+            coil_id=coil_id,
+            tracking_card_no=snapshot.tracking_card_no,
+            qr_code=snapshot.qr_code,
+            batch_no=snapshot.batch_no,
+            contract_no=snapshot.contract_no,
+            **_projection_update_fields(projection),
+            workshop_code=snapshot.workshop_code,
+            process_code=snapshot.process_code,
+            machine_code=snapshot.machine_code,
+            shift_code=snapshot.shift_code,
+            status=snapshot.status,
+            business_date=business_date,
+            event_time=snapshot.event_time,
+            updated_from_mes_at=snapshot.updated_at or snapshot.event_time,
+            last_synced_at=synced_at,
+            source_payload=payload,
         )
+        db.add(entity)
+        db.flush()
         return True, False
 
-    incoming_updated_at = snapshot.updated_at or snapshot.event_time
+    incoming_updated_at = _as_utc(snapshot.updated_at or snapshot.event_time)
+    existing_updated_at = _as_utc(existing.updated_from_mes_at)
     if (
-        existing.updated_from_mes_at is not None
+        existing_updated_at is not None
         and incoming_updated_at is not None
-        and incoming_updated_at < existing.updated_from_mes_at
+        and incoming_updated_at < existing_updated_at
     ):
         existing.last_synced_at = synced_at
         return False, True
@@ -495,7 +511,7 @@ def sync_mes_devices(db: Session, *, now: datetime | None = None) -> MesSyncStat
 def _sync_coil_list(db: Session, *, cursor_key: str, rows: list[CoilSnapshot], synced_at: datetime) -> MesSyncStats:
     upserted_count = 0
     replayed_count = 0
-    for row in rows:
+    for row in _dedupe_snapshots_by_projected_id(rows):
         changed, replayed = _upsert_snapshot(db, snapshot=row, synced_at=synced_at)
         if changed:
             upserted_count += 1
@@ -604,16 +620,20 @@ def _stable_line_code(workshop_name: str | None, slot_no: int | None, line_name:
 
 
 def compute_sync_lag_seconds(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: datetime | None = None) -> float | None:
-    current = now or _utcnow()
+    current = _as_utc(now) or _utcnow()
     cursor = _query_first(db.query(MesSyncCursor).filter(MesSyncCursor.cursor_key == cursor_key))
     if cursor is None or cursor.last_event_at is None:
         latest = _query_first(
             db.query(MesCoilSnapshot).order_by(MesCoilSnapshot.updated_from_mes_at.desc().nullslast(), MesCoilSnapshot.id.desc())
         )
-        if latest is None or latest.updated_from_mes_at is None:
+        latest_updated_at = _as_utc(latest.updated_from_mes_at) if latest is not None else None
+        if latest_updated_at is None:
             return None
-        return max((current - latest.updated_from_mes_at).total_seconds(), 0.0)
-    return max((current - cursor.last_event_at).total_seconds(), 0.0)
+        return max((current - latest_updated_at).total_seconds(), 0.0)
+    cursor_last_event_at = _as_utc(cursor.last_event_at)
+    if cursor_last_event_at is None:
+        return None
+    return max((current - cursor_last_event_at).total_seconds(), 0.0)
 
 
 def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: datetime | None = None) -> dict[str, Any]:

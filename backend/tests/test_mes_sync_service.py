@@ -2,8 +2,12 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import sessionmaker
 
 from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource
+from app.database import Base
+from app.models.mes import CoilFlowEvent, MesCoilSnapshot
 from app.services import mes_sync_service
 
 
@@ -186,6 +190,49 @@ def test_sync_machine_lines_maps_device_slots_to_stable_line_codes(monkeypatch):
     assert stats.upserted_count == 2
     assert rows[0].line_code == '冷轧:01'
     assert rows[1].line_code == '精整:11'
+
+
+def test_sync_coil_list_deduplicates_projected_ids_before_commit(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-sync-dedup.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    snapshot = CoilSnapshot(
+        coil_id='vendor-row',
+        tracking_card_no='26RA03629',
+        batch_no='26RA03629',
+        process_code='冷轧',
+        status='生产中',
+        metadata={
+            'MaterialCode': '26-s-3-065-1',
+            'CurrentWorkShop': '2050车间',
+            'CurrentProcess': '冷轧',
+        },
+        updated_at=datetime(2026, 5, 6, 8, 16, tzinfo=UTC),
+    )
+
+    with Session() as db:
+        stats_one = mes_sync_service._sync_coil_list(
+            db,
+            cursor_key='mes_follow_cards',
+            rows=[snapshot, snapshot],
+            synced_at=datetime(2026, 5, 6, 8, 17, tzinfo=UTC),
+        )
+        stats_two = mes_sync_service._sync_coil_list(
+            db,
+            cursor_key='mes_dispatch',
+            rows=[snapshot],
+            synced_at=datetime(2026, 5, 6, 8, 18, tzinfo=UTC),
+        )
+        db.commit()
+
+        row_count = db.scalar(select(func.count()).select_from(MesCoilSnapshot))
+        entity = db.scalar(select(MesCoilSnapshot))
+
+    assert stats_one.fetched_count == 2
+    assert stats_one.upserted_count == 1
+    assert stats_two.fetched_count == 1
+    assert row_count == 1
+    assert entity.coil_id == 'fallback:26RA03629:26-s-3-065-1'
 
 
 def test_upsert_snapshot_writes_flow_events_idempotently_for_process_changes():
