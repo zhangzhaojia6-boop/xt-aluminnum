@@ -47,6 +47,45 @@ def _issue(
     return payload
 
 
+def _scalar_int(db, statement: str) -> int:
+    result = db.execute(text(statement))
+    scalar = result.scalar() if hasattr(result, 'scalar') else result
+    return int(scalar or 0)
+
+
+def _count_active_dingtalk_bindings(session_factory) -> tuple[int | None, int | None, str | None]:
+    try:
+        db = session_factory()
+        try:
+            user_count = _scalar_int(
+                db,
+                """
+                SELECT COUNT(*)
+                FROM users
+                WHERE is_active = true
+                  AND dingtalk_user_id IS NOT NULL
+                  AND TRIM(dingtalk_user_id) <> ''
+                """,
+            )
+            employee_count = _scalar_int(
+                db,
+                """
+                SELECT COUNT(*)
+                FROM employees
+                WHERE is_active = true
+                  AND dingtalk_user_id IS NOT NULL
+                  AND TRIM(dingtalk_user_id) <> ''
+                """,
+            )
+            return user_count, employee_count, None
+        finally:
+            close = getattr(db, 'close', None)
+            if callable(close):
+                close()
+    except SQLAlchemyError as exc:
+        return None, None, exc.__class__.__name__
+
+
 def build_external_env_template(*, runtime_settings: Settings | None = None) -> str:
     runtime = runtime_settings or settings
     mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
@@ -302,6 +341,8 @@ def inspect_statistics_module_ready(
             llm_ready = True
 
     dingtalk_ready = False
+    active_dingtalk_user_count: int | None = None
+    active_dingtalk_employee_count: int | None = None
     if not runtime.DINGTALK_ENABLED:
         issues.append(
             _issue(
@@ -343,6 +384,30 @@ def inspect_statistics_module_ready(
         )
     else:
         dingtalk_ready = True
+        if database_ok:
+            (
+                active_dingtalk_user_count,
+                active_dingtalk_employee_count,
+                dingtalk_binding_error,
+            ) = _count_active_dingtalk_bindings(session_factory)
+            if dingtalk_binding_error:
+                issues.append(
+                    _issue(
+                        level='warning',
+                        code='DINGTALK_BINDING_CHECK_UNAVAILABLE',
+                        message=f'钉钉人员绑定数检查失败：{dingtalk_binding_error}。',
+                        suggestion='请确认 users / employees 表结构已迁移，再重新运行 readiness 检查。',
+                    )
+                )
+            elif active_dingtalk_user_count == 0 and active_dingtalk_employee_count == 0:
+                issues.append(
+                    _issue(
+                        level='warning',
+                        code='DINGTALK_NO_BOUND_USERS',
+                        message='钉钉应用已启用，但没有 active 用户或员工绑定 dingtalk_user_id，工作通知无法送达真实人员。',
+                        suggestion='先同步钉钉通讯录或给试点账号绑定 dingtalk_user_id，再做真实客户端 UAT。',
+                    )
+                )
 
     app_connection_mode = runtime.app_connection_push_mode_normalized
     app_connection_ready = False
@@ -432,6 +497,8 @@ def inspect_statistics_module_ready(
             'llm_enabled': runtime.LLM_ENABLED,
             'llm_model_ref_set': not _is_blank(runtime.LLM_MODEL) or not _is_blank(runtime.LLM_ENDPOINT_ID),
             'dingtalk_enabled': runtime.DINGTALK_ENABLED,
+            'active_dingtalk_user_count': active_dingtalk_user_count,
+            'active_dingtalk_employee_count': active_dingtalk_employee_count,
             'app_connection_enabled': runtime.APP_CONNECTION_ENABLED,
             'app_connection_push_mode': app_connection_mode,
             'runtime_valid': runtime_valid,

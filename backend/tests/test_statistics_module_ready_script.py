@@ -45,18 +45,39 @@ def _build_settings(**overrides) -> Settings:
 
 
 class _DummySession:
+    def __init__(self, *, dingtalk_user_count: int = 1, dingtalk_employee_count: int = 1):
+        self.dingtalk_user_count = dingtalk_user_count
+        self.dingtalk_employee_count = dingtalk_employee_count
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def execute(self, _query):
-        return 1
+    def execute(self, query):
+        sql = str(query)
+        if 'FROM users' in sql:
+            return _DummyResult(self.dingtalk_user_count)
+        if 'FROM employees' in sql:
+            return _DummyResult(self.dingtalk_employee_count)
+        return _DummyResult(1)
+
+
+class _DummyResult:
+    def __init__(self, value: int):
+        self.value = value
+
+    def scalar(self):
+        return self.value
 
 
 def _sessionmaker_ok():
     return _DummySession()
+
+
+def _sessionmaker_with_dingtalk_counts(*, user_count: int, employee_count: int):
+    return lambda: _DummySession(dingtalk_user_count=user_count, dingtalk_employee_count=employee_count)
 
 
 def test_inspect_statistics_module_ready_passes_with_minimum_valid_setup() -> None:
@@ -72,7 +93,27 @@ def test_inspect_statistics_module_ready_passes_with_minimum_valid_setup() -> No
     assert payload['external_connection_enabled'] is True
     assert payload['hard_gate_passed'] is True
     assert payload['hard_issues'] == []
+    assert payload['warning_issues'] == []
     assert payload['stats']['llm_model_ref_set'] is True
+    assert payload['stats']['active_dingtalk_user_count'] == 1
+    assert payload['stats']['active_dingtalk_employee_count'] == 1
+
+
+def test_inspect_statistics_module_ready_warns_when_dingtalk_has_no_bound_users() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_with_dingtalk_counts(user_count=0, employee_count=0),
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['hard_issues'] == []
+    assert payload['stats']['active_dingtalk_user_count'] == 0
+    assert payload['stats']['active_dingtalk_employee_count'] == 0
+    warning = next(item for item in payload['warning_issues'] if item['code'] == 'DINGTALK_NO_BOUND_USERS')
+    assert warning['level'] == 'warning'
+    assert '工作通知无法送达真实人员' in warning['message']
 
 
 def test_inspect_statistics_module_ready_accepts_llm_endpoint_id_without_model() -> None:
