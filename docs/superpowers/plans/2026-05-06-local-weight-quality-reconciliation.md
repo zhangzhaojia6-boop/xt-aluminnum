@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prevent `mobile_coil_agg` raw kg values from leaking into reconciliation comparisons as ton-level production output.
+**Goal:** Prevent `mobile_coil_agg` raw kg values from leaking into reconciliation comparisons or auto-generated report summaries as ton-level production output.
 
-**Architecture:** Keep raw coil weights unchanged in `ShiftProductionData`. Quality service was audited and its direct sum is only a zero guard, so kg-to-ton conversion does not change any observable behavior there. Add source-aware ton conversion at the reconciliation read/compare points that currently use direct SQL sums.
+**Architecture:** Keep raw coil weights unchanged in `ShiftProductionData`. Quality service was audited and its direct sum is only a zero guard, so kg-to-ton conversion does not change any observable behavior there. Add source-aware ton conversion at the reconciliation read/compare points and Aggregator report summary path that currently use direct SQL sums.
 
 **Tech Stack:** Python, SQLAlchemy ORM, pytest, existing SQLite test fixtures.
 
@@ -67,12 +67,31 @@ Do not change quality checks, `MobileShiftReport`, external MES metrics, energy 
 ### Task 4: Verify and Commit
 
 **Files:**
+- Modify: `backend/app/agents/aggregator.py`
+- Modify: `backend/tests/test_aggregator_agent.py`
+
+- [ ] **Step 1: Add Aggregator red test**
+
+Use SQLite tables to seed one confirmed `ShiftProductionData(data_source='mobile_coil_agg', output_weight=250_000.0, input_weight=260_000.0)`.
+
+Expected generated `DailyReport.report_data`:
+- `total_output_weight == 250.0`
+- `total_input_weight == 260.0`
+- text summary contains `今日产量 250.00 吨`
+
+- [ ] **Step 2: Implement source-aware Aggregator workshop totals**
+
+Replace Aggregator's direct grouped SQL sum with confirmed-row iteration and source-aware kg-to-ton conversion for input/output weights.
+
+### Task 5: Verify and Commit
+
+**Files:**
 - Verify: targeted tests, backend tests if touched behavior warrants it, diff check
 
 - [ ] **Step 1: Run targeted tests**
 
 ```bash
-python -m pytest backend/tests/test_reconciliation_granularity.py -q
+python -m pytest backend/tests/test_aggregator_agent.py backend/tests/test_reconciliation_granularity.py -q
 ```
 
 - [ ] **Step 2: Run broader backend regression**
@@ -90,7 +109,7 @@ git diff --check
 - [ ] **Step 4: Commit and push only touched files**
 
 ```bash
-git add backend/app/services/reconciliation_service.py backend/tests/test_reconciliation_granularity.py docs/superpowers/plans/2026-05-06-local-weight-quality-reconciliation.md
+git add backend/app/agents/aggregator.py backend/app/services/reconciliation_service.py backend/tests/test_aggregator_agent.py backend/tests/test_reconciliation_granularity.py docs/superpowers/plans/2026-05-06-local-weight-quality-reconciliation.md
 git commit -m "fix: 统一质量对账卷级吨口径"
 git push origin main
 ```

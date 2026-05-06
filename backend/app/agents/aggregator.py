@@ -30,6 +30,13 @@ from app.services.pilot_observability_service import log_pilot_event
 CANONICAL_SCOPE = "auto_confirmed"
 
 
+def _weight_tons(item: ShiftProductionData, field_name: str) -> float:
+    value = float(getattr(item, field_name, None) or 0.0)
+    if getattr(item, "data_source", None) == "mobile_coil_agg":
+        return value / 1000
+    return value
+
+
 class AggregatorAgent(BaseAgent):
     """汇总Agent：自动汇总已确认数据并生成日报。"""
 
@@ -112,43 +119,54 @@ class AggregatorAgent(BaseAgent):
         pending_count = int(production_report.get("pending_or_unreported_shifts", pending_count))
         yield_matrix_lane = dict(production_report.get("yield_matrix_lane") or {})
 
-        workshop_rows = (
-            db.query(
-                ShiftProductionData.workshop_id.label("workshop_id"),
-                func.sum(ShiftProductionData.output_weight).label("total_output_weight"),
-                func.sum(ShiftProductionData.input_weight).label("total_input_weight"),
-                func.sum(ShiftProductionData.electricity_kwh).label("total_electricity_kwh"),
-                func.sum(ShiftProductionData.actual_headcount).label("total_actual_headcount"),
-            )
+        shift_rows = (
+            db.query(ShiftProductionData)
             .filter(
                 ShiftProductionData.business_date == target_date,
                 ShiftProductionData.data_status == "confirmed",
             )
-            .group_by(ShiftProductionData.workshop_id)
             .all()
         )
 
-        workshop_ids = [int(item.workshop_id) for item in workshop_rows if item.workshop_id is not None]
+        workshop_ids = [int(item.workshop_id) for item in shift_rows if item.workshop_id is not None]
         workshop_map = {
             item.id: item.name
             for item in db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all()
         } if workshop_ids else {}
+        workshop_totals: dict[int, dict[str, float]] = {}
+        for row in shift_rows:
+            if row.workshop_id is None:
+                continue
+            workshop_id = int(row.workshop_id)
+            bucket = workshop_totals.setdefault(
+                workshop_id,
+                {
+                    "output_weight": 0.0,
+                    "input_weight": 0.0,
+                    "electricity_kwh": 0.0,
+                    "actual_headcount": 0.0,
+                },
+            )
+            bucket["output_weight"] += _weight_tons(row, "output_weight")
+            bucket["input_weight"] += _weight_tons(row, "input_weight")
+            bucket["electricity_kwh"] += float(row.electricity_kwh or 0.0)
+            bucket["actual_headcount"] += float(row.actual_headcount or 0)
 
         workshop_summary: list[dict] = []
         total_output = 0.0
         total_input = 0.0
         total_energy = 0.0
         total_attendance = 0
-        for row in workshop_rows:
-            output_value = float(row.total_output_weight or 0.0)
-            input_value = float(row.total_input_weight or 0.0)
-            electricity_value = float(row.total_electricity_kwh or 0.0)
-            attendance_value = int(row.total_actual_headcount or 0)
+        for workshop_id, totals in workshop_totals.items():
+            output_value = totals["output_weight"]
+            input_value = totals["input_weight"]
+            electricity_value = totals["electricity_kwh"]
+            attendance_value = int(totals["actual_headcount"])
             yield_rate = round((output_value / input_value) * 100, 2) if input_value > 0 else 0.0
             workshop_summary.append(
                 {
-                    "workshop_id": int(row.workshop_id),
-                    "workshop_name": workshop_map.get(int(row.workshop_id), f"车间{row.workshop_id}"),
+                    "workshop_id": workshop_id,
+                    "workshop_name": workshop_map.get(workshop_id, f"车间{workshop_id}"),
                     "output_weight": output_value,
                     "input_weight": input_value,
                     "yield_rate": yield_rate,
