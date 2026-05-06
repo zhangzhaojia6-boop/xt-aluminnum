@@ -51,5 +51,6 @@ def sync_status(
         status=sync_payload.get('status') or sync_payload.get('last_run_status', 'idle'),
         last_run_status=sync_payload.get('last_run_status') or 'idle',
         action_required=sync_payload.get('action_required') or 'none',
+        required_env=list(sync_payload.get('required_env') or []),
         error_message=sync_payload.get('error_message') if scope.is_admin else None,
     )

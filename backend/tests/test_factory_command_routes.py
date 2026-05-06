@@ -232,6 +232,36 @@ def test_mes_sync_status_route(monkeypatch):
     assert response.json()['error_message'] is None
 
 
+def test_mes_sync_status_route_exposes_required_env_when_unconfigured(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = _manager_user
+    monkeypatch.setattr(
+        'app.routers.mes.mes_sync_service.latest_sync_status',
+        lambda db: {
+            'cursor_key': 'coil_snapshots',
+            'last_synced_at': None,
+            'last_event_at': None,
+            'lag_seconds': None,
+            'fetched_count': 0,
+            'upserted_count': 0,
+            'replayed_count': 0,
+            'cursor_value': None,
+            'configured': False,
+            'migration_ready': True,
+            'source': 'local_entry',
+            'status': 'unconfigured',
+            'last_run_status': 'idle',
+            'action_required': 'configure_mes',
+            'required_env': ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+        },
+    )
+
+    response = TestClient(app).get('/api/v1/mes/sync-status')
+
+    assert response.status_code == 200
+    assert response.json()['required_env'] == ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
+
+
 def test_mes_sync_status_rejects_non_manager(monkeypatch):
     app.dependency_overrides[get_db] = _fake_db
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role='mobile', is_admin=False, is_manager=False, is_reviewer=False)

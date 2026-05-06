@@ -117,6 +117,7 @@ def build_readiness_payload() -> tuple[bool, dict]:
             'source': 'local_entry',
             'lag_seconds': None,
             'action_required': 'configure_mes',
+            'required_env': list(mes_sync_service.DEFAULT_MES_REQUIRED_ENV),
         }
     else:
         try:

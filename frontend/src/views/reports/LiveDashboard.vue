@@ -57,6 +57,7 @@
       <div class="mes-connection-strip__meta">
         <span>{{ mesSourceLabel }}</span>
         <span>{{ mesActionLabel }}</span>
+        <span v-if="mesRequiredEnvLabel" class="mes-connection-strip__required">{{ mesRequiredEnvLabel }}</span>
         <span>{{ mesLastSyncLabel }}</span>
       </div>
     </section>
@@ -444,6 +445,16 @@ const mesActionLabel = computed(() => {
   if (action === 'check_vendor') return '需核对供应商接口'
   if (action === 'check_credentials') return '需核对账号'
   return '无需处理'
+})
+const mesRequiredEnvList = computed(() => {
+  const requiredEnv = mesSyncStatus.value.required_env || mesSyncStatus.value.requiredEnv || []
+  if (!Array.isArray(requiredEnv)) return []
+  return requiredEnv.filter(Boolean)
+})
+const mesRequiredEnvLabel = computed(() => {
+  if (!mesRequiredEnvList.value.length) return ''
+  const visibleFields = mesRequiredEnvList.value.slice(0, 4).join(' / ')
+  return mesRequiredEnvList.value.length > 4 ? `缺少配置 ${visibleFields} 等` : `缺少配置 ${visibleFields}`
 })
 const mesLastSyncLabel = computed(() => {
   if (mesSyncStatus.value.last_synced_at) {
@@ -1027,6 +1038,12 @@ onBeforeUnmount(() => {
   border-radius: var(--command-radius-sm);
   background: var(--command-blue-soft);
   color: var(--command-blue-deep);
+}
+
+.mes-connection-strip__meta .mes-connection-strip__required {
+  border-color: rgba(183, 121, 31, 0.28);
+  background: var(--xt-warning-light);
+  color: var(--command-amber);
 }
 
 .mes-connection-strip__dot {

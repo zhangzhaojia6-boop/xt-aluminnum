@@ -15,6 +15,7 @@ from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapsho
 
 
 SYNC_CURSOR_KEY = 'coil_snapshots'
+DEFAULT_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
 
 
 @dataclass(slots=True)
@@ -234,6 +235,7 @@ def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
         'error_message': None,
         'last_error': None,
         'action_required': 'none' if configured else 'configure_mes',
+        'required_env': [] if configured else list(DEFAULT_MES_REQUIRED_ENV),
     }
 
 

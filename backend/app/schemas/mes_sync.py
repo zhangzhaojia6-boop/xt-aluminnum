@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MesCoilSnapshotOut(BaseModel):
@@ -38,4 +38,5 @@ class MesSyncStatusOut(BaseModel):
     status: str = 'idle'
     last_run_status: str = 'idle'
     action_required: str = 'none'
+    required_env: list[str] = Field(default_factory=list)
     error_message: str | None = None
