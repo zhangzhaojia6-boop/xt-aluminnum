@@ -89,6 +89,6 @@ npm --prefix frontend run build
 git diff --check
 ```
 
-- [ ] **Step 3: Commit, push, deploy, probe**
+- [x] **Step 3: Commit, push, deploy, probe**
 
 If verification passes, commit with `feat: 展示未绑定填报归属`, push `main`, deploy through `scripts/deploy_systemd_host.sh --pull http://8.140.218.13`, then verify the production `LiveDashboard` asset contains the new markers.
