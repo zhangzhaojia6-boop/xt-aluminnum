@@ -8,3 +8,8 @@ export async function importMesExport(file) {
   })
   return data
 }
+
+export async function fetchMesSyncStatus() {
+  const { data } = await api.get('/mes/sync-status')
+  return data
+}

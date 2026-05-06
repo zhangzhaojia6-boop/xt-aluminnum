@@ -617,6 +617,16 @@ def test_reference_admin_modules_use_numbered_cn_titles() -> None:
         assert title in source
         assert "ReferencePageFrame" in source
 
+
+def test_live_dashboard_surfaces_mes_connection_status_without_secret_values() -> None:
+    source = _read_repo_file("frontend/src/views/reports/LiveDashboard.vue")
+
+    assert "外部 MES" in source
+    assert "fetchMesSyncStatus" in source
+    assert "MES_MVC_BASE_URL" in source
+    assert "MES_MVC_PASSWORD=" not in source
+    assert "MES_API_KEY=" not in source
+
     assert not (_resolve_repo_root() / "frontend/src/views/review/RoadmapCenter.vue").exists()
 
 

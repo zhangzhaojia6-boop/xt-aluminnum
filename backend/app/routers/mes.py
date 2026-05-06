@@ -45,6 +45,11 @@ def sync_status(
         upserted_count=sync_payload.get('upserted_count', 0),
         replayed_count=sync_payload.get('replayed_count', 0),
         next_cursor=sync_payload.get('cursor_value'),
-        status=sync_payload.get('last_run_status', 'idle'),
+        configured=bool(sync_payload.get('configured')),
+        migration_ready=bool(sync_payload.get('migration_ready', True)),
+        source=sync_payload.get('source') or 'local_entry',
+        status=sync_payload.get('status') or sync_payload.get('last_run_status', 'idle'),
+        last_run_status=sync_payload.get('last_run_status') or 'idle',
+        action_required=sync_payload.get('action_required') or 'none',
         error_message=sync_payload.get('error_message') if scope.is_admin else None,
     )

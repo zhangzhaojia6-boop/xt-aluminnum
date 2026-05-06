@@ -46,6 +46,21 @@
       </article>
     </section>
 
+    <section class="mes-connection-strip" aria-label="外部 MES">
+      <div class="mes-connection-strip__status">
+        <span :class="['mes-connection-strip__dot', `is-${mesConnectionTone}`]"></span>
+        <div>
+          <span>外部 MES</span>
+          <strong>{{ mesConnectionLabel }}</strong>
+        </div>
+      </div>
+      <div class="mes-connection-strip__meta">
+        <span>{{ mesSourceLabel }}</span>
+        <span>{{ mesActionLabel }}</span>
+        <span>{{ mesLastSyncLabel }}</span>
+      </div>
+    </section>
+
     <section class="management-flow" aria-label="经营链路">
       <div class="management-flow__head">
         <strong>经营链路</strong>
@@ -288,6 +303,7 @@ import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { fetchDeliveryStatus, fetchFactoryDashboard } from '../../api/dashboard'
+import { fetchMesSyncStatus } from '../../api/mes'
 import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
@@ -315,6 +331,7 @@ const activeCell = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
 const factorySnapshot = ref({})
 const deliverySnapshot = ref({})
+const mesSyncStatus = ref({})
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
@@ -397,6 +414,43 @@ const managementOverview = computed(() => buildManagementOverview({
 const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const lastRefreshLabel = computed(() => (lastLoadedAt.value ? dayjs(lastLoadedAt.value).format('HH:mm:ss') : '--'))
+const mesConnectionTone = computed(() => {
+  const status = String(mesSyncStatus.value.status || '').toLowerCase()
+  if (status === 'fresh' || status === 'success') return 'good'
+  if (status === 'unconfigured' || mesSyncStatus.value.action_required === 'configure_mes') return 'warn'
+  if (status === 'idle' || status === 'migration_missing') return 'warn'
+  if (status === 'stale' || status === 'failed') return 'danger'
+  return 'muted'
+})
+const mesConnectionLabel = computed(() => {
+  const status = String(mesSyncStatus.value.status || '').toLowerCase()
+  if (status === 'fresh' || status === 'success') return '同步正常'
+  if (status === 'unconfigured' || mesSyncStatus.value.action_required === 'configure_mes') return '未配置'
+  if (status === 'migration_missing') return '待迁移'
+  if (status === 'stale') return '同步滞后'
+  if (status === 'failed') return '供应商异常'
+  return '待同步'
+})
+const mesSourceLabel = computed(() => {
+  const source = String(mesSyncStatus.value.source || '').toLowerCase()
+  if (source === 'mes_projection') return 'MES 投影'
+  if (source === 'local_entry') return '本地填报'
+  return '数据源待确认'
+})
+const mesActionLabel = computed(() => {
+  const action = String(mesSyncStatus.value.action_required || '').toLowerCase()
+  if (action === 'configure_mes') return '需配置 MES_MVC_BASE_URL / MES_MVC_USERNAME / MES_MVC_PASSWORD'
+  if (action === 'run_migration') return '需执行投影迁移'
+  if (action === 'check_vendor') return '需核对供应商接口'
+  if (action === 'check_credentials') return '需核对账号'
+  return '无需处理'
+})
+const mesLastSyncLabel = computed(() => {
+  if (mesSyncStatus.value.last_synced_at) {
+    return `同步 ${dayjs(mesSyncStatus.value.last_synced_at).format('MM-DD HH:mm')}`
+  }
+  return '尚无同步时间'
+})
 
 const streamScope = computed(() => {
   if (authStore.isAdmin || authStore.isManager || authStore.role === 'statistician' || authStore.role === 'stat') {
@@ -488,13 +542,15 @@ async function loadAggregation({ silent = false } = {}) {
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
-    const [factoryResult, deliveryResult] = await Promise.allSettled([
+    const [factoryResult, deliveryResult, mesResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
-      fetchDeliveryStatus({ target_date: targetDate.value })
+      fetchDeliveryStatus({ target_date: targetDate.value }),
+      fetchMesSyncStatus()
     ])
     aggregation.value = liveData
     factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
     deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
+    mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
     activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
@@ -915,6 +971,86 @@ onBeforeUnmount(() => {
   border: 1px solid var(--command-line);
   border-radius: var(--command-radius);
   background: #fff;
+}
+
+.mes-connection-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.mes-connection-strip__status,
+.mes-connection-strip__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mes-connection-strip__status > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mes-connection-strip__status span,
+.mes-connection-strip__meta span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mes-connection-strip__status strong {
+  color: var(--command-ink);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.mes-connection-strip__meta {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.mes-connection-strip__meta span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+}
+
+.mes-connection-strip__dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-text-muted);
+  box-shadow: 0 0 0 5px rgba(148, 163, 184, 0.14);
+}
+
+.mes-connection-strip__dot.is-good {
+  background: var(--command-green);
+  box-shadow: 0 0 0 5px rgba(22, 138, 85, 0.12);
+}
+
+.mes-connection-strip__dot.is-warn {
+  background: var(--command-amber);
+  box-shadow: 0 0 0 5px rgba(183, 121, 31, 0.13);
+}
+
+.mes-connection-strip__dot.is-danger {
+  background: var(--command-red);
+  box-shadow: 0 0 0 5px rgba(194, 65, 52, 0.12);
 }
 
 .management-flow__head {
@@ -1457,6 +1593,15 @@ onBeforeUnmount(() => {
   .management-flow__nodes,
   .command-status-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mes-connection-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mes-connection-strip__meta {
+    justify-content: flex-start;
   }
 
   .management-overview-card,

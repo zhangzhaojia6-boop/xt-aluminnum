@@ -32,5 +32,10 @@ class MesSyncStatusOut(BaseModel):
     upserted_count: int = 0
     replayed_count: int = 0
     next_cursor: str | None = None
+    configured: bool = False
+    migration_ready: bool = True
+    source: str = 'local_entry'
     status: str = 'idle'
+    last_run_status: str = 'idle'
+    action_required: str = 'none'
     error_message: str | None = None

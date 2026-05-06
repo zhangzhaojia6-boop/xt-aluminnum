@@ -207,8 +207,13 @@ def test_mes_sync_status_route(monkeypatch):
             'fetched_count': 10,
             'upserted_count': 8,
             'replayed_count': 2,
-            'next_cursor': 'cursor-2',
-            'status': 'success',
+            'cursor_value': 'cursor-2',
+            'configured': True,
+            'migration_ready': True,
+            'source': 'mes_projection',
+            'status': 'fresh',
+            'last_run_status': 'success',
+            'action_required': 'none',
             'error_message': 'vendor url timeout',
         },
     )
@@ -217,6 +222,13 @@ def test_mes_sync_status_route(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()['lag_seconds'] == 60
+    assert response.json()['configured'] is True
+    assert response.json()['migration_ready'] is True
+    assert response.json()['source'] == 'mes_projection'
+    assert response.json()['status'] == 'fresh'
+    assert response.json()['last_run_status'] == 'success'
+    assert response.json()['action_required'] == 'none'
+    assert response.json()['next_cursor'] == 'cursor-2'
     assert response.json()['error_message'] is None
 
 
