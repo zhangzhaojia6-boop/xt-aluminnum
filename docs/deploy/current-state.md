@@ -86,8 +86,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：657 passed，123 deselected，30 warnings
-- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，657 deselected
+- `python -m pytest backend/tests -q --durations=10`：660 passed，123 deselected，30 warnings
+- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，660 deselected
 - `npm --prefix frontend test`：110 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
@@ -126,6 +126,12 @@ db 容器: PostgreSQL 15
 - `LLM_DISABLED`
 - `DINGTALK_DISABLED`
 - `APP_CONNECTION_DISABLED`
+
+正式联通前可先生成不回显现有密钥的 `.env` 填写模板：
+
+```bash
+python scripts/check_statistics_module_ready.py --env-template
+```
 
 正式联通前必须在服务器 `.env` 写入真实值：
 

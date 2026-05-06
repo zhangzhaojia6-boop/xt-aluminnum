@@ -47,6 +47,68 @@ def _issue(
     return payload
 
 
+def build_external_env_template(*, runtime_settings: Settings | None = None) -> str:
+    runtime = runtime_settings or settings
+    mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
+    lines: list[str] = [
+        '# 数据中枢正式外部联通 .env 模板',
+        '# 填入真实值后再运行: python scripts/check_statistics_module_ready.py --json',
+        '# 不要把包含密钥的 .env 提交到 Git。',
+        '',
+    ]
+
+    if mes_adapter == 'rest_api':
+        lines.extend(
+            [
+                'MES_ADAPTER=rest_api',
+                'MES_API_BASE=',
+                'MES_API_KEY=',
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                'MES_ADAPTER=mvc',
+                'MES_MVC_BASE_URL=',
+                'MES_MVC_USERNAME=',
+                'MES_MVC_PASSWORD=',
+                '',
+                '# 如果现场使用 REST MES，改用下面三项替换上面的 MVC 配置：',
+                '# MES_ADAPTER=rest_api',
+                '# MES_API_BASE=',
+                '# MES_API_KEY=',
+            ]
+        )
+
+    lines.extend(
+        [
+            '',
+            'WORKFLOW_ENABLED=true',
+            'AUTO_PUBLISH_ENABLED=true',
+            'AUTO_PUSH_ENABLED=true',
+            '',
+            'LLM_ENABLED=true',
+            'LLM_API_BASE=',
+            'LLM_API_KEY=',
+            'LLM_MODEL=',
+            '# 或使用 endpoint:',
+            '# LLM_ENDPOINT_ID=',
+            '',
+            'DINGTALK_ENABLED=true',
+            'DINGTALK_CORP_ID=',
+            'DINGTALK_APP_KEY=',
+            'DINGTALK_APP_SECRET=',
+            'DINGTALK_AGENT_ID=',
+            '',
+            'APP_CONNECTION_ENABLED=true',
+            'APP_CONNECTION_PUSH_MODE=enabled',
+            'APP_CONNECTION_API_BASE=',
+            'APP_CONNECTION_API_KEY=',
+        ]
+    )
+    return '\n'.join(lines) + '\n'
+
+
 def inspect_statistics_module_ready(
     *,
     runtime_settings: Settings | None = None,
@@ -381,7 +443,12 @@ def inspect_statistics_module_ready(
 def main() -> int:
     parser = argparse.ArgumentParser(description='统计模块可用性自检')
     parser.add_argument('--json', dest='json_mode', action='store_true', help='以 JSON 输出完整结果')
+    parser.add_argument('--env-template', action='store_true', help='输出正式外部联通所需 .env 模板，不回显现有密钥')
     args = parser.parse_args()
+
+    if args.env_template:
+        print(build_external_env_template(), end='')
+        return 0
 
     result = inspect_statistics_module_ready()
     if args.json_mode:

@@ -162,3 +162,57 @@ def test_inspect_statistics_module_ready_reports_mes_when_not_configured() -> No
         'MES_MVC_USERNAME',
         'MES_MVC_PASSWORD',
     ]
+
+
+def test_external_env_template_defaults_to_mvc_without_leaking_existing_secret_values() -> None:
+    module = _load_script_module()
+
+    template = module.build_external_env_template(
+        runtime_settings=_build_settings(
+            MES_ADAPTER='null',
+            LLM_API_KEY='real-llm-secret',
+            DINGTALK_APP_SECRET='real-dingtalk-secret',
+            APP_CONNECTION_API_KEY='real-app-secret',
+        )
+    )
+
+    for token in [
+        'MES_ADAPTER=mvc',
+        'MES_MVC_BASE_URL=',
+        'MES_MVC_USERNAME=',
+        'MES_MVC_PASSWORD=',
+        'WORKFLOW_ENABLED=true',
+        'AUTO_PUBLISH_ENABLED=true',
+        'AUTO_PUSH_ENABLED=true',
+        'LLM_ENABLED=true',
+        'LLM_API_BASE=',
+        'LLM_API_KEY=',
+        'DINGTALK_ENABLED=true',
+        'DINGTALK_CORP_ID=',
+        'DINGTALK_APP_KEY=',
+        'DINGTALK_APP_SECRET=',
+        'DINGTALK_AGENT_ID=',
+        'APP_CONNECTION_ENABLED=true',
+        'APP_CONNECTION_PUSH_MODE=enabled',
+        'APP_CONNECTION_API_BASE=',
+        'APP_CONNECTION_API_KEY=',
+        '# 如果现场使用 REST MES',
+        '# MES_ADAPTER=rest_api',
+        '# MES_API_BASE=',
+        '# MES_API_KEY=',
+    ]:
+        assert token in template
+
+    for secret_value in ['real-llm-secret', 'real-dingtalk-secret', 'real-app-secret']:
+        assert secret_value not in template
+
+
+def test_external_env_template_can_target_rest_api_mes() -> None:
+    module = _load_script_module()
+
+    template = module.build_external_env_template(runtime_settings=_build_settings(MES_ADAPTER='rest_api'))
+
+    assert 'MES_ADAPTER=rest_api' in template
+    assert 'MES_API_BASE=' in template
+    assert 'MES_API_KEY=' in template
+    assert 'MES_MVC_BASE_URL=' not in template
