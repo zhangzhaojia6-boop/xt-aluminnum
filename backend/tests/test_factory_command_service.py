@@ -220,6 +220,53 @@ def test_factory_overview_includes_pending_mobile_coil_aggregates(monkeypatch):
     assert overview['workshop_summary'][0]['row_count'] == 2
 
 
+def test_factory_overview_blends_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10.0),
+        ],
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
+        shift_rows=[
+            _shift_data(
+                input_weight=4.0,
+                output_weight=3.5,
+                qualified_weight=3.5,
+                data_status='pending',
+                data_source='mobile_coil_agg',
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T08:00:00+00:00',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'mixed'
+    assert overview['freshness']['source'] == 'mixed'
+    assert overview['total_input_tons'] == 4.0
+    assert overview['total_output_tons'] == 3.5
+    assert overview['today_output_tons'] == 3.5
+    assert overview['workshop_summary'] == [
+        {
+            'workshop_id': 1,
+            'workshop_name': '冷轧',
+            'row_count': 1,
+            'total_input_tons': 4.0,
+            'total_output_tons': 3.5,
+            'yield_rate': 87.5,
+        }
+    ]
+
+
 def test_factory_overview_falls_back_to_local_shift_data_when_fresh_projection_is_empty(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
@@ -317,6 +364,92 @@ def test_factory_lists_fall_back_to_unbound_live_machine_lines(monkeypatch):
     assert [item['active_tons'] for item in lines] == [10.0, 11.0]
     assert all(item['machine_binding_status'] == 'unbound' for item in lines)
     assert all(item['freshness']['source'] == 'local_shift_data' for item in lines)
+
+
+def test_factory_machine_lines_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', machine_code='CRM-01', net_weight=10.0),
+        ],
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        lines=[SimpleNamespace(line_code='CRM-01', line_name='1#轧机', workshop_name='冷轧', slot_no=1)],
+        shift_rows=[
+            _shift_data(
+                equipment_id=None,
+                shift_config_id=1,
+                input_weight=4.0,
+                output_weight=3.5,
+                data_status='pending',
+                data_source='mobile_coil_agg',
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T08:00:00+00:00',
+        },
+    )
+
+    lines = factory_command_service.list_machine_lines(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert [item['line_code'] for item in lines] == ['CRM-01', 'workshop:1:shift:1:unbound']
+    assert lines[1]['line_name'] == '未绑定机列 / 1班'
+    assert lines[1]['active_tons'] == 3.5
+    assert lines[1]['freshness']['source'] == 'local_shift_data'
+
+
+def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='冷轧', net_weight=10.0),
+        ],
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        shift_rows=[
+            _shift_data(
+                input_weight=4.0,
+                output_weight=3.5,
+                data_status='pending',
+                data_source='mobile_coil_agg',
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T08:00:00+00:00',
+        },
+    )
+
+    workshops = factory_command_service.list_workshops(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert workshops == [
+        {
+            'workshop_name': '冷轧',
+            'active_coil_count': 2,
+            'active_tons': 13.5,
+            'stalled_count': 0,
+            'freshness': {
+                'status': 'fresh',
+                'lag_seconds': 60,
+                'last_synced_at': '2026-05-02T08:00:00+00:00',
+                'last_event_at': None,
+                'source': 'mixed',
+                'configured': True,
+                'migration_ready': True,
+                'action_required': 'none',
+                'risk_tone': 'normal',
+            },
+        }
+    ]
 
 
 def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):

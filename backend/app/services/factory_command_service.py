@@ -168,6 +168,12 @@ def _local_freshness(freshness: Mapping[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _mixed_freshness(freshness: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(freshness)
+    payload['source'] = 'mixed'
+    return payload
+
+
 def _scope_workshop_ids(scope: ScopeSummary | None) -> set[int] | None:
     if scope is None or scope.is_admin or scope.data_scope_type == 'all':
         return None
@@ -632,6 +638,10 @@ def _build_overview_from_shift_data(
     }
 
 
+def _has_local_overview_rows(payload: Mapping[str, Any]) -> bool:
+    return bool(payload.get('workshop_summary'))
+
+
 def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) -> dict[str, Any]:
     freshness = build_freshness(db, now=now)
     if _should_use_local_shift_data(db, freshness):
@@ -654,17 +664,26 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) 
     abnormal_count = sum(1 for row in rows if _is_stalled(row))
     missing_data = ['cost_inputs']
     today_output_tons = round(sum(_weight(row) for row in today_output_rows), 4)
+    local_overview = _build_overview_from_shift_data(
+        db,
+        freshness=freshness,
+        target_date=current_date,
+        scope=scope,
+    )
+    has_local_rows = _has_local_overview_rows(local_overview)
+    local_output_tons = local_overview['total_output_tons'] if has_local_rows else 0.0
+    response_freshness = _mixed_freshness(freshness) if has_local_rows else freshness
     return {
-        'source': freshness.get('source') or 'mes_projection',
-        'freshness': freshness,
+        'source': response_freshness.get('source') or 'mes_projection',
+        'freshness': response_freshness,
         'wip_tons': round(sum(_weight(row) for row in wip_rows), 4),
-        'today_output_tons': today_output_tons,
+        'today_output_tons': round(max(today_output_tons, local_output_tons), 4),
         'stock_tons': round(sum(_weight(row) for row in stock_rows), 4),
-        'total_input_tons': 0.0,
-        'total_output_tons': today_output_tons,
-        'yield_rate': None,
-        'workshop_summary': [],
-        'abnormal_count': abnormal_count,
+        'total_input_tons': local_overview['total_input_tons'] if has_local_rows else 0.0,
+        'total_output_tons': local_overview['total_output_tons'] if has_local_rows else today_output_tons,
+        'yield_rate': local_overview['yield_rate'] if has_local_rows else None,
+        'workshop_summary': local_overview['workshop_summary'] if has_local_rows else [],
+        'abnormal_count': abnormal_count + (local_overview['abnormal_count'] if has_local_rows else 0),
         'cost_estimate': _estimate(missing_data=missing_data),
         'missing_data': missing_data,
     }
@@ -721,6 +740,23 @@ def list_workshops(db: Session, *, scope: ScopeSummary | None = None, now=None) 
                 'freshness': freshness,
             }
         )
+    local_items = _list_workshops_from_shift_data(
+        db,
+        freshness=freshness,
+        target_date=_business_date(now),
+        scope=scope,
+    )
+    by_name = {str(item['workshop_name']): item for item in items}
+    for local_item in local_items:
+        existing = by_name.get(str(local_item['workshop_name']))
+        if existing is None:
+            items.append(local_item)
+            by_name[str(local_item['workshop_name'])] = local_item
+            continue
+        existing['active_coil_count'] += local_item['active_coil_count']
+        existing['active_tons'] = round(existing['active_tons'] + local_item['active_tons'], 4)
+        existing['stalled_count'] += local_item['stalled_count']
+        existing['freshness'] = _mixed_freshness(freshness)
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
@@ -813,7 +849,25 @@ def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None, now=No
                 'freshness': freshness,
             }
         )
-    return items
+    local_items = _list_machine_lines_from_shift_data(
+        db,
+        freshness=freshness,
+        target_date=_business_date(now),
+        scope=scope,
+    )
+    by_code = {str(item['line_code']): item for item in items}
+    for local_item in local_items:
+        existing = by_code.get(str(local_item['line_code']))
+        if existing is None:
+            items.append(local_item)
+            by_code[str(local_item['line_code'])] = local_item
+            continue
+        existing['active_coil_count'] += local_item['active_coil_count']
+        existing['active_tons'] = round(existing['active_tons'] + local_item['active_tons'], 4)
+        existing['finished_tons'] = round(existing['finished_tons'] + local_item['finished_tons'], 4)
+        existing['stalled_count'] += local_item['stalled_count']
+        existing['freshness'] = _mixed_freshness(freshness)
+    return sorted(items, key=lambda item: item['line_code'])
 
 
 def list_coils(
