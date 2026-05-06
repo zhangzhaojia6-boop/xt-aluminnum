@@ -90,7 +90,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests -q --durations=10`：674 passed，124 deselected，30 warnings
 - `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，674 deselected
-- `npm --prefix frontend test`：118 passed
+- `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
 

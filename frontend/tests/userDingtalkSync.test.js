@@ -38,3 +38,11 @@ test('user management page can open directly on unbound account filter', () => {
   assert.match(userManagementSource, /route\.query\.machine_binding/)
   assert.match(userManagementSource, /route\.query\.bound_machine_id/)
 })
+
+test('user management machine selector shows occupying account in machine options', () => {
+  assert.match(userManagementSource, /formatMachineBindingOwner/)
+  assert.match(userManagementSource, /machine-option__owner/)
+  assert.match(userManagementSource, /已占用/)
+  assert.match(userManagementSource, /bound_user_name|boundUserName/)
+  assert.match(userManagementSource, /bound_username|boundUsername/)
+})

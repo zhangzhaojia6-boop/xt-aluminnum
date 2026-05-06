@@ -418,7 +418,7 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '→ `4 passed`' not in source
     assert '`python -m pytest backend/tests -q --durations=10` → `674 passed，124 deselected，30 warnings`' in source
     assert '`python -m pytest backend/tests -m frontend_contract -q` → `124 passed，674 deselected`' in source
-    assert '`npm --prefix frontend test` → `118 passed`' in source
+    assert '`npm --prefix frontend test` → `119 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
 
@@ -474,7 +474,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '当前记录基准：当前 `main` HEAD' in state
     assert '`python -m pytest backend/tests -q --durations=10`：674 passed，124 deselected，30 warnings' in state
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，674 deselected' in state
-    assert '`npm --prefix frontend test`：118 passed' in state
+    assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
     assert '最近一次 ECS 修复验证：2026-05-06 15:48 左右。' in state

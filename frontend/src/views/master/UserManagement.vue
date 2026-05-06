@@ -38,7 +38,13 @@
             :key="machine.id"
             :label="formatMachineLabel(machine)"
             :value="machine.id"
-          />
+          >
+            <div class="machine-option">
+              <span class="machine-option__name">{{ formatMachineLabel(machine) }}</span>
+              <span v-if="formatMachineBindingOwner(machine)" class="machine-option__owner">已占用 · {{ formatMachineBindingOwner(machine) }}</span>
+              <span v-else class="machine-option__owner is-empty">空闲</span>
+            </div>
+          </el-option>
         </el-select>
       </div>
 
@@ -132,7 +138,13 @@
               :label="formatMachineLabel(machine)"
               :value="machine.id"
               :disabled="Boolean(machine.bound_user_id && machine.bound_user_id !== editingId)"
-            />
+            >
+              <div class="machine-option">
+                <span class="machine-option__name">{{ formatMachineLabel(machine) }}</span>
+                <span v-if="formatMachineBindingOwner(machine)" class="machine-option__owner">已占用 · {{ formatMachineBindingOwner(machine) }}</span>
+                <span v-else class="machine-option__owner is-empty">空闲</span>
+              </div>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="PIN码">
@@ -327,6 +339,13 @@ function formatMachineLabel(machine) {
   return machine.code ? `${machine.name} / ${machine.code}` : machine.name
 }
 
+function formatMachineBindingOwner(machine) {
+  const name = machine.bound_user_name || machine.boundUserName
+  const username = machine.bound_username || machine.boundUsername
+  if (name && username) return `${name} / ${username}`
+  return name || username || ''
+}
+
 function handleFilterChange() {
   pageState.skip = 0
   load()
@@ -512,3 +531,35 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.machine-option {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px 0;
+  line-height: 1.25;
+}
+
+.machine-option__name,
+.machine-option__owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.machine-option__name {
+  color: var(--xt-text);
+  font-weight: 820;
+}
+
+.machine-option__owner {
+  color: oklch(50% 0.13 72);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.machine-option__owner.is-empty {
+  color: var(--xt-text-secondary);
+}
+</style>
