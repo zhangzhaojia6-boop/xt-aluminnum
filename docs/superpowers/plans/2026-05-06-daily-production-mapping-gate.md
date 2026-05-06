@@ -108,4 +108,4 @@ Expected: all tests pass, whitespace check is clean except known CRLF warnings, 
 
 Production note: preview ran on `ImportBatch id=1` / `batch_no=IMP-20260506130735-d4f557`. Result: `total_rows=16`, `ready_rows=7`, `needs_equipment_mapping_rows=0`, `unresolved_rows=9`, unresolved labels `冷轧/1650|冷轧/1850|精整/剪子|精整/纵剪|拉矫/拉矫|拉矫/分切|退火炉/拉矫|在线退火/新厂北线|在线退火/园区北线`, and `shift_rows_delta=0`.
 
-Verification note: `python -m pytest backend/tests/test_daily_production_mapping_service.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` returned `37 passed, 1 deselected`; `python -m pytest backend/tests -q --durations=10` returned `718 passed, 124 deselected, 31 warnings`; `git diff --check` passed with only Windows CRLF warnings.
+Verification note: `python -m pytest backend/tests/test_daily_production_mapping_service.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` returned `37 passed, 1 deselected`; `python -m pytest backend/tests -q` returned `718 passed, 124 deselected, 31 warnings`; `git diff --check` returned clean.
