@@ -150,3 +150,23 @@ def test_profile_historical_path_adds_yield_matrix_preview_for_yield_rate_matrix
     assert payload["sheets"][0]["yield_matrix_preview"]["company_total_yield"] == 96.0
     assert payload["sheets"][0]["yield_matrix_preview"]["workshop_yields"]["cold_roll_1450"] == 95.2
     assert payload["sheets"][0]["yield_matrix_preview"]["mp_targets"]["M"] == 88.0
+
+
+def test_profile_historical_path_adds_daily_production_preview(tmp_path: Path) -> None:
+    workbook = tmp_path / "鑫泰每日产量5月.xlsx"
+    with pd.ExcelWriter(workbook, engine="openpyxl") as writer:
+        pd.DataFrame(
+            [
+                ["河南鑫泰铝业生产系统综合日报表               2026年5月3日", None, None, None, None, None, None, None, None, None, None, None],
+                ["车间   项目", None, "投料量", None, "日产量", None, "日均", "产生废料", None, "月成品率", "指标", "对比"],
+                [None, None, "日合", "累计", "日合", "累计", None, "日合", "累计", None, None, None],
+                ["铸轧", "铸二", 25, 63, 24.18, 61.86, None, 0.82, 1.14, 0.9819, 0.949, 0.0329],
+            ]
+        ).to_excel(writer, sheet_name="综合报表", header=False, index=False)
+
+    payload = profile_historical_path(workbook)
+
+    assert payload["kind"] == "daily_production_report"
+    assert payload["sheets"][0]["daily_production_preview"]["business_date"] == "2026-05-03"
+    assert payload["sheets"][0]["daily_production_preview"]["daily_output_tons"] == 24.18
+    assert payload["sheets"][0]["daily_production_preview"]["source_unit"] == "t"

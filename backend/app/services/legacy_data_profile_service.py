@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from app.services.contract_canonical_service import parse_contract_sheet
+from app.services.daily_production_canonical_service import is_daily_production_summary_sheet, parse_daily_production_sheet
 from app.services.yield_matrix_canonical_service import parse_yield_matrix_sheet
 
 
@@ -122,6 +123,11 @@ def profile_historical_path(path: str | Path, *, max_sheets: int = 3, max_rows: 
             raw_df = pd.read_excel(target, sheet_name=sheet_name, header=None, engine=engine)
             parsed = parse_contract_sheet(str(sheet_name), raw_df, year_hint=None)
             sheet_payload["contract_preview"] = parsed.mapped_data
+        if item["kind"] == "daily_production_report":
+            raw_df = pd.read_excel(target, sheet_name=sheet_name, header=None, engine=engine)
+            if is_daily_production_summary_sheet(str(sheet_name), raw_df):
+                parsed = parse_daily_production_sheet(str(sheet_name), raw_df, year_hint=None)
+                sheet_payload["daily_production_preview"] = parsed.mapped_data
         if item["kind"] == "yield_rate_matrix":
             raw_df = pd.read_excel(target, sheet_name=sheet_name, header=None, engine=engine)
             parsed = parse_yield_matrix_sheet(str(sheet_name), raw_df, year_hint=None)
