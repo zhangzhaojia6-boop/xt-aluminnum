@@ -160,6 +160,65 @@ def test_list_users_returns_paginated_payload_for_admin(tmp_path) -> None:
     assert payload['items'][1]['last_login'].startswith('2026-03-30T08:15:00')
 
 
+def test_list_users_filters_by_machine_line_binding(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    refs = seed_reference_data(session_factory)
+
+    def fake_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def fake_get_user() -> User:
+        return User(
+            id=1,
+            username='admin',
+            password_hash='x',
+            name='系统管理员',
+            role='admin',
+            data_scope_type='all',
+            is_mobile_user=False,
+            is_reviewer=True,
+            is_manager=True,
+            is_active=True,
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    client = TestClient(app)
+    try:
+        bound_response = client.get('/api/v1/users/', params={'machine_binding': 'bound'})
+        unbound_response = client.get('/api/v1/users/', params={'machine_binding': 'unbound'})
+        exact_response = client.get('/api/v1/users/', params={'bound_machine_id': refs['machine_one_id']})
+        empty_response = client.get('/api/v1/users/', params={'bound_machine_id': refs['machine_two_id']})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert bound_response.status_code == 200
+    bound_payload = bound_response.json()
+    assert bound_payload['total'] == 1
+    assert bound_payload['items'][0]['username'] == 'leader01'
+    assert bound_payload['items'][0]['bound_machine_id'] == refs['machine_one_id']
+
+    assert unbound_response.status_code == 200
+    unbound_payload = unbound_response.json()
+    assert unbound_payload['total'] == 1
+    assert unbound_payload['items'][0]['username'] == 'admin'
+    assert unbound_payload['items'][0]['bound_machine_id'] is None
+
+    assert exact_response.status_code == 200
+    exact_payload = exact_response.json()
+    assert exact_payload['total'] == 1
+    assert exact_payload['items'][0]['username'] == 'leader01'
+
+    assert empty_response.status_code == 200
+    empty_payload = empty_response.json()
+    assert empty_payload['total'] == 0
+    assert empty_payload['items'] == []
+
+
 def test_non_admin_cannot_access_users_routes(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     seed_reference_data(session_factory)

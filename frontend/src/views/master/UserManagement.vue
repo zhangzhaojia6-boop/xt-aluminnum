@@ -13,12 +13,32 @@
 
     <el-card class="panel">
       <div class="page-filters">
-        <el-select v-model="filters.workshopId" clearable placeholder="筛选车间" style="width: 220px" @change="handleFilterChange">
+        <el-select v-model="filters.workshopId" clearable placeholder="筛选车间" style="width: 220px" @change="handleWorkshopFilterChange">
           <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
         </el-select>
         <el-select v-model="filters.status" clearable placeholder="账号状态" style="width: 160px" @change="handleFilterChange">
           <el-option label="启用" :value="true" />
           <el-option label="停用" :value="false" />
+        </el-select>
+        <el-select v-model="filters.machineBinding" clearable placeholder="绑定状态" style="width: 160px" @change="handleMachineBindingFilterChange">
+          <el-option label="已绑定" value="bound" />
+          <el-option label="未绑定" value="unbound" />
+        </el-select>
+        <el-select
+          v-model="filters.boundMachineId"
+          clearable
+          filterable
+          placeholder="筛选机列"
+          :disabled="filters.machineBinding === 'unbound'"
+          style="width: 220px"
+          @change="handleMachineFilterChange"
+        >
+          <el-option
+            v-for="machine in machineFilterOptions"
+            :key="machine.id"
+            :label="formatMachineLabel(machine)"
+            :value="machine.id"
+          />
         </el-select>
       </div>
 
@@ -199,7 +219,9 @@ const equipment = ref([])
 
 const filters = reactive({
   workshopId: null,
-  status: null
+  status: null,
+  machineBinding: null,
+  boundMachineId: null
 })
 
 const pageState = reactive({
@@ -236,6 +258,11 @@ const filteredTeams = computed(() => {
 const filteredEquipment = computed(() => {
   if (!form.workshop_id) return equipment.value
   return equipment.value.filter((machine) => machine.workshop_id === form.workshop_id)
+})
+
+const machineFilterOptions = computed(() => {
+  if (!filters.workshopId) return equipment.value
+  return equipment.value.filter((machine) => machine.workshop_id === filters.workshopId)
 })
 
 const currentPage = computed(() => Math.floor(pageState.skip / pageState.limit) + 1)
@@ -279,6 +306,27 @@ function formatMachineLabel(machine) {
 function handleFilterChange() {
   pageState.skip = 0
   load()
+}
+
+function handleWorkshopFilterChange() {
+  if (filters.boundMachineId && !machineFilterOptions.value.some((machine) => machine.id === filters.boundMachineId)) {
+    filters.boundMachineId = null
+  }
+  handleFilterChange()
+}
+
+function handleMachineBindingFilterChange() {
+  if (filters.machineBinding === 'unbound') {
+    filters.boundMachineId = null
+  }
+  handleFilterChange()
+}
+
+function handleMachineFilterChange(machineId) {
+  if (machineId) {
+    filters.machineBinding = 'bound'
+  }
+  handleFilterChange()
 }
 
 function handlePageChange(page) {
@@ -343,6 +391,8 @@ async function load() {
     const page = await fetchUsersPage({
       workshop_id: filters.workshopId || undefined,
       is_active: filters.status,
+      machine_binding: filters.machineBinding || undefined,
+      bound_machine_id: filters.boundMachineId || undefined,
       skip: pageState.skip,
       limit: pageState.limit
     })

@@ -256,6 +256,8 @@ def _serialize_user_item(
 def list_users(
     workshop_id: int | None = None,
     is_active: bool | None = None,
+    machine_binding: str | None = Query(default=None, pattern='^(bound|unbound)$'),
+    bound_machine_id: int | None = None,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
@@ -272,6 +274,17 @@ def list_users(
         query = query.filter(User.workshop_id == workshop_id)
     if is_active is not None:
         query = query.filter(User.is_active.is_(is_active))
+    bound_user_ids = db.query(Equipment.bound_user_id).filter(Equipment.bound_user_id.isnot(None))
+    if machine_binding == 'bound':
+        query = query.filter(User.id.in_(bound_user_ids))
+    elif machine_binding == 'unbound':
+        query = query.filter(~User.id.in_(bound_user_ids))
+    if bound_machine_id is not None:
+        machine_bound_user_ids = db.query(Equipment.bound_user_id).filter(
+            Equipment.id == bound_machine_id,
+            Equipment.bound_user_id.isnot(None),
+        )
+        query = query.filter(User.id.in_(machine_bound_user_ids))
     total = query.count()
     rows = query.offset(skip).limit(limit).all()
     user_ids = [user.id for user, _workshop_name, _team_name in rows]

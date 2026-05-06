@@ -87,10 +87,10 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：669 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q --durations=10`：670 passed，124 deselected，30 warnings
 - `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
-- `python -m pytest backend/tests -m frontend_contract -q`：124 passed，669 deselected
-- `npm --prefix frontend test`：114 passed
+- `python -m pytest backend/tests -m frontend_contract -q`：124 passed，670 deselected
+- `npm --prefix frontend test`：115 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
 
@@ -177,6 +177,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@3e492f8`：管理端外部 MES 状态条显示运行配置缺口，线上 `LiveDashboard-BNcHeouG.js` 已包含 `required_env`、`缺少配置` 和 `MES_MVC_BASE_URL`。
 - 本轮已部署 `main@38493da`：管理端车间机列页支持把未绑定 `mobile_coil_agg` 实时填报按车间/班次归入“未绑定机列”，线上 `MachineLineScreen-DL7qgGJc.js` / `MachineLineScreen-FDnJ2hSk.css` 已包含 `未绑定机列`、`machine_binding_status` 和 `fc-line__bar`。
 - 本轮已部署 `main@8fc5ce0`：管理端用户管理页支持绑定机列，线上 `UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`。
+- 本轮本地验证待部署：管理端用户管理页支持按机列绑定状态和具体机列筛选账号，本地构建 `UserManagement-B4GmUedd.js` 已包含 `绑定状态`、`machine_binding` 和 `boundMachineId`。
 - 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-093253.dump`。
 - 已执行后端依赖安装、Alembic 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。

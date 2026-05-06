@@ -23,3 +23,11 @@ test('user management page supports machine-line account binding', () => {
   assert.match(userManagementSource, /handleMachineChange/)
   assert.match(userManagementSource, /machine\.bound_user_id && machine\.bound_user_id !== editingId/)
 })
+
+test('user management page filters accounts by machine-line binding', () => {
+  assert.match(userManagementSource, /绑定状态/)
+  assert.match(userManagementSource, /machineBinding/)
+  assert.match(userManagementSource, /boundMachineId/)
+  assert.match(userManagementSource, /machine_binding/)
+  assert.match(userManagementSource, /handleMachineBindingFilterChange/)
+})

@@ -416,9 +416,9 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '以 `2026-04-20` 本地最新验证为准' not in source
     assert '387 passed' not in source
     assert '→ `4 passed`' not in source
-    assert '`python -m pytest backend/tests -q --durations=10` → `669 passed，124 deselected，30 warnings`' in source
-    assert '`python -m pytest backend/tests -m frontend_contract -q` → `124 passed，669 deselected`' in source
-    assert '`npm --prefix frontend test` → `114 passed`' in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `670 passed，124 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `124 passed，670 deselected`' in source
+    assert '`npm --prefix frontend test` → `115 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
 
@@ -472,9 +472,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：669 passed，124 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，669 deselected' in state
-    assert '`npm --prefix frontend test`：114 passed' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：670 passed，124 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，670 deselected' in state
+    assert '`npm --prefix frontend test`：115 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
     assert '最近一次 ECS 修复验证：2026-05-06 13:37 左右。' in state
@@ -492,6 +492,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`MachineLineScreen-DL7qgGJc.js` / `MachineLineScreen-FDnJ2hSk.css` 已包含 `未绑定机列`、`machine_binding_status` 和 `fc-line__bar`' in state
     assert '管理端用户管理页支持绑定机列' in state
     assert '`UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`' in state
+    assert '管理端用户管理页支持按机列绑定状态和具体机列筛选账号' in state
+    assert '`UserManagement-B4GmUedd.js` 已包含 `绑定状态`、`machine_binding` 和 `boundMachineId`' in state
     assert '管理端运维页新增外部 MES 状态条' in state
     assert '`mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
@@ -526,7 +528,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
     assert '678 passed' not in state
-    assert '670 passed' not in state
+    assert '671 passed' not in state
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
