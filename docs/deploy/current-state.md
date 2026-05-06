@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 12:54:00 +08:00
+更新时间：2026-05-06 13:10:00 +08:00
 
 ## 1. 仓库状态
 
@@ -164,12 +164,13 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 12:54 左右。
+最近一次 ECS 修复验证：2026-05-06 13:10 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
+- 本轮已部署 `main@1c00050`：管理端实时态势主聚合接入 `mobile_coil_agg` 卷级直录 fallback，线上 `LiveDashboard-CeSbJ94X.js` 已包含 `卷级直录` 和 `local_shift_data`。
 - 本轮已部署 `main@7659225`：管理端实时态势页新增“外部联通闸门”卡，线上 `LiveDashboard-BXTGpXX4.js` / `dashboard-D6EhilfF.js` 已包含 `外部联通闸门`、`接口待返回`、`external-readiness` 和 `hard_issues`。
 - 本轮已部署 `main@3e492f8`：管理端外部 MES 状态条显示运行配置缺口，线上 `LiveDashboard-BNcHeouG.js` 已包含 `required_env`、`缺少配置` 和 `MES_MVC_BASE_URL`。
 - 本轮已部署 `main@38493da`：管理端车间机列页支持把未绑定 `mobile_coil_agg` 实时填报按车间/班次归入“未绑定机列”，线上 `MachineLineScreen-DL7qgGJc.js` / `MachineLineScreen-FDnJ2hSk.css` 已包含 `未绑定机列`、`machine_binding_status` 和 `fc-line__bar`。
@@ -190,6 +191,7 @@ MES_API_KEY=...
 - 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=15`，`pending_mobile_coil_agg_rows=4`，`pending_mobile_coil_agg_output=120460.0`。
 - 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；工厂指挥服务 `factory_command_total_output_tons=120460.0`。
 - 工厂指挥服务 `list_machine_lines()` 已返回 `LINES=4`，分别为 `workshop:3:shift:1:unbound=0.0`、`workshop:5:shift:1:unbound=9100.0`、`workshop:5:shift:3:unbound=74110.0`、`workshop:8:shift:3:unbound=37250.0`，全部 `machine_binding_status=unbound`、`freshness.source=local_shift_data`。
+- 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120460.0`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9100.0`、`2050冷轧车间|未绑定机列 / 夜班=74110.0`、`精整车间|未绑定机列 / 夜班=37250.0`。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
 - 线上部署代码的 `/api/v1/dashboard/external-readiness` 管理端探针返回 `status_code=200`、`hard_gate_passed=False`、`module_usable=False`、`external_connection_enabled=False`，`hard_issue_codes=MES_UNCONFIGURED,WORKFLOW_DISABLED,LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`。
 - `/readyz` 关键状态：

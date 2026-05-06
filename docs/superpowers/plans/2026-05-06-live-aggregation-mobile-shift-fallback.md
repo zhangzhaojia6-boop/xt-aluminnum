@@ -16,7 +16,7 @@
 - [x] 后端实现：在 `backend/app/services/realtime_service.py` 查询并转换 `mobile_coil_agg` 行，合并到本地 runtime entries，并生成未绑定临时机列。
 - [x] 前端契约：在 `frontend/tests/managementCommandCenter.test.js` 或相邻契约中断言 `local_shift_data` 显示为 `卷级直录`。
 - [x] 前端实现：在 `frontend/src/utils/managementCommandCenter.js` 增加 `local_shift_data` 来源标签。
-- [ ] 验证、提交、部署并用生产库 `2026-05-06` 核对 Live aggregation 的 `factory_total.output=120460.0` 或至少不再为 0。
+- [x] 验证、提交、部署并用生产库 `2026-05-06` 核对 Live aggregation 的 `factory_total.output=120460.0` 或至少不再为 0。
 
 ## Verification
 
