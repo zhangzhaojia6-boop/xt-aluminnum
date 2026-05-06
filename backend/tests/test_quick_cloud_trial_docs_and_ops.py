@@ -472,7 +472,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：716 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：718 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
@@ -509,6 +509,12 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`batch_no=IMP-20260506130735-d4f557`' in state
     assert '`shift_rows_delta=0`' in state
     assert '生产环境暂未安装 `xlrd`' in state
+    assert '历史 `每日产量` 映射门禁已接入只读预览' in state
+    assert '`ready_rows=7`' in state
+    assert '`needs_equipment_mapping_rows=0`' in state
+    assert '`unresolved_rows=9`' in state
+    assert '`冷轧/1650`' in state
+    assert '`在线退火/园区北线`' in state
     assert '按卷填报提交口径已收紧' in state
     assert '`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细' in state
     assert '重算时没有合格源卷会 void 旧聚合' in state
@@ -590,6 +596,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '本轮已部署 `main@cc22abd`' in state
     assert '`sync_mes_projection` 逐来源返回 `success/failed`' in state
     assert '`mes_sync.upserted_count=50`' in state
+    assert '本轮已部署 `main@1aa32bf`' in state
+    assert '历史 `每日产量` 映射预览已上线' in state
+    assert '`ImportBatch id=1` 返回 `total_rows=16`、`ready_rows=7`' in state
     assert '`coil_snapshots fetched=50 upserted=50`' in state
     assert '`mes_follow_cards fetched=50 upserted=50`' in state
     assert '`mes_dispatch fetched=50 upserted=50`' in state

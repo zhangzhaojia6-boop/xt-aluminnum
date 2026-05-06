@@ -55,6 +55,7 @@
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
 - 历史 `每日产量` 工作簿已具备只读 dry-run 预览：综合日报表按吨单位映射日/月投料、产出、废料，车间标签向下继承，并拦截 `10000t` 以上疑似 kg 口径异常；生产 synthetic 验证 `valid_business_date=2026-05-03`，无日期样本保持 `missing_business_date=null`，暂不写库。
 - 历史 `每日产量` 导入闸门已接入 import staging：真实工作簿 dry-run `first_daily_output_tons=1935.649`、`first_source_unit=t`；生产备份 `pre-daily-production-import-20260506-210602.dump` 后已写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`，`shift_rows_delta=0`，暂不写正式产量事实表。
+- 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`shift_rows_delta=0`。
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
@@ -65,11 +66,12 @@
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：716 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：718 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed
+- `python -m pytest backend/tests/test_daily_production_mapping_service.py -q`：2 passed
 - `python -m pytest backend/tests/test_import_service_contract_report.py backend/tests/test_import_service_yield_matrix.py -q`：2 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed

@@ -80,7 +80,7 @@ Expected: all tests pass.
 - Modify: `PLANS.md`
 - Modify: `backend/tests/test_quick_cloud_trial_docs_and_ops.py`
 
-- [ ] **Step 1: Run production read-only preview**
+- [x] **Step 1: Run production read-only preview**
 
 Run the mapping service against production `ImportBatch id=1`. Record:
 - number of total staged rows;
@@ -89,11 +89,11 @@ Run the mapping service against production `ImportBatch id=1`. Record:
 - rows needing equipment mapping;
 - proof that no formal production rows were written.
 
-- [ ] **Step 2: Update docs and verification assertions**
+- [x] **Step 2: Update docs and verification assertions**
 
 Add the production preview result to `docs/deploy/current-state.md` and `PLANS.md`. Add doc assertions so the evidence does not drift silently.
 
-- [ ] **Step 3: Final verification**
+- [x] **Step 3: Final verification**
 
 Run:
 
@@ -105,3 +105,5 @@ git status --short --branch
 ```
 
 Expected: all tests pass, whitespace check is clean except known CRLF warnings, and only intended files changed.
+
+Production note: preview ran on `ImportBatch id=1` / `batch_no=IMP-20260506130735-d4f557`. Result: `total_rows=16`, `ready_rows=7`, `needs_equipment_mapping_rows=0`, `unresolved_rows=9`, unresolved labels `冷轧/1650|冷轧/1850|精整/剪子|精整/纵剪|拉矫/拉矫|拉矫/分切|退火炉/拉矫|在线退火/新厂北线|在线退火/园区北线`, and `shift_rows_delta=0`.

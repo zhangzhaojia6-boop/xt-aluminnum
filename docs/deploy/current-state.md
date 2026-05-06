@@ -53,6 +53,7 @@ cd /srv/aluminum-bypass
 - MES 投影同步已隔离非数据库单源失败：`sync_mes_projection()` 中 crafts/devices/follow_cards/dispatch/wip_total/stock/machine_lines 单步执行，单个外部接口失败返回该源 `failed` stats，已成功 upsert 的来源继续保留；数据库错误仍向上抛出，避免掩盖事务异常。
 - 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
 - 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
+- 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
 
 ## 3. 默认部署形态
 
@@ -99,11 +100,12 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：716 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：718 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_import_service_daily_production.py backend/tests/test_daily_production_canonical_service.py -q`：8 passed
+- `python -m pytest backend/tests/test_daily_production_mapping_service.py -q`：2 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
@@ -206,6 +208,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@f137662`：外部联通 readiness 支持 `--check-dingtalk-contacts`；生产复验返回 `hard_issues=LLM_DISABLED,APP_CONNECTION_DISABLED`、`warning_issues=DINGTALK_NO_BOUND_USERS,DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
 - 本轮已部署 `main@d5da2ca`：历史 `每日产量` 工作簿只读 canonical 预览与日期误判修复已上线；生产 synthetic parser 返回 `valid_business_date=2026-05-03`、`valid_daily_output_tons=60.38`、`valid_quality_status=ready`，无日期样本返回 `missing_business_date=null`、`missing_quality_status=blocked`，确认普通小数 `1.14` 不会再被当作日期。
 - 本轮已部署 `main@cc22abd`：MES 投影同步已隔离单源失败，`sync_mes_projection` 逐来源返回 `success/failed`；SQLAlchemy/事务错误仍向上抛出让整轮回滚。生产重启后 `http://8.140.218.13/readyz` 与 `127.0.0.1:8000/readyz` 均返回 200，`mes_sync.configured=true`、`mes_sync.last_run_status=success`、`mes_sync.fetched_count=50`、`mes_sync.upserted_count=50`，服务进程 `aluminum-bypass.service` 为 active。
+- 本轮已部署 `main@1aa32bf`：历史 `每日产量` 映射预览已上线；生产只读预览 `ImportBatch id=1` 返回 `total_rows=16`、`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，未推断标签保持 blocked，复验 `shift_rows_delta=0`。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
@@ -369,8 +372,9 @@ cd backend
 - 生产环境暂未安装 `xlrd`，本轮未新增依赖；使用本机只读转换出的临时 `.xlsx` 进入生产 staging，源文件仍为 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`。
 - 生产 staging 批次：`ImportBatch id=1`，`batch_no=IMP-20260506130735-d4f557`，`file_name=xintai-daily-production-2026-05-03.xlsx`，`file_path=uploads/4ee5b77a8566471c84266074fe8969d4.xlsx`，`total_rows=1`，`success_rows=1`，`failed_rows=0`。
 - 生产写库复验：首行 `business_date=2026-05-03`，`source_unit=t`，`row_count=16`，`daily_output_tons=1935.649`；`ShiftProductionData` 从 28 到 28，`shift_rows_delta=0`。
+- 生产只读映射预览：`batch_id=1`，`total_rows=16`，`ready_rows=7`，`needs_equipment_mapping_rows=0`，`unresolved_rows=9`；已匹配 `铸锭/->ZD/`、`铸轧/铸二->ZR2/`、`铸轧/铸三->ZR3/`、`热轧/铣床->RZ/RZ-XC`、`热轧/热轧->RZ/RZ-ZJ`、`冷轧/2050->LZ2050/LZ2050-1`、`园区剪切/->JQ/`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`；复验 `shift_rows_delta=0`。
 
-下一道门禁：把导入行转为正式生产数据前，必须先做车间/机列映射、班次归属、日累计与月累计口径确认，并继续拦截 `>10000t` 的疑似 kg/t 错配数据。
+下一道门禁：把导入行转为正式生产数据前，必须先补齐 9 个未解析标签的车间/机列口径、班次归属、日累计与月累计口径确认，并继续拦截 `>10000t` 的疑似 kg/t 错配数据。
 
 ## 10. 回滚锚点
 
