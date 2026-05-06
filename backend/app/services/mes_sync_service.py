@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Mapping
 
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.adapters import get_mes_adapter
@@ -568,16 +568,37 @@ def sync_mes_machine_lines(db: Session, *, now: datetime | None = None) -> MesSy
     )
 
 
+def _sync_projection_step(
+    db: Session,
+    *,
+    cursor_key: str,
+    synced_at: datetime,
+    runner,
+) -> MesSyncStats:
+    try:
+        return runner(db, now=synced_at)
+    except SQLAlchemyError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        return _stats(
+            cursor_key=cursor_key,
+            fetched_count=0,
+            synced_at=synced_at,
+            status='failed',
+            error_message=str(exc),
+        )
+
+
 def sync_mes_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
     synced_at = now or _utcnow()
     return [
-        sync_mes_crafts(db, now=synced_at),
-        sync_mes_devices(db, now=synced_at),
-        sync_mes_follow_cards(db, now=synced_at),
-        sync_mes_dispatch(db, now=synced_at),
-        sync_mes_wip_total(db, now=synced_at),
-        sync_mes_stock(db, now=synced_at),
-        sync_mes_machine_lines(db, now=synced_at),
+        _sync_projection_step(db, cursor_key='mes_crafts', synced_at=synced_at, runner=sync_mes_crafts),
+        _sync_projection_step(db, cursor_key='mes_devices', synced_at=synced_at, runner=sync_mes_devices),
+        _sync_projection_step(db, cursor_key='mes_follow_cards', synced_at=synced_at, runner=sync_mes_follow_cards),
+        _sync_projection_step(db, cursor_key='mes_dispatch', synced_at=synced_at, runner=sync_mes_dispatch),
+        _sync_projection_step(db, cursor_key='mes_wip_total', synced_at=synced_at, runner=sync_mes_wip_total),
+        _sync_projection_step(db, cursor_key='mes_stock', synced_at=synced_at, runner=sync_mes_stock),
+        _sync_projection_step(db, cursor_key='mes_machine_lines', synced_at=synced_at, runner=sync_mes_machine_lines),
     ]
 
 

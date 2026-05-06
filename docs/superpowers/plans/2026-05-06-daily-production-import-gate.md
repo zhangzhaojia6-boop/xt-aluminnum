@@ -106,6 +106,6 @@ git status --short --branch
 
 Expected: backend suite passes, whitespace check is clean except known line-ending warnings, and only intended files changed.
 
-Execution note: `python -m pytest backend/tests -q` returned `714 passed, 124 deselected, 31 warnings`; `git diff --check` passed with only Windows CRLF warnings. Real workbook dry-run was rechecked with `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`: `daily_output_tons=1935.649`, `source_unit=t`, and `shift_production_data_rows=0`.
+Execution note: `python -m pytest backend/tests -q` returned `716 passed, 124 deselected, 31 warnings`; `git diff --check` passed with only Windows CRLF warnings. Real workbook dry-run was rechecked with `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`: `daily_output_tons=1935.649`, `source_unit=t`, and `shift_production_data_rows=0`.
 
 Production note: before writing staging data, `backups/pre-daily-production-import-20260506-210602.dump` was created and validated with `pg_restore -l`. Production has no `xlrd`, so the source `.xls` was converted locally into a temporary `.xlsx` without changing the source file. The production staging write created `ImportBatch id=1`, `batch_no=IMP-20260506130735-d4f557`, `total_rows=1`, `success_rows=1`, `failed_rows=0`, and `shift_rows_delta=0`.

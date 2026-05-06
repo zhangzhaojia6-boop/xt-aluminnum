@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource
@@ -302,3 +303,63 @@ def test_sync_coil_snapshots_marks_run_failed_without_deleting_projection(monkey
     run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
     assert run_log.status == 'failed'
     assert db.deleted == []
+
+
+def test_sync_mes_projection_keeps_successful_sources_when_one_source_fails(monkeypatch):
+    db = _FakeDB()
+    snapshot = CoilSnapshot(
+        coil_id='vendor-row-1',
+        tracking_card_no='BN-2601',
+        batch_no='BN-2601',
+        metadata={'Product': {'Id': 8842}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
+        updated_at=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+    )
+
+    class Adapter:
+        def list_crafts(self):
+            return []
+
+        def list_devices(self):
+            return []
+
+        def list_follow_cards(self, *, limit):
+            return []
+
+        def list_dispatch(self, *, limit):
+            return [snapshot]
+
+        def list_wip_totals(self):
+            raise RuntimeError('MES MVC request failed after relogin: /Dispatch/DoingReportTotal')
+
+        def list_stock(self, *, limit):
+            return []
+
+        def list_machine_line_sources(self):
+            return []
+
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
+
+    stats = mes_sync_service.sync_mes_projection(db, now=datetime(2026, 5, 2, 8, 35, tzinfo=UTC))
+
+    by_key = {item.cursor_key: item for item in stats}
+    assert by_key['mes_dispatch'].status == 'success'
+    assert by_key['mes_dispatch'].upserted_count == 1
+    assert by_key['mes_wip_total'].status == 'failed'
+    assert by_key['mes_wip_total'].error_message == 'MES MVC request failed after relogin: /Dispatch/DoingReportTotal'
+    assert next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot').coil_id == 'MES:8842'
+
+
+def test_sync_projection_step_reraises_database_errors():
+    db = _FakeDB()
+
+    def broken_runner(_db, *, now):
+        _ = now
+        raise OperationalError('SELECT mes_coil_snapshots', {}, Exception('database unavailable'))
+
+    with pytest.raises(OperationalError):
+        mes_sync_service._sync_projection_step(
+            db,
+            cursor_key='mes_dispatch',
+            synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
+            runner=broken_runner,
+        )

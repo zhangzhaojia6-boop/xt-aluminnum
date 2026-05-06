@@ -472,7 +472,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：714 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：716 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
@@ -483,7 +483,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed' in state
     assert '`python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
-    assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：17 passed' in state
+    assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed' in state
     assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
     assert '`python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed' in state
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected' in state
@@ -498,6 +498,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重' in state
     assert 'MES MVC 会话恢复已增强' in state
     assert '会清理 cookie/token 后重新登录并重放请求' in state
+    assert 'MES 投影同步已隔离非数据库单源失败' in state
+    assert '单个外部接口失败返回该源 `failed` stats' in state
     assert '历史 `每日产量` 工作簿已接入只读 canonical 预览' in state
     assert '超过 `10000t` 的日产量标为疑似 kg 口径' in state
     assert '真实日报导入门禁' in state
@@ -991,6 +993,7 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '`coil_snapshots fetched=50 upserted=50`',
         '`mes_coil_snapshots_count=52`',
         '表格请求被打回登录页时会清 session 后重登重试',
+        '单个非数据库源失败会返回该源 failed stats',
         '管理端工厂指挥中心已验证混合来源',
         '`overview_source=mixed`',
         '`overview_source=mes_projection`',
