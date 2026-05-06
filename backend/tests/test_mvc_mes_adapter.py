@@ -7,19 +7,24 @@ import pytest
 from app.adapters.mvc_mes_adapter import MvcMesAdapter
 
 
+_UNSET = object()
+
+
 class _Response:
-    def __init__(self, *, payload=None, status_code=200, cookies=None, text=''):
-        self._payload = payload if payload is not None else {}
+    def __init__(self, *, payload=_UNSET, status_code=200, cookies=None, text='', headers=None):
+        self._payload = payload
         self.status_code = status_code
         self.cookies = cookies or {}
         self.text = text
-        self.headers = {'content-type': 'application/json; charset=utf-8'}
+        self.headers = headers or {'content-type': 'application/json; charset=utf-8'}
 
     def raise_for_status(self):
         if self.status_code >= 400:
             raise RuntimeError(f'http_{self.status_code}')
 
     def json(self):
+        if self._payload is _UNSET:
+            raise ValueError('not json')
         return self._payload
 
 
@@ -105,6 +110,49 @@ def test_mvc_mes_adapter_logs_in_and_reads_dispatch_rows_from_settings_credentia
     assert calls[-1]['data']['__RequestVerificationToken'] == 'token-1'
     assert 'Password' not in calls[-1]['data']
     assert 'Account' not in calls[-1]['data']
+
+
+def test_mvc_mes_adapter_relogs_when_table_request_returns_login_page():
+    calls = []
+    login_page = '<input name="__RequestVerificationToken" type="hidden" value="token-2" />'
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for(
+            [
+                _Response(text='<input name="__RequestVerificationToken" type="hidden" value="token-1" />', cookies={'csrf': 'one'}),
+                _Response(payload={'status': True}, cookies={'sid': 'old'}),
+                _Response(payload={'status': True}),
+                _Response(payload={'data': []}),
+                _Response(text=login_page, headers={'content-type': 'text/html; charset=utf-8'}),
+                _Response(text=login_page, cookies={'csrf': 'two'}),
+                _Response(payload={'status': True}, cookies={'sid': 'new'}),
+                _Response(payload={'status': True}),
+                _Response(payload={'data': []}),
+                _Response(payload={'aaData': [{'BatchNumber': 'BN-2603', 'Product': {'Id': 9903}}]}),
+            ],
+            calls,
+        ),
+    )
+
+    items = adapter.list_dispatch()
+
+    assert len(items) == 1
+    assert items[0].coil_id == 'MES:9903'
+    assert [call['url'] for call in calls] == [
+        'https://mes.example.com/Login/Index',
+        'https://mes.example.com/Login/CheckLogin',
+        'https://mes.example.com/Login/QueryLogin',
+        'https://mes.example.com/Right/GetUserRightList',
+        'https://mes.example.com/Dispatch/QueryList',
+        'https://mes.example.com/Login/Index',
+        'https://mes.example.com/Login/CheckLogin',
+        'https://mes.example.com/Login/QueryLogin',
+        'https://mes.example.com/Right/GetUserRightList',
+        'https://mes.example.com/Dispatch/QueryList',
+    ]
+    assert calls[-1]['data']['__RequestVerificationToken'] == 'token-2'
 
 
 def test_mvc_mes_adapter_reads_master_stock_and_wip_lists():

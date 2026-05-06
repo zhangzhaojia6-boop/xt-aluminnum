@@ -257,14 +257,22 @@ class MvcMesAdapter(MesAdapter):
             'start': 0,
             'length': limit,
         }
-        if self._request_verification_token:
-            data['__RequestVerificationToken'] = self._request_verification_token
         response = self._request(
             'POST',
             path,
             data=data,
         )
         payload = self._payload(response)
+        if self._looks_like_login_page(response=response, payload=payload):
+            self._reset_session()
+            response = self._request(
+                'POST',
+                path,
+                data=data,
+            )
+            payload = self._payload(response)
+            if self._looks_like_login_page(response=response, payload=payload):
+                raise RuntimeError(f'MES MVC request failed after relogin: {path}')
         return self._extract_rows(payload)
 
     def _request(self, method: str, path: str, *, data: Mapping[str, Any] | None = None) -> httpx.Response:
@@ -359,6 +367,11 @@ class MvcMesAdapter(MesAdapter):
         self._request_verification_token = match.group(1)
         return self._request_verification_token
 
+    def _reset_session(self) -> None:
+        self._cookies.clear()
+        self._request_verification_token = None
+        self._logged_in = False
+
     def _headers(self, path: str) -> dict[str, str]:
         return {
             'X-Requested-With': 'XMLHttpRequest',
@@ -379,6 +392,16 @@ class MvcMesAdapter(MesAdapter):
         if isinstance(payload, list):
             return {'data': payload}
         return payload if isinstance(payload, Mapping) else {}
+
+    @staticmethod
+    def _looks_like_login_page(*, response: httpx.Response, payload: Mapping[str, Any]) -> bool:
+        if payload:
+            return False
+        text = str(getattr(response, 'text', '') or '')
+        if not text:
+            return False
+        lowered = text.lower()
+        return '__requestverificationtoken' in lowered or '/login/checklogin' in lowered
 
     @staticmethod
     def _extract_rows(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
