@@ -233,6 +233,24 @@ def test_workshop_energy_summary_falls_back_to_owner_entry_payloads(tmp_path) ->
         session.close()
 
 
+def test_energy_summary_converts_mobile_coil_aggregate_output_to_tons(tmp_path) -> None:
+    session = build_session(tmp_path)
+    db = _EnergyFallbackDB(session)
+    try:
+        _seed_inventory_owner_rows(db)
+        production = db.get(ShiftProductionData, 41)
+        production.output_weight = 250_000.0
+        production.data_source = 'mobile_coil_agg'
+        db.commit()
+
+        payload = workshop_energy_summary(db, business_date=date(2026, 4, 17), workshop_id=11)
+
+        assert payload['output_weight'] == 250.0
+        assert payload['energy_per_ton'] == 5.0
+    finally:
+        session.close()
+
+
 def test_summarize_energy_for_date_owner_only_rows_do_not_double_count_output(tmp_path) -> None:
     session = build_session(tmp_path)
     db = _EnergyFallbackDB(session)

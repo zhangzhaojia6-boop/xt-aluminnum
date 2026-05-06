@@ -191,9 +191,9 @@ def test_factory_overview_includes_pending_mobile_coil_aggregates(monkeypatch):
             _shift_data(id=2, input_weight=99.0, output_weight=88.0, data_status='pending', data_source='import'),
             _shift_data(
                 id=3,
-                input_weight=4.0,
-                output_weight=3.5,
-                qualified_weight=3.5,
+                input_weight=4000.0,
+                output_weight=3500.0,
+                qualified_weight=3500.0,
                 data_status='pending',
                 data_source='mobile_coil_agg',
             ),
@@ -229,9 +229,9 @@ def test_factory_overview_blends_local_mobile_coil_aggregates_when_projection_ex
         equipment=[SimpleNamespace(id=101, code='CRM-01', name='1#轧机', workshop_id=1)],
         shift_rows=[
             _shift_data(
-                input_weight=4.0,
-                output_weight=3.5,
-                qualified_weight=3.5,
+                input_weight=4000.0,
+                output_weight=3500.0,
+                qualified_weight=3500.0,
                 data_status='pending',
                 data_source='mobile_coil_agg',
             ),
@@ -346,9 +346,9 @@ def test_factory_lists_fall_back_to_unbound_live_machine_lines(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         shift_rows=[
-            _shift_data(equipment_id=None, shift_config_id=1, input_weight=12.0, output_weight=10.0, data_status='pending', data_source='mobile_coil_agg'),
-            _shift_data(id=2, equipment_id=None, shift_config_id=3, input_weight=8.0, output_weight=7.5, data_status='pending', data_source='mobile_coil_agg'),
-            _shift_data(id=3, equipment_id=None, shift_config_id=3, input_weight=4.0, output_weight=3.5, data_status='pending', data_source='mobile_coil_agg'),
+            _shift_data(equipment_id=None, shift_config_id=1, input_weight=12000.0, output_weight=10000.0, data_status='pending', data_source='mobile_coil_agg'),
+            _shift_data(id=2, equipment_id=None, shift_config_id=3, input_weight=8000.0, output_weight=7500.0, data_status='pending', data_source='mobile_coil_agg'),
+            _shift_data(id=3, equipment_id=None, shift_config_id=3, input_weight=4000.0, output_weight=3500.0, data_status='pending', data_source='mobile_coil_agg'),
         ],
     )
     monkeypatch.setattr(
@@ -377,8 +377,8 @@ def test_factory_machine_lines_blend_local_mobile_coil_aggregates_when_projectio
             _shift_data(
                 equipment_id=None,
                 shift_config_id=1,
-                input_weight=4.0,
-                output_weight=3.5,
+                input_weight=4000.0,
+                output_weight=3500.0,
                 data_status='pending',
                 data_source='mobile_coil_agg',
             ),
@@ -411,8 +411,8 @@ def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_ex
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
         shift_rows=[
             _shift_data(
-                input_weight=4.0,
-                output_weight=3.5,
+                input_weight=4000.0,
+                output_weight=3500.0,
                 data_status='pending',
                 data_source='mobile_coil_agg',
             ),

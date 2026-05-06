@@ -107,14 +107,14 @@ def build_delivery_status(db: Session, *, target_date: date) -> dict:
 
 def _month_to_date_output(db: Session, *, target_date: date, workshop_id: int | None = None) -> float:
     month_start = target_date.replace(day=1)
-    query = db.query(func.sum(ShiftProductionData.output_weight)).filter(
+    query = db.query(ShiftProductionData).filter(
         ShiftProductionData.business_date >= month_start,
         ShiftProductionData.business_date <= target_date,
         ShiftProductionData.data_status != 'voided',
     )
     if workshop_id:
         query = query.filter(ShiftProductionData.workshop_id == workshop_id)
-    return _to_float(query.scalar())
+    return round(sum(_shift_weight_tons(item, 'output_weight') for item in query.all()), 2)
 
 def _output_totals_by_date(
     db: Session,
@@ -124,17 +124,22 @@ def _output_totals_by_date(
     workshop_id: int | None = None,
 ) -> dict[date, float]:
     query = (
-        db.query(ShiftProductionData.business_date, func.sum(ShiftProductionData.output_weight))
+        db.query(ShiftProductionData)
         .filter(
             ShiftProductionData.business_date >= start_date,
             ShiftProductionData.business_date <= end_date,
             ShiftProductionData.data_status != 'voided',
         )
-        .group_by(ShiftProductionData.business_date)
     )
     if workshop_id:
         query = query.filter(ShiftProductionData.workshop_id == workshop_id)
-    return {business_date: round(_to_float(total_output), 2) for business_date, total_output in query.all()}
+    totals: dict[date, float] = {}
+    for item in query.all():
+        business_date = getattr(item, 'business_date', None)
+        if business_date is None:
+            continue
+        totals[business_date] = totals.get(business_date, 0.0) + _shift_weight_tons(item, 'output_weight')
+    return {business_date: round(total_output, 2) for business_date, total_output in totals.items()}
 
 def _active_output_dates(
     db: Session,
@@ -507,7 +512,7 @@ def build_workshop_dashboard(
         base_query = base_query.filter(ShiftProductionData.workshop_id == workshop_id)
 
     items = base_query.order_by(ShiftProductionData.id.desc()).limit(100).all()
-    total_output = sum(_to_float(item.output_weight) for item in items)
+    total_output = sum(_shift_weight_tons(item, 'output_weight') for item in items)
     confirmed = len([item for item in items if item.data_status == 'confirmed'])
     reviewed = len([item for item in items if item.data_status == 'reviewed'])
     pending = len([item for item in items if item.data_status == 'pending'])

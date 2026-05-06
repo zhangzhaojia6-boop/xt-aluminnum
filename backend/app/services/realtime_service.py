@@ -35,6 +35,13 @@ def _to_float(value: Decimal | float | int | None) -> float:
     return float(value)
 
 
+def _entry_weight_tons(item: dict, field_name: str) -> float:
+    value = _to_float(item.get(field_name))
+    if item.get('weight_unit') == 'kg':
+        return value / 1000
+    return value
+
+
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
@@ -160,9 +167,9 @@ def aggregate_live_payload(
                     ]
                 )
                 total_count = len(rows)
-                input_total = round(sum(_to_float(item.get('input_weight')) for item in rows), 2)
-                output_total = round(sum(_to_float(item.get('output_weight')) for item in rows), 2)
-                scrap_total = round(sum(_to_float(item.get('scrap_weight')) for item in rows), 2)
+                input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in rows), 2)
+                output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in rows), 2)
+                scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in rows), 2)
                 expected_total = int(expected_counts.get((workshop.id, machine.id, shift.id), 0))
                 if expected_total <= 0 and total_count > 0:
                     expected_total = total_count
@@ -368,6 +375,7 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
             'yield_rate_source': 'runtime_compat',
             'entry_status': entry.entry_status,
             'entry_type': entry.entry_type,
+            'weight_unit': 'kg',
             'tracking_card_status': work_order.overall_status,
         }
         for entry, work_order in query.all()
@@ -442,6 +450,7 @@ def _build_local_shift_runtime_inputs(*, machines, shifts, rows) -> tuple[list, 
                 'yield_rate_source': 'local_shift_data',
                 'entry_status': 'submitted',
                 'entry_type': LOCAL_SHIFT_DATA_SOURCE,
+                'weight_unit': 'kg',
                 'tracking_card_status': getattr(row, 'data_status', None) or 'pending',
                 'data_source': LOCAL_SHIFT_DATA_SOURCE,
             }

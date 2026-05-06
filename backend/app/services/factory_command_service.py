@@ -19,6 +19,7 @@ MAX_COIL_LIST_LIMIT = 500
 LOCAL_SHIFT_STATUSES = {'confirmed', 'submitted'}
 LOCAL_PENDING_SHIFT_SOURCES = {'mobile_coil_agg'}
 LOCAL_MOBILE_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
+LOCAL_WEIGHT_KG_SOURCES = {'mobile_coil_agg'}
 
 
 def _all(db: Session, model: type) -> list[Any]:
@@ -46,6 +47,13 @@ def _number(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _local_weight_tons(row: Any, field_name: str) -> float:
+    value = _number(getattr(row, field_name, None))
+    if getattr(row, 'data_source', None) in LOCAL_WEIGHT_KG_SOURCES:
+        return value / 1000
+    return value
 
 
 def _is_stalled(row: Any) -> bool:
@@ -592,12 +600,12 @@ def _build_overview_from_shift_data(
     scope: ScopeSummary | None = None,
 ) -> dict[str, Any]:
     rows = _local_rows(db, target_date=target_date, scope=scope)
-    total_input = sum(_number(getattr(row, 'input_weight', None)) for row in rows)
-    total_output = sum(_number(getattr(row, 'output_weight', None)) for row in rows)
+    total_input = sum(_local_weight_tons(row, 'input_weight') for row in rows)
+    total_output = sum(_local_weight_tons(row, 'output_weight') for row in rows)
     total_qualified = sum(
-        _number(getattr(row, 'qualified_weight', None))
+        _local_weight_tons(row, 'qualified_weight')
         if getattr(row, 'qualified_weight', None) is not None
-        else _number(getattr(row, 'output_weight', None))
+        else _local_weight_tons(row, 'output_weight')
         for row in rows
     )
     wip_tons = max(total_input - total_output, 0.0)
@@ -610,8 +618,8 @@ def _build_overview_from_shift_data(
         if workshop_id is not None:
             grouped[int(workshop_id)].append(row)
     for workshop_id, workshop_rows in grouped.items():
-        workshop_input = sum(_number(getattr(row, 'input_weight', None)) for row in workshop_rows)
-        workshop_output = sum(_number(getattr(row, 'output_weight', None)) for row in workshop_rows)
+        workshop_input = sum(_local_weight_tons(row, 'input_weight') for row in workshop_rows)
+        workshop_output = sum(_local_weight_tons(row, 'output_weight') for row in workshop_rows)
         workshop_summary.append(
             {
                 'workshop_id': workshop_id,
@@ -708,7 +716,7 @@ def _list_workshops_from_shift_data(
             {
                 'workshop_name': workshop_names.get(workshop_id, f'车间{workshop_id}'),
                 'active_coil_count': len(rows),
-                'active_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
+                'active_tons': round(sum(_local_weight_tons(row, 'output_weight') for row in rows), 4),
                 'stalled_count': sum(1 for row in rows if _local_issue_count(row) > 0),
                 'freshness': _local_freshness(freshness),
             }
@@ -797,8 +805,8 @@ def _list_machine_lines_from_shift_data(
                 'line_name': line_name,
                 'workshop_name': workshop_names.get(int(workshop_id), f'车间{workshop_id}') if workshop_id is not None else None,
                 'active_coil_count': len(rows),
-                'active_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
-                'finished_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
+                'active_tons': round(sum(_local_weight_tons(row, 'output_weight') for row in rows), 4),
+                'finished_tons': round(sum(_local_weight_tons(row, 'output_weight') for row in rows), 4),
                 'stalled_count': sum(1 for row in rows if _local_issue_count(row) > 0),
                 'machine_binding_status': 'unbound' if is_unbound else 'bound',
                 'cost_estimate': _estimate(),

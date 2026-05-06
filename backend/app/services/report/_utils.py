@@ -136,6 +136,12 @@ def _to_float(value: Decimal | float | int | None) -> float:
         return 0.0
     return float(value)
 
+def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
+    value = _to_float(getattr(item, field_name, None))
+    if getattr(item, 'data_source', None) == 'mobile_coil_agg':
+        return value / 1000
+    return value
+
 def _workshop_name_map(db: Session) -> dict[int, str]:
     return {item.id: item.name for item in db.query(Workshop).all()}
 

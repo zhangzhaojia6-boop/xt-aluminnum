@@ -89,7 +89,7 @@ def test_build_workshop_reporting_status_surfaces_live_coil_aggregate(tmp_path) 
                 workshop_id=1,
                 team_id=None,
                 equipment_id=101,
-                output_weight=42.5,
+                output_weight=42_500.0,
                 data_source='mobile_coil_agg',
                 data_status='pending',
             )

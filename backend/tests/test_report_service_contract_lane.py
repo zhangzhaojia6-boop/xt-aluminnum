@@ -189,6 +189,51 @@ def test_generate_production_report_includes_contract_lane_projection(monkeypatc
     assert payload['yield_matrix_lane']['mp_targets']['M'] == 88.0
 
 
+def test_generate_production_report_converts_mobile_coil_aggregates_to_tons(monkeypatch) -> None:
+    monkeypatch.setattr('app.services.report_service._workshop_name_map', lambda *_args, **_kwargs: {5: '2050冷轧车间'})
+    monkeypatch.setattr('app.services.report_service._shift_code_map', lambda *_args, **_kwargs: {3: 'N'})
+    monkeypatch.setattr(
+        'app.services.report_service._query_shift_items',
+        lambda *_args, **_kwargs: [
+            SimpleNamespace(
+                workshop_id=5,
+                shift_config_id=3,
+                output_weight=74_110.0,
+                qualified_weight=72_500.0,
+                scrap_weight=1_500.0,
+                downtime_minutes=0,
+                issue_count=0,
+                data_source='mobile_coil_agg',
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        'app.services.report_service.mobile_report_service.summarize_mobile_reporting',
+        lambda *_args, **_kwargs: {
+            'auto_confirmed_count': 0,
+            'submitted_count': 0,
+            'draft_count': 0,
+            'returned_count': 0,
+            'unreported_count': 0,
+            'reported_count': 0,
+        },
+    )
+    monkeypatch.setattr(
+        'app.services.report_service.energy_service.summarize_energy_for_date',
+        lambda *_args, **_kwargs: {'total_energy': 0.0, 'energy_per_ton': None, 'rows': []},
+    )
+    monkeypatch.setattr('app.services.report_service.build_contract_projection', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr('app.services.report_service.build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = report_service._generate_production_report(ProductionReportDB(), report_date=date(2026, 5, 6), scope='auto_confirmed')
+
+    assert payload['total_output_weight'] == 74.11
+    assert payload['qualified_weight'] == 72.5
+    assert payload['scrap_weight'] == 1.5
+    assert payload['workshop_output'] == {'2050冷轧车间': 74.11}
+    assert payload['shift_output'] == {'N': 74.11}
+
+
 def test_build_statistics_dashboard_includes_yield_matrix_lane(monkeypatch) -> None:
     monkeypatch.setattr('app.services.report_service.quality_service.count_open_issues', lambda *_args, **_kwargs: 0)
     monkeypatch.setattr('app.services.report_service.quality_service.count_open_blockers', lambda *_args, **_kwargs: 0)

@@ -37,7 +37,7 @@ from app.services.production_service import (
     build_workshop_output_summary,
     mark_shift_data_published,
 )
-from app.services.report._utils import CANONICAL_REPORT_SCOPE
+from app.services.report._utils import CANONICAL_REPORT_SCOPE, _shift_weight_tons
 
 
 def _build_production_lane(db: Session, *, target_date: date, workshop_id: int | None = None) -> list[dict]:
@@ -429,7 +429,7 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
     coil_output_by_workshop: dict[int, float] = {}
     for row in coil_rows:
         wid = int(row.workshop_id)
-        coil_output_by_workshop[wid] = coil_output_by_workshop.get(wid, 0.0) + _to_float(row.output_weight)
+        coil_output_by_workshop[wid] = coil_output_by_workshop.get(wid, 0.0) + _shift_weight_tons(row, 'output_weight')
 
     merged: list[dict] = []
     for workshop in workshops:

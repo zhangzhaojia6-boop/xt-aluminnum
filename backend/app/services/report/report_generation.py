@@ -454,9 +454,9 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
     items = _query_shift_items(db, report_date=report_date, scope=canonical_scope)
     mobile_summary = mobile_report_service.summarize_mobile_reporting(db, target_date=report_date)
 
-    total_output = sum(_to_float(item.output_weight) for item in items)
-    total_qualified = sum(_to_float(item.qualified_weight) for item in items)
-    total_scrap = sum(_to_float(item.scrap_weight) for item in items)
+    total_output = sum(_shift_weight_tons(item, 'output_weight') for item in items)
+    total_qualified = sum(_shift_weight_tons(item, 'qualified_weight') for item in items)
+    total_scrap = sum(_shift_weight_tons(item, 'scrap_weight') for item in items)
     total_downtime = sum(int(item.downtime_minutes or 0) for item in items)
     total_issue_count = sum(int(item.issue_count or 0) for item in items)
 
@@ -468,8 +468,9 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
     for item in items:
         shift_code = shift_map.get(item.shift_config_id, str(item.shift_config_id))
         workshop_name = workshop_map.get(item.workshop_id, f'Workshop-{item.workshop_id}')
-        shift_output[shift_code] = shift_output.get(shift_code, 0.0) + _to_float(item.output_weight)
-        workshop_output[workshop_name] = workshop_output.get(workshop_name, 0.0) + _to_float(item.output_weight)
+        output_weight = _shift_weight_tons(item, 'output_weight')
+        shift_output[shift_code] = shift_output.get(shift_code, 0.0) + output_weight
+        workshop_output[workshop_name] = workshop_output.get(workshop_name, 0.0) + output_weight
     submitted = int(mobile_summary.get('submitted_count', 0) or 0)
     draft = int(mobile_summary.get('draft_count', 0) or 0)
     returned = int(mobile_summary.get('returned_count', 0) or 0)
@@ -698,7 +699,7 @@ def _build_canonical_workshop_output_summary(db: Session, *, target_date: date) 
                 'shift_count': 0,
             },
         )
-        payload['total_output'] += _to_float(item.output_weight)
+        payload['total_output'] += _shift_weight_tons(item, 'output_weight')
         payload['shift_count'] += 1
     result = list(grouped.values())
     result.sort(key=lambda item: item['total_output'], reverse=True)

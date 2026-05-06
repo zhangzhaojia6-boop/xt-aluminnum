@@ -42,6 +42,31 @@ def _to_float(value) -> float | None:
         return None
 
 
+def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
+    value = _to_float(getattr(item, field_name, None)) or 0.0
+    if getattr(item, 'data_source', None) == 'mobile_coil_agg':
+        return value / 1000
+    return value
+
+
+def _sum_shift_output_tons(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None = None,
+    shift_config_id: int | None = None,
+) -> float:
+    query = db.query(ShiftProductionData).filter(
+        ShiftProductionData.business_date == business_date,
+        ShiftProductionData.data_status != 'voided',
+    )
+    if workshop_id is not None:
+        query = query.filter(ShiftProductionData.workshop_id == workshop_id)
+    if shift_config_id is not None:
+        query = query.filter(ShiftProductionData.shift_config_id == shift_config_id)
+    return sum(_shift_weight_tons(item, 'output_weight') for item in query.all())
+
+
 def _normalize_mapped_data(mapped: dict) -> dict:
     return {str(key): import_service._normalize_value(value) for key, value in (mapped or {}).items()}
 
@@ -262,15 +287,10 @@ def _load_owner_only_energy_rows(
     for (workshop_key, _shift_key), bucket in grouped.items():
         output_weight = output_by_workshop.get(workshop_key)
         if output_weight is None:
-            output_weight = float(
-                db.query(func.sum(ShiftProductionData.output_weight))
-                .filter(
-                    ShiftProductionData.business_date == business_date,
-                    ShiftProductionData.workshop_id == workshop_key,
-                    ShiftProductionData.data_status != 'voided',
-                )
-                .scalar()
-                or 0
+            output_weight = _sum_shift_output_tons(
+                db,
+                business_date=business_date,
+                workshop_id=workshop_key,
             )
             output_by_workshop[workshop_key] = output_weight
         bucket['output_weight'] = output_weight
@@ -336,16 +356,11 @@ def get_energy_summary(
         workshop_code, shift_code = key
         workshop_id_val = workshop_id_map.get(workshop_code) if workshop_code else None
         shift_id_val = shift_id_map.get(shift_code) if shift_code else None
-        output_weight = float(
-            db.query(func.sum(ShiftProductionData.output_weight))
-            .filter(
-                ShiftProductionData.business_date == payload['business_date'],
-                ShiftProductionData.workshop_id == workshop_id_val,
-                ShiftProductionData.shift_config_id == shift_id_val,
-                ShiftProductionData.data_status != 'voided',
-            )
-            .scalar()
-            or 0
+        output_weight = _sum_shift_output_tons(
+            db,
+            business_date=payload['business_date'],
+            workshop_id=workshop_id_val,
+            shift_config_id=shift_id_val,
         )
         payload['workshop_id'] = workshop_id_val
         payload['shift_config_id'] = shift_id_val
@@ -390,15 +405,10 @@ def workshop_energy_summary(
         'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in rows),
         'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in rows),
     }
-    output_weight = float(
-        db.query(func.sum(ShiftProductionData.output_weight))
-        .filter(
-            ShiftProductionData.business_date == business_date,
-            ShiftProductionData.workshop_id == workshop_id,
-            ShiftProductionData.data_status != 'voided',
-        )
-        .scalar()
-        or 0
+    output_weight = _sum_shift_output_tons(
+        db,
+        business_date=business_date,
+        workshop_id=workshop_id,
     )
     totals['output_weight'] = output_weight
     totals['energy_per_ton'] = totals['total_energy'] / output_weight if output_weight else None

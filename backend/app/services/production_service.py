@@ -118,6 +118,13 @@ def _to_number(value: Decimal | float | int | None) -> float | None:
     return float(value)
 
 
+def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
+    value = _to_float(getattr(item, field_name, None)) or 0.0
+    if getattr(item, 'data_source', None) == 'mobile_coil_agg':
+        return value / 1000
+    return value
+
+
 def _count_open_attendance_exceptions_for_shift(db: Session, *, item: ShiftProductionData) -> int:
     query = (
         db.query(func.count(AttendanceException.id))
@@ -796,14 +803,7 @@ def build_workshop_output_summary(
     target_date: date,
     status_scope: str = 'include_reviewed',
 ) -> list[dict]:
-    query = (
-        db.query(
-            ShiftProductionData.workshop_id,
-            func.sum(ShiftProductionData.output_weight).label('total_output'),
-            func.count(ShiftProductionData.id).label('shift_count'),
-        )
-        .filter(ShiftProductionData.business_date == target_date)
-    )
+    query = db.query(ShiftProductionData).filter(ShiftProductionData.business_date == target_date)
     if status_scope == 'confirmed_only':
         query = query.filter(ShiftProductionData.data_status == 'confirmed')
     elif status_scope == 'include_pending':
@@ -811,20 +811,23 @@ def build_workshop_output_summary(
     else:
         query = query.filter(ShiftProductionData.data_status.in_(['reviewed', 'confirmed']))
 
-    rows = query.group_by(ShiftProductionData.workshop_id).all()
-    workshop_ids = [item.workshop_id for item in rows]
+    rows = query.all()
+    workshop_ids = sorted({item.workshop_id for item in rows})
     workshop_map = (
         {item.id: item for item in db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all()} if workshop_ids else {}
     )
-    result: list[dict] = []
+    grouped: dict[int, list[ShiftProductionData]] = {}
     for row in rows:
-        workshop = workshop_map.get(row.workshop_id)
+        grouped.setdefault(row.workshop_id, []).append(row)
+    result: list[dict] = []
+    for workshop_id, workshop_rows in grouped.items():
+        workshop = workshop_map.get(workshop_id)
         result.append(
             {
-                'workshop_id': row.workshop_id,
-                'workshop_name': workshop.name if workshop else f'Workshop-{row.workshop_id}',
-                'total_output': float(row.total_output or 0),
-                'shift_count': int(row.shift_count or 0),
+                'workshop_id': workshop_id,
+                'workshop_name': workshop.name if workshop else f'Workshop-{workshop_id}',
+                'total_output': round(sum(_shift_weight_tons(item, 'output_weight') for item in workshop_rows), 2),
+                'shift_count': len(workshop_rows),
             }
         )
     result.sort(key=lambda item: item['total_output'], reverse=True)
