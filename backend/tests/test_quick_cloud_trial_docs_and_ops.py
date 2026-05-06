@@ -21,6 +21,7 @@ DEPLOYMENT_SHELL_SCRIPTS = [
     'scripts/backup_db.sh',
     'scripts/check_trial_stack.sh',
     'scripts/deploy_trial.sh',
+    'scripts/deploy_systemd_host.sh',
     'scripts/go_live_gate.sh',
     'scripts/launch_cloud_trial.sh',
     'scripts/restore_db.sh',
@@ -41,6 +42,50 @@ def test_deployment_shell_scripts_are_executable_in_git_index() -> None:
     }
 
     assert modes == {path: '100755' for path in DEPLOYMENT_SHELL_SCRIPTS}
+
+
+def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
+    script = _read('scripts/deploy_systemd_host.sh')
+    state = _read('docs/deploy/current-state.md')
+
+    assert 'HOST-SYSTEMD ONLY' in script
+    assert 'docker compose' not in script
+    assert 'SERVICE_NAME="${SERVICE_NAME:-aluminum-bypass}"' in script
+    assert 'NGINX_SERVICE_NAME="${NGINX_SERVICE_NAME:-nginx}"' in script
+    assert 'BACKEND_DIR="$REPO_ROOT/backend"' in script
+    assert 'FRONTEND_DIR="$REPO_ROOT/frontend"' in script
+    assert 'BACKEND_ENV_FILE="$BACKEND_DIR/.env"' in script
+    assert 'BACKUP_FILE="${BACKUP_FILE:-$BACKUP_DIR/systemd-predeploy-$TIMESTAMP.dump}"' in script
+    assert 'SQLALCHEMY_DB_URL="${DATABASE_URL:-$(get_env_value DATABASE_URL)}"' in script
+    assert 'normalize_pg_dump_url()' in script
+    assert 'postgresql+*://*)' in script
+    assert 'DB_URL="$(normalize_pg_dump_url "$SQLALCHEMY_DB_URL")"' in script
+    assert 'pg_dump "$DB_URL" -Fc -f "$BACKUP_FILE"' in script
+    assert 'pg_restore -l "$BACKUP_FILE"' in script
+    assert 'APP_ENV_VALUE="$(get_env_value APP_ENV | tr -d' in script
+    assert '部署 systemd host 前必须设置 APP_ENV=production' in script
+    assert 'require_env_value SECRET_KEY' in script
+    assert 'require_env_value INIT_ADMIN_PASSWORD' in script
+    assert 'if is_weak_secret_key "$SECRET_KEY_VALUE"; then' in script
+    assert 'if is_weak_admin_password "$INIT_ADMIN_PASSWORD_VALUE"; then' in script
+    assert '.venv/bin/python -m pip install -r requirements.txt' in script
+    assert '.venv/bin/alembic upgrade head' in script
+    assert '.venv/bin/python scripts/init_master_data.py' in script
+    assert '.venv/bin/python scripts/init_real_master_data.py' in script
+    assert '.venv/bin/python scripts/create_admin.py' in script
+    assert 'VITE_API_BASE_URL="${VITE_API_BASE_URL:-/api/v1}" npm run build' in script
+    assert 'systemctl restart "$SERVICE_NAME"' in script
+    assert 'systemctl is-active --quiet "$SERVICE_NAME"' in script
+    assert 'systemctl is-active --quiet "$NGINX_SERVICE_NAME"' in script
+    assert 'READY_RESPONSE="$(curl -sS --max-time 10 -w \'\\n%{http_code}\' "$BACKEND_BASE_URL/readyz" 2>/dev/null || true)"' in script
+    assert '"hard_gate_passed"[[:space:]]*:[[:space:]]*true' in script
+    assert '--dry-run|--check-only' in script
+    assert '--pull' in script
+    assert 'git pull --ff-only origin main' in script
+    assert '当前 ECS systemd 形态的临时更新命令' not in state
+    assert './scripts/deploy_systemd_host.sh --pull http://8.140.218.13' in state
+    assert 'systemctl is-active aluminum-bypass' in state
+    assert 'systemctl is-active nginx' in state
 
 
 def _load_deploy_production_module():

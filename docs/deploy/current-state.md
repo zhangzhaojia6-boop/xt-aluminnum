@@ -14,7 +14,7 @@
 
 ```bash
 cd /srv/aluminum-bypass
-./scripts/launch_cloud_trial.sh https://你的域名 --pull --skip-ai
+./scripts/deploy_systemd_host.sh --pull http://8.140.218.13
 ```
 
 ## 2. 当前产品口径
@@ -209,13 +209,10 @@ Vercel 主线探测：
 
 ```bash
 cd /srv/aluminum-bypass
-git fetch origin
-git status --short --branch
-git pull --ff-only origin main
-./scripts/launch_cloud_trial.sh https://你的域名 --pull --skip-ai
+./scripts/deploy_systemd_host.sh --pull http://8.140.218.13
 ```
 
-如果 AI 已正式配置并希望一起检查：
+如果后续切回 Docker Compose 统一部署形态，并且 AI 已正式配置后希望一起检查：
 
 ```bash
 ./scripts/launch_cloud_trial.sh https://你的域名 --pull
@@ -230,30 +227,13 @@ git pull --ff-only origin main
 上线后必须确认：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-./scripts/check_trial_stack.sh https://你的域名
-docker compose exec -T backend python scripts/check_statistics_module_ready.py
-curl -kfsS https://你的域名/healthz
-curl -kfsS https://你的域名/readyz
-```
-
-当前 ECS systemd 形态的临时更新命令：
-
-```bash
 cd /srv/aluminum-bypass
-git fetch origin
-git pull --ff-only origin main
+systemctl is-active aluminum-bypass
+systemctl is-active nginx
+curl -fsS http://8.140.218.13/healthz
+curl -fsS http://8.140.218.13/readyz
 cd backend
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/alembic upgrade head
-.venv/bin/python scripts/init_master_data.py
-.venv/bin/python scripts/init_real_master_data.py
-.venv/bin/python scripts/create_admin.py
-cd ../frontend
-VITE_API_BASE_URL=/api/v1 npm run build
-systemctl restart aluminum-bypass
-curl -fsS http://127.0.0.1:8000/healthz
-curl -fsS http://127.0.0.1:8000/readyz
+.venv/bin/python scripts/check_statistics_module_ready.py --json
 ```
 
 ## 8. 生产环境变量底线
