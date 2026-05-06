@@ -402,6 +402,11 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`http://8.140.218.13/readyz`：HTTP 503，返回后端 readyz JSON。' in state
     assert '`MOBILE_USER_WORKSHOP_MISSING`' in state
     assert '`SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）' in state
+    assert '`admin` 在当前主线属于 factory-wide 移动账号，不应成为 hard issue' in state
+    assert 'test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts' in state
+    assert '远端 readyz 样例仍包含 `admin`，优先按远端代码或镜像未更新处理' in state
+    assert 'docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --apply --json' in state
+    assert 'docker compose exec -T backend python scripts/init_real_master_data.py' in state
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state

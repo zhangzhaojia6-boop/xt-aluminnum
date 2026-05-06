@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 08:07:33 +08:00
+更新时间：2026-05-06 08:12:17 +08:00
 
 ## 1. 仓库状态
 
@@ -153,6 +153,22 @@ MES_API_KEY=...
 - HTTP readyz 的关键阻断：
   - `MOBILE_USER_WORKSHOP_MISSING`：存在未绑定车间的移动填报账号，样例包含 `FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT`、`admin`。
   - `SCHEDULE_EMPTY`（目标业务日 `2026-05-06`）：远端应报清单为空，`schedule_row_count=0`。
+- 诊断：`admin` 在当前主线属于 factory-wide 移动账号，不应成为 hard issue；本地测试 `test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts` 已锁定该语义。远端 readyz 样例仍包含 `admin`，优先按远端代码或镜像未更新处理，再处理真实 owner 绑定和应报清单。
+- 服务器内建议验证/修复顺序：
+
+```bash
+cd /srv/aluminum-bypass
+git fetch origin
+git pull --ff-only origin main
+git rev-parse --short HEAD
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build backend nginx
+docker compose exec -T backend python -m pytest tests/test_config_readiness_service.py::test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts -q
+docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --json
+docker compose exec -T backend python scripts/check_owner_account_bindings.py --target-workshop-code CPK --apply --json
+docker compose exec -T backend python scripts/init_real_master_data.py
+docker compose exec -T backend python scripts/check_pilot_config.py --date 2026-05-06 --json
+curl -kfsS http://8.140.218.13/readyz
+```
 
 Vercel 主线探测：
 
