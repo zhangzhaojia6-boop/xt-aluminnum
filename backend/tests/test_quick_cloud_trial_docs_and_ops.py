@@ -504,6 +504,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`import_type=daily_production_report`' in state
     assert '`daily_output_tons=1935.649`' in state
     assert '`shift_production_data_rows=0`' in state
+    assert '`batch_no=IMP-20260506130735-d4f557`' in state
+    assert '`shift_rows_delta=0`' in state
+    assert '生产环境暂未安装 `xlrd`' in state
     assert '按卷填报提交口径已收紧' in state
     assert '`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细' in state
     assert '重算时没有合格源卷会 void 旧聚合' in state
@@ -1025,7 +1028,8 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '无日期样本保持 `missing_business_date=null`',
         '历史 `每日产量` 导入闸门已接入 import staging',
         '`first_daily_output_tons=1935.649`',
-        '`shift_rows_after=0`',
+        '`batch_no=IMP-20260506130735-d4f557`',
+        '`shift_rows_delta=0`',
         '`LLM_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
         '通讯录成员读取权限、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',

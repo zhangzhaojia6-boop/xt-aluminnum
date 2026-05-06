@@ -54,7 +54,7 @@
 - 外部联通 readiness 已支持可选通讯录权限核验：`--check-dingtalk-contacts` 返回 `DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`，不会写用户表或回显成员明细。
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
 - 历史 `每日产量` 工作簿已具备只读 dry-run 预览：综合日报表按吨单位映射日/月投料、产出、废料，车间标签向下继承，并拦截 `10000t` 以上疑似 kg 口径异常；生产 synthetic 验证 `valid_business_date=2026-05-03`，无日期样本保持 `missing_business_date=null`，暂不写库。
-- 历史 `每日产量` 导入闸门已接入 import staging：真实工作簿 dry-run `first_daily_output_tons=1935.649`、`first_source_unit=t`、`shift_rows_after=0`，仅写 `ImportBatch/ImportRow`，暂不写正式产量事实表。
+- 历史 `每日产量` 导入闸门已接入 import staging：真实工作簿 dry-run `first_daily_output_tons=1935.649`、`first_source_unit=t`；生产备份 `pre-daily-production-import-20260506-210602.dump` 后已写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`，`shift_rows_delta=0`，暂不写正式产量事实表。
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。

@@ -51,6 +51,7 @@ cd /srv/aluminum-bypass
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 - MES MVC 会话恢复已增强：表格查询若被会话过期打回登录页，会清理 cookie/token 后重新登录并重放请求；二次仍返回登录页才报错，避免短期 session 过期让同步长期卡住。
 - 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
+- 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
 
 ## 3. 默认部署形态
 
@@ -362,6 +363,10 @@ cd backend
 - 本地内存 SQLite 受控导入 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`，`import_type=daily_production_report`，`total_rows=1`，`success_rows=1`，`failed_rows=0`。
 - 解析结果：`business_date=2026-05-03`，`source_unit=t`，`row_count=16`，`daily_input_tons=1985.674`，`daily_output_tons=1935.649`，`month_to_date_output_tons=11258.775`，`daily_scrap_tons=50.025`，`issues=[]`。
 - 同次导入 `shift_production_data_rows=0`，确认该门禁只写导入审计区，不写正式生产事实表。
+- 生产写库前备份：`backups/pre-daily-production-import-20260506-210602.dump`，`backup_bytes=401988`，`pg_restore -l` 校验通过。
+- 生产环境暂未安装 `xlrd`，本轮未新增依赖；使用本机只读转换出的临时 `.xlsx` 进入生产 staging，源文件仍为 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`。
+- 生产 staging 批次：`ImportBatch id=1`，`batch_no=IMP-20260506130735-d4f557`，`file_name=xintai-daily-production-2026-05-03.xlsx`，`file_path=uploads/4ee5b77a8566471c84266074fe8969d4.xlsx`，`total_rows=1`，`success_rows=1`，`failed_rows=0`。
+- 生产写库复验：首行 `business_date=2026-05-03`，`source_unit=t`，`row_count=16`，`daily_output_tons=1935.649`；`ShiftProductionData` 从 28 到 28，`shift_rows_delta=0`。
 
 下一道门禁：把导入行转为正式生产数据前，必须先做车间/机列映射、班次归属、日累计与月累计口径确认，并继续拦截 `>10000t` 的疑似 kg/t 错配数据。
 
