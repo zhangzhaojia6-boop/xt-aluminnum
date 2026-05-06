@@ -46,13 +46,14 @@
 - 管理端工厂指挥中心已验证混合来源：生产 `overview_source=mixed`，当天本地直录聚合 `overview_total_output=120460.0`，`machine_lines_len=56`，`unbound_machine_lines_len=5`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
 - 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
+- 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
 本轮核验命令：
 
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
-- `python -m pytest backend/tests -q`：678 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q`：679 passed，124 deselected，30 warnings
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过

@@ -472,12 +472,14 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：678 passed，124 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -q`：679 passed，124 deselected，30 warnings' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
     assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected' in state
     assert '工厂指挥中心已上线混合来源消费' in state
     assert '`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录' in state
+    assert '外部联通 readiness 已显式提示钉钉人员绑定缺口' in state
+    assert '`DINGTALK_NO_BOUND_USERS` warning' in state
     assert 'MES 同步批内重复投影已收口' in state
     assert '`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重' in state
     assert '`npm --prefix frontend test`：119 passed' in state
@@ -526,6 +528,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '本轮已部署 `main@f2350d6`' in state
     assert '`overview_source=mixed`、`overview_total_input=149510.0`、`overview_total_output=120460.0`' in state
     assert '`machine_lines_len=56`、`unbound_machine_lines_len=5`、`unbound_output_total=120460.0`' in state
+    assert '本轮已部署 `main@180d84d`' in state
+    assert '`warning_issues=DINGTALK_NO_BOUND_USERS`' in state
+    assert '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`' in state
     assert '`coil_snapshots fetched=50 upserted=50`' in state
     assert '`mes_follow_cards fetched=50 upserted=50`' in state
     assert '`mes_dispatch fetched=50 upserted=50`' in state
@@ -587,7 +592,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
-    assert '675 passed，124 deselected，30 warnings' not in state
+    assert '678 passed，124 deselected，30 warnings' not in state
     assert '671 passed' not in state
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
@@ -934,6 +939,9 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '钉钉应用配置已启用并完成 token 预检',
         '`DINGTALK_ENABLED=true`',
         '`token_received=true`',
+        '`DINGTALK_NO_BOUND_USERS`',
+        '`active_dingtalk_user_count=0`',
+        '`active_dingtalk_employee_count=0`',
         '`LLM_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
         '真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',
