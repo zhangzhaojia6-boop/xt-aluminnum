@@ -47,8 +47,10 @@
 
 本轮核验命令：
 
-- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：33 passed，1 deselected
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：34 passed，1 deselected
 - `python -m pytest backend/tests -q --durations=10`：657 passed，123 deselected，30 warnings
+- `npm --prefix frontend test`：110 passed
+- `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过
 - `git diff --check`：通过（仅 Windows CRLF 提示）
 
