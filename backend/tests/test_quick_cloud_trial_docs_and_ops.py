@@ -81,9 +81,15 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert '"hard_gate_passed"[[:space:]]*:[[:space:]]*true' in script
     assert '--dry-run|--check-only' in script
     assert '--pull' in script
+    assert '--require-external' in script
+    assert 'REQUIRE_EXTERNAL=0' in script
+    assert 'REQUIRE_EXTERNAL=1' in script
+    assert 'if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then' in script
+    assert '.venv/bin/python scripts/check_statistics_module_ready.py --json' in script
     assert 'git pull --ff-only origin main' in script
     assert '当前 ECS systemd 形态的临时更新命令' not in state
     assert './scripts/deploy_systemd_host.sh --pull http://8.140.218.13' in state
+    assert './scripts/deploy_systemd_host.sh --pull --require-external https://你的域名' in state
     assert 'systemctl is-active aluminum-bypass' in state
     assert 'systemctl is-active nginx' in state
 
@@ -410,8 +416,8 @@ def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() ->
     assert '以 `2026-04-20` 本地最新验证为准' not in source
     assert '387 passed' not in source
     assert '→ `4 passed`' not in source
-    assert '`python -m pytest backend/tests -q --durations=10` → `656 passed，123 deselected，30 warnings`' in source
-    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，656 deselected`' in source
+    assert '`python -m pytest backend/tests -q --durations=10` → `657 passed，123 deselected，30 warnings`' in source
+    assert '`python -m pytest backend/tests -m frontend_contract -q` → `123 passed，657 deselected`' in source
     assert '`npm --prefix frontend test` → `110 passed`' in source
     assert '`npm --prefix frontend run build` → 通过' in source
     assert '`git diff --check` → 通过' in source
@@ -466,8 +472,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：656 passed，123 deselected，30 warnings' in state
-    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，656 deselected' in state
+    assert '`python -m pytest backend/tests -q --durations=10`：657 passed，123 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -m frontend_contract -q`：123 passed，657 deselected' in state
     assert '`npm --prefix frontend test`：110 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
@@ -497,8 +503,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
     assert '待处理问题清单当前为空' in audit
-    assert '656 passed，123 deselected，30 warnings' in audit
-    assert '123 passed，656 deselected' in audit
+    assert '657 passed，123 deselected，30 warnings' in audit
+    assert '123 passed，657 deselected' in audit
     assert '110 passed' in audit
     assert '513 passed / 5 failed' not in audit
 
@@ -803,6 +809,33 @@ def test_known_gaps_master_runtime_scope_matches_workshop_page() -> None:
     assert '一站式主数据中心' in gaps
 
 
+def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None:
+    plan = _read('PLANS.md')
+
+    for token in [
+        '### 阶段进度审计（2026-05-06）',
+        '- [x] Phase 1 代码闭环已验证',
+        '- [x] Phase 2 代码闭环已验证',
+        '- [x] Phase 3 代码闭环已验证',
+        '- [ ] 真实外部联通闸门通过',
+        '- [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转',
+        '`MES_UNCONFIGURED`',
+        '`WORKFLOW_DISABLED`',
+        '`LLM_DISABLED`',
+        '`DINGTALK_DISABLED`',
+        '`APP_CONNECTION_DISABLED`',
+        '真实钉钉客户端免登录、工作通知送达、MES/Workflow/LLM/应用连接 API 和正式域名仍需现场凭证与 UAT',
+    ]:
+        assert token in plan
+
+    for stale_token in [
+        '- [ ] Phase 1 全部 success criteria 达成',
+        '- [ ] Phase 2 全部 success criteria 达成',
+        '- [ ] Phase 3 全部 success criteria 达成',
+    ]:
+        assert stale_token not in plan
+
+
 def test_launch_readiness_uses_current_ai_assistant_runtime_name() -> None:
     checklist = _read('docs/launch-readiness-checklist.md')
     router = _read('frontend/src/router/index.js')
@@ -889,7 +922,7 @@ def test_api_and_cli_lane_docs_match_current_identity_boundaries() -> None:
         'python scripts/check_pilot_config.py --date <目标日期> --json',
         'python scripts/check_owner_account_bindings.py --target-workshop-code <车间编码> --json',
         'python scripts/dingtalk_cli.py status --json',
-        '656 passed，123 deselected，30 warnings',
+        '657 passed，123 deselected，30 warnings',
         '浏览器 / 钉钉',
         'WECOM_BOT_ENABLED=false',
     ]:

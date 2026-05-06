@@ -5,15 +5,17 @@ set -eu
 
 DRY_RUN=0
 SKIP_PULL=1
+REQUIRE_EXTERNAL=0
 PARSED_BASE_URL=""
 
 usage() {
   cat <<'EOF'
-用法: scripts/deploy_systemd_host.sh [http://host-or-domain] [--pull] [--skip-pull] [--dry-run]
+用法: scripts/deploy_systemd_host.sh [http://host-or-domain] [--pull] [--skip-pull] [--dry-run] [--require-external]
 
 说明:
 - 仅用于当前 ECS 宿主机 systemd 形态：nginx + aluminum-bypass.service + 宿主机 PostgreSQL。
 - 默认不执行 git pull；加 --pull 时执行 git pull --ff-only origin main。
+- --require-external 会在 readyz 通过后继续检查 MES / Workflow / LLM / 钉钉 / 应用连接正式联通。
 - --dry-run / --check-only 仅打印计划，不执行备份、迁移、构建或服务重启。
 EOF
 }
@@ -30,6 +32,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --skip-pull)
       SKIP_PULL=1
+      shift
+      ;;
+    --require-external)
+      REQUIRE_EXTERNAL=1
       shift
       ;;
     --help|-h)
@@ -216,12 +222,16 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "BACKEND_BASE_URL=$BACKEND_BASE_URL"
   echo "READY_RETRIES=$READY_RETRIES"
   echo "READY_INTERVAL_SECONDS=$READY_INTERVAL_SECONDS"
+  echo "REQUIRE_EXTERNAL=$REQUIRE_EXTERNAL"
   echo "执行计划:"
   echo " - 可选同步: git pull --ff-only origin main"
   echo " - 备份数据库并用 pg_restore -l 校验"
   echo " - 安装后端依赖，执行 Alembic 和基础数据初始化"
   echo " - 构建前端"
   echo " - 重启 systemd 服务并检查 /readyz hard_gate_passed=true"
+  if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then
+    echo " - 检查正式外部联通: MES / Workflow / LLM / 钉钉 / 应用连接"
+  fi
   exit 0
 fi
 
@@ -275,5 +285,10 @@ while :; do
   ATTEMPT=$((ATTEMPT + 1))
   sleep "$READY_INTERVAL_SECONDS"
 done
+
+if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then
+  cd "$BACKEND_DIR"
+  .venv/bin/python scripts/check_statistics_module_ready.py --json
+fi
 
 echo "systemd host deployment updated: $BACKEND_BASE_URL"

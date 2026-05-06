@@ -19,36 +19,52 @@
 
 ### Phases
 
-**Phase 1 · 地基清理**（先做，3–5 天）
+**Phase 1 · 地基清理**（代码闭环已验证）
 详见 `docs/superpowers/plans/2026-05-03-phase1-foundation-cleanup.md`
 - Task 1: Pytest 收集与回归全绿
 - Task 2: Readyz 硬阻断降级（空绑定、空排班 → warning）
 - Task 3: 拆除企业微信用户消息路径（保留群机器人 publisher）
 - Task 4: 工厂指挥中心 7 屏回退到手填口径
 
-**Phase 2 · 自动化闭环**（Phase 1 合入后，~1 周）
+**Phase 2 · 自动化闭环**（代码闭环已验证）
 详见 `docs/superpowers/plans/2026-05-03-phase2-automation-closure.md`
 - Task 1: 规则阈值按车间可配置（DB 存 + 热加载）
 - Task 2: AI 助手异常"建议→一键处置"回环
 - Task 3: 班长一屏（排班/出勤/已报/退回/催报 五象限）
 
-**Phase 3 · 工人入口升级**（Phase 2 合入后，~1 周）
+**Phase 3 · 工人入口升级**（代码闭环已验证；真实外部联通待现场凭证/UAT）
 详见 `docs/superpowers/plans/2026-05-03-phase3-worker-entry-upgrade.md`
 - Task 1: 钉钉 H5 免登录闭环 + 工作通知真实发送
 - Task 2: 扫码即填（本地 `coil_snapshots` 登记替代 MES 投影）
+
+### 阶段进度审计（2026-05-06）
+
+- Phase 1 代码闭环：readyz warning 语义、企业微信用户消息路径下线、工厂指挥中心手填回退、后端回归均已有自动化覆盖。
+- Phase 2 代码闭环：规则阈值按车间配置、AI 助手建议到 agent 一键处置、班长一屏均已有后端和前端自动化覆盖。
+- Phase 3 代码闭环：钉钉 H5 登录服务、钉钉通讯录同步入口、扫码带出与锁字段校验均已有后端和前端自动化覆盖。
+- 外部联通仍未完成：`MES_UNCONFIGURED`、`WORKFLOW_DISABLED`、`LLM_DISABLED`、`DINGTALK_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
+- 真实钉钉客户端免登录、工作通知送达、MES/Workflow/LLM/应用连接 API 和正式域名仍需现场凭证与 UAT。
+
+本轮核验命令：
+
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：33 passed，1 deselected
+- `python -m pytest backend/tests -q --durations=10`：657 passed，123 deselected，30 warnings
+- `bash -n scripts/deploy_systemd_host.sh`：通过
+- `git diff --check`：通过（仅 Windows CRLF 提示）
 
 ### Files to Modify
 按阶段查看对应 plan 文件。
 
 ### Completion Criteria
-- [ ] Phase 1 全部 success criteria 达成
-- [ ] Phase 2 全部 success criteria 达成
-- [ ] Phase 3 全部 success criteria 达成
+- [x] Phase 1 代码闭环已验证
+- [x] Phase 2 代码闭环已验证
+- [x] Phase 3 代码闭环已验证
+- [ ] 真实外部联通闸门通过
 - [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转
 
 ### Notes
-- MES 联调不在本轮范围，plan 完成后再评估何时开 Phase 4（MES 真联调）
-- 每阶段合入后更新 `memory/project_mission.md` 的完成进度
+- MES 联调不在本轮代码闭环范围；正式完全体前仍需真实 MES/钉钉/Workflow/LLM/应用连接 API 与正式域名联通。
+- 不把本地测试通过误写成现场 UAT 完成；现场 UAT 需要目标车间、真实账号、真实钉钉客户端和正式域名证据。
 - 星标项全部在这三个 phase 里；非星标项（一键代提、双录校验、reminder 智能化等）作为 backlog 不列入
 
 ---

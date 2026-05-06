@@ -86,8 +86,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：656 passed，123 deselected，30 warnings
-- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，656 deselected
+- `python -m pytest backend/tests -q --durations=10`：657 passed，123 deselected，30 warnings
+- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，657 deselected
 - `npm --prefix frontend test`：110 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
@@ -226,7 +226,7 @@ cd /srv/aluminum-bypass
 如果 MES、钉钉和应用连接 API 已填入真实配置，正式上线时必须加外部联通闸门：
 
 ```bash
-./scripts/launch_cloud_trial.sh https://你的域名 --pull --require-external
+./scripts/deploy_systemd_host.sh --pull --require-external https://你的域名
 ```
 
 上线后必须确认：
