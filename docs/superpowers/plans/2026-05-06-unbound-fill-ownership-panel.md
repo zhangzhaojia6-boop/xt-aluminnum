@@ -92,3 +92,8 @@ git diff --check
 - [x] **Step 3: Commit, push, deploy, probe**
 
 If verification passes, commit with `feat: 展示未绑定填报归属`, push `main`, deploy through `scripts/deploy_systemd_host.sh --pull http://8.140.218.13`, then verify the production `LiveDashboard` asset contains the new markers.
+
+Result:
+- `main@47be2a7` 已通过 `scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 部署到 ECS。
+- 生产资源 `LiveDashboard-BSehAJcz.js` / `LiveDashboard-DYSwQp49.css` 已包含 `未绑定填报归属`、`live-unbound-fill` 和 `绑定账号`。
+- 生产 Playwright 视觉验证已覆盖桌面 `1440x900` 与手机 `390x844`：面板可见、绑定入口可见、未归属总量 `120460.00` 可见、无横向溢出。

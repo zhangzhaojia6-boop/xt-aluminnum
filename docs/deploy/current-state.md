@@ -164,7 +164,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 14:12 左右。
+最近一次 ECS 修复验证：2026-05-06 14:27 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -173,6 +173,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
 - 本轮已部署 `main@54a09e0`：管理端实时态势第一屏新增“卷级直录分布”，线上 `LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`。
 - 本轮已部署 `main@47be2a7`：管理端实时态势第一屏新增“未绑定填报归属”，线上 `LiveDashboard-BSehAJcz.js` / `LiveDashboard-DYSwQp49.css` 已包含 `未绑定填报归属`、`live-unbound-fill` 和 `绑定账号`。
+- 生产 Playwright 视觉验证已覆盖 `http://8.140.218.13/manage/admin/settings?desktop=1`：桌面 `1440x900` 与手机 `390x844` 均显示“未绑定填报归属”、`120460.00`、`2 个车间`、`3 条机列` 与“绑定账号”，页面无横向溢出；截图留存在本地忽略目录 `frontend/test-results/visual-production/`。
 - 本轮已部署 `main@1c00050`：管理端实时态势主聚合接入 `mobile_coil_agg` 卷级直录 fallback，线上 `LiveDashboard-CeSbJ94X.js` 已包含 `卷级直录` 和 `local_shift_data`。
 - 本轮已部署 `main@7659225`：管理端实时态势页新增“外部联通闸门”卡，线上 `LiveDashboard-BXTGpXX4.js` / `dashboard-D6EhilfF.js` 已包含 `外部联通闸门`、`接口待返回`、`external-readiness` 和 `hard_issues`。
 - 本轮已部署 `main@3e492f8`：管理端外部 MES 状态条显示运行配置缺口，线上 `LiveDashboard-BNcHeouG.js` 已包含 `required_env`、`缺少配置` 和 `MES_MVC_BASE_URL`。
