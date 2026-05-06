@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 09:34:32 +08:00
+更新时间：2026-05-06 10:18:39 +08:00
 
 ## 1. 仓库状态
 
@@ -40,6 +40,7 @@ cd /srv/aluminum-bypass
 - 旧管理占位路由已移除。
 - 主路径不再暴露“改造中”“待迁移”等占位文案。
 - PR review 反馈的扫码取旧 MES 快照问题已修复：重复 QR 取最新快照，缺少 `mes_coil_snapshots` 表时仍可回退设备二维码。
+- 管理端已上线卷级实时填报可见性：`pending + mobile_coil_agg` 作为 `卷级直录` 待确认流入展示，正式已确认日报口径不被普通 `pending` 数据污染。
 
 ## 3. 默认部署形态
 
@@ -84,10 +85,11 @@ db 容器: PostgreSQL 15
 
 ## 4. 本地验证记录
 
-在当前 `main` HEAD 上已完成代码与路由文档回归验证：
+在当前 `main@5192933` 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：660 passed，123 deselected，30 warnings
-- `python -m pytest backend/tests -m frontend_contract -q`：123 passed，660 deselected
+- `python -m pytest backend/tests -q`：661 passed，123 deselected，30 warnings
+- `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
+- `python -m pytest backend/tests/test_mobile_entry_copy_consistency.py -m frontend_contract -q`：76 passed
 - `npm --prefix frontend test`：110 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
@@ -162,10 +164,10 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 09:34 左右。
+最近一次 ECS 修复验证：2026-05-06 10:18 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
-- 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
+- 远端仓库：`/srv/aluminum-bypass` 已快进到 `main@5192933`，`HEAD` 与 `origin/main` 对齐，工作区干净。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh http://8.140.218.13` 完成 systemd 宿主机部署闭环。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-093253.dump`。
@@ -176,6 +178,10 @@ MES_API_KEY=...
 - 已执行 owner 账号绑定修复：`FACTORY-UM`、`FACTORY-IK`、`FACTORY-CT` 绑定到 `CPK`。
 - 已验证虚拟角色二维码：`virtual_role_qr_active=96`，`virtual_role_qr_bound=96`。
 - `http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。
+- `http://8.140.218.13/manage/factory`：HTTP 200，返回前端 SPA。
+- 生产前端资源 `FactoryDirector-CzchESVl.js` 已包含 `review-factory-live-chart`。
+- 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=15`，`pending_mobile_coil_agg_rows=4`，`pending_mobile_coil_agg_output=120460.0`。
+- 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；工厂指挥服务 `factory_command_total_output_tons=120460.0`。
 - `/readyz` 关键状态：
   - `environment=production`
   - `database=ok`
