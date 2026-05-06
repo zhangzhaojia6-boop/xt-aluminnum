@@ -73,6 +73,7 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert '.venv/bin/python scripts/init_master_data.py' in script
     assert '.venv/bin/python scripts/init_real_master_data.py' in script
     assert '.venv/bin/python scripts/create_admin.py' in script
+    assert 'npm rebuild' in script
     assert 'VITE_API_BASE_URL="${VITE_API_BASE_URL:-/api/v1}" npm run build' in script
     assert 'systemctl restart "$SERVICE_NAME"' in script
     assert 'systemctl is-active --quiet "$SERVICE_NAME"' in script

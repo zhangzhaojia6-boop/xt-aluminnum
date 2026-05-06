@@ -257,6 +257,7 @@ fi
 
 cd "$FRONTEND_DIR"
 npm ci
+npm rebuild
 VITE_API_BASE_URL="${VITE_API_BASE_URL:-/api/v1}" npm run build
 
 systemctl restart "$SERVICE_NAME"
