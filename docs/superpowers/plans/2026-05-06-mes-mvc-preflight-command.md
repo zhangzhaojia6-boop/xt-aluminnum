@@ -73,14 +73,18 @@ Run:
 python -m pytest backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q
 ```
 
-- [ ] **Step 2: Docs/current-state update**
+- [x] **Step 2: Docs/current-state update**
 
 Record the command in `docs/deploy/current-state.md` only after running it on ECS.
 
-- [ ] **Step 3: Commit, push, server fast-forward**
+- [x] **Step 3: Commit, push, server fast-forward**
 
 Commit with `feat: 增加 MES MVC 预检命令`, push, fast-forward `/srv/aluminum-bypass`, then run:
 ```bash
 cd /srv/aluminum-bypass/backend
 PYTHONPATH=. .venv/bin/python scripts/check_mes_mvc_preflight.py --json
 ```
+
+Result:
+- `main@6c78f84` 已推送并快进到 `/srv/aluminum-bypass`。
+- ECS 运行预检命令返回 `adapter=null`、`mvc_configured=false`、`missing_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`、`login_page.status=skipped`、`login.status=skipped`，未输出任何密钥值。
