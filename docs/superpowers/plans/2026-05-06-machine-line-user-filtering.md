@@ -95,6 +95,6 @@ npm --prefix frontend run build
 git diff --check
 ```
 
-- [ ] **Step 3: Commit, push, deploy, probe**
+- [x] **Step 3: Commit, push, deploy, probe**
 
 If verification passes, commit with `feat: 支持机列用户配置筛选`, push `main`, deploy to the server, then probe `/readyz` and `/api/v1/users/` with the new filters.
