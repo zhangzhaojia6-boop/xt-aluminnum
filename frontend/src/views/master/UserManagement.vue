@@ -36,6 +36,9 @@
         <el-table-column prop="team_name" label="所属班组" min-width="140">
           <template #default="{ row }">{{ row.team_name || '-' }}</template>
         </el-table-column>
+        <el-table-column prop="bound_machine_name" label="绑定机列" min-width="130">
+          <template #default="{ row }">{{ row.bound_machine_name || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="is_mobile_user" label="手机端" width="90">
           <template #default="{ row }">
             <ReferenceStatusTag :status="row.is_mobile_user ? 'success' : 'normal'" :label="row.is_mobile_user ? '是' : '否'" />
@@ -101,6 +104,17 @@
             <el-option v-for="team in filteredTeams" :key="team.id" :label="team.name" :value="team.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="绑定机列">
+          <el-select v-model="form.bound_machine_id" clearable filterable style="width: 100%" @change="handleMachineChange">
+            <el-option
+              v-for="machine in filteredEquipment"
+              :key="machine.id"
+              :label="formatMachineLabel(machine)"
+              :value="machine.id"
+              :disabled="Boolean(machine.bound_user_id && machine.bound_user_id !== editingId)"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="PIN码">
           <el-input v-model="form.pin_code" maxlength="6" placeholder="6位数字，可选" />
         </el-form-item>
@@ -146,7 +160,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
-import { fetchTeams, fetchWorkshops } from '../../api/master.js'
+import { fetchEquipment, fetchTeams, fetchWorkshops } from '../../api/master.js'
 import { createUser, deleteUser, fetchUsersPage, resetUserPassword, syncDingtalkUsers, updateUser } from '../../api/users.js'
 import { formatDateTime, formatRoleLabel } from '../../utils/display.js'
 
@@ -181,6 +195,7 @@ const resetTarget = ref(null)
 const items = ref([])
 const workshops = ref([])
 const teams = ref([])
+const equipment = ref([])
 
 const filters = reactive({
   workshopId: null,
@@ -200,6 +215,7 @@ const form = reactive({
   role: 'shift_leader',
   workshop_id: null,
   team_id: null,
+  bound_machine_id: null,
   pin_code: '',
   is_mobile_user: false,
   is_reviewer: false,
@@ -217,6 +233,11 @@ const filteredTeams = computed(() => {
   return teams.value.filter((team) => team.workshop_id === form.workshop_id)
 })
 
+const filteredEquipment = computed(() => {
+  if (!form.workshop_id) return equipment.value
+  return equipment.value.filter((machine) => machine.workshop_id === form.workshop_id)
+})
+
 const currentPage = computed(() => Math.floor(pageState.skip / pageState.limit) + 1)
 
 function resetFormState() {
@@ -226,6 +247,7 @@ function resetFormState() {
   form.role = 'shift_leader'
   form.workshop_id = null
   form.team_id = null
+  form.bound_machine_id = null
   form.pin_code = ''
   form.is_mobile_user = false
   form.is_reviewer = false
@@ -238,6 +260,20 @@ function handleWorkshopChange() {
   if (form.team_id && !filteredTeams.value.some((team) => team.id === form.team_id)) {
     form.team_id = null
   }
+  if (form.bound_machine_id && form.workshop_id && !filteredEquipment.value.some((machine) => machine.id === form.bound_machine_id)) {
+    form.bound_machine_id = null
+  }
+}
+
+function handleMachineChange(machineId) {
+  const machine = equipment.value.find((item) => item.id === machineId)
+  if (!machine) return
+  form.workshop_id = machine.workshop_id
+  handleWorkshopChange()
+}
+
+function formatMachineLabel(machine) {
+  return machine.code ? `${machine.name} / ${machine.code}` : machine.name
 }
 
 function handleFilterChange() {
@@ -263,6 +299,7 @@ function openEdit(row) {
   form.role = row.role
   form.workshop_id = row.workshop_id
   form.team_id = row.team_id
+  form.bound_machine_id = row.bound_machine_id
   form.is_mobile_user = row.is_mobile_user
   form.is_reviewer = row.is_reviewer
   form.is_manager = row.is_manager
@@ -284,6 +321,7 @@ function buildSavePayload() {
     role: form.role,
     workshop_id: form.workshop_id || null,
     team_id: form.team_id || null,
+    bound_machine_id: form.bound_machine_id ?? null,
     is_mobile_user: form.is_mobile_user,
     is_reviewer: form.is_reviewer,
     is_manager: form.is_manager
@@ -385,12 +423,14 @@ async function syncDingtalk() {
 
 onMounted(async () => {
   try {
-    const [workshopItems, teamItems] = await Promise.all([
+    const [workshopItems, teamItems, equipmentItems] = await Promise.all([
       fetchWorkshops({ limit: 500 }),
-      fetchTeams({ limit: 500 })
+      fetchTeams({ limit: 500 }),
+      fetchEquipment({ limit: 500 })
     ])
     workshops.value = workshopItems
     teams.value = teamItems
+    equipment.value = equipmentItems
     await load()
   } catch {
     ElMessage.error('加载失败')

@@ -64,22 +64,32 @@ def seed_reference_data(session_factory):
             ]
         )
         db.flush()
-        db.add(
-            Equipment(
-                code='ZD-1',
-                name='1#线',
-                workshop_id=workshop.id,
-                equipment_type='ingot_caster',
-                operational_status='running',
-                shift_mode='three',
-                assigned_shift_ids=[1, 2, 3],
-                qr_code='XT-ZD-1',
-                bound_user_id=2,
-                is_active=True,
-            )
+        machine_one = Equipment(
+            code='ZD-1',
+            name='1#线',
+            workshop_id=workshop.id,
+            equipment_type='ingot_caster',
+            operational_status='running',
+            shift_mode='three',
+            assigned_shift_ids=[1, 2, 3],
+            qr_code='XT-ZD-1',
+            bound_user_id=2,
+            is_active=True,
         )
+        machine_two = Equipment(
+            code='ZD-2',
+            name='2#线',
+            workshop_id=workshop.id,
+            equipment_type='ingot_caster',
+            operational_status='running',
+            shift_mode='three',
+            assigned_shift_ids=[1, 2, 3],
+            qr_code='XT-ZD-2',
+            is_active=True,
+        )
+        db.add_all([machine_one, machine_two])
         db.commit()
-        return {'workshop_id': workshop.id, 'team_id': team.id}
+        return {'workshop_id': workshop.id, 'team_id': team.id, 'machine_one_id': machine_one.id, 'machine_two_id': machine_two.id}
 
 
 def test_users_routes_are_registered() -> None:
@@ -278,3 +288,140 @@ def test_create_update_reset_and_deactivate_user(tmp_path) -> None:
         assert verify_password('Reset#2026', stored.password_hash) is True
         assert stored.is_active is False
         assert db.query(AuditLog).filter(AuditLog.table_name == 'users', AuditLog.record_id == stored.id).count() >= 4
+
+
+def test_user_create_update_and_unbind_machine_line(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    refs = seed_reference_data(session_factory)
+
+    def fake_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def fake_get_user() -> User:
+        return User(
+            id=1,
+            username='admin',
+            password_hash='x',
+            name='系统管理员',
+            role='admin',
+            data_scope_type='all',
+            is_mobile_user=False,
+            is_reviewer=True,
+            is_manager=True,
+            is_active=True,
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    client = TestClient(app)
+    try:
+        create_response = client.post(
+            '/api/v1/users/',
+            json={
+                'username': 'machine02',
+                'password': 'Machine#2026',
+                'name': '2#线主操',
+                'role': 'shift_leader',
+                'workshop_id': refs['workshop_id'],
+                'team_id': refs['team_id'],
+                'is_mobile_user': True,
+                'bound_machine_id': refs['machine_two_id'],
+            },
+        )
+        assert create_response.status_code == 201
+        created = create_response.json()
+        assert created['bound_machine_id'] == refs['machine_two_id']
+        assert created['bound_machine_name'] == '2#线'
+
+        occupied_response = client.put(
+            '/api/v1/users/2',
+            json={
+                'workshop_id': refs['workshop_id'],
+                'team_id': refs['team_id'],
+                'bound_machine_id': refs['machine_two_id'],
+            },
+        )
+        assert occupied_response.status_code == 400
+        assert occupied_response.json()['detail'] == '机列已绑定其他用户'
+
+        unbind_response = client.put(
+            f"/api/v1/users/{created['id']}",
+            json={'bound_machine_id': None},
+        )
+        assert unbind_response.status_code == 200
+        assert unbind_response.json()['bound_machine_id'] is None
+        assert unbind_response.json()['bound_machine_name'] is None
+    finally:
+        app.dependency_overrides.clear()
+
+    with session_factory() as db:
+        user = db.execute(select(User).where(User.username == 'machine02')).scalar_one()
+        machine = db.get(Equipment, refs['machine_two_id'])
+        assert machine.bound_user_id is None
+        assert user.workshop_id == refs['workshop_id']
+
+
+def test_user_machine_line_binding_rejects_cross_workshop(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    refs = seed_reference_data(session_factory)
+    with session_factory() as db:
+        other_workshop = Workshop(code='LH1', name='冷轧一车间', sort_order=3, is_active=True)
+        db.add(other_workshop)
+        db.flush()
+        other_machine = Equipment(
+            code='LH-1',
+            name='冷轧1#线',
+            workshop_id=other_workshop.id,
+            equipment_type='cold_rolling',
+            operational_status='running',
+            shift_mode='three',
+            assigned_shift_ids=[1, 2, 3],
+            qr_code='XT-LH-1',
+            is_active=True,
+        )
+        db.add(other_machine)
+        db.commit()
+        other_machine_id = other_machine.id
+
+    def fake_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def fake_get_user() -> User:
+        return User(
+            id=1,
+            username='admin',
+            password_hash='x',
+            name='系统管理员',
+            role='admin',
+            data_scope_type='all',
+            is_mobile_user=False,
+            is_reviewer=True,
+            is_manager=True,
+            is_active=True,
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+    client = TestClient(app)
+    try:
+        response = client.put(
+            '/api/v1/users/2',
+            json={
+                'workshop_id': refs['workshop_id'],
+                'team_id': refs['team_id'],
+                'bound_machine_id': other_machine_id,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == '机列不属于所选车间'

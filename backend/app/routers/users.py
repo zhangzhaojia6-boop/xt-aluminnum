@@ -109,6 +109,61 @@ def _load_bound_machine_map(db: Session, user_ids: list[int]) -> dict[int, tuple
     return result
 
 
+def _get_bound_machine_for_user(db: Session, user_id: int) -> Equipment | None:
+    return (
+        db.query(Equipment)
+        .filter(Equipment.bound_user_id == user_id, Equipment.is_active.is_(True))
+        .order_by(Equipment.id.asc())
+        .first()
+    )
+
+
+def _ensure_machine_for_binding(db: Session, machine_id: int) -> Equipment:
+    machine = db.get(Equipment, machine_id)
+    if machine is None or not machine.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列不存在或已停用')
+    return machine
+
+
+def _ensure_machine_workshop_matches_user(db: Session, *, user: User, machine: Equipment) -> None:
+    if user.team_id is not None:
+        team = db.get(Team, user.team_id)
+        if team is not None and team.workshop_id != machine.workshop_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列不属于所选车间')
+    if user.workshop_id is None:
+        user.workshop_id = machine.workshop_id
+        return
+    if user.workshop_id != machine.workshop_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列不属于所选车间')
+
+
+def _apply_machine_binding(db: Session, *, user: User, bound_machine_id: int | None) -> None:
+    if bound_machine_id is None:
+        db.query(Equipment).filter(Equipment.bound_user_id == user.id).update(
+            {'bound_user_id': None},
+            synchronize_session='fetch',
+        )
+        return
+
+    machine = _ensure_machine_for_binding(db, bound_machine_id)
+    if machine.bound_user_id is not None and machine.bound_user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列已绑定其他用户')
+
+    _ensure_machine_workshop_matches_user(db, user=user, machine=machine)
+    db.query(Equipment).filter(Equipment.bound_user_id == user.id, Equipment.id != machine.id).update(
+        {'bound_user_id': None},
+        synchronize_session='fetch',
+    )
+    machine.bound_user_id = user.id
+
+
+def _ensure_current_binding_matches_user_scope(db: Session, user: User) -> None:
+    bound_machine = _get_bound_machine_for_user(db, user.id)
+    if bound_machine is None:
+        return
+    _ensure_machine_workshop_matches_user(db, user=user, machine=bound_machine)
+
+
 def _clean_contact_value(value) -> str | None:
     cleaned = str(value or '').strip()
     return cleaned or None
@@ -413,6 +468,17 @@ def create_user(
     )
     db.add(item)
     db.flush()
+    if payload.bound_machine_id is not None:
+        _apply_machine_binding(db, user=item, bound_machine_id=payload.bound_machine_id)
+        item.data_scope_type = _resolve_scope_type(
+            role=item.role,
+            workshop_id=item.workshop_id,
+            team_id=item.team_id,
+            is_reviewer=item.is_reviewer,
+            is_manager=item.is_manager,
+        )
+        db.flush()
+        workshop = db.get(Workshop, item.workshop_id) if item.workshop_id else None
     record_entity_change(
         db,
         user=current_user,
@@ -420,17 +486,12 @@ def create_user(
         entity_type='users',
         entity_id=item.id,
         action='create',
-        new_value={
-            'username': item.username,
-            'name': item.name,
-            'role': item.role,
-            'workshop_id': item.workshop_id,
-            'team_id': item.team_id,
-            'is_mobile_user': item.is_mobile_user,
-            'is_reviewer': item.is_reviewer,
-            'is_manager': item.is_manager,
-            'is_active': item.is_active,
-        },
+        new_value=_serialize_user_item(
+            db,
+            item,
+            workshop_name=workshop.name if workshop else None,
+            team_name=team.name if team else None,
+        ),
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get('user-agent'),
         auto_commit=False,
@@ -465,7 +526,7 @@ def update_user(
     team_id = data.get('team_id', item.team_id)
     workshop, team = _ensure_workshop_and_team(db, workshop_id=workshop_id, team_id=team_id)
 
-    old_value = _serialize_user_row(item, None, None)
+    old_value = _serialize_user_item(db, item, workshop_name=None, team_name=None)
     if 'username' in data:
         item.username = data['username']
     if 'password' in data and data['password']:
@@ -489,6 +550,10 @@ def update_user(
     if 'is_active' in data:
         item.is_active = data['is_active']
 
+    if 'bound_machine_id' in data:
+        _apply_machine_binding(db, user=item, bound_machine_id=data['bound_machine_id'])
+    else:
+        _ensure_current_binding_matches_user_scope(db, item)
     item.data_scope_type = _resolve_scope_type(
         role=item.role,
         workshop_id=item.workshop_id,
@@ -497,6 +562,8 @@ def update_user(
         is_manager=item.is_manager,
     )
     db.flush()
+    workshop = db.get(Workshop, item.workshop_id) if item.workshop_id else None
+    team = db.get(Team, item.team_id) if item.team_id else None
     record_entity_change(
         db,
         user=current_user,

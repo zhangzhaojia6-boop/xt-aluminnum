@@ -34,6 +34,7 @@ class UserCreateRequest(BaseModel):
     is_reviewer: bool = False
     is_manager: bool = False
     pin_code: str | None = None
+    bound_machine_id: int | None = None
 
     @field_validator('username', 'name', 'role')
     @classmethod
@@ -62,6 +63,7 @@ class UserUpdateRequest(BaseModel):
     is_manager: bool | None = None
     is_active: bool | None = None
     pin_code: str | None = None
+    bound_machine_id: int | None = None
 
     @field_validator('username', 'name', 'role')
     @classmethod

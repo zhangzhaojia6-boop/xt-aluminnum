@@ -15,3 +15,11 @@ test('user management page exposes one-click dingtalk member sync', () => {
   assert.match(userManagementSource, /同步钉钉成员/)
   assert.match(userManagementSource, /syncingDingtalk/)
 })
+
+test('user management page supports machine-line account binding', () => {
+  assert.match(userManagementSource, /fetchEquipment/)
+  assert.match(userManagementSource, /绑定机列/)
+  assert.match(userManagementSource, /bound_machine_id/)
+  assert.match(userManagementSource, /handleMachineChange/)
+  assert.match(userManagementSource, /machine\.bound_user_id && machine\.bound_user_id !== editingId/)
+})
