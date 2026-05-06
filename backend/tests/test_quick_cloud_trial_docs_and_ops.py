@@ -568,6 +568,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`DINGTALK_ENABLED=true`' in state
     assert '`token_received=true`' in state
     assert '`active_users_with_dingtalk_id=0`' in state
+    assert '生产只读拉取钉钉部门用户失败' in state
+    assert '`qyapi_get_department_member` 权限' in state
     assert '还不能宣称工作通知已送达' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
     assert '远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD' in state
@@ -592,6 +594,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '2026-05-06 16:55 左右生产 MES 已切到 MVC 配置并完成同步' in state
     assert '`MES_ADAPTER=mvc`、`mes_ready=true`' in state
     assert '`hard_issue_codes=LLM_DISABLED,APP_CONNECTION_DISABLED`' in state
+    assert '钉钉人员绑定阻塞已定位到外部应用权限' in state
     assert '`environment=production`' in state
     assert '`hard_gate_passed=true`' in state
     assert '`mes_sync=idle`' in state
@@ -974,12 +977,14 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '钉钉应用配置已启用并完成 token 预检',
         '`DINGTALK_ENABLED=true`',
         '`token_received=true`',
+        '钉钉通讯录同步阻塞已定位',
+        '`qyapi_get_department_member`',
         '`DINGTALK_NO_BOUND_USERS`',
         '`active_dingtalk_user_count=0`',
         '`active_dingtalk_employee_count=0`',
         '`LLM_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
-        '真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',
+        '通讯录成员读取权限、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',
     ]:
         assert token in plan
 

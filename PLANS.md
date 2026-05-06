@@ -49,9 +49,10 @@
 - 自动汇总 Agent 已验证卷级吨口径：confirmed `mobile_coil_agg` 行进入自动日报/老板摘要前先折吨，生产代码探针 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
 - 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
+- 钉钉通讯录同步阻塞已定位：生产只读拉部门用户返回缺少 `qyapi_get_department_member` 权限，需要先在钉钉开放平台给应用开通通讯录成员读取权限。
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
-- 真实钉钉客户端免登录、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
+- 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
 本轮核验命令：
 
@@ -77,7 +78,7 @@
 - [ ] 试点车间一周，工人-班长-管理者三端零人工中转运转
 
 ### Notes
-- MES MVC、内部 workflow 和钉钉 token 已完成生产验证；正式完全体前仍需持续同步监控、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通。
+- MES MVC、内部 workflow 和钉钉 token 已完成生产验证；正式完全体前仍需持续同步监控、钉钉通讯录成员读取权限、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通。
 - 不把本地测试通过误写成现场 UAT 完成；现场 UAT 需要目标车间、真实账号、真实钉钉客户端和正式域名证据。
 - 星标项全部在这三个 phase 里；非星标项（一键代提、双录校验、reminder 智能化等）作为 backlog 不列入
 
