@@ -6,6 +6,7 @@ import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
   buildOutputDistribution,
+  buildShiftOutputRhythm,
   dataSourceLabel,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -118,6 +119,48 @@ test('buildOutputDistribution ranks live machine output and marks unbound lines'
   assert.equal(rows[1].share, 50.26)
 })
 
+test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
+  const rows = buildShiftOutputRhythm([
+    {
+      workshop_id: 5,
+      workshop_name: '2050冷轧车间',
+      machines: [
+        {
+          machine_id: -5001,
+          machine_name: '未绑定机列 / 白班',
+          shifts: [{ shift_name: '白班', total_output: 9100, total_input: 9800 }],
+        },
+        {
+          machine_id: -5003,
+          machine_name: '未绑定机列 / 夜班',
+          shifts: [{ shift_name: '夜班', total_output: 74110, total_input: 78100 }],
+        },
+      ],
+    },
+    {
+      workshop_id: 8,
+      workshop_name: '精整车间',
+      machines: [
+        {
+          machine_id: -8003,
+          machine_name: '未绑定机列 / 夜班',
+          shifts: [{ shift_name: '夜班', total_output: 37250, total_input: 38900 }],
+        },
+      ],
+    },
+  ])
+
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].shiftName, '夜班')
+  assert.equal(rows[0].output, 111360)
+  assert.equal(rows[0].input, 117000)
+  assert.equal(rows[0].machineCount, 2)
+  assert.equal(rows[0].share, 92.45)
+  assert.equal(rows[1].shiftName, '白班')
+  assert.equal(rows[1].machineCount, 1)
+  assert.equal(rows[1].share, 7.55)
+})
+
 test('status helpers map submission and attendance states to readable tones', () => {
   assert.equal(statusToneForCell({ submission_status: 'all_submitted', is_applicable: true }), 'success')
   assert.equal(statusTextForCell({ submission_status: 'all_submitted', is_applicable: true }), '已填')
@@ -219,6 +262,9 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /live-output-distribution/)
   assert.match(liveDashboardSource, /卷级直录分布/)
   assert.match(liveDashboardSource, /outputDistributionRows/)
+  assert.match(liveDashboardSource, /live-shift-rhythm/)
+  assert.match(liveDashboardSource, /班次产量节奏/)
+  assert.match(liveDashboardSource, /shiftOutputRhythmRows/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

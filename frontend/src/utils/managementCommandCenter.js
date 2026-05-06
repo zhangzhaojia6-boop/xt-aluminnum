@@ -85,6 +85,50 @@ export function buildOutputDistribution(workshops = [], limit = 5) {
   }))
 }
 
+export function buildShiftOutputRhythm(workshops = []) {
+  const shiftsByName = new Map()
+
+  workshops.forEach((workshop) => {
+    const machines = workshop.machines || []
+    machines.forEach((machine) => {
+      const shifts = machine.shifts || []
+      shifts.forEach((shift) => {
+        const output = numberValue(shift.total_output)
+        if (output <= 0) return
+        const shiftName = String(shift.shift_name || '').trim() || '未命名班次'
+        if (!shiftsByName.has(shiftName)) {
+          shiftsByName.set(shiftName, {
+            shiftName,
+            output: 0,
+            input: 0,
+            machineKeys: new Set(),
+            workshopKeys: new Set(),
+          })
+        }
+
+        const row = shiftsByName.get(shiftName)
+        row.output += output
+        row.input += numberValue(shift.total_input)
+        row.machineKeys.add(
+          `${workshop.workshop_id ?? workshop.workshop_name}-${machine.machine_id ?? machine.machine_name}`,
+        )
+        row.workshopKeys.add(`${workshop.workshop_id ?? workshop.workshop_name}`)
+      })
+    })
+  })
+
+  const rows = [...shiftsByName.values()].sort((left, right) => right.output - left.output)
+  const totalOutput = rows.reduce((sum, row) => sum + row.output, 0)
+  return rows.map((row) => ({
+    shiftName: row.shiftName,
+    output: Number(row.output.toFixed(2)),
+    input: Number(row.input.toFixed(2)),
+    machineCount: row.machineKeys.size,
+    workshopCount: row.workshopKeys.size,
+    share: totalOutput > 0 ? Number(((row.output / totalOutput) * 100).toFixed(2)) : 0,
+  }))
+}
+
 export function formatSyncLag(seconds) {
   const lag = Number(seconds)
   if (!Number.isFinite(lag)) return '--'

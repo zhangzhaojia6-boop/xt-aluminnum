@@ -96,6 +96,33 @@
       <div v-else class="live-output-distribution__empty">暂无卷级直录</div>
     </section>
 
+    <section class="live-shift-rhythm" aria-label="班次产量节奏">
+      <div class="live-shift-rhythm__head">
+        <strong>班次产量节奏</strong>
+        <span>{{ shiftOutputRhythmSummary }}</span>
+      </div>
+      <div v-if="shiftOutputRhythmRows.length" class="live-shift-rhythm__rows">
+        <div
+          v-for="row in shiftOutputRhythmRows"
+          :key="row.shiftName"
+          class="live-shift-row"
+        >
+          <div class="live-shift-row__label">
+            <strong>{{ row.shiftName }}</strong>
+            <span>{{ row.machineCount }} 个机列</span>
+          </div>
+          <div class="live-shift-row__bar" aria-hidden="true">
+            <i :style="{ transform: `scaleX(${row.share / 100})` }"></i>
+          </div>
+          <div class="live-shift-row__metric">
+            <strong>{{ formatWeight(row.output) }}</strong>
+            <span>{{ row.share }}%</span>
+          </div>
+        </div>
+      </div>
+      <div v-else class="live-shift-rhythm__empty">暂无班次产量</div>
+    </section>
+
     <section class="management-flow" aria-label="经营链路">
       <div class="management-flow__head">
         <strong>经营链路</strong>
@@ -349,6 +376,7 @@ import {
 } from '../../utils/liveDashboardFormatters'
 import {
   buildOutputDistribution,
+  buildShiftOutputRhythm,
   buildCommandCenterSummary,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -474,6 +502,12 @@ const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
   const total = outputDistributionRows.value.reduce((sum, row) => sum + numberValue(row.output), 0)
   return `${outputDistributionRows.value.length} 个机列 · ${formatWeight(total)} 吨`
+})
+const shiftOutputRhythmRows = computed(() => buildShiftOutputRhythm(sortedWorkshops.value))
+const shiftOutputRhythmSummary = computed(() => {
+  if (!shiftOutputRhythmRows.value.length) return '暂无产量'
+  const total = shiftOutputRhythmRows.value.reduce((sum, row) => sum + numberValue(row.output), 0)
+  return `${shiftOutputRhythmRows.value.length} 个班次 · ${formatWeight(total)} 吨`
 })
 const lastRefreshLabel = computed(() => (lastLoadedAt.value ? dayjs(lastLoadedAt.value).format('HH:mm:ss') : '--'))
 const mesConnectionTone = computed(() => {
@@ -1274,6 +1308,105 @@ onBeforeUnmount(() => {
   color: var(--command-amber);
 }
 
+.live-shift-rhythm {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.live-shift-rhythm__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-shift-rhythm__head strong {
+  color: var(--command-ink);
+  font-weight: 900;
+}
+
+.live-shift-rhythm__head span,
+.live-shift-rhythm__empty {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-shift-rhythm__rows {
+  display: grid;
+  gap: 8px;
+}
+
+.live-shift-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 128px) minmax(0, 1fr) minmax(92px, 116px);
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 9px 10px;
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+}
+
+.live-shift-row__label,
+.live-shift-row__metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-shift-row__label strong {
+  overflow: hidden;
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-shift-row__label span,
+.live-shift-row__metric span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-shift-row__bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(39, 88, 146, 0.12);
+}
+
+.live-shift-row__bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--command-blue), var(--command-cyan));
+  transition: transform 260ms ease;
+}
+
+.live-shift-row__metric {
+  text-align: right;
+}
+
+.live-shift-row__metric strong {
+  color: var(--command-blue-deep);
+  font-family: var(--xt-font-number);
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 .management-flow__head {
   display: flex;
   align-items: center;
@@ -1836,6 +1969,25 @@ onBeforeUnmount(() => {
     gap: 4px;
   }
 
+  .live-shift-rhythm__head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .live-shift-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .live-shift-row__metric {
+    align-items: baseline;
+    grid-template-columns: max-content max-content;
+    justify-content: space-between;
+    text-align: left;
+  }
+
   .management-overview-card,
   .command-status-card {
     min-height: 92px;
@@ -1854,6 +2006,12 @@ onBeforeUnmount(() => {
 
   .live-dashboard__table-header {
     align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-shift-row__bar i {
+    transition: none;
   }
 }
 
