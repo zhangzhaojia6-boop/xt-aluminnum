@@ -97,6 +97,11 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
 
     machine_one = payload['workshops'][0]['machines'][0]
     machine_two = payload['workshops'][0]['machines'][1]
+    workshop_total = payload['workshops'][0]['workshop_total']
+
+    assert workshop_total['formal_entry_count'] == 3
+    assert workshop_total['draft_entry_count'] == 1
+    assert workshop_total['total_entry_count'] == 4
 
     assert machine_one['shifts'][0]['submission_status'] == 'all_submitted'
     assert machine_one['shifts'][0]['status_tone'] == 'danger'

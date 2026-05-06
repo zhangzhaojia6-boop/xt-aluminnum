@@ -529,6 +529,8 @@ def create_coil_entry(
         entry_type='mobile_coil',
         entry_status='submitted',
         locked_fields=locked_fields or None,
+        created_by=current_user.id,
+        created_by_user_id=current_user.id,
     )
     if entry.scrap_weight is None and entry.input_weight and entry.output_weight:
         inp = float(entry.input_weight)

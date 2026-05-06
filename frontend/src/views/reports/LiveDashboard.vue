@@ -92,6 +92,59 @@
       </div>
     </section>
 
+    <section v-if="workshopFillIntakeRows.length" class="fill-workshop-flow" aria-label="车间填报接入">
+      <div class="fill-workshop-flow__head">
+        <strong>车间填报接入</strong>
+        <span>{{ workshopFillIntakeRows.length }} 个车间</span>
+      </div>
+      <div class="fill-workshop-flow__rows">
+        <div
+          v-for="row in workshopFillIntakeRows"
+          :key="row.workshopName"
+          class="fill-workshop-flow__row"
+          :class="`is-${row.tone}`"
+        >
+          <div class="fill-workshop-flow__name">
+            <strong>{{ row.workshopName }}</strong>
+            <span>{{ row.totalEntryCount }} 卷</span>
+          </div>
+          <div class="fill-workshop-flow__meter" aria-hidden="true">
+            <i class="is-formal" :style="{ width: `${row.formalRate}%` }"></i>
+            <i class="is-draft" :style="{ width: `${row.draftRate}%` }"></i>
+            <i class="is-missing" :style="{ width: `${row.missingRate}%` }"></i>
+          </div>
+          <div class="fill-workshop-flow__stats">
+            <span><strong>{{ row.formalEntryCount }}</strong><em>正式</em></span>
+            <span><strong>{{ row.draftEntryCount }}</strong><em>草稿</em></span>
+            <span><strong>{{ row.missingCellCount }}</strong><em>缺报</em></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="pendingAssignmentSummary.entryCount" class="live-pending-assignment" :class="`is-${pendingAssignmentSummary.tone}`" aria-label="草稿待归属">
+      <div class="live-pending-assignment__metric">
+        <span>草稿待归属</span>
+        <strong>{{ pendingAssignmentSummary.entryCount }}</strong>
+        <em>卷未进机列</em>
+      </div>
+      <div class="live-pending-assignment__meta">
+        <span>{{ formatWeight(pendingAssignmentSummary.output) }} 吨暂不入产量</span>
+        <span>{{ pendingAssignmentSummary.workshopCount }} 个车间</span>
+        <span>{{ pendingAssignmentSummary.missingMachineCount }} 缺机列</span>
+      </div>
+      <div class="live-pending-assignment__rows">
+        <span
+          v-for="row in pendingAssignmentSummary.rows"
+          :key="`${row.workshopName}-${row.shiftName}`"
+        >
+          <strong>{{ row.workshopName }}</strong>
+          <em>{{ row.shiftName }}</em>
+          <b>{{ row.entryCount }} 卷</b>
+        </span>
+      </div>
+    </section>
+
     <section v-if="unboundFillSummary.rowCount" class="live-unbound-fill" aria-label="未绑定填报归属">
       <div class="live-unbound-fill__metric">
         <span>未绑定填报归属</span>
@@ -462,8 +515,10 @@ import {
   buildMachineOwnershipSummary,
   buildOutputDistribution,
   buildFillIntakeSummary,
+  buildPendingAssignmentSummary,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
+  buildWorkshopFillIntakeRows,
   buildCommandCenterSummary,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -587,6 +642,8 @@ const marginToneClass = computed(() => `is-${marginTone(managementOverview.value
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
+const pendingAssignmentSummary = computed(() => buildPendingAssignmentSummary(aggregation.value, 3))
+const workshopFillIntakeRows = computed(() => buildWorkshopFillIntakeRows(sortedWorkshops.value, 6))
 const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
   const total = outputDistributionRows.value.reduce((sum, row) => sum + numberValue(row.output), 0)
@@ -1377,6 +1434,138 @@ onBeforeUnmount(() => {
   color: var(--command-red);
 }
 
+.fill-workshop-flow {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 14px 30px rgba(25, 62, 118, 0.05);
+}
+
+.fill-workshop-flow__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fill-workshop-flow__head strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.fill-workshop-flow__head span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.fill-workshop-flow__rows {
+  display: grid;
+  gap: 8px;
+}
+
+.fill-workshop-flow__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.34fr) 1fr minmax(190px, 0.44fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid rgba(39, 88, 146, 0.1);
+  border-radius: var(--command-radius-sm);
+  background: rgba(248, 251, 255, 0.8);
+}
+
+.fill-workshop-flow__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fill-workshop-flow__name strong {
+  overflow: hidden;
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fill-workshop-flow__name span,
+.fill-workshop-flow__stats em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.fill-workshop-flow__meter {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(39, 88, 146, 0.1);
+}
+
+.fill-workshop-flow__meter i {
+  display: block;
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  transition: width 260ms ease;
+}
+
+.fill-workshop-flow__meter .is-formal {
+  background: var(--command-green);
+}
+
+.fill-workshop-flow__meter .is-draft {
+  background: var(--command-amber);
+}
+
+.fill-workshop-flow__meter .is-missing {
+  background: var(--command-red);
+}
+
+.fill-workshop-flow__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fill-workshop-flow__stats span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.fill-workshop-flow__stats strong {
+  overflow: hidden;
+  color: var(--command-blue-deep);
+  font-family: var(--xt-font-number);
+  font-size: 15px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fill-workshop-flow__row.is-warning .fill-workshop-flow__stats span:nth-child(2) strong {
+  color: var(--command-amber);
+}
+
+.fill-workshop-flow__row.is-danger .fill-workshop-flow__stats span:nth-child(3) strong {
+  color: var(--command-red);
+}
+
+.live-pending-assignment,
 .live-unbound-fill {
   display: grid;
   grid-template-columns: minmax(180px, 0.72fr) 1fr auto;
@@ -1392,12 +1581,21 @@ onBeforeUnmount(() => {
   box-shadow: 0 14px 32px rgba(183, 121, 31, 0.08);
 }
 
+.live-pending-assignment {
+  grid-template-columns: minmax(160px, 0.52fr) minmax(220px, 0.8fr) 1fr;
+}
+
+.live-pending-assignment__metric,
 .live-unbound-fill__metric {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
+.live-pending-assignment__metric span,
+.live-pending-assignment__metric em,
+.live-pending-assignment__meta span,
+.live-pending-assignment__rows em,
 .live-unbound-fill__metric span,
 .live-unbound-fill__metric em,
 .live-unbound-fill__meta span,
@@ -1408,6 +1606,7 @@ onBeforeUnmount(() => {
   font-weight: 850;
 }
 
+.live-pending-assignment__metric strong,
 .live-unbound-fill__metric strong {
   color: var(--command-amber);
   font-family: var(--xt-font-number);
@@ -1417,6 +1616,8 @@ onBeforeUnmount(() => {
   letter-spacing: 0;
 }
 
+.live-pending-assignment__meta,
+.live-pending-assignment__rows,
 .live-unbound-fill__meta,
 .live-unbound-fill__rows {
   display: flex;
@@ -1425,6 +1626,8 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.live-pending-assignment__meta span,
+.live-pending-assignment__rows span,
 .live-unbound-fill__meta span,
 .live-unbound-fill__rows span {
   min-height: 28px;
@@ -1437,6 +1640,8 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.live-pending-assignment__rows strong,
+.live-pending-assignment__rows b,
 .live-unbound-fill__rows strong,
 .live-unbound-fill__rows b {
   color: var(--command-ink);
@@ -1444,6 +1649,7 @@ onBeforeUnmount(() => {
   font-weight: 900;
 }
 
+.live-pending-assignment__rows b,
 .live-unbound-fill__rows b {
   color: var(--command-amber);
   font-family: var(--xt-font-number);
@@ -2329,6 +2535,7 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .live-pending-assignment,
   .live-unbound-fill {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -2340,6 +2547,11 @@ onBeforeUnmount(() => {
 
   .live-machine-ownership {
     grid-template-columns: 1fr;
+  }
+
+  .fill-workshop-flow__row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .management-flow__nodes {
@@ -2408,6 +2620,12 @@ onBeforeUnmount(() => {
     white-space: normal;
   }
 
+  .fill-workshop-flow__head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .live-shift-rhythm__head {
     align-items: flex-start;
     flex-direction: column;
@@ -2449,6 +2667,7 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .fill-workshop-flow__meter i,
   .live-shift-row__bar i {
     transition: none;
   }
@@ -2467,6 +2686,10 @@ onBeforeUnmount(() => {
   }
 
   .fill-intake-strip__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .fill-workshop-flow__stats {
     grid-template-columns: 1fr;
   }
 }

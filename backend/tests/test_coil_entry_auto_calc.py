@@ -78,6 +78,54 @@ def test_coil_entry_auto_calculates_scrap_weight(tmp_path):
         db.close()
 
 
+def test_coil_entry_records_creator_for_assignment_trace(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        mobile_user = User(
+            id=7,
+            username='mobile-operator',
+            password_hash='x',
+            name='主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        db.add_all([workshop, shift, mobile_user])
+        db.commit()
+
+        result = create_coil_entry(
+            db,
+            payload={
+                'tracking_card_no': 'CREATOR-TRACE-001',
+                'business_date': date(2026, 5, 2),
+                'shift_id': shift.id,
+                'input_weight': 1000,
+                'output_weight': 950,
+            },
+            current_user=mobile_user,
+        )
+
+        entry = db.get(WorkOrderEntry, result['id'])
+        assert entry.created_by == mobile_user.id
+        assert entry.created_by_user_id == mobile_user.id
+    finally:
+        db.close()
+
+
 def test_coil_entry_keeps_process_flow_trace(tmp_path):
     db = build_session(tmp_path)
     try:

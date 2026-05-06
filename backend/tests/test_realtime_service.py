@@ -133,8 +133,83 @@ def test_aggregate_live_payload_counts_unbound_draft_intake_without_output_total
     assert payload['overall_progress']['formal_entry_count'] == 0
     assert payload['overall_progress']['draft_entry_count'] == 1
     assert payload['overall_progress']['total_entry_count'] == 1
+    assert payload['overall_progress']['pending_assignment']['entry_count'] == 1
+    assert payload['overall_progress']['pending_assignment']['draft_entry_count'] == 1
+    assert payload['overall_progress']['pending_assignment']['missing_machine_count'] == 1
+    assert payload['overall_progress']['pending_assignment']['missing_shift_count'] == 1
+    assert payload['overall_progress']['pending_assignment']['output'] == 96.0
+    assert payload['workshops'][0]['workshop_total']['formal_entry_count'] == 0
+    assert payload['workshops'][0]['workshop_total']['draft_entry_count'] == 1
+    assert payload['workshops'][0]['workshop_total']['total_entry_count'] == 1
     assert payload['factory_total']['output'] == 0.0
     assert payload['workshops'][0]['machines'][0]['shifts'][0]['total_output'] == 0.0
+
+
+def test_aggregate_live_payload_summarizes_machine_missing_shift_bound_drafts() -> None:
+    workshops = [
+        SimpleNamespace(id=2, name='冷轧2050车间'),
+    ]
+    machines = [
+        SimpleNamespace(id=11, workshop_id=2, name='1#'),
+    ]
+    shifts = [
+        SimpleNamespace(id=3, name='夜班', sort_order=3),
+    ]
+    entries = [
+        {
+            'id': 104,
+            'tracking_card_no': 'RA240004',
+            'work_order_id': 4,
+            'workshop_id': 2,
+            'machine_id': None,
+            'shift_id': 3,
+            'business_date': '2026-03-27',
+            'input_weight': 100000.0,
+            'output_weight': 96000.0,
+            'scrap_weight': 4000.0,
+            'yield_rate': None,
+            'entry_status': 'draft',
+            'entry_type': 'mobile_coil',
+            'tracking_card_status': 'in_progress',
+            'weight_unit': 'kg',
+        },
+    ]
+
+    payload = realtime_service.aggregate_live_payload(
+        workshops=workshops,
+        machines=machines,
+        shifts=shifts,
+        entries=entries,
+        attendance={},
+        expected_counts={},
+    )
+
+    pending = payload['overall_progress']['pending_assignment']
+    assert pending['entry_count'] == 1
+    assert pending['draft_entry_count'] == 1
+    assert pending['formal_entry_count'] == 0
+    assert pending['missing_machine_count'] == 1
+    assert pending['missing_shift_count'] == 0
+    assert pending['workshop_count'] == 1
+    assert pending['shift_count'] == 1
+    assert pending['output'] == 96.0
+    assert pending['rows'] == [
+        {
+            'workshop_id': 2,
+            'workshop_name': '冷轧2050车间',
+            'shift_id': 3,
+            'shift_name': '夜班',
+            'entry_count': 1,
+            'draft_entry_count': 1,
+            'formal_entry_count': 0,
+            'missing_machine_count': 1,
+            'missing_shift_count': 0,
+            'input': 100.0,
+            'output': 96.0,
+        }
+    ]
+    assert payload['factory_total']['output'] == 0.0
+    assert payload['workshops'][0]['machines'][0]['shifts'][0]['draft_count'] == 0
 
 
 def test_aggregate_live_payload_marks_unassigned_machine_shifts_not_applicable() -> None:

@@ -269,3 +269,67 @@ export function buildFillIntakeSummary(aggregation = {}) {
     tone: draftEntryCount > 0 ? 'warning' : (missingCellCount > 0 ? 'danger' : 'success'),
   }
 }
+
+export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
+  const progress = aggregation.overall_progress || aggregation.overallProgress || {}
+  const rawSummary = progress.pending_assignment || progress.pendingAssignment || aggregation.pending_assignment || {}
+  const rows = Array.isArray(rawSummary.rows) ? rawSummary.rows : []
+  const safeLimit = Math.max(Number(limit) || 0, 0)
+
+  return {
+    entryCount: numberValue(rawSummary.entry_count ?? rawSummary.entryCount),
+    draftEntryCount: numberValue(rawSummary.draft_entry_count ?? rawSummary.draftEntryCount),
+    formalEntryCount: numberValue(rawSummary.formal_entry_count ?? rawSummary.formalEntryCount),
+    missingMachineCount: numberValue(rawSummary.missing_machine_count ?? rawSummary.missingMachineCount),
+    missingShiftCount: numberValue(rawSummary.missing_shift_count ?? rawSummary.missingShiftCount),
+    workshopCount: numberValue(rawSummary.workshop_count ?? rawSummary.workshopCount),
+    shiftCount: numberValue(rawSummary.shift_count ?? rawSummary.shiftCount),
+    input: numberValue(rawSummary.input),
+    output: numberValue(rawSummary.output),
+    rows: rows.slice(0, safeLimit).map((row) => ({
+      workshopName: row.workshop_name || row.workshopName || '--',
+      shiftName: row.shift_name || row.shiftName || '未标记班次',
+      entryCount: numberValue(row.entry_count ?? row.entryCount),
+      draftEntryCount: numberValue(row.draft_entry_count ?? row.draftEntryCount),
+      formalEntryCount: numberValue(row.formal_entry_count ?? row.formalEntryCount),
+      missingMachineCount: numberValue(row.missing_machine_count ?? row.missingMachineCount),
+      missingShiftCount: numberValue(row.missing_shift_count ?? row.missingShiftCount),
+      input: numberValue(row.input),
+      output: numberValue(row.output),
+    })),
+    tone: numberValue(rawSummary.entry_count ?? rawSummary.entryCount) > 0 ? 'warning' : 'success',
+  }
+}
+
+export function buildWorkshopFillIntakeRows(workshops = [], limit = 6) {
+  const rows = (workshops || []).map((workshop) => {
+    const total = workshop.workshop_total || workshop.workshopTotal || {}
+    const formalEntryCount = numberValue(total.formal_entry_count ?? total.formalEntryCount)
+    const draftEntryCount = numberValue(total.draft_entry_count ?? total.draftEntryCount)
+    const totalEntryCount = numberValue(total.total_entry_count ?? total.totalEntryCount ?? formalEntryCount + draftEntryCount)
+    const cells = flattenCells([workshop]).filter((cell) => cell.is_applicable !== false)
+    const missingCellCount = numberValue(total.missing_cell_count ?? cells.filter((cell) => cell.submission_status === 'not_started').length)
+    const meterTotal = totalEntryCount + missingCellCount
+
+    return {
+      workshopName: workshop.workshop_name || workshop.workshopName || '--',
+      formalEntryCount,
+      draftEntryCount,
+      totalEntryCount,
+      missingCellCount,
+      formalRate: meterTotal > 0 ? Number(((formalEntryCount / meterTotal) * 100).toFixed(2)) : 0,
+      draftRate: meterTotal > 0 ? Number(((draftEntryCount / meterTotal) * 100).toFixed(2)) : 0,
+      missingRate: meterTotal > 0 ? Number(((missingCellCount / meterTotal) * 100).toFixed(2)) : 0,
+      tone: draftEntryCount > 0 ? 'warning' : (missingCellCount > 0 ? 'danger' : 'success'),
+    }
+  })
+    .filter((row) => row.totalEntryCount + row.missingCellCount > 0)
+    .sort((left, right) => (
+      right.draftEntryCount - left.draftEntryCount ||
+      right.missingCellCount - left.missingCellCount ||
+      right.totalEntryCount - left.totalEntryCount ||
+      left.workshopName.localeCompare(right.workshopName, 'zh-Hans-CN')
+    ))
+
+  return rows.slice(0, Math.max(Number(limit) || 0, 0))
+}

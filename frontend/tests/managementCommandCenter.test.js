@@ -8,8 +8,10 @@ import {
   buildFillIntakeSummary,
   buildMachineOwnershipSummary,
   buildOutputDistribution,
+  buildPendingAssignmentSummary,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
+  buildWorkshopFillIntakeRows,
   dataSourceLabel,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -85,6 +87,93 @@ test('buildFillIntakeSummary separates formal and draft entry intake', () => {
   assert.equal(summary.missingCellCount, 2)
   assert.equal(summary.draftRate, 25)
   assert.equal(summary.tone, 'warning')
+})
+
+test('buildPendingAssignmentSummary exposes draft coils missing machine ownership', () => {
+  const summary = buildPendingAssignmentSummary({
+    overall_progress: {
+      pending_assignment: {
+        entry_count: 17,
+        draft_entry_count: 17,
+        formal_entry_count: 0,
+        missing_machine_count: 17,
+        missing_shift_count: 0,
+        workshop_count: 3,
+        shift_count: 1,
+        output: 120.46,
+        rows: [
+          {
+            workshop_name: '2050冷轧车间',
+            shift_name: '夜班',
+            entry_count: 9,
+            output: 77.21,
+          },
+          {
+            workshop_name: '精整车间',
+            shift_name: '夜班',
+            entry_count: 4,
+            output: 37.25,
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(summary.entryCount, 17)
+  assert.equal(summary.draftEntryCount, 17)
+  assert.equal(summary.missingMachineCount, 17)
+  assert.equal(summary.workshopCount, 3)
+  assert.equal(summary.output, 120.46)
+  assert.equal(summary.rows.length, 2)
+  assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
+  assert.equal(summary.rows[0].shiftName, '夜班')
+  assert.equal(summary.rows[0].entryCount, 9)
+  assert.equal(summary.tone, 'warning')
+})
+
+test('buildWorkshopFillIntakeRows ranks draft pressure and keeps missing-only workshops', () => {
+  const rows = buildWorkshopFillIntakeRows([
+    {
+      workshop_name: '包装车间',
+      workshop_total: {
+        formal_entry_count: 0,
+        draft_entry_count: 0,
+        total_entry_count: 0,
+      },
+      machines: [
+        {
+          shifts: [
+            { is_applicable: true, submission_status: 'not_started' },
+            { is_applicable: true, submission_status: 'not_started' },
+          ],
+        },
+      ],
+    },
+    {
+      workshop_name: '精整车间',
+      workshop_total: {
+        formal_entry_count: 0,
+        draft_entry_count: 5,
+        total_entry_count: 5,
+      },
+      machines: [
+        {
+          shifts: [
+            { is_applicable: true, submission_status: 'not_started' },
+          ],
+        },
+      ],
+    },
+  ])
+
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].workshopName, '精整车间')
+  assert.equal(rows[0].draftRate, 83.33)
+  assert.equal(rows[0].missingRate, 16.67)
+  assert.equal(rows[0].tone, 'warning')
+  assert.equal(rows[1].workshopName, '包装车间')
+  assert.equal(rows[1].missingRate, 100)
+  assert.equal(rows[1].tone, 'danger')
 })
 
 test('data source labels expose local coil fill as direct entry', () => {
@@ -398,6 +487,13 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /草稿待提交/)
   assert.match(liveDashboardSource, /fillIntakeSummary/)
   assert.match(liveDashboardSource, /buildFillIntakeSummary/)
+  assert.match(liveDashboardSource, /车间填报接入/)
+  assert.match(liveDashboardSource, /workshopFillIntakeRows/)
+  assert.match(liveDashboardSource, /fill-workshop-flow/)
+  assert.match(liveDashboardSource, /buildWorkshopFillIntakeRows/)
+  assert.match(liveDashboardSource, /草稿待归属/)
+  assert.match(liveDashboardSource, /pendingAssignmentSummary/)
+  assert.match(liveDashboardSource, /buildPendingAssignmentSummary/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

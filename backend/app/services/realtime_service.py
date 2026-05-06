@@ -43,6 +43,130 @@ def _entry_weight_tons(item: dict, field_name: str) -> float:
     return value
 
 
+def _is_formal_entry(item: dict) -> bool:
+    return item.get('entry_status') in FORMAL_ENTRY_STATUSES or item.get('entry_type') == 'mes_projection'
+
+
+def _entry_count_summary(items: list[dict]) -> dict:
+    formal_count = len([item for item in items if _is_formal_entry(item)])
+    draft_count = len([item for item in items if item.get('entry_status') == 'draft'])
+    return {
+        'formal_entry_count': formal_count,
+        'draft_entry_count': draft_count,
+        'total_entry_count': len(items),
+    }
+
+
+def _optional_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts) -> dict:
+    pending_entries = [
+        item
+        for item in entries
+        if item.get('machine_id') is None or item.get('shift_id') is None
+    ]
+    entry_count = len(pending_entries)
+    if entry_count == 0:
+        return {'entry_count': 0}
+
+    workshop_name_by_id = {
+        int(item.id): item.name
+        for item in workshops
+        if getattr(item, 'id', None) is not None
+    }
+    shift_name_by_id = {
+        int(item.id): item.name
+        for item in shifts
+        if getattr(item, 'id', None) is not None
+    }
+    rows: dict[tuple[int | None, int | None], dict] = {}
+    workshop_ids: set[int] = set()
+    shift_ids: set[int] = set()
+    input_total = 0.0
+    output_total = 0.0
+    formal_count = 0
+    draft_count = 0
+    missing_machine_count = 0
+    missing_shift_count = 0
+
+    for item in pending_entries:
+        workshop_id = _optional_int(item.get('workshop_id'))
+        shift_id = _optional_int(item.get('shift_id'))
+        if workshop_id is not None:
+            workshop_ids.add(workshop_id)
+        if shift_id is not None:
+            shift_ids.add(shift_id)
+
+        input_weight = _entry_weight_tons(item, 'input_weight')
+        output_weight = _entry_weight_tons(item, 'output_weight')
+        input_total += input_weight
+        output_total += output_weight
+        is_formal = _is_formal_entry(item)
+        is_draft = item.get('entry_status') == 'draft'
+        formal_count += 1 if is_formal else 0
+        draft_count += 1 if is_draft else 0
+        missing_machine = item.get('machine_id') is None
+        missing_shift = item.get('shift_id') is None
+        missing_machine_count += 1 if missing_machine else 0
+        missing_shift_count += 1 if missing_shift else 0
+
+        key = (workshop_id, shift_id)
+        row = rows.setdefault(
+            key,
+            {
+                'workshop_id': workshop_id,
+                'workshop_name': workshop_name_by_id.get(workshop_id, '未标记车间'),
+                'shift_id': shift_id,
+                'shift_name': shift_name_by_id.get(shift_id, '未标记班次'),
+                'entry_count': 0,
+                'draft_entry_count': 0,
+                'formal_entry_count': 0,
+                'missing_machine_count': 0,
+                'missing_shift_count': 0,
+                'input': 0.0,
+                'output': 0.0,
+            },
+        )
+        row['entry_count'] += 1
+        row['draft_entry_count'] += 1 if is_draft else 0
+        row['formal_entry_count'] += 1 if is_formal else 0
+        row['missing_machine_count'] += 1 if missing_machine else 0
+        row['missing_shift_count'] += 1 if missing_shift else 0
+        row['input'] += input_weight
+        row['output'] += output_weight
+
+    row_items = []
+    for row in rows.values():
+        row_items.append(
+            {
+                **row,
+                'input': round(row['input'], 2),
+                'output': round(row['output'], 2),
+            }
+        )
+    row_items.sort(key=lambda item: (-item['output'], -item['entry_count'], str(item['workshop_name']), str(item['shift_name'])))
+
+    return {
+        'entry_count': entry_count,
+        'draft_entry_count': draft_count,
+        'formal_entry_count': formal_count,
+        'missing_machine_count': missing_machine_count,
+        'missing_shift_count': missing_shift_count,
+        'workshop_count': len(workshop_ids),
+        'shift_count': len(shift_ids),
+        'input': round(input_total, 2),
+        'output': round(output_total, 2),
+        'rows': row_items,
+    }
+
+
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
@@ -102,6 +226,13 @@ def aggregate_live_payload(
             continue
         cell_entries[(item['workshop_id'], item['machine_id'], item['shift_id'])].append(item)
 
+    workshop_entries: dict[int, list[dict]] = defaultdict(list)
+    for item in entries:
+        workshop_id = _optional_int(item.get('workshop_id'))
+        if workshop_id is None:
+            continue
+        workshop_entries[workshop_id].append(item)
+
     workshop_items: list[dict] = []
     submitted_cells = 0
     total_cells = 0
@@ -110,21 +241,15 @@ def aggregate_live_payload(
     factory_input = 0.0
     factory_output = 0.0
     factory_scrap = 0.0
-    formal_entry_count = len(
-        [
-            item
-            for item in entries
-            if item.get('entry_status') in FORMAL_ENTRY_STATUSES or item.get('entry_type') == 'mes_projection'
-        ]
-    )
-    draft_entry_count = len([item for item in entries if item.get('entry_status') == 'draft'])
-    total_entry_count = len(entries)
+    overall_entry_counts = _entry_count_summary(entries)
+    pending_assignment = _build_pending_assignment_summary(entries=entries, workshops=workshops, shifts=shifts)
     ordered_shifts = sorted(shifts, key=lambda item: (getattr(item, 'sort_order', 0), item.id))
 
     for workshop in sorted(workshops, key=lambda item: item.id):
         workshop_input = 0.0
         workshop_output = 0.0
         workshop_scrap = 0.0
+        workshop_entry_counts = _entry_count_summary(workshop_entries.get(int(workshop.id), []))
         machine_items: list[dict] = []
 
         for machine in sorted(machine_map.get(workshop.id, []), key=lambda item: (getattr(item, 'sort_order', 0), item.id)):
@@ -173,7 +298,7 @@ def aggregate_live_payload(
                     [
                         item
                         for item in rows
-                        if item.get('entry_status') in FORMAL_ENTRY_STATUSES or item.get('entry_type') == 'mes_projection'
+                        if _is_formal_entry(item)
                     ]
                 )
                 draft_count = len([item for item in rows if item.get('entry_status') == 'draft'])
@@ -292,21 +417,24 @@ def aggregate_live_payload(
                     'scrap': round(workshop_scrap, 2),
                     'yield_rate': _round_rate(workshop_input, workshop_output),
                     'yield_rate_source': 'runtime_work_order',
+                    **workshop_entry_counts,
                 },
             }
         )
 
+    overall_progress = {
+        'submitted_cells': submitted_cells,
+        'total_cells': total_cells,
+        'missing_cell_count': missing_cell_count,
+        'attention_cell_count': attention_cell_count,
+        'completion_rate': round((submitted_cells / total_cells) * 100, 2) if total_cells else 0.0,
+        **overall_entry_counts,
+    }
+    if pending_assignment['entry_count'] > 0:
+        overall_progress['pending_assignment'] = pending_assignment
+
     return {
-        'overall_progress': {
-            'submitted_cells': submitted_cells,
-            'total_cells': total_cells,
-            'missing_cell_count': missing_cell_count,
-            'attention_cell_count': attention_cell_count,
-            'completion_rate': round((submitted_cells / total_cells) * 100, 2) if total_cells else 0.0,
-            'formal_entry_count': formal_entry_count,
-            'draft_entry_count': draft_entry_count,
-            'total_entry_count': total_entry_count,
-        },
+        'overall_progress': overall_progress,
         'workshops': workshop_items,
         'factory_total': {
             'input': round(factory_input, 2),
