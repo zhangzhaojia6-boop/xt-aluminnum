@@ -90,7 +90,8 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：683 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed
 - `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
@@ -171,7 +172,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 18:36 左右。
+最近一次 ECS 修复验证：2026-05-06 18:47 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -181,6 +182,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@f2350d6`：工厂指挥中心在 MES 投影存在时叠加本地 `mobile_coil_agg` 卷级直录，生产探针返回 `overview_source=mixed`、`overview_total_input=149510.0`、`overview_total_output=120460.0`、`overview_today_output=120460.0`、`overview_workshop_summary_len=3`、`machine_lines_len=56`、`unbound_machine_lines_len=5`、`unbound_output_total=120460.0`。
 - 本轮已部署 `main@bff456b`：卷级填报 raw kg 已在工厂指挥、实时聚合、日报和能源汇总入口统一折算为吨；生产探针保留 `raw_mobile_coil_agg_output_kg=120460.0`，同时返回 `overview_total_input_tons=149.51`、`overview_total_output_tons=120.46`、`overview_today_output_tons=120.46`、`unbound_output_tons=120.46`、`live_factory_output=120.46`。
 - 本轮已部署 `main@182508f`：对账服务 `production_vs_mes` 与 `energy_vs_production` 的生产侧产量改为按 `mobile_coil_agg` raw kg 折吨后分组；生产只读探针返回 `reconciliation_output_total_tons=120.46`，正产量行为 `JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`。
+- 本轮已部署 `main@fd96768`：自动汇总 Agent 生成日报/老板摘要时不再用 SQL raw sum，confirmed `mobile_coil_agg` 行会先折吨再写入 `total_output_weight`、`total_input_weight` 和车间明细；生产代码探针返回 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
 - 本轮已部署 `main@180d84d`：外部联通 readiness 新增钉钉人员绑定 warning；生产 `scripts/check_statistics_module_ready.py --json` 返回 `warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`，同时 hard issue 仍为 `LLM_DISABLED,APP_CONNECTION_DISABLED`。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=50`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
@@ -219,6 +221,7 @@ MES_API_KEY=...
 - 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120.46`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9.1`、`2050冷轧车间|未绑定机列 / 夜班=74.11`、`精整车间|未绑定机列 / 夜班=37.25`。
 - 管理端班次节奏探针基于同一实时聚合返回 `夜班=111.36/2个机列`、`白班=9.1/1个机列`。
 - 对账服务生产侧只读探针基于同一批 `mobile_coil_agg` 返回 `reconciliation_output_total_tons=120.46`、`JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`，不再把 `120460.0` kg 写入对账差异值。
+- 自动汇总 Agent 的部署探针使用 synthetic confirmed `mobile_coil_agg` 行验证代码路径：`250000.0kg -> aggregator_output_tons=250.0`、`260000.0kg -> aggregator_input_tons=260.0`；未在生产库触发自动日报生成或写入新日报。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
 - 2026-05-06 14:50 左右刷新 MES 前置核对时：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；当时生产运行配置中 `MES_ADAPTER` 等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空，阻塞在生产 MES 运行配置缺失。
 - 2026-05-06 16:55 左右生产 MES 已切到 MVC 配置并完成同步：`MES_ADAPTER=mvc`、`mes_ready=true`、`coil_snapshots fetched=50 upserted=50`、`mes_coil_snapshots_count=50`。

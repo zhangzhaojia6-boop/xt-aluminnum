@@ -45,6 +45,7 @@
 - MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=50`。
 - 管理端工厂指挥中心已验证混合来源：生产 `overview_source=mixed`，当天卷级直录原始 `raw_mobile_coil_agg_output_kg=120460.0`，管理口径 `overview_total_output=120.46`，`machine_lines_len=56`，`unbound_machine_lines_len=5`。
 - 对账服务已验证卷级吨口径：生产 `reconciliation_output_total_tons=120.46`，`production_vs_mes` 与 `energy_vs_production` 不再把 `mobile_coil_agg` raw kg 当吨比较。
+- 自动汇总 Agent 已验证卷级吨口径：confirmed `mobile_coil_agg` 行进入自动日报/老板摘要前先折吨，生产代码探针 `aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
 - 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
@@ -54,8 +55,9 @@
 本轮核验命令：
 
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
+- `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：683 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过

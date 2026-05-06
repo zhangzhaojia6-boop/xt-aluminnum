@@ -472,7 +472,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：683 passed，124 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -q`：684 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
     assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
     assert '`python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed' in state
@@ -486,7 +487,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 18:36 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 18:47 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -536,6 +537,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '本轮已部署 `main@182508f`' in state
     assert '`reconciliation_output_total_tons=120.46`' in state
     assert '`JZ/NIGHT=37.25`、`LZ2050/DAY=9.1`、`LZ2050/NIGHT=74.11`' in state
+    assert '本轮已部署 `main@fd96768`' in state
+    assert '`aggregator_output_tons=250.0`、`aggregator_input_tons=260.0`' in state
     assert '本轮已部署 `main@180d84d`' in state
     assert '`warning_issues=DINGTALK_NO_BOUND_USERS`' in state
     assert '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`' in state
@@ -573,6 +576,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`2050冷轧车间|未绑定机列 / 夜班=74.11`' in state
     assert '`夜班=111.36/2个机列`、`白班=9.1/1个机列`' in state
     assert '不再把 `120460.0` kg 写入对账差异值' in state
+    assert '未在生产库触发自动日报生成或写入新日报' in state
     assert '2026-05-06 14:50 左右刷新 MES 前置核对时' in state
     assert '耗时约 `0.268s`' in state
     assert '当时生产运行配置中 `MES_ADAPTER` 等效为 `null`' in state
@@ -948,6 +952,9 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '对账服务已验证卷级吨口径',
         '`reconciliation_output_total_tons=120.46`',
         '`production_vs_mes` 与 `energy_vs_production`',
+        '自动汇总 Agent 已验证卷级吨口径',
+        '`aggregator_output_tons=250.0`',
+        '`aggregator_input_tons=260.0`',
         '内部 workflow 开关已启用',
         '`WORKFLOW_ENABLED=true`',
         '`NullWorkflowPublisher`',
