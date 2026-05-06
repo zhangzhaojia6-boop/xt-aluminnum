@@ -90,7 +90,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests -q --durations=10`：670 passed，124 deselected，30 warnings
 - `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，670 deselected
-- `npm --prefix frontend test`：115 passed
+- `npm --prefix frontend test`：116 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
 
@@ -172,6 +172,7 @@ MES_API_KEY=...
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
 - 本轮已部署 `main@54a09e0`：管理端实时态势第一屏新增“卷级直录分布”，线上 `LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`。
+- 本轮本地验证待部署：管理端实时态势第一屏新增“未绑定填报归属”，本地构建 `LiveDashboard-CNKwrbRq.js` / `LiveDashboard-ClNdWWHg.css` 已包含 `未绑定填报归属`、`unboundFillSummary` 和 `live-unbound-fill`。
 - 本轮已部署 `main@1c00050`：管理端实时态势主聚合接入 `mobile_coil_agg` 卷级直录 fallback，线上 `LiveDashboard-CeSbJ94X.js` 已包含 `卷级直录` 和 `local_shift_data`。
 - 本轮已部署 `main@7659225`：管理端实时态势页新增“外部联通闸门”卡，线上 `LiveDashboard-BXTGpXX4.js` / `dashboard-D6EhilfF.js` 已包含 `外部联通闸门`、`接口待返回`、`external-readiness` 和 `hard_issues`。
 - 本轮已部署 `main@3e492f8`：管理端外部 MES 状态条显示运行配置缺口，线上 `LiveDashboard-BNcHeouG.js` 已包含 `required_env`、`缺少配置` 和 `MES_MVC_BASE_URL`。

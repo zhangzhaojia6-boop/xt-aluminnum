@@ -7,6 +7,7 @@ import {
   buildCommandCenterSummary,
   buildOutputDistribution,
   buildShiftOutputRhythm,
+  buildUnboundFillSummary,
   dataSourceLabel,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -161,6 +162,59 @@ test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
   assert.equal(rows[1].share, 7.55)
 })
 
+test('buildUnboundFillSummary totals direct entries that still need machine ownership', () => {
+  const summary = buildUnboundFillSummary([
+    {
+      workshop_id: 5,
+      workshop_name: '2050冷轧车间',
+      machines: [
+        {
+          machine_id: -5001,
+          machine_name: '未绑定机列 / 白班',
+          machine_binding_status: 'unbound',
+          day_total: { output: 9100, input: 9800 },
+          shifts: [{ shift_name: '白班', total_output: 9100, total_input: 9800 }],
+        },
+        {
+          machine_id: -5003,
+          machine_name: '未绑定机列 / 夜班',
+          day_total: { output: 74110, input: 78100 },
+          shifts: [{ shift_name: '夜班', total_output: 74110, total_input: 78100 }],
+        },
+        {
+          machine_id: 5021,
+          machine_name: '已绑定 1#线',
+          machine_binding_status: 'bound',
+          day_total: { output: 6000, input: 6500 },
+          shifts: [{ shift_name: '白班', total_output: 6000, total_input: 6500 }],
+        },
+      ],
+    },
+    {
+      workshop_id: 8,
+      workshop_name: '精整车间',
+      machines: [
+        {
+          machine_id: -8003,
+          machine_name: '未绑定机列 / 夜班',
+          machineBindingStatus: 'unbound',
+          day_total: { output: 37250, input: 38900 },
+          shifts: [{ shift_name: '夜班', total_output: 37250, total_input: 38900 }],
+        },
+      ],
+    },
+  ])
+
+  assert.equal(summary.rowCount, 3)
+  assert.equal(summary.workshopCount, 2)
+  assert.equal(summary.shiftCount, 2)
+  assert.equal(summary.output, 120460)
+  assert.equal(summary.input, 126800)
+  assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
+  assert.equal(summary.rows[0].shiftLabel, '夜班')
+  assert.equal(summary.rows[0].output, 74110)
+})
+
 test('status helpers map submission and attendance states to readable tones', () => {
   assert.equal(statusToneForCell({ submission_status: 'all_submitted', is_applicable: true }), 'success')
   assert.equal(statusTextForCell({ submission_status: 'all_submitted', is_applicable: true }), '已填')
@@ -265,6 +319,10 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /live-shift-rhythm/)
   assert.match(liveDashboardSource, /班次产量节奏/)
   assert.match(liveDashboardSource, /shiftOutputRhythmRows/)
+  assert.match(liveDashboardSource, /未绑定填报归属/)
+  assert.match(liveDashboardSource, /unboundFillSummary/)
+  assert.match(liveDashboardSource, /live-unbound-fill/)
+  assert.match(liveDashboardSource, /绑定账号/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

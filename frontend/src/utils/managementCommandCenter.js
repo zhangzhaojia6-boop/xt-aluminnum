@@ -85,6 +85,53 @@ export function buildOutputDistribution(workshops = [], limit = 5) {
   }))
 }
 
+function isUnboundMachine(machine = {}) {
+  const bindingStatus = String(machine.machine_binding_status || machine.machineBindingStatus || '').toLowerCase()
+  return bindingStatus === 'unbound' || Number(machine.machine_id ?? machine.machineId) < 0
+}
+
+export function buildUnboundFillSummary(workshops = [], limit = 3) {
+  const rows = []
+
+  workshops.forEach((workshop) => {
+    const workshopName = workshop.workshop_name || workshop.workshopName || '--'
+    const machines = workshop.machines || []
+    machines.forEach((machine) => {
+      if (!isUnboundMachine(machine)) return
+      const output = numberValue(machine.day_total?.output ?? machine.dayTotal?.output)
+      if (output <= 0) return
+      const input = numberValue(machine.day_total?.input ?? machine.dayTotal?.input)
+      const shiftNames = (machine.shifts || [])
+        .filter((shift) => numberValue(shift.total_output ?? shift.totalOutput) > 0)
+        .map((shift) => String(shift.shift_name || shift.shiftName || '').trim())
+        .filter(Boolean)
+
+      rows.push({
+        workshopName,
+        machineName: machine.machine_name || machine.machineName || '未绑定机列',
+        shiftNames,
+        shiftLabel: shiftNames.length ? shiftNames.join(' / ') : '全班次',
+        output: Number(output.toFixed(2)),
+        input: Number(input.toFixed(2)),
+      })
+    })
+  })
+
+  rows.sort((left, right) => right.output - left.output)
+  const workshopNames = new Set(rows.map((row) => row.workshopName))
+  const shiftNames = new Set(rows.flatMap((row) => row.shiftNames.length ? row.shiftNames : [row.shiftLabel]))
+  const safeLimit = Math.max(Number(limit) || 0, 0)
+
+  return {
+    rowCount: rows.length,
+    workshopCount: workshopNames.size,
+    shiftCount: shiftNames.size,
+    output: Number(rows.reduce((sum, row) => sum + row.output, 0).toFixed(2)),
+    input: Number(rows.reduce((sum, row) => sum + row.input, 0).toFixed(2)),
+    rows: rows.slice(0, safeLimit),
+  }
+}
+
 export function buildShiftOutputRhythm(workshops = []) {
   const shiftsByName = new Map()
 

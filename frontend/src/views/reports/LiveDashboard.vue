@@ -67,6 +67,33 @@
       </div>
     </section>
 
+    <section v-if="unboundFillSummary.rowCount" class="live-unbound-fill" aria-label="未绑定填报归属">
+      <div class="live-unbound-fill__metric">
+        <span>未绑定填报归属</span>
+        <strong>{{ formatWeight(unboundFillSummary.output) }}</strong>
+        <em>吨待归属</em>
+      </div>
+      <div class="live-unbound-fill__meta">
+        <span>{{ unboundFillSummary.workshopCount }} 个车间</span>
+        <span>{{ unboundFillSummary.shiftCount }} 个班次</span>
+        <span>{{ unboundFillSummary.rowCount }} 条机列</span>
+      </div>
+      <div class="live-unbound-fill__rows">
+        <span
+          v-for="row in unboundFillSummary.rows"
+          :key="`${row.workshopName}-${row.machineName}-${row.shiftLabel}`"
+        >
+          <strong>{{ row.workshopName }}</strong>
+          <em>{{ row.shiftLabel }}</em>
+          <b>{{ formatWeight(row.output) }} 吨</b>
+        </span>
+      </div>
+      <RouterLink v-if="authStore.isAdmin" class="live-unbound-fill__action" to="/manage/admin/users">
+        <el-icon><Setting /></el-icon>
+        <span>绑定账号</span>
+      </RouterLink>
+    </section>
+
     <section class="live-output-distribution" aria-label="卷级直录分布">
       <div class="live-output-distribution__head">
         <strong>卷级直录分布</strong>
@@ -360,7 +387,7 @@
 </template>
 
 <script setup>
-import { Download, RefreshRight } from '@element-plus/icons-vue'
+import { Download, RefreshRight, Setting } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -377,6 +404,7 @@ import {
 import {
   buildOutputDistribution,
   buildShiftOutputRhythm,
+  buildUnboundFillSummary,
   buildCommandCenterSummary,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -503,6 +531,7 @@ const outputDistributionSummary = computed(() => {
   const total = outputDistributionRows.value.reduce((sum, row) => sum + numberValue(row.output), 0)
   return `${outputDistributionRows.value.length} 个机列 · ${formatWeight(total)} 吨`
 })
+const unboundFillSummary = computed(() => buildUnboundFillSummary(sortedWorkshops.value, 3))
 const shiftOutputRhythmRows = computed(() => buildShiftOutputRhythm(sortedWorkshops.value))
 const shiftOutputRhythmSummary = computed(() => {
   if (!shiftOutputRhythmRows.value.length) return '暂无产量'
@@ -1165,6 +1194,101 @@ onBeforeUnmount(() => {
 .mes-connection-strip__dot.is-danger {
   background: var(--command-red);
   box-shadow: 0 0 0 5px rgba(194, 65, 52, 0.12);
+}
+
+.live-unbound-fill {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.72fr) 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(183, 121, 31, 0.24);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.12), rgba(255, 255, 255, 0.92)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(183, 121, 31, 0.08);
+}
+
+.live-unbound-fill__metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-unbound-fill__metric span,
+.live-unbound-fill__metric em,
+.live-unbound-fill__meta span,
+.live-unbound-fill__rows em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-unbound-fill__metric strong {
+  color: var(--command-amber);
+  font-family: var(--xt-font-number);
+  font-size: 25px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.live-unbound-fill__meta,
+.live-unbound-fill__rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.live-unbound-fill__meta span,
+.live-unbound-fill__rows span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(183, 121, 31, 0.18);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.live-unbound-fill__rows strong,
+.live-unbound-fill__rows b {
+  color: var(--command-ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-unbound-fill__rows b {
+  color: var(--command-amber);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.live-unbound-fill__action {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(183, 121, 31, 0.3);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-amber);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.live-unbound-fill__action:active {
+  transform: scale(0.98);
 }
 
 .live-output-distribution {
@@ -1911,6 +2035,11 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .live-unbound-fill {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
   .management-flow__nodes {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1961,6 +2090,10 @@ onBeforeUnmount(() => {
 
   .mes-connection-strip__meta {
     justify-content: flex-start;
+  }
+
+  .live-unbound-fill__action {
+    width: 100%;
   }
 
   .live-output-distribution__head {
