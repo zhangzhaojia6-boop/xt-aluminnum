@@ -67,6 +67,11 @@ npm --prefix frontend run build
 git diff --check
 ```
 
-- [ ] **Step 3: Commit, push, deploy, probe**
+- [x] **Step 3: Commit, push, deploy, probe**
 
 Commit with `feat: 串联未绑定账号筛选入口`, deploy through `scripts/deploy_systemd_host.sh --pull http://8.140.218.13`, then verify production assets contain `machine_binding` and `applyRouteFilters`.
+
+Result:
+- `main@3847564` 已部署到 ECS。
+- 线上 `LiveDashboard-CiAkZ4yu.js` / `UserManagement-97qO9yGl.js` 已包含 `machine_binding`，`UserManagement-97qO9yGl.js` 已包含 `bound_machine_id`。
+- 生产 Playwright 验证桌面 `1440x900` 与手机 `390x844` 均从“绑定账号”跳到 `/manage/admin/users?machine_binding=unbound&desktop=1`，用户接口实际请求 `/api/v1/users/?machine_binding=unbound&skip=0&limit=10`，返回 `total=198`，无横向溢出。

@@ -477,7 +477,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：117 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 14:27 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 14:47 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -500,6 +500,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '管理端用户管理页支持按机列绑定状态和具体机列筛选账号' in state
     assert '`UserManagement-B4GmUedd.js` 已包含 `绑定状态`、`machine_binding` 和 `boundMachineId`' in state
     assert '`machine_binding=bound total=136`、`machine_binding=unbound total=198`、`bound_machine_id=<已绑定机列> total=1`' in state
+    assert '管理端“未绑定填报归属”面板的“绑定账号”入口会带 `machine_binding=unbound` 进入用户管理' in state
+    assert '`LiveDashboard-CiAkZ4yu.js` / `UserManagement-97qO9yGl.js` 已包含 `machine_binding` 和 `bound_machine_id`' in state
+    assert '`/manage/admin/users?machine_binding=unbound&desktop=1`' in state
+    assert '`/api/v1/users/?machine_binding=unbound&skip=0&limit=10` 返回 `total=198`' in state
     assert '管理端运维页新增外部 MES 状态条' in state
     assert '`mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
