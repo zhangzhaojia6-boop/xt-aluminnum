@@ -11,7 +11,7 @@ import json
 import sys
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -86,6 +86,12 @@ def _count_active_dingtalk_bindings(session_factory) -> tuple[int | None, int | 
         return None, None, exc.__class__.__name__
 
 
+def _default_dingtalk_contacts_checker(*, department_id: int) -> dict[str, Any]:
+    from scripts.dingtalk_cli import check_department_contacts
+
+    return check_department_contacts(department_id=department_id)
+
+
 def build_external_env_template(*, runtime_settings: Settings | None = None) -> str:
     runtime = runtime_settings or settings
     mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
@@ -152,6 +158,9 @@ def inspect_statistics_module_ready(
     *,
     runtime_settings: Settings | None = None,
     sessionmaker_factory=None,
+    check_dingtalk_contacts: bool = False,
+    dingtalk_department_id: int = 1,
+    dingtalk_contacts_checker: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     runtime = runtime_settings or settings
     issues: list[dict[str, Any]] = []
@@ -343,6 +352,9 @@ def inspect_statistics_module_ready(
     dingtalk_ready = False
     active_dingtalk_user_count: int | None = None
     active_dingtalk_employee_count: int | None = None
+    dingtalk_department_access: bool | None = None
+    dingtalk_contacts_missing_scope: str | None = None
+    dingtalk_contact_count: int | None = None
     if not runtime.DINGTALK_ENABLED:
         issues.append(
             _issue(
@@ -406,6 +418,37 @@ def inspect_statistics_module_ready(
                         code='DINGTALK_NO_BOUND_USERS',
                         message='钉钉应用已启用，但没有 active 用户或员工绑定 dingtalk_user_id，工作通知无法送达真实人员。',
                         suggestion='先同步钉钉通讯录或给试点账号绑定 dingtalk_user_id，再做真实客户端 UAT。',
+                    )
+                )
+        if check_dingtalk_contacts:
+            checker = dingtalk_contacts_checker or _default_dingtalk_contacts_checker
+            try:
+                contacts_payload = checker(department_id=dingtalk_department_id)
+            except Exception as exc:  # noqa: BLE001
+                contacts_payload = {
+                    'ok': False,
+                    'department_access': False,
+                    'message': f'{exc.__class__.__name__}: contacts check failed',
+                }
+            dingtalk_department_access = bool(contacts_payload.get('department_access'))
+            dingtalk_contacts_missing_scope = contacts_payload.get('missing_scope')
+            dingtalk_contact_count = contacts_payload.get('contact_count')
+            if not contacts_payload.get('ok') and dingtalk_contacts_missing_scope:
+                issues.append(
+                    _issue(
+                        level='warning',
+                        code='DINGTALK_CONTACTS_PERMISSION_MISSING',
+                        message=f'钉钉通讯录成员读取权限缺失：{dingtalk_contacts_missing_scope}。',
+                        suggestion='在钉钉开放平台给当前应用开通通讯录成员读取权限后，再运行通讯录同步。',
+                    )
+                )
+            elif not contacts_payload.get('ok'):
+                issues.append(
+                    _issue(
+                        level='warning',
+                        code='DINGTALK_CONTACTS_CHECK_FAILED',
+                        message='钉钉通讯录只读诊断未通过。',
+                        suggestion='运行 scripts/dingtalk_cli.py contacts --department-id 1 --json 查看脱敏诊断结果。',
                     )
                 )
 
@@ -499,6 +542,9 @@ def inspect_statistics_module_ready(
             'dingtalk_enabled': runtime.DINGTALK_ENABLED,
             'active_dingtalk_user_count': active_dingtalk_user_count,
             'active_dingtalk_employee_count': active_dingtalk_employee_count,
+            'dingtalk_department_access': dingtalk_department_access,
+            'dingtalk_contacts_missing_scope': dingtalk_contacts_missing_scope,
+            'dingtalk_contact_count': dingtalk_contact_count,
             'app_connection_enabled': runtime.APP_CONNECTION_ENABLED,
             'app_connection_push_mode': app_connection_mode,
             'runtime_valid': runtime_valid,
@@ -511,13 +557,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description='统计模块可用性自检')
     parser.add_argument('--json', dest='json_mode', action='store_true', help='以 JSON 输出完整结果')
     parser.add_argument('--env-template', action='store_true', help='输出正式外部联通所需 .env 模板，不回显现有密钥')
+    parser.add_argument('--check-dingtalk-contacts', action='store_true', help='显式执行钉钉通讯录只读权限诊断')
+    parser.add_argument('--dingtalk-department-id', type=int, default=1, help='钉钉通讯录诊断部门 ID')
     args = parser.parse_args()
 
     if args.env_template:
         print(build_external_env_template(), end='')
         return 0
 
-    result = inspect_statistics_module_ready()
+    result = inspect_statistics_module_ready(
+        check_dingtalk_contacts=args.check_dingtalk_contacts,
+        dingtalk_department_id=args.dingtalk_department_id,
+    )
     if args.json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

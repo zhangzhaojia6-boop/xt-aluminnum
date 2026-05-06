@@ -116,6 +116,50 @@ def test_inspect_statistics_module_ready_warns_when_dingtalk_has_no_bound_users(
     assert '工作通知无法送达真实人员' in warning['message']
 
 
+def test_inspect_statistics_module_ready_does_not_check_dingtalk_contacts_by_default() -> None:
+    module = _load_script_module()
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError('contacts check should be opt-in')
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        dingtalk_contacts_checker=fail_if_called,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['stats']['dingtalk_department_access'] is None
+
+
+def test_inspect_statistics_module_ready_can_check_dingtalk_contact_permission() -> None:
+    module = _load_script_module()
+
+    def contacts_checker(*, department_id):
+        assert department_id == 1
+        return {
+            'ok': False,
+            'configured': True,
+            'department_id': department_id,
+            'department_access': False,
+            'dry_run_only': True,
+            'missing_scope': 'qyapi_get_department_member',
+        }
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        check_dingtalk_contacts=True,
+        dingtalk_contacts_checker=contacts_checker,
+    )
+
+    warning = next(item for item in payload['warning_issues'] if item['code'] == 'DINGTALK_CONTACTS_PERMISSION_MISSING')
+    assert warning['level'] == 'warning'
+    assert 'qyapi_get_department_member' in warning['message']
+    assert payload['stats']['dingtalk_department_access'] is False
+    assert payload['stats']['dingtalk_contacts_missing_scope'] == 'qyapi_get_department_member'
+
+
 def test_inspect_statistics_module_ready_accepts_llm_endpoint_id_without_model() -> None:
     module = _load_script_module()
 
