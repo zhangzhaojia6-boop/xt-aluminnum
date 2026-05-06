@@ -472,9 +472,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：709 passed，124 deselected，31 warnings' in state
-    assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：5 passed' in state
-    assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：31 passed' in state
+    assert '`python -m pytest backend/tests -q`：710 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
+    assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
     assert '`python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
@@ -497,7 +497,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '超过 `10000t` 的日产量标为疑似 kg 口径' in state
     assert '按卷填报提交口径已收紧' in state
     assert '`mobile_coil_agg` 只聚合 `submitted/verified/approved` 卷明细' in state
-    assert '28 行 `mobile_coil_agg` 来源卷全为 draft' in state
+    assert '重算时没有合格源卷会 void 旧聚合' in state
+    assert '28 行来源卷全为 draft 的 `mobile_coil_agg` 置为 `voided`' in state
+    assert '`active_mobile_coil_agg=0`' in state
+    assert '`draft_only_candidate_count=0`' in state
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
