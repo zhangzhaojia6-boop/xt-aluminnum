@@ -472,7 +472,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q`：708 passed，124 deselected，31 warnings' in state
+    assert '`python -m pytest backend/tests -q`：709 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed' in state
     assert '`python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed' in state
     assert '`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed' in state
@@ -496,7 +496,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：119 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 19:55 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 20:22 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -558,6 +558,13 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '本轮已部署 `main@180d84d`' in state
     assert '`warning_issues=DINGTALK_NO_BOUND_USERS`' in state
     assert '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`' in state
+    assert '本轮已部署 `main@f137662`' in state
+    assert '`warning_issues=DINGTALK_NO_BOUND_USERS,DINGTALK_CONTACTS_PERMISSION_MISSING`' in state
+    assert '`dingtalk_contacts_missing_scope=qyapi_get_department_member`' in state
+    assert '本轮已部署 `main@d5da2ca`' in state
+    assert '`valid_business_date=2026-05-03`' in state
+    assert '`missing_business_date=null`' in state
+    assert '普通小数 `1.14` 不会再被当作日期' in state
     assert '`coil_snapshots fetched=50 upserted=50`' in state
     assert '`mes_follow_cards fetched=50 upserted=50`' in state
     assert '`mes_dispatch fetched=50 upserted=50`' in state
@@ -990,9 +997,14 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         '钉钉通讯录权限已具备可重复只读诊断',
         '`scripts/dingtalk_cli.py contacts --department-id 1 --json`',
         '不会写用户表或回显成员明细',
+        '外部联通 readiness 已支持可选通讯录权限核验',
+        '`DINGTALK_CONTACTS_PERMISSION_MISSING`',
+        '`dingtalk_contacts_missing_scope=qyapi_get_department_member`',
         '`DINGTALK_NO_BOUND_USERS`',
         '`active_dingtalk_user_count=0`',
         '`active_dingtalk_employee_count=0`',
+        '生产 synthetic 验证 `valid_business_date=2026-05-03`',
+        '无日期样本保持 `missing_business_date=null`',
         '`LLM_DISABLED`',
         '`APP_CONNECTION_DISABLED`',
         '通讯录成员读取权限、真实钉钉用户绑定/UAT、LLM/应用连接 API 与正式域名联通',

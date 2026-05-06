@@ -370,14 +370,13 @@ def _aggregate_coil_to_shift(
         WorkOrderEntry.business_date == business_date,
         WorkOrderEntry.shift_id == shift_id,
         WorkOrderEntry.workshop_id == workshop_id,
+        WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
     )
     if machine_id is None:
         entry_query = entry_query.filter(WorkOrderEntry.machine_id.is_(None))
     else:
         entry_query = entry_query.filter(WorkOrderEntry.machine_id == machine_id)
     agg = entry_query.first()
-    if not agg or not agg.coil_count:
-        return
     spd_query = (
         db.query(ShiftProductionData)
         .filter(
@@ -393,6 +392,13 @@ def _aggregate_coil_to_shift(
     else:
         spd_query = spd_query.filter(ShiftProductionData.equipment_id == machine_id)
     spd = spd_query.first()
+    if not agg or not agg.coil_count:
+        if spd:
+            spd.data_status = 'voided'
+            spd.voided_at = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE))
+            spd.voided_reason = 'no submitted mobile coil entries'
+            db.commit()
+        return
     if spd:
         spd.input_weight = float(agg.total_input or 0)
         spd.output_weight = float(agg.total_output or 0)
@@ -521,6 +527,7 @@ def create_coil_entry(
         operator_notes=payload.get('operator_notes'),
         extra_payload=extra_payload,
         entry_type='mobile_coil',
+        entry_status='submitted',
         locked_fields=locked_fields or None,
     )
     if entry.scrap_weight is None and entry.input_weight and entry.output_weight:

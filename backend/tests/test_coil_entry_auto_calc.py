@@ -9,7 +9,7 @@ from app.models.mes import MesCoilSnapshot
 from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
-from app.services.mobile_report.summary import create_coil_entry
+from app.services.mobile_report.summary import _aggregate_coil_to_shift, create_coil_entry
 
 
 def build_session(tmp_path):
@@ -71,6 +71,7 @@ def test_coil_entry_auto_calculates_scrap_weight(tmp_path):
         result = create_coil_entry(db, payload=payload, current_user=mobile_user)
 
         entry = db.get(WorkOrderEntry, result['id'])
+        assert entry.entry_status == 'submitted'
         assert float(entry.scrap_weight) == 40.0
         assert float(entry.yield_rate) == round(950 / 1000, 4)
     finally:
@@ -179,6 +180,7 @@ def test_coil_entry_uses_bound_machine_for_management_aggregation(tmp_path):
         result = create_coil_entry(db, payload=payload, current_user=mobile_user)
 
         entry = db.get(WorkOrderEntry, result['id'])
+        assert entry.entry_status == 'submitted'
         aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
         assert entry.machine_id == equipment.id
         assert aggregate.equipment_id == equipment.id
@@ -276,5 +278,122 @@ def test_coil_entry_aggregates_by_bound_machine_not_only_workshop_shift(tmp_path
         assert len(aggregates) == 2
         assert [row.equipment_id for row in aggregates] == [first_machine.id, second_machine.id]
         assert [float(row.output_weight) for row in aggregates] == [960.0, 1900.0]
+    finally:
+        db.close()
+
+
+def test_coil_shift_aggregation_ignores_draft_rows(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        work_order = WorkOrder(
+            id=1,
+            tracking_card_no='DRAFT-COIL-001',
+            process_route_code='mobile',
+            overall_status='created',
+        )
+        draft_entry = WorkOrderEntry(
+            work_order_id=work_order.id,
+            workshop_id=workshop.id,
+            shift_id=shift.id,
+            business_date=date(2026, 5, 2),
+            input_weight=100000,
+            output_weight=96000,
+            scrap_weight=4000,
+            entry_type='mobile_coil',
+            entry_status='draft',
+        )
+        db.add_all([workshop, shift, work_order, draft_entry])
+        db.commit()
+
+        _aggregate_coil_to_shift(
+            db,
+            business_date=date(2026, 5, 2),
+            shift_id=shift.id,
+            workshop_id=workshop.id,
+            machine_id=None,
+        )
+
+        assert db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').count() == 0
+    finally:
+        db.close()
+
+
+def test_coil_shift_aggregation_voids_stale_aggregate_when_only_drafts_remain(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        work_order = WorkOrder(
+            id=1,
+            tracking_card_no='DRAFT-COIL-STALE-001',
+            process_route_code='mobile',
+            overall_status='created',
+        )
+        draft_entry = WorkOrderEntry(
+            work_order_id=work_order.id,
+            workshop_id=workshop.id,
+            shift_id=shift.id,
+            business_date=date(2026, 5, 2),
+            input_weight=100000,
+            output_weight=96000,
+            scrap_weight=4000,
+            entry_type='mobile_coil',
+            entry_status='draft',
+        )
+        stale_aggregate = ShiftProductionData(
+            business_date=date(2026, 5, 2),
+            shift_config_id=shift.id,
+            workshop_id=workshop.id,
+            input_weight=100000,
+            output_weight=96000,
+            scrap_weight=4000,
+            data_source='mobile_coil_agg',
+            data_status='pending',
+        )
+        db.add_all([workshop, shift, work_order, draft_entry, stale_aggregate])
+        db.commit()
+
+        _aggregate_coil_to_shift(
+            db,
+            business_date=date(2026, 5, 2),
+            shift_id=shift.id,
+            workshop_id=workshop.id,
+            machine_id=None,
+        )
+
+        db.refresh(stale_aggregate)
+        assert stale_aggregate.data_status == 'voided'
+        assert stale_aggregate.voided_reason == 'no submitted mobile coil entries'
+        assert (
+            db.query(ShiftProductionData)
+            .filter(
+                ShiftProductionData.data_source == 'mobile_coil_agg',
+                ShiftProductionData.data_status != 'voided',
+            )
+            .count()
+            == 0
+        )
     finally:
         db.close()

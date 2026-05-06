@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 19:55:00 +08:00
+更新时间：2026-05-06 20:22:00 +08:00
 
 ## 1. 仓库状态
 
@@ -94,7 +94,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：708 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：709 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
@@ -180,7 +180,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 19:55 左右。
+最近一次 ECS 修复验证：2026-05-06 20:22 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -194,6 +194,8 @@ MES_API_KEY=...
 - 本轮已部署 `main@1a1139c`：普通移动班次报表同步到管理端时保留同车间机列绑定，工厂指挥 `machine-lines` API 响应模型保留 `machine_binding_status`；生产回滚事务探针返回 `schema_preserves_machine_binding_status=true`、`checked_equipment_id=12`、`rollback_mobile_shift_report_equipment_id=12`、`mobile_shift_report_binding_ok=true`。
 - 本轮已拉取 `main@8678dc7`：新增 `scripts/dingtalk_cli.py contacts --department-id 1 --json` 只读诊断；生产运行返回 `ok=false`、`configured=true`、`department_access=false`、`dry_run_only=true`、`missing_scope=qyapi_get_department_member`，可重复验证钉钉通讯录权限阻塞且不写用户表。
 - 本轮已部署 `main@180d84d`：外部联通 readiness 新增钉钉人员绑定 warning；生产 `scripts/check_statistics_module_ready.py --json` 返回 `warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`，同时 hard issue 仍为 `LLM_DISABLED,APP_CONNECTION_DISABLED`。
+- 本轮已部署 `main@f137662`：外部联通 readiness 支持 `--check-dingtalk-contacts`；生产复验返回 `hard_issues=LLM_DISABLED,APP_CONNECTION_DISABLED`、`warning_issues=DINGTALK_NO_BOUND_USERS,DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
+- 本轮已部署 `main@d5da2ca`：历史 `每日产量` 工作簿只读 canonical 预览与日期误判修复已上线；生产 synthetic parser 返回 `valid_business_date=2026-05-03`、`valid_daily_output_tons=60.38`、`valid_quality_status=ready`，无日期样本返回 `missing_business_date=null`、`missing_quality_status=blocked`，确认普通小数 `1.14` 不会再被当作日期。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。

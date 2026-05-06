@@ -51,8 +51,9 @@
 - 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
 - 钉钉通讯录同步阻塞已定位：生产只读拉部门用户返回缺少 `qyapi_get_department_member` 权限，需要先在钉钉开放平台给应用开通通讯录成员读取权限。
 - 钉钉通讯录权限已具备可重复只读诊断：`scripts/dingtalk_cli.py contacts --department-id 1 --json` 返回 `missing_scope=qyapi_get_department_member`，不会写用户表或回显成员明细。
+- 外部联通 readiness 已支持可选通讯录权限核验：`--check-dingtalk-contacts` 返回 `DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`，不会写用户表或回显成员明细。
 - 外部联通 readiness 已显式返回 `DINGTALK_NO_BOUND_USERS` warning：`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
-- 历史 `每日产量` 工作簿已具备只读 dry-run 预览：综合日报表按吨单位映射日/月投料、产出、废料，车间标签向下继承，并拦截 `10000t` 以上疑似 kg 口径异常，暂不写库。
+- 历史 `每日产量` 工作簿已具备只读 dry-run 预览：综合日报表按吨单位映射日/月投料、产出、废料，车间标签向下继承，并拦截 `10000t` 以上疑似 kg 口径异常；生产 synthetic 验证 `valid_business_date=2026-05-03`，无日期样本保持 `missing_business_date=null`，暂不写库。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
@@ -61,7 +62,7 @@
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：708 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：709 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
