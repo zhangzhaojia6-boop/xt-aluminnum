@@ -375,6 +375,8 @@ def test_quick_trial_docs_require_github_and_single_workshop_rollout() -> None:
     assert '备份文件不存在或 `db` 未运行' in ops
     assert 'hard_gate_passed=true' in ops
     assert '若失败会自动输出关键容器状态与后端/nginx日志片段' in ops
+    assert '若 `/readyz` 未通过，会输出最后一次 readyz 响应' in ops
+    assert '容器状态和后端/nginx 日志由 `deploy_trial.sh` 包裹失败时输出' in ops
     assert './scripts/go_live_gate.sh' in ops
     assert '一键上线闸门' in ops
     assert '--skip-ai' in ops
