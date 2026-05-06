@@ -529,7 +529,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`mes_coil_snapshots_count=50`' in state
     assert '`mes_machine_line_snapshots_count=50`' in state
     assert '生产内部 workflow 开关已启用' in state
-    assert '`.env.workflow-backup-20260506-170534`' in state
+    assert '`backups/.env.workflow-backup-20260506-170534`' in state
     assert '`WORKFLOW_ENABLED=true`' in state
     assert '`NullWorkflowPublisher` 接收 workflow 事件' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state

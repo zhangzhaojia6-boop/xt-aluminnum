@@ -177,7 +177,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@ac48f3b`：MES 同步批内重复投影修复已上线；生产 one-shot 同步返回 `coil_snapshots fetched=50 upserted=50`、`mes_follow_cards fetched=50 upserted=50`、`mes_dispatch fetched=50 upserted=50`，未再触发 `mes_coil_snapshots.coil_id` 唯一键冲突。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=50`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
-- 生产内部 workflow 开关已启用：备份 `backend/.env` 为 `.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
+- 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
 - 本轮已部署 `main@54a09e0`：管理端实时态势第一屏新增“卷级直录分布”，线上 `LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`。
 - 本轮已部署 `main@47be2a7`：管理端实时态势第一屏新增“未绑定填报归属”，线上 `LiveDashboard-BSehAJcz.js` / `LiveDashboard-DYSwQp49.css` 已包含 `未绑定填报归属`、`live-unbound-fill` 和 `绑定账号`。
