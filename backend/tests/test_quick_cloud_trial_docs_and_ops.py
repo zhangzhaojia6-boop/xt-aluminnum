@@ -477,7 +477,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：111 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 10:49 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 11:18 左右。' in state
+    assert '管理端用户管理页支持绑定机列' in state
+    assert '`UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`' in state
     assert '管理端运维页新增外部 MES 状态条' in state
     assert '`mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state

@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 10:49:14 +08:00
+更新时间：2026-05-06 11:19:00 +08:00
 
 ## 1. 仓库状态
 
@@ -164,13 +164,14 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 10:49 左右。
+最近一次 ECS 修复验证：2026-05-06 11:18 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh http://8.140.218.13` 完成 systemd 宿主机部署闭环。
-- 本轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
+- 本轮已部署 `main@8fc5ce0`：管理端用户管理页支持绑定机列，线上 `UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`。
+- 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-093253.dump`。
 - 已执行后端依赖安装、Alembic 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。
 - `init_real_master_data.py` 同步默认试点排班后，目标日 `2026-05-06` readyz 统计 `schedule_row_count=195`。
