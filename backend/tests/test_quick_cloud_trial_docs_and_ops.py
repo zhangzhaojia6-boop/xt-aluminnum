@@ -472,9 +472,12 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
-    assert '`python -m pytest backend/tests -q --durations=10`：675 passed，124 deselected，30 warnings' in state
+    assert '`python -m pytest backend/tests -q`：678 passed，124 deselected，30 warnings' in state
     assert '`python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed' in state
+    assert '`python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed' in state
     assert '`python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected' in state
+    assert '工厂指挥中心已上线混合来源消费' in state
+    assert '`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录' in state
     assert 'MES 同步批内重复投影已收口' in state
     assert '`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重' in state
     assert '`npm --prefix frontend test`：119 passed' in state
@@ -520,6 +523,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '管理端运维页新增外部 MES 状态条' in state
     assert '`mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`' in state
     assert 'MES 同步批内重复投影修复已上线' in state
+    assert '本轮已部署 `main@f2350d6`' in state
+    assert '`overview_source=mixed`、`overview_total_input=149510.0`、`overview_total_output=120460.0`' in state
+    assert '`machine_lines_len=56`、`unbound_machine_lines_len=5`、`unbound_output_total=120460.0`' in state
     assert '`coil_snapshots fetched=50 upserted=50`' in state
     assert '`mes_follow_cards fetched=50 upserted=50`' in state
     assert '`mes_dispatch fetched=50 upserted=50`' in state
@@ -543,8 +549,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL' in state
     assert '`http://8.140.218.13/readyz`：HTTP 200，返回后端 readyz JSON。' in state
     assert '`http://8.140.218.13/manage/factory/machine-lines`：HTTP 200，返回前端 SPA。' in state
-    assert '`LINES=4`' in state
-    assert '`workshop:5:shift:3:unbound=74110.0`' in state
+    assert '`machine_lines_len=56`' in state
+    assert '`unbound_machine_lines_len=5`' in state
+    assert '`unbound_output_total=120460.0`' in state
     assert '`machine_binding_status=unbound`、`freshness.source=local_shift_data`' in state
     assert '`/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`' in state
     assert '`factory_output=120460.0`' in state
@@ -580,7 +587,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '2026-05-06 08:07 左右从本机探测 `xt-aluminnum.vercel.app:443` TCP 不通' in state
     assert 'Vercel 当前只能作为前端静态部署证据' in state
     assert '9130fb3 docs: 记录 Vercel 主线部署状态' not in state
-    assert '678 passed' not in state
+    assert '675 passed，124 deselected，30 warnings' not in state
     assert '671 passed' not in state
     assert '82 passed' not in state
     assert '本轮后续只做 workflow 运行日志措辞收口' not in state
@@ -916,6 +923,11 @@ def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None
         'MES MVC 联通阻塞已解除',
         '`coil_snapshots fetched=50 upserted=50`',
         '`mes_coil_snapshots_count=50`',
+        '管理端工厂指挥中心已验证混合来源',
+        '`overview_source=mixed`',
+        '`overview_total_output=120460.0`',
+        '`machine_lines_len=56`',
+        '`unbound_machine_lines_len=5`',
         '内部 workflow 开关已启用',
         '`WORKFLOW_ENABLED=true`',
         '`NullWorkflowPublisher`',

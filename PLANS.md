@@ -12,7 +12,7 @@
 - Agent 维持确定性执行器形态，不引入 LLM 自由代理
 - 工人入口收敛到钉钉 H5（先真打通免登录），企业微信用户消息通道整体下线
 - 保留 `adapters/wecom/group_bot.py` 作为输出 publisher lane
-- MES 投影空时，工厂指挥中心回退到 `ShiftProductionData` 聚合（不白屏）
+- 工厂指挥中心优先显示 MES 投影，并在 MES 已有投影时叠加当天 `mobile_coil_agg` 卷级直录；MES 投影为空时回退到 `ShiftProductionData` 聚合（不白屏）
 - 校验阈值按车间维度可配置，`thresholds.py` 降级为 fallback
 - AI 助手从"摘要展示"升级为"建议 + 一键调 agent"
 - 三阶段必须串行推进，前一阶段 success criteria 不达标不进下一阶段
@@ -43,6 +43,7 @@
 - Phase 2 代码闭环：规则阈值按车间配置、AI 助手建议到 agent 一键处置、班长一屏均已有后端和前端自动化覆盖。
 - Phase 3 代码闭环：钉钉 H5 登录服务、钉钉通讯录同步入口、扫码带出与锁字段校验均已有后端和前端自动化覆盖。
 - MES MVC 联通阻塞已解除：生产预检 `login.status=success`，one-shot 同步 `coil_snapshots fetched=50 upserted=50`，`mes_coil_snapshots_count=50`。
+- 管理端工厂指挥中心已验证混合来源：生产 `overview_source=mixed`，当天本地直录聚合 `overview_total_output=120460.0`，`machine_lines_len=56`，`unbound_machine_lines_len=5`。
 - 内部 workflow 开关已启用：生产 `WORKFLOW_ENABLED=true`，当前由 `NullWorkflowPublisher` 接收事件，不触发外部机器人或应用连接外发。
 - 钉钉应用配置已启用并完成 token 预检：`DINGTALK_ENABLED=true`，`token_received=true`；但当前生产库仍无绑定钉钉用户，通知送达需要现场绑定与 UAT。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
@@ -51,7 +52,7 @@
 本轮核验命令：
 
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
-- `python -m pytest backend/tests -q --durations=10`：675 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q`：678 passed，124 deselected，30 warnings
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过

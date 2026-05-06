@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 17:13:19 +08:00
+更新时间：2026-05-06 17:36:30 +08:00
 
 ## 1. 仓库状态
 
@@ -41,6 +41,7 @@ cd /srv/aluminum-bypass
 - 主路径不再暴露“改造中”“待迁移”等占位文案。
 - PR review 反馈的扫码取旧 MES 快照问题已修复：重复 QR 取最新快照，缺少 `mes_coil_snapshots` 表时仍可回退设备二维码。
 - 管理端已上线卷级实时填报可见性：`pending + mobile_coil_agg` 作为 `卷级直录` 待确认流入展示，正式已确认日报口径不被普通 `pending` 数据污染。
+- 工厂指挥中心已上线混合来源消费：MES 投影已存在时，`overview`、`workshops`、`machine-lines` 仍会叠加当天 `mobile_coil_agg` 本地卷级直录，来源标为 `mixed`。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 
 ## 3. 默认部署形态
@@ -88,9 +89,9 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q --durations=10`：675 passed，124 deselected，30 warnings
+- `python -m pytest backend/tests -q`：678 passed，124 deselected，30 warnings
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py -q`：11 passed
-- `python -m pytest backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：17 passed
+- `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
 - `npm --prefix frontend test`：119 passed
 - `npm --prefix frontend run build`：通过
@@ -174,6 +175,7 @@ MES_API_KEY=...
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
 - 本轮已部署 `main@ac48f3b`：MES 同步批内重复投影修复已上线；生产 one-shot 同步返回 `coil_snapshots fetched=50 upserted=50`、`mes_follow_cards fetched=50 upserted=50`、`mes_dispatch fetched=50 upserted=50`，未再触发 `mes_coil_snapshots.coil_id` 唯一键冲突。
+- 本轮已部署 `main@f2350d6`：工厂指挥中心在 MES 投影存在时叠加本地 `mobile_coil_agg` 卷级直录，生产探针返回 `overview_source=mixed`、`overview_total_input=149510.0`、`overview_total_output=120460.0`、`overview_today_output=120460.0`、`overview_workshop_summary_len=3`、`machine_lines_len=56`、`unbound_machine_lines_len=5`、`unbound_output_total=120460.0`。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=50`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
@@ -206,8 +208,8 @@ MES_API_KEY=...
 - `http://8.140.218.13/manage/factory/machine-lines`：HTTP 200，返回前端 SPA。
 - 生产前端资源 `FactoryDirector-CzchESVl.js` 已包含 `review-factory-live-chart`。
 - 生产库 `2026-05-06` 卷级填报核对：`mobile_coil_entries=15`，`pending_mobile_coil_agg_rows=4`，`pending_mobile_coil_agg_output=120460.0`。
-- 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；工厂指挥服务 `factory_command_total_output_tons=120460.0`。
-- 工厂指挥服务 `list_machine_lines()` 已返回 `LINES=4`，分别为 `workshop:3:shift:1:unbound=0.0`、`workshop:5:shift:1:unbound=9100.0`、`workshop:5:shift:3:unbound=74110.0`、`workshop:8:shift:3:unbound=37250.0`，全部 `machine_binding_status=unbound`、`freshness.source=local_shift_data`。
+- 管理端上报状态服务已返回 `source_label=卷级直录`、`source_variant=coil`；MES 投影存在时工厂指挥服务返回 `overview_source=mixed`、`factory_command_total_output_tons=120460.0`。
+- 工厂指挥服务 `list_machine_lines()` 已返回 `machine_lines_len=56`，其中 `unbound_machine_lines_len=5`、`unbound_output_total=120460.0`；未绑定机列保留 `machine_binding_status=unbound`、`freshness.source=local_shift_data`。
 - 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120460.0`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9100.0`、`2050冷轧车间|未绑定机列 / 夜班=74110.0`、`精整车间|未绑定机列 / 夜班=37250.0`。
 - 管理端班次节奏探针基于同一实时聚合返回 `夜班=111360.0/2个机列`、`白班=9100.0/1个机列`。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
