@@ -106,4 +106,4 @@ git status --short --branch
 
 Expected: backend suite passes, whitespace check is clean except known line-ending warnings, and only intended files changed.
 
-Execution note: `python -m pytest backend/tests -q --durations=10` returned `713 passed, 124 deselected, 31 warnings`; `git diff --check` passed with only Windows CRLF warnings. Real workbook dry-run was rechecked with `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`: `daily_output_tons=1935.649`, `source_unit=t`, and `shift_production_data_rows=0`.
+Execution note: `python -m pytest backend/tests -q` returned `714 passed, 124 deselected, 31 warnings`; `git diff --check` passed with only Windows CRLF warnings. Real workbook dry-run was rechecked with `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls`: `daily_output_tons=1935.649`, `source_unit=t`, and `shift_production_data_rows=0`.
