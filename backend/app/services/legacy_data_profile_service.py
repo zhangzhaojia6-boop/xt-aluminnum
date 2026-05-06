@@ -27,6 +27,18 @@ def classify_legacy_file(file_name: str, sheet_names: list[str] | None = None) -
         return "yield_rate_matrix"
     if "合同报表" in name:
         return "contract_report"
+    if "日均报表" in name:
+        return "average_daily_report"
+    if "天然气" in name or "气耗" in name:
+        return "gas_usage_report"
+    if "能耗" in name:
+        return "energy_usage_report"
+    if "耗材" in name:
+        return "consumable_usage_report"
+    if "园区电" in name or "新厂电" in name:
+        return "utility_power_report"
+    if "园区剪切" in name:
+        return "park_cutting_transfer_report"
     if any("分类报表" in item for item in sheets):
         return "daily_production_report"
     if any("深加工" in item for item in sheets):
@@ -119,13 +131,20 @@ def profile_historical_path(path: str | Path, *, max_sheets: int = 3, max_rows: 
     return item
 
 
-def profile_historical_directory(path: str | Path, *, max_sheets: int = 3, max_rows: int = 3) -> dict[str, Any]:
+def profile_historical_directory(
+    path: str | Path,
+    *,
+    max_sheets: int = 3,
+    max_rows: int = 3,
+    recursive: bool = False,
+) -> dict[str, Any]:
     base = Path(path)
-    items = [
-        profile_historical_path(file_path, max_sheets=max_sheets, max_rows=max_rows)
-        for file_path in sorted(base.iterdir())
-        if file_path.is_file()
-    ]
+    file_paths = sorted(item for item in (base.rglob("*") if recursive else base.iterdir()) if item.is_file())
+    items = []
+    for file_path in file_paths:
+        item = profile_historical_path(file_path, max_sheets=max_sheets, max_rows=max_rows)
+        item["relative_path"] = file_path.relative_to(base).as_posix()
+        items.append(item)
     kind_counter = Counter(item.get("kind", "unknown") for item in items)
     blocked = [item for item in items if item.get("status") == "blocked"]
     return {

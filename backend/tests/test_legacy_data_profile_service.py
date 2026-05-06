@@ -23,6 +23,34 @@ def test_classify_legacy_file_detects_yield_rate_matrix() -> None:
     assert classify_legacy_file("4月份各车间成品率.xlsx") == "yield_rate_matrix"
 
 
+def test_classify_legacy_file_detects_energy_usage_report() -> None:
+    assert classify_legacy_file("4月份各车间能耗统计表.xls") == "energy_usage_report"
+
+
+def test_classify_legacy_file_detects_gas_usage_report() -> None:
+    assert classify_legacy_file("4月份各车间天然气用量统计表.xls") == "gas_usage_report"
+
+
+def test_classify_legacy_file_detects_daily_gas_usage_report() -> None:
+    assert classify_legacy_file("每日气耗.xls") == "gas_usage_report"
+
+
+def test_classify_legacy_file_detects_consumable_usage_report() -> None:
+    assert classify_legacy_file("耗材表.xls") == "consumable_usage_report"
+
+
+def test_classify_legacy_file_detects_utility_power_report() -> None:
+    assert classify_legacy_file("园区电+新厂电.xls") == "utility_power_report"
+
+
+def test_classify_legacy_file_detects_average_daily_report() -> None:
+    assert classify_legacy_file("2026-5-5_日均报表.xls") == "average_daily_report"
+
+
+def test_classify_legacy_file_detects_park_cutting_transfer_report() -> None:
+    assert classify_legacy_file("转 园区剪切_69833_644.xls") == "park_cutting_transfer_report"
+
+
 def test_classify_legacy_file_detects_shipping_image() -> None:
     assert classify_legacy_file("微信图片_20260404090555_292_22.png") == "shipping_image_capture"
 
@@ -64,6 +92,21 @@ def test_profile_historical_directory_counts_items(tmp_path: Path) -> None:
     assert payload["total_files"] == 2
     assert payload["kind_counts"]["contract_report"] == 1
     assert payload["kind_counts"]["shipping_image_capture"] == 1
+
+
+def test_profile_historical_directory_supports_recursive_scan(tmp_path: Path) -> None:
+    day_dir = tmp_path / "5.5"
+    day_dir.mkdir()
+    workbook = day_dir / "鑫泰每日产量5月.xlsx"
+    pd.DataFrame([{"车间": "铸锭", "日产量": 123.4}]).to_excel(workbook, index=False)
+
+    shallow = profile_historical_directory(tmp_path)
+    recursive = profile_historical_directory(tmp_path, recursive=True)
+
+    assert shallow["total_files"] == 0
+    assert recursive["total_files"] == 1
+    assert recursive["items"][0]["relative_path"] == "5.5/鑫泰每日产量5月.xlsx"
+    assert recursive["items"][0]["kind"] == "daily_production_report"
 
 
 def test_profile_historical_path_adds_contract_preview_for_contract_report(tmp_path: Path) -> None:
