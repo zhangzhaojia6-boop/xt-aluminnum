@@ -82,9 +82,14 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 ATTEMPT=1
+READY_PAYLOAD=""
 while :; do
+  READY_RESPONSE="$(curl -ksS --max-time 10 -w '\n%{http_code}' "$BASE_URL/readyz" 2>/dev/null || true)"
+  READY_STATUS="$(printf '%s\n' "$READY_RESPONSE" | tail -n 1)"
+  READY_PAYLOAD="$(printf '%s\n' "$READY_RESPONSE" | sed '$d')"
+
   if curl -kfsS --max-time 10 "$BASE_URL/healthz" >/dev/null 2>&1 &&
-    READY_PAYLOAD="$(curl -kfsS --max-time 10 "$BASE_URL/readyz" 2>/dev/null)" &&
+    [ "$READY_STATUS" = "200" ] &&
     printf '%s\n' "$READY_PAYLOAD" | grep -Eq '"hard_gate_passed"[[:space:]]*:[[:space:]]*true'; then
     break
   fi

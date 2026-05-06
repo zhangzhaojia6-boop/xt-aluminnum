@@ -504,7 +504,11 @@ def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     assert 'ATTEMPT=1' in check
     assert 'while :; do' in check
     assert 'curl -kfsS --max-time 10 "$BASE_URL/healthz"' in check
-    assert 'READY_PAYLOAD="$(curl -kfsS --max-time 10 "$BASE_URL/readyz" 2>/dev/null)"' in check
+    assert 'READY_RESPONSE="$(curl -ksS --max-time 10 -w \'\\n%{http_code}\' "$BASE_URL/readyz" 2>/dev/null || true)"' in check
+    assert 'READY_STATUS="$(printf \'%s\\n\' "$READY_RESPONSE" | tail -n 1)"' in check
+    assert 'READY_PAYLOAD="$(printf \'%s\\n\' "$READY_RESPONSE" | sed \'$d\')"' in check
+    assert '[ "$READY_STATUS" = "200" ]' in check
+    assert 'curl -kfsS --max-time 10 "$BASE_URL/readyz"' not in check
     assert '"hard_gate_passed"[[:space:]]*:[[:space:]]*true' in check
     assert '健康检查失败：在 ${READY_RETRIES} 次重试后仍未就绪（/healthz 或 /readyz 未通过 hard_gate_passed=true）' in check
     assert '最后一次 readyz 响应: $READY_PAYLOAD' in check
