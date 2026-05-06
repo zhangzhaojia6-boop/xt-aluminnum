@@ -587,6 +587,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`valid_business_date=2026-05-03`' in state
     assert '`missing_business_date=null`' in state
     assert '普通小数 `1.14` 不会再被当作日期' in state
+    assert '本轮已部署 `main@cc22abd`' in state
+    assert '`sync_mes_projection` 逐来源返回 `success/failed`' in state
+    assert '`mes_sync.upserted_count=50`' in state
     assert '`coil_snapshots fetched=50 upserted=50`' in state
     assert '`mes_follow_cards fetched=50 upserted=50`' in state
     assert '`mes_dispatch fetched=50 upserted=50`' in state

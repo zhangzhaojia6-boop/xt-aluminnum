@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 20:22:00 +08:00
+更新时间：2026-05-06 21:20:00 +08:00
 
 ## 1. 仓库状态
 
@@ -205,6 +205,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@180d84d`：外部联通 readiness 新增钉钉人员绑定 warning；生产 `scripts/check_statistics_module_ready.py --json` 返回 `warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`，同时 hard issue 仍为 `LLM_DISABLED,APP_CONNECTION_DISABLED`。
 - 本轮已部署 `main@f137662`：外部联通 readiness 支持 `--check-dingtalk-contacts`；生产复验返回 `hard_issues=LLM_DISABLED,APP_CONNECTION_DISABLED`、`warning_issues=DINGTALK_NO_BOUND_USERS,DINGTALK_CONTACTS_PERMISSION_MISSING`、`dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
 - 本轮已部署 `main@d5da2ca`：历史 `每日产量` 工作簿只读 canonical 预览与日期误判修复已上线；生产 synthetic parser 返回 `valid_business_date=2026-05-03`、`valid_daily_output_tons=60.38`、`valid_quality_status=ready`，无日期样本返回 `missing_business_date=null`、`missing_quality_status=blocked`，确认普通小数 `1.14` 不会再被当作日期。
+- 本轮已部署 `main@cc22abd`：MES 投影同步已隔离单源失败，`sync_mes_projection` 逐来源返回 `success/failed`；SQLAlchemy/事务错误仍向上抛出让整轮回滚。生产重启后 `http://8.140.218.13/readyz` 与 `127.0.0.1:8000/readyz` 均返回 200，`mes_sync.configured=true`、`mes_sync.last_run_status=success`、`mes_sync.fetched_count=50`、`mes_sync.upserted_count=50`，服务进程 `aluminum-bypass.service` 为 active。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
