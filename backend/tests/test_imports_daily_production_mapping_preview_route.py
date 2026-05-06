@@ -7,6 +7,7 @@ from app.routers import imports as imports_router
 from app.services.daily_production_mapping_service import (
     DailyProductionMappingPreview,
     DailyProductionMappingRow,
+    MappingCandidate,
 )
 
 
@@ -78,6 +79,19 @@ def test_daily_production_mapping_preview_route_returns_serialized_preview(monke
                     equipment_code=None,
                     equipment_name=None,
                     issues=[{'code': 'unresolved_workshop', 'message': '每日产量行未匹配到高置信车间主数据。'}],
+                    candidate_workshops=[
+                        MappingCandidate(
+                            entity_type='workshop',
+                            id=7,
+                            code='LZ3',
+                            name='冷轧三车间',
+                            workshop_id=7,
+                            workshop_code='LZ3',
+                            equipment_type=None,
+                            match_reason='workshop_label_match',
+                        )
+                    ],
+                    candidate_equipment=[],
                 ),
             ],
         )
@@ -105,6 +119,8 @@ def test_daily_production_mapping_preview_route_returns_serialized_preview(monke
         assert payload['rows'][0]['daily_output_tons'] == 301.1
         assert payload['rows'][1]['status'] == 'unresolved_workshop'
         assert payload['rows'][1]['issues'][0]['code'] == 'unresolved_workshop'
+        assert payload['rows'][1]['candidate_workshops'][0]['code'] == 'LZ3'
+        assert payload['rows'][1]['candidate_equipment'] == []
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous_overrides)

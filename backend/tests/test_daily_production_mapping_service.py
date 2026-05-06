@@ -33,7 +33,7 @@ def _equipment(code: str, name: str, workshop: Workshop) -> Equipment:
     return Equipment(code=code, name=name, workshop_id=workshop.id, operational_status='running', is_active=True)
 
 
-def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1') -> ImportBatch:
+def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1', workshop_rows: list[dict] | None = None) -> ImportBatch:
     batch = ImportBatch(
         batch_no=batch_no,
         import_type='daily_production_report',
@@ -56,7 +56,8 @@ def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1') -> ImportBatch:
             mapped_data={
                 'business_date': '2026-05-03',
                 'source_unit': 't',
-                'workshop_rows': [
+                'workshop_rows': workshop_rows
+                or [
                     {
                         'row_index': 3,
                         'workshop_label': '铸锭',
@@ -157,3 +158,47 @@ def test_daily_production_mapping_preview_marks_missing_equipment_mapping():
     assert milling.workshop_code == 'RZ'
     assert milling.expected_equipment_code == 'RZ-XC'
     assert milling.equipment_id is None
+
+
+def test_daily_production_mapping_preview_suggests_readonly_candidates_for_unresolved_rows():
+    db = _session()
+    finishing = _workshop('JZ', '精整车间')
+    second_finishing = _workshop('JZ2', '二分厂精整车间')
+    annealing = _workshop('ZXTF', '在线退火车间')
+    db.add_all([finishing, second_finishing, annealing])
+    db.flush()
+    db.add_all([
+        _equipment('JZ-ZJ1', '纵剪1#', finishing),
+        _equipment('JZ2-LJ-OP', '精整二车间 拉矫 主操', second_finishing),
+        _equipment('ZXTF-1-OP', '在线退火车间 1# 主操', annealing),
+    ])
+    _seed_batch(
+        db,
+        workshop_rows=[
+            {
+                'row_index': 17,
+                'workshop_label': '精整',
+                'project_label': '纵剪',
+                'daily_output_tons': 75.96,
+            },
+            {
+                'row_index': 25,
+                'workshop_label': '在线退火',
+                'project_label': '新厂北线',
+                'daily_output_tons': 302.84,
+            },
+        ],
+    )
+
+    preview = build_daily_production_mapping_preview(db)
+
+    rows = {(row.workshop_label, row.project_label): row for row in preview.rows}
+    slitting = rows[('精整', '纵剪')]
+    assert slitting.status == 'unresolved_workshop'
+    assert [item.code for item in slitting.candidate_workshops] == ['JZ', 'JZ2']
+    assert [item.code for item in slitting.candidate_equipment] == ['JZ-ZJ1']
+
+    north_line = rows[('在线退火', '新厂北线')]
+    assert north_line.status == 'unresolved_workshop'
+    assert [item.code for item in north_line.candidate_workshops] == ['ZXTF']
+    assert north_line.candidate_equipment == []

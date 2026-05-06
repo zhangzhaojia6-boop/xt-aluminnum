@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
+  buildFillIntakeSummary,
   buildMachineOwnershipSummary,
   buildOutputDistribution,
   buildShiftOutputRhythm,
@@ -47,6 +48,9 @@ const baseAggregation = {
     missing_cell_count: 2,
     attention_cell_count: 3,
     completion_rate: 50,
+    formal_entry_count: 9,
+    draft_entry_count: 3,
+    total_entry_count: 12,
   },
   data_source: 'mes_projection',
   factory_total: {
@@ -70,6 +74,17 @@ test('buildCommandCenterSummary exposes first-screen factory status', () => {
   assert.equal(summary.yieldRate, 97.32)
   assert.equal(summary.dataSourceLabel, 'MES 投影')
   assert.equal(summary.syncLagLabel, '42s')
+})
+
+test('buildFillIntakeSummary separates formal and draft entry intake', () => {
+  const summary = buildFillIntakeSummary(baseAggregation)
+
+  assert.equal(summary.formalEntryCount, 9)
+  assert.equal(summary.draftEntryCount, 3)
+  assert.equal(summary.totalEntryCount, 12)
+  assert.equal(summary.missingCellCount, 2)
+  assert.equal(summary.draftRate, 25)
+  assert.equal(summary.tone, 'warning')
 })
 
 test('data source labels expose local coil fill as direct entry', () => {
@@ -378,6 +393,11 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /machineOwnershipSummary/)
   assert.match(liveDashboardSource, /live-machine-ownership/)
   assert.match(liveDashboardSource, /buildMachineOwnershipSummary/)
+  assert.match(liveDashboardSource, /填报接入/)
+  assert.match(liveDashboardSource, /已进入正式/)
+  assert.match(liveDashboardSource, /草稿待提交/)
+  assert.match(liveDashboardSource, /fillIntakeSummary/)
+  assert.match(liveDashboardSource, /buildFillIntakeSummary/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

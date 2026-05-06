@@ -57,7 +57,9 @@
 - 历史 `每日产量` 导入闸门已接入 import staging：真实工作簿 dry-run `first_daily_output_tons=1935.649`、`first_source_unit=t`；生产备份 `pre-daily-production-import-20260506-210602.dump` 后已写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`，`shift_rows_delta=0`，暂不写正式产量事实表。
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`shift_rows_delta=0`。
 - 管理端导入历史已接入“每日产量/映射门禁”只读卡片和 `/api/v1/imports/daily-production/mapping-preview`，能直接看到已匹配、待机列、未解析数量及未解析标签，不再只靠运维命令查看 staging 映射状态。
+- 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 标签、编码、类型里推导，显示 `车间 ...` / `机列 ...`，不改变硬规则、不写正式产量事实表；生产核对显示 `1650/1850` 暂无直接 active 机列，精整/拉矫/在线退火存在多候选或虚拟角色，需要人工确认。
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
+- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count/draft_entry_count/total_entry_count` 与单元格 `draft_count`，前端显示 `已进入正式`、`草稿待提交`、`缺报班次`，帮助区分测试草稿未进入正式产量，而不提升或写入任何 draft 数据。
 - 管理端未吃到当前测试填报的根因已定位：生产库现有 `work_order_entries draft=156`、`mobile_shift_reports draft=3`、`mobile_coil_agg voided=28`，没有活动 `submitted/verified/approved` 卷级源；当前线上代码已写新卷为 `submitted` 并聚合，旧 draft 只能重新提交或走人工提升门禁。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
@@ -68,7 +70,7 @@
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：720 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
@@ -78,7 +80,7 @@
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
-- `npm --prefix frontend test`：120 passed
+- `npm --prefix frontend test`：121 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过
 - `git diff --check`：通过（仅 Windows CRLF 提示）

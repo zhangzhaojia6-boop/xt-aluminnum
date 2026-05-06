@@ -67,6 +67,31 @@
       </div>
     </section>
 
+    <section class="fill-intake-strip" :class="`is-${fillIntakeSummary.tone}`" aria-label="填报接入">
+      <div class="fill-intake-strip__head">
+        <strong>填报接入</strong>
+        <span>{{ fillIntakeSummary.totalEntryCount }} 卷</span>
+      </div>
+      <div class="fill-intake-strip__meter" aria-hidden="true">
+        <i class="is-formal" :style="{ width: `${fillIntakeSummary.formalRate}%` }"></i>
+        <i class="is-draft" :style="{ width: `${fillIntakeSummary.draftRate}%` }"></i>
+      </div>
+      <div class="fill-intake-strip__stats">
+        <span>
+          <strong>{{ fillIntakeSummary.formalEntryCount }}</strong>
+          <em>已进入正式</em>
+        </span>
+        <span>
+          <strong>{{ fillIntakeSummary.draftEntryCount }}</strong>
+          <em>草稿待提交</em>
+        </span>
+        <span>
+          <strong>{{ fillIntakeSummary.missingCellCount }}</strong>
+          <em>缺报班次</em>
+        </span>
+      </div>
+    </section>
+
     <section v-if="unboundFillSummary.rowCount" class="live-unbound-fill" aria-label="未绑定填报归属">
       <div class="live-unbound-fill__metric">
         <span>未绑定填报归属</span>
@@ -436,6 +461,7 @@ import {
 import {
   buildMachineOwnershipSummary,
   buildOutputDistribution,
+  buildFillIntakeSummary,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
   buildCommandCenterSummary,
@@ -560,6 +586,7 @@ const externalIssueLabel = computed(() => {
 const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
+const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
 const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
   const total = outputDistributionRows.value.reduce((sum, row) => sum + numberValue(row.output), 0)
@@ -1234,6 +1261,120 @@ onBeforeUnmount(() => {
 .mes-connection-strip__dot.is-danger {
   background: var(--command-red);
   box-shadow: 0 0 0 5px rgba(194, 65, 52, 0.12);
+}
+
+.fill-intake-strip {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.46fr) 1fr minmax(300px, 0.78fr);
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid rgba(39, 88, 146, 0.15);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(230, 244, 255, 0.72), rgba(255, 255, 255, 0.96)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.fill-intake-strip.is-warning {
+  border-color: rgba(183, 121, 31, 0.26);
+}
+
+.fill-intake-strip.is-danger {
+  border-color: rgba(194, 65, 52, 0.24);
+}
+
+.fill-intake-strip__head {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fill-intake-strip__head strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.fill-intake-strip__head span {
+  color: var(--xt-text-secondary);
+  font-family: var(--xt-font-number);
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.fill-intake-strip__meter {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(39, 88, 146, 0.1);
+}
+
+.fill-intake-strip__meter i {
+  display: block;
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  transition: width 260ms ease;
+}
+
+.fill-intake-strip__meter .is-formal {
+  background: linear-gradient(90deg, var(--command-green), var(--command-cyan));
+}
+
+.fill-intake-strip__meter .is-draft {
+  background: linear-gradient(90deg, var(--command-amber), var(--command-red));
+}
+
+.fill-intake-strip__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fill-intake-strip__stats span {
+  min-width: 0;
+  min-height: 50px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.fill-intake-strip__stats strong {
+  overflow: hidden;
+  color: var(--command-blue-deep);
+  font-family: var(--xt-font-number);
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fill-intake-strip__stats em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.fill-intake-strip.is-warning .fill-intake-strip__stats span:nth-child(2) strong {
+  color: var(--command-amber);
+}
+
+.fill-intake-strip.is-danger .fill-intake-strip__stats span:nth-child(3) strong {
+  color: var(--command-red);
 }
 
 .live-unbound-fill {
@@ -2193,6 +2334,10 @@ onBeforeUnmount(() => {
     align-items: stretch;
   }
 
+  .fill-intake-strip {
+    grid-template-columns: 1fr;
+  }
+
   .live-machine-ownership {
     grid-template-columns: 1fr;
   }
@@ -2318,6 +2463,10 @@ onBeforeUnmount(() => {
   }
 
   .live-machine-ownership__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .fill-intake-strip__stats {
     grid-template-columns: 1fr;
   }
 }

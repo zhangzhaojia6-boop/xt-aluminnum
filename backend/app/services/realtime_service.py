@@ -27,6 +27,7 @@ from app.services.yield_matrix_canonical_service import build_yield_matrix_proje
 
 LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
+FORMAL_ENTRY_STATUSES = {'submitted', 'verified', 'approved'}
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -109,6 +110,9 @@ def aggregate_live_payload(
     factory_input = 0.0
     factory_output = 0.0
     factory_scrap = 0.0
+    formal_entry_count = 0
+    draft_entry_count = 0
+    total_entry_count = 0
     ordered_shifts = sorted(shifts, key=lambda item: (getattr(item, 'sort_order', 0), item.id))
 
     for workshop in sorted(workshops, key=lambda item: item.id):
@@ -141,6 +145,7 @@ def aggregate_live_payload(
                             'shift_id': shift.id,
                             'shift_name': shift.name,
                             'submitted_count': 0,
+                            'draft_count': 0,
                             'total_expected': 0,
                             'total_input': 0.0,
                             'total_output': 0.0,
@@ -162,11 +167,14 @@ def aggregate_live_payload(
                     [
                         item
                         for item in rows
-                        if item.get('entry_status') in {'submitted', 'verified', 'approved'}
-                        or item.get('entry_type') == 'mes_projection'
+                        if item.get('entry_status') in FORMAL_ENTRY_STATUSES or item.get('entry_type') == 'mes_projection'
                     ]
                 )
+                draft_count = len([item for item in rows if item.get('entry_status') == 'draft'])
                 total_count = len(rows)
+                formal_entry_count += submitted_count
+                draft_entry_count += draft_count
+                total_entry_count += total_count
                 input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in rows), 2)
                 output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in rows), 2)
                 scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in rows), 2)
@@ -203,6 +211,7 @@ def aggregate_live_payload(
                         'shift_id': shift.id,
                         'shift_name': shift.name,
                         'submitted_count': submitted_count,
+                        'draft_count': draft_count,
                         'total_expected': expected_total,
                         'total_input': input_total,
                         'total_output': output_total,
@@ -291,6 +300,9 @@ def aggregate_live_payload(
             'missing_cell_count': missing_cell_count,
             'attention_cell_count': attention_cell_count,
             'completion_rate': round((submitted_cells / total_cells) * 100, 2) if total_cells else 0.0,
+            'formal_entry_count': formal_entry_count,
+            'draft_entry_count': draft_entry_count,
+            'total_entry_count': total_entry_count,
         },
         'workshops': workshop_items,
         'factory_total': {

@@ -7,6 +7,7 @@ class LiveShiftCellOut(BaseModel):
     shift_id: int
     shift_name: str
     submitted_count: int = 0
+    draft_count: int = 0
     total_expected: int = 0
     total_input: float = 0
     total_output: float = 0

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -14,6 +14,18 @@ class MappingRule:
     workshop_code: str
     equipment_code: str | None = None
     equipment_required: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class MappingCandidate:
+    entity_type: str
+    id: int
+    code: str
+    name: str
+    workshop_id: int | None
+    workshop_code: str | None
+    equipment_type: str | None
+    match_reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +51,8 @@ class DailyProductionMappingRow:
     equipment_code: str | None
     equipment_name: str | None
     issues: list[dict[str, Any]]
+    candidate_workshops: list[MappingCandidate] = field(default_factory=list)
+    candidate_equipment: list[MappingCandidate] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +87,69 @@ def _normalize_label(value: Any) -> str:
     return str(value or '').strip().replace(' ', '')
 
 
+def _candidate_tokens(*values: Any) -> list[str]:
+    tokens: set[str] = set()
+    for value in values:
+        normalized = _normalize_label(value)
+        if not normalized:
+            continue
+        tokens.add(normalized)
+        if normalized.endswith('炉') and len(normalized) > 1:
+            tokens.add(normalized[:-1])
+        for marker in ('在线退火', '冷轧', '精整', '拉矫', '分切', '纵剪', '剪子', '剪切', '退火'):
+            if marker in normalized:
+                tokens.add(marker)
+    return sorted(tokens, key=lambda item: (-len(item), item))
+
+
+def _candidate_workshops(workshop_label: Any, workshops: dict[str, Workshop]) -> list[MappingCandidate]:
+    tokens = _candidate_tokens(workshop_label)
+    candidates: list[MappingCandidate] = []
+    for workshop in workshops.values():
+        haystack = _normalize_label(f'{workshop.code}{workshop.name}{workshop.workshop_type or ""}')
+        if any(token in haystack for token in tokens):
+            candidates.append(
+                MappingCandidate(
+                    entity_type='workshop',
+                    id=workshop.id,
+                    code=str(workshop.code or ''),
+                    name=str(workshop.name or ''),
+                    workshop_id=workshop.id,
+                    workshop_code=str(workshop.code or ''),
+                    equipment_type=None,
+                    match_reason='workshop_label_match',
+                )
+            )
+    return candidates[:6]
+
+
+def _candidate_equipment(
+    project_label: Any,
+    equipment: dict[str, Equipment],
+    workshops: dict[str, Workshop],
+) -> list[MappingCandidate]:
+    tokens = _candidate_tokens(project_label)
+    workshops_by_id = {item.id: item for item in workshops.values()}
+    candidates: list[MappingCandidate] = []
+    for machine in equipment.values():
+        haystack = _normalize_label(f'{machine.code}{machine.name}{machine.equipment_type or ""}')
+        if any(token in haystack for token in tokens):
+            workshop = workshops_by_id.get(machine.workshop_id)
+            candidates.append(
+                MappingCandidate(
+                    entity_type='equipment',
+                    id=machine.id,
+                    code=str(machine.code or ''),
+                    name=str(machine.name or ''),
+                    workshop_id=machine.workshop_id,
+                    workshop_code=str(workshop.code or '') if workshop else None,
+                    equipment_type=str(machine.equipment_type or '') if machine.equipment_type else None,
+                    match_reason='project_label_match',
+                )
+            )
+    return candidates[:8]
+
+
 def _latest_daily_production_batch(db: Session) -> ImportBatch | None:
     return (
         db.query(ImportBatch)
@@ -87,12 +164,12 @@ def _batch_rows(db: Session, batch_id: int) -> list[ImportRow]:
 
 
 def _workshops_by_code(db: Session) -> dict[str, Workshop]:
-    rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+    rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).order_by(Workshop.code.asc()).all()
     return {str(item.code): item for item in rows}
 
 
 def _equipment_by_code(db: Session) -> dict[str, Equipment]:
-    rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
+    rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).order_by(Equipment.code.asc()).all()
     return {str(item.code): item for item in rows}
 
 
@@ -139,6 +216,12 @@ def _resolve_row(
             }
         )
 
+    candidate_workshops: list[MappingCandidate] = []
+    candidate_equipment: list[MappingCandidate] = []
+    if status != 'ready':
+        candidate_workshops = _candidate_workshops(workshop_label, workshops)
+        candidate_equipment = _candidate_equipment(project_label, equipment, workshops)
+
     return DailyProductionMappingRow(
         row_index=row_payload.get('row_index'),
         business_date=source_business_date,
@@ -161,6 +244,8 @@ def _resolve_row(
         equipment_code=machine.code if machine else None,
         equipment_name=machine.name if machine else None,
         issues=issues,
+        candidate_workshops=candidate_workshops,
+        candidate_equipment=candidate_equipment,
     )
 
 

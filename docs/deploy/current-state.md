@@ -56,6 +56,8 @@ cd /srv/aluminum-bypass
 - 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
 - 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
+- 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
+- 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`，用于解释测试填报停留在 draft 时为何不进入正式产量。
 
 ## 3. 默认部署形态
 
@@ -102,7 +104,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：720 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
@@ -118,7 +120,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
-- `npm --prefix frontend test`：120 passed
+- `npm --prefix frontend test`：121 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check`：通过
 - `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`70ed599` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`

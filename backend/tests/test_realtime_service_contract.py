@@ -90,6 +90,9 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
         'missing_cell_count': 2,
         'attention_cell_count': 5,
         'completion_rate': 50.0,
+        'formal_entry_count': 3,
+        'draft_entry_count': 1,
+        'total_entry_count': 4,
     }
 
     machine_one = payload['workshops'][0]['machines'][0]
@@ -102,6 +105,7 @@ def test_live_aggregation_contract_counts_missing_and_attention_cells():
     assert machine_one['shifts'][1]['submission_status'] == 'in_progress'
     assert machine_one['shifts'][1]['status_tone'] == 'warning'
     assert machine_one['shifts'][1]['status_text'] == '进行中'
+    assert machine_one['shifts'][1]['draft_count'] == 1
 
     assert machine_one['shifts'][2]['submission_status'] == 'not_started'
     assert machine_one['shifts'][2]['status_tone'] == 'danger'

@@ -57,6 +57,17 @@ class ImportUploadResponse(BaseModel):
     summary: ImportSummary
 
 
+class DailyProductionMappingCandidateOut(BaseModel):
+    entity_type: str
+    id: int
+    code: str
+    name: str
+    workshop_id: int | None = None
+    workshop_code: str | None = None
+    equipment_type: str | None = None
+    match_reason: str
+
+
 class DailyProductionMappingRowOut(BaseModel):
     row_index: int | None = None
     business_date: str | None = None
@@ -79,6 +90,8 @@ class DailyProductionMappingRowOut(BaseModel):
     equipment_code: str | None = None
     equipment_name: str | None = None
     issues: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_workshops: list[DailyProductionMappingCandidateOut] = Field(default_factory=list)
+    candidate_equipment: list[DailyProductionMappingCandidateOut] = Field(default_factory=list)
 
 
 class DailyProductionMappingPreviewOut(BaseModel):

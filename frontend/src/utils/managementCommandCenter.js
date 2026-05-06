@@ -248,3 +248,24 @@ export function buildCommandCenterSummary(aggregation = {}) {
     syncLagLabel: formatSyncLag(aggregation.mes_sync_status?.lag_seconds),
   }
 }
+
+export function buildFillIntakeSummary(aggregation = {}) {
+  const progress = aggregation.overall_progress || {}
+  const formalEntryCount = numberValue(progress.formal_entry_count)
+  const draftEntryCount = numberValue(progress.draft_entry_count)
+  const fallbackTotal = formalEntryCount + draftEntryCount
+  const totalEntryCount = numberValue(progress.total_entry_count ?? fallbackTotal)
+  const missingCellCount = numberValue(progress.missing_cell_count)
+  const formalRate = totalEntryCount > 0 ? Number(((formalEntryCount / totalEntryCount) * 100).toFixed(2)) : 0
+  const draftRate = totalEntryCount > 0 ? Number(((draftEntryCount / totalEntryCount) * 100).toFixed(2)) : 0
+
+  return {
+    formalEntryCount,
+    draftEntryCount,
+    totalEntryCount,
+    missingCellCount,
+    formalRate,
+    draftRate,
+    tone: draftEntryCount > 0 ? 'warning' : (missingCellCount > 0 ? 'danger' : 'success'),
+  }
+}

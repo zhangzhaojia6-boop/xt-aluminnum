@@ -37,7 +37,7 @@
 - [x] `python -m pytest backend/tests/test_imports_daily_production_mapping_preview_route.py backend/tests/test_daily_production_mapping_service.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：38 passed，1 deselected
 - [x] `node --test frontend/tests/importHistoryPreview.test.js`：1 passed
 - [x] `npm --prefix frontend run build`：passed
-- [x] `python -m pytest backend/tests -q`：719 passed，124 deselected，31 warnings
-- [x] `npm --prefix frontend test`：120 passed
+- [x] `python -m pytest backend/tests -q`：720 passed，124 deselected，31 warnings
+- [x] `npm --prefix frontend test`：121 passed
 - [x] `git diff --check`：passed with Windows LF/CRLF warnings only
 - [x] Commit, push, pull production, verify `/readyz`：`70ed599` deployed，`/readyz` ready，`mes_sync last_run_status=success`，`fetched_count=50`，`upserted_count=50`.

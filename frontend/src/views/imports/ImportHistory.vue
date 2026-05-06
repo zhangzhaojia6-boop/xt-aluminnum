@@ -30,7 +30,10 @@
       </div>
 
       <div v-if="unresolvedMappingLabels.length" class="mapping-gate__labels">
-        <span v-for="label in unresolvedMappingLabels" :key="label">{{ label }}</span>
+        <span v-for="item in unresolvedMappingLabels" :key="item.label">
+          <strong>{{ item.label }}</strong>
+          <small>{{ item.candidates }}</small>
+        </span>
       </div>
     </section>
 
@@ -125,9 +128,25 @@ const unresolvedMappingLabels = computed(() => {
   const rows = mappingPreview.value?.rows || []
   return rows
     .filter((row) => row.status === 'unresolved_workshop')
-    .map((row) => `${row.workshop_label || '-'} / ${row.project_label || '-'}`)
+    .map((row) => ({
+      label: `${row.workshop_label || '-'} / ${row.project_label || '-'}`,
+      candidates: candidateSummary(row)
+    }))
     .slice(0, 12)
 })
+
+function candidateCodes(items) {
+  return (items || []).map((item) => item.code).filter(Boolean).slice(0, 3).join('、')
+}
+
+function candidateSummary(row) {
+  const workshops = candidateCodes(row.candidate_workshops)
+  const equipment = candidateCodes(row.candidate_equipment)
+  const parts = []
+  if (workshops) parts.push(`车间 ${workshops}`)
+  if (equipment) parts.push(`机列 ${equipment}`)
+  return parts.join(' · ') || '无候选'
+}
 
 function extractSummary(row) {
   return {
@@ -282,13 +301,27 @@ onMounted(load)
 }
 
 .mapping-gate__labels span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   border: 1px solid #fecaca;
   border-radius: 999px;
   background: #fff1f2;
   color: #9f1239;
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.15;
   padding: 6px 8px;
+}
+
+.mapping-gate__labels strong,
+.mapping-gate__labels small {
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.mapping-gate__labels small {
+  color: #64748b;
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {
