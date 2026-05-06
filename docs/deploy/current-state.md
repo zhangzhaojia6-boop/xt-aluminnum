@@ -194,6 +194,7 @@ MES_API_KEY=...
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 生产内部 workflow 开关已启用：备份 `backend/.env` 到忽略目录 `backups/.env.workflow-backup-20260506-170534` 后仅修改 `WORKFLOW_ENABLED=true`；`WECOM_BOT_ENABLED=false`、`DINGTALK_ENABLED=false`、`APP_CONNECTION_ENABLED=false`，当前只由 `NullWorkflowPublisher` 接收 workflow 事件，不会触发外部机器人或应用连接外发。
 - 生产钉钉配置已启用：备份 `backend/.env` 到忽略目录 `backups/.env.dingtalk-backup-20260506-171247` 后仅修改 `DINGTALK_ENABLED=true`；`scripts/dingtalk_cli.py token --json` 返回 `ok=true`、`configured=true`、`token_received=true`、`token_length=32`。当前生产库 `active_users_with_dingtalk_id=0`、`active_employees_with_dingtalk_id=0`，所以还不能宣称工作通知已送达。
+- 生产只读拉取钉钉部门用户失败：接口返回缺少 `qyapi_get_department_member` 权限；当前阻塞在钉钉开放平台给应用开通通讯录成员读取权限，不是本系统数据库或同步代码未运行。
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
 - 本轮已部署 `main@54a09e0`：管理端实时态势第一屏新增“卷级直录分布”，线上 `LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`。
 - 本轮已部署 `main@47be2a7`：管理端实时态势第一屏新增“未绑定填报归属”，线上 `LiveDashboard-BSehAJcz.js` / `LiveDashboard-DYSwQp49.css` 已包含 `未绑定填报归属`、`live-unbound-fill` 和 `绑定账号`。
@@ -233,6 +234,7 @@ MES_API_KEY=...
 - 2026-05-06 14:50 左右刷新 MES 前置核对时：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；当时生产运行配置中 `MES_ADAPTER` 等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空，阻塞在生产 MES 运行配置缺失。
 - 2026-05-06 16:55 左右生产 MES 已切到 MVC 配置并完成同步：`MES_ADAPTER=mvc`、`mes_ready=true`、`coil_snapshots fetched=50 upserted=50`、`mes_coil_snapshots_count=50`。
 - 线上部署代码的 `/api/v1/dashboard/external-readiness` 同源检查仍返回 `hard_gate_passed=False`、`module_usable=False`、`external_connection_enabled=False`，但 `MES_UNCONFIGURED`、`WORKFLOW_DISABLED` 与 `DINGTALK_DISABLED` 已解除；当前 `hard_issue_codes=LLM_DISABLED,APP_CONNECTION_DISABLED`，并通过 `DINGTALK_NO_BOUND_USERS` warning 标出当前生产库 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
+- 钉钉人员绑定阻塞已定位到外部应用权限：需要在钉钉开放平台给当前应用开通 `qyapi_get_department_member` 后，才能执行通讯录同步并让 H5 免登/工作通知命中真实人员。
 - `/readyz` 关键状态：
   - `environment=production`
   - `database=ok`
@@ -252,6 +254,15 @@ MES_API_KEY=...
   - `active_mobile_user_count=329`
   - `active_workshop_count=12`
   - `active_equipment_count=136`
+
+普通移动班报机列绑定修复部署证据（2026-05-06 19:41）：
+
+- 本地验证：新增 `backend/tests/test_mobile_shift_report_machine_binding.py` 覆盖同车间绑定、跨车间忽略、与 `mobile_coil_agg` 同机列唯一键不冲突；`python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q` 返回 `31 passed`。
+- 后端全量：`python -m pytest backend/tests -q` 返回 `697 passed, 124 deselected, 31 warnings`。
+- 已部署提交：`1a1139c fix: 保留机列归属到管理端数据`，服务器 `git rev-parse HEAD` 为 `1a1139cd11ffdb5c56ac4a0d9f869e9614909626`，`main...origin/main` 干净。
+- 部署后 `/readyz` 返回 `status=ready`、`equipment_binding=ok`、`pipeline=ok`、`mes_sync.last_run_status=success`、`mes_sync.fetched_count=50`、`mes_sync.upserted_count=50`。
+- 服务器代码确认包含普通班报 `get_bound_machine_for_user()` 写入逻辑、`conflicting_query` 唯一键防护，以及 `FactoryMachineLineOut.machine_binding_status` 响应字段。
+- 生产库只读探针：`mobile: total=0, active=0, bound=0, unbound=0`；`mobile_coil_agg: total=28, active=28, bound=0, unbound=28`；`duplicate_active_machine_keys=0`。当前没有历史普通班报可回填，本修复只影响后续提交链路。
 
 域名链路诊断：
 
