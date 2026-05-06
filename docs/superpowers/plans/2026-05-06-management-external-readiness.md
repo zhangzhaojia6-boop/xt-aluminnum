@@ -16,7 +16,7 @@
 - [x] 后端实现：在 `backend/app/routers/dashboard.py` 增加 `/dashboard/external-readiness`。
 - [x] 前端 TDD：管理端实时态势测试覆盖 `fetchExternalReadiness`、上线闸门、硬阻塞字段。
 - [x] 前端实现：`frontend/src/api/dashboard.js` 新增 API，`LiveDashboard.vue` 展示外部联通闸门卡。
-- [ ] 验证、提交、部署并核对线上 readyz 与前端产物。
+- [x] 验证、提交、部署并核对线上 readyz 与前端产物。
 
 ## Verification
 
