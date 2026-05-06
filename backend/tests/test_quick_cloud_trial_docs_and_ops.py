@@ -539,8 +539,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：121 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 22:45 左右。' in state
-    assert '本轮已部署 `main@2f888bb`' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 22:47 左右。' in state
+    assert '本轮已部署 `main@c880265`' in state
+    assert '`node node_modules/vite/bin/vite.js build --configLoader native`' in state
     assert '`formal_entry_count=0`' in state
     assert '`draft_entry_count=17`' in state
     assert '`total_entry_count=17`' in state

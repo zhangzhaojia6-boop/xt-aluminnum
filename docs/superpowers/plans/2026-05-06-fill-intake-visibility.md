@@ -43,7 +43,7 @@
 - [x] Run `git diff --check` -> passed with Windows LF/CRLF warnings only.
 - [x] Review diff for read-only behavior and UI scope.
 - [x] Run `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q` -> 8 passed.
-- [x] Commit, push, deploy, and verify `/readyz` -> `main@efc8ed3` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; production data probe returned `work_order_entries draft=156`, `mobile_shift_reports draft=3`, `mobile_coil_agg/voided=28`.
+- [x] Commit, push, deploy, and verify `/readyz` -> `main@c880265` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; production data probe returned `work_order_entries draft=156`, `mobile_shift_reports draft=3`, `mobile_coil_agg/voided=28`.
 
 ### Task 4: Unbound Draft Intake Regression
 
@@ -53,4 +53,5 @@
 - [x] Run `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q` -> 8 passed.
 - [x] Run `python -m pytest backend/tests -q` -> 721 passed, 124 deselected, 31 warnings.
 - [x] Run `git diff --check` -> passed with Windows LF/CRLF warnings only.
-- [x] Commit, push, deploy, and verify production API -> `main@2f888bb` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; `/api/v1/aggregation/live?business_date=2026-05-06` returned `formal_entry_count=0`, `draft_entry_count=17`, `total_entry_count=17`.
+- [x] Commit, push, deploy, and verify production API -> `main@c880265` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; `/api/v1/aggregation/live?business_date=2026-05-06` returned `formal_entry_count=0`, `draft_entry_count=17`, `total_entry_count=17`.
+- [x] Stabilize ECS frontend build command -> `npm --prefix frontend run build` now executes `node node_modules/vite/bin/vite.js build --configLoader native`, and production deploy passed after a fresh `npm ci`.

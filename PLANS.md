@@ -61,8 +61,9 @@
 - 按卷填报聚合已收紧并完成生产修正：新提交卷写为 `submitted`，`mobile_coil_agg` 只聚合 `submitted/verified/approved`，重算时没有合格源卷会 void 旧聚合；生产备份 `/srv/aluminum-bypass/backups/pre-void-mobile-coil-agg-20260506-203651.dump` 校验通过后，28 行历史 draft-only 聚合已置为 `voided`，复验活动聚合为 0。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count/draft_entry_count/total_entry_count` 与单元格 `draft_count`，前端显示 `已进入正式`、`草稿待提交`、`缺报班次`；未绑定 draft 测试也会进入 `草稿待提交` 数量，但不提升、不写入、不进入正式产量。
 - 管理端未吃到当前测试填报的根因已定位：生产库现有 `work_order_entries draft=156`、`mobile_shift_reports draft=3`、`mobile_coil_agg voided=28`，没有活动 `submitted/verified/approved` 卷级源；当前线上代码已写新卷为 `submitted` 并聚合，旧 draft 只能重新提交或走人工提升门禁。
-- 本轮已部署到 `main@efc8ed3`：公网 `/readyz` ready，MES 同步 `fetched_count=50/upserted_count=50`；导入历史候选线上探针为 `total_rows=16/ready_rows=7/unresolved_rows=9/candidate_rows=9`，部署脚本已补 `npm rebuild` 避免 ECS 上 `npm ci` 后 `.bin/vite` 缺失。
-- 本轮已部署到 `main@2f888bb`：管理端实时聚合改为从入口 `entries` 统计总填报接入，未绑定机列/班次的草稿也进入 `draft_entry_count/total_entry_count`，但不进入机列产量吨数；公网 API 探针返回 `formal_entry_count=0/draft_entry_count=17/total_entry_count=17`，17 条均缺机列或班次，MES 同步仍为 `fetched_count=50/upserted_count=50`。
+- 本轮已部署到 `main@c880265`：公网 `/readyz` ready，MES 同步 `fetched_count=50/upserted_count=50`；导入历史候选线上探针为 `total_rows=16/ready_rows=7/unresolved_rows=9/candidate_rows=9`。
+- 管理端实时聚合改为从入口 `entries` 统计总填报接入，未绑定机列/班次的草稿也进入 `draft_entry_count/total_entry_count`，但不进入机列产量吨数；公网 API 探针返回 `formal_entry_count=0/draft_entry_count=17/total_entry_count=17`，17 条均缺机列或班次。
+- ECS 前端部署构建已稳定：`npm run build` 改为 `node node_modules/vite/bin/vite.js build --configLoader native`，避免 `npm ci` 后 `.bin/vite` 缺失导致上线中断。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 

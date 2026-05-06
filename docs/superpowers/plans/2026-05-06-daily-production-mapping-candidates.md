@@ -41,4 +41,4 @@
 - [x] `npm --prefix frontend run build` -> passed.
 - [x] `python -m pytest backend/tests -q` -> 721 passed, 124 deselected, 31 warnings.
 - [x] `git diff --check` -> passed with Windows LF/CRLF warnings only.
-- [x] Commit, push, deploy, verify `/readyz`, and probe production preview candidate counts read-only -> `main@efc8ed3` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; production preview returned `total_rows=16`, `ready_rows=7`, `unresolved_rows=9`, `candidate_rows=9`.
+- [x] Commit, push, deploy, verify `/readyz`, and probe production preview candidate counts read-only -> `main@c880265` deployed; `/readyz` ready with `mes_sync last_run_status=success`, `fetched_count=50`, `upserted_count=50`; production preview returned `total_rows=16`, `ready_rows=7`, `unresolved_rows=9`, `candidate_rows=9`.
