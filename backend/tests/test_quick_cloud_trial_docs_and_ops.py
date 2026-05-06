@@ -477,7 +477,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：118 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 15:00 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 15:35 左右。' in state
     assert '管理端实时态势第一屏新增“班次产量节奏”' in state
     assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
@@ -508,6 +508,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '不回显密钥地检查 MES MVC 配置、登录页 token 与可选登录链路' in state
     assert '`missing_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`' in state
     assert '`login_page.status=skipped`、`login.status=skipped`' in state
+    assert '管理端实时态势第一屏新增“机列归属率”动态视图' in state
+    assert '`LiveDashboard-CCWtW8qw.js` / `LiveDashboard-DxaRmkzM.css` 已包含 `机列归属率`、`live-machine-ownership` 和 `buildMachineOwnershipSummary`' in state
+    assert '`0 已归属 · 3 待归属`、`120460.00`、`3 产出机列`' in state
     assert '管理端运维页新增外部 MES 状态条' in state
     assert '`mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`' in state
     assert 'SSH：`root@8.140.218.13` key 登录可用。' in state
