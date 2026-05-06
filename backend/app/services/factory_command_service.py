@@ -731,28 +731,40 @@ def _list_machine_lines_from_shift_data(
     target_date: date,
     scope: ScopeSummary | None = None,
 ) -> list[dict[str, Any]]:
-    grouped: dict[int, list[Any]] = defaultdict(list)
+    grouped: dict[str, list[Any]] = defaultdict(list)
     for row in _local_shift_rows(db, target_date=target_date, scope=scope):
         equipment_id = getattr(row, 'equipment_id', None)
         if equipment_id is not None:
-            grouped[int(equipment_id)].append(row)
+            grouped[f'equipment:{int(equipment_id)}'].append(row)
+            continue
+        workshop_id = getattr(row, 'workshop_id', None)
+        shift_id = getattr(row, 'shift_config_id', None)
+        workshop_key = workshop_id if workshop_id is not None else 'unknown'
+        shift_key = shift_id if shift_id is not None else 'unknown'
+        grouped[f'workshop:{workshop_key}:shift:{shift_key}:unbound'].append(row)
     equipment_by_id = _equipment_map(db)
     workshop_names = _workshop_name_map(db)
     items = []
-    for equipment_id, rows in grouped.items():
+    for group_key, rows in grouped.items():
         latest_row = max(rows, key=_row_sort_time)
-        equipment = equipment_by_id.get(equipment_id)
+        equipment_id = getattr(latest_row, 'equipment_id', None)
+        equipment = equipment_by_id.get(int(equipment_id)) if equipment_id is not None else None
         workshop_id = getattr(latest_row, 'workshop_id', None)
-        line_code = str(getattr(equipment, 'code', None) or f'equipment:{equipment_id}')
+        shift_id = getattr(latest_row, 'shift_config_id', None)
+        is_unbound = equipment_id is None
+        line_code = group_key if is_unbound else str(getattr(equipment, 'code', None) or f'equipment:{equipment_id}')
+        shift_label = f'{shift_id}班' if shift_id is not None else '未知班次'
+        line_name = f'未绑定机列 / {shift_label}' if is_unbound else getattr(equipment, 'name', None)
         items.append(
             {
                 'line_code': line_code,
-                'line_name': getattr(equipment, 'name', None),
+                'line_name': line_name,
                 'workshop_name': workshop_names.get(int(workshop_id), f'车间{workshop_id}') if workshop_id is not None else None,
                 'active_coil_count': len(rows),
                 'active_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
                 'finished_tons': round(sum(_number(getattr(row, 'output_weight', None)) for row in rows), 4),
                 'stalled_count': sum(1 for row in rows if _local_issue_count(row) > 0),
+                'machine_binding_status': 'unbound' if is_unbound else 'bound',
                 'cost_estimate': _estimate(),
                 'margin_estimate': _estimate(label='毛差估算'),
                 'freshness': _local_freshness(freshness),

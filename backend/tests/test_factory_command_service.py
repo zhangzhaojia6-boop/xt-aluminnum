@@ -295,6 +295,30 @@ def test_factory_lists_fall_back_to_local_shift_data_when_projection_empty(monke
     assert coils == []
 
 
+def test_factory_lists_fall_back_to_unbound_live_machine_lines(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        shift_rows=[
+            _shift_data(equipment_id=None, shift_config_id=1, input_weight=12.0, output_weight=10.0, data_status='pending', data_source='mobile_coil_agg'),
+            _shift_data(id=2, equipment_id=None, shift_config_id=3, input_weight=8.0, output_weight=7.5, data_status='pending', data_source='mobile_coil_agg'),
+            _shift_data(id=3, equipment_id=None, shift_config_id=3, input_weight=4.0, output_weight=3.5, data_status='pending', data_source='mobile_coil_agg'),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {'status': 'unconfigured', 'configured': False, 'source': 'local_entry', 'lag_seconds': None},
+    )
+
+    lines = factory_command_service.list_machine_lines(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert [item['line_code'] for item in lines] == ['workshop:1:shift:1:unbound', 'workshop:1:shift:3:unbound']
+    assert [item['line_name'] for item in lines] == ['未绑定机列 / 1班', '未绑定机列 / 3班']
+    assert [item['active_tons'] for item in lines] == [10.0, 11.0]
+    assert all(item['machine_binding_status'] == 'unbound' for item in lines)
+    assert all(item['freshness']['source'] == 'local_shift_data' for item in lines)
+
+
 def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):
     db = _FakeDB(
         coils=[
