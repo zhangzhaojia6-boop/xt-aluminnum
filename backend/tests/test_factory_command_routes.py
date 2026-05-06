@@ -97,6 +97,7 @@ def test_factory_command_routes_are_registered(monkeypatch):
                 'active_tons': 12.0,
                 'finished_tons': 0.0,
                 'stalled_count': 0,
+                'machine_binding_status': 'unbound',
                 'cost_estimate': {'label': '经营估算'},
                 'margin_estimate': {'label': '毛差估算'},
                 'freshness': freshness,
@@ -134,6 +135,9 @@ def test_factory_command_routes_are_registered(monkeypatch):
     ):
         response = client.get(path)
         assert response.status_code == 200, path
+
+    machine_lines_response = client.get('/api/v1/factory-command/machine-lines')
+    assert machine_lines_response.json()[0]['machine_binding_status'] == 'unbound'
 
 
 def test_factory_command_rejects_non_manager(monkeypatch):

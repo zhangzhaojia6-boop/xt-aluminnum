@@ -273,6 +273,28 @@ def _sync_to_shift_production(
     output_weight = _to_float(report.output_weight)
     scrap_weight = _to_float(report.scrap_weight) or 0.0
     qualified_weight = None if output_weight is None else max(output_weight - scrap_weight, 0.0)
+    equipment_id = None
+    seen_user_ids: set[int] = set()
+    for user_id in (report.leader_user_id, report.owner_user_id):
+        if user_id is None or user_id in seen_user_ids:
+            continue
+        seen_user_ids.add(user_id)
+        bound_machine = get_bound_machine_for_user(db, user_id=user_id)
+        if bound_machine is not None and bound_machine.workshop_id == workshop.id:
+            equipment_id = bound_machine.id
+            break
+    if equipment_id is not None and hasattr(db, 'query'):
+        conflicting_query = db.query(ShiftProductionData.id).filter(
+            ShiftProductionData.business_date == report.business_date,
+            ShiftProductionData.shift_config_id == shift.id,
+            ShiftProductionData.workshop_id == workshop.id,
+            ShiftProductionData.equipment_id == equipment_id,
+            ShiftProductionData.data_status != 'voided',
+        )
+        if report.linked_production_data_id is not None:
+            conflicting_query = conflicting_query.filter(ShiftProductionData.id != report.linked_production_data_id)
+        if conflicting_query.first() is not None:
+            equipment_id = None
 
     entity = db.get(ShiftProductionData, report.linked_production_data_id) if report.linked_production_data_id else None
     if entity is None:
@@ -281,7 +303,7 @@ def _sync_to_shift_production(
             shift_config_id=shift.id,
             workshop_id=workshop.id,
             team_id=team.id if team else None,
-            equipment_id=None,
+            equipment_id=equipment_id,
             data_source='mobile',
             version_no=1,
         )
@@ -291,6 +313,7 @@ def _sync_to_shift_production(
     entity.shift_config_id = shift.id
     entity.workshop_id = workshop.id
     entity.team_id = team.id if team else None
+    entity.equipment_id = equipment_id
     entity.input_weight = _to_float(report.input_weight)
     entity.output_weight = output_weight
     entity.qualified_weight = qualified_weight
