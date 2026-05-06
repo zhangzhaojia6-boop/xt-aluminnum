@@ -29,11 +29,70 @@ def _workshop(code: str, name: str) -> Workshop:
     return Workshop(code=code, name=name, workshop_type='production', is_active=True)
 
 
-def _equipment(code: str, name: str, workshop: Workshop) -> Equipment:
-    return Equipment(code=code, name=name, workshop_id=workshop.id, operational_status='running', is_active=True)
+def _equipment(
+    code: str,
+    name: str,
+    workshop: Workshop,
+    *,
+    equipment_type: str | None = None,
+    is_active: bool = True,
+) -> Equipment:
+    return Equipment(
+        code=code,
+        name=name,
+        workshop_id=workshop.id,
+        equipment_type=equipment_type,
+        operational_status='running',
+        is_active=is_active,
+    )
 
 
-def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1') -> ImportBatch:
+def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1', extra_rows: list[dict] | None = None) -> ImportBatch:
+    workshop_rows = [
+        {
+            'row_index': 3,
+            'workshop_label': '铸锭',
+            'project_label': None,
+            'daily_input_tons': 314.19,
+            'daily_output_tons': 301.1,
+            'daily_scrap_tons': 13.09,
+        },
+        {
+            'row_index': 4,
+            'workshop_label': '铸轧',
+            'project_label': '铸二',
+            'daily_input_tons': 410.2,
+            'daily_output_tons': 398.5,
+            'daily_scrap_tons': 11.7,
+        },
+        {
+            'row_index': 5,
+            'workshop_label': '热轧',
+            'project_label': '铣床',
+            'daily_input_tons': 208.3,
+            'daily_output_tons': 205.0,
+            'daily_scrap_tons': 3.3,
+        },
+        {
+            'row_index': 6,
+            'workshop_label': '冷轧',
+            'project_label': '2050',
+            'daily_input_tons': 149.51,
+            'daily_output_tons': 120.46,
+            'daily_scrap_tons': 18.05,
+        },
+        {
+            'row_index': 7,
+            'workshop_label': '冷轧',
+            'project_label': '1650',
+            'daily_input_tons': 88.0,
+            'daily_output_tons': 79.0,
+            'daily_scrap_tons': 9.0,
+        },
+    ]
+    if extra_rows:
+        workshop_rows.extend(extra_rows)
+
     batch = ImportBatch(
         batch_no=batch_no,
         import_type='daily_production_report',
@@ -56,48 +115,7 @@ def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1') -> ImportBatch:
             mapped_data={
                 'business_date': '2026-05-03',
                 'source_unit': 't',
-                'workshop_rows': [
-                    {
-                        'row_index': 3,
-                        'workshop_label': '铸锭',
-                        'project_label': None,
-                        'daily_input_tons': 314.19,
-                        'daily_output_tons': 301.1,
-                        'daily_scrap_tons': 13.09,
-                    },
-                    {
-                        'row_index': 4,
-                        'workshop_label': '铸轧',
-                        'project_label': '铸二',
-                        'daily_input_tons': 410.2,
-                        'daily_output_tons': 398.5,
-                        'daily_scrap_tons': 11.7,
-                    },
-                    {
-                        'row_index': 5,
-                        'workshop_label': '热轧',
-                        'project_label': '铣床',
-                        'daily_input_tons': 208.3,
-                        'daily_output_tons': 205.0,
-                        'daily_scrap_tons': 3.3,
-                    },
-                    {
-                        'row_index': 6,
-                        'workshop_label': '冷轧',
-                        'project_label': '2050',
-                        'daily_input_tons': 149.51,
-                        'daily_output_tons': 120.46,
-                        'daily_scrap_tons': 18.05,
-                    },
-                    {
-                        'row_index': 7,
-                        'workshop_label': '冷轧',
-                        'project_label': '1650',
-                        'daily_input_tons': 88.0,
-                        'daily_output_tons': 79.0,
-                        'daily_scrap_tons': 9.0,
-                    },
-                ],
+                'workshop_rows': workshop_rows,
             },
         )
     )
@@ -157,3 +175,36 @@ def test_daily_production_mapping_preview_marks_missing_equipment_mapping():
     assert milling.workshop_code == 'RZ'
     assert milling.expected_equipment_code == 'RZ-XC'
     assert milling.equipment_id is None
+
+
+def test_daily_production_mapping_preview_suggests_active_candidates_for_unresolved_rows():
+    db = _session()
+    jz = _workshop('JZ', '精整车间')
+    inactive_jz = _workshop('JZ-OLD', '旧精整车间')
+    inactive_jz.is_active = False
+    db.add_all([jz, inactive_jz])
+    db.flush()
+    db.add_all([
+        _equipment('JZ-ZJ1', '纵剪1#', jz, equipment_type='slitter'),
+        _equipment('JZ-ZJ-OLD', '旧纵剪', jz, equipment_type='slitter', is_active=False),
+    ])
+    batch = _seed_batch(
+        db,
+        extra_rows=[
+            {
+                'row_index': 8,
+                'workshop_label': '精整',
+                'project_label': '纵剪',
+                'daily_input_tons': 70.0,
+                'daily_output_tons': 68.0,
+                'daily_scrap_tons': 2.0,
+            }
+        ],
+    )
+
+    preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
+
+    row = next(item for item in preview.rows if item.workshop_label == '精整' and item.project_label == '纵剪')
+    assert row.status == 'unresolved_workshop'
+    assert [item.code for item in row.candidate_workshops] == ['JZ']
+    assert [item.code for item in row.candidate_equipment] == ['JZ-ZJ1']

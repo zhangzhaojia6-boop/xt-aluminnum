@@ -57,6 +57,12 @@ class ImportUploadResponse(BaseModel):
     summary: ImportSummary
 
 
+class DailyProductionMappingCandidateOut(BaseModel):
+    id: int
+    code: str
+    name: str
+
+
 class DailyProductionMappingRowOut(BaseModel):
     row_index: int | None = None
     business_date: str | None = None
@@ -78,6 +84,8 @@ class DailyProductionMappingRowOut(BaseModel):
     equipment_id: int | None = None
     equipment_code: str | None = None
     equipment_name: str | None = None
+    candidate_workshops: list[DailyProductionMappingCandidateOut] = Field(default_factory=list)
+    candidate_equipment: list[DailyProductionMappingCandidateOut] = Field(default_factory=list)
     issues: list[dict[str, Any]] = Field(default_factory=list)
 
 

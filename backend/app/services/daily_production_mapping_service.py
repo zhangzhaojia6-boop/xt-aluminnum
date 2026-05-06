@@ -17,6 +17,13 @@ class MappingRule:
 
 
 @dataclass(frozen=True, slots=True)
+class MappingCandidate:
+    id: int
+    code: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class DailyProductionMappingRow:
     row_index: int | None
     business_date: str | None
@@ -38,6 +45,8 @@ class DailyProductionMappingRow:
     equipment_id: int | None
     equipment_code: str | None
     equipment_name: str | None
+    candidate_workshops: list[MappingCandidate]
+    candidate_equipment: list[MappingCandidate]
     issues: list[dict[str, Any]]
 
 
@@ -73,6 +82,10 @@ def _normalize_label(value: Any) -> str:
     return str(value or '').strip().replace(' ', '')
 
 
+def _candidate_text(*values: Any) -> str:
+    return _normalize_label(''.join(str(value or '') for value in values)).lower()
+
+
 def _latest_daily_production_batch(db: Session) -> ImportBatch | None:
     return (
         db.query(ImportBatch)
@@ -94,6 +107,60 @@ def _workshops_by_code(db: Session) -> dict[str, Workshop]:
 def _equipment_by_code(db: Session) -> dict[str, Equipment]:
     rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
     return {str(item.code): item for item in rows}
+
+
+def _workshop_candidate(item: Workshop) -> MappingCandidate:
+    return MappingCandidate(id=item.id, code=item.code, name=item.name)
+
+
+def _equipment_candidate(item: Equipment) -> MappingCandidate:
+    return MappingCandidate(id=item.id, code=item.code, name=item.name)
+
+
+def _candidate_workshops(
+    workshops: dict[str, Workshop],
+    *,
+    workshop_label: Any,
+    project_label: Any,
+) -> list[MappingCandidate]:
+    workshop_token = _candidate_text(workshop_label)
+    project_token = _candidate_text(project_label)
+    scored: list[tuple[int, int, str, MappingCandidate]] = []
+    for item in workshops.values():
+        text = _candidate_text(item.code, item.name, item.workshop_type)
+        score = 0
+        if workshop_token and workshop_token in text:
+            score += 10
+        if project_token and project_token in text:
+            score += 3
+        if score:
+            scored.append((score, item.sort_order, item.code, _workshop_candidate(item)))
+    return [item for *_meta, item in sorted(scored, key=lambda row: (-row[0], row[1], row[2]))[:5]]
+
+
+def _candidate_equipment(
+    equipment: dict[str, Equipment],
+    *,
+    workshop_label: Any,
+    project_label: Any,
+    candidate_workshops: list[MappingCandidate],
+) -> list[MappingCandidate]:
+    project_token = _candidate_text(project_label)
+    workshop_token = _candidate_text(workshop_label)
+    candidate_workshop_ids = {item.id for item in candidate_workshops}
+    scored: list[tuple[int, int, str, MappingCandidate]] = []
+    for item in equipment.values():
+        if candidate_workshop_ids and item.workshop_id not in candidate_workshop_ids:
+            continue
+        text = _candidate_text(item.code, item.name, item.equipment_type, item.spec)
+        score = 0
+        if project_token and project_token in text:
+            score += 10
+        if workshop_token and workshop_token in text:
+            score += 2
+        if score:
+            scored.append((score, item.sort_order, item.code, _equipment_candidate(item)))
+    return [item for *_meta, item in sorted(scored, key=lambda row: (-row[0], row[1], row[2]))[:5]]
 
 
 def _resolve_row(
@@ -139,6 +206,29 @@ def _resolve_row(
             }
         )
 
+    candidate_workshops: list[MappingCandidate] = []
+    candidate_equipment: list[MappingCandidate] = []
+    if status == 'unresolved_workshop':
+        candidate_workshops = _candidate_workshops(
+            workshops,
+            workshop_label=workshop_label,
+            project_label=project_label,
+        )
+        candidate_equipment = _candidate_equipment(
+            equipment,
+            workshop_label=workshop_label,
+            project_label=project_label,
+            candidate_workshops=candidate_workshops,
+        )
+    elif status == 'needs_equipment_mapping' and workshop is not None:
+        candidate_workshops = [_workshop_candidate(workshop)]
+        candidate_equipment = _candidate_equipment(
+            equipment,
+            workshop_label=workshop_label,
+            project_label=project_label,
+            candidate_workshops=candidate_workshops,
+        )
+
     return DailyProductionMappingRow(
         row_index=row_payload.get('row_index'),
         business_date=source_business_date,
@@ -160,6 +250,8 @@ def _resolve_row(
         equipment_id=machine.id if machine else None,
         equipment_code=machine.code if machine else None,
         equipment_name=machine.name if machine else None,
+        candidate_workshops=candidate_workshops,
+        candidate_equipment=candidate_equipment,
         issues=issues,
     )
 

@@ -30,7 +30,10 @@
       </div>
 
       <div v-if="unresolvedMappingLabels.length" class="mapping-gate__labels">
-        <span v-for="label in unresolvedMappingLabels" :key="label">{{ label }}</span>
+        <span v-for="item in unresolvedMappingLabels" :key="item.label">
+          <strong>{{ item.label }}</strong>
+          <small v-if="item.candidateSummary">{{ item.candidateSummary }}</small>
+        </span>
       </div>
     </section>
 
@@ -125,9 +128,30 @@ const unresolvedMappingLabels = computed(() => {
   const rows = mappingPreview.value?.rows || []
   return rows
     .filter((row) => row.status === 'unresolved_workshop')
-    .map((row) => `${row.workshop_label || '-'} / ${row.project_label || '-'}`)
+    .map((row) => ({
+      label: `${row.workshop_label || '-'} / ${row.project_label || '-'}`,
+      candidateSummary: candidateSummary(row)
+    }))
     .slice(0, 12)
 })
+
+function compactCandidates(items) {
+  if (!Array.isArray(items)) return ''
+  return items
+    .map((item) => item?.code || item?.name)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' / ')
+}
+
+function candidateSummary(row) {
+  const workshops = compactCandidates(row.candidate_workshops)
+  const equipment = compactCandidates(row.candidate_equipment)
+  return [
+    workshops ? `车间 ${workshops}` : '',
+    equipment ? `机列 ${equipment}` : ''
+  ].filter(Boolean).join(' · ')
+}
 
 function extractSummary(row) {
   return {
@@ -282,13 +306,29 @@ onMounted(load)
 }
 
 .mapping-gate__labels span {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
   border: 1px solid #fecaca;
-  border-radius: 999px;
+  border-radius: 8px;
   background: #fff1f2;
   color: #9f1239;
   font-size: 12px;
-  line-height: 1;
-  padding: 6px 8px;
+  line-height: 1.2;
+  padding: 7px 9px;
+}
+
+.mapping-gate__labels strong {
+  color: #881337;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.mapping-gate__labels small {
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 @media (max-width: 640px) {
