@@ -477,7 +477,9 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend test`：114 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check`：通过' in state
-    assert '最近一次 ECS 修复验证：2026-05-06 13:26 左右。' in state
+    assert '最近一次 ECS 修复验证：2026-05-06 13:37 左右。' in state
+    assert '管理端实时态势第一屏新增“班次产量节奏”' in state
+    assert '`LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`' in state
     assert '管理端实时态势第一屏新增“卷级直录分布”' in state
     assert '`LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`' in state
     assert '管理端实时态势主聚合接入 `mobile_coil_agg` 卷级直录 fallback' in state
@@ -503,6 +505,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`' in state
     assert '`factory_output=120460.0`' in state
     assert '`2050冷轧车间|未绑定机列 / 夜班=74110.0`' in state
+    assert '`夜班=111360.0/2个机列`、`白班=9100.0/1个机列`' in state
     assert '`/api/v1/dashboard/external-readiness` 管理端探针返回 `status_code=200`' in state
     assert '`hard_issue_codes=MES_UNCONFIGURED,WORKFLOW_DISABLED,LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`' in state
     assert '`environment=production`' in state

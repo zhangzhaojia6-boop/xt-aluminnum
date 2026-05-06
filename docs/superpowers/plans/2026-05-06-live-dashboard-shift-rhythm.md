@@ -16,7 +16,7 @@
 - [x] 前端实现：在 `frontend/src/utils/managementCommandCenter.js` 新增 `buildShiftOutputRhythm()`。
 - [x] 页面 TDD：在 `managementCommandCenter.test.js` 静态断言 `LiveDashboard.vue` 包含 `live-shift-rhythm`、`班次产量节奏`、`shiftOutputRhythmRows`。
 - [x] 页面实现：在 `frontend/src/views/reports/LiveDashboard.vue` 的卷级直录分布下加入班次节奏条，并补桌面/移动响应式 CSS。
-- [ ] 验证、提交、部署并确认线上前端资产包含 `班次产量节奏`。
+- [x] 验证、提交、部署并确认线上前端资产包含 `班次产量节奏`。
 
 ## Verification
 
