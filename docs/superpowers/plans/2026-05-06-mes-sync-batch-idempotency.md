@@ -87,7 +87,7 @@ python -m pytest backend/tests -q --durations=10
 git diff --check
 ```
 
-- [ ] **Step 2: Commit and push**
+- [x] **Step 2: Commit and push**
 
 Run:
 
@@ -97,7 +97,7 @@ git commit -m "fix: 修复 MES 同步批内重复投影"
 git push origin main
 ```
 
-- [ ] **Step 3: Deploy and verify production**
+- [x] **Step 3: Deploy and verify production**
 
 Run systemd host deploy, keep `backend/.env` MES keys private, then run a one-shot sync through `app.main` and verify:
 

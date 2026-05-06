@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 16:45:34 +08:00
+更新时间：2026-05-06 16:57:42 +08:00
 
 ## 1. 仓库状态
 
@@ -114,18 +114,21 @@ db 容器: PostgreSQL 15
 
 ## 5. 当前 readyz 与配置闸门
 
-本地 `/readyz` 已通过，返回的关键状态：
+生产 `/readyz` 已通过，返回的关键状态：
 
 - `database=ok`
 - `uploads=ok`
 - `equipment_binding=ok`
 - `schedule=ok`
 - `pipeline=ok`
-- `mes_sync=unconfigured`
+- `mes_sync=idle`
+- `mes_sync.configured=true`
+- `mes_sync.last_run_status=success`
+- `mes_sync.fetched_count=50`
+- `mes_sync.upserted_count=50`
 
-`docker compose exec -T backend python scripts/check_statistics_module_ready.py --json` 仍然是预期 hard fail。原因不是数据库或代码阻断，而是正式外部联通尚未配置真实值：
+`python scripts/check_statistics_module_ready.py --json` 仍然是预期 hard fail。原因不是数据库、MES 或代码阻断，而是其余正式外部联通尚未配置真实值：
 
-- `MES_UNCONFIGURED`
 - `WORKFLOW_DISABLED`
 - `LLM_DISABLED`
 - `DINGTALK_DISABLED`
@@ -166,12 +169,15 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 15:48 左右。
+最近一次 ECS 修复验证：2026-05-06 16:56 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
+- 本轮已部署 `main@ac48f3b`：MES 同步批内重复投影修复已上线；生产 one-shot 同步返回 `coil_snapshots fetched=50 upserted=50`、`mes_follow_cards fetched=50 upserted=50`、`mes_dispatch fetched=50 upserted=50`，未再触发 `mes_coil_snapshots.coil_id` 唯一键冲突。
+- 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
+- 生产库 MES 投影已落库：`mes_coil_snapshots_count=50`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
 - 本轮已部署 `main@6e1bfb4`：管理端实时态势第一屏新增“班次产量节奏”，线上 `LiveDashboard-BvJspizJ.js` / `LiveDashboard-CtQL3H_9.css` 已包含 `班次产量节奏` 和 `live-shift-rhythm`。
 - 本轮已部署 `main@54a09e0`：管理端实时态势第一屏新增“卷级直录分布”，线上 `LiveDashboard-CO0mybtJ.js` / `LiveDashboard-BHO0nfza.css` 已包含 `卷级直录分布`、`live-output-distribution` 和 `未绑定`。
 - 本轮已部署 `main@47be2a7`：管理端实时态势第一屏新增“未绑定填报归属”，线上 `LiveDashboard-BSehAJcz.js` / `LiveDashboard-DYSwQp49.css` 已包含 `未绑定填报归属`、`live-unbound-fill` 和 `绑定账号`。
@@ -183,7 +189,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@8fc5ce0`：管理端用户管理页支持绑定机列，线上 `UserManagement-CvyvNRYK.js` 已包含 `绑定机列` 和 `bound_machine_id`。
 - 本轮已部署 `main@5831bab`：管理端用户管理页支持按机列绑定状态和具体机列筛选账号，线上 `UserManagement-B4GmUedd.js` 已包含 `绑定状态`、`machine_binding` 和 `boundMachineId`；线上 `/api/v1/users/` 探针返回 `machine_binding=bound total=136`、`machine_binding=unbound total=198`、`bound_machine_id=<已绑定机列> total=1`。
 - 本轮已部署 `main@3847564`：管理端“未绑定填报归属”面板的“绑定账号”入口会带 `machine_binding=unbound` 进入用户管理，线上 `LiveDashboard-CiAkZ4yu.js` / `UserManagement-97qO9yGl.js` 已包含 `machine_binding` 和 `bound_machine_id`；生产 Playwright 验证桌面 `1440x900` 与手机 `390x844` 均跳到 `/manage/admin/users?machine_binding=unbound&desktop=1`，用户接口请求 `/api/v1/users/?machine_binding=unbound&skip=0&limit=10` 返回 `total=198`，页面无横向溢出。
-- 本轮服务器已快进 `main@6c78f84`：新增 `backend/scripts/check_mes_mvc_preflight.py`，用于不回显密钥地检查 MES MVC 配置、登录页 token 与可选登录链路；ECS 上运行 `PYTHONPATH=. .venv/bin/python scripts/check_mes_mvc_preflight.py --json` 返回 `adapter=null`、`mvc_configured=false`、`missing_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`、`login_page.status=skipped`、`login.status=skipped`。
+- 配置前 `main@6c78f84` 曾新增 `backend/scripts/check_mes_mvc_preflight.py`，用于不回显密钥地检查 MES MVC 配置、登录页 token 与可选登录链路；当时 ECS 运行 `PYTHONPATH=. .venv/bin/python scripts/check_mes_mvc_preflight.py --json` 返回 `adapter=null`、`mvc_configured=false`、`missing_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`、`login_page.status=skipped`、`login.status=skipped`。
 - 本轮已部署 `main@54ccd7c`：管理端实时态势第一屏新增“机列归属率”动态视图，线上 `LiveDashboard-CCWtW8qw.js` / `LiveDashboard-DxaRmkzM.css` 已包含 `机列归属率`、`live-machine-ownership` 和 `buildMachineOwnershipSummary`；生产 Playwright 验证桌面 `1440x900` 与手机 `390x844` 均显示 `0 已归属 · 3 待归属`、`120460.00`、`3 产出机列`，页面无横向溢出，截图留存在本地忽略目录 `frontend/test-results/visual-production/`。
 - 本轮已部署 `main@32be0e2`：管理端实时聚合 API 显式返回 `machine_binding_status`，生产探针确认 `/api/v1/aggregation/live?business_date=2026-05-06` 的 3 条正产量临时机列均带 `machine_binding_status=unbound`，`all_positive_rows_have_binding_status=true`，前端与 AI 分析不再需要从负数 `machine_id` 反推归属状态。
 - 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
@@ -205,8 +211,9 @@ MES_API_KEY=...
 - 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 管理端探针返回 `data_source=local_shift_data`、`factory_output=120460.0`，未绑定临时机列为 `2050冷轧车间|未绑定机列 / 白班=9100.0`、`2050冷轧车间|未绑定机列 / 夜班=74110.0`、`精整车间|未绑定机列 / 夜班=37250.0`。
 - 管理端班次节奏探针基于同一实时聚合返回 `夜班=111360.0/2个机列`、`白班=9100.0/1个机列`。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
-- 2026-05-06 14:50 左右刷新 MES 前置核对：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；生产运行配置中 `MES_ADAPTER` 当前等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空。当前阻塞是生产 MES 运行配置缺失，不是公网链路不可达。
-- 线上部署代码的 `/api/v1/dashboard/external-readiness` 管理端探针返回 `status_code=200`、`hard_gate_passed=False`、`module_usable=False`、`external_connection_enabled=False`，`hard_issue_codes=MES_UNCONFIGURED,WORKFLOW_DISABLED,LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`。
+- 2026-05-06 14:50 左右刷新 MES 前置核对时：ECS 到 `https://mes.xintaily.com/Login/Index` 返回 HTTP 200，耗时约 `0.268s`；当时生产运行配置中 `MES_ADAPTER` 等效为 `null`，`MES_MVC_BASE_URL`、`MES_MVC_USERNAME`、`MES_MVC_PASSWORD` 仍为空，阻塞在生产 MES 运行配置缺失。
+- 2026-05-06 16:55 左右生产 MES 已切到 MVC 配置并完成同步：`MES_ADAPTER=mvc`、`mes_ready=true`、`coil_snapshots fetched=50 upserted=50`、`mes_coil_snapshots_count=50`。
+- 线上部署代码的 `/api/v1/dashboard/external-readiness` 同源检查仍返回 `hard_gate_passed=False`、`module_usable=False`、`external_connection_enabled=False`，但 `MES_UNCONFIGURED` 已解除；当前 `hard_issue_codes=WORKFLOW_DISABLED,LLM_DISABLED,DINGTALK_DISABLED,APP_CONNECTION_DISABLED`。
 - `/readyz` 关键状态：
   - `environment=production`
   - `database=ok`
@@ -215,8 +222,12 @@ MES_API_KEY=...
   - `schedule=ok`
   - `pipeline=ok`
   - `hard_gate_passed=true`
-  - `mes_sync=unconfigured`
-  - `required_env=MES_ADAPTER,MES_MVC_BASE_URL,MES_MVC_USERNAME,MES_MVC_PASSWORD`
+  - `mes_sync=idle`
+  - `mes_sync.configured=true`
+  - `mes_sync.last_run_status=success`
+  - `mes_sync.fetched_count=50`
+  - `mes_sync.upserted_count=50`
+  - `mes_sync.action_required=none`
   - `active_mobile_user_count=329`
   - `active_workshop_count=12`
   - `active_equipment_count=136`
@@ -231,9 +242,8 @@ MES_API_KEY=...
 
 结论：HTTPS 域名链路当前阻塞在域名备案/接入合规层，不是应用 readyz、nginx upstream 或后端代码问题。本轮公网正向证据以 `http://8.140.218.13/readyz` 为准；正式对外域名需要完成 ICP 备案/接入或换用已备案域名。
 
-外部正式联通闸门仍未通过，`python scripts/check_statistics_module_ready.py --json` 当前 hard fail 为：
+外部正式联通闸门仍未完全通过，`python scripts/check_statistics_module_ready.py --json` 当前 hard fail 为：
 
-- `MES_UNCONFIGURED`
 - `WORKFLOW_DISABLED`
 - `LLM_DISABLED`
 - `DINGTALK_DISABLED`
