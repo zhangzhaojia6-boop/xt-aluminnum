@@ -239,6 +239,7 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
         _equipment('JZ-LWJ1', '拉弯矫1#', workshops['JZ']),
         _equipment('JZ-FT1', '分条1#', workshops['JZ']),
         _equipment('ZXTF-1', '1#线', workshops['ZXTF']),
+        _equipment('ZXTF-2', '2#线', workshops['ZXTF']),
         _equipment('ZXTF-3', '3#线', workshops['ZXTF']),
     ])
     batch = _seed_batch(
@@ -257,7 +258,10 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
             {'row_index': 17, 'workshop_label': '精整', 'project_label': '纵剪', 'daily_output_tons': 75.96},
             {'row_index': 18, 'workshop_label': '拉矫', 'project_label': '拉矫', 'daily_output_tons': 196.08},
             {'row_index': 19, 'workshop_label': '拉矫', 'project_label': '分切', 'daily_output_tons': 39.58},
+            {'row_index': 20, 'workshop_label': '拉矫', 'project_label': '横剪', 'daily_output_tons': 0.0},
+            {'row_index': 21, 'workshop_label': '拉矫', 'project_label': '产量', 'daily_output_tons': 55.984},
             {'row_index': 23, 'workshop_label': '退火炉', 'project_label': '拉矫', 'daily_output_tons': 51.0},
+            {'row_index': 24, 'workshop_label': '在线退火', 'project_label': '新厂南线', 'daily_output_tons': 0.0},
             {'row_index': 25, 'workshop_label': '在线退火', 'project_label': '新厂北线', 'daily_output_tons': 302.84},
             {'row_index': 27, 'workshop_label': '在线退火', 'project_label': '园区北线', 'daily_output_tons': 181.97},
             {'row_index': 33, 'workshop_label': '园区剪切', 'project_label': None, 'daily_output_tons': 49.483},
@@ -266,8 +270,8 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
 
     preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
 
-    assert preview.total_rows == 17
-    assert preview.ready_rows == 17
+    assert preview.total_rows == 20
+    assert preview.ready_rows == 20
     assert preview.needs_equipment_mapping_rows == 0
     assert preview.unresolved_rows == 0
     rows = {(row.workshop_label, row.project_label): row for row in preview.rows}
@@ -282,6 +286,10 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
     assert rows[('精整', '纵剪')].equipment_code == 'JZ-ZJ1'
     assert rows[('拉矫', '拉矫')].equipment_code == 'JZ-LWJ1'
     assert rows[('拉矫', '分切')].equipment_code == 'JZ-FT1'
+    assert rows[('拉矫', '横剪')].equipment_code == 'JZ-HJ1'
+    assert rows[('拉矫', '产量')].workshop_code == 'JZ'
+    assert rows[('拉矫', '产量')].equipment_id is None
     assert rows[('退火炉', '拉矫')].workshop_code == 'JZ'
+    assert rows[('在线退火', '新厂南线')].equipment_code == 'ZXTF-2'
     assert rows[('在线退火', '新厂北线')].equipment_code == 'ZXTF-1'
     assert rows[('在线退火', '园区北线')].equipment_code == 'ZXTF-3'
