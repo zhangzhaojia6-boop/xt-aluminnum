@@ -35,5 +35,5 @@
 - [x] Run focused pytest for the rollover behavior.
 - [x] Run `python -m pytest backend/tests -q`.
 - [x] Run `git diff --check`.
-- [ ] Update deployment state docs with the 2026-05-07 schedule recovery and automatic rollover.
-- [ ] Commit, push, deploy, and verify production `/readyz` remains ready for 2026-05-07.
+- [x] Update deployment state docs with the 2026-05-07 schedule recovery and automatic rollover.
+- [x] Commit, push, deploy, and verify production `/readyz` remains ready for 2026-05-07.
