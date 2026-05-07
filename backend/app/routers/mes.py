@@ -5,7 +5,7 @@ from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary
 from app.models.system import User
 from app.schemas.mes import MesImportResponse, MesImportSummary
-from app.schemas.mes_sync import MesSyncStatusOut
+from app.schemas.mes_sync import MesSyncRunsOut, MesSyncStatusOut
 from app.services import mes_service
 from app.services import mes_sync_service
 
@@ -53,4 +53,26 @@ def sync_status(
         action_required=sync_payload.get('action_required') or 'none',
         required_env=list(sync_payload.get('required_env') or []),
         error_message=sync_payload.get('error_message') if scope.is_admin else None,
+    )
+
+
+@router.get('/sync-runs', response_model=MesSyncRunsOut)
+def sync_runs(
+    limit: int = 12,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MesSyncRunsOut:
+    scope = build_scope_summary(current_user)
+    if not (scope.is_admin or scope.is_manager or scope.is_reviewer):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='MES sync runs access denied')
+    payload = mes_sync_service.recent_sync_runs(db, limit=limit)
+    items = [
+        {**item, 'error_message': item.get('error_message') if scope.is_admin else None}
+        for item in payload.get('items', [])
+    ]
+    return MesSyncRunsOut(
+        cursor_key=payload.get('cursor_key') or 'coil_snapshots',
+        limit=payload.get('limit') or limit,
+        summary=payload.get('summary') or {},
+        items=items,
     )

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.scope import (
     build_scope_summary,
     can_view_all_work_order_entries,
@@ -28,6 +30,7 @@ from app.services.yield_matrix_canonical_service import build_yield_matrix_proje
 LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
 FORMAL_ENTRY_STATUSES = {'submitted', 'verified', 'approved'}
+ACTIVE_DATE_LOOKBACK_HOURS = 36
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -64,6 +67,71 @@ def _optional_int(value) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _local_now() -> datetime:
+    return datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE))
+
+
+def resolve_live_business_date(
+    db: Session,
+    *,
+    today: date | None = None,
+    now: datetime | None = None,
+    lookback_hours: int = ACTIVE_DATE_LOOKBACK_HOURS,
+) -> dict:
+    resolved_now = now or _local_now()
+    resolved_today = today or resolved_now.date()
+    cutoff = resolved_now - timedelta(hours=max(int(lookback_hours or ACTIVE_DATE_LOOKBACK_HOURS), 1))
+
+    recent_entry = (
+        db.query(
+            WorkOrderEntry.business_date,
+            func.count(WorkOrderEntry.id).label('entry_count'),
+            func.max(WorkOrderEntry.created_at).label('last_created_at'),
+        )
+        .filter(
+            WorkOrderEntry.business_date <= resolved_today,
+            WorkOrderEntry.created_at >= cutoff,
+        )
+        .group_by(WorkOrderEntry.business_date)
+        .order_by(func.max(WorkOrderEntry.created_at).desc(), WorkOrderEntry.business_date.desc())
+        .first()
+    )
+    if recent_entry is not None and recent_entry.business_date is not None:
+        return {
+            'business_date': recent_entry.business_date.isoformat(),
+            'source': 'recent_upload',
+            'recent_entry_count': int(recent_entry.entry_count or 0),
+        }
+
+    recent_shift = (
+        db.query(
+            ShiftProductionData.business_date,
+            func.count(ShiftProductionData.id).label('entry_count'),
+            func.max(ShiftProductionData.updated_at).label('last_updated_at'),
+        )
+        .filter(
+            ShiftProductionData.business_date <= resolved_today,
+            ShiftProductionData.updated_at >= cutoff,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .group_by(ShiftProductionData.business_date)
+        .order_by(func.max(ShiftProductionData.updated_at).desc(), ShiftProductionData.business_date.desc())
+        .first()
+    )
+    if recent_shift is not None and recent_shift.business_date is not None:
+        return {
+            'business_date': recent_shift.business_date.isoformat(),
+            'source': 'recent_shift_data',
+            'recent_entry_count': int(recent_shift.entry_count or 0),
+        }
+
+    return {
+        'business_date': resolved_today.isoformat(),
+        'source': 'current_date',
+        'recent_entry_count': 0,
+    }
 
 
 def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts) -> dict:
@@ -724,6 +792,33 @@ def _drop_local_entries_for_existing_cells(entry_rows: list[dict], local_entries
     ]
 
 
+def _tracking_card_key(value) -> str:
+    return str(value or '').strip().upper()
+
+
+def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
+    fill_tracking_cards = {
+        _tracking_card_key(item.get('tracking_card_no'))
+        for item in [*entry_rows, *local_entries]
+        if _tracking_card_key(item.get('tracking_card_no'))
+    }
+    filtered_mes_rows = [
+        item
+        for item in mes_rows
+        if _tracking_card_key(item.get('tracking_card_no')) not in fill_tracking_cards
+    ]
+    entries = [*entry_rows, *local_entries, *filtered_mes_rows]
+    has_fill = bool(entry_rows or local_entries)
+    has_mes = bool(filtered_mes_rows)
+    if has_fill and has_mes:
+        return entries, 'mixed'
+    if has_mes:
+        return entries, 'mes_projection'
+    if local_entries:
+        return entries, 'local_shift_data'
+    return entries, 'work_order_runtime'
+
+
 def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: int | None) -> list[dict]:
     workshop_rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_id_by_code = {str(item.code or '').strip().upper(): item.id for item in workshop_rows if item.code}
@@ -890,23 +985,22 @@ def build_live_aggregation(
     else:
         machines_query = machines_query.filter(Equipment.id == -1)
 
-    mes_rows = _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
     machines = machines_query.order_by(Equipment.id.asc()).all()
     shifts = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc()).all()
-    if mes_rows:
-        entries = mes_rows
-        data_source = 'mes_projection'
-    else:
-        entry_rows = _load_entry_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
-        local_machines, local_entries = _build_local_shift_runtime_inputs(
-            machines=machines,
-            shifts=shifts,
-            rows=_load_local_shift_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
-        )
-        local_entries = _drop_local_entries_for_existing_cells(entry_rows, local_entries)
-        machines = local_machines
-        entries = [*entry_rows, *local_entries]
-        data_source = 'local_shift_data' if local_entries else 'work_order_runtime'
+    entry_rows = _load_entry_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+    local_machines, local_entries = _build_local_shift_runtime_inputs(
+        machines=machines,
+        shifts=shifts,
+        rows=_load_local_shift_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
+    )
+    local_entries = _drop_local_entries_for_existing_cells(entry_rows, local_entries)
+    mes_rows = _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+    machines = local_machines
+    entries, data_source = _merge_runtime_entries(
+        entry_rows=entry_rows,
+        local_entries=local_entries,
+        mes_rows=mes_rows,
+    )
     payload = aggregate_live_payload(
         workshops=workshops,
         machines=machines,

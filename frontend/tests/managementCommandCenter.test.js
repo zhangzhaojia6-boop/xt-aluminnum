@@ -178,6 +178,12 @@ test('buildWorkshopFillIntakeRows ranks draft pressure and keeps missing-only wo
 
 test('data source labels expose local coil fill as direct entry', () => {
   assert.equal(dataSourceLabel('local_shift_data'), '卷级直录')
+  assert.equal(dataSourceLabel('mixed'), 'MES + 填报')
+})
+
+test('live dashboard resolves active business date before first load', () => {
+  assert.match(liveDashboardSource, /fetchLiveActiveDate/)
+  assert.match(liveDashboardSource, /initializeActiveBusinessDate/)
 })
 
 test('buildOutputDistribution ranks live machine output and marks unbound lines', () => {
@@ -456,6 +462,10 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /风险项/)
   assert.match(liveDashboardSource, /外部 MES/)
   assert.match(liveDashboardSource, /fetchMesSyncStatus/)
+  assert.match(liveDashboardSource, /fetchMesSyncRuns/)
+  assert.match(liveDashboardSource, /MES 同步稳定性/)
+  assert.match(liveDashboardSource, /mes-sync-stability/)
+  assert.match(liveDashboardSource, /mesSyncRunSummary/)
   assert.match(liveDashboardSource, /MES_MVC_BASE_URL/)
   assert.match(liveDashboardSource, /required_env|requiredEnv/)
   assert.match(liveDashboardSource, /mesRequiredEnvLabel/)
@@ -473,7 +483,7 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /LLM 摘要/)
   assert.match(liveDashboardSource, /应用连接/)
   assert.match(liveDashboardSource, /钉钉人员/)
-  assert.doesNotMatch(liveDashboardSource, /保存密钥|写入配置|启用外联/)
+  assert.doesNotMatch(liveDashboardSource, /保存密钥|写入配置|启用外联|重置同步|强制同步/)
   assert.match(liveDashboardSource, /接口待返回/)
   assert.match(liveDashboardSource, /hard_issues|hardIssues/)
   assert.match(liveDashboardSource, /live-output-distribution/)

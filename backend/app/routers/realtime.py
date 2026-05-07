@@ -16,7 +16,7 @@ from app.core.event_bus import event_bus
 from app.core.rate_limit import acquire_connection_rate_limit, enforce_request_rate_limit
 from app.core.scope import build_scope_summary, can_view_all_work_order_entries, resolve_work_order_entry_workshop_scope
 from app.models.system import User
-from app.schemas.realtime import LiveAggregationOut, LiveCellDetailOut, LivePendingAssignmentOut
+from app.schemas.realtime import LiveActiveBusinessDateOut, LiveAggregationOut, LiveCellDetailOut, LivePendingAssignmentOut
 from app.services import realtime_service
 
 
@@ -161,6 +161,16 @@ def live_aggregation(
         current_user=current_user,
     )
     return LiveAggregationOut(**payload)
+
+
+@router.get('/aggregation/live/active-date', response_model=LiveActiveBusinessDateOut, name='live-active-business-date')
+def live_active_business_date(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> LiveActiveBusinessDateOut:
+    del current_user
+    payload = realtime_service.resolve_live_business_date(db)
+    return LiveActiveBusinessDateOut(**payload)
 
 
 @router.get('/aggregation/live/detail', response_model=LiveCellDetailOut, name='live-aggregation-detail')

@@ -91,6 +91,26 @@
       </div>
     </section>
 
+    <section class="mes-sync-stability" :class="`is-${mesSyncRunSummary.tone}`" aria-label="MES 同步稳定性">
+      <div class="mes-sync-stability__head">
+        <strong>MES 同步稳定性</strong>
+        <span>{{ mesSyncRunSummary.totalCount }} 次 · {{ mesSyncRunSummary.successRate }}% 成功</span>
+      </div>
+      <div class="mes-sync-stability__stats">
+        <span><strong>{{ mesSyncRunSummary.latestFetched }}</strong><em>最近拉取</em></span>
+        <span><strong>{{ mesSyncRunSummary.latestUpserted }}</strong><em>最近入库</em></span>
+        <span><strong>{{ mesSyncRunSummary.latestDuration }}</strong><em>耗时</em></span>
+      </div>
+      <div class="mes-sync-stability__bars" aria-hidden="true">
+        <i
+          v-for="bar in mesSyncRunSummary.bars"
+          :key="bar.key"
+          :class="`is-${bar.tone}`"
+          :style="{ height: `${bar.height}%` }"
+        ></i>
+      </div>
+    </section>
+
     <section class="fill-intake-strip" :class="`is-${fillIntakeSummary.tone}`" aria-label="填报接入">
       <div class="fill-intake-strip__head">
         <strong>填报接入</strong>
@@ -526,8 +546,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
-import { fetchMesSyncStatus } from '../../api/mes'
-import { fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
+import { fetchMesSyncRuns, fetchMesSyncStatus } from '../../api/mes'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
@@ -563,6 +583,7 @@ const aggregation = ref(createEmptyAggregation(targetDate.value))
 const factorySnapshot = ref({})
 const deliverySnapshot = ref({})
 const mesSyncStatus = ref({})
+const mesSyncRuns = ref({ summary: {}, items: [] })
 const externalReadiness = ref({})
 const drawerData = ref({ items: [] })
 const updatedKeys = ref({})
@@ -776,6 +797,36 @@ const mesLastSyncLabel = computed(() => {
   }
   return '尚无同步时间'
 })
+const mesSyncRunSummary = computed(() => {
+  const items = Array.isArray(mesSyncRuns.value.items) ? mesSyncRuns.value.items : []
+  const summary = mesSyncRuns.value.summary || {}
+  const totalCount = numberValue(summary.total_count ?? items.length)
+  const successCount = numberValue(summary.success_count ?? items.filter((item) => item.status === 'success').length)
+  const failedCount = numberValue(summary.failed_count ?? items.filter((item) => item.status === 'failed').length)
+  const latest = items[0] || {}
+  const successRate = totalCount ? Math.round((successCount / totalCount) * 100) : 0
+  const tone = failedCount > 0 ? 'warning' : totalCount > 0 ? 'good' : 'muted'
+  const bars = (items.length ? items : [{ status: 'idle', fetched_count: 0, upserted_count: 0 }])
+    .slice(0, 12)
+    .reverse()
+    .map((item, index) => {
+      const fetched = numberValue(item.fetched_count)
+      return {
+        key: `${item.started_at || index}-${item.status || 'idle'}`,
+        tone: item.status === 'failed' ? 'danger' : item.status === 'success' ? 'good' : 'muted',
+        height: Math.max(28, Math.min(100, fetched ? 42 + fetched : 34))
+      }
+    })
+  return {
+    totalCount,
+    successRate,
+    tone,
+    latestFetched: numberValue(latest.fetched_count),
+    latestUpserted: numberValue(latest.upserted_count),
+    latestDuration: latest.duration_seconds == null ? '--' : `${Number(latest.duration_seconds).toFixed(1)}s`,
+    bars
+  }
+})
 
 const streamScope = computed(() => {
   if (authStore.isAdmin || authStore.isManager || authStore.role === 'statistician' || authStore.role === 'stat') {
@@ -867,16 +918,18 @@ async function loadAggregation({ silent = false } = {}) {
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
-    const [factoryResult, deliveryResult, mesResult, externalResult] = await Promise.allSettled([
+    const [factoryResult, deliveryResult, mesResult, mesRunsResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
       fetchMesSyncStatus(),
+      fetchMesSyncRuns({ limit: 12 }),
       fetchExternalReadiness()
     ])
     aggregation.value = liveData
     factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
     deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
     mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
+    mesSyncRuns.value = mesRunsResult.status === 'fulfilled' ? mesRunsResult.value : { summary: {}, items: [] }
     externalReadiness.value = externalResult.status === 'fulfilled' ? externalResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
     activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
@@ -890,6 +943,19 @@ async function loadAggregation({ silent = false } = {}) {
 
 async function loadDashboardSurface() {
   await loadAggregation()
+}
+
+async function initializeActiveBusinessDate() {
+  try {
+    const payload = await fetchLiveActiveDate()
+    if (payload?.business_date && payload.business_date !== targetDate.value) {
+      targetDate.value = payload.business_date
+      return true
+    }
+  } catch (_error) {
+    return false
+  }
+  return false
 }
 
 function scheduleReload() {
@@ -1082,7 +1148,10 @@ watch(targetDate, async () => {
 })
 
 onMounted(async () => {
-  await loadDashboardSurface()
+  const dateChanged = await initializeActiveBusinessDate()
+  if (!dateChanged) {
+    await loadDashboardSurface()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -1384,6 +1453,105 @@ onBeforeUnmount(() => {
 .mes-connection-strip__dot.is-danger {
   background: var(--command-red);
   box-shadow: 0 0 0 5px rgba(194, 65, 52, 0.12);
+}
+
+.mes-sync-stability {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(255, 255, 255, 0.98)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.mes-sync-stability.is-warning {
+  border-color: rgba(183, 121, 31, 0.24);
+}
+
+.mes-sync-stability__head {
+  display: grid;
+  gap: 4px;
+}
+
+.mes-sync-stability__head strong {
+  color: var(--command-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.mes-sync-stability__head span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mes-sync-stability__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mes-sync-stability__stats span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: #fff;
+}
+
+.mes-sync-stability__stats strong {
+  color: var(--command-blue-deep);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.mes-sync-stability__stats em {
+  overflow: hidden;
+  color: var(--xt-text-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mes-sync-stability__bars {
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius-sm);
+  background: rgba(241, 246, 252, 0.72);
+}
+
+.mes-sync-stability__bars i {
+  width: 100%;
+  min-width: 5px;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--xt-text-muted);
+}
+
+.mes-sync-stability__bars .is-good {
+  background: linear-gradient(180deg, #29a36a, #168a55);
+}
+
+.mes-sync-stability__bars .is-danger {
+  background: linear-gradient(180deg, #d9584a, #b7352e);
+}
+
+.mes-sync-stability__bars .is-muted {
+  background: #9aa8ba;
 }
 
 .external-readiness-lanes {
@@ -2781,6 +2949,10 @@ onBeforeUnmount(() => {
   .mes-connection-strip {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .mes-sync-stability {
+    grid-template-columns: 1fr;
   }
 
   .mes-connection-strip__meta {

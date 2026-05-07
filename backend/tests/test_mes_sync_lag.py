@@ -1,8 +1,12 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.orm import sessionmaker
 
+from app.database import Base
+from app.models.mes import MesSyncRunLog
 from app.services import mes_sync_service
 
 
@@ -155,3 +159,64 @@ def test_latest_sync_status_reports_failed_run(monkeypatch):
     assert payload['last_run_status'] == 'failed'
     assert payload['last_error'] == 'vendor url timeout'
     assert payload['action_required'] == 'check_vendor'
+
+
+def test_recent_sync_runs_returns_newest_first_summary_and_duration(tmp_path, monkeypatch):
+    monkeypatch.setattr(mes_sync_service.settings, 'MES_ADAPTER', 'rest_api')
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-sync-runs.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesSyncRunLog.__table__])
+    db = sessionmaker(bind=engine, future=True)()
+    try:
+        db.add_all(
+            [
+                MesSyncRunLog(
+                    cursor_key='coil_snapshots',
+                    started_at=datetime(2026, 5, 7, 1, 0, tzinfo=UTC),
+                    finished_at=datetime(2026, 5, 7, 1, 0, 8, tzinfo=UTC),
+                    status='success',
+                    fetched_count=50,
+                    upserted_count=50,
+                    replayed_count=0,
+                    lag_seconds=12.5,
+                ),
+                MesSyncRunLog(
+                    cursor_key='coil_snapshots',
+                    started_at=datetime(2026, 5, 7, 1, 1, tzinfo=UTC),
+                    finished_at=datetime(2026, 5, 7, 1, 1, 13, tzinfo=UTC),
+                    status='failed',
+                    fetched_count=0,
+                    upserted_count=0,
+                    replayed_count=0,
+                    lag_seconds=45.25,
+                    error_message='vendor timeout',
+                ),
+                MesSyncRunLog(
+                    cursor_key='mes_dispatch',
+                    started_at=datetime(2026, 5, 7, 1, 2, tzinfo=UTC),
+                    finished_at=datetime(2026, 5, 7, 1, 2, 3, tzinfo=UTC),
+                    status='success',
+                    fetched_count=12,
+                    upserted_count=11,
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = mes_sync_service.recent_sync_runs(db, limit=2)
+
+        assert payload['cursor_key'] == 'coil_snapshots'
+        assert payload['summary'] == {
+            'total_count': 2,
+            'success_count': 1,
+            'failed_count': 1,
+            'running_count': 0,
+            'latest_status': 'failed',
+        }
+        assert [item['status'] for item in payload['items']] == ['failed', 'success']
+        assert payload['items'][0]['duration_seconds'] == 13.0
+        assert payload['items'][0]['lag_seconds'] == 45.25
+        assert payload['items'][0]['error_message'] == 'vendor timeout'
+        assert payload['items'][1]['duration_seconds'] == 8.0
+        assert payload['items'][1]['fetched_count'] == 50
+    finally:
+        db.close()

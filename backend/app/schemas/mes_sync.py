@@ -40,3 +40,31 @@ class MesSyncStatusOut(BaseModel):
     action_required: str = 'none'
     required_env: list[str] = Field(default_factory=list)
     error_message: str | None = None
+
+
+class MesSyncRunOut(BaseModel):
+    cursor_key: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    status: str
+    fetched_count: int = 0
+    upserted_count: int = 0
+    replayed_count: int = 0
+    duration_seconds: float | None = None
+    lag_seconds: float | None = None
+    error_message: str | None = None
+
+
+class MesSyncRunSummaryOut(BaseModel):
+    total_count: int = 0
+    success_count: int = 0
+    failed_count: int = 0
+    running_count: int = 0
+    latest_status: str = 'idle'
+
+
+class MesSyncRunsOut(BaseModel):
+    cursor_key: str
+    limit: int = 12
+    summary: MesSyncRunSummaryOut = Field(default_factory=MesSyncRunSummaryOut)
+    items: list[MesSyncRunOut] = Field(default_factory=list)

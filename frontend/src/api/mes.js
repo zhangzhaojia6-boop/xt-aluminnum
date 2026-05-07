@@ -13,3 +13,8 @@ export async function fetchMesSyncStatus() {
   const { data } = await api.get('/mes/sync-status')
   return data
 }
+
+export async function fetchMesSyncRuns(params = {}) {
+  const { data } = await api.get('/mes/sync-runs', { params })
+  return data
+}

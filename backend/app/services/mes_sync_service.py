@@ -226,6 +226,14 @@ def _query_first(query):
     return None
 
 
+def _duration_seconds(started_at: datetime | None, finished_at: datetime | None) -> float | None:
+    start = _as_utc(started_at)
+    finish = _as_utc(finished_at)
+    if start is None or finish is None:
+        return None
+    return round(max((finish - start).total_seconds(), 0.0), 3)
+
+
 def _adapter_configured() -> bool:
     return (settings.MES_ADAPTER or 'null').strip().lower() != 'null'
 
@@ -699,3 +707,47 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
         'last_error': error_message,
         'action_required': action_required,
     }
+
+
+def recent_sync_runs(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, limit: int = 12) -> dict[str, Any]:
+    resolved_limit = max(1, min(int(limit or 12), 50))
+    empty_summary = {
+        'total_count': 0,
+        'success_count': 0,
+        'failed_count': 0,
+        'running_count': 0,
+        'latest_status': 'unconfigured' if not _adapter_configured() else 'idle',
+    }
+    if not _adapter_configured():
+        return {'cursor_key': cursor_key, 'limit': resolved_limit, 'summary': empty_summary, 'items': []}
+
+    rows = (
+        db.query(MesSyncRunLog)
+        .filter(MesSyncRunLog.cursor_key == cursor_key)
+        .order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc())
+        .limit(resolved_limit)
+        .all()
+    )
+    items = [
+        {
+            'cursor_key': row.cursor_key,
+            'started_at': row.started_at.isoformat() if row.started_at else None,
+            'finished_at': row.finished_at.isoformat() if row.finished_at else None,
+            'status': row.status,
+            'fetched_count': row.fetched_count,
+            'upserted_count': row.upserted_count,
+            'replayed_count': row.replayed_count,
+            'duration_seconds': _duration_seconds(row.started_at, row.finished_at),
+            'lag_seconds': _to_float(row.lag_seconds),
+            'error_message': row.error_message,
+        }
+        for row in rows
+    ]
+    summary = {
+        'total_count': len(items),
+        'success_count': sum(1 for item in items if item['status'] == 'success'),
+        'failed_count': sum(1 for item in items if item['status'] == 'failed'),
+        'running_count': sum(1 for item in items if item['status'] == 'running'),
+        'latest_status': items[0]['status'] if items else 'idle',
+    }
+    return {'cursor_key': cursor_key, 'limit': resolved_limit, 'summary': summary, 'items': items}

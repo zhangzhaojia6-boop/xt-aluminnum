@@ -48,6 +48,7 @@ export function sortWorkshopsForCommandCenter(workshops = []) {
 }
 
 export function dataSourceLabel(dataSource) {
+  if (dataSource === 'mixed') return 'MES + 填报'
   if (dataSource === 'mes_projection') return 'MES 投影'
   if (dataSource === 'local_shift_data') return '卷级直录'
   if (dataSource === 'work_order_compat' || dataSource === 'work_order_runtime') return '工单兼容口径'

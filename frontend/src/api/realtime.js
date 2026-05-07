@@ -5,6 +5,11 @@ export async function fetchLiveAggregation(params = {}) {
   return data
 }
 
+export async function fetchLiveActiveDate() {
+  const { data } = await api.get('/aggregation/live/active-date')
+  return data
+}
+
 export async function fetchLiveCellDetail(params = {}) {
   const { data } = await api.get('/aggregation/live/detail', { params })
   return data

@@ -32,6 +32,7 @@ class DummyDB:
 def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('realtime-stream') == '/api/v1/realtime/stream'
     assert app.url_path_for('live-aggregation') == '/api/v1/aggregation/live'
+    assert app.url_path_for('live-active-business-date') == '/api/v1/aggregation/live/active-date'
     assert app.url_path_for('live-aggregation-detail') == '/api/v1/aggregation/live/detail'
     assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
 
@@ -189,6 +190,39 @@ def test_live_aggregation_endpoint_calls_service(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()['overall_progress']['submitted_cells'] == 4
     assert response.json()['workshops'][0]['workshop_name'] == '鐑涧杞﹂棿'
+
+    app.dependency_overrides.clear()
+
+
+def test_live_active_business_date_endpoint_calls_service(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_resolve_live_business_date(db):
+        return {'business_date': '2026-05-06', 'source': 'recent_upload', 'recent_entry_count': 7}
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.resolve_live_business_date', fake_resolve_live_business_date)
+
+    token = create_access_token(subject=str(current_user.id))
+    client = TestClient(app)
+    response = client.get(
+        '/api/v1/aggregation/live/active-date',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {'business_date': '2026-05-06', 'source': 'recent_upload', 'recent_entry_count': 7}
 
     app.dependency_overrides.clear()
 

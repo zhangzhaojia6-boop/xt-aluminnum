@@ -48,6 +48,12 @@ class LiveAggregationOut(BaseModel):
     data_source: str = 'work_order_runtime'
 
 
+class LiveActiveBusinessDateOut(BaseModel):
+    business_date: str
+    source: str = 'current_date'
+    recent_entry_count: int = 0
+
+
 class LiveCellBatchOut(BaseModel):
     tracking_card_no: str
     entry_id: int

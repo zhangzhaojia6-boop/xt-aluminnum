@@ -236,6 +236,47 @@ def test_mes_sync_status_route(monkeypatch):
     assert response.json()['error_message'] is None
 
 
+def test_mes_sync_runs_route_hides_error_message_for_manager(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = _manager_user
+    monkeypatch.setattr(
+        'app.routers.mes.mes_sync_service.recent_sync_runs',
+        lambda db, limit=12: {
+            'cursor_key': 'coil_snapshots',
+            'limit': limit,
+            'summary': {
+                'total_count': 2,
+                'success_count': 1,
+                'failed_count': 1,
+                'running_count': 0,
+                'latest_status': 'failed',
+            },
+            'items': [
+                {
+                    'cursor_key': 'coil_snapshots',
+                    'started_at': '2026-05-07T01:01:00+00:00',
+                    'finished_at': '2026-05-07T01:01:13+00:00',
+                    'status': 'failed',
+                    'fetched_count': 0,
+                    'upserted_count': 0,
+                    'replayed_count': 0,
+                    'duration_seconds': 13.0,
+                    'lag_seconds': 45.25,
+                    'error_message': 'vendor timeout',
+                }
+            ],
+        },
+    )
+
+    response = TestClient(app).get('/api/v1/mes/sync-runs?limit=8')
+
+    assert response.status_code == 200
+    assert response.json()['limit'] == 8
+    assert response.json()['summary']['failed_count'] == 1
+    assert response.json()['items'][0]['status'] == 'failed'
+    assert response.json()['items'][0]['error_message'] is None
+
+
 def test_mes_sync_status_route_exposes_required_env_when_unconfigured(monkeypatch):
     app.dependency_overrides[get_db] = _fake_db
     app.dependency_overrides[get_current_user] = _manager_user
@@ -272,6 +313,16 @@ def test_mes_sync_status_rejects_non_manager(monkeypatch):
     monkeypatch.setattr('app.routers.mes.mes_sync_service.latest_sync_status', lambda db: {})
 
     response = TestClient(app).get('/api/v1/mes/sync-status')
+
+    assert response.status_code == 403
+
+
+def test_mes_sync_runs_rejects_non_manager(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role='mobile', is_admin=False, is_manager=False, is_reviewer=False)
+    monkeypatch.setattr('app.routers.mes.mes_sync_service.recent_sync_runs', lambda db, limit=12: {})
+
+    response = TestClient(app).get('/api/v1/mes/sync-runs')
 
     assert response.status_code == 403
 
