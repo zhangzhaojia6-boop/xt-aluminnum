@@ -552,7 +552,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`mobile_shift_reports` 为 `draft=3`' in state
     assert '`ShiftProductionData` 仅有 `mobile_coil_agg/voided=28`' in state
     assert "当前代码已包含 `entry_status='submitted'`" in state
-    assert '`npm --prefix frontend test`：123 passed' in state
+    assert '管理端实时聚合已支持“填报事实 + MES 归属”配对' in state
+    assert '`npm --prefix frontend test`：124 passed' in state
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check HEAD~1..HEAD`：通过' in state
     assert '最近一次 ECS 修复验证：2026-05-06 23:16 左右。' in state

@@ -215,6 +215,121 @@ def test_build_live_aggregation_resolves_mes_workshop_aliases(tmp_path, monkeypa
     assert machine['shifts'][0]['submitted_count'] == 1
 
 
+def test_build_live_aggregation_pairs_fill_uploads_with_mes_machine_binding(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            WorkOrder(id=703, tracking_card_no='RA260506703', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=703,
+                work_order_id=703,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=10_000.0,
+                output_weight=9_700.0,
+                scrap_weight=300.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+            MesCoilSnapshot(
+                id=703,
+                coil_id='MES-703',
+                tracking_card_no='RA260506703',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=date(2026, 5, 6),
+                source_payload={'input_weight': 6.0, 'output_weight': 5.2, 'scrap_weight': 0.8},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['data_source'] == 'mixed'
+    assert payload['overall_progress']['formal_entry_count'] == 1
+    assert 'pending_assignment' not in payload['overall_progress']
+    assert payload['factory_total']['output'] == 9.7
+    machine = payload['workshops'][0]['machines'][0]
+    assert machine['machine_id'] == 11
+    assert machine['day_total']['output'] == 9.7
+    assert machine['shifts'][0]['submitted_count'] == 1
+    assert machine['shifts'][0]['total_output'] == 9.7
+
+
+def test_build_live_aggregation_does_not_cross_bind_mes_machine_to_other_workshop(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            Workshop(id=4, code='JZ', name='精整车间', sort_order=2, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            WorkOrder(id=704, tracking_card_no='RA260506704', process_route_code='finishing', overall_status='created'),
+            WorkOrderEntry(
+                id=704,
+                work_order_id=704,
+                workshop_id=4,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=8_000.0,
+                output_weight=7_600.0,
+                scrap_weight=400.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=86,
+            ),
+            MesCoilSnapshot(
+                id=704,
+                coil_id='MES-704',
+                tracking_card_no='RA260506704',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=date(2026, 5, 6),
+                source_payload={'input_weight': 8.0, 'output_weight': 7.6, 'scrap_weight': 0.4},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['data_source'] == 'work_order_runtime'
+    assert payload['overall_progress']['formal_entry_count'] == 1
+    pending = payload['overall_progress']['pending_assignment']
+    assert pending['entry_count'] == 1
+    assert pending['missing_machine_count'] == 1
+    assert pending['missing_shift_count'] == 1
+    assert pending['rows'][0]['workshop_id'] == 4
+
+
 def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

@@ -798,6 +798,37 @@ def _tracking_card_key(value) -> str:
 
 
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
+    mes_row_by_card = {
+        _tracking_card_key(item.get('tracking_card_no')): item
+        for item in mes_rows
+        if _tracking_card_key(item.get('tracking_card_no'))
+    }
+
+    def apply_mes_binding(items: list[dict]) -> tuple[list[dict], bool]:
+        enriched: list[dict] = []
+        has_mes_binding = False
+        for item in items:
+            tracking_card = _tracking_card_key(item.get('tracking_card_no'))
+            mes_item = mes_row_by_card.get(tracking_card)
+            if not mes_item:
+                enriched.append(item)
+                continue
+            updated = dict(item)
+            mes_workshop_id = mes_item.get('workshop_id')
+            current_workshop_id = updated.get('workshop_id')
+            workshop_matches = mes_workshop_id is None or current_workshop_id is None or current_workshop_id == mes_workshop_id
+            for field_name in ('workshop_id', 'machine_id', 'shift_id'):
+                if field_name in {'machine_id', 'shift_id'} and not workshop_matches:
+                    continue
+                if updated.get(field_name) is None and mes_item.get(field_name) is not None:
+                    updated[field_name] = mes_item[field_name]
+                    has_mes_binding = True
+            enriched.append(updated)
+        return enriched, has_mes_binding
+
+    entry_rows, entry_has_mes_binding = apply_mes_binding(entry_rows)
+    local_entries, local_has_mes_binding = apply_mes_binding(local_entries)
+    has_mes_binding = entry_has_mes_binding or local_has_mes_binding
     fill_tracking_cards = {
         _tracking_card_key(item.get('tracking_card_no'))
         for item in [*entry_rows, *local_entries]
@@ -811,7 +842,7 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
     entries = [*entry_rows, *local_entries, *filtered_mes_rows]
     has_fill = bool(entry_rows or local_entries)
     has_mes = bool(filtered_mes_rows)
-    if has_fill and has_mes:
+    if has_fill and (has_mes or has_mes_binding):
         return entries, 'mixed'
     if has_mes:
         return entries, 'mes_projection'

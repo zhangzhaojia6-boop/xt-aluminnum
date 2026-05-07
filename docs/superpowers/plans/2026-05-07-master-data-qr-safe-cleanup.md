@@ -137,7 +137,7 @@ Record:
 - ZXTF canonical master data;
 - production verification commands and key output.
 
-- [ ] **Step 2: Commit and deploy**
+- [x] **Step 2: Commit and deploy**
 
 Commit after tests pass, push `main`, deploy with:
 
@@ -145,7 +145,7 @@ Commit after tests pass, push `main`, deploy with:
 ssh -o BatchMode=yes root@8.140.218.13 "cd /srv/aluminum-bypass && ./scripts/deploy_systemd_host.sh --pull http://8.140.218.13"
 ```
 
-- [ ] **Step 3: Production verify**
+- [x] **Step 3: Production verify**
 
 Verify:
 - `/readyz`;

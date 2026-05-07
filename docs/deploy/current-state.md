@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 10:11:14 +08:00
+更新时间：2026-05-07 10:23:03 +08:00
 
 ## 1. 仓库状态
 
@@ -58,6 +58,7 @@ cd /srv/aluminum-bypass
 - 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
+- 管理端实时聚合已支持“填报事实 + MES 归属”配对：同一跟踪卡同时存在填报上传行和 MES 投影行时，保留填报端重量/状态，只用 MES 的车间、机列、班次补齐缺失归属，避免重复计算 MES 投影重量。
 - 主数据已新增只读工艺业务矩阵：`GET /api/v1/master/process-business-map` 输出 `分厂/厂区 -> 车间 -> 机列 -> 工艺业务`，并在 `docs/process-business-map.md` 记录当前口径；`1650/1850`、新厂/园区在线退火拆分、`JZ2` 具体机列职责仍标为待确认，不静默写成已确认事实。
 
 ## 3. 默认部署形态
@@ -123,12 +124,14 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：9 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests/test_real_master_data.py backend/tests/test_realtime_service.py backend/tests/test_master_pagination.py backend/tests/test_report_service_contract_lane.py -q`：30 passed
-- `python -m pytest backend/tests -q`：741 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：742 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
 - `npm --prefix frontend test`：124 passed
 - `npm --prefix frontend run build`：通过
 - `git diff --check HEAD~1..HEAD`：通过
-- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`e97f5ee` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
+- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：当前 `main` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`、`active_workshop_count=12`、`active_equipment_count=140`
+- 生产主数据核验：`seed_real_master_data()` 幂等后 `virtual_role_qr_active 96 -> 96`、`virtual_role_qr_bound 96 -> 96`；`ZXTF-1..4` 均为 `running`，QR 为 `XT-ZXTF-*`；`mes_mvc` active alias 共 17 条，`2050车间 -> LZ2050`、`热轧 -> RZ`、`拉矫车间 -> JZ`、`园区精整 -> JQ`、`新厂在线车间/园区在线车间 -> ZXTF`。
+- 生产路由核验：`GET /api/v1/master/process-business-map` 未登录返回 `403`，确认路由已上线且受管理端鉴权保护；`aluminum-bypass.service` 与 `nginx.service` 均为 active/running。
 
 此前在 `main@b029db8` 上已完成部署闸门与容器可用性验证：
 
