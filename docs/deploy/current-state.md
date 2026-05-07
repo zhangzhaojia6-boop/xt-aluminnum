@@ -124,7 +124,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：9 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests/test_real_master_data.py backend/tests/test_realtime_service.py backend/tests/test_master_pagination.py backend/tests/test_report_service_contract_lane.py -q`：30 passed
-- `python -m pytest backend/tests -q`：742 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：743 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
 - `npm --prefix frontend test`：124 passed
 - `npm --prefix frontend run build`：通过
