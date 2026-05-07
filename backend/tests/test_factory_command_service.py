@@ -583,6 +583,97 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
     ]
 
 
+def test_factory_command_uses_live_fill_entries_with_mes_material_code_alias(tmp_path, monkeypatch):
+    db = _factory_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=datetime(2026, 5, 6, 20, 0).time(), end_time=datetime(2026, 5, 7, 8, 0).time(), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            WorkOrder(id=704, tracking_card_no='S一2一054一1', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=704,
+                work_order_id=704,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=10000.0,
+                output_weight=9700.0,
+                scrap_weight=300.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_at=datetime(2026, 5, 7, 8, 10),
+            ),
+            MesCoilSnapshot(
+                id=704,
+                coil_id='fallback:26RA03630:26-s-2-054-1',
+                tracking_card_no='26RA03630',
+                material_code='26-s-2-054-1',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=None,
+                source_payload={'MaterialCode': '26-s-2-054-1'},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {(2, 3): {'status': 'pending', 'exception_count': 0}})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-07T08:00:00+00:00',
+        },
+    )
+    monkeypatch.setattr(
+        realtime_service.mes_sync_service,
+        'latest_sync_status',
+        lambda _db: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-07T08:00:00+00:00',
+        },
+    )
+    current_user = SimpleNamespace(
+        id=1,
+        role='manager',
+        is_admin=False,
+        is_manager=True,
+        is_reviewer=False,
+        workshop_id=None,
+        team_id=None,
+        data_scope_type='all',
+        assigned_shift_ids=[],
+    )
+
+    overview = factory_command_service.build_overview(
+        db,
+        now=datetime(2026, 5, 7, 9, 0),
+        current_user=current_user,
+    )
+    lines = factory_command_service.list_machine_lines(
+        db,
+        now=datetime(2026, 5, 7, 9, 0),
+        current_user=current_user,
+    )
+
+    assert overview['source'] == 'mixed'
+    assert overview['total_output_tons'] == 9.7
+    live_line = next(item for item in lines if item['line_code'] == 'LZ2050-1')
+    assert live_line['line_name'] == '2050轧机'
+    assert live_line['active_tons'] == 9.7
+    assert live_line['machine_binding_status'] == 'bound'
+
+
 def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
     db = _FakeDB(
         coils=[

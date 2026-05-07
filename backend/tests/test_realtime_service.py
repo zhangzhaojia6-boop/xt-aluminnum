@@ -329,6 +329,63 @@ def test_build_live_aggregation_pairs_cards_with_operator_separator_variants(tmp
     assert machine['shifts'][0]['submitted_count'] == 1
 
 
+def test_build_live_aggregation_pairs_fill_uploads_with_mes_material_code_alias(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            WorkOrder(id=707, tracking_card_no='S一2一054一1', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=707,
+                work_order_id=707,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=10_000.0,
+                output_weight=9_700.0,
+                scrap_weight=300.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+            MesCoilSnapshot(
+                id=707,
+                coil_id='fallback:26RA03630:26-s-2-054-1',
+                tracking_card_no='26RA03630',
+                material_code='26-s-2-054-1',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=None,
+                source_payload={'MaterialCode': '26-s-2-054-1'},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['data_source'] == 'mixed'
+    assert payload['overall_progress']['formal_entry_count'] == 1
+    assert 'pending_assignment' not in payload['overall_progress']
+    machine = payload['workshops'][0]['machines'][0]
+    assert machine['machine_id'] == 11
+    assert machine['day_total']['output'] == 9.7
+    assert machine['shifts'][0]['submitted_count'] == 1
+
+
 def test_build_live_aggregation_resolves_virtual_role_qr_to_reporting_machine(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(
@@ -641,6 +698,59 @@ def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) ->
             'created_at': payload['items'][0]['created_at'],
         }
     ]
+
+
+def test_build_pending_assignment_detail_matches_mes_material_code_alias(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(
+                id=3,
+                code='N',
+                name='夜班',
+                shift_type='night',
+                start_time=time(20, 0),
+                end_time=time(8, 0),
+                is_cross_day=True,
+                sort_order=3,
+                is_active=True,
+            ),
+            Equipment(id=11, code='LZ2050-1', name='1#轧机', workshop_id=2, operational_status='running', is_active=True),
+            MesCoilSnapshot(
+                id=902,
+                coil_id='fallback:26RA03630:26-s-2-054-1',
+                tracking_card_no='26RA03630',
+                material_code='26-s-2-054-1',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=None,
+            ),
+        ]
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=103,
+        tracking_card_no='S一2一054一1',
+        workshop_id=2,
+        shift_id=3,
+        machine_id=None,
+    )
+    db.commit()
+
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=User(id=7, username='admin', password_hash='x', name='Admin', role='admin'),
+    )
+
+    assert payload['total'] == 1
+    assert payload['items'][0]['mes_match_count'] == 1
+    assert payload['items'][0]['mes_machine_id'] == 11
+    assert payload['items'][0]['mes_machine_name'] == '1#轧机'
 
 
 def test_build_pending_assignment_detail_respects_workshop_scope(tmp_path) -> None:

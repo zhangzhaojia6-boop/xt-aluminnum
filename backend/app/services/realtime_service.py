@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -28,7 +29,7 @@ from app.services import master_service
 from app.services import mes_sync_service
 from app.services.equipment_service import resolve_reporting_machine_from_candidates
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
-from app.utils.tracking_cards import tracking_card_lookup_key
+from app.utils.tracking_cards import tracking_card_lookup_candidates, tracking_card_lookup_key
 
 LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
@@ -708,8 +709,7 @@ def build_pending_assignment_detail(
     ) if tracking_cards else []
     mes_rows_by_card: dict[str, list[dict]] = defaultdict(list)
     for mes_row in mes_rows:
-        card_key = _tracking_card_key(mes_row.get('tracking_card_no'))
-        if card_key:
+        for card_key in _entry_tracking_keys(mes_row):
             mes_rows_by_card[card_key].append(mes_row)
 
     for entry, work_order, workshop, shift in rows:
@@ -735,11 +735,12 @@ def build_pending_assignment_detail(
         draft_count += 1 if entry_status == 'draft' else 0
         creator = creator_by_id.get(entry.created_by_user_id)
         machine_candidates = machine_candidates_by_workshop.get(entry.workshop_id, [])
-        card_key = _tracking_card_key(work_order.tracking_card_no)
-        mes_matches = [
-            item for item in mes_rows_by_card.get(card_key, [])
-            if item.get('workshop_id') in {None, entry.workshop_id}
-        ]
+        mes_matches_by_id: dict[Any, dict] = {}
+        for card_key in _tracking_card_keys(work_order.tracking_card_no):
+            for item in mes_rows_by_card.get(card_key, []):
+                if item.get('workshop_id') in {None, entry.workshop_id}:
+                    mes_matches_by_id.setdefault(item.get('id'), item)
+        mes_matches = list(mes_matches_by_id.values())
         mes_machine_id = None
         mes_machine_name = None
         for mes_item in mes_matches:
@@ -900,19 +901,30 @@ def _tracking_card_key(value) -> str:
     return tracking_card_lookup_key(value)
 
 
+def _tracking_card_keys(value) -> set[str]:
+    return tracking_card_lookup_candidates(value)
+
+
+def _entry_tracking_keys(item: Mapping[str, Any]) -> set[str]:
+    keys: set[str] = set()
+    for field_name in ('tracking_card_no', 'batch_no', 'material_code', 'coil_id'):
+        keys.update(_tracking_card_keys(item.get(field_name)))
+    for value in item.get('tracking_card_keys') or []:
+        keys.update(_tracking_card_keys(value))
+    return keys
+
+
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
-    mes_row_by_card = {
-        _tracking_card_key(item.get('tracking_card_no')): item
-        for item in mes_rows
-        if _tracking_card_key(item.get('tracking_card_no'))
-    }
+    mes_row_by_card: dict[str, dict] = {}
+    for item in mes_rows:
+        for card_key in _entry_tracking_keys(item):
+            mes_row_by_card.setdefault(card_key, item)
 
     def apply_mes_binding(items: list[dict]) -> tuple[list[dict], bool]:
         enriched: list[dict] = []
-        has_mes_binding = False
+        has_mes_match = False
         for item in items:
-            tracking_card = _tracking_card_key(item.get('tracking_card_no'))
-            mes_item = mes_row_by_card.get(tracking_card)
+            mes_item = next((mes_row_by_card.get(card_key) for card_key in _entry_tracking_keys(item) if mes_row_by_card.get(card_key)), None)
             if not mes_item:
                 enriched.append(item)
                 continue
@@ -920,27 +932,28 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
             mes_workshop_id = mes_item.get('workshop_id')
             current_workshop_id = updated.get('workshop_id')
             workshop_matches = mes_workshop_id is None or current_workshop_id is None or current_workshop_id == mes_workshop_id
+            if workshop_matches:
+                has_mes_match = True
             for field_name in ('workshop_id', 'machine_id', 'shift_id'):
                 if field_name in {'machine_id', 'shift_id'} and not workshop_matches:
                     continue
                 if updated.get(field_name) is None and mes_item.get(field_name) is not None:
                     updated[field_name] = mes_item[field_name]
-                    has_mes_binding = True
             enriched.append(updated)
-        return enriched, has_mes_binding
+        return enriched, has_mes_match
 
     entry_rows, entry_has_mes_binding = apply_mes_binding(entry_rows)
     local_entries, local_has_mes_binding = apply_mes_binding(local_entries)
     has_mes_binding = entry_has_mes_binding or local_has_mes_binding
     fill_tracking_cards = {
-        _tracking_card_key(item.get('tracking_card_no'))
+        card_key
         for item in [*entry_rows, *local_entries]
-        if _tracking_card_key(item.get('tracking_card_no'))
+        for card_key in _entry_tracking_keys(item)
     }
     filtered_mes_rows = [
         item
         for item in mes_rows
-        if _tracking_card_key(item.get('tracking_card_no')) not in fill_tracking_cards
+        if not (_entry_tracking_keys(item) & fill_tracking_cards)
     ]
     entries = [*entry_rows, *local_entries, *filtered_mes_rows]
     has_fill = bool(entry_rows or local_entries)
@@ -952,6 +965,37 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
     if local_entries:
         return entries, 'local_shift_data'
     return entries, 'work_order_runtime'
+
+
+def _mes_snapshot_tracking_keys(item: MesCoilSnapshot) -> set[str]:
+    values = [
+        getattr(item, 'tracking_card_no', None),
+        getattr(item, 'batch_no', None),
+        getattr(item, 'material_code', None),
+        getattr(item, 'coil_id', None),
+        getattr(item, 'qr_code', None),
+    ]
+    source_payload = getattr(item, 'source_payload', None)
+    if isinstance(source_payload, Mapping):
+        values.extend(
+            source_payload.get(key)
+            for key in (
+                'MaterialCode',
+                'material_code',
+                'TrackingCardNo',
+                'tracking_card_no',
+                'CardNo',
+                'card_no',
+                'PrintCardNo',
+                'print_card_no',
+                'BatchNo',
+                'batch_no',
+            )
+        )
+    keys: set[str] = set()
+    for value in values:
+        keys.update(_tracking_card_keys(value))
+    return keys
 
 
 def _load_mes_snapshot_rows(
@@ -968,11 +1012,10 @@ def _load_mes_snapshot_rows(
     machine_id_by_code = {str(item.code or '').strip().upper(): item.id for item in machine_rows if item.code}
     shift_rows = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     shift_id_by_code = {str(item.code or '').strip().upper(): item.id for item in shift_rows if item.code}
-    work_order_by_card = {
-        str(item.tracking_card_no or '').strip().upper(): item
-        for item in db.query(WorkOrder).all()
-        if item.tracking_card_no
-    }
+    work_order_by_card: dict[str, WorkOrder] = {}
+    for item in db.query(WorkOrder).all():
+        for card_key in _tracking_card_keys(item.tracking_card_no):
+            work_order_by_card.setdefault(card_key, item)
     resolved_workshop_code_by_raw: dict[str, str] = {}
     resolved_machine_code_by_raw: dict[str, str] = {}
 
@@ -987,13 +1030,17 @@ def _load_mes_snapshot_rows(
             ) or raw_text
         return cache[raw_text]
 
-    requested_tracking_cards = {_tracking_card_key(item) for item in (tracking_card_nos or set()) if _tracking_card_key(item)}
+    requested_tracking_cards = {
+        card_key
+        for item in (tracking_card_nos or set())
+        for card_key in _tracking_card_keys(item)
+    }
     query = db.query(MesCoilSnapshot)
     snapshots = []
     for item in query.all():
         snapshot_date = item.business_date or (item.event_time.date() if item.event_time else None)
-        tracking_card_no = _tracking_card_key(item.tracking_card_no)
-        if snapshot_date != business_date and tracking_card_no not in requested_tracking_cards:
+        snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
+        if snapshot_date != business_date and not (snapshot_tracking_keys & requested_tracking_cards):
             continue
         canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
         snapshot_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
@@ -1006,7 +1053,8 @@ def _load_mes_snapshot_rows(
         source_payload = dict(item.source_payload or {})
         metadata = dict(source_payload.get('metadata') or {})
         tracking_card_no = str(item.tracking_card_no or '').strip().upper()
-        work_order = work_order_by_card.get(tracking_card_no)
+        snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
+        work_order = next((work_order_by_card.get(card_key) for card_key in snapshot_tracking_keys if work_order_by_card.get(card_key)), None)
         canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
         canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
         resolved_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
@@ -1029,6 +1077,10 @@ def _load_mes_snapshot_rows(
                 'entry_status': item.status or 'synced',
                 'entry_type': 'mes_projection',
                 'tracking_card_status': item.status or 'synced',
+                'material_code': item.material_code,
+                'coil_id': item.coil_id,
+                'batch_no': item.batch_no,
+                'tracking_card_keys': sorted(snapshot_tracking_keys),
             }
         )
     return payload
