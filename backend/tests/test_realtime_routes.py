@@ -33,6 +33,7 @@ def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('realtime-stream') == '/api/v1/realtime/stream'
     assert app.url_path_for('live-aggregation') == '/api/v1/aggregation/live'
     assert app.url_path_for('live-aggregation-detail') == '/api/v1/aggregation/live/detail'
+    assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
 
 
 def test_realtime_stream_filters_events_by_scope(monkeypatch) -> None:
@@ -248,6 +249,132 @@ def test_live_aggregation_detail_endpoint_calls_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()['items'][0]['tracking_card_no'] == 'RA240001'
+
+    app.dependency_overrides.clear()
+
+
+def test_live_pending_assignment_endpoint_calls_service(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_detail(db, *, business_date, workshop_id, current_user):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        assert current_user.id == 7
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 1,
+            'summary': {
+                'entry_count': 1,
+                'draft_entry_count': 1,
+                'formal_entry_count': 0,
+                'missing_machine_count': 1,
+                'missing_shift_count': 0,
+                'input': 100.0,
+                'output': 96.0,
+                'scrap': 4.0,
+            },
+            'items': [
+                {
+                    'tracking_card_no': 'RA260506001',
+                    'entry_id': 101,
+                    'work_order_id': 101,
+                    'business_date': '2026-05-06',
+                    'workshop_id': 2,
+                    'workshop_name': '2050冷轧车间',
+                    'shift_id': 3,
+                    'shift_name': '夜班',
+                    'machine_id': None,
+                    'entry_status': 'draft',
+                    'entry_type': 'mobile_coil',
+                    'input_weight': 100.0,
+                    'output_weight': 96.0,
+                    'scrap_weight': 4.0,
+                    'missing_fields': ['machine_id'],
+                    'created_by_user_id': 9,
+                    'created_at': '2026-05-06T09:30:00',
+                }
+            ],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.build_pending_assignment_detail', fake_detail)
+
+    token = create_access_token(subject=str(current_user.id))
+    client = TestClient(app)
+    response = client.get(
+        '/api/v1/aggregation/live/pending-assignment',
+        params={'business_date': '2026-05-06', 'workshop_id': 2},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['summary']['output'] == 96.0
+    assert response.json()['items'][0]['missing_fields'] == ['machine_id']
+
+    app.dependency_overrides.clear()
+
+
+def test_live_pending_assignment_endpoint_passes_workshop_scope(monkeypatch) -> None:
+    current_user = User(
+        id=8,
+        username='workshop-reviewer',
+        password_hash='x',
+        name='Workshop Reviewer',
+        role='workshop_director',
+        workshop_id=2,
+        data_scope_type='self_workshop',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_detail(db, *, business_date, workshop_id, current_user):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id is None
+        assert current_user.workshop_id == 2
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 0,
+            'summary': {
+                'entry_count': 0,
+                'draft_entry_count': 0,
+                'formal_entry_count': 0,
+                'missing_machine_count': 0,
+                'missing_shift_count': 0,
+                'input': 0.0,
+                'output': 0.0,
+                'scrap': 0.0,
+            },
+            'items': [],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.build_pending_assignment_detail', fake_detail)
+
+    token = create_access_token(subject=str(current_user.id))
+    client = TestClient(app)
+    response = client.get(
+        '/api/v1/aggregation/live/pending-assignment',
+        params={'business_date': '2026-05-06'},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['workshop_id'] == 2
 
     app.dependency_overrides.clear()
 

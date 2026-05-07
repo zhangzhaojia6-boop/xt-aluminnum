@@ -69,3 +69,42 @@ class LiveCellDetailOut(BaseModel):
     machine_id: int
     shift_id: int
     items: list[LiveCellBatchOut] = Field(default_factory=list)
+
+
+class LivePendingAssignmentSummaryOut(BaseModel):
+    entry_count: int = 0
+    draft_entry_count: int = 0
+    formal_entry_count: int = 0
+    missing_machine_count: int = 0
+    missing_shift_count: int = 0
+    input: float = 0
+    output: float = 0
+    scrap: float = 0
+
+
+class LivePendingAssignmentItemOut(BaseModel):
+    tracking_card_no: str
+    entry_id: int
+    work_order_id: int | None = None
+    business_date: str
+    workshop_id: int
+    workshop_name: str
+    shift_id: int | None = None
+    shift_name: str | None = None
+    machine_id: int | None = None
+    entry_status: str
+    entry_type: str
+    input_weight: float | None = None
+    output_weight: float | None = None
+    scrap_weight: float | None = None
+    missing_fields: list[str] = Field(default_factory=list)
+    created_by_user_id: int | None = None
+    created_at: str | None = None
+
+
+class LivePendingAssignmentOut(BaseModel):
+    business_date: str
+    workshop_id: int | None = None
+    total: int = 0
+    summary: LivePendingAssignmentSummaryOut = Field(default_factory=LivePendingAssignmentSummaryOut)
+    items: list[LivePendingAssignmentItemOut] = Field(default_factory=list)

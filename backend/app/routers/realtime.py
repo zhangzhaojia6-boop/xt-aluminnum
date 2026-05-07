@@ -16,7 +16,7 @@ from app.core.event_bus import event_bus
 from app.core.rate_limit import acquire_connection_rate_limit, enforce_request_rate_limit
 from app.core.scope import build_scope_summary, can_view_all_work_order_entries, resolve_work_order_entry_workshop_scope
 from app.models.system import User
-from app.schemas.realtime import LiveAggregationOut, LiveCellDetailOut
+from app.schemas.realtime import LiveAggregationOut, LiveCellDetailOut, LivePendingAssignmentOut
 from app.services import realtime_service
 
 
@@ -181,3 +181,21 @@ def live_aggregation_detail(
         current_user=current_user,
     )
     return LiveCellDetailOut(**payload)
+
+
+@router.get('/aggregation/live/pending-assignment', response_model=LivePendingAssignmentOut, name='live-pending-assignment')
+def live_pending_assignment(
+    request: Request,
+    business_date: date,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> LivePendingAssignmentOut:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_pending_assignment', limit=60, window_seconds=60)
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=business_date,
+        workshop_id=workshop_id,
+        current_user=current_user,
+    )
+    return LivePendingAssignmentOut(**payload)

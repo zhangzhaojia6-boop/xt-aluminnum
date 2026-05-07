@@ -8,6 +8,7 @@ function source(path) {
 
 test('review task center is an exception supplement surface, not manual approval queue', () => {
   const review = source('../src/views/review/ReviewTaskCenter.vue')
+  const realtimeApi = source('../src/api/realtime.js')
 
   for (const retired of ['待审', '已审', '批量通过', '批量驳回', '审阅中心']) {
     assert.doesNotMatch(review, new RegExp(retired))
@@ -21,7 +22,16 @@ test('review task center is an exception supplement surface, not manual approval
   assert.match(review, /const reconciliationOpenCount = computed/)
   assert.match(review, /const diffCount = reconciliationOpenCount/)
   assert.match(review, /mes_sync_status/)
+  assert.match(review, /fetchPendingAssignmentEntries/)
+  assert.match(review, /待归属/)
+  assert.match(review, /pendingAssignmentTasks/)
+  assert.match(review, /随行卡/)
+  assert.match(review, /产出/)
+  assert.match(review, /缺失字段/)
   assert.doesNotMatch(review, /\['submitted', 'reviewed', 'auto_confirmed'\]/)
+  assert.doesNotMatch(review, /自动归属|提交正式|一键归属/)
+  assert.match(realtimeApi, /fetchPendingAssignmentEntries/)
+  assert.match(realtimeApi, /\/aggregation\/live\/pending-assignment/)
 })
 
 test('shift center no longer exposes production shift import in the management path', () => {

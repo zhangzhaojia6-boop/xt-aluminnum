@@ -1,7 +1,205 @@
-from datetime import date
+from datetime import date, time
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.database import Base
+from app.models.master import Equipment, Team, Workshop
+from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services import realtime_service
+
+
+def build_realtime_session(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'realtime-detail.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            Team.__table__,
+            User.__table__,
+            Equipment.__table__,
+            ShiftConfig.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+        ],
+    )
+    return sessionmaker(bind=engine, autoflush=False, future=True)()
+
+
+def seed_pending_assignment_entry(
+    db,
+    *,
+    entry_id: int,
+    tracking_card_no: str,
+    workshop_id: int,
+    shift_id: int | None,
+    machine_id: int | None,
+    output_weight: float = 96_000.0,
+) -> None:
+    db.add(
+        WorkOrder(
+            id=entry_id,
+            tracking_card_no=tracking_card_no,
+            process_route_code='cold-roll',
+            overall_status='in_progress',
+        )
+    )
+    db.add(
+        WorkOrderEntry(
+            id=entry_id,
+            work_order_id=entry_id,
+            workshop_id=workshop_id,
+            machine_id=machine_id,
+            shift_id=shift_id,
+            business_date=date(2026, 5, 6),
+            input_weight=100_000.0,
+            output_weight=output_weight,
+            scrap_weight=4_000.0,
+            entry_status='draft',
+            entry_type='mobile_coil',
+            created_by_user_id=9,
+        )
+    )
+
+
+def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(
+                id=3,
+                code='N',
+                name='夜班',
+                shift_type='night',
+                start_time=time(20, 0),
+                end_time=time(8, 0),
+                is_cross_day=True,
+                sort_order=3,
+                is_active=True,
+            ),
+            Equipment(id=11, code='LZ2050-1', name='1#轧机', workshop_id=2, is_active=True),
+        ]
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=101,
+        tracking_card_no='RA260506001',
+        workshop_id=2,
+        shift_id=3,
+        machine_id=None,
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=102,
+        tracking_card_no='RA260506002',
+        workshop_id=2,
+        shift_id=3,
+        machine_id=11,
+        output_weight=88_000.0,
+    )
+    db.commit()
+
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=User(id=7, username='admin', password_hash='x', name='Admin', role='admin'),
+    )
+
+    assert payload['business_date'] == '2026-05-06'
+    assert payload['total'] == 1
+    assert payload['summary'] == {
+        'entry_count': 1,
+        'draft_entry_count': 1,
+        'formal_entry_count': 0,
+        'missing_machine_count': 1,
+        'missing_shift_count': 0,
+        'input': 100.0,
+        'output': 96.0,
+        'scrap': 4.0,
+    }
+    assert payload['items'] == [
+        {
+            'entry_id': 101,
+            'work_order_id': 101,
+            'tracking_card_no': 'RA260506001',
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'workshop_name': '2050冷轧车间',
+            'shift_id': 3,
+            'shift_name': '夜班',
+            'machine_id': None,
+            'entry_status': 'draft',
+            'entry_type': 'mobile_coil',
+            'input_weight': 100.0,
+            'output_weight': 96.0,
+            'scrap_weight': 4.0,
+            'missing_fields': ['machine_id'],
+            'created_by_user_id': 9,
+            'created_at': payload['items'][0]['created_at'],
+        }
+    ]
+
+
+def test_build_pending_assignment_detail_respects_workshop_scope(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            Workshop(id=3, code='JZ', name='精整车间', sort_order=2, is_active=True),
+            ShiftConfig(
+                id=3,
+                code='N',
+                name='夜班',
+                shift_type='night',
+                start_time=time(20, 0),
+                end_time=time(8, 0),
+                is_cross_day=True,
+                sort_order=3,
+                is_active=True,
+            ),
+        ]
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=201,
+        tracking_card_no='RA260506201',
+        workshop_id=2,
+        shift_id=3,
+        machine_id=None,
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=301,
+        tracking_card_no='RA260506301',
+        workshop_id=3,
+        shift_id=3,
+        machine_id=None,
+    )
+    db.commit()
+
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=User(
+            id=8,
+            username='workshop-reviewer',
+            password_hash='x',
+            name='Workshop Reviewer',
+            role='workshop_director',
+            workshop_id=2,
+            data_scope_type='self_workshop',
+        ),
+    )
+
+    assert payload['workshop_id'] == 2
+    assert payload['total'] == 1
+    assert payload['items'][0]['tracking_card_no'] == 'RA260506201'
 
 
 def test_aggregate_live_payload_groups_workshops_machines_and_shifts() -> None:

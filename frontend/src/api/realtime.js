@@ -9,3 +9,8 @@ export async function fetchLiveCellDetail(params = {}) {
   const { data } = await api.get('/aggregation/live/detail', { params })
   return data
 }
+
+export async function fetchPendingAssignmentEntries(params = {}) {
+  const { data } = await api.get('/aggregation/live/pending-assignment', { params })
+  return data
+}

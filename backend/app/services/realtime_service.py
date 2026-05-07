@@ -6,7 +6,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.scope import (
@@ -523,6 +523,115 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
         }
         for entry, work_order in query.all()
     ]
+
+
+def _entry_weight_kg_to_tons(entry: WorkOrderEntry, field_name: str) -> float:
+    value = getattr(entry, field_name)
+    if field_name == 'input_weight':
+        value = _prefer_number(entry.verified_input_weight, entry.input_weight)
+    elif field_name == 'output_weight':
+        value = _prefer_number(entry.verified_output_weight, entry.output_weight)
+    return _to_float(value) / 1000
+
+
+def _iso_datetime(value) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+    return str(value)
+
+
+def build_pending_assignment_detail(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None,
+    current_user: User,
+) -> dict:
+    scoped_workshop_id = _resolve_workshop_filter(current_user=current_user, workshop_id=workshop_id)
+    query = (
+        db.query(WorkOrderEntry, WorkOrder, Workshop, ShiftConfig)
+        .join(WorkOrder, WorkOrder.id == WorkOrderEntry.work_order_id)
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .outerjoin(ShiftConfig, ShiftConfig.id == WorkOrderEntry.shift_id)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            or_(WorkOrderEntry.machine_id.is_(None), WorkOrderEntry.shift_id.is_(None)),
+        )
+    )
+    if scoped_workshop_id is not None:
+        query = query.filter(WorkOrderEntry.workshop_id == scoped_workshop_id)
+
+    items = []
+    input_total = 0.0
+    output_total = 0.0
+    scrap_total = 0.0
+    draft_count = 0
+    formal_count = 0
+    missing_machine_count = 0
+    missing_shift_count = 0
+
+    rows = query.order_by(Workshop.sort_order.asc(), Workshop.id.asc(), WorkOrderEntry.id.desc()).all()
+    for entry, work_order, workshop, shift in rows:
+        input_weight = _entry_weight_kg_to_tons(entry, 'input_weight')
+        output_weight = _entry_weight_kg_to_tons(entry, 'output_weight')
+        scrap_weight = _entry_weight_kg_to_tons(entry, 'scrap_weight')
+        input_total += input_weight
+        output_total += output_weight
+        scrap_total += scrap_weight
+
+        missing_fields = []
+        if entry.machine_id is None:
+            missing_fields.append('machine_id')
+            missing_machine_count += 1
+        if entry.shift_id is None:
+            missing_fields.append('shift_id')
+            missing_shift_count += 1
+
+        entry_status = entry.entry_status
+        entry_type = entry.entry_type
+        is_formal = _is_formal_entry({'entry_status': entry_status, 'entry_type': entry_type})
+        formal_count += 1 if is_formal else 0
+        draft_count += 1 if entry_status == 'draft' else 0
+        items.append(
+            {
+                'entry_id': entry.id,
+                'work_order_id': entry.work_order_id,
+                'tracking_card_no': work_order.tracking_card_no,
+                'business_date': entry.business_date.isoformat(),
+                'workshop_id': entry.workshop_id,
+                'workshop_name': workshop.name,
+                'shift_id': entry.shift_id,
+                'shift_name': shift.name if shift is not None else None,
+                'machine_id': entry.machine_id,
+                'entry_status': entry_status,
+                'entry_type': entry_type,
+                'input_weight': round(input_weight, 2),
+                'output_weight': round(output_weight, 2),
+                'scrap_weight': round(scrap_weight, 2),
+                'missing_fields': missing_fields,
+                'created_by_user_id': entry.created_by_user_id,
+                'created_at': _iso_datetime(entry.created_at),
+            }
+        )
+
+    return {
+        'business_date': business_date.isoformat(),
+        'workshop_id': scoped_workshop_id,
+        'total': len(items),
+        'summary': {
+            'entry_count': len(items),
+            'draft_entry_count': draft_count,
+            'formal_entry_count': formal_count,
+            'missing_machine_count': missing_machine_count,
+            'missing_shift_count': missing_shift_count,
+            'input': round(input_total, 2),
+            'output': round(output_total, 2),
+            'scrap': round(scrap_total, 2),
+        },
+        'items': items,
+    }
 
 
 def _load_local_shift_rows(db: Session, *, business_date: date, workshop_id: int | None) -> list[ShiftProductionData]:

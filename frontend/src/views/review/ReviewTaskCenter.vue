@@ -2,7 +2,7 @@
   <ReferencePageFrame
     module-number="07"
     title="异常与补录"
-    :tags="['缺报', '退回', '差异', '同步滞后']"
+    :tags="['缺报', '退回', '差异', '同步滞后', '待归属']"
     data-testid="review-task-center"
   >
     <template #actions>
@@ -14,6 +14,7 @@
       <ReferenceKpiTile label="缺报" :value="missingCount" unit="项" icon="缺" status="warning" />
       <ReferenceKpiTile label="退回" :value="returnedCount" unit="项" icon="退" status="danger" />
       <ReferenceKpiTile label="差异" :value="diffCount" unit="项" icon="差" status="warning" />
+      <ReferenceKpiTile label="待归属" :value="pendingAssignmentCount" unit="卷" icon="归" status="warning" />
     </section>
 
     <section class="review-task-center__main">
@@ -24,12 +25,16 @@
             <el-radio-button label="returned">退回</el-radio-button>
             <el-radio-button label="diff">差异</el-radio-button>
             <el-radio-button label="stale">同步滞后</el-radio-button>
+            <el-radio-button label="pendingAssignment">待归属</el-radio-button>
           </el-radio-group>
           <el-button size="small" :disabled="!filteredTasks.length">导出异常</el-button>
         </div>
         <ReferenceDataTable :data="filteredTasks" stripe v-loading="loading">
           <el-table-column prop="workshop" label="来源车间" min-width="130" />
           <el-table-column prop="shift" label="班次" width="90" />
+          <el-table-column prop="trackingCard" label="随行卡" min-width="140" />
+          <el-table-column prop="outputWeightLabel" label="产出" width="100" />
+          <el-table-column prop="missingFieldLabel" label="缺失字段" min-width="130" />
           <el-table-column prop="anomaly" label="异常类型" min-width="150" />
           <el-table-column prop="aiSuggestion" label="AI 建议" min-width="220" />
           <el-table-column prop="risk" label="风险等级" width="110">
@@ -67,12 +72,15 @@ import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { fetchFactoryDashboard } from '../../api/dashboard'
+import { fetchPendingAssignmentEntries } from '../../api/realtime'
+import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const tab = ref('missing')
 const dashboard = ref({})
+const pendingAssignment = ref({ summary: {}, items: [] })
 
 const rawTasks = computed(() => {
   const list = []
@@ -85,6 +93,9 @@ const rawTasks = computed(() => {
       workshop: row.workshop_name || '-',
       workshopId: row.workshop_id || null,
       shift: row.shift_code || '-',
+      trackingCard: '-',
+      outputWeightLabel: '-',
+      missingFieldLabel: '-',
       anomaly: row.status_hint || status,
       aiSuggestion: buildSuggestionByStatus(status),
       risk
@@ -105,6 +116,9 @@ const diffTasks = computed(() => {
       workshop: '全厂',
       workshopId: null,
       shift: '-',
+      trackingCard: '-',
+      outputWeightLabel: '-',
+      missingFieldLabel: '-',
       anomaly: `差异核对 ${count} 项`,
       aiSuggestion: '先核对系统口径与补录来源，关闭影响日报的差异。',
       risk: count > 3 ? '高' : '中'
@@ -122,23 +136,43 @@ const staleTasks = computed(() => {
       workshop: '数据接入',
       workshopId: null,
       shift: '-',
+      trackingCard: '-',
+      outputWeightLabel: '-',
+      missingFieldLabel: '-',
       anomaly: syncAnomalyLabel(syncStatus),
       aiSuggestion: buildSuggestionByStatus('sync_stale'),
       risk: status === 'failed' || status === 'migration_missing' || lagSeconds > 900 ? '高' : '中'
     }
   ]
 })
+const pendingAssignmentTasks = computed(() => {
+  const rows = pendingAssignment.value.items || []
+  return rows.map((item) => ({
+    status: 'pending_assignment',
+    workshop: item.workshop_name || '-',
+    workshopId: item.workshop_id || null,
+    shift: item.shift_name || '-',
+    trackingCard: item.tracking_card_no || '-',
+    outputWeightLabel: `${formatWeight(item.output_weight)} 吨`,
+    missingFieldLabel: formatMissingFields(item.missing_fields),
+    anomaly: formatEntryState(item),
+    aiSuggestion: buildSuggestionByStatus('pending_assignment'),
+    risk: (item.missing_fields || []).length > 1 ? '高' : '中'
+  }))
+})
 
 const filteredTasks = computed(() => {
   if (tab.value === 'returned') return returnedTasks.value
   if (tab.value === 'diff') return diffTasks.value
   if (tab.value === 'stale') return staleTasks.value
+  if (tab.value === 'pendingAssignment') return pendingAssignmentTasks.value
   return missingTasks.value
 })
 
 const missingCount = computed(() => missingTasks.value.length)
 const returnedCount = computed(() => returnedTasks.value.length)
 const diffCount = reconciliationOpenCount
+const pendingAssignmentCount = computed(() => Number(pendingAssignment.value.summary?.entry_count ?? pendingAssignment.value.total ?? 0) || 0)
 
 const riskHighlights = computed(() => {
   const exceptionLane = dashboard.value.exception_lane || {}
@@ -156,7 +190,23 @@ function buildSuggestionByStatus(status) {
   if (status === 'submitted') return '检查来源完整性并定位差异。'
   if (status === 'reviewed' || status === 'auto_confirmed') return '保持当前节奏，关注新增异常。'
   if (status === 'sync_stale' || status === 'stale') return '先核对数据同步状态，再处理受影响记录。'
+  if (status === 'pending_assignment') return '先确认机列或班次归属，保持草稿不进入产量。'
   return '按班次闭环，优先处理阻塞项。'
+}
+
+function formatMissingFields(fields = []) {
+  const labels = {
+    machine_id: '机列',
+    shift_id: '班次'
+  }
+  const mapped = fields.map((field) => labels[field] || field).filter(Boolean)
+  return mapped.length ? mapped.join('、') : '-'
+}
+
+function formatEntryState(item = {}) {
+  const status = item.entry_status === 'draft' ? '草稿' : item.entry_status || '-'
+  const type = item.entry_type === 'mobile_coil' ? '卷级直录' : item.entry_type || '-'
+  return `${status} / ${type}`
 }
 
 function syncAnomalyLabel(syncStatus = {}) {
@@ -190,7 +240,17 @@ function goFactory() {
 async function load() {
   loading.value = true
   try {
-    dashboard.value = await fetchFactoryDashboard({ target_date: targetDate.value })
+    const [dashboardResult, pendingAssignmentResult] = await Promise.allSettled([
+      fetchFactoryDashboard({ target_date: targetDate.value }),
+      fetchPendingAssignmentEntries({ business_date: targetDate.value })
+    ])
+    if (dashboardResult.status === 'fulfilled') {
+      dashboard.value = dashboardResult.value
+    } else {
+      throw dashboardResult.reason
+    }
+    pendingAssignment.value =
+      pendingAssignmentResult.status === 'fulfilled' ? pendingAssignmentResult.value || { summary: {}, items: [] } : { summary: {}, items: [] }
   } finally {
     loading.value = false
   }
@@ -208,7 +268,7 @@ onMounted(load)
 }
 
 .review-task-center__kpis {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .review-task-center__main {
