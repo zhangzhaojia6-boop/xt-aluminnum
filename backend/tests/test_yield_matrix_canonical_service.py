@@ -33,7 +33,7 @@ def test_parse_yield_matrix_sheet_extracts_workshops_mp_and_company_total() -> N
     assert parsed.delivery_scope == 'factory'
     assert parsed.status == 'success'
     assert parsed.mapped_data['workshop_yields']['cold_roll_1450'] == 95.2
-    assert parsed.mapped_data['workshop_yields']['cold_roll_1650_2050'] == 96.8
+    assert parsed.mapped_data['workshop_yields']['cold_roll_2050'] == 96.8
     assert parsed.mapped_data['company_total_yield'] == 96.0
     assert parsed.mapped_data['mp_targets']['M'] == 88.0
     assert parsed.mapped_data['mp_targets']['P'] == 92.0
@@ -87,7 +87,7 @@ def test_build_yield_matrix_projection_aggregates_and_deduplicates_latest_rows()
                     'delivery_scope': 'factory',
                     'workshop_yields': {
                         'cold_roll_1450': 95.2,
-                        'cold_roll_1650_2050': 96.8,
+                        'cold_roll_2050': 96.8,
                     },
                     'mp_targets': {'M': 88.0, 'P': 92.0},
                     'company_total_yield': 96.0,
@@ -121,7 +121,7 @@ def test_build_yield_matrix_projection_aggregates_and_deduplicates_latest_rows()
     assert projection['snapshot_count'] == 1
     assert projection['company_total_yield'] == 96.0
     assert projection['workshop_yields']['cold_roll_1450'] == 95.2
-    assert projection['workshop_yields']['cold_roll_1650_2050'] == 96.8
+    assert projection['workshop_yields']['cold_roll_2050'] == 96.8
     assert projection['mp_targets']['M'] == 88.0
     assert projection['mp_targets']['P'] == 92.0
     assert projection['quality_status'] == 'ready'

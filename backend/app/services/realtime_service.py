@@ -528,8 +528,10 @@ def _resolve_yield_matrix_workshop_key(workshop: Workshop) -> str | None:
     text = f'{code} {name}'
     if '1450' in text:
         return 'cold_roll_1450'
-    if '1650' in text or '2050' in text:
-        return 'cold_roll_1650_2050'
+    if '1650' in text:
+        return 'cold_roll_1650'
+    if '2050' in text:
+        return 'cold_roll_2050'
     if '1850' in text:
         return 'cold_roll_1850'
     if '拉矫' in text:

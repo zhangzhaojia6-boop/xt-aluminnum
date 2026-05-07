@@ -201,7 +201,7 @@ def test_wecom_group_bot_uses_delivery_target_key_for_workshop_report_without_en
             'report_type': 'production',
             'delivery_target': 'workshop',
             'delivery_target_key': '2',
-            'delivery_scope': 'workshop:cold_roll_1650_2050',
+            'delivery_scope': 'workshop:cold_roll_2050',
         },
     )
 

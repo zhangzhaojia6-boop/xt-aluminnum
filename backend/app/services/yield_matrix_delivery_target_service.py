@@ -17,7 +17,8 @@ from app.services.contract_delivery_target_service import (
 
 WORKSHOP_SCOPE_HINTS: dict[str, tuple[str, ...]] = {
     'cold_roll_1450': ('LZ1450', '1450'),
-    'cold_roll_1650_2050': ('LZ2050', '2050', '1650'),
+    'cold_roll_1650': ('LZ1650', '1650'),
+    'cold_roll_2050': ('LZ2050', '2050'),
     'cold_roll_1850': ('1850',),
     'stretch': ('拉矫',),
     'finishing': ('精整',),

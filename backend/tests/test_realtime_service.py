@@ -1229,7 +1229,7 @@ def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() ->
     yield_matrix_lane = {
         'quality_status': 'ready',
         'company_total_yield': 96.0,
-        'workshop_yields': {'cold_roll_1650_2050': 95.8},
+        'workshop_yields': {'cold_roll_2050': 95.8},
     }
 
     updated = realtime_service._apply_yield_matrix_authority(payload, workshops, yield_matrix_lane)

@@ -80,9 +80,9 @@ def test_resolve_workshop_scope_conflict_falls_back_to_management(tmp_path) -> N
 
         payload = resolve_yield_matrix_delivery_targets(
             db,
-            delivery_scope='workshop:cold_roll_1650_2050',
+            delivery_scope='workshop:cold_roll_2050',
             settings=build_settings(),
         )
 
-    assert payload['resolution_status'] == 'conflict'
+    assert payload['resolution_status'] == 'blocked'
     assert payload['publisher_delivery_target'] == 'management'
