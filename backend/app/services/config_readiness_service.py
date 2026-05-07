@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Equipment, Team, Workshop
 from app.models.shift import ShiftConfig
@@ -169,8 +170,13 @@ def _issue(
     return payload
 
 
-def evaluate_equipment_binding(equipment_rows: list[Any], user_map: dict[int, Any]) -> dict[str, Any]:
-    """Evaluate machine-user binding readiness without blocking empty rollout data."""
+def evaluate_equipment_binding(
+    equipment_rows: list[Any],
+    user_map: dict[int, Any],
+    *,
+    workshop_rows: list[Any] | None = None,
+) -> dict[str, Any]:
+    """Evaluate machine-user binding readiness with pilot workshop coverage."""
 
     if not equipment_rows:
         return {
@@ -179,16 +185,42 @@ def evaluate_equipment_binding(equipment_rows: list[Any], user_map: dict[int, An
             "detail": "no_active_equipment",
         }
 
-    bound_rows = [item for item in equipment_rows if item.bound_user_id is not None]
-    if not bound_rows:
+    pilot_codes_raw = (settings.PILOT_WORKSHOP_CODES or '').strip()
+    pilot_codes = {code.strip() for code in pilot_codes_raw.split(',') if code.strip()}
+    threshold = float(settings.PILOT_BINDING_COVERAGE_THRESHOLD or 0.8)
+
+    workshop_code_by_id: dict[int, str] = {}
+    for item in workshop_rows or []:
+        ws_id = getattr(item, 'id', None)
+        ws_code = getattr(item, 'code', None)
+        if ws_id is not None and ws_code:
+            workshop_code_by_id[int(ws_id)] = str(ws_code)
+
+    def _is_pilot(item: Any) -> bool:
+        if not pilot_codes:
+            return True
+        ws_code = workshop_code_by_id.get(int(getattr(item, 'workshop_id', 0) or 0))
+        return ws_code in pilot_codes if ws_code else False
+
+    active_rows = [item for item in equipment_rows if getattr(item, 'is_active', True)]
+    pilot_equipment = [item for item in active_rows if _is_pilot(item)]
+    if not pilot_equipment:
+        pilot_equipment = active_rows
+
+    bound_pilot = [item for item in pilot_equipment if getattr(item, 'bound_user_id', None) is not None]
+    unbound_pilot = [item for item in pilot_equipment if getattr(item, 'bound_user_id', None) is None]
+
+    if not bound_pilot:
         return {
             "status": "warning",
             "action_required": "bind_machine_users",
             "detail": "no_equipment_user_binding",
         }
 
+    coverage = len(bound_pilot) / len(pilot_equipment)
+
     bad_binding: list[str] = []
-    for item in bound_rows:
+    for item in bound_pilot:
         user = user_map.get(item.bound_user_id)
         if user is None:
             bad_binding.append(f"{item.code}({item.name})")
@@ -202,12 +234,24 @@ def evaluate_equipment_binding(equipment_rows: list[Any], user_map: dict[int, An
             "action_required": "fix_machine_user_binding",
             "detail": "invalid_equipment_user_binding",
             "sample": bad_binding,
+            "coverage": round(coverage, 2),
+        }
+
+    if coverage < threshold:
+        return {
+            "status": "warning",
+            "action_required": "bind_pilot_machine_users",
+            "detail": "pilot_binding_coverage_below_threshold",
+            "coverage": round(coverage, 2),
+            "threshold": threshold,
+            "unbound": [item.code for item in unbound_pilot][:20],
         }
 
     return {
         "status": "ok",
         "action_required": None,
         "detail": "bound_machine_users_available",
+        "coverage": round(coverage, 2),
     }
 
 
@@ -382,7 +426,7 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
             )
 
         user_map = {item.id: item for item in db.query(User).all()}
-        equipment_binding = evaluate_equipment_binding(equipment_rows, user_map)
+        equipment_binding = evaluate_equipment_binding(equipment_rows, user_map, workshop_rows=workshops)
         checks["equipment_binding"] = {
             key: value
             for key, value in equipment_binding.items()
