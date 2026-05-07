@@ -95,6 +95,22 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert 'systemctl is-active nginx' in state
 
 
+def test_backend_registers_daily_default_schedule_seed_job() -> None:
+    source = _read('backend/app/main.py')
+
+    assert 'def _run_schedule_seed():' in source
+    assert 'seed_default_pilot_schedule(session)' in source
+    assert '\n        _run_schedule_seed()\n' in source
+    assert "id='default_schedule_seed'" in source
+    assert "'cron'" in source
+    assert 'hour=0' in source
+    assert 'minute=5' in source
+    assert 'replace_existing=True' in source
+    assert 'coalesce=True' in source
+    assert 'max_instances=1' in source
+    assert source.index('\n        _run_schedule_seed()\n') < source.index('        scheduler.start()')
+
+
 def _load_deploy_production_module():
     module_path = REPO_ROOT / 'backend/scripts/deploy_production.py'
     spec = importlib.util.spec_from_file_location('deploy_production_under_test', module_path)
@@ -1000,7 +1016,9 @@ def test_known_gaps_describes_schedule_gate_with_configured_timezone() -> None:
     assert 'UTC 自然日' not in gaps
     assert 'DEFAULT_TIMEZONE=Asia/Shanghai' in gaps
     assert 'compose 启动链路已自动执行 `python scripts/init_real_master_data.py`' in gaps
-    assert '已运行容器跨目标业务日或跳过重启时' in gaps
+    assert '后端启动时会先运行一次 `seed_default_pilot_schedule()`' in gaps
+    assert 'APScheduler 每天 `00:05` 自动补种目标业务日应报清单' in gaps
+    assert '手工执行 `python scripts/init_real_master_data.py` 仍作为应急兜底' in gaps
     assert 'target_date_schedule_available' in gaps
     assert 'SCHEDULE_EMPTY' in gaps
 

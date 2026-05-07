@@ -132,6 +132,16 @@ async def lifespan(_: FastAPI):
                     session.rollback()
                     logger.exception('MES sync failed')
 
+        def _run_schedule_seed():
+            from app.services.pilot_schedule_seed import seed_default_pilot_schedule
+
+            with session_factory() as session:
+                try:
+                    seed_default_pilot_schedule(session)
+                except Exception:
+                    session.rollback()
+                    logger.exception('Default pilot schedule seed failed')
+
         def _run_ai_briefing():
             from app.services import ai_briefing_service
 
@@ -143,6 +153,17 @@ async def lifespan(_: FastAPI):
                     session.rollback()
                     logger.exception('AI briefing generation failed')
 
+        _run_schedule_seed()
+        scheduler.add_job(
+            _run_schedule_seed,
+            'cron',
+            hour=0,
+            minute=5,
+            id='default_schedule_seed',
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
         scheduler.add_job(
             _run_orchestration_pipeline,
             'interval',

@@ -112,3 +112,73 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
         assert shift_by_employee['PILOT-CPK-C-UTILITY'] == 'C'
     finally:
         db.close()
+
+
+def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_duplicate_employees(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(code='ZR2', name='铸二车间', sort_order=1, is_active=True)
+        db.add(workshop)
+        db.flush()
+        db.add_all(
+            [
+                Team(code='ZR2-A', name='白班组', workshop_id=workshop.id, sort_order=1, is_active=True),
+                Team(code='ZR2-B', name='小夜班组', workshop_id=workshop.id, sort_order=2, is_active=True),
+                Team(code='ZR2-C', name='大夜班组', workshop_id=workshop.id, sort_order=3, is_active=True),
+            ]
+        )
+        db.add_all(
+            [
+                ShiftConfig(
+                    code='A',
+                    name='白班',
+                    shift_type='day',
+                    start_time=time(8, 0),
+                    end_time=time(16, 0),
+                    is_cross_day=False,
+                    sort_order=1,
+                    is_active=True,
+                ),
+                ShiftConfig(
+                    code='B',
+                    name='小夜',
+                    shift_type='swing',
+                    start_time=time(16, 0),
+                    end_time=time(0, 0),
+                    is_cross_day=True,
+                    business_day_offset=0,
+                    sort_order=2,
+                    is_active=True,
+                ),
+                ShiftConfig(
+                    code='C',
+                    name='大夜',
+                    shift_type='night',
+                    start_time=time(0, 0),
+                    end_time=time(8, 0),
+                    is_cross_day=False,
+                    sort_order=3,
+                    is_active=True,
+                ),
+            ]
+        )
+        db.commit()
+
+        seed_default_pilot_schedule(db, target_date=date(2026, 5, 7))
+        employee_count = db.execute(select(Employee)).scalars().all()
+        first_day_count = db.execute(
+            select(AttendanceSchedule).where(AttendanceSchedule.business_date == date(2026, 5, 7))
+        ).scalars().all()
+
+        created_for_next_day = seed_default_pilot_schedule(db, target_date=date(2026, 5, 8))
+        second_day_count = db.execute(
+            select(AttendanceSchedule).where(AttendanceSchedule.business_date == date(2026, 5, 8))
+        ).scalars().all()
+        employees_after_rollover = db.execute(select(Employee)).scalars().all()
+
+        assert len(first_day_count) == 18
+        assert len(second_day_count) == len(first_day_count)
+        assert created_for_next_day == len(first_day_count)
+        assert len(employees_after_rollover) == len(employee_count)
+    finally:
+        db.close()
