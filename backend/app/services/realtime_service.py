@@ -643,6 +643,47 @@ def build_pending_assignment_detail(
     missing_shift_count = 0
 
     rows = query.order_by(Workshop.sort_order.asc(), Workshop.id.asc(), WorkOrderEntry.id.desc()).all()
+    creator_ids = {entry.created_by_user_id for entry, _work_order, _workshop, _shift in rows if entry.created_by_user_id}
+    creator_by_id = {
+        item.id: item
+        for item in db.query(User).filter(User.id.in_(creator_ids)).all()
+    } if creator_ids else {}
+    workshop_ids = {entry.workshop_id for entry, _work_order, _workshop, _shift in rows if entry.workshop_id}
+    machine_candidates_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    if workshop_ids:
+        machine_rows = (
+            db.query(Equipment)
+            .filter(
+                Equipment.workshop_id.in_(workshop_ids),
+                Equipment.is_active.is_(True),
+                Equipment.operational_status == 'running',
+            )
+            .order_by(Equipment.sort_order.asc(), Equipment.id.asc())
+            .all()
+        )
+        for machine in machine_rows:
+            equipment_type = str(machine.equipment_type or '').strip().lower()
+            if equipment_type in {'virtual_workshop_qr', 'virtual_role_qr'}:
+                continue
+            machine_candidates_by_workshop[machine.workshop_id].append(machine)
+    machine_name_by_id = {
+        machine.id: machine.name
+        for candidates in machine_candidates_by_workshop.values()
+        for machine in candidates
+    }
+    tracking_cards = {work_order.tracking_card_no for _entry, work_order, _workshop, _shift in rows if work_order.tracking_card_no}
+    mes_rows = _load_mes_snapshot_rows(
+        db,
+        business_date=business_date,
+        workshop_id=scoped_workshop_id,
+        tracking_card_nos=tracking_cards,
+    ) if tracking_cards else []
+    mes_rows_by_card: dict[str, list[dict]] = defaultdict(list)
+    for mes_row in mes_rows:
+        card_key = _tracking_card_key(mes_row.get('tracking_card_no'))
+        if card_key:
+            mes_rows_by_card[card_key].append(mes_row)
+
     for entry, work_order, workshop, shift in rows:
         input_weight = _entry_weight_kg_to_tons(entry, 'input_weight')
         output_weight = _entry_weight_kg_to_tons(entry, 'output_weight')
@@ -664,6 +705,20 @@ def build_pending_assignment_detail(
         is_formal = _is_formal_entry({'entry_status': entry_status, 'entry_type': entry_type})
         formal_count += 1 if is_formal else 0
         draft_count += 1 if entry_status == 'draft' else 0
+        creator = creator_by_id.get(entry.created_by_user_id)
+        machine_candidates = machine_candidates_by_workshop.get(entry.workshop_id, [])
+        card_key = _tracking_card_key(work_order.tracking_card_no)
+        mes_matches = [
+            item for item in mes_rows_by_card.get(card_key, [])
+            if item.get('workshop_id') in {None, entry.workshop_id}
+        ]
+        mes_machine_id = None
+        mes_machine_name = None
+        for mes_item in mes_matches:
+            if mes_item.get('machine_id') is not None:
+                mes_machine_id = mes_item.get('machine_id')
+                mes_machine_name = machine_name_by_id.get(mes_machine_id)
+                break
         items.append(
             {
                 'entry_id': entry.id,
@@ -682,6 +737,13 @@ def build_pending_assignment_detail(
                 'scrap_weight': round(scrap_weight, 2),
                 'missing_fields': missing_fields,
                 'created_by_user_id': entry.created_by_user_id,
+                'created_by_user_name': creator.name if creator is not None else None,
+                'created_by_username': creator.username if creator is not None else None,
+                'mes_match_count': len(mes_matches),
+                'mes_machine_id': mes_machine_id,
+                'mes_machine_name': mes_machine_name,
+                'machine_candidate_count': len(machine_candidates),
+                'machine_candidate_names': [machine.name for machine in machine_candidates[:5]],
                 'created_at': _iso_datetime(entry.created_at),
             }
         )

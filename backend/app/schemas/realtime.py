@@ -105,6 +105,13 @@ class LivePendingAssignmentItemOut(BaseModel):
     scrap_weight: float | None = None
     missing_fields: list[str] = Field(default_factory=list)
     created_by_user_id: int | None = None
+    created_by_user_name: str | None = None
+    created_by_username: str | None = None
+    mes_match_count: int = 0
+    mes_machine_id: int | None = None
+    mes_machine_name: str | None = None
+    machine_candidate_count: int = 0
+    machine_candidate_names: list[str] = Field(default_factory=list)
     created_at: str | None = None
 
 

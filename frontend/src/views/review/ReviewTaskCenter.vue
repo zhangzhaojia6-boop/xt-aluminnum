@@ -34,6 +34,8 @@
           <el-table-column prop="shift" label="班次" width="90" />
           <el-table-column prop="trackingCard" label="随行卡" min-width="140" />
           <el-table-column prop="outputWeightLabel" label="产出" width="100" />
+          <el-table-column prop="sourceLabel" label="录入来源" min-width="120" />
+          <el-table-column prop="assignmentHint" label="归属线索" min-width="160" />
           <el-table-column prop="missingFieldLabel" label="缺失字段" min-width="130" />
           <el-table-column prop="anomaly" label="异常类型" min-width="150" />
           <el-table-column prop="aiSuggestion" label="AI 建议" min-width="220" />
@@ -95,6 +97,8 @@ const rawTasks = computed(() => {
       shift: row.shift_code || '-',
       trackingCard: '-',
       outputWeightLabel: '-',
+      sourceLabel: '-',
+      assignmentHint: '-',
       missingFieldLabel: '-',
       anomaly: row.status_hint || status,
       aiSuggestion: buildSuggestionByStatus(status),
@@ -118,6 +122,8 @@ const diffTasks = computed(() => {
       shift: '-',
       trackingCard: '-',
       outputWeightLabel: '-',
+      sourceLabel: '-',
+      assignmentHint: '-',
       missingFieldLabel: '-',
       anomaly: `差异核对 ${count} 项`,
       aiSuggestion: '先核对系统口径与补录来源，关闭影响日报的差异。',
@@ -138,6 +144,8 @@ const staleTasks = computed(() => {
       shift: '-',
       trackingCard: '-',
       outputWeightLabel: '-',
+      sourceLabel: '-',
+      assignmentHint: '-',
       missingFieldLabel: '-',
       anomaly: syncAnomalyLabel(syncStatus),
       aiSuggestion: buildSuggestionByStatus('sync_stale'),
@@ -154,6 +162,8 @@ const pendingAssignmentTasks = computed(() => {
     shift: item.shift_name || '-',
     trackingCard: item.tracking_card_no || '-',
     outputWeightLabel: `${formatWeight(item.output_weight)} 吨`,
+    sourceLabel: formatAssignmentSource(item),
+    assignmentHint: formatAssignmentHint(item),
     missingFieldLabel: formatMissingFields(item.missing_fields),
     anomaly: formatEntryState(item),
     aiSuggestion: buildSuggestionByStatus('pending_assignment'),
@@ -207,6 +217,20 @@ function formatEntryState(item = {}) {
   const status = item.entry_status === 'draft' ? '草稿' : item.entry_status || '-'
   const type = item.entry_type === 'mobile_coil' ? '卷级直录' : item.entry_type || '-'
   return `${status} / ${type}`
+}
+
+function formatAssignmentSource(item = {}) {
+  if (!item.created_by_user_id) return '无账号录入'
+  return item.created_by_user_name || item.created_by_username || `账号 ${item.created_by_user_id}`
+}
+
+function formatAssignmentHint(item = {}) {
+  const mesMatchCount = Number(item.mes_match_count || 0)
+  if (mesMatchCount > 0 && item.mes_machine_name) return `外部MES：${item.mes_machine_name}`
+  if (mesMatchCount > 0) return '外部MES已匹配'
+  const candidateCount = Number(item.machine_candidate_count || 0)
+  if (candidateCount > 0) return `车间候选 ${candidateCount} 台`
+  return '无机列候选'
 }
 
 function syncAnomalyLabel(syncStatus = {}) {

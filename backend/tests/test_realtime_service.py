@@ -402,7 +402,18 @@ def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) ->
                 sort_order=3,
                 is_active=True,
             ),
-            Equipment(id=11, code='LZ2050-1', name='1#轧机', workshop_id=2, is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='1#轧机', workshop_id=2, operational_status='running', is_active=True),
+            User(id=9, username='op-a', password_hash='x', name='主操甲', role='machine_operator', is_active=True),
+            MesCoilSnapshot(
+                id=901,
+                coil_id='MES-RA260506001',
+                tracking_card_no='RA260506001',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                business_date=date(2026, 5, 6),
+                status='synced',
+            ),
         ]
     )
     seed_pending_assignment_entry(
@@ -461,6 +472,13 @@ def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) ->
             'scrap_weight': 4.0,
             'missing_fields': ['machine_id'],
             'created_by_user_id': 9,
+            'created_by_user_name': '主操甲',
+            'created_by_username': 'op-a',
+            'mes_match_count': 1,
+            'mes_machine_id': 11,
+            'mes_machine_name': '1#轧机',
+            'machine_candidate_count': 1,
+            'machine_candidate_names': ['1#轧机'],
             'created_at': payload['items'][0]['created_at'],
         }
     ]
