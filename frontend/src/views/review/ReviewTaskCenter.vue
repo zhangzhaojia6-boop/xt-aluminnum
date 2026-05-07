@@ -95,7 +95,7 @@
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
@@ -107,13 +107,24 @@ import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/re
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
+const route = useRoute()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const promotingEntryId = ref(null)
 const selectedMachineByEntry = ref({})
-const tab = ref('missing')
 const dashboard = ref({})
 const pendingAssignment = ref({ summary: {}, items: [] })
+const VALID_TABS = new Set(['missing', 'returned', 'diff', 'stale', 'pendingAssignment'])
+const tab = ref(resolveInitialTab())
+
+function normalizeTab(value) {
+  const text = typeof value === 'string' ? value : ''
+  return VALID_TABS.has(text) ? text : ''
+}
+
+function resolveInitialTab() {
+  return normalizeTab(route.query.tab) || 'missing'
+}
 
 const rawTasks = computed(() => {
   const list = []
@@ -387,6 +398,10 @@ async function initializeActiveBusinessDate() {
 }
 
 watch(targetDate, load)
+watch(() => route.query.tab, (value) => {
+  const next = normalizeTab(value)
+  if (next) tab.value = next
+})
 onMounted(async () => {
   const dateChanged = await initializeActiveBusinessDate()
   if (!dateChanged) {
