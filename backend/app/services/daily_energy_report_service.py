@@ -157,6 +157,20 @@ def _day_number(value: object | None) -> int | None:
     return day if 1 <= day <= 31 else None
 
 
+def _strict_day_number(value: object | None) -> int | None:
+    if _is_blank(value):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        day = int(value)
+        return day if 1 <= day <= 31 else None
+    text = str(value).strip()
+    match = re.fullmatch(r'(\d{1,2})(?:\.0)?', text)
+    if not match:
+        return None
+    day = int(match.group(1))
+    return day if 1 <= day <= 31 else None
+
+
 def _workshop_code_for(label: str) -> str | None:
     if label in WORKSHOP_LABEL_MAP:
         return WORKSHOP_LABEL_MAP[label]
@@ -275,7 +289,7 @@ def parse_workshop_electricity_workbook(
 
 def _find_gas_day_row(frame: pd.DataFrame, report_date: date) -> int | None:
     for row_index in range(min(len(frame), 40)):
-        if _day_number(frame.iat[row_index, 0] if frame.shape[1] else None) == report_date.day:
+        if _strict_day_number(frame.iat[row_index, 0] if frame.shape[1] else None) == report_date.day:
             return row_index
     return None
 

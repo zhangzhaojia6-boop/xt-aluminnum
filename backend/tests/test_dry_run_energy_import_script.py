@@ -85,6 +85,31 @@ def test_daily_energy_dry_run_maps_real_monthly_wide_tables(tmp_path: Path) -> N
     assert {'铸五制水房', '合计', '回收'} <= skipped_labels
 
 
+def test_daily_energy_gas_parser_does_not_treat_year_26_as_day_26(tmp_path: Path) -> None:
+    module = _load_script_module()
+    gas = tmp_path / 'workshop-gas-day26.xlsx'
+
+    frame = pd.DataFrame(
+        [
+            ['各车间天然气用量统计表（26年5月）', '', '', '', '', '', '', '', '', '', '', '', ''],
+            ['车间/日期', '铸锭', '回收', '铸二', '铸三', '热轧', '', '', '拉矫', '', '北线', '南线', '合计'],
+            ['', '', '', '', '', '加热炉东', '加热炉西', '锅炉', '退火炉', '锅炉', '', '', ''],
+            [26, 25763, 1524, 0, 4410, 4754, 4005, 1117, 3550, 1080, 2509, 2033, 50780],
+        ]
+    )
+    with pd.ExcelWriter(gas, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='用量')
+
+    payload = module.build_daily_energy_dry_run(
+        gas_file=gas,
+        report_date=date(2026, 5, 26),
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['totals']['gas_value'] == 49221.0
+    assert payload['mapping']['ready_rows'] == 9
+
+
 def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: Path) -> None:
     module = _load_script_module()
     electricity = tmp_path / 'workshop-energy.xlsx'
