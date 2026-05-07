@@ -334,16 +334,16 @@ def test_build_live_aggregation_resolves_virtual_role_qr_to_reporting_machine(tm
     db.add_all(
         [
             Workshop(id=5, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
-            ShiftConfig(id=3, code='N', name='小夜', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            ShiftConfig(id=5, code='N', name='小夜', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
             Equipment(id=81, code='LZ2050-1-OP', name='冷轧2050车间 2050# 主操', workshop_id=5, equipment_type='virtual_role_qr', operational_status='running', is_active=True),
-            Equipment(id=123, code='LZ2050-1', name='2050轧机', workshop_id=5, equipment_type='cold_mill', operational_status='running', is_active=True),
+            Equipment(id=123, code='LZ2050-1', name='2050轧机', workshop_id=5, equipment_type='cold_mill', operational_status='running', assigned_shift_ids=[1, 2, 3], is_active=True),
             WorkOrder(id=810, tracking_card_no='RA260506810', process_route_code='cold-roll', overall_status='created'),
             WorkOrderEntry(
                 id=810,
                 work_order_id=810,
                 workshop_id=5,
                 machine_id=81,
-                shift_id=3,
+                shift_id=5,
                 business_date=date(2026, 5, 6),
                 input_weight=31_642.0,
                 output_weight=29_850.0,

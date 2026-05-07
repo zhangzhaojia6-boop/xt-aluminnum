@@ -292,10 +292,12 @@ def aggregate_live_payload(
         machine_map[machine.workshop_id].append(machine)
 
     cell_entries: dict[tuple[int, int, int], list[dict]] = defaultdict(list)
+    data_shift_ids_by_machine: dict[tuple[int, int], set[int]] = defaultdict(set)
     for item in entries:
         if item.get('machine_id') is None or item.get('shift_id') is None:
             continue
         cell_entries[(item['workshop_id'], item['machine_id'], item['shift_id'])].append(item)
+        data_shift_ids_by_machine[(item['workshop_id'], item['machine_id'])].add(item['shift_id'])
 
     workshop_entries: dict[int, list[dict]] = defaultdict(list)
     for item in entries:
@@ -331,6 +333,7 @@ def aggregate_live_payload(
             applicable_shift_ids = {
                 int(item) for item in (getattr(machine, 'assigned_shift_ids', None) or [shift.id for shift in ordered_shifts])
             }
+            applicable_shift_ids.update(data_shift_ids_by_machine.get((workshop.id, machine.id), set()))
 
             for shift in ordered_shifts:
                 is_applicable = shift.id in applicable_shift_ids
