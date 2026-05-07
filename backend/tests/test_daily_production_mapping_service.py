@@ -134,7 +134,8 @@ def test_daily_production_mapping_preview_resolves_only_high_confidence_rows():
     assert rows[('铸锭', None)].workshop_code == 'ZD'
     assert rows[('铸锭', None)].equipment_id is None
     assert rows[('铸轧', '铸二')].workshop_code == 'ZR2'
-    assert rows[('铸轧', '铸二')].equipment_code == 'ZR2'
+    assert rows[('铸轧', '铸二')].expected_equipment_code is None
+    assert rows[('铸轧', '铸二')].equipment_id is None
     assert rows[('热轧', '铣床')].equipment_code == 'RZ-XC'
     assert rows[('冷轧', '2050')].workshop_code == 'LZ2050'
     assert rows[('冷轧', '2050')].equipment_code == 'LZ2050-1'
@@ -270,6 +271,10 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
     assert preview.needs_equipment_mapping_rows == 0
     assert preview.unresolved_rows == 0
     rows = {(row.workshop_label, row.project_label): row for row in preview.rows}
+    assert rows[('铸轧', '铸二')].workshop_code == 'ZR2'
+    assert rows[('铸轧', '铸二')].expected_equipment_code is None
+    assert rows[('铸轧', '铸三')].workshop_code == 'ZR3'
+    assert rows[('铸轧', '铸三')].expected_equipment_code is None
     assert rows[('冷轧', '1650')].equipment_code == 'LZ1650-1'
     assert rows[('冷轧', '1850')].equipment_code == 'LZ1850-1'
     assert rows[('冷轧', '花纹板')].equipment_code == 'HWB-1'

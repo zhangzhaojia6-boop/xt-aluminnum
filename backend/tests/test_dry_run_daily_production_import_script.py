@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+from datetime import date
+import importlib.util
+from pathlib import Path
+
+import pandas as pd
+
+
+def _load_script_module():
+    script_path = Path(__file__).resolve().parents[1] / 'scripts' / 'dry_run_daily_production_import.py'
+    spec = importlib.util.spec_from_file_location('dry_run_daily_production_import', script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _write_daily_workbook(path: Path, *, cold_rolling_output: float = 224.54) -> None:
+    frame = pd.DataFrame([
+        ['生产系统综合日报表2026年5月3日', '', '', '', '', '', '', '', '', '', ''],
+        ['', '', '', '', '', '', '', '', '', '', ''],
+        ['车间', '项目', '投入', '月累计投入', '产出', '月累计产出', '', '废料', '月累计废料', '成品率', '指标'],
+        ['铸锭', '', 320.0, 1000.0, 314.19, 900.0, '', 5.81, 20.0, 98.2, 97.0],
+        ['冷轧', '1650', 240.0, 800.0, cold_rolling_output, 700.0, '', 15.46, 35.0, 93.5, 94.0],
+        ['', '2050', 92.0, 500.0, 85.13, 450.0, '', 6.87, 25.0, 92.5, 94.0],
+        ['合计', '', '', '', '', '', '', '', '', '', ''],
+    ])
+    with pd.ExcelWriter(path, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='综合报表')
+
+
+def test_dry_run_daily_production_import_uses_locked_date_and_real_master_mapping(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily.xlsx'
+    _write_daily_workbook(workbook)
+
+    payload = module.build_daily_production_dry_run(
+        workbook,
+        report_date=date(2026, 5, 5),
+        year_hint=2026,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['source']['file_name'] == 'daily.xlsx'
+    assert payload['business_date'] == '2026-05-05'
+    assert payload['parse']['sheet_count'] == 1
+    assert payload['parse']['quality_status'] == 'warning'
+    assert [item['code'] for item in payload['parse']['issues']] == ['stale_workbook_report_date']
+    assert payload['totals']['daily_output_tons'] == 623.86
+    assert payload['mapping']['total_rows'] == 3
+    assert payload['mapping']['ready_rows'] == 3
+    assert payload['mapping']['unresolved_rows'] == 0
+    assert payload['mapping']['needs_equipment_mapping_rows'] == 0
+    assert payload['mapping']['equipment_bound_rows'] == 2
+    assert payload['mapping']['workshop_only_rows'] == 1
+
+    rows = {(row['workshop_label'], row['project_label']): row for row in payload['mapping']['rows']}
+    assert rows[('铸锭', None)]['workshop_code'] == 'ZD'
+    assert rows[('冷轧', '1650')]['equipment_code'] == 'LZ1650-1'
+    assert rows[('冷轧', '2050')]['equipment_code'] == 'LZ2050-1'
+
+
+def test_dry_run_daily_production_import_blocks_hard_scale_values(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily.xlsx'
+    _write_daily_workbook(workbook, cold_rolling_output=120460.0)
+
+    payload = module.build_daily_production_dry_run(
+        workbook,
+        report_date=date(2026, 5, 5),
+        year_hint=2026,
+    )
+
+    assert payload['hard_gate_passed'] is False
+    assert payload['parse']['quality_status'] == 'blocked'
+    assert 'hard_block_kg_as_tons' in [item['code'] for item in payload['parse']['issues']]

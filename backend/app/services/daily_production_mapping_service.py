@@ -74,8 +74,8 @@ def serialize_daily_production_mapping_preview(preview: DailyProductionMappingPr
 
 DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('铸锭', ''): MappingRule(workshop_code='ZD'),
-    ('铸轧', '铸二'): MappingRule(workshop_code='ZR2', equipment_code='ZR2'),
-    ('铸轧', '铸三'): MappingRule(workshop_code='ZR3', equipment_code='ZR3'),
+    ('铸轧', '铸二'): MappingRule(workshop_code='ZR2'),
+    ('铸轧', '铸三'): MappingRule(workshop_code='ZR3'),
     ('热轧', '铣床'): MappingRule(workshop_code='RZ', equipment_code='RZ-XC', equipment_required=True),
     ('热轧', '热轧'): MappingRule(workshop_code='RZ', equipment_code='RZ-ZJ', equipment_required=True),
     ('冷轧', '2050'): MappingRule(workshop_code='LZ2050', equipment_code='LZ2050-1', equipment_required=True),
