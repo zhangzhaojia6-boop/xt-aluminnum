@@ -72,7 +72,7 @@ import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { fetchFactoryDashboard } from '../../api/dashboard'
-import { fetchPendingAssignmentEntries } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/realtime'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
@@ -256,8 +256,26 @@ async function load() {
   }
 }
 
+async function initializeActiveBusinessDate() {
+  try {
+    const payload = await fetchLiveActiveDate()
+    if (payload?.business_date && payload.business_date !== targetDate.value) {
+      targetDate.value = payload.business_date
+      return true
+    }
+  } catch (_error) {
+    return false
+  }
+  return false
+}
+
 watch(targetDate, load)
-onMounted(load)
+onMounted(async () => {
+  const dateChanged = await initializeActiveBusinessDate()
+  if (!dateChanged) {
+    await load()
+  }
+})
 </script>
 
 <style scoped>

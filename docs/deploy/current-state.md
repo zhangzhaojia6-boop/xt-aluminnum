@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 11:28:06 +08:00
+更新时间：2026-05-07 11:45:40 +08:00
 
 ## 1. 仓库状态
 
@@ -59,6 +59,7 @@ cd /srv/aluminum-bypass
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
 - 管理端实时聚合已支持“填报事实 + MES 归属”配对：当天填报卡号命中 MES 投影行时，即使 MES 快照没有业务日期，也会保留填报端重量/状态，只用 MES 的车间、机列、班次补齐缺失归属；卡号比较会容忍中文“一”/全角横线等操作员录入变体，移动端扫码查 MES 与 MVC 按卡查询也使用同一配对键，避免入口侧漏掉可绑定卷。
+- 管理端 `异常与补录` 的 `待归属` 首屏会先读取实时活跃业务日，再拉取待归属卷级填报；当浏览器日期晚于最新填报日时，页面不再默认落到无数据的当天，而是显示最近上传业务日的缺机列/缺班次草稿。
 - 主数据已新增只读工艺业务矩阵：`GET /api/v1/master/process-business-map` 输出 `分厂/厂区 -> 车间 -> 机列 -> 工艺业务`，并在 `docs/process-business-map.md` 记录当前口径；`1650/1850`、新厂/园区在线退火拆分、`JZ2` 具体机列职责仍标为待确认，不静默写成已确认事实。
 - systemd 部署脚本已改为 `npm ci --include=dev` 后再构建前端，避免生产环境清空 `node_modules` 后因 `vite` 被省略导致部署中断。
 
@@ -276,6 +277,7 @@ MES_API_KEY=...
 - 工厂指挥服务 `list_machine_lines()` 当前返回 `machine_lines_len=51`，其中 `local_source_line_count=0`；历史未绑定 draft 测试行不再作为 `local_shift_data` 机列进入管理端实时产量。
 - 管理端实时态势 `/api/v1/aggregation/live?business_date=2026-05-06` 当前服务探针返回 `data_source=work_order_runtime`、`factory_output=0.0`、`positive_live_cell_count=0`，不再显示历史 draft-only 临时机列产量。
 - 管理端班次节奏在无 submitted/verified/approved 卷级直录时不再展示历史 draft-only 产量节奏。
+- 管理端 `异常与补录/待归属` 已改为跟随 `/api/v1/aggregation/live/active-date` 返回的实时活跃业务日；本地验证 `npm --prefix frontend test` 为 124 passed，`npm --prefix frontend run build` 通过，文档门禁单测通过。
 - 对账服务仍保留卷级 kg 折吨代码路径；生产 draft-only 聚合置为 `voided` 后，历史 `120460.0kg -> 120.46t` 只作为已验证过的折吨行为证据，不再作为当前活动产量。
 - 自动汇总 Agent 的部署探针使用 synthetic confirmed `mobile_coil_agg` 行验证代码路径：`250000.0kg -> aggregator_output_tons=250.0`、`260000.0kg -> aggregator_input_tons=260.0`；未在生产库触发自动日报生成或写入新日报。
 - ECS 到外部 MES 登录入口 `https://mes.xintaily.com/Login/Index` 网络可达：HTTP 200，`remote_ip=47.92.251.37`，`ssl_verify=0`，`time_total=0.767825s`；当前 MES 未联通不是服务器网络不可达。
