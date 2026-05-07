@@ -81,8 +81,11 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'ZR3',
             'RZ',
             'LZ2050',
+            'LZ1850',
+            'LZ1650',
             'LZ1450',
             'LZ3',
+            'HWB',
             'JZ',
             'JZ2',
             'JQ',
@@ -95,8 +98,11 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             '铸三车间',
             '热轧车间',
             '2050冷轧车间',
+            '1850冷轧车间',
+            '1650冷轧车间',
             '1450冷轧车间',
             '冷轧三车间',
+            '花纹板车间',
             '精整车间',
             '二分厂精整车间',
             '园区剪切车间',
@@ -111,13 +117,16 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'cold_roll',
             'cold_roll',
             'cold_roll',
+            'cold_roll',
+            'cold_roll',
+            'cold_roll',
             'finishing',
             'finishing',
             'shearing',
             'inventory',
             'annealing',
         ]
-        assert len(teams) == 36
+        assert len(teams) == 45
         assert [(item.code, item.name) for item in teams if item.code.startswith('ZR2-')] == [
             ('ZR2-A', '白班组'),
             ('ZR2-B', '小夜班组'),
@@ -143,6 +152,20 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'running',
         ]
         assert zr2_equipment[0].custom_fields and zr2_equipment[0].custom_fields[0]['name'] == 'al_liquid_kg'
+
+        zr3_equipment = [item for item in equipment if item.code.startswith('ZR3-')]
+        assert [(item.code, item.name, item.equipment_type) for item in zr3_equipment] == [
+            ('ZR3-1', '1#机', 'cast_roller'),
+            ('ZR3-2', '2#机', 'cast_roller'),
+            ('ZR3-3', '3#机', 'cast_roller'),
+            ('ZR3-4', '4#机', 'cast_roller'),
+            ('ZR3-5', '5#机', 'cast_roller'),
+            ('ZR3-6', '6#机', 'cast_roller'),
+            ('ZR3-7', '7#机', 'cast_roller'),
+            ('ZR3-8', '8#机', 'cast_roller'),
+            ('ZR3-9', '9#机', 'cast_roller'),
+        ]
+        assert all(item.operational_status == 'running' for item in zr3_equipment)
 
         milling = next(item for item in equipment if item.code == 'RZ-XC')
         assert milling.shift_mode == 'two'
@@ -341,7 +364,7 @@ def test_seed_real_master_data_updates_existing_records_idempotently_and_deactiv
         assert placeholder_equipment.is_active is False
         assert placeholder_team.is_active is False
 
-        assert len(db.execute(select(Workshop)).scalars().all()) == 14
+        assert len(db.execute(select(Workshop)).scalars().all()) == 17
         assert len(db.execute(select(Team).where(Team.code == 'ZR2-A')).scalars().all()) == 1
         assert len(db.execute(select(Equipment).where(Equipment.code == 'ZR2-1')).scalars().all()) == 1
     finally:
@@ -463,6 +486,68 @@ def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop
         assert operator_user.role == 'machine_operator'
         assert operator_user.workshop_id == refreshed_workshop.id
         assert operator_user.is_mobile_user is True
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_includes_1650_1850_hwb(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        seed_real_master_data(db)
+
+        workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all() if item.is_active}
+        for code in ('LZ1650', 'LZ1850', 'HWB'):
+            assert code in workshops, f'workshop {code} missing after seed'
+
+        equipment = {item.code: item for item in db.execute(select(Equipment)).scalars().all() if item.is_active}
+        for code in ('LZ1650-1', 'LZ1850-1', 'HWB-1'):
+            assert code in equipment, f'equipment {code} missing after seed'
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_includes_zr3_operator_reporting_machines(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        seed_real_master_data(db)
+
+        equipment = {item.code: item for item in db.execute(select(Equipment)).scalars().all() if item.is_active}
+        expected_codes = {f'ZR3-{index}' for index in range(1, 10)}
+        missing = expected_codes - set(equipment)
+        assert not missing, f'missing ZR3 reporting machines: {missing}'
+        assert equipment['ZR3-2'].name == '2#机'
+        assert equipment['ZR3-2'].equipment_type == 'cast_roller'
+        assert equipment['ZR3-3'].operational_status == 'running'
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_aliases_1650_1850_hwb(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        seed_real_master_data(db)
+
+        aliases = {
+            (item.alias_code, item.canonical_code)
+            for item in db.execute(select(MasterCodeAlias)).scalars().all()
+            if item.is_active
+        }
+        expected = {
+            ('1650车间', 'LZ1650'),
+            ('冷轧1650车间', 'LZ1650'),
+            ('1850车间', 'LZ1850'),
+            ('冷轧1850车间', 'LZ1850'),
+            ('花纹板', 'HWB'),
+            ('花纹板车间', 'HWB'),
+        }
+        missing = expected - aliases
+        assert not missing, f'missing aliases: {missing}'
     finally:
         db.close()
 

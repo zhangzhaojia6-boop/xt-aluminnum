@@ -38,12 +38,15 @@ WORKSHOPS = [
     {'code': 'ZR3', 'name': '铸三车间', 'sort_order': 3},
     {'code': 'RZ', 'name': '热轧车间', 'sort_order': 4},
     {'code': 'LZ2050', 'name': '2050冷轧车间', 'sort_order': 5},
-    {'code': 'LZ1450', 'name': '1450冷轧车间', 'sort_order': 6},
-    {'code': 'LZ3', 'name': '冷轧三车间', 'sort_order': 7},
-    {'code': 'JZ', 'name': '精整车间', 'sort_order': 8},
-    {'code': 'JZ2', 'name': '二分厂精整车间', 'sort_order': 9},
-    {'code': 'JQ', 'name': '园区剪切车间', 'sort_order': 10},
-    {'code': 'CPK', 'name': '成品库', 'sort_order': 11},
+    {'code': 'LZ1850', 'name': '1850冷轧车间', 'sort_order': 6},
+    {'code': 'LZ1650', 'name': '1650冷轧车间', 'sort_order': 7},
+    {'code': 'LZ1450', 'name': '1450冷轧车间', 'sort_order': 8},
+    {'code': 'LZ3', 'name': '冷轧三车间', 'sort_order': 9},
+    {'code': 'HWB', 'name': '花纹板车间', 'sort_order': 10},
+    {'code': 'JZ', 'name': '精整车间', 'sort_order': 11},
+    {'code': 'JZ2', 'name': '二分厂精整车间', 'sort_order': 12},
+    {'code': 'JQ', 'name': '园区剪切车间', 'sort_order': 13},
+    {'code': 'CPK', 'name': '成品库', 'sort_order': 14},
     {'code': 'ZXTF', 'name': '在线退火车间', 'sort_order': 200},
 ]
 
@@ -105,7 +108,15 @@ EQUIPMENT_BY_WORKSHOP = {
         },
     ],
     'ZR3': [
-        {'code': 'ZR3-1', 'name': '1#机', 'machine_type': 'cast_roller', 'shift_mode': 'three', 'operational_status': 'running'},
+        {
+            'code': f'ZR3-{index}',
+            'name': f'{index}#机',
+            'machine_type': 'cast_roller',
+            'shift_mode': 'three',
+            'operational_status': 'running',
+            'custom_fields': ZR2_CUSTOM_FIELDS,
+        }
+        for index in range(1, 10)
     ],
     'RZ': [
         {
@@ -136,8 +147,17 @@ EQUIPMENT_BY_WORKSHOP = {
     'LZ2050': [
         {'code': 'LZ2050-1', 'name': '2050轧机', 'machine_type': 'cold_mill', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
+    'LZ1850': [
+        {'code': 'LZ1850-1', 'name': '1850轧机', 'machine_type': 'cold_mill', 'shift_mode': 'three', 'operational_status': 'running'},
+    ],
+    'LZ1650': [
+        {'code': 'LZ1650-1', 'name': '1650轧机', 'machine_type': 'cold_mill', 'shift_mode': 'three', 'operational_status': 'running'},
+    ],
     'LZ1450': [
         {'code': 'LZ1450-1', 'name': '1450轧机', 'machine_type': 'cold_mill', 'shift_mode': 'three', 'operational_status': 'running'},
+    ],
+    'HWB': [
+        {'code': 'HWB-1', 'name': '花纹板主轧', 'machine_type': 'cold_mill', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
     'JZ': [
         {'code': 'JZ-LWJ1', 'name': '拉弯矫1#', 'machine_type': 'straightener'},
@@ -221,8 +241,17 @@ ROLE_QR_SUFFIX_MAP = {
 MES_WORKSHOP_ALIASES = [
     ('LZ2050', '2050车间'),
     ('LZ2050', '冷轧2050车间'),
+    ('LZ1850', '1850车间'),
+    ('LZ1850', '冷轧1850车间'),
+    ('LZ1850', '1850冷轧'),
+    ('LZ1650', '1650车间'),
+    ('LZ1650', '冷轧1650车间'),
+    ('LZ1650', '1650冷轧'),
     ('LZ1450', '1450车间'),
     ('LZ1450', '冷轧1450车间'),
+    ('HWB', '花纹板'),
+    ('HWB', '花纹板车间'),
+    ('HWB', '花纹板冷轧'),
     ('RZ', '热轧'),
     ('RZ', '热轧车间'),
     ('JZ', '精整'),
@@ -240,7 +269,7 @@ MES_WORKSHOP_ALIASES = [
 
 PROCESS_BUSINESS_UNITS = [
     {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3']},
-    {'unit_code': 'rolling_branch', 'unit_name': '轧制分厂', 'workshop_codes': ['RZ', 'LZ2050', 'LZ1450', 'LZ3']},
+    {'unit_code': 'rolling_branch', 'unit_name': '轧制分厂', 'workshop_codes': ['RZ', 'LZ2050', 'LZ1850', 'LZ1650', 'LZ1450', 'LZ3', 'HWB']},
     {'unit_code': 'finishing_branch', 'unit_name': '精整分厂', 'workshop_codes': ['JZ']},
     {'unit_code': 'second_branch', 'unit_name': '二分厂', 'workshop_codes': ['JZ2']},
     {'unit_code': 'park_area', 'unit_name': '园区', 'workshop_codes': ['JQ']},
@@ -274,6 +303,16 @@ WORKSHOP_PROCESS_BUSINESS = {
         'process_tags': ['冷轧', '2050'],
         'area_status': 'confirmed',
     },
+    'LZ1850': {
+        'process_business': '1850冷轧',
+        'process_tags': ['冷轧', '1850'],
+        'area_status': 'confirmed',
+    },
+    'LZ1650': {
+        'process_business': '1650冷轧',
+        'process_tags': ['冷轧', '1650'],
+        'area_status': 'confirmed',
+    },
     'LZ1450': {
         'process_business': '1450冷轧',
         'process_tags': ['冷轧', '1450'],
@@ -283,6 +322,11 @@ WORKSHOP_PROCESS_BUSINESS = {
         'process_business': '冷轧三车间',
         'process_tags': ['冷轧'],
         'area_status': 'needs_machine_line_confirmation',
+    },
+    'HWB': {
+        'process_business': '花纹板冷轧',
+        'process_tags': ['冷轧', '花纹板'],
+        'area_status': 'confirmed',
     },
     'JZ': {
         'process_business': '精整/拉矫/剪切',
@@ -316,7 +360,10 @@ MACHINE_PROCESS_BUSINESS_BY_CODE = {
     'RZ-XC': '铣面',
     'RZ-JC': '锯切',
     'LZ2050-1': '2050冷轧',
+    'LZ1850-1': '1850冷轧',
+    'LZ1650-1': '1650冷轧',
     'LZ1450-1': '1450冷轧',
+    'HWB-1': '花纹板冷轧',
     'JZ-LWJ1': '拉弯矫/洗拉',
     'JZ-LWJ2': '拉弯矫/洗拉',
     'JZ-LWJ3': '拉弯矫/洗拉',
@@ -394,7 +441,6 @@ def build_process_business_hierarchy() -> dict:
         'status': 'workshop_machine_process_business_map',
         'units': units,
         'open_items': [
-            '冷轧1650和1850需要补入标准车间/机列后才能正式承接日报未解析行',
             '新厂在线车间和园区在线车间当前映射到ZXTF，仍需MES设备/南北线字段拆分',
             'JZ2二分厂精整当前只有1#到8#机列，具体横剪/纵剪/拉矫职责需要现场确认',
         ],
