@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 12:42:00 +08:00
+更新时间：2026-05-07 15:18:00 +08:00
 
 ## 1. 仓库状态
 
@@ -55,6 +55,7 @@ cd /srv/aluminum-bypass
 - 历史 `每日产量` 工作簿已接入只读 canonical 预览：`综合报表` 会输出显式吨单位、车间标签向下继承、日/月投料产出废料合计，并把超过 `10000t` 的日产量标为疑似 kg 口径，不写入数据库。
 - 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
+- 历史 `每日产量` 5.5 报表已按锁定报告日重跑暂存：生产备份 `backups/pre-daily-production-locked-staging-20260507-1515.dump` 经 `pg_restore -l` 校验后，使用同一上传 `.xlsx` 写入 `ImportBatch id=2`、`batch_no=IMP-DAILY-LOCKED-20260507151631472379`，`business_date=2026-05-05`，`daily_output_tons=1935.649t`，映射 `16/16 ready`，其中 `equipment_bound_rows=11`、`workshop_only_rows=5`；旧 `id=1` 保留为历史旧表头批次，最新管理端预览应以 `id=2` 为准，`ShiftProductionData` 写入增量仍为 0。
 - 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
@@ -407,8 +408,10 @@ cd backend
 - 生产 staging 批次：`ImportBatch id=1`，`batch_no=IMP-20260506130735-d4f557`，`file_name=xintai-daily-production-2026-05-03.xlsx`，`file_path=uploads/4ee5b77a8566471c84266074fe8969d4.xlsx`，`total_rows=1`，`success_rows=1`，`failed_rows=0`。
 - 生产写库复验：首行 `business_date=2026-05-03`，`source_unit=t`，`row_count=16`，`daily_output_tons=1935.649`；`ShiftProductionData` 从 28 到 28，`shift_rows_delta=0`。
 - 生产只读映射预览：`batch_id=1`，`total_rows=16`，`ready_rows=7`，`needs_equipment_mapping_rows=0`，`unresolved_rows=9`；已匹配 `铸锭/->ZD/`、`铸轧/铸二->ZR2/`、`铸轧/铸三->ZR3/`、`热轧/铣床->RZ/RZ-XC`、`热轧/热轧->RZ/RZ-ZJ`、`冷轧/2050->LZ2050/LZ2050-1`、`园区剪切/->JQ/`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`；复验 `shift_rows_delta=0`。
+- 2026-05-07 已新增显式锁定报告日 staging 写入：`scripts/dry_run_daily_production_import.py --write-staging` 默认先跑同一硬门禁，失败会回滚；本轮本地测试 `python -m pytest backend/tests -q` 为 `768 passed, 124 deselected, 32 warnings`，`npm test` 为 `124 pass`，`npm run build` 通过。
+- 生产锁定日期重跑：`backups/pre-daily-production-locked-staging-20260507-1515.dump`，`pg_restore -l` 输出 701 行；`ImportBatch id=2`，`source_type=daily_production_report_locked`，`business_date=2026-05-05`，`quality_status=warning` 仅因表头仍写 `2026-05-03`，`total_rows=1`，`success_rows=1`，`failed_rows=0`，`preview total_rows=16`、`ready_rows=16`、`needs_equipment_mapping_rows=0`、`unresolved_rows=0`，`ShiftProductionData` 未新增正式事实行。
 
-下一道门禁：把导入行转为正式生产数据前，必须先补齐 9 个未解析标签的车间/机列口径、班次归属、日累计与月累计口径确认，并继续拦截 `>10000t` 的疑似 kg/t 错配数据。
+下一道门禁：把 `ImportBatch id=2` 转为正式生产数据前，必须先设计日汇总到班次/机列事实的拆分规则、确认 5 个车间级汇总行是否保持车间事实还是需要人工拆机列、明确日累计与月累计只读展示口径，并继续拦截 `>5000t` warning 与 `>50000t` hard block 的疑似 kg/t 错配数据。
 
 ## 10. 回滚锚点
 
