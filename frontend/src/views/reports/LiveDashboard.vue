@@ -51,6 +51,30 @@
       </article>
     </section>
 
+    <section v-if="externalReadinessLanes.length" class="external-readiness-lanes" aria-label="外部联通明细">
+      <div class="external-readiness-lanes__head">
+        <strong>外部联通明细</strong>
+        <span>{{ externalReadinessReady ? '全部通过' : externalIssueLabel }}</span>
+      </div>
+      <div class="external-readiness-lanes__grid">
+        <article
+          v-for="lane in externalReadinessLanes"
+          :key="lane.code"
+          class="external-readiness-lane"
+          :class="`is-${lane.tone}`"
+        >
+          <div class="external-readiness-lane__title">
+            <span>{{ lane.label }}</span>
+            <strong>{{ lane.state }}</strong>
+          </div>
+          <div class="external-readiness-lane__bar" aria-hidden="true">
+            <i :style="{ transform: `scaleX(${lane.progress})` }"></i>
+          </div>
+          <em>{{ lane.meta }}</em>
+        </article>
+      </div>
+    </section>
+
     <section class="mes-connection-strip" aria-label="外部 MES">
       <div class="mes-connection-strip__status">
         <span :class="['mes-connection-strip__dot', `is-${mesConnectionTone}`]"></span>
@@ -619,9 +643,31 @@ const managementOverview = computed(() => buildManagementOverview({
   dashboard: factorySnapshot.value,
   delivery: deliverySnapshot.value
 }))
+const EXTERNAL_READINESS_LANE_LABELS = {
+  LLM_DISABLED: 'LLM 摘要',
+  APP_CONNECTION_DISABLED: '应用连接',
+  DINGTALK_NO_BOUND_USERS: '钉钉人员',
+  DINGTALK_CONTACTS_PERMISSION_MISSING: '通讯录权限',
+  APP_CONNECTION_DRY_RUN_ONLY: '应用连接',
+  APP_CONNECTION_CONFIG_MISSING: '应用连接',
+  DINGTALK_CONFIG_MISSING: '钉钉配置'
+}
+const EXTERNAL_READINESS_LANE_META = {
+  LLM_DISABLED: 'API 与模型待配置',
+  APP_CONNECTION_DISABLED: '推送通道待启用',
+  DINGTALK_NO_BOUND_USERS: '真实人员待绑定',
+  DINGTALK_CONTACTS_PERMISSION_MISSING: '成员读取权限待开通',
+  APP_CONNECTION_DRY_RUN_ONLY: '仍在 dry-run',
+  APP_CONNECTION_CONFIG_MISSING: 'API 参数待补齐',
+  DINGTALK_CONFIG_MISSING: '应用参数待补齐'
+}
 const externalHardIssues = computed(() => {
   const hardIssues = externalReadiness.value.hard_issues || externalReadiness.value.hardIssues || []
   return Array.isArray(hardIssues) ? hardIssues : []
+})
+const externalWarningIssues = computed(() => {
+  const warningIssues = externalReadiness.value.warning_issues || externalReadiness.value.warningIssues || []
+  return Array.isArray(warningIssues) ? warningIssues : []
 })
 const externalHardIssueCount = computed(() => externalHardIssues.value.length)
 const externalReadinessLoaded = computed(() => Object.keys(externalReadiness.value || {}).length > 0)
@@ -637,6 +683,26 @@ const externalIssueLabel = computed(() => {
   if (!externalReadinessLoaded.value) return '接口待返回'
   if (!externalHardIssues.value.length) return '外部链路就绪'
   return externalHardIssues.value.slice(0, 3).map((item) => item.code).filter(Boolean).join(' / ')
+})
+const externalReadinessLanes = computed(() => {
+  if (!externalReadinessLoaded.value) return []
+  const issues = [
+    ...externalHardIssues.value.map((item) => ({ ...item, level: 'hard' })),
+    ...externalWarningIssues.value.map((item) => ({ ...item, level: 'warning' }))
+  ]
+  return issues.slice(0, 4).map((item) => {
+    const code = String(item.code || '').trim()
+    const requiredEnv = Array.isArray(item.required_env || item.requiredEnv) ? item.required_env || item.requiredEnv : []
+    const isHard = item.level === 'hard'
+    return {
+      code,
+      label: EXTERNAL_READINESS_LANE_LABELS[code] || code || '外部联通',
+      state: isHard ? '阻塞' : '待确认',
+      tone: isHard ? 'danger' : 'warning',
+      progress: isHard ? 0.36 : 0.64,
+      meta: requiredEnv.length ? `${requiredEnv.length} 项配置` : EXTERNAL_READINESS_LANE_META[code] || '现场待核对'
+    }
+  })
 })
 const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
@@ -1318,6 +1384,116 @@ onBeforeUnmount(() => {
 .mes-connection-strip__dot.is-danger {
   background: var(--command-red);
   box-shadow: 0 0 0 5px rgba(194, 65, 52, 0.12);
+}
+
+.external-readiness-lanes {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.96)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.external-readiness-lanes__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.external-readiness-lanes__head strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.external-readiness-lanes__head span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.external-readiness-lanes__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.external-readiness-lane {
+  --lane-accent: var(--command-blue);
+  display: grid;
+  gap: 7px;
+  min-height: 86px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.external-readiness-lane.is-danger {
+  --lane-accent: var(--command-red);
+  border-color: rgba(194, 65, 52, 0.24);
+}
+
+.external-readiness-lane.is-warning {
+  --lane-accent: var(--command-amber);
+  border-color: rgba(183, 121, 31, 0.24);
+}
+
+.external-readiness-lane__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.external-readiness-lane__title span {
+  overflow: hidden;
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.external-readiness-lane__title strong {
+  color: var(--lane-accent);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.external-readiness-lane__bar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: var(--xt-radius-pill);
+  background: rgba(39, 88, 146, 0.1);
+}
+
+.external-readiness-lane__bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  border-radius: inherit;
+  background: var(--lane-accent);
+}
+
+.external-readiness-lane em {
+  overflow: hidden;
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fill-intake-strip {
@@ -2545,6 +2721,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .external-readiness-lanes__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .live-machine-ownership {
     grid-template-columns: 1fr;
   }
@@ -2591,6 +2771,7 @@ onBeforeUnmount(() => {
   }
 
   .management-overview-strip,
+  .external-readiness-lanes__grid,
   .management-flow__nodes,
   .live-output-distribution__rows,
   .command-status-strip {
@@ -2675,6 +2856,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 480px) {
   .management-overview-strip,
+  .external-readiness-lanes__grid,
   .management-flow__nodes,
   .live-output-distribution__rows,
   .command-status-strip {
