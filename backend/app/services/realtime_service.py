@@ -851,7 +851,13 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
     return entries, 'work_order_runtime'
 
 
-def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: int | None) -> list[dict]:
+def _load_mes_snapshot_rows(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None,
+    tracking_card_nos: set[str] | None = None,
+) -> list[dict]:
     workshop_rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_id_by_code = {str(item.code or '').strip().upper(): item.id for item in workshop_rows if item.code}
     workshop_name_by_id = {item.id: item.name for item in workshop_rows}
@@ -878,11 +884,13 @@ def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: in
             ) or raw_text
         return cache[raw_text]
 
+    requested_tracking_cards = {_tracking_card_key(item) for item in (tracking_card_nos or set()) if _tracking_card_key(item)}
     query = db.query(MesCoilSnapshot)
     snapshots = []
     for item in query.all():
         snapshot_date = item.business_date or (item.event_time.date() if item.event_time else None)
-        if snapshot_date != business_date:
+        tracking_card_no = _tracking_card_key(item.tracking_card_no)
+        if snapshot_date != business_date and tracking_card_no not in requested_tracking_cards:
             continue
         canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
         snapshot_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
@@ -1042,7 +1050,17 @@ def build_live_aggregation(
         rows=_load_local_shift_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
     )
     local_entries = _drop_local_entries_for_existing_cells(entry_rows, local_entries)
-    mes_rows = _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+    fill_tracking_cards = {
+        _tracking_card_key(item.get('tracking_card_no'))
+        for item in [*entry_rows, *local_entries]
+        if _tracking_card_key(item.get('tracking_card_no'))
+    }
+    mes_rows = _load_mes_snapshot_rows(
+        db,
+        business_date=business_date,
+        workshop_id=scoped_workshop_id,
+        tracking_card_nos=fill_tracking_cards,
+    )
     machines = local_machines
     entries, data_source = _merge_runtime_entries(
         entry_rows=entry_rows,

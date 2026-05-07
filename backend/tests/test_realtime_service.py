@@ -245,7 +245,7 @@ def test_build_live_aggregation_pairs_fill_uploads_with_mes_machine_binding(tmp_
                 machine_code='LZ2050-1',
                 shift_code='N',
                 status='synced',
-                business_date=date(2026, 5, 6),
+                business_date=None,
                 source_payload={'input_weight': 6.0, 'output_weight': 5.2, 'scrap_weight': 0.8},
             ),
         ]
