@@ -116,6 +116,62 @@ def test_stage_daily_production_import_commits_locked_date_without_production_fa
         db.close()
 
 
+def test_promote_daily_production_batch_writes_confirmed_ton_facts(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        from app.services.bootstrap import seed_shift_configs
+
+        seed_shift_configs(db)
+        module.seed_real_master_data(db)
+        staged = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+
+        payload = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=False,
+        )
+
+        assert payload['committed'] is False
+        assert payload['fact_rows_written'] == 0
+        assert payload['total_output_tons'] == 0.0
+        assert payload['projected_fact_rows'] == 3
+        assert payload['projected_output_tons'] == 623.86
+        assert payload['shift_code'] == 'A'
+        assert db.query(ShiftProductionData).count() == 0
+
+        payload = module.promote_daily_production_batch(
+            db,
+            batch_id=staged['staging_write']['batch_id'],
+            shift_code='A',
+            duplicate_strategy='reject',
+            commit=True,
+        )
+
+        assert payload['committed'] is True
+        assert payload['fact_rows_written'] == 3
+        assert payload['total_output_tons'] == 623.86
+        assert payload['projected_fact_rows'] == 3
+        assert payload['projected_output_tons'] == 623.86
+        facts = db.query(ShiftProductionData).order_by(ShiftProductionData.output_weight.desc()).all()
+        assert [float(item.output_weight or 0) for item in facts] == [314.19, 224.54, 85.13]
+        assert {item.data_source for item in facts} == {'daily_production_report'}
+        assert {item.data_status for item in facts} == {'confirmed'}
+        assert {item.import_batch_id for item in facts} == {staged['staging_write']['batch_id']}
+    finally:
+        db.close()
+
+
 def test_stage_daily_production_import_rolls_back_when_gate_fails(tmp_path: Path) -> None:
     module = _load_script_module()
     workbook = tmp_path / 'daily.xlsx'
