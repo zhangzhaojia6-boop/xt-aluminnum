@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Equipment, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from tests.path_helpers import REPO_ROOT
@@ -14,7 +14,14 @@ def build_session(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'real-master-data.db'}", future=True)
     Base.metadata.create_all(
         engine,
-        tables=[Workshop.__table__, Team.__table__, User.__table__, Equipment.__table__, ShiftConfig.__table__],
+        tables=[
+            Workshop.__table__,
+            Team.__table__,
+            User.__table__,
+            Equipment.__table__,
+            MasterCodeAlias.__table__,
+            ShiftConfig.__table__,
+        ],
     )
     db = sessionmaker(bind=engine, future=True)()
     db.add_all(
@@ -80,6 +87,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'JZ2',
             'JQ',
             'CPK',
+            'ZXTF',
         ]
         assert [item.name for item in workshops] == [
             '铸锭车间',
@@ -93,6 +101,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             '二分厂精整车间',
             '园区剪切车间',
             '成品库',
+            '在线退火车间',
         ]
         assert [item.workshop_type for item in workshops] == [
             'casting',
@@ -106,8 +115,9 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'finishing',
             'shearing',
             'inventory',
+            'annealing',
         ]
-        assert len(teams) == 33
+        assert len(teams) == 36
         assert [(item.code, item.name) for item in teams if item.code.startswith('ZR2-')] == [
             ('ZR2-A', '白班组'),
             ('ZR2-B', '小夜班组'),
@@ -197,6 +207,69 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         assert utility_owner.role == 'utility_manager'
         assert utility_owner.assigned_shift_ids == [3]
         assert utility_owner.pin_code is not None
+
+        zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-')]
+        assert [(item.code, item.name, item.equipment_type, item.qr_code) for item in zxtf_equipment] == [
+            ('ZXTF-1', '1#线', 'annealing_line', 'XT-ZXTF-1'),
+            ('ZXTF-2', '2#线', 'annealing_line', 'XT-ZXTF-2'),
+            ('ZXTF-3', '3#线', 'annealing_line', 'XT-ZXTF-3'),
+            ('ZXTF-4', '4#线', 'annealing_line', 'XT-ZXTF-4'),
+        ]
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_preserves_existing_qr_codes_and_seeds_mes_aliases(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(code='LZ2050', name='旧2050', workshop_type='cold_roll', sort_order=99, is_active=True)
+        db.add(workshop)
+        db.commit()
+        db.refresh(workshop)
+        db.add(
+            Equipment(
+                code='LZ2050-1',
+                name='旧2050轧机',
+                workshop_id=workshop.id,
+                equipment_type='cold_mill',
+                operational_status='running',
+                qr_code='PRINTED-LZ2050-1',
+                is_active=True,
+            )
+        )
+        db.commit()
+
+        seed_real_master_data(db)
+        seed_real_master_data(db)
+
+        machine = db.execute(select(Equipment).where(Equipment.code == 'LZ2050-1')).scalar_one()
+        assert machine.qr_code == 'PRINTED-LZ2050-1'
+        assert machine.bound_user_id is not None
+
+        aliases = {
+            (item.entity_type, item.canonical_code, item.alias_code, item.alias_name, item.source_type)
+            for item in db.execute(select(MasterCodeAlias).where(MasterCodeAlias.is_active.is_(True))).scalars().all()
+        }
+        assert ('workshop', 'LZ2050', '2050车间', '2050车间', 'mes_mvc') in aliases
+        assert ('workshop', 'LZ1450', '1450车间', '1450车间', 'mes_mvc') in aliases
+        assert ('workshop', 'RZ', '热轧', '热轧', 'mes_mvc') in aliases
+        assert ('workshop', 'JZ', '拉矫车间', '拉矫车间', 'mes_mvc') in aliases
+        assert ('workshop', 'JQ', '园区精整', '园区精整', 'mes_mvc') in aliases
+        assert ('workshop', 'ZXTF', '新厂在线车间', '新厂在线车间', 'mes_mvc') in aliases
+        assert ('workshop', 'ZXTF', '园区在线车间', '园区在线车间', 'mes_mvc') in aliases
+
+        zxtf = db.execute(select(Workshop).where(Workshop.code == 'ZXTF')).scalar_one()
+        zxtf_lines = db.execute(select(Equipment).where(Equipment.workshop_id == zxtf.id).order_by(Equipment.code.asc())).scalars().all()
+        assert zxtf.name == '在线退火车间'
+        assert zxtf.workshop_type == 'annealing'
+        assert [(item.code, item.qr_code, item.operational_status) for item in zxtf_lines] == [
+            ('ZXTF-1', 'XT-ZXTF-1', 'running'),
+            ('ZXTF-2', 'XT-ZXTF-2', 'running'),
+            ('ZXTF-3', 'XT-ZXTF-3', 'running'),
+            ('ZXTF-4', 'XT-ZXTF-4', 'running'),
+        ]
     finally:
         db.close()
 
@@ -268,7 +341,7 @@ def test_seed_real_master_data_updates_existing_records_idempotently_and_deactiv
         assert placeholder_equipment.is_active is False
         assert placeholder_team.is_active is False
 
-        assert len(db.execute(select(Workshop)).scalars().all()) == 13
+        assert len(db.execute(select(Workshop)).scalars().all()) == 14
         assert len(db.execute(select(Team).where(Team.code == 'ZR2-A')).scalars().all()) == 1
         assert len(db.execute(select(Equipment).where(Equipment.code == 'ZR2-1')).scalars().all()) == 1
     finally:
@@ -392,6 +465,49 @@ def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop
         assert operator_user.is_mobile_user is True
     finally:
         db.close()
+
+
+def test_process_business_hierarchy_covers_factory_workshop_machine_roles() -> None:
+    from app.services.real_master_data import build_process_business_hierarchy
+
+    payload = build_process_business_hierarchy()
+    units = {item['unit_code']: item for item in payload['units']}
+
+    assert set(units) == {
+        'casting_branch',
+        'rolling_branch',
+        'finishing_branch',
+        'second_branch',
+        'park_area',
+        'warehouse_logistics',
+        'online_annealing',
+    }
+
+    casting_workshops = {item['workshop_code']: item for item in units['casting_branch']['workshops']}
+    assert casting_workshops['ZD']['process_business'] == '铸锭/熔炼前段'
+    assert casting_workshops['ZR2']['machines'][0]['process_business'] == '铸轧'
+
+    rolling_workshops = {item['workshop_code']: item for item in units['rolling_branch']['workshops']}
+    assert [item['process_business'] for item in rolling_workshops['RZ']['machines']] == ['热轧轧制', '铣面', '锯切']
+    assert rolling_workshops['LZ2050']['mes_aliases'] == ['2050车间', '冷轧2050车间']
+
+    finishing_workshops = {item['workshop_code']: item for item in units['finishing_branch']['workshops']}
+    assert {item['process_business'] for item in finishing_workshops['JZ']['machines']} >= {'拉弯矫/洗拉', '横剪/剪切', '纵剪', '分条', '飞剪'}
+
+    online = units['online_annealing']['workshops'][0]
+    assert online['workshop_code'] == 'ZXTF'
+    assert online['area_status'] == 'needs_mes_line_split'
+    assert online['mes_aliases'] == ['新厂在线车间', '园区在线车间', '在线退火', '在线退火车间']
+    assert {item['process_business'] for item in online['machines']} == {'在线退火'}
+
+    missing_machine_roles = [
+        machine['machine_code']
+        for unit in payload['units']
+        for workshop in unit['workshops']
+        for machine in workshop['machines']
+        if not machine['process_business']
+    ]
+    assert missing_machine_roles == []
 
 
 def test_docker_compose_runs_real_master_data_init_after_base_init() -> None:

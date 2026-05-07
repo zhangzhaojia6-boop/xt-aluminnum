@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Equipment, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.mes import MesCoilSnapshot
 from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
@@ -22,6 +22,7 @@ def build_realtime_session(tmp_path):
             Team.__table__,
             User.__table__,
             Equipment.__table__,
+            MasterCodeAlias.__table__,
             ShiftConfig.__table__,
             ShiftProductionData.__table__,
             WorkOrder.__table__,
@@ -164,6 +165,54 @@ def test_build_live_aggregation_blends_mes_projection_with_bound_fill_entries(tm
     assert machine['machine_binding_status'] == 'bound'
     assert machine['day_total']['output'] == 14.9
     assert machine['shifts'][0]['submitted_count'] == 2
+
+
+def test_build_live_aggregation_resolves_mes_workshop_aliases(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code='LZ2050',
+                alias_code='2050车间',
+                alias_name='2050车间',
+                source_type='mes_mvc',
+                is_active=True,
+            ),
+            MesCoilSnapshot(
+                id=702,
+                coil_id='MES-702',
+                tracking_card_no='MES-RA260506702',
+                workshop_code='2050车间',
+                machine_code='LZ2050-1',
+                shift_code='N',
+                status='synced',
+                business_date=date(2026, 5, 6),
+                source_payload={'input_weight': 6.0, 'output_weight': 5.2, 'scrap_weight': 0.8},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['data_source'] == 'mes_projection'
+    assert payload['factory_total']['output'] == 5.2
+    machine = payload['workshops'][0]['machines'][0]
+    assert machine['machine_id'] == 11
+    assert machine['day_total']['output'] == 5.2
+    assert machine['shifts'][0]['submitted_count'] == 1
 
 
 def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) -> None:

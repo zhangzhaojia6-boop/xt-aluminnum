@@ -24,6 +24,7 @@ from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import attendance_confirm_service
+from app.services import master_service
 from app.services import mes_sync_service
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 
@@ -832,6 +833,19 @@ def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: in
         for item in db.query(WorkOrder).all()
         if item.tracking_card_no
     }
+    resolved_workshop_code_by_raw: dict[str, str] = {}
+    resolved_machine_code_by_raw: dict[str, str] = {}
+
+    def resolve_mes_code(entity_type: str, raw_code: object | None, cache: dict[str, str]) -> str:
+        raw_text = str(raw_code or '').strip()
+        if raw_text not in cache:
+            cache[raw_text] = master_service.resolve_canonical_code(
+                db,
+                entity_type=entity_type,
+                value=raw_text,
+                source_type='mes_mvc',
+            ) or raw_text
+        return cache[raw_text]
 
     query = db.query(MesCoilSnapshot)
     snapshots = []
@@ -839,7 +853,8 @@ def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: in
         snapshot_date = item.business_date or (item.event_time.date() if item.event_time else None)
         if snapshot_date != business_date:
             continue
-        snapshot_workshop_id = workshop_id_by_code.get(str(item.workshop_code or '').strip().upper())
+        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
+        snapshot_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
         if workshop_id is not None and snapshot_workshop_id != workshop_id:
             continue
         snapshots.append(item)
@@ -850,8 +865,10 @@ def _load_mes_snapshot_rows(db: Session, *, business_date: date, workshop_id: in
         metadata = dict(source_payload.get('metadata') or {})
         tracking_card_no = str(item.tracking_card_no or '').strip().upper()
         work_order = work_order_by_card.get(tracking_card_no)
-        resolved_workshop_id = workshop_id_by_code.get(str(item.workshop_code or '').strip().upper())
-        resolved_machine_id = machine_id_by_code.get(str(item.machine_code or '').strip().upper())
+        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
+        canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
+        resolved_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
+        resolved_machine_id = machine_id_by_code.get(canonical_machine_code.strip().upper())
         resolved_shift_id = shift_id_by_code.get(str(item.shift_code or '').strip().upper())
         payload.append(
             {

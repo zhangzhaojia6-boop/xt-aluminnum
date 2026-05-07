@@ -167,3 +167,21 @@ def test_list_workshops_excludes_inactive_records(tmp_path) -> None:
     assert [item['code'] for item in payload['items']] == ['ACTIVE']
 
     app.dependency_overrides.clear()
+
+
+def test_process_business_map_route_returns_factory_workshop_machine_roles() -> None:
+    def fake_get_user() -> User:
+        return User(id=1, username='manager', password_hash='x', name='Manager', role='manager', is_active=True)
+
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    response = TestClient(app).get('/api/v1/master/process-business-map')
+
+    assert response.status_code == 200
+    payload = response.json()
+    units = {item['unit_code']: item for item in payload['units']}
+    assert units['rolling_branch']['unit_name'] == '轧制分厂'
+    assert units['rolling_branch']['workshops'][0]['machines'][0]['process_business']
+    assert units['online_annealing']['workshops'][0]['area_status'] == 'needs_mes_line_split'
+
+    app.dependency_overrides.clear()

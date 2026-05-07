@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_password_hash, verify_password
 from app.core.workshop_templates import WORKSHOP_TYPE_BY_WORKSHOP_CODE
-from app.models.master import Equipment, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.equipment_service import generate_random_pin
@@ -44,6 +44,7 @@ WORKSHOPS = [
     {'code': 'JZ2', 'name': '二分厂精整车间', 'sort_order': 9},
     {'code': 'JQ', 'name': '园区剪切车间', 'sort_order': 10},
     {'code': 'CPK', 'name': '成品库', 'sort_order': 11},
+    {'code': 'ZXTF', 'name': '在线退火车间', 'sort_order': 200},
 ]
 
 EQUIPMENT_BY_WORKSHOP = {
@@ -168,6 +169,12 @@ EQUIPMENT_BY_WORKSHOP = {
         {'code': 'JQ-4', 'name': '4#', 'machine_type': 'shear'},
         {'code': 'JQ-ZJ', 'name': '重卷', 'machine_type': 'recoiler'},
     ],
+    'ZXTF': [
+        {'code': 'ZXTF-1', 'name': '1#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'ZXTF-2', 'name': '2#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'ZXTF-3', 'name': '3#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'ZXTF-4', 'name': '4#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+    ],
 }
 
 SHIFT_TEAMS = [
@@ -210,6 +217,188 @@ ROLE_QR_SUFFIX_MAP = {
     'HY': ('hydraulic_lead', '液压'),
     'MT': ('maintenance_lead', '机修'),
 }
+
+MES_WORKSHOP_ALIASES = [
+    ('LZ2050', '2050车间'),
+    ('LZ2050', '冷轧2050车间'),
+    ('LZ1450', '1450车间'),
+    ('LZ1450', '冷轧1450车间'),
+    ('RZ', '热轧'),
+    ('RZ', '热轧车间'),
+    ('JZ', '精整'),
+    ('JZ', '精整车间'),
+    ('JZ', '拉矫'),
+    ('JZ', '拉矫车间'),
+    ('JQ', '园区精整'),
+    ('JQ', '园区剪切'),
+    ('JQ', '园区剪切车间'),
+    ('ZXTF', '新厂在线车间'),
+    ('ZXTF', '园区在线车间'),
+    ('ZXTF', '在线退火'),
+    ('ZXTF', '在线退火车间'),
+]
+
+PROCESS_BUSINESS_UNITS = [
+    {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3']},
+    {'unit_code': 'rolling_branch', 'unit_name': '轧制分厂', 'workshop_codes': ['RZ', 'LZ2050', 'LZ1450', 'LZ3']},
+    {'unit_code': 'finishing_branch', 'unit_name': '精整分厂', 'workshop_codes': ['JZ']},
+    {'unit_code': 'second_branch', 'unit_name': '二分厂', 'workshop_codes': ['JZ2']},
+    {'unit_code': 'park_area', 'unit_name': '园区', 'workshop_codes': ['JQ']},
+    {'unit_code': 'warehouse_logistics', 'unit_name': '成品库与发运', 'workshop_codes': ['CPK']},
+    {'unit_code': 'online_annealing', 'unit_name': '在线退火跨厂区', 'workshop_codes': ['ZXTF']},
+]
+
+WORKSHOP_PROCESS_BUSINESS = {
+    'ZD': {
+        'process_business': '铸锭/熔炼前段',
+        'process_tags': ['熔炼', '铸锭'],
+        'area_status': 'confirmed',
+    },
+    'ZR2': {
+        'process_business': '铸轧',
+        'process_tags': ['铸轧', '卷坯'],
+        'area_status': 'confirmed',
+    },
+    'ZR3': {
+        'process_business': '铸轧',
+        'process_tags': ['铸轧', '卷坯'],
+        'area_status': 'confirmed',
+    },
+    'RZ': {
+        'process_business': '热轧',
+        'process_tags': ['热轧', '铣面', '锯切'],
+        'area_status': 'confirmed',
+    },
+    'LZ2050': {
+        'process_business': '2050冷轧',
+        'process_tags': ['冷轧', '2050'],
+        'area_status': 'confirmed',
+    },
+    'LZ1450': {
+        'process_business': '1450冷轧',
+        'process_tags': ['冷轧', '1450'],
+        'area_status': 'confirmed',
+    },
+    'LZ3': {
+        'process_business': '冷轧三车间',
+        'process_tags': ['冷轧'],
+        'area_status': 'needs_machine_line_confirmation',
+    },
+    'JZ': {
+        'process_business': '精整/拉矫/剪切',
+        'process_tags': ['拉弯矫', '横剪', '纵剪', '分条', '飞剪'],
+        'area_status': 'confirmed',
+    },
+    'JZ2': {
+        'process_business': '二分厂精整',
+        'process_tags': ['精整'],
+        'area_status': 'needs_machine_process_confirmation',
+    },
+    'JQ': {
+        'process_business': '园区剪切/重卷',
+        'process_tags': ['剪切', '重卷'],
+        'area_status': 'confirmed',
+    },
+    'CPK': {
+        'process_business': '成品库存/入库/发货',
+        'process_tags': ['成品库', '入库', '发货', '库存'],
+        'area_status': 'confirmed',
+    },
+    'ZXTF': {
+        'process_business': '在线退火',
+        'process_tags': ['新厂在线', '园区在线', '在线退火'],
+        'area_status': 'needs_mes_line_split',
+    },
+}
+
+MACHINE_PROCESS_BUSINESS_BY_CODE = {
+    'RZ-ZJ': '热轧轧制',
+    'RZ-XC': '铣面',
+    'RZ-JC': '锯切',
+    'LZ2050-1': '2050冷轧',
+    'LZ1450-1': '1450冷轧',
+    'JZ-LWJ1': '拉弯矫/洗拉',
+    'JZ-LWJ2': '拉弯矫/洗拉',
+    'JZ-LWJ3': '拉弯矫/洗拉',
+    'JZ-HJ1': '横剪/剪切',
+    'JZ-HJ2': '横剪/剪切',
+    'JZ-HJ3': '横剪/剪切',
+    'JZ-ZJ1': '纵剪',
+    'JZ-ZJ2': '纵剪',
+    'JZ-ZJ3': '纵剪',
+    'JZ-FT1': '分条',
+    'JZ-FJ': '飞剪',
+    'JQ-ZJ': '重卷',
+}
+
+MACHINE_PROCESS_BUSINESS_BY_TYPE = {
+    'ingot_caster': '铸锭',
+    'cast_roller': '铸轧',
+    'cold_mill': '冷轧',
+    'finishing': '精整',
+    'shear': '剪切',
+    'annealing_line': '在线退火',
+}
+
+
+def build_process_business_hierarchy() -> dict:
+    workshops = {item['code']: item for item in WORKSHOPS}
+    mes_aliases: dict[str, list[str]] = {}
+    for canonical_code, alias_text in MES_WORKSHOP_ALIASES:
+        mes_aliases.setdefault(canonical_code, []).append(alias_text)
+
+    units = []
+    for unit in PROCESS_BUSINESS_UNITS:
+        workshop_rows = []
+        for workshop_code in unit['workshop_codes']:
+            workshop = workshops[workshop_code]
+            process_business = WORKSHOP_PROCESS_BUSINESS[workshop_code]
+            machines = []
+            for machine in EQUIPMENT_BY_WORKSHOP.get(workshop_code, []):
+                machine_code = machine['code']
+                machines.append(
+                    {
+                        'machine_code': machine_code,
+                        'machine_name': machine['name'],
+                        'machine_type': machine['machine_type'],
+                        'process_business': MACHINE_PROCESS_BUSINESS_BY_CODE.get(
+                            machine_code,
+                            MACHINE_PROCESS_BUSINESS_BY_TYPE.get(machine['machine_type'], ''),
+                        ),
+                        'shift_mode': machine.get('shift_mode', 'three'),
+                        'operational_status': machine.get('operational_status', 'running'),
+                    }
+                )
+            workshop_rows.append(
+                {
+                    'workshop_code': workshop_code,
+                    'workshop_name': workshop['name'],
+                    'workshop_type': WORKSHOP_TYPE_BY_WORKSHOP_CODE.get(workshop_code),
+                    'process_business': process_business['process_business'],
+                    'process_tags': list(process_business['process_tags']),
+                    'area_status': process_business['area_status'],
+                    'mes_aliases': mes_aliases.get(workshop_code, []),
+                    'machines': machines,
+                }
+            )
+        units.append(
+            {
+                'unit_code': unit['unit_code'],
+                'unit_name': unit['unit_name'],
+                'workshops': workshop_rows,
+            }
+        )
+
+    return {
+        'source': 'real_master_data',
+        'status': 'workshop_machine_process_business_map',
+        'units': units,
+        'open_items': [
+            '冷轧1650和1850需要补入标准车间/机列后才能正式承接日报未解析行',
+            '新厂在线车间和园区在线车间当前映射到ZXTF，仍需MES设备/南北线字段拆分',
+            'JZ2二分厂精整当前只有1#到8#机列，具体横剪/纵剪/拉矫职责需要现场确认',
+        ],
+    }
 
 
 def _is_placeholder_text(value: str | None) -> bool:
@@ -324,6 +513,10 @@ def _equipment_payload(payload: dict, workshop_id: int) -> dict:
     }
 
 
+def _keep_existing_qr_code(current: str | None, generated: str) -> str:
+    return str(current or '').strip() or generated
+
+
 def _default_shift_ids(shift_mode: str) -> list[int]:
     return [1, 2, 3] if shift_mode == 'three' else [1, 2]
 
@@ -343,7 +536,7 @@ def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, worksh
         shift_mode = 'three'
     equipment.shift_mode = shift_mode
     equipment.assigned_shift_ids = list(equipment.assigned_shift_ids or _default_shift_ids(shift_mode))
-    equipment.qr_code = f"XT-{equipment.code}"
+    equipment.qr_code = _keep_existing_qr_code(equipment.qr_code, f"XT-{equipment.code}")
 
     user: User | None = db.get(User, equipment.bound_user_id) if equipment.bound_user_id else None
     username_user = db.execute(select(User).where(User.username == equipment.code)).scalar_one_or_none()
@@ -411,7 +604,7 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
             item.shift_mode = normalized['shift_mode']
             item.assigned_shift_ids = normalized['assigned_shift_ids']
             item.custom_fields = normalized['custom_fields']
-            item.qr_code = normalized['qr_code']
+            item.qr_code = _keep_existing_qr_code(item.qr_code, normalized['qr_code'])
             item.sort_order = normalized['sort_order']
             item.is_active = True
 
@@ -572,6 +765,32 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
         equipment.is_active = True
 
 
+def seed_mes_master_aliases(db: Session) -> None:
+    existing = {
+        (item.entity_type, item.alias_code, item.source_type): item
+        for item in db.execute(select(MasterCodeAlias)).scalars().all()
+    }
+    for canonical_code, alias_text in MES_WORKSHOP_ALIASES:
+        key = ('workshop', alias_text, 'mes_mvc')
+        item = existing.get(key)
+        if item is None:
+            item = MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code=canonical_code,
+                alias_code=alias_text,
+                alias_name=alias_text,
+                source_type='mes_mvc',
+                is_active=True,
+            )
+            db.add(item)
+            existing[key] = item
+            continue
+
+        item.canonical_code = canonical_code
+        item.alias_name = alias_text
+        item.is_active = True
+
+
 def seed_real_master_data(db: Session) -> None:
     _deactivate_placeholder_rows(db, Workshop)
     _deactivate_placeholder_rows(db, Team)
@@ -581,6 +800,7 @@ def seed_real_master_data(db: Session) -> None:
     workshops_by_code = seed_real_workshops(db)
     seed_real_teams(db, workshops_by_code)
     seed_real_equipment(db, workshops_by_code)
+    seed_mes_master_aliases(db)
     seed_special_owner_users(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
 

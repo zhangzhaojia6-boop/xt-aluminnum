@@ -35,6 +35,7 @@ from app.schemas.master import (
 from app.schemas.templates import WorkshopTemplateConfigOut, WorkshopTemplateConfigUpsert
 from app.services import equipment_service, master_service, workshop_template_service
 from app.services.audit_service import log_action
+from app.services.real_master_data import build_process_business_hierarchy
 from app.services.yield_rate_deprecation_map_service import build_yield_rate_deprecation_map
 
 
@@ -67,6 +68,14 @@ def get_yield_rate_deprecation_map(
 ) -> dict:
     _ = current_user
     return build_yield_rate_deprecation_map()
+
+
+@router.get('/process-business-map')
+def get_process_business_map(
+    current_user: User = Depends(get_current_manager_user),
+) -> dict:
+    _ = current_user
+    return build_process_business_hierarchy()
 
 
 @router.get('/workshops', response_model=PaginatedResponse[WorkshopOut])
