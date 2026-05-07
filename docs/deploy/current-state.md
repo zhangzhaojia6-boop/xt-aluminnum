@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 15:18:00 +08:00
+更新时间：2026-05-07 17:07:19 +08:00
 
 ## 1. 仓库状态
 
@@ -410,8 +410,11 @@ cd backend
 - 生产只读映射预览：`batch_id=1`，`total_rows=16`，`ready_rows=7`，`needs_equipment_mapping_rows=0`，`unresolved_rows=9`；已匹配 `铸锭/->ZD/`、`铸轧/铸二->ZR2/`、`铸轧/铸三->ZR3/`、`热轧/铣床->RZ/RZ-XC`、`热轧/热轧->RZ/RZ-ZJ`、`冷轧/2050->LZ2050/LZ2050-1`、`园区剪切/->JQ/`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`；复验 `shift_rows_delta=0`。
 - 2026-05-07 已新增显式锁定报告日 staging 写入：`scripts/dry_run_daily_production_import.py --write-staging` 默认先跑同一硬门禁，失败会回滚；本轮本地测试 `python -m pytest backend/tests -q` 为 `768 passed, 124 deselected, 32 warnings`，`npm test` 为 `124 pass`，`npm run build` 通过。
 - 生产锁定日期重跑：`backups/pre-daily-production-locked-staging-20260507-1515.dump`，`pg_restore -l` 输出 701 行；`ImportBatch id=2`，`source_type=daily_production_report_locked`，`business_date=2026-05-05`，`quality_status=warning` 仅因表头仍写 `2026-05-03`，`total_rows=1`，`success_rows=1`，`failed_rows=0`，`preview total_rows=16`、`ready_rows=16`、`needs_equipment_mapping_rows=0`、`unresolved_rows=0`，`ShiftProductionData` 未新增正式事实行。
+- 2026-05-07 已把 2026-05-05 锁定批次提升为正式生产事实：先备份 `backups/pre-daily-production-promote-20260507-165000.dump` 并通过 `pg_restore -l` 校验，再将 `ImportBatch id=2` 写入 `ShiftProductionData`；结果为 `15` 行、`daily_production_report`、`confirmed`，产量合计 `1935.649t`。生产 HTTP 复验：`GET /api/v1/dashboard/factory-director?target_date=2026-05-05` 返回 `today_total_output=1935.65`，`GET /api/v1/dashboard/workshop-director?target_date=2026-05-05&workshop_id=<LZ2050>` 返回 `85.13t`。
+- 2026-05-07 已继续把 2026-05-01 至 2026-05-04 的每日产量真实报表提升为正式生产事实：服务器缺 `xlrd`，未新增生产依赖，改用本地只读转换出的 `.xlsx` 上传到 `/srv/aluminum-bypass/import_sources/daily-production/` 后解析；写库前备份 `backups/pre-daily-production-promote-5-1-5-4-20260507-170602.dump` 并通过 `pg_restore -l` 校验。新批次为 `ImportBatch id=3..6`，预检均无阻断，提升结果分别为 `2026-05-01: 14 rows / 2238.785t`、`2026-05-02: 16 rows / 2230.978t`、`2026-05-03: 16 rows / 2237.241t`、`2026-05-04: 15 rows / 2632.562t`；生产 HTTP 复验厂级看板分别返回 `2238.79`、`2230.98`、`2237.24`、`2632.56`。
+- 当前正式每日产量事实覆盖 `2026-05-01` 至 `2026-05-05` 五天，共 `76` 行，均为 `data_source=daily_production_report` 且非 `voided`。其中 `ImportBatch id=1` 是早期未锁定报告日的历史暂存批次，因把 5.5 文件表头误识别为 `2026-05-03`，仅保留审计用途，不应作为管理端最新预览或正式事实来源。
 
-下一道门禁：把 `ImportBatch id=2` 转为正式生产数据前，必须先设计日汇总到班次/机列事实的拆分规则、确认 5 个车间级汇总行是否保持车间事实还是需要人工拆机列、明确日累计与月累计只读展示口径，并继续拦截 `>5000t` warning 与 `>50000t` hard block 的疑似 kg/t 错配数据。
+下一道门禁：继续处理 4 月每日产量文件前，必须先补齐 `拉矫/横剪`、`拉矫/产量`、`在线退火/新厂南线` 等旧表标签映射，并单独排查 `2026-04-22`、`2026-04-30` 两份解析为 `blocked` 的空行文件；在这些门禁通过前，不把 4 月批次写入正式生产事实表。
 
 ## 10. 回滚锚点
 
