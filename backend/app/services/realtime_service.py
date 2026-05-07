@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+import re
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
@@ -32,6 +33,16 @@ LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
 FORMAL_ENTRY_STATUSES = {'submitted', 'verified', 'approved'}
 ACTIVE_DATE_LOOKBACK_HOURS = 36
+TRACKING_CARD_SEPARATOR_TRANSLATION = str.maketrans(
+    {
+        '一': '-',
+        '－': '-',
+        '—': '-',
+        '–': '-',
+        '﹣': '-',
+        '_': '-',
+    }
+)
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -794,7 +805,9 @@ def _drop_local_entries_for_existing_cells(entry_rows: list[dict], local_entries
 
 
 def _tracking_card_key(value) -> str:
-    return str(value or '').strip().upper()
+    text = str(value or '').strip().upper().translate(TRACKING_CARD_SEPARATOR_TRANSLATION)
+    text = re.sub(r'\s+', '', text)
+    return re.sub(r'-{2,}', '-', text)
 
 
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
