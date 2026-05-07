@@ -88,6 +88,11 @@ class LivePendingAssignmentSummaryOut(BaseModel):
     scrap: float = 0
 
 
+class LivePendingMachineCandidateOut(BaseModel):
+    machine_id: int
+    machine_name: str
+
+
 class LivePendingAssignmentItemOut(BaseModel):
     tracking_card_no: str
     entry_id: int
@@ -112,6 +117,7 @@ class LivePendingAssignmentItemOut(BaseModel):
     mes_machine_name: str | None = None
     machine_candidate_count: int = 0
     machine_candidate_names: list[str] = Field(default_factory=list)
+    machine_candidates: list[LivePendingMachineCandidateOut] = Field(default_factory=list)
     created_at: str | None = None
 
 

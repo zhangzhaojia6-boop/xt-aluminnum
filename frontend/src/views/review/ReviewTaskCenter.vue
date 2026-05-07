@@ -44,18 +44,33 @@
               <el-tag :type="riskTagType(row.risk)" effect="light">{{ row.risk }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150">
+          <el-table-column label="操作" width="220">
             <template #default="{ row }">
-              <el-button
-                v-if="row.status === 'pending_assignment'"
-                link
-                type="primary"
-                :disabled="!row.canPromote"
-                :loading="promotingEntryId === row.entryId"
-                @click="promotePending(row)"
-              >
-                绑定入账
-              </el-button>
+              <div v-if="row.status === 'pending_assignment'" class="review-task-center__assign-action">
+                <el-select
+                  v-if="row.machineCandidates.length > 1 && !row.mesMachineId"
+                  v-model="selectedMachineByEntry[row.entryId]"
+                  size="small"
+                  placeholder="选择机列"
+                  filterable
+                >
+                  <el-option
+                    v-for="machine in row.machineCandidates"
+                    :key="machine.machine_id"
+                    :label="machine.machine_name"
+                    :value="machine.machine_id"
+                  />
+                </el-select>
+                <el-button
+                  link
+                  type="primary"
+                  :disabled="!row.canPromote"
+                  :loading="promotingEntryId === row.entryId"
+                  @click="promotePending(row)"
+                >
+                  绑定入账
+                </el-button>
+              </div>
               <template v-else>
                 <el-button link type="primary" @click="goWorkshop(row.workshopId)">查看</el-button>
                 <el-button link type="success" @click="goFactory">总览</el-button>
@@ -95,6 +110,7 @@ const router = useRouter()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const promotingEntryId = ref(null)
+const selectedMachineByEntry = ref({})
 const tab = ref('missing')
 const dashboard = ref({})
 const pendingAssignment = ref({ summary: {}, items: [] })
@@ -170,24 +186,31 @@ const staleTasks = computed(() => {
 })
 const pendingAssignmentTasks = computed(() => {
   const rows = pendingAssignment.value.items || []
-  return rows.map((item) => ({
-    status: 'pending_assignment',
-    entryId: item.entry_id || null,
-    workshop: item.workshop_name || '-',
-    workshopId: item.workshop_id || null,
-    shift: item.shift_name || '-',
-    shiftId: item.shift_id || null,
-    trackingCard: item.tracking_card_no || '-',
-    outputWeightLabel: `${formatWeight(item.output_weight)} 吨`,
-    sourceLabel: formatAssignmentSource(item),
-    assignmentHint: formatAssignmentHint(item),
-    missingFieldLabel: formatMissingFields(item.missing_fields),
-    anomaly: formatEntryState(item),
-    aiSuggestion: buildSuggestionByStatus('pending_assignment'),
-    risk: (item.missing_fields || []).length > 1 ? '高' : '中',
-    mesMachineId: item.mes_machine_id || null,
-    canPromote: canPromotePendingAssignment(item)
-  }))
+  return rows.map((item) => {
+    const entryId = item.entry_id || null
+    const selectedMachineId = entryId ? selectedMachineByEntry.value[entryId] : null
+    const machineCandidates = normalizeMachineCandidates(item)
+    return {
+      status: 'pending_assignment',
+      entryId,
+      workshop: item.workshop_name || '-',
+      workshopId: item.workshop_id || null,
+      shift: item.shift_name || '-',
+      shiftId: item.shift_id || null,
+      trackingCard: item.tracking_card_no || '-',
+      outputWeightLabel: `${formatWeight(item.output_weight)} 吨`,
+      sourceLabel: formatAssignmentSource(item),
+      assignmentHint: formatAssignmentHint(item),
+      missingFieldLabel: formatMissingFields(item.missing_fields),
+      anomaly: formatEntryState(item),
+      aiSuggestion: buildSuggestionByStatus('pending_assignment'),
+      risk: (item.missing_fields || []).length > 1 ? '高' : '中',
+      mesMachineId: item.mes_machine_id || null,
+      selectedMachineId,
+      machineCandidates,
+      canPromote: canPromotePendingAssignment(item, selectedMachineId)
+    }
+  })
 })
 
 const filteredTasks = computed(() => {
@@ -252,12 +275,34 @@ function formatAssignmentHint(item = {}) {
   return '无机列候选'
 }
 
-function canPromotePendingAssignment(item = {}) {
+function normalizeMachineCandidates(item = {}) {
+  if (Array.isArray(item.machine_candidates) && item.machine_candidates.length) {
+    return item.machine_candidates.map((machine) => ({
+      machine_id: machine.machine_id,
+      machine_name: machine.machine_name || `机列 ${machine.machine_id}`
+    }))
+  }
+  return (item.machine_candidate_names || []).map((name, index) => ({
+    machine_id: null,
+    machine_name: name || `候选 ${index + 1}`
+  }))
+}
+
+function canPromotePendingAssignment(item = {}, selectedMachineId = null) {
   if (item.entry_status !== 'draft') return false
   const missingFields = item.missing_fields || []
   if (missingFields.includes('shift_id')) return false
   if (item.mes_machine_id) return true
-  return Number(item.machine_candidate_count || 0) === 1
+  const candidateCount = Number(item.machine_candidate_count || 0)
+  if (candidateCount === 1) return true
+  return candidateCount > 1 && Boolean(selectedMachineId)
+}
+
+function resolvePromoteMachineId(row) {
+  if (row.mesMachineId) return row.mesMachineId
+  if (row.selectedMachineId) return row.selectedMachineId
+  if (row.machineCandidates.length === 1) return row.machineCandidates[0].machine_id || undefined
+  return undefined
 }
 
 function syncAnomalyLabel(syncStatus = {}) {
@@ -296,7 +341,7 @@ async function promotePending(row) {
       action: 'promote_draft_entry',
       target_type: 'work_order_entry',
       target_id: row.entryId,
-      machine_id: row.mesMachineId || undefined,
+      machine_id: resolvePromoteMachineId(row),
       shift_id: row.shiftId || undefined,
       reason: 'pending_assignment'
     })
@@ -379,6 +424,16 @@ onMounted(async () => {
   padding-left: 18px;
   display: grid;
   gap: 8px;
+}
+
+.review-task-center__assign-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-task-center__assign-action :deep(.el-select) {
+  width: 116px;
 }
 
 @media (max-width: 1100px) {

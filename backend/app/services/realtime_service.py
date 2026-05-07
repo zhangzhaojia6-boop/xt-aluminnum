@@ -744,6 +744,10 @@ def build_pending_assignment_detail(
                 'mes_machine_name': mes_machine_name,
                 'machine_candidate_count': len(machine_candidates),
                 'machine_candidate_names': [machine.name for machine in machine_candidates[:5]],
+                'machine_candidates': [
+                    {'machine_id': machine.id, 'machine_name': machine.name}
+                    for machine in machine_candidates
+                ],
                 'created_at': _iso_datetime(entry.created_at),
             }
         )

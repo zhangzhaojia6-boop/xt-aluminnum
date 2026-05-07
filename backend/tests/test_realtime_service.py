@@ -479,6 +479,7 @@ def test_build_pending_assignment_detail_returns_unbound_draft_rows(tmp_path) ->
             'mes_machine_name': '1#轧机',
             'machine_candidate_count': 1,
             'machine_candidate_names': ['1#轧机'],
+            'machine_candidates': [{'machine_id': 11, 'machine_name': '1#轧机'}],
             'created_at': payload['items'][0]['created_at'],
         }
     ]
