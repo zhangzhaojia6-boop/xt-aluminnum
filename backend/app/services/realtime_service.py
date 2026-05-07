@@ -1163,91 +1163,71 @@ def build_live_cell_detail(
     current_user: User,
 ) -> dict:
     scoped_workshop_id = _resolve_workshop_filter(current_user=current_user, workshop_id=workshop_id)
-    workshop = db.get(Workshop, scoped_workshop_id)
-    machine = db.get(Equipment, machine_id)
-    shift = db.get(ShiftConfig, shift_id)
-    workshop_code = str(workshop.code or '').strip().upper() if workshop and workshop.code else ''
-    machine_code = str(machine.code or '').strip().upper() if machine and machine.code else ''
-    shift_code = str(shift.code or '').strip().upper() if shift and shift.code else ''
-    mes_items = []
-    if workshop_code and machine_code and shift_code:
-        mes_query = db.query(MesCoilSnapshot).filter(
-            MesCoilSnapshot.workshop_code == workshop_code,
-            MesCoilSnapshot.machine_code == machine_code,
-            MesCoilSnapshot.shift_code == shift_code,
-        ).order_by(MesCoilSnapshot.updated_from_mes_at.desc().nullslast(), MesCoilSnapshot.id.desc())
-        work_order_by_card = {
-            str(item.tracking_card_no or '').strip().upper(): item
-            for item in db.query(WorkOrder).all()
-            if item.tracking_card_no
-        }
-        for item in mes_query.all():
-            snapshot_date = item.business_date or (item.event_time.date() if item.event_time else None)
-            if snapshot_date != business_date:
-                continue
-            source_payload = dict(item.source_payload or {})
-            metadata = dict(source_payload.get('metadata') or {})
-            tracking_card_no = str(item.tracking_card_no or '').strip().upper()
-            work_order = work_order_by_card.get(tracking_card_no)
-            mes_items.append(
-                {
-                    'tracking_card_no': tracking_card_no,
-                    'entry_id': item.id,
-                    'work_order_id': work_order.id if work_order else None,
-                    'entry_status': item.status or 'synced',
-                    'entry_type': 'mes_projection',
-                    'input_weight': _to_float(source_payload.get('input_weight') or metadata.get('input_weight')),
-                    'output_weight': _to_float(source_payload.get('output_weight') or metadata.get('output_weight')),
-                    'scrap_weight': _to_float(source_payload.get('scrap_weight') or metadata.get('scrap_weight')),
-                    'yield_rate': None,
-                    'yield_rate_source': 'mes_projection',
-                    'machine_id': machine_id,
-                    'shift_id': shift_id,
-                }
-            )
-    if mes_items:
-        return {
-            'business_date': business_date.isoformat(),
-            'workshop_id': scoped_workshop_id,
-            'machine_id': machine_id,
-            'shift_id': shift_id,
-            'items': mes_items,
-        }
-
-    query = (
-        db.query(WorkOrderEntry, WorkOrder)
-        .join(WorkOrder, WorkOrder.id == WorkOrderEntry.work_order_id)
+    machines = (
+        db.query(Equipment)
         .filter(
-            WorkOrderEntry.business_date == business_date,
-            WorkOrderEntry.workshop_id == scoped_workshop_id,
-            WorkOrderEntry.machine_id == machine_id,
-            WorkOrderEntry.shift_id == shift_id,
+            Equipment.is_active.is_(True),
+            Equipment.workshop_id == scoped_workshop_id,
         )
-        .order_by(WorkOrderEntry.id.desc())
+        .order_by(Equipment.id.asc())
+        .all()
     )
+    shifts = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc()).all()
+    entry_rows = _load_entry_rows(db, business_date=business_date, workshop_id=scoped_workshop_id)
+    _local_machines, local_entries = _build_local_shift_runtime_inputs(
+        machines=machines,
+        shifts=shifts,
+        rows=_load_local_shift_rows(db, business_date=business_date, workshop_id=scoped_workshop_id),
+    )
+    local_entries = _drop_local_entries_for_existing_cells(entry_rows, local_entries)
+    fill_tracking_cards = {
+        _tracking_card_key(item.get('tracking_card_no'))
+        for item in [*entry_rows, *local_entries]
+        if _tracking_card_key(item.get('tracking_card_no'))
+    }
+    mes_rows = _load_mes_snapshot_rows(
+        db,
+        business_date=business_date,
+        workshop_id=scoped_workshop_id,
+        tracking_card_nos=fill_tracking_cards,
+    )
+    entries, _data_source = _merge_runtime_entries(
+        entry_rows=entry_rows,
+        local_entries=local_entries,
+        mes_rows=mes_rows,
+    )
+    cell_items = [
+        item
+        for item in entries
+        if _optional_int(item.get('workshop_id')) == scoped_workshop_id
+        and _optional_int(item.get('machine_id')) == machine_id
+        and _optional_int(item.get('shift_id')) == shift_id
+    ]
+    cell_items.sort(key=lambda item: _optional_int(item.get('id')) or 0, reverse=True)
     return {
         'business_date': business_date.isoformat(),
         'workshop_id': scoped_workshop_id,
         'machine_id': machine_id,
         'shift_id': shift_id,
-        'items': [
-            {
-                'tracking_card_no': work_order.tracking_card_no,
-                'entry_id': entry.id,
-                'work_order_id': entry.work_order_id,
-                'entry_status': entry.entry_status,
-                'entry_type': entry.entry_type,
-                'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
-                'output_weight': _prefer_number(entry.verified_output_weight, entry.output_weight),
-                'scrap_weight': _to_float(entry.scrap_weight),
-                'yield_rate': float(entry.yield_rate) if entry.yield_rate is not None else _round_rate(
-                    _prefer_number(entry.verified_input_weight, entry.input_weight),
-                    _prefer_number(entry.verified_output_weight, entry.output_weight),
-                ),
-                'yield_rate_source': 'runtime_compat',
-                'machine_id': entry.machine_id,
-                'shift_id': entry.shift_id,
-            }
-            for entry, work_order in query.all()
-        ],
+        'items': [_serialize_live_cell_item(item) for item in cell_items],
+    }
+
+
+def _serialize_live_cell_item(item: dict) -> dict:
+    input_weight = round(_entry_weight_tons(item, 'input_weight'), 2)
+    output_weight = round(_entry_weight_tons(item, 'output_weight'), 2)
+    scrap_weight = round(_entry_weight_tons(item, 'scrap_weight'), 2)
+    return {
+        'tracking_card_no': item.get('tracking_card_no') or '',
+        'entry_id': item.get('id'),
+        'work_order_id': item.get('work_order_id'),
+        'entry_status': item.get('entry_status') or 'draft',
+        'entry_type': item.get('entry_type') or 'mobile_coil',
+        'input_weight': input_weight,
+        'output_weight': output_weight,
+        'scrap_weight': scrap_weight,
+        'yield_rate': _round_rate(input_weight, output_weight),
+        'yield_rate_source': item.get('yield_rate_source') or 'runtime_compat',
+        'machine_id': item.get('machine_id'),
+        'shift_id': item.get('shift_id'),
     }
