@@ -29,7 +29,7 @@ from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
-from app.services.equipment_service import get_bound_machine_for_user
+from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.locked_fields_service import LockedFieldsTokenInvalid, verify_locked_fields_token
 from app.services.pilot_observability_service import log_pilot_event
 from app.services.work_order._utils import _normalize_flow_payload
@@ -504,7 +504,8 @@ def create_coil_entry(
         db.flush()
 
     bound_machine = get_bound_machine_for_user(db, user_id=current_user.id)
-    workshop_id = bound_machine.workshop_id if bound_machine else current_user.workshop_id
+    reporting_machine = resolve_reporting_machine_for_equipment(db, bound_machine)
+    workshop_id = reporting_machine.workshop_id if reporting_machine else current_user.workshop_id
     if not workshop_id:
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
@@ -514,7 +515,7 @@ def create_coil_entry(
     entry = WorkOrderEntry(
         work_order_id=wo.id,
         workshop_id=workshop_id or 0,
-        machine_id=bound_machine.id if bound_machine else None,
+        machine_id=reporting_machine.id if reporting_machine else None,
         shift_id=payload['shift_id'],
         business_date=payload['business_date'],
         on_machine_time=payload.get('on_machine_time'),

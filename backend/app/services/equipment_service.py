@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_password_hash
 from app.models.master import Equipment, Workshop
 from app.models.system import User
+
+VIRTUAL_EQUIPMENT_TYPES = {"virtual_role_qr", "virtual_workshop_qr"}
+REPORTING_ROLE_SUFFIXES = ("-OP", "-EN", "-HY", "-MT")
 from app.services.audit_service import record_entity_change
 
 
@@ -136,6 +139,60 @@ def get_bound_machine_for_user(db: Session, *, user_id: int) -> Equipment | None
     if not hasattr(db, 'query'):
         return None
     return db.query(Equipment).filter(Equipment.bound_user_id == user_id, Equipment.is_active.is_(True)).first()
+
+
+def _is_virtual_equipment(equipment: Equipment | None) -> bool:
+    return str(getattr(equipment, "equipment_type", "") or "").strip().lower() in VIRTUAL_EQUIPMENT_TYPES
+
+
+def _reporting_base_code(equipment: Equipment | None) -> str | None:
+    if equipment is None or not _is_virtual_equipment(equipment):
+        return None
+    code = str(getattr(equipment, "code", "") or "").strip()
+    upper_code = code.upper()
+    for suffix in REPORTING_ROLE_SUFFIXES:
+        if upper_code.endswith(suffix):
+            return code[: -len(suffix)]
+    return None
+
+
+def resolve_reporting_machine_from_candidates(equipment: Equipment | None, candidates: list[Equipment]) -> Equipment | None:
+    base_code = _reporting_base_code(equipment)
+    if not base_code:
+        return equipment
+    for candidate in candidates:
+        if getattr(candidate, "workshop_id", None) != getattr(equipment, "workshop_id", None):
+            continue
+        if _is_virtual_equipment(candidate):
+            continue
+        if str(getattr(candidate, "code", "") or "").strip().upper() != base_code.upper():
+            continue
+        if getattr(candidate, "is_active", True) is False:
+            continue
+        if str(getattr(candidate, "operational_status", "") or "running").strip() not in {"", "running"}:
+            continue
+        return candidate
+    return equipment
+
+
+def resolve_reporting_machine_for_equipment(db: Session, equipment: Equipment | None) -> Equipment | None:
+    base_code = _reporting_base_code(equipment)
+    if not base_code or equipment is None or not hasattr(db, "query"):
+        return equipment
+    candidates = (
+        db.query(Equipment)
+        .filter(
+            Equipment.workshop_id == equipment.workshop_id,
+            Equipment.code == base_code,
+            Equipment.is_active.is_(True),
+        )
+        .all()
+    )
+    return resolve_reporting_machine_from_candidates(equipment, candidates)
+
+
+def get_reporting_machine_for_user(db: Session, *, user_id: int) -> Equipment | None:
+    return resolve_reporting_machine_for_equipment(db, get_bound_machine_for_user(db, user_id=user_id))
 
 
 def build_machine_info(equipment: Equipment, workshop: Workshop | None = None) -> dict[str, Any]:

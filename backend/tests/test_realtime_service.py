@@ -329,6 +329,49 @@ def test_build_live_aggregation_pairs_cards_with_operator_separator_variants(tmp
     assert machine['shifts'][0]['submitted_count'] == 1
 
 
+def test_build_live_aggregation_resolves_virtual_role_qr_to_reporting_machine(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=5, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='小夜', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=81, code='LZ2050-1-OP', name='冷轧2050车间 2050# 主操', workshop_id=5, equipment_type='virtual_role_qr', operational_status='running', is_active=True),
+            Equipment(id=123, code='LZ2050-1', name='2050轧机', workshop_id=5, equipment_type='cold_mill', operational_status='running', is_active=True),
+            WorkOrder(id=810, tracking_card_no='RA260506810', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=810,
+                work_order_id=810,
+                workshop_id=5,
+                machine_id=81,
+                shift_id=3,
+                business_date=date(2026, 5, 6),
+                input_weight=31_642.0,
+                output_weight=29_850.0,
+                scrap_weight=1_792.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    real_machine = next(item for item in payload['workshops'][0]['machines'] if item['machine_id'] == 123)
+    virtual_machine = next(item for item in payload['workshops'][0]['machines'] if item['machine_id'] == 81)
+    assert real_machine['day_total']['output'] == 29.85
+    assert real_machine['shifts'][0]['submitted_count'] == 1
+    assert virtual_machine['day_total']['output'] == 0.0
+
+
 def test_build_live_cell_detail_pairs_fill_upload_with_mes_machine_binding(tmp_path) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(
@@ -953,6 +996,54 @@ def test_mobile_shift_aggregate_rows_create_unbound_live_machine() -> None:
     assert unbound_machine['shifts'][1]['submitted_count'] == 1
     assert unbound_machine['shifts'][1]['submission_status'] == 'all_submitted'
     assert unbound_machine['shifts'][1]['total_output'] == 74.11
+
+
+def test_mobile_shift_aggregate_rows_use_reporting_machine_for_virtual_role_qr() -> None:
+    machines = [
+        SimpleNamespace(
+            id=81,
+            workshop_id=5,
+            code='LZ2050-1-OP',
+            name='冷轧2050车间 2050# 主操',
+            equipment_type='virtual_role_qr',
+            is_active=True,
+            operational_status='running',
+            sort_order=1,
+        ),
+        SimpleNamespace(
+            id=123,
+            workshop_id=5,
+            code='LZ2050-1',
+            name='2050轧机',
+            equipment_type='cold_mill',
+            is_active=True,
+            operational_status='running',
+            sort_order=2,
+        ),
+    ]
+    shifts = [SimpleNamespace(id=3, name='小夜', sort_order=3)]
+    rows = [
+        SimpleNamespace(
+            id=801,
+            workshop_id=5,
+            equipment_id=81,
+            shift_config_id=3,
+            business_date=date(2026, 5, 6),
+            input_weight=31_642.0,
+            output_weight=29_850.0,
+            scrap_weight=1_792.0,
+            data_status='pending',
+            data_source='mobile_coil_agg',
+        )
+    ]
+
+    _local_machines, entries = realtime_service._build_local_shift_runtime_inputs(
+        machines=machines,
+        shifts=shifts,
+        rows=rows,
+    )
+
+    assert entries[0]['machine_id'] == 123
 
 
 def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() -> None:

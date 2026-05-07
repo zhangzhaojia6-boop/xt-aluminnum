@@ -239,6 +239,75 @@ def test_coil_entry_uses_bound_machine_for_management_aggregation(tmp_path):
         db.close()
 
 
+def test_coil_entry_uses_reporting_machine_for_virtual_role_binding(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        mobile_user = User(
+            id=7,
+            username='mobile-operator',
+            password_hash='x',
+            name='主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        role_qr = Equipment(
+            id=101,
+            code='LZ2050-1-OP',
+            name='2050# 主操',
+            workshop_id=workshop.id,
+            equipment_type='virtual_role_qr',
+            operational_status='running',
+            is_active=True,
+            bound_user_id=mobile_user.id,
+        )
+        real_machine = Equipment(
+            id=102,
+            code='LZ2050-1',
+            name='2050轧机',
+            workshop_id=workshop.id,
+            equipment_type='cold_mill',
+            operational_status='running',
+            is_active=True,
+        )
+        db.add_all([workshop, shift, mobile_user, role_qr, real_machine])
+        db.commit()
+
+        result = create_coil_entry(
+            db,
+            payload={
+                'tracking_card_no': 'BOUND-MACHINE-OP-001',
+                'business_date': date(2026, 5, 2),
+                'shift_id': shift.id,
+                'input_weight': 1000,
+                'output_weight': 960,
+                'scrap_weight': 40,
+            },
+            current_user=mobile_user,
+        )
+
+        entry = db.get(WorkOrderEntry, result['id'])
+        aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
+        assert entry.machine_id == real_machine.id
+        assert aggregate.equipment_id == real_machine.id
+    finally:
+        db.close()
+
+
 def test_coil_entry_aggregates_by_bound_machine_not_only_workshop_shift(tmp_path):
     db = build_session(tmp_path)
     try:

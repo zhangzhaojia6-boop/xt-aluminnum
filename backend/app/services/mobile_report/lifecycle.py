@@ -29,7 +29,7 @@ from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
-from app.services.equipment_service import get_bound_machine_for_user
+from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.pilot_observability_service import log_pilot_event
 
 
@@ -280,8 +280,9 @@ def _sync_to_shift_production(
             continue
         seen_user_ids.add(user_id)
         bound_machine = get_bound_machine_for_user(db, user_id=user_id)
-        if bound_machine is not None and bound_machine.workshop_id == workshop.id:
-            equipment_id = bound_machine.id
+        reporting_machine = resolve_reporting_machine_for_equipment(db, bound_machine)
+        if reporting_machine is not None and reporting_machine.workshop_id == workshop.id:
+            equipment_id = reporting_machine.id
             break
     if equipment_id is not None and hasattr(db, 'query'):
         conflicting_query = db.query(ShiftProductionData.id).filter(

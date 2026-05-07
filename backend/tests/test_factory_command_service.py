@@ -403,6 +403,50 @@ def test_factory_machine_lines_blend_local_mobile_coil_aggregates_when_projectio
     assert lines[1]['freshness']['source'] == 'local_shift_data'
 
 
+def test_factory_machine_lines_use_latest_fill_business_date_and_reporting_machine(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code='2050冷轧（WIFI）', net_weight=10.0),
+        ],
+        workshops=[SimpleNamespace(id=5, name='2050车间', code='LZ2050')],
+        lines=[SimpleNamespace(line_code='2050车间:2050冷轧（wifi）', line_name='2050冷轧（WIFI）', workshop_name='2050车间', slot_no=None)],
+        equipment=[
+            SimpleNamespace(id=81, code='LZ2050-1-OP', name='冷轧2050车间 2050# 主操', workshop_id=5, equipment_type='virtual_role_qr', is_active=True, operational_status='running'),
+            SimpleNamespace(id=123, code='LZ2050-1', name='2050轧机', workshop_id=5, equipment_type='cold_mill', is_active=True, operational_status='running'),
+        ],
+        shift_rows=[
+            _shift_data(
+                id=81,
+                business_date=datetime(2026, 5, 6, 8, 0, tzinfo=UTC).date(),
+                workshop_id=5,
+                equipment_id=81,
+                input_weight=31_642.0,
+                output_weight=29_850.0,
+                data_status='pending',
+                data_source='mobile_coil_agg',
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-07T08:00:00+00:00',
+        },
+    )
+
+    lines = factory_command_service.list_machine_lines(db, now=datetime(2026, 5, 7, 8, 1, tzinfo=UTC))
+
+    local_line = next(item for item in lines if item['line_code'] == 'LZ2050-1')
+    assert local_line['line_name'] == '2050轧机'
+    assert local_line['active_tons'] == 29.85
+    assert local_line['machine_binding_status'] == 'bound'
+    assert not any(item['line_code'] == 'LZ2050-1-OP' for item in lines)
+
+
 def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
     db = _FakeDB(
         coils=[

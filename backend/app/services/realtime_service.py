@@ -26,6 +26,7 @@ from app.models.system import User
 from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
+from app.services.equipment_service import resolve_reporting_machine_from_candidates
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.utils.tracking_cards import tracking_card_lookup_key
 
@@ -572,13 +573,36 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
     )
     if workshop_id is not None:
         query = query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    rows = query.all()
+    machine_ids = {entry.machine_id for entry, _work_order in rows if entry.machine_id is not None}
+    machine_rows = db.query(Equipment).filter(Equipment.id.in_(machine_ids)).all() if machine_ids else []
+    machine_by_id = {machine.id: machine for machine in machine_rows}
+    candidate_workshop_ids = {machine.workshop_id for machine in machine_rows if machine.workshop_id is not None}
+    reporting_candidates = (
+        db.query(Equipment)
+        .filter(Equipment.workshop_id.in_(candidate_workshop_ids), Equipment.is_active.is_(True))
+        .all()
+        if candidate_workshop_ids
+        else []
+    )
+    candidates_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    for machine in reporting_candidates:
+        candidates_by_workshop[machine.workshop_id].append(machine)
+
+    def resolve_machine_id(machine_id: int | None) -> int | None:
+        if machine_id is None:
+            return None
+        machine = machine_by_id.get(machine_id)
+        reporting_machine = resolve_reporting_machine_from_candidates(machine, candidates_by_workshop.get(getattr(machine, 'workshop_id', None), []))
+        return reporting_machine.id if reporting_machine is not None else machine_id
+
     return [
         {
             'id': entry.id,
             'tracking_card_no': work_order.tracking_card_no,
             'work_order_id': entry.work_order_id,
             'workshop_id': entry.workshop_id,
-            'machine_id': entry.machine_id,
+            'machine_id': resolve_machine_id(entry.machine_id),
             'shift_id': entry.shift_id,
             'business_date': entry.business_date.isoformat(),
             'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
@@ -787,6 +811,11 @@ def _unbound_shift_machine_id(workshop_id: int, shift_id: int) -> int:
 
 def _build_local_shift_runtime_inputs(*, machines, shifts, rows) -> tuple[list, list[dict]]:
     machine_items = list(machines)
+    machine_by_id = {int(item.id): item for item in machine_items if getattr(item, 'id', None) is not None}
+    candidates_by_workshop: dict[int, list] = defaultdict(list)
+    for machine in machine_items:
+        if getattr(machine, 'workshop_id', None) is not None:
+            candidates_by_workshop[int(machine.workshop_id)].append(machine)
     shift_by_id = {int(item.id): item for item in shifts if getattr(item, 'id', None) is not None}
     unbound_keys: set[tuple[int, int]] = set()
     entries: list[dict] = []
@@ -818,7 +847,10 @@ def _build_local_shift_runtime_inputs(*, machines, shifts, rows) -> tuple[list, 
                 )
                 unbound_keys.add(key)
         else:
-            machine_id = int(machine_id)
+            raw_machine_id = int(machine_id)
+            machine = machine_by_id.get(raw_machine_id)
+            reporting_machine = resolve_reporting_machine_from_candidates(machine, candidates_by_workshop.get(workshop_id, []))
+            machine_id = int(getattr(reporting_machine, 'id', raw_machine_id) or raw_machine_id)
 
         business_date_value = getattr(row, 'business_date', None)
         yield_value = getattr(row, 'yield_rate', None)

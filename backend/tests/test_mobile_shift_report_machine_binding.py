@@ -96,6 +96,67 @@ def test_mobile_shift_report_sync_uses_bound_machine_for_management_data(tmp_pat
         db.close()
 
 
+def test_mobile_shift_report_sync_uses_reporting_machine_for_virtual_role_binding(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        team = Team(id=10, workshop_id=workshop.id, code='A', name='甲班', is_active=True)
+        shift = _shift()
+        mobile_user = User(
+            id=7,
+            username='machine-operator',
+            password_hash='x',
+            name='1#主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            team_id=team.id,
+            data_scope_type='self_team',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        role_qr = Equipment(
+            id=101,
+            code='LZ2050-1-OP',
+            name='2050# 主操',
+            workshop_id=workshop.id,
+            equipment_type='virtual_role_qr',
+            operational_status='running',
+            is_active=True,
+            bound_user_id=mobile_user.id,
+        )
+        real_machine = Equipment(
+            id=102,
+            code='LZ2050-1',
+            name='2050轧机',
+            workshop_id=workshop.id,
+            equipment_type='cold_mill',
+            operational_status='running',
+            is_active=True,
+        )
+        report = MobileShiftReport(
+            business_date=date(2026, 5, 6),
+            shift_config_id=shift.id,
+            workshop_id=workshop.id,
+            team_id=team.id,
+            owner_user_id=mobile_user.id,
+            leader_user_id=mobile_user.id,
+            leader_name=mobile_user.name,
+            attendance_count=4,
+            input_weight=1000,
+            output_weight=960,
+            scrap_weight=20,
+            report_status='submitted',
+        )
+        db.add_all([workshop, team, shift, mobile_user, role_qr, real_machine, report])
+        db.commit()
+
+        production = _sync_to_shift_production(db, report=report, shift=shift, workshop=workshop, team=team)
+
+        assert production.equipment_id == real_machine.id
+    finally:
+        db.close()
+
+
 def test_mobile_shift_report_sync_ignores_bound_machine_from_other_workshop(tmp_path) -> None:
     db = build_session(tmp_path)
     try:

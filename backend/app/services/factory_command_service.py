@@ -12,6 +12,7 @@ from app.core.scope import ScopeSummary
 from app.models.master import Equipment, Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
 from app.models.production import MobileShiftReport, ShiftProductionData
+from app.services.equipment_service import resolve_reporting_machine_from_candidates
 from app.services.mes_sync_service import latest_sync_status
 
 DEFAULT_COIL_LIST_LIMIT = 100
@@ -274,6 +275,39 @@ def _local_rows(db: Session, *, target_date: date, scope: ScopeSummary | None = 
         if getattr(row, 'linked_production_data_id', None) not in shift_ids
     ]
     return [*shift_rows, *mobile_rows]
+
+
+def _latest_local_business_date(db: Session, *, fallback: date, scope: ScopeSummary | None = None) -> date:
+    workshop_ids = _scope_workshop_ids(scope)
+    dates: list[date] = []
+    try:
+        shift_rows = _all(db, ShiftProductionData)
+    except (OperationalError, ProgrammingError):
+        shift_rows = []
+    for row in shift_rows:
+        business_date = getattr(row, 'business_date', None)
+        if business_date is None or business_date > fallback:
+            continue
+        if not _matches_workshop_id(getattr(row, 'workshop_id', None), workshop_ids):
+            continue
+        if getattr(row, 'data_status', None) in LOCAL_SHIFT_STATUSES or (
+            getattr(row, 'data_status', None) == 'pending'
+            and getattr(row, 'data_source', None) in LOCAL_PENDING_SHIFT_SOURCES
+        ):
+            dates.append(business_date)
+    try:
+        mobile_rows = _all(db, MobileShiftReport)
+    except (OperationalError, ProgrammingError):
+        mobile_rows = []
+    for row in mobile_rows:
+        business_date = getattr(row, 'business_date', None)
+        if business_date is None or business_date > fallback:
+            continue
+        if not _matches_workshop_id(getattr(row, 'workshop_id', None), workshop_ids):
+            continue
+        if getattr(row, 'report_status', None) in LOCAL_MOBILE_REPORT_STATUSES:
+            dates.append(business_date)
+    return max(dates) if dates else fallback
 
 
 def _workshop_name_map(db: Session) -> dict[int, str]:
@@ -652,11 +686,12 @@ def _has_local_overview_rows(payload: Mapping[str, Any]) -> bool:
 
 def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) -> dict[str, Any]:
     freshness = build_freshness(db, now=now)
+    target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _build_overview_from_shift_data(
             db,
             freshness=freshness,
-            target_date=_business_date(now),
+            target_date=target_date,
             scope=scope,
         )
 
@@ -675,7 +710,7 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) 
     local_overview = _build_overview_from_shift_data(
         db,
         freshness=freshness,
-        target_date=current_date,
+        target_date=target_date,
         scope=scope,
     )
     has_local_rows = _has_local_overview_rows(local_overview)
@@ -726,11 +761,12 @@ def _list_workshops_from_shift_data(
 
 def list_workshops(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
     freshness = build_freshness(db, now=now)
+    target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _list_workshops_from_shift_data(
             db,
             freshness=freshness,
-            target_date=_business_date(now),
+            target_date=target_date,
             scope=scope,
         )
 
@@ -751,7 +787,7 @@ def list_workshops(db: Session, *, scope: ScopeSummary | None = None, now=None) 
     local_items = _list_workshops_from_shift_data(
         db,
         freshness=freshness,
-        target_date=_business_date(now),
+        target_date=target_date,
         scope=scope,
     )
     by_name = {str(item['workshop_name']): item for item in items}
@@ -775,23 +811,29 @@ def _list_machine_lines_from_shift_data(
     target_date: date,
     scope: ScopeSummary | None = None,
 ) -> list[dict[str, Any]]:
+    equipment_by_id = _equipment_map(db)
+    reporting_candidates = list(equipment_by_id.values())
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in _local_shift_rows(db, target_date=target_date, scope=scope):
         equipment_id = getattr(row, 'equipment_id', None)
         if equipment_id is not None:
-            grouped[f'equipment:{int(equipment_id)}'].append(row)
+            raw_equipment_id = int(equipment_id)
+            equipment = equipment_by_id.get(raw_equipment_id)
+            reporting_equipment = resolve_reporting_machine_from_candidates(equipment, reporting_candidates)
+            reporting_equipment_id = int(getattr(reporting_equipment, 'id', raw_equipment_id) or raw_equipment_id)
+            grouped[f'equipment:{reporting_equipment_id}'].append(row)
             continue
         workshop_id = getattr(row, 'workshop_id', None)
         shift_id = getattr(row, 'shift_config_id', None)
         workshop_key = workshop_id if workshop_id is not None else 'unknown'
         shift_key = shift_id if shift_id is not None else 'unknown'
         grouped[f'workshop:{workshop_key}:shift:{shift_key}:unbound'].append(row)
-    equipment_by_id = _equipment_map(db)
     workshop_names = _workshop_name_map(db)
     items = []
     for group_key, rows in grouped.items():
         latest_row = max(rows, key=_row_sort_time)
-        equipment_id = getattr(latest_row, 'equipment_id', None)
+        grouped_equipment_id = int(group_key.split(':', 1)[1]) if group_key.startswith('equipment:') else None
+        equipment_id = grouped_equipment_id if grouped_equipment_id is not None else getattr(latest_row, 'equipment_id', None)
         equipment = equipment_by_id.get(int(equipment_id)) if equipment_id is not None else None
         workshop_id = getattr(latest_row, 'workshop_id', None)
         shift_id = getattr(latest_row, 'shift_config_id', None)
@@ -819,11 +861,12 @@ def _list_machine_lines_from_shift_data(
 
 def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
     freshness = build_freshness(db, now=now)
+    target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _list_machine_lines_from_shift_data(
             db,
             freshness=freshness,
-            target_date=_business_date(now),
+            target_date=target_date,
             scope=scope,
         )
 
@@ -860,7 +903,7 @@ def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None, now=No
     local_items = _list_machine_lines_from_shift_data(
         db,
         freshness=freshness,
-        target_date=_business_date(now),
+        target_date=target_date,
         scope=scope,
     )
     by_code = {str(item['line_code']): item for item in items}
