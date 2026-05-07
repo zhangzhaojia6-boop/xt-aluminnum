@@ -7,8 +7,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.master import Workshop
-from app.models.production import ShiftProductionData
+from app.models.production import ProductionException, ShiftProductionData
+from app.models.reconciliation import DataReconciliationItem
 from app.models.shift import ShiftConfig
 from app.services import report_service
 
@@ -388,6 +390,72 @@ def test_current_shift_output_uses_non_voided_runtime_rows_in_tons(tmp_path) -> 
         db.commit()
 
         assert report_service._current_shift_output(db, target_date=target_date) == 42.35
+    finally:
+        db.close()
+
+
+def test_build_workshop_dashboard_shift_items_expose_mobile_coil_weight_in_tons(monkeypatch, tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'workshop-dashboard.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            ShiftConfig.__table__,
+            ShiftProductionData.__table__,
+            ProductionException.__table__,
+            AttendanceException.__table__,
+            AttendanceResult.__table__,
+            DataReconciliationItem.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, future=True)()
+    target_date = date(2026, 5, 6)
+    try:
+        workshop = Workshop(code='LZ2050', name='2050冷轧车间', workshop_type='rolling', sort_order=1, is_active=True)
+        shift = ShiftConfig(
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        db.add_all([workshop, shift])
+        db.commit()
+        db.refresh(workshop)
+        db.refresh(shift)
+        db.add(
+            ShiftProductionData(
+                business_date=target_date,
+                shift_config_id=shift.id,
+                workshop_id=workshop.id,
+                output_weight=29_850.0,
+                data_source='mobile_coil_agg',
+                data_status='pending',
+            )
+        )
+        db.commit()
+
+        monkeypatch.setattr(
+            'app.services.report_service.energy_service.workshop_energy_summary',
+            lambda *_args, **_kwargs: {'total_energy': 0.0, 'energy_per_ton': None, 'rows': []},
+        )
+        monkeypatch.setattr('app.services.report_service.mobile_report_service.summarize_mobile_reporting', lambda *_args, **_kwargs: {})
+        monkeypatch.setattr('app.services.report_service._build_exception_lane', lambda *_args, **_kwargs: {})
+        monkeypatch.setattr('app.services.report_service.mobile_reminder_service.summarize_reminders', lambda *_args, **_kwargs: {})
+        monkeypatch.setattr('app.services.report_service._build_history_digest', lambda *_args, **_kwargs: {'daily_snapshots': [], 'month_archive': {}, 'year_archive': {}})
+        monkeypatch.setattr('app.services.report_service._build_energy_lane', lambda *_args, **_kwargs: [])
+        monkeypatch.setattr('app.services.report_service.build_delivery_status', lambda *_args, **_kwargs: {'delivery_ready': False})
+        monkeypatch.setattr('app.services.report_service._safe_latest_mes_sync_status', lambda *_args, **_kwargs: {'last_run_status': 'success'})
+        monkeypatch.setattr('app.services.report_service.mobile_report_service.summarize_mobile_inventory', lambda *_args, **_kwargs: [])
+
+        payload = report_service.build_workshop_dashboard(db, target_date=target_date, workshop_id=workshop.id)
+
+        assert payload['total_output'] == 29.85
+        assert payload['shift_items'][0]['output_weight'] == 29.85
+        assert payload['shift_items'][0]['weight_unit'] == '吨'
     finally:
         db.close()
 
