@@ -671,11 +671,15 @@ def _live_aggregation_for_factory_command(
     return payload if _live_fill_entry_count(payload) > 0 else None
 
 
+def _live_shift_entry_count(shift: Mapping[str, Any]) -> int:
+    return int(shift.get('submitted_count') or 0) + int(shift.get('draft_count') or 0)
+
+
 def _live_workshop_attention_count(workshop: Mapping[str, Any]) -> int:
     count = 0
     for machine in workshop.get('machines') or []:
         for shift in machine.get('shifts') or []:
-            if shift.get('is_applicable') is False:
+            if shift.get('is_applicable') is False or _live_shift_entry_count(shift) <= 0:
                 continue
             if shift.get('status_tone') in {'danger', 'warning'}:
                 count += 1
@@ -768,7 +772,7 @@ def _machine_lines_from_live_aggregation(
         for machine in workshop.get('machines') or []:
             machine_id = machine.get('machine_id')
             shifts = machine.get('shifts') or []
-            entry_count = sum(int(shift.get('submitted_count') or 0) + int(shift.get('draft_count') or 0) for shift in shifts)
+            entry_count = sum(_live_shift_entry_count(shift) for shift in shifts)
             output = _number((machine.get('day_total') or {}).get('output'))
             if entry_count <= 0 and output <= 0:
                 continue
@@ -783,7 +787,9 @@ def _machine_lines_from_live_aggregation(
             attention_count = sum(
                 1
                 for shift in shifts
-                if shift.get('is_applicable') is not False and shift.get('status_tone') in {'danger', 'warning'}
+                if shift.get('is_applicable') is not False
+                and _live_shift_entry_count(shift) > 0
+                and shift.get('status_tone') in {'danger', 'warning'}
             )
             items.append(
                 {

@@ -476,7 +476,9 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
         [
             Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
             ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=datetime(2026, 5, 6, 20, 0).time(), end_time=datetime(2026, 5, 7, 8, 0).time(), is_active=True),
+            ShiftConfig(id=4, code='D', name='白班', shift_type='day', start_time=datetime(2026, 5, 6, 8, 0).time(), end_time=datetime(2026, 5, 6, 20, 0).time(), is_active=True),
             Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, is_active=True),
+            Equipment(id=12, code='LZ2050-2', name='备用轧机', workshop_id=2, is_active=True),
             WorkOrder(id=703, tracking_card_no='RA260506703', process_route_code='cold-roll', overall_status='created'),
             WorkOrderEntry(
                 id=703,
@@ -506,7 +508,7 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
         ]
     )
     db.commit()
-    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {(2, 3): {'status': 'pending', 'exception_count': 0}})
     monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
     monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
     monkeypatch.setattr(
@@ -551,6 +553,11 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
         now=datetime(2026, 5, 7, 9, 0),
         current_user=current_user,
     )
+    workshops = factory_command_service.list_workshops(
+        db,
+        now=datetime(2026, 5, 7, 9, 0),
+        current_user=current_user,
+    )
 
     assert overview['source'] == 'mixed'
     assert overview['total_input_tons'] == 10.0
@@ -562,8 +569,18 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
     assert live_line['active_coil_count'] == 1
     assert live_line['active_tons'] == 9.7
     assert live_line['finished_tons'] == 9.7
+    assert live_line['stalled_count'] == 1
     assert live_line['machine_binding_status'] == 'bound'
     assert live_line['freshness']['source'] == 'mixed'
+    assert workshops == [
+        {
+            'workshop_name': '2050冷轧车间',
+            'active_coil_count': 1,
+            'active_tons': 9.7,
+            'stalled_count': 1,
+            'freshness': live_line['freshness'],
+        }
+    ]
 
 
 def test_factory_workshops_blend_local_mobile_coil_aggregates_when_projection_exists(monkeypatch):
