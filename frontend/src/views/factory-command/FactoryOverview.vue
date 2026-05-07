@@ -109,6 +109,11 @@
         </div>
       </div>
     </section>
+
+    <section class="fc-charts">
+      <ReconciliationWaterfall :items="workshopReconciliationItems" />
+      <PendingAssignmentHeatmap :rows="pendingAssignment.items" />
+    </section>
   </FactoryCommandShell>
 </template>
 
@@ -121,6 +126,8 @@ import { useFactoryCommandStore } from '../../stores/factory-command'
 import { openAiAssistant } from '../../utils/assistantLauncher'
 import { formatLagLabel, formatLineDisplay, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
+import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
+import ReconciliationWaterfall from '../../components/charts/ReconciliationWaterfall.vue'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
@@ -134,6 +141,11 @@ const priorityLines = computed(() => [...store.machineLines].sort((a, b) => {
   if (stalledDiff !== 0) return stalledDiff
   return (b.active_tons ?? b.activeTons ?? 0) - (a.active_tons ?? a.activeTons ?? 0)
 }).slice(0, 5))
+const workshopReconciliationItems = computed(() => (overview.value.workshop_summary || []).map((ws) => ({
+  workshop_name: ws.workshop_name,
+  mes_output_tons: ws.total_input_tons || 0,
+  fill_output_tons: ws.total_output_tons || 0
+})))
 const pendingAssignmentRoute = computed(() => ({
   path: '/manage/entry-center',
   query: route.query.desktop === '1' ? { tab: 'pendingAssignment', desktop: '1' } : { tab: 'pendingAssignment' }
@@ -380,6 +392,13 @@ onMounted(async () => {
   margin-top: 12px;
 }
 
+.fc-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .fc-panel__head {
   display: flex;
   align-items: center;
@@ -429,6 +448,10 @@ onMounted(async () => {
   .fc-grid--metrics,
   .fc-pending__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fc-charts {
+    grid-template-columns: 1fr;
   }
 }
 
