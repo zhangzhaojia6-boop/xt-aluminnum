@@ -5,6 +5,10 @@ import importlib.util
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import func
+
+from app.models.imports import ImportBatch, ImportRow
+from app.models.production import ShiftProductionData
 
 
 def _load_script_module():
@@ -75,3 +79,63 @@ def test_dry_run_daily_production_import_blocks_hard_scale_values(tmp_path: Path
     assert payload['hard_gate_passed'] is False
     assert payload['parse']['quality_status'] == 'blocked'
     assert 'hard_block_kg_as_tons' in [item['code'] for item in payload['parse']['issues']]
+
+
+def test_stage_daily_production_import_commits_locked_date_without_production_facts(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily.xlsx'
+    _write_daily_workbook(workbook)
+    db = module._create_dry_run_session()
+    try:
+        module.seed_real_master_data(db)
+
+        payload = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+
+        assert payload['hard_gate_passed'] is True
+        assert payload['staging_write'] == {
+            'committed': True,
+            'batch_id': 1,
+            'rows_written': 1,
+            'production_fact_rows_written': 0,
+        }
+        batch = db.query(ImportBatch).one()
+        row = db.query(ImportRow).filter(ImportRow.batch_id == batch.id).one()
+        assert batch.import_type == 'daily_production_report'
+        assert batch.source_type == 'daily_production_report_locked'
+        assert batch.status == 'completed'
+        assert row.mapped_data['business_date'] == '2026-05-05'
+        assert row.mapped_data['quality_status'] == 'warning'
+        assert db.query(func.count(ShiftProductionData.id)).scalar() == 0
+    finally:
+        db.close()
+
+
+def test_stage_daily_production_import_rolls_back_when_gate_fails(tmp_path: Path) -> None:
+    module = _load_script_module()
+    workbook = tmp_path / 'daily.xlsx'
+    _write_daily_workbook(workbook, cold_rolling_output=120460.0)
+    db = module._create_dry_run_session()
+    try:
+        module.seed_real_master_data(db)
+
+        payload = module.stage_daily_production_import(
+            workbook,
+            report_date=date(2026, 5, 5),
+            year_hint=2026,
+            db=db,
+            commit=True,
+        )
+
+        assert payload['hard_gate_passed'] is False
+        assert payload['staging_write']['committed'] is False
+        assert db.query(func.count(ImportBatch.id)).scalar() == 0
+        assert db.query(func.count(ImportRow.id)).scalar() == 0
+        assert db.query(func.count(ShiftProductionData.id)).scalar() == 0
+    finally:
+        db.close()

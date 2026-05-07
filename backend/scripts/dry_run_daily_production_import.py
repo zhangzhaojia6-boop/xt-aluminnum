@@ -9,15 +9,17 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import create_engine
+from sqlalchemy import func
 from sqlalchemy.orm import Session, sessionmaker
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app.database import Base
+from app.database import Base, get_sessionmaker
 import app.models  # noqa: F401  # register metadata for the in-memory dry-run database
 from app.models.imports import ImportBatch, ImportRow
+from app.models.production import ShiftProductionData
 from app.services.daily_production_canonical_service import ParsedDailyProductionSheet, parse_daily_production_workbook
 from app.services.daily_production_mapping_service import (
     build_daily_production_mapping_preview,
@@ -71,11 +73,14 @@ def _store_transient_batch(
     workbook_path: Path,
     parsed_sheets: list[ParsedDailyProductionSheet],
     quality_status: str,
+    source_type: str = "dry_run",
+    batch_no_prefix: str = "DRYRUN-DAILY",
+    commit: bool = True,
 ) -> ImportBatch:
     batch = ImportBatch(
-        batch_no=f"DRYRUN-DAILY-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+        batch_no=f"{batch_no_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
         import_type="daily_production_report",
-        source_type="dry_run",
+        source_type=source_type,
         file_name=workbook_path.name,
         file_size=workbook_path.stat().st_size,
         file_path=str(workbook_path),
@@ -99,7 +104,9 @@ def _store_transient_batch(
                 error_msg=sheet.error_msg,
             )
         )
-    db.commit()
+    db.flush()
+    if commit:
+        db.commit()
     return batch
 
 
@@ -151,6 +158,51 @@ def _with_equipment_binding_summary(mapping_payload: dict[str, Any]) -> dict[str
     }
 
 
+def _build_output_payload(
+    *,
+    workbook_path: Path,
+    report_date: date,
+    parsed_sheets: list[ParsedDailyProductionSheet],
+    parse_status: str,
+    parse_issues: list[dict[str, Any]],
+    mapping_payload: dict[str, Any],
+    staging_write: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    blocking_issues = _blocking_issues(
+        parsed_sheets=parsed_sheets,
+        parse_issues=parse_issues,
+        mapping_payload=mapping_payload,
+    )
+
+    payload = {
+        "hard_gate_passed": not blocking_issues and parse_status != "blocked",
+        "business_date": report_date.isoformat(),
+        "source": {
+            "file_name": workbook_path.name,
+            "file_path": str(workbook_path),
+        },
+        "parse": {
+            "sheet_count": len(parsed_sheets),
+            "quality_status": parse_status,
+            "issues": parse_issues,
+        },
+        "totals": {
+            "source_unit": "t",
+            "daily_input_tons": _sum_mapped(parsed_sheets, "daily_input_tons"),
+            "daily_output_tons": _sum_mapped(parsed_sheets, "daily_output_tons"),
+            "daily_scrap_tons": _sum_mapped(parsed_sheets, "daily_scrap_tons"),
+            "month_to_date_input_tons": _sum_mapped(parsed_sheets, "month_to_date_input_tons"),
+            "month_to_date_output_tons": _sum_mapped(parsed_sheets, "month_to_date_output_tons"),
+            "month_to_date_scrap_tons": _sum_mapped(parsed_sheets, "month_to_date_scrap_tons"),
+        },
+        "mapping": mapping_payload,
+        "blocking_issues": blocking_issues,
+    }
+    if staging_write is not None:
+        payload["staging_write"] = staging_write
+    return payload
+
+
 def build_daily_production_dry_run(
     input_file: str | Path,
     *,
@@ -180,36 +232,73 @@ def build_daily_production_dry_run(
     finally:
         db.close()
 
-    blocking_issues = _blocking_issues(
+    return _build_output_payload(
+        workbook_path=workbook_path,
+        report_date=report_date,
         parsed_sheets=parsed_sheets,
+        parse_status=parse_status,
         parse_issues=parse_issues,
         mapping_payload=mapping_payload,
     )
 
-    return {
-        "hard_gate_passed": not blocking_issues and parse_status != "blocked",
-        "business_date": report_date.isoformat(),
-        "source": {
-            "file_name": workbook_path.name,
-            "file_path": str(workbook_path),
-        },
-        "parse": {
-            "sheet_count": len(parsed_sheets),
-            "quality_status": parse_status,
-            "issues": parse_issues,
-        },
-        "totals": {
-            "source_unit": "t",
-            "daily_input_tons": _sum_mapped(parsed_sheets, "daily_input_tons"),
-            "daily_output_tons": _sum_mapped(parsed_sheets, "daily_output_tons"),
-            "daily_scrap_tons": _sum_mapped(parsed_sheets, "daily_scrap_tons"),
-            "month_to_date_input_tons": _sum_mapped(parsed_sheets, "month_to_date_input_tons"),
-            "month_to_date_output_tons": _sum_mapped(parsed_sheets, "month_to_date_output_tons"),
-            "month_to_date_scrap_tons": _sum_mapped(parsed_sheets, "month_to_date_scrap_tons"),
-        },
-        "mapping": mapping_payload,
-        "blocking_issues": blocking_issues,
+
+def stage_daily_production_import(
+    input_file: str | Path,
+    *,
+    report_date: date,
+    db: Session,
+    year_hint: int | None = None,
+    commit: bool = False,
+) -> dict[str, Any]:
+    workbook_path = Path(input_file)
+    parsed_sheets = parse_daily_production_workbook(
+        workbook_path,
+        year_hint=year_hint or report_date.year,
+        report_date_override=report_date,
+    )
+    parse_status = _quality_status(parsed_sheets)
+    parse_issues = _collect_issues(parsed_sheets)
+    fact_count_before = int(db.query(func.count(ShiftProductionData.id)).scalar() or 0)
+
+    batch = _store_transient_batch(
+        db,
+        workbook_path=workbook_path,
+        parsed_sheets=parsed_sheets,
+        quality_status=parse_status,
+        source_type="daily_production_report_locked",
+        batch_no_prefix="IMP-DAILY-LOCKED",
+        commit=False,
+    )
+    preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
+    mapping_payload = _with_equipment_binding_summary(serialize_daily_production_mapping_preview(preview))
+    payload = _build_output_payload(
+        workbook_path=workbook_path,
+        report_date=report_date,
+        parsed_sheets=parsed_sheets,
+        parse_status=parse_status,
+        parse_issues=parse_issues,
+        mapping_payload=mapping_payload,
+    )
+
+    if not commit or not payload["hard_gate_passed"]:
+        db.rollback()
+        payload["staging_write"] = {
+            "committed": False,
+            "batch_id": None,
+            "rows_written": 0,
+            "production_fact_rows_written": 0,
+        }
+        return payload
+
+    db.commit()
+    fact_count_after = int(db.query(func.count(ShiftProductionData.id)).scalar() or 0)
+    payload["staging_write"] = {
+        "committed": True,
+        "batch_id": batch.id,
+        "rows_written": len(parsed_sheets),
+        "production_fact_rows_written": fact_count_after - fact_count_before,
     }
+    return payload
 
 
 def _print_text(payload: dict[str, Any]) -> None:
@@ -238,6 +327,15 @@ def _print_text(payload: dict[str, Any]) -> None:
         print("硬阻断：")
         for issue in payload["blocking_issues"]:
             print(f"- [{issue.get('code')}] {issue.get('message')}")
+    if payload.get("staging_write"):
+        staging = payload["staging_write"]
+        print(
+            "暂存写入："
+            f"{'已提交' if staging['committed'] else '未提交'}，"
+            f"批次 {staging.get('batch_id') or '--'}，"
+            f"暂存行 {staging['rows_written']}，"
+            f"正式事实行 {staging['production_fact_rows_written']}"
+        )
 
 
 def main() -> int:
@@ -245,14 +343,26 @@ def main() -> int:
     parser.add_argument("--input-file", required=True, help="每日产量 xls/xlsx 文件")
     parser.add_argument("--report-date", required=True, type=_parse_date, help="锁定报告日，格式 YYYY-MM-DD")
     parser.add_argument("--year-hint", type=int, default=None, help="缺省年份提示")
+    parser.add_argument("--write-staging", action="store_true", help="写入导入暂存表；硬门禁失败会回滚")
     parser.add_argument("--json", dest="json_mode", action="store_true", help="输出完整 JSON")
     args = parser.parse_args()
 
-    payload = build_daily_production_dry_run(
-        args.input_file,
-        report_date=args.report_date,
-        year_hint=args.year_hint,
-    )
+    if args.write_staging:
+        SessionLocal = get_sessionmaker()
+        with SessionLocal() as db:
+            payload = stage_daily_production_import(
+                args.input_file,
+                report_date=args.report_date,
+                year_hint=args.year_hint,
+                db=db,
+                commit=True,
+            )
+    else:
+        payload = build_daily_production_dry_run(
+            args.input_file,
+            report_date=args.report_date,
+            year_hint=args.year_hint,
+        )
     if args.json_mode:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
