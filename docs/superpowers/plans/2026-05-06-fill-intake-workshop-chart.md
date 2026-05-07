@@ -46,5 +46,5 @@
 - [x] Run `npm --prefix frontend run build`.
 - [x] Run `git diff --check`.
 - [x] Review the diff for read-only behavior and frontend scope.
-- [ ] Commit, push, deploy with `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`.
-- [ ] Verify production `/readyz` and a read-only production aggregation probe for workshop intake rows.
+- [x] Commit, push, deploy with `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`.
+- [x] Verify production `/readyz` and a read-only production aggregation probe for workshop intake rows.

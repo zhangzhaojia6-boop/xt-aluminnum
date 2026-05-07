@@ -64,6 +64,7 @@
 - 本轮已部署到 `main@c880265`：公网 `/readyz` ready，MES 同步 `fetched_count=50/upserted_count=50`；导入历史候选线上探针为 `total_rows=16/ready_rows=7/unresolved_rows=9/candidate_rows=9`。
 - 管理端实时聚合改为从入口 `entries` 统计总填报接入，未绑定机列/班次的草稿也进入 `draft_entry_count/total_entry_count`，但不进入机列产量吨数；公网 API 探针返回 `formal_entry_count=0/draft_entry_count=17/total_entry_count=17`，17 条均缺机列或班次。
 - ECS 前端部署构建已稳定：`npm run build` 改为 `node node_modules/vite/bin/vite.js build --configLoader native`，避免 `npm ci` 后 `.bin/vite` 缺失导致上线中断。
+- 管理端实时态势已增加车间级填报接入与草稿待归属视图：`workshop_total` 输出车间 `formal_entry_count/draft_entry_count/total_entry_count`，`overall_progress.pending_assignment` 单独暴露缺机列/班次草稿；本轮已部署 `main@e97f5ee`，生产探针返回 `data_source=work_order_runtime`、`formal_entry_count=0/draft_entry_count=17/total_entry_count=17`、`pending_assignment.entry_count=17`、`missing_machine_count=17`、`missing_shift_count=0`、`pending_assignment.output=120.46`、`factory_output=0.0`。
 - 外部联通仍未完全完成：`LLM_DISABLED`、`APP_CONNECTION_DISABLED` 仍是正式完全体阻塞。
 - 真实钉钉客户端免登录、通讯录成员读取权限、工作通知送达、Workflow/LLM/应用连接 API、MES 持续同步监控和正式域名仍需现场凭证与 UAT。
 
@@ -73,7 +74,7 @@
 - `python -m pytest backend/tests/test_aggregator_agent.py -q`：7 passed
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests -q`：721 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
 - `python -m pytest backend/tests/test_daily_production_canonical_service.py backend/tests/test_legacy_data_profile_service.py -q`：23 passed
@@ -83,7 +84,9 @@
 - `python -m pytest backend/tests/test_dingtalk_cli.py backend/tests/test_statistics_module_ready_script.py backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_current_deploy_state_tracks_current_head_and_validation_evidence backend/tests/test_quick_cloud_trial_docs_and_ops.py::test_exec_plan_tracks_phase_progress_without_hiding_external_gates -q`：17 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_coil_entry_auto_calc.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：31 passed
 - `python -m pytest backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_routes.py backend/tests/test_factory_command_service.py backend/tests/test_realtime_service.py -q`：36 passed
-- `npm --prefix frontend test`：121 passed
+- `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：9 passed
+- `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py backend/tests/test_realtime_routes.py backend/tests/test_mobile_shift_report_machine_binding.py backend/tests/test_factory_command_service.py -q`：38 passed
+- `npm --prefix frontend test`：123 passed
 - `npm --prefix frontend run build`：通过
 - `bash -n scripts/deploy_systemd_host.sh`：通过
 - `git diff --check`：通过（仅 Windows CRLF 提示）

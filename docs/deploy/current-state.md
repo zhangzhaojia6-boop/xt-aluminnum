@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-06 22:48:40 +08:00
+更新时间：2026-05-06 23:16:44 +08:00
 
 ## 1. 仓库状态
 
@@ -104,7 +104,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- `python -m pytest backend/tests -q`：721 passed，124 deselected，31 warnings
+- `python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed
@@ -119,13 +119,13 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_mes_sync_service.py backend/tests/test_mes_mvc_preflight_script.py backend/tests/test_mvc_mes_adapter.py -q`：19 passed
 - `python -m pytest backend/tests/test_factory_command_service.py -q`：20 passed
 - `python -m pytest backend/tests/test_reconciliation_granularity.py -q`：3 passed
-- `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：8 passed
+- `python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_service_contract.py -q`：9 passed
 - `python -m pytest backend/tests/test_report_service_contract_lane.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_owner_entry_projection_fallbacks.py backend/tests/test_workshop_reporting_status.py -q`：40 passed
 - `python -m pytest backend/tests -m frontend_contract -q`：124 passed，675 deselected
-- `npm --prefix frontend test`：121 passed
+- `npm --prefix frontend test`：123 passed
 - `npm --prefix frontend run build`：通过
-- `git diff --check`：通过
-- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`c880265` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
+- `git diff --check HEAD~1..HEAD`：通过
+- `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`：`e97f5ee` 已部署，公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`
 
 此前在 `main@b029db8` 上已完成部署闸门与容器可用性验证：
 
@@ -198,7 +198,7 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 22:47 左右。
+最近一次 ECS 修复验证：2026-05-06 23:16 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
 - 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
@@ -219,6 +219,9 @@ MES_API_KEY=...
 - 本轮已部署 `main@c880265`：包含管理端“填报接入”只读条、导入历史映射候选提示、未绑定草稿入口计数，以及 systemd 前端构建稳定性修复；前端构建脚本已改为 `node node_modules/vite/bin/vite.js build --configLoader native`，不再依赖 ECS 上 `npm ci` 是否生成 `.bin/vite`。
 - 公网 `/readyz` 返回 ready，`mes_sync last_run_status=success`、`fetched_count=50`、`upserted_count=50`；线上资源包含 `填报接入`、`草稿待提交`、`candidate_workshops`、`candidate_equipment`。
 - 管理端实时聚合已修正未绑定草稿入口计数，公网 `/api/v1/aggregation/live?business_date=2026-05-06` 返回 `status_code=200`、`data_source=work_order_runtime`、`formal_entry_count=0`、`draft_entry_count=17`、`total_entry_count=17`；生产只读探针确认 17 条 `work_order_entries` 均缺 `machine_id` 或 `shift_id`，所以会显示在“填报接入”总数，不进入机列产量吨数。
+- 本轮已部署 `main@e97f5ee`：管理端实时态势新增“车间填报接入”三段图和“草稿待归属”汇总；线上 `LiveDashboard-0fQW5w4R.js` / `LiveDashboard-BwV9nvGm.css` 已包含 `fill-workshop-flow`、`车间填报接入` 和 `pending_assignment` 消费逻辑。
+- 生产只读聚合探针返回 `data_source=work_order_runtime`、`formal_entry_count=0`、`draft_entry_count=17`、`total_entry_count=17`、`factory_output=0.0`；`pending_assignment.entry_count=17`、`draft_entry_count=17`、`missing_machine_count=17`、`missing_shift_count=0`、`workshop_count=3`、`shift_count=3`、`input=149.51`、`output=120.46`。当前车间填报接入分布为 `铸三车间 0/4/4`、`2050冷轧车间 0/9/9`、`精整车间 0/4/4`（格式：正式/草稿/总卷数）。
+- 部署后公网 `/readyz` 返回 `status=ready`，`mes_sync.configured=true`、`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`；正式 readiness 仍只剩 `LLM_DISABLED`、`APP_CONNECTION_DISABLED` hard issues 和 `DINGTALK_NO_BOUND_USERS` warning，`mes_adapter=mvc`、`mes_ready=true`。
 - 生产只读探针确认当前 `每日产量` 映射候选：`total_rows=16`、`ready_rows=7`、`unresolved_rows=9`、`candidate_rows=9`；填报侧现状仍是 `work_order_entries draft=156`、`mobile_shift_reports draft=3`、`mobile_coil_agg/voided=28`，所以当前测试填报未进入正式管理产量的根因仍是草稿态未提交，不是 MES 或管理端接口断链；未绑定 draft 也会进入管理端 `草稿待提交` 可见性口径。
 - 生产 MES MVC 预检已通过：`adapter=mvc`、`mvc_configured=true`、`missing_env=[]`、`login_page.status=reachable`、`token_present=true`、`login.status=success`。
 - 生产库 MES 投影已落库：`mes_coil_snapshots_count=52`，`mes_machine_line_snapshots_count=50`，最新 `coil_snapshots` 同步日志为 `status=success`、`fetched_count=50`、`upserted_count=50`、`error_message=null`。
