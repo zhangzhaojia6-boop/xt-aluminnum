@@ -549,6 +549,11 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`missing_shift_count=0`' in state
     assert '`factory_output=0.0`' in state
     assert '当前车间填报接入分布为 `铸三车间 0/4/4`、`2050冷轧车间 0/9/9`、`精整车间 0/4/4`' in state
+    assert '2026-05-07 08:50 左右跨业务日巡检发现 `/readyz` 被 `SCHEDULE_EMPTY` 阻断' in state
+    assert '目标日 `2026-05-07` 的 `schedule_row_count=0`，但 `mes_sync.last_run_status=success`' in state
+    assert '已在生产机执行 `PYTHONPATH=. .venv/bin/python scripts/init_real_master_data.py`' in state
+    assert '`default pilot schedule synced: 195`' in state
+    assert '复验 `/readyz` 返回 `status=ready`、`target_date=2026-05-07`、`schedule_row_count=195`' in state
     assert '`node node_modules/vite/bin/vite.js build --configLoader native`' in state
     assert '`formal_entry_count=0`' in state
     assert '`draft_entry_count=17`' in state
