@@ -353,6 +353,127 @@ def test_build_history_digest_tracks_daily_trend_and_period_archives(tmp_path, m
         db.close()
 
 
+def test_current_shift_output_uses_non_voided_runtime_rows_in_tons(tmp_path) -> None:
+    db, workshop, shift = build_history_session(tmp_path)
+    target_date = date(2026, 5, 6)
+    try:
+        db.add_all(
+            [
+                ShiftProductionData(
+                    business_date=target_date,
+                    shift_config_id=shift.id,
+                    workshop_id=workshop.id,
+                    output_weight=29_850.0,
+                    data_source='mobile_coil_agg',
+                    data_status='pending',
+                ),
+                ShiftProductionData(
+                    business_date=target_date,
+                    shift_config_id=shift.id,
+                    workshop_id=workshop.id,
+                    output_weight=12.5,
+                    data_source='manual',
+                    data_status='confirmed',
+                ),
+                ShiftProductionData(
+                    business_date=target_date,
+                    shift_config_id=shift.id,
+                    workshop_id=workshop.id,
+                    output_weight=149_890.0,
+                    data_source='mobile_coil_agg',
+                    data_status='voided',
+                ),
+            ]
+        )
+        db.commit()
+
+        assert report_service._current_shift_output(db, target_date=target_date) == 42.35
+    finally:
+        db.close()
+
+
+def test_build_factory_dashboard_uses_runtime_output_for_management_today(monkeypatch) -> None:
+    latest_report = SimpleNamespace(
+        report_data={},
+        final_text_summary=None,
+        published_at=None,
+        text_summary=None,
+        final_confirmed_at=None,
+        final_confirmed_by=None,
+        is_final_version=False,
+        generated_at=None,
+        id=1,
+    )
+    monkeypatch.setattr(
+        'app.services.report_service._generate_production_report',
+        lambda *_args, **_kwargs: {
+            'total_output_weight': 0.0,
+            'shift_count': 0,
+            'auto_confirmed_shifts': 0,
+            'pending_or_unreported_shifts': 3,
+            'returned_shifts': 0,
+            'energy_per_ton': None,
+        },
+    )
+    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 29.85, raising=False)
+    monkeypatch.setattr(
+        'app.services.report_service.energy_service.summarize_energy_for_date',
+        lambda *_args, **_kwargs: {
+            'total_energy': 0.0,
+            'energy_per_ton': None,
+            'electricity_value': 0.0,
+            'gas_value': 0.0,
+            'rows': [],
+        },
+    )
+    monkeypatch.setattr('app.services.report_service.build_delivery_status', lambda *_args, **_kwargs: {'delivery_ready': False})
+    monkeypatch.setattr(
+        'app.services.report_service.mobile_report_service.summarize_mobile_reporting',
+        lambda *_args, **_kwargs: {
+            'reporting_rate': 35.0,
+            'expected_count': 3,
+            'reported_count': 1,
+            'returned_count': 0,
+            'draft_count': 0,
+            'submitted_count': 1,
+            'unreported_count': 2,
+        },
+    )
+    monkeypatch.setattr('app.services.report_service.build_contract_projection', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        'app.services.report_service.build_contract_progress_projection',
+        lambda *_args, **_kwargs: {'active_contract_count': 0, 'stalled_contract_count': 0, 'active_coil_count': 0, 'remaining_weight': 0.0},
+    )
+    monkeypatch.setattr('app.services.report_service.mobile_report_service.summarize_mobile_inventory', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        'app.services.report_service._build_exception_lane',
+        lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 2, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},
+    )
+    monkeypatch.setattr('app.services.report_service.mobile_reminder_service.summarize_reminders', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr('app.services.report_service._safe_latest_mes_sync_status', lambda *_args, **_kwargs: {'last_run_status': 'success', 'lag_seconds': 30})
+    monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: {'digest': '无异常', 'has_blockers': False})
+    monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 29.85)
+    monkeypatch.setattr(
+        'app.services.report_service._build_factory_boss_summary',
+        lambda **kwargs: f"今日产量 {kwargs['total_output']:.2f} 吨",
+    )
+    monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr('app.services.report_service._build_history_digest', lambda *_args, **_kwargs: {'daily_snapshots': [], 'month_archive': {}, 'year_archive': {}})
+    monkeypatch.setattr('app.services.report_service._build_production_lane', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_energy_lane', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_canonical_workshop_output_summary', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
+
+    payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 5, 6))
+
+    assert payload['today_total_output'] == 29.85
+    assert payload['leader_metrics']['today_total_output'] == 29.85
+    assert payload['leader_summary']['metrics']['total_output_weight'] == 29.85
+    assert payload['analysis_handoff']['trend']['current_output'] == 29.85
+    assert payload['boss_summary'] == '今日产量 29.85 吨'
+
+
 def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(monkeypatch) -> None:
     latest_report = SimpleNamespace(
         report_data={},
@@ -422,6 +543,7 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     )
     monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: '仍有 1 条质量阻塞')
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
+    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 0.0)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
     monkeypatch.setattr('app.services.report_service._build_history_digest', lambda *_args, **_kwargs: {'daily_snapshots': [], 'month_archive': {}, 'year_archive': {}})
@@ -566,6 +688,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
         lambda *_args, **_kwargs: {'digest': '无异常', 'has_blockers': False},
     )
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
+    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 0.0)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
     monkeypatch.setattr(

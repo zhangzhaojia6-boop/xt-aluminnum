@@ -116,6 +116,15 @@ def _month_to_date_output(db: Session, *, target_date: date, workshop_id: int | 
         query = query.filter(ShiftProductionData.workshop_id == workshop_id)
     return round(sum(_shift_weight_tons(item, 'output_weight') for item in query.all()), 2)
 
+def _current_shift_output(db: Session, *, target_date: date, workshop_id: int | None = None) -> float:
+    query = db.query(ShiftProductionData).filter(
+        ShiftProductionData.business_date == target_date,
+        ShiftProductionData.data_status != 'voided',
+    )
+    if workshop_id:
+        query = query.filter(ShiftProductionData.workshop_id == workshop_id)
+    return round(sum(_shift_weight_tons(item, 'output_weight') for item in query.all()), 2)
+
 def _output_totals_by_date(
     db: Session,
     *,
@@ -339,7 +348,9 @@ def _build_dashboard_leader_summary(
 
 def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     production_report = _generate_production_report(db, report_date=target_date, scope=CANONICAL_REPORT_SCOPE)
-    total_output = production_report.get('total_output_weight', 0.0)
+    production_report_output = _to_float(production_report.get('total_output_weight', 0.0))
+    runtime_output = _current_shift_output(db, target_date=target_date)
+    total_output = runtime_output if runtime_output > 0 else production_report_output
     shift_count = int(production_report.get('shift_count', 0) or 0)
     confirmed_shift_count = int(production_report.get('auto_confirmed_shifts', 0) or 0)
     reviewed_shift_count = 0
