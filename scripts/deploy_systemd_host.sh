@@ -256,7 +256,7 @@ fi
 .venv/bin/python scripts/create_admin.py
 
 cd "$FRONTEND_DIR"
-npm ci
+npm ci --include=dev
 npm rebuild
 VITE_API_BASE_URL="${VITE_API_BASE_URL:-/api/v1}" npm run build
 
