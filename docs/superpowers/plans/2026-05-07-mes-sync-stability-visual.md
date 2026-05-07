@@ -46,4 +46,6 @@
 - [x] Run `npm --prefix frontend test`.
 - [x] Run `npm --prefix frontend run build`.
 - [x] Run `git diff --check`.
-- [ ] Commit, push, deploy, and verify production `/readyz`, `/api/v1/mes/sync-runs`, and the production `LiveDashboard` asset.
+- [x] Commit, push, deploy, and verify production `/readyz`, `/api/v1/mes/sync-runs`, and the production `LiveDashboard` asset.
+  - Result: `main@46f437a` deployed with `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13`; `/readyz` returned ready, protected `/api/v1/mes/sync-runs` returned 403 without auth, and production assets contain `aggregation/live/active-date` plus `mes-sync-stability`.
+  - Runtime probe: active live business date resolved to `2026-05-06` from recent fill uploads; management aggregation returned `factory_output=29.85`, `formal_entry_count=7`, `draft_entry_count=17`, `total_entry_count=24`, with bound machine output under `2050冷轧车间`.
