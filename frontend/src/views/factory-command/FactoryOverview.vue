@@ -114,6 +114,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/realtime'
 import { useFactoryCommandStore } from '../../stores/factory-command'
@@ -123,6 +124,7 @@ import { formatWeight } from '../../utils/liveDashboardFormatters'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
+const route = useRoute()
 const liveBusinessDate = ref('')
 const pendingAssignment = ref({ summary: {}, items: [] })
 const overview = computed(() => store.overview || {})
@@ -133,8 +135,8 @@ const priorityLines = computed(() => [...store.machineLines].sort((a, b) => {
   return (b.active_tons ?? b.activeTons ?? 0) - (a.active_tons ?? a.activeTons ?? 0)
 }).slice(0, 5))
 const pendingAssignmentRoute = computed(() => ({
-  name: 'review-task-center',
-  query: { tab: 'pendingAssignment' }
+  path: '/manage/entry-center',
+  query: route.query.desktop === '1' ? { tab: 'pendingAssignment', desktop: '1' } : { tab: 'pendingAssignment' }
 }))
 const pendingAssignmentSummary = computed(() => {
   const summary = pendingAssignment.value.summary || {}
