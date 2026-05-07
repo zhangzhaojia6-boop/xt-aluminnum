@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 17:07:19 +08:00
+更新时间：2026-05-07 17:23:58 +08:00
 
 ## 1. 仓库状态
 
@@ -412,9 +412,11 @@ cd backend
 - 生产锁定日期重跑：`backups/pre-daily-production-locked-staging-20260507-1515.dump`，`pg_restore -l` 输出 701 行；`ImportBatch id=2`，`source_type=daily_production_report_locked`，`business_date=2026-05-05`，`quality_status=warning` 仅因表头仍写 `2026-05-03`，`total_rows=1`，`success_rows=1`，`failed_rows=0`，`preview total_rows=16`、`ready_rows=16`、`needs_equipment_mapping_rows=0`、`unresolved_rows=0`，`ShiftProductionData` 未新增正式事实行。
 - 2026-05-07 已把 2026-05-05 锁定批次提升为正式生产事实：先备份 `backups/pre-daily-production-promote-20260507-165000.dump` 并通过 `pg_restore -l` 校验，再将 `ImportBatch id=2` 写入 `ShiftProductionData`；结果为 `15` 行、`daily_production_report`、`confirmed`，产量合计 `1935.649t`。生产 HTTP 复验：`GET /api/v1/dashboard/factory-director?target_date=2026-05-05` 返回 `today_total_output=1935.65`，`GET /api/v1/dashboard/workshop-director?target_date=2026-05-05&workshop_id=<LZ2050>` 返回 `85.13t`。
 - 2026-05-07 已继续把 2026-05-01 至 2026-05-04 的每日产量真实报表提升为正式生产事实：服务器缺 `xlrd`，未新增生产依赖，改用本地只读转换出的 `.xlsx` 上传到 `/srv/aluminum-bypass/import_sources/daily-production/` 后解析；写库前备份 `backups/pre-daily-production-promote-5-1-5-4-20260507-170602.dump` 并通过 `pg_restore -l` 校验。新批次为 `ImportBatch id=3..6`，预检均无阻断，提升结果分别为 `2026-05-01: 14 rows / 2238.785t`、`2026-05-02: 16 rows / 2230.978t`、`2026-05-03: 16 rows / 2237.241t`、`2026-05-04: 15 rows / 2632.562t`；生产 HTTP 复验厂级看板分别返回 `2238.79`、`2230.98`、`2237.24`、`2632.56`。
-- 当前正式每日产量事实覆盖 `2026-05-01` 至 `2026-05-05` 五天，共 `76` 行，均为 `data_source=daily_production_report` 且非 `voided`。其中 `ImportBatch id=1` 是早期未锁定报告日的历史暂存批次，因把 5.5 文件表头误识别为 `2026-05-03`，仅保留审计用途，不应作为管理端最新预览或正式事实来源。
+- 2026-05-07 已补齐 4 月旧表映射：`拉矫/横剪 -> JZ-HJ1`、`拉矫/产量 -> JZ` 车间级、`在线退火/新厂南线 -> ZXTF-2`。本地全量验证 `python -m pytest backend/tests -q` 返回 `773 passed, 124 deselected, 32 warnings`，提交 `15f0667 fix: 补齐四月每日产量旧表映射` 已部署到 ECS，服务器 `tests/test_daily_production_mapping_service.py` 返回 `4 passed`。
+- 2026-05-07 已把 4 月可通过门禁的 9 天每日产量报表提升为正式生产事实：写库前备份 `backups/pre-daily-production-promote-april-20260507-172235.dump` 并通过 `pg_restore -l` 校验；上传转换源已移入 `backups/import_sources/daily-production-april-20260507-1722/` 保留。新批次为 `ImportBatch id=7..15`，结果为 `2026-04-20: 15 rows / 2282.833t`、`2026-04-21: 16 rows / 1771.415t`、`2026-04-23: 13 rows / 1994.820t`、`2026-04-24: 12 rows / 1572.276t`、`2026-04-25: 14 rows / 2894.256t`、`2026-04-26: 15 rows / 2052.452t`、`2026-04-27: 14 rows / 2072.124t`、`2026-04-28: 14 rows / 2311.268t`、`2026-04-29: 14 rows / 2052.489t`；生产 HTTP 复验这些日期的 `factory-director` 均为 200 且返回对应吨数。
+- 当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-29`、`2026-05-01` 至 `2026-05-05`，共 `203` 行，均为 `data_source=daily_production_report` 且非 `voided`。其中 `ImportBatch id=1` 是早期未锁定报告日的历史暂存批次，因把 5.5 文件表头误识别为 `2026-05-03`，仅保留审计用途，不应作为管理端最新预览或正式事实来源。
 
-下一道门禁：继续处理 4 月每日产量文件前，必须先补齐 `拉矫/横剪`、`拉矫/产量`、`在线退火/新厂南线` 等旧表标签映射，并单独排查 `2026-04-22`、`2026-04-30` 两份解析为 `blocked` 的空行文件；在这些门禁通过前，不把 4 月批次写入正式生产事实表。
+下一道门禁：`2026-04-22`、`2026-04-30` 两份每日产量文件源表日产量列为空，当前解析结果为 `blocked / rows=0`，不写正式生产事实表；后续如需补这两天，必须先找到同日非空源表或现场确认可用替代表，不能用当前空表强行入库。
 
 ## 10. 回滚锚点
 
