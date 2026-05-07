@@ -112,6 +112,40 @@ def test_mvc_mes_adapter_logs_in_and_reads_dispatch_rows_from_settings_credentia
     assert 'Account' not in calls[-1]['data']
 
 
+def test_mvc_mes_adapter_matches_tracking_card_separator_variants():
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com/',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for(
+            [
+                _Response(text='<input name="__RequestVerificationToken" type="hidden" value="token-1" />'),
+                _Response(payload={'status': True}),
+                _Response(payload={'status': True}),
+                _Response(payload={'data': []}),
+                _Response(
+                    payload={
+                        'aaData': [
+                            {
+                                'BatchNumber': 'S-2-054-1',
+                                'Product': {'Id': 9001},
+                                'AlloyGrade': '3003',
+                            }
+                        ]
+                    }
+                ),
+            ],
+            [],
+        ),
+    )
+
+    card_info = adapter.get_tracking_card_info('S一2一054一1')
+
+    assert card_info is not None
+    assert card_info.card_no == 'S-2-054-1'
+    assert card_info.alloy_grade == '3003'
+
+
 def test_mvc_mes_adapter_relogs_when_table_request_returns_login_page():
     calls = []
     login_page = '<input name="__RequestVerificationToken" type="hidden" value="token-2" />'

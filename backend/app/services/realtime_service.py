@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-import re
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
@@ -28,21 +27,12 @@ from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
+from app.utils.tracking_cards import tracking_card_lookup_key
 
 LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
 FORMAL_ENTRY_STATUSES = {'submitted', 'verified', 'approved'}
 ACTIVE_DATE_LOOKBACK_HOURS = 36
-TRACKING_CARD_SEPARATOR_TRANSLATION = str.maketrans(
-    {
-        '一': '-',
-        '－': '-',
-        '—': '-',
-        '–': '-',
-        '﹣': '-',
-        '_': '-',
-    }
-)
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -805,9 +795,7 @@ def _drop_local_entries_for_existing_cells(entry_rows: list[dict], local_entries
 
 
 def _tracking_card_key(value) -> str:
-    text = str(value or '').strip().upper().translate(TRACKING_CARD_SEPARATOR_TRANSLATION)
-    text = re.sub(r'\s+', '', text)
-    return re.sub(r'-{2,}', '-', text)
+    return tracking_card_lookup_key(value)
 
 
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:

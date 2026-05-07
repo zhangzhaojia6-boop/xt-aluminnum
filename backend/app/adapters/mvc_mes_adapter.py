@@ -17,6 +17,7 @@ from app.adapters.mes_adapter import (
     MesWipTotal,
     ScheduleItem,
 )
+from app.utils.tracking_cards import tracking_card_lookup_key
 
 
 _PRESERVED_DISPATCH_KEYS = (
@@ -122,9 +123,9 @@ class MvcMesAdapter(MesAdapter):
 
     def get_tracking_card_info(self, card_no: str) -> CardInfo | None:
         items = self.list_dispatch(limit=50)
-        normalized = card_no.strip().upper()
+        normalized = tracking_card_lookup_key(card_no)
         for item in items:
-            if item.tracking_card_no.strip().upper() == normalized:
+            if tracking_card_lookup_key(item.tracking_card_no) == normalized:
                 return CardInfo(
                     card_no=item.tracking_card_no,
                     alloy_grade=_text(item.metadata.get('AlloyGrade')),

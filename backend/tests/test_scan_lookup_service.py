@@ -162,6 +162,38 @@ def test_scan_lookup_hits_tracking_card_latest_snapshot_when_qr_misses(tmp_path)
     }
 
 
+def test_scan_lookup_matches_tracking_card_separator_variants(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-TC-VARIANT',
+                tracking_card_no='S-2-054-1',
+                batch_no='BATCH-VARIANT',
+                alloy_grade='3003',
+                spec_display='1.0×1200',
+                updated_from_mes_at=datetime(2026, 5, 3, 9, tzinfo=timezone.utc),
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='S一2一054一1')
+        locked_snapshot = scan_lookup_service.submission_locked_snapshot_for_tracking_card(
+            db,
+            tracking_card_no='S一2一054一1',
+        )
+
+    assert payload['source'] == 'tracking_card'
+    assert payload['header_fields']['tracking_card_no'] == 'S-2-054-1'
+    assert payload['header_fields']['batch_no'] == 'BATCH-VARIANT'
+    assert locked_snapshot == {
+        'tracking_card_no': 'S-2-054-1',
+        'alloy_grade': '3003',
+        'input_spec': '1.0×1200',
+    }
+
+
 def test_submission_locked_snapshot_uses_latest_mes_snapshot(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.master import Equipment
 from app.models.mes import MesCoilSnapshot
 from app.services.locked_fields_service import sign_locked_fields
+from app.utils.tracking_cards import tracking_card_lookup_key, tracking_card_sql_lookup_key
 
 SUBMISSION_LOCK_KEYS = ('tracking_card_no', 'alloy_grade', 'input_spec')
 
@@ -99,9 +100,25 @@ def _has_coil_snapshot_table(db: Session) -> bool:
 
 
 def _latest_tracking_card_snapshot(db: Session, tracking_card_no: str) -> MesCoilSnapshot | None:
-    return (
+    exact_row = (
         db.query(MesCoilSnapshot)
         .filter(MesCoilSnapshot.tracking_card_no == tracking_card_no)
+        .order_by(
+            MesCoilSnapshot.updated_from_mes_at.is_(None).asc(),
+            MesCoilSnapshot.updated_from_mes_at.desc(),
+            MesCoilSnapshot.id.desc(),
+        )
+        .first()
+    )
+    if exact_row is not None:
+        return exact_row
+
+    lookup_key = tracking_card_lookup_key(tracking_card_no)
+    if not lookup_key:
+        return None
+    return (
+        db.query(MesCoilSnapshot)
+        .filter(tracking_card_sql_lookup_key(MesCoilSnapshot.tracking_card_no) == lookup_key)
         .order_by(
             MesCoilSnapshot.updated_from_mes_at.is_(None).asc(),
             MesCoilSnapshot.updated_from_mes_at.desc(),
