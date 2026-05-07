@@ -46,8 +46,20 @@
           </el-table-column>
           <el-table-column label="操作" width="150">
             <template #default="{ row }">
-              <el-button link type="primary" @click="goWorkshop(row.workshopId)">查看</el-button>
-              <el-button link type="success" @click="goFactory">总览</el-button>
+              <el-button
+                v-if="row.status === 'pending_assignment'"
+                link
+                type="primary"
+                :disabled="!row.canPromote"
+                :loading="promotingEntryId === row.entryId"
+                @click="promotePending(row)"
+              >
+                绑定入账
+              </el-button>
+              <template v-else>
+                <el-button link type="primary" @click="goWorkshop(row.workshopId)">查看</el-button>
+                <el-button link type="success" @click="goFactory">总览</el-button>
+              </template>
             </template>
           </el-table-column>
         </ReferenceDataTable>
@@ -66,6 +78,7 @@
 
 <script setup>
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -73,6 +86,7 @@ import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vu
 import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import { executeAssistantAction } from '../../api/ai-assistant'
 import { fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/realtime'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
@@ -80,6 +94,7 @@ import { formatWeight } from '../../utils/liveDashboardFormatters'
 const router = useRouter()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
+const promotingEntryId = ref(null)
 const tab = ref('missing')
 const dashboard = ref({})
 const pendingAssignment = ref({ summary: {}, items: [] })
@@ -157,9 +172,11 @@ const pendingAssignmentTasks = computed(() => {
   const rows = pendingAssignment.value.items || []
   return rows.map((item) => ({
     status: 'pending_assignment',
+    entryId: item.entry_id || null,
     workshop: item.workshop_name || '-',
     workshopId: item.workshop_id || null,
     shift: item.shift_name || '-',
+    shiftId: item.shift_id || null,
     trackingCard: item.tracking_card_no || '-',
     outputWeightLabel: `${formatWeight(item.output_weight)} 吨`,
     sourceLabel: formatAssignmentSource(item),
@@ -167,7 +184,9 @@ const pendingAssignmentTasks = computed(() => {
     missingFieldLabel: formatMissingFields(item.missing_fields),
     anomaly: formatEntryState(item),
     aiSuggestion: buildSuggestionByStatus('pending_assignment'),
-    risk: (item.missing_fields || []).length > 1 ? '高' : '中'
+    risk: (item.missing_fields || []).length > 1 ? '高' : '中',
+    mesMachineId: item.mes_machine_id || null,
+    canPromote: canPromotePendingAssignment(item)
   }))
 })
 
@@ -233,6 +252,14 @@ function formatAssignmentHint(item = {}) {
   return '无机列候选'
 }
 
+function canPromotePendingAssignment(item = {}) {
+  if (item.entry_status !== 'draft') return false
+  const missingFields = item.missing_fields || []
+  if (missingFields.includes('shift_id')) return false
+  if (item.mes_machine_id) return true
+  return Number(item.machine_candidate_count || 0) === 1
+}
+
 function syncAnomalyLabel(syncStatus = {}) {
   const status = String(syncStatus.status || syncStatus.last_run_status || '')
   if (status === 'failed') return '同步失败'
@@ -259,6 +286,27 @@ function goWorkshop(workshopId) {
 
 function goFactory() {
   router.push({ name: 'factory-dashboard' })
+}
+
+async function promotePending(row) {
+  if (!row?.entryId || !row.canPromote || promotingEntryId.value) return
+  promotingEntryId.value = row.entryId
+  try {
+    await executeAssistantAction({
+      action: 'promote_draft_entry',
+      target_type: 'work_order_entry',
+      target_id: row.entryId,
+      machine_id: row.mesMachineId || undefined,
+      shift_id: row.shiftId || undefined,
+      reason: 'pending_assignment'
+    })
+    ElMessage.success('已绑定入账')
+    await load()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '处理失败')
+  } finally {
+    promotingEntryId.value = null
+  }
 }
 
 async function load() {

@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+from datetime import date, time
 from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.agents.base import AgentAction, AgentDecision
+from app.database import Base
+from app.models.master import Equipment, Workshop
+from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services import assistant_action_service
 
 
@@ -41,6 +49,171 @@ class _FakeScopedDB(_FakeDB):
         if model_name == 'ShiftConfig':
             return _FakeQuery(self.shift)
         return _FakeQuery(None)
+
+
+def _build_session(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'assistant-action.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            ShiftConfig.__table__,
+            User.__table__,
+            Equipment.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            ShiftProductionData.__table__,
+        ],
+    )
+    return sessionmaker(bind=engine, future=True)()
+
+
+def test_execute_action_promotes_pending_assignment_draft_and_aggregates(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    monkeypatch.setattr(
+        assistant_action_service.pilot_observability_service,
+        'log_pilot_event',
+        lambda *args, **kwargs: None,
+    )
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=3,
+            code='N',
+            name='夜班',
+            shift_type='night',
+            start_time=time(0, 0),
+            end_time=time(8, 0),
+            is_cross_day=False,
+            sort_order=3,
+            is_active=True,
+        )
+        manager = User(
+            id=9,
+            username='manager',
+            password_hash='x',
+            name='管理者',
+            role='manager',
+            data_scope_type='all',
+            is_manager=True,
+            is_active=True,
+        )
+        machine = Equipment(
+            id=101,
+            code='LZ2050-01',
+            name='2050轧机',
+            workshop_id=workshop.id,
+            equipment_type='rolling_mill',
+            operational_status='running',
+            is_active=True,
+        )
+        work_order = WorkOrder(id=501, tracking_card_no='PENDING-001', process_route_code='mobile', overall_status='created')
+        entry = WorkOrderEntry(
+            id=701,
+            work_order_id=work_order.id,
+            workshop_id=workshop.id,
+            machine_id=None,
+            shift_id=shift.id,
+            business_date=date(2026, 5, 6),
+            input_weight=100000,
+            output_weight=96000,
+            scrap_weight=4000,
+            entry_type='mobile_coil',
+            entry_status='draft',
+        )
+        db.add_all([workshop, shift, manager, machine, work_order, entry])
+        db.commit()
+
+        result = assistant_action_service.execute_action(
+            db=db,
+            user=manager,
+            action_payload={
+                'action': 'promote_draft_entry',
+                'target_type': 'work_order_entry',
+                'target_id': entry.id,
+            },
+        )
+
+        db.refresh(entry)
+        aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
+        assert result['decisions'][0]['action'] == 'auto_confirm'
+        assert entry.entry_status == 'submitted'
+        assert entry.machine_id == machine.id
+        assert entry.submitted_at is not None
+        assert entry.extra_payload['pending_assignment_action']['action'] == 'promote_draft_entry'
+        assert aggregate.equipment_id == machine.id
+        assert float(aggregate.output_weight) == 96000.0
+    finally:
+        db.close()
+
+
+def test_execute_action_requires_machine_when_candidates_are_ambiguous(tmp_path, monkeypatch) -> None:
+    db = _build_session(tmp_path)
+    monkeypatch.setattr(
+        assistant_action_service.pilot_observability_service,
+        'log_pilot_event',
+        lambda *args, **kwargs: None,
+    )
+    try:
+        workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
+        shift = ShiftConfig(
+            id=3,
+            code='N',
+            name='夜班',
+            shift_type='night',
+            start_time=time(0, 0),
+            end_time=time(8, 0),
+            is_cross_day=False,
+            sort_order=3,
+            is_active=True,
+        )
+        manager = User(
+            id=9,
+            username='manager',
+            password_hash='x',
+            name='管理者',
+            role='manager',
+            data_scope_type='all',
+            is_manager=True,
+        )
+        machines = [
+            Equipment(id=101, code='LZ2050-01', name='1#机', workshop_id=1, equipment_type='rolling_mill', operational_status='running', is_active=True),
+            Equipment(id=102, code='LZ2050-02', name='2#机', workshop_id=1, equipment_type='rolling_mill', operational_status='running', is_active=True),
+        ]
+        work_order = WorkOrder(id=501, tracking_card_no='PENDING-002', process_route_code='mobile', overall_status='created')
+        entry = WorkOrderEntry(
+            id=701,
+            work_order_id=work_order.id,
+            workshop_id=workshop.id,
+            machine_id=None,
+            shift_id=shift.id,
+            business_date=date(2026, 5, 6),
+            input_weight=100000,
+            output_weight=96000,
+            entry_type='mobile_coil',
+            entry_status='draft',
+        )
+        db.add_all([workshop, shift, manager, *machines, work_order, entry])
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            assistant_action_service.execute_action(
+                db=db,
+                user=manager,
+                action_payload={
+                    'action': 'promote_draft_entry',
+                    'target_type': 'work_order_entry',
+                    'target_id': entry.id,
+                },
+            )
+
+        assert exc.value.status_code == 400
+        assert exc.value.detail == '请选择机列'
+        db.refresh(entry)
+        assert entry.entry_status == 'draft'
+        assert db.query(ShiftProductionData).count() == 0
+    finally:
+        db.close()
 
 
 def test_execute_action_routes_to_registered_agent_and_logs(monkeypatch) -> None:

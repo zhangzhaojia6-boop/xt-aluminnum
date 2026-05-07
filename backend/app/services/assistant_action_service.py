@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Callable
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.agents.base import AgentDecision
+from app.agents.base import AgentAction, AgentDecision
+from app.core.field_lock import get_fields_to_lock
 from app.core.scope import ScopeSummary, build_scope_summary
-from app.models.master import Workshop
-from app.models.production import MobileShiftReport
+from app.models.master import Equipment, Workshop
+from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import pilot_observability_service
@@ -118,11 +119,113 @@ def _call_aggregator(*, db: Session, payload: dict[str, Any]) -> list[AgentDecis
     return aggregator_agent.execute(db=db, target_date=target_date)
 
 
+def _active_machine_candidates(db: Session, *, workshop_id: int) -> list[Equipment]:
+    rows = (
+        db.query(Equipment)
+        .filter(
+            Equipment.workshop_id == workshop_id,
+            Equipment.is_active.is_(True),
+            Equipment.operational_status == 'running',
+        )
+        .order_by(Equipment.sort_order.asc(), Equipment.id.asc())
+        .all()
+    )
+    return [
+        item
+        for item in rows
+        if str(item.equipment_type or '').strip().lower() not in {'virtual_workshop_qr', 'virtual_role_qr'}
+    ]
+
+
+def _resolve_target_machine(db: Session, *, entry: WorkOrderEntry, raw_machine_id: Any) -> Equipment:
+    if raw_machine_id is not None:
+        machine_id = _parse_int(raw_machine_id, field_name='machine_id')
+        machine = db.get(Equipment, machine_id)
+        if machine is None or not machine.is_active:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列不存在')
+        if int(machine.workshop_id) != int(entry.workshop_id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='机列不属于该车间')
+        if str(machine.equipment_type or '').strip().lower() in {'virtual_workshop_qr', 'virtual_role_qr'}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='不能绑定虚拟入口')
+        return machine
+
+    candidates = _active_machine_candidates(db, workshop_id=entry.workshop_id)
+    if len(candidates) == 1:
+        return candidates[0]
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='请选择机列')
+
+
+def _promote_draft_entry(*, db: Session, payload: dict[str, Any]) -> list[AgentDecision]:
+    entry_id = _parse_int(payload.get('entry_id') or payload.get('target_id'), field_name='entry_id')
+    entry = db.query(WorkOrderEntry).filter(WorkOrderEntry.id == entry_id).first()
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='填报记录不存在')
+    if entry.entry_status != 'draft':
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='仅草稿可提升')
+
+    if entry.machine_id is None:
+        machine = _resolve_target_machine(db, entry=entry, raw_machine_id=payload.get('machine_id'))
+        entry.machine_id = machine.id
+    else:
+        machine = db.get(Equipment, entry.machine_id)
+
+    if entry.shift_id is None:
+        raw_shift_id = payload.get('shift_id') or payload.get('shift_config_id')
+        if raw_shift_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='请选择班次')
+        shift_id = _parse_int(raw_shift_id, field_name='shift_id')
+        if db.get(ShiftConfig, shift_id) is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='班次不存在')
+        entry.shift_id = shift_id
+
+    entry.entry_status = 'submitted'
+    entry.submitted_at = datetime.now(timezone.utc)
+    locked_fields = set(entry.locked_fields or [])
+    locked_fields.update(get_fields_to_lock('work_order_entries', 'shift_leader'))
+    entry.locked_fields = sorted(locked_fields)
+    extra_payload = dict(entry.extra_payload or {})
+    extra_payload['pending_assignment_action'] = {
+        'action': 'promote_draft_entry',
+        'machine_id': entry.machine_id,
+        'shift_id': entry.shift_id,
+        'promoted_at': entry.submitted_at.isoformat(),
+    }
+    entry.extra_payload = extra_payload
+    db.flush()
+
+    from app.services.mobile_report.summary import _aggregate_coil_to_shift
+
+    _aggregate_coil_to_shift(
+        db,
+        business_date=entry.business_date,
+        shift_id=entry.shift_id,
+        workshop_id=entry.workshop_id,
+        machine_id=entry.machine_id,
+    )
+
+    return [
+        AgentDecision(
+            agent_name='assistant_action',
+            action=AgentAction.AUTO_CONFIRM,
+            target_type='work_order_entry',
+            target_id=entry.id,
+            reason='promote_draft_entry',
+            details={
+                'machine_id': entry.machine_id,
+                'machine_name': machine.name if machine is not None else None,
+                'shift_id': entry.shift_id,
+                'business_date': entry.business_date.isoformat(),
+            },
+        )
+    ]
+
+
 ACTION_REGISTRY: dict[str, ActionHandler] = {
     'call_validator': _call_validator,
     'call_reconciler': _call_reconciler,
     'call_reminder': _call_reminder,
     'call_aggregator': _call_aggregator,
+    'promote_draft_entry': _promote_draft_entry,
 }
 GLOBAL_ACTIONS = {'call_reconciler', 'call_aggregator'}
 ACTION_MANAGER_ROLES = {'admin', 'manager', 'factory_director', 'senior_manager'}
@@ -152,6 +255,8 @@ def _row_matches_scope(scope: ScopeSummary, row) -> bool:
     row_workshop_id = getattr(row, 'workshop_id', None)
     row_team_id = getattr(row, 'team_id', None)
     row_shift_id = getattr(row, 'shift_config_id', None)
+    if row_shift_id is None:
+        row_shift_id = getattr(row, 'shift_id', None)
 
     if scope.data_scope_type == 'assigned':
         if row_shift_id is None or int(row_shift_id) not in scope.assigned_shift_ids:
@@ -182,6 +287,13 @@ def _shift_in_scope(db: Session, *, shift_config_id: int, scope: ScopeSummary) -
     return scope.workshop_id is not None and shift_workshop_id is not None and int(shift_workshop_id) == int(scope.workshop_id)
 
 
+def _entry_in_scope(db: Session, *, entry_id: int, scope: ScopeSummary) -> bool:
+    entry = db.query(WorkOrderEntry).filter(WorkOrderEntry.id == entry_id).first()
+    if entry is None:
+        return True
+    return _row_matches_scope(scope, entry)
+
+
 def _require_action_scope(db: Session, *, user: User, action: str, payload: dict[str, Any]) -> None:
     scope = build_scope_summary(user)
     if scope.is_admin or _has_explicit_global_action_scope(user, scope):
@@ -206,6 +318,12 @@ def _require_action_scope(db: Session, *, user: User, action: str, payload: dict
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权执行全厂催报')
         if not _shift_in_scope(db, shift_config_id=_parse_int(shift_config_id, field_name='shift_config_id'), scope=scope):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权处置该班次')
+        return
+
+    if action == 'promote_draft_entry':
+        entry_id = _parse_int(payload.get('entry_id') or payload.get('target_id'), field_name='entry_id')
+        if not _entry_in_scope(db, entry_id=entry_id, scope=scope):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='当前账号无权处置该填报记录')
 
 
 def execute_action(*, db: Session, user: User, action_payload: dict[str, Any]) -> dict[str, Any]:

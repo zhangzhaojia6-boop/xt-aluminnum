@@ -22,8 +22,11 @@ class AssistantActionIn(BaseModel):
     reason: str | None = None
     target_date: str | None = None
     business_date: str | None = None
+    machine_id: int | str | None = None
+    shift_id: int | str | None = None
     shift_config_id: int | str | None = None
     report_id: int | str | None = None
+    entry_id: int | str | None = None
 
 
 @router.post('/assistant/actions')
