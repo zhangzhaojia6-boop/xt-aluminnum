@@ -35,4 +35,4 @@
 - [x] Run `npm --prefix frontend test`.
 - [x] Run `npm --prefix frontend run build`.
 - [x] Run `git diff --check`.
-- [ ] Commit, push, deploy, and verify production `/readyz` remains ready.
+- [x] Commit, push, deploy, and verify production `/readyz` remains ready.
