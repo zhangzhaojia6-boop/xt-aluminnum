@@ -12,7 +12,8 @@ from typing import Any
 import pandas as pd
 
 
-SUSPICIOUS_DAILY_OUTPUT_TONS = 10_000.0
+SUSPICIOUS_DAILY_OUTPUT_TONS = 5_000.0
+HARD_BLOCK_DAILY_OUTPUT_TONS = 50_000.0
 DAILY_PRODUCTION_FIELD_ORDER = [
     'business_date',
     'source_batch_id',
@@ -172,11 +173,22 @@ def _extract_rows(frame: pd.DataFrame) -> tuple[list[dict[str, Any]], list[dict[
         if not _has_production_values(row_payload):
             continue
         daily_output = row_payload.get('daily_output_tons')
-        if daily_output is not None and daily_output > SUSPICIOUS_DAILY_OUTPUT_TONS:
+        if daily_output is not None and daily_output > HARD_BLOCK_DAILY_OUTPUT_TONS:
+            issues.append(
+                {
+                    'code': 'hard_block_kg_as_tons',
+                    'message': f'每日产量日报值 {daily_output} 超过 {HARD_BLOCK_DAILY_OUTPUT_TONS}t，疑似把 kg 当作 t，已硬阻断。',
+                    'row_index': row_index,
+                    'workshop_label': row_payload['workshop_label'],
+                    'project_label': row_payload['project_label'],
+                    'value': daily_output,
+                }
+            )
+        elif daily_output is not None and daily_output > SUSPICIOUS_DAILY_OUTPUT_TONS:
             issues.append(
                 {
                     'code': 'suspicious_daily_output_tons',
-                    'message': '每日产量日报值超过 10000t，请核对是否把 kg 当作 t。',
+                    'message': f'每日产量日报值超过 {SUSPICIOUS_DAILY_OUTPUT_TONS}t，请核对是否把 kg 当作 t。',
                     'row_index': row_index,
                     'workshop_label': row_payload['workshop_label'],
                     'project_label': row_payload['project_label'],
@@ -198,12 +210,25 @@ def parse_daily_production_sheet(
     *,
     source_batch_id: int | None = None,
     year_hint: int | None = None,
+    report_date_override: date | None = None,
 ) -> ParsedDailyProductionSheet:
-    business_date = _detect_business_date(sheet_name, frame, year_hint=year_hint)
+    detected_business_date = _detect_business_date(sheet_name, frame, year_hint=year_hint)
+    business_date = report_date_override or detected_business_date
     rows, issues = _extract_rows(frame)
+    if report_date_override is not None and detected_business_date is not None and detected_business_date != report_date_override:
+        issues.append(
+            {
+                'code': 'stale_workbook_report_date',
+                'message': f'每日产量表头日期 {detected_business_date.isoformat()} 与锁定报告日 {report_date_override.isoformat()} 不一致，已按锁定报告日解析。',
+                'detected_business_date': detected_business_date.isoformat(),
+                'locked_business_date': report_date_override.isoformat(),
+            }
+        )
     quality_status = 'ready'
     if issues:
         quality_status = 'warning'
+    if any(item.get('code') == 'hard_block_kg_as_tons' for item in issues):
+        quality_status = 'blocked'
     if not rows or business_date is None:
         quality_status = 'blocked'
 
@@ -248,6 +273,7 @@ def parse_daily_production_workbook(
     *,
     source_batch_id: int | None = None,
     year_hint: int | None = None,
+    report_date_override: date | None = None,
 ) -> list[ParsedDailyProductionSheet]:
     workbook_path = Path(path)
     if workbook_path.suffix.lower() == '.xlsx':
@@ -269,6 +295,7 @@ def parse_daily_production_workbook(
                 frame,
                 source_batch_id=source_batch_id,
                 year_hint=year_hint,
+                report_date_override=report_date_override,
             )
         )
     return parsed_rows

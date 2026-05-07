@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pandas as pd
 
 from app.services.daily_production_canonical_service import (
@@ -7,6 +9,17 @@ from app.services.daily_production_canonical_service import (
     parse_daily_production_sheet,
     parse_daily_production_workbook,
 )
+
+
+def _daily_production_frame(rows: list[list]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            ['河南鑫泰铝业生产系统综合日报表               2026年5月3日', None, None, None, None, None, None, None, None, None, None, None],
+            ['车间   项目', None, '投料量', None, '日产量', None, '日均', '产生废料', None, '月成品率', '指标', '对比'],
+            [None, None, '日合', '累计', '日合', '累计', None, '日合', '累计', None, None, None],
+            *rows,
+        ]
+    )
 
 
 def test_daily_production_row_summary_fields_are_stable() -> None:
@@ -61,29 +74,80 @@ def test_parse_daily_production_sheet_extracts_date_rows_and_ton_totals() -> Non
 
 
 def test_parse_daily_production_sheet_flags_suspicious_ten_thousand_scale_output() -> None:
-    frame = pd.DataFrame(
-        [
-            ['河南鑫泰铝业生产系统综合日报表               2026年5月3日', None, None, None, None, None, None, None, None, None, None, None],
-            ['车间   项目', None, '投料量', None, '日产量', None, '日均', '产生废料', None, '月成品率', '指标', '对比'],
-            [None, None, '日合', '累计', '日合', '累计', None, '日合', '累计', None, None, None],
-            ['冷轧', '2050', 149510, 149510, 120460, 120460, None, 18050, 18050, 0.8057, '/', '/'],
-        ]
-    )
+    frame = _daily_production_frame([
+        ['冷轧', '2050', 149510, 149510, 120460, 120460, None, 18050, 18050, 0.8057, '/', '/'],
+    ])
 
     parsed = parse_daily_production_sheet('综合报表', frame, year_hint=2026)
 
-    assert parsed.status == 'success'
+    assert parsed.status == 'failed'
     assert parsed.mapped_data['source_unit'] == 't'
     assert parsed.mapped_data['daily_output_tons'] == 120460.0
-    assert parsed.mapped_data['quality_status'] == 'warning'
+    assert parsed.mapped_data['quality_status'] == 'blocked'
     assert parsed.mapped_data['issues'] == [
         {
-            'code': 'suspicious_daily_output_tons',
-            'message': '每日产量日报值超过 10000t，请核对是否把 kg 当作 t。',
+            'code': 'hard_block_kg_as_tons',
+            'message': '每日产量日报值 120460.0 超过 50000.0t，疑似把 kg 当作 t，已硬阻断。',
             'row_index': 3,
             'workshop_label': '冷轧',
             'project_label': '2050',
             'value': 120460.0,
+        }
+    ]
+
+
+def test_parse_daily_production_sheet_warns_kg_as_tons_above_five_thousand() -> None:
+    frame = _daily_production_frame([
+        ['冷轧', '2050', 100, 1000, 6000, 80000, None, 0, 0, 0.95, 0.96],
+    ])
+
+    parsed = parse_daily_production_sheet('综合报表', frame, year_hint=2026)
+
+    assert parsed.status == 'success'
+    assert parsed.mapped_data['quality_status'] == 'warning'
+    assert parsed.mapped_data['issues'] == [
+        {
+            'code': 'suspicious_daily_output_tons',
+            'message': '每日产量日报值超过 5000.0t，请核对是否把 kg 当作 t。',
+            'row_index': 3,
+            'workshop_label': '冷轧',
+            'project_label': '2050',
+            'value': 6000.0,
+        }
+    ]
+
+
+def test_parse_daily_production_sheet_accepts_realistic_daily_values() -> None:
+    frame = _daily_production_frame([
+        ['铸锭', '', 0, 0, 369, 8000, None, 0, 0, 0, 0],
+        ['冷轧', '1650', 100, 3000, 220, 6500, None, 0, 0, 0.95, 0.96],
+        ['冷轧', '2050', 80, 2400, 59, 1700, None, 0, 0, 0.95, 0.96],
+    ])
+
+    parsed = parse_daily_production_sheet('综合报表', frame, year_hint=2026)
+
+    assert parsed.status == 'success'
+    assert parsed.mapped_data['quality_status'] == 'ready'
+    assert parsed.mapped_data['issues'] == []
+
+
+def test_parse_daily_production_sheet_uses_locked_report_date_when_header_is_stale() -> None:
+    frame = _daily_production_frame([
+        ['冷轧', '2050', 100, 500, 90, 450, None, 10, 50, 0.9, '/', '/'],
+    ])
+
+    parsed = parse_daily_production_sheet('综合报表', frame, year_hint=2026, report_date_override=date(2026, 5, 5))
+
+    assert parsed.status == 'success'
+    assert parsed.business_date == date(2026, 5, 5)
+    assert parsed.mapped_data['business_date'] == '2026-05-05'
+    assert parsed.mapped_data['quality_status'] == 'warning'
+    assert parsed.mapped_data['issues'] == [
+        {
+            'code': 'stale_workbook_report_date',
+            'message': '每日产量表头日期 2026-05-03 与锁定报告日 2026-05-05 不一致，已按锁定报告日解析。',
+            'detected_business_date': '2026-05-03',
+            'locked_business_date': '2026-05-05',
         }
     ]
 
