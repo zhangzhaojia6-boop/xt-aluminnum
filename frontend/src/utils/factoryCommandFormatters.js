@@ -12,6 +12,8 @@ const sourceLabels = {
   mes_projection: 'MES 投影',
   local_entry: '本地填报',
   local_shift_data: '手填口径',
+  work_order_runtime: '填报实时',
+  work_order_compat: '填报实时',
   mixed: '混合来源'
 }
 

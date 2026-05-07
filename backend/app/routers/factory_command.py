@@ -30,19 +30,19 @@ def _ensure_factory_command_access(user: User) -> ScopeSummary:
 @router.get('/overview', response_model=FactoryOverviewOut)
 def overview(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> FactoryOverviewOut:
     scope = _ensure_factory_command_access(current_user)
-    return factory_command_service.build_overview(db, scope=scope)
+    return factory_command_service.build_overview(db, scope=scope, current_user=current_user)
 
 
 @router.get('/workshops', response_model=list[FactoryWorkshopOut])
 def workshops(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[FactoryWorkshopOut]:
     scope = _ensure_factory_command_access(current_user)
-    return factory_command_service.list_workshops(db, scope=scope)
+    return factory_command_service.list_workshops(db, scope=scope, current_user=current_user)
 
 
 @router.get('/machine-lines', response_model=list[FactoryMachineLineOut])
 def machine_lines(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[FactoryMachineLineOut]:
     scope = _ensure_factory_command_access(current_user)
-    return factory_command_service.list_machine_lines(db, scope=scope)
+    return factory_command_service.list_machine_lines(db, scope=scope, current_user=current_user)
 
 
 @router.get('/coils', response_model=list[FactoryCoilListItemOut])

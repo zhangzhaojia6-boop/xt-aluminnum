@@ -774,9 +774,9 @@ def test_aggregate_live_payload_groups_workshops_machines_and_shifts() -> None:
         'draft_entry_count': 1,
         'total_entry_count': 2,
     }
-    assert payload['factory_total']['output'] == 17.4
+    assert payload['factory_total']['output'] == 9.7
     assert payload['workshops'][0]['workshop_name'] == '冷轧2050车间'
-    assert payload['workshops'][0]['workshop_total']['yield_rate'] == 96.67
+    assert payload['workshops'][0]['workshop_total']['yield_rate'] == 97.0
     assert payload['workshops'][0]['machines'][0]['machine_name'] == '1#'
     assert payload['workshops'][0]['machines'][0]['shifts'][0]['submitted_count'] == 1
     assert payload['workshops'][0]['machines'][0]['shifts'][0]['draft_count'] == 0
@@ -839,6 +839,59 @@ def test_aggregate_live_payload_counts_unbound_draft_intake_without_output_total
     assert payload['workshops'][0]['workshop_total']['total_entry_count'] == 1
     assert payload['factory_total']['output'] == 0.0
     assert payload['workshops'][0]['machines'][0]['shifts'][0]['total_output'] == 0.0
+
+
+def test_aggregate_live_payload_excludes_bound_draft_weight_from_output_totals() -> None:
+    workshops = [
+        SimpleNamespace(id=2, name='冷轧2050车间'),
+    ]
+    machines = [
+        SimpleNamespace(id=11, workshop_id=2, name='1#'),
+    ]
+    shifts = [
+        SimpleNamespace(id=1, name='白班', sort_order=1),
+    ]
+    entries = [
+        {
+            'id': 105,
+            'tracking_card_no': 'RA240005',
+            'work_order_id': 5,
+            'workshop_id': 2,
+            'machine_id': 11,
+            'shift_id': 1,
+            'business_date': '2026-03-27',
+            'input_weight': 100000.0,
+            'output_weight': 96000.0,
+            'scrap_weight': 4000.0,
+            'yield_rate': None,
+            'entry_status': 'draft',
+            'entry_type': 'mobile_coil',
+            'tracking_card_status': 'in_progress',
+            'weight_unit': 'kg',
+        },
+    ]
+
+    payload = realtime_service.aggregate_live_payload(
+        workshops=workshops,
+        machines=machines,
+        shifts=shifts,
+        entries=entries,
+        attendance={},
+        expected_counts={},
+    )
+
+    shift = payload['workshops'][0]['machines'][0]['shifts'][0]
+    assert payload['overall_progress']['formal_entry_count'] == 0
+    assert payload['overall_progress']['draft_entry_count'] == 1
+    assert shift['submitted_count'] == 0
+    assert shift['draft_count'] == 1
+    assert shift['submission_status'] == 'in_progress'
+    assert shift['total_input'] == 0.0
+    assert shift['total_output'] == 0.0
+    assert shift['total_scrap'] == 0.0
+    assert payload['workshops'][0]['machines'][0]['day_total']['output'] == 0.0
+    assert payload['workshops'][0]['workshop_total']['output'] == 0.0
+    assert payload['factory_total']['output'] == 0.0
 
 
 def test_aggregate_live_payload_summarizes_machine_missing_shift_bound_drafts() -> None:

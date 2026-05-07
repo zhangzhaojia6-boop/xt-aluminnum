@@ -377,9 +377,10 @@ def aggregate_live_payload(
                 )
                 draft_count = len([item for item in rows if item.get('entry_status') == 'draft'])
                 total_count = len(rows)
-                input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in rows), 2)
-                output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in rows), 2)
-                scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in rows), 2)
+                formal_rows = [item for item in rows if _is_formal_entry(item)]
+                input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in formal_rows), 2)
+                output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in formal_rows), 2)
+                scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in formal_rows), 2)
                 expected_total = int(expected_counts.get((workshop.id, machine.id, shift.id), 0))
                 if expected_total <= 0 and total_count > 0:
                     expected_total = total_count

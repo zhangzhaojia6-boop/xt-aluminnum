@@ -626,6 +626,183 @@ def build_freshness(db: Session, *, now=None) -> dict[str, Any]:
     }
 
 
+def _live_source_freshness(freshness: Mapping[str, Any], source: str | None) -> dict[str, Any]:
+    payload = dict(freshness)
+    payload['source'] = source or payload.get('source') or 'work_order_runtime'
+    return payload
+
+
+def _live_fill_entry_count(payload: Mapping[str, Any] | None) -> int:
+    if not payload:
+        return 0
+    if payload.get('data_source') == 'mes_projection':
+        return 0
+    progress = payload.get('overall_progress') or {}
+    pending_assignment = progress.get('pending_assignment') or {}
+    return int(progress.get('total_entry_count') or 0) + int(pending_assignment.get('entry_count') or 0)
+
+
+def _live_aggregation_for_factory_command(
+    db: Session,
+    *,
+    current_user: Any | None,
+    now=None,
+) -> dict[str, Any] | None:
+    if current_user is None:
+        return None
+    try:
+        from app.services import realtime_service
+
+        resolved_now = now if isinstance(now, datetime) else None
+        active_date = realtime_service.resolve_live_business_date(
+            db,
+            today=_business_date(now),
+            now=resolved_now,
+        )
+        business_date = date.fromisoformat(str(active_date['business_date']))
+        payload = realtime_service.build_live_aggregation(
+            db,
+            business_date=business_date,
+            workshop_id=None,
+            current_user=current_user,
+        )
+    except (OperationalError, ProgrammingError, KeyError, ValueError):
+        return None
+    return payload if _live_fill_entry_count(payload) > 0 else None
+
+
+def _live_workshop_attention_count(workshop: Mapping[str, Any]) -> int:
+    count = 0
+    for machine in workshop.get('machines') or []:
+        for shift in machine.get('shifts') or []:
+            if shift.get('is_applicable') is False:
+                continue
+            if shift.get('status_tone') in {'danger', 'warning'}:
+                count += 1
+    return count
+
+
+def _overview_from_live_aggregation(
+    payload: Mapping[str, Any],
+    *,
+    freshness: Mapping[str, Any],
+) -> dict[str, Any]:
+    source = str(payload.get('data_source') or 'work_order_runtime')
+    response_freshness = _live_source_freshness(freshness, source)
+    factory_total = payload.get('factory_total') or {}
+    total_input = _number(factory_total.get('input'))
+    total_output = _number(factory_total.get('output'))
+    workshop_summary = []
+    for workshop in payload.get('workshops') or []:
+        workshop_total = workshop.get('workshop_total') or {}
+        row_count = int(workshop_total.get('total_entry_count') or 0)
+        output = _number(workshop_total.get('output'))
+        if row_count <= 0 and output <= 0:
+            continue
+        input_weight = _number(workshop_total.get('input'))
+        workshop_summary.append(
+            {
+                'workshop_id': workshop.get('workshop_id'),
+                'workshop_name': workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}",
+                'row_count': row_count,
+                'total_input_tons': round(input_weight, 4),
+                'total_output_tons': round(output, 4),
+                'yield_rate': workshop_total.get('yield_rate'),
+            }
+        )
+    progress = payload.get('overall_progress') or {}
+    return {
+        'source': response_freshness['source'],
+        'freshness': response_freshness,
+        'wip_tons': round(max(total_input - total_output, 0.0), 4),
+        'today_output_tons': round(total_output, 4),
+        'stock_tons': round(total_output, 4),
+        'total_input_tons': round(total_input, 4),
+        'total_output_tons': round(total_output, 4),
+        'yield_rate': factory_total.get('yield_rate'),
+        'workshop_summary': sorted(workshop_summary, key=lambda item: item['total_output_tons'], reverse=True),
+        'abnormal_count': int(progress.get('attention_cell_count') or 0) + int(progress.get('missing_cell_count') or 0),
+        'cost_estimate': _estimate(missing_data=['cost_inputs']),
+        'missing_data': ['cost_inputs'],
+    }
+
+
+def _workshops_from_live_aggregation(
+    payload: Mapping[str, Any],
+    *,
+    freshness: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    source = str(payload.get('data_source') or 'work_order_runtime')
+    response_freshness = _live_source_freshness(freshness, source)
+    items = []
+    for workshop in payload.get('workshops') or []:
+        total = workshop.get('workshop_total') or {}
+        row_count = int(total.get('total_entry_count') or 0)
+        output = _number(total.get('output'))
+        if row_count <= 0 and output <= 0:
+            continue
+        items.append(
+            {
+                'workshop_name': workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}",
+                'active_coil_count': row_count,
+                'active_tons': round(output, 4),
+                'stalled_count': _live_workshop_attention_count(workshop),
+                'freshness': response_freshness,
+            }
+        )
+    return sorted(items, key=lambda item: item['active_tons'], reverse=True)
+
+
+def _machine_lines_from_live_aggregation(
+    db: Session,
+    payload: Mapping[str, Any],
+    *,
+    freshness: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    source = str(payload.get('data_source') or 'work_order_runtime')
+    response_freshness = _live_source_freshness(freshness, source)
+    equipment_by_id = _equipment_map(db)
+    items = []
+    for workshop in payload.get('workshops') or []:
+        workshop_name = workshop.get('workshop_name')
+        for machine in workshop.get('machines') or []:
+            machine_id = machine.get('machine_id')
+            shifts = machine.get('shifts') or []
+            entry_count = sum(int(shift.get('submitted_count') or 0) + int(shift.get('draft_count') or 0) for shift in shifts)
+            output = _number((machine.get('day_total') or {}).get('output'))
+            if entry_count <= 0 and output <= 0:
+                continue
+            binding_status = str(machine.get('machine_binding_status') or '').strip() or 'bound'
+            equipment = equipment_by_id.get(int(machine_id)) if machine_id is not None and int(machine_id) > 0 else None
+            is_unbound = binding_status == 'unbound' or (machine_id is not None and int(machine_id) < 0)
+            line_code = (
+                f"workshop:{workshop.get('workshop_id')}:machine:{machine_id}:unbound"
+                if is_unbound
+                else str(getattr(equipment, 'code', None) or f'equipment:{machine_id}')
+            )
+            attention_count = sum(
+                1
+                for shift in shifts
+                if shift.get('is_applicable') is not False and shift.get('status_tone') in {'danger', 'warning'}
+            )
+            items.append(
+                {
+                    'line_code': line_code,
+                    'line_name': machine.get('machine_name') or getattr(equipment, 'name', None),
+                    'workshop_name': workshop_name,
+                    'active_coil_count': entry_count,
+                    'active_tons': round(output, 4),
+                    'finished_tons': round(output, 4),
+                    'stalled_count': attention_count,
+                    'machine_binding_status': 'unbound' if is_unbound else 'bound',
+                    'cost_estimate': _estimate(),
+                    'margin_estimate': _estimate(label='毛差估算'),
+                    'freshness': response_freshness,
+                }
+            )
+    return sorted(items, key=lambda item: item['line_code'])
+
+
 def _build_overview_from_shift_data(
     db: Session,
     *,
@@ -684,8 +861,11 @@ def _has_local_overview_rows(payload: Mapping[str, Any]) -> bool:
     return bool(payload.get('workshop_summary'))
 
 
-def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None) -> dict[str, Any]:
+def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, current_user: Any | None = None) -> dict[str, Any]:
     freshness = build_freshness(db, now=now)
+    live_payload = _live_aggregation_for_factory_command(db, current_user=current_user, now=now)
+    if live_payload is not None:
+        return _overview_from_live_aggregation(live_payload, freshness=freshness)
     target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _build_overview_from_shift_data(
@@ -759,8 +939,17 @@ def _list_workshops_from_shift_data(
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
-def list_workshops(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
+def list_workshops(
+    db: Session,
+    *,
+    scope: ScopeSummary | None = None,
+    now=None,
+    current_user: Any | None = None,
+) -> list[dict[str, Any]]:
     freshness = build_freshness(db, now=now)
+    live_payload = _live_aggregation_for_factory_command(db, current_user=current_user, now=now)
+    if live_payload is not None:
+        return _workshops_from_live_aggregation(live_payload, freshness=freshness)
     target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _list_workshops_from_shift_data(
@@ -859,8 +1048,17 @@ def _list_machine_lines_from_shift_data(
     return sorted(items, key=lambda item: item['line_code'])
 
 
-def list_machine_lines(db: Session, *, scope: ScopeSummary | None = None, now=None) -> list[dict[str, Any]]:
+def list_machine_lines(
+    db: Session,
+    *,
+    scope: ScopeSummary | None = None,
+    now=None,
+    current_user: Any | None = None,
+) -> list[dict[str, Any]]:
     freshness = build_freshness(db, now=now)
+    live_payload = _live_aggregation_for_factory_command(db, current_user=current_user, now=now)
+    if live_payload is not None:
+        return _machine_lines_from_live_aggregation(db, live_payload, freshness=freshness)
     target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
         return _list_machine_lines_from_shift_data(

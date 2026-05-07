@@ -67,7 +67,7 @@ def test_factory_command_routes_are_registered(monkeypatch):
     freshness = {'status': 'fresh', 'lag_seconds': 30, 'last_synced_at': '2026-05-02T08:00:00+00:00', 'source': 'mes_projection'}
     monkeypatch.setattr(
         'app.routers.factory_command.factory_command_service.build_overview',
-        lambda db, scope=None: {
+        lambda db, scope=None, current_user=None: {
             'freshness': freshness,
             'source': 'local_shift_data',
             'wip_tons': 12.0,
@@ -84,11 +84,11 @@ def test_factory_command_routes_are_registered(monkeypatch):
     )
     monkeypatch.setattr(
         'app.routers.factory_command.factory_command_service.list_workshops',
-        lambda db, scope=None: [{'workshop_name': '冷轧', 'active_coil_count': 2, 'active_tons': 12.0, 'stalled_count': 0, 'freshness': freshness}],
+        lambda db, scope=None, current_user=None: [{'workshop_name': '冷轧', 'active_coil_count': 2, 'active_tons': 12.0, 'stalled_count': 0, 'freshness': freshness}],
     )
     monkeypatch.setattr(
         'app.routers.factory_command.factory_command_service.list_machine_lines',
-        lambda db, scope=None: [
+        lambda db, scope=None, current_user=None: [
             {
                 'line_code': '冷轧:01',
                 'line_name': '1#轧机',
