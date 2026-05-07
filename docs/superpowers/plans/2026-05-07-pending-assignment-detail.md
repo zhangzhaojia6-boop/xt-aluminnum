@@ -37,7 +37,7 @@
 - [x] Add a `待归属` tab in `ReviewTaskCenter`, loaded together with dashboard data for the selected date.
 - [x] Render rows with workshop, shift, tracking card, output tons, missing fields, and status; keep table dense and production-oriented.
 - [x] Add static frontend contract assertions that the review page wires the new API call, tab label, table columns, and no mutation action text.
-- [x] Run `node --test frontend/tests/managementCommandCenter.test.js`.
+- [x] Run `node --test frontend/tests/reviewTaskCenter.test.js` and `node --test frontend/tests/managementCommandCenter.test.js`.
 - [x] Run `npm --prefix frontend run build`.
 
 ### Task 3: Verification And Release
@@ -47,6 +47,6 @@
 - [x] Run backend full suite if focused tests pass: `python -m pytest backend/tests -q`.
 - [x] Run `npm --prefix frontend run build`.
 - [x] Run `git diff --check`.
-- [ ] Commit and push with a conventional commit.
-- [ ] Deploy with `ssh root@8.140.218.13 "cd /srv/aluminum-bypass && ./scripts/deploy_systemd_host.sh --pull http://8.140.218.13"`.
-- [ ] Verify production `/readyz` and the pending-assignment detail endpoint returns the 17 draft rows while `factory_output` remains `0.0`.
+- [x] Commit and push with a conventional commit.
+- [x] Deploy with `ssh root@8.140.218.13 "cd /srv/aluminum-bypass && ./scripts/deploy_systemd_host.sh --pull http://8.140.218.13"`.
+- [x] Verify production `/readyz` and the pending-assignment detail endpoint returns the 17 draft rows; current `factory_output=29.85` comes from submitted bound rows, while the `120.46t` pending draft output stays outside formal output totals.
