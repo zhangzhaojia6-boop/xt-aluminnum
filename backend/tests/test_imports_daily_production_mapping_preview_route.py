@@ -80,12 +80,6 @@ def test_daily_production_mapping_preview_route_returns_serialized_preview(monke
                     equipment_id=None,
                     equipment_code=None,
                     equipment_name=None,
-                    candidate_workshops=[
-                        MappingCandidate(id=31, code='JZ', name='精整车间'),
-                    ],
-                    candidate_equipment=[
-                        MappingCandidate(id=301, code='JZ-ZJ1', name='纵剪1#'),
-                    ],
                     issues=[{'code': 'unresolved_workshop', 'message': '每日产量行未匹配到高置信车间主数据。'}],
                     candidate_workshops=[
                         MappingCandidate(
@@ -126,8 +120,6 @@ def test_daily_production_mapping_preview_route_returns_serialized_preview(monke
         assert payload['rows'][0]['status'] == 'ready'
         assert payload['rows'][0]['daily_output_tons'] == 301.1
         assert payload['rows'][1]['status'] == 'unresolved_workshop'
-        assert payload['rows'][1]['candidate_workshops'][0]['code'] == 'JZ'
-        assert payload['rows'][1]['candidate_equipment'][0]['code'] == 'JZ-ZJ1'
         assert payload['rows'][1]['issues'][0]['code'] == 'unresolved_workshop'
         assert payload['rows'][1]['candidate_workshops'][0]['code'] == 'LZ3'
         assert payload['rows'][1]['candidate_equipment'] == []
