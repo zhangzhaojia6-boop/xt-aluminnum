@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Mapping
 
 from sqlalchemy import and_, false, or_
@@ -867,19 +867,45 @@ def _has_local_overview_rows(payload: Mapping[str, Any]) -> bool:
     return bool(payload.get('workshop_summary'))
 
 
+def _build_previous_day_summary(
+    db: Session,
+    *,
+    today: date,
+    scope: ScopeSummary | None = None,
+) -> dict[str, Any] | None:
+    yesterday = today - timedelta(days=1)
+    rows = _local_rows(db, target_date=yesterday, scope=scope)
+    if not rows:
+        return None
+    total_input = sum(_local_weight_tons(row, 'input_weight') for row in rows)
+    total_output = sum(_local_weight_tons(row, 'output_weight') for row in rows)
+    return {
+        'business_date': yesterday.isoformat(),
+        'total_input_tons': round(total_input, 4),
+        'total_output_tons': round(total_output, 4),
+        'yield_rate': round(total_output / total_input * 100, 2) if total_input else None,
+    }
+
+
 def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, current_user: Any | None = None) -> dict[str, Any]:
     freshness = build_freshness(db, now=now)
+    today = _business_date(now)
+    previous_day = _build_previous_day_summary(db, today=today, scope=scope)
     live_payload = _live_aggregation_for_factory_command(db, current_user=current_user, now=now)
     if live_payload is not None:
-        return _overview_from_live_aggregation(live_payload, freshness=freshness)
-    target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
+        result = _overview_from_live_aggregation(live_payload, freshness=freshness)
+        result['previous_day'] = previous_day
+        return result
+    target_date = _latest_local_business_date(db, fallback=today, scope=scope)
     if _should_use_local_shift_data(db, freshness):
-        return _build_overview_from_shift_data(
+        result = _build_overview_from_shift_data(
             db,
             freshness=freshness,
             target_date=target_date,
             scope=scope,
         )
+        result['previous_day'] = previous_day
+        return result
 
     rows = _scoped_coils(db, scope=scope)
     stock_rows = [row for row in rows if _destination(row)['kind'] == 'finished_stock']
@@ -915,6 +941,7 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
         'abnormal_count': abnormal_count + (local_overview['abnormal_count'] if has_local_rows else 0),
         'cost_estimate': _estimate(missing_data=missing_data),
         'missing_data': missing_data,
+        'previous_day': previous_day,
     }
 
 
