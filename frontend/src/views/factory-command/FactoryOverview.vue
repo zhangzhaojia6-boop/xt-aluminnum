@@ -182,7 +182,7 @@ const heroYield = computed(() => {
 const heroDelta = computed(() => {
   const prev = overview.value.previous_day
   if (!prev) return { output: null, input: null, yield: null }
-  const pct = (cur, old) => old > 0 ? ((cur - old) / old) * 100 : null
+  const pct = (cur, old) => (cur != null && old > 0) ? ((cur - old) / old) * 100 : null
   return {
     output: pct(overview.value.today_output_tons, prev.total_output_tons),
     input: pct(overview.value.total_input_tons, prev.total_input_tons),

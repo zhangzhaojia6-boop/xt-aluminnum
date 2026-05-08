@@ -91,6 +91,8 @@ WORKSHOP_TYPE_ALIASES = {
     'inventory': 'inventory',
     'warehouse': 'inventory',
     'annealing': 'annealing',
+    'coating': 'coating',
+    'recycling': 'recycling',
 }
 
 ENERGY_OWNER_FIELDS = [
@@ -881,6 +883,48 @@ DEFAULT_WORKSHOP_TEMPLATES = {
                 'hidden': True,
             },
         ],
+        'supports_ocr': False,
+    },
+    'coating': {
+        'display_name': '彩涂车间',
+        'tempo': 'fast',
+        'entry_fields': [
+            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'alloy_grade', 'label': '合金', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
+            {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
+            {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+        ],
+        'shift_fields': [],
+        'extra_fields': [
+            *ENERGY_OWNER_FIELDS,
+            *MAINTENANCE_OWNER_FIELDS,
+            *CONTRACT_OWNER_FIELDS,
+        ],
+        'qc_fields': QC_OWNER_FIELDS,
+        'readonly_fields': [
+            {
+                'name': 'yield_rate',
+                'label': '成品率',
+                'type': 'number',
+                'unit': '%',
+                'compute': 'output_weight / input_weight * 100',
+                'hidden': True,
+            },
+        ],
+        'supports_ocr': False,
+    },
+    'recycling': {
+        'display_name': '回收车间',
+        'tempo': 'slow',
+        'entry_fields': [
+            {'name': 'material_type', 'label': '物料类型', 'type': 'select', 'required': True, 'options_source': 'scrap_types'},
+            {'name': 'weight', 'label': '重量', 'type': 'number', 'unit': 'kg', 'required': True},
+        ],
+        'shift_fields': [],
+        'extra_fields': [],
+        'qc_fields': [],
+        'readonly_fields': [],
         'supports_ocr': False,
     },
 }

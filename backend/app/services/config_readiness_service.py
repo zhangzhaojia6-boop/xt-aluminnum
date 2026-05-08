@@ -183,6 +183,7 @@ def evaluate_equipment_binding(
             "status": "warning",
             "action_required": "seed_equipment",
             "detail": "no_active_equipment",
+            "coverage": 0.0,
         }
 
     pilot_codes_raw = (settings.PILOT_WORKSHOP_CODES or '').strip()
@@ -215,6 +216,7 @@ def evaluate_equipment_binding(
             "status": "warning",
             "action_required": "bind_machine_users",
             "detail": "no_equipment_user_binding",
+            "coverage": 0.0,
         }
 
     coverage = len(bound_pilot) / len(pilot_equipment)

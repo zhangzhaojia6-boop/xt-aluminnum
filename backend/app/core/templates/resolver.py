@@ -92,6 +92,10 @@ def resolve_workshop_type(
         return 'inventory'
     if code == 'ZXTF' or '退火' in name:
         return 'annealing'
+    if code == 'CT' or '彩涂' in name or '涂漆' in name:
+        return 'coating'
+    if code == 'HS' or '回收' in name:
+        return 'recycling'
     if 'cold' in lowered_name:
         return 'cold_roll'
     if 'finish' in lowered_name:

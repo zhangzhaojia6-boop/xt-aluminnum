@@ -1772,6 +1772,31 @@ git push -u origin feat/2026-05-07-acceptance-gap-closure
 
 ---
 
+<!-- AUTONOMOUS DECISION LOG -->
+## Decision Audit Trail
+
+| # | Phase | Decision | Classification | Principle | Rationale | Rejected |
+|---|-------|----------|-----------|-----------|----------|----------|
+| 1 | CEO | Accept premises as valid | Mechanical | P6 (action) | All 4 premises grounded in real factory context | N/A |
+| 2 | CEO | Flag proxy problem but don't change scope | Taste | P3 (pragmatic) | Plan is data accuracy first; mobile is Phase 2 | Reframe to mobile-first |
+| 3 | CEO | Flag D5/D6 scope creep but keep in plan | Taste | P1 (completeness) | D5/D6 already implemented; splitting = churn | Split into separate branch |
+| 4 | CEO | Commit uncommitted changes immediately | Mechanical | P6 (action) | 12 files at risk of accidental loss | N/A |
+| 5 | CEO | Accept single-source ground truth | Mechanical | P3 (pragmatic) | Hand records are only available baseline | Cross-validate with MES |
+| 6 | CEO | Acknowledge dependency chain D1→D2→D7 | Mechanical | P5 (explicit) | Atomic rollback unit, not independent | N/A |
+| 7 | Design | Flag hierarchy inversion (pending above charts) | Taste | P1 (completeness) | Boss sees data-ops before production data | Keep current order |
+| 8 | Design | Flag missing loading states | Mechanical | P3 (pragmatic) | Important but not acceptance-blocking | N/A |
+| 9 | Design | Flag jargon in pending assignment | Mechanical | P3 (pragmatic) | Text fix, not acceptance-blocking | N/A |
+| 10 | Design | Flag hardcoded chart colors | Mechanical | P5 (explicit) | Design system consistency | N/A |
+| 11 | Design | Flag accessibility gaps | Mechanical | P5 (explicit) | Important for long-term | N/A |
+| 12 | Design | ShiftOutputTrend dead import | Mechanical | P4 (DRY) | Unused import cleanup | N/A |
+| 13 | Eng | D7 must be implemented | Mechanical | P1 (completeness) | Integration test = acceptance gate | Ship without D7 |
+| 14 | Eng | Hard-block row append acceptable with docs | Mechanical | P5 (explicit) | Downstream checks status field | N/A |
+| 15 | Eng | Coverage field missing = bug to fix | Mechanical | P1 (completeness) | Acceptance criterion requires it | N/A |
+| 16 | Eng | Plan doc staleness = documentation debt | Mechanical | P3 (pragmatic) | Actual code is source of truth | N/A |
+| 17 | Eng | Unicode whitespace test = nice-to-have | Mechanical | P3 (pragmatic) | Low risk | N/A |
+
+---
+
 ## 失败回退策略
 
 - 单 Task 失败：当前 commit 还没打的话直接改；已 commit 但发现错的，先看是否影响下游 Task：

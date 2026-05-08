@@ -108,13 +108,13 @@ DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
     ('园区淬火', ''): MappingRule(workshop_code='JQ'),
     ('园区精整', ''): MappingRule(workshop_code='JQ'),
     ('园区剪切', ''): MappingRule(workshop_code='JQ'),
-    ('彩涂（洗油、拉矫、退火）', ''): MappingRule(workshop_code='CT', equipment_code='CT-XY', equipment_required=True),
-    ('彩涂(涂漆）', ''): MappingRule(workshop_code='CT', equipment_code='CT-TQ', equipment_required=True),
+    ('彩涂(洗油、拉矫、退火)', ''): MappingRule(workshop_code='CT', equipment_code='CT-XY', equipment_required=True),
+    ('彩涂(涂漆)', ''): MappingRule(workshop_code='CT', equipment_code='CT-TQ', equipment_required=True),
     ('彩涂', ''): MappingRule(workshop_code='CT'),
     ('重卷', '1450'): MappingRule(workshop_code='LZ1450'),
     ('重卷', '1650'): MappingRule(workshop_code='LZ1650'),
     ('重卷', ''): MappingRule(workshop_code='JQ', equipment_code='JQ-ZJ', equipment_required=True),
-    ('辊涂（光铝）', ''): MappingRule(workshop_code='CT'),
+    ('辊涂(光铝)', ''): MappingRule(workshop_code='CT'),
     ('覆膜产量', ''): MappingRule(workshop_code='CT'),
     ('铣床', ''): MappingRule(workshop_code='RZ', equipment_code='RZ-XC', equipment_required=True),
     ('锅炉', '热轧'): MappingRule(workshop_code='RZ'),
@@ -125,7 +125,7 @@ DAILY_PRODUCTION_MAPPING_RULES: dict[tuple[str, str], MappingRule] = {
 
 
 def _normalize_label(value: Any) -> str:
-    return str(value or '').strip().replace(' ', '')
+    return str(value or '').strip().replace(' ', '').replace('（', '(').replace('）', ')')
 
 
 def _candidate_tokens(*values: Any) -> list[str]:
