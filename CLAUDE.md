@@ -92,3 +92,8 @@ Codex 是执行者——承接明确定义的后端逻辑、数据处理、批�
 - Follow existing repository patterns and design system.
 - Keep diffs minimal.
 - After changes, run typecheck/lint/tests relevant to the touched files.
+
+## 语言规则
+
+- 与用户对话时使用中文。代码注释、commit message、变量名保持英文。
+- 技术术语可以用英文原文，但解释和讨论用中文。

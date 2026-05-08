@@ -431,7 +431,13 @@ onMounted(async () => {
   border-radius: 10px;
   background: var(--xt-bg-panel);
   box-shadow: var(--xt-shadow-sm);
-  transition: transform var(--xt-motion-fast) var(--xt-ease), box-shadow var(--xt-motion-fast) var(--xt-ease);
+  transition: transform var(--xt-motion-fast) var(--xt-ease), box-shadow var(--xt-motion-fast) var(--xt-ease), border-color var(--xt-motion-fast) var(--xt-ease);
+}
+
+.fc-panel {
+  background:
+    linear-gradient(180deg, rgba(11, 91, 212, 0.012) 0%, transparent 40%),
+    var(--xt-bg-panel);
 }
 
 @media (hover: hover) {
@@ -481,8 +487,15 @@ onMounted(async () => {
   border-color: transparent;
   box-shadow:
     0 14px 34px rgba(11, 91, 212, 0.22),
+    0 0 0 1px rgba(11, 91, 212, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: #fff;
+  animation: fc-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes fc-glow-pulse {
+  0%, 100% { box-shadow: 0 14px 34px rgba(11, 91, 212, 0.22), 0 0 0 1px rgba(11, 91, 212, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+  50% { box-shadow: 0 14px 44px rgba(11, 91, 212, 0.32), 0 0 0 1px rgba(11, 91, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
 }
 
 .fc-metric.is-primary::before {
@@ -497,6 +510,12 @@ onMounted(async () => {
 
 .fc-metric.is-danger {
   border-color: var(--xt-danger-border);
+  animation: fc-danger-pulse 2s ease-in-out infinite;
+}
+
+@keyframes fc-danger-pulse {
+  0%, 100% { box-shadow: var(--xt-shadow-sm); }
+  50% { box-shadow: 0 0 0 2px var(--xt-danger-border), 0 8px 24px rgba(194, 65, 52, 0.12); }
 }
 
 .fc-panel {
@@ -608,7 +627,7 @@ onMounted(async () => {
 .fc-pending__rows article {
   min-width: 0;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -647,6 +666,24 @@ onMounted(async () => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 12px;
+  position: relative;
+}
+
+.fc-charts :deep(.chart-card) {
+  border: 1px solid var(--xt-border-light);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(11, 91, 212, 0.008) 0%, transparent 50%),
+    var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+  transition: transform var(--xt-motion-fast) var(--xt-ease), box-shadow var(--xt-motion-fast) var(--xt-ease);
+}
+
+@media (hover: hover) {
+  .fc-charts :deep(.chart-card:hover) {
+    transform: translateY(-2px);
+    box-shadow: var(--xt-shadow-md);
+  }
 }
 
 .fc-charts + .fc-charts {
@@ -682,7 +719,7 @@ onMounted(async () => {
   grid-template-columns: minmax(160px, 1.4fr) repeat(4, minmax(80px, 1fr));
   gap: 12px;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--xt-bg-panel);
   border-bottom: 1px solid var(--xt-border-light);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
