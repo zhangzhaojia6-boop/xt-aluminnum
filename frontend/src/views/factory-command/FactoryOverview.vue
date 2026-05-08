@@ -104,12 +104,13 @@
       </div>
       <div class="fc-table">
         <div class="fc-table__row is-head">
-          <span>车间</span><span>卷数</span><span>吨数</span><span>停滞</span>
+          <span>车间</span><span>卷数</span><span>吨数</span><span>废料率</span><span>停滞</span>
         </div>
         <div v-for="row in store.workshops" :key="row.workshop_name" class="fc-table__row">
           <span>{{ row.workshop_name }}</span>
           <span>{{ row.active_coil_count }}</span>
           <span>{{ row.active_tons }}</span>
+          <span :class="{ 'is-scrap-high': workshopScrapRate(row.workshop_name) > 3 }">{{ workshopScrapLabel(row.workshop_name) }}</span>
           <span>{{ row.stalled_count }}</span>
         </div>
       </div>
@@ -134,6 +135,11 @@
     </section>
 
     <section class="fc-charts">
+      <WorkshopOutputRanking :items="overview?.workshop_summary || []" />
+      <WorkshopScrapRate :items="overview?.workshop_summary || []" />
+    </section>
+
+    <section class="fc-charts">
       <ReconciliationWaterfall :items="workshopReconciliationItems" />
       <PendingAssignmentHeatmap :rows="pendingAssignment.items" />
     </section>
@@ -151,6 +157,8 @@ import { formatLagLabel, formatLineDisplay, formatSyncTime, freshnessLabel, sour
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
 import ReconciliationWaterfall from '../../components/charts/ReconciliationWaterfall.vue'
+import WorkshopOutputRanking from '../../components/charts/WorkshopOutputRanking.vue'
+import WorkshopScrapRate from '../../components/charts/WorkshopScrapRate.vue'
 import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
@@ -256,6 +264,17 @@ function askAi(scope) {
     scope: { type: scope.type, key: scope.key },
     freshness: freshness.value
   })
+}
+
+function workshopScrapRate(workshopName) {
+  const ws = (overview.value.workshop_summary || []).find((s) => s.workshop_name === workshopName)
+  if (!ws || ws.yield_rate == null) return null
+  return 100 - ws.yield_rate
+}
+
+function workshopScrapLabel(workshopName) {
+  const rate = workshopScrapRate(workshopName)
+  return rate != null ? `${rate.toFixed(1)}%` : '--'
 }
 
 async function loadPendingAssignment() {
@@ -536,6 +555,10 @@ onMounted(async () => {
   margin-top: 12px;
 }
 
+.fc-charts + .fc-charts {
+  margin-top: 12px;
+}
+
 .fc-panel__head {
   display: flex;
   align-items: center;
@@ -562,7 +585,7 @@ onMounted(async () => {
 
 .fc-table__row {
   display: grid;
-  grid-template-columns: minmax(160px, 1.4fr) repeat(3, minmax(90px, 1fr));
+  grid-template-columns: minmax(160px, 1.4fr) repeat(4, minmax(80px, 1fr));
   gap: 12px;
   padding: 10px 12px;
   background: #fff;
@@ -574,6 +597,11 @@ onMounted(async () => {
 .fc-table__row.is-head {
   background: oklch(96% 0.025 254);
   color: var(--xt-text-secondary);
+  font-weight: 900;
+}
+
+.is-scrap-high {
+  color: var(--xt-danger);
   font-weight: 900;
 }
 
