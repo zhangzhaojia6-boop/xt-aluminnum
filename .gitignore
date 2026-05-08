@@ -33,3 +33,4 @@ ssl/
 .vercel/
 .tmp/
 .worktrees/
+.gstack/

@@ -1,15 +1,38 @@
 <template>
   <FactoryCommandShell title="工厂总览" active="overview" :freshness="freshness">
+    <section class="fc-hero">
+      <div class="fc-hero__item">
+        <span class="fc-hero__label">日产总量</span>
+        <strong class="fc-hero__number">{{ heroOutput }}</strong>
+        <span v-if="heroDelta.output !== null" class="fc-hero__delta" :class="heroDelta.output >= 0 ? 'is-up' : 'is-down'">
+          {{ heroDelta.output >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.output).toFixed(1) }}%
+        </span>
+      </div>
+      <div class="fc-hero__item">
+        <span class="fc-hero__label">日投料总量</span>
+        <strong class="fc-hero__number">{{ heroInput }}</strong>
+        <span v-if="heroDelta.input !== null" class="fc-hero__delta" :class="heroDelta.input >= 0 ? 'is-up' : 'is-down'">
+          {{ heroDelta.input >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.input).toFixed(1) }}%
+        </span>
+      </div>
+      <div class="fc-hero__item">
+        <span class="fc-hero__label">成品率</span>
+        <strong class="fc-hero__number">{{ heroYield }}<em>%</em></strong>
+        <span v-if="heroDelta.yield !== null" class="fc-hero__delta" :class="heroDelta.yield >= 0 ? 'is-up' : 'is-down'">
+          {{ heroDelta.yield >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.yield).toFixed(1) }}pp
+        </span>
+      </div>
+    </section>
+
+    <div class="fc-cutoff">
+      <span>{{ cutoffLabel }}</span>
+    </div>
+
     <section class="fc-grid fc-grid--metrics">
       <article class="fc-metric is-primary">
         <span>在制吨数</span>
         <strong>{{ overview?.wip_tons ?? '--' }}</strong>
         <em>数据源 {{ sourceLabel(freshness.source) }}</em>
-      </article>
-      <article class="fc-metric">
-        <span>今日产出</span>
-        <strong>{{ overview?.today_output_tons ?? '--' }}</strong>
-        <em>吨</em>
       </article>
       <article class="fc-metric">
         <span>库存</span>
@@ -136,6 +159,43 @@ const liveBusinessDate = ref('')
 const pendingAssignment = ref({ summary: {}, items: [] })
 const overview = computed(() => store.overview || {})
 const freshness = computed(() => overview.value.freshness || {})
+
+const heroOutput = computed(() => {
+  const v = overview.value.today_output_tons
+  return v != null ? Number(v).toFixed(1) : '--'
+})
+const heroInput = computed(() => {
+  const v = overview.value.total_input_tons
+  return v != null ? Number(v).toFixed(1) : '--'
+})
+const heroYield = computed(() => {
+  const v = overview.value.yield_rate
+  return v != null ? Number(v).toFixed(1) : '--'
+})
+const heroDelta = computed(() => {
+  const prev = overview.value.previous_day
+  if (!prev) return { output: null, input: null, yield: null }
+  const pct = (cur, old) => old > 0 ? ((cur - old) / old) * 100 : null
+  return {
+    output: pct(overview.value.today_output_tons, prev.total_output_tons),
+    input: pct(overview.value.total_input_tons, prev.total_input_tons),
+    yield: prev.yield_rate != null && overview.value.yield_rate != null
+      ? overview.value.yield_rate - prev.yield_rate
+      : null
+  }
+})
+const cutoffLabel = computed(() => {
+  const ts = freshness.value.last_synced_at
+  if (!ts) return '同步中...'
+  try {
+    const d = new Date(ts)
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const h = d.getHours()
+    const shift = h < 8 ? '夜班' : h < 20 ? '白班' : '夜班'
+    return `数据截止 ${month}月${day}日 ${shift}`
+  } catch { return '同步异常' }
+})
 const priorityLines = computed(() => [...store.machineLines].sort((a, b) => {
   const stalledDiff = (b.stalled_count ?? b.stalledCount ?? 0) - (a.stalled_count ?? a.stalledCount ?? 0)
   if (stalledDiff !== 0) return stalledDiff
@@ -215,13 +275,90 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.fc-hero {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: oklch(99% 0.003 248);
+  border-bottom: 1px solid rgba(43, 93, 178, 0.10);
+  padding: 28px 0 24px;
+  margin-bottom: 0;
+}
+
+.fc-hero__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.fc-hero__item + .fc-hero__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: rgba(43, 93, 178, 0.12);
+}
+
+.fc-hero__label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--xt-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.fc-hero__number {
+  font-family: var(--xt-font-number);
+  font-size: 48px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--xt-text);
+  line-height: 1.1;
+}
+
+.fc-hero__number em {
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 800;
+  color: var(--xt-text-secondary);
+  margin-left: 2px;
+}
+
+.fc-hero__delta {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-hero__delta.is-up {
+  color: var(--xt-success);
+}
+
+.fc-hero__delta.is-down {
+  color: var(--xt-danger);
+}
+
+.fc-cutoff {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 12px;
+}
+
+.fc-cutoff span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--xt-text-muted);
+}
+
 .fc-grid {
   display: grid;
   gap: 12px;
 }
 
 .fc-grid--metrics {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 12px;
 }
 
@@ -445,6 +582,14 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
+  .fc-hero {
+    padding: 20px 0 18px;
+  }
+
+  .fc-hero__number {
+    font-size: 36px;
+  }
+
   .fc-grid--metrics,
   .fc-pending__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -456,6 +601,20 @@ onMounted(async () => {
 }
 
 @media (max-width: 520px) {
+  .fc-hero {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px 0;
+  }
+
+  .fc-hero__item + .fc-hero__item::before {
+    display: none;
+  }
+
+  .fc-hero__number {
+    font-size: 40px;
+  }
+
   .fc-grid--metrics,
   .fc-pending__metrics {
     grid-template-columns: 1fr;
