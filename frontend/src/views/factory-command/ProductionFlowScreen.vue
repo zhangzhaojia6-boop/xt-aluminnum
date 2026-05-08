@@ -37,6 +37,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+:deep(*) {
+  --xt-bg-panel: oklch(18% 0.022 252);
+  --xt-border-light: oklch(28% 0.03 252);
+  --xt-text: oklch(92% 0.01 252);
+  --xt-text-secondary: oklch(58% 0.02 252);
+}
+
 .fc-flow {
   display: grid;
   gap: 8px;
@@ -48,19 +55,43 @@ onMounted(async () => {
   gap: 10px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(43, 93, 178, 0.13);
+  border: 1px solid oklch(28% 0.03 252);
   border-radius: 8px;
-  background: #fff;
+  background:
+    linear-gradient(180deg, rgba(80, 160, 255, 0.02) 0%, transparent 60%),
+    oklch(18% 0.022 252);
+  color: oklch(92% 0.01 252);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-flow__row strong {
+  color: oklch(92% 0.01 252);
+  font-weight: 900;
+}
+
+.fc-flow__row span {
+  color: oklch(58% 0.02 252);
+  font-size: 12px;
+  font-weight: 820;
 }
 
 .fc-flow__row button {
   min-height: 34px;
+  padding: 0 12px;
   border: 0;
   border-radius: 6px;
-  background: var(--xt-primary);
+  background: oklch(62% 0.18 255);
   color: #fff;
   font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 0 12px oklch(62% 0.18 255 / 0.25);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fc-flow__row button:active {
+  transform: scale(0.96);
 }
 
 @media (max-width: 900px) {

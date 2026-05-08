@@ -125,6 +125,19 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+:deep(*) {
+  --xt-bg-panel: oklch(18% 0.022 252);
+  --xt-bg-panel-soft: oklch(16% 0.018 252);
+  --xt-bg-panel-muted: oklch(22% 0.025 252);
+  --xt-border-light: oklch(28% 0.03 252);
+  --xt-text: oklch(92% 0.01 252);
+  --xt-text-secondary: oklch(58% 0.02 252);
+  --xt-primary: oklch(62% 0.18 255);
+  --xt-warning: oklch(68% 0.14 75);
+  --xt-warning-bg: oklch(24% 0.06 75);
+  --xt-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
 .fc-lines__summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -138,25 +151,27 @@ onMounted(async () => {
   align-content: center;
   gap: 8px;
   padding: 14px;
-  border: 1px solid rgba(43, 93, 178, 0.13);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 14px 34px rgba(25, 62, 118, 0.07);
+  border: 1px solid oklch(28% 0.03 252);
+  border-radius: 10px;
+  background: oklch(18% 0.022 252);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .fc-lines__summary article.is-warning {
-  border-color: rgba(194, 116, 22, 0.28);
-  background: oklch(97% 0.035 82);
+  border-color: oklch(50% 0.14 75);
+  background:
+    linear-gradient(180deg, oklch(68% 0.14 75 / 0.06) 0%, transparent 60%),
+    oklch(20% 0.032 75);
 }
 
 .fc-lines__summary span {
-  color: var(--xt-text-secondary);
+  color: oklch(58% 0.02 252);
   font-size: 12px;
   font-weight: 850;
 }
 
 .fc-lines__summary strong {
-  color: var(--xt-text);
+  color: oklch(92% 0.01 252);
   font-family: var(--xt-font-number);
   font-size: 30px;
   font-variant-numeric: tabular-nums;
@@ -172,16 +187,19 @@ onMounted(async () => {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid rgba(43, 93, 178, 0.13);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 14px 34px rgba(25, 62, 118, 0.06);
+  border: 1px solid oklch(28% 0.03 252);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(80, 160, 255, 0.02) 0%, transparent 50%),
+    oklch(18% 0.022 252);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: oklch(92% 0.01 252);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
 .fc-line.is-warning {
-  border-color: rgba(194, 116, 22, 0.28);
+  border-color: oklch(50% 0.14 75);
 }
 
 .fc-line__head,
@@ -194,7 +212,7 @@ onMounted(async () => {
 
 .fc-line__head strong {
   display: block;
-  color: var(--xt-text);
+  color: oklch(92% 0.01 252);
   font-size: 16px;
   font-weight: 900;
 }
@@ -203,7 +221,7 @@ onMounted(async () => {
 .fc-line__foot span,
 .fc-line__metrics span,
 .fc-line__source {
-  color: var(--xt-text-secondary);
+  color: oklch(58% 0.02 252);
   font-size: 12px;
   font-weight: 820;
 }
@@ -214,35 +232,38 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
-  border: 1px solid rgba(43, 93, 178, 0.13);
+  border: 1px solid oklch(28% 0.03 252);
   border-radius: 6px;
-  background: #fff;
+  background: oklch(16% 0.018 252);
   white-space: nowrap;
 }
 
 .fc-line__binding.is-warning {
-  color: oklch(48% 0.11 70);
-  border-color: rgba(194, 116, 22, 0.28);
-  background: oklch(96% 0.04 82);
+  color: oklch(72% 0.14 75);
+  border-color: oklch(50% 0.14 75);
+  background: oklch(22% 0.05 75);
 }
 
 .fc-line__bar {
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: oklch(94% 0.025 252);
+  background: oklch(22% 0.025 252);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .fc-line__bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, oklch(54% 0.19 255), oklch(62% 0.13 158));
-  transition: width 360ms var(--xt-ease);
+  background: linear-gradient(90deg, oklch(62% 0.18 255), oklch(62% 0.14 158));
+  box-shadow: 0 0 8px oklch(62% 0.18 255 / 0.4);
+  transition: width 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fc-line.is-warning .fc-line__bar span {
-  background: linear-gradient(90deg, oklch(62% 0.12 75), oklch(61% 0.11 158));
+  background: linear-gradient(90deg, oklch(68% 0.14 75), oklch(62% 0.14 158));
+  box-shadow: 0 0 8px oklch(68% 0.14 75 / 0.4);
 }
 
 .fc-line__metrics {
@@ -256,13 +277,13 @@ onMounted(async () => {
   gap: 4px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid rgba(43, 93, 178, 0.1);
+  border: 1px solid oklch(28% 0.03 252);
   border-radius: 6px;
-  background: oklch(98% 0.01 250);
+  background: oklch(16% 0.018 252);
 }
 
 .fc-line__metrics strong {
-  color: var(--xt-text);
+  color: oklch(92% 0.01 252);
   font-family: var(--xt-font-number);
   font-size: 20px;
   font-weight: 900;
@@ -273,13 +294,15 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 0 12px;
   border: 0;
   border-radius: 6px;
-  background: var(--xt-primary);
+  background: oklch(62% 0.18 255);
   color: #fff;
   font-weight: 850;
   cursor: pointer;
-  transition: transform var(--xt-motion-fast) var(--xt-ease);
+  box-shadow: 0 0 12px oklch(62% 0.18 255 / 0.25);
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fc-line button:active {
