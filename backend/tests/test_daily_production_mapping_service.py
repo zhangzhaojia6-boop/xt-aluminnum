@@ -29,8 +29,22 @@ def _workshop(code: str, name: str) -> Workshop:
     return Workshop(code=code, name=name, workshop_type='production', is_active=True)
 
 
-def _equipment(code: str, name: str, workshop: Workshop) -> Equipment:
-    return Equipment(code=code, name=name, workshop_id=workshop.id, operational_status='running', is_active=True)
+def _equipment(
+    code: str,
+    name: str,
+    workshop: Workshop,
+    *,
+    equipment_type: str | None = None,
+    is_active: bool = True,
+) -> Equipment:
+    return Equipment(
+        code=code,
+        name=name,
+        workshop_id=workshop.id,
+        equipment_type=equipment_type,
+        operational_status='running',
+        is_active=is_active,
+    )
 
 
 def _seed_batch(db, *, batch_no: str = 'IMP-DAILY-1', workshop_rows: list[dict] | None = None) -> ImportBatch:

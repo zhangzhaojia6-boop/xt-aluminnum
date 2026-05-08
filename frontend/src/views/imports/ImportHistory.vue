@@ -305,7 +305,7 @@ onMounted(load)
   flex-direction: column;
   gap: 3px;
   border: 1px solid #fecaca;
-  border-radius: 999px;
+  border-radius: 8px;
   background: #fff1f2;
   color: #9f1239;
   font-size: 12px;

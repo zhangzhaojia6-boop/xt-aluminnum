@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -50,9 +50,9 @@ class DailyProductionMappingRow:
     equipment_id: int | None
     equipment_code: str | None
     equipment_name: str | None
+    candidate_workshops: list[MappingCandidate]
+    candidate_equipment: list[MappingCandidate]
     issues: list[dict[str, Any]]
-    candidate_workshops: list[MappingCandidate] = field(default_factory=list)
-    candidate_equipment: list[MappingCandidate] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -266,9 +266,9 @@ def _resolve_row(
         equipment_id=machine.id if machine else None,
         equipment_code=machine.code if machine else None,
         equipment_name=machine.name if machine else None,
-        issues=issues,
         candidate_workshops=candidate_workshops,
         candidate_equipment=candidate_equipment,
+        issues=issues,
     )
 
 
