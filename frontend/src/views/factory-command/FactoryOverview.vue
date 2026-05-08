@@ -293,6 +293,22 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+:deep(*) {
+  --xt-bg-panel: oklch(18% 0.022 252);
+  --xt-bg-panel-soft: oklch(16% 0.018 252);
+  --xt-bg-panel-muted: oklch(22% 0.025 252);
+  --xt-border-light: oklch(28% 0.03 252);
+  --xt-text: oklch(92% 0.01 252);
+  --xt-text-secondary: oklch(58% 0.02 252);
+  --xt-primary-soft: oklch(24% 0.04 255);
+  --xt-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --xt-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --xt-danger-border: oklch(50% 0.16 28);
+  --xt-danger: oklch(65% 0.18 28);
+  --xt-success-light: oklch(25% 0.06 158);
+  --xt-success: oklch(65% 0.14 158);
+}
+
 .fc-hero {
   position: relative;
   display: grid;
@@ -462,7 +478,7 @@ onMounted(async () => {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .fc-metric span,
@@ -530,7 +546,7 @@ onMounted(async () => {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .fc-pending {
@@ -552,7 +568,7 @@ onMounted(async () => {
   inset: 0;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .fc-pending__head,
@@ -670,19 +686,19 @@ onMounted(async () => {
 }
 
 .fc-charts :deep(.chart-card) {
-  border: 1px solid var(--xt-border-light);
+  border: 1px solid oklch(28% 0.03 252);
   border-radius: 10px;
   background:
-    linear-gradient(180deg, rgba(11, 91, 212, 0.008) 0%, transparent 50%),
-    var(--xt-bg-panel);
-  box-shadow: var(--xt-shadow-sm);
+    linear-gradient(180deg, rgba(80, 160, 255, 0.02) 0%, transparent 50%),
+    oklch(18% 0.022 252);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: transform var(--xt-motion-fast) var(--xt-ease), box-shadow var(--xt-motion-fast) var(--xt-ease);
 }
 
 @media (hover: hover) {
   .fc-charts :deep(.chart-card:hover) {
     transform: translateY(-2px);
-    box-shadow: var(--xt-shadow-md);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   }
 }
 
