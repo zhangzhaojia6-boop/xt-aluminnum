@@ -34,6 +34,17 @@ MATERIAL_STATES = [
     "T6",
 ]
 
+SCRAP_TYPES = [
+    "边角料",
+    "废卷",
+    "切头切尾",
+    "轧废",
+    "铸废",
+    "氧化料",
+    "油污料",
+    "混合废料",
+]
+
 
 @router.get("/alloy-grades")
 def get_alloy_grades():
@@ -43,3 +54,8 @@ def get_alloy_grades():
 @router.get("/material-states")
 def get_material_states():
     return MATERIAL_STATES
+
+
+@router.get("/scrap-types")
+def get_scrap_types():
+    return SCRAP_TYPES
