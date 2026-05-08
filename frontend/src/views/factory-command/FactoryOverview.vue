@@ -1,32 +1,31 @@
 <template>
   <FactoryCommandShell title="工厂总览" active="overview" :freshness="freshness">
     <section class="fc-hero">
-      <div class="fc-hero__item">
+      <div class="fc-hero__grid"></div>
+      <div class="fc-hero__scan"></div>
+      <div class="fc-hero__item" :style="{ '--stagger': 0 }">
         <span class="fc-hero__label">日产总量</span>
         <strong class="fc-hero__number">{{ heroOutput }}</strong>
         <span v-if="heroDelta.output !== null" class="fc-hero__delta" :class="heroDelta.output >= 0 ? 'is-up' : 'is-down'">
           {{ heroDelta.output >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.output).toFixed(1) }}%
         </span>
       </div>
-      <div class="fc-hero__item">
+      <div class="fc-hero__item" :style="{ '--stagger': 1 }">
         <span class="fc-hero__label">日投料总量</span>
         <strong class="fc-hero__number">{{ heroInput }}</strong>
         <span v-if="heroDelta.input !== null" class="fc-hero__delta" :class="heroDelta.input >= 0 ? 'is-up' : 'is-down'">
           {{ heroDelta.input >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.input).toFixed(1) }}%
         </span>
       </div>
-      <div class="fc-hero__item">
+      <div class="fc-hero__item" :style="{ '--stagger': 2 }">
         <span class="fc-hero__label">成品率</span>
         <strong class="fc-hero__number">{{ heroYield }}<em>%</em></strong>
         <span v-if="heroDelta.yield !== null" class="fc-hero__delta" :class="heroDelta.yield >= 0 ? 'is-up' : 'is-down'">
           {{ heroDelta.yield >= 0 ? '↑' : '↓' }} {{ Math.abs(heroDelta.yield).toFixed(1) }}pp
         </span>
       </div>
+      <div class="fc-hero__cutoff">{{ cutoffLabel }}</div>
     </section>
-
-    <div class="fc-cutoff">
-      <span>{{ cutoffLabel }}</span>
-    </div>
 
     <section class="fc-grid fc-grid--metrics">
       <article class="fc-metric is-primary">
@@ -295,105 +294,169 @@ onMounted(async () => {
 
 <style scoped>
 .fc-hero {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  background: oklch(99% 0.003 248);
-  border-bottom: 1px solid rgba(43, 93, 178, 0.10);
-  padding: 28px 0 24px;
-  margin-bottom: 0;
+  overflow: hidden;
+  padding: 36px 0 16px;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    var(--xt-bg-ink);
+  box-shadow:
+    0 24px 56px rgba(5, 10, 20, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.fc-hero__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(11, 91, 212, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 82%);
+}
+
+.fc-hero__scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(11, 99, 246, 0.14), transparent);
+  animation: fc-scan 4.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes fc-scan {
+  0% { opacity: 0; transform: translateX(-100%); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(calc(100vw + 120px)); }
 }
 
 .fc-hero__item {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  position: relative;
+  gap: 6px;
+  animation: fc-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 80ms);
+}
+
+@keyframes fc-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .fc-hero__item + .fc-hero__item::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 8px;
-  bottom: 8px;
+  top: 10px;
+  bottom: 10px;
   width: 1px;
-  background: rgba(43, 93, 178, 0.12);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .fc-hero__label {
   font-size: 12px;
-  font-weight: 800;
-  color: var(--xt-text-secondary);
-  letter-spacing: 0.02em;
+  font-weight: 850;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .fc-hero__number {
   font-family: var(--xt-font-number);
-  font-size: 48px;
+  font-size: 52px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  color: var(--xt-text);
-  line-height: 1.1;
+  color: #fff;
+  line-height: 1.05;
+  text-shadow: 0 2px 18px rgba(11, 99, 246, 0.25);
 }
 
 .fc-hero__number em {
   font-size: 24px;
   font-style: normal;
   font-weight: 800;
-  color: var(--xt-text-secondary);
+  color: rgba(255, 255, 255, 0.45);
   margin-left: 2px;
 }
 
 .fc-hero__delta {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
 .fc-hero__delta.is-up {
-  color: var(--xt-success);
+  color: oklch(72% 0.16 158);
 }
 
 .fc-hero__delta.is-down {
-  color: var(--xt-danger);
+  color: oklch(70% 0.16 28);
 }
 
-.fc-cutoff {
+.fc-hero__cutoff {
+  position: relative;
+  z-index: 1;
+  grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  padding: 8px 0 12px;
-}
-
-.fc-cutoff span {
-  font-size: 12px;
+  padding-top: 14px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--xt-text-muted);
+  color: rgba(255, 255, 255, 0.32);
+  letter-spacing: 0.04em;
 }
 
 .fc-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .fc-grid--metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 4px;
   margin-bottom: 12px;
 }
 
 .fc-metric,
 .fc-panel {
-  border: 1px solid rgba(43, 93, 178, 0.13);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 14px 34px rgba(25, 62, 118, 0.07);
+  border: 1px solid var(--xt-border-light);
+  border-radius: 10px;
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+  transition: transform var(--xt-motion-fast) var(--xt-ease), box-shadow var(--xt-motion-fast) var(--xt-ease);
+}
+
+@media (hover: hover) {
+  .fc-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--xt-shadow-md);
+  }
 }
 
 .fc-metric {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 112px;
   padding: 15px;
+  overflow: hidden;
+}
+
+.fc-metric::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .fc-metric span,
@@ -401,7 +464,7 @@ onMounted(async () => {
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .fc-metric strong {
@@ -413,8 +476,17 @@ onMounted(async () => {
 }
 
 .fc-metric.is-primary {
-  background: oklch(54% 0.19 255);
+  background:
+    linear-gradient(135deg, oklch(50% 0.18 255), oklch(42% 0.16 260));
+  border-color: transparent;
+  box-shadow:
+    0 14px 34px rgba(11, 91, 212, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+.fc-metric.is-primary::before {
+  box-shadow: none;
 }
 
 .fc-metric.is-primary span,
@@ -424,11 +496,22 @@ onMounted(async () => {
 }
 
 .fc-metric.is-danger {
-  border-color: rgba(194, 65, 52, 0.24);
+  border-color: var(--xt-danger-border);
 }
 
 .fc-panel {
   padding: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.fc-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .fc-pending {
@@ -436,10 +519,21 @@ onMounted(async () => {
   gap: 12px;
   margin-bottom: 12px;
   padding: 14px;
-  border: 1px solid rgba(43, 93, 178, 0.13);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 14px 34px rgba(25, 62, 118, 0.07);
+  border: 1px solid var(--xt-border-light);
+  border-radius: 10px;
+  background: var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.fc-pending::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .fc-pending__head,
@@ -465,7 +559,7 @@ onMounted(async () => {
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .fc-pending__head a {
@@ -492,9 +586,9 @@ onMounted(async () => {
   display: grid;
   gap: 5px;
   padding: 10px;
-  border: 1px solid rgba(43, 93, 178, 0.11);
-  border-radius: 7px;
-  background: oklch(98% 0.008 248);
+  border: 1px solid var(--xt-border-light);
+  border-radius: 8px;
+  background: var(--xt-bg-panel-soft);
 }
 
 .fc-pending__metrics strong {
@@ -506,7 +600,7 @@ onMounted(async () => {
 
 .fc-pending__rows {
   display: grid;
-  border: 1px solid rgba(43, 93, 178, 0.11);
+  border: 1px solid var(--xt-border-light);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -515,7 +609,7 @@ onMounted(async () => {
   min-width: 0;
   padding: 10px 12px;
   background: #fff;
-  border-bottom: 1px solid rgba(43, 93, 178, 0.1);
+  border-bottom: 1px solid var(--xt-border-light);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -530,13 +624,13 @@ onMounted(async () => {
   justify-content: center;
   padding: 4px 8px;
   border-radius: 999px;
-  background: oklch(96% 0.025 254);
+  background: var(--xt-bg-panel-muted);
   color: var(--xt-text-secondary);
   font-size: 12px;
 }
 
 .fc-pending__rows b.is-ready {
-  background: oklch(95% 0.04 158);
+  background: var(--xt-success-light);
   color: var(--xt-success);
 }
 
@@ -578,7 +672,7 @@ onMounted(async () => {
 
 .fc-table {
   display: grid;
-  border: 1px solid rgba(43, 93, 178, 0.13);
+  border: 1px solid var(--xt-border-light);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -589,13 +683,20 @@ onMounted(async () => {
   gap: 12px;
   padding: 10px 12px;
   background: #fff;
-  border-bottom: 1px solid rgba(43, 93, 178, 0.1);
+  border-bottom: 1px solid var(--xt-border-light);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+  transition: background-color var(--xt-motion-fast) var(--xt-ease);
+}
+
+@media (hover: hover) {
+  .fc-table__row:not(.is-head):hover {
+    background: var(--xt-primary-soft);
+  }
 }
 
 .fc-table__row.is-head {
-  background: oklch(96% 0.025 254);
+  background: var(--xt-bg-panel-soft);
   color: var(--xt-text-secondary);
   font-weight: 900;
 }
@@ -611,11 +712,11 @@ onMounted(async () => {
 
 @media (max-width: 900px) {
   .fc-hero {
-    padding: 20px 0 18px;
+    padding: 24px 0 14px;
   }
 
   .fc-hero__number {
-    font-size: 36px;
+    font-size: 38px;
   }
 
   .fc-grid--metrics,
@@ -632,7 +733,7 @@ onMounted(async () => {
   .fc-hero {
     grid-template-columns: 1fr;
     gap: 20px;
-    padding: 20px 0;
+    padding: 24px 0 14px;
   }
 
   .fc-hero__item + .fc-hero__item::before {
@@ -640,7 +741,7 @@ onMounted(async () => {
   }
 
   .fc-hero__number {
-    font-size: 40px;
+    font-size: 44px;
   }
 
   .fc-grid--metrics,
@@ -653,5 +754,10 @@ onMounted(async () => {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-hero__scan { animation: none !important; }
+  .fc-hero__item { animation: none !important; }
 }
 </style>

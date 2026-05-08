@@ -41,8 +41,9 @@ const hasData = computed(() => props.items.length > 0)
 </template>
 
 <style scoped>
-.chart-card { background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; min-height: 280px; }
-.chart-card__title { font-size: 13px; font-weight: 600; color: #1f2328; margin-bottom: 4px; }
+.chart-card { background: var(--xt-bg-panel, #fff); border: 1px solid var(--xt-border-light, #d0d7de); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; min-height: 280px; box-shadow: var(--xt-shadow-sm, 0 1px 3px rgba(15,23,42,.1)); position: relative; overflow: hidden; }
+.chart-card::before { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255,255,255,.88); }
+.chart-card__title { font-size: 13px; font-weight: 900; color: var(--xt-text, #1f2328); margin-bottom: 4px; }
 .chart-card__canvas { flex: 1; min-height: 220px; }
-.chart-card__empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #6e7781; font-size: 13px; }
+.chart-card__empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--xt-text-secondary, #6e7781); font-size: 13px; }
 </style>

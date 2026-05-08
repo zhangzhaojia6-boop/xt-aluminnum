@@ -1,5 +1,6 @@
 <template>
   <section class="factory-command-shell">
+    <div class="factory-command-shell__bg"></div>
     <header class="factory-command-shell__head">
       <div>
         <span class="factory-command-shell__system">鑫泰铝业 数据中枢</span>
@@ -53,27 +54,52 @@ const tabs = [
   --fc-amber: oklch(62% 0.12 75);
   --fc-red: oklch(55% 0.15 28);
   --fc-ink: oklch(18% 0.024 252);
-  --fc-line: rgba(43, 93, 178, 0.13);
+  --fc-line: var(--xt-border-light, rgba(43, 93, 178, 0.13));
+  position: relative;
   display: grid;
   gap: 12px;
 }
 
+.factory-command-shell__bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(11, 91, 212, 0.022) 1px, transparent 1px),
+    linear-gradient(rgba(15, 23, 42, 0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.38), transparent 55%);
+}
+
 .factory-command-shell__head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 16px;
   border: 1px solid var(--fc-line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 44px rgba(25, 62, 118, 0.08);
+  border-radius: 10px;
+  background: var(--xt-bg-panel, rgba(255, 255, 255, 0.94));
+  box-shadow: var(--xt-shadow-sm, 0 18px 44px rgba(25, 62, 118, 0.08));
+}
+
+.factory-command-shell__head::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .factory-command-shell__system {
   color: var(--fc-blue);
   font-size: 12px;
   font-weight: 850;
+  letter-spacing: 0.02em;
 }
 
 .factory-command-shell h1 {
@@ -92,7 +118,7 @@ const tabs = [
   gap: 8px;
   color: var(--xt-text-secondary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .factory-command-shell__sync span,
@@ -103,7 +129,7 @@ const tabs = [
   padding: 0 10px;
   border: 1px solid var(--fc-line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--xt-bg-panel-soft, #fff);
 }
 
 .factory-command-shell__sync strong.is-fresh {
@@ -126,42 +152,55 @@ const tabs = [
 }
 
 .factory-command-shell__tabs {
+  position: relative;
+  z-index: 1;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
-  padding: 6px;
+  padding: 5px;
   border: 1px solid var(--fc-line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 10px;
+  background: var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.88));
+  box-shadow: var(--xt-shadow-xs);
 }
 
 .factory-command-shell__tabs a {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
-  padding: 0 12px;
-  border-radius: 6px;
+  padding: 0 14px;
+  border-radius: 7px;
   color: var(--xt-text-secondary);
   font-size: 13px;
   font-weight: 850;
   text-decoration: none;
   white-space: nowrap;
   transition:
-    background-color var(--xt-motion-fast) var(--xt-ease),
-    color var(--xt-motion-fast) var(--xt-ease),
-    transform var(--xt-motion-fast) var(--xt-ease);
+    background-color var(--xt-motion-fast, 120ms) cubic-bezier(0.16, 1, 0.3, 1),
+    color var(--xt-motion-fast, 120ms) cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--xt-motion-fast, 120ms) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .factory-command-shell__tabs a:active {
   transform: scale(0.96);
 }
 
+@media (hover: hover) {
+  .factory-command-shell__tabs a:not(.is-active):hover {
+    background: var(--xt-primary-soft, oklch(97% 0.018 255));
+    color: var(--fc-blue);
+  }
+}
+
 .factory-command-shell__tabs a.is-active {
   background: var(--fc-blue);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(11, 91, 212, 0.22);
 }
 
 .factory-command-shell__body {
+  position: relative;
+  z-index: 1;
   min-width: 0;
 }
 

@@ -79,6 +79,8 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'ZD',
             'ZR2',
             'ZR3',
+            'ZR5',
+            'ZR6',
             'RZ',
             'LZ2050',
             'LZ1850',
@@ -89,6 +91,8 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'JZ',
             'JZ2',
             'JQ',
+            'CT',
+            'HS',
             'CPK',
             'ZXTF',
         ]
@@ -96,6 +100,8 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             '铸锭车间',
             '铸二车间',
             '铸三车间',
+            '铸五车间',
+            '铸六车间',
             '热轧车间',
             '2050冷轧车间',
             '1850冷轧车间',
@@ -106,10 +112,14 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             '精整车间',
             '二分厂精整车间',
             '园区剪切车间',
+            '彩涂车间',
+            '回收车间',
             '成品库',
             '在线退火车间',
         ]
         assert [item.workshop_type for item in workshops] == [
+            'casting',
+            'casting',
             'casting',
             'casting',
             'casting',
@@ -123,10 +133,12 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'finishing',
             'finishing',
             'shearing',
+            'coating',
+            'recycling',
             'inventory',
             'annealing',
         ]
-        assert len(teams) == 45
+        assert len(teams) == 57
         assert [(item.code, item.name) for item in teams if item.code.startswith('ZR2-')] == [
             ('ZR2-A', '白班组'),
             ('ZR2-B', '小夜班组'),
@@ -364,7 +376,7 @@ def test_seed_real_master_data_updates_existing_records_idempotently_and_deactiv
         assert placeholder_equipment.is_active is False
         assert placeholder_team.is_active is False
 
-        assert len(db.execute(select(Workshop)).scalars().all()) == 17
+        assert len(db.execute(select(Workshop)).scalars().all()) == 21
         assert len(db.execute(select(Team).where(Team.code == 'ZR2-A')).scalars().all()) == 1
         assert len(db.execute(select(Equipment).where(Equipment.code == 'ZR2-1')).scalars().all()) == 1
     finally:
@@ -564,6 +576,8 @@ def test_process_business_hierarchy_covers_factory_workshop_machine_roles() -> N
         'finishing_branch',
         'second_branch',
         'park_area',
+        'coating_branch',
+        'recycling_branch',
         'warehouse_logistics',
         'online_annealing',
     }

@@ -60,6 +60,8 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'ZD': 'casting',
     'ZR2': 'casting',
     'ZR3': 'casting',
+    'ZR5': 'casting',
+    'ZR6': 'casting',
     'RZ': 'hot_roll',
     'LZ2050': 'cold_roll',
     'LZ1850': 'cold_roll',
@@ -70,6 +72,8 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'JZ': 'finishing',
     'JZ2': 'finishing',
     'JQ': 'shearing',
+    'CT': 'coating',
+    'HS': 'recycling',
     'CPK': 'inventory',
     'ZXTF': 'annealing',
 }

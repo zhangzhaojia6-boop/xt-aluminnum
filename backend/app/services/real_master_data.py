@@ -36,17 +36,21 @@ WORKSHOPS = [
     {'code': 'ZD', 'name': '铸锭车间', 'sort_order': 1},
     {'code': 'ZR2', 'name': '铸二车间', 'sort_order': 2},
     {'code': 'ZR3', 'name': '铸三车间', 'sort_order': 3},
-    {'code': 'RZ', 'name': '热轧车间', 'sort_order': 4},
-    {'code': 'LZ2050', 'name': '2050冷轧车间', 'sort_order': 5},
-    {'code': 'LZ1850', 'name': '1850冷轧车间', 'sort_order': 6},
-    {'code': 'LZ1650', 'name': '1650冷轧车间', 'sort_order': 7},
-    {'code': 'LZ1450', 'name': '1450冷轧车间', 'sort_order': 8},
-    {'code': 'LZ3', 'name': '冷轧三车间', 'sort_order': 9},
-    {'code': 'HWB', 'name': '花纹板车间', 'sort_order': 10},
-    {'code': 'JZ', 'name': '精整车间', 'sort_order': 11},
-    {'code': 'JZ2', 'name': '二分厂精整车间', 'sort_order': 12},
-    {'code': 'JQ', 'name': '园区剪切车间', 'sort_order': 13},
-    {'code': 'CPK', 'name': '成品库', 'sort_order': 14},
+    {'code': 'ZR5', 'name': '铸五车间', 'sort_order': 4},
+    {'code': 'ZR6', 'name': '铸六车间', 'sort_order': 5},
+    {'code': 'RZ', 'name': '热轧车间', 'sort_order': 6},
+    {'code': 'LZ2050', 'name': '2050冷轧车间', 'sort_order': 7},
+    {'code': 'LZ1850', 'name': '1850冷轧车间', 'sort_order': 8},
+    {'code': 'LZ1650', 'name': '1650冷轧车间', 'sort_order': 9},
+    {'code': 'LZ1450', 'name': '1450冷轧车间', 'sort_order': 10},
+    {'code': 'LZ3', 'name': '冷轧三车间', 'sort_order': 11},
+    {'code': 'HWB', 'name': '花纹板车间', 'sort_order': 12},
+    {'code': 'JZ', 'name': '精整车间', 'sort_order': 13},
+    {'code': 'JZ2', 'name': '二分厂精整车间', 'sort_order': 14},
+    {'code': 'JQ', 'name': '园区剪切车间', 'sort_order': 15},
+    {'code': 'CT', 'name': '彩涂车间', 'sort_order': 16},
+    {'code': 'HS', 'name': '回收车间', 'sort_order': 17},
+    {'code': 'CPK', 'name': '成品库', 'sort_order': 18},
     {'code': 'ZXTF', 'name': '在线退火车间', 'sort_order': 200},
 ]
 
@@ -117,6 +121,12 @@ EQUIPMENT_BY_WORKSHOP = {
             'custom_fields': ZR2_CUSTOM_FIELDS,
         }
         for index in range(1, 10)
+    ],
+    'ZR5': [
+        {'code': 'ZR5-1', 'name': '1#机', 'machine_type': 'cast_roller', 'shift_mode': 'three', 'operational_status': 'running', 'custom_fields': ZR2_CUSTOM_FIELDS},
+    ],
+    'ZR6': [
+        {'code': 'ZR6-1', 'name': '1#机', 'machine_type': 'cast_roller', 'shift_mode': 'three', 'operational_status': 'running', 'custom_fields': ZR2_CUSTOM_FIELDS},
     ],
     'RZ': [
         {
@@ -195,6 +205,13 @@ EQUIPMENT_BY_WORKSHOP = {
         {'code': 'ZXTF-3', 'name': '3#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'ZXTF-4', 'name': '4#线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
+    'CT': [
+        {'code': 'CT-XY', 'name': '洗油拉矫退火线', 'machine_type': 'coating_line', 'shift_mode': 'two', 'operational_status': 'running'},
+        {'code': 'CT-TQ', 'name': '涂漆线', 'machine_type': 'coating_line', 'shift_mode': 'two', 'operational_status': 'running'},
+    ],
+    'HS': [
+        {'code': 'HS-1', 'name': '回收1#', 'machine_type': 'recycling', 'shift_mode': 'two', 'operational_status': 'running'},
+    ],
 }
 
 SHIFT_TEAMS = [
@@ -261,6 +278,16 @@ MES_WORKSHOP_ALIASES = [
     ('JQ', '园区精整'),
     ('JQ', '园区剪切'),
     ('JQ', '园区剪切车间'),
+    ('JQ', '园区淬火'),
+    ('JQ', '园区淬火车间'),
+    ('CT', '彩涂'),
+    ('CT', '彩涂车间'),
+    ('HS', '回收'),
+    ('HS', '回收车间'),
+    ('ZR5', '铸五'),
+    ('ZR5', '铸五车间'),
+    ('ZR6', '铸六'),
+    ('ZR6', '铸六车间'),
     ('ZXTF', '新厂在线车间'),
     ('ZXTF', '园区在线车间'),
     ('ZXTF', '在线退火'),
@@ -268,11 +295,13 @@ MES_WORKSHOP_ALIASES = [
 ]
 
 PROCESS_BUSINESS_UNITS = [
-    {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3']},
+    {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3', 'ZR5', 'ZR6']},
     {'unit_code': 'rolling_branch', 'unit_name': '轧制分厂', 'workshop_codes': ['RZ', 'LZ2050', 'LZ1850', 'LZ1650', 'LZ1450', 'LZ3', 'HWB']},
     {'unit_code': 'finishing_branch', 'unit_name': '精整分厂', 'workshop_codes': ['JZ']},
     {'unit_code': 'second_branch', 'unit_name': '二分厂', 'workshop_codes': ['JZ2']},
     {'unit_code': 'park_area', 'unit_name': '园区', 'workshop_codes': ['JQ']},
+    {'unit_code': 'coating_branch', 'unit_name': '彩涂车间', 'workshop_codes': ['CT']},
+    {'unit_code': 'recycling_branch', 'unit_name': '回收车间', 'workshop_codes': ['HS']},
     {'unit_code': 'warehouse_logistics', 'unit_name': '成品库与发运', 'workshop_codes': ['CPK']},
     {'unit_code': 'online_annealing', 'unit_name': '在线退火跨厂区', 'workshop_codes': ['ZXTF']},
 ]
@@ -353,6 +382,26 @@ WORKSHOP_PROCESS_BUSINESS = {
         'process_tags': ['新厂在线', '园区在线', '在线退火'],
         'area_status': 'needs_mes_line_split',
     },
+    'ZR5': {
+        'process_business': '铸轧',
+        'process_tags': ['铸轧', '卷坯'],
+        'area_status': 'confirmed',
+    },
+    'ZR6': {
+        'process_business': '铸轧',
+        'process_tags': ['铸轧', '卷坯'],
+        'area_status': 'confirmed',
+    },
+    'CT': {
+        'process_business': '彩涂',
+        'process_tags': ['彩涂', '涂漆', '洗油'],
+        'area_status': 'confirmed',
+    },
+    'HS': {
+        'process_business': '回收',
+        'process_tags': ['回收', '废料回收'],
+        'area_status': 'confirmed',
+    },
 }
 
 MACHINE_PROCESS_BUSINESS_BY_CODE = {
@@ -376,6 +425,9 @@ MACHINE_PROCESS_BUSINESS_BY_CODE = {
     'JZ-FT1': '分条',
     'JZ-FJ': '飞剪',
     'JQ-ZJ': '重卷',
+    'CT-XY': '彩涂/洗油退火',
+    'CT-TQ': '彩涂/涂漆',
+    'HS-1': '回收',
 }
 
 MACHINE_PROCESS_BUSINESS_BY_TYPE = {
@@ -385,6 +437,8 @@ MACHINE_PROCESS_BUSINESS_BY_TYPE = {
     'finishing': '精整',
     'shear': '剪切',
     'annealing_line': '在线退火',
+    'coating_line': '彩涂',
+    'recycling': '回收',
 }
 
 
