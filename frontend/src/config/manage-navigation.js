@@ -27,7 +27,9 @@ const NAV_GROUPS = [
     label: '经营效益',
     commandGroup: '经营效益',
     items: [
-      { title: '经营效益', shortLabel: '经营效益', path: '/manage/factory/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' }
+      { title: '经营驾驶舱', shortLabel: '驾驶舱', path: '/manage/executive', icon: Monitor, access: 'review', commandGroup: '经营效益', secondaryGroup: '全局' },
+      { title: '经营效益', shortLabel: '经营效益', path: '/manage/factory/cost', icon: Coin, access: 'review', commandGroup: '经营效益', secondaryGroup: '估算' },
+      { title: '加工费管理', shortLabel: '加工费', path: '/manage/executive/processing-fees', icon: List, access: 'admin', commandGroup: '经营效益', secondaryGroup: '主数据' }
     ]
   },
   {

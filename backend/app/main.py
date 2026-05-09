@@ -13,6 +13,9 @@ except ImportError:  # pragma: no cover
 
 from app.adapters import MesAdapter, NullMesAdapter, set_mes_adapter
 from app.agents.aggregator import aggregator_agent
+from app.agents.aluminum_price_fetcher import aluminum_price_fetcher_agent
+from app.agents.cost_aggregator import cost_aggregator_agent
+from app.agents.profit_snapshot import profit_snapshot_agent
 from app.agents.reporter import reporter_agent
 from app.agents.reminder import reminder_agent
 from app.config import settings
@@ -20,7 +23,7 @@ from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
 from app.routers.config import router as config_router
-from app.routers import ai, assistant, assistant_actions, attendance, auth, command, dashboard, dingtalk, energy, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, team_lead, templates, users, work_orders
+from app.routers import ai, assistant, assistant_actions, attendance, auth, command, dashboard, dingtalk, energy, executive, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, team_lead, templates, users, work_orders
 from app.services import dingtalk_service
 
 scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if BackgroundScheduler else None
@@ -212,6 +215,51 @@ async def lifespan(_: FastAPI):
             coalesce=True,
             max_instances=1,
         )
+
+        def _run_aluminum_price_fetch():
+            from datetime import date as _date
+            with session_factory() as session:
+                try:
+                    aluminum_price_fetcher_agent.execute(db=session, target_date=_date.today())
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    aluminum_price_fetcher_agent.logger.exception('Aluminum price fetch failed')
+
+        def _run_executive_daily_snapshot():
+            from datetime import date as _date, timedelta as _td
+            target = _date.today() - _td(days=1)
+            with session_factory() as session:
+                try:
+                    cost_aggregator_agent.execute(db=session, target_date=target)
+                    session.flush()
+                    profit_snapshot_agent.execute(db=session, target_date=target)
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    cost_aggregator_agent.logger.exception('Executive daily snapshot failed')
+
+        scheduler.add_job(
+            _run_aluminum_price_fetch,
+            'cron',
+            day_of_week='mon-fri',
+            hour=10,
+            minute=30,
+            id='aluminum_price_daily',
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        scheduler.add_job(
+            _run_executive_daily_snapshot,
+            'cron',
+            hour=0,
+            minute=45,
+            id='executive_daily_snapshot',
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
         scheduler.start()
     yield
     if scheduler and scheduler.running:
@@ -258,6 +306,7 @@ app.include_router(rule_configs.router, prefix=f'{settings.API_V1_PREFIX}/rule-c
 app.include_router(team_lead.router, prefix=f'{settings.API_V1_PREFIX}/team-lead')
 app.include_router(mes.router, prefix=f'{settings.API_V1_PREFIX}/mes')
 app.include_router(factory_command.router, prefix=f'{settings.API_V1_PREFIX}/factory-command')
+app.include_router(executive.router, prefix=f'{settings.API_V1_PREFIX}/executive')
 app.include_router(reconciliation.router, prefix=f'{settings.API_V1_PREFIX}/reconciliation')
 app.include_router(energy.router, prefix=f'{settings.API_V1_PREFIX}/energy')
 app.include_router(quality.router, prefix=f'{settings.API_V1_PREFIX}/quality')

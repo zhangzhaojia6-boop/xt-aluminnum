@@ -11,6 +11,13 @@ from app.models.attendance import (
     ShiftAttendanceConfirmation,
 )
 from app.models.assistant import AiBriefingEvent, AiContextPack, AiConversation, AiMessage, AiWatchlistItem
+from app.models.executive import (
+    AluminumPriceDaily,
+    MachineDailyCostSnapshot,
+    MachineDailyProfitSnapshot,
+    ProcessingFeeRule,
+    ProcessingFeeSurcharge,
+)
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
@@ -80,4 +87,9 @@ __all__ = [
     'FieldMappingTemplate',
     'DailyReport',
     'RuleConfig',
+    'AluminumPriceDaily',
+    'ProcessingFeeRule',
+    'ProcessingFeeSurcharge',
+    'MachineDailyCostSnapshot',
+    'MachineDailyProfitSnapshot',
 ]

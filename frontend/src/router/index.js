@@ -55,6 +55,8 @@ const ProductionFlowScreen = () => import('../views/factory-command/ProductionFl
 const MachineLineScreen = () => import('../views/factory-command/MachineLineScreen.vue')
 const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
 const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
+const ExecutiveDashboard = () => import('../views/executive/ExecutiveDashboard.vue')
+const ProcessingFeeAdmin = () => import('../views/executive/ProcessingFeeAdmin.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
 const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
@@ -126,6 +128,8 @@ const rawRoutes = [
     children: [
       { path: '', redirect: '/manage/overview' },
       { path: 'overview', name: 'review-overview-home', component: FactoryOverview, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂总览', centerNo: '01', canonical: '/manage/overview' } },
+      { path: 'executive', name: 'executive-dashboard', component: ExecutiveDashboard, meta: { ...reviewMeta, title: '经营驾驶舱', centerNo: '01', canonical: '/manage/executive' } },
+      { path: 'executive/processing-fees', name: 'executive-processing-fees', component: ProcessingFeeAdmin, meta: { ...adminMeta, title: '加工费管理', centerNo: '14', canonical: '/manage/executive/processing-fees' } },
       { path: 'factory/flow', name: 'factory-command-flow', component: ProductionFlowScreen, meta: { ...reviewMeta, title: '生产流转', centerNo: '05', canonical: '/manage/factory/flow' } },
       { path: 'factory/machine-lines', name: 'factory-command-machine-lines', component: MachineLineScreen, meta: { ...reviewMeta, title: '车间机列', centerNo: '05', canonical: '/manage/factory/machine-lines' } },
       { path: 'factory/coils', name: 'factory-command-coils', component: CoilTrace, meta: { ...reviewMeta, title: '卷级追踪', centerNo: '05', canonical: '/manage/factory/coils' } },
