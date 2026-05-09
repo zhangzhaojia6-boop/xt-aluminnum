@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>鑫泰铝业 数据中枢 · 落地前 · 旧流程全景</title>
+<style>
+@page { size: A3 landscape; margin: 10mm 12mm; }
+:root{ --ink:#0a0a0a; --line:#0a0a0a; --sub:#353535; --muted:#7a7a7a; --soft:#f4f4f2; --accent:#c8161d; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#e7e5e2;color:var(--ink);
+  font-family:"PingFang SC","Microsoft YaHei","Source Han Sans SC","Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"ss01" 1}
+.sheet{width:396mm;min-height:277mm;padding:13mm 14mm 10mm;background:#fff;margin:8mm auto;
+  box-shadow:0 1px 6px rgba(0,0,0,.10);display:flex;flex-direction:column;gap:7mm}
+
+.hd .eyebrow{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:4mm}
+.hd h1{font-size:46px;font-weight:900;letter-spacing:-.01em;line-height:.95;margin:6mm 0 4mm}
+.hd h1 span{color:var(--accent)}
+.hd .dek{font-size:14px;color:var(--sub);line-height:1.6;max-width:270mm;margin:0}
+.hd .dek b{color:var(--accent);font-weight:700}
+
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);border-top:2px solid var(--line);border-bottom:2px solid var(--line)}
+.kpi{padding:5mm 6mm 5mm 0;border-right:1px solid var(--line)}
+.kpi:last-child{border-right:none;padding-right:0}
+.kpi .n{font-size:38px;font-weight:900;line-height:1;letter-spacing:-.02em;color:var(--accent)}
+.kpi .n .u{font-size:14px;color:var(--ink);margin-left:4px;font-weight:600;letter-spacing:0}
+.kpi .l{font-size:11px;color:var(--muted);letter-spacing:.14em;margin-top:3mm;text-transform:uppercase}
+
+.lanes{display:flex;flex-direction:column;border-top:1.5px solid var(--line)}
+.lane{display:grid;grid-template-columns:72mm 1fr;border-bottom:1.5px solid var(--line);padding:5mm 0;align-items:center}
+.lane:last-child{border-bottom:none}
+.label{padding-right:6mm;border-right:1px solid #d0d0ce}
+.label .num{font-size:11px;color:var(--muted);letter-spacing:.2em;font-weight:700}
+.label .name{font-size:18px;font-weight:800;margin-top:1mm;line-height:1.15}
+.label .sub{font-size:11px;color:var(--muted);margin-top:1mm;letter-spacing:.02em}
+.label .pain{font-size:11px;color:var(--accent);margin-top:2mm;font-weight:700}
+
+.chain{display:flex;align-items:stretch;padding-left:6mm;column-gap:26px}
+.step{flex:1;border:1.5px solid var(--line);padding:3mm 4mm;background:#fff;position:relative;display:flex;flex-direction:column;gap:1mm;min-height:20mm}
+.step .idx{font-size:10px;color:var(--muted);letter-spacing:.18em;font-weight:700}
+.step .t{font-size:13px;font-weight:800;line-height:1.25;color:var(--ink)}
+.step .d{font-size:10.5px;color:var(--sub);line-height:1.45;margin-top:auto}
+.step + .step::before{content:'';position:absolute;left:-26px;top:50%;width:17px;border-top:1.5px solid var(--ink);transform:translateY(-50%)}
+.step + .step::after{content:'';position:absolute;left:-10px;top:50%;width:0;height:0;border-left:8px solid var(--ink);border-top:5px solid transparent;border-bottom:5px solid transparent;transform:translateY(-50%)}
+
+.ft{margin-top:auto;padding-top:4mm;border-top:1.5px solid var(--line);font-size:10.5px;color:var(--muted);letter-spacing:.08em;display:flex;justify-content:space-between}
+.ft b{color:var(--accent);font-weight:800}
+
+@media print{html,body{background:#fff}.sheet{margin:0;box-shadow:none;width:auto;min-height:auto}}
+</style>
+</head>
+<body>
+<section class="sheet">
+  <header class="hd">
+    <div class="eyebrow"><span>鑫泰铝业 · 数据中枢　|　Xintai Aluminum Data Hub</span><span>DOC 01 / 02 · 2026-05-09</span></div>
+    <h1>落地前 · <span>旧流程全景</span></h1>
+    <p class="dek">6 类角色 · <b>4 层人工接力</b> · 端到端 <b>4–8 小时</b> · 错数回改 <b>+1 天</b> · 统计员日耗 <b>≈ 26 人时</b> · 异常 <b>次日才可见</b>。</p>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">4–8<span class="u">h</span></div><div class="l">端到端时延</div></div>
+    <div class="kpi"><div class="n">26<span class="u">人时/日</span></div><div class="l">统计人力</div></div>
+    <div class="kpi"><div class="n">3<span class="u">次</span></div><div class="l">数据誊抄</div></div>
+    <div class="kpi"><div class="n">+1<span class="u">天</span></div><div class="l">错数回改</div></div>
+    <div class="kpi"><div class="n">次日<span class="u">可见</span></div><div class="l">异常响应</div></div>
+  </div>
+
+  <div class="lanes">
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 01</div>
+        <div class="name">一线岗位</div>
+        <div class="sub">主操 · 电工 · 库管</div>
+        <div class="pain">纸表易丢 · 单位混用</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">班末交接</div><div class="d">收集产量 / 能耗 / 辅料</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">手写纸表</div><div class="d">字迹难辨 · 单位凭感觉</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">自查</div><div class="d">靠记忆核对</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">签字</div><div class="d">纸质留底</div></div>
+        <div class="step"><div class="idx">05</div><div class="t">交班组长</div><div class="d">纸表物理传递</div></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 02</div>
+        <div class="name">班组长 · 工段长</div>
+        <div class="sub">现场一级汇总</div>
+        <div class="pain">第 2 次誊抄 · 合并表头错位</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">收纸表</div><div class="d">班组全员汇齐</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">人工核对</div><div class="d">发现问题即刻追回</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">誊抄 Excel</div><div class="d">按模板录入 · 易错位</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">上报专业统计</div><div class="d">邮件 / 微信 / 纸质并行</div></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 03</div>
+        <div class="name">专业统计员 × 6 组</div>
+        <div class="sub">铸造 / 熔铸 / 热轧 / 冷轧 / 深加工 / 能耗</div>
+        <div class="pain">4–6 小时 / 日 · 口径不齐</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">接收 6 份 Excel</div><div class="d">各车间格式不一</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">清洗单位</div><div class="d">吨 / 公斤 / 升 / 桶</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">归一别名</div><div class="d">铸锭 / 铸锭分厂 / 铸轧</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">逐项汇总</div><div class="d">同名重复列 · 合并表头</div></div>
+        <div class="step"><div class="idx">05</div><div class="t">异常追回</div><div class="d">电话 / 跑现场</div></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 04</div>
+        <div class="name">综合部总统计</div>
+        <div class="sub">全厂跨车间合并</div>
+        <div class="pain">1–2 小时 · 错数 +1 天</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">汇集 6 份报表</div><div class="d">各专业组分头上报</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">跨车间合并</div><div class="d">看板 vs 日报口径不一致</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">口径修正</div><div class="d">人工判决拉矫拆分</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">错数回溯</div><div class="d">回改需再 +1 天</div></div>
+        <div class="step"><div class="idx">05</div><div class="t">综合日报</div><div class="d">次日上报领导</div></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 05</div>
+        <div class="name">MES / 独立业务系统</div>
+        <div class="sub">能耗 · 设备 · 质量 · 孤岛</div>
+        <div class="pain">系统互不连通</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">各自导出</div><div class="d">每系统独立 Excel</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">Excel 互传</div><div class="d">邮件 / U 盘</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">人工比对</div><div class="d">车间 × 机列双向查</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">补录 / 修正</div><div class="d">纸表 + Excel 再过一遍</div></div>
+      </div>
+    </div>
+
+    <div class="lane">
+      <div class="label">
+        <div class="num">ROLE 06</div>
+        <div class="name">管理层 · 领导</div>
+        <div class="sub">决策终端</div>
+        <div class="pain">无法当日决策</div>
+      </div>
+      <div class="chain">
+        <div class="step"><div class="idx">01</div><div class="t">等到次日上午</div><div class="d">8–9 点收到「昨日」报表</div></div>
+        <div class="step"><div class="idx">02</div><div class="t">翻阅报表</div><div class="d">纸质 / PDF</div></div>
+        <div class="step"><div class="idx">03</div><div class="t">询问细节</div><div class="d">再层层下问</div></div>
+        <div class="step"><div class="idx">04</div><div class="t">等待追查</div><div class="d">干预窗已过</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ft">
+    <span>一线 → 班组长 → 专业统计 × 6 → 综合部 → 管理层　|　<b>4 层接力 · 3 次誊抄 · 7 组统计员 · 隔日可见</b></span>
+    <span>DOC 01 / 02 · 鑫泰铝业 · 数据中枢</span>
+  </footer>
+</section>
+</body>
+</html>

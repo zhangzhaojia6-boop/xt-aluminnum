@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>鑫泰铝业 数据中枢 · 落地前后对比 · A3 打印版</title>
+<style>
+  @page { size: A3 landscape; margin: 10mm 12mm; }
+  :root{
+    --ink:#0a0a0a; --sub:#333; --line:#111; --muted:#6b6b6b;
+    --bg:#fff; --soft:#f4f4f2; --chip:#111; --chipfg:#fff;
+    --accent:#c8161d; --ok:#0f7a3a; --warn:#b56b00;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#e7e5e2;color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei","Source Han Sans SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1;font-size:11.5px;line-height:1.55}
+  .sheet{
+    width: 396mm; min-height: 277mm; padding: 10mm 12mm; box-sizing:border-box;
+    background:#fff; margin: 8mm auto; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    page-break-after: always; break-after: page; position:relative;
+  }
+  .sheet:last-child{page-break-after:auto;break-after:auto}
+  .page-num{position:absolute;top:8mm;right:12mm;font-size:10px;color:var(--muted);letter-spacing:.18em}
+  .page-num b{color:var(--ink)}
+
+  header.hd{border-bottom:2px solid var(--line);padding-bottom:10px;margin-bottom:10px}
+  .eyebrow{font-size:10px;letter-spacing:.24em;color:var(--muted);text-transform:uppercase}
+  h1{font-size:22px;margin:2px 0 2px;letter-spacing:.02em;font-weight:800}
+  h1 small{font-size:12px;color:var(--muted);font-weight:500;margin-left:10px;letter-spacing:.06em}
+  .lede{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.65;max-width:none}
+  .lede b{color:var(--ink)}
+
+  .section-title{display:flex;align-items:baseline;gap:10px;margin:10px 0 6px}
+  .section-title .num{display:inline-block;min-width:22px;height:20px;line-height:20px;text-align:center;
+    background:var(--chip);color:#fff;font-size:10px;font-weight:700;letter-spacing:.04em;padding:0 7px;border-radius:2px}
+  .section-title h2{margin:0;font-size:13px;letter-spacing:.1em;font-weight:700}
+  .section-title .hint{color:var(--muted);font-size:10.5px;margin-left:auto;letter-spacing:.08em}
+
+  /* 5.6 baseline */
+  .baseline{border:1.5px solid var(--line);background:#0a0a0a;color:#fff;padding:8px 12px;font-size:11px;line-height:1.6}
+  .baseline .tag{display:inline-block;background:#fff;color:#000;font-weight:800;letter-spacing:.12em;padding:1px 7px;font-size:9.5px;margin-right:8px}
+  .baseline b{color:#ffd74a}
+  .baseline .src{color:#9a9a9a;font-size:10px;margin-top:4px;letter-spacing:.04em}
+
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--line)}
+  .kpi{padding:10px 14px;border-right:1px solid var(--line)}
+  .kpi:last-child{border-right:none}
+  .kpi .label{font-size:10px;color:var(--muted);letter-spacing:.18em;margin-bottom:4px}
+  .kpi .big{font-size:24px;font-weight:800;letter-spacing:-0.01em;line-height:1.1}
+  .kpi .big .unit{font-size:12px;color:var(--muted);margin-left:4px;font-weight:500}
+  .kpi .trend{font-size:11px;margin-top:3px}
+  .kpi .trend.down{color:var(--ok)}
+  .kpi .src{font-size:9.5px;color:var(--muted);margin-top:4px;letter-spacing:.04em;line-height:1.4}
+
+  /* lane */
+  .lane-header{display:grid;grid-template-columns: 92px 1fr 1fr 190px;border:1.5px solid var(--line);border-bottom:none}
+  .lane-header > div{padding:7px 10px;font-weight:700;font-size:10.5px;letter-spacing:.16em}
+  .lane-header .h-role{background:var(--chip);color:#fff;border-right:1.5px solid var(--line)}
+  .lane-header .h-old{background:var(--soft);border-right:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .lane-header .h-new{background:#fff;border-right:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .lane-header .h-ev{background:#fafafa;border-left:1px solid var(--line)}
+  .lane-header .meta{font-weight:500;font-size:10px;color:var(--muted);letter-spacing:.08em}
+  .lane-header .h-new .meta b{color:var(--ok)}
+  .lane-header .h-old .meta b{color:var(--accent)}
+
+  .lane{display:grid;grid-template-columns: 92px 1fr 1fr 190px;border:1.5px solid var(--line)}
+  .lane > div{border-bottom:1px solid var(--line);padding:8px 10px;position:relative}
+  .lane > div:nth-last-child(-n+4){border-bottom:none}
+  .lane .role{background:var(--chip);color:#fff;font-weight:700;display:flex;flex-direction:column;justify-content:center;gap:3px;letter-spacing:.04em;font-size:11.5px;border-right:1.5px solid var(--line)}
+  .lane .role .tag{font-size:9px;color:#bcbcbc;letter-spacing:.16em;font-weight:500}
+  .lane .cell{background:#fff;border-right:1px solid var(--line)}
+  .lane .cell.old{background:var(--soft)}
+  .lane .cell .title{font-weight:700;font-size:11.5px;margin-bottom:3px;line-height:1.4}
+  .lane .cell .body{font-size:10.5px;color:var(--sub);line-height:1.55}
+  .lane .cell .kv{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .chip{display:inline-block;border:1px solid var(--line);padding:1px 6px;font-size:9.5px;letter-spacing:.02em;border-radius:2px;background:#fff;line-height:1.4}
+  .chip.bad{background:#000;color:#fff;border-color:#000}
+  .chip.good{background:#fff;color:var(--ok);border-color:var(--ok)}
+  .chip.warn{background:#fff;color:var(--accent);border-color:var(--accent)}
+  .strike{text-decoration:line-through;color:var(--muted)}
+  .lane .evidence{background:#fafafa;font-size:9.5px;color:var(--sub);line-height:1.55}
+  .lane .evidence .lbl{font-size:9px;color:var(--muted);letter-spacing:.18em;margin-bottom:2px;display:block}
+  .lane .evidence code{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:9.5px;background:#efefed;padding:0 4px;border-radius:2px;color:#111}
+  .lane .evidence .sha{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:9.5px;color:var(--ok)}
+
+  /* compare table */
+  table.cmp{width:100%;border-collapse:collapse;border:1.5px solid var(--line);font-size:11px}
+  table.cmp th,table.cmp td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  table.cmp thead th{background:var(--chip);color:#fff;letter-spacing:.06em;font-weight:700;font-size:10.5px}
+  table.cmp tbody td.dim{color:var(--muted);background:var(--soft)}
+  table.cmp tbody td .delta{display:inline-block;font-weight:800;color:var(--ok)}
+  table.cmp tbody tr td:first-child{font-weight:700;background:#fafafa;width:130px}
+  table.cmp tbody td .src{display:block;font-size:9.5px;color:var(--muted);margin-top:2px;letter-spacing:.04em}
+
+  /* progress */
+  .progress{display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid var(--line)}
+  .pcol{padding:9px 12px;border-right:1px solid var(--line)}
+  .pcol:last-child{border-right:none}
+  .pcol h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em}
+  .pcol ul{margin:0;padding-left:16px;font-size:10.5px;color:var(--sub);line-height:1.65}
+  .pcol ul li{margin-bottom:1px}
+  .pcol .sha{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:9.5px;color:var(--ok)}
+  .pcol.done h4{color:var(--ok)}
+  .pcol.doing h4{color:var(--warn)}
+  .pcol.plan h4{color:var(--muted)}
+
+  /* Q&A */
+  .qa{border:1.5px solid var(--line)}
+  .qa .q{display:grid;grid-template-columns:28px 1fr;border-bottom:1px solid var(--line)}
+  .qa .q:last-child{border-bottom:none}
+  .qa .q .idx{background:var(--chip);color:#fff;text-align:center;padding:8px 0;font-weight:800;font-size:11px}
+  .qa .q .body{padding:7px 10px}
+  .qa .q .body .ask{font-weight:700;font-size:11px;margin-bottom:3px;line-height:1.4}
+  .qa .q .body .ask::before{content:"Q · ";color:var(--accent);font-weight:800}
+  .qa .q .body .ans{font-size:10.5px;color:var(--sub);line-height:1.6}
+  .qa .q .body .ans::before{content:"A · ";color:var(--ok);font-weight:800}
+  .qa .q .body code{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:10px;background:#efefed;padding:0 4px;border-radius:2px;color:#111}
+
+  /* risk */
+  .risk{display:grid;grid-template-columns:repeat(2,1fr);border:1.5px solid var(--line)}
+  .risk .rcol{padding:9px 12px;border-right:1px solid var(--line)}
+  .risk .rcol:last-child{border-right:none}
+  .risk .rcol h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em}
+  .risk .rcol.r h4{color:var(--accent)}
+  .risk .rcol.m h4{color:var(--ok)}
+  .risk .rcol table{width:100%;border-collapse:collapse;font-size:10.5px}
+  .risk .rcol td{border-top:1px dashed #bbb;padding:4px 0;vertical-align:top;color:var(--sub);line-height:1.55}
+  .risk .rcol td:first-child{color:var(--ink);font-weight:700;white-space:nowrap;padding-right:8px;width:90px}
+
+  /* calc */
+  .calc{border:1.5px solid var(--line);background:#fafafa;padding:9px 12px;font-size:10.5px;line-height:1.65;color:var(--sub)}
+  .calc h4{margin:0 0 6px;color:var(--ink);font-size:11px;letter-spacing:.14em}
+  .calc code{font-family:"JetBrains Mono",Consolas,Menlo,monospace;font-size:10px;background:#fff;padding:0 4px;border:1px solid #ddd;border-radius:2px;color:#111}
+  .calc .row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+  .calc .row > div{background:#fff;border:1px solid #ddd;padding:6px 9px}
+  .calc .row .label{font-size:9.5px;color:var(--muted);letter-spacing:.14em;margin-bottom:2px}
+
+  footer.ft{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:9.5px;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+
+  /* two-col row */
+  .two{display:grid;grid-template-columns:1.3fr 1fr;gap:10px}
+
+  @media print{
+    html,body{background:#fff}
+    .sheet{margin:0;box-shadow:none;width:auto;min-height:auto;padding:8mm 10mm}
+    .sheet,.lane,.kpis,.progress,.qa,.risk,table.cmp,.calc,.baseline{page-break-inside:avoid;break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<!-- ====================== SHEET 1 ====================== -->
+<section class="sheet">
+  <div class="page-num">汇报版 · <b>1 / 2</b></div>
+  <header class="hd">
+    <div class="eyebrow">鑫泰铝业 · 数据中枢　|　XINTAI ALUMINUM · DATA HUB</div>
+    <h1>系统落地前后 · 流程对照（第一页：流程泳道）<small>2026-05-09 汇报版</small></h1>
+    <p class="lede">
+      旧流程：<b>一线手写 → 班组誊抄 → 6 组专业统计员 → 综合部总统计 → 领导次日上午</b>，中间 4 层人工接力、端到端 4–8 小时、口径不齐、错数 +1 天。<br/>
+      新流程：<b>一线钉钉扫码直录 → 状态机自动推进 → MES 秒级交叉校验 → 指挥中心 / 钉钉直达领导</b>，中间零人工，端到端 &lt; 5 分钟、异常 &lt; 30 秒。
+    </p>
+  </header>
+
+  <div class="baseline">
+    <span class="tag">现场真值底</span>
+    <b>2026-05-06 调度员手记</b> · 当日在制料 <b>1406.8 t</b>；铸锭 <b>369 t / 8 炉</b>、铸二 24 t、铸三 39 t、热轧 <b>92 t / 9 块</b>、1650 成品 220 t、1850 成品 41 t、2050 成品 59 t、冷轧合计 <b>532 t</b>、回收 70 t / 月累 435 t、磨辊 12 根 / 累 57 根、大修 508 度、办公+质检 132 度。
+    <div class="src">本页所有"落地后"产量 / 能耗数字，均与这份现场真值底一致；任何对不上的映射都未通过 D1–D7 验收（验收基线，已写入 memory/fields_5_6_audit.md）。</div>
+  </div>
+
+  <div class="section-title">
+    <span class="num">01</span><h2>核心降本增效</h2>
+    <span class="hint">与旧流程对照 · 全部可回溯到现场口径</span>
+  </div>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">数据到领导时延</div>
+      <div class="big">&lt; 5<span class="unit">分钟</span></div>
+      <div class="trend down">▼ 从 4–8 小时 · 降 98%+</div>
+      <div class="src">算法：按卷填报 submitted → _aggregate_coil_to_shift → /aggregation/live 链路实测</div>
+    </div>
+    <div class="kpi">
+      <div class="label">统计人力 / 日</div>
+      <div class="big">&lt; 1<span class="unit">人时</span></div>
+      <div class="trend down">▼ 从 ≈ 26 人时 · 降 96%+</div>
+      <div class="src">口径：6 组专业统计 × 4h + 综合部 2h（详见第 2 页附录 A）</div>
+    </div>
+    <div class="kpi">
+      <div class="label">数据誊抄次数</div>
+      <div class="big">1<span class="unit">次</span></div>
+      <div class="trend down">▼ 从 3 次 · 一次落库</div>
+      <div class="src">旧：纸表→班组 Excel→专业汇总；新：岗位 entry 一次入库</div>
+    </div>
+    <div class="kpi">
+      <div class="label">异常响应窗</div>
+      <div class="big">秒级<span class="unit">推送</span></div>
+      <div class="trend down">▼ 从隔日 · 提前 4–24h</div>
+      <div class="src">规则引擎 + 钉钉机器人（企业微信已校正为钉钉）</div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <span class="num">02</span><h2>流程泳道对照</h2>
+    <span class="hint">6 角色横向对齐 · 每行都标系统内证据</span>
+  </div>
+
+  <div class="lane-header">
+    <div class="h-role">角色 / 环节</div>
+    <div class="h-old"><span>落地前 · 人工接力</span><span class="meta">端到端 <b>4–8 小时</b> · 错数 +1 天</span></div>
+    <div class="h-new"><span>落地后 · 数据中枢</span><span class="meta">端到端 <b>&lt; 5 分钟</b> · 异常 &lt; 30 秒</span></div>
+    <div class="h-ev">系统内证据 / 代码锚点</div>
+  </div>
+
+  <div class="lane">
+    <div class="role">① 一线<span class="tag">主操 / 电工 / 库管</span></div>
+    <div class="cell old">
+      <div class="title">班末手写纸质记录</div>
+      <div class="body">纸表易丢、字迹难辨；单位混用（吨 / 公斤 / 升 / 桶）；车间别名 3+ 种写法（铸锭 / 铸锭分厂 / 铸轧 同指一处）。</div>
+      <div class="kv"><span class="chip">纸表</span><span class="chip">单位混用</span><span class="chip">别名发散</span></div>
+    </div>
+    <div class="cell">
+      <div class="title">钉钉扫码 · 按卷 / 按班次直录（≈ 5 秒）</div>
+      <div class="body">绑机列后扫码即录；源头做单位阻断 + 字段门禁；按卷填报直通 <code>submitted</code>，自动聚合进折吨。</div>
+      <div class="kv"><span class="chip good">扫码 5s</span><span class="chip good">单位阻断</span><span class="chip good">机列门禁</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">代码锚点</span>
+      <code>mobile_report/summary.py:514</code> 按卷入 <code>submitted</code><br/>
+      <span class="sha">1ee47a3</span> 试点车间机列绑定覆盖率门禁
+    </div>
+
+    <div class="role">② 班组长<span class="tag">工段长</span></div>
+    <div class="cell old">
+      <div class="title">收纸表 → 誊 Excel → 上报</div>
+      <div class="body">第 2 次誊抄；合并表头 / 抄表(累计) vs 用量(差值) 混淆；一行多值常见（"净重" 3 卷写一格+合计）。</div>
+      <div class="kv"><span class="chip">誊抄 ×2</span><span class="chip">抄表/差值易混</span></div>
+    </div>
+    <div class="cell">
+      <div class="title"><span class="strike">中间誊抄环节</span> · 已取消</div>
+      <div class="body">系统直接接收岗位填报；班组长角色转为异常兜底、机列绑定维护。</div>
+      <div class="kv"><span class="chip bad">✖ 环节消灭</span><span class="chip good">角色转型</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">边界事实</span>
+      班次报表 <code>work_order/entry.py:633</code> 仍以 draft 起步，<u>在建</u>：draft→submitted 自动提升规则
+    </div>
+
+    <div class="role">③ 专业统计<span class="tag">× 6 组</span></div>
+    <div class="cell old">
+      <div class="title">铸造 / 熔铸 / 热轧 / 冷轧 / 深加工 / 能耗 分头汇总</div>
+      <div class="body">6 组独立 Excel，4–6 小时；口径不齐、同名重复列（两个 "月累计"）、sheet 名错配日期（<code>4-2</code> 里写 2026-05-07；<code>4-1</code> 里写 2021-4-1）。</div>
+      <div class="kv"><span class="chip">6 组 × 4h</span><span class="chip">口径不齐</span><span class="chip">日期错配</span></div>
+    </div>
+    <div class="cell">
+      <div class="title"><span class="strike">6 组人工汇总</span> · 消灭</div>
+      <div class="body">状态机自动推进：<code>draft → submitted → auto_confirmed → published</code>；主数据 + 规则引擎把口径约束前移。</div>
+      <div class="kv"><span class="chip bad">✖ 人工消灭</span><span class="chip good">状态机</span><span class="chip good">规则引擎</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">代码锚点</span>
+      <code>real_master_data.py</code> · <code>daily_production_mapping_service.py</code><br/>
+      <span class="sha">56de20d</span> D1–D6 差距封闭（映射+单位阻断+草稿提升）
+    </div>
+
+    <div class="role">④ 综合部<span class="tag">总统计</span></div>
+    <div class="cell old">
+      <div class="title">跨车间合并 + 口径修正（1–2 小时）</div>
+      <div class="body">看板口径 vs 综合日报口径不一致（拉矫 662.3 在看板被拆 洗拉 438 + 拉矫 32.5 + 分切 39.8 + 退火 152，综合日报只留 "项目" 维）；错数回改 +1 天。</div>
+      <div class="kv"><span class="chip">合并 1–2h</span><span class="chip">错数 +1 天</span></div>
+    </div>
+    <div class="cell">
+      <div class="title"><span class="strike">总统计合并</span> · 消灭</div>
+      <div class="body">MES 投影 × 工人填报秒级交叉校验；<code>_merge_runtime_entries</code> 按 tracking_card_no 回填 workshop/machine/shift；一个口径到底。</div>
+      <div class="kv"><span class="chip bad">✖ 合并消灭</span><span class="chip good">MES × 填报</span><span class="chip good">tracking_card 回填</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">代码锚点</span>
+      <code>realtime_service.py:813</code> 交叉校验<br/>
+      <code>realtime_service.py:1037</code> <code>build_live_aggregation</code>
+    </div>
+
+    <div class="role">⑤ 异常 / 风险<span class="tag">全厂</span></div>
+    <div class="cell old">
+      <div class="title">靠人眼手算 · 常隔日发现</div>
+      <div class="body">响应窗已过；异常被掩盖在汇总差异里；纸表丢失无追溯。</div>
+      <div class="kv"><span class="chip warn">响应 +1 天</span><span class="chip warn">无追溯</span></div>
+    </div>
+    <div class="cell">
+      <div class="title">规则引擎实时识别 · 钉钉机器人分级推送</div>
+      <div class="body">班长 / 主操 / 领导三层分级；每条 entry 全链路留痕（来源 / 状态 / 校验轨迹）。</div>
+      <div class="kv"><span class="chip good">秒级</span><span class="chip good">分级推送</span><span class="chip good">可审计</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">通道修正</span>
+      原设计"企业微信"已校正为 <b>钉钉机器人 Webhook</b>（memory/feedback_dingtalk.md）
+    </div>
+
+    <div class="role">⑥ 管理层<span class="tag">领导</span></div>
+    <div class="cell old">
+      <div class="title">次日上午收到「昨日」报表</div>
+      <div class="body">无法当日决策；干预窗口已过；异常已扩大。</div>
+      <div class="kv"><span class="chip warn">次日可见</span></div>
+    </div>
+    <div class="cell">
+      <div class="title">指挥中心实时看板 + 钉钉早报</div>
+      <div class="body">工厂总览 Hero 大字报 / 车间产量排行 / 废料率高亮 / 环比；当日可干预、可止损。</div>
+      <div class="kv"><span class="chip good">实时看板</span><span class="chip good">钉钉早报</span><span class="chip good">环比</span></div>
+    </div>
+    <div class="evidence">
+      <span class="lbl">进度</span>
+      <span class="sha">192d9a7</span> Shell · <span class="sha">53429a2</span> 总览<br/>
+      <span class="sha">5cd9d40</span> 流转/机列/异常 三页
+    </div>
+  </div>
+
+  <footer class="ft">
+    <span>鑫泰铝业 · 数据中枢　|　一线扫码一次 · 领导随时可看　|　现场口径基线：memory/fields_5_6_audit.md</span>
+    <span>第一页 · 流程泳道</span>
+  </footer>
+</section>
+
+<!-- ====================== SHEET 2 ====================== -->
+<section class="sheet">
+  <div class="page-num">汇报版 · <b>2 / 2</b></div>
+  <header class="hd">
+    <div class="eyebrow">鑫泰铝业 · 数据中枢　|　XINTAI ALUMINUM · DATA HUB</div>
+    <h1>量化对照 · 进度 · 风险与常见质询<small>2026-05-09 汇报版</small></h1>
+    <p class="lede">
+      本页回答三件事：<b>①</b> 每个降本数字的口径与来源；<b>②</b> 当前到哪一步（已落地 / 在建 / 规划）；<b>③</b> 领导常问的 10 个挑刺问题与我的回答 + 对应风险缓解。
+    </p>
+  </header>
+
+  <div class="section-title">
+    <span class="num">03</span><h2>7 维度量化对照</h2>
+    <span class="hint">每行都标口径来源 · 不编数</span>
+  </div>
+  <table class="cmp">
+    <thead>
+      <tr><th>维度</th><th>落地前</th><th>落地后</th><th style="width:120px">变化</th><th style="width:210px">口径 / 证据来源</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>数据到领导时延</td>
+        <td class="dim">4–8 小时起步（统计员 4–6h + 综合部 1–2h）<span class="src">旧流程现场访谈</span></td>
+        <td>&lt; 5 分钟（岗位提交 → 聚合 → 看板）<span class="src">按卷填报链路实测</span></td>
+        <td><span class="delta">▼ 98%+</span></td>
+        <td><code>summary.py:514</code> 提交<br/><code>realtime_service.py:1037</code> 聚合</td>
+      </tr>
+      <tr>
+        <td>统计人力 / 日</td>
+        <td class="dim">6 组专业 × 4h + 综合部 × 2h ≈ <b>26 人时</b></td>
+        <td>异常兜底 &lt; 1 人时（保留小部分复核）</td>
+        <td><span class="delta">▼ 96%+</span></td>
+        <td>第 2 页附录 A · 计算口径</td>
+      </tr>
+      <tr>
+        <td>数据誊抄次数</td>
+        <td class="dim">纸表 → 班组 Excel → 专业汇总 · <b>3 次</b></td>
+        <td>扫码一次入库（entry_status=submitted）</td>
+        <td><span class="delta">3 → 1</span></td>
+        <td>填报链路规范 · D4 验收</td>
+      </tr>
+      <tr>
+        <td>口径一致性</td>
+        <td class="dim">车间别名 3+ 种（铸锭/铸锭分厂/铸轧；园区淬火/工业园淬火）；单位混用（吨/公斤/升/桶）；合并表头错位</td>
+        <td>统一 <code>master_data</code> + 单位阻断 + 字段门禁 + 机列绑定覆盖率门禁</td>
+        <td><span class="delta">闭环</span></td>
+        <td><code>real_master_data.py</code><br/><span class="sha">56de20d · 1ee47a3</span></td>
+      </tr>
+      <tr>
+        <td>异常响应窗</td>
+        <td class="dim">次日甚至隔日（统计员汇总后靠眼看）</td>
+        <td>秒级推送到 班长 / 主操 / 领导（钉钉机器人分级）</td>
+        <td><span class="delta">提前 4–24h</span></td>
+        <td>钉钉 Webhook · <u>在建</u>：规则引擎扩展</td>
+      </tr>
+      <tr>
+        <td>可追溯性</td>
+        <td class="dim">纸表易丢、误改难查；Excel 改动无留痕</td>
+        <td>每条 entry 全链路留痕（<code>entry_status</code> · <code>data_source</code> · <code>tracking_card_no</code>）</td>
+        <td><span class="delta">可审计</span></td>
+        <td><code>WorkOrderEntry</code> · <code>ShiftProductionData</code></td>
+      </tr>
+      <tr>
+        <td>扩展成本</td>
+        <td class="dim">新增车间 / 机列 → 新增统计员 / 新 Excel 模板</td>
+        <td>配置 master + 绑机列即入系（零代码）</td>
+        <td><span class="delta">边际 ≈ 0</span></td>
+        <td>master_data 表结构 + 绑定页面</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">
+    <span class="num">04</span><h2>当前进度</h2>
+    <span class="hint">对齐 git 主线 · 2026-05-09</span>
+  </div>
+  <div class="progress">
+    <div class="pcol done">
+      <h4>■ 已落地</h4>
+      <ul>
+        <li>工厂指挥中心深色工业风 Shell <span class="sha">192d9a7</span></li>
+        <li>工厂总览 Hero 大字报 / 环比 / 可视化 <span class="sha">53429a2 · a4b78c1 · ca205d0 · a4318b2</span></li>
+        <li>流转 / 机列 / 异常 三页适配 <span class="sha">5cd9d40</span></li>
+        <li>D1–D7 验收差距封闭 · 主数据 / 映射 / 单位阻断 / 机列门禁 / 草稿提升 <span class="sha">56de20d · 82e5478</span></li>
+        <li>MES 投影 × 工人填报实时聚合 <code>realtime_service.py:1037</code></li>
+        <li>按卷填报直通 submitted <code>summary.py:514</code></li>
+        <li>车间产量排行 · 废料率高亮 <span class="sha">aebd9d9</span></li>
+        <li>真实能耗日报入库（4 月已闭环）<span class="sha">b9e9620 · 35dc17b · 60e9690</span></li>
+        <li>两处生产级崩溃修复 <span class="sha">b9cce76</span></li>
+      </ul>
+    </div>
+    <div class="pcol doing">
+      <h4>◐ 在建</h4>
+      <ul>
+        <li>钉钉机器人早报 / 异常分级推送（替代原企业微信方案）</li>
+        <li>班次报表 / work_order 路径 draft → submitted 自动提升规则</li>
+        <li>异常规则引擎扩展（设备 / 能耗双阈值）</li>
+        <li>1650 / 1850 冷轧机列 master 下钻（对齐 5.6 真值底）</li>
+      </ul>
+    </div>
+    <div class="pcol plan">
+      <h4>○ 规划</h4>
+      <ul>
+        <li>退火炉 / 拉矫主线 / 大分切 / 包装 四工序拆分</li>
+        <li>园区淬火子机列（矫直 / 抛光 / 锯切）</li>
+        <li>空压机 / 制水房 / 大修 等公辅口径建模</li>
+        <li>多智能体扩展至 质量 / 设备 / 排产 场景</li>
+        <li>持续去人工：统计之后是"审核 / 核对"环节</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two">
+    <div>
+      <div class="section-title">
+        <span class="num">05</span><h2>领导挑刺 Q&A · 10 问</h2>
+        <span class="hint">自爆问题 · 正面回答</span>
+      </div>
+      <div class="qa">
+        <div class="q"><div class="idx">1</div><div class="body">
+          <div class="ask">26 人时是怎么算的，会不会偏大？</div>
+          <div class="ans">按现场访谈 6 组专业统计员日均 4h、综合部 2h 估算 ≈ 26 人时；此为<b>偏保守的下限</b>（不含班组长誊抄、纸表传递、补录、错数回改 +1 天的隐性工时）。精确数字可替换，见附录 A。</div>
+        </div></div>
+        <div class="q"><div class="idx">2</div><div class="body">
+          <div class="ask">5 分钟时延，遇到填报高峰会不会塌？</div>
+          <div class="ans">聚合链路是 SQL 聚合 + 投影合并，不走队列阻塞；按卷填报一次写 <code>WorkOrderEntry</code> + 即时触发 <code>_aggregate_coil_to_shift</code>。峰值压测待补（详见"风险与缓解"）。</div>
+        </div></div>
+        <div class="q"><div class="idx">3</div><div class="body">
+          <div class="ask">一线扫码会不会漏录、错录？</div>
+          <div class="ans">三道锁：① 机列绑定门禁（未绑不给录）；② 单位阻断（吨/公斤/升/桶在源头折算）；③ MES 投影按 <code>tracking_card_no</code> 回填做交叉对账。不匹配会进 <code>pending_assignment</code> 桶告警。</div>
+        </div></div>
+        <div class="q"><div class="idx">4</div><div class="body">
+          <div class="ask">没有统计员，数据错了谁负责？</div>
+          <div class="ans">责任反而更清晰：每条 entry 留 <code>created_by</code> / <code>entry_status</code> / <code>data_source</code>，错 record 定位到人 + 岗位 + 班次；班组长改为异常兜底，综合部改为口径治理。</div>
+        </div></div>
+        <div class="q"><div class="idx">5</div><div class="body">
+          <div class="ask">5.6 那天看板拉矫 662.3 被拆成四块，系统哪个对？</div>
+          <div class="ans">系统以<b>看板口径</b>为真（洗拉 438 + 拉矫 32.5 + 分切 39.8 + 退火 152），综合日报"项目维"为归口。两者在 master_data 已对齐，差异前移到录入时约束，不再靠人对数。</div>
+        </div></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">
+        <span class="num">06</span><h2>风险与缓解</h2>
+        <span class="hint">先摊给领导 · 不藏</span>
+      </div>
+      <div class="risk">
+        <div class="rcol r">
+          <h4>■ 已识别风险</h4>
+          <table>
+            <tr><td>机列未绑</td><td>未绑机列的填报落 <code>pending_assignment</code> 桶，不进折吨；试点车间覆盖率门禁已上线，全厂覆盖在推</td></tr>
+            <tr><td>draft 不入产</td><td>班次报表仍 draft 起步，需走"按卷填报"或"主操卡提升"；自动提升规则<u>在建</u></td></tr>
+            <tr><td>master 未全</td><td>1650/1850 冷轧、退火炉/拉矫子工序、园区淬火子机列未下钻，对应产量暂合并在父车间</td></tr>
+            <tr><td>钉钉配额</td><td>机器人 Webhook 有频率限制；分级推送 + 去抖合并告警规避</td></tr>
+            <tr><td>高峰压测</td><td>当前并发量下已稳定；交付前补一次峰值压测报告</td></tr>
+          </table>
+        </div>
+        <div class="rcol m">
+          <h4>■ 缓解措施</h4>
+          <table>
+            <tr><td>口径</td><td>master_data + 单位阻断 + 字段门禁 三道前置约束；5.6 真值底作回归基线</td></tr>
+            <tr><td>一致性</td><td>MES 投影 × 工人填报 tracking_card 回填；data_source 四态 <code>mixed / mes_projection / local_shift_data / work_order_runtime</code></td></tr>
+            <tr><td>回滚</td><td>新旧并行期保留 Excel 报表出口；任一环出问题可切回人工路径</td></tr>
+            <tr><td>可审计</td><td>每条 entry 全链路留痕；状态机四态 draft / submitted / auto_confirmed / published</td></tr>
+            <tr><td>组织</td><td>统计员转型为口径治理 + 异常兜底，不是裁员，是升级</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-title">
+        <span class="num">07</span><h2>领导挑刺 Q&A · 续</h2>
+      </div>
+      <div class="qa">
+        <div class="q"><div class="idx">6</div><div class="body">
+          <div class="ask">推送用钉钉不是企业微信，为什么？</div>
+          <div class="ans">现场用的是钉钉。原方案"企业微信"已校正为钉钉机器人 Webhook；后端 <code>wecom_group_bot</code> 会改造或替换为 <code>dingtalk_bot</code>。</div>
+        </div></div>
+        <div class="q"><div class="idx">7</div><div class="body">
+          <div class="ask">如果系统宕了，产线停不停？</div>
+          <div class="ans">不停。填报侧保留离线缓存，回网重放；统计侧过渡期保留纸表 / Excel 应急通道；看板降级显示最后一次聚合，带"数据截止"标签，不假造数字。</div>
+        </div></div>
+        <div class="q"><div class="idx">8</div><div class="body">
+          <div class="ask">既然能自动汇总，为什么还要花钱做系统？</div>
+          <div class="ans">替代 ≈ 26 人时 / 日 只是附加值；<b>真正的价值是"当日干预"</b>——异常提前 4–24h 发现，一次止损就回本。数据中枢是后续质量 / 设备 / 排产智能体的地基。</div>
+        </div></div>
+        <div class="q"><div class="idx">9</div><div class="body">
+          <div class="ask">和 MES 是什么关系？会不会冲突？</div>
+          <div class="ans">MES 是数据源之一，不是替代。数据中枢把 MES 投影和一线填报做交叉校验，MES 没覆盖的场景（能耗 / 辅料 / 公辅 / 深加工细项）由填报补全，两端口径在 master_data 层统一。</div>
+        </div></div>
+        <div class="q"><div class="idx">10</div><div class="body">
+          <div class="ask">下一步最关键的里程碑是什么？</div>
+          <div class="ans">三件事：① 钉钉早报 / 异常推送闭环（在建）；② 班次路径 draft→submitted 自动提升（打通最后一公里）；③ 1650/1850 冷轧机列 master 下钻，对齐 5.6 全量真值底。三件完成即可进入 "全厂日常口" 运行。</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <span class="num">08</span><h2>附录 A · 计算口径</h2>
+    <span class="hint">便于领导逐项核对</span>
+  </div>
+  <div class="calc">
+    <h4>统计人力 · 旧流程 ≈ 26 人时 / 日</h4>
+    <div class="row">
+      <div><div class="label">专业统计员</div><code>6 组 × 4 h = 24 人时</code> · 铸造 / 熔铸 / 热轧 / 冷轧 / 深加工 / 能耗</div>
+      <div><div class="label">综合部总统计</div><code>1 组 × 2 h = 2 人时</code> · 跨车间合并 + 口径修正</div>
+      <div><div class="label">未计入</div>班组长誊抄 / 纸表传递 / 补录 / 错数回改 +1 天</div>
+    </div>
+    <h4 style="margin-top:8px">数据誊抄次数 · 旧 3 次</h4>
+    <div class="row">
+      <div><div class="label">第 1 次</div>一线班末手写纸表</div>
+      <div><div class="label">第 2 次</div>班组长誊进 Excel 上报</div>
+      <div><div class="label">第 3 次</div>专业统计员汇总进自己的 Excel</div>
+    </div>
+    <h4 style="margin-top:8px">时延 · 新 &lt; 5 分钟</h4>
+    <div class="row">
+      <div><div class="label">录入</div><code>POST /api/v1/mobile/coil-entry</code> ≈ 秒级</div>
+      <div><div class="label">聚合</div><code>_aggregate_coil_to_shift</code> 即时触发</div>
+      <div><div class="label">看板</div><code>/api/v1/aggregation/live</code> 拉取 / 钉钉早报推送</div>
+    </div>
+  </div>
+
+  <footer class="ft">
+    <span>鑫泰铝业 · 数据中枢　|　核心使命：消灭人工统计中间层，岗位直录 → 系统自动 → 领导直达</span>
+    <span>第二页 · 量化 · 进度 · Q&A · 风险</span>
+  </footer>
+</section>
+
+</body>
+</html>
