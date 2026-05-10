@@ -28,6 +28,7 @@ test-results/
 frontend/tmp-review-home.png
 frontend/tmp_*.cjs
 frontend/tmp_*.py
+tmp_*.json
 frontend/frontend/
 ssl/
 .vercel/
