@@ -8,13 +8,12 @@ function source(path) {
 
 test('factory command shell exposes production branches and freshness state', () => {
   const shell = source('../src/views/factory-command/FactoryCommandShell.vue')
-  assert.match(shell, /工厂总览/)
-  assert.match(shell, /生产流转/)
-  assert.match(shell, /车间机列/)
-  assert.match(shell, /卷级追踪/)
-  assert.match(shell, /经营效益/)
-  assert.match(shell, /库存去向/)
-  assert.match(shell, /异常地图/)
+  // Shell 顶部 tabs 已于 192d9a7 精简为 4 个核心视图，其余 (卷级追踪 / 经营效益 / 库存去向)
+  // 仍通过路由 /manage/factory/{coils,cost,destinations} 可达。
+  assert.match(shell, /'overview'.*'总览'/)
+  assert.match(shell, /'flow'.*'流转'/)
+  assert.match(shell, /'machine-lines'.*'机列'/)
+  assert.match(shell, /'exceptions'.*'异常'/)
   assert.match(shell, /freshnessLabel/)
 })
 
