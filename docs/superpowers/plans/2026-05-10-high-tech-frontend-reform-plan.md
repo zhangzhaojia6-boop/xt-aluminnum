@@ -87,7 +87,7 @@
 | 4 | Frontend / Gemini | Claude | ✅ DONE | `b14f82c` |
 | 5 | Frontend / Gemini（可选） | — | ⏭ SKIPPED（本轮不做，钉钉低配 WebView 代价高） | — |
 | 6 | Backend / Codex | Claude | ✅ DONE | `889eac9` |
-| 7 | 验收 / Claude | Claude | 🟡 IN PROGRESS（闸门脚本 + checklist 已落盘，待提交 + 本地跑一遍） | (未提交) |
+| 7 | 验收 / Claude | Claude | ✅ DONE（`hud-guardrails.sh/.ps1` + checklist 已落盘；scope + lexicon 已本地验证） | `c1f4203` |
 
 **下一轮若让 Gemini/Codex 真正接手**，参考此表的"设计 Owner"列即可。本轮 commit 已用 TDD 节奏拆干净，后续如需回滚、分拆到独立 PR 给 Gemini/Codex 重做都可以一键摘。
 
@@ -1173,7 +1173,7 @@ git commit -m "feat(api): add user preferences endpoint for theme opt-in"
 
 ## Task 7: 上线闸门 + bundle diff + 回滚 + 全量回归（验收 / Claude）
 
-> **Status:** 🟡 IN PROGRESS（`scripts/hud-guardrails.sh` + `.ps1` + `docs/superpowers/plans/2026-05-10-high-tech-frontend-reform-checklist.md` 已落盘；待提交 + 本地跑通） | **Designed for:** Claude | **Executed by:** Claude (2026-05-10)
+> **Status:** ✅ DONE | **Designed for:** Claude | **Executed by:** Claude (2026-05-10) | **Commit:** `c1f4203`
 
 **Files**
 - Create: `scripts/hud-guardrails.sh`（本地/CI 双跑）
