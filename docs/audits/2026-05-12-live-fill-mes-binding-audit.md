@@ -124,3 +124,10 @@ python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realt
 
 - 单点 TDD 回归：1 passed。
 - 实时聚合 / 实时路由 / 卷级填报重量门禁：43 passed。
+
+生产复验：
+
+- 部署：`main@fffe050` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线。
+- `/readyz`：`status=ready`，`mes_sync.last_run_status=success`。
+- HTTP API：`/api/v1/aggregation/live?business_date=2026-05-12` 返回 `data_source=mixed`，`total_entry_count=36`，`factory_output=281.12t`。
+- `data_quality.missing_output_weight.entry_count=6`，样例 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜`，`output_weight=null`。
