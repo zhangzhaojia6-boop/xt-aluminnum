@@ -2,7 +2,7 @@
   <ReferencePageFrame
     module-number="07"
     title="异常与补录"
-    :tags="['缺报', '退回', '差异', '同步滞后', '待归属']"
+    :tags="['缺报', '退回', '差异', '同步滞后', '待归属', '待补重量']"
     data-testid="review-task-center"
   >
     <template #actions>
@@ -15,6 +15,7 @@
       <ReferenceKpiTile label="退回" :value="returnedCount" unit="项" icon="退" status="danger" />
       <ReferenceKpiTile label="差异" :value="diffCount" unit="项" icon="差" status="warning" />
       <ReferenceKpiTile label="待归属" :value="pendingAssignmentCount" unit="卷" icon="归" status="warning" />
+      <ReferenceKpiTile label="待补重量" :value="missingOutputWeightCount" unit="卷" icon="补" status="danger" />
     </section>
 
     <section class="review-task-center__main">
@@ -26,6 +27,7 @@
             <el-radio-button label="diff">差异</el-radio-button>
             <el-radio-button label="stale">同步滞后</el-radio-button>
             <el-radio-button label="pendingAssignment">待归属</el-radio-button>
+            <el-radio-button label="missingOutput">待补重量</el-radio-button>
           </el-radio-group>
           <el-button size="small" :disabled="!filteredTasks.length">导出异常</el-button>
         </div>
@@ -71,6 +73,9 @@
                   绑定入账
                 </el-button>
               </div>
+              <div v-else-if="row.status === 'missing_output_weight'" class="review-task-center__missing-output-action">
+                <el-button link type="primary" @click="openMissingOutputDialog(row)">补重量</el-button>
+              </div>
               <template v-else>
                 <el-button link type="primary" @click="goWorkshop(row.workshopId)">查看</el-button>
                 <el-button link type="success" @click="goFactory">总览</el-button>
@@ -88,6 +93,48 @@
         </ul>
       </ReferenceModuleCard>
     </section>
+
+    <el-dialog
+      v-model="missingOutputDialogVisible"
+      title="补产出重量"
+      width="min(440px, calc(100vw - 24px))"
+      class="review-task-center__missing-output-dialog"
+    >
+      <div v-if="activeMissingOutput" class="review-task-center__missing-output-meta">
+        <span>{{ activeMissingOutput.workshop }}</span>
+        <span>{{ activeMissingOutput.assignmentHint }}</span>
+        <span>{{ activeMissingOutput.trackingCard }}</span>
+      </div>
+      <div class="review-task-center__missing-output-form">
+        <label>
+          <span>产出重量</span>
+          <el-input-number
+            v-model="missingOutputForm.output_weight"
+            :min="0"
+            :max="activeMissingOutputInputLimit || undefined"
+            :precision="3"
+            :step="0.1"
+            controls-position="right"
+          />
+          <em>吨</em>
+        </label>
+        <label>
+          <span>补正原因</span>
+          <el-input v-model="missingOutputForm.reason" type="textarea" :rows="3" maxlength="2000" show-word-limit />
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="missingOutputDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="missingOutputSubmitting"
+          :disabled="!canSubmitMissingOutput"
+          @click="submitMissingOutputWeight"
+        >
+          确认补正
+        </el-button>
+      </template>
+    </el-dialog>
   </ReferencePageFrame>
 </template>
 
@@ -103,7 +150,7 @@ import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { executeAssistantAction } from '../../api/ai-assistant'
 import { fetchFactoryDashboard } from '../../api/dashboard'
-import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchPendingAssignmentEntries, resolveMissingOutputWeight } from '../../api/realtime'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
@@ -111,10 +158,15 @@ const route = useRoute()
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const promotingEntryId = ref(null)
+const missingOutputSubmitting = ref(false)
+const missingOutputDialogVisible = ref(false)
+const activeMissingOutput = ref(null)
+const missingOutputForm = ref({ output_weight: null, reason: '' })
 const selectedMachineByEntry = ref({})
 const dashboard = ref({})
 const pendingAssignment = ref({ summary: {}, items: [] })
-const VALID_TABS = new Set(['missing', 'returned', 'diff', 'stale', 'pendingAssignment'])
+const liveAggregation = ref({})
+const VALID_TABS = new Set(['missing', 'returned', 'diff', 'stale', 'pendingAssignment', 'missingOutput'])
 const tab = ref(resolveInitialTab())
 
 function normalizeTab(value) {
@@ -223,12 +275,34 @@ const pendingAssignmentTasks = computed(() => {
     }
   })
 })
+const missingOutputWeight = computed(() => liveAggregation.value?.data_quality?.missing_output_weight || {})
+const missingOutputWeightTasks = computed(() => {
+  const rows = missingOutputWeight.value.items || []
+  return rows.map((item) => ({
+    status: 'missing_output_weight',
+    entryId: item.entry_id || null,
+    workshop: item.workshop_name || '-',
+    workshopId: item.workshop_id || null,
+    shift: item.shift_name || '-',
+    shiftId: item.shift_id || null,
+    trackingCard: item.tracking_card_no || '-',
+    inputWeight: numberValue(item.input_weight),
+    outputWeightLabel: '缺产出',
+    sourceLabel: '卷级直录',
+    assignmentHint: `${item.machine_name || '-'} / ${item.shift_name || '-'}`,
+    missingFieldLabel: '产出重量',
+    anomaly: '正式卷缺产出重量',
+    aiSuggestion: buildSuggestionByStatus('missing_output_weight'),
+    risk: '高'
+  }))
+})
 
 const filteredTasks = computed(() => {
   if (tab.value === 'returned') return returnedTasks.value
   if (tab.value === 'diff') return diffTasks.value
   if (tab.value === 'stale') return staleTasks.value
   if (tab.value === 'pendingAssignment') return pendingAssignmentTasks.value
+  if (tab.value === 'missingOutput') return missingOutputWeightTasks.value
   return missingTasks.value
 })
 
@@ -236,6 +310,15 @@ const missingCount = computed(() => missingTasks.value.length)
 const returnedCount = computed(() => returnedTasks.value.length)
 const diffCount = reconciliationOpenCount
 const pendingAssignmentCount = computed(() => Number(pendingAssignment.value.summary?.entry_count ?? pendingAssignment.value.total ?? 0) || 0)
+const missingOutputWeightCount = computed(() => Number(missingOutputWeight.value.entry_count ?? missingOutputWeightTasks.value.length ?? 0) || 0)
+const activeMissingOutputInputLimit = computed(() => numberValue(activeMissingOutput.value?.inputWeight))
+const canSubmitMissingOutput = computed(() => {
+  if (!activeMissingOutput.value?.entryId) return false
+  const outputWeight = numberValue(missingOutputForm.value.output_weight)
+  if (outputWeight <= 0) return false
+  if (activeMissingOutputInputLimit.value > 0 && outputWeight > activeMissingOutputInputLimit.value) return false
+  return Boolean(String(missingOutputForm.value.reason || '').trim())
+})
 
 const riskHighlights = computed(() => {
   const exceptionLane = dashboard.value.exception_lane || {}
@@ -243,6 +326,7 @@ const riskHighlights = computed(() => {
   if (Number(exceptionLane.unreported_shift_count || 0) > 0) items.push(`缺报班次 ${exceptionLane.unreported_shift_count} 项`)
   if (Number(exceptionLane.returned_shift_count || 0) > 0) items.push(`退回班次 ${exceptionLane.returned_shift_count} 项`)
   if (Number(exceptionLane.reconciliation_open_count || 0) > 0) items.push(`差异待处理 ${exceptionLane.reconciliation_open_count} 项`)
+  if (missingOutputWeightCount.value > 0) items.push(`待补产出 ${missingOutputWeightCount.value} 卷`)
   return items
 })
 
@@ -254,7 +338,13 @@ function buildSuggestionByStatus(status) {
   if (status === 'reviewed' || status === 'auto_confirmed') return '保持当前节奏，关注新增异常。'
   if (status === 'sync_stale' || status === 'stale') return '先核对数据同步状态，再处理受影响记录。'
   if (status === 'pending_assignment') return '先确认机列或班次归属，保持草稿不进入产量。'
+  if (status === 'missing_output_weight') return '按现场复核产出重量补正，补正后重新刷新实时聚合。'
   return '按班次闭环，优先处理阻塞项。'
+}
+
+function numberValue(value) {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function formatMissingFields(fields = []) {
@@ -365,12 +455,38 @@ async function promotePending(row) {
   }
 }
 
+function openMissingOutputDialog(row) {
+  activeMissingOutput.value = row
+  missingOutputForm.value = { output_weight: null, reason: '' }
+  missingOutputDialogVisible.value = true
+}
+
+async function submitMissingOutputWeight() {
+  if (!canSubmitMissingOutput.value || missingOutputSubmitting.value) return
+  missingOutputSubmitting.value = true
+  try {
+    await resolveMissingOutputWeight(activeMissingOutput.value.entryId, {
+      output_weight: numberValue(missingOutputForm.value.output_weight),
+      reason: String(missingOutputForm.value.reason || '').trim()
+    })
+    ElMessage.success('产出重量已补正')
+    missingOutputDialogVisible.value = false
+    activeMissingOutput.value = null
+    await load()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '补正失败')
+  } finally {
+    missingOutputSubmitting.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   try {
-    const [dashboardResult, pendingAssignmentResult] = await Promise.allSettled([
+    const [dashboardResult, pendingAssignmentResult, liveAggregationResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
-      fetchPendingAssignmentEntries({ business_date: targetDate.value })
+      fetchPendingAssignmentEntries({ business_date: targetDate.value }),
+      fetchLiveAggregation({ business_date: targetDate.value })
     ])
     if (dashboardResult.status === 'fulfilled') {
       dashboard.value = dashboardResult.value
@@ -379,6 +495,8 @@ async function load() {
     }
     pendingAssignment.value =
       pendingAssignmentResult.status === 'fulfilled' ? pendingAssignmentResult.value || { summary: {}, items: [] } : { summary: {}, items: [] }
+    liveAggregation.value =
+      liveAggregationResult.status === 'fulfilled' ? liveAggregationResult.value || {} : {}
   } finally {
     loading.value = false
   }
@@ -397,7 +515,11 @@ async function initializeActiveBusinessDate() {
   return false
 }
 
-watch(targetDate, load)
+watch(targetDate, () => {
+  missingOutputDialogVisible.value = false
+  activeMissingOutput.value = null
+  load()
+})
 watch(() => route.query.tab, (value) => {
   const next = normalizeTab(value)
   if (next) tab.value = next
@@ -418,7 +540,7 @@ onMounted(async () => {
 }
 
 .review-task-center__kpis {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .review-task-center__main {
@@ -447,8 +569,60 @@ onMounted(async () => {
   gap: 8px;
 }
 
+.review-task-center__missing-output-action {
+  display: flex;
+  align-items: center;
+}
+
 .review-task-center__assign-action :deep(.el-select) {
   width: 116px;
+}
+
+.review-task-center__missing-output-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.review-task-center__missing-output-meta span {
+  min-width: 0;
+  border: 1px solid #d6dee8;
+  background: #f6f9fc;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: #314154;
+}
+
+.review-task-center__missing-output-form {
+  display: grid;
+  gap: 12px;
+}
+
+.review-task-center__missing-output-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.review-task-center__missing-output-form label:nth-child(1) {
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.review-task-center__missing-output-form span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e2b3a;
+}
+
+.review-task-center__missing-output-form em {
+  font-style: normal;
+  color: #667382;
+}
+
+.review-task-center__missing-output-form :deep(.el-input-number) {
+  width: 100%;
 }
 
 @media (max-width: 1100px) {

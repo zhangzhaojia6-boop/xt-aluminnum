@@ -175,3 +175,10 @@ npm --prefix frontend run build
 - OpenAPI：内网 `http://127.0.0.1:8000/openapi.json` 已包含 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，operationId 为 `live_missing_output_resolve_api_v1_aggregation_live_missing_output__entry_id__patch`。
 - 前端产物：生产 dist 已包含 `aggregation/live/missing-output`、`补产出重量`、`补重量` 和 `live-missing-output-dialog`。
 - 只读聚合：`2026-05-12` 仍为 `data_source=mixed`、`factory_output=281.12t`、`data_quality.missing_output_weight.entry_count=6`；样例仍为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜 / output_weight=null`，确认本轮没有自动改写真实历史重量。
+
+补录工作台接入：
+
+- 管理端 `异常与补录` 新增“待补重量”页签和 KPI，读取实时聚合 `data_quality.missing_output_weight`。
+- 任务行显示车间、班次、随行卡、录入来源、归属线索、缺失字段和风险等级，操作为 `补重量`。
+- 补正弹窗复用 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，同样只收产出重量和补正原因，提交成功后刷新工作台。
+- 本地验证：`npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下 `待补重量`、`S-2-062-1`、`补重量` 可见，补正弹窗宽度 366px，横向溢出为 0。

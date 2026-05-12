@@ -14,7 +14,7 @@ test('review task center is an exception supplement surface, not manual approval
     assert.doesNotMatch(review, new RegExp(retired))
   }
 
-  for (const expected of ['异常与补录', '缺报', '退回', '差异', '同步滞后']) {
+  for (const expected of ['异常与补录', '缺报', '退回', '差异', '同步滞后', '待补重量']) {
     assert.match(review, new RegExp(expected))
   }
 
@@ -23,12 +23,23 @@ test('review task center is an exception supplement surface, not manual approval
   assert.match(review, /const diffCount = reconciliationOpenCount/)
   assert.match(review, /mes_sync_status/)
   assert.match(review, /fetchLiveActiveDate/)
+  assert.match(review, /fetchLiveAggregation/)
   assert.match(review, /initializeActiveBusinessDate/)
   assert.match(review, /fetchPendingAssignmentEntries/)
+  assert.match(review, /resolveMissingOutputWeight/)
   assert.match(review, /useRoute/)
   assert.match(review, /resolveInitialTab/)
   assert.match(review, /pendingAssignment/)
   assert.match(review, /待归属/)
+  assert.match(review, /missingOutputWeight/)
+  assert.match(review, /missingOutputWeightTasks/)
+  assert.match(review, /missingOutputWeightCount/)
+  assert.match(review, /missing_output_weight/)
+  assert.match(review, /补重量/)
+  assert.match(review, /补产出重量/)
+  assert.match(review, /missingOutputDialogVisible/)
+  assert.match(review, /activeMissingOutput/)
+  assert.match(review, /submitMissingOutputWeight/)
   assert.match(review, /录入来源/)
   assert.match(review, /归属线索/)
   assert.match(review, /pendingAssignmentTasks/)
@@ -52,6 +63,7 @@ test('review task center is an exception supplement surface, not manual approval
   assert.doesNotMatch(review, /\['submitted', 'reviewed', 'auto_confirmed'\]/)
   assert.doesNotMatch(review, /自动归属|一键归属/)
   assert.match(realtimeApi, /fetchLiveActiveDate/)
+  assert.match(realtimeApi, /fetchLiveAggregation/)
   assert.match(realtimeApi, /fetchPendingAssignmentEntries/)
   assert.match(realtimeApi, /\/aggregation\/live\/pending-assignment/)
   assert.match(realtimeApi, /resolveMissingOutputWeight/)
