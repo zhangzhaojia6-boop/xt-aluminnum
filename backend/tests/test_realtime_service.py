@@ -167,6 +167,66 @@ def test_build_live_aggregation_blends_mes_projection_with_bound_fill_entries(tm
     assert machine['shifts'][0]['submitted_count'] == 2
 
 
+def test_build_live_aggregation_reports_formal_mobile_entries_missing_output_weight(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            WorkOrder(id=602, tracking_card_no='RA260506602', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=602,
+                work_order_id=602,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=3,
+                business_date=date(2026, 5, 6),
+                input_weight=100_000.0,
+                output_weight=None,
+                scrap_weight=4_000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    missing = payload['data_quality']['missing_output_weight']
+    assert missing['entry_count'] == 1
+    assert missing['input'] == 100.0
+    assert missing['scrap'] == 4.0
+    assert missing['items'] == [
+        {
+            'entry_id': 602,
+            'work_order_id': 602,
+            'tracking_card_no': 'RA260506602',
+            'workshop_id': 2,
+            'workshop_name': '2050冷轧车间',
+            'machine_id': 11,
+            'machine_name': '2050# 主操',
+            'shift_id': 3,
+            'shift_name': '夜班',
+            'input_weight': 100.0,
+            'output_weight': None,
+            'scrap_weight': 4.0,
+            'entry_status': 'submitted',
+            'entry_type': 'mobile_coil',
+        }
+    ]
+
+
 def test_build_live_aggregation_resolves_mes_workshop_aliases(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

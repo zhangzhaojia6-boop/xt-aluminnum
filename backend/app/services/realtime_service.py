@@ -239,6 +239,82 @@ def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts)
     }
 
 
+def _is_mobile_entry_missing_output_weight(item: dict) -> bool:
+    if item.get('entry_type') != 'mobile_coil':
+        return False
+    if not _is_formal_entry(item):
+        return False
+    if item.get('output_weight_missing') is True:
+        return True
+    return item.get('output_weight') is None
+
+
+def _build_missing_output_weight_summary(*, entries: list[dict], workshops, machines, shifts) -> dict:
+    workshop_name_by_id = {
+        int(item.id): item.name
+        for item in workshops
+        if getattr(item, 'id', None) is not None
+    }
+    machine_name_by_id = {
+        int(item.id): item.name
+        for item in machines
+        if getattr(item, 'id', None) is not None
+    }
+    shift_name_by_id = {
+        int(item.id): item.name
+        for item in shifts
+        if getattr(item, 'id', None) is not None
+    }
+
+    input_total = 0.0
+    scrap_total = 0.0
+    items = []
+    for item in entries:
+        if not _is_mobile_entry_missing_output_weight(item):
+            continue
+
+        workshop_id = _optional_int(item.get('workshop_id'))
+        machine_id = _optional_int(item.get('machine_id'))
+        shift_id = _optional_int(item.get('shift_id'))
+        input_weight = round(_entry_weight_tons(item, 'input_weight'), 2)
+        scrap_weight = round(_entry_weight_tons(item, 'scrap_weight'), 2)
+        input_total += input_weight
+        scrap_total += scrap_weight
+        items.append(
+            {
+                'entry_id': _optional_int(item.get('id')),
+                'work_order_id': _optional_int(item.get('work_order_id')),
+                'tracking_card_no': item.get('tracking_card_no') or '',
+                'workshop_id': workshop_id,
+                'workshop_name': workshop_name_by_id.get(workshop_id, '未标记车间'),
+                'machine_id': machine_id,
+                'machine_name': machine_name_by_id.get(machine_id, '未标记机列'),
+                'shift_id': shift_id,
+                'shift_name': shift_name_by_id.get(shift_id, '未标记班次'),
+                'input_weight': input_weight,
+                'output_weight': None,
+                'scrap_weight': scrap_weight,
+                'entry_status': item.get('entry_status') or '',
+                'entry_type': item.get('entry_type') or '',
+            }
+        )
+
+    items.sort(
+        key=lambda item: (
+            str(item['workshop_name']),
+            str(item['machine_name']),
+            str(item['shift_name']),
+            -int(item['entry_id'] or 0),
+        )
+    )
+    return {
+        'entry_count': len(items),
+        'input': round(input_total, 2),
+        'scrap': round(scrap_total, 2),
+        'items': items[:10],
+    }
+
+
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
@@ -317,6 +393,12 @@ def aggregate_live_payload(
     factory_scrap = 0.0
     overall_entry_counts = _entry_count_summary(entries)
     pending_assignment = _build_pending_assignment_summary(entries=entries, workshops=workshops, shifts=shifts)
+    missing_output_weight = _build_missing_output_weight_summary(
+        entries=entries,
+        workshops=workshops,
+        machines=machines,
+        shifts=shifts,
+    )
     ordered_shifts = sorted(shifts, key=lambda item: (getattr(item, 'sort_order', 0), item.id))
 
     for workshop in sorted(workshops, key=lambda item: item.id):
@@ -519,6 +601,9 @@ def aggregate_live_payload(
             'yield_rate': _round_rate(factory_input, factory_output),
             'yield_rate_source': 'runtime_work_order',
         },
+        'data_quality': {
+            'missing_output_weight': missing_output_weight,
+        },
     }
 
 
@@ -603,27 +688,31 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
         reporting_machine = resolve_reporting_machine_from_candidates(machine, candidates_by_workshop.get(getattr(machine, 'workshop_id', None), []))
         return reporting_machine.id if reporting_machine is not None else machine_id
 
-    return [
-        {
-            'id': entry.id,
-            'tracking_card_no': work_order.tracking_card_no,
-            'work_order_id': entry.work_order_id,
-            'workshop_id': entry.workshop_id,
-            'machine_id': resolve_machine_id(entry.machine_id),
-            'shift_id': entry.shift_id,
-            'business_date': entry.business_date.isoformat(),
-            'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
-            'output_weight': _prefer_number(entry.verified_output_weight, entry.output_weight),
-            'scrap_weight': _to_float(entry.scrap_weight),
-            'yield_rate': float(entry.yield_rate) if entry.yield_rate is not None else None,
-            'yield_rate_source': 'runtime_compat',
-            'entry_status': entry.entry_status,
-            'entry_type': entry.entry_type,
-            'weight_unit': 'kg',
-            'tracking_card_status': work_order.overall_status,
-        }
-        for entry, work_order in query.all()
-    ]
+    items = []
+    for entry, work_order in query.all():
+        output_weight_missing = entry.verified_output_weight is None and entry.output_weight is None
+        items.append(
+            {
+                'id': entry.id,
+                'tracking_card_no': work_order.tracking_card_no,
+                'work_order_id': entry.work_order_id,
+                'workshop_id': entry.workshop_id,
+                'machine_id': resolve_machine_id(entry.machine_id),
+                'shift_id': entry.shift_id,
+                'business_date': entry.business_date.isoformat(),
+                'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
+                'output_weight': None if output_weight_missing else _prefer_number(entry.verified_output_weight, entry.output_weight),
+                'output_weight_missing': output_weight_missing,
+                'scrap_weight': _to_float(entry.scrap_weight),
+                'yield_rate': float(entry.yield_rate) if entry.yield_rate is not None else None,
+                'yield_rate_source': 'runtime_compat',
+                'entry_status': entry.entry_status,
+                'entry_type': entry.entry_type,
+                'weight_unit': 'kg',
+                'tracking_card_status': work_order.overall_status,
+            }
+        )
+    return items
 
 
 def _entry_weight_kg_to_tons(entry: WorkOrderEntry, field_name: str) -> float:

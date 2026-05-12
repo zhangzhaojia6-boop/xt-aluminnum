@@ -103,3 +103,24 @@ python backend/scripts/enrich_mobile_coil_flow_context.py --business-date 2026-0
 - 若 `output_weight > input_weight`，返回 `422/output_weight_exceeds_input`。
 - 生产探针验证缺产出与产出大于投入均不会新增 `work_orders` 或 `work_order_entries`。
 - 既有 6 条空产出历史记录未自动回填；真实产量必须由现场人工补正或后续数据质量工作台处理。
+
+## 实时质量摘要
+
+为避免管理端只展示汇总吨数而掩盖历史填报缺口，实时聚合接口新增 `data_quality.missing_output_weight`：
+
+- 只统计正式 `mobile_coil` 填报记录，不统计草稿、外部生产系统投影或班报聚合行。
+- 汇总 `entry_count`、投入吨数、废料吨数，并返回最多 10 条样例，包含流转卡号、车间、机列、班次和记录 ID。
+- `backend/app/services/realtime_service.py` 保留 `output_weight_missing` 标记，避免数据库空值在聚合前被 `0` 吞掉。
+- `LiveAggregationOut` 已开放 `data_quality` 字段，管理端后续可直接展示“待补产出重量”。
+
+本地验证：
+
+```powershell
+python -m pytest backend/tests/test_realtime_service.py::test_build_live_aggregation_reports_formal_mobile_entries_missing_output_weight -q
+python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py backend/tests/test_mobile_submit_with_locked_fields.py -q
+```
+
+结果：
+
+- 单点 TDD 回归：1 passed。
+- 实时聚合 / 实时路由 / 卷级填报重量门禁：43 passed。
