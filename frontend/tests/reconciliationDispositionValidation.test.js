@@ -26,6 +26,10 @@ test('normalizeReconciliationDispositionNote trims operator notes', () => {
 
 test('ReconciliationCenter prompts for normalized notes on every action', () => {
   assert.match(reconciliationCenterSource, /reconciliationDispositionValidation/)
+  assert.match(reconciliationCenterSource, /useRoute/)
+  assert.match(reconciliationCenterSource, /normalizeQueryFilter/)
+  assert.match(reconciliationCenterSource, /route\.query\.business_date/)
+  assert.match(reconciliationCenterSource, /route\.query\.status/)
   assert.match(reconciliationCenterSource, /inputValidator:\s*hasReconciliationDispositionNote/)
   assert.match(reconciliationCenterSource, /promptForReconciliationNote/)
   assert.match(reconciliationCenterSource, /confirmReconciliationItem\(row\.id,\s*note\)/)

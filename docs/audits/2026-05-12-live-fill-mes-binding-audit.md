@@ -195,3 +195,11 @@ npm --prefix frontend run build
 - 管理端 `异常与补录/待归属` 新增只读绑定线索条，同样只消费 `pendingAssignment.items`，不新增后端字段。
 - 分类为 `外部 MES 命中`、`唯一候选可入账`、`多候选待选择`、`缺班次阻断`，帮助管理者先判断待归属卷到底是可直接绑定、需要选机列，还是缺班次阻断。
 - 本地验证：先写断言后确认红灯，随后 `npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下四类数字为 `1/1/2/1`，`overflowX=0`，线索条区域 `334x106`，热力图继续正常渲染。
+
+真实差异清单接入：
+
+- 管理端 `异常与补录/差异` 不再只依赖 `exception_lane.reconciliation_open_count` 合成一条占位任务；页面同步请求 `/api/v1/reconciliation/items?business_date=<date>&status=open`，将真实 open 差异逐条映射进异常任务表。
+- 差异行展示核对类型、车间/班次维度、来源对、差异字段、差异值和风险等级；`production_vs_mes` 明确标为填报端产量与外部 MES 核对，避免把外部 MES 当成本系统身份。
+- 差异行新增 `详情` 与 `核对中心` 两个入口，前者直达 `/manage/reconciliation/detail/:id`，后者带当前日期与 `status=open` 进入 `/manage/reconciliation`；核对中心已读取 query 初始化筛选条件，且在 `desktop=1` 强制桌面入口下保留该参数，复用既有确认/忽略/修正处置闭环。
+- 若差异清单接口暂不可用但 dashboard 仍返回 open count，页面保留原来的汇总占位行，不隐藏风险数量。
+- 本地验证：先补断言并确认 `npm --prefix frontend test -- reviewTaskCenter.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `126 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；Playwright mock 探针确认 390px 强制桌面入口下 `#77` 差异行可见、包含 `MES`、操作区按钮数为 `2`、页面 `overflowX=0`，点击 `核对中心` 后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`，核对中心日期输入为 `2026-04-23`。

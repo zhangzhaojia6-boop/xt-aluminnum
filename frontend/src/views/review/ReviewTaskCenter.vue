@@ -76,6 +76,10 @@
               <div v-else-if="row.status === 'missing_output_weight'" class="review-task-center__missing-output-action">
                 <el-button link type="primary" @click="openMissingOutputDialog(row)">补重量</el-button>
               </div>
+              <div v-else-if="row.status === 'diff_open'" class="review-task-center__diff-action">
+                <el-button link type="primary" @click="goReconciliationDetail(row.reconciliationId)">详情</el-button>
+                <el-button link type="success" @click="goReconciliationCenter">核对中心</el-button>
+              </div>
               <template v-else>
                 <el-button link type="primary" @click="goWorkshop(row.workshopId)">查看</el-button>
                 <el-button link type="success" @click="goFactory">总览</el-button>
@@ -185,7 +189,9 @@ import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vu
 import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
 import { executeAssistantAction } from '../../api/ai-assistant'
 import { fetchFactoryDashboard } from '../../api/dashboard'
+import { fetchReconciliationItems } from '../../api/reconciliation'
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchPendingAssignmentEntries, resolveMissingOutputWeight } from '../../api/realtime'
+import { formatReconciliationTypeLabel } from '../../utils/display'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
@@ -201,6 +207,7 @@ const selectedMachineByEntry = ref({})
 const dashboard = ref({})
 const pendingAssignment = ref({ summary: {}, items: [] })
 const liveAggregation = ref({})
+const reconciliationItems = ref([])
 const VALID_TABS = new Set(['missing', 'returned', 'diff', 'stale', 'pendingAssignment', 'missingOutput'])
 const tab = ref(resolveInitialTab())
 
@@ -240,7 +247,11 @@ const rawTasks = computed(() => {
 const missingTasks = computed(() => rawTasks.value.filter((item) => ['unreported', 'late', 'draft'].includes(item.status)))
 const returnedTasks = computed(() => rawTasks.value.filter((item) => item.status === 'returned'))
 const reconciliationOpenCount = computed(() => Number(dashboard.value.exception_lane?.reconciliation_open_count || 0) || 0)
+const openReconciliationItems = computed(() => (reconciliationItems.value || []).filter((item) => item.status === 'open'))
 const diffTasks = computed(() => {
+  if (openReconciliationItems.value.length) {
+    return openReconciliationItems.value.map(formatReconciliationTask)
+  }
   const count = reconciliationOpenCount.value
   if (count <= 0) return []
   return [
@@ -343,7 +354,7 @@ const filteredTasks = computed(() => {
 
 const missingCount = computed(() => missingTasks.value.length)
 const returnedCount = computed(() => returnedTasks.value.length)
-const diffCount = reconciliationOpenCount
+const diffCount = computed(() => Math.max(reconciliationOpenCount.value, openReconciliationItems.value.length))
 const pendingAssignmentCount = computed(() => Number(pendingAssignment.value.summary?.entry_count ?? pendingAssignment.value.total ?? 0) || 0)
 const missingOutputWeightCount = computed(() => Number(missingOutputWeight.value.entry_count ?? missingOutputWeightTasks.value.length ?? 0) || 0)
 const pendingAssignmentBindingSummary = computed(() => {
@@ -397,6 +408,10 @@ function buildSuggestionByStatus(status) {
   if (status === 'sync_stale' || status === 'stale') return '先核对数据同步状态，再处理受影响记录。'
   if (status === 'pending_assignment') return '先确认机列或班次归属，保持草稿不进入产量。'
   if (status === 'missing_output_weight') return '按现场复核产出重量补正，补正后重新刷新实时聚合。'
+  if (status === 'diff_production_vs_mes') return '优先核对填报端产出与外部 MES 产出，处理后再发布日报。'
+  if (status === 'diff_attendance_vs_production') return '先核对班次人数与填报人数，避免日报人数口径漂移。'
+  if (status === 'diff_energy_vs_production') return '先确认能耗来源与产量口径，避免单吨能耗失真。'
+  if (status === 'diff_open') return '进入核对中心查看来源值，确认、忽略或修正后再关闭差异。'
   return '按班次闭环，优先处理阻塞项。'
 }
 
@@ -412,6 +427,84 @@ function formatMissingFields(fields = []) {
   }
   const mapped = fields.map((field) => labels[field] || field).filter(Boolean)
   return mapped.length ? mapped.join('、') : '-'
+}
+
+function formatReconciliationTask(item = {}) {
+  const dimension = parseReconciliationDimension(item.dimension_key)
+  const typeLabel = formatReconciliationTypeLabel(item.reconciliation_type)
+  const fieldLabel = formatReconciliationFieldLabel(item.field_name)
+  return {
+    status: 'diff_open',
+    reconciliationId: item.id || null,
+    workshop: dimension.workshop || '全厂',
+    workshopId: null,
+    shift: dimension.shift || '-',
+    trackingCard: item.id ? `差异 #${item.id}` : '-',
+    outputWeightLabel: formatReconciliationDiffValue(item),
+    sourceLabel: typeLabel,
+    assignmentHint: `${formatReconciliationSource(item.source_a)} / ${formatReconciliationSource(item.source_b)}`,
+    missingFieldLabel: fieldLabel,
+    anomaly: `${typeLabel} · ${fieldLabel}`,
+    aiSuggestion: buildSuggestionByStatus(`diff_${item.reconciliation_type || 'open'}`),
+    risk: resolveReconciliationRisk(item)
+  }
+}
+
+function parseReconciliationDimension(value) {
+  const result = { workshop: '', shift: '' }
+  for (const part of String(value || '').split('|')) {
+    const [key, rawValue] = part.split(':')
+    const text = rawValue && rawValue !== 'None' && rawValue !== 'null' ? rawValue : ''
+    if (key === 'workshop') result.workshop = text
+    if (key === 'shift') result.shift = text
+  }
+  return result
+}
+
+function formatReconciliationFieldLabel(fieldName) {
+  const labels = {
+    output_weight: '产出重量',
+    input_weight: '投入重量',
+    headcount: '人数',
+    energy_total: '能耗'
+  }
+  return labels[fieldName] || fieldName || '-'
+}
+
+function formatReconciliationSource(source) {
+  const labels = {
+    attendance_results: '考勤',
+    production: '填报端产量',
+    shift_production_data: '填报端产量',
+    mes: '外部 MES',
+    mes_export: '外部 MES',
+    energy: '能耗'
+  }
+  return labels[source] || source || '-'
+}
+
+function formatReconciliationDiffValue(item = {}) {
+  const diff = numberValue(item.diff_value)
+  const sign = diff > 0 ? '+' : ''
+  return `差异 ${sign}${formatCompactNumber(diff)}${reconciliationFieldUnit(item.field_name)}`
+}
+
+function formatCompactNumber(value) {
+  const fixed = Number(value || 0).toFixed(3)
+  return fixed.replace(/\.?0+$/, '')
+}
+
+function reconciliationFieldUnit(fieldName) {
+  if (fieldName === 'output_weight' || fieldName === 'input_weight') return ' 吨'
+  if (fieldName === 'headcount') return ' 人'
+  return ''
+}
+
+function resolveReconciliationRisk(item = {}) {
+  const diff = Math.abs(numberValue(item.diff_value))
+  if (item.reconciliation_type === 'production_vs_mes') return '高'
+  if (diff > 10) return '高'
+  return '中'
 }
 
 function formatEntryState(item = {}) {
@@ -492,6 +585,29 @@ function goFactory() {
   router.push({ name: 'factory-dashboard' })
 }
 
+function goReconciliationDetail(id) {
+  if (!id) {
+    goReconciliationCenter()
+    return
+  }
+  router.push({ name: 'reconciliation-detail', params: { id }, query: buildDesktopPreservingQuery() })
+}
+
+function goReconciliationCenter() {
+  router.push({
+    name: 'review-reconciliation-center',
+    query: {
+      business_date: targetDate.value,
+      status: 'open',
+      ...buildDesktopPreservingQuery()
+    }
+  })
+}
+
+function buildDesktopPreservingQuery() {
+  return route.query.desktop === '1' ? { desktop: '1' } : {}
+}
+
 async function promotePending(row) {
   if (!row?.entryId || !row.canPromote || promotingEntryId.value) return
   promotingEntryId.value = row.entryId
@@ -541,10 +657,14 @@ async function submitMissingOutputWeight() {
 async function load() {
   loading.value = true
   try {
-    const [dashboardResult, pendingAssignmentResult, liveAggregationResult] = await Promise.allSettled([
+    const [dashboardResult, pendingAssignmentResult, liveAggregationResult, reconciliationResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchPendingAssignmentEntries({ business_date: targetDate.value }),
-      fetchLiveAggregation({ business_date: targetDate.value })
+      fetchLiveAggregation({ business_date: targetDate.value }),
+      fetchReconciliationItems({
+        business_date: targetDate.value,
+        status: 'open'
+      })
     ])
     if (dashboardResult.status === 'fulfilled') {
       dashboard.value = dashboardResult.value
@@ -555,6 +675,8 @@ async function load() {
       pendingAssignmentResult.status === 'fulfilled' ? pendingAssignmentResult.value || { summary: {}, items: [] } : { summary: {}, items: [] }
     liveAggregation.value =
       liveAggregationResult.status === 'fulfilled' ? liveAggregationResult.value || {} : {}
+    reconciliationItems.value =
+      reconciliationResult.status === 'fulfilled' ? reconciliationResult.value || [] : []
   } finally {
     loading.value = false
   }
@@ -682,6 +804,13 @@ onMounted(async () => {
 .review-task-center__missing-output-action {
   display: flex;
   align-items: center;
+}
+
+.review-task-center__diff-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .review-task-center__assign-action :deep(.el-select) {

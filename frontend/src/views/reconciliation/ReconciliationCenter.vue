@@ -72,7 +72,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -94,6 +94,7 @@ import {
   normalizeReconciliationDispositionNote,
 } from '../../utils/reconciliationDispositionValidation'
 
+const route = useRoute()
 const router = useRouter()
 const items = ref([])
 const reconciliationDispositionPromptOptions = {
@@ -104,10 +105,15 @@ const reconciliationDispositionPromptOptions = {
   inputErrorMessage: RECONCILIATION_DISPOSITION_REQUIRED_MESSAGE,
 }
 const filters = reactive({
-  business_date: dayjs().format('YYYY-MM-DD'),
-  reconciliation_type: '',
-  status: ''
+  business_date: normalizeQueryFilter(route.query.business_date) || dayjs().format('YYYY-MM-DD'),
+  reconciliation_type: normalizeQueryFilter(route.query.reconciliation_type),
+  status: normalizeQueryFilter(route.query.status)
 })
+
+function normalizeQueryFilter(value) {
+  if (Array.isArray(value)) return String(value[0] || '')
+  return typeof value === 'string' ? value : ''
+}
 
 async function load() {
   const params = { ...filters }
