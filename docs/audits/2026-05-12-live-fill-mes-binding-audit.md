@@ -167,3 +167,11 @@ npm --prefix frontend run build
 - 前端静态/工具测试：126 passed。
 - 前端构建：通过；保留既有 Vite 大 chunk warning。
 - 本地 Playwright 视觉探针：mock 实时数据下 `待补产出重量=6`、样例行出现 `补重量`；补正弹窗在 1366px 和 390px 宽度横向溢出均为 0；填写 `2.1t` 和“现场复核产出重量”后按钮可提交，并出现“产出重量已补正”。
+
+生产复验：
+
+- 部署：`main@7a3a9f0` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线。
+- 服务：`aluminum-bypass.service` 与 `nginx.service` 均为 active/running；公网 `/readyz` 返回 `status=ready`，`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- OpenAPI：内网 `http://127.0.0.1:8000/openapi.json` 已包含 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，operationId 为 `live_missing_output_resolve_api_v1_aggregation_live_missing_output__entry_id__patch`。
+- 前端产物：生产 dist 已包含 `aggregation/live/missing-output`、`补产出重量`、`补重量` 和 `live-missing-output-dialog`。
+- 只读聚合：`2026-05-12` 仍为 `data_source=mixed`、`factory_output=281.12t`、`data_quality.missing_output_weight.entry_count=6`；样例仍为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜 / output_weight=null`，确认本轮没有自动改写真实历史重量。

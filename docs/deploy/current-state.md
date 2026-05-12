@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 05:40:00 +08:00
+更新时间：2026-05-13 05:58:00 +08:00
 
 ## 1. 仓库状态
 
@@ -67,6 +67,7 @@ cd /srv/aluminum-bypass
 - 管理端 `异常与补录/待归属` 已支持多候选机列选择：待归属接口返回 `machine_candidates[{machine_id,machine_name}]`，前端在精整等多机列车间显示 `选择机列` 下拉，选定后才允许 `绑定入账`，避免把同车间多台机列误归到默认候选。
 - 主数据已新增只读工艺业务矩阵：`GET /api/v1/master/process-business-map` 输出 `分厂/厂区 -> 车间 -> 机列 -> 工艺业务`，并在 `docs/process-business-map.md` 记录当前口径；`1650/1850`、新厂/园区在线退火拆分、`JZ2` 具体机列职责仍标为待确认，不静默写成已确认事实。
 - systemd 部署脚本已改为 `npm ci --include=dev` 后再构建前端，避免生产环境清空 `node_modules` 后因 `vite` 被省略导致部署中断。
+- 管理端待补产出重量人工补正入口已上线：`main@7a3a9f0` 新增 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，仅允许补正式卷级填报中历史空产出记录，复用工单更新权限、审计、成材率重算和事件链路；管理端“待补产出重量”样例行提供“补重量”弹窗，提交后刷新实时聚合。
 
 ## 3. 默认部署形态
 
@@ -113,6 +114,14 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
+- `python -m pytest backend/tests -q`：794 passed，124 deselected，39 warnings
+- `npm --prefix frontend test`：126 passed
+- `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning
+- `git diff --check`：通过，仅 Windows LF -> CRLF 提示
+- 本轮部署：`main@7a3a9f0` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；`aluminum-bypass.service` 与 `nginx.service` 均为 active/running。
+- 生产复验：公网 `/readyz` 返回 `status=ready`，`database/uploads/equipment_binding/schedule/pipeline=ok`，`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- 生产只读聚合复验：`2026-05-12` 仍为 `data_source=mixed`，`factory_output=281.12t`，`data_quality.missing_output_weight.entry_count=6`；样例仍为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜 / output_weight=null`，确认未自动改写真实历史重量。
+- 生产路由与产物复验：内网 OpenAPI 已包含 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`；前端 dist 已包含 `aggregation/live/missing-output`、`补产出重量`、`补重量` 和 `live-missing-output-dialog`。
 - `python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
