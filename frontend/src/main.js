@@ -7,14 +7,20 @@ import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 import { createPinia } from 'pinia'
 
+import * as echarts from 'echarts/core'
+
 import App from './App.vue'
 import router, { installRouterGuards } from './router'
 import { setupApiInterceptors } from './api'
 import { useAuthStore } from './stores/auth'
+import { registerHudEchartsTheme } from './design/echarts-hud.js'
 import './design/xt-tokens.css'
 import './design/xt-base.css'
 import './design/xt-motion.css'
+import './design/xt-hud.css'
 import './design/industrial.css'
+
+registerHudEchartsTheme(echarts)
 
 const app = createApp(App)
 const pinia = createPinia()
