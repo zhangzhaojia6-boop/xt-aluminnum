@@ -3,6 +3,9 @@
 ## 目录
 
 - 高清目标图目录：`docs/ui-reference/highres/`
+- image-2 提示词：`docs/ui-reference/IMAGE2_PROMPTS.md`
+- UI 目标规范：`docs/ui-reference/UI_TARGET_SPEC.md`
+- 设计反推路线：`docs/ui-reference/DESIGN_REVERSE_PLAN.md`
 - 当前优先页面：`/manage/master`
 - 本轮使用图：`14-master-template.png`
 
