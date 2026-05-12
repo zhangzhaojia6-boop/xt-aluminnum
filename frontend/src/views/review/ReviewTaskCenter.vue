@@ -358,11 +358,11 @@ const pendingAssignmentBindingSummary = computed(() => {
     const isMissingShift = missingFields.includes('shift_id')
     const mesMatched = Number(item.mes_match_count || 0) > 0
     const candidateCount = Number(item.machine_candidate_count || 0)
-    if (mesMatched) summary.mesMatched += 1
     if (isMissingShift) {
       summary.missingShift += 1
       continue
     }
+    if (mesMatched) summary.mesMatched += 1
     if (!mesMatched && candidateCount === 1) summary.uniqueCandidate += 1
     if (!mesMatched && candidateCount > 1) summary.ambiguousCandidate += 1
   }
