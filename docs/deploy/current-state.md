@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 04:21:38 +08:00
+更新时间：2026-05-13 04:36:00 +08:00
 
 ## 1. 仓库状态
 
@@ -265,6 +265,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@32be0e2`：管理端实时聚合 API 显式返回 `machine_binding_status`，生产探针确认 `/api/v1/aggregation/live?business_date=2026-05-06` 的 3 条正产量临时机列均带 `machine_binding_status=unbound`，`all_positive_rows_have_binding_status=true`，前端与 AI 分析不再需要从负数 `machine_id` 反推归属状态。
 - 本轮已部署 `main@56886c7`：按卷填报创建链路已使用 `equipment.bound_user_id` 写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成未来 `mobile_coil_agg` 聚合行；生产 `readyz` 返回 `status=ready`、`equipment_binding=ok`，只读探针确认既有 `2026-05-06` 聚合行仍为 `bound_rows=0`、`unbound_rows=5`、`unbound_output_kg=120460.0`，本轮未做历史回填。
 - 本轮已部署 `main@99e36d9`：填报卷标识与外部流转线索绑定补丁已上线；公网 `/readyz` 返回 `status=ready`、`hard_gate_passed=true`、`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。生产只读探针确认 `R3-9216-2` 以 `coil_identifier` 命中外部快照，`material_code=R3-9216-2`、`tracking_card_no=26RA03782`，后端提交 payload 构造会补 `current_workshop=2050车间`、`current_process=冷轧`、`next_workshop=新厂在线车间`、`next_process=北线退火` 和 `mes_reference`；当前 2026-05-12 管理端实时聚合为 `data_source=mixed`、`total_entry_count=35`、`input=319.08t`、`output=274.27t`、`scrap=19.9t`，工厂指挥 `overview_today_output_tons=274.27`。
+- 本轮已部署 `main@586b636`：新增安全补录命令 `backend/scripts/enrich_mobile_coil_flow_context.py`，默认 dry-run，只在显式 `--apply` 时为已提交卷级填报补 `extra_payload.flow/mes_reference`，不改重量、状态、机列或班次。生产先 dry-run 确认 `2026-05-12 scanned=35/candidates=17/updated=0`，再创建并校验备份 `backups/pre-flow-enrichment-20260513-043519.dump`，随后执行 `--apply` 更新 17 条；复验 dry-run 返回 `candidate_count=0`、`skipped_existing_flow_count=17`，`R3-9216-2` 样例已带 `2050车间/冷轧 -> 新厂在线车间/北线退火` 与 `tracking_card_no=26RA03782`，管理端实时聚合保持 `data_source=mixed`、`total_entry_count=35`、`output=274.27t`，公网 `/readyz` 仍为 ready。
 - 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-141130.dump`。
 - 已执行后端依赖安装、Alembic 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。

@@ -74,3 +74,21 @@ npm --prefix frontend run build
 - `R3-9216-2`：`lookup_qr()` 返回 `source=coil_identifier`，`material_code=R3-9216-2`，`tracking_card_no=26RA03782`。
 - 提交 payload 构造：`_build_coil_flow_extra_payload()` 会补 `current_workshop=2050车间`、`current_process=冷轧`、`next_workshop=新厂在线车间`、`next_process=北线退火` 和 `mes_reference`。
 - 2026-05-12 admin 视角实时聚合：`data_source=mixed`，`total_entry_count=35`，`input=319.08t`，`output=274.27t`，`scrap=19.9t`。
+
+## 历史记录补录
+
+旧填报记录早于 `main@99e36d9` 提交，不会自动拥有 `extra_payload.flow`。本轮新增只补上下文的安全命令：
+
+```bash
+python backend/scripts/enrich_mobile_coil_flow_context.py --business-date 2026-05-12 --json
+python backend/scripts/enrich_mobile_coil_flow_context.py --business-date 2026-05-12 --apply --json
+```
+
+生产执行顺序：
+
+- dry-run：`scanned_count=35`，`candidate_count=17`，`updated_count=0`。
+- 备份：`backups/pre-flow-enrichment-20260513-043519.dump`，已用 `pg_restore -l` 校验。
+- apply：`updated_count=17`。
+- apply 后 dry-run：`candidate_count=0`，`skipped_existing_flow_count=17`。
+- 复验样例 `entry_id=283 / R3-9216-2`：已带 `flow.current_workshop=2050车间`、`flow.current_process=冷轧`、`flow.next_workshop=新厂在线车间`、`flow.next_process=北线退火`、`mes_reference.tracking_card_no=26RA03782`。
+- 管理端实时聚合保持 `data_source=mixed`，`total_entry_count=35`，`output=274.27t`；补录没有改变产量事实。
