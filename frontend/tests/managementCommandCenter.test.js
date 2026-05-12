@@ -7,6 +7,7 @@ import {
   buildCommandCenterSummary,
   buildFillIntakeSummary,
   buildMachineOwnershipSummary,
+  buildMissingOutputWeightSummary,
   buildOutputDistribution,
   buildPendingAssignmentSummary,
   buildShiftOutputRhythm,
@@ -129,6 +130,41 @@ test('buildPendingAssignmentSummary exposes draft coils missing machine ownershi
   assert.equal(summary.rows[0].shiftName, '夜班')
   assert.equal(summary.rows[0].entryCount, 9)
   assert.equal(summary.tone, 'warning')
+})
+
+test('buildMissingOutputWeightSummary exposes submitted coils missing output weight', () => {
+  const summary = buildMissingOutputWeightSummary({
+    data_quality: {
+      missing_output_weight: {
+        entry_count: 6,
+        input: 32.4,
+        scrap: 7.5,
+        items: [
+          {
+            entry_id: 297,
+            work_order_id: 273,
+            tracking_card_no: 'S-2-062-1',
+            workshop_name: '铸三车间',
+            machine_name: '2#机',
+            shift_name: '小夜',
+            input_weight: 2.4,
+            scrap_weight: 0,
+            entry_status: 'submitted',
+          },
+        ],
+      },
+    },
+  })
+
+  assert.equal(summary.entryCount, 6)
+  assert.equal(summary.input, 32.4)
+  assert.equal(summary.scrap, 7.5)
+  assert.equal(summary.tone, 'danger')
+  assert.equal(summary.items[0].entryId, 297)
+  assert.equal(summary.items[0].trackingCardNo, 'S-2-062-1')
+  assert.equal(summary.items[0].workshopName, '铸三车间')
+  assert.equal(summary.items[0].machineName, '2#机')
+  assert.equal(summary.items[0].shiftName, '小夜')
 })
 
 test('buildWorkshopFillIntakeRows ranks draft pressure and keeps missing-only workshops', () => {
@@ -514,6 +550,10 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /草稿待归属/)
   assert.match(liveDashboardSource, /pendingAssignmentSummary/)
   assert.match(liveDashboardSource, /buildPendingAssignmentSummary/)
+  assert.match(liveDashboardSource, /待补产出重量/)
+  assert.match(liveDashboardSource, /missingOutputWeightSummary/)
+  assert.match(liveDashboardSource, /live-missing-output/)
+  assert.match(liveDashboardSource, /buildMissingOutputWeightSummary/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)

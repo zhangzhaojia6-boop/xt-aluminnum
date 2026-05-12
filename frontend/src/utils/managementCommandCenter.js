@@ -302,6 +302,32 @@ export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
   }
 }
 
+export function buildMissingOutputWeightSummary(aggregation = {}, limit = 3) {
+  const quality = aggregation.data_quality || aggregation.dataQuality || {}
+  const rawSummary = quality.missing_output_weight || quality.missingOutputWeight || {}
+  const items = Array.isArray(rawSummary.items) ? rawSummary.items : []
+  const safeLimit = Math.max(Number(limit) || 0, 0)
+  const entryCount = numberValue(rawSummary.entry_count ?? rawSummary.entryCount)
+
+  return {
+    entryCount,
+    input: numberValue(rawSummary.input),
+    scrap: numberValue(rawSummary.scrap),
+    items: items.slice(0, safeLimit).map((item) => ({
+      entryId: item.entry_id ?? item.entryId ?? null,
+      workOrderId: item.work_order_id ?? item.workOrderId ?? null,
+      trackingCardNo: item.tracking_card_no || item.trackingCardNo || '--',
+      workshopName: item.workshop_name || item.workshopName || '未标记车间',
+      machineName: item.machine_name || item.machineName || '未标记机列',
+      shiftName: item.shift_name || item.shiftName || '未标记班次',
+      inputWeight: numberValue(item.input_weight ?? item.inputWeight),
+      scrapWeight: numberValue(item.scrap_weight ?? item.scrapWeight),
+      entryStatus: item.entry_status || item.entryStatus || '',
+    })),
+    tone: entryCount > 0 ? 'danger' : 'success',
+  }
+}
+
 export function buildWorkshopFillIntakeRows(workshops = [], limit = 6) {
   const rows = (workshops || []).map((workshop) => {
     const total = workshop.workshop_total || workshop.workshopTotal || {}

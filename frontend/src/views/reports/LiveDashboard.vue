@@ -189,6 +189,28 @@
       </div>
     </section>
 
+    <section v-if="missingOutputWeightSummary.entryCount" class="live-missing-output" :class="`is-${missingOutputWeightSummary.tone}`" aria-label="待补产出重量">
+      <div class="live-missing-output__metric">
+        <span>待补产出重量</span>
+        <strong>{{ missingOutputWeightSummary.entryCount }}</strong>
+        <em>卷缺产出</em>
+      </div>
+      <div class="live-missing-output__meta">
+        <span>{{ formatWeight(missingOutputWeightSummary.input) }} 吨投入</span>
+        <span>{{ formatWeight(missingOutputWeightSummary.scrap) }} 吨废料</span>
+      </div>
+      <div class="live-missing-output__rows">
+        <span
+          v-for="item in missingOutputWeightSummary.items"
+          :key="item.entryId || item.trackingCardNo"
+        >
+          <strong>{{ item.workshopName }}</strong>
+          <em>{{ item.machineName }} / {{ item.shiftName }}</em>
+          <b>{{ item.trackingCardNo }}</b>
+        </span>
+      </div>
+    </section>
+
     <section v-if="unboundFillSummary.rowCount" class="live-unbound-fill" aria-label="未绑定填报归属">
       <div class="live-unbound-fill__metric">
         <span>未绑定填报归属</span>
@@ -557,6 +579,7 @@ import {
 } from '../../utils/liveDashboardFormatters'
 import {
   buildMachineOwnershipSummary,
+  buildMissingOutputWeightSummary,
   buildOutputDistribution,
   buildFillIntakeSummary,
   buildPendingAssignmentSummary,
@@ -602,6 +625,7 @@ function createEmptyAggregation(businessDate) {
     workshops: [],
     yield_matrix_lane: {},
     mes_sync_status: {},
+    data_quality: {},
     data_source: 'work_order_runtime',
     factory_total: {
       input: 0,
@@ -730,6 +754,7 @@ const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
 const pendingAssignmentSummary = computed(() => buildPendingAssignmentSummary(aggregation.value, 3))
+const missingOutputWeightSummary = computed(() => buildMissingOutputWeightSummary(aggregation.value, 3))
 const workshopFillIntakeRows = computed(() => buildWorkshopFillIntakeRows(sortedWorkshops.value, 6))
 const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
@@ -2001,6 +2026,80 @@ onBeforeUnmount(() => {
   letter-spacing: 0;
 }
 
+.live-missing-output {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.52fr) minmax(220px, 0.7fr) 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(194, 65, 52, 0.25);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(255, 231, 226, 0.64), rgba(255, 255, 255, 0.94)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(194, 65, 52, 0.08);
+}
+
+.live-missing-output__metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-missing-output__metric span,
+.live-missing-output__metric em,
+.live-missing-output__meta span,
+.live-missing-output__rows em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-missing-output__metric strong {
+  color: var(--command-red);
+  font-family: var(--xt-font-number);
+  font-size: 25px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.live-missing-output__meta,
+.live-missing-output__rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.live-missing-output__meta span,
+.live-missing-output__rows span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(194, 65, 52, 0.18);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.live-missing-output__rows strong,
+.live-missing-output__rows b {
+  color: var(--command-ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output__rows b {
+  color: var(--command-red);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 .live-unbound-fill__action {
   min-height: 34px;
   display: inline-flex;
@@ -2880,6 +2979,7 @@ onBeforeUnmount(() => {
   }
 
   .live-pending-assignment,
+  .live-missing-output,
   .live-unbound-fill {
     grid-template-columns: 1fr;
     align-items: stretch;

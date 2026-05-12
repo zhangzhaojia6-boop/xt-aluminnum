@@ -131,3 +131,9 @@ python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realt
 - `/readyz`：`status=ready`，`mes_sync.last_run_status=success`。
 - HTTP API：`/api/v1/aggregation/live?business_date=2026-05-12` 返回 `data_source=mixed`，`total_entry_count=36`，`factory_output=281.12t`。
 - `data_quality.missing_output_weight.entry_count=6`，样例 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜`，`output_weight=null`。
+
+管理端可见层：
+
+- `LiveDashboard.vue` 已新增“待补产出重量”提示带，读取 `data_quality.missing_output_weight`，展示缺口卷数、受影响投入/废料和样例机列。
+- 前端映射函数 `buildMissingOutputWeightSummary()` 已覆盖 snake_case / camelCase，避免接口字段形态差异导致管理端丢提示。
+- 前端验证：`npm --prefix frontend test -- managementCommandCenter.test.js` 为 125 passed，`npm --prefix frontend run build` 通过；Playwright 视觉探针确认 1366px 与 390px 宽度横向溢出均为 0。
