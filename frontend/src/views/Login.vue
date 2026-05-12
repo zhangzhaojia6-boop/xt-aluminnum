@@ -1,5 +1,9 @@
 <template>
   <div class="login-page">
+    <LoginHudBackdrop
+      class="login-page__backdrop"
+      data-testid="login-hud-backdrop"
+    />
     <section class="login-stage" data-testid="login-page">
       <div class="login-stage__hero">
         <div class="login-brand" data-testid="login-brand">
@@ -128,12 +132,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { XtFactoryMap, XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth.js'
+import { useHudTheme } from '../composables/useHudTheme.js'
+
+useHudTheme({ force: true })
+const LoginHudBackdrop = defineAsyncComponent(() => import('../components/hud/ParticleField.vue'))
 
 const router = useRouter()
 const route = useRoute()
@@ -630,5 +638,16 @@ onMounted(async () => {
   .login-stage__role-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.login-page__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.login-page {
+  position: relative;
 }
 </style>
