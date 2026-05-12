@@ -182,3 +182,10 @@ npm --prefix frontend run build
 - 任务行显示车间、班次、随行卡、录入来源、归属线索、缺失字段和风险等级，操作为 `补重量`。
 - 补正弹窗复用 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，同样只收产出重量和补正原因，提交成功后刷新工作台。
 - 本地验证：`npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下 `待补重量`、`S-2-062-1`、`补重量` 可见，补正弹窗宽度 366px，横向溢出为 0。
+
+待归属热力图：
+
+- 管理端 `异常与补录/待归属` 复用现有 `PendingAssignmentHeatmap`，直接读取 `pendingAssignment.items`，按车间/班次展示草稿待归属卷数。
+- 风险卡同步展示 `待归属填报 n 卷`，让管理者先看到压力，再在列表中逐条选择机列并 `绑定入账`。
+- 本轮只增加可视化，不新增后端接口、不改变 `promote_draft_entry` 门禁、不让草稿卷进入正式产量。
+- 本地验证：先写断言后确认红灯，随后 `npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下热力图 canvas 正常渲染，`overflowX=0`，热力图区域 `334x300`，canvas `308x249`。

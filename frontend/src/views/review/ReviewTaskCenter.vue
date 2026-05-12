@@ -92,6 +92,13 @@
           <li v-if="!riskHighlights.length">暂无高风险项</li>
         </ul>
       </ReferenceModuleCard>
+
+      <PendingAssignmentHeatmap
+        v-if="tab === 'pendingAssignment' || pendingAssignmentCount"
+        :rows="pendingAssignment.items || []"
+        class="review-task-center__pending-heatmap"
+        aria-label="草稿待归属分布"
+      />
     </section>
 
     <el-dialog
@@ -148,6 +155,7 @@ import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vu
 import ReferenceKpiTile from '../../components/reference/ReferenceKpiTile.vue'
 import ReferenceModuleCard from '../../components/reference/ReferenceModuleCard.vue'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
+import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
 import { executeAssistantAction } from '../../api/ai-assistant'
 import { fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchPendingAssignmentEntries, resolveMissingOutputWeight } from '../../api/realtime'
@@ -326,6 +334,7 @@ const riskHighlights = computed(() => {
   if (Number(exceptionLane.unreported_shift_count || 0) > 0) items.push(`缺报班次 ${exceptionLane.unreported_shift_count} 项`)
   if (Number(exceptionLane.returned_shift_count || 0) > 0) items.push(`退回班次 ${exceptionLane.returned_shift_count} 项`)
   if (Number(exceptionLane.reconciliation_open_count || 0) > 0) items.push(`差异待处理 ${exceptionLane.reconciliation_open_count} 项`)
+  if (pendingAssignmentCount.value > 0) items.push(`待归属填报 ${pendingAssignmentCount.value} 卷`)
   if (missingOutputWeightCount.value > 0) items.push(`待补产出 ${missingOutputWeightCount.value} 卷`)
   return items
 })
@@ -561,6 +570,12 @@ onMounted(async () => {
   padding-left: 18px;
   display: grid;
   gap: 8px;
+}
+
+.review-task-center__pending-heatmap {
+  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 300px;
 }
 
 .review-task-center__assign-action {
