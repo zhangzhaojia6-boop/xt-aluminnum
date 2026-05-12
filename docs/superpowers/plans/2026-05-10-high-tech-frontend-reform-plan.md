@@ -64,22 +64,38 @@
 | `backend/tests/test_user_preferences.py` | create（Task 6，可选） | Codex/Claude |
 | `docs/superpowers/plans/2026-05-10-high-tech-frontend-reform-plan.md` | this file | — |
 
-## 分工
+## 分工与执行状态
 
-| Task | Owner | 说明 |
-| --- | --- | --- |
-| 0 | Frontend / Gemini | 主题开关 composable + 命名规范 |
-| 1 | Frontend / Gemini | ParticleField 懒加载组件 + 生命周期守卫 |
-| 2 | Frontend / Gemini | `xt-hud.css` 作用域皮肤 + `echarts-hud` 主题 |
-| 3 | Frontend / Gemini | Login HUD 增强（不重写 script，只加背景 + 壳层 class） |
-| 4 | Frontend / Gemini | ManageShell HUD 壳 |
-| 5 | Frontend / Gemini | `/entry` HUD 轻量适配（可选，默认关） |
-| 6 | Backend / Codex 或 Claude | 用户主题偏好 API（可选） |
-| 7 | 联合 | 上线闸门 + bundle diff + 回滚 + 全量回归 |
+**角色约定（常设）**
+- **Stitch** — UI 意象层（静态 mockup、视觉取向，不写代码）
+- **Gemini** — 前端搭建层（Vue / CSS / Vite / e2e 契约）
+- **Codex** — 后端契约层（FastAPI / SQLAlchemy / alembic / pytest）
+- **Claude** — 验收层（闸门、bundle diff、design-review 打分、合仓）
+
+详见 `docs/team-workflow/2026-05-10-hud-four-way-handoff.md`。
+
+**本轮（2026-05-10）执行状态**
+
+本轮由 Claude 单人按 plan 顺序连跑 Task 0-4、6、7（Gemini/Codex/Claude 三角色合演）；Task 5 本轮明确跳过。每个 Task 的"设计 Owner"指角色分工约定，"本轮 Executor"指实际动手的人。
+
+| Task | 设计 Owner | 本轮 Executor | 状态 | Commit |
+| --- | --- | --- | --- | --- |
+| 0 | Frontend / Gemini | Claude | ✅ DONE | `35c0b7d` |
+| 1 | Frontend / Gemini | Claude | ✅ DONE | `858cd4a` |
+| 2 | Frontend / Gemini | Claude | ✅ DONE | `3cd268c` |
+| 3 | Frontend / Gemini | Claude | ✅ DONE | `2716275` |
+| 4 | Frontend / Gemini | Claude | ✅ DONE | `b14f82c` |
+| 5 | Frontend / Gemini（可选） | — | ⏭ SKIPPED（本轮不做，钉钉低配 WebView 代价高） | — |
+| 6 | Backend / Codex | Claude | ✅ DONE | `889eac9` |
+| 7 | 验收 / Claude | Claude | 🟡 IN PROGRESS（闸门脚本 + checklist 已落盘，待提交 + 本地跑一遍） | (未提交) |
+
+**下一轮若让 Gemini/Codex 真正接手**，参考此表的"设计 Owner"列即可。本轮 commit 已用 TDD 节奏拆干净，后续如需回滚、分拆到独立 PR 给 Gemini/Codex 重做都可以一键摘。
 
 ---
 
 ## Task 0: 主题开关与命名规范（Frontend / Gemini）
+
+> **Status:** ✅ DONE | **Designed for:** Gemini | **Executed by:** Claude (2026-05-10) | **Commit:** `35c0b7d`
 
 **Files**
 - Create: `frontend/src/composables/useHudTheme.js`
@@ -186,6 +202,8 @@ git commit -m "feat(ui): add useHudTheme composable for scoped HUD activation"
 ---
 
 ## Task 1: ParticleField 懒加载组件（Frontend / Gemini）
+
+> **Status:** ✅ DONE | **Designed for:** Gemini | **Executed by:** Claude (2026-05-10) | **Commit:** `858cd4a`
 
 **Files**
 - Modify: `frontend/package.json`（加 `"three": "0.169.0"`）
@@ -438,6 +456,8 @@ git commit -m "feat(ui): add lazy Three.js ParticleField with a11y + lifecycle g
 
 ## Task 2: 作用域 HUD 皮肤 + Echarts 主题（Frontend / Gemini）
 
+> **Status:** ✅ DONE | **Designed for:** Gemini | **Executed by:** Claude (2026-05-10) | **Commit:** `3cd268c`
+
 **Files**
 - Create: `frontend/src/design/xt-hud.css`
 - Create: `frontend/src/design/echarts-hud.js`
@@ -687,6 +707,8 @@ git commit -m "feat(ui): add scoped HUD skin + xt-hud echarts theme"
 
 ## Task 3: Login HUD 增强（Frontend / Gemini）
 
+> **Status:** ✅ DONE | **Designed for:** Gemini | **Executed by:** Claude (2026-05-10) | **Commit:** `2716275`
+
 **Files**
 - Modify: `frontend/src/views/Login.vue`（仅 `<template>` 和 `<style>` 末段；**绝对不改 `<script setup>`**）
 - Create: `frontend/e2e/login-hud.spec.js`
@@ -785,6 +807,8 @@ git commit -m "feat(ui): wire HUD theme + lazy particle backdrop into Login"
 
 ## Task 4: ManageShell HUD 壳（Frontend / Gemini）
 
+> **Status:** ✅ DONE | **Designed for:** Gemini | **Executed by:** Claude (2026-05-10) | **Commit:** `b14f82c`
+
 **Files**
 - Modify: `frontend/src/layout/ManageShell.vue`（template 挂钩 + style 末段追加，不动 `<script setup>`）
 - Create: `frontend/e2e/manage-shell-hud.spec.js`
@@ -861,6 +885,8 @@ git commit -m "feat(ui): opt manage shell into scoped HUD theme"
 ---
 
 ## Task 5: `/entry` HUD 轻量适配（Frontend / Gemini，默认关）
+
+> **Status:** ⏭ SKIPPED（本轮 2026-05-10 明确跳过，钉钉低配 WebView 上 three.js 代价高；若后续启用，直接按下方步骤执行） | **Designed for:** Gemini | **Executed by:** —
 
 **Files**
 - Modify: `frontend/src/layout/EntryShell.vue`（如存在；否则跳过并在 plan footer 标注）
@@ -949,6 +975,10 @@ git commit -m "feat(ui): opt-in HUD theme for /entry via ?theme=hud"
 ---
 
 ## Task 6: 用户主题偏好 API（Backend / Codex，可选）
+
+> **Status:** ✅ DONE | **Designed for:** Codex | **Executed by:** Claude (2026-05-10) | **Commit:** `889eac9`
+>
+> **实施偏差（无害）**：路由文件落在 `backend/app/routers/user_preferences.py`（plan 原写 `backend/app/api/`）—— 项目约定是 `routers/`，不是 `api/`；按项目约定走。契约完全一致。
 
 **Files**
 - Create: `backend/app/models/user_preferences.py`
@@ -1142,6 +1172,8 @@ git commit -m "feat(api): add user preferences endpoint for theme opt-in"
 ---
 
 ## Task 7: 上线闸门 + bundle diff + 回滚 + 全量回归（验收 / Claude）
+
+> **Status:** 🟡 IN PROGRESS（`scripts/hud-guardrails.sh` + `.ps1` + `docs/superpowers/plans/2026-05-10-high-tech-frontend-reform-checklist.md` 已落盘；待提交 + 本地跑通） | **Designed for:** Claude | **Executed by:** Claude (2026-05-10)
 
 **Files**
 - Create: `scripts/hud-guardrails.sh`（本地/CI 双跑）
