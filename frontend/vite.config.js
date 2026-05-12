@@ -27,6 +27,9 @@ export default defineConfig({
           const normalizedId = id.replace(/\\/g, '/')
 
           if (normalizedId.includes('/node_modules/')) {
+            if (normalizedId.includes('/three/')) {
+              return 'vendor-three'
+            }
             if (normalizedId.includes('/element-plus/') || normalizedId.includes('/@element-plus/')) {
               return 'vendor-ui'
             }
