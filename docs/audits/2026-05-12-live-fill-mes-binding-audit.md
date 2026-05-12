@@ -212,3 +212,10 @@ npm --prefix frontend run build
 - `dimension_key` 保留普通机列编码如 `XT-ZD-1`，并能把 `workshop:...|shift:...|machine:...` 这类组合维度格式化成车间、班次、机列口径。
 - 从核对中心进入 `差异详情` 时保留 `desktop=1`，窄屏强制桌面入口不会在处置链路中丢失。
 - 本地验证：先补断言并确认 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `126 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；390px Playwright mock 探针确认核对中心显示 `填报端产量`、`外部 MES`、`1175 吨`、`1160 吨`、`+15 吨`，页面 `overflowX=0`，点击详情后 URL 为 `/manage/reconciliation/detail/11?desktop=1`。
+
+## 差异详情业务口径
+
+- 管理端 `差异详情` 同步使用 `填报端产量`、`外部 MES`、`机列/维度`、`核对字段` 等业务标签，不再显示 `生产系统 / MES 系统` 或 `来源 A / 来源 B`。
+- 来源值与差异值按字段补单位，例如 `1175 吨`、`1160 吨`、`+15 吨`，与核对中心列表口径一致。
+- 详情页新增 `返回核对中心`，会保留 `business_date`、`status`、`reconciliation_type`、`desktop=1` 等 query；若详情 URL 未带日期或状态，则回退使用当前差异记录的业务日期和状态。
+- 本地验证：先补断言并确认 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `127 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；390px Playwright mock 探针确认详情页显示 `填报端产量`、`外部 MES`、`1175 吨`、`1160 吨`、`+15 吨`，页面 `overflowX=0`，点击 `返回核对中心` 后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`。
