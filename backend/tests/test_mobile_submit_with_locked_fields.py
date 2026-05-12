@@ -221,6 +221,57 @@ def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
     assert response.json()['tracking_card_no'] == 'TRACK-LOCK-2'
 
 
+def test_mobile_coil_entry_rejects_missing_output_weight(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-MISSING-OUTPUT',
+                'alloy_grade': '1060',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()['detail'] == 'output_weight_required'
+    with session_factory() as db:
+        assert db.query(WorkOrderEntry).count() == 0
+
+
+def test_mobile_coil_entry_rejects_output_weight_above_input_weight(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-BAD-WEIGHT',
+                'alloy_grade': '1060',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'output_weight': 1200,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()['detail'] == 'output_weight_exceeds_input'
+    with session_factory() as db:
+        assert db.query(WorkOrderEntry).count() == 0
+
+
 def test_mobile_coil_entry_accepts_equivalent_locked_spec_and_alloy_values(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
