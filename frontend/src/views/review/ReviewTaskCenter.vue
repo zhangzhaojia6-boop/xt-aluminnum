@@ -192,6 +192,12 @@ import { fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchReconciliationItems } from '../../api/reconciliation'
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchPendingAssignmentEntries, resolveMissingOutputWeight } from '../../api/realtime'
 import { formatReconciliationTypeLabel } from '../../utils/display'
+import {
+  formatReconciliationDiffValue,
+  formatReconciliationFieldLabel,
+  formatReconciliationSourceLabel,
+  parseReconciliationDimension,
+} from '../../utils/reconciliationDisplay'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
 
 const router = useRouter()
@@ -440,64 +446,14 @@ function formatReconciliationTask(item = {}) {
     workshopId: null,
     shift: dimension.shift || '-',
     trackingCard: item.id ? `差异 #${item.id}` : '-',
-    outputWeightLabel: formatReconciliationDiffValue(item),
+    outputWeightLabel: formatReconciliationDiffValue(item, { prefix: '差异 ' }),
     sourceLabel: typeLabel,
-    assignmentHint: `${formatReconciliationSource(item.source_a)} / ${formatReconciliationSource(item.source_b)}`,
+    assignmentHint: `${formatReconciliationSourceLabel(item.source_a)} / ${formatReconciliationSourceLabel(item.source_b)}`,
     missingFieldLabel: fieldLabel,
     anomaly: `${typeLabel} · ${fieldLabel}`,
     aiSuggestion: buildSuggestionByStatus(`diff_${item.reconciliation_type || 'open'}`),
     risk: resolveReconciliationRisk(item)
   }
-}
-
-function parseReconciliationDimension(value) {
-  const result = { workshop: '', shift: '' }
-  for (const part of String(value || '').split('|')) {
-    const [key, rawValue] = part.split(':')
-    const text = rawValue && rawValue !== 'None' && rawValue !== 'null' ? rawValue : ''
-    if (key === 'workshop') result.workshop = text
-    if (key === 'shift') result.shift = text
-  }
-  return result
-}
-
-function formatReconciliationFieldLabel(fieldName) {
-  const labels = {
-    output_weight: '产出重量',
-    input_weight: '投入重量',
-    headcount: '人数',
-    energy_total: '能耗'
-  }
-  return labels[fieldName] || fieldName || '-'
-}
-
-function formatReconciliationSource(source) {
-  const labels = {
-    attendance_results: '考勤',
-    production: '填报端产量',
-    shift_production_data: '填报端产量',
-    mes: '外部 MES',
-    mes_export: '外部 MES',
-    energy: '能耗'
-  }
-  return labels[source] || source || '-'
-}
-
-function formatReconciliationDiffValue(item = {}) {
-  const diff = numberValue(item.diff_value)
-  const sign = diff > 0 ? '+' : ''
-  return `差异 ${sign}${formatCompactNumber(diff)}${reconciliationFieldUnit(item.field_name)}`
-}
-
-function formatCompactNumber(value) {
-  const fixed = Number(value || 0).toFixed(3)
-  return fixed.replace(/\.?0+$/, '')
-}
-
-function reconciliationFieldUnit(fieldName) {
-  if (fieldName === 'output_weight' || fieldName === 'input_weight') return ' 吨'
-  if (fieldName === 'headcount') return ' 人'
-  return ''
 }
 
 function resolveReconciliationRisk(item = {}) {

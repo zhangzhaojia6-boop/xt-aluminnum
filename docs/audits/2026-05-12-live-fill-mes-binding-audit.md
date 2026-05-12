@@ -219,3 +219,9 @@ npm --prefix frontend run build
 - 来源值与差异值按字段补单位，例如 `1175 吨`、`1160 吨`、`+15 吨`，与核对中心列表口径一致。
 - 详情页新增 `返回核对中心`，会保留 `business_date`、`status`、`reconciliation_type`、`desktop=1` 等 query；若详情 URL 未带日期或状态，则回退使用当前差异记录的业务日期和状态。
 - 本地验证：先补断言并确认 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `127 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；390px Playwright mock 探针确认详情页显示 `填报端产量`、`外部 MES`、`1175 吨`、`1160 吨`、`+15 吨`，页面 `overflowX=0`，点击 `返回核对中心` 后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`。
+
+## 核对显示工具收敛
+
+- 新增 `frontend/src/utils/reconciliationDisplay.js`，集中维护差异核对的来源标签、字段标签、组合维度解析和按字段补单位格式化。
+- `差异核对中心`、`差异详情`、`异常与补录/差异` 均改为调用同一工具，避免 `填报端产量`、`外部 MES`、`+15 吨` 等管理端业务口径在多个页面漂移。
+- 本地验证：`npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `128 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5185 npm --prefix frontend run e2e -- e2e/reconciliation-center.spec.js` 返回 `5 passed`。
