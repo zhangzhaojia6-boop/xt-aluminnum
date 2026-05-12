@@ -92,3 +92,14 @@ python backend/scripts/enrich_mobile_coil_flow_context.py --business-date 2026-0
 - apply 后 dry-run：`candidate_count=0`，`skipped_existing_flow_count=17`。
 - 复验样例 `entry_id=283 / R3-9216-2`：已带 `flow.current_workshop=2050车间`、`flow.current_process=冷轧`、`flow.next_workshop=新厂在线车间`、`flow.next_process=北线退火`、`mes_reference.tracking_card_no=26RA03782`。
 - 管理端实时聚合保持 `data_source=mixed`，`total_entry_count=35`，`output=274.27t`；补录没有改变产量事实。
+
+## 重量完整性门禁
+
+只读盘点发现 2026-05-12 仍有 6 条铸三车间卷级填报 `output_weight=null`。这些记录已经是 `submitted` 且有机列/班次，问题不是管理端链路，而是后端旧逻辑允许空产出入库。
+
+本轮修复：
+
+- 后端 `create_coil_entry()` 与移动端表单一致要求 `input_weight > 0`、`output_weight > 0`。
+- 若 `output_weight > input_weight`，返回 `422/output_weight_exceeds_input`。
+- 生产探针验证缺产出与产出大于投入均不会新增 `work_orders` 或 `work_order_entries`。
+- 既有 6 条空产出历史记录未自动回填；真实产量必须由现场人工补正或后续数据质量工作台处理。
