@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 17:23:58 +08:00
+更新时间：2026-05-13 04:21:38 +08:00
 
 ## 1. 仓库状态
 
@@ -60,6 +60,7 @@ cd /srv/aluminum-bypass
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
 - 管理端实时聚合已支持“填报事实 + MES 归属”配对：当天填报卡号命中 MES 投影行时，即使 MES 快照没有业务日期，也会保留填报端重量/状态，只用 MES 的车间、机列、班次补齐缺失归属；卡号比较会容忍中文“一”/全角横线等操作员录入变体，移动端扫码查 MES 与 MVC 按卡查询也使用同一配对键，避免入口侧漏掉可绑定卷。
+- 填报端提交链路已支持按现场卷标识绑定外部流转线索：现场录入 `R3-9216-2` 这类 `material_code` 时，会兜底匹配外部快照的 `tracking_card_no/material_code/batch_no/coil_id/qr_code`，并在新提交的 `extra_payload` 写入 `flow` 与 `mes_reference`；该能力只补充流转上下文，不覆盖操作员填报重量。
 - 管理端 `异常与补录` 的 `待归属` 首屏会先读取实时活跃业务日，再拉取待归属卷级填报；当浏览器日期晚于最新填报日时，页面不再默认落到无数据的当天，而是显示最近上传业务日的缺机列/缺班次草稿。
 - 管理端 `异常与补录/待归属` 已增加只读归属线索：接口返回录入账号、外部 MES 卡号命中数、MES 机列、同车间候选机列数量；前端表格显示 `录入来源` 与 `归属线索`，用于区分正常主操填报、无账号脚本/测试草稿和待人工确认机列，不直接改生产数据。
 - 管理端 `异常与补录/待归属` 已接入人工确认后的绑定入账动作：管理者逐条触发 `promote_draft_entry` 后，草稿填报会绑定确认机列、提升为 `submitted`，并复用现有 `_aggregate_coil_to_shift()` 生成 `mobile_coil_agg`；多机列候选或缺班次时仍要求人工先明确归属，不做静默批量提升。
@@ -263,6 +264,7 @@ MES_API_KEY=...
 - 本轮已部署 `main@54ccd7c`：管理端实时态势第一屏新增“机列归属率”动态视图，线上 `LiveDashboard-CCWtW8qw.js` / `LiveDashboard-DxaRmkzM.css` 已包含 `机列归属率`、`live-machine-ownership` 和 `buildMachineOwnershipSummary`；生产 Playwright 验证桌面 `1440x900` 与手机 `390x844` 均显示 `0 已归属 · 3 待归属`、`120460.00`、`3 产出机列`，页面无横向溢出，截图留存在本地忽略目录 `frontend/test-results/visual-production/`。
 - 本轮已部署 `main@32be0e2`：管理端实时聚合 API 显式返回 `machine_binding_status`，生产探针确认 `/api/v1/aggregation/live?business_date=2026-05-06` 的 3 条正产量临时机列均带 `machine_binding_status=unbound`，`all_positive_rows_have_binding_status=true`，前端与 AI 分析不再需要从负数 `machine_id` 反推归属状态。
 - 本轮已部署 `main@56886c7`：按卷填报创建链路已使用 `equipment.bound_user_id` 写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成未来 `mobile_coil_agg` 聚合行；生产 `readyz` 返回 `status=ready`、`equipment_binding=ok`，只读探针确认既有 `2026-05-06` 聚合行仍为 `bound_rows=0`、`unbound_rows=5`、`unbound_output_kg=120460.0`，本轮未做历史回填。
+- 本轮已部署 `main@99e36d9`：填报卷标识与外部流转线索绑定补丁已上线；公网 `/readyz` 返回 `status=ready`、`hard_gate_passed=true`、`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。生产只读探针确认 `R3-9216-2` 以 `coil_identifier` 命中外部快照，`material_code=R3-9216-2`、`tracking_card_no=26RA03782`，后端提交 payload 构造会补 `current_workshop=2050车间`、`current_process=冷轧`、`next_workshop=新厂在线车间`、`next_process=北线退火` 和 `mes_reference`；当前 2026-05-12 管理端实时聚合为 `data_source=mixed`、`total_entry_count=35`、`input=319.08t`、`output=274.27t`、`scrap=19.9t`，工厂指挥 `overview_today_output_tons=274.27`。
 - 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-141130.dump`。
 - 已执行后端依赖安装、Alembic 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。

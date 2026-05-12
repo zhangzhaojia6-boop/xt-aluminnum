@@ -63,3 +63,14 @@ npm --prefix frontend run build
 - 关联后端总回归：65 passed。
 - 完整后端测试：785 passed，124 deselected，38 warnings。
 - 前端生产构建：通过；保留既有 Vite 大 chunk warning。
+
+## 生产复验
+
+部署：`main@99e36d9` 已通过 `/srv/aluminum-bypass/scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线。
+
+线上只读探针：
+
+- `/readyz`：`status=ready`，`hard_gate_passed=true`，`mes_sync.last_run_status=success`，`fetched_count=50`，`upserted_count=50`。
+- `R3-9216-2`：`lookup_qr()` 返回 `source=coil_identifier`，`material_code=R3-9216-2`，`tracking_card_no=26RA03782`。
+- 提交 payload 构造：`_build_coil_flow_extra_payload()` 会补 `current_workshop=2050车间`、`current_process=冷轧`、`next_workshop=新厂在线车间`、`next_process=北线退火` 和 `mes_reference`。
+- 2026-05-12 admin 视角实时聚合：`data_source=mixed`，`total_entry_count=35`，`input=319.08t`，`output=274.27t`，`scrap=19.9t`。
