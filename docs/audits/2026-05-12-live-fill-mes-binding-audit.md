@@ -225,3 +225,10 @@ npm --prefix frontend run build
 - 新增 `frontend/src/utils/reconciliationDisplay.js`，集中维护差异核对的来源标签、字段标签、组合维度解析和按字段补单位格式化。
 - `差异核对中心`、`差异详情`、`异常与补录/差异` 均改为调用同一工具，避免 `填报端产量`、`外部 MES`、`+15 吨` 等管理端业务口径在多个页面漂移。
 - 本地验证：`npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `128 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5185 npm --prefix frontend run e2e -- e2e/reconciliation-center.spec.js` 返回 `5 passed`。
+
+## MES 路线机列绑定补强
+
+- 生产排查确认：`2026-05-13` 暂无填报端正式/草稿记录，实时活跃业务日为 `2026-05-12`；该日有 36 条正式填报、9 个有数据机列格子，实时聚合为 `data_source=mixed`。
+- 外部 MES 卷快照可通过流转卡/材料号匹配到填报记录，但当前批次 `machine_code` 全为空；可用线索在 MES 投影字段 `current_workshop/current_process/next_workshop/next_process`。
+- 后端实时聚合现在在直接 `machine_code` 缺失时，先用 MES 车间别名解析车间，再仅在本车间物理机列唯一，或工艺类型唯一匹配时补出本系统机列；多台同工艺机列仍保持待归属，不自动猜。
+- 本地验证：新增红灯用例覆盖 `2050车间 + 冷轧` 可补到 `LZ2050-1`，以及 `精整车间 + 纵剪` 多机列时保持待归属；`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py -q` 返回 `37 passed, 1 warning`；`python -m pytest backend/tests -q` 返回 `796 passed, 124 deselected, 39 warnings`。

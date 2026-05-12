@@ -1170,6 +1170,50 @@ def _mes_snapshot_tracking_keys(item: MesCoilSnapshot) -> set[str]:
     return keys
 
 
+VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_workshop_qr', 'virtual_role_qr'}
+MES_PROCESS_MACHINE_TYPE_HINTS = (
+    (('冷轧',), {'cold_mill'}),
+    (('北线退火', '南线退火', '在线退火', '退火'), {'annealing_line'}),
+    (('纵剪', '分切'), {'slitter'}),
+    (('重卷',), {'recoiler'}),
+    (('拉矫', '洗拉'), {'straightener'}),
+    (('横剪',), {'cross_cut'}),
+    (('飞剪',), {'fly_cut'}),
+    (('剪切',), {'shear', 'cross_cut', 'fly_cut'}),
+    (('铣',), {'milling'}),
+    (('锯',), {'sawing'}),
+    (('热轧',), {'hot_mill'}),
+)
+
+
+def _is_physical_machine(machine: Equipment) -> bool:
+    equipment_type = str(getattr(machine, 'equipment_type', '') or '').strip().lower()
+    return equipment_type not in VIRTUAL_QR_EQUIPMENT_TYPES
+
+
+def _infer_mes_machine_id_from_route(*, machines: list[Equipment], process_hint: object | None) -> int | None:
+    physical_machines = [machine for machine in machines if _is_physical_machine(machine)]
+    if len(physical_machines) == 1:
+        return physical_machines[0].id
+
+    process_text = str(process_hint or '').strip()
+    if not process_text:
+        return None
+
+    for keywords, equipment_types in MES_PROCESS_MACHINE_TYPE_HINTS:
+        if not any(keyword in process_text for keyword in keywords):
+            continue
+        matches = [
+            machine
+            for machine in physical_machines
+            if str(getattr(machine, 'equipment_type', '') or '').strip().lower() in equipment_types
+        ]
+        if len(matches) == 1:
+            return matches[0].id
+        return None
+    return None
+
+
 def _load_mes_snapshot_rows(
     db: Session,
     *,
@@ -1182,6 +1226,9 @@ def _load_mes_snapshot_rows(
     workshop_name_by_id = {item.id: item.name for item in workshop_rows}
     machine_rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
     machine_id_by_code = {str(item.code or '').strip().upper(): item.id for item in machine_rows if item.code}
+    machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    for machine in machine_rows:
+        machines_by_workshop[machine.workshop_id].append(machine)
     shift_rows = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     shift_id_by_code = {str(item.code or '').strip().upper(): item.id for item in shift_rows if item.code}
     work_order_by_card: dict[str, WorkOrder] = {}
@@ -1202,6 +1249,22 @@ def _load_mes_snapshot_rows(
             ) or raw_text
         return cache[raw_text]
 
+    def resolve_snapshot_workshop_id(item: MesCoilSnapshot) -> int | None:
+        raw_workshop = item.workshop_code or item.current_workshop or item.next_workshop
+        canonical_workshop_code = resolve_mes_code('workshop', raw_workshop, resolved_workshop_code_by_raw)
+        return workshop_id_by_code.get(canonical_workshop_code.strip().upper())
+
+    def resolve_snapshot_machine_id(item: MesCoilSnapshot, resolved_workshop_id: int | None) -> int | None:
+        canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
+        direct_machine_id = machine_id_by_code.get(canonical_machine_code.strip().upper())
+        if direct_machine_id is not None or resolved_workshop_id is None:
+            return direct_machine_id
+        process_hint = item.current_process or item.process_code or item.next_process
+        return _infer_mes_machine_id_from_route(
+            machines=machines_by_workshop.get(resolved_workshop_id, []),
+            process_hint=process_hint,
+        )
+
     requested_tracking_cards = {
         card_key
         for item in (tracking_card_nos or set())
@@ -1214,8 +1277,7 @@ def _load_mes_snapshot_rows(
         snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
         if snapshot_date != business_date and not (snapshot_tracking_keys & requested_tracking_cards):
             continue
-        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
-        snapshot_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
+        snapshot_workshop_id = resolve_snapshot_workshop_id(item)
         if workshop_id is not None and snapshot_workshop_id != workshop_id:
             continue
         snapshots.append(item)
@@ -1227,10 +1289,8 @@ def _load_mes_snapshot_rows(
         tracking_card_no = str(item.tracking_card_no or '').strip().upper()
         snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
         work_order = next((work_order_by_card.get(card_key) for card_key in snapshot_tracking_keys if work_order_by_card.get(card_key)), None)
-        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
-        canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
-        resolved_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
-        resolved_machine_id = machine_id_by_code.get(canonical_machine_code.strip().upper())
+        resolved_workshop_id = resolve_snapshot_workshop_id(item)
+        resolved_machine_id = resolve_snapshot_machine_id(item, resolved_workshop_id)
         resolved_shift_id = shift_id_by_code.get(str(item.shift_code or '').strip().upper())
         payload.append(
             {
