@@ -35,6 +35,17 @@ test('ReconciliationCenter prompts for normalized notes on every action', () => 
   assert.match(reconciliationCenterSource, /confirmReconciliationItem\(row\.id,\s*note\)/)
   assert.match(reconciliationCenterSource, /ignoreReconciliationItem\(row\.id,\s*note\)/)
   assert.match(reconciliationCenterSource, /correctReconciliationItem\(row\.id,\s*note\)/)
+  assert.match(reconciliationCenterSource, /formatReconciliationSourceLabel\(row\.source_a\)/)
+  assert.match(reconciliationCenterSource, /formatReconciliationSourceLabel\(row\.source_b\)/)
+  assert.match(reconciliationCenterSource, /formatReconciliationDiffValue\(row\)/)
+  assert.match(reconciliationCenterSource, /buildDesktopPreservingQuery/)
+  assert.match(reconciliationCenterSource, /route\.query\.desktop/)
+  assert.match(
+    reconciliationCenterSource,
+    /router\.push\(\{\s*name:\s*'reconciliation-detail',\s*params:\s*\{\s*id\s*\},\s*query:\s*buildDesktopPreservingQuery\(\)/s,
+  )
+  assert.match(reconciliationCenterSource, /production:\s*'填报端产量'/)
+  assert.match(reconciliationCenterSource, /mes:\s*'外部 MES'/)
   assert.doesNotMatch(reconciliationCenterSource, /已确认业务口径/)
   assert.doesNotMatch(reconciliationCenterSource, /当前无需处理/)
   assert.doesNotMatch(reconciliationCenterSource, /correctReconciliationItem\(row\.id,\s*value\)/)

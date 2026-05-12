@@ -203,3 +203,12 @@ npm --prefix frontend run build
 - 差异行新增 `详情` 与 `核对中心` 两个入口，前者直达 `/manage/reconciliation/detail/:id`，后者带当前日期与 `status=open` 进入 `/manage/reconciliation`；核对中心已读取 query 初始化筛选条件，且在 `desktop=1` 强制桌面入口下保留该参数，复用既有确认/忽略/修正处置闭环。
 - 若差异清单接口暂不可用但 dashboard 仍返回 open count，页面保留原来的汇总占位行，不隐藏风险数量。
 - 本地验证：先补断言并确认 `npm --prefix frontend test -- reviewTaskCenter.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `126 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；Playwright mock 探针确认 390px 强制桌面入口下 `#77` 差异行可见、包含 `MES`、操作区按钮数为 `2`、页面 `overflowX=0`，点击 `核对中心` 后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`，核对中心日期输入为 `2026-04-23`。
+
+## 核对中心业务口径列表
+
+- 管理端 `差异核对中心` 不再直出 `来源 A / 来源 B / 差异值` 的技术字段，列表改为 `填报侧 / 对照侧 / 差异`，并在单元格内显示业务来源标签和值。
+- `production` / `shift_production_data` 显示为 `填报端产量`，`mes` / `mes_export` 显示为 `外部 MES`，用于清楚表达填报端实时产量与外部 MES 机列数据的核对关系。
+- 产出重量、投入重量、人数、能耗按字段补单位；例如 `1175 吨 / 1160 吨 / +15 吨`，避免管理端只看到裸数字。
+- `dimension_key` 保留普通机列编码如 `XT-ZD-1`，并能把 `workshop:...|shift:...|machine:...` 这类组合维度格式化成车间、班次、机列口径。
+- 从核对中心进入 `差异详情` 时保留 `desktop=1`，窄屏强制桌面入口不会在处置链路中丢失。
+- 本地验证：先补断言并确认 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js` 红灯失败，随后实现后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 返回 `126 passed`；`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；390px Playwright mock 探针确认核对中心显示 `填报端产量`、`外部 MES`、`1175 吨`、`1160 吨`、`+15 吨`，页面 `overflowX=0`，点击详情后 URL 为 `/manage/reconciliation/detail/11?desktop=1`。
