@@ -189,3 +189,9 @@ npm --prefix frontend run build
 - 风险卡同步展示 `待归属填报 n 卷`，让管理者先看到压力，再在列表中逐条选择机列并 `绑定入账`。
 - 本轮只增加可视化，不新增后端接口、不改变 `promote_draft_entry` 门禁、不让草稿卷进入正式产量。
 - 本地验证：先写断言后确认红灯，随后 `npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下热力图 canvas 正常渲染，`overflowX=0`，热力图区域 `334x300`，canvas `308x249`。
+
+待归属绑定线索条：
+
+- 管理端 `异常与补录/待归属` 新增只读绑定线索条，同样只消费 `pendingAssignment.items`，不新增后端字段。
+- 分类为 `外部 MES 命中`、`唯一候选可入账`、`多候选待选择`、`缺班次阻断`，帮助管理者先判断待归属卷到底是可直接绑定、需要选机列，还是缺班次阻断。
+- 本地验证：先写断言后确认红灯，随后 `npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过；Playwright mock 探针确认 390px 下四类数字为 `1/1/2/1`，`overflowX=0`，线索条区域 `334x106`，热力图继续正常渲染。

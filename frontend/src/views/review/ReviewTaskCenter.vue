@@ -93,6 +93,33 @@
         </ul>
       </ReferenceModuleCard>
 
+      <div
+        v-if="tab === 'pendingAssignment' || pendingAssignmentCount"
+        class="review-task-center__binding-strip"
+        aria-label="待归属绑定线索"
+      >
+        <article>
+          <span>外部 MES 命中</span>
+          <strong>{{ pendingAssignmentBindingSummary.mesMatched }}</strong>
+          <em>卷</em>
+        </article>
+        <article>
+          <span>唯一候选可入账</span>
+          <strong>{{ pendingAssignmentBindingSummary.uniqueCandidate }}</strong>
+          <em>卷</em>
+        </article>
+        <article>
+          <span>多候选待选择</span>
+          <strong>{{ pendingAssignmentBindingSummary.ambiguousCandidate }}</strong>
+          <em>卷</em>
+        </article>
+        <article>
+          <span>缺班次阻断</span>
+          <strong>{{ pendingAssignmentBindingSummary.missingShift }}</strong>
+          <em>卷</em>
+        </article>
+      </div>
+
       <PendingAssignmentHeatmap
         v-if="tab === 'pendingAssignment' || pendingAssignmentCount"
         :rows="pendingAssignment.items || []"
@@ -319,6 +346,28 @@ const returnedCount = computed(() => returnedTasks.value.length)
 const diffCount = reconciliationOpenCount
 const pendingAssignmentCount = computed(() => Number(pendingAssignment.value.summary?.entry_count ?? pendingAssignment.value.total ?? 0) || 0)
 const missingOutputWeightCount = computed(() => Number(missingOutputWeight.value.entry_count ?? missingOutputWeightTasks.value.length ?? 0) || 0)
+const pendingAssignmentBindingSummary = computed(() => {
+  const summary = {
+    mesMatched: 0,
+    uniqueCandidate: 0,
+    ambiguousCandidate: 0,
+    missingShift: 0
+  }
+  for (const item of pendingAssignment.value.items || []) {
+    const missingFields = item.missing_fields || []
+    const isMissingShift = missingFields.includes('shift_id')
+    const mesMatched = Number(item.mes_match_count || 0) > 0
+    const candidateCount = Number(item.machine_candidate_count || 0)
+    if (mesMatched) summary.mesMatched += 1
+    if (isMissingShift) {
+      summary.missingShift += 1
+      continue
+    }
+    if (!mesMatched && candidateCount === 1) summary.uniqueCandidate += 1
+    if (!mesMatched && candidateCount > 1) summary.ambiguousCandidate += 1
+  }
+  return summary
+})
 const activeMissingOutputInputLimit = computed(() => numberValue(activeMissingOutput.value?.inputWeight))
 const canSubmitMissingOutput = computed(() => {
   if (!activeMissingOutput.value?.entryId) return false
@@ -578,6 +627,52 @@ onMounted(async () => {
   min-height: 300px;
 }
 
+.review-task-center__binding-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: #d6dee8;
+}
+
+.review-task-center__binding-strip article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.review-task-center__binding-strip span {
+  min-width: 0;
+  color: #4f6278;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-task-center__binding-strip strong {
+  color: #0c2d57;
+  font-family: var(--xt-font-number, inherit);
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-task-center__binding-strip em {
+  color: #667382;
+  font-size: 12px;
+  font-style: normal;
+}
+
 .review-task-center__assign-action {
   display: flex;
   align-items: center;
@@ -644,6 +739,12 @@ onMounted(async () => {
   .review-task-center__kpis,
   .review-task-center__main {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .review-task-center__binding-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
