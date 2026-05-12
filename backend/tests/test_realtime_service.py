@@ -227,6 +227,149 @@ def test_build_live_aggregation_reports_formal_mobile_entries_missing_output_wei
     ]
 
 
+def test_resolve_missing_output_weight_updates_submitted_mobile_entry_and_clears_quality(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            WorkOrder(id=603, tracking_card_no='RA260506603', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=603,
+                work_order_id=603,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=3,
+                business_date=date(2026, 5, 6),
+                input_weight=100_000.0,
+                output_weight=None,
+                scrap_weight=4_000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr('app.services.work_order.entry.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order.entry.event_bus.publish', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order.entry._resolve_entry_template_key', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    result = realtime_service.resolve_missing_output_weight(
+        db,
+        entry_id=603,
+        output_weight=96.0,
+        reason='现场复核产出重量',
+        current_user=admin_user(),
+    )
+
+    entry = db.get(WorkOrderEntry, 603)
+    assert entry.output_weight == 96_000.0
+    assert result['entry_id'] == 603
+    assert result['output_weight'] == 96.0
+    assert result['yield_rate'] == 96.0
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+    assert payload['data_quality']['missing_output_weight']['entry_count'] == 0
+
+
+def test_resolve_missing_output_weight_rejects_output_above_input(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            WorkOrder(id=604, tracking_card_no='RA260506604', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=604,
+                work_order_id=604,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=100_000.0,
+                output_weight=None,
+                scrap_weight=4_000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+        ]
+    )
+    db.commit()
+
+    try:
+        realtime_service.resolve_missing_output_weight(
+            db,
+            entry_id=604,
+            output_weight=101.0,
+            reason='现场复核产出重量',
+            current_user=admin_user(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        assert getattr(exc, 'status_code', None) == 422
+        assert getattr(exc, 'detail', None) == 'output_weight_exceeds_input'
+    else:
+        raise AssertionError('expected output_weight_exceeds_input')
+
+
+def test_resolve_missing_output_weight_rejects_out_of_scope_before_weight_validation(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            Workshop(id=3, code='ZL', name='铸轧车间', sort_order=2, is_active=True),
+            WorkOrder(id=605, tracking_card_no='RA260506605', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=605,
+                work_order_id=605,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                input_weight=100_000.0,
+                output_weight=None,
+                scrap_weight=4_000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+            ),
+        ]
+    )
+    db.commit()
+
+    scoped_user = User(
+        id=8,
+        username='shift-leader',
+        password_hash='x',
+        name='Shift leader',
+        role='shift_leader',
+        workshop_id=3,
+        data_scope_type='self_workshop',
+    )
+    try:
+        realtime_service.resolve_missing_output_weight(
+            db,
+            entry_id=605,
+            output_weight=101.0,
+            reason='现场复核产出重量',
+            current_user=scoped_user,
+        )
+    except Exception as exc:  # noqa: BLE001
+        assert getattr(exc, 'status_code', None) == 403
+        assert getattr(exc, 'detail', None) == 'work order entry access denied'
+    else:
+        raise AssertionError('expected work_order_entry access denial')
+
+
 def test_build_live_aggregation_resolves_mes_workshop_aliases(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

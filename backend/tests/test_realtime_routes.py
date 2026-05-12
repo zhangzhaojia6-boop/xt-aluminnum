@@ -35,6 +35,7 @@ def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('live-active-business-date') == '/api/v1/aggregation/live/active-date'
     assert app.url_path_for('live-aggregation-detail') == '/api/v1/aggregation/live/detail'
     assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
+    assert app.url_path_for('live-missing-output-resolve', entry_id=7) == '/api/v1/aggregation/live/missing-output/7'
 
 
 def test_realtime_stream_filters_events_by_scope(monkeypatch) -> None:
@@ -409,6 +410,64 @@ def test_live_pending_assignment_endpoint_passes_workshop_scope(monkeypatch) -> 
 
     assert response.status_code == 200
     assert response.json()['workshop_id'] == 2
+
+    app.dependency_overrides.clear()
+
+
+def test_live_missing_output_resolve_endpoint_calls_service(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+    calls = {}
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_resolve(db, *, entry_id, output_weight, reason, current_user, ip_address=None, user_agent=None):
+        calls['entry_id'] = entry_id
+        calls['output_weight'] = output_weight
+        calls['reason'] = reason
+        calls['user_id'] = current_user.id
+        calls['ip_address'] = ip_address
+        calls['user_agent'] = user_agent
+        return {
+            'entry_id': entry_id,
+            'work_order_id': 603,
+            'output_weight': output_weight,
+            'yield_rate': 96.0,
+            'entry_status': 'submitted',
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.resolve_missing_output_weight', fake_resolve)
+
+    token = create_access_token(subject=str(current_user.id))
+    client = TestClient(app)
+    response = client.patch(
+        '/api/v1/aggregation/live/missing-output/603',
+        json={'output_weight': 96.0, 'reason': '现场复核产出重量'},
+        headers={'Authorization': f'Bearer {token}', 'User-Agent': 'route-test'},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'entry_id': 603,
+        'work_order_id': 603,
+        'output_weight': 96.0,
+        'yield_rate': 96.0,
+        'entry_status': 'submitted',
+    }
+    assert calls['entry_id'] == 603
+    assert calls['output_weight'] == 96.0
+    assert calls['reason'] == '现场复核产出重量'
+    assert calls['user_id'] == 7
+    assert calls['user_agent'] == 'route-test'
 
     app.dependency_overrides.clear()
 

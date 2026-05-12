@@ -138,3 +138,32 @@ python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realt
 - 前端映射函数 `buildMissingOutputWeightSummary()` 已覆盖 snake_case / camelCase，避免接口字段形态差异导致管理端丢提示。
 - 前端验证：`npm --prefix frontend test -- managementCommandCenter.test.js` 为 125 passed，`npm --prefix frontend run build` 通过；Playwright 视觉探针确认 1366px 与 390px 宽度横向溢出均为 0。
 - 生产最终复验：`main@e9254c2`，dist 已包含 `待补产出重量` 与 `live-missing-output`。
+
+## 受控人工补正入口
+
+针对上述 6 条历史空产出记录，本轮新增专用补正入口，不复用通用工单编辑接口，不自动猜测真实产出：
+
+- 后端新增 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，请求以吨为单位接收 `output_weight` 和 `reason`。
+- 服务层只允许补正式 `mobile_coil` 且当前 `output_weight` 为空的记录；若记录不存在、已存在产出、产出小于等于 0、投入缺失、产出大于投入或原因为空，分别返回明确错误。
+- 实际写库复用 `work_order_service.update_entry()`，将吨转换为 kg 后进入既有审计、权限、成材率重算和事件链路。
+- 管理端“待补产出重量”样例行新增“补重量”动作，弹窗只收产出重量和补正原因；提交成功后刷新实时聚合。
+- 移动端提交门禁仍是源头防线；该补正入口只处理历史空产出，不放宽后续填报规则。
+
+本地验证：
+
+```powershell
+python -m pytest backend/tests/test_realtime_routes.py::test_realtime_routes_are_registered backend/tests/test_realtime_routes.py::test_live_missing_output_resolve_endpoint_calls_service -q
+python -m pytest backend/tests/test_realtime_service.py::test_resolve_missing_output_weight_updates_submitted_mobile_entry_and_clears_quality backend/tests/test_realtime_service.py::test_resolve_missing_output_weight_rejects_output_above_input backend/tests/test_realtime_routes.py -q
+python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py backend/tests/test_mobile_submit_with_locked_fields.py -q
+npm --prefix frontend test -- managementCommandCenter.test.js reviewTaskCenter.test.js
+npm --prefix frontend run build
+```
+
+结果：
+
+- 后端路由红绿验证：2 passed。
+- 后端服务 + 路由关联验证：12 passed，1 个既有 `HTTP_422_UNPROCESSABLE_ENTITY` deprecation warning。
+- 实时聚合 / 实时路由 / 移动填报重量门禁：46 passed，1 个同上 deprecation warning。
+- 前端静态/工具测试：126 passed。
+- 前端构建：通过；保留既有 Vite 大 chunk warning。
+- 本地 Playwright 视觉探针：mock 实时数据下 `待补产出重量=6`、样例行出现 `补重量`；补正弹窗在 1366px 和 390px 宽度横向溢出均为 0；填写 `2.1t` 和“现场复核产出重量”后按钮可提交，并出现“产出重量已补正”。

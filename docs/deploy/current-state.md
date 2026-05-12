@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 04:43:00 +08:00
+更新时间：2026-05-13 05:40:00 +08:00
 
 ## 1. 仓库状态
 
@@ -427,6 +427,7 @@ cd backend
 - 生产服务层复验：`build_factory_dashboard(2026-04-26)` 返回 `today_total_output=2052.45`、`total_energy=172073.0`、`energy_per_ton=83.83777062752259`、`energy_lane_count=10`，确认 4 月正式能耗记录已经进入管理端厂级看板口径。
 
 - 2026-05-13 已新增实时聚合数据质量摘要：`/api/v1/aggregation/live` 返回 `data_quality.missing_output_weight`，只统计正式 `mobile_coil` 填报中产出重量为空的记录，并保留最多 10 条带车间、机列、班次、流转卡号的样例。该口径用于管理端显式提示历史“待补产出重量”，不自动猜测或回填真实产量；本地验证 `backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py backend/tests/test_mobile_submit_with_locked_fields.py` 为 `43 passed`，完整后端测试为 `790 passed, 124 deselected, 38 warnings`，前端构建通过。生产已部署 `main@e9254c2`，`/readyz` 为 ready；HTTP 复验 `business_date=2026-05-12` 返回 `data_source=mixed`、`total_entry_count=36`、`factory_output=281.12t`、`data_quality.missing_output_weight.entry_count=6`，首条样例为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜`。管理端 `LiveDashboard.vue` 已接入该字段并显示“待补产出重量”提示带；前端验证 `npm --prefix frontend test -- managementCommandCenter.test.js` 为 `125 passed`，`npm --prefix frontend run build` 通过，Playwright 视觉探针确认 `1366px` 与 `390px` 宽度横向溢出均为 `0`；生产 dist 已确认包含 `待补产出重量` 与 `live-missing-output`。
+- 2026-05-13 本地已新增“待补产出重量”受控人工补正闭环：`PATCH /api/v1/aggregation/live/missing-output/{entry_id}` 只允许管理端补正式 `mobile_coil` 且当前产出为空的记录，请求以吨为单位提交 `output_weight` 与 `reason`，服务层转换为 kg 后复用 `work_order_service.update_entry()`，继续走既有审计、权限、成材率重算和事件链路；产出为空、已存在产出、投入缺失、产出大于投入、原因空白均有明确错误。管理端实时页样例行新增 `补重量`，弹窗只收产出重量和补正原因，成功后刷新实时聚合。本地验证：后端路由红绿 `2 passed`，后端服务 + 路由 `12 passed, 1 warning`，关联后端 `46 passed, 1 warning`，前端 `126 passed`，构建通过；Playwright mock 探针确认 1366px/390px 横向溢出均为 `0`，填写 `2.1t` 和“现场复核产出重量”后出现“产出重量已补正”。该能力不自动回填生产 6 条历史记录，需现场提供真实产出后逐条补正。
 
 下一道门禁：`2026-04-22`、`2026-04-30` 两份每日产量文件源表日产量列为空，当前解析结果为 `blocked / rows=0`，不写正式生产事实表；后续如需补这两天，必须先找到同日非空源表或现场确认可用替代表，不能用当前空表强行入库。
 

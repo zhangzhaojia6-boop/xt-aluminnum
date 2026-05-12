@@ -204,9 +204,19 @@
           v-for="item in missingOutputWeightSummary.items"
           :key="item.entryId || item.trackingCardNo"
         >
-          <strong>{{ item.workshopName }}</strong>
-          <em>{{ item.machineName }} / {{ item.shiftName }}</em>
-          <b>{{ item.trackingCardNo }}</b>
+          <span class="live-missing-output__item-main">
+            <strong>{{ item.workshopName }}</strong>
+            <em>{{ item.machineName }} / {{ item.shiftName }}</em>
+            <b>{{ item.trackingCardNo }}</b>
+          </span>
+          <el-button
+            size="small"
+            :icon="EditPen"
+            class="live-missing-output__fix"
+            @click="openMissingOutputDialog(item)"
+          >
+            补重量
+          </el-button>
         </span>
       </div>
     </section>
@@ -524,6 +534,55 @@
       </el-table>
     </el-card>
 
+    <el-dialog
+      v-model="missingOutputDialogVisible"
+      title="补产出重量"
+      width="min(440px, calc(100vw - 24px))"
+      class="live-missing-output-dialog"
+    >
+      <div v-if="activeMissingOutput" class="live-missing-output-dialog__meta">
+        <span>{{ activeMissingOutput.workshopName }}</span>
+        <span>{{ activeMissingOutput.machineName }}</span>
+        <span>{{ activeMissingOutput.shiftName }}</span>
+        <span>{{ activeMissingOutput.trackingCardNo }}</span>
+      </div>
+      <div class="live-missing-output-dialog__form">
+        <label>
+          <span>产出重量</span>
+          <el-input-number
+            v-model="missingOutputForm.output_weight"
+            :min="0"
+            :max="activeMissingOutputInputLimit || undefined"
+            :precision="3"
+            :step="0.1"
+            controls-position="right"
+          />
+          <em>吨</em>
+        </label>
+        <label>
+          <span>补正原因</span>
+          <el-input
+            v-model="missingOutputForm.reason"
+            type="textarea"
+            :rows="3"
+            maxlength="2000"
+            show-word-limit
+          />
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="missingOutputDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="missingOutputSubmitting"
+          :disabled="!canSubmitMissingOutput"
+          @click="submitMissingOutputWeight"
+        >
+          确认补正
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="drawerVisible" size="560px" :title="drawerTitle">
       <div class="live-drawer__meta" v-if="activeCell">
         <span>{{ activeCell.workshop_name }}</span>
@@ -562,14 +621,15 @@
 </template>
 
 <script setup>
-import { Download, RefreshRight, Setting } from '@element-plus/icons-vue'
+import { Download, EditPen, RefreshRight, Setting } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchMesSyncRuns, fetchMesSyncStatus } from '../../api/mes'
-import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, resolveMissingOutputWeight } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
@@ -600,8 +660,11 @@ const targetDate = ref(dayjs().format('YYYY-MM-DD'))
 const loading = ref(false)
 const drawerVisible = ref(false)
 const drawerLoading = ref(false)
+const missingOutputDialogVisible = ref(false)
+const missingOutputSubmitting = ref(false)
 const activePanels = ref([])
 const activeCell = ref(null)
+const activeMissingOutput = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
 const factorySnapshot = ref({})
 const deliverySnapshot = ref({})
@@ -609,6 +672,7 @@ const mesSyncStatus = ref({})
 const mesSyncRuns = ref({ summary: {}, items: [] })
 const externalReadiness = ref({})
 const drawerData = ref({ items: [] })
+const missingOutputForm = ref({ output_weight: null, reason: '' })
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
 
@@ -755,6 +819,15 @@ const outputDistributionRows = computed(() => buildOutputDistribution(sortedWork
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
 const pendingAssignmentSummary = computed(() => buildPendingAssignmentSummary(aggregation.value, 3))
 const missingOutputWeightSummary = computed(() => buildMissingOutputWeightSummary(aggregation.value, 3))
+const activeMissingOutputInputLimit = computed(() => numberValue(activeMissingOutput.value?.inputWeight))
+const canSubmitMissingOutput = computed(() => {
+  const outputWeight = Number(missingOutputForm.value.output_weight)
+  const reason = String(missingOutputForm.value.reason || '').trim()
+  if (!activeMissingOutput.value?.entryId) return false
+  if (!Number.isFinite(outputWeight) || outputWeight <= 0) return false
+  if (activeMissingOutputInputLimit.value > 0 && outputWeight > activeMissingOutputInputLimit.value) return false
+  return reason.length > 0
+})
 const workshopFillIntakeRows = computed(() => buildWorkshopFillIntakeRows(sortedWorkshops.value, 6))
 const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
@@ -970,6 +1043,41 @@ async function loadDashboardSurface() {
   await loadAggregation()
 }
 
+function openMissingOutputDialog(item) {
+  activeMissingOutput.value = item
+  missingOutputForm.value = { output_weight: null, reason: '' }
+  missingOutputDialogVisible.value = true
+}
+
+async function submitMissingOutputWeight() {
+  const outputWeight = Number(missingOutputForm.value.output_weight)
+  const reason = String(missingOutputForm.value.reason || '').trim()
+  if (activeMissingOutputInputLimit.value > 0 && outputWeight > activeMissingOutputInputLimit.value) {
+    ElMessage.warning('产出重量不能大于投入重量')
+    return
+  }
+  if (!canSubmitMissingOutput.value) {
+    ElMessage.warning('请填写产出重量和补正原因')
+    return
+  }
+
+  missingOutputSubmitting.value = true
+  try {
+    await resolveMissingOutputWeight(activeMissingOutput.value.entryId, {
+      output_weight: outputWeight,
+      reason
+    })
+    ElMessage.success('产出重量已补正')
+    missingOutputDialogVisible.value = false
+    activeMissingOutput.value = null
+    await loadDashboardSurface()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '补正失败')
+  } finally {
+    missingOutputSubmitting.value = false
+  }
+}
+
 async function initializeActiveBusinessDate() {
   try {
     const payload = await fetchLiveActiveDate()
@@ -1167,7 +1275,9 @@ function exportSummary() {
 
 watch(targetDate, async () => {
   drawerVisible.value = false
+  missingOutputDialogVisible.value = false
   activeCell.value = null
+  activeMissingOutput.value = null
   drawerData.value = { items: [] }
   await loadDashboardSurface()
 })
@@ -2075,7 +2185,7 @@ onBeforeUnmount(() => {
 }
 
 .live-missing-output__meta span,
-.live-missing-output__rows span {
+.live-missing-output__rows > span {
   min-height: 28px;
   display: inline-flex;
   align-items: center;
@@ -2084,6 +2194,12 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(194, 65, 52, 0.18);
   border-radius: var(--command-radius-sm);
   background: rgba(255, 255, 255, 0.74);
+}
+
+.live-missing-output__item-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .live-missing-output__rows strong,
@@ -2098,6 +2214,70 @@ onBeforeUnmount(() => {
   font-family: var(--xt-font-number);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+}
+
+.live-missing-output__fix {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--command-radius-sm);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.live-missing-output-dialog__meta span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__form {
+  display: grid;
+  gap: 14px;
+}
+
+.live-missing-output-dialog__form label {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-missing-output-dialog__form label:nth-child(2) {
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: start;
+}
+
+.live-missing-output-dialog__form span {
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__form em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-missing-output-dialog__form :deep(.el-input-number) {
+  width: 100%;
 }
 
 .live-unbound-fill__action {

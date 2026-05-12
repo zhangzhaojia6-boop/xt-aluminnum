@@ -43,6 +43,10 @@ const routerSource = readFileSync(
   new URL('../src/router/index.js', import.meta.url),
   'utf8',
 )
+const realtimeApiSource = readFileSync(
+  new URL('../src/api/realtime.js', import.meta.url),
+  'utf8',
+)
 
 const baseAggregation = {
   overall_progress: {
@@ -554,6 +558,13 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /missingOutputWeightSummary/)
   assert.match(liveDashboardSource, /live-missing-output/)
   assert.match(liveDashboardSource, /buildMissingOutputWeightSummary/)
+  assert.match(liveDashboardSource, /补重量/)
+  assert.match(liveDashboardSource, /补产出重量/)
+  assert.match(liveDashboardSource, /missingOutputDialogVisible/)
+  assert.match(liveDashboardSource, /activeMissingOutput/)
+  assert.match(liveDashboardSource, /resolveMissingOutputWeight/)
+  assert.match(liveDashboardSource, /submitMissingOutputWeight/)
+  assert.match(liveDashboardSource, /el-input-number/)
   assert.match(liveDashboardSource, /经营链路/)
   assert.match(liveDashboardSource, /blockerBreakdown/)
   assert.match(liveDashboardSource, /deliveryBlocker/)
@@ -562,6 +573,13 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /shipmentWeight/)
   assert.match(liveDashboardSource, /入库\/发货[\s\S]*storageFinishedWeight[\s\S]*shipmentWeight/)
   assert.doesNotMatch(liveDashboardSource, /<span>入库\/发货<\/span>[\s\S]{0,160}deliveryReady/)
+})
+
+test('realtime api exposes missing output weight correction endpoint', () => {
+  assert.match(realtimeApiSource, /resolveMissingOutputWeight/)
+  assert.match(realtimeApiSource, /api\.patch/)
+  assert.match(realtimeApiSource, /\/aggregation\/live\/missing-output\/\$\{entryId\}/)
+  assert.match(realtimeApiSource, /skipErrorToast:\s*true/)
 })
 
 test('CostAccountingCenter starts with a readable operating ledger', () => {

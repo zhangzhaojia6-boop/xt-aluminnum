@@ -27,7 +27,7 @@ from app.models.system import User
 from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
-from app.services.equipment_service import resolve_reporting_machine_from_candidates
+from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.utils.tracking_cards import tracking_card_lookup_candidates, tracking_card_lookup_key
 
@@ -247,6 +247,87 @@ def _is_mobile_entry_missing_output_weight(item: dict) -> bool:
     if item.get('output_weight_missing') is True:
         return True
     return item.get('output_weight') is None
+
+
+def _is_model_missing_output_weight(entry: WorkOrderEntry) -> bool:
+    return (
+        entry.entry_type == 'mobile_coil'
+        and entry.entry_status in FORMAL_ENTRY_STATUSES
+        and entry.output_weight is None
+        and entry.verified_output_weight is None
+    )
+
+
+def _model_input_weight_tons(entry: WorkOrderEntry) -> float:
+    value = entry.verified_input_weight if entry.verified_input_weight is not None else entry.input_weight
+    return _to_float(value) / 1000
+
+
+def _ensure_missing_output_entry_scope(db: Session, entry: WorkOrderEntry, current_user: User) -> None:
+    summary = build_scope_summary(current_user)
+    if not can_view_work_order_entries(summary):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='work order entry access denied')
+    if not can_view_all_work_order_entries(summary):
+        scoped_id = resolve_work_order_entry_workshop_scope(summary)
+        if scoped_id is None or int(entry.workshop_id) != int(scoped_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='work order entry access denied')
+    bound_machine = get_bound_machine_for_user(db, user_id=getattr(current_user, 'id', None))
+    if bound_machine is not None:
+        if bound_machine.operational_status != 'running':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='该机台已停机')
+        if entry.machine_id is None or int(entry.machine_id) != int(bound_machine.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='无权操作此机台')
+
+
+def resolve_missing_output_weight(
+    db: Session,
+    *,
+    entry_id: int,
+    output_weight: float,
+    reason: str,
+    current_user: User,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> dict:
+    entry = db.get(WorkOrderEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='work order entry not found')
+    _ensure_missing_output_entry_scope(db, entry, current_user)
+    if not _is_model_missing_output_weight(entry):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='output_weight_already_present')
+
+    output_tons = float(output_weight or 0)
+    if output_tons <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='output_weight_required')
+    input_tons = _model_input_weight_tons(entry)
+    if input_tons <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='input_weight_required')
+    if output_tons > input_tons:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='output_weight_exceeds_input')
+
+    normalized_reason = str(reason or '').strip()
+    if not normalized_reason:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='reason_required')
+
+    from app.services import work_order_service
+
+    output_kg = round(output_tons * 1000, 3)
+    updated = work_order_service.update_entry(
+        db,
+        entry_id=entry_id,
+        payload={'output_weight': output_kg},
+        operator=current_user,
+        override_reason=f'补产出重量：{normalized_reason}',
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    return {
+        'entry_id': int(updated['id']),
+        'work_order_id': int(updated['work_order_id']),
+        'output_weight': round(output_tons, 3),
+        'yield_rate': round(_to_float(updated.get('yield_rate')), 4) if updated.get('yield_rate') is not None else None,
+        'entry_status': updated.get('entry_status') or '',
+    }
 
 
 def _build_missing_output_weight_summary(*, entries: list[dict], workshops, machines, shifts) -> dict:

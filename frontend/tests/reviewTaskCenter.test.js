@@ -54,6 +54,8 @@ test('review task center is an exception supplement surface, not manual approval
   assert.match(realtimeApi, /fetchLiveActiveDate/)
   assert.match(realtimeApi, /fetchPendingAssignmentEntries/)
   assert.match(realtimeApi, /\/aggregation\/live\/pending-assignment/)
+  assert.match(realtimeApi, /resolveMissingOutputWeight/)
+  assert.match(realtimeApi, /\/aggregation\/live\/missing-output\//)
 })
 
 test('shift center no longer exposes production shift import in the management path', () => {

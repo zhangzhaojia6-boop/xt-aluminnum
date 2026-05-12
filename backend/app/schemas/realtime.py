@@ -49,6 +49,19 @@ class LiveAggregationOut(BaseModel):
     data_source: str = 'work_order_runtime'
 
 
+class LiveMissingOutputWeightResolveRequest(BaseModel):
+    output_weight: float = Field(gt=0)
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class LiveMissingOutputWeightResolveOut(BaseModel):
+    entry_id: int
+    work_order_id: int
+    output_weight: float
+    yield_rate: float | None = None
+    entry_status: str
+
+
 class LiveActiveBusinessDateOut(BaseModel):
     business_date: str
     source: str = 'current_date'
