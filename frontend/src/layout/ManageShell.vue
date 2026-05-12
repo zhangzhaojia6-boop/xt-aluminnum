@@ -129,6 +129,9 @@ import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
 import { AI_ASSISTANT_OPEN_EVENT } from '../utils/assistantLauncher'
+import { useHudTheme } from '../composables/useHudTheme.js'
+
+useHudTheme()
 
 const route = useRoute()
 const router = useRouter()
