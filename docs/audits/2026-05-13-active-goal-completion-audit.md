@@ -77,9 +77,9 @@
 - 业务底座正常：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`。
 - 外部 MES 可用：`mes_adapter=mvc`、`mes_ready=true`。
 - 当前 hard issues：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`。
-- 当前 warning issue：`DINGTALK_NO_BOUND_USERS`，且 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
-- 实时聚合只读探针正常：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=38`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`。
-- `python scripts/check_statistics_module_ready.py --missing-inputs` 已可输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的缺失输入清单，生产复验只有 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，未回显任何真实密钥值。
+- 当前 warning issues：`DINGTALK_NO_BOUND_USERS`、`DINGTALK_CONTACTS_PERMISSION_MISSING`，且 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`、`dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
+- 实时聚合只读探针正常：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=39`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`。
+- `python scripts/check_statistics_module_ready.py --missing-inputs` 已可输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的缺失输入清单，基础清单只有 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，未回显任何真实密钥值；加 `--check-dingtalk-contacts` 后会额外暴露 `钉钉通讯录同步` 权限缺口。
 
 ### 需要现场补齐的真实值
 
@@ -88,6 +88,7 @@
 | LLM/AI 摘要增强 | 服务器 `backend/.env` | `LLM_ENABLED`、`LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL` 或 `LLM_ENDPOINT_ID` | AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通 | `LLM_ENABLED=true`，其余 LLM 地址、密钥和模型由现场提供 |
 | 应用连接外发 | 服务器 `backend/.env` | `APP_CONNECTION_ENABLED`、`APP_CONNECTION_PUSH_MODE`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` | 统计模块不能对外推送，正式外部连接面未启用 | `APP_CONNECTION_ENABLED=true`、`APP_CONNECTION_PUSH_MODE=enabled`，API 地址和密钥由现场提供 |
 | 钉钉真实人员触达 | 生产数据库 `users/employees` 与钉钉通讯录 | `users.dingtalk_user_id` 或 `employees.dingtalk_user_id` | token 可用但通知不能送达真实人员，真实客户端 UAT 不能闭环 | 同步通讯录后，为试点 active 用户或员工绑定真实 `dingtalk_user_id` |
+| 钉钉通讯录同步 | 钉钉开放平台应用权限 | `qyapi_get_department_member` | 无法读取通讯录成员，不能自动完成人员绑定 | 给当前钉钉应用开通通讯录成员读取权限后重跑只读诊断 |
 
 ### 管理端暴露状态
 
