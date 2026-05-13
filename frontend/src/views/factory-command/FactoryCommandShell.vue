@@ -64,7 +64,7 @@ const tabs = [
   padding: 12px;
   background: var(--fc-bg);
   color: var(--fc-text);
-  font-family: 'MiSans', 'Inter', system-ui, sans-serif;
+  font-family: var(--xt-font-body);
 }
 
 .fc-shell__grid {
@@ -133,7 +133,11 @@ const tabs = [
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
-  transition: all 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fc-shell__tabs a:active {

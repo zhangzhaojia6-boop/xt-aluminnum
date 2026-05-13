@@ -15,6 +15,9 @@ test('factory command shell exposes production branches and freshness state', ()
   assert.match(shell, /'machine-lines'.*'机列'/)
   assert.match(shell, /'exceptions'.*'异常'/)
   assert.match(shell, /freshnessLabel/)
+  assert.match(shell, /font-family: var\(--xt-font-body\)/)
+  assert.doesNotMatch(shell, /'Inter'/)
+  assert.doesNotMatch(shell, /transition:\s*all/)
 })
 
 test('factory overview and flow screens call factory command store', () => {
