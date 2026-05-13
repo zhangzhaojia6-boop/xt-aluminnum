@@ -490,6 +490,12 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
+    assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected' in state
+    assert '本轮部署：`main@19dbd5b`' in state
+    assert '`live_aggregation_ok=true`' in state
+    assert '`live_aggregation_business_date=2026-05-12`' in state
+    assert '`live_aggregation_total_entry_count=38`' in state
+    assert '`live_aggregation_bound_to_machine_count=24`' in state
     assert '`python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state

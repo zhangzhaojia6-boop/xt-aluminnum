@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 09:37:17 +08:00
+更新时间：2026-05-13 10:02:00 +08:00
 
 ## 1. 仓库状态
 
@@ -117,6 +117,11 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected
+- `git diff --check`：通过，仅 Windows LF -> CRLF 提示
+- 本轮部署：`main@19dbd5b` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `main...origin/main` 干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 生产 `/readyz` 复验：`status=ready`，`database/uploads/equipment_binding/schedule/pipeline=ok`，`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- 生产 readiness 新命令复验：`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 返回预期 exit `2`，hard issues 仍为 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`，warning 仍为 `DINGTALK_NO_BOUND_USERS`；实时聚合只读探针为 `live_aggregation_ok=true`，`live_aggregation_business_date=2026-05-12`，`live_aggregation_date_source=recent_upload`，`live_aggregation_data_source=mixed`，`live_aggregation_total_entry_count=38`，`live_aggregation_formal_entry_count=38`，`live_aggregation_draft_entry_count=0`，`live_aggregation_mes_row_count=23`，`live_aggregation_mes_match_count=24`，`live_aggregation_bound_to_machine_count=24`，`live_aggregation_pending_assignment_count=0`。
 - `python -m pytest backend/tests -q`：794 passed，124 deselected，39 warnings
 - `npm --prefix frontend test`：126 passed
 - `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning
