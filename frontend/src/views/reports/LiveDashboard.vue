@@ -1484,6 +1484,7 @@ onBeforeUnmount(() => {
 .management-overview-card {
   display: grid;
   align-content: space-between;
+  min-width: 0;
   min-height: 112px;
   padding: 15px;
   border: 1px solid var(--command-line);
@@ -1500,12 +1501,16 @@ onBeforeUnmount(() => {
 
 .management-overview-card span,
 .management-flow__node span {
+  overflow: hidden;
   color: var(--xt-text-muted);
   font-size: 12px;
   font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card strong {
+  overflow: hidden;
   color: var(--command-ink);
   font-family: var(--xt-font-number);
   font-size: 30px;
@@ -1513,6 +1518,8 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card--primary span,
@@ -1522,10 +1529,13 @@ onBeforeUnmount(() => {
 }
 
 .management-overview-card em {
+  overflow: hidden;
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card.is-success {
