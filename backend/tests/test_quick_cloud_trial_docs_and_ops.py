@@ -426,6 +426,37 @@ def test_highres_reference_images_have_size_budget_and_audit_record() -> None:
     assert '<= 5.6 MB' in manifest
 
 
+def test_ui_reference_tracks_dark_industrial_image2_target() -> None:
+    prompts = _read('docs/ui-reference/IMAGE2_PROMPTS.md')
+    spec = _read('docs/ui-reference/UI_TARGET_SPEC.md')
+    plan = _read('docs/ui-reference/DESIGN_REVERSE_PLAN.md')
+    manifest = _read('docs/ui-reference/REFERENCE_MANIFEST.md')
+
+    for token in ['深色工业科技风', '蓝黑基底', '冷蓝高光']:
+        assert token in prompts
+        assert token in manifest or token in spec or token in plan
+
+    for section in [f'## {index:02d}' for index in range(1, 17)]:
+        assert section in prompts
+
+    for stale_token in [
+        '避免：深色大屏',
+        'Cold white',
+        'White industrial',
+        'white industrial',
+        'Apple/OpenAI',
+        'no dark sci-fi',
+    ]:
+        assert stale_token not in prompts
+        assert stale_token not in spec
+        assert stale_token not in plan
+
+    assert '页面反推矩阵' in plan
+    assert '目标页 | 当前路由 / 入口 | 主要代码入口 | 数据 / BFF 口径 | 下一步还原动作' in plan
+    assert '旧浅色历史基线' in manifest
+    assert '不能作为最终视觉验收证据' in manifest
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 
