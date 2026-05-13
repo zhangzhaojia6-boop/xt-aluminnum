@@ -188,6 +188,15 @@ db 容器: PostgreSQL 15
 - `LLM_DISABLED`
 - `APP_CONNECTION_DISABLED`
 
+2026-05-13 线上复验结论：
+
+- `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`
+- 已通过的基础项：`local_runnable=true`、`runtime_valid=true`、`database_ok=true`
+- 已通过的业务底座：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`
+- 外部 MES 当前可用：`mes_adapter=mvc`、`mes_ready=true`
+- 正式外发仍缺：`llm_enabled=false`、`llm_model_ref_set=false`、`app_connection_enabled=false`、`app_connection_push_mode=disabled`
+- 钉钉应用已启用但未绑定真实人员：`warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`
+
 正式联通前可先生成不回显现有密钥的 `.env` 填写模板：
 
 ```bash
@@ -202,6 +211,12 @@ MES_MVC_BASE_URL=...
 MES_MVC_USERNAME=...
 MES_MVC_PASSWORD=...
 WORKFLOW_ENABLED=true
+AUTO_PUBLISH_ENABLED=true
+AUTO_PUSH_ENABLED=true
+LLM_ENABLED=true
+LLM_API_BASE=...
+LLM_API_KEY=...
+LLM_MODEL=...
 DINGTALK_ENABLED=true
 DINGTALK_CORP_ID=...
 DINGTALK_APP_KEY=...

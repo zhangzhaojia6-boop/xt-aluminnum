@@ -10,7 +10,7 @@
 
 ## 当前证据
 
-- 当前代码锚点：`688073b feat: 展示实时填报与MES绑定状态`，已推送到 `origin/main` 并部署到 ECS。
+- 当前代码锚点：`3f69931 test: 补充管理端产量异常复验`，已推送到 `origin/main`；运行时代码仍是此前已部署的 `688073b feat: 展示实时填报与MES绑定状态`。
 - 生产健康：`/readyz` 返回 ready，外部 MES 同步 `last_run_status=success`，最近拉取与写入均为 `50`。
 - 后端全量验证：`python -m pytest backend/tests -q` 为 `796 passed, 124 deselected, 39 warnings`。
 - 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `36` 条，非空机列格子 `9` 个，`factory_output=281.12t`，`data_source=mixed`。
@@ -62,6 +62,33 @@
 - 断言历史走势显示 `126.46t`、`281.12t`。
 - 断言月累计为 `407.58t`、日均为 `203.79t`。
 - 断言七日走势最大值 `<10000`，防止 `/manage/factory` 把 kg 当吨展示。
+
+## 本轮外部配置门禁复验切片
+
+### 目标
+
+确认生产 `/readyz` 通过不被误判为完整外部联通通过，并把正式试用前缺失的真实配置沉淀为可执行清单。
+
+### 生产复验证据
+
+- `scripts/check_statistics_module_ready.py --json` 返回 `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`。
+- 基础运行项正常：`local_runnable=true`、`runtime_valid=true`、`database_ok=true`。
+- 业务底座正常：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`。
+- 外部 MES 可用：`mes_adapter=mvc`、`mes_ready=true`。
+- 当前 hard issues：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`。
+- 当前 warning issue：`DINGTALK_NO_BOUND_USERS`，且 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
+
+### 需要现场补齐的真实值
+
+| 用途 | 所在位置 | 缺失字段 | 影响 |
+| --- | --- | --- | --- |
+| LLM/AI 摘要增强 | 服务器 `backend/.env` | `LLM_ENABLED`、`LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL` 或 `LLM_ENDPOINT_ID` | AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通 |
+| 应用连接外发 | 服务器 `backend/.env` | `APP_CONNECTION_ENABLED`、`APP_CONNECTION_PUSH_MODE`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` | 统计模块不能对外推送，正式外部连接面未启用 |
+| 钉钉真实人员触达 | 生产数据库与钉钉通讯录权限 | `users.dingtalk_user_id` 或 `employees.dingtalk_user_id`，以及通讯录同步权限 | token 可用但通知不能送达真实人员，真实客户端 UAT 不能闭环 |
+
+### 管理端暴露状态
+
+管理端实时页已经展示 `外部联通闸门` 和 `外部联通明细`，并把 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`、`DINGTALK_NO_BOUND_USERS` 转成 `LLM 摘要`、`应用连接`、`钉钉人员` 三类业务标签；因此当前最小收口是文档和门禁清单，不需要伪造配置或改写生产数据。
 
 ## 完成判断
 

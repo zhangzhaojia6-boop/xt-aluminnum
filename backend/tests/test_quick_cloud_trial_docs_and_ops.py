@@ -741,6 +741,19 @@ def test_external_readiness_docs_expose_env_template_command() -> None:
     assert 'python scripts/check_statistics_module_ready.py --env-template' in ops
     assert '不回显现有密钥' in state
     assert '不要把包含密钥的 `.env` 提交到 Git' in ops
+    for expected in [
+        'LLM_ENABLED=true',
+        'LLM_API_BASE=...',
+        'LLM_API_KEY=...',
+        'LLM_MODEL=...',
+        '`hard_gate_passed=false`',
+        '`module_usable=false`',
+        '`external_connection_enabled=false`',
+        '`mes_adapter=mvc`、`mes_ready=true`',
+        '`warning_issues=DINGTALK_NO_BOUND_USERS`',
+        '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`',
+    ]:
+        assert expected in state
 
 
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
