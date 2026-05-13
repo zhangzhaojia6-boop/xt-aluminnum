@@ -834,6 +834,55 @@ def test_external_readiness_dashboard_route_exposes_hard_issues(monkeypatch) -> 
     app.dependency_overrides.clear()
 
 
+def test_external_readiness_dashboard_route_exposes_missing_inputs_without_secret_values(monkeypatch) -> None:
+    def fake_get_user():
+        return SimpleNamespace(
+            id=10,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    monkeypatch.setattr(
+        'app.routers.dashboard.inspect_statistics_module_ready',
+        lambda: {
+            'hard_gate_passed': False,
+            'module_usable': False,
+            'missing_inputs': [
+                {
+                    'issue_code': 'LLM_DISABLED',
+                    'level': 'hard',
+                    'purpose': 'LLM/AI 摘要增强',
+                    'location': '服务器 backend/.env',
+                    'missing_fields': ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY'],
+                    'impact': 'AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通。',
+                    'suggested_value': 'LLM_API_BASE=https://llm.example/api；LLM_API_KEY=real-secret-key',
+                }
+            ],
+            'diagnostic': {'APP_CONNECTION_API_KEY': 'real-app-secret'},
+        },
+        raising=False,
+    )
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    response = TestClient(app).get('/api/v1/dashboard/external-readiness')
+
+    assert response.status_code == 200
+    payload = response.json()
+    missing_input = payload['missing_inputs'][0]
+    assert missing_input['purpose'] == 'LLM/AI 摘要增强'
+    assert missing_input['missing_fields'] == ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY']
+    assert missing_input['suggested_value'] == 'LLM_API_BASE=https://llm.example/api；LLM_API_KEY=<redacted>'
+    assert payload['diagnostic']['APP_CONNECTION_API_KEY'] == '<redacted>'
+    assert 'real-secret-key' not in response.text
+    assert 'real-app-secret' not in response.text
+
+    app.dependency_overrides.clear()
+
+
 def test_external_readiness_dashboard_route_rejects_mobile_user(monkeypatch) -> None:
     def fake_get_user():
         return SimpleNamespace(

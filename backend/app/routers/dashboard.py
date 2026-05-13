@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -15,6 +17,34 @@ from app.services import report_service
 from scripts.check_statistics_module_ready import inspect_statistics_module_ready
 
 router = APIRouter(tags=['dashboard'])
+
+_REDACTED_EXTERNAL_VALUE = '<redacted>'
+_SENSITIVE_KEY_PARTS = ('api_key', 'apikey', 'password', 'secret', 'token', 'credential')
+_SECRET_ASSIGNMENT_RE = re.compile(
+    r'((?:[A-Z0-9_]*(?:API_KEY|APIKEY|PASSWORD|SECRET|TOKEN|CREDENTIAL)[A-Z0-9_]*)\s*[=:：]\s*)([^；;,\s]+)'
+)
+
+
+def _is_sensitive_key(key: object) -> bool:
+    key_text = str(key).lower()
+    return any(part in key_text for part in _SENSITIVE_KEY_PARTS)
+
+
+def _redact_secret_assignments(value: str) -> str:
+    return _SECRET_ASSIGNMENT_RE.sub(lambda match: f'{match.group(1)}{_REDACTED_EXTERNAL_VALUE}', value)
+
+
+def _sanitize_external_readiness_payload(value: Any, *, parent_key: str | None = None) -> Any:
+    if isinstance(value, dict):
+        return {key: _sanitize_external_readiness_payload(item, parent_key=str(key)) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_external_readiness_payload(item, parent_key=parent_key) for item in value]
+    if isinstance(value, str):
+        redacted = _redact_secret_assignments(value)
+        if parent_key and _is_sensitive_key(parent_key) and redacted == value:
+            return _REDACTED_EXTERNAL_VALUE
+        return redacted
+    return value
 
 
 def _ensure_reviewer_or_manager(current_user: User):
@@ -99,7 +129,7 @@ def external_readiness(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard_external_readiness', limit=20, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return inspect_statistics_module_ready()
+    return _sanitize_external_readiness_payload(inspect_statistics_module_ready())
 
 
 @router.get('/factory', response_model=FactoryDashboardResponse, response_model_exclude_none=True)
