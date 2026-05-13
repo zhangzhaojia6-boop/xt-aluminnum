@@ -52,7 +52,8 @@ cd /srv/aluminum-bypass
 - 管理端 `/api/v1/dashboard/external-readiness` 已透传 `missing_inputs` 缺失输入清单，并在路由边界清洗疑似密钥值：字段名如 `LLM_API_KEY`、`APP_CONNECTION_API_KEY` 仍可见，实际值统一返回 `<redacted>`。
 - 管理端实时态势的 `外部联通明细` 已展示 `missing_inputs` 缺失输入清单，按 `用途 / 所在位置 / 缺失字段 / 影响范围 / 建议取值` 展开；桌面与 390px 手机宽度均通过无横向溢出验证。
 - 成本策略引擎的后端物理表契约已补齐并部署：`main@8b98c5b` 新增 `cost_price_master`、`cost_workshop_strategy`、`cost_daily_result`、`cost_monthly_rollup`、`cost_variance_record` SQLAlchemy 模型和 Alembic `0028_cost_strategy_tables` 迁移；生产复验 5 张表均存在，`cost_price_master` 默认价格主数据为 `18` 条，`alembic_version=0028_cost_strategy_tables`。
-- 成本策略快照写入接口已补齐：`POST /api/v1/executive/cost-strategy-snapshots` 仅 admin 可用，可把 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 表模型快照按业务唯一键 upsert；管理端 `/manage/factory/cost/accounting` 已接入“保存快照”，`/manage/factory/cost` 提供“策略核算”入口。该能力承接前端策略引擎快照，不把策略快照升级为财务正式结账凭证，人工复核和月度结账流程仍是后续项。
+- 成本策略快照写入接口已补齐：`POST /api/v1/executive/cost-strategy-snapshots` 仅 admin 可用，可把 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 表模型快照按业务唯一键 upsert；管理端 `/manage/factory/cost/accounting` 已接入“保存快照”，`/manage/factory/cost` 提供“策略核算”入口。该能力承接前端策略引擎快照，不把策略快照升级为财务正式结账凭证。
+- 成本月度复核状态边界已补齐：`cost_monthly_review_status` 记录策略快照从 `pending_review` 到 `reviewed` 再到 `month_closed` 的经营状态；`GET /api/v1/executive/cost-strategy-snapshots/review-status` 对管理/审阅可见，`POST /api/v1/executive/cost-strategy-snapshots/review-status` 仅 admin 可执行。管理端策略核算页已展示“月度复核 / 复核通过 / 月结锁定”。该状态仍不是财务正式凭证或完整月结流程。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 - MES MVC 会话恢复已增强：表格查询若被会话过期打回登录页，会清理 cookie/token 后重新登录并重放请求；二次仍返回登录页才报错，避免短期 session 过期让同步长期卡住。
 - MES 投影同步已隔离非数据库单源失败：`sync_mes_projection()` 中 crafts/devices/follow_cards/dispatch/wip_total/stock/machine_lines 单步执行，单个外部接口失败返回该源 `failed` stats，已成功 upsert 的来源继续保留；数据库错误仍向上抛出，避免掩盖事务异常。
@@ -123,6 +124,8 @@ db 容器: PostgreSQL 15
 
 - 成本策略快照持久化 API 本轮验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `6 passed`；`python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `50 passed, 1 deselected, 6 warnings`；`python -m pytest backend/tests -q` 为 `813 passed, 124 deselected, 39 warnings`。
 - 成本策略快照前端保存入口验证：`npm --prefix frontend test -- factoryCommandScreens.test.js managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`136 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost` 与 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，策略核算入口和“保存快照”按钮可见。
+- 成本月度复核状态边界验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `10 passed`；`npm --prefix frontend test -- managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`137 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，月度复核状态带可见，`复核通过` 可用，`月结锁定` 在未复核前禁用。
+- 本轮全量后端默认测试：`python -m pytest backend/tests -q` 为 `817 passed, 124 deselected, 39 warnings`。
 - `python -m pytest backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_missing_inputs_without_secret_values backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_rejects_mobile_user -q`：3 passed
 - `python -m pytest backend/tests/test_statistics_module_ready_script.py -q`：14 passed
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：38 passed，1 deselected

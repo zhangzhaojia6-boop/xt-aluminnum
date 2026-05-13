@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import app.models  # noqa: F401
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -11,6 +12,7 @@ from app.database import Base
 from app.main import app
 from app.models.executive import (
     CostDailyResult,
+    CostMonthlyReviewStatus,
     CostMonthlyRollup,
     CostPriceMaster,
     CostVarianceRecord,
@@ -36,6 +38,7 @@ def test_cost_strategy_contract_tables_are_registered_in_backend_metadata() -> N
         'cost_workshop_strategy',
         'cost_daily_result',
         'cost_monthly_rollup',
+        'cost_monthly_review_status',
         'cost_variance_record',
     }
 
@@ -80,6 +83,18 @@ def test_cost_strategy_contract_tables_are_registered_in_backend_metadata() -> N
         'source',
     }.issubset(_column_names('cost_monthly_rollup'))
     assert {
+        'month',
+        'workshop_code',
+        'strategy_code',
+        'status',
+        'reviewed_by',
+        'reviewed_at',
+        'closed_by',
+        'closed_at',
+        'review_note',
+        'close_note',
+    }.issubset(_column_names('cost_monthly_review_status'))
+    assert {
         'business_date',
         'workshop_code',
         'variance_type',
@@ -99,16 +114,25 @@ def test_cost_strategy_tables_have_business_keys_and_seed_migration() -> None:
     assert 'uq_cost_monthly_rollup_version' in {
         constraint.name for constraint in _table('cost_monthly_rollup').constraints
     }
+    assert 'uq_cost_monthly_review_status_version' in {
+        constraint.name for constraint in _table('cost_monthly_review_status').constraints
+    }
     assert 'uq_cost_variance_record_version' in {
         constraint.name for constraint in _table('cost_variance_record').constraints
     }
 
-    migration = (REPO_ROOT / 'backend/alembic/versions/0028_cost_strategy_tables.py').read_text(encoding='utf-8')
+    migration = '\n'.join(
+        [
+            (REPO_ROOT / 'backend/alembic/versions/0028_cost_strategy_tables.py').read_text(encoding='utf-8'),
+            (REPO_ROOT / 'backend/alembic/versions/0029_cost_monthly_review_status.py').read_text(encoding='utf-8'),
+        ]
+    )
     for table_name in [
         'cost_price_master',
         'cost_workshop_strategy',
         'cost_daily_result',
         'cost_monthly_rollup',
+        'cost_monthly_review_status',
         'cost_variance_record',
     ]:
         assert table_name in migration
@@ -125,6 +149,7 @@ def _build_cost_session(tmp_path):
             CostWorkshopStrategy.__table__,
             CostDailyResult.__table__,
             CostMonthlyRollup.__table__,
+            CostMonthlyReviewStatus.__table__,
             CostVarianceRecord.__table__,
         ],
     )
@@ -225,6 +250,75 @@ def test_persist_cost_strategy_snapshot_upserts_all_contract_tables(tmp_path) ->
         assert float(db.execute(select(CostDailyResult)).scalar_one().total_cost) == 1300.0
 
 
+def test_cost_monthly_review_status_defaults_and_transitions(tmp_path) -> None:
+    Session = _build_cost_session(tmp_path)
+
+    with Session() as db:
+        executive_service.persist_cost_strategy_snapshot(db, table_models=_snapshot_payload()['table_models'])
+        db.commit()
+
+        status = executive_service.build_cost_strategy_review_status(db, month='2026-05')
+        assert status['summary'] == {
+            'month': '2026-05',
+            'rollup_count': 1,
+            'pending_review': 1,
+            'reviewed': 0,
+            'month_closed': 0,
+        }
+        assert status['rows'][0]['status'] == 'pending_review'
+        assert status['rows'][0]['review_note'] is None
+
+        reviewed = executive_service.update_cost_strategy_review_status(
+            db,
+            month='2026-05',
+            workshop_code='LJ',
+            strategy_code='TENSION_LEVELING_MAIN_PLUS_AUX',
+            action='review',
+            note='现场核对通过',
+            operator_id=7,
+        )
+        db.commit()
+
+        assert reviewed['status'] == 'reviewed'
+        assert reviewed['review_note'] == '现场核对通过'
+        assert db.execute(select(CostMonthlyReviewStatus)).scalar_one().reviewed_by == 7
+
+        closed = executive_service.update_cost_strategy_review_status(
+            db,
+            month='2026-05',
+            workshop_code='LJ',
+            strategy_code='TENSION_LEVELING_MAIN_PLUS_AUX',
+            action='close',
+            note='月度锁定',
+            operator_id=8,
+        )
+        db.commit()
+
+        assert closed['status'] == 'month_closed'
+        assert closed['close_note'] == '月度锁定'
+        refreshed = executive_service.build_cost_strategy_review_status(db, month='2026-05')
+        assert refreshed['summary']['month_closed'] == 1
+
+
+def test_cost_monthly_review_status_rejects_close_before_review(tmp_path) -> None:
+    Session = _build_cost_session(tmp_path)
+
+    with Session() as db:
+        executive_service.persist_cost_strategy_snapshot(db, table_models=_snapshot_payload()['table_models'])
+        db.commit()
+
+        with pytest.raises(ValueError, match='cost_monthly_rollup_requires_review'):
+            executive_service.update_cost_strategy_review_status(
+                db,
+                month='2026-05',
+                workshop_code='LJ',
+                strategy_code='TENSION_LEVELING_MAIN_PLUS_AUX',
+                action='close',
+                note='skip review',
+                operator_id=8,
+            )
+
+
 def test_cost_strategy_snapshot_route_requires_admin_and_persists(monkeypatch) -> None:
     calls = []
     commits = []
@@ -296,3 +390,63 @@ def test_cost_strategy_snapshot_route_blocks_non_admin(monkeypatch) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
+
+
+def test_cost_strategy_review_status_route_allows_managers(monkeypatch) -> None:
+    def fake_get_db():
+        yield SimpleNamespace()
+
+    def fake_manager():
+        return SimpleNamespace(id=2, role='manager', data_scope_type='all', is_manager=True)
+
+    monkeypatch.setattr(
+        executive_service,
+        'build_cost_strategy_review_status',
+        lambda db, *, month: {'summary': {'month': month}, 'rows': []},
+    )
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_manager
+    try:
+        response = TestClient(app).get('/api/v1/executive/cost-strategy-snapshots/review-status?month=2026-05')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()['summary']['month'] == '2026-05'
+
+
+def test_cost_strategy_review_status_update_requires_admin(monkeypatch) -> None:
+    calls = []
+    commits = []
+
+    def fake_get_db():
+        yield SimpleNamespace(commit=lambda: commits.append(True))
+
+    def fake_admin():
+        return SimpleNamespace(id=9, role='admin', data_scope_type='all')
+
+    def fake_update(db, *, month, workshop_code, strategy_code, action, note, operator_id):
+        calls.append((month, workshop_code, strategy_code, action, note, operator_id))
+        return {'status': 'reviewed'}
+
+    monkeypatch.setattr(executive_service, 'update_cost_strategy_review_status', fake_update)
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_admin
+    try:
+        response = TestClient(app).post(
+            '/api/v1/executive/cost-strategy-snapshots/review-status',
+            json={
+                'month': '2026-05',
+                'workshop_code': 'LJ',
+                'strategy_code': 'TENSION_LEVELING_MAIN_PLUS_AUX',
+                'action': 'review',
+                'note': 'ok',
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()['status'] == 'reviewed'
+    assert calls == [('2026-05', 'LJ', 'TENSION_LEVELING_MAIN_PLUS_AUX', 'review', 'ok', 9)]
+    assert commits == [True]

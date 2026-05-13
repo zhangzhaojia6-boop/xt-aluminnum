@@ -740,6 +740,22 @@ test('CostAccountingCenter can persist generated cost table snapshots', () => {
   assert.match(costCenterSource, /handleSaveSnapshot/)
 })
 
+test('CostAccountingCenter exposes monthly review status boundary', () => {
+  assert.match(executiveApiSource, /fetchCostStrategyReviewStatus/)
+  assert.match(executiveApiSource, /updateCostStrategyReviewStatus/)
+  assert.match(executiveApiSource, /cost-strategy-snapshots\/review-status/)
+  assert.match(executiveApiSource, /api\.get/)
+  assert.match(executiveApiSource, /api\.post/)
+  assert.match(costCenterSource, /data-testid="cost-review-status"/)
+  assert.match(costCenterSource, /月度复核/)
+  assert.match(costCenterSource, /复核通过/)
+  assert.match(costCenterSource, /月结锁定/)
+  assert.match(costCenterSource, /fetchCostStrategyReviewStatus/)
+  assert.match(costCenterSource, /updateCostStrategyReviewStatus/)
+  assert.match(costCenterSource, /reviewStatusRows/)
+  assert.match(costCenterSource, /handleReviewStatusAction/)
+})
+
 test('LiveDashboard keeps the command matrix contained on narrow screens', () => {
   assert.match(liveDashboardSource, /class="live-dashboard__export-button"/)
   assert.match(liveDashboardSource, /aria-label="导出电子表格"/)

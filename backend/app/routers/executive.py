@@ -122,6 +122,14 @@ class CostStrategySnapshotIn(BaseModel):
     table_models: dict[str, list[dict]] = Field(default_factory=dict, alias='tableModels')
 
 
+class CostReviewStatusUpdateIn(BaseModel):
+    month: str
+    workshop_code: str
+    strategy_code: str
+    action: str = Field(pattern='^(review|close)$')
+    note: Optional[str] = None
+
+
 @router.get('/processing-fees', response_model=list[ProcessingFeeRuleOut])
 def list_processing_fees(
     customer_tier: Optional[str] = None,
@@ -242,6 +250,42 @@ def persist_cost_strategy_snapshot(
         result = executive_service.persist_cost_strategy_snapshot(
             db,
             table_models=body.table_models,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    db.commit()
+    return result
+
+
+@router.get('/cost-strategy-snapshots/review-status')
+def cost_strategy_review_status(
+    month: str = Query(..., min_length=7, max_length=7),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_view_access(current_user)
+    try:
+        return executive_service.build_cost_strategy_review_status(db, month=month)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post('/cost-strategy-snapshots/review-status')
+def update_cost_strategy_review_status(
+    body: CostReviewStatusUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_admin(current_user)
+    try:
+        result = executive_service.update_cost_strategy_review_status(
+            db,
+            month=body.month,
+            workshop_code=body.workshop_code,
+            strategy_code=body.strategy_code,
+            action=body.action,
+            note=body.note,
+            operator_id=current_user.id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

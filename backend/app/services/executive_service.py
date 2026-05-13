@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Optional
 
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.models.executive import (
     AluminumPriceDaily,
     CostDailyResult,
+    CostMonthlyReviewStatus,
     CostMonthlyRollup,
     CostPriceMaster,
     CostVarianceRecord,
@@ -260,6 +261,134 @@ def persist_cost_strategy_snapshot(db: Session, *, table_models: dict[str, list[
     return {'saved': saved}
 
 
+def build_cost_strategy_review_status(db: Session, *, month: str) -> dict:
+    month = _required_month(month)
+    rollups = list(
+        db.execute(
+            select(CostMonthlyRollup)
+            .where(CostMonthlyRollup.month == month)
+            .order_by(CostMonthlyRollup.workshop_code, CostMonthlyRollup.strategy_code)
+        ).scalars().all()
+    )
+    statuses = {
+        (row.month, row.workshop_code, row.strategy_code): row
+        for row in db.execute(
+            select(CostMonthlyReviewStatus).where(CostMonthlyReviewStatus.month == month)
+        ).scalars().all()
+    }
+
+    rows = []
+    counts = {'pending_review': 0, 'reviewed': 0, 'month_closed': 0}
+    for rollup in rollups:
+        status_row = statuses.get((rollup.month, rollup.workshop_code, rollup.strategy_code))
+        status = status_row.status if status_row else 'pending_review'
+        if status not in counts:
+            status = 'pending_review'
+        counts[status] += 1
+        rows.append(_cost_review_status_out(rollup, status_row, status=status))
+
+    return {
+        'summary': {
+            'month': month,
+            'rollup_count': len(rows),
+            'pending_review': counts['pending_review'],
+            'reviewed': counts['reviewed'],
+            'month_closed': counts['month_closed'],
+        },
+        'rows': rows,
+    }
+
+
+def update_cost_strategy_review_status(
+    db: Session,
+    *,
+    month: str,
+    workshop_code: str,
+    strategy_code: str,
+    action: str,
+    note: Optional[str],
+    operator_id: int,
+) -> dict:
+    month = _required_month(month)
+    workshop_code = str(workshop_code or '').strip()
+    strategy_code = str(strategy_code or '').strip()
+    action = str(action or '').strip()
+    if action not in {'review', 'close'}:
+        raise ValueError('unsupported_cost_review_action')
+    if not workshop_code or not strategy_code:
+        raise ValueError('workshop_code and strategy_code are required')
+
+    rollup = db.execute(
+        select(CostMonthlyRollup).where(
+            CostMonthlyRollup.month == month,
+            CostMonthlyRollup.workshop_code == workshop_code,
+            CostMonthlyRollup.strategy_code == strategy_code,
+        )
+    ).scalar_one_or_none()
+    if rollup is None:
+        raise ValueError('cost_monthly_rollup_not_found')
+
+    status_row = db.execute(
+        select(CostMonthlyReviewStatus).where(
+            CostMonthlyReviewStatus.month == month,
+            CostMonthlyReviewStatus.workshop_code == workshop_code,
+            CostMonthlyReviewStatus.strategy_code == strategy_code,
+        )
+    ).scalar_one_or_none()
+    if status_row is None:
+        status_row = CostMonthlyReviewStatus(
+            month=month,
+            workshop_code=workshop_code,
+            strategy_code=strategy_code,
+            status='pending_review',
+        )
+        db.add(status_row)
+
+    now = datetime.now(timezone.utc)
+    clean_note = str(note or '').strip() or None
+    if action == 'review':
+        if status_row.status == 'month_closed':
+            raise ValueError('cost_monthly_rollup_already_closed')
+        status_row.status = 'reviewed'
+        status_row.reviewed_by = operator_id
+        status_row.reviewed_at = now
+        status_row.review_note = clean_note
+    else:
+        if status_row.status != 'reviewed' or status_row.reviewed_at is None:
+            raise ValueError('cost_monthly_rollup_requires_review')
+        status_row.status = 'month_closed'
+        status_row.closed_by = operator_id
+        status_row.closed_at = now
+        status_row.close_note = clean_note
+
+    db.flush()
+    return _cost_review_status_out(rollup, status_row, status=status_row.status)
+
+
+def _cost_review_status_out(
+    rollup: CostMonthlyRollup,
+    status_row: Optional[CostMonthlyReviewStatus],
+    *,
+    status: str,
+) -> dict:
+    return {
+        'month': rollup.month,
+        'workshop_code': rollup.workshop_code,
+        'strategy_code': rollup.strategy_code,
+        'month_total_cost': _q(Decimal(str(rollup.month_total_cost or 0)), 2),
+        'month_output_ton_cost': _q(Decimal(str(rollup.month_output_ton_cost or 0)), 2),
+        'month_throughput_ton_cost': _q(Decimal(str(rollup.month_throughput_ton_cost or 0)), 2),
+        'source': rollup.source,
+        'status': status,
+        'reviewed_by': status_row.reviewed_by if status_row else None,
+        'reviewed_at': _iso_datetime(status_row.reviewed_at) if status_row else None,
+        'closed_by': status_row.closed_by if status_row else None,
+        'closed_at': _iso_datetime(status_row.closed_at) if status_row else None,
+        'review_note': status_row.review_note if status_row else None,
+        'close_note': status_row.close_note if status_row else None,
+    }
+
+
 def _upsert_cost_price_master(db: Session, row: dict[str, Any]) -> None:
     effective_from = _required_date(row, 'effective_from')
     workshop_scope = _text(row, 'workshop_scope', default='ALL')
@@ -438,6 +567,14 @@ def _optional_date(row: dict[str, Any], key: str) -> Optional[date]:
     return date.fromisoformat(str(value).strip())
 
 
+def _required_month(value: str) -> str:
+    month = str(value or '').strip()
+    if len(month) != 7:
+        raise ValueError('month must be YYYY-MM')
+    date.fromisoformat(f'{month}-01')
+    return month
+
+
 def _decimal(row: dict[str, Any], *keys: str) -> Decimal:
     value = _get(row, *keys, default=0)
     if value in (None, ''):
@@ -469,9 +606,15 @@ def _q(v: Optional[Decimal], digits: int) -> Optional[float]:
         return None
 
 
+def _iso_datetime(value: Optional[datetime]) -> Optional[str]:
+    return value.isoformat() if value else None
+
+
 __all__ = [
     'build_executive_dashboard',
     'build_machine_ranking',
     'build_aluminum_price_trend',
     'persist_cost_strategy_snapshot',
+    'build_cost_strategy_review_status',
+    'update_cost_strategy_review_status',
 ]

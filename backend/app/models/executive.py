@@ -227,6 +227,39 @@ class CostMonthlyRollup(Base):
     )
 
 
+class CostMonthlyReviewStatus(Base):
+    """成本策略月度复核状态。记录经营快照是否完成复核和月度锁定。"""
+
+    __tablename__ = 'cost_monthly_review_status'
+    __table_args__ = (
+        UniqueConstraint(
+            'month',
+            'workshop_code',
+            'strategy_code',
+            name='uq_cost_monthly_review_status_version',
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    month: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    workshop_code: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    strategy_code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default='pending_review', index=True)
+    reviewed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    close_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class CostVarianceRecord(Base):
     """成本策略校差记录。用于保留不同口径之间的差异提示。"""
 
