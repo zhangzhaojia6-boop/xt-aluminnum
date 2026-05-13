@@ -7,7 +7,7 @@
     data-testid="live-dashboard"
   >
     <template #actions>
-      <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
+      <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" @change="handleTargetDateChange" />
       <div class="live-dashboard__connection">
         <span :class="['live-dashboard__connection-dot', `is-${connectionTone}`]"></span>
         <span>{{ connectionLabel }}</span>
@@ -668,6 +668,7 @@ import {
   buildUnboundFillSummary,
   buildWorkshopFillIntakeRows,
   buildCommandCenterSummary,
+  shouldSwitchToRealtimeBusinessDate,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
   statusToneForCell
@@ -678,6 +679,7 @@ const authStore = useAuthStore()
 const route = useRoute()
 
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const autoActiveDateMode = ref(true)
 const loading = ref(false)
 const drawerVisible = ref(false)
 const drawerLoading = ref(false)
@@ -1106,6 +1108,7 @@ async function initializeActiveBusinessDate() {
   try {
     const payload = await fetchLiveActiveDate()
     if (payload?.business_date && payload.business_date !== targetDate.value) {
+      autoActiveDateMode.value = true
       targetDate.value = payload.business_date
       return true
     }
@@ -1113,6 +1116,24 @@ async function initializeActiveBusinessDate() {
     return false
   }
   return false
+}
+
+function handleTargetDateChange() {
+  autoActiveDateMode.value = false
+}
+
+function switchToRealtimeBusinessDateFromEvent(payload = {}) {
+  const eventBusinessDate = String(payload.business_date || '').trim()
+  if (!shouldSwitchToRealtimeBusinessDate({
+    targetDate: targetDate.value,
+    eventBusinessDate,
+    aggregation: aggregation.value,
+    autoMode: autoActiveDateMode.value
+  })) {
+    return false
+  }
+  targetDate.value = eventBusinessDate
+  return true
 }
 
 function scheduleReload() {
@@ -1173,7 +1194,10 @@ function syncDrawerWithVerification(payload) {
 }
 
 function applyEntrySubmitted(payload) {
-  if (payload.business_date && payload.business_date !== targetDate.value) return
+  if (payload.business_date && payload.business_date !== targetDate.value) {
+    if (switchToRealtimeBusinessDateFromEvent(payload)) return
+    return
+  }
   const match = findCell(payload)
   if (!match) {
     scheduleReload()

@@ -15,6 +15,7 @@ import {
   buildUnboundFillSummary,
   buildWorkshopFillIntakeRows,
   dataSourceLabel,
+  shouldSwitchToRealtimeBusinessDate,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
   statusToneForCell,
@@ -135,6 +136,43 @@ test('buildLiveRealityStatus explains active fill date and MES machine binding',
   assert.equal(summary.routeLabel, '路线推断 8 行')
   assert.equal(summary.upstreamLabel, '上游机列码缺失 21 行')
   assert.equal(summary.pendingLabel, '待归属 0 卷')
+})
+
+test('shouldSwitchToRealtimeBusinessDate follows recent fill uploads when current day is empty', () => {
+  const shouldSwitch = shouldSwitchToRealtimeBusinessDate({
+    targetDate: '2026-05-13',
+    eventBusinessDate: '2026-05-12',
+    aggregation: {
+      business_date: '2026-05-13',
+      business_date_context: {
+        requested_business_date: '2026-05-13',
+        current_business_date: '2026-05-13',
+        requested_entry_count: 0,
+        current_date_entry_count: 0,
+      },
+    },
+  })
+
+  assert.equal(shouldSwitch, true)
+})
+
+test('shouldSwitchToRealtimeBusinessDate keeps manual historical dates stable', () => {
+  const shouldSwitch = shouldSwitchToRealtimeBusinessDate({
+    targetDate: '2026-05-11',
+    eventBusinessDate: '2026-05-12',
+    autoMode: false,
+    aggregation: {
+      business_date: '2026-05-11',
+      business_date_context: {
+        requested_business_date: '2026-05-11',
+        current_business_date: '2026-05-13',
+        requested_entry_count: 21,
+        current_date_entry_count: 0,
+      },
+    },
+  })
+
+  assert.equal(shouldSwitch, false)
 })
 
 test('buildPendingAssignmentSummary exposes draft coils missing machine ownership', () => {
