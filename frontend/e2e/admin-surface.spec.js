@@ -111,6 +111,33 @@ test('admin ops route renders the observability smoke surface', async ({ page })
   await expect(opsCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('admin ops route shows live fill and external MES binding status without overflow', async ({ page }) => {
+  await loginAsAdmin(page)
+
+  for (const viewport of [
+    { width: 1366, height: 820 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/manage/admin/settings?desktop=1')
+
+    const strip = page.locator('.live-reality-strip')
+    await expect(strip).toBeVisible()
+    await expect(strip.getByText('实时数据日期')).toBeVisible()
+    await expect(strip.getByText('当前显示 2026-05-12')).toBeVisible()
+    await expect(strip.getByText('今天 2026-05-13 暂无填报')).toBeVisible()
+    await expect(strip.getByText('外部 MES 机列绑定')).toBeVisible()
+    await expect(strip.getByText('已绑机列 22 卷')).toBeVisible()
+    await expect(strip.getByText('上游机列码缺失 21 行 · 待归属 0 卷')).toBeVisible()
+
+    const overflow = await page.evaluate(() => Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth
+    ))
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
+})
+
 test('admin governance route renders the permission governance smoke surface', async ({ page }) => {
   await loginAsAdmin(page)
   await page.goto('/manage/admin/governance')

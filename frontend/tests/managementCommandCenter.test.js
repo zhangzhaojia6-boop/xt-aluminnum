@@ -6,6 +6,7 @@ import { manageNavGroups } from '../src/config/manage-navigation.js'
 import {
   buildCommandCenterSummary,
   buildFillIntakeSummary,
+  buildLiveRealityStatus,
   buildMachineOwnershipSummary,
   buildMissingOutputWeightSummary,
   buildOutputDistribution,
@@ -92,6 +93,48 @@ test('buildFillIntakeSummary separates formal and draft entry intake', () => {
   assert.equal(summary.missingCellCount, 2)
   assert.equal(summary.draftRate, 25)
   assert.equal(summary.tone, 'warning')
+})
+
+test('buildLiveRealityStatus explains active fill date and MES machine binding', () => {
+  const summary = buildLiveRealityStatus({
+    business_date: '2026-05-12',
+    business_date_context: {
+      requested_business_date: '2026-05-12',
+      current_business_date: '2026-05-13',
+      active_business_date: '2026-05-12',
+      active_date_source: 'recent_upload',
+      latest_fill_business_date: '2026-05-12',
+      requested_entry_count: 36,
+      current_date_entry_count: 0,
+      active_date_entry_count: 36,
+      has_current_date_entries: false,
+      is_requested_current_date: false,
+      is_showing_active_business_date: true,
+    },
+    mes_machine_binding: {
+      mes_row_count: 21,
+      route_inferred_machine_count: 8,
+      upstream_machine_code_missing_count: 21,
+      fill_entries_with_mes_match: 22,
+      fill_entries_bound_to_machine: 22,
+      fill_entries_pending_machine: 0,
+    },
+    overall_progress: {
+      total_entry_count: 36,
+    },
+  })
+
+  assert.equal(summary.tone, 'warning')
+  assert.equal(summary.primaryLabel, '当前显示 2026-05-12')
+  assert.equal(summary.currentDateLabel, '今天 2026-05-13 暂无填报')
+  assert.equal(summary.activeDateLabel, '最近有效日 2026-05-12 · 36 卷')
+  assert.equal(summary.fillLabel, '填报端 36 卷')
+  assert.equal(summary.mesLabel, '外部 MES 21 行')
+  assert.equal(summary.matchLabel, '匹配填报 22 卷')
+  assert.equal(summary.bindingLabel, '已绑机列 22 卷')
+  assert.equal(summary.routeLabel, '路线推断 8 行')
+  assert.equal(summary.upstreamLabel, '上游机列码缺失 21 行')
+  assert.equal(summary.pendingLabel, '待归属 0 卷')
 })
 
 test('buildPendingAssignmentSummary exposes draft coils missing machine ownership', () => {
@@ -551,6 +594,11 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /workshopFillIntakeRows/)
   assert.match(liveDashboardSource, /fill-workshop-flow/)
   assert.match(liveDashboardSource, /buildWorkshopFillIntakeRows/)
+  assert.match(liveDashboardSource, /实时数据日期/)
+  assert.match(liveDashboardSource, /外部 MES 机列绑定/)
+  assert.match(liveDashboardSource, /live-reality-strip/)
+  assert.match(liveDashboardSource, /liveRealityStatus/)
+  assert.match(liveDashboardSource, /buildLiveRealityStatus/)
   assert.match(liveDashboardSource, /草稿待归属/)
   assert.match(liveDashboardSource, /pendingAssignmentSummary/)
   assert.match(liveDashboardSource, /buildPendingAssignmentSummary/)

@@ -111,6 +111,26 @@
       </div>
     </section>
 
+    <section class="live-reality-strip" :class="`is-${liveRealityStatus.tone}`" aria-label="实时数据日期">
+      <div class="live-reality-strip__block live-reality-strip__block--date">
+        <span>实时数据日期</span>
+        <strong>{{ liveRealityStatus.primaryLabel }}</strong>
+        <em>{{ liveRealityStatus.currentDateLabel }}</em>
+        <em>{{ liveRealityStatus.activeDateLabel }}</em>
+      </div>
+      <div class="live-reality-strip__block">
+        <span>填报端上传</span>
+        <strong>{{ liveRealityStatus.fillLabel }}</strong>
+        <em>{{ liveRealityStatus.matchLabel }}</em>
+      </div>
+      <div class="live-reality-strip__block live-reality-strip__block--mes">
+        <span>外部 MES 机列绑定</span>
+        <strong>{{ liveRealityStatus.bindingLabel }}</strong>
+        <em>{{ liveRealityStatus.mesLabel }} · {{ liveRealityStatus.routeLabel }}</em>
+        <em>{{ liveRealityStatus.upstreamLabel }} · {{ liveRealityStatus.pendingLabel }}</em>
+      </div>
+    </section>
+
     <section class="fill-intake-strip" :class="`is-${fillIntakeSummary.tone}`" aria-label="填报接入">
       <div class="fill-intake-strip__head">
         <strong>填报接入</strong>
@@ -642,6 +662,7 @@ import {
   buildMissingOutputWeightSummary,
   buildOutputDistribution,
   buildFillIntakeSummary,
+  buildLiveRealityStatus,
   buildPendingAssignmentSummary,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
@@ -689,6 +710,8 @@ function createEmptyAggregation(businessDate) {
     workshops: [],
     yield_matrix_lane: {},
     mes_sync_status: {},
+    business_date_context: {},
+    mes_machine_binding: {},
     data_quality: {},
     data_source: 'work_order_runtime',
     factory_total: {
@@ -817,6 +840,7 @@ const marginToneClass = computed(() => `is-${marginTone(managementOverview.value
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
+const liveRealityStatus = computed(() => buildLiveRealityStatus(aggregation.value))
 const pendingAssignmentSummary = computed(() => buildPendingAssignmentSummary(aggregation.value, 3))
 const missingOutputWeightSummary = computed(() => buildMissingOutputWeightSummary(aggregation.value, 3))
 const activeMissingOutputInputLimit = computed(() => numberValue(activeMissingOutput.value?.inputWeight))
@@ -1687,6 +1711,68 @@ onBeforeUnmount(() => {
 
 .mes-sync-stability__bars .is-muted {
   background: #9aa8ba;
+}
+
+.live-reality-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.82fr) minmax(180px, 0.55fr) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.15);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(244, 249, 255, 0.94), rgba(255, 255, 255, 0.97)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.live-reality-strip.is-warning {
+  border-color: rgba(183, 121, 31, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 229, 0.78), rgba(255, 255, 255, 0.96)),
+    #fff;
+}
+
+.live-reality-strip__block {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.live-reality-strip__block span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.live-reality-strip__block strong {
+  overflow-wrap: anywhere;
+  color: var(--command-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.live-reality-strip__block em {
+  overflow-wrap: anywhere;
+  color: var(--command-blue-deep);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.live-reality-strip.is-warning .live-reality-strip__block--date em:first-of-type {
+  color: var(--command-amber);
+}
+
+.live-reality-strip__block--mes {
+  border-color: rgba(39, 88, 146, 0.16);
 }
 
 .external-readiness-lanes {
@@ -3160,7 +3246,8 @@ onBeforeUnmount(() => {
 
   .live-pending-assignment,
   .live-missing-output,
-  .live-unbound-fill {
+  .live-unbound-fill,
+  .live-reality-strip {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
