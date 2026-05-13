@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 10:44:03 +08:00
+更新时间：2026-05-13 10:49:02 +08:00
 
 ## 1. 仓库状态
 
@@ -124,7 +124,7 @@ db 容器: PostgreSQL 15
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：38 passed，1 deselected
 - `python -m pytest backend/tests -q`：806 passed，124 deselected，39 warnings
 - `npm --prefix frontend test`：131 passed
-- `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning；产物包含 `LiveDashboard-XfJ5fq5F.js` 与 `LiveDashboard-B-I9Bspk.css`
+- `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning；本地产物包含 `LiveDashboard-XfJ5fq5F.js` 与 `LiveDashboard-B-I9Bspk.css`，线上部署复核命中 `LiveDashboard-XegmJ78Z.js` 与 `LiveDashboard-gJEiM4Nz.css` 的 `external-readiness-missing`
 - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js --grep "external missing input"`：1 passed，覆盖 `1366x820` 与 `390x844` 无横向溢出
 - `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected
 - `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected
