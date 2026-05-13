@@ -56,6 +56,22 @@ class _FakeDB:
         raise AssertionError(model)
 
 
+class _FakePostgresBind:
+    dialect = SimpleNamespace(name='postgresql')
+
+
+class _FakePostgresDB(_FakeDB):
+    def __init__(self):
+        super().__init__()
+        self.executed = []
+
+    def get_bind(self):
+        return _FakePostgresBind()
+
+    def execute(self, statement, params=None):
+        self.executed.append((str(statement), params or {}))
+
+
 def test_sync_coil_snapshots_updates_cursor_and_stats(monkeypatch):
     db = _FakeDB()
     cursor = SimpleNamespace(cursor_key='coil_snapshots', cursor_value='cursor-1', last_event_at=None, last_synced_at=None, window_started_at=None)
@@ -170,6 +186,25 @@ def test_upsert_snapshot_uses_fallback_key_without_product_id():
 
     entity = next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot')
     assert entity.coil_id == 'fallback:BN-2602:5052-O'
+
+
+def test_upsert_snapshot_locks_projected_key_on_postgresql():
+    db = _FakePostgresDB()
+    snapshot = CoilSnapshot(
+        coil_id='',
+        tracking_card_no='BN-2602',
+        batch_no='BN-2602',
+        metadata={'MaterialCode': '5052-O'},
+    )
+
+    mes_sync_service._upsert_snapshot(db, snapshot=snapshot, synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC))
+
+    assert db.executed == [
+        (
+            'SELECT pg_advisory_xact_lock(hashtext(:lock_key))',
+            {'lock_key': 'mes_coil_snapshot:fallback:BN-2602:5052-O'},
+        )
+    ]
 
 
 def test_sync_machine_lines_maps_device_slots_to_stable_line_codes(monkeypatch):

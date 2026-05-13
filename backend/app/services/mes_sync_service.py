@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Mapping
 
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -226,6 +227,23 @@ def _query_first(query):
     return None
 
 
+def _dialect_name(db: Session) -> str:
+    try:
+        bind = db.get_bind()
+    except Exception:  # noqa: BLE001
+        return ''
+    return str(getattr(getattr(bind, 'dialect', None), 'name', '') or '')
+
+
+def _lock_snapshot_key(db: Session, *, coil_id: str) -> None:
+    if _dialect_name(db) != 'postgresql':
+        return
+    db.execute(
+        text('SELECT pg_advisory_xact_lock(hashtext(:lock_key))'),
+        {'lock_key': f'mes_coil_snapshot:{coil_id}'},
+    )
+
+
 def _duration_seconds(started_at: datetime | None, finished_at: datetime | None) -> float | None:
     start = _as_utc(started_at)
     finish = _as_utc(finished_at)
@@ -346,6 +364,7 @@ def _window_started_at(now: datetime, *, cursor: MesSyncCursor) -> datetime:
 def _upsert_snapshot(db: Session, *, snapshot: CoilSnapshot, synced_at: datetime) -> tuple[bool, bool]:
     projection = _projection_fields(snapshot, synced_at)
     coil_id = projection['coil_id']
+    _lock_snapshot_key(db, coil_id=coil_id)
     existing = _query_first(db.query(MesCoilSnapshot).filter(MesCoilSnapshot.coil_id == coil_id))
     payload = _serialize_snapshot(snapshot)
     business_date = (snapshot.updated_at or snapshot.event_time).date() if (snapshot.updated_at or snapshot.event_time) else None
