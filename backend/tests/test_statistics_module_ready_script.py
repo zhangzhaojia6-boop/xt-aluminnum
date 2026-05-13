@@ -225,6 +225,36 @@ def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integ
         'APP_CONNECTION_API_BASE',
         'APP_CONNECTION_API_KEY',
     ]
+    purposes = {item['purpose'] for item in payload['missing_inputs']}
+    assert 'LLM/AI 摘要增强' in purposes
+    assert '应用连接外发' in purposes
+    assert '钉钉日报触达' in purposes
+    llm_input = next(item for item in payload['missing_inputs'] if item['issue_code'] == 'LLM_DISABLED')
+    assert llm_input['location'] == '服务器 backend/.env'
+    assert 'LLM_API_KEY' in llm_input['missing_fields']
+    assert 'LLM_ENABLED=true' in llm_input['suggested_value']
+
+
+def test_missing_inputs_markdown_uses_operator_columns_without_secret_values() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(
+            LLM_ENABLED=False,
+            APP_CONNECTION_ENABLED=False,
+        ),
+        sessionmaker_factory=_sessionmaker_with_dingtalk_counts(user_count=0, employee_count=0),
+    )
+
+    markdown = module.format_missing_inputs_markdown(payload['missing_inputs'])
+
+    assert '| 用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值 |' in markdown
+    assert 'LLM/AI 摘要增强' in markdown
+    assert '应用连接外发' in markdown
+    assert '钉钉真实人员触达' in markdown
+    assert '<现场提供>' in markdown
+    assert 'llm-key' not in markdown
+    assert 'app-key' not in markdown
 
 
 def test_inspect_statistics_module_ready_reports_mes_when_not_configured() -> None:

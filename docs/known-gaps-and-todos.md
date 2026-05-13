@@ -44,6 +44,7 @@
 - 生产 `/readyz` 已为 ready，外部 MES 同步也可用，但这只代表系统地基和 MES 投影链路可用，不能把 `/readyz` ready 误判为外部联通完成
 - 当前 `python scripts/check_statistics_module_ready.py --json` 仍返回 hard fail：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`
 - 正式试用闸门应加跑 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation`，用实时聚合只读探针确认管理端实时数据服务可计算；当天无填报不算失败，服务异常才算 `LIVE_AGGREGATION_UNAVAILABLE`
+- 对外索取现场输入前应先跑 `python scripts/check_statistics_module_ready.py --missing-inputs`，输出用途、所在位置、缺失字段、影响范围和建议取值，不凭记忆手写清单
 - 当前 warning 仍为 `DINGTALK_NO_BOUND_USERS`：钉钉应用已启用，但 active 用户/员工没有绑定 `dingtalk_user_id`，真实人员触达和客户端 UAT 未闭环
 - 后续正式试用前需要在服务器 `backend/.env` 补齐真实 LLM、应用连接 API 和钉钉人员绑定；缺密钥时只能保留清单，不能猜值或写入仓库
 

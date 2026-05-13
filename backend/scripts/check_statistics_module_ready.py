@@ -49,6 +49,192 @@ def _issue(
     return payload
 
 
+_MISSING_INPUT_CATALOG: dict[str, dict[str, Any]] = {
+    'MES_UNCONFIGURED': {
+        'purpose': '外部 MES 数据源',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+        'impact': '外部 MES 投影不可用，实时流转与机列绑定只能依赖本地填报。',
+        'suggested_value': 'MES_ADAPTER=mvc；其余字段填现场 MES 地址和账号密钥。',
+    },
+    'MES_REST_CONFIG_MISSING': {
+        'purpose': '外部 MES REST 数据源',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_KEY'],
+        'impact': '外部 MES REST 同步不可用。',
+        'suggested_value': 'MES_ADAPTER=rest_api；MES_API_BASE=<现场提供>；MES_API_KEY=<现场提供>。',
+    },
+    'MES_MVC_CONFIG_MISSING': {
+        'purpose': '外部 MES MVC 数据源',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+        'impact': '外部 MES MVC 同步不可用。',
+        'suggested_value': 'MES_ADAPTER=mvc；MES_MVC_BASE_URL=<现场提供>；MES_MVC_USERNAME=<现场提供>；MES_MVC_PASSWORD=<现场提供>。',
+    },
+    'WORKFLOW_DISABLED': {
+        'purpose': '自动日报 workflow',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['WORKFLOW_ENABLED'],
+        'impact': '自动日报生成与后续触达链路不会运行。',
+        'suggested_value': 'WORKFLOW_ENABLED=true。',
+    },
+    'AUTO_PUBLISH_DISABLED': {
+        'purpose': '日报自动发布',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['AUTO_PUBLISH_ENABLED'],
+        'impact': '日报生成后不会进入发布状态。',
+        'suggested_value': 'AUTO_PUBLISH_ENABLED=true。',
+    },
+    'AUTO_PUSH_DISABLED': {
+        'purpose': '日报自动触达',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['AUTO_PUSH_ENABLED'],
+        'impact': '日报不会自动推送到外部触达通道。',
+        'suggested_value': 'AUTO_PUSH_ENABLED=true。',
+    },
+    'LLM_DISABLED': {
+        'purpose': 'LLM/AI 摘要增强',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_ENDPOINT_ID'],
+        'impact': 'AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通。',
+        'suggested_value': 'LLM_ENABLED=true；LLM_API_BASE=<现场提供>；LLM_API_KEY=<现场提供>；LLM_MODEL=<模型名> 或 LLM_ENDPOINT_ID=<endpoint>。',
+    },
+    'LLM_CONFIG_MISSING': {
+        'purpose': 'LLM/AI 摘要增强',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['LLM_API_BASE', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_ENDPOINT_ID'],
+        'impact': 'AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通。',
+        'suggested_value': 'LLM_API_BASE=<现场提供>；LLM_API_KEY=<现场提供>；LLM_MODEL=<模型名> 或 LLM_ENDPOINT_ID=<endpoint>。',
+    },
+    'DINGTALK_DISABLED': {
+        'purpose': '钉钉日报触达',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['DINGTALK_ENABLED', 'DINGTALK_CORP_ID', 'DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET', 'DINGTALK_AGENT_ID'],
+        'impact': '日报和提醒不能发送到钉钉。',
+        'suggested_value': 'DINGTALK_ENABLED=true；其余字段填钉钉开放平台真实应用配置。',
+    },
+    'DINGTALK_CONFIG_MISSING': {
+        'purpose': '钉钉日报触达',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['DINGTALK_CORP_ID', 'DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET', 'DINGTALK_AGENT_ID'],
+        'impact': '日报和提醒不能发送到钉钉。',
+        'suggested_value': '填钉钉开放平台真实应用配置，不写入 Git。',
+    },
+    'DINGTALK_NO_BOUND_USERS': {
+        'purpose': '钉钉真实人员触达',
+        'location': '生产数据库 users/employees 与钉钉通讯录',
+        'missing_fields': ['users.dingtalk_user_id', 'employees.dingtalk_user_id'],
+        'impact': 'token 可用但通知不能送达真实人员，真实客户端 UAT 不能闭环。',
+        'suggested_value': '同步通讯录后，为试点 active 用户或员工绑定真实 dingtalk_user_id。',
+    },
+    'DINGTALK_CONTACTS_PERMISSION_MISSING': {
+        'purpose': '钉钉通讯录同步',
+        'location': '钉钉开放平台应用权限',
+        'missing_fields': ['qyapi_get_department_member'],
+        'impact': '无法读取通讯录成员，不能自动完成人员绑定。',
+        'suggested_value': '给当前钉钉应用开通通讯录成员读取权限后重跑只读诊断。',
+    },
+    'APP_CONNECTION_DISABLED': {
+        'purpose': '应用连接外发',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['APP_CONNECTION_ENABLED', 'APP_CONNECTION_PUSH_MODE', 'APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+        'impact': '统计模块不能对外推送，正式外部连接面未启用。',
+        'suggested_value': 'APP_CONNECTION_ENABLED=true；APP_CONNECTION_PUSH_MODE=enabled；APP_CONNECTION_API_BASE=<现场提供>；APP_CONNECTION_API_KEY=<现场提供>。',
+    },
+    'APP_CONNECTION_PUSH_DISABLED': {
+        'purpose': '应用连接外发',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['APP_CONNECTION_PUSH_MODE', 'APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+        'impact': '应用连接 API 未进入可外发状态。',
+        'suggested_value': 'APP_CONNECTION_PUSH_MODE=enabled；APP_CONNECTION_API_BASE=<现场提供>；APP_CONNECTION_API_KEY=<现场提供>。',
+    },
+    'APP_CONNECTION_DRY_RUN_ONLY': {
+        'purpose': '应用连接外发',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['APP_CONNECTION_PUSH_MODE', 'APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+        'impact': '应用连接仍是 dry-run，不能作为正式外发证据。',
+        'suggested_value': 'APP_CONNECTION_PUSH_MODE=enabled；APP_CONNECTION_API_BASE=<现场提供>；APP_CONNECTION_API_KEY=<现场提供>。',
+    },
+    'APP_CONNECTION_CONFIG_MISSING': {
+        'purpose': '应用连接外发',
+        'location': '服务器 backend/.env',
+        'missing_fields': ['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+        'impact': '应用连接 API 已启用但没有真实地址或密钥。',
+        'suggested_value': 'APP_CONNECTION_API_BASE=<现场提供>；APP_CONNECTION_API_KEY=<现场提供>。',
+    },
+}
+
+
+def _missing_input_from_issue(issue: dict[str, Any]) -> dict[str, Any] | None:
+    code = str(issue.get('code') or '').strip()
+    catalog_item = _MISSING_INPUT_CATALOG.get(code)
+    if catalog_item:
+        return {
+            'issue_code': code,
+            'level': issue.get('level') or 'hard',
+            **catalog_item,
+        }
+    required_env = issue.get('required_env') or []
+    if not required_env:
+        return None
+    return {
+        'issue_code': code,
+        'level': issue.get('level') or 'hard',
+        'purpose': issue.get('message') or code,
+        'location': '服务器 backend/.env',
+        'missing_fields': list(required_env),
+        'impact': issue.get('message') or '正式试用前需要补齐该项。',
+        'suggested_value': issue.get('suggestion') or '按现场真实配置填写。',
+    }
+
+
+def build_missing_inputs(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for issue in issues:
+        row = _missing_input_from_issue(issue)
+        if row is None:
+            continue
+        key = (str(row['issue_code']), str(row['purpose']))
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(row)
+    return rows
+
+
+def _format_missing_fields(fields: list[str]) -> str:
+    return '、'.join(f'`{item}`' for item in fields)
+
+
+def _table_cell(value: object) -> str:
+    return str(value if value is not None else '').replace('\n', '<br>').replace('|', '\\|')
+
+
+def format_missing_inputs_markdown(missing_inputs: list[dict[str, Any]]) -> str:
+    if not missing_inputs:
+        return '当前没有缺失外部输入。\n'
+    lines = [
+        '| 用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值 |',
+        '| --- | --- | --- | --- | --- |',
+    ]
+    for item in missing_inputs:
+        lines.append(
+            '| '
+            + ' | '.join(
+                [
+                    _table_cell(item.get('purpose')),
+                    _table_cell(item.get('location')),
+                    _table_cell(_format_missing_fields(item.get('missing_fields') or [])),
+                    _table_cell(item.get('impact')),
+                    _table_cell(item.get('suggested_value')),
+                ]
+            )
+            + ' |'
+        )
+    return '\n'.join(lines) + '\n'
+
+
 def _scalar_int(db, statement: str) -> int:
     result = db.execute(text(statement))
     scalar = result.scalar() if hasattr(result, 'scalar') else result
@@ -611,6 +797,7 @@ def inspect_statistics_module_ready(
     local_runnable = runtime_valid and database_ok
     hard_issues = [item for item in issues if item['level'] == 'hard']
     warning_issues = [item for item in issues if item['level'] == 'warning']
+    missing_inputs = build_missing_inputs([*hard_issues, *warning_issues])
     module_usable = (
         local_runnable
         and not hard_issues
@@ -627,6 +814,7 @@ def inspect_statistics_module_ready(
         'external_connection_enabled': external_connection_enabled,
         'hard_issues': hard_issues,
         'warning_issues': warning_issues,
+        'missing_inputs': missing_inputs,
         'stats': {
             'workflow_enabled': runtime.WORKFLOW_ENABLED,
             'auto_publish_enabled': runtime.AUTO_PUBLISH_ENABLED,
@@ -666,6 +854,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description='统计模块可用性自检')
     parser.add_argument('--json', dest='json_mode', action='store_true', help='以 JSON 输出完整结果')
     parser.add_argument('--env-template', action='store_true', help='输出正式外部联通所需 .env 模板，不回显现有密钥')
+    parser.add_argument('--missing-inputs', action='store_true', help='输出正式外部联通仍缺的现场输入清单，不回显密钥')
     parser.add_argument('--check-dingtalk-contacts', action='store_true', help='显式执行钉钉通讯录只读权限诊断')
     parser.add_argument('--dingtalk-department-id', type=int, default=1, help='钉钉通讯录诊断部门 ID')
     parser.add_argument('--check-live-aggregation', action='store_true', help='显式执行实时聚合只读探针，验证管理端实时数据服务可计算')
@@ -682,6 +871,9 @@ def main() -> int:
     )
     if args.json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.missing_inputs:
+        print(format_missing_inputs_markdown(result['missing_inputs']), end='')
+        return 0
     else:
         print(f"本地可运行：{'是' if result['local_runnable'] else '否'}")
         print(f"统计模块可用：{'是' if result['module_usable'] else '否'}")

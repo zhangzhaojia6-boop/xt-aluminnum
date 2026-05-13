@@ -200,6 +200,12 @@ db 容器: PostgreSQL 15
 python scripts/check_statistics_module_ready.py --json --check-live-aggregation
 ```
 
+缺少现场输入时，可直接输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的清单：
+
+```bash
+python scripts/check_statistics_module_ready.py --missing-inputs
+```
+
 2026-05-13 线上复验结论：
 
 - `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`
