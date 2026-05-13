@@ -50,6 +50,10 @@ const realtimeApiSource = readFileSync(
   new URL('../src/api/realtime.js', import.meta.url),
   'utf8',
 )
+const executiveApiSource = readFileSync(
+  new URL('../src/api/executive.js', import.meta.url),
+  'utf8',
+)
 
 const baseAggregation = {
   overall_progress: {
@@ -720,6 +724,20 @@ test('CostAccountingCenter starts with a readable operating ledger', () => {
   assert.doesNotMatch(costCenterSource, /revenuePerTon:\s*1200/)
   assert.match(costCenterSource, /process-mobile-list/)
   assert.match(costCenterSource, /高级参数/)
+})
+
+test('CostAccountingCenter can persist generated cost table snapshots', () => {
+  assert.match(executiveApiSource, /saveCostStrategySnapshot/)
+  assert.match(executiveApiSource, /api\.post\('\/executive\/cost-strategy-snapshots'/)
+  assert.match(executiveApiSource, /tableModels/)
+  assert.match(costCenterSource, /saveCostStrategySnapshot/)
+  assert.match(costCenterSource, /data-testid="cost-snapshot-save"/)
+  assert.match(costCenterSource, /保存快照/)
+  assert.match(costCenterSource, /snapshotSaving/)
+  assert.match(costCenterSource, /snapshotSavedAt/)
+  assert.match(costCenterSource, /canPersistSnapshot/)
+  assert.match(costCenterSource, /useAuthStore/)
+  assert.match(costCenterSource, /handleSaveSnapshot/)
 })
 
 test('LiveDashboard keeps the command matrix contained on narrow screens', () => {

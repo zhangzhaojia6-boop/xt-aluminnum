@@ -16,6 +16,19 @@
       </el-select>
       <el-segmented v-model="caliber" :options="caliberOptions" />
       <el-button type="primary" @click="recalculate">重新计算</el-button>
+      <el-button
+        type="primary"
+        :icon="Upload"
+        :loading="snapshotSaving"
+        :disabled="!canSaveSnapshot || !canPersistSnapshot"
+        data-testid="cost-snapshot-save"
+        @click="handleSaveSnapshot"
+      >
+        保存快照
+      </el-button>
+      <span v-if="snapshotSavedAt" class="cost-snapshot-status" data-testid="cost-snapshot-status">
+        已保存 {{ snapshotSavedAt }}
+      </span>
     </template>
 
     <section class="cost-ledger" data-testid="cost-ledger">
@@ -170,9 +183,12 @@
 import dayjs from 'dayjs'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Upload } from '@element-plus/icons-vue'
 
+import { saveCostStrategySnapshot } from '../../api/executive'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { COST_STRATEGIES, COST_TABLE_KEYS, evaluateCostScenario } from '../../services/costing/engine.ts'
+import { useAuthStore } from '../../stores/auth'
 import { formatNumber } from '../../utils/display'
 
 const strategyOptions = [
@@ -205,6 +221,9 @@ const strategyCode = ref(COST_STRATEGIES.CASTING_MACHINE_LABOR_SPLIT)
 const workshopCode = ref('ZR2')
 const caliber = ref('output')
 const scenarioJson = ref('')
+const snapshotSaving = ref(false)
+const snapshotSavedAt = ref('')
+const authStore = useAuthStore()
 const result = ref({
   totalCost: 0,
   byOutputTon: 0,
@@ -342,8 +361,50 @@ function recalculate() {
       caliber: caliber.value
     })
     result.value = computedResult
+    snapshotSavedAt.value = ''
+    return true
   } catch (error) {
     ElMessage.error(error?.message || '策略参数解析失败')
+    return false
+  }
+}
+
+function totalSnapshotRows(tableModels = {}) {
+  return Object.values(tableModels).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0)
+}
+
+function requestErrorMessage(error) {
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item).join('; ')
+  }
+  return detail || error?.message || '保存失败'
+}
+
+const canSaveSnapshot = computed(() => totalSnapshotRows(result.value.tableModels || {}) > 0)
+const canPersistSnapshot = computed(() => authStore.isAdmin)
+
+async function handleSaveSnapshot() {
+  if (!canPersistSnapshot.value) {
+    ElMessage.warning('仅管理员可保存快照')
+    return
+  }
+  if (!recalculate()) return
+  const tableModels = result.value.tableModels || {}
+  const rowCount = totalSnapshotRows(tableModels)
+  if (rowCount <= 0) {
+    ElMessage.warning('请先生成快照')
+    return
+  }
+  snapshotSaving.value = true
+  try {
+    await saveCostStrategySnapshot(tableModels, { skipErrorToast: true })
+    snapshotSavedAt.value = dayjs().format('HH:mm:ss')
+    ElMessage.success(`已保存 ${rowCount} 条快照`)
+  } catch (error) {
+    ElMessage.error(requestErrorMessage(error))
+  } finally {
+    snapshotSaving.value = false
   }
 }
 
@@ -425,6 +486,20 @@ resetTemplate()
   width: 100%;
   justify-content: start;
   flex-wrap: wrap;
+}
+
+.cost-snapshot-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(22, 119, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(22, 119, 255, 0.06);
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .cost-ledger {
@@ -566,7 +641,8 @@ resetTemplate()
   .review-cost-center-v2 :deep(.reference-page__actions .el-date-editor),
   .review-cost-center-v2 :deep(.reference-page__actions .el-select),
   .review-cost-center-v2 :deep(.reference-page__actions .el-segmented),
-  .review-cost-center-v2 :deep(.reference-page__actions .el-button) {
+  .review-cost-center-v2 :deep(.reference-page__actions .el-button),
+  .cost-snapshot-status {
     width: 100% !important;
   }
 

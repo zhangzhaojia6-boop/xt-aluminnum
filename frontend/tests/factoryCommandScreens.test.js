@@ -66,3 +66,13 @@ test('machine coil cost destination and exception screens expose required operat
   assert.match(exception, /formatRuleLabel/)
   assert.doesNotMatch(exception, /\{\{\s*rule\.key\s*\}\}/)
 })
+
+test('factory cost screen exposes strategy snapshot workspace route', () => {
+  const cost = source('../src/views/factory-command/CostBenefitScreen.vue')
+  const router = source('../src/router/index.js')
+
+  assert.match(cost, /策略核算/)
+  assert.match(cost, /\/manage\/factory\/cost\/accounting/)
+  assert.match(router, /CostAccountingCenter/)
+  assert.match(router, /factory\/cost\/accounting/)
+})

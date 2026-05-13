@@ -47,3 +47,8 @@ export async function fetchAluminumPriceNow(date) {
   const { data } = await api.post('/executive/aluminum-price/fetch', null, { params })
   return data
 }
+
+export async function saveCostStrategySnapshot(tableModels, config = {}) {
+  const { data } = await api.post('/executive/cost-strategy-snapshots', { tableModels }, config)
+  return data
+}

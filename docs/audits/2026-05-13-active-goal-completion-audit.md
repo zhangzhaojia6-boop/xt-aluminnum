@@ -35,7 +35,7 @@
 | `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实；`2026-04-30` 已用 `输出skill/2026-4-30_主表完整字段填充.xls` 替代表补入正式事实 | `2026-04-22` 原始源表仍为空，`输出skill/2026-4-22_日均报表.xls` 不是当前综合报表格式，必须继续阻断 |
 | 设计系统、组件体系、路由和页面品质 | 部分完成 | 管理端差异核对、实时页、移动端等已有多轮前端验证 | 后续新增可见 UI 仍需遵循设计规则，跑 mock/e2e/响应式溢出检查 |
 | 后端可维护结构 | 部分完成 | 实时、扫码、移动提交、差异核对等服务已拆到 services/routes/tests | 仍需持续避免把业务算法塞进页面；新增聚合状态优先复用后端服务输出 |
-| 成本与效益经营闭环 | 部分完成 | 成本策略引擎已有前端 contract；后端已补 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 物理表契约，并新增 admin-only 快照持久化 API | 前端保存动作、人工复核权限边界和月度结账流程仍未完成 |
+| 成本与效益经营闭环 | 部分完成 | 成本策略引擎已有前端 contract；后端已补 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 物理表契约，新增 admin-only 快照持久化 API，并在管理端接入保存入口 | 人工复核权限边界和月度结账流程仍未完成 |
 | 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档和 `--missing-inputs` 清单已有证据 | 外部应用连接、钉钉、密钥等配置仍需由现场提供真实值后复验 |
 | 每轮自测、代码审查、文档收口 | 部分完成 | 后端全测、前端构建、Playwright 探针、部署记录已多次执行 | 下一轮 UI 切片完成后仍需重新跑相关测试和浏览器验收 |
 
@@ -134,7 +134,31 @@
 
 ### 仍然未完成
 
-该切片只补后端 admin API；前端“保存策略快照”动作、人工复核工作台权限边界和月度结账流程仍未完成。
+该切片先补后端 admin API；前端“保存策略快照”动作已在后续切片接入，人工复核工作台权限边界和月度结账流程仍未完成。
+
+## 本轮成本快照前端保存入口切片
+
+### 目标
+
+把已上线的成本策略快照后端 API 暴露到真实管理端路由，而不是停留在未挂载的策略组件里。
+
+### 变更
+
+- `frontend/src/api/executive.js` 新增 `saveCostStrategySnapshot()`，按后端兼容的 `tableModels` payload 提交。
+- `frontend/src/views/review/CostAccountingCenter.vue` 新增“保存快照”按钮、保存中状态、保存时间状态，并在保存前重新计算当前策略参数。
+- `frontend/src/router/index.js` 新增 `/manage/factory/cost/accounting`，挂载策略核算工作台。
+- `frontend/src/views/factory-command/CostBenefitScreen.vue` 在真实 `/manage/factory/cost` 页面新增“策略核算”入口，保持原经营估算页不变。
+
+### 验证
+
+- `npm --prefix frontend test -- factoryCommandScreens.test.js managementCommandCenter.test.js`：实际跑完全部前端 `tests/*.test.js`，`136 passed`。
+- `npm --prefix frontend run build`：通过，仅保留既有 Vite 大 chunk warning。
+- 本地 Playwright：`/manage/factory/cost?desktop=1` 在 `1440px` 与 `390px` 下可见“策略核算”入口，横向溢出为 `0`。
+- 本地 Playwright：`/manage/factory/cost/accounting?desktop=1` 在 `1440px` 与 `390px` 下可见“保存快照”按钮且可点击，横向溢出为 `0`。
+
+### 仍然未完成
+
+保存结果仍属于经营策略快照；人工复核入口、权限边界、月度结账流程和财务正式凭证边界仍需后续切片补齐。
 
 ## 本轮成本物理表契约切片
 
@@ -158,7 +182,7 @@
 
 ### 仍然未完成
 
-该切片只补物理表契约；后续已在“成本快照持久化 API 切片”补上后端保存入口，但前端保存动作、人工复核入口和月度结账流程仍是成本经营闭环后续项。
+该切片只补物理表契约；后续已补上后端保存入口和前端保存动作，但人工复核入口和月度结账流程仍是成本经营闭环后续项。
 
 ## 本轮移动填报冲突提示切片
 
@@ -204,4 +228,4 @@
 
 ## 完成判断
 
-完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐 + 成本物理表契约 + 成本快照后端持久化 API”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、前端保存/复核/月结闭环、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。
+完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐 + 成本物理表契约 + 成本快照后端持久化 API + 成本快照前端保存入口”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、成本复核/月结闭环、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。
