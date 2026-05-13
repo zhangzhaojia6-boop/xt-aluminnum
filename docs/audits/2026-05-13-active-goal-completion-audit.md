@@ -6,20 +6,20 @@
 
 本轮已经把填报端真实写入、实时聚合、外部 MES 流转线索、机列保守绑定、差异核对业务口径、管理端实时可见性、外部 MES 机列绑定透明度、10w 级异常产量复验和生产部署推进到可验证状态；但总目标要求的是一个可展示、可试用、可继续接真实数据上线迭代的完整 `鑫泰铝业 数据中枢`，仍有设计稿反推落地、全模块真实业务闭环、外部应用连接/钉钉正式配置和最终交付审计未闭环。
 
-下一轮最小实现切片应聚焦：正式外部配置与可试用演示门禁，尤其是 `APP_CONNECTION`、钉钉通讯录权限和 LLM/AI 分析能力的真实联通状态，不能把 `readyz` 的 MES 成功误判成全系统已经可交付。
+下一轮最小实现切片应聚焦：正式外部配置补齐后的真实 UAT，尤其是 `APP_CONNECTION`、钉钉真实人员绑定和 LLM/AI 分析能力的真实联通状态，不能把 `readyz` 的 MES 成功误判成全系统已经可交付。
 
 ## 当前证据
 
-- 当前代码锚点：`a5e4234 docs: 记录实时页生产复验`，已推送到 `origin/main`；生产源代码已 fast-forward 到该提交，运行时代码资产来自 `62beb12 fix: 收紧实时页状态卡宽度` 的构建。
+- 当前代码锚点：`4447de7 docs: 记录外部输入清单生产复验`，已推送到 `origin/main`；生产源代码已 fast-forward 到该提交，运行时代码资产仍来自上一轮前端构建。
 - 生产健康：`/readyz` 返回 ready，`aluminum-bypass` 与 `nginx` 均为 `active`，外部 MES 同步 `last_run_status=success`，最近拉取与写入均为 `50`。
-- 后端全量验证：`python -m pytest backend/tests -q` 为 `796 passed, 124 deselected, 39 warnings`。
-- 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `37` 条，`mobile_coil_agg/pending=9`，实时聚合 `factory_output=284.6t`，`data_source=mixed`。
+- 本轮外部联通验证：`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `52 passed, 1 deselected`。
+- 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `38` 条，实时聚合探针 `live_aggregation_data_source=mixed`、`live_aggregation_total_entry_count=38`、`live_aggregation_formal_entry_count=38`、`live_aggregation_draft_entry_count=0`。
 - 当天现状：`2026-05-13` 暂无正式或草稿填报记录；管理端如果直接看今天，会呈现为空。
 - 外部 MES 绑定事实：本轮外部 MES 投影 `23` 行，填报命中 MES `24` 卷，已绑定机列 `24` 卷；路线推断可补齐直接 `machine_code` 为空的部分机列归属。
 - 上游限制：当前外部 MES 批次的 `machine_code` 为空，后端只能用 `current_workshop/current_process/next_workshop/next_process` 做唯一性推断；多机列歧义保持待归属。
 - UI 蓝图资产：`docs/ui-reference/IMAGE2_PROMPTS.md`、`docs/ui-reference/UI_TARGET_SPEC.md`、`docs/ui-reference/DESIGN_REVERSE_PLAN.md` 和 `docs/ui-reference/highres/01-15` 已存在。
 - 10w 级异常产量复验：4.30 真实日报补入后，生产 `ShiftProductionData` 活跃 `254` 行中，折吨后 `>=10000t` 的记录数为 `0`，最大折吨单行仍为 `1163.0t`；`2026-05-12` 厂级、车间、实时聚合分别返回 `281.12t`，`2026-05-13` 当天返回 `0.0t`，历史七日最大值为 `355.97t`。
-- 生产页面复验：`/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`；`body/root` 横向溢出均为 `0`。
+- 生产页面复验：上一轮 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，且 `body/root` 横向溢出均为 `0`；最新服务探针已到 `38` 条正式填报，旧页面截图证据尚未刷新。
 
 ## Prompt-to-artifact 核对
 
@@ -27,15 +27,15 @@
 | --- | --- | --- | --- |
 | image-2 理想设计稿与功能蓝图 | 部分完成 | `docs/ui-reference/*` 与 15 张 highres 参考图已存在 | 继续改 UI 前需要按设计门禁锁定方向并做浏览器验收 |
 | 全仓上下文、计划、文档审计 | 部分完成 | `docs/deploy/current-state.md`、`docs/audits/*`、`docs/superpowers/plans/*` 持续更新 | 大 goal 级完成审计此前不集中；本文补齐 |
-| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 有 `37` 条正式填报与 `284.6t` 实时聚合；管理端实时页已显示最近有效业务日 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障 |
+| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 有 `38` 条正式填报；管理端实时页已显示最近有效业务日，旧页面截图仍停留在 37 条证据 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障；最新页面截图尚未刷新 |
 | 填报端到 API/BFF、数据库、管理端、报表图表链路 | 可验收 | 实时聚合、待补产出、差异核对、人工补正、管理端入口均已有测试和部署证据 | 后续继续扩展到更多经营模块，不再把实时填报链路作为当前阻断 |
-| 外部 MES 链接稳定通畅 | 部分完成 | `/readyz` 外部 MES 同步成功，最近拉取/写入 `50` | 上游 `machine_code` 为空，绑定依赖保守推断；需要把歧义待归属数量暴露给管理端 |
+| 外部 MES 链接稳定通畅 | 部分完成 | `/readyz` 外部 MES 同步成功，最近拉取/写入 `50`；实时聚合只读探针 `live_aggregation_ok=true` | 上游 `machine_code` 为空，绑定依赖保守推断；正式外部联通仍缺 LLM、应用连接和钉钉人员 UAT |
 | 与外部 MES 绑定的机列数据搭配绑定 | 可验收 | `/api/v1/aggregation/live` 返回 `mes_machine_binding`，管理端实时页展示外部 MES `23` 行、匹配填报 `24` 卷、已绑机列 `24` 卷、路线推断和上游机列码缺失 | 上游 `machine_code` 仍为空；多机列歧义保持待归属，不静默强绑 |
 | 产量约 10w 异常来源治理 | 已验证 | 真实日报与能耗事实已多批次入库，当前实时页复验产量为 `284.6t`；生产审计确认折吨后 `>=10000t` 记录数为 `0`，管理端厂级/车间/实时路由不吐 10w 级产量 | 后续如新增数据源，必须继续走 `10000t` 门禁和 kg/t 折算测试 |
 | `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实；`2026-04-30` 已用 `输出skill/2026-4-30_主表完整字段填充.xls` 替代表补入正式事实 | `2026-04-22` 原始源表仍为空，`输出skill/2026-4-22_日均报表.xls` 不是当前综合报表格式，必须继续阻断 |
 | 设计系统、组件体系、路由和页面品质 | 部分完成 | 管理端差异核对、实时页、移动端等已有多轮前端验证 | 后续新增可见 UI 仍需遵循设计规则，跑 mock/e2e/响应式溢出检查 |
 | 后端可维护结构 | 部分完成 | 实时、扫码、移动提交、差异核对等服务已拆到 services/routes/tests | 仍需持续避免把业务算法塞进页面；新增聚合状态优先复用后端服务输出 |
-| 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档已有证据 | 外部应用连接、钉钉、密钥等配置仍应按运行清单持续复验 |
+| 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档和 `--missing-inputs` 清单已有证据 | 外部应用连接、钉钉、密钥等配置仍需由现场提供真实值后复验 |
 | 每轮自测、代码审查、文档收口 | 部分完成 | 后端全测、前端构建、Playwright 探针、部署记录已多次执行 | 下一轮 UI 切片完成后仍需重新跑相关测试和浏览器验收 |
 
 ## 本轮 10w 异常复验切片
@@ -72,20 +72,22 @@
 
 ### 生产复验证据
 
-- `scripts/check_statistics_module_ready.py --json` 返回 `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`。
+- `scripts/check_statistics_module_ready.py --json --check-live-aggregation` 返回预期 exit `2`，`hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`。
 - 基础运行项正常：`local_runnable=true`、`runtime_valid=true`、`database_ok=true`。
 - 业务底座正常：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`。
 - 外部 MES 可用：`mes_adapter=mvc`、`mes_ready=true`。
 - 当前 hard issues：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`。
 - 当前 warning issue：`DINGTALK_NO_BOUND_USERS`，且 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`。
+- 实时聚合只读探针正常：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=38`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`。
+- `python scripts/check_statistics_module_ready.py --missing-inputs` 已可输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的缺失输入清单，生产复验只有 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，未回显任何真实密钥值。
 
 ### 需要现场补齐的真实值
 
-| 用途 | 所在位置 | 缺失字段 | 影响 |
-| --- | --- | --- | --- |
-| LLM/AI 摘要增强 | 服务器 `backend/.env` | `LLM_ENABLED`、`LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL` 或 `LLM_ENDPOINT_ID` | AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通 |
-| 应用连接外发 | 服务器 `backend/.env` | `APP_CONNECTION_ENABLED`、`APP_CONNECTION_PUSH_MODE`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` | 统计模块不能对外推送，正式外部连接面未启用 |
-| 钉钉真实人员触达 | 生产数据库与钉钉通讯录权限 | `users.dingtalk_user_id` 或 `employees.dingtalk_user_id`，以及通讯录同步权限 | token 可用但通知不能送达真实人员，真实客户端 UAT 不能闭环 |
+| 用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值 |
+| --- | --- | --- | --- | --- |
+| LLM/AI 摘要增强 | 服务器 `backend/.env` | `LLM_ENABLED`、`LLM_API_BASE`、`LLM_API_KEY`、`LLM_MODEL` 或 `LLM_ENDPOINT_ID` | AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通 | `LLM_ENABLED=true`，其余 LLM 地址、密钥和模型由现场提供 |
+| 应用连接外发 | 服务器 `backend/.env` | `APP_CONNECTION_ENABLED`、`APP_CONNECTION_PUSH_MODE`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` | 统计模块不能对外推送，正式外部连接面未启用 | `APP_CONNECTION_ENABLED=true`、`APP_CONNECTION_PUSH_MODE=enabled`，API 地址和密钥由现场提供 |
+| 钉钉真实人员触达 | 生产数据库 `users/employees` 与钉钉通讯录 | `users.dingtalk_user_id` 或 `employees.dingtalk_user_id` | token 可用但通知不能送达真实人员，真实客户端 UAT 不能闭环 | 同步通讯录后，为试点 active 用户或员工绑定真实 `dingtalk_user_id` |
 
 ### 管理端暴露状态
 
@@ -115,4 +117,4 @@
 
 ## 完成判断
 
-完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 4.30 真实日报补齐”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、外部配置正式联通、完整视觉验收和最终代码审查。
+完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。

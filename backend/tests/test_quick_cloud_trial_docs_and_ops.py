@@ -1103,6 +1103,18 @@ def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> 
     assert '不能用当前空表或口径冲突表强行入库' in gaps
 
 
+def test_active_goal_completion_audit_tracks_current_external_readiness_evidence() -> None:
+    audit = _read('docs/audits/2026-05-13-active-goal-completion-audit.md')
+
+    assert '当前代码锚点：`4447de7 docs: 记录外部输入清单生产复验`' in audit
+    assert '正式填报 `38` 条' in audit
+    assert '`live_aggregation_total_entry_count=38`' in audit
+    assert '`live_aggregation_bound_to_machine_count=24`' in audit
+    assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in audit
+    assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in audit
+    assert '旧页面截图证据尚未刷新' in audit
+
+
 def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None:
     plan = _read('PLANS.md')
 
