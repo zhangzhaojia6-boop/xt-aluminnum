@@ -541,6 +541,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-30`、`2026-05-01` 至 `2026-05-05`' in state
     assert '`2026-04-22` 每日产量文件源表日产量列为空' in state
     assert '`no_daily_production_summary_sheet`' in state
+    assert '热轧日产 `262t`' in state
+    assert '`热轧` 行日产量为 `0t`' in state
+    assert '包装/在制类行' in state
+    assert '口径冲突表' in state
     assert '`GET /api/v1/imports/daily-production/mapping-preview`' in state
     assert '每日产量/映射门禁' in state
     assert '映射门禁未解析行已增加只读候选主数据提示' in state
