@@ -13,7 +13,7 @@
 
 ## 3. 旧 E2E 用例对结构依赖较强
 
-- 当前 `frontend/e2e` 已有 22 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
+- 当前 `frontend/e2e` 已有 20 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
 - 后续新增页面结构时继续优先复用 `frontend/e2e/helpers/review-mocks.js`，避免环境依赖导致假失败
 
 ## 4. Entry 独立端与 mobile 兼容期并存
@@ -52,6 +52,7 @@
 ## 9. `2026-04-22` 每日产量源表仍阻断
 
 - `2026-04-22` 原始每日产量源表解析结果仍为 `blocked / rows=0`
+- `D:\鑫泰报表\4.22\鑫泰每日产量4月22日.xls` 的综合页表头显示 `2026年4月23日`，且 `投料量/日产量/产生废料` 生产列为空，不能作为 `2026-04-22` 正式事实源
 - `D:\鑫泰报表\输出skill\2026-4-22_日均报表.xls` 解析为 `no_daily_production_summary_sheet`，不是当前综合日报格式
-- 同日 `日报正文.txt` 写明热轧日产 `262t`，但 `日均报表.xls` 的“各工序产量报表”中 `热轧` 行日产量为 `0t`，且表内混有包装/在制类行
+- 同日 `日报正文.txt` 写明热轧日产 `262t`，但 `日均报表.xls` 的“各工序产量报表”中 `热轧` 行日产量为 `0t`，且表内混有明细、合计、包装/入库和在制类行
 - 该日只能继续列为参考资产和缺口，不能用当前空表或口径冲突表强行入库；补齐时必须先找到同日非空综合日报源表或现场确认替代表

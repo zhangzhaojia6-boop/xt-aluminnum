@@ -555,9 +555,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-30`、`2026-05-01` 至 `2026-05-05`' in state
     assert '`2026-04-22` 每日产量文件源表日产量列为空' in state
     assert '`no_daily_production_summary_sheet`' in state
+    assert '综合页表头显示 `2026年4月23日`' in state
     assert '热轧日产 `262t`' in state
     assert '`热轧` 行日产量为 `0t`' in state
-    assert '包装/在制类行' in state
+    assert '包装/入库和在制类行' in state
     assert '口径冲突表' in state
     assert '`GET /api/v1/imports/daily-production/mapping-preview`' in state
     assert '每日产量/映射门禁' in state
@@ -1105,16 +1106,19 @@ def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> 
     assert '`2026-04-22` 每日产量源表仍阻断' in gaps
     assert '`blocked / rows=0`' in gaps
     assert '`no_daily_production_summary_sheet`' in gaps
+    assert '综合页表头显示 `2026年4月23日`' in gaps
     assert '不能用当前空表或口径冲突表强行入库' in gaps
 
 
 def test_active_goal_completion_audit_tracks_current_external_readiness_evidence() -> None:
     audit = _read('docs/audits/2026-05-13-active-goal-completion-audit.md')
 
-    assert '当前代码锚点：`4447de7 docs: 记录外部输入清单生产复验`' in audit
-    assert '正式填报 `38` 条' in audit
-    assert '`live_aggregation_total_entry_count=38`' in audit
+    assert '当前代码锚点：`dba8b13 fix: 优化填报锁定字段冲突提示`' in audit
+    assert '正式填报 `39` 条' in audit
+    assert '`live_aggregation_total_entry_count=39`' in audit
     assert '`live_aggregation_bound_to_machine_count=24`' in audit
+    assert '`DINGTALK_CONTACTS_PERMISSION_MISSING`' in audit
+    assert '`qyapi_get_department_member`' in audit
     assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in audit
     assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in audit
     assert '旧页面截图证据尚未刷新' in audit
