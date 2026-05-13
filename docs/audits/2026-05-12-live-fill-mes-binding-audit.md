@@ -251,3 +251,14 @@ npm --prefix frontend run build
 - 本地 TDD 验证：先扩展 `frontend/tests/factoryCommandScreens.test.js`，确认缺少 `missingOutputWeightSummary` 红灯失败；实现后 `npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
 - 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
 - Playwright 本地预览探针：mock 实时数据 `missing_output_weight.entry_count=6` 时，`/manage/overview?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `待补产出重量`、`缺产出 6 卷`、`S-2-062-1`、`补重量`；链接为 `/manage/entry-center?tab=missingOutput&desktop=1`，横向溢出均为 `0`。
+
+## 机列页外部 MES 绑定口径
+
+- 后端实时聚合在填报记录命中外部 MES 快照时，保留 `mes_match_count`、`mes_machine_id` 和 `mes_machine_binding_source`，用于机列维度汇总。
+- `list_machine_lines()` 现在透出每条机列的 `mes_binding`，包含填报卷数、外部 MES 匹配卷数、已绑机列卷数、直连机列码数量、路线推断数量和外部 MES 投影行数。
+- 管理端 `车间机列` 页面在摘要区展示 `外部 MES 匹配` 与 `路线推断`，并在每条机列卡片展示 `外部 MES 匹配 x / y 卷`、`直连机列`、`路线推断`。
+- 本轮不改变产量聚合和机列归属结果，只把已存在的绑定证据补到管理端可见层。
+- 本地 TDD 验证：后端先确认 `mes_binding` 缺失红灯失败，前端先确认机列页缺少 `mesBinding` 与绑定文案红灯失败；实现后目标测试转绿。
+- 关联验证：`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py -q` 返回 `52 passed, 1 warning`；`npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
+- 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
+- Playwright 本地预览探针：mock 机列数据下，`/manage/factory/machine-lines?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `外部 MES 匹配 23 / 23 卷`、`直连机列 12`、`路线推断 11`，横向溢出均为 `0`。

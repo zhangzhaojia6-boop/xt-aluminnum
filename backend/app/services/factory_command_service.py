@@ -50,6 +50,22 @@ def _number(value: Any) -> float:
         return 0.0
 
 
+def _int_number(value: Any) -> int:
+    return int(_number(value))
+
+
+def _machine_mes_binding(raw: Mapping[str, Any] | None) -> dict[str, int]:
+    payload = raw or {}
+    return {
+        'fill_entry_count': _int_number(payload.get('fill_entry_count')),
+        'mes_matched_fill_count': _int_number(payload.get('mes_matched_fill_count')),
+        'mes_bound_fill_count': _int_number(payload.get('mes_bound_fill_count')),
+        'direct_machine_code_count': _int_number(payload.get('direct_machine_code_count')),
+        'route_inferred_machine_count': _int_number(payload.get('route_inferred_machine_count')),
+        'mes_projection_count': _int_number(payload.get('mes_projection_count')),
+    }
+
+
 def _local_weight_tons(row: Any, field_name: str) -> float:
     value = _number(getattr(row, field_name, None))
     if getattr(row, 'data_source', None) in LOCAL_WEIGHT_KG_SOURCES:
@@ -801,6 +817,7 @@ def _machine_lines_from_live_aggregation(
                     'finished_tons': round(output, 4),
                     'stalled_count': attention_count,
                     'machine_binding_status': 'unbound' if is_unbound else 'bound',
+                    'mes_binding': _machine_mes_binding(machine.get('mes_binding')),
                     'cost_estimate': _estimate(),
                     'margin_estimate': _estimate(label='毛差估算'),
                     'freshness': response_freshness,

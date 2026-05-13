@@ -464,6 +464,22 @@ def _build_missing_output_weight_summary(*, entries: list[dict], workshops, mach
     }
 
 
+def _build_machine_mes_binding_summary(entries: list[dict]) -> dict:
+    fill_entries = [item for item in entries if item.get('entry_type') != 'mes_projection']
+    mes_matched_fill_entries = [item for item in fill_entries if int(item.get('mes_match_count') or 0) > 0]
+    source_counts: dict[str, int] = defaultdict(int)
+    for item in mes_matched_fill_entries:
+        source_counts[str(item.get('mes_machine_binding_source') or 'unresolved')] += 1
+    return {
+        'fill_entry_count': len(fill_entries),
+        'mes_matched_fill_count': len(mes_matched_fill_entries),
+        'mes_bound_fill_count': len([item for item in mes_matched_fill_entries if item.get('machine_id') is not None]),
+        'direct_machine_code_count': int(source_counts.get('direct_machine_code', 0)),
+        'route_inferred_machine_count': int(source_counts.get('route_inferred', 0)),
+        'mes_projection_count': len([item for item in entries if item.get('entry_type') == 'mes_projection']),
+    }
+
+
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
@@ -518,8 +534,11 @@ def aggregate_live_payload(
         machine_map[machine.workshop_id].append(machine)
 
     cell_entries: dict[tuple[int, int, int], list[dict]] = defaultdict(list)
+    machine_entries: dict[tuple[int, int], list[dict]] = defaultdict(list)
     data_shift_ids_by_machine: dict[tuple[int, int], set[int]] = defaultdict(set)
     for item in entries:
+        if item.get('workshop_id') is not None and item.get('machine_id') is not None:
+            machine_entries[(item['workshop_id'], item['machine_id'])].append(item)
         if item.get('machine_id') is None or item.get('shift_id') is None:
             continue
         cell_entries[(item['workshop_id'], item['machine_id'], item['shift_id'])].append(item)
@@ -672,6 +691,7 @@ def aggregate_live_payload(
                     'machine_id': machine.id,
                     'machine_name': machine.name,
                     'machine_binding_status': machine_binding_status,
+                    'mes_binding': _build_machine_mes_binding_summary(machine_entries.get((workshop.id, machine.id), [])),
                     'shifts': shift_items,
                     'day_total': {
                         'input': round(machine_input, 2),
@@ -1155,28 +1175,39 @@ def _entry_tracking_keys(item: Mapping[str, Any]) -> set[str]:
 
 
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
-    mes_row_by_card: dict[str, dict] = {}
+    mes_rows_by_card: dict[str, dict[Any, dict]] = defaultdict(dict)
     for item in mes_rows:
         for card_key in _entry_tracking_keys(item):
-            mes_row_by_card.setdefault(card_key, item)
+            mes_rows_by_card[card_key].setdefault(item.get('id'), item)
 
     def apply_mes_binding(items: list[dict]) -> tuple[list[dict], bool]:
         enriched: list[dict] = []
         has_mes_match = False
         for item in items:
-            mes_item = next((mes_row_by_card.get(card_key) for card_key in _entry_tracking_keys(item) if mes_row_by_card.get(card_key)), None)
-            if not mes_item:
+            mes_matches_by_id: dict[Any, dict] = {}
+            for card_key in _entry_tracking_keys(item):
+                mes_matches_by_id.update(mes_rows_by_card.get(card_key, {}))
+            if not mes_matches_by_id:
                 enriched.append(item)
                 continue
+            mes_matches = list(mes_matches_by_id.values())
             updated = dict(item)
-            mes_workshop_id = mes_item.get('workshop_id')
             current_workshop_id = updated.get('workshop_id')
-            workshop_matches = mes_workshop_id is None or current_workshop_id is None or current_workshop_id == mes_workshop_id
-            if workshop_matches:
-                has_mes_match = True
+            matched_mes_rows = [
+                mes_item
+                for mes_item in mes_matches
+                if mes_item.get('workshop_id') is None or current_workshop_id is None or current_workshop_id == mes_item.get('workshop_id')
+            ]
+            if not matched_mes_rows:
+                enriched.append(item)
+                continue
+
+            has_mes_match = True
+            mes_item = next((row for row in matched_mes_rows if row.get('machine_id') is not None), matched_mes_rows[0])
+            updated['mes_match_count'] = len(matched_mes_rows)
+            updated['mes_machine_id'] = mes_item.get('machine_id')
+            updated['mes_machine_binding_source'] = mes_item.get('machine_binding_source') or 'unresolved'
             for field_name in ('workshop_id', 'machine_id', 'shift_id'):
-                if field_name in {'machine_id', 'shift_id'} and not workshop_matches:
-                    continue
                 if updated.get(field_name) is None and mes_item.get(field_name) is not None:
                     updated[field_name] = mes_item[field_name]
             enriched.append(updated)

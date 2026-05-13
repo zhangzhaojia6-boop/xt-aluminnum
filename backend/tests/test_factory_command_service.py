@@ -571,6 +571,14 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
     assert live_line['finished_tons'] == 9.7
     assert live_line['stalled_count'] == 1
     assert live_line['machine_binding_status'] == 'bound'
+    assert live_line['mes_binding'] == {
+        'fill_entry_count': 1,
+        'mes_matched_fill_count': 1,
+        'mes_bound_fill_count': 1,
+        'direct_machine_code_count': 1,
+        'route_inferred_machine_count': 0,
+        'mes_projection_count': 0,
+    }
     assert live_line['freshness']['source'] == 'mixed'
     assert workshops == [
         {
