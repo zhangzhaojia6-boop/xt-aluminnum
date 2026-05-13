@@ -125,12 +125,14 @@
 - `backend/app/models/executive.py` 新增 `CostPriceMaster`、`CostWorkshopStrategy`、`CostDailyResult`、`CostMonthlyRollup`、`CostVarianceRecord`。
 - `backend/alembic/versions/0028_cost_strategy_tables.py` 新增对应物理表、业务唯一键、索引，并为 `cost_price_master` 种入当前前端默认价格主数据。
 - `backend/tests/test_cost_backend_contract.py` 锁定表名、关键列、业务唯一键和迁移种子。
+- 生产已部署 `main@8b98c5b`，Alembic 已升级到 `0028_cost_strategy_tables`。
 
 ### 验证
 
 - `python -m pytest backend/tests/test_cost_backend_contract.py -q`：`2 passed`。
 - `python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_mobile_entry_copy_consistency.py::test_cost_engine_exposes_backend_table_model_contracts -q`：`8 passed, 1 deselected, 6 warnings`。
 - `python -m py_compile backend/alembic/versions/0028_cost_strategy_tables.py`：通过。
+- 生产只读探针：5 张成本策略表均存在，`cost_price_master` 默认价格主数据为 `18` 条，`alembic_version=0028_cost_strategy_tables`。
 
 ### 仍然未完成
 

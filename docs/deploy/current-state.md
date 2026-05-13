@@ -51,7 +51,7 @@ cd /srv/aluminum-bypass
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
 - 管理端 `/api/v1/dashboard/external-readiness` 已透传 `missing_inputs` 缺失输入清单，并在路由边界清洗疑似密钥值：字段名如 `LLM_API_KEY`、`APP_CONNECTION_API_KEY` 仍可见，实际值统一返回 `<redacted>`。
 - 管理端实时态势的 `外部联通明细` 已展示 `missing_inputs` 缺失输入清单，按 `用途 / 所在位置 / 缺失字段 / 影响范围 / 建议取值` 展开；桌面与 390px 手机宽度均通过无横向溢出验证。
-- 成本策略引擎的后端物理表契约已补齐：新增 `cost_price_master`、`cost_workshop_strategy`、`cost_daily_result`、`cost_monthly_rollup`、`cost_variance_record` SQLAlchemy 模型和 Alembic `0028_cost_strategy_tables` 迁移；`cost_price_master` 会种入当前前端默认价格主数据。该切片只补物理表和契约，不把策略快照升级为财务正式结账凭证。
+- 成本策略引擎的后端物理表契约已补齐并部署：`main@8b98c5b` 新增 `cost_price_master`、`cost_workshop_strategy`、`cost_daily_result`、`cost_monthly_rollup`、`cost_variance_record` SQLAlchemy 模型和 Alembic `0028_cost_strategy_tables` 迁移；生产复验 5 张表均存在，`cost_price_master` 默认价格主数据为 `18` 条，`alembic_version=0028_cost_strategy_tables`。该切片只补物理表和契约，不把策略快照升级为财务正式结账凭证。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 - MES MVC 会话恢复已增强：表格查询若被会话过期打回登录页，会清理 cookie/token 后重新登录并重放请求；二次仍返回登录页才报错，避免短期 session 过期让同步长期卡住。
 - MES 投影同步已隔离非数据库单源失败：`sync_mes_projection()` 中 crafts/devices/follow_cards/dispatch/wip_total/stock/machine_lines 单步执行，单个外部接口失败返回该源 `failed` stats，已成功 upsert 的来源继续保留；数据库错误仍向上抛出，避免掩盖事务异常。
