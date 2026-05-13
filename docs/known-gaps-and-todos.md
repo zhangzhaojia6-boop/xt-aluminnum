@@ -5,7 +5,8 @@
 - 当前前端已实现策略引擎、价格主数据、表模型快照与校差记录展示
 - `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 已作为前端表模型 contract 输出
 - 后端已新增对应 SQLAlchemy 模型与 Alembic `0028_cost_strategy_tables` 物理表迁移，`cost_price_master` 会种入当前前端默认价格主数据
-- 后续待接入成本策略结果的持久化写入接口、人工复核权限边界与月度结账流程；当前仍不作为财务正式结账凭证
+- 后端已新增 admin-only `POST /api/v1/executive/cost-strategy-snapshots`，可把前端表模型快照按业务唯一键 upsert 到 5 张成本表
+- 后续待接入前端保存动作、人工复核权限边界与月度结账流程；当前仍不作为财务正式结账凭证
 
 ## 2. AI 多专题接口仍有 mock 兜底
 

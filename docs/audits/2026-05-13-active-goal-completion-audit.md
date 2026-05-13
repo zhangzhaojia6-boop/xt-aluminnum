@@ -35,7 +35,7 @@
 | `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实；`2026-04-30` 已用 `输出skill/2026-4-30_主表完整字段填充.xls` 替代表补入正式事实 | `2026-04-22` 原始源表仍为空，`输出skill/2026-4-22_日均报表.xls` 不是当前综合报表格式，必须继续阻断 |
 | 设计系统、组件体系、路由和页面品质 | 部分完成 | 管理端差异核对、实时页、移动端等已有多轮前端验证 | 后续新增可见 UI 仍需遵循设计规则，跑 mock/e2e/响应式溢出检查 |
 | 后端可维护结构 | 部分完成 | 实时、扫码、移动提交、差异核对等服务已拆到 services/routes/tests | 仍需持续避免把业务算法塞进页面；新增聚合状态优先复用后端服务输出 |
-| 成本与效益经营闭环 | 部分完成 | 成本策略引擎已有前端 contract；后端已补 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 物理表契约 | 持久化写入接口、人工复核权限边界和月度结账流程仍未完成 |
+| 成本与效益经营闭环 | 部分完成 | 成本策略引擎已有前端 contract；后端已补 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 物理表契约，并新增 admin-only 快照持久化 API | 前端保存动作、人工复核权限边界和月度结账流程仍未完成 |
 | 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档和 `--missing-inputs` 清单已有证据 | 外部应用连接、钉钉、密钥等配置仍需由现场提供真实值后复验 |
 | 每轮自测、代码审查、文档收口 | 部分完成 | 后端全测、前端构建、Playwright 探针、部署记录已多次执行 | 下一轮 UI 切片完成后仍需重新跑相关测试和浏览器验收 |
 
@@ -114,6 +114,28 @@
 - 生产 Playwright 复验：人为延迟 5 个次要接口后，`/api/v1/aggregation/live` 返回后约 `6ms`，管理端实时条已显示 `当前显示 2026-05-12`、`填报端 40 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`、`待归属 0 卷`；此时次要接口返回数仍为 `0`。
 - 响应式复验：`1366px` 与 `390px` 下 `body/root` 横向溢出均为 `0`。
 
+## 本轮成本快照持久化 API 切片
+
+### 目标
+
+把前端成本策略引擎已经生成的 `tableModels` 从只读展示推进到后端可保存，但仍保持“经营策略快照”边界，不把它升级为财务正式结账凭证。
+
+### 变更
+
+- `backend/app/services/executive_service.py` 新增 `persist_cost_strategy_snapshot()`，按 5 张成本表的业务唯一键做 SQLite/PostgreSQL 通用 upsert，不使用方言专属语法。
+- `backend/app/routers/executive.py` 新增 `POST /api/v1/executive/cost-strategy-snapshots`，复用 `_ensure_admin()`，非 admin 返回 `403`。
+- `backend/tests/test_cost_backend_contract.py` 增加快照落库、重复保存更新而不重复插入、路由 admin 权限、前端 `tableModels` 别名和事务提交回归。
+
+### 验证
+
+- `python -m pytest backend/tests/test_cost_backend_contract.py -q`：`6 passed`。
+- `python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：`50 passed, 1 deselected, 6 warnings`。
+- `python -m pytest backend/tests -q`：`813 passed, 124 deselected, 39 warnings`。
+
+### 仍然未完成
+
+该切片只补后端 admin API；前端“保存策略快照”动作、人工复核工作台权限边界和月度结账流程仍未完成。
+
 ## 本轮成本物理表契约切片
 
 ### 目标
@@ -136,7 +158,7 @@
 
 ### 仍然未完成
 
-该切片只补物理表契约，不新增策略结果写入 API，不开放人工复核入口，也不启动月度结账流程；这些仍是成本经营闭环后续项。
+该切片只补物理表契约；后续已在“成本快照持久化 API 切片”补上后端保存入口，但前端保存动作、人工复核入口和月度结账流程仍是成本经营闭环后续项。
 
 ## 本轮移动填报冲突提示切片
 
@@ -182,4 +204,4 @@
 
 ## 完成判断
 
-完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐 + 成本物理表契约”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。
+完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐 + 成本物理表契约 + 成本快照后端持久化 API”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、前端保存/复核/月结闭环、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。

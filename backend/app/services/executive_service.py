@@ -7,13 +7,18 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.executive import (
     AluminumPriceDaily,
+    CostDailyResult,
+    CostMonthlyRollup,
+    CostPriceMaster,
+    CostVarianceRecord,
+    CostWorkshopStrategy,
     MachineDailyCostSnapshot,
     MachineDailyProfitSnapshot,
 )
@@ -219,6 +224,242 @@ def build_aluminum_price_trend(db: Session, *, days: int = 30) -> list[dict]:
     ]
 
 
+def persist_cost_strategy_snapshot(db: Session, *, table_models: dict[str, list[dict]]) -> dict:
+    saved = {
+        'cost_price_master': 0,
+        'cost_workshop_strategy': 0,
+        'cost_daily_result': 0,
+        'cost_monthly_rollup': 0,
+        'cost_variance_record': 0,
+    }
+    if not isinstance(table_models, dict):
+        raise ValueError('table_models must be an object')
+
+    handlers = {
+        'cost_price_master': _upsert_cost_price_master,
+        'cost_workshop_strategy': _upsert_cost_workshop_strategy,
+        'cost_daily_result': _upsert_cost_daily_result,
+        'cost_monthly_rollup': _upsert_cost_monthly_rollup,
+        'cost_variance_record': _upsert_cost_variance_record,
+    }
+    unknown_tables = sorted(set(table_models) - set(handlers))
+    if unknown_tables:
+        raise ValueError(f"unsupported_cost_table: {', '.join(unknown_tables)}")
+
+    for table_name, rows in table_models.items():
+        if rows is None:
+            rows = []
+        if not isinstance(rows, list):
+            raise ValueError(f'{table_name} must be a list')
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError(f'{table_name} rows must be objects')
+            handlers[table_name](db, row)
+            saved[table_name] += 1
+
+    return {'saved': saved}
+
+
+def _upsert_cost_price_master(db: Session, row: dict[str, Any]) -> None:
+    effective_from = _required_date(row, 'effective_from')
+    workshop_scope = _text(row, 'workshop_scope', default='ALL')
+    process_scope = _text(row, 'process_scope', default='ALL')
+    values = {
+        'item_code': _required_text(row, 'item_code', 'code'),
+        'item_name': _required_text(row, 'item_name'),
+        'unit': _required_text(row, 'unit'),
+        'unit_price': _decimal(row, 'unit_price', 'unitPrice'),
+        'effective_from': effective_from,
+        'effective_to': _optional_date(row, 'effective_to'),
+        'workshop_scope': workshop_scope,
+        'process_scope': process_scope,
+        'source_note': _optional_text(row, 'source_note'),
+    }
+    _upsert(
+        db,
+        CostPriceMaster,
+        {
+            'item_code': values['item_code'],
+            'effective_from': effective_from,
+            'workshop_scope': workshop_scope,
+            'process_scope': process_scope,
+        },
+        values,
+    )
+
+
+def _upsert_cost_workshop_strategy(db: Session, row: dict[str, Any]) -> None:
+    effective_from = _required_date(row, 'effective_from')
+    values = {
+        'workshop_code': _required_text(row, 'workshop_code'),
+        'strategy_code': _required_text(row, 'strategy_code'),
+        'enabled': _bool(row.get('enabled', True)),
+        'effective_from': effective_from,
+        'caliber': _text(row, 'caliber', default='output'),
+        'config_snapshot': row.get('config_snapshot'),
+    }
+    _upsert(
+        db,
+        CostWorkshopStrategy,
+        {
+            'workshop_code': values['workshop_code'],
+            'strategy_code': values['strategy_code'],
+            'effective_from': effective_from,
+        },
+        values,
+    )
+
+
+def _upsert_cost_daily_result(db: Session, row: dict[str, Any]) -> None:
+    business_date = _required_date(row, 'business_date')
+    caliber = _text(row, 'caliber', default='output')
+    values = {
+        'business_date': business_date,
+        'workshop_code': _required_text(row, 'workshop_code'),
+        'strategy_code': _required_text(row, 'strategy_code'),
+        'total_cost': _decimal(row, 'total_cost'),
+        'output_ton_cost': _decimal(row, 'output_ton_cost'),
+        'throughput_ton_cost': _decimal(row, 'throughput_ton_cost'),
+        'caliber': caliber,
+        'breakdown_count': _integer(row, 'breakdown_count'),
+        'process_count': _integer(row, 'process_count'),
+    }
+    _upsert(
+        db,
+        CostDailyResult,
+        {
+            'business_date': business_date,
+            'workshop_code': values['workshop_code'],
+            'strategy_code': values['strategy_code'],
+            'caliber': caliber,
+        },
+        values,
+    )
+
+
+def _upsert_cost_monthly_rollup(db: Session, row: dict[str, Any]) -> None:
+    values = {
+        'month': _required_text(row, 'month'),
+        'workshop_code': _required_text(row, 'workshop_code'),
+        'strategy_code': _required_text(row, 'strategy_code'),
+        'month_total_cost': _decimal(row, 'month_total_cost'),
+        'month_output_ton_cost': _decimal(row, 'month_output_ton_cost'),
+        'month_throughput_ton_cost': _decimal(row, 'month_throughput_ton_cost'),
+        'source': _text(row, 'source', default='frontend_strategy_snapshot'),
+    }
+    _upsert(
+        db,
+        CostMonthlyRollup,
+        {
+            'month': values['month'],
+            'workshop_code': values['workshop_code'],
+            'strategy_code': values['strategy_code'],
+        },
+        values,
+    )
+
+
+def _upsert_cost_variance_record(db: Session, row: dict[str, Any]) -> None:
+    business_date = _required_date(row, 'business_date')
+    values = {
+        'business_date': business_date,
+        'workshop_code': _required_text(row, 'workshop_code'),
+        'variance_type': _required_text(row, 'variance_type'),
+        'baseline_value': _decimal(row, 'baseline_value'),
+        'current_value': _decimal(row, 'current_value'),
+        'diff_value': _decimal(row, 'diff_value'),
+        'status': _text(row, 'status', default='normal'),
+    }
+    _upsert(
+        db,
+        CostVarianceRecord,
+        {
+            'business_date': business_date,
+            'workshop_code': values['workshop_code'],
+            'variance_type': values['variance_type'],
+        },
+        values,
+    )
+
+
+def _upsert(db: Session, model: type, key_values: dict[str, Any], values: dict[str, Any]) -> None:
+    stmt = select(model)
+    for field, value in key_values.items():
+        stmt = stmt.where(getattr(model, field) == value)
+    rec = db.execute(stmt).scalar_one_or_none()
+    if rec is None:
+        db.add(model(**values))
+        return
+    for field, value in values.items():
+        setattr(rec, field, value)
+
+
+def _get(row: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    for key in keys:
+        if key in row:
+            return row[key]
+    return default
+
+
+def _required_text(row: dict[str, Any], *keys: str) -> str:
+    value = _get(row, *keys)
+    text = str(value or '').strip()
+    if not text:
+        raise ValueError(f"{'/'.join(keys)} is required")
+    return text
+
+
+def _optional_text(row: dict[str, Any], key: str) -> Optional[str]:
+    text = str(row.get(key) or '').strip()
+    return text or None
+
+
+def _text(row: dict[str, Any], key: str, *, default: str) -> str:
+    text = str(row.get(key) or '').strip()
+    return text or default
+
+
+def _required_date(row: dict[str, Any], key: str) -> date:
+    value = row.get(key)
+    if isinstance(value, date):
+        return value
+    text = str(value or '').strip()
+    if not text:
+        raise ValueError(f'{key} is required')
+    return date.fromisoformat(text)
+
+
+def _optional_date(row: dict[str, Any], key: str) -> Optional[date]:
+    value = row.get(key)
+    if value in (None, ''):
+        return None
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value).strip())
+
+
+def _decimal(row: dict[str, Any], *keys: str) -> Decimal:
+    value = _get(row, *keys, default=0)
+    if value in (None, ''):
+        value = 0
+    return Decimal(str(value))
+
+
+def _integer(row: dict[str, Any], key: str) -> int:
+    value = row.get(key, 0)
+    if value in (None, ''):
+        value = 0
+    return int(value)
+
+
+def _bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() not in {'0', 'false', 'no', 'off'}
+    return bool(value)
+
+
 def _q(v: Optional[Decimal], digits: int) -> Optional[float]:
     if v is None:
         return None
@@ -232,4 +473,5 @@ __all__ = [
     'build_executive_dashboard',
     'build_machine_ranking',
     'build_aluminum_price_trend',
+    'persist_cost_strategy_snapshot',
 ]
