@@ -4,22 +4,22 @@
 
 当前 `/goal` 不能标记为完成。
 
-本轮已经把填报端真实写入、实时聚合、外部 MES 流转线索、机列保守绑定、差异核对业务口径、管理端实时可见性、外部 MES 机列绑定透明度、10w 级异常产量复验和生产部署推进到可验证状态；但总目标要求的是一个可展示、可试用、可继续接真实数据上线迭代的完整 `鑫泰铝业 数据中枢`，仍有设计稿反推落地、全模块真实业务闭环、外部应用连接/钉钉正式配置和最终交付审计未闭环。
+本轮已经把填报端真实写入、实时聚合、外部 MES 流转线索、机列保守绑定、差异核对业务口径、管理端实时可见性、外部 MES 机列绑定透明度、10w 级异常产量复验、移动填报冲突提示和生产部署推进到可验证状态；但总目标要求的是一个可展示、可试用、可继续接真实数据上线迭代的完整 `鑫泰铝业 数据中枢`，仍有设计稿反推落地、全模块真实业务闭环、外部应用连接/钉钉正式配置和最终交付审计未闭环。
 
 下一轮最小实现切片应聚焦：正式外部配置补齐后的真实 UAT，尤其是 `APP_CONNECTION`、钉钉真实人员绑定和 LLM/AI 分析能力的真实联通状态，不能把 `readyz` 的 MES 成功误判成全系统已经可交付。
 
 ## 当前证据
 
-- 当前代码锚点：`4447de7 docs: 记录外部输入清单生产复验`，已推送到 `origin/main`；生产源代码已 fast-forward 到该提交，运行时代码资产仍来自上一轮前端构建。
+- 当前代码锚点：`dba8b13 fix: 优化填报锁定字段冲突提示`，已推送到 `origin/main` 并部署到生产；生产 dist 已包含新的移动填报锁定字段冲突中文提示。
 - 生产健康：`/readyz` 返回 ready，`aluminum-bypass` 与 `nginx` 均为 `active`，外部 MES 同步 `last_run_status=success`，最近拉取与写入均为 `50`。
 - 本轮外部联通验证：`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `52 passed, 1 deselected`。
-- 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `38` 条，实时聚合探针 `live_aggregation_data_source=mixed`、`live_aggregation_total_entry_count=38`、`live_aggregation_formal_entry_count=38`、`live_aggregation_draft_entry_count=0`。
+- 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `39` 条，实时聚合探针 `live_aggregation_data_source=mixed`、`live_aggregation_total_entry_count=39`、`live_aggregation_formal_entry_count=39`、`live_aggregation_draft_entry_count=0`。
 - 当天现状：`2026-05-13` 暂无正式或草稿填报记录；管理端如果直接看今天，会呈现为空。
 - 外部 MES 绑定事实：本轮外部 MES 投影 `23` 行，填报命中 MES `24` 卷，已绑定机列 `24` 卷；路线推断可补齐直接 `machine_code` 为空的部分机列归属。
 - 上游限制：当前外部 MES 批次的 `machine_code` 为空，后端只能用 `current_workshop/current_process/next_workshop/next_process` 做唯一性推断；多机列歧义保持待归属。
 - UI 蓝图资产：`docs/ui-reference/IMAGE2_PROMPTS.md`、`docs/ui-reference/UI_TARGET_SPEC.md`、`docs/ui-reference/DESIGN_REVERSE_PLAN.md` 和 `docs/ui-reference/highres/01-15` 已存在。
 - 10w 级异常产量复验：4.30 真实日报补入后，生产 `ShiftProductionData` 活跃 `254` 行中，折吨后 `>=10000t` 的记录数为 `0`，最大折吨单行仍为 `1163.0t`；`2026-05-12` 厂级、车间、实时聚合分别返回 `281.12t`，`2026-05-13` 当天返回 `0.0t`，历史七日最大值为 `355.97t`。
-- 生产页面复验：上一轮 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，且 `body/root` 横向溢出均为 `0`；最新服务探针已到 `38` 条正式填报，旧页面截图证据尚未刷新。
+- 生产页面复验：上一轮 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，且 `body/root` 横向溢出均为 `0`；最新服务探针已到 `39` 条正式填报，旧页面截图证据尚未刷新。
 
 ## Prompt-to-artifact 核对
 
@@ -27,7 +27,7 @@
 | --- | --- | --- | --- |
 | image-2 理想设计稿与功能蓝图 | 部分完成 | `docs/ui-reference/*` 与 15 张 highres 参考图已存在 | 继续改 UI 前需要按设计门禁锁定方向并做浏览器验收 |
 | 全仓上下文、计划、文档审计 | 部分完成 | `docs/deploy/current-state.md`、`docs/audits/*`、`docs/superpowers/plans/*` 持续更新 | 大 goal 级完成审计此前不集中；本文补齐 |
-| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 有 `38` 条正式填报；管理端实时页已显示最近有效业务日，旧页面截图仍停留在 37 条证据 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障；最新页面截图尚未刷新 |
+| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 有 `39` 条正式填报；管理端实时页已显示最近有效业务日，旧页面截图仍停留在 37 条证据 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障；最新页面截图尚未刷新 |
 | 填报端到 API/BFF、数据库、管理端、报表图表链路 | 可验收 | 实时聚合、待补产出、差异核对、人工补正、管理端入口均已有测试和部署证据 | 后续继续扩展到更多经营模块，不再把实时填报链路作为当前阻断 |
 | 外部 MES 链接稳定通畅 | 部分完成 | `/readyz` 外部 MES 同步成功，最近拉取/写入 `50`；实时聚合只读探针 `live_aggregation_ok=true` | 上游 `machine_code` 为空，绑定依赖保守推断；正式外部联通仍缺 LLM、应用连接和钉钉人员 UAT |
 | 与外部 MES 绑定的机列数据搭配绑定 | 可验收 | `/api/v1/aggregation/live` 返回 `mes_machine_binding`，管理端实时页展示外部 MES `23` 行、匹配填报 `24` 卷、已绑机列 `24` 卷、路线推断和上游机列码缺失 | 上游 `machine_code` 仍为空；多机列歧义保持待归属，不静默强绑 |
@@ -92,6 +92,26 @@
 ### 管理端暴露状态
 
 管理端实时页已经展示 `外部联通闸门` 和 `外部联通明细`，并把 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`、`DINGTALK_NO_BOUND_USERS` 转成 `LLM 摘要`、`应用连接`、`钉钉人员` 三类业务标签；因此当前最小收口是文档和门禁清单，不需要伪造配置或改写生产数据。
+
+## 本轮移动填报冲突提示切片
+
+### 目标
+
+让一线人员在扫码锁定字段不一致时看到可理解的补救提示，而不是 `locked_field_tampered` 技术码；同时避免全局接口 toast 与页面内提示重复弹出。
+
+### 变更
+
+- `frontend/src/api/mobile.js` 的 `createCoilEntry()` 支持透传请求配置。
+- `frontend/src/views/mobile/UnifiedEntryForm.vue` 的卷级提交使用 `skipErrorToast`，错误统一交给页面处理。
+- `frontend/src/utils/reportStatus.js` 将 `locked_field_tampered` 映射为“扫码带出的卷号、合金或规格已变化，请重新扫码后提交”。
+- 新增 `frontend/tests/reportStatus.test.js` 锁定该提示文案。
+
+### 验证
+
+- `npm --prefix frontend test -- reportStatus.test.js`：`133 passed`。
+- `npm --prefix frontend run build`：通过，仅保留既有 Vite 大 chunk warning。
+- 生产部署：`main@dba8b13` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线。
+- 生产复验：公网 `/readyz` 为 `status=ready`；生产 dist `reportStatus-*.js` 已包含“扫码带出的卷号、合金或规格已变化，请重新扫码后提交”；`aluminum-bypass.service` 与 `nginx.service` 均为 active。
 
 ## 本轮真实日报 4.30 补齐切片
 
