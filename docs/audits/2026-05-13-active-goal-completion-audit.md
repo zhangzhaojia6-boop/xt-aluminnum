@@ -18,7 +18,7 @@
 - 外部 MES 绑定事实：本轮外部 MES 行加载 `21` 条，其中 `7` 条已通过路线字段保守绑定到机列；样例可绑定到 `machine_id=123`、`2050轧机`。
 - 上游限制：当前外部 MES 批次的 `machine_code` 为空，后端只能用 `current_workshop/current_process/next_workshop/next_process` 做唯一性推断；多机列歧义保持待归属。
 - UI 蓝图资产：`docs/ui-reference/IMAGE2_PROMPTS.md`、`docs/ui-reference/UI_TARGET_SPEC.md`、`docs/ui-reference/DESIGN_REVERSE_PLAN.md` 和 `docs/ui-reference/highres/01-15` 已存在。
-- 10w 级异常产量复验：生产 `ShiftProductionData` 活跃 `240` 行中，折吨后 `>=10000t` 的记录数为 `0`；非 `mobile_coil_agg` 来源原始产量 `>=10000` 的记录数为 `0`；`2026-05-12` 厂级、车间、实时聚合分别返回 `281.12t`，`2026-05-13` 当天返回 `0.0t`，历史七日最大值为 `355.97t`。
+- 10w 级异常产量复验：4.30 真实日报补入后，生产 `ShiftProductionData` 活跃 `254` 行中，折吨后 `>=10000t` 的记录数为 `0`，最大折吨单行仍为 `1163.0t`；`2026-05-12` 厂级、车间、实时聚合分别返回 `281.12t`，`2026-05-13` 当天返回 `0.0t`，历史七日最大值为 `355.97t`。
 
 ## Prompt-to-artifact 核对
 
@@ -31,7 +31,7 @@
 | 外部 MES 链接稳定通畅 | 部分完成 | `/readyz` 外部 MES 同步成功，最近拉取/写入 `50` | 上游 `machine_code` 为空，绑定依赖保守推断；需要把歧义待归属数量暴露给管理端 |
 | 与外部 MES 绑定的机列数据搭配绑定 | 可验收 | `/api/v1/aggregation/live` 返回 `mes_machine_binding`，管理端实时页展示外部 MES 行数、匹配填报、已绑机列、路线推断和上游机列码缺失 | 上游 `machine_code` 仍为空；多机列歧义保持待归属，不静默强绑 |
 | 产量约 10w 异常来源治理 | 已验证 | 真实日报与能耗事实已多批次入库，当前实时产量为 `281.12t`；生产审计确认折吨后 `>=10000t` 记录数为 `0`，管理端厂级/车间/实时路由不吐 10w 级产量 | 后续如新增数据源，必须继续走 `10000t` 门禁和 kg/t 折算测试 |
-| `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实 | `2026-04-22`、`2026-04-30` 源表日产量列为空，必须继续阻断，不能强行写库 |
+| `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实；`2026-04-30` 已用 `输出skill/2026-4-30_主表完整字段填充.xls` 替代表补入正式事实 | `2026-04-22` 原始源表仍为空，`输出skill/2026-4-22_日均报表.xls` 不是当前综合报表格式，必须继续阻断 |
 | 设计系统、组件体系、路由和页面品质 | 部分完成 | 管理端差异核对、实时页、移动端等已有多轮前端验证 | 后续新增可见 UI 仍需遵循设计规则，跑 mock/e2e/响应式溢出检查 |
 | 后端可维护结构 | 部分完成 | 实时、扫码、移动提交、差异核对等服务已拆到 services/routes/tests | 仍需持续避免把业务算法塞进页面；新增聚合状态优先复用后端服务输出 |
 | 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档已有证据 | 外部应用连接、钉钉、密钥等配置仍应按运行清单持续复验 |
@@ -45,7 +45,7 @@
 
 ### 生产复验证据
 
-- 生产事实表：`ShiftProductionData` 非 `voided` 活跃行 `240`。
+- 生产事实表：4.30 真实日报补入后，`ShiftProductionData` 非 `voided` 活跃行 `254`。
 - 折吨后 `>=10000t` 的活跃行：`0`。
 - 非 `mobile_coil_agg` 来源、原始 `output_weight >= 10000` 的活跃行：`0`。
 - 最大单行折吨产量：`1163.0t`，来源为 `daily_production_report/confirmed`，不是 kg 误读。
@@ -90,6 +90,27 @@
 
 管理端实时页已经展示 `外部联通闸门` 和 `外部联通明细`，并把 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`、`DINGTALK_NO_BOUND_USERS` 转成 `LLM 摘要`、`应用连接`、`钉钉人员` 三类业务标签；因此当前最小收口是文档和门禁清单，不需要伪造配置或改写生产数据。
 
+## 本轮真实日报 4.30 补齐切片
+
+### 目标
+
+复核 `2026-04-30` 是否存在可替代的非空真实日报源，并在门禁通过后补入正式生产事实。
+
+### 生产复验证据
+
+- 原缺口：生产库 `2026-04-30` 的 `daily_production_report` 正式事实行为 `0`。
+- 可用替代表：`D:\鑫泰报表\输出skill\2026-4-30_主表完整字段填充.xls`。
+- 本机 dry-run：只读转换为 `xintai-daily-production-2026-04-30-filled.xlsx` 后，锁定报告日 `2026-04-30` 返回 `hard_gate_passed=true`、`total_rows=16`、`ready_rows=16`、`unresolved_rows=0`、`daily_output_tons=2345.849`。
+- 写库前备份：`/srv/aluminum-bypass/backups/pre-daily-production-promote-20260430-20260513-084441.dump`，已通过 `pg_restore -l` 校验。
+- 生产 staging：`ImportBatch id=32`、`batch_no=IMP-DAILY-LOCKED-20260513084453608065`、`quality_status=warning`，warning 仅为原表头日期 `2026-04-22` 与锁定报告日 `2026-04-30` 不一致。
+- 正式提升：写入 `ShiftProductionData` `14` 行，`input=2388.531t`、`output=2345.849t`、`scrap=111.682t`。
+- 服务层复验：`build_factory_dashboard(2026-04-30)` 返回 `today_total_output=2345.85`、`total_energy=194186.6`、`energy_per_ton=82.77881483420288`。
+- 生产健康：`/readyz` 仍为 `status=ready`，`aluminum-bypass` 与 `nginx` 均为 `active`。
+
+### 仍然阻断
+
+`2026-04-22` 原始 `鑫泰每日产量4月22日.xls` 解析为 0 行；`输出skill/2026-4-22_日均报表.xls` 返回 `no_daily_production_summary_sheet`，不能按当前综合报表门禁提升。该日仍需要同日非空源表或现场确认替代表。
+
 ## 完成判断
 
-完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、外部配置复验、完整视觉验收和最终代码审查。
+完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 4.30 真实日报补齐”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、外部配置正式联通、完整视觉验收和最终代码审查。

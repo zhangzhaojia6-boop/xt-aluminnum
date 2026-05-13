@@ -527,12 +527,20 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`batch_no=IMP-20260506130735-d4f557`' in state
     assert '`shift_rows_delta=0`' in state
     assert '生产环境暂未安装 `xlrd`' in state
+    assert '4 月 30 日每日产量已找到可用替代表并提升正式事实' in state
+    assert '2026-4-30_主表完整字段填充.xls' in state
+    assert '`ImportBatch id=32`' in state
+    assert '`output=2345.849t`' in state
+    assert '`today_total_output=2345.85t`' in state
     assert '历史 `每日产量` 映射门禁已接入只读预览' in state
     assert '`ready_rows=7`' in state
     assert '`needs_equipment_mapping_rows=0`' in state
     assert '`unresolved_rows=9`' in state
     assert '`冷轧/1650`' in state
     assert '`在线退火/园区北线`' in state
+    assert '当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-30`、`2026-05-01` 至 `2026-05-05`' in state
+    assert '`2026-04-22` 每日产量文件源表日产量列为空' in state
+    assert '`no_daily_production_summary_sheet`' in state
     assert '`GET /api/v1/imports/daily-production/mapping-preview`' in state
     assert '每日产量/映射门禁' in state
     assert '映射门禁未解析行已增加只读候选主数据提示' in state
