@@ -1245,17 +1245,12 @@ def _build_mes_machine_binding_summary(*, mes_rows: list[dict], entries: list[di
     for item in mes_rows:
         source_counts[str(item.get('machine_binding_source') or 'unresolved')] += 1
 
-    mes_key_set = {
-        card_key
-        for item in mes_rows
-        for card_key in _entry_tracking_keys(item)
-    }
     fill_entries = [item for item in entries if item.get('entry_type') != 'mes_projection']
     fill_entries_with_mes_match = 0
     fill_entries_bound_to_machine = 0
     fill_entries_pending_machine = 0
     for item in fill_entries:
-        if not (_entry_tracking_keys(item) & mes_key_set):
+        if int(item.get('mes_match_count') or 0) <= 0:
             continue
         fill_entries_with_mes_match += 1
         if item.get('machine_id') is not None:

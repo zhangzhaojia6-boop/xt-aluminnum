@@ -262,3 +262,9 @@ npm --prefix frontend run build
 - 关联验证：`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py -q` 返回 `52 passed, 1 warning`；`npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
 - 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
 - Playwright 本地预览探针：mock 机列数据下，`/manage/factory/machine-lines?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `外部 MES 匹配 23 / 23 卷`、`直连机列 12`、`路线推断 11`，横向溢出均为 `0`。
+
+## 总览与机列绑定口径对齐
+
+- 总览 `mes_machine_binding.fill_entries_with_mes_match` 与 `fill_entries_bound_to_machine` 现在只统计运行时已经严格命中的填报记录，即填报记录需要带有 `mes_match_count > 0`。
+- 仅跟踪卡号与外部 MES 快照重合、但车间不匹配或未通过绑定合并的记录，不再计入总览已匹配/已绑机列，避免总览和机列页显示两个口径。
+- 本地 TDD 验证：新增 `test_mes_machine_binding_summary_uses_strict_runtime_match`，先确认旧口径红灯失败，再修复为严格运行时匹配口径。

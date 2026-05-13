@@ -757,6 +757,46 @@ def test_build_live_aggregation_exposes_mes_machine_binding_status(tmp_path, mon
     }
 
 
+def test_mes_machine_binding_summary_uses_strict_runtime_match() -> None:
+    summary = realtime_service._build_mes_machine_binding_summary(
+        mes_rows=[
+            {
+                'id': 701,
+                'tracking_card_no': 'RA260506701',
+                'machine_id': 11,
+                'machine_binding_source': 'route_inferred',
+                'upstream_machine_code_missing': True,
+            },
+            {
+                'id': 702,
+                'tracking_card_no': 'RA260506702',
+                'machine_id': 12,
+                'machine_binding_source': 'route_inferred',
+                'upstream_machine_code_missing': True,
+            },
+        ],
+        entries=[
+            {
+                'tracking_card_no': 'RA260506701',
+                'entry_type': 'mobile_coil',
+                'machine_id': 11,
+                'mes_match_count': 1,
+            },
+            {
+                'tracking_card_no': 'RA260506702',
+                'entry_type': 'mobile_coil',
+                'machine_id': 12,
+            },
+        ],
+        pending_assignment={},
+    )
+
+    assert summary['fill_entry_count'] == 2
+    assert summary['fill_entries_with_mes_match'] == 1
+    assert summary['fill_entries_bound_to_machine'] == 1
+    assert summary['fill_entries_pending_machine'] == 0
+
+
 def test_build_live_aggregation_pairs_cards_with_operator_separator_variants(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(
