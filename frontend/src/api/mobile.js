@@ -155,7 +155,7 @@ export async function fetchCoilList(businessDate, shiftId) {
   return data
 }
 
-export async function createCoilEntry(payload) {
-  const { data } = await api.post('/mobile/coil-entry', payload)
+export async function createCoilEntry(payload, config = {}) {
+  const { data } = await api.post('/mobile/coil-entry', payload, config)
   return data
 }

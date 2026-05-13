@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, or_
 from sqlalchemy.orm import Session
 
 from app.models.master import Equipment
@@ -51,6 +51,7 @@ def _coil_payload(row: MesCoilSnapshot, *, source: str) -> dict:
         {
             'tracking_card_no': row.tracking_card_no,
             'batch_no': row.batch_no,
+            'material_code': row.material_code,
             'alloy_grade': row.alloy_grade,
             'spec_thickness': row.spec_thickness,
             'spec_width': row.spec_width,
@@ -128,6 +129,29 @@ def _latest_tracking_card_snapshot(db: Session, tracking_card_no: str) -> MesCoi
     )
 
 
+def _latest_identifier_snapshot(db: Session, identifier: str) -> MesCoilSnapshot | None:
+    lookup_key = tracking_card_lookup_key(identifier)
+    if not lookup_key:
+        return None
+    identifier_fields = (
+        MesCoilSnapshot.tracking_card_no,
+        MesCoilSnapshot.material_code,
+        MesCoilSnapshot.batch_no,
+        MesCoilSnapshot.coil_id,
+        MesCoilSnapshot.qr_code,
+    )
+    return (
+        db.query(MesCoilSnapshot)
+        .filter(or_(*(tracking_card_sql_lookup_key(field) == lookup_key for field in identifier_fields)))
+        .order_by(
+            MesCoilSnapshot.updated_from_mes_at.is_(None).asc(),
+            MesCoilSnapshot.updated_from_mes_at.desc(),
+            MesCoilSnapshot.id.desc(),
+        )
+        .first()
+    )
+
+
 def _latest_qr_snapshot(db: Session, qr_code: str) -> MesCoilSnapshot | None:
     return (
         db.query(MesCoilSnapshot)
@@ -153,6 +177,41 @@ def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_n
     return _submission_locked_snapshot(_coil_payload(row, source='tracking_card')['header_fields'])
 
 
+def flow_context_for_identifier(db: Session, *, identifier: str) -> dict[str, Any]:
+    value = str(identifier or '').strip()
+    if not value:
+        return {}
+    if not _has_coil_snapshot_table(db):
+        raise ScanLookupUnavailable('mes_coil_snapshots_missing')
+    row = _latest_identifier_snapshot(db, value)
+    if row is None:
+        return {}
+    header_fields = _coil_payload(row, source='coil_identifier')['header_fields']
+    flow = _compact(
+        {
+            'current_workshop': header_fields.get('current_workshop'),
+            'current_process': header_fields.get('current_process'),
+            'next_workshop': header_fields.get('next_workshop'),
+            'next_process': header_fields.get('next_process'),
+            'flow_source': 'mes_projection',
+        }
+    )
+    mes_reference = _compact(
+        {
+            'tracking_card_no': row.tracking_card_no,
+            'material_code': row.material_code,
+            'batch_no': row.batch_no,
+            'coil_id': row.coil_id,
+        }
+    )
+    payload: dict[str, Any] = {}
+    if flow:
+        payload['flow'] = flow
+    if mes_reference:
+        payload['mes_reference'] = mes_reference
+    return payload
+
+
 def lookup_qr(db: Session, *, qr: str) -> dict:
     value = str(qr or '').strip()
     if not value:
@@ -166,6 +225,10 @@ def lookup_qr(db: Session, *, qr: str) -> dict:
         row = _latest_tracking_card_snapshot(db, value)
         if row is not None:
             return _coil_payload(row, source='tracking_card')
+
+        row = _latest_identifier_snapshot(db, value)
+        if row is not None:
+            return _coil_payload(row, source='coil_identifier')
 
     equipment = db.query(Equipment).filter(Equipment.qr_code == value).order_by(Equipment.id.asc()).first()
     if equipment is not None:

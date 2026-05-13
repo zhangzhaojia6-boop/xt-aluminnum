@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -425,8 +426,47 @@ def _normalized_locked_value(value) -> str:
     if value is None:
         return ''
     if isinstance(value, Decimal):
-        value = float(value)
+        value = _normalized_numeric_text(str(value))
     return str(value).strip()
+
+
+def _normalized_numeric_text(value: str) -> str:
+    text = str(value).strip()
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        return text
+    normalized = format(number.normalize(), 'f')
+    if '.' in normalized:
+        normalized = normalized.rstrip('0').rstrip('.')
+    return '0' if normalized in {'', '-0'} else normalized
+
+
+def _normalized_alloy_grade(value) -> str:
+    return _normalized_numeric_text(_normalized_locked_value(value)).upper()
+
+
+def _normalized_spec_parts(value) -> tuple[str, ...]:
+    text = _normalized_locked_value(value).upper()
+    text = re.sub(r'\s+', '', text)
+    text = text.replace('×', 'X').replace('＊', '*').replace('Ｘ', 'X').replace('ｘ', 'X')
+    return tuple(_normalized_numeric_text(part) for part in re.split(r'[X*]', text) if part)
+
+
+def _without_fixed_c_suffix(parts: tuple[str, ...]) -> tuple[str, ...]:
+    if parts and parts[-1] == 'C':
+        return parts[:-1]
+    return parts
+
+
+def _locked_values_match(key: str, current, expected) -> bool:
+    if key == 'alloy_grade':
+        return _normalized_alloy_grade(current) == _normalized_alloy_grade(expected)
+    if key.endswith('_spec'):
+        current_parts = _normalized_spec_parts(current)
+        expected_parts = _normalized_spec_parts(expected)
+        return current_parts == expected_parts or _without_fixed_c_suffix(current_parts) == _without_fixed_c_suffix(expected_parts)
+    return _normalized_locked_value(current) == _normalized_locked_value(expected)
 
 
 def _locked_payload_value(payload: dict, key: str):
@@ -473,7 +513,7 @@ def _validate_locked_fields(db: Session, payload: dict) -> tuple[list[str], dict
         if not found and _normalized_locked_value(expected):
             tampered.append(str(key))
             continue
-        if _normalized_locked_value(current) != _normalized_locked_value(expected):
+        if not _locked_values_match(str(key), current, expected):
             tampered.append(str(key))
     if tampered:
         raise HTTPException(status_code=409, detail='locked_field_tampered')
@@ -510,7 +550,7 @@ def create_coil_entry(
         scope = build_scope_summary(current_user)
         workshop_id = scope.workshop_id
     locked_fields, locked_snapshot = _validate_locked_fields(db, payload)
-    extra_payload = _build_coil_flow_extra_payload(payload, locked_fields_snapshot=locked_snapshot)
+    extra_payload = _build_coil_flow_extra_payload(db, payload, locked_fields_snapshot=locked_snapshot)
 
     entry = WorkOrderEntry(
         work_order_id=wo.id,
@@ -575,7 +615,19 @@ def create_coil_entry(
     }
 
 
-def _build_coil_flow_extra_payload(payload: dict, *, locked_fields_snapshot: dict | None = None) -> dict:
+def _flow_context_from_external_snapshot(db: Session, payload: dict) -> dict:
+    from app.services import scan_lookup_service
+
+    try:
+        return scan_lookup_service.flow_context_for_identifier(
+            db,
+            identifier=str(payload.get('tracking_card_no') or ''),
+        )
+    except scan_lookup_service.ScanLookupUnavailable:
+        return {}
+
+
+def _build_coil_flow_extra_payload(db: Session, payload: dict, *, locked_fields_snapshot: dict | None = None) -> dict:
     extra_payload = dict(payload.get('extra_payload') or {})
     if 'flow' in extra_payload:
         extra_payload['flow'] = _normalize_flow_payload(extra_payload.get('flow'))
@@ -589,4 +641,6 @@ def _build_coil_flow_extra_payload(payload: dict, *, locked_fields_snapshot: dic
     }
     if legacy_flow and 'flow' not in extra_payload:
         extra_payload.update(legacy_flow)
+    if 'flow' not in extra_payload:
+        extra_payload.update(_flow_context_from_external_snapshot(db, payload))
     return extra_payload

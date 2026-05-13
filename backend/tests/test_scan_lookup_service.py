@@ -162,6 +162,37 @@ def test_scan_lookup_hits_tracking_card_latest_snapshot_when_qr_misses(tmp_path)
     }
 
 
+def test_scan_lookup_hits_material_code_when_tracking_card_differs(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-MATERIAL-1',
+                tracking_card_no='26RA03782',
+                material_code='R3-9216-2',
+                batch_no='26RA03782',
+                alloy_grade='5052',
+                spec_display='3.175×1524×3048',
+                current_workshop='2050车间',
+                current_process='冷轧',
+                next_workshop='新厂在线车间',
+                next_process='北线退火',
+                updated_from_mes_at=datetime(2026, 5, 10, 9, tzinfo=timezone.utc),
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='R3-9216-2')
+
+    assert payload['source'] == 'coil_identifier'
+    assert payload['header_fields']['tracking_card_no'] == '26RA03782'
+    assert payload['header_fields']['material_code'] == 'R3-9216-2'
+    assert payload['header_fields']['current_workshop'] == '2050车间'
+    assert payload['header_fields']['current_process'] == '冷轧'
+    assert payload['header_fields']['next_process'] == '北线退火'
+
+
 def test_scan_lookup_matches_tracking_card_separator_variants(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:

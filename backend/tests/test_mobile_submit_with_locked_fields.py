@@ -221,6 +221,37 @@ def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
     assert response.json()['tracking_card_no'] == 'TRACK-LOCK-2'
 
 
+def test_mobile_coil_entry_accepts_equivalent_locked_spec_and_alloy_values(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    locked_snapshot = {
+        'tracking_card_no': 'TRACK-LOCK-EQUIV',
+        'alloy_grade': '1060.0',
+        'input_spec': '1.2×1200',
+    }
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-LOCK-EQUIV',
+                'alloy_grade': '1060',
+                'input_spec': '1.20×1200×C',
+                'input_weight': 1000,
+                'output_weight': 960,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+                'locked_fields_token': sign_locked_fields(locked_snapshot),
+                'locked_fields_snapshot': locked_snapshot,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()['tracking_card_no'] == 'TRACK-LOCK-EQUIV'
+
+
 def test_mobile_coil_entry_accepts_scan_lookup_token_with_submission_fields(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
@@ -268,6 +299,64 @@ def test_mobile_coil_entry_accepts_scan_lookup_token_with_submission_fields(tmp_
 
     assert response.status_code == 200
     assert response.json()['tracking_card_no'] == 'TRACK-LOOKUP-1'
+
+
+def test_mobile_coil_entry_enriches_flow_from_mes_material_code_match(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-MATERIAL-FLOW',
+                tracking_card_no='26RA03782',
+                material_code='R3-9216-2',
+                batch_no='26RA03782',
+                alloy_grade='5052',
+                spec_display='3.175×1524×3048',
+                current_workshop='2050车间',
+                current_process='冷轧',
+                next_workshop='新厂在线车间',
+                next_process='北线退火',
+                updated_from_mes_at=datetime(2026, 5, 10, 9, tzinfo=timezone.utc),
+            )
+        )
+        db.commit()
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'R3-9216-2',
+                'alloy_grade': '5052',
+                'input_spec': '3.175×1524×3048',
+                'input_weight': 9780,
+                'output_weight': 9300,
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['tracking_card_no'] == 'R3-9216-2'
+    assert payload['previous_process'] is None
+    assert payload['next_process'] == '北线退火'
+    assert payload['extra_payload']['flow'] == {
+        'current_workshop': '2050车间',
+        'current_process': '冷轧',
+        'next_workshop': '新厂在线车间',
+        'next_process': '北线退火',
+        'flow_source': 'mes_projection',
+    }
+    assert payload['extra_payload']['mes_reference'] == {
+        'tracking_card_no': '26RA03782',
+        'material_code': 'R3-9216-2',
+        'batch_no': '26RA03782',
+        'coil_id': 'MES-MATERIAL-FLOW',
+    }
 
 
 def test_mobile_coil_entry_rejects_old_fields_from_tracking_card_lookup(tmp_path) -> None:
