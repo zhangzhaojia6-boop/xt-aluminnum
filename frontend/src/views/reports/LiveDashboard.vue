@@ -1093,6 +1093,8 @@ async function loadAggregation({ silent = false } = {}) {
       targetDate.value = redirectDate
       return
     }
+    aggregation.value = liveData
+    activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     const [factoryResult, deliveryResult, mesResult, mesRunsResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
@@ -1100,14 +1102,12 @@ async function loadAggregation({ silent = false } = {}) {
       fetchMesSyncRuns({ limit: 12 }),
       fetchExternalReadiness()
     ])
-    aggregation.value = liveData
     factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
     deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
     mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
     mesSyncRuns.value = mesRunsResult.status === 'fulfilled' ? mesRunsResult.value : { summary: {}, items: [] }
     externalReadiness.value = externalResult.status === 'fulfilled' ? externalResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
-    activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
       await loadDrawer(activeCell.value, { preserveOpen: true })
     }

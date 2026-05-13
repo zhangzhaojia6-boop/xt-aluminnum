@@ -333,6 +333,18 @@ test('live dashboard resolves active business date before first load', () => {
   assert.doesNotMatch(liveDashboardSource, /if \(!dateChanged\)/)
 })
 
+test('live dashboard publishes realtime aggregation before secondary cards settle', () => {
+  const liveDataIndex = liveDashboardSource.indexOf('const liveData = await fetchLiveAggregation')
+  const publishIndex = liveDashboardSource.indexOf('aggregation.value = liveData')
+  const secondaryIndex = liveDashboardSource.indexOf('Promise.allSettled')
+
+  assert.notEqual(liveDataIndex, -1)
+  assert.notEqual(publishIndex, -1)
+  assert.notEqual(secondaryIndex, -1)
+  assert.ok(liveDataIndex < publishIndex)
+  assert.ok(publishIndex < secondaryIndex)
+})
+
 test('buildOutputDistribution ranks live machine output and marks unbound lines', () => {
   const rows = buildOutputDistribution([
     {
