@@ -494,6 +494,8 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`python scripts/check_statistics_module_ready.py --missing-inputs` 输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行' in state
     assert '管理端 `/api/v1/dashboard/external-readiness` 已透传 `missing_inputs` 缺失输入清单' in state
     assert '疑似密钥值：字段名如 `LLM_API_KEY`、`APP_CONNECTION_API_KEY` 仍可见，实际值统一返回 `<redacted>`' in state
+    assert '管理端实时态势的 `外部联通明细` 已展示 `missing_inputs` 缺失输入清单' in state
+    assert 'PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js --grep "external missing input"`：1 passed' in state
     assert '`python -m pytest backend/tests -q`：806 passed，124 deselected，39 warnings' in state
     assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected' in state
     assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected' in state

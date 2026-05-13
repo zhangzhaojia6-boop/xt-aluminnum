@@ -51,12 +51,12 @@
       </article>
     </section>
 
-    <section v-if="externalReadinessLanes.length" class="external-readiness-lanes" aria-label="外部联通明细">
+    <section v-if="externalReadinessLanes.length || externalMissingInputs.length" class="external-readiness-lanes" aria-label="外部联通明细">
       <div class="external-readiness-lanes__head">
         <strong>外部联通明细</strong>
         <span>{{ externalReadinessReady ? '全部通过' : externalIssueLabel }}</span>
       </div>
-      <div class="external-readiness-lanes__grid">
+      <div v-if="externalReadinessLanes.length" class="external-readiness-lanes__grid">
         <article
           v-for="lane in externalReadinessLanes"
           :key="lane.code"
@@ -72,6 +72,30 @@
           </div>
           <em>{{ lane.meta }}</em>
         </article>
+      </div>
+      <div v-if="externalMissingInputs.length" class="external-readiness-missing" aria-label="缺失输入清单">
+        <div class="external-readiness-missing__head">
+          <strong>缺失输入清单</strong>
+          <span>{{ externalMissingInputLabel }}</span>
+        </div>
+        <div class="external-readiness-missing__table">
+          <div class="external-readiness-missing__row external-readiness-missing__row--head" aria-hidden="true">
+            <span>用途</span>
+            <span>所在位置</span>
+            <span>缺失字段</span>
+            <span>影响范围</span>
+            <span>建议取值</span>
+          </div>
+          <div v-for="item in externalMissingInputs" :key="item.key" class="external-readiness-missing__row">
+            <strong data-label="用途">{{ item.purpose }}</strong>
+            <span data-label="所在位置">{{ item.location }}</span>
+            <span class="external-readiness-missing__fields" data-label="缺失字段">
+              <i v-for="field in item.missingFields" :key="field">{{ field }}</i>
+            </span>
+            <span data-label="影响范围">{{ item.impact }}</span>
+            <span data-label="建议取值">{{ item.suggestedValue }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -803,6 +827,23 @@ const externalWarningIssues = computed(() => {
   const warningIssues = externalReadiness.value.warning_issues || externalReadiness.value.warningIssues || []
   return Array.isArray(warningIssues) ? warningIssues : []
 })
+const externalMissingInputs = computed(() => {
+  const missingInputs = externalReadiness.value.missing_inputs || externalReadiness.value.missingInputs || []
+  if (!Array.isArray(missingInputs)) return []
+  return missingInputs.slice(0, 5).map((item, index) => {
+    const issueCode = String(item.issue_code || item.issueCode || '').trim()
+    const missingFields = item.missing_fields || item.missingFields || []
+    return {
+      key: `${issueCode || item.purpose || 'external-input'}-${index}`,
+      purpose: item.purpose || issueCode || '外部输入',
+      location: item.location || '服务器 backend/.env',
+      missingFields: Array.isArray(missingFields) ? missingFields : [],
+      impact: item.impact || '正式试用前需要补齐',
+      suggestedValue: item.suggested_value || item.suggestedValue || '按现场真实配置填写'
+    }
+  })
+})
+const externalMissingInputLabel = computed(() => `${externalMissingInputs.value.length} 项待补输入`)
 const externalHardIssueCount = computed(() => externalHardIssues.value.length)
 const externalReadinessLoaded = computed(() => Object.keys(externalReadiness.value || {}).length > 0)
 const externalReadinessReady = computed(() => (
@@ -1915,6 +1956,92 @@ onBeforeUnmount(() => {
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.external-readiness-missing {
+  display: grid;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(39, 88, 146, 0.12);
+}
+
+.external-readiness-missing__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.external-readiness-missing__head strong {
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__head span {
+  color: var(--command-red);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__table {
+  display: grid;
+  gap: 6px;
+}
+
+.external-readiness-missing__row {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.7fr) minmax(126px, 0.85fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(190px, 1.25fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(39, 88, 146, 0.1);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.external-readiness-missing__row--head {
+  padding-block: 5px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.external-readiness-missing__row--head span {
+  color: var(--xt-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__row > strong,
+.external-readiness-missing__row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.external-readiness-missing__row > strong {
+  color: var(--command-ink);
+  font-weight: 900;
+}
+
+.external-readiness-missing__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.external-readiness-missing__fields i {
+  padding: 2px 5px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: 5px;
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+  font-style: normal;
+  font-weight: 900;
 }
 
 .fill-intake-strip {
@@ -3292,6 +3419,10 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .external-readiness-missing__row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .live-machine-ownership {
     grid-template-columns: 1fr;
   }
@@ -3352,6 +3483,31 @@ onBeforeUnmount(() => {
 
   .mes-sync-stability {
     grid-template-columns: 1fr;
+  }
+
+  .external-readiness-missing__row {
+    grid-template-columns: 1fr;
+  }
+
+  .external-readiness-missing__row--head {
+    display: none;
+  }
+
+  .external-readiness-missing__row > [data-label] {
+    display: grid;
+    gap: 3px;
+  }
+
+  .external-readiness-missing__row > [data-label]::before {
+    content: attr(data-label);
+    color: var(--xt-text-muted);
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .external-readiness-missing__row > .external-readiness-missing__fields {
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .mes-connection-strip__meta {
