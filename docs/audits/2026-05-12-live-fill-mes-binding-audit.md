@@ -232,3 +232,12 @@ npm --prefix frontend run build
 - 外部 MES 卷快照可通过流转卡/材料号匹配到填报记录，但当前批次 `machine_code` 全为空；可用线索在 MES 投影字段 `current_workshop/current_process/next_workshop/next_process`。
 - 后端实时聚合现在在直接 `machine_code` 缺失时，先用 MES 车间别名解析车间，再仅在本车间物理机列唯一，或工艺类型唯一匹配时补出本系统机列；多台同工艺机列仍保持待归属，不自动猜。
 - 本地验证：新增红灯用例覆盖 `2050车间 + 冷轧` 可补到 `LZ2050-1`，以及 `精整车间 + 纵剪` 多机列时保持待归属；`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py -q` 返回 `37 passed, 1 warning`；`python -m pytest backend/tests -q` 返回 `796 passed, 124 deselected, 39 warnings`。
+
+## 管理端默认总览实时状态条
+
+- 生产只读探针确认默认管理端数据源已可读：`/factory-command/overview` 当前返回 `source=mixed`、`today_output_tons=328.41`、`total_input_tons=383.49`、`yield_rate=85.64`；车间汇总含 `2050冷轧车间=220.00t`、`冷轧三车间=108.41t`、`铸三车间=6 卷待补产出`。
+- 同一探针确认 `/aggregation/live` 的活跃业务日仍为 `2026-05-12`，`formal_entry_count=42`、`factory_output=328.41t`、`mes_row_count=23`、`fill_entries_with_mes_match=24`、`fill_entries_bound_to_machine=24`、`pending_machine_assignment_count=0`。
+- 前端 `FactoryOverview.vue` 已在默认管理端首页接入 `fetchLiveAggregation()`，复用 `buildLiveRealityStatus()`，直接展示 `实时数据日期`、`填报端上传`、`外部 MES 机列绑定`，避免用户落在 `/manage/overview` 时只看到旧总览口径。
+- 本地 TDD 验证：先扩展 `frontend/tests/factoryCommandScreens.test.js` 并确认缺少 `fetchLiveAggregation` 红灯失败；实现后 `npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
+- 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
+- Playwright 本地预览探针：`/manage/overview?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `当前显示 2026-05-12`、`填报端 42 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，横向溢出均为 `0`。

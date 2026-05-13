@@ -50,6 +50,26 @@
       </article>
     </section>
 
+    <section v-if="hasLiveReality" class="fc-live-reality" :class="`is-${liveRealityStatus.tone}`" aria-label="实时数据日期">
+      <article>
+        <span>实时数据日期</span>
+        <strong>{{ liveRealityStatus.primaryLabel }}</strong>
+        <em>{{ liveRealityStatus.currentDateLabel }}</em>
+        <em>{{ liveRealityStatus.activeDateLabel }}</em>
+      </article>
+      <article>
+        <span>填报端上传</span>
+        <strong>{{ liveRealityStatus.fillLabel }}</strong>
+        <em>{{ liveRealityStatus.matchLabel }}</em>
+      </article>
+      <article>
+        <span>外部 MES 机列绑定</span>
+        <strong>{{ liveRealityStatus.bindingLabel }}</strong>
+        <em>{{ liveRealityStatus.mesLabel }} · {{ liveRealityStatus.routeLabel }}</em>
+        <em>{{ liveRealityStatus.pendingLabel }}</em>
+      </article>
+    </section>
+
     <section class="fc-pending" :class="{ 'is-empty': !pendingAssignmentSummary.entryCount }">
       <div class="fc-pending__head">
         <div>
@@ -149,11 +169,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { fetchLiveActiveDate, fetchPendingAssignmentEntries } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchPendingAssignmentEntries } from '../../api/realtime'
 import { useFactoryCommandStore } from '../../stores/factory-command'
 import { openAiAssistant } from '../../utils/assistantLauncher'
 import { formatLagLabel, formatLineDisplay, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
+import { buildLiveRealityStatus } from '../../utils/managementCommandCenter'
 import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
 import ReconciliationWaterfall from '../../components/charts/ReconciliationWaterfall.vue'
 import WorkshopOutputRanking from '../../components/charts/WorkshopOutputRanking.vue'
@@ -163,6 +184,7 @@ import FactoryCommandShell from './FactoryCommandShell.vue'
 const store = useFactoryCommandStore()
 const route = useRoute()
 const liveBusinessDate = ref('')
+const liveAggregation = ref(null)
 const pendingAssignment = ref({ summary: {}, items: [] })
 const overview = computed(() => store.overview || {})
 const freshness = computed(() => overview.value.freshness || {})
@@ -217,6 +239,8 @@ const pendingAssignmentRoute = computed(() => ({
   path: '/manage/entry-center',
   query: route.query.desktop === '1' ? { tab: 'pendingAssignment', desktop: '1' } : { tab: 'pendingAssignment' }
 }))
+const hasLiveReality = computed(() => Boolean(liveAggregation.value?.business_date || liveAggregation.value?.businessDate))
+const liveRealityStatus = computed(() => buildLiveRealityStatus(liveAggregation.value || {}))
 const pendingAssignmentSummary = computed(() => {
   const summary = pendingAssignment.value.summary || {}
   const items = pendingAssignment.value.items || []
@@ -276,19 +300,28 @@ function workshopScrapLabel(workshopName) {
   return rate != null ? `${rate.toFixed(1)}%` : '--'
 }
 
-async function loadPendingAssignment() {
+async function loadLiveSurface() {
+  liveAggregation.value = null
+  pendingAssignment.value = { summary: {}, items: [] }
   try {
     const activeDate = await fetchLiveActiveDate()
     liveBusinessDate.value = activeDate?.business_date || ''
     if (!liveBusinessDate.value) return
-    pendingAssignment.value = await fetchPendingAssignmentEntries({ business_date: liveBusinessDate.value })
   } catch {
-    pendingAssignment.value = { summary: {}, items: [] }
+    liveBusinessDate.value = ''
+    return
   }
+
+  const [aggregationResult, pendingResult] = await Promise.allSettled([
+    fetchLiveAggregation({ business_date: liveBusinessDate.value }),
+    fetchPendingAssignmentEntries({ business_date: liveBusinessDate.value })
+  ])
+  liveAggregation.value = aggregationResult.status === 'fulfilled' ? aggregationResult.value : null
+  pendingAssignment.value = pendingResult.status === 'fulfilled' ? pendingResult.value : { summary: {}, items: [] }
 }
 
 onMounted(async () => {
-  await Promise.all([store.loadOverview(), store.loadWorkshops(), store.loadMachineLines(), loadPendingAssignment()])
+  await Promise.all([store.loadOverview(), store.loadWorkshops(), store.loadMachineLines(), loadLiveSurface()])
 })
 </script>
 
@@ -534,6 +567,49 @@ onMounted(async () => {
   50% { box-shadow: 0 0 0 2px var(--xt-danger-border), 0 8px 24px rgba(194, 65, 52, 0.12); }
 }
 
+.fc-live-reality {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.fc-live-reality article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  min-height: 118px;
+  padding: 14px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(11, 91, 212, 0.04), rgba(255, 255, 255, 0.01)),
+    var(--xt-bg-panel);
+  box-shadow: var(--xt-shadow-sm);
+}
+
+.fc-live-reality.is-warning article:first-child {
+  border-color: rgba(183, 121, 31, 0.55);
+}
+
+.fc-live-reality span,
+.fc-live-reality em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.fc-live-reality strong {
+  overflow: hidden;
+  color: var(--xt-text);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .fc-panel {
   padding: 14px;
   position: relative;
@@ -773,6 +849,7 @@ onMounted(async () => {
   }
 
   .fc-grid--metrics,
+  .fc-live-reality,
   .fc-pending__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -798,6 +875,7 @@ onMounted(async () => {
   }
 
   .fc-grid--metrics,
+  .fc-live-reality,
   .fc-pending__metrics {
     grid-template-columns: 1fr;
   }
