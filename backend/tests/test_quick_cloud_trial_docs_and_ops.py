@@ -490,7 +490,10 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
+    assert '本轮部署：`main@798bc0f`' in state
+    assert '`python scripts/check_statistics_module_ready.py --missing-inputs` 输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行' in state
     assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected' in state
+    assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected' in state
     assert '本轮部署：`main@19dbd5b`' in state
     assert '`live_aggregation_ok=true`' in state
     assert '`live_aggregation_business_date=2026-05-12`' in state
