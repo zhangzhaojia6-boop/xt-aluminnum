@@ -35,6 +35,7 @@
 | `D:\鑫泰报表` 真实文件参考与入库 | 部分完成 | 4 月、5 月多天真实产量与能耗已通过门禁入正式事实；`2026-04-30` 已用 `输出skill/2026-4-30_主表完整字段填充.xls` 替代表补入正式事实 | `2026-04-22` 原始源表仍为空，`输出skill/2026-4-22_日均报表.xls` 不是当前综合报表格式，必须继续阻断 |
 | 设计系统、组件体系、路由和页面品质 | 部分完成 | 管理端差异核对、实时页、移动端等已有多轮前端验证 | 后续新增可见 UI 仍需遵循设计规则，跑 mock/e2e/响应式溢出检查 |
 | 后端可维护结构 | 部分完成 | 实时、扫码、移动提交、差异核对等服务已拆到 services/routes/tests | 仍需持续避免把业务算法塞进页面；新增聚合状态优先复用后端服务输出 |
+| 成本与效益经营闭环 | 部分完成 | 成本策略引擎已有前端 contract；后端已补 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 物理表契约 | 持久化写入接口、人工复核权限边界和月度结账流程仍未完成 |
 | 云服务器环境、部署与运行 | 部分完成 | 生产 systemd 部署、`/readyz`、当前状态文档和 `--missing-inputs` 清单已有证据 | 外部应用连接、钉钉、密钥等配置仍需由现场提供真实值后复验 |
 | 每轮自测、代码审查、文档收口 | 部分完成 | 后端全测、前端构建、Playwright 探针、部署记录已多次执行 | 下一轮 UI 切片完成后仍需重新跑相关测试和浏览器验收 |
 
@@ -113,6 +114,28 @@
 - 生产 Playwright 复验：人为延迟 5 个次要接口后，`/api/v1/aggregation/live` 返回后约 `6ms`，管理端实时条已显示 `当前显示 2026-05-12`、`填报端 40 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`、`待归属 0 卷`；此时次要接口返回数仍为 `0`。
 - 响应式复验：`1366px` 与 `390px` 下 `body/root` 横向溢出均为 `0`。
 
+## 本轮成本物理表契约切片
+
+### 目标
+
+把前端成本策略引擎已经公开的 5 张后端表模型 contract 落到后端 metadata 与迁移，先解决“只有前端快照、没有物理表承接”的问题。
+
+### 变更
+
+- `backend/app/models/executive.py` 新增 `CostPriceMaster`、`CostWorkshopStrategy`、`CostDailyResult`、`CostMonthlyRollup`、`CostVarianceRecord`。
+- `backend/alembic/versions/0028_cost_strategy_tables.py` 新增对应物理表、业务唯一键、索引，并为 `cost_price_master` 种入当前前端默认价格主数据。
+- `backend/tests/test_cost_backend_contract.py` 锁定表名、关键列、业务唯一键和迁移种子。
+
+### 验证
+
+- `python -m pytest backend/tests/test_cost_backend_contract.py -q`：`2 passed`。
+- `python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_mobile_entry_copy_consistency.py::test_cost_engine_exposes_backend_table_model_contracts -q`：`8 passed, 1 deselected, 6 warnings`。
+- `python -m py_compile backend/alembic/versions/0028_cost_strategy_tables.py`：通过。
+
+### 仍然未完成
+
+该切片只补物理表契约，不新增策略结果写入 API，不开放人工复核入口，也不启动月度结账流程；这些仍是成本经营闭环后续项。
+
 ## 本轮移动填报冲突提示切片
 
 ### 目标
@@ -157,4 +180,4 @@
 
 ## 完成判断
 
-完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。
+完成该切片后，仍不能直接宣称总 goal 完成；只能把“管理端实时数据可见性 + 外部 MES 机列绑定透明度 + 10w 级异常产量复验 + 外部配置门禁复验 + 缺失现场输入清单 + 4.30 真实日报补齐 + 成本物理表契约”推进到可验收/已验证。总 goal 完成前还需要继续执行设计还原、真实业务模块补齐、LLM/应用连接/钉钉人员真实联通、完整视觉验收和最终代码审查。

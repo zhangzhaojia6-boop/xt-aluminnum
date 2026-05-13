@@ -13,6 +13,11 @@ from app.models.attendance import (
 from app.models.assistant import AiBriefingEvent, AiContextPack, AiConversation, AiMessage, AiWatchlistItem
 from app.models.executive import (
     AluminumPriceDaily,
+    CostDailyResult,
+    CostMonthlyRollup,
+    CostPriceMaster,
+    CostVarianceRecord,
+    CostWorkshopStrategy,
     MachineDailyCostSnapshot,
     MachineDailyProfitSnapshot,
     ProcessingFeeRule,
@@ -88,6 +93,11 @@ __all__ = [
     'DailyReport',
     'RuleConfig',
     'AluminumPriceDaily',
+    'CostPriceMaster',
+    'CostWorkshopStrategy',
+    'CostDailyResult',
+    'CostMonthlyRollup',
+    'CostVarianceRecord',
     'ProcessingFeeRule',
     'ProcessingFeeSurcharge',
     'MachineDailyCostSnapshot',
