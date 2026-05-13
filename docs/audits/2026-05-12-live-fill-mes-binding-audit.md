@@ -241,3 +241,13 @@ npm --prefix frontend run build
 - 本地 TDD 验证：先扩展 `frontend/tests/factoryCommandScreens.test.js` 并确认缺少 `fetchLiveAggregation` 红灯失败；实现后 `npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
 - 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
 - Playwright 本地预览探针：`/manage/overview?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `当前显示 2026-05-12`、`填报端 42 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，横向溢出均为 `0`。
+
+## 管理端默认总览待补产出重量提示
+
+- 前端 `FactoryOverview.vue` 复用实时聚合 `data_quality.missing_output_weight` 和 `buildMissingOutputWeightSummary()`，在默认管理端首页直接展示 `待补产出重量`。
+- 提示带展示缺产出卷数、影响投入、废料记录和最多 3 条样例，样例包含流转卡号、车间、机列和班次。
+- `补重量` 操作跳转到已有异常与补录工作台：`/manage/entry-center?tab=missingOutput`；在强制桌面入口下保留 `desktop=1`。
+- 本轮只增加默认总览可见层，不新增后端接口，不自动改写历史真实重量；补正仍走既有受控人工补正入口。
+- 本地 TDD 验证：先扩展 `frontend/tests/factoryCommandScreens.test.js`，确认缺少 `missingOutputWeightSummary` 红灯失败；实现后 `npm --prefix frontend test -- factoryCommandScreens.test.js` 返回 `137 passed`。
+- 前端构建：`npm --prefix frontend run build` 通过，保留既有 Vite 大 chunk warning。
+- Playwright 本地预览探针：mock 实时数据 `missing_output_weight.entry_count=6` 时，`/manage/overview?desktop=1` 在 `1440x900` 与 `390x844` 均显示 `待补产出重量`、`缺产出 6 卷`、`S-2-062-1`、`补重量`；链接为 `/manage/entry-center?tab=missingOutput&desktop=1`，横向溢出均为 `0`。

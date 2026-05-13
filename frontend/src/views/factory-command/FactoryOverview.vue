@@ -70,6 +70,44 @@
       </article>
     </section>
 
+    <section v-if="missingOutputWeightSummary.entryCount" class="fc-pending fc-missing-output" :class="`is-${missingOutputWeightSummary.tone}`" aria-label="待补产出重量">
+      <div class="fc-pending__head">
+        <div>
+          <strong>待补产出重量</strong>
+          <span>{{ liveBusinessDate || '--' }} · {{ sourceLabel(freshness.source) }}</span>
+        </div>
+        <RouterLink :to="missingOutputRoute">补重量</RouterLink>
+      </div>
+
+      <div class="fc-pending__metrics">
+        <article>
+          <span>缺产出</span>
+          <strong>{{ missingOutputWeightSummary.entryCount }}</strong>
+          <em>卷</em>
+        </article>
+        <article>
+          <span>影响投入</span>
+          <strong>{{ formatWeight(missingOutputWeightSummary.input) }}</strong>
+          <em>吨</em>
+        </article>
+        <article>
+          <span>废料记录</span>
+          <strong>{{ formatWeight(missingOutputWeightSummary.scrap) }}</strong>
+          <em>吨</em>
+        </article>
+      </div>
+
+      <div v-if="missingOutputWeightSummary.items.length" class="fc-pending__rows">
+        <article v-for="item in missingOutputWeightSummary.items" :key="item.entryId || item.trackingCardNo">
+          <div>
+            <strong>{{ item.trackingCardNo }}</strong>
+            <span>{{ item.workshopName }} · {{ item.machineName }} · {{ item.shiftName }}</span>
+          </div>
+          <b>缺产出</b>
+        </article>
+      </div>
+    </section>
+
     <section class="fc-pending" :class="{ 'is-empty': !pendingAssignmentSummary.entryCount }">
       <div class="fc-pending__head">
         <div>
@@ -174,7 +212,7 @@ import { useFactoryCommandStore } from '../../stores/factory-command'
 import { openAiAssistant } from '../../utils/assistantLauncher'
 import { formatLagLabel, formatLineDisplay, formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factoryCommandFormatters'
 import { formatWeight } from '../../utils/liveDashboardFormatters'
-import { buildLiveRealityStatus } from '../../utils/managementCommandCenter'
+import { buildLiveRealityStatus, buildMissingOutputWeightSummary } from '../../utils/managementCommandCenter'
 import PendingAssignmentHeatmap from '../../components/charts/PendingAssignmentHeatmap.vue'
 import ReconciliationWaterfall from '../../components/charts/ReconciliationWaterfall.vue'
 import WorkshopOutputRanking from '../../components/charts/WorkshopOutputRanking.vue'
@@ -239,8 +277,13 @@ const pendingAssignmentRoute = computed(() => ({
   path: '/manage/entry-center',
   query: route.query.desktop === '1' ? { tab: 'pendingAssignment', desktop: '1' } : { tab: 'pendingAssignment' }
 }))
+const missingOutputRoute = computed(() => ({
+  path: '/manage/entry-center',
+  query: route.query.desktop === '1' ? { tab: 'missingOutput', desktop: '1' } : { tab: 'missingOutput' }
+}))
 const hasLiveReality = computed(() => Boolean(liveAggregation.value?.business_date || liveAggregation.value?.businessDate))
 const liveRealityStatus = computed(() => buildLiveRealityStatus(liveAggregation.value || {}))
+const missingOutputWeightSummary = computed(() => buildMissingOutputWeightSummary(liveAggregation.value || {}, 3))
 const pendingAssignmentSummary = computed(() => {
   const summary = pendingAssignment.value.summary || {}
   const items = pendingAssignment.value.items || []
@@ -745,6 +788,45 @@ onMounted(async () => {
   color: var(--xt-success);
 }
 
+.fc-missing-output {
+  border-color: rgba(194, 65, 52, 0.52);
+  background:
+    linear-gradient(180deg, rgba(194, 65, 52, 0.14), rgba(255, 255, 255, 0.015)),
+    var(--xt-bg-panel);
+}
+
+.fc-missing-output .fc-pending__head a {
+  background: var(--xt-danger);
+  white-space: nowrap;
+}
+
+.fc-missing-output .fc-pending__metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fc-missing-output .fc-pending__metrics article,
+.fc-missing-output .fc-pending__rows {
+  border-color: rgba(194, 65, 52, 0.28);
+  background: rgba(194, 65, 52, 0.06);
+}
+
+.fc-missing-output .fc-pending__rows div {
+  min-width: 0;
+}
+
+.fc-missing-output .fc-pending__rows span,
+.fc-missing-output .fc-pending__rows strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-missing-output .fc-pending__rows b {
+  background: rgba(194, 65, 52, 0.14);
+  color: var(--xt-danger);
+  font-weight: 900;
+}
+
 .fc-pending__empty {
   padding: 8px 0;
 }
@@ -850,6 +932,7 @@ onMounted(async () => {
 
   .fc-grid--metrics,
   .fc-live-reality,
+  .fc-missing-output .fc-pending__metrics,
   .fc-pending__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -876,6 +959,7 @@ onMounted(async () => {
 
   .fc-grid--metrics,
   .fc-live-reality,
+  .fc-missing-output .fc-pending__metrics,
   .fc-pending__metrics {
     grid-template-columns: 1fr;
   }
