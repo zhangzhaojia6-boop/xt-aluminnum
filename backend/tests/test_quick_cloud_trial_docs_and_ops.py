@@ -749,9 +749,12 @@ def test_external_readiness_docs_expose_env_template_command() -> None:
     script = _read('backend/scripts/check_statistics_module_ready.py')
 
     assert '--env-template' in script
+    assert '--check-live-aggregation' in script
     assert 'python scripts/check_statistics_module_ready.py --env-template' in state
+    assert 'python scripts/check_statistics_module_ready.py --json --check-live-aggregation' in state
     assert 'python scripts/check_statistics_module_ready.py --env-template' in ops
     assert '不回显现有密钥' in state
+    assert '实时聚合只读探针' in state
     assert '不要把包含密钥的 `.env` 提交到 Git' in ops
     for expected in [
         'LLM_ENABLED=true',

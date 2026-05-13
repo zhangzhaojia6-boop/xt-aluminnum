@@ -10,7 +10,9 @@ import argparse
 import json
 import sys
 import warnings
+from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable
 
 from sqlalchemy import text
@@ -92,6 +94,78 @@ def _default_dingtalk_contacts_checker(*, department_id: int) -> dict[str, Any]:
     return check_department_contacts(department_id=department_id)
 
 
+def _default_live_aggregation_probe(db) -> dict[str, Any]:
+    from app.services import realtime_service
+
+    active_date_payload = realtime_service.resolve_live_business_date(db)
+    business_date = date.fromisoformat(str(active_date_payload.get('business_date')))
+    probe_user = SimpleNamespace(
+        id=0,
+        role='admin',
+        data_scope_type='all',
+        workshop_id=None,
+        team_id=None,
+        assigned_shift_ids=[],
+        is_manager=True,
+        is_reviewer=True,
+        is_mobile_user=False,
+    )
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=business_date,
+        workshop_id=None,
+        current_user=probe_user,
+    )
+    progress = payload.get('overall_progress') or {}
+    binding = payload.get('mes_machine_binding') or {}
+    pending_assignment = progress.get('pending_assignment') or {}
+    pending_assignment_count = binding.get('pending_assignment_entry_count')
+    if pending_assignment_count is None:
+        pending_assignment_count = pending_assignment.get('entry_count')
+    return {
+        'business_date': payload.get('business_date') or business_date.isoformat(),
+        'business_date_source': active_date_payload.get('source') or 'unknown',
+        'data_source': payload.get('data_source'),
+        'total_entry_count': progress.get('total_entry_count'),
+        'formal_entry_count': progress.get('formal_entry_count'),
+        'draft_entry_count': progress.get('draft_entry_count'),
+        'mes_row_count': binding.get('mes_row_count'),
+        'fill_entries_with_mes_match': binding.get('fill_entries_with_mes_match'),
+        'fill_entries_bound_to_machine': binding.get('fill_entries_bound_to_machine'),
+        'pending_assignment_entry_count': pending_assignment_count,
+    }
+
+
+def _run_live_aggregation_probe(
+    session_factory,
+    live_aggregation_probe: Callable[[Any], dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], str | None]:
+    probe = live_aggregation_probe or _default_live_aggregation_probe
+    try:
+        db = session_factory()
+        try:
+            payload = probe(db)
+        finally:
+            close = getattr(db, 'close', None)
+            if callable(close):
+                close()
+    except Exception as exc:  # noqa: BLE001
+        return {}, exc.__class__.__name__
+
+    return {
+        'business_date': payload.get('business_date'),
+        'business_date_source': payload.get('business_date_source'),
+        'data_source': payload.get('data_source'),
+        'total_entry_count': payload.get('total_entry_count'),
+        'formal_entry_count': payload.get('formal_entry_count'),
+        'draft_entry_count': payload.get('draft_entry_count'),
+        'mes_row_count': payload.get('mes_row_count'),
+        'fill_entries_with_mes_match': payload.get('fill_entries_with_mes_match'),
+        'fill_entries_bound_to_machine': payload.get('fill_entries_bound_to_machine'),
+        'pending_assignment_entry_count': payload.get('pending_assignment_entry_count'),
+    }, None
+
+
 def build_external_env_template(*, runtime_settings: Settings | None = None) -> str:
     runtime = runtime_settings or settings
     mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
@@ -161,6 +235,8 @@ def inspect_statistics_module_ready(
     check_dingtalk_contacts: bool = False,
     dingtalk_department_id: int = 1,
     dingtalk_contacts_checker: Callable[..., dict[str, Any]] | None = None,
+    check_live_aggregation: bool = False,
+    live_aggregation_probe: Callable[[Any], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     runtime = runtime_settings or settings
     issues: list[dict[str, Any]] = []
@@ -512,6 +588,26 @@ def inspect_statistics_module_ready(
         app_connection_ready = True
         external_connection_enabled = True
 
+    live_aggregation_checked = bool(check_live_aggregation)
+    live_aggregation_ok: bool | None = None
+    live_aggregation_stats: dict[str, Any] = {}
+    live_aggregation_error: str | None = None
+    if live_aggregation_checked:
+        live_aggregation_stats, live_aggregation_error = _run_live_aggregation_probe(
+            session_factory,
+            live_aggregation_probe=live_aggregation_probe,
+        )
+        live_aggregation_ok = live_aggregation_error is None
+        if live_aggregation_error:
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='LIVE_AGGREGATION_UNAVAILABLE',
+                    message=f'实时聚合只读探针失败：{live_aggregation_error}。',
+                    suggestion='请检查 /api/v1/aggregation/live、数据库迁移、主数据和实时聚合服务日志后重跑 readiness。',
+                )
+            )
+
     local_runnable = runtime_valid and database_ok
     hard_issues = [item for item in issues if item['level'] == 'hard']
     warning_issues = [item for item in issues if item['level'] == 'warning']
@@ -549,6 +645,19 @@ def inspect_statistics_module_ready(
             'app_connection_push_mode': app_connection_mode,
             'runtime_valid': runtime_valid,
             'database_ok': database_ok,
+            'live_aggregation_checked': live_aggregation_checked,
+            'live_aggregation_ok': live_aggregation_ok,
+            'live_aggregation_error': live_aggregation_error,
+            'live_aggregation_business_date': live_aggregation_stats.get('business_date'),
+            'live_aggregation_date_source': live_aggregation_stats.get('business_date_source'),
+            'live_aggregation_data_source': live_aggregation_stats.get('data_source'),
+            'live_aggregation_total_entry_count': live_aggregation_stats.get('total_entry_count'),
+            'live_aggregation_formal_entry_count': live_aggregation_stats.get('formal_entry_count'),
+            'live_aggregation_draft_entry_count': live_aggregation_stats.get('draft_entry_count'),
+            'live_aggregation_mes_row_count': live_aggregation_stats.get('mes_row_count'),
+            'live_aggregation_mes_match_count': live_aggregation_stats.get('fill_entries_with_mes_match'),
+            'live_aggregation_bound_to_machine_count': live_aggregation_stats.get('fill_entries_bound_to_machine'),
+            'live_aggregation_pending_assignment_count': live_aggregation_stats.get('pending_assignment_entry_count'),
         },
     }
 
@@ -559,6 +668,7 @@ def main() -> int:
     parser.add_argument('--env-template', action='store_true', help='输出正式外部联通所需 .env 模板，不回显现有密钥')
     parser.add_argument('--check-dingtalk-contacts', action='store_true', help='显式执行钉钉通讯录只读权限诊断')
     parser.add_argument('--dingtalk-department-id', type=int, default=1, help='钉钉通讯录诊断部门 ID')
+    parser.add_argument('--check-live-aggregation', action='store_true', help='显式执行实时聚合只读探针，验证管理端实时数据服务可计算')
     args = parser.parse_args()
 
     if args.env_template:
@@ -568,6 +678,7 @@ def main() -> int:
     result = inspect_statistics_module_ready(
         check_dingtalk_contacts=args.check_dingtalk_contacts,
         dingtalk_department_id=args.dingtalk_department_id,
+        check_live_aggregation=args.check_live_aggregation,
     )
     if args.json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))

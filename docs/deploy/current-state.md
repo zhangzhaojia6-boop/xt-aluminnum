@@ -189,6 +189,12 @@ db 容器: PostgreSQL 15
 - `LLM_DISABLED`
 - `APP_CONNECTION_DISABLED`
 
+正式试用闸门复验时应使用带实时聚合只读探针的命令，避免只看配置而漏掉管理端实时数据服务是否可计算：
+
+```bash
+python scripts/check_statistics_module_ready.py --json --check-live-aggregation
+```
+
 2026-05-13 线上复验结论：
 
 - `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`
@@ -196,6 +202,7 @@ db 容器: PostgreSQL 15
 - 已通过的业务底座：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`
 - 外部 MES 当前可用：`mes_adapter=mvc`、`mes_ready=true`
 - 正式外发仍缺：`llm_enabled=false`、`llm_model_ref_set=false`、`app_connection_enabled=false`、`app_connection_push_mode=disabled`
+- 实时聚合只读探针用于返回 `live_aggregation_business_date`、`live_aggregation_data_source`、`live_aggregation_total_entry_count`、`live_aggregation_mes_row_count` 与 `live_aggregation_bound_to_machine_count`；当天无填报不等于探针失败，只有服务异常才进入 `LIVE_AGGREGATION_UNAVAILABLE`
 - 钉钉应用已启用但未绑定真实人员：`warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`
 
 正式联通前可先生成不回显现有密钥的 `.env` 填写模板：
