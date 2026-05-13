@@ -305,6 +305,8 @@ test('data source labels expose local coil fill as direct entry', () => {
 test('live dashboard resolves active business date before first load', () => {
   assert.match(liveDashboardSource, /fetchLiveActiveDate/)
   assert.match(liveDashboardSource, /initializeActiveBusinessDate/)
+  assert.match(liveDashboardSource, /onMounted\(async \(\) => \{\s*await initializeActiveBusinessDate\(\)\s*await loadDashboardSurface\(\)\s*\}\)/)
+  assert.doesNotMatch(liveDashboardSource, /if \(!dateChanged\)/)
 })
 
 test('buildOutputDistribution ranks live machine output and marks unbound lines', () => {

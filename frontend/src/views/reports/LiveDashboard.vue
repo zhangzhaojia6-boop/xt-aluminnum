@@ -1331,10 +1331,8 @@ watch(targetDate, async () => {
 })
 
 onMounted(async () => {
-  const dateChanged = await initializeActiveBusinessDate()
-  if (!dateChanged) {
-    await loadDashboardSurface()
-  }
+  await initializeActiveBusinessDate()
+  await loadDashboardSurface()
 })
 
 onBeforeUnmount(() => {
