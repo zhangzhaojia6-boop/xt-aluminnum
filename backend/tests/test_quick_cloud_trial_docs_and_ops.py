@@ -1114,15 +1114,15 @@ def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> 
 def test_active_goal_completion_audit_tracks_current_external_readiness_evidence() -> None:
     audit = _read('docs/audits/2026-05-13-active-goal-completion-audit.md')
 
-    assert '当前代码锚点：`dba8b13 fix: 优化填报锁定字段冲突提示`' in audit
-    assert '正式填报 `39` 条' in audit
-    assert '`live_aggregation_total_entry_count=39`' in audit
+    assert '当前代码锚点：`fc9453d fix: 提前发布管理端实时聚合数据`' in audit
+    assert '正式填报 `40` 条' in audit
+    assert '填报端 40 卷' in audit
     assert '`live_aggregation_bound_to_machine_count=24`' in audit
     assert '`DINGTALK_CONTACTS_PERMISSION_MISSING`' in audit
     assert '`qyapi_get_department_member`' in audit
     assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in audit
     assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in audit
-    assert '旧页面截图证据尚未刷新' in audit
+    assert '慢接口未返回前已经发布实时聚合数据' in audit
 
 
 def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None:

@@ -10,16 +10,16 @@
 
 ## 当前证据
 
-- 当前代码锚点：`dba8b13 fix: 优化填报锁定字段冲突提示`，已推送到 `origin/main` 并部署到生产；生产 dist 已包含新的移动填报锁定字段冲突中文提示。
+- 当前代码锚点：`fc9453d fix: 提前发布管理端实时聚合数据`，已推送到 `origin/main` 并部署到生产；生产 dist 已包含管理端实时首屏发布顺序修复。
 - 生产健康：`/readyz` 返回 ready，`aluminum-bypass` 与 `nginx` 均为 `active`，外部 MES 同步 `last_run_status=success`，最近拉取与写入均为 `50`。
 - 本轮外部联通验证：`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `53 passed, 1 deselected`。
-- 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `39` 条，实时聚合探针 `live_aggregation_data_source=mixed`、`live_aggregation_total_entry_count=39`、`live_aggregation_formal_entry_count=39`、`live_aggregation_draft_entry_count=0`。
+- 实时填报事实：生产活跃业务日为 `2026-05-12`，最新生产页面复验正式填报 `40` 条，实时聚合探针 `live_aggregation_data_source=mixed`；同日外部 MES 匹配 `24` 卷、已绑机列 `24` 卷、外部 MES 投影 `23` 行、待归属 `0` 卷。
 - 当天现状：`2026-05-13` 暂无正式或草稿填报记录；管理端如果直接看今天，会呈现为空。
 - 外部 MES 绑定事实：本轮外部 MES 投影 `23` 行，填报命中 MES `24` 卷，已绑定机列 `24` 卷；路线推断可补齐直接 `machine_code` 为空的部分机列归属。
 - 上游限制：当前外部 MES 批次的 `machine_code` 为空，后端只能用 `current_workshop/current_process/next_workshop/next_process` 做唯一性推断；多机列歧义保持待归属。
 - UI 蓝图资产：`docs/ui-reference/IMAGE2_PROMPTS.md`、`docs/ui-reference/UI_TARGET_SPEC.md`、`docs/ui-reference/DESIGN_REVERSE_PLAN.md` 和 `docs/ui-reference/highres/01-15` 已存在。
 - 10w 级异常产量复验：4.30 真实日报补入后，生产 `ShiftProductionData` 活跃 `254` 行中，折吨后 `>=10000t` 的记录数为 `0`，最大折吨单行仍为 `1163.0t`；`2026-05-12` 厂级、车间、实时聚合分别返回 `281.12t`，`2026-05-13` 当天返回 `0.0t`，历史七日最大值为 `355.97t`。
-- 生产页面复验：上一轮 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，且 `body/root` 横向溢出均为 `0`；最新服务探针已到 `39` 条正式填报，旧页面截图证据尚未刷新。
+- 生产页面复验：最新 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 40 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，且 `body/root` 横向溢出均为 `0`；桌面探针人为延迟 5 个次要接口时，实时聚合返回后约 `6ms` 首屏即出现这些实时数据。
 
 ## Prompt-to-artifact 核对
 
@@ -27,7 +27,7 @@
 | --- | --- | --- | --- |
 | image-2 理想设计稿与功能蓝图 | 部分完成 | `docs/ui-reference/*` 与 15 张 highres 参考图已存在 | 继续改 UI 前需要按设计门禁锁定方向并做浏览器验收 |
 | 全仓上下文、计划、文档审计 | 部分完成 | `docs/deploy/current-state.md`、`docs/audits/*`、`docs/superpowers/plans/*` 持续更新 | 大 goal 级完成审计此前不集中；本文补齐 |
-| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 有 `39` 条正式填报；管理端实时页已显示最近有效业务日，旧页面截图仍停留在 37 条证据 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障；最新页面截图尚未刷新 |
+| 管理端接收填报端测试数据 | 可验收 | `2026-05-12` 最新页面复验有 `40` 条正式填报；管理端实时页已显示最近有效业务日，且慢接口未返回前已经发布实时聚合数据 | `2026-05-13` 仍无填报，这是现场数据状态，不是链路故障 |
 | 填报端到 API/BFF、数据库、管理端、报表图表链路 | 可验收 | 实时聚合、待补产出、差异核对、人工补正、管理端入口均已有测试和部署证据 | 后续继续扩展到更多经营模块，不再把实时填报链路作为当前阻断 |
 | 外部 MES 链接稳定通畅 | 部分完成 | `/readyz` 外部 MES 同步成功，最近拉取/写入 `50`；实时聚合只读探针 `live_aggregation_ok=true` | 上游 `machine_code` 为空，绑定依赖保守推断；正式外部联通仍缺 LLM、应用连接和钉钉人员 UAT |
 | 与外部 MES 绑定的机列数据搭配绑定 | 可验收 | `/api/v1/aggregation/live` 返回 `mes_machine_binding`，管理端实时页展示外部 MES `23` 行、匹配填报 `24` 卷、已绑机列 `24` 卷、路线推断和上游机列码缺失 | 上游 `machine_code` 仍为空；多机列歧义保持待归属，不静默强绑 |
@@ -78,7 +78,7 @@
 - 外部 MES 可用：`mes_adapter=mvc`、`mes_ready=true`。
 - 当前 hard issues：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`。
 - 当前 warning issues：`DINGTALK_NO_BOUND_USERS`、`DINGTALK_CONTACTS_PERMISSION_MISSING`，且 `active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`、`dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
-- 实时聚合只读探针正常：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=39`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`。
+- 实时聚合只读探针正常：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=40`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`。
 - `python scripts/check_statistics_module_ready.py --missing-inputs` 已可输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的缺失输入清单，基础清单只有 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，未回显任何真实密钥值；加 `--check-dingtalk-contacts` 后会额外暴露 `钉钉通讯录同步` 权限缺口。
 
 ### 需要现场补齐的真实值
@@ -93,6 +93,25 @@
 ### 管理端暴露状态
 
 管理端实时页已经展示 `外部联通闸门` 和 `外部联通明细`，并把 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`、`DINGTALK_NO_BOUND_USERS` 转成 `LLM 摘要`、`应用连接`、`钉钉人员` 三类业务标签；因此当前最小收口是文档和门禁清单，不需要伪造配置或改写生产数据。
+
+## 本轮管理端实时首屏发布修复切片
+
+### 目标
+
+修复管理端实时页在慢接口返回前先显示当前日 `0 卷` 的误导状态，确保填报端上传数据和外部 MES 机列绑定数据在实时聚合接口返回后立即进入首屏。
+
+### 变更
+
+- `frontend/src/views/reports/LiveDashboard.vue` 将 `aggregation.value = liveData` 和机列面板展开状态提前到次要卡片 `Promise.allSettled` 之前。
+- `frontend/tests/managementCommandCenter.test.js` 增加顺序回归测试，锁定实时聚合发布必须早于工厂快照、发运、外部联通、同步状态等慢接口等待。
+
+### 验证
+
+- `npm --prefix frontend test -- managementCommandCenter.test.js`：`134 passed`。
+- `npm --prefix frontend run build`：通过，仅保留既有 Vite 大 chunk warning。
+- 生产部署：`main@fc9453d` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线，公网 `/readyz` 为 `status=ready`，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 生产 Playwright 复验：人为延迟 5 个次要接口后，`/api/v1/aggregation/live` 返回后约 `6ms`，管理端实时条已显示 `当前显示 2026-05-12`、`填报端 40 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`、`待归属 0 卷`；此时次要接口返回数仍为 `0`。
+- 响应式复验：`1366px` 与 `390px` 下 `body/root` 横向溢出均为 `0`。
 
 ## 本轮移动填报冲突提示切片
 
