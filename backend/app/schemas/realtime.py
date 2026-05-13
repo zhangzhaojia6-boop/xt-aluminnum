@@ -40,10 +40,12 @@ class LiveWorkshopSummaryOut(BaseModel):
 
 class LiveAggregationOut(BaseModel):
     business_date: str
+    business_date_context: dict = Field(default_factory=dict)
     overall_progress: dict = Field(default_factory=dict)
     workshops: list[LiveWorkshopSummaryOut] = Field(default_factory=list)
     factory_total: dict = Field(default_factory=dict)
     data_quality: dict = Field(default_factory=dict)
+    mes_machine_binding: dict = Field(default_factory=dict)
     yield_matrix_lane: dict = Field(default_factory=dict)
     mes_sync_status: dict = Field(default_factory=dict)
     data_source: str = 'work_order_runtime'
