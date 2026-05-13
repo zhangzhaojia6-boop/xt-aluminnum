@@ -66,6 +66,9 @@ export function workshopTypeFromName(name) {
 
 export function requestErrorMessage(error, fallback = '数据加载失败，请稍后重试') {
   const detail = error?.response?.data?.detail
+  if (detail === 'locked_field_tampered') {
+    return '扫码带出的卷号、合金或规格已变化，请重新扫码后提交'
+  }
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || item).join('；')
   }

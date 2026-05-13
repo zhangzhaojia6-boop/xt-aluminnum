@@ -174,6 +174,7 @@ import {
 import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
 import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
 import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
+import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 
 const auth = useAuthStore()
@@ -493,7 +494,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (submitTarget.value === 'coil_entry') {
-      const saved = await createCoilEntry(buildCoilEntryPayload(sc))
+      const saved = await createCoilEntry(buildCoilEntryPayload(sc), { skipErrorToast: true })
       ElMessage.success(`第${coilSeq.value}卷 录入成功`)
       lastCoilData.value = { ...form }
       history.value.unshift(saved?.data ? saved : { seq: coilSeq.value, ...form })
@@ -510,7 +511,7 @@ async function handleSubmit() {
       ElMessage.success('提交成功')
     }
   } catch (e) {
-    ElMessage.error(e?.response?.data?.detail || '提交失败')
+    ElMessage.error(requestErrorMessage(e, '提交失败'))
   } finally {
     submitting.value = false
   }

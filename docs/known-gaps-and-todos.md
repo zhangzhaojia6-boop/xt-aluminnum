@@ -13,7 +13,7 @@
 
 ## 3. 旧 E2E 用例对结构依赖较强
 
-- 当前 `frontend/e2e` 已有 20 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
+- 当前 `frontend/e2e` 已有 22 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
 - 后续新增页面结构时继续优先复用 `frontend/e2e/helpers/review-mocks.js`，避免环境依赖导致假失败
 
 ## 4. Entry 独立端与 mobile 兼容期并存
