@@ -102,6 +102,7 @@
 - 可用替代表：`D:\鑫泰报表\输出skill\2026-4-30_主表完整字段填充.xls`。
 - 本机 dry-run：只读转换为 `xintai-daily-production-2026-04-30-filled.xlsx` 后，锁定报告日 `2026-04-30` 返回 `hard_gate_passed=true`、`total_rows=16`、`ready_rows=16`、`unresolved_rows=0`、`daily_output_tons=2345.849`。
 - 写库前备份：`/srv/aluminum-bypass/backups/pre-daily-production-promote-20260430-20260513-084441.dump`，已通过 `pg_restore -l` 校验。
+- 转换源留档：`/srv/aluminum-bypass/backups/import_sources/daily-production-20260430-20260513-0844/xintai-daily-production-2026-04-30-filled.xlsx`，服务器 Git 工作区保持干净。
 - 生产 staging：`ImportBatch id=32`、`batch_no=IMP-DAILY-LOCKED-20260513084453608065`、`quality_status=warning`，warning 仅为原表头日期 `2026-04-22` 与锁定报告日 `2026-04-30` 不一致。
 - 正式提升：写入 `ShiftProductionData` `14` 行，`input=2388.531t`、`output=2345.849t`、`scrap=111.682t`。
 - 服务层复验：`build_factory_dashboard(2026-04-30)` 返回 `today_total_output=2345.85`、`total_energy=194186.6`、`energy_per_ton=82.77881483420288`。
