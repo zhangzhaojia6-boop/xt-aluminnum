@@ -333,6 +333,30 @@ export function shouldSwitchToRealtimeBusinessDate({
   return currentTarget === activeDate && eventDate === currentDate
 }
 
+export function shouldRedirectToActiveBusinessDate({
+  targetDate,
+  aggregation = {},
+  autoMode = true,
+} = {}) {
+  const currentTarget = String(targetDate || '').trim()
+  if (!autoMode || !currentTarget) return ''
+
+  const context = aggregation.business_date_context || aggregation.businessDateContext || {}
+  const requestedDate = String(context.requested_business_date || context.requestedBusinessDate || aggregation.business_date || currentTarget)
+  const currentDate = String(context.current_business_date || context.currentBusinessDate || requestedDate)
+  const activeDate = String(context.active_business_date || context.activeBusinessDate || '').trim()
+  if (!activeDate || activeDate === currentTarget) return ''
+
+  const requestedEntryCount = numberValue(context.requested_entry_count ?? context.requestedEntryCount)
+  const currentDateEntryCount = numberValue(context.current_date_entry_count ?? context.currentDateEntryCount)
+  const activeDateEntryCount = numberValue(context.active_date_entry_count ?? context.activeDateEntryCount)
+  const targetIsCurrentDate = currentTarget === currentDate && requestedDate === currentTarget
+  if (targetIsCurrentDate && requestedEntryCount === 0 && currentDateEntryCount === 0 && activeDateEntryCount > 0) {
+    return activeDate
+  }
+  return ''
+}
+
 export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
   const progress = aggregation.overall_progress || aggregation.overallProgress || {}
   const rawSummary = progress.pending_assignment || progress.pendingAssignment || aggregation.pending_assignment || {}

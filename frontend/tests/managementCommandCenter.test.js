@@ -15,6 +15,7 @@ import {
   buildUnboundFillSummary,
   buildWorkshopFillIntakeRows,
   dataSourceLabel,
+  shouldRedirectToActiveBusinessDate,
   shouldSwitchToRealtimeBusinessDate,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -175,6 +176,26 @@ test('shouldSwitchToRealtimeBusinessDate keeps manual historical dates stable', 
   assert.equal(shouldSwitch, false)
 })
 
+test('shouldRedirectToActiveBusinessDate follows aggregation context when today is empty', () => {
+  const redirectDate = shouldRedirectToActiveBusinessDate({
+    targetDate: '2026-05-13',
+    autoMode: true,
+    aggregation: {
+      business_date: '2026-05-13',
+      business_date_context: {
+        requested_business_date: '2026-05-13',
+        current_business_date: '2026-05-13',
+        active_business_date: '2026-05-12',
+        requested_entry_count: 0,
+        current_date_entry_count: 0,
+        active_date_entry_count: 39,
+      },
+    },
+  })
+
+  assert.equal(redirectDate, '2026-05-12')
+})
+
 test('buildPendingAssignmentSummary exposes draft coils missing machine ownership', () => {
   const summary = buildPendingAssignmentSummary({
     overall_progress: {
@@ -305,6 +326,9 @@ test('data source labels expose local coil fill as direct entry', () => {
 test('live dashboard resolves active business date before first load', () => {
   assert.match(liveDashboardSource, /fetchLiveActiveDate/)
   assert.match(liveDashboardSource, /initializeActiveBusinessDate/)
+  assert.match(liveDashboardSource, /shouldRedirectToActiveBusinessDate/)
+  assert.match(liveDashboardSource, /const redirectDate = shouldRedirectToActiveBusinessDate/)
+  assert.match(liveDashboardSource, /targetDate\.value = redirectDate/)
   assert.match(liveDashboardSource, /onMounted\(async \(\) => \{\s*await initializeActiveBusinessDate\(\)\s*await loadDashboardSurface\(\)\s*\}\)/)
   assert.doesNotMatch(liveDashboardSource, /if \(!dateChanged\)/)
 })

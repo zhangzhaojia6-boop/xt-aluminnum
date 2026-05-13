@@ -692,6 +692,7 @@ import {
   buildUnboundFillSummary,
   buildWorkshopFillIntakeRows,
   buildCommandCenterSummary,
+  shouldRedirectToActiveBusinessDate,
   shouldSwitchToRealtimeBusinessDate,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
@@ -1083,6 +1084,15 @@ async function loadAggregation({ silent = false } = {}) {
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
+    const redirectDate = shouldRedirectToActiveBusinessDate({
+      targetDate: targetDate.value,
+      aggregation: liveData,
+      autoMode: autoActiveDateMode.value
+    })
+    if (redirectDate) {
+      targetDate.value = redirectDate
+      return
+    }
     const [factoryResult, deliveryResult, mesResult, mesRunsResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
