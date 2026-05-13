@@ -128,6 +128,7 @@ db 容器: PostgreSQL 15
 - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js --grep "external missing input"`：1 passed，覆盖 `1366x820` 与 `390x844` 无横向溢出
 - `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected
 - `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：53 passed，1 deselected
 - `git diff --check`：通过，仅 Windows LF -> CRLF 提示
 - 本轮部署：`main@798bc0f` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `main...origin/main` 干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
 - 生产缺失输入清单复验：`python scripts/check_statistics_module_ready.py --missing-inputs` 输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，列为 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值`，没有回显任何真实密钥值。

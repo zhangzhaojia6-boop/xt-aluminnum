@@ -12,7 +12,7 @@
 
 - 当前代码锚点：`dba8b13 fix: 优化填报锁定字段冲突提示`，已推送到 `origin/main` 并部署到生产；生产 dist 已包含新的移动填报锁定字段冲突中文提示。
 - 生产健康：`/readyz` 返回 ready，`aluminum-bypass` 与 `nginx` 均为 `active`，外部 MES 同步 `last_run_status=success`，最近拉取与写入均为 `50`。
-- 本轮外部联通验证：`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `52 passed, 1 deselected`。
+- 本轮外部联通验证：`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `53 passed, 1 deselected`。
 - 实时填报事实：生产活跃业务日为 `2026-05-12`，正式填报 `39` 条，实时聚合探针 `live_aggregation_data_source=mixed`、`live_aggregation_total_entry_count=39`、`live_aggregation_formal_entry_count=39`、`live_aggregation_draft_entry_count=0`。
 - 当天现状：`2026-05-13` 暂无正式或草稿填报记录；管理端如果直接看今天，会呈现为空。
 - 外部 MES 绑定事实：本轮外部 MES 投影 `23` 行，填报命中 MES `24` 卷，已绑定机列 `24` 卷；路线推断可补齐直接 `machine_code` 为空的部分机列归属。
