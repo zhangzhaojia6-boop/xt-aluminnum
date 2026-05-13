@@ -18,7 +18,7 @@
 - 07 审阅中心：`/manage/entry-center`
 - 08 日报与交付中心：`/manage/reports`
 - 09 质量与告警中心：`/manage/quality`
-- 10 经营效益：`/manage/factory/cost`
+- 10 经营效益：`/manage/factory/cost`；策略核算工作台：`/manage/factory/cost/accounting`
 - 11 AI 助手：`/manage/ai-assistant`
 - 12 系统运维与可观测：`/manage/admin/settings`
 - 13 权限与治理中心：`/manage/admin/governance`
@@ -40,7 +40,7 @@
 - `/review/overview` -> `/manage/overview` -> `review-overview-home` -> `FactoryOverview.vue`，正式中心：系统总览主视图。
 - `/review/tasks` -> `/manage/entry-center` -> `review-task-center` -> `ReviewTaskCenter.vue`，正式中心：审阅中心。
 - `/review/reports` -> `/manage/reports` -> `review-report-center` -> `ReportList.vue`，正式中心：日报与交付中心；当前通过 `frontend/src/api/reports.js` 调用 `/api/v1/reports`、详情、审核、发布、最终版和导出接口，不再走读面 mock。
-- `/review/cost-accounting`、`/review/cost`、`/manage/cost` -> `/manage/factory/cost` -> `factory-command-cost` -> `CostBenefitScreen.vue`，正式中心：经营效益；当前通过 factory-command store 调用 `/api/v1/factory-command/cost-benefit`，展示经营估算、毛差估算和待补口径，不作为财务结算依据。`CostAccountingCenter.vue` 和 `frontend/src/services/costing/*` 保留为历史参考契约，不是 `/manage/factory/cost` 的运行时页面。
+- `/review/cost-accounting`、`/review/cost`、`/manage/cost` -> `/manage/factory/cost` -> `factory-command-cost` -> `CostBenefitScreen.vue`，正式中心：经营效益；当前通过 factory-command store 调用 `/api/v1/factory-command/cost-benefit`，展示经营估算、毛差估算和待补口径，不作为财务结算或月度入账依据。`/manage/factory/cost/accounting` -> `factory-command-cost-accounting` -> `CostAccountingCenter.vue`，作为策略核算工作台承接 `frontend/src/services/costing/*` 的表模型快照和 admin-only “保存快照”动作；该入口仍不等同于人工复核或正式月结。
 - `/review/quality` -> `/manage/quality` -> `review-quality-center` -> `QualityCenter.vue`，正式中心：质量与告警中心；当前通过 `frontend/src/api/quality.js` 调用质量检查、问题列表、解决和忽略接口，本页不承接生产事实写入。
 - `/review/reconciliation` -> `/manage/reconciliation` -> `review-reconciliation-center` -> [ReconciliationCenter.vue](/D:/zzj Claude code/aluminum-bypass/frontend/src/views/reconciliation/ReconciliationCenter.vue)
 - `/review/factory` -> `/manage/factory` -> `factory-dashboard` -> `FactoryDirector.vue`，正式中心：工厂作业看板。
