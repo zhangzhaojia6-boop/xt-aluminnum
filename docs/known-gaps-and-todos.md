@@ -38,3 +38,17 @@
 
 - `/admin/master` 已重定向到 `/manage/master`；`/manage/master` 运行页已标为 `车间主数据`，当前由 `Workshop.vue` 通过 `/api/v1/master/workshops` 真实接口承接车间主数据查看、新增、编辑和删除
 - 班组、员工、机台、别名、字典与字段模板仍分散在独立页面或后续配置面；后续若做一站式主数据中心，需要先补接口聚合方案和权限边界文档
+
+## 8. 外部正式联通闸门仍未通过
+
+- 生产 `/readyz` 已为 ready，外部 MES 同步也可用，但这只代表系统地基和 MES 投影链路可用，不能把 `/readyz` ready 误判为外部联通完成
+- 当前 `python scripts/check_statistics_module_ready.py --json` 仍返回 hard fail：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`
+- 当前 warning 仍为 `DINGTALK_NO_BOUND_USERS`：钉钉应用已启用，但 active 用户/员工没有绑定 `dingtalk_user_id`，真实人员触达和客户端 UAT 未闭环
+- 后续正式试用前需要在服务器 `backend/.env` 补齐真实 LLM、应用连接 API 和钉钉人员绑定；缺密钥时只能保留清单，不能猜值或写入仓库
+
+## 9. `2026-04-22` 每日产量源表仍阻断
+
+- `2026-04-22` 原始每日产量源表解析结果仍为 `blocked / rows=0`
+- `D:\鑫泰报表\输出skill\2026-4-22_日均报表.xls` 解析为 `no_daily_production_summary_sheet`，不是当前综合日报格式
+- 同日 `日报正文.txt` 写明热轧日产 `262t`，但 `日均报表.xls` 的“各工序产量报表”中 `热轧` 行日产量为 `0t`，且表内混有包装/在制类行
+- 该日只能继续列为参考资产和缺口，不能用当前空表或口径冲突表强行入库；补齐时必须先找到同日非空综合日报源表或现场确认替代表

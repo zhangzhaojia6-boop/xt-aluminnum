@@ -1070,6 +1070,24 @@ def test_known_gaps_master_runtime_scope_matches_workshop_page() -> None:
     assert '一站式主数据中心' in gaps
 
 
+def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> None:
+    gaps = _read('docs/known-gaps-and-todos.md')
+    state = _read('docs/deploy/current-state.md')
+
+    assert '`LLM_DISABLED`' in state
+    assert '`APP_CONNECTION_DISABLED`' in state
+    assert '`DINGTALK_NO_BOUND_USERS`' in state
+    assert '外部正式联通闸门仍未通过' in gaps
+    assert '`LLM_DISABLED`' in gaps
+    assert '`APP_CONNECTION_DISABLED`' in gaps
+    assert '`DINGTALK_NO_BOUND_USERS`' in gaps
+    assert '不能把 `/readyz` ready 误判为外部联通完成' in gaps
+    assert '`2026-04-22` 每日产量源表仍阻断' in gaps
+    assert '`blocked / rows=0`' in gaps
+    assert '`no_daily_production_summary_sheet`' in gaps
+    assert '不能用当前空表或口径冲突表强行入库' in gaps
+
+
 def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None:
     plan = _read('PLANS.md')
 
