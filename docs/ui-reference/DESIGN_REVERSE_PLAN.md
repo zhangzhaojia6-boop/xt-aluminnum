@@ -4,7 +4,7 @@
 
 ## 成功标准
 
-- `docs/ui-reference/highres/` 与 `IMAGE2_PROMPTS.md` 能覆盖主要产品页面。
+- `docs/ui-reference/highres/` 与 `IMAGE2_PROMPTS.md` 能覆盖主要产品页面，并且视觉方向统一为深色工业科技风、蓝黑基底、冷蓝高光。
 - 前端路由、导航、组件和 token 能对应设计稿，不靠静态截图撑页面。
 - 管理端关键数值有单位、来源、新鲜度和口径说明。
 - 填报端上传、外部生产系统线索、数据库事实和管理端展示之间能形成可追溯链路。
@@ -15,9 +15,9 @@
 - 技术栈：Vue 3、Vite、Element Plus、Pinia、ECharts、Three.js。
 - 页面壳层：`frontend/src/layout/ManageShell.vue`、`EntryShell.vue` 已存在。
 - 管理端路由：`/manage/overview`、`/manage/factory/*`、`/manage/reports`、`/manage/quality`、`/manage/ingestion`、`/manage/ai-assistant`、`/manage/admin/*` 已存在。
-- 设计 token：`frontend/src/design/xt-tokens.css` 已有冷白工业底色和工业蓝体系。
-- 目标图：`docs/ui-reference/highres/01-overview.png` 到 `15-entry-responsive.png` 已存在。
-- 当前脏改动：移动端锁定字段等价校验相关文件正在修改中，本计划不得覆盖。
+- 设计 token：`frontend/src/design/xt-tokens.css` 已有工业蓝体系，但仍偏浅色；深色工业中枢 token 需要继续补齐。
+- 目标图：`docs/ui-reference/highres/01-overview.png` 到 `15-entry-responsive.png` 已存在，但它们属于旧浅色基线，不能作为最终视觉方向。
+- 当前约束：本计划只约束设计反推与页面还原，不覆盖已上线的数据链路、移动填报和 MES 绑定修复。
 
 ## 阶段 1：设计稿与目标规范
 
@@ -26,6 +26,7 @@
 - 新增并维护 `docs/ui-reference/DESIGN_REVERSE_PLAN.md`。
 - 每次新增目标图后更新 `docs/ui-reference/REFERENCE_MANIFEST.md` 的页面映射、尺寸和视觉审计摘要。
 - 对每张目标图记录：页面、路由、核心模块、核心字段、单位、数据来源、可复用组件。
+- 旧浅色目标图必须逐步替换为深色工业科技风目标图；替换前在 manifest 标注为历史基线，不得作为最终验收证据。
 
 验证：
 
@@ -51,8 +52,8 @@ npm run build
 
 ## 阶段 3：设计系统落地
 
-- 在 `frontend/src/design/xt-tokens.css` 增补缺失 token：图表色、单位标记、数据来源、freshness、异常等级。
-- 在 `frontend/src/design/xt-base.css` 和 `industrial.css` 中统一表格、筛选、图表容器、状态胶囊和移动卡片。
+- 在 `frontend/src/design/xt-tokens.css` 增补缺失 token：蓝黑背景阶梯、冷蓝高光、图表色、单位标记、数据来源、freshness、异常等级。
+- 在 `frontend/src/design/xt-base.css` 和 `industrial.css` 中统一深色表格、筛选、图表容器、状态胶囊和移动卡片。
 - 扩展 `frontend/src/components/xt/`：
   - `XtKpi`：数值、单位、来源、新鲜度。
   - `XtTable`：密集表格、单位列、状态列。
@@ -80,6 +81,27 @@ npm run build
 6. `/entry/fill`：移动录入，强化扫码锁定字段、草稿、失败重试。
 
 每个页面落地时必须把业务逻辑拆到 composables、services、mappers 或 utils，页面只做组合和呈现。
+
+### 页面反推矩阵
+
+| 目标页 | 当前路由 / 入口 | 主要代码入口 | 数据 / BFF 口径 | 下一步还原动作 |
+| --- | --- | --- | --- | --- |
+| 全域工业 AI 生产中枢总览驾驶舱 | `/manage/overview` | `frontend/src/views/factory-command/FactoryOverview.vue` | `factory_command_service.build_overview()`、`realtime_service.build_live_aggregation()` | 用深色中枢首屏重排日/月累计、填报实时性、外部 MES 绑定、异常、AI 摘要 |
+| 工厂总览页 | `/manage/factory`、`/manage/factory/flow` | `FactoryDirector.vue`、`ProductionFlowScreen.vue` | `factory_command_service.list_workshops()`、生产流转 view model | 按车间 -> 机列 -> 班次 -> 卷号展示生产流转和来源新鲜度 |
+| 经营驾驶舱 | `/manage/executive` | `ExecutiveDashboard.vue` | `dashboard_service`、经营估算 schemas | 补日/月/年累计、利润估算、合同达成、风险动作，不作财务结算 |
+| 移动录入端 | `/entry`、`/entry/fill`、`/entry/coil/:businessDate/:shiftId` | `MobileEntry.vue`、`UnifiedEntryForm.vue`、`CoilEntryWorkbench.vue` | `work_orders`、mobile report services、扫码锁定字段 | 深色移动工作台、按卷录入、草稿、异常补录、自动校验 |
+| 审核端 | `/manage/entry-center`、`/manage/reconciliation` | `ReviewTaskCenter.vue`、`ReconciliationCenter.vue` | 待补录、差异核对、字段锁定冲突 | 审核队列 + 证据抽屉 + AI 分诊，动作保持人工确认 |
+| 数据中心 | `/manage/ingestion`、`/manage/imports` | `IngestionCenter.vue`、`ImportHistory.vue` | import batches、mapping preview、staging/dry-run | 深色字段映射表、来源泳道、批次时间线、row-level 校验 |
+| 报表中心 | `/manage/reports` | `ReportList.vue`、`ReportDetail.vue` | report delivery、blocked data、export status | 生成/审核/导出/交付闭环，阻塞项和来源 chip 必须可见 |
+| 质量与异常 | `/manage/quality`、`/manage/factory/exceptions` | `QualityCenter.vue`、`ExceptionMap.vue` | quality/reconciliation/anomaly services | 异常地图、质量处置、影响吨数、owner、老化时长 |
+| 成本与效益 | `/manage/factory/cost`、`/manage/factory/cost/accounting` | `CostBenefitScreen.vue`、`CostAccountingCenter.vue` | cost snapshot、processing fee、energy/gas cost estimates | 吨铝成本、加工费、能耗、辅材、毛利估算，全部标注经营估算 |
+| 库存与出入库 | `/manage/factory/destinations`、`/manage/factory/coils` | `DestinationScreen.vue`、`CoilTrace.vue` | coil flow、destination、warehouse/delivery lanes | 卷去向、库存老化、出库趋势、待确认去向 |
+| 能耗与产量 | `/energy/center`、`/manage/statistics` | `EnergyCenter.vue`、`Statistics.vue` | energy entries、daily production、dashboard energy summary | kWh、m3、吨、单耗趋势与产量联动 |
+| 合同与订单 | `/manage/executive` 内经营区，后续可拆 `/manage/orders` | `ExecutiveDashboard.vue` | contract progress schemas、contract Excel staging | 合同清单、订单进度、生产匹配、交付风险 |
+| 运维与告警 | `/manage/admin/settings` | `LiveDashboard.vue` | readyz、healthz、deploy/version、job status | 服务探针矩阵、部署时间线、告警闭环，只读观测不伪造成功 |
+| 权限与组织 | `/manage/admin/users`、`/manage/admin/governance` | `UserManagement.vue`、`GovernanceCenter.vue` | user/role/machine binding、audit logs | 角色矩阵、组织树、机列账号绑定、风险账号 |
+| 系统配置 | `/manage/master`、`/manage/admin/templates`、`/manage/admin/rules` | `Workshop.vue`、`WorkshopTemplateConfig.vue`、`RuleConfigCenter.vue` | master data、template/rule configs、alias mapping | 主数据、模板、规则、单位、别名的版本化发布路径 |
+| AI 助手 / 摘要 / 洞察 / 预警 / 决策建议 | `/manage/ai-assistant` | `AiWorkstation.vue` | AI conversations、evidence refs、briefings/watchlists | 操作分析员式 AI，证据链、置信度、建议动作和人工审批边界 |
 
 验证：
 

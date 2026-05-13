@@ -5,34 +5,34 @@
 ## 统一生成规则
 
 - 画布：桌面端 `1672 x 941`，移动端 `390 x 844`。
-- 风格：冷白底、工业蓝、低圆角、细边框、高留白、高信息密度但不拥挤。
-- 气质：Apple/OpenAI 式克制，企业级工业科技感，像真实生产协同平台，不像营销大屏。
+- 风格：深色工业科技风、蓝黑基底、冷蓝高光、少量绿色/橙色状态点缀，低圆角、细边框、信息密度高但层级清晰。
+- 气质：成熟工业数据中枢，像领导驾驶舱和一线协同系统合体，不像普通后台模板、廉价 SaaS 或营销大屏。
 - 组件：侧边导航、顶部操作栏、KPI、图表、表格、状态胶囊、审核队列、字段映射、AI 建议、移动表单必须统一。
 - 数据：使用真实业务口径，不放离谱假数。产量以 `吨`，能耗以 `kWh`，天然气以 `m3`，成品率以 `%`，金额以 `万元` 或 `元/吨`，卷数以 `卷`。
 - 文案：中文为主，产品名固定为 `鑫泰铝业 数据中枢`。`MES` 只作为外部生产系统或数据源出现。
-- 避免：深色大屏、紫色渐变、夸张霓虹、巨型装饰英雄区、纯摆拍图表、英文假字、水印、模糊小字。
+- 避免：浅色通用后台、紫色渐变、夸张霓虹、巨型装饰英雄区、纯摆拍图表、英文假字、水印、模糊小字。
 
 ## 01 总览驾驶舱
 
 ```text
 Create a high-fidelity desktop web app mockup for "鑫泰铝业 数据中枢" overview dashboard, 1672x941.
-Cold white industrial interface, restrained Apple/OpenAI-like layout, industrial blue accent, thin borders, 6px to 8px radius, precise data tables, no dark sci-fi screen.
+Dark industrial technology interface, blue-black base, cold cyan highlights, precise thin borders, 6px to 8px radius, dense but readable data tables, mature enterprise command-center quality.
 Main layout: fixed left sidebar with grouped modules, top bar with date selector and AI assistant button, dense main dashboard.
 Hero area: factory status cockpit with daily output, monthly output, order fulfillment, yield rate, active machine lines, pending reviews, anomalies, delivered coils; every metric has unit labels.
 Center panel: isometric aluminum factory flow map from casting to hot rolling, cold rolling, leveling, finishing, inventory and delivery, with live status badges and subtle blue data flow lines.
 Right panel: AI operations commander with 3 concise recommendations, evidence source chips, freshness indicator, and pending actions.
 Lower area: workshop output ranking, energy per ton trend, quality anomaly trend, pending fill-report binding table, all compact and readable.
-Use realistic values such as daily output around 1800-2500 吨, never a six-figure daily output. Use Chinese labels only. No watermark.
+Use realistic values such as daily output around 180-2500 吨 depending on page scope, never a six-figure daily output. Use Chinese labels only. No watermark.
 ```
 
 ## 02 登录与角色入口
 
 ```text
 Create a high-fidelity login and role entry screen for "鑫泰铝业 数据中枢", 1672x941.
-White industrial enterprise style, centered precise login card, left-side soft factory process preview, no marketing hero copy.
+Dark industrial enterprise style, centered precise login card, left-side live factory process preview, no marketing hero copy.
 Show product mark, account/password login, role shortcut chips for 管理端, 审核端, 填报端, 班长端, and a small environment/status row with 外部生产系统连接, 数据库, 服务状态.
-Use cold white, light blue, slate text, thin borders, focused input states, professional Chinese typography.
-No stock photos, no cartoon illustration, no dark gradient background.
+Use blue-black panels, cold cyan focus rings, slate/cyan text, thin borders, focused input states, professional Chinese typography.
+No stock photos, no cartoon illustration, no purple gradient background.
 ```
 
 ## 03 移动录入端首页
@@ -43,7 +43,7 @@ Target user is a machine operator scanning a machine-line QR code on the factory
 Layout: compact top identity area with role, workshop, machine line, shift and business date; primary actions for 扫码录入, 继续草稿, 今日已填, 异常补录.
 Show machine-line binding, pending coils, draft count, last submitted time, offline retry status.
 Large touch targets, clear hierarchy, no decorative text, no management-only content leak.
-Industrial white background, blue actions, green success, amber pending, red anomaly, all labels in Chinese with units.
+Industrial blue-black background, cyan actions, green success, amber pending, red anomaly, all labels in Chinese with units.
 ```
 
 ## 04 移动填报流程
@@ -63,7 +63,7 @@ Create a desktop management page for factory machine-line board, 1672x941.
 Layout: left navigation, top filters for business date, shift, workshop, data source; main area with machine-line cards and a live binding table.
 Show external production system clues and fill-report uploads side by side: tracking card, workshop, machine line, shift, output weight, current destination, binding status.
 Add charts: output by machine line, pending assignment heatmap, reconciliation waterfall between external source and fill terminal.
-All numbers have units. Highlight real-time freshness and source labels. Professional cold white industrial UI.
+All numbers have units. Highlight real-time freshness and source labels. Professional dark industrial UI.
 ```
 
 ## 06 数据接入与字段映射
@@ -83,7 +83,7 @@ Create a desktop review workbench page, 1672x941, for production data review.
 Show pending review queue, locked-field mismatch queue, missing owner field queue, and evidence drawer.
 Each row includes source, workshop, machine line, tracking card, submitted by, submitted time, unit-bearing values, status and action.
 Right side: AI triage suggestions with evidence links, but no automatic approval.
-Visual style: white, industrial blue, compact, table-first, clear risk states.
+Visual style: blue-black, cold cyan, compact, table-first, clear risk states.
 ```
 
 ## 08 报表中心
@@ -104,7 +104,7 @@ Create a desktop quality and anomaly page, 1672x941.
 Show anomaly map by workshop and machine line, quality issue table, severity, impact tons, owner, due time, current handling state.
 Charts: defect category Pareto, anomaly trend, unresolved aging.
 Right panel: AI investigation summary, evidence, suggested next action.
-Use red/amber/green sparingly, white enterprise UI, dense but readable.
+Use red/amber/green sparingly on a blue-black enterprise UI, dense but readable.
 ```
 
 ## 10 成本与效益
@@ -124,7 +124,7 @@ Create a desktop inventory and movement page, 1672x941.
 Show coil destination from production to warehouse, transfer, cutting, customer delivery and unfinished pending state.
 Main view: flow table with tracking card, alloy, spec, weight, source workshop, destination, last handler, last time.
 Charts: inventory by alloy/spec, aging buckets, outbound trend, pending destination queue.
-White industrial enterprise UI, all values with units.
+Dark industrial enterprise UI, all values with units.
 ```
 
 ## 12 合同与订单
@@ -142,7 +142,7 @@ Use high-density table and understated blue/green/amber status chips.
 Create a desktop operations and alerting page, 1672x941.
 Show backend, frontend, database, scheduler, import jobs, external source adapter, AI service, nginx/gateway health.
 Include readyz, healthz, last deployment, version, latency, error rate, failed jobs, rollback readiness.
-Use white observability layout, precise status matrix, event timeline, no fake green status if source unknown.
+Use dark observability layout, precise status matrix, event timeline, no fake green status if source unknown.
 ```
 
 ## 14 权限与组织
@@ -152,7 +152,7 @@ Create a desktop permission and organization page, 1672x941.
 Show role matrix for admin, manager, reviewer, operator, owner-only, fill-only and team lead.
 Show organization tree: workshop, team, machine line, shift, user binding, QR binding.
 Include audit log table and risk accounts panel.
-White enterprise UI, dense permission matrix, clear disabled states.
+Dark enterprise UI, dense permission matrix, clear disabled states.
 ```
 
 ## 15 系统配置
@@ -171,5 +171,5 @@ Create a desktop AI analysis workstation page, 1672x941.
 Left: topic watchlist for production, energy, quality, cost, inventory, orders.
 Center: conversational AI analysis with tool-call timeline, evidence chips, calculation references and confidence labels.
 Right: recommended actions, affected workshops, data freshness, approval requirements.
-The AI should feel like an operations analyst, not a decorative chatbot. White industrial interface, compact, high trust.
+The AI should feel like an operations analyst, not a decorative chatbot. Dark industrial interface, compact, high trust.
 ```
