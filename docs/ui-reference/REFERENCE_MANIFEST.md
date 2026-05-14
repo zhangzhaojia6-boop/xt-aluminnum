@@ -17,6 +17,8 @@
 
 ## 文件与中心映射
 
+当前 `docs/ui-reference/highres/` 实际存在 `01` 到 `15` 共 `15` 张 PNG。`16` 到 `21` 是本轮审计发现的产品版图缺口，先在规范、prompt、反推计划和 `GAP_MATRIX.md` 中保留槽位；补图后再把 TODO 文件名替换为真实 PNG。
+
 | 中心编号 | 文件名 | 页面 / 中心 |
 | --- | --- | --- |
 | 01 | `01-overview.png` | 系统总览主视图 |
@@ -34,6 +36,12 @@
 | 13 | `13-governance.png` | 权限与治理中心 |
 | 14 | `14-master-template.png` | 主数据与模板中心 |
 | 15 | `15-entry-responsive.png` | 响应式录入体验 |
+| 16 | TODO `16-inventory-movement.png` | 库存与出入库中心 |
+| 17 | TODO `17-contract-orders.png` | 合同与订单中心 |
+| 18 | TODO `18-energy-center.png` | 能源中心 |
+| 19 | TODO `19-team-lead-screen.png` | 班长一屏 |
+| 20 | TODO `20-statistics-center.png` | 统计中心 |
+| 21 | TODO `21-file-import-center.png` | 文件导入中心 |
 
 ## 06 视觉审计摘要
 

@@ -164,3 +164,31 @@ npm run build
 - 数据入库前必须创建数据库备份。
 - staging 导入优先于正式事实表写入。
 - 未确认口径的数据只读展示，不参与正式汇总。
+
+## 高清图到 Vue 落点校准
+
+以下矩阵用于把 `docs/ui-reference/highres/*.png`、`UI_TARGET_SPEC.md` 与实际前端代码路径对齐。状态与差距以 `GAP_MATRIX.md` 为准；若路径不存在，必须写 `TODO`，不得把未落地页面写成已实现。
+
+| 图号 | 中心名 | 路由 | Vue 组件落点 | 当前判断 | 下一步反推动作 |
+|---|---|---|---|---|---|
+| 01 | 系统总览主视图 | `/manage/overview` | `frontend/src/views/factory-command/FactoryOverview.vue` | 收敛中 | 用 `XtKpi`、`XtFactoryMap` 和 `XtTable` 替换局部自绘表格；补 `GET /dashboard/delivery-status` 的交付阻塞条；统一 ECharts `xt-hud` 主题。 |
+| 02 | 登录与角色入口 | `/login` | `frontend/src/views/Login.vue` | 收敛中 | 保留 `XtFactoryMap` 与 `ParticleField`；补 `GET /dashboard/external-readiness` 的三项状态行；压缩左侧说明文案到 0 段。 |
+| 03 | 独立填报端首页 | `/entry` | `frontend/src/views/mobile/MobileEntry.vue` | 半成品 | 补 2x2 主操作网格、离线重试状态和草稿入口；把触控目标统一到 `44px`；确保无管理端指标泄漏。 |
+| 04 | 填报流程页 | `/entry/fill` | `frontend/src/views/mobile/UnifiedEntryForm.vue` | 收敛中 | 强化锁定字段视觉和 mismatch 状态；把投料/产出/废料/去向/异常/照片分组映射到 `EntryFieldInput`；补底部 `64px` 操作条防遮挡。 |
+| 05 | 工厂作业看板 | `/manage/factory`、`/manage/factory/machine-lines` | `frontend/src/views/dashboard/FactoryDirector.vue`、`frontend/src/views/factory-command/MachineLineScreen.vue` | 半成品 | 合并机列卡、绑定表、外部生产系统线索；补待归属热力和差异瀑布；所有重量列统一 `吨`。 |
+| 06 | 数据接入与字段映射中心 | `/manage/ingestion` | `frontend/src/views/review/IngestionCenter.vue` | 半成品 | 把来源泳道、字段映射表和批次时间线落到 `20:55:25`；补 `GET /imports/daily-production/mapping-preview` 的单位和校验列。 |
+| 07 | 审阅中心 | `/manage/entry-center` | `frontend/src/views/review/ReviewTaskCenter.vue` | 收敛中 | 保留 `ReferenceDataTable`；补证据抽屉 `30%`、锁定字段冲突队列和 owner 缺口队列；AI 仅给建议不自动通过。 |
+| 08 | 日报与交付中心 | `/manage/reports` | `frontend/src/views/reports/ReportList.vue` | 半成品 | 补 6 KPI、趋势图和交付清单；把 `GET /dashboard/delivery-status` 的阻塞项固定在右栏；导出走 `GET /reports/{report_id}/export`。 |
+| 09 | 质量与告警中心 | `/manage/quality` | `frontend/src/views/quality/QualityCenter.vue` | 半成品 | 补 Pareto、异常趋势、未解决老化；右栏落 AI 分诊和处置时间线；处置按钮在无接口时禁用。 |
+| 10 | 成本核算与效益中心 | `/manage/factory/cost` | `frontend/src/views/factory-command/CostBenefitScreen.vue` | 半成品 | 当前仅 3 个估算卡；需补 5 KPI、成本构成堆叠图、能耗趋势、车间贡献表和口径缺口 rail。 |
+| 11 | AI 助手 | `/manage/ai-assistant` | `frontend/src/views/ai/AiWorkstation.vue` | 收敛中 | 已有会话、briefing、watchlist；补证据 chips、工具调用时间线、审批要求和右栏数据新鲜度。 |
+| 12 | 系统运维与可观测 | `/manage/admin/settings` | `frontend/src/views/reports/LiveDashboard.vue` | 半成品 | 现页面偏实时生产；需补服务矩阵、readyz/healthz、版本、失败作业和探针未知态；严禁伪造全绿。 |
+| 13 | 权限与治理中心 | `/manage/admin/governance` | `frontend/src/views/review/GovernanceCenter.vue` | 半成品 | 现有权限表较薄；需补角色矩阵、数据边界、审计日志、风险账号和治理 KPI。 |
+| 14 | 主数据与模板中心 | `/manage/master` | `frontend/src/views/master/Workshop.vue` | 半成品 | 现为车间表；需扩展主数据卡片网格、模板配置表、枚举/别名 tab、字段规则和 owner 表。 |
+| 15 | 响应式录入体验 | `/entry`、`/entry/fill` | `frontend/src/views/mobile/MobileEntry.vue`、`frontend/src/views/mobile/UnifiedEntryForm.vue` | 收敛中 | 把 390px 手机壳、桌面审阅预览、草稿/历史恢复和底部导航冲突纳入视觉验收。 |
+| 16 | 库存与出入库中心 | `/manage/factory/destinations` | `frontend/src/views/factory-command/DestinationScreen.vue` | 未开工 | `docs/ui-reference/highres/16-*.png` 缺失；先生成高清图，再落卷级流向表、库存结构和待去向队列。 |
+| 17 | 合同与订单中心 | TODO `/manage/contracts` | TODO `frontend/src/views/contracts/ContractOrderCenter.vue` | 未开工 | `docs/ui-reference/highres/17-*.png`、路由和组件均缺失；先补 contract dry-run endpoint 与设计基线。 |
+| 18 | 能源中心 | `/energy/center` | `frontend/src/views/energy/EnergyCenter.vue` | 未开工 | `docs/ui-reference/highres/18-*.png` 缺失；页面存在但不在高清基线；补能耗趋势、天然气、导入批次和口径缺口。 |
+| 19 | 班长一屏 | `/team-lead` | `frontend/src/views/team/TeamLeadShell.vue` | 未开工 | `docs/ui-reference/highres/19-*.png` 缺失；补班组进度、人员状态、机台任务和考勤异常确认图。 |
+| 20 | 统计中心 | `/manage/statistics` | `frontend/src/views/dashboard/Statistics.vue` | 未开工 | `docs/ui-reference/highres/20-*.png` 缺失；补统计 KPI、多维趋势、筛选口径和导出边界。 |
+| 21 | 文件导入中心 | `/imports/files` | `frontend/src/views/imports/FileImport.vue` | 未开工 | `docs/ui-reference/highres/21-*.png` 缺失；补 dry-run 上传、批次历史、映射预览和行级校验失败。 |
