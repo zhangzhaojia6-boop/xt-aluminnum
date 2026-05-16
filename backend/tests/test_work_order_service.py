@@ -174,6 +174,7 @@ def test_add_entry_links_verified_ocr_submission(monkeypatch) -> None:
     monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
     monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.05)
     monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.event_bus.publish', lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         'app.services.work_order_service.ocr_service.link_submission_to_entry',
         lambda _db, *, submission_id, entry_id, operator: linked.append((submission_id, entry_id, operator.id)),
@@ -269,6 +270,7 @@ def test_add_entry_strips_readonly_fields_before_persist(monkeypatch) -> None:
     monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
     monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.05)
     monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.event_bus.publish', lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         'app.services.work_order_service._serialize_entry',
         lambda _db, entity, *, user_role: {'id': entity.id, 'yield_rate': entity.yield_rate},
@@ -317,6 +319,7 @@ def test_add_entry_accepts_confirmed_flow_payload(monkeypatch) -> None:
     monkeypatch.setattr('app.services.work_order_service._apply_entry_fields', fake_apply)
     monkeypatch.setattr('app.services.work_order_service._calculate_yield_rate', lambda *_args, **_kwargs: 97.05)
     monkeypatch.setattr('app.services.work_order_service.record_entity_change', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('app.services.work_order_service.event_bus.publish', lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         'app.services.work_order_service._serialize_entry',
         lambda _db, entity, *, user_role: {'id': entity.id, 'extra_payload': entity.extra_payload},

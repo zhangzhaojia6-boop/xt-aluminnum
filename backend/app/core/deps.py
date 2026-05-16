@@ -8,11 +8,11 @@ from app.core.auth import decode_token
 from app.database import get_db
 from app.models.system import User
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
@@ -20,6 +20,9 @@ def get_current_user(
         detail='Invalid authentication credentials',
         headers={'WWW-Authenticate': 'Bearer'},
     )
+    if credentials is None:
+        raise credentials_exception
+
     token = credentials.credentials
     try:
         payload = decode_token(token)

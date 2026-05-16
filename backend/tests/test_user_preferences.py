@@ -62,8 +62,8 @@ def test_get_preferences_unauthenticated(tmp_path):
     session_factory = _build_sessionmaker(tmp_path)
     _override_db(session_factory)
     try:
-        with TestClient(app) as client:
-            resp = client.get('/api/v1/user/preferences')
+        client = TestClient(app)
+        resp = client.get('/api/v1/user/preferences')
         assert resp.status_code == 401
     finally:
         _reset()
@@ -73,8 +73,8 @@ def test_put_preferences_unauthenticated(tmp_path):
     session_factory = _build_sessionmaker(tmp_path)
     _override_db(session_factory)
     try:
-        with TestClient(app) as client:
-            resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'})
+        client = TestClient(app)
+        resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'})
         assert resp.status_code == 401
     finally:
         _reset()
@@ -85,8 +85,8 @@ def test_get_preferences_default_null(tmp_path):
     _override_db(session_factory)
     try:
         user_id = _seed_user(session_factory)
-        with TestClient(app) as client:
-            resp = client.get('/api/v1/user/preferences', headers=_auth_headers(user_id))
+        client = TestClient(app)
+        resp = client.get('/api/v1/user/preferences', headers=_auth_headers(user_id))
         assert resp.status_code == 200
         assert resp.json() == {'theme': None}
     finally:
@@ -99,13 +99,13 @@ def test_put_then_get_preferences(tmp_path):
     try:
         user_id = _seed_user(session_factory)
         headers = _auth_headers(user_id)
-        with TestClient(app) as client:
-            put_resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
-            assert put_resp.status_code == 200
-            assert put_resp.json() == {'theme': 'hud'}
-            get_resp = client.get('/api/v1/user/preferences', headers=headers)
-            assert get_resp.status_code == 200
-            assert get_resp.json() == {'theme': 'hud'}
+        client = TestClient(app)
+        put_resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
+        assert put_resp.status_code == 200
+        assert put_resp.json() == {'theme': 'hud'}
+        get_resp = client.get('/api/v1/user/preferences', headers=headers)
+        assert get_resp.status_code == 200
+        assert get_resp.json() == {'theme': 'hud'}
     finally:
         _reset()
 
@@ -115,12 +115,12 @@ def test_put_rejects_unknown_theme(tmp_path):
     _override_db(session_factory)
     try:
         user_id = _seed_user(session_factory)
-        with TestClient(app) as client:
-            resp = client.put(
-                '/api/v1/user/preferences',
-                json={'theme': 'palantir'},
-                headers=_auth_headers(user_id),
-            )
+        client = TestClient(app)
+        resp = client.put(
+            '/api/v1/user/preferences',
+            json={'theme': 'palantir'},
+            headers=_auth_headers(user_id),
+        )
         assert resp.status_code == 422
     finally:
         _reset()
@@ -132,11 +132,11 @@ def test_put_null_clears_preference(tmp_path):
     try:
         user_id = _seed_user(session_factory)
         headers = _auth_headers(user_id)
-        with TestClient(app) as client:
-            client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
-            clear_resp = client.put('/api/v1/user/preferences', json={'theme': None}, headers=headers)
-            assert clear_resp.status_code == 200
-            assert clear_resp.json() == {'theme': None}
+        client = TestClient(app)
+        client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
+        clear_resp = client.put('/api/v1/user/preferences', json={'theme': None}, headers=headers)
+        assert clear_resp.status_code == 200
+        assert clear_resp.json() == {'theme': None}
     finally:
         _reset()
 
@@ -147,9 +147,9 @@ def test_put_is_idempotent(tmp_path):
     try:
         user_id = _seed_user(session_factory)
         headers = _auth_headers(user_id)
-        with TestClient(app) as client:
-            for _ in range(3):
-                resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
-                assert resp.status_code == 200
+        client = TestClient(app)
+        for _ in range(3):
+            resp = client.put('/api/v1/user/preferences', json={'theme': 'hud'}, headers=headers)
+            assert resp.status_code == 200
     finally:
         _reset()
