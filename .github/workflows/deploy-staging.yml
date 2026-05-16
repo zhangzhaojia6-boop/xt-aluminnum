@@ -15,7 +15,7 @@ jobs:
       - name: Build backend image
         run: docker build -t xintai-backend:staging ./backend
       - name: Build frontend image
-        run: docker build -t xintai-frontend:staging ./frontend
+        run: docker build -f frontend/Dockerfile -t xintai-frontend:staging .
       - name: Deploy over SSH
         env:
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
