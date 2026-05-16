@@ -60,6 +60,7 @@ def _parse_json_object(value: str | None, *, setting_name: str) -> dict[str, str
 
 class Settings(BaseSettings):
     APP_NAME: str = '鑫泰铝业'
+    APP_VERSION: str = '0.4.0'
     API_V1_PREFIX: str = '/api/v1'
     APP_ENV: str = 'development'
 
@@ -68,6 +69,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = 'HS256'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     CORS_ORIGINS: str = 'http://localhost:5173,http://localhost:8080,http://localhost:3000'
+    PRODUCTION_CORS_ORIGINS: str = 'https://data.xintai-alu.com,https://m.xintai-alu.com'
     UPLOAD_DIR: str = './uploads'
     DEFAULT_TIMEZONE: str = 'Asia/Shanghai'
     MOBILE_DATA_ENTRY_MODE: str = 'manual_only'
@@ -124,6 +126,7 @@ class Settings(BaseSettings):
     LLM_IMAGE_MODEL: str | None = None
     LLM_IMAGE_ENDPOINT_ID: str | None = None
     LLM_TIMEOUT_SECONDS: float = 20.0
+    LLM_DAILY_QUERY_LIMIT: int = 50
     APP_CONNECTION_ENABLED: bool = False
     APP_CONNECTION_API_BASE: str | None = None
     APP_CONNECTION_API_KEY: str | None = None
@@ -157,7 +160,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        origins = [item.strip() for item in self.CORS_ORIGINS.split(',') if item.strip()]
+        source = self.PRODUCTION_CORS_ORIGINS if self.is_production_like else self.CORS_ORIGINS
+        origins = [item.strip() for item in source.split(',') if item.strip()]
         return origins or ['http://localhost:5173']
 
     @property
@@ -269,6 +273,9 @@ class Settings(BaseSettings):
         if self.LLM_TIMEOUT_SECONDS <= 0:
             issues.append('LLM_TIMEOUT_SECONDS must be greater than 0')
 
+        if self.LLM_DAILY_QUERY_LIMIT <= 0:
+            issues.append('LLM_DAILY_QUERY_LIMIT must be greater than 0')
+
         if self.APP_CONNECTION_TIMEOUT_SECONDS <= 0:
             issues.append('APP_CONNECTION_TIMEOUT_SECONDS must be greater than 0')
 
@@ -340,8 +347,8 @@ class Settings(BaseSettings):
             issues.append('MOBILE_DATA_ENTRY_MODE must be one of manual_only, scan_assisted, or mes_assisted')
 
         mes_adapter_name = (self.MES_ADAPTER or 'null').strip().lower()
-        if mes_adapter_name not in {'null', 'rest_api', 'mvc'}:
-            issues.append('MES_ADAPTER must be null, rest_api, or mvc')
+        if mes_adapter_name not in {'null', 'rest_api', 'mvc', 'xintai', 'xintai_api'}:
+            issues.append('MES_ADAPTER must be null, rest_api, mvc, xintai, or xintai_api')
 
         if mobile_data_entry_mode == 'manual_only' and self.MOBILE_SCAN_ASSIST_ENABLED:
             issues.append('manual_only cannot enable MOBILE_SCAN_ASSIST_ENABLED')
@@ -364,6 +371,18 @@ class Settings(BaseSettings):
             ]
             if missing_mes_fields:
                 issues.append(f"MES_ADAPTER=rest_api is missing {', '.join(missing_mes_fields)}")
+
+        if mes_adapter_name in {'xintai', 'xintai_api'}:
+            missing_xintai_fields = [
+                field_name
+                for field_name, field_value in (
+                    ('MES_API_BASE', self.MES_API_BASE),
+                    ('MES_API_KEY', self.MES_API_KEY),
+                )
+                if _is_blank(field_value)
+            ]
+            if missing_xintai_fields:
+                issues.append(f"MES_ADAPTER=xintai is missing {', '.join(missing_xintai_fields)}")
 
         if mes_adapter_name == 'mvc':
             missing_mes_mvc_fields = [

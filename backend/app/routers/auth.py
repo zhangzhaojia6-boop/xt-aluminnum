@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.auth import create_access_token, create_refresh_token, decode_refresh_token, get_password_hash, verify_password
 from app.core.deps import get_current_user, get_db
+from app.core.rate_limit import enforce_request_rate_limit
 from app.models.master import Equipment, Workshop
 from app.models.system import User
 from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLoginResponse, RefreshRequest, UserInfo
@@ -22,6 +23,13 @@ def login(
     body: LoginRequest,
     db: Session = Depends(get_db),
 ) -> dict:
+    enforce_request_rate_limit(
+        request,
+        None,
+        scope='auth:login',
+        limit=10,
+        window_seconds=60,
+    )
     user = db.query(User).filter(User.username == body.username).first()
     if not user and body.username == settings.INIT_ADMIN_USERNAME and body.password == settings.INIT_ADMIN_PASSWORD:
         user = User(

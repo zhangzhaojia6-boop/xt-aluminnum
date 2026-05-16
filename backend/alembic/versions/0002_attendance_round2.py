@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = '0002_attendance_round2'
-down_revision = '001'
+down_revision = '0001_initial'
 branch_labels = None
 depends_on = None
 

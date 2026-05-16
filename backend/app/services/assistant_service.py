@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from html import escape
 from typing import Any
 from urllib.parse import quote
 
 import httpx
+from fastapi import HTTPException, status
 
-from app.adapters.llm import generate_llm_image_asset, generate_llm_summary
+from app.adapters.llm import generate_llm_image_asset, generate_llm_summary, generate_llm_summary_with_usage
 from app.config import Settings, settings as runtime_settings
 from app.schemas.assistant import (
     AssistantCapabilitiesResponseOut,
@@ -24,6 +26,11 @@ from app.schemas.assistant import (
     AssistantResultCardOut,
     AssistantSummaryCardOut,
 )
+from app.models.assistant_usage import AssistantUsage
+from app.models.system import User
+
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_INTEGRATIONS_USED = ['dashboard', 'runtime_trace', 'delivery_status']
 _QUERY_MODE_LABELS = {
@@ -155,6 +162,49 @@ def _build_query_prompt(payload: AssistantQueryRequestIn) -> str:
         f'当前模式：{mode_label}\n'
         f'用户问题：{payload.query}'
     )
+
+
+def _daily_window_start(now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    return datetime(current.year, current.month, current.day, tzinfo=timezone.utc)
+
+
+def _enforce_daily_llm_limit(db, user_id: int, *, runtime: Settings) -> None:
+    used = (
+        db.query(AssistantUsage)
+        .filter(AssistantUsage.user_id == int(user_id), AssistantUsage.created_at >= _daily_window_start())
+        .count()
+    )
+    if used >= runtime.LLM_DAILY_QUERY_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='LLM daily query limit exceeded',
+        )
+
+
+def _record_llm_usage(
+    db,
+    *,
+    user_id: int,
+    endpoint: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    total_tokens: int,
+    raw_usage: dict[str, Any] | None,
+) -> None:
+    db.add(
+        AssistantUsage(
+            user_id=int(user_id),
+            endpoint=endpoint,
+            model=model,
+            input_tokens=max(0, int(input_tokens or 0)),
+            output_tokens=max(0, int(output_tokens or 0)),
+            total_tokens=max(0, int(total_tokens or 0)),
+            raw_usage=raw_usage or {},
+        )
+    )
+    db.commit()
 
 
 def _build_mock_query_response(payload: AssistantQueryRequestIn) -> AssistantQueryResponseOut:
@@ -289,28 +339,58 @@ def run_assistant_query(
     *,
     settings: Settings | None = None,
     llm_client=None,
+    db=None,
+    current_user: User | None = None,
 ) -> AssistantQueryResponseOut:
     runtime = settings or runtime_settings
     fallback = _build_mock_query_response(payload)
     if not _llm_ready(runtime):
         return fallback
 
+    usage_user_id = int(current_user.id) if isinstance(current_user, User) else None
+    if db is not None and usage_user_id is not None:
+        _enforce_daily_llm_limit(db, usage_user_id, runtime=runtime)
+
     try:
-        llm_text = generate_llm_summary(
-            messages=[
-                {
-                    'role': 'system',
-                    'content': '你是工厂多智能体助手。你只能输出中文，并且不能编造未给出的事实。',
-                },
-                {
-                    'role': 'user',
-                    'content': _build_query_prompt(payload),
-                },
-            ],
-            settings=runtime,
-            client=llm_client,
-        )
+        messages = [
+            {
+                'role': 'system',
+                'content': '你是工厂多智能体助手。你只能输出中文，并且不能编造未给出的事实。',
+            },
+            {
+                'role': 'user',
+                'content': _build_query_prompt(payload),
+            },
+        ]
+        if db is not None and usage_user_id is not None:
+            llm_response = generate_llm_summary_with_usage(
+                messages=messages,
+                settings=runtime,
+                client=llm_client,
+                max_tokens=4096,
+            )
+            llm_text = llm_response.content
+            _record_llm_usage(
+                db,
+                user_id=usage_user_id,
+                endpoint='query',
+                model=_summary_model_ref(runtime),
+                input_tokens=llm_response.input_tokens,
+                output_tokens=llm_response.output_tokens,
+                total_tokens=llm_response.total_tokens,
+                raw_usage=llm_response.raw_usage,
+            )
+        else:
+            llm_text = generate_llm_summary(
+                messages=messages,
+                settings=runtime,
+                client=llm_client,
+                max_tokens=4096,
+            )
     except Exception:  # noqa: BLE001
+        if db is not None and hasattr(db, 'rollback'):
+            db.rollback()
+        logger.warning('Assistant LLM query failed; using deterministic fallback', exc_info=True)
         return fallback
 
     structured = _parse_structured_json(llm_text)

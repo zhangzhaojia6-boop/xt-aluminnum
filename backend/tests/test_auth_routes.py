@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.auth import create_access_token, create_refresh_token, get_password_hash
 from app.core.deps import get_db
+from app.core.rate_limit import reset_rate_limits
 from app.database import Base
 from app.main import app
 from app.models.master import Equipment, Team, Workshop
@@ -62,6 +63,7 @@ def _seed_user(
 
 def teardown_function() -> None:
     app.dependency_overrides.clear()
+    reset_rate_limits()
 
 
 def test_login_returns_token_and_records_audit(tmp_path) -> None:
@@ -104,6 +106,28 @@ def test_login_rejects_wrong_password(tmp_path) -> None:
 
     assert response.status_code == 400
     assert response.json()['detail'] == 'Invalid username or password'
+
+
+def test_login_rate_limit_returns_429_after_ten_attempts(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    _seed_user(session_factory)
+    _override_db(session_factory)
+    client = TestClient(app)
+
+    for _ in range(10):
+        response = client.post(
+            '/api/v1/auth/login',
+            json={'username': 'operator', 'password': 'wrong'},
+        )
+        assert response.status_code == 400
+
+    response = client.post(
+        '/api/v1/auth/login',
+        json={'username': 'operator', 'password': 'wrong'},
+    )
+
+    assert response.status_code == 429
+    assert response.json()['detail'] == 'Rate limit exceeded'
 
 
 def test_login_rejects_disabled_user(tmp_path) -> None:

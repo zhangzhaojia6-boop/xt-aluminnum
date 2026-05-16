@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
@@ -19,6 +20,9 @@ from app.models.system import User
 
 
 logger = logging.getLogger(__name__)
+
+_MESSAGE_RATE_LIMIT = 20
+_MESSAGE_RATE_WINDOW_SECONDS = 1.0
 
 
 @dataclass(slots=True)
@@ -148,6 +152,7 @@ class DingTalkService:
         )
         self._access_token: str | None = None
         self._access_token_expires_at = 0.0
+        self._message_send_times: deque[float] = deque()
 
     @property
     def enabled(self) -> bool:
@@ -339,6 +344,30 @@ class DingTalkService:
             raise RuntimeError('DingTalk is not configured')
         return self.fetch_access_token()
 
+    @staticmethod
+    def _build_message(content: str | dict) -> dict:
+        if isinstance(content, dict):
+            return content
+        return {
+            'msgtype': 'text',
+            'text': {'content': str(content or '')},
+        }
+
+    def _throttle_message_send(self) -> None:
+        now = time.monotonic()
+        cutoff = now - _MESSAGE_RATE_WINDOW_SECONDS
+        while self._message_send_times and self._message_send_times[0] <= cutoff:
+            self._message_send_times.popleft()
+        if len(self._message_send_times) >= _MESSAGE_RATE_LIMIT:
+            wait_seconds = self._message_send_times[0] + _MESSAGE_RATE_WINDOW_SECONDS - now
+            if wait_seconds > 0:
+                time.sleep(wait_seconds)
+            now = time.monotonic()
+            cutoff = now - _MESSAGE_RATE_WINDOW_SECONDS
+            while self._message_send_times and self._message_send_times[0] <= cutoff:
+                self._message_send_times.popleft()
+        self._message_send_times.append(now)
+
     def _load_bound_dingtalk_user_ids(self) -> list[str]:
         sessionmaker = get_sessionmaker()
         db = sessionmaker()
@@ -503,7 +532,7 @@ class DingTalkService:
             return {'success': False, 'message': 'DingTalk is not configured'}
         return {'success': True, 'message': f'queued: {title}', 'content': content[:120]}
 
-    def send_work_notification(self, userid: str, content: str) -> tuple[bool, str]:
+    def send_work_notification(self, userid: str, content: str | dict) -> tuple[bool, str]:
         user_id = str(userid or '').strip()
         if not user_id:
             return False, 'dingtalk_user_missing'
@@ -515,13 +544,11 @@ class DingTalkService:
 
         try:
             access_token = self.fetch_access_token()
+            self._throttle_message_send()
             payload = {
                 'agent_id': int(self.config.agent_id) if str(self.config.agent_id or '').isdigit() else self.config.agent_id,
                 'userid_list': user_id,
-                'msg': {
-                    'msgtype': 'text',
-                    'text': {'content': str(content or '')},
-                },
+                'msg': self._build_message(content),
             }
             response = self._request_json(
                 method='POST',
@@ -534,12 +561,40 @@ class DingTalkService:
             logger.warning('DingTalk work notification failed: %s', exc)
             return False, str(exc) or 'dingtalk_send_failed'
 
+    def send_group_message(self, chat_id: str, message: dict) -> tuple[bool, str]:
+        chat = str(chat_id or '').strip()
+        if not chat:
+            return False, 'dingtalk_chat_missing'
+        if getattr(settings, 'DINGTALK_NOTIFY_DRY_RUN', False):
+            logger.info('[notify] dingtalk group dry-run %s | %s', chat, message)
+            return True, 'dingtalk_dry_run'
+        if not self.enabled:
+            return False, 'dingtalk_not_configured'
+
+        try:
+            access_token = self.fetch_access_token()
+            self._throttle_message_send()
+            response = self._request_json(
+                method='POST',
+                url=f'https://oapi.dingtalk.com/chat/send?access_token={parse.quote(access_token)}',
+                payload={'chatid': chat, 'msg': message},
+            )
+            self._ensure_success(response)
+            return True, 'dingtalk_sent'
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('DingTalk group message failed: %s', exc)
+            return False, str(exc) or 'dingtalk_send_failed'
+
 
 service = DingTalkService()
 
 
-def send_work_notification(userid: str, content: str) -> tuple[bool, str]:
+def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str]:
     return service.send_work_notification(userid, content)
+
+
+def send_group_message(chat_id: str, message: dict) -> tuple[bool, str]:
+    return service.send_group_message(chat_id, message)
 
 
 def _normalize_clock_type(value: str | None) -> str | None:

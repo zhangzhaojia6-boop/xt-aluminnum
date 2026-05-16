@@ -6,11 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-except ImportError:  # pragma: no cover
-    BackgroundScheduler = None
-
 from app.adapters import MesAdapter, NullMesAdapter, set_mes_adapter
 from app.agents.aggregator import aggregator_agent
 from app.agents.aluminum_price_fetcher import aluminum_price_fetcher_agent
@@ -22,12 +17,14 @@ from app.config import settings
 from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
+from app.core.logging import configure_json_logging
+from app.core.scheduler import scheduler, setup_scheduler
 from app.routers.config import router as config_router
 from app.routers import ai, assistant, assistant_actions, attendance, auth, command, dashboard, dingtalk, energy, executive, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, team_lead, telemetry, templates, user_preferences, users, work_orders
 from app.services import dingtalk_service
 
-scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if BackgroundScheduler else None
 logger = logging.getLogger(__name__)
+configure_json_logging()
 
 
 def create_mes_adapter() -> MesAdapter:
@@ -43,6 +40,14 @@ def create_mes_adapter() -> MesAdapter:
             timeout_seconds=settings.MES_API_TIMEOUT_SECONDS,
             tracking_card_info_path=settings.mes_api_tracking_card_info_path_normalized,
             coil_snapshots_path=settings.mes_api_coil_snapshots_path_normalized,
+        )
+    if adapter_name in {'xintai', 'xintai_api'}:
+        from app.adapters.xintai_mes_adapter import XintaiMesAdapter
+
+        return XintaiMesAdapter(
+            base_url=str(settings.MES_API_BASE or '').strip(),
+            api_key=str(settings.MES_API_KEY or '').strip(),
+            timeout_seconds=settings.MES_API_TIMEOUT_SECONDS,
         )
     if adapter_name == 'mvc':
         from app.adapters.mvc_mes_adapter import MvcMesAdapter
@@ -65,6 +70,7 @@ async def lifespan(_: FastAPI):
     uploads_dir = settings.upload_dir_path
     uploads_dir.mkdir(parents=True, exist_ok=True)
     if scheduler and not scheduler.running:
+        setup_scheduler(scheduler)
         dingtalk_service.register_jobs(scheduler)
         event_bus_service.register_jobs(scheduler)
         # 注册确定性编排任务
@@ -330,7 +336,7 @@ def root() -> dict[str, str]:
 
 @app.get('/health')
 def health() -> dict[str, str]:
-    return {'status': 'ok'}
+    return {'status': 'ok', 'version': settings.APP_VERSION}
 
 
 @app.get('/healthz')

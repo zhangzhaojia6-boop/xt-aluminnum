@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from app.core.permissions import get_current_manager_user
+from app.core.deps import get_db
 from app.core.rate_limit import enforce_request_rate_limit
 from app.models.system import User
 from app.schemas.assistant import (
@@ -32,9 +33,10 @@ def query_assistant(
     payload: AssistantQueryRequestIn,
     request: Request,
     current_user: User = Depends(get_current_manager_user),
+    db=Depends(get_db),
 ) -> AssistantQueryResponseOut:
     enforce_request_rate_limit(request, current_user, scope='assistant', limit=60, window_seconds=60)
-    return assistant_service.run_assistant_query(payload)
+    return assistant_service.run_assistant_query(payload, db=db, current_user=current_user)
 
 
 @router.post('/generate-image', response_model=AssistantImageResponseOut)

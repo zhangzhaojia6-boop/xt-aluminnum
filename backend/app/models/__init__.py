@@ -11,6 +11,7 @@ from app.models.attendance import (
     ShiftAttendanceConfirmation,
 )
 from app.models.assistant import AiBriefingEvent, AiContextPack, AiConversation, AiMessage, AiWatchlistItem
+from app.models.assistant_usage import AssistantUsage
 from app.models.executive import (
     AluminumPriceDaily,
     CostDailyResult,
@@ -70,6 +71,7 @@ __all__ = [
     'AiContextPack',
     'AiBriefingEvent',
     'AiWatchlistItem',
+    'AssistantUsage',
     'EmployeeAttendanceDetail',
     'ShiftProductionData',
     'MobileShiftReport',

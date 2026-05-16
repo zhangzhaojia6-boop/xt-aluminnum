@@ -9,6 +9,7 @@ from datetime import date
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 revision = '0027_executive_dashboard'
@@ -24,7 +25,7 @@ def _has_table(inspector, table_name: str) -> bool:
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    json_type = sa.JSON().with_variant(sa.dialects.postgresql.JSONB(), 'postgresql')
+    json_type = sa.JSON().with_variant(postgresql.JSONB(), 'postgresql')
 
     if not _has_table(inspector, 'aluminum_price_daily'):
         op.create_table(

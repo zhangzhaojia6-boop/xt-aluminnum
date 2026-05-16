@@ -103,6 +103,15 @@ def test_workflow_related_feature_flags_default_to_disabled() -> None:
     settings.validate_runtime_settings()
 
 
+def test_production_cors_defaults_to_public_data_center_domains() -> None:
+    settings = build_settings(APP_ENV='production')
+
+    assert settings.cors_origins_list == [
+        'https://data.xintai-alu.com',
+        'https://m.xintai-alu.com',
+    ]
+
+
 def test_validate_runtime_settings_warns_when_wecom_bot_enabled_without_workflow() -> None:
     settings = build_settings(WECOM_BOT_ENABLED=True)
 

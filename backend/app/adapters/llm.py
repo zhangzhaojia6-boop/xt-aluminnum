@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
 from typing import Any
 
 import httpx
 
 from app.config import Settings, settings as runtime_settings
+
+
+@dataclass(frozen=True)
+class LlmTextResponse:
+    content: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    raw_usage: dict[str, Any] | None = None
 
 
 def _completion_url(base_url: str) -> str:
@@ -180,7 +190,23 @@ def generate_llm_summary(
     messages: list[dict[str, str]],
     settings: Settings | None = None,
     client: httpx.Client | None = None,
+    max_tokens: int | None = None,
 ) -> str:
+    return generate_llm_summary_with_usage(
+        messages=messages,
+        settings=settings,
+        client=client,
+        max_tokens=max_tokens,
+    ).content
+
+
+def generate_llm_summary_with_usage(
+    *,
+    messages: list[dict[str, str]],
+    settings: Settings | None = None,
+    client: httpx.Client | None = None,
+    max_tokens: int | None = None,
+) -> LlmTextResponse:
     runtime = settings or runtime_settings
     api_base = str(runtime.LLM_API_BASE or '')
     request_url = _completion_url(api_base)
@@ -192,6 +218,8 @@ def generate_llm_summary(
         'messages': messages,
         'temperature': 0.2,
     }
+    if max_tokens is not None:
+        payload['max_tokens'] = int(max_tokens)
     headers = {
         'Authorization': f'Bearer {runtime.LLM_API_KEY}',
         'Content-Type': 'application/json',
@@ -257,7 +285,18 @@ def generate_llm_summary(
     content = message.get('content') if isinstance(message, dict) else None
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError('LLM response does not contain message.content')
-    return content.strip()
+
+    usage = body.get('usage') if isinstance(body.get('usage'), dict) else {}
+    input_tokens = int(usage.get('input_tokens') or usage.get('prompt_tokens') or 0)
+    output_tokens = int(usage.get('output_tokens') or usage.get('completion_tokens') or 0)
+    total_tokens = int(usage.get('total_tokens') or input_tokens + output_tokens)
+    return LlmTextResponse(
+        content=content.strip(),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        raw_usage=dict(usage),
+    )
 
 
 def generate_llm_image_asset(

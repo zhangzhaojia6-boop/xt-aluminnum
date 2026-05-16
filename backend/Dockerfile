@@ -1,9 +1,16 @@
+FROM python:3.11-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /build
+COPY requirements.txt .
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
 FROM python:3.11-slim
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 TZ=Asia/Shanghai
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 TZ=Asia/Shanghai PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /opt/venv /opt/venv
 COPY . .
 RUN mkdir -p /app/uploads && chown -R app:app /app
 USER app

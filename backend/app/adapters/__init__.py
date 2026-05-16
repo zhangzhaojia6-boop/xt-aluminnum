@@ -12,6 +12,7 @@ from app.adapters.mes_adapter import (
     get_mes_adapter,
     set_mes_adapter,
 )
+from app.adapters.xintai_mes_adapter import XintaiMesAdapter
 
 __all__ = [
     'CardInfo',
@@ -24,6 +25,7 @@ __all__ = [
     'MesAdapter',
     'NullMesAdapter',
     'ScheduleItem',
+    'XintaiMesAdapter',
     'get_mes_adapter',
     'set_mes_adapter',
 ]

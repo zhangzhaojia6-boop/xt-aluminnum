@@ -4,6 +4,7 @@ import pytest
 
 from app.adapters.mes_adapter import NullMesAdapter, get_mes_adapter, set_mes_adapter
 from app.adapters.mvc_mes_adapter import MvcMesAdapter
+from app.adapters.xintai_mes_adapter import XintaiMesAdapter
 from app.main import create_mes_adapter
 
 
@@ -47,6 +48,16 @@ def test_create_mes_adapter_returns_mvc_adapter(monkeypatch) -> None:
     adapter = create_mes_adapter()
 
     assert isinstance(adapter, MvcMesAdapter)
+
+
+def test_create_mes_adapter_returns_xintai_adapter(monkeypatch) -> None:
+    monkeypatch.setattr('app.main.settings.MES_ADAPTER', 'xintai', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_API_BASE', 'https://mes.example.com/api', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_API_KEY', 'secret', raising=False)
+
+    adapter = create_mes_adapter()
+
+    assert isinstance(adapter, XintaiMesAdapter)
 
 
 def test_create_mes_adapter_rejects_unknown_adapter(monkeypatch) -> None:

@@ -2,7 +2,7 @@ import json
 
 import httpx
 
-from app.adapters.llm import generate_llm_image_asset, generate_llm_summary
+from app.adapters.llm import generate_llm_image_asset, generate_llm_summary, generate_llm_summary_with_usage
 from app.config import Settings
 
 
@@ -47,6 +47,33 @@ def test_generate_llm_summary_prefers_endpoint_id_over_model_alias() -> None:
     assert output == 'OK-ENDPOINT'
     assert called_models == ['ep-deepseek-v3-2']
     assert models_endpoint_called is False
+
+
+def test_generate_llm_summary_with_usage_extracts_token_counts() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/chat/completions'):
+            return httpx.Response(
+                200,
+                json={
+                    'choices': [{'message': {'content': 'OK-USAGE'}}],
+                    'usage': {'prompt_tokens': 7, 'completion_tokens': 5, 'total_tokens': 12},
+                },
+            )
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport) as client:
+        output = generate_llm_summary_with_usage(
+            messages=[{'role': 'user', 'content': 'ping'}],
+            settings=_build_settings(),
+            client=client,
+            max_tokens=4096,
+        )
+
+    assert output.content == 'OK-USAGE'
+    assert output.input_tokens == 7
+    assert output.output_tokens == 5
+    assert output.total_tokens == 12
 
 
 def test_generate_llm_summary_resolves_deepseek_alias_after_not_found() -> None:
