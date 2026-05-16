@@ -122,6 +122,12 @@ def _load_deploy_production_module():
     return module
 
 
+def test_full_deploy_script_dependency_is_declared() -> None:
+    source = _read('backend/requirements.txt')
+
+    assert 'paramiko==4.0.0' in source
+
+
 def test_gitignore_covers_quick_trial_artifacts() -> None:
     source = _read('.gitignore')
 
