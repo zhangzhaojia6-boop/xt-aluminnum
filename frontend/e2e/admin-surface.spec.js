@@ -111,6 +111,89 @@ test('admin ops route renders the observability smoke surface', async ({ page })
   await expect(opsCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('admin ops route shows live fill and external MES binding status without overflow', async ({ page }) => {
+  await loginAsAdmin(page)
+
+  for (const viewport of [
+    { width: 1366, height: 820 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/manage/admin/settings?desktop=1')
+
+    const strip = page.locator('.live-reality-strip')
+    await expect(strip).toBeVisible()
+    await expect(strip.getByText('实时数据日期')).toBeVisible()
+    await expect(strip.getByText('当前显示 2026-05-12')).toBeVisible()
+    await expect(strip.getByText('今天 2026-05-13 暂无填报')).toBeVisible()
+    await expect(strip.getByText('外部 MES 机列绑定')).toBeVisible()
+    await expect(strip.getByText('已绑机列 22 卷')).toBeVisible()
+    await expect(strip.getByText('上游机列码缺失 21 行 · 待归属 0 卷')).toBeVisible()
+
+    const overflow = await page.evaluate(() => Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth
+    ))
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
+})
+
+test('admin ops route displays external missing input checklist without overflow', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.route('**/api/v1/dashboard/external-readiness', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        hard_gate_passed: false,
+        module_usable: false,
+        external_connection_enabled: false,
+        hard_issues: [
+          {
+            level: 'hard',
+            code: 'LLM_DISABLED',
+            required_env: ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY']
+          }
+        ],
+        warning_issues: [],
+        missing_inputs: [
+          {
+            issue_code: 'LLM_DISABLED',
+            level: 'hard',
+            purpose: 'LLM/AI 摘要增强',
+            location: '服务器 backend/.env',
+            missing_fields: ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY'],
+            impact: 'AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通。',
+            suggested_value: 'LLM_ENABLED=true；LLM_API_KEY=<redacted>'
+          }
+        ]
+      })
+    })
+  })
+
+  for (const viewport of [
+    { width: 1366, height: 820 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/manage/admin/settings?desktop=1')
+
+    const checklist = page.locator('.external-readiness-missing')
+    await expect(checklist).toBeVisible()
+    await expect(checklist.getByText('缺失输入清单')).toBeVisible()
+    await expect(checklist.getByText('LLM/AI 摘要增强')).toBeVisible()
+    await expect(checklist.locator('.external-readiness-missing__fields').getByText('LLM_API_KEY', { exact: true })).toBeVisible()
+    await expect(checklist.getByText('<redacted>')).toBeVisible()
+    await expect(page.getByText('real-secret')).toHaveCount(0)
+
+    const overflow = await page.evaluate(() => Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth
+    ))
+    expect(overflow).toBeLessThanOrEqual(1)
+  }
+})
+
 test('admin governance route renders the permission governance smoke surface', async ({ page }) => {
   await loginAsAdmin(page)
   await page.goto('/manage/admin/governance')

@@ -976,7 +976,7 @@ def test_legacy_master_routes_redirect_without_mounting_orphan_pages() -> None:
     assert "`/master/team`、`/master/employee`、`/master/equipment`、`/master/shift-config` -> `/manage/master`" in route_map
 
 
-def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
+def test_cost_accounting_runtime_strategy_workspace_is_documented() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     docs = "\n".join(
         [
@@ -986,16 +986,22 @@ def test_cost_accounting_reference_contract_is_not_runtime_route() -> None:
     )
     reference_center = _read_repo_file("frontend/src/views/review/CostAccountingCenter.vue")
     costing_engine = _read_repo_file("frontend/src/services/costing/engine.ts")
+    cost_screen = _read_repo_file("frontend/src/views/factory-command/CostBenefitScreen.vue")
 
-    assert "const CostAccountingCenter" not in router
-    assert "../views/review/CostAccountingCenter.vue" not in router
+    assert "const CostAccountingCenter = () => import('../views/review/CostAccountingCenter.vue')" in router
+    assert "path: 'factory/cost/accounting', name: 'factory-command-cost-accounting', component: CostAccountingCenter" in router
     assert "{ path: '/review/cost-accounting', redirect: preserveRouteState('/manage/factory/cost') }" in router
     assert "path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen" in router
-    assert "loadCostBenefit" in _read_repo_file("frontend/src/views/factory-command/CostBenefitScreen.vue")
+    assert "loadCostBenefit" in cost_screen
+    assert "/manage/factory/cost/accounting" in cost_screen
+    assert "策略核算" in cost_screen
     assert "evaluateCostScenario" in reference_center
+    assert "saveCostStrategySnapshot" in reference_center
+    assert 'data-testid="cost-snapshot-save"' in reference_center
     assert "export function evaluateCostScenario" in costing_engine
-    assert "CostAccountingCenter.vue` 和 `frontend/src/services/costing/*` 保留为历史参考契约" in docs
-    assert "不是 `/manage/factory/cost` 的运行时页面" in docs
+    assert "/manage/factory/cost/accounting" in docs
+    assert "策略核算工作台" in docs
+    assert "不作为财务结算或月度入账依据" in docs
 
 
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:

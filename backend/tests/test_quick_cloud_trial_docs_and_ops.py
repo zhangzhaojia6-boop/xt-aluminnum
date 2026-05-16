@@ -426,6 +426,37 @@ def test_highres_reference_images_have_size_budget_and_audit_record() -> None:
     assert '<= 5.6 MB' in manifest
 
 
+def test_ui_reference_tracks_dark_industrial_image2_target() -> None:
+    prompts = _read('docs/ui-reference/IMAGE2_PROMPTS.md')
+    spec = _read('docs/ui-reference/UI_TARGET_SPEC.md')
+    plan = _read('docs/ui-reference/DESIGN_REVERSE_PLAN.md')
+    manifest = _read('docs/ui-reference/REFERENCE_MANIFEST.md')
+
+    for token in ['深色工业科技风', '蓝黑基底', '冷蓝高光']:
+        assert token in prompts
+        assert token in manifest or token in spec or token in plan
+
+    for section in [f'## {index:02d}' for index in range(1, 17)]:
+        assert section in prompts
+
+    for stale_token in [
+        '避免：深色大屏',
+        'Cold white',
+        'White industrial',
+        'white industrial',
+        'Apple/OpenAI',
+        'no dark sci-fi',
+    ]:
+        assert stale_token not in prompts
+        assert stale_token not in spec
+        assert stale_token not in plan
+
+    assert '页面反推矩阵' in plan
+    assert '目标页 | 当前路由 / 入口 | 主要代码入口 | 数据 / BFF 口径 | 下一步还原动作' in plan
+    assert '旧浅色历史基线' in manifest
+    assert '不能作为最终视觉验收证据' in manifest
+
+
 def test_release_freeze_checklist_requires_clean_worktree_and_github_remote() -> None:
     source = _read('docs/发布冻结基线清单.md')
 
@@ -490,6 +521,21 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     audit = _read('docs/audits/2026-05-02-cleanup-round2-test-audit.md')
 
     assert '当前记录基准：当前 `main` HEAD' in state
+    assert '本轮部署：`main@798bc0f`' in state
+    assert '`python scripts/check_statistics_module_ready.py --missing-inputs` 输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行' in state
+    assert '管理端 `/api/v1/dashboard/external-readiness` 已透传 `missing_inputs` 缺失输入清单' in state
+    assert '疑似密钥值：字段名如 `LLM_API_KEY`、`APP_CONNECTION_API_KEY` 仍可见，实际值统一返回 `<redacted>`' in state
+    assert '管理端实时态势的 `外部联通明细` 已展示 `missing_inputs` 缺失输入清单' in state
+    assert 'PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js --grep "external missing input"`：1 passed' in state
+    assert '`python -m pytest backend/tests -q`：806 passed，124 deselected，39 warnings' in state
+    assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected' in state
+    assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected' in state
+    assert '`python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：53 passed，1 deselected' in state
+    assert '本轮部署：`main@19dbd5b`' in state
+    assert '`live_aggregation_ok=true`' in state
+    assert '`live_aggregation_business_date=2026-05-12`' in state
+    assert '`live_aggregation_total_entry_count=38`' in state
+    assert '`live_aggregation_bound_to_machine_count=24`' in state
     assert '`python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed' in state
     assert '`python -m pytest backend/tests/test_coil_entry_auto_calc.py backend/tests/test_realtime_service.py backend/tests/test_factory_command_service.py backend/tests/test_workshop_reporting_status.py -q`：32 passed' in state
@@ -527,12 +573,25 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`batch_no=IMP-20260506130735-d4f557`' in state
     assert '`shift_rows_delta=0`' in state
     assert '生产环境暂未安装 `xlrd`' in state
+    assert '4 月 30 日每日产量已找到可用替代表并提升正式事实' in state
+    assert '2026-4-30_主表完整字段填充.xls' in state
+    assert '`ImportBatch id=32`' in state
+    assert '`output=2345.849t`' in state
+    assert '`today_total_output=2345.85t`' in state
     assert '历史 `每日产量` 映射门禁已接入只读预览' in state
     assert '`ready_rows=7`' in state
     assert '`needs_equipment_mapping_rows=0`' in state
     assert '`unresolved_rows=9`' in state
     assert '`冷轧/1650`' in state
     assert '`在线退火/园区北线`' in state
+    assert '当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-30`、`2026-05-01` 至 `2026-05-05`' in state
+    assert '`2026-04-22` 每日产量文件源表日产量列为空' in state
+    assert '`no_daily_production_summary_sheet`' in state
+    assert '综合页表头显示 `2026年4月23日`' in state
+    assert '热轧日产 `262t`' in state
+    assert '`热轧` 行日产量为 `0t`' in state
+    assert '包装/入库和在制类行' in state
+    assert '口径冲突表' in state
     assert '`GET /api/v1/imports/daily-production/mapping-preview`' in state
     assert '每日产量/映射门禁' in state
     assert '映射门禁未解析行已增加只读候选主数据提示' in state
@@ -737,10 +796,29 @@ def test_external_readiness_docs_expose_env_template_command() -> None:
     script = _read('backend/scripts/check_statistics_module_ready.py')
 
     assert '--env-template' in script
+    assert '--check-live-aggregation' in script
+    assert '--missing-inputs' in script
     assert 'python scripts/check_statistics_module_ready.py --env-template' in state
+    assert 'python scripts/check_statistics_module_ready.py --json --check-live-aggregation' in state
+    assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in state
     assert 'python scripts/check_statistics_module_ready.py --env-template' in ops
     assert '不回显现有密钥' in state
+    assert '实时聚合只读探针' in state
+    assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in state
     assert '不要把包含密钥的 `.env` 提交到 Git' in ops
+    for expected in [
+        'LLM_ENABLED=true',
+        'LLM_API_BASE=...',
+        'LLM_API_KEY=...',
+        'LLM_MODEL=...',
+        '`hard_gate_passed=false`',
+        '`module_usable=false`',
+        '`external_connection_enabled=false`',
+        '`mes_adapter=mvc`、`mes_ready=true`',
+        '`warning_issues=DINGTALK_NO_BOUND_USERS`',
+        '`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`',
+    ]:
+        assert expected in state
 
 
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
@@ -1043,6 +1121,39 @@ def test_known_gaps_master_runtime_scope_matches_workshop_page() -> None:
     assert 'title="车间主数据"' in workshop
     assert '/manage/master` 运行页已标为 `车间主数据`' in gaps
     assert '一站式主数据中心' in gaps
+
+
+def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> None:
+    gaps = _read('docs/known-gaps-and-todos.md')
+    state = _read('docs/deploy/current-state.md')
+
+    assert '`LLM_DISABLED`' in state
+    assert '`APP_CONNECTION_DISABLED`' in state
+    assert '`DINGTALK_NO_BOUND_USERS`' in state
+    assert '外部正式联通闸门仍未通过' in gaps
+    assert '`LLM_DISABLED`' in gaps
+    assert '`APP_CONNECTION_DISABLED`' in gaps
+    assert '`DINGTALK_NO_BOUND_USERS`' in gaps
+    assert '不能把 `/readyz` ready 误判为外部联通完成' in gaps
+    assert '`2026-04-22` 每日产量源表仍阻断' in gaps
+    assert '`blocked / rows=0`' in gaps
+    assert '`no_daily_production_summary_sheet`' in gaps
+    assert '综合页表头显示 `2026年4月23日`' in gaps
+    assert '不能用当前空表或口径冲突表强行入库' in gaps
+
+
+def test_active_goal_completion_audit_tracks_current_external_readiness_evidence() -> None:
+    audit = _read('docs/audits/2026-05-13-active-goal-completion-audit.md')
+
+    assert '当前代码锚点：`fc9453d fix: 提前发布管理端实时聚合数据`' in audit
+    assert '正式填报 `40` 条' in audit
+    assert '填报端 40 卷' in audit
+    assert '`live_aggregation_bound_to_machine_count=24`' in audit
+    assert '`DINGTALK_CONTACTS_PERMISSION_MISSING`' in audit
+    assert '`qyapi_get_department_member`' in audit
+    assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in audit
+    assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in audit
+    assert '慢接口未返回前已经发布实时聚合数据' in audit
 
 
 def test_exec_plan_tracks_phase_progress_without_hiding_external_gates() -> None:

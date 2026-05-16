@@ -55,6 +55,7 @@ const ProductionFlowScreen = () => import('../views/factory-command/ProductionFl
 const MachineLineScreen = () => import('../views/factory-command/MachineLineScreen.vue')
 const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
 const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
+const CostAccountingCenter = () => import('../views/review/CostAccountingCenter.vue')
 const ExecutiveDashboard = () => import('../views/executive/ExecutiveDashboard.vue')
 const ProcessingFeeAdmin = () => import('../views/executive/ProcessingFeeAdmin.vue')
 const InventoryCenter = () => import('../views/inventory/InventoryCenter.vue')
@@ -139,6 +140,7 @@ const rawRoutes = [
       { path: 'factory/machine-lines', name: 'factory-command-machine-lines', component: MachineLineScreen, meta: { ...reviewMeta, title: '车间机列', centerNo: '05', canonical: '/manage/factory/machine-lines' } },
       { path: 'factory/coils', name: 'factory-command-coils', component: CoilTrace, meta: { ...reviewMeta, title: '卷级追踪', centerNo: '05', canonical: '/manage/factory/coils' } },
       { path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen, meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
+      { path: 'factory/cost/accounting', name: 'factory-command-cost-accounting', component: CostAccountingCenter, meta: { ...reviewMeta, title: '策略核算', centerNo: '10', canonical: '/manage/factory/cost/accounting' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
       { path: 'factory/exceptions', name: 'factory-command-exceptions', component: ExceptionMap, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/factory/exceptions' } },
       { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },

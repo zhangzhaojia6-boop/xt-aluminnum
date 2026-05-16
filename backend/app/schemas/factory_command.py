@@ -56,6 +56,7 @@ class FactoryMachineLineOut(BaseModel):
     finished_tons: float = 0.0
     stalled_count: int = 0
     machine_binding_status: str = 'bound'
+    mes_binding: dict[str, Any] = Field(default_factory=dict)
     cost_estimate: FactoryEstimateOut
     margin_estimate: FactoryEstimateOut
     freshness: FactoryCommandFreshnessOut | None = None

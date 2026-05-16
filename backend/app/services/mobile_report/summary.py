@@ -520,6 +520,26 @@ def _validate_locked_fields(db: Session, payload: dict) -> tuple[list[str], dict
     return [str(key) for key in snapshot.keys()], dict(snapshot)
 
 
+def _required_positive_weight(payload: dict, key: str, detail: str) -> Decimal:
+    value = payload.get(key)
+    if value in (None, ''):
+        raise HTTPException(status_code=422, detail=detail)
+    try:
+        number = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise HTTPException(status_code=422, detail=detail) from exc
+    if not number.is_finite() or number <= 0:
+        raise HTTPException(status_code=422, detail=detail)
+    return number
+
+
+def _validate_coil_entry_weights(payload: dict) -> None:
+    input_weight = _required_positive_weight(payload, 'input_weight', 'input_weight_required')
+    output_weight = _required_positive_weight(payload, 'output_weight', 'output_weight_required')
+    if output_weight > input_weight:
+        raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
+
+
 def create_coil_entry(
     db: Session,
     *,
@@ -528,6 +548,7 @@ def create_coil_entry(
     ip_address: str | None = None,
 ) -> dict:
     assert_mobile_user_access(current_user)
+    _validate_coil_entry_weights(payload)
     from app.models.production import WorkOrder
 
     tracking_card_no = payload['tracking_card_no'].strip()

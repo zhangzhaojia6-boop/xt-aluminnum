@@ -16,7 +16,14 @@ from app.core.event_bus import event_bus
 from app.core.rate_limit import acquire_connection_rate_limit, enforce_request_rate_limit
 from app.core.scope import build_scope_summary, can_view_all_work_order_entries, resolve_work_order_entry_workshop_scope
 from app.models.system import User
-from app.schemas.realtime import LiveActiveBusinessDateOut, LiveAggregationOut, LiveCellDetailOut, LivePendingAssignmentOut
+from app.schemas.realtime import (
+    LiveActiveBusinessDateOut,
+    LiveAggregationOut,
+    LiveCellDetailOut,
+    LiveMissingOutputWeightResolveOut,
+    LiveMissingOutputWeightResolveRequest,
+    LivePendingAssignmentOut,
+)
 from app.services import realtime_service
 
 
@@ -171,6 +178,37 @@ def live_active_business_date(
     del current_user
     payload = realtime_service.resolve_live_business_date(db)
     return LiveActiveBusinessDateOut(**payload)
+
+
+@router.patch(
+    '/aggregation/live/missing-output/{entry_id}',
+    response_model=LiveMissingOutputWeightResolveOut,
+    name='live-missing-output-resolve',
+)
+def resolve_live_missing_output_weight(
+    entry_id: int,
+    body: LiveMissingOutputWeightResolveRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> LiveMissingOutputWeightResolveOut:
+    enforce_request_rate_limit(
+        request,
+        current_user,
+        scope='aggregation_missing_output_resolve',
+        limit=30,
+        window_seconds=60,
+    )
+    payload = realtime_service.resolve_missing_output_weight(
+        db,
+        entry_id=entry_id,
+        output_weight=body.output_weight,
+        reason=body.reason,
+        current_user=current_user,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get('user-agent'),
+    )
+    return LiveMissingOutputWeightResolveOut(**payload)
 
 
 @router.get('/aggregation/live/detail', response_model=LiveCellDetailOut, name='live-aggregation-detail')

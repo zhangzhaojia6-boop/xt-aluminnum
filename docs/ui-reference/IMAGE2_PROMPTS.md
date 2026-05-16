@@ -5,12 +5,12 @@
 ## 统一生成规则
 
 - 画布：桌面端 `1672 x 941`，移动端 `390 x 844`。
-- 风格：冷白底、工业蓝、低圆角、细边框、高留白、高信息密度但不拥挤。
-- 气质：Apple/OpenAI 式克制，企业级工业科技感，像真实生产协同平台，不像营销大屏。
+- 风格：深色工业科技风、蓝黑基底、冷蓝高光、低圆角、细边框、高信息密度但不拥挤。
+- 气质：克制、成熟、企业级工业科技感，像真实生产协同平台，不像营销大屏。
 - 组件：侧边导航、顶部操作栏、KPI、图表、表格、状态胶囊、审核队列、字段映射、AI 建议、移动表单必须统一。
 - 数据：使用真实业务口径，不放离谱假数。产量以 `吨`，能耗以 `kWh`，天然气以 `m3`，成品率以 `%`，金额以 `万元` 或 `元/吨`，卷数以 `卷`。
 - 文案：中文为主，产品名固定为 `鑫泰铝业 数据中枢`。`MES` 只作为外部生产系统或数据源出现。
-- 避免：深色大屏、紫色渐变、夸张霓虹、巨型装饰英雄区、纯摆拍图表、英文假字、水印、模糊小字。
+- 避免：浅色通用后台、紫色渐变、夸张霓虹、巨型装饰英雄区、纯摆拍图表、英文假字、水印、模糊小字。
 
 ## 01 总览驾驶舱
 
@@ -22,7 +22,7 @@ Layout structure: 224px left sidebar, 64px top header, main area 7:3, right evid
 Data density: 6 KPI + 1 factory flow map + 3 charts + 1 pending binding table + 3 AI actions.
 Component list: xt-layout/ManageShell, xt-layout/XtPageHeader, xt-data/XtKpi, xt-data/XtTable, xt-chart/XtFactoryMap, xt-chart/WorkshopOutputRanking, xt-chart/PendingAssignmentHeatmap, xt-chart/ReconciliationWaterfall, xt-form/XtFilter, xt-data/XtStatus.
 Forbidden: purple-blue gradient, glassmorphism, SaaS three-card layout, emoji, papyrus, comic sans, watermark, fake English placeholders.
-Cold white industrial interface, restrained Apple/OpenAI-like layout, industrial blue accent, thin borders, 6px to 8px radius, precise data tables, no dark sci-fi screen.
+Dark industrial command-center interface, restrained enterprise layout, cold blue accent, thin borders, 6px to 8px radius, precise data tables, no cheap sci-fi screen.
 Main layout: fixed left sidebar with grouped modules, top bar with date selector and AI assistant button, dense main dashboard.
 Hero area: factory status cockpit with daily output, monthly output, order fulfillment, yield rate, active machine lines, pending reviews, anomalies, delivered coils; every metric has unit labels.
 Center panel: isometric aluminum factory flow map from casting to hot rolling, cold rolling, leveling, finishing, inventory and delivery, with live status badges and subtle blue data flow lines.
@@ -41,10 +41,10 @@ Layout structure: 5:4 split, left process preview 56%, right login card 44%, sta
 Data density: 1 login form + 4 role chips + 3 readiness badges + 1 factory process preview.
 Component list: xt-data/XtLogo, xt-chart/XtFactoryMap, xt-data/XtStatus, xt-form/ElForm, xt-form/ElInput, xt-form/ElButton, xt-data/ParticleField.
 Forbidden: purple-blue gradient, glassmorphism, SaaS three-card layout, emoji, papyrus, comic sans, stock photo, cartoon illustration.
-White industrial enterprise style, centered precise login card, left-side soft factory process preview, no marketing hero copy.
+Dark industrial enterprise style, centered precise login card, left-side factory process preview, no marketing hero copy.
 Show product mark, account/password login, role shortcut chips for 管理端, 审核端, 填报端, 班长端, and a small environment/status row with 外部生产系统连接, 数据库, 服务状态.
-Use cold white, light blue, slate text, thin borders, focused input states, professional Chinese typography.
-No stock photos, no cartoon illustration, no dark gradient background.
+Use cold blue, graphite panels, slate text, thin borders, focused input states, professional Chinese typography.
+No stock photos, no cartoon illustration, no muddy gradient background.
 ```
 
 ## 03 移动录入端首页
@@ -93,7 +93,7 @@ Forbidden: purple-blue gradient, glassmorphism, SaaS three-card layout, emoji, p
 Layout: left navigation, top filters for business date, shift, workshop, data source; main area with machine-line cards and a live binding table.
 Show external production system clues and fill-report uploads side by side: tracking card, workshop, machine line, shift, output weight, current destination, binding status.
 Add charts: output by machine line, pending assignment heatmap, reconciliation waterfall between external source and fill terminal.
-All numbers have units. Highlight real-time freshness and source labels. Professional cold white industrial UI.
+All numbers have units. Highlight real-time freshness and source labels. Professional dark industrial UI.
 ```
 
 ## 06 数据接入与字段映射
@@ -252,7 +252,7 @@ Layout structure: flow table 65%, inventory structure and pending destination ra
 Data density: 5 KPI + 1 flow table with 9 columns + 3 inventory charts + 1 pending destination queue.
 Component list: xt-layout/ManageShell, xt-layout/FactoryCommandShell, xt-data/XtKpi, xt-data/XtTable, xt-chart/InventoryAgingBuckets, xt-chart/OutboundTrend, xt-form/XtFilter, xt-data/XtStatus.
 Forbidden: purple-blue gradient, glassmorphism, SaaS three-card layout, emoji, papyrus, comic sans, fake inventory balance.
-White industrial enterprise UI, all values with units, source and freshness chips visible.
+Dark industrial enterprise UI, all values with units, source and freshness chips visible.
 ```
 
 ## 17 合同与订单中心

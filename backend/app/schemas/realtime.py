@@ -40,12 +40,28 @@ class LiveWorkshopSummaryOut(BaseModel):
 
 class LiveAggregationOut(BaseModel):
     business_date: str
+    business_date_context: dict = Field(default_factory=dict)
     overall_progress: dict = Field(default_factory=dict)
     workshops: list[LiveWorkshopSummaryOut] = Field(default_factory=list)
     factory_total: dict = Field(default_factory=dict)
+    data_quality: dict = Field(default_factory=dict)
+    mes_machine_binding: dict = Field(default_factory=dict)
     yield_matrix_lane: dict = Field(default_factory=dict)
     mes_sync_status: dict = Field(default_factory=dict)
     data_source: str = 'work_order_runtime'
+
+
+class LiveMissingOutputWeightResolveRequest(BaseModel):
+    output_weight: float = Field(gt=0)
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class LiveMissingOutputWeightResolveOut(BaseModel):
+    entry_id: int
+    work_order_id: int
+    output_weight: float
+    yield_rate: float | None = None
+    entry_status: str
 
 
 class LiveActiveBusinessDateOut(BaseModel):

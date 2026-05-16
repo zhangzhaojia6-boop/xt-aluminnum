@@ -27,7 +27,7 @@ from app.models.system import User
 from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
-from app.services.equipment_service import resolve_reporting_machine_from_candidates
+from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.utils.tracking_cards import tracking_card_lookup_candidates, tracking_card_lookup_key
 
@@ -138,6 +138,74 @@ def resolve_live_business_date(
     }
 
 
+def _parse_business_date(value: object | None) -> date | None:
+    if isinstance(value, date):
+        return value
+    if value is None:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _count_live_fill_entries(db: Session, *, business_date: date, workshop_id: int | None) -> int:
+    query = db.query(func.count(WorkOrderEntry.id)).filter(WorkOrderEntry.business_date == business_date)
+    if workshop_id is not None:
+        query = query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    return int(query.scalar() or 0)
+
+
+def _latest_live_fill_business_date(db: Session, *, today: date, workshop_id: int | None) -> date | None:
+    query = (
+        db.query(
+            WorkOrderEntry.business_date,
+            func.max(WorkOrderEntry.created_at).label('last_created_at'),
+        )
+        .filter(WorkOrderEntry.business_date <= today)
+        .group_by(WorkOrderEntry.business_date)
+        .order_by(func.max(WorkOrderEntry.created_at).desc(), WorkOrderEntry.business_date.desc())
+    )
+    if workshop_id is not None:
+        query = query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    row = query.first()
+    return row.business_date if row is not None else None
+
+
+def _build_live_business_date_context(db: Session, *, requested_date: date, workshop_id: int | None) -> dict:
+    resolved_now = _local_now()
+    current_date = resolved_now.date()
+    active_payload = resolve_live_business_date(db, today=current_date, now=resolved_now)
+    active_date = _parse_business_date(active_payload.get('business_date'))
+    latest_fill_date = _latest_live_fill_business_date(db, today=current_date, workshop_id=workshop_id)
+
+    requested_entry_count = _count_live_fill_entries(db, business_date=requested_date, workshop_id=workshop_id)
+    current_date_entry_count = (
+        requested_entry_count
+        if requested_date == current_date
+        else _count_live_fill_entries(db, business_date=current_date, workshop_id=workshop_id)
+    )
+    active_date_entry_count = (
+        _count_live_fill_entries(db, business_date=active_date, workshop_id=workshop_id)
+        if active_date is not None
+        else 0
+    )
+
+    return {
+        'requested_business_date': requested_date.isoformat(),
+        'current_business_date': current_date.isoformat(),
+        'active_business_date': active_date.isoformat() if active_date is not None else None,
+        'active_date_source': active_payload.get('source') or 'current_date',
+        'latest_fill_business_date': latest_fill_date.isoformat() if latest_fill_date is not None else None,
+        'requested_entry_count': requested_entry_count,
+        'current_date_entry_count': current_date_entry_count,
+        'active_date_entry_count': active_date_entry_count,
+        'has_current_date_entries': current_date_entry_count > 0,
+        'is_requested_current_date': requested_date == current_date,
+        'is_showing_active_business_date': active_date == requested_date if active_date is not None else False,
+    }
+
+
 def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts) -> dict:
     pending_entries = [
         item
@@ -239,6 +307,179 @@ def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts)
     }
 
 
+def _is_mobile_entry_missing_output_weight(item: dict) -> bool:
+    if item.get('entry_type') != 'mobile_coil':
+        return False
+    if not _is_formal_entry(item):
+        return False
+    if item.get('output_weight_missing') is True:
+        return True
+    return item.get('output_weight') is None
+
+
+def _is_model_missing_output_weight(entry: WorkOrderEntry) -> bool:
+    return (
+        entry.entry_type == 'mobile_coil'
+        and entry.entry_status in FORMAL_ENTRY_STATUSES
+        and entry.output_weight is None
+        and entry.verified_output_weight is None
+    )
+
+
+def _model_input_weight_tons(entry: WorkOrderEntry) -> float:
+    value = entry.verified_input_weight if entry.verified_input_weight is not None else entry.input_weight
+    return _to_float(value) / 1000
+
+
+def _ensure_missing_output_entry_scope(db: Session, entry: WorkOrderEntry, current_user: User) -> None:
+    summary = build_scope_summary(current_user)
+    if not can_view_work_order_entries(summary):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='work order entry access denied')
+    if not can_view_all_work_order_entries(summary):
+        scoped_id = resolve_work_order_entry_workshop_scope(summary)
+        if scoped_id is None or int(entry.workshop_id) != int(scoped_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='work order entry access denied')
+    bound_machine = get_bound_machine_for_user(db, user_id=getattr(current_user, 'id', None))
+    if bound_machine is not None:
+        if bound_machine.operational_status != 'running':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='该机台已停机')
+        if entry.machine_id is None or int(entry.machine_id) != int(bound_machine.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='无权操作此机台')
+
+
+def resolve_missing_output_weight(
+    db: Session,
+    *,
+    entry_id: int,
+    output_weight: float,
+    reason: str,
+    current_user: User,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> dict:
+    entry = db.get(WorkOrderEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='work order entry not found')
+    _ensure_missing_output_entry_scope(db, entry, current_user)
+    if not _is_model_missing_output_weight(entry):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='output_weight_already_present')
+
+    output_tons = float(output_weight or 0)
+    if output_tons <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='output_weight_required')
+    input_tons = _model_input_weight_tons(entry)
+    if input_tons <= 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='input_weight_required')
+    if output_tons > input_tons:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='output_weight_exceeds_input')
+
+    normalized_reason = str(reason or '').strip()
+    if not normalized_reason:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='reason_required')
+
+    from app.services import work_order_service
+
+    output_kg = round(output_tons * 1000, 3)
+    updated = work_order_service.update_entry(
+        db,
+        entry_id=entry_id,
+        payload={'output_weight': output_kg},
+        operator=current_user,
+        override_reason=f'补产出重量：{normalized_reason}',
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    return {
+        'entry_id': int(updated['id']),
+        'work_order_id': int(updated['work_order_id']),
+        'output_weight': round(output_tons, 3),
+        'yield_rate': round(_to_float(updated.get('yield_rate')), 4) if updated.get('yield_rate') is not None else None,
+        'entry_status': updated.get('entry_status') or '',
+    }
+
+
+def _build_missing_output_weight_summary(*, entries: list[dict], workshops, machines, shifts) -> dict:
+    workshop_name_by_id = {
+        int(item.id): item.name
+        for item in workshops
+        if getattr(item, 'id', None) is not None
+    }
+    machine_name_by_id = {
+        int(item.id): item.name
+        for item in machines
+        if getattr(item, 'id', None) is not None
+    }
+    shift_name_by_id = {
+        int(item.id): item.name
+        for item in shifts
+        if getattr(item, 'id', None) is not None
+    }
+
+    input_total = 0.0
+    scrap_total = 0.0
+    items = []
+    for item in entries:
+        if not _is_mobile_entry_missing_output_weight(item):
+            continue
+
+        workshop_id = _optional_int(item.get('workshop_id'))
+        machine_id = _optional_int(item.get('machine_id'))
+        shift_id = _optional_int(item.get('shift_id'))
+        input_weight = round(_entry_weight_tons(item, 'input_weight'), 2)
+        scrap_weight = round(_entry_weight_tons(item, 'scrap_weight'), 2)
+        input_total += input_weight
+        scrap_total += scrap_weight
+        items.append(
+            {
+                'entry_id': _optional_int(item.get('id')),
+                'work_order_id': _optional_int(item.get('work_order_id')),
+                'tracking_card_no': item.get('tracking_card_no') or '',
+                'workshop_id': workshop_id,
+                'workshop_name': workshop_name_by_id.get(workshop_id, '未标记车间'),
+                'machine_id': machine_id,
+                'machine_name': machine_name_by_id.get(machine_id, '未标记机列'),
+                'shift_id': shift_id,
+                'shift_name': shift_name_by_id.get(shift_id, '未标记班次'),
+                'input_weight': input_weight,
+                'output_weight': None,
+                'scrap_weight': scrap_weight,
+                'entry_status': item.get('entry_status') or '',
+                'entry_type': item.get('entry_type') or '',
+            }
+        )
+
+    items.sort(
+        key=lambda item: (
+            str(item['workshop_name']),
+            str(item['machine_name']),
+            str(item['shift_name']),
+            -int(item['entry_id'] or 0),
+        )
+    )
+    return {
+        'entry_count': len(items),
+        'input': round(input_total, 2),
+        'scrap': round(scrap_total, 2),
+        'items': items[:10],
+    }
+
+
+def _build_machine_mes_binding_summary(entries: list[dict]) -> dict:
+    fill_entries = [item for item in entries if item.get('entry_type') != 'mes_projection']
+    mes_matched_fill_entries = [item for item in fill_entries if int(item.get('mes_match_count') or 0) > 0]
+    source_counts: dict[str, int] = defaultdict(int)
+    for item in mes_matched_fill_entries:
+        source_counts[str(item.get('mes_machine_binding_source') or 'unresolved')] += 1
+    return {
+        'fill_entry_count': len(fill_entries),
+        'mes_matched_fill_count': len(mes_matched_fill_entries),
+        'mes_bound_fill_count': len([item for item in mes_matched_fill_entries if item.get('machine_id') is not None]),
+        'direct_machine_code_count': int(source_counts.get('direct_machine_code', 0)),
+        'route_inferred_machine_count': int(source_counts.get('route_inferred', 0)),
+        'mes_projection_count': len([item for item in entries if item.get('entry_type') == 'mes_projection']),
+    }
+
+
 def _round_rate(input_total: float, output_total: float) -> float | None:
     if input_total <= 0:
         return None
@@ -293,8 +534,11 @@ def aggregate_live_payload(
         machine_map[machine.workshop_id].append(machine)
 
     cell_entries: dict[tuple[int, int, int], list[dict]] = defaultdict(list)
+    machine_entries: dict[tuple[int, int], list[dict]] = defaultdict(list)
     data_shift_ids_by_machine: dict[tuple[int, int], set[int]] = defaultdict(set)
     for item in entries:
+        if item.get('workshop_id') is not None and item.get('machine_id') is not None:
+            machine_entries[(item['workshop_id'], item['machine_id'])].append(item)
         if item.get('machine_id') is None or item.get('shift_id') is None:
             continue
         cell_entries[(item['workshop_id'], item['machine_id'], item['shift_id'])].append(item)
@@ -317,6 +561,12 @@ def aggregate_live_payload(
     factory_scrap = 0.0
     overall_entry_counts = _entry_count_summary(entries)
     pending_assignment = _build_pending_assignment_summary(entries=entries, workshops=workshops, shifts=shifts)
+    missing_output_weight = _build_missing_output_weight_summary(
+        entries=entries,
+        workshops=workshops,
+        machines=machines,
+        shifts=shifts,
+    )
     ordered_shifts = sorted(shifts, key=lambda item: (getattr(item, 'sort_order', 0), item.id))
 
     for workshop in sorted(workshops, key=lambda item: item.id):
@@ -441,6 +691,7 @@ def aggregate_live_payload(
                     'machine_id': machine.id,
                     'machine_name': machine.name,
                     'machine_binding_status': machine_binding_status,
+                    'mes_binding': _build_machine_mes_binding_summary(machine_entries.get((workshop.id, machine.id), [])),
                     'shifts': shift_items,
                     'day_total': {
                         'input': round(machine_input, 2),
@@ -518,6 +769,9 @@ def aggregate_live_payload(
             'scrap': round(factory_scrap, 2),
             'yield_rate': _round_rate(factory_input, factory_output),
             'yield_rate_source': 'runtime_work_order',
+        },
+        'data_quality': {
+            'missing_output_weight': missing_output_weight,
         },
     }
 
@@ -603,27 +857,31 @@ def _load_entry_rows(db: Session, *, business_date: date, workshop_id: int | Non
         reporting_machine = resolve_reporting_machine_from_candidates(machine, candidates_by_workshop.get(getattr(machine, 'workshop_id', None), []))
         return reporting_machine.id if reporting_machine is not None else machine_id
 
-    return [
-        {
-            'id': entry.id,
-            'tracking_card_no': work_order.tracking_card_no,
-            'work_order_id': entry.work_order_id,
-            'workshop_id': entry.workshop_id,
-            'machine_id': resolve_machine_id(entry.machine_id),
-            'shift_id': entry.shift_id,
-            'business_date': entry.business_date.isoformat(),
-            'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
-            'output_weight': _prefer_number(entry.verified_output_weight, entry.output_weight),
-            'scrap_weight': _to_float(entry.scrap_weight),
-            'yield_rate': float(entry.yield_rate) if entry.yield_rate is not None else None,
-            'yield_rate_source': 'runtime_compat',
-            'entry_status': entry.entry_status,
-            'entry_type': entry.entry_type,
-            'weight_unit': 'kg',
-            'tracking_card_status': work_order.overall_status,
-        }
-        for entry, work_order in query.all()
-    ]
+    items = []
+    for entry, work_order in query.all():
+        output_weight_missing = entry.verified_output_weight is None and entry.output_weight is None
+        items.append(
+            {
+                'id': entry.id,
+                'tracking_card_no': work_order.tracking_card_no,
+                'work_order_id': entry.work_order_id,
+                'workshop_id': entry.workshop_id,
+                'machine_id': resolve_machine_id(entry.machine_id),
+                'shift_id': entry.shift_id,
+                'business_date': entry.business_date.isoformat(),
+                'input_weight': _prefer_number(entry.verified_input_weight, entry.input_weight),
+                'output_weight': None if output_weight_missing else _prefer_number(entry.verified_output_weight, entry.output_weight),
+                'output_weight_missing': output_weight_missing,
+                'scrap_weight': _to_float(entry.scrap_weight),
+                'yield_rate': float(entry.yield_rate) if entry.yield_rate is not None else None,
+                'yield_rate_source': 'runtime_compat',
+                'entry_status': entry.entry_status,
+                'entry_type': entry.entry_type,
+                'weight_unit': 'kg',
+                'tracking_card_status': work_order.overall_status,
+            }
+        )
+    return items
 
 
 def _entry_weight_kg_to_tons(entry: WorkOrderEntry, field_name: str) -> float:
@@ -917,28 +1175,39 @@ def _entry_tracking_keys(item: Mapping[str, Any]) -> set[str]:
 
 
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
-    mes_row_by_card: dict[str, dict] = {}
+    mes_rows_by_card: dict[str, dict[Any, dict]] = defaultdict(dict)
     for item in mes_rows:
         for card_key in _entry_tracking_keys(item):
-            mes_row_by_card.setdefault(card_key, item)
+            mes_rows_by_card[card_key].setdefault(item.get('id'), item)
 
     def apply_mes_binding(items: list[dict]) -> tuple[list[dict], bool]:
         enriched: list[dict] = []
         has_mes_match = False
         for item in items:
-            mes_item = next((mes_row_by_card.get(card_key) for card_key in _entry_tracking_keys(item) if mes_row_by_card.get(card_key)), None)
-            if not mes_item:
+            mes_matches_by_id: dict[Any, dict] = {}
+            for card_key in _entry_tracking_keys(item):
+                mes_matches_by_id.update(mes_rows_by_card.get(card_key, {}))
+            if not mes_matches_by_id:
                 enriched.append(item)
                 continue
+            mes_matches = list(mes_matches_by_id.values())
             updated = dict(item)
-            mes_workshop_id = mes_item.get('workshop_id')
             current_workshop_id = updated.get('workshop_id')
-            workshop_matches = mes_workshop_id is None or current_workshop_id is None or current_workshop_id == mes_workshop_id
-            if workshop_matches:
-                has_mes_match = True
+            matched_mes_rows = [
+                mes_item
+                for mes_item in mes_matches
+                if mes_item.get('workshop_id') is None or current_workshop_id is None or current_workshop_id == mes_item.get('workshop_id')
+            ]
+            if not matched_mes_rows:
+                enriched.append(item)
+                continue
+
+            has_mes_match = True
+            mes_item = next((row for row in matched_mes_rows if row.get('machine_id') is not None), matched_mes_rows[0])
+            updated['mes_match_count'] = len(matched_mes_rows)
+            updated['mes_machine_id'] = mes_item.get('machine_id')
+            updated['mes_machine_binding_source'] = mes_item.get('machine_binding_source') or 'unresolved'
             for field_name in ('workshop_id', 'machine_id', 'shift_id'):
-                if field_name in {'machine_id', 'shift_id'} and not workshop_matches:
-                    continue
                 if updated.get(field_name) is None and mes_item.get(field_name) is not None:
                     updated[field_name] = mes_item[field_name]
             enriched.append(updated)
@@ -967,6 +1236,44 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
     if local_entries:
         return entries, 'local_shift_data'
     return entries, 'work_order_runtime'
+
+
+def _build_mes_machine_binding_summary(*, mes_rows: list[dict], entries: list[dict], pending_assignment: dict | None) -> dict:
+    mes_row_count = len(mes_rows)
+    mes_rows_with_machine = len([item for item in mes_rows if item.get('machine_id') is not None])
+    source_counts: dict[str, int] = defaultdict(int)
+    for item in mes_rows:
+        source_counts[str(item.get('machine_binding_source') or 'unresolved')] += 1
+
+    fill_entries = [item for item in entries if item.get('entry_type') != 'mes_projection']
+    fill_entries_with_mes_match = 0
+    fill_entries_bound_to_machine = 0
+    fill_entries_pending_machine = 0
+    for item in fill_entries:
+        if int(item.get('mes_match_count') or 0) <= 0:
+            continue
+        fill_entries_with_mes_match += 1
+        if item.get('machine_id') is not None:
+            fill_entries_bound_to_machine += 1
+        else:
+            fill_entries_pending_machine += 1
+
+    pending_payload = pending_assignment or {}
+    return {
+        'mes_row_count': mes_row_count,
+        'mes_rows_with_machine': mes_rows_with_machine,
+        'mes_rows_without_machine': mes_row_count - mes_rows_with_machine,
+        'direct_machine_code_count': int(source_counts.get('direct_machine_code', 0)),
+        'route_inferred_machine_count': int(source_counts.get('route_inferred', 0)),
+        'unresolved_machine_count': int(source_counts.get('unresolved', 0)),
+        'upstream_machine_code_missing_count': len([item for item in mes_rows if item.get('upstream_machine_code_missing')]),
+        'fill_entry_count': len(fill_entries),
+        'fill_entries_with_mes_match': fill_entries_with_mes_match,
+        'fill_entries_bound_to_machine': fill_entries_bound_to_machine,
+        'fill_entries_pending_machine': fill_entries_pending_machine,
+        'pending_assignment_entry_count': int(pending_payload.get('entry_count') or 0),
+        'pending_machine_assignment_count': int(pending_payload.get('missing_machine_count') or 0),
+    }
 
 
 def _mes_snapshot_tracking_keys(item: MesCoilSnapshot) -> set[str]:
@@ -1000,6 +1307,50 @@ def _mes_snapshot_tracking_keys(item: MesCoilSnapshot) -> set[str]:
     return keys
 
 
+VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_workshop_qr', 'virtual_role_qr'}
+MES_PROCESS_MACHINE_TYPE_HINTS = (
+    (('冷轧',), {'cold_mill'}),
+    (('北线退火', '南线退火', '在线退火', '退火'), {'annealing_line'}),
+    (('纵剪', '分切'), {'slitter'}),
+    (('重卷',), {'recoiler'}),
+    (('拉矫', '洗拉'), {'straightener'}),
+    (('横剪',), {'cross_cut'}),
+    (('飞剪',), {'fly_cut'}),
+    (('剪切',), {'shear', 'cross_cut', 'fly_cut'}),
+    (('铣',), {'milling'}),
+    (('锯',), {'sawing'}),
+    (('热轧',), {'hot_mill'}),
+)
+
+
+def _is_physical_machine(machine: Equipment) -> bool:
+    equipment_type = str(getattr(machine, 'equipment_type', '') or '').strip().lower()
+    return equipment_type not in VIRTUAL_QR_EQUIPMENT_TYPES
+
+
+def _infer_mes_machine_id_from_route(*, machines: list[Equipment], process_hint: object | None) -> int | None:
+    physical_machines = [machine for machine in machines if _is_physical_machine(machine)]
+    if len(physical_machines) == 1:
+        return physical_machines[0].id
+
+    process_text = str(process_hint or '').strip()
+    if not process_text:
+        return None
+
+    for keywords, equipment_types in MES_PROCESS_MACHINE_TYPE_HINTS:
+        if not any(keyword in process_text for keyword in keywords):
+            continue
+        matches = [
+            machine
+            for machine in physical_machines
+            if str(getattr(machine, 'equipment_type', '') or '').strip().lower() in equipment_types
+        ]
+        if len(matches) == 1:
+            return matches[0].id
+        return None
+    return None
+
+
 def _load_mes_snapshot_rows(
     db: Session,
     *,
@@ -1012,6 +1363,9 @@ def _load_mes_snapshot_rows(
     workshop_name_by_id = {item.id: item.name for item in workshop_rows}
     machine_rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
     machine_id_by_code = {str(item.code or '').strip().upper(): item.id for item in machine_rows if item.code}
+    machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    for machine in machine_rows:
+        machines_by_workshop[machine.workshop_id].append(machine)
     shift_rows = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     shift_id_by_code = {str(item.code or '').strip().upper(): item.id for item in shift_rows if item.code}
     work_order_by_card: dict[str, WorkOrder] = {}
@@ -1032,6 +1386,27 @@ def _load_mes_snapshot_rows(
             ) or raw_text
         return cache[raw_text]
 
+    def resolve_snapshot_workshop_id(item: MesCoilSnapshot) -> int | None:
+        raw_workshop = item.workshop_code or item.current_workshop or item.next_workshop
+        canonical_workshop_code = resolve_mes_code('workshop', raw_workshop, resolved_workshop_code_by_raw)
+        return workshop_id_by_code.get(canonical_workshop_code.strip().upper())
+
+    def resolve_snapshot_machine_binding(item: MesCoilSnapshot, resolved_workshop_id: int | None) -> tuple[int | None, str]:
+        canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
+        direct_machine_id = machine_id_by_code.get(canonical_machine_code.strip().upper())
+        if direct_machine_id is not None:
+            return direct_machine_id, 'direct_machine_code'
+        if resolved_workshop_id is None:
+            return None, 'unresolved'
+        process_hint = item.current_process or item.process_code or item.next_process
+        inferred_machine_id = _infer_mes_machine_id_from_route(
+            machines=machines_by_workshop.get(resolved_workshop_id, []),
+            process_hint=process_hint,
+        )
+        if inferred_machine_id is not None:
+            return inferred_machine_id, 'route_inferred'
+        return None, 'unresolved'
+
     requested_tracking_cards = {
         card_key
         for item in (tracking_card_nos or set())
@@ -1044,8 +1419,7 @@ def _load_mes_snapshot_rows(
         snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
         if snapshot_date != business_date and not (snapshot_tracking_keys & requested_tracking_cards):
             continue
-        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
-        snapshot_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
+        snapshot_workshop_id = resolve_snapshot_workshop_id(item)
         if workshop_id is not None and snapshot_workshop_id != workshop_id:
             continue
         snapshots.append(item)
@@ -1057,10 +1431,8 @@ def _load_mes_snapshot_rows(
         tracking_card_no = str(item.tracking_card_no or '').strip().upper()
         snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
         work_order = next((work_order_by_card.get(card_key) for card_key in snapshot_tracking_keys if work_order_by_card.get(card_key)), None)
-        canonical_workshop_code = resolve_mes_code('workshop', item.workshop_code, resolved_workshop_code_by_raw)
-        canonical_machine_code = resolve_mes_code('equipment', item.machine_code, resolved_machine_code_by_raw)
-        resolved_workshop_id = workshop_id_by_code.get(canonical_workshop_code.strip().upper())
-        resolved_machine_id = machine_id_by_code.get(canonical_machine_code.strip().upper())
+        resolved_workshop_id = resolve_snapshot_workshop_id(item)
+        resolved_machine_id, machine_binding_source = resolve_snapshot_machine_binding(item, resolved_workshop_id)
         resolved_shift_id = shift_id_by_code.get(str(item.shift_code or '').strip().upper())
         payload.append(
             {
@@ -1080,6 +1452,9 @@ def _load_mes_snapshot_rows(
                 'entry_type': 'mes_projection',
                 'tracking_card_status': item.status or 'synced',
                 'material_code': item.material_code,
+                'machine_code': item.machine_code,
+                'machine_binding_source': machine_binding_source,
+                'upstream_machine_code_missing': not bool(str(item.machine_code or '').strip()),
                 'coil_id': item.coil_id,
                 'batch_no': item.batch_no,
                 'tracking_card_keys': sorted(snapshot_tracking_keys),
@@ -1238,6 +1613,16 @@ def build_live_aggregation(
         yield_matrix_lane=build_yield_matrix_projection(db, target_date=business_date),
     )
     payload['business_date'] = business_date.isoformat()
+    payload['business_date_context'] = _build_live_business_date_context(
+        db,
+        requested_date=business_date,
+        workshop_id=scoped_workshop_id,
+    )
+    payload['mes_machine_binding'] = _build_mes_machine_binding_summary(
+        mes_rows=mes_rows,
+        entries=entries,
+        pending_assignment=(payload.get('overall_progress') or {}).get('pending_assignment') or {},
+    )
     payload['mes_sync_status'] = mes_sync_service.latest_sync_status(db)
     payload['data_source'] = data_source
     return payload

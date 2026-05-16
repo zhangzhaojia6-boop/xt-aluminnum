@@ -45,11 +45,37 @@
             {{ formatReconciliationTypeLabel(row.reconciliation_type) }}
           </template>
         </el-table-column>
-        <el-table-column prop="dimension_key" label="维度" width="110" />
-        <el-table-column prop="field_name" label="字段" width="120" />
-        <el-table-column prop="source_a_value" label="来源 A" width="96" />
-        <el-table-column prop="source_b_value" label="来源 B" width="96" />
-        <el-table-column prop="diff_value" label="差异值" width="88" />
+        <el-table-column prop="dimension_key" label="机列/维度" width="130">
+          <template #default="{ row }">
+            {{ formatReconciliationDimension(row.dimension_key) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="field_name" label="核对字段" width="120">
+          <template #default="{ row }">
+            {{ formatReconciliationFieldLabel(row.field_name) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="source_a_value" label="填报侧" min-width="136">
+          <template #default="{ row }">
+            <div class="reconciliation-center__value">
+              <span class="reconciliation-center__source">{{ formatReconciliationSourceLabel(row.source_a) }}</span>
+              <span>{{ formatReconciliationValue(row.source_a_value, row.field_name) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="source_b_value" label="对照侧" min-width="136">
+          <template #default="{ row }">
+            <div class="reconciliation-center__value">
+              <span class="reconciliation-center__source">{{ formatReconciliationSourceLabel(row.source_b) }}</span>
+              <span>{{ formatReconciliationValue(row.source_b_value, row.field_name) }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="diff_value" label="差异" width="96">
+          <template #default="{ row }">
+            {{ formatReconciliationDiffValue(row) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="处理状态" width="110">
           <template #default="{ row }">
             <ReferenceStatusTag :status="statusTone(row.status)" :label="formatStatusLabel(row.status)" />
@@ -72,7 +98,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -89,11 +115,19 @@ import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vu
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatReconciliationTypeLabel, formatStatusLabel } from '../../utils/display'
 import {
+  formatReconciliationDiffValue,
+  formatReconciliationDimension,
+  formatReconciliationFieldLabel,
+  formatReconciliationSourceLabel,
+  formatReconciliationValue,
+} from '../../utils/reconciliationDisplay'
+import {
   RECONCILIATION_DISPOSITION_REQUIRED_MESSAGE,
   hasReconciliationDispositionNote,
   normalizeReconciliationDispositionNote,
 } from '../../utils/reconciliationDispositionValidation'
 
+const route = useRoute()
 const router = useRouter()
 const items = ref([])
 const reconciliationDispositionPromptOptions = {
@@ -104,10 +138,15 @@ const reconciliationDispositionPromptOptions = {
   inputErrorMessage: RECONCILIATION_DISPOSITION_REQUIRED_MESSAGE,
 }
 const filters = reactive({
-  business_date: dayjs().format('YYYY-MM-DD'),
-  reconciliation_type: '',
-  status: ''
+  business_date: normalizeQueryFilter(route.query.business_date) || dayjs().format('YYYY-MM-DD'),
+  reconciliation_type: normalizeQueryFilter(route.query.reconciliation_type),
+  status: normalizeQueryFilter(route.query.status)
 })
+
+function normalizeQueryFilter(value) {
+  if (Array.isArray(value)) return String(value[0] || '')
+  return typeof value === 'string' ? value : ''
+}
 
 async function load() {
   const params = { ...filters }
@@ -131,7 +170,11 @@ async function onGenerate() {
 }
 
 function openDetail(id) {
-  router.push({ name: 'reconciliation-detail', params: { id } })
+  router.push({
+    name: 'reconciliation-detail',
+    params: { id },
+    query: buildDesktopPreservingQuery()
+  })
 }
 
 function statusTone(status) {
@@ -140,6 +183,10 @@ function statusTone(status) {
   if (['open', 'pending'].includes(value)) return 'warning'
   if (['blocked', 'failed', 'error'].includes(value)) return 'danger'
   return 'normal'
+}
+
+function buildDesktopPreservingQuery() {
+  return route.query.desktop === '1' ? { desktop: '1' } : {}
 }
 
 async function onConfirm(row) {
@@ -182,5 +229,16 @@ onMounted(load)
 
 .reconciliation-center__actions :deep(.el-button + .el-button) {
   margin-left: 0;
+}
+
+.reconciliation-center__value {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.reconciliation-center__source {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
 }
 </style>

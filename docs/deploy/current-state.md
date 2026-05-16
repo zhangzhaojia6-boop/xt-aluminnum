@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-07 17:23:58 +08:00
+更新时间：2026-05-13 11:38:25 +08:00
 
 ## 1. 仓库状态
 
@@ -49,6 +49,11 @@ cd /srv/aluminum-bypass
 - 普通移动班次报表同步管理端数据时也会读取机列绑定：同车间绑定账号写入 `ShiftProductionData.equipment_id`，已有同机列聚合行时保持未绑定汇总，避免覆盖卷级聚合。
 - 工厂指挥 `machine-lines` API 响应模型已保留 `machine_binding_status`，管理端不再只依赖 service 内部 dict 才能识别未绑定机列。
 - 外部联通 readiness 已显式提示钉钉人员绑定缺口：`DINGTALK_ENABLED=true` 但 active 用户/员工没有 `dingtalk_user_id` 时返回 `DINGTALK_NO_BOUND_USERS` warning，避免把 token 可用误判为通知送达。
+- 管理端 `/api/v1/dashboard/external-readiness` 已透传 `missing_inputs` 缺失输入清单，并在路由边界清洗疑似密钥值：字段名如 `LLM_API_KEY`、`APP_CONNECTION_API_KEY` 仍可见，实际值统一返回 `<redacted>`。
+- 管理端实时态势的 `外部联通明细` 已展示 `missing_inputs` 缺失输入清单，按 `用途 / 所在位置 / 缺失字段 / 影响范围 / 建议取值` 展开；桌面与 390px 手机宽度均通过无横向溢出验证。
+- 成本策略引擎的后端物理表契约已补齐并部署：`main@8b98c5b` 新增 `cost_price_master`、`cost_workshop_strategy`、`cost_daily_result`、`cost_monthly_rollup`、`cost_variance_record` SQLAlchemy 模型和 Alembic `0028_cost_strategy_tables` 迁移；生产复验 5 张表均存在，`cost_price_master` 默认价格主数据为 `18` 条，`alembic_version=0028_cost_strategy_tables`。
+- 成本策略快照写入接口已补齐：`POST /api/v1/executive/cost-strategy-snapshots` 仅 admin 可用，可把 `cost_price_master / cost_workshop_strategy / cost_daily_result / cost_monthly_rollup / cost_variance_record` 表模型快照按业务唯一键 upsert；管理端 `/manage/factory/cost/accounting` 已接入“保存快照”，`/manage/factory/cost` 提供“策略核算”入口。该能力承接前端策略引擎快照，不把策略快照升级为财务正式结账凭证。
+- 成本月度复核状态边界已补齐：`cost_monthly_review_status` 记录策略快照从 `pending_review` 到 `reviewed` 再到 `month_closed` 的经营状态；`GET /api/v1/executive/cost-strategy-snapshots/review-status` 对管理/审阅可见，`POST /api/v1/executive/cost-strategy-snapshots/review-status` 仅 admin 可执行。管理端策略核算页已展示“月度复核 / 复核通过 / 月结锁定”。该状态仍不是财务正式凭证或完整月结流程。
 - MES 同步批内重复投影已收口：`mes_follow_cards` / `mes_dispatch` 按投影后的 `coil_id` 去重，新建 `MesCoilSnapshot` 后立即 `flush`，避免同一事务内重复落库触发唯一键冲突。
 - MES MVC 会话恢复已增强：表格查询若被会话过期打回登录页，会清理 cookie/token 后重新登录并重放请求；二次仍返回登录页才报错，避免短期 session 过期让同步长期卡住。
 - MES 投影同步已隔离非数据库单源失败：`sync_mes_projection()` 中 crafts/devices/follow_cards/dispatch/wip_total/stock/machine_lines 单步执行，单个外部接口失败返回该源 `failed` stats，已成功 upsert 的来源继续保留；数据库错误仍向上抛出，避免掩盖事务异常。
@@ -56,16 +61,21 @@ cd /srv/aluminum-bypass
 - 历史 `每日产量` 真实报表已进入生产 import staging：生产备份 `backups/pre-daily-production-import-20260506-210602.dump` 校验通过后，将 `D:\鑫泰报表\5.5\鑫泰每日产量5月.xls` 转换为临时 `.xlsx` 并写入 `ImportBatch id=1`、`batch_no=IMP-20260506130735-d4f557`；`ShiftProductionData` 写入增量为 0。
 - 历史 `每日产量` 映射门禁已接入只读预览：生产 `ImportBatch id=1` 共 16 行，`ready_rows=7`、`needs_equipment_mapping_rows=0`、`unresolved_rows=9`，高置信行映射到 `ZD`、`ZR2`、`ZR3`、`RZ/RZ-XC`、`RZ/RZ-ZJ`、`LZ2050/LZ2050-1`、`JQ`；未推断 `冷轧/1650`、`冷轧/1850`、`精整/剪子`、`精整/纵剪`、`拉矫/拉矫`、`拉矫/分切`、`退火炉/拉矫`、`在线退火/新厂北线`、`在线退火/园区北线`，`ShiftProductionData` 仍为 28 行，`shift_rows_delta=0`。
 - 历史 `每日产量` 5.5 报表已按锁定报告日重跑暂存：生产备份 `backups/pre-daily-production-locked-staging-20260507-1515.dump` 经 `pg_restore -l` 校验后，使用同一上传 `.xlsx` 写入 `ImportBatch id=2`、`batch_no=IMP-DAILY-LOCKED-20260507151631472379`，`business_date=2026-05-05`，`daily_output_tons=1935.649t`，映射 `16/16 ready`，其中 `equipment_bound_rows=11`、`workshop_only_rows=5`；旧 `id=1` 保留为历史旧表头批次，最新管理端预览应以 `id=2` 为准，`ShiftProductionData` 写入增量仍为 0。
+- 4 月 30 日每日产量已找到可用替代表并提升正式事实：源文件为 `D:\鑫泰报表\输出skill\2026-4-30_主表完整字段填充.xls`，只读转换为 `.xlsx` 后按锁定报告日 `2026-04-30` dry-run 通过；表头仍写 `2026-04-22`，记录为 `stale_workbook_report_date` warning。写库前备份 `/srv/aluminum-bypass/backups/pre-daily-production-promote-20260430-20260513-084441.dump` 并通过 `pg_restore -l` 校验；生产 `ImportBatch id=32` 提升正式事实 `14` 行，`input=2388.531t`、`output=2345.849t`、`scrap=111.682t`，厂级看板服务层返回 `today_total_output=2345.85t`、`total_energy=194186.6`、`energy_per_ton=82.77881483420288`；转换源已移入 `/srv/aluminum-bypass/backups/import_sources/daily-production-20260430-20260513-0844/xintai-daily-production-2026-04-30-filled.xlsx` 留档，服务器 Git 工作区保持干净。
 - 管理端导入历史已接入 `GET /api/v1/imports/daily-production/mapping-preview` 只读接口和“每日产量/映射门禁”卡片，展示已匹配、待机列、未解析数量与未解析标签；该视图只读，不会写入或修正 `ShiftProductionData`。
 - 映射门禁未解析行已增加只读候选主数据提示：候选只从 active `workshops/equipment` 生成并在管理端显示为 `车间 ...` / `机列 ...`，不改变 `DAILY_PRODUCTION_MAPPING_RULES`，不写正式产量事实表；生产主数据核对显示 `冷轧/1650`、`冷轧/1850` 暂无直接 active 机列，精整/拉矫/在线退火相关行仍需人工确认候选。
 - 管理端实时态势已增加“填报接入”只读条：`overall_progress` 输出 `formal_entry_count`、`draft_entry_count`、`total_entry_count`，班次单元格输出 `draft_count`；未绑定机列/班次的 draft 测试也会计入 `草稿待提交`，但不进入正式产量；前端显示 `已进入正式`、`草稿待提交`、`缺报班次`。
 - 管理端实时聚合已支持“填报事实 + MES 归属”配对：当天填报卡号命中 MES 投影行时，即使 MES 快照没有业务日期，也会保留填报端重量/状态，只用 MES 的车间、机列、班次补齐缺失归属；卡号比较会容忍中文“一”/全角横线等操作员录入变体，移动端扫码查 MES 与 MVC 按卡查询也使用同一配对键，避免入口侧漏掉可绑定卷。
+- 填报端提交链路已支持按现场卷标识绑定外部流转线索：现场录入 `R3-9216-2` 这类 `material_code` 时，会兜底匹配外部快照的 `tracking_card_no/material_code/batch_no/coil_id/qr_code`，并在新提交的 `extra_payload` 写入 `flow` 与 `mes_reference`；该能力只补充流转上下文，不覆盖操作员填报重量。
 - 管理端 `异常与补录` 的 `待归属` 首屏会先读取实时活跃业务日，再拉取待归属卷级填报；当浏览器日期晚于最新填报日时，页面不再默认落到无数据的当天，而是显示最近上传业务日的缺机列/缺班次草稿。
 - 管理端 `异常与补录/待归属` 已增加只读归属线索：接口返回录入账号、外部 MES 卡号命中数、MES 机列、同车间候选机列数量；前端表格显示 `录入来源` 与 `归属线索`，用于区分正常主操填报、无账号脚本/测试草稿和待人工确认机列，不直接改生产数据。
 - 管理端 `异常与补录/待归属` 已接入人工确认后的绑定入账动作：管理者逐条触发 `promote_draft_entry` 后，草稿填报会绑定确认机列、提升为 `submitted`，并复用现有 `_aggregate_coil_to_shift()` 生成 `mobile_coil_agg`；多机列候选或缺班次时仍要求人工先明确归属，不做静默批量提升。
 - 管理端 `异常与补录/待归属` 已支持多候选机列选择：待归属接口返回 `machine_candidates[{machine_id,machine_name}]`，前端在精整等多机列车间显示 `选择机列` 下拉，选定后才允许 `绑定入账`，避免把同车间多台机列误归到默认候选。
 - 主数据已新增只读工艺业务矩阵：`GET /api/v1/master/process-business-map` 输出 `分厂/厂区 -> 车间 -> 机列 -> 工艺业务`，并在 `docs/process-business-map.md` 记录当前口径；`1650/1850`、新厂/园区在线退火拆分、`JZ2` 具体机列职责仍标为待确认，不静默写成已确认事实。
 - systemd 部署脚本已改为 `npm ci --include=dev` 后再构建前端，避免生产环境清空 `node_modules` 后因 `vite` 被省略导致部署中断。
+- 管理端待补产出重量人工补正入口已上线：`main@7a3a9f0` 新增 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`，仅允许补正式卷级填报中历史空产出记录，复用工单更新权限、审计、成材率重算和事件链路；管理端“待补产出重量”样例行提供“补重量”弹窗，提交后刷新实时聚合。
+- 管理端 `异常与补录` 已接入“待补重量”队列：页面读取实时聚合 `data_quality.missing_output_weight`，把正式卷级填报中缺产出重量的记录列为补录任务，并复用同一个受控补正弹窗处理。
+- 管理端 `异常与补录/待归属` 已接入“草稿待归属分布”热力图和只读绑定线索条：复用 `PendingAssignmentHeatmap` 和 `pendingAssignment.items`，按车间/班次展示待绑定草稿卷分布，并区分外部 MES 命中、唯一候选可入账、多候选待选择、缺班次阻断；该视图只读，不改变待归属草稿不进正式产量的边界。
 
 ## 3. 默认部署形态
 
@@ -112,6 +122,35 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
+- 成本策略快照持久化 API 本轮验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `6 passed`；`python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `50 passed, 1 deselected, 6 warnings`；`python -m pytest backend/tests -q` 为 `813 passed, 124 deselected, 39 warnings`。
+- 成本策略快照前端保存入口验证：`npm --prefix frontend test -- factoryCommandScreens.test.js managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`136 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost` 与 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，策略核算入口和“保存快照”按钮可见。
+- 成本月度复核状态边界验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `10 passed`；`npm --prefix frontend test -- managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`137 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，月度复核状态带可见，`复核通过` 可用，`月结锁定` 在未复核前禁用。
+- 本轮全量后端默认测试：`python -m pytest backend/tests -q` 为 `817 passed, 124 deselected, 39 warnings`。
+- `python -m pytest backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_missing_inputs_without_secret_values backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_rejects_mobile_user -q`：3 passed
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py -q`：14 passed
+- `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：38 passed，1 deselected
+- `python -m pytest backend/tests -q`：806 passed，124 deselected，39 warnings
+- `npm --prefix frontend test`：131 passed
+- `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning；本地产物包含 `LiveDashboard-XfJ5fq5F.js` 与 `LiveDashboard-B-I9Bspk.css`，线上部署复核命中 `LiveDashboard-XegmJ78Z.js` 与 `LiveDashboard-gJEiM4Nz.css` 的 `external-readiness-missing`
+- `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 npm --prefix frontend run e2e -- admin-surface.spec.js --grep "external missing input"`：1 passed，覆盖 `1366x820` 与 `390x844` 无横向溢出
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：51 passed，1 deselected
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：52 passed，1 deselected
+- `python -m pytest backend/tests/test_statistics_module_ready_script.py backend/tests/test_dashboard_routes.py::test_external_readiness_dashboard_route_exposes_hard_issues backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：53 passed，1 deselected
+- `git diff --check`：通过，仅 Windows LF -> CRLF 提示
+- 本轮部署：`main@798bc0f` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `main...origin/main` 干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 生产缺失输入清单复验：`python scripts/check_statistics_module_ready.py --missing-inputs` 输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，列为 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值`，没有回显任何真实密钥值。
+- 本轮部署：`main@19dbd5b` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `main...origin/main` 干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 生产 `/readyz` 复验：`status=ready`，`database/uploads/equipment_binding/schedule/pipeline=ok`，`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- 生产 readiness 新命令复验：`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 返回预期 exit `2`，hard issues 仍为 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`，warning 仍为 `DINGTALK_NO_BOUND_USERS`；实时聚合只读探针为 `live_aggregation_ok=true`，`live_aggregation_business_date=2026-05-12`，`live_aggregation_date_source=recent_upload`，`live_aggregation_data_source=mixed`，`live_aggregation_total_entry_count=38`，`live_aggregation_formal_entry_count=38`，`live_aggregation_draft_entry_count=0`，`live_aggregation_mes_row_count=23`，`live_aggregation_mes_match_count=24`，`live_aggregation_bound_to_machine_count=24`，`live_aggregation_pending_assignment_count=0`。
+- `python -m pytest backend/tests -q`：794 passed，124 deselected，39 warnings
+- `npm --prefix frontend test`：126 passed
+- `npm --prefix frontend run build`：通过，保留既有 Vite 大 chunk warning
+- `git diff --check`：通过，仅 Windows LF -> CRLF 提示
+- 本轮部署：`main@688073b` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；`aluminum-bypass.service` 与 `nginx.service` 均为 active/running。
+- 生产复验：公网 `/readyz` 返回 `status=ready`，`database/uploads/equipment_binding/schedule/pipeline=ok`，`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- 生产只读聚合复验：`2026-05-12` 仍为 `data_source=mixed`，`factory_output=281.12t`，`data_quality.missing_output_weight.entry_count=6`；样例仍为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜 / output_weight=null`，确认未自动改写真实历史重量。
+- 生产路由与产物复验：内网 OpenAPI 已包含 `PATCH /api/v1/aggregation/live/missing-output/{entry_id}`；前端 dist 已包含 `aggregation/live/missing-output`、`补产出重量`、`补重量` 和 `live-missing-output-dialog`。
+- 本地补录工作台复验：`npm --prefix frontend test -- reviewTaskCenter.test.js` 返回 126 passed；`npm --prefix frontend run build` 通过。Playwright mock 探针确认 `/manage/entry-center?tab=missingOutput&desktop=1` 在 390px 下显示 `待补重量`、`S-2-062-1` 和 2 个 `补重量` 按钮，补正弹窗宽度 366px，页面横向溢出为 0。
 - `python -m pytest backend/tests -q`：723 passed，124 deselected，31 warnings
 - `python -m pytest backend/tests/test_quick_cloud_trial_docs_and_ops.py -q`：35 passed，1 deselected
 - `python -m pytest backend/tests/test_coil_entry_auto_calc.py -q`：6 passed
@@ -175,6 +214,28 @@ db 容器: PostgreSQL 15
 - `LLM_DISABLED`
 - `APP_CONNECTION_DISABLED`
 
+正式试用闸门复验时应使用带实时聚合只读探针的命令，避免只看配置而漏掉管理端实时数据服务是否可计算：
+
+```bash
+python scripts/check_statistics_module_ready.py --json --check-live-aggregation
+```
+
+缺少现场输入时，可直接输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的清单：
+
+```bash
+python scripts/check_statistics_module_ready.py --missing-inputs
+```
+
+2026-05-13 线上复验结论：
+
+- `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`
+- 已通过的基础项：`local_runnable=true`、`runtime_valid=true`、`database_ok=true`
+- 已通过的业务底座：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`
+- 外部 MES 当前可用：`mes_adapter=mvc`、`mes_ready=true`
+- 正式外发仍缺：`llm_enabled=false`、`llm_model_ref_set=false`、`app_connection_enabled=false`、`app_connection_push_mode=disabled`
+- 实时聚合只读探针用于返回 `live_aggregation_business_date`、`live_aggregation_data_source`、`live_aggregation_total_entry_count`、`live_aggregation_mes_row_count` 与 `live_aggregation_bound_to_machine_count`；当天无填报不等于探针失败，只有服务异常才进入 `LIVE_AGGREGATION_UNAVAILABLE`
+- 钉钉应用已启用但未绑定真实人员：`warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`
+
 正式联通前可先生成不回显现有密钥的 `.env` 填写模板：
 
 ```bash
@@ -189,6 +250,12 @@ MES_MVC_BASE_URL=...
 MES_MVC_USERNAME=...
 MES_MVC_PASSWORD=...
 WORKFLOW_ENABLED=true
+AUTO_PUBLISH_ENABLED=true
+AUTO_PUSH_ENABLED=true
+LLM_ENABLED=true
+LLM_API_BASE=...
+LLM_API_KEY=...
+LLM_MODEL=...
 DINGTALK_ENABLED=true
 DINGTALK_CORP_ID=...
 DINGTALK_APP_KEY=...
@@ -263,6 +330,9 @@ MES_API_KEY=...
 - 本轮已部署 `main@54ccd7c`：管理端实时态势第一屏新增“机列归属率”动态视图，线上 `LiveDashboard-CCWtW8qw.js` / `LiveDashboard-DxaRmkzM.css` 已包含 `机列归属率`、`live-machine-ownership` 和 `buildMachineOwnershipSummary`；生产 Playwright 验证桌面 `1440x900` 与手机 `390x844` 均显示 `0 已归属 · 3 待归属`、`120460.00`、`3 产出机列`，页面无横向溢出，截图留存在本地忽略目录 `frontend/test-results/visual-production/`。
 - 本轮已部署 `main@32be0e2`：管理端实时聚合 API 显式返回 `machine_binding_status`，生产探针确认 `/api/v1/aggregation/live?business_date=2026-05-06` 的 3 条正产量临时机列均带 `machine_binding_status=unbound`，`all_positive_rows_have_binding_status=true`，前端与 AI 分析不再需要从负数 `machine_id` 反推归属状态。
 - 本轮已部署 `main@56886c7`：按卷填报创建链路已使用 `equipment.bound_user_id` 写入 `WorkOrderEntry.machine_id`，并按 `equipment_id` 生成未来 `mobile_coil_agg` 聚合行；生产 `readyz` 返回 `status=ready`、`equipment_binding=ok`，只读探针确认既有 `2026-05-06` 聚合行仍为 `bound_rows=0`、`unbound_rows=5`、`unbound_output_kg=120460.0`，本轮未做历史回填。
+- 本轮已部署 `main@99e36d9`：填报卷标识与外部流转线索绑定补丁已上线；公网 `/readyz` 返回 `status=ready`、`hard_gate_passed=true`、`mes_sync.last_run_status=success`、`fetched_count=50`、`upserted_count=50`。生产只读探针确认 `R3-9216-2` 以 `coil_identifier` 命中外部快照，`material_code=R3-9216-2`、`tracking_card_no=26RA03782`，后端提交 payload 构造会补 `current_workshop=2050车间`、`current_process=冷轧`、`next_workshop=新厂在线车间`、`next_process=北线退火` 和 `mes_reference`；当前 2026-05-12 管理端实时聚合为 `data_source=mixed`、`total_entry_count=35`、`input=319.08t`、`output=274.27t`、`scrap=19.9t`，工厂指挥 `overview_today_output_tons=274.27`。
+- 本轮已部署 `main@586b636`：新增安全补录命令 `backend/scripts/enrich_mobile_coil_flow_context.py`，默认 dry-run，只在显式 `--apply` 时为已提交卷级填报补 `extra_payload.flow/mes_reference`，不改重量、状态、机列或班次。生产先 dry-run 确认 `2026-05-12 scanned=35/candidates=17/updated=0`，再创建并校验备份 `backups/pre-flow-enrichment-20260513-043519.dump`，随后执行 `--apply` 更新 17 条；复验 dry-run 返回 `candidate_count=0`、`skipped_existing_flow_count=17`，`R3-9216-2` 样例已带 `2050车间/冷轧 -> 新厂在线车间/北线退火` 与 `tracking_card_no=26RA03782`，管理端实时聚合保持 `data_source=mixed`、`total_entry_count=35`、`output=274.27t`，公网 `/readyz` 仍为 ready。
+- 本轮已部署 `main@34154f3`：卷级填报后端新增重量完整性门禁，与移动端表单一致要求 `input_weight > 0`、`output_weight > 0` 且 `output_weight <= input_weight`；生产探针用真实服务代码验证缺 `output_weight` 返回 `422/output_weight_required`、产出大于投入返回 `422/output_weight_exceeds_input`，且 `work_order_entries` 与 `work_orders` 计数保持不变，公网 `/readyz` 仍为 ready。既有 6 条 2026-05-12 铸三车间空产出历史记录未自动回填，需后续在管理端作为数据质量/人工补正项处理。
 - 上一轮已部署 `main@793918a`：管理端运维页新增外部 MES 状态条，线上 `LiveDashboard-CqFyBTcQ.js` / `LiveDashboard-WZX7jfx-.css` 已包含 `mes-connection-strip`、`外部 MES` 和 `MES_MVC_BASE_URL`。
 - 更新前已创建数据库备份：`backups/systemd-predeploy-20260506-141130.dump`。
 - 已执行后端依赖安装、Alembic 迁移、`init_master_data.py`、`init_real_master_data.py`、`create_admin.py`。
@@ -414,7 +484,7 @@ cd backend
 - 2026-05-07 已继续把 2026-05-01 至 2026-05-04 的每日产量真实报表提升为正式生产事实：服务器缺 `xlrd`，未新增生产依赖，改用本地只读转换出的 `.xlsx` 上传到 `/srv/aluminum-bypass/import_sources/daily-production/` 后解析；写库前备份 `backups/pre-daily-production-promote-5-1-5-4-20260507-170602.dump` 并通过 `pg_restore -l` 校验。新批次为 `ImportBatch id=3..6`，预检均无阻断，提升结果分别为 `2026-05-01: 14 rows / 2238.785t`、`2026-05-02: 16 rows / 2230.978t`、`2026-05-03: 16 rows / 2237.241t`、`2026-05-04: 15 rows / 2632.562t`；生产 HTTP 复验厂级看板分别返回 `2238.79`、`2230.98`、`2237.24`、`2632.56`。
 - 2026-05-07 已补齐 4 月旧表映射：`拉矫/横剪 -> JZ-HJ1`、`拉矫/产量 -> JZ` 车间级、`在线退火/新厂南线 -> ZXTF-2`。本地全量验证 `python -m pytest backend/tests -q` 返回 `773 passed, 124 deselected, 32 warnings`，提交 `15f0667 fix: 补齐四月每日产量旧表映射` 已部署到 ECS，服务器 `tests/test_daily_production_mapping_service.py` 返回 `4 passed`。
 - 2026-05-07 已把 4 月可通过门禁的 9 天每日产量报表提升为正式生产事实：写库前备份 `backups/pre-daily-production-promote-april-20260507-172235.dump` 并通过 `pg_restore -l` 校验；上传转换源已移入 `backups/import_sources/daily-production-april-20260507-1722/` 保留。新批次为 `ImportBatch id=7..15`，结果为 `2026-04-20: 15 rows / 2282.833t`、`2026-04-21: 16 rows / 1771.415t`、`2026-04-23: 13 rows / 1994.820t`、`2026-04-24: 12 rows / 1572.276t`、`2026-04-25: 14 rows / 2894.256t`、`2026-04-26: 15 rows / 2052.452t`、`2026-04-27: 14 rows / 2072.124t`、`2026-04-28: 14 rows / 2311.268t`、`2026-04-29: 14 rows / 2052.489t`；生产 HTTP 复验这些日期的 `factory-director` 均为 200 且返回对应吨数。
-- 当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-29`、`2026-05-01` 至 `2026-05-05`，共 `203` 行，均为 `data_source=daily_production_report` 且非 `voided`。其中 `ImportBatch id=1` 是早期未锁定报告日的历史暂存批次，因把 5.5 文件表头误识别为 `2026-05-03`，仅保留审计用途，不应作为管理端最新预览或正式事实来源。
+- 当前正式每日产量事实覆盖 `2026-04-20`、`2026-04-21`、`2026-04-23` 至 `2026-04-30`、`2026-05-01` 至 `2026-05-05`，共 `217` 行，均为 `data_source=daily_production_report` 且非 `voided`。其中 `ImportBatch id=1` 是早期未锁定报告日的历史暂存批次，因把 5.5 文件表头误识别为 `2026-05-03`，仅保留审计用途，不应作为管理端最新预览或正式事实来源。
 - 2026-05-07 已新增真实每日能耗/气耗入库门禁：`scripts/dry_run_energy_import.py` 只读取 `各车间能耗统计表` 与 `各车间天然气用量统计表` 的用量口径，显式跳过抄表页、合计项和未建主数据的辅助项；本地全量验证 `python -m pytest backend/tests -q` 返回 `775 passed, 124 deselected, 32 warnings`，提交 `b9e9620 feat: 支持真实能耗日报入库` 已部署到 ECS，服务器 `tests/test_dry_run_energy_import_script.py` 返回 `2 passed`。
 - 2026-05-07 已把 2026-05-01 至 2026-05-05 的真实能耗/气耗表写入正式 `energy_import_records`：服务器仍未新增 `xlrd`，改用本地只读转换的 `.xlsx` 上传解析；写库前备份 `backups/pre-daily-energy-promote-20260507-174300.dump` 并通过部署脚本 `pg_restore -l` 校验，转换源已移入 `backups/import_sources/daily-energy-20260507-1743/`。新批次为 `ImportBatch id=16..20`，正式能耗行分别为 `2026-05-01: 21 rows / 电 124945.7 kWh / 气 50281.0 m3`、`2026-05-02: 22 rows / 电 129754.5 kWh / 气 49396.0 m3`、`2026-05-03: 22 rows / 电 120596.0 kWh / 气 48223.0 m3`、`2026-05-04: 22 rows / 电 137814.8 kWh / 气 50045.0 m3`、`2026-05-05: 20 rows / 电 97353.5 kWh / 气 43130.0 m3`。
 - 生产服务层复验：`energy_service.summarize_energy_for_date` 对 2026-05-01 至 2026-05-05 均返回对应电/气合计，`build_factory_dashboard(2026-05-05)` 返回 `today_total_output=1935.65`、`total_energy=140483.5`、`energy_per_ton=72.57694964324628`、`energy_lane_count=10`，确认管理端厂级看板可读到正式能耗记录。
@@ -422,7 +492,22 @@ cd backend
 - 2026-05-07 已把 2026-04-20 至 2026-04-30 的真实能耗/气耗表写入正式 `energy_import_records`：写库前备份 `backups/pre-daily-energy-promote-april-20260507-1804.dump` 并通过部署脚本 `pg_restore -l` 校验，转换源已移入 `backups/import_sources/daily-energy-april-20260507-1804/`。新批次为 `ImportBatch id=21..31`，正式能耗行合计 `230` 条；生产复验显示 `2026-04-20..2026-04-30` 均返回 10 个车间聚合行，其中 `2026-04-26` 已恢复为 `电 122852.0 kWh / 气 49221.0 m3`。
 - 生产服务层复验：`build_factory_dashboard(2026-04-26)` 返回 `today_total_output=2052.45`、`total_energy=172073.0`、`energy_per_ton=83.83777062752259`、`energy_lane_count=10`，确认 4 月正式能耗记录已经进入管理端厂级看板口径。
 
-下一道门禁：`2026-04-22`、`2026-04-30` 两份每日产量文件源表日产量列为空，当前解析结果为 `blocked / rows=0`，不写正式生产事实表；后续如需补这两天，必须先找到同日非空源表或现场确认可用替代表，不能用当前空表强行入库。
+- 2026-05-13 已新增实时聚合数据质量摘要：`/api/v1/aggregation/live` 返回 `data_quality.missing_output_weight`，只统计正式 `mobile_coil` 填报中产出重量为空的记录，并保留最多 10 条带车间、机列、班次、流转卡号的样例。该口径用于管理端显式提示历史“待补产出重量”，不自动猜测或回填真实产量；本地验证 `backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py backend/tests/test_mobile_submit_with_locked_fields.py` 为 `43 passed`，完整后端测试为 `790 passed, 124 deselected, 38 warnings`，前端构建通过。生产已部署 `main@e9254c2`，`/readyz` 为 ready；HTTP 复验 `business_date=2026-05-12` 返回 `data_source=mixed`、`total_entry_count=36`、`factory_output=281.12t`、`data_quality.missing_output_weight.entry_count=6`，首条样例为 `entry_id=297 / S-2-062-1 / 铸三车间 / 2#机 / 小夜`。管理端 `LiveDashboard.vue` 已接入该字段并显示“待补产出重量”提示带；前端验证 `npm --prefix frontend test -- managementCommandCenter.test.js` 为 `125 passed`，`npm --prefix frontend run build` 通过，Playwright 视觉探针确认 `1366px` 与 `390px` 宽度横向溢出均为 `0`；生产 dist 已确认包含 `待补产出重量` 与 `live-missing-output`。
+- 2026-05-13 本地已新增“待补产出重量”受控人工补正闭环：`PATCH /api/v1/aggregation/live/missing-output/{entry_id}` 只允许管理端补正式 `mobile_coil` 且当前产出为空的记录，请求以吨为单位提交 `output_weight` 与 `reason`，服务层转换为 kg 后复用 `work_order_service.update_entry()`，继续走既有审计、权限、成材率重算和事件链路；产出为空、已存在产出、投入缺失、产出大于投入、原因空白均有明确错误。管理端实时页样例行新增 `补重量`，弹窗只收产出重量和补正原因，成功后刷新实时聚合。本地验证：后端路由红绿 `2 passed`，后端服务 + 路由 `12 passed, 1 warning`，关联后端 `46 passed, 1 warning`，前端 `126 passed`，构建通过；Playwright mock 探针确认 1366px/390px 横向溢出均为 `0`，填写 `2.1t` 和“现场复核产出重量”后出现“产出重量已补正”。该能力不自动回填生产 6 条历史记录，需现场提供真实产出后逐条补正。
+- 2026-05-13 管理端 `异常与补录/差异` 已接入真实 open 差异清单：页面请求 `/api/v1/reconciliation/items?business_date=<date>&status=open`，逐条展示 `production_vs_mes` 等差异的车间/班次维度、来源对、字段、差异值与风险等级，并提供 `详情` 到 `/manage/reconciliation/detail/:id`、`核对中心` 到 `/manage/reconciliation?business_date=<date>&status=open` 的处理入口；核对中心读取 query 初始化筛选，且强制桌面入口会保留 `desktop=1`。若清单接口失败但 dashboard 仍返回 open count，保留汇总占位。验证：红灯断言后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 为 `126 passed`，`npm --prefix frontend run build` 通过；390px Playwright mock 探针确认真实差异行 `#77` 可见、包含外部 MES 线索、操作区有 2 个按钮、页面横向溢出为 `0`，点击 `核对中心` 后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`。
+- 2026-05-13 管理端 `差异核对中心` 列表已改成业务口径：`production`/`shift_production_data` 显示为 `填报端产量`，`mes`/`mes_export` 显示为 `外部 MES`，来源值和差异值按字段补单位，`XT-ZD-1` 等机列维度保留可读展示；从列表进入详情会保留 `desktop=1`。验证：先写红灯断言后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 为 `126 passed`，`npm --prefix frontend run build` 通过；390px Playwright mock 探针确认 `填报端产量 / 外部 MES / +15 吨` 可见，列表与详情页横向溢出均为 `0`，详情 URL 为 `/manage/reconciliation/detail/11?desktop=1`。
+- 2026-05-13 管理端 `差异详情` 已同步业务口径：来源显示为 `填报端产量` 与 `外部 MES`，机列维度、核对字段、来源值和差异值均为业务标签并带单位；新增 `返回核对中心`，保留 `business_date/status/reconciliation_type/desktop=1` 查询状态。验证：红灯断言后 `npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 为 `127 passed`，`npm --prefix frontend run build` 通过；390px Playwright mock 探针确认详情页显示 `1175 吨 / 1160 吨 / +15 吨`、不再出现 `生产系统 / MES 系统`，返回后 URL 为 `/manage/reconciliation?business_date=2026-04-23&status=open&desktop=1`。
+- 2026-05-13 已将差异核对显示口径收敛到 `frontend/src/utils/reconciliationDisplay.js`：`差异核对中心`、`差异详情`、`异常与补录/差异` 共用同一套来源标签、字段标签、组合维度解析和按字段补单位格式化，避免管理端对填报端产量与外部 MES 机列数据的显示口径分叉。验证：`npm --prefix frontend test -- reconciliationDispositionValidation.test.js reviewTaskCenter.test.js` 为 `128 passed`，`npm --prefix frontend run build` 通过，`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5185 npm --prefix frontend run e2e -- e2e/reconciliation-center.spec.js` 为 `5 passed`。
+- 2026-05-13 生产排查确认实时聚合当前活跃业务日为 `2026-05-12`，该日填报端正式记录 `36` 条、非空机列格子 `9` 个、聚合来源 `mixed`；`2026-05-13` 暂无正式/草稿填报记录。外部 MES 卷快照可通过流转卡/材料号匹配填报记录，但当前批次 `machine_code` 全为空；后端已补强 MES 路线机列绑定：当直接机列为空时，用 `current_workshop/current_process/next_workshop/next_process` 解析车间和工艺，只在本车间唯一物理机列或工艺类型唯一匹配时补出机列，多机列歧义保持待归属。验证：`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py -q` 为 `37 passed, 1 warning`，`python -m pytest backend/tests -q` 为 `796 passed, 124 deselected, 39 warnings`。
+- 2026-05-13 已给 `/api/v1/aggregation/live` 补充管理端可直接展示的实时状态字段：`business_date_context` 返回请求业务日、当前自然业务日、活跃填报业务日、最新填报业务日以及各日期填报记录数，避免 `2026-05-13` 无填报时被误判为管理端没有实时数据；`mes_machine_binding` 返回外部 MES 行数、已解析机列数、路线推断数、上游机列码缺失数、填报记录匹配数、已绑机列数和待归属机列数。该切片不改变聚合重量口径，只把已有后端判定显式暴露给前端。验证：新增红绿测试覆盖日期上下文和外部 MES 绑定统计，`python -m pytest backend/tests/test_realtime_service.py backend/tests/test_realtime_routes.py -q` 为 `39 passed, 1 warning`，完整后端测试为 `798 passed, 124 deselected, 39 warnings`。生产已部署 `main@c1d176b`，`/readyz` 返回 ready；认证 HTTP 探针 `business_date=2026-05-12` 返回 `business_date_context.current_business_date=2026-05-13`、`current_date_entry_count=0`、`active_business_date=2026-05-12`、`active_date_entry_count=36`，同时返回 `mes_machine_binding.mes_row_count=21`、`route_inferred_machine_count=8`、`upstream_machine_code_missing_count=21`、`fill_entries_with_mes_match=22`、`fill_entries_bound_to_machine=22`。
+- 2026-05-13 管理端实时页已接入上述字段，新增 `实时数据日期 / 填报端上传 / 外部 MES 机列绑定` 紧凑状态条，直接显示当前展示日期、今天是否有填报、最近有效填报日、外部 MES 行数、匹配填报数、已绑机列数、路线推断数和上游机列码缺失数。验证：红灯先失败于 `buildLiveRealityStatus` 未导出；实现后 `npm --prefix frontend test -- managementCommandCenter.test.js` 为 `129 passed`，`npm --prefix frontend run build` 通过，`PLAYWRIGHT_BASE_URL=http://127.0.0.1:5185 npm --prefix frontend run e2e -- e2e/admin-surface.spec.js` 为 `10 passed`，覆盖 `1366px` 与 `390px` 无横向溢出。
+- 2026-05-13 已修正管理端实时页停留在空白当前日时看不到跨业务日填报的问题：生产只读探针确认当前自然日 `2026-05-13` 无填报，但最近有效上传业务日为 `2026-05-12`，该日 `mobile_coil/submitted=37`、`mobile_coil_agg/pending=9`、实时聚合 `data_source=mixed`、产出 `284.6t`，外部 MES 投影 `23` 行，填报命中 MES `24` 卷且已绑定机列 `24` 卷。前端新增自动实时日期模式：默认跟随最近填报业务日；若页面正在显示当前日且当前日为空，收到其他业务日 `entry_submitted` 事件时自动切到该业务日；用户手动选历史日期后不被实时事件打断。验证：新增 `shouldSwitchToRealtimeBusinessDate` 纯函数测试，`npm --prefix frontend test -- managementCommandCenter.test.js` 为 `131 passed`，`npm --prefix frontend run build` 通过。生产已部署 `main@62beb12`，`aluminum-bypass` 与 `nginx` 均为 active，`/readyz` 为 ready；线上前端资产 `LiveDashboard-DLZmEtSH.js` 与 `LiveDashboard-Dyq2cv9y.css` 已更新。生产 Playwright 复验 `/manage/admin/settings?desktop=1` 在 `1366px` 与 `390px` 均显示 `当前显示 2026-05-12`、`填报端 37 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`，`body/root` 横向溢出均为 `0`；服务层复验返回 `active.business_date=2026-05-12`、`data_source=mixed`、`factory_total.output=284.6`、`fill_entries_with_mes_match=24`、`fill_entries_bound_to_machine=24`。
+- 2026-05-13 已修正管理端实时页首屏发布顺序：`main@fc9453d` 把 `LiveDashboard.vue` 的 `aggregation.value = liveData` 提前到工厂快照、发运、外部联通、同步状态等次要卡片 `Promise.allSettled` 之前，避免页面先显示当前日 `0 卷`，等慢接口返回后才出现填报端实时数据。验证：新增 `live dashboard publishes realtime aggregation before secondary cards settle` 回归测试，`npm --prefix frontend test -- managementCommandCenter.test.js` 为 `134 passed`，`npm --prefix frontend run build` 通过；已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 部署到生产，`/readyz` 为 ready，`aluminum-bypass` 与 `nginx` 均为 active。生产 Playwright 延迟 5 个次要接口后复验，`/api/v1/aggregation/live` 返回后约 `6ms` 首屏实时条即显示 `当前显示 2026-05-12`、`填报端 40 卷`、`匹配填报 24 卷`、`已绑机列 24 卷`、`外部 MES 23 行`、`待归属 0 卷`，且此时次要接口返回数为 `0`；`1366px` 与 `390px` 的 `body/root` 横向溢出均为 `0`。
+- 2026-05-13 已完成管理端 10w 级异常产量复验：4.30 真实日报补入后，生产 `ShiftProductionData` 非 `voided` 活跃行 `254`，折吨后 `>=10000t` 的活跃行 `0`，最大折吨单行仍为 `1163.0t`。生产服务探针显示 `2026-05-12` 厂级看板、车间看板和实时聚合均为 `281.12t`，七日走势最大 `355.97t`；`2026-05-13` 当天厂级、车间和实时聚合均为 `0.0t`，对应当天暂无填报。新增回归测试 `test_build_history_digest_converts_mobile_coil_aggregate_kg_to_tons` 锁定历史走势/月累计必须把 `mobile_coil_agg` 原始 kg 折为吨，防止 `/manage/factory` 再出现 kg 当吨的 10w 级显示。
+- 2026-05-13 已部署 `main@dba8b13`：移动填报端提交 `locked_field_tampered` 时不再显示后端技术码，改为“扫码带出的卷号、合金或规格已变化，请重新扫码后提交”；卷级提交使用 `skipErrorToast`，避免全局接口 toast 与页面内提示重复弹出。验证：`npm --prefix frontend test -- reportStatus.test.js` 返回 `133 passed`，`npm --prefix frontend run build` 通过，仅保留既有 Vite 大 chunk warning；生产 dist 已包含该中文提示，公网 `/readyz` 为 ready，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 2026-05-13 生产外部闸门复验：`scripts/check_statistics_module_ready.py --missing-inputs` 仍只输出 `LLM/AI 摘要增强`、`应用连接外发`、`钉钉真实人员触达` 三行，不回显真实密钥；`--json --check-live-aggregation --check-dingtalk-contacts` 返回预期 exit `2`，hard issues 为 `LLM_DISABLED`、`APP_CONNECTION_DISABLED`，warning 为 `DINGTALK_NO_BOUND_USERS` 与 `DINGTALK_CONTACTS_PERMISSION_MISSING`。实时聚合只读探针为 `live_aggregation_business_date=2026-05-12`、`live_aggregation_total_entry_count=40`、`live_aggregation_formal_entry_count=40`、`live_aggregation_mes_row_count=23`、`live_aggregation_mes_match_count=24`、`live_aggregation_bound_to_machine_count=24`、`live_aggregation_pending_assignment_count=0`；钉钉通讯录探针为 `dingtalk_department_access=false`、`dingtalk_contacts_missing_scope=qyapi_get_department_member`。
+
+下一道门禁：`2026-04-22` 每日产量文件源表日产量列为空，当前原始表解析结果为 `blocked / rows=0`；只读复核 `D:\鑫泰报表\4.22\鑫泰每日产量4月22日.xls` 的综合页表头显示 `2026年4月23日`，且 `投料量/日产量/产生废料` 生产列为空。`D:\鑫泰报表\输出skill\2026-4-22_日均报表.xls` 不是当前“每日产量综合报表”格式，解析为 `no_daily_production_summary_sheet`。该日 `日报正文.txt` 写明热轧日产 `262t`，但 `日均报表.xls` 的“各工序产量报表”中 `热轧` 行日产量为 `0t`，且表内混有明细、合计、包装/入库和在制类行，所以当前只能作为参考资产，不能作为正式每日产量事实源。后续如需补这一天，必须先找到同日非空综合日报源表或现场确认可用替代表，不能用当前空表或口径冲突表强行入库。
 
 ## 10. 回滚锚点
 

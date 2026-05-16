@@ -16,6 +16,19 @@
       </el-select>
       <el-segmented v-model="caliber" :options="caliberOptions" />
       <el-button type="primary" @click="recalculate">重新计算</el-button>
+      <el-button
+        type="primary"
+        :icon="Upload"
+        :loading="snapshotSaving"
+        :disabled="!canSaveSnapshot || !canPersistSnapshot"
+        data-testid="cost-snapshot-save"
+        @click="handleSaveSnapshot"
+      >
+        保存快照
+      </el-button>
+      <span v-if="snapshotSavedAt" class="cost-snapshot-status" data-testid="cost-snapshot-status">
+        已保存 {{ snapshotSavedAt }}
+      </span>
     </template>
 
     <section class="cost-ledger" data-testid="cost-ledger">
@@ -62,6 +75,48 @@
       <div>
         <span>口径</span>
         <strong>{{ caliber === 'throughput' ? '按通货量' : '按产量' }}</strong>
+      </div>
+    </section>
+
+    <section class="cost-review-status" data-testid="cost-review-status">
+      <article>
+        <span>月度复核</span>
+        <strong>{{ reviewStatusLabel(currentReviewStatus.status) }}</strong>
+        <em>{{ reviewMonth }}</em>
+      </article>
+      <article>
+        <span>待复核</span>
+        <strong>{{ reviewStatusSummary.pending_review }}</strong>
+        <em>快照行</em>
+      </article>
+      <article>
+        <span>已复核</span>
+        <strong>{{ reviewStatusSummary.reviewed }}</strong>
+        <em>待月结</em>
+      </article>
+      <article>
+        <span>已月结</span>
+        <strong>{{ reviewStatusSummary.month_closed }}</strong>
+        <em>锁定</em>
+      </article>
+      <div class="cost-review-status__actions">
+        <el-button
+          type="primary"
+          plain
+          :loading="reviewActionLoading === 'review'"
+          :disabled="reviewStatusLoading || !canPersistSnapshot || !currentReviewStatus.exists || currentReviewStatus.status === 'month_closed'"
+          @click="handleReviewStatusAction('review')"
+        >
+          复核通过
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="reviewActionLoading === 'close'"
+          :disabled="reviewStatusLoading || !canPersistSnapshot || currentReviewStatus.status !== 'reviewed'"
+          @click="handleReviewStatusAction('close')"
+        >
+          月结锁定
+        </el-button>
       </div>
     </section>
 
@@ -168,11 +223,18 @@
 
 <script setup>
 import dayjs from 'dayjs'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Upload } from '@element-plus/icons-vue'
 
+import {
+  fetchCostStrategyReviewStatus,
+  saveCostStrategySnapshot,
+  updateCostStrategyReviewStatus
+} from '../../api/executive'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { COST_STRATEGIES, COST_TABLE_KEYS, evaluateCostScenario } from '../../services/costing/engine.ts'
+import { useAuthStore } from '../../stores/auth'
 import { formatNumber } from '../../utils/display'
 
 const strategyOptions = [
@@ -205,6 +267,19 @@ const strategyCode = ref(COST_STRATEGIES.CASTING_MACHINE_LABOR_SPLIT)
 const workshopCode = ref('ZR2')
 const caliber = ref('output')
 const scenarioJson = ref('')
+const snapshotSaving = ref(false)
+const snapshotSavedAt = ref('')
+const reviewStatusLoading = ref(false)
+const reviewActionLoading = ref('')
+const reviewStatusRows = ref([])
+const reviewStatusSummary = ref({
+  month: dayjs().format('YYYY-MM'),
+  rollup_count: 0,
+  pending_review: 0,
+  reviewed: 0,
+  month_closed: 0
+})
+const authStore = useAuthStore()
 const result = ref({
   totalCost: 0,
   byOutputTon: 0,
@@ -342,8 +417,121 @@ function recalculate() {
       caliber: caliber.value
     })
     result.value = computedResult
+    snapshotSavedAt.value = ''
+    return true
   } catch (error) {
     ElMessage.error(error?.message || '策略参数解析失败')
+    return false
+  }
+}
+
+function totalSnapshotRows(tableModels = {}) {
+  return Object.values(tableModels).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0)
+}
+
+function requestErrorMessage(error, fallback = '保存失败') {
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item).join('; ')
+  }
+  return detail || error?.message || fallback
+}
+
+const canSaveSnapshot = computed(() => totalSnapshotRows(result.value.tableModels || {}) > 0)
+const canPersistSnapshot = computed(() => authStore.isAdmin)
+const reviewMonth = computed(() => dayjs(businessDate.value).format('YYYY-MM'))
+
+const currentReviewStatus = computed(() => {
+  const row = reviewStatusRows.value.find((item) => (
+    item.workshop_code === workshopCode.value && item.strategy_code === strategyCode.value
+  ))
+  return row || {
+    exists: false,
+    status: 'pending_review',
+    review_note: null,
+    close_note: null
+  }
+})
+
+function normalizeReviewStatus(data) {
+  reviewStatusSummary.value = {
+    month: data?.summary?.month || reviewMonth.value,
+    rollup_count: Number(data?.summary?.rollup_count || 0),
+    pending_review: Number(data?.summary?.pending_review || 0),
+    reviewed: Number(data?.summary?.reviewed || 0),
+    month_closed: Number(data?.summary?.month_closed || 0)
+  }
+  reviewStatusRows.value = Array.isArray(data?.rows)
+    ? data.rows.map((row) => ({ ...row, exists: true }))
+    : []
+}
+
+function reviewStatusLabel(status) {
+  if (status === 'month_closed') return '已月结'
+  if (status === 'reviewed') return '已复核'
+  return '待复核'
+}
+
+async function loadReviewStatus() {
+  reviewStatusLoading.value = true
+  try {
+    normalizeReviewStatus(await fetchCostStrategyReviewStatus(reviewMonth.value, { skipErrorToast: true }))
+  } catch (error) {
+    normalizeReviewStatus(null)
+    ElMessage.error(requestErrorMessage(error, '读取复核状态失败'))
+  } finally {
+    reviewStatusLoading.value = false
+  }
+}
+
+async function handleSaveSnapshot() {
+  if (!canPersistSnapshot.value) {
+    ElMessage.warning('仅管理员可保存快照')
+    return
+  }
+  if (!recalculate()) return
+  const tableModels = result.value.tableModels || {}
+  const rowCount = totalSnapshotRows(tableModels)
+  if (rowCount <= 0) {
+    ElMessage.warning('请先生成快照')
+    return
+  }
+  snapshotSaving.value = true
+  try {
+    await saveCostStrategySnapshot(tableModels, { skipErrorToast: true })
+    snapshotSavedAt.value = dayjs().format('HH:mm:ss')
+    await loadReviewStatus()
+    ElMessage.success(`已保存 ${rowCount} 条快照`)
+  } catch (error) {
+    ElMessage.error(requestErrorMessage(error))
+  } finally {
+    snapshotSaving.value = false
+  }
+}
+
+async function handleReviewStatusAction(action) {
+  if (!canPersistSnapshot.value) {
+    ElMessage.warning('仅管理员可复核成本快照')
+    return
+  }
+  if (!currentReviewStatus.value.exists) {
+    ElMessage.warning('请先保存快照')
+    return
+  }
+  reviewActionLoading.value = action
+  try {
+    await updateCostStrategyReviewStatus({
+      month: reviewMonth.value,
+      workshop_code: workshopCode.value,
+      strategy_code: strategyCode.value,
+      action
+    }, { skipErrorToast: true })
+    await loadReviewStatus()
+    ElMessage.success(action === 'review' ? '已复核' : '已月结')
+  } catch (error) {
+    ElMessage.error(requestErrorMessage(error, '复核状态更新失败'))
+  } finally {
+    reviewActionLoading.value = ''
   }
 }
 
@@ -366,6 +554,8 @@ const tableSnapshotRows = computed(() => {
 })
 
 resetTemplate()
+onMounted(loadReviewStatus)
+watch(businessDate, loadReviewStatus)
 </script>
 
 <style scoped>
@@ -427,6 +617,20 @@ resetTemplate()
   flex-wrap: wrap;
 }
 
+.cost-snapshot-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(22, 119, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(22, 119, 255, 0.06);
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .cost-ledger {
   display: grid;
   grid-template-columns: minmax(220px, 1.25fr) repeat(4, minmax(150px, 1fr));
@@ -451,7 +655,8 @@ resetTemplate()
 }
 
 .cost-ledger__card span,
-.cost-flow span {
+.cost-flow span,
+.cost-review-status span {
   color: var(--xt-text-muted);
   font-size: 12px;
   font-weight: 850;
@@ -506,6 +711,46 @@ resetTemplate()
   font-weight: 900;
 }
 
+.cost-review-status {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(190px, auto);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--xt-border-light);
+  border-radius: 8px;
+  background: var(--xt-bg-panel);
+}
+
+.cost-review-status article {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--xt-bg-panel-soft);
+}
+
+.cost-review-status strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.cost-review-status em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.cost-review-status__actions {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
 .process-mobile-list {
   display: none;
 }
@@ -554,6 +799,15 @@ resetTemplate()
   .cost-flow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .cost-review-status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cost-review-status__actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -566,12 +820,15 @@ resetTemplate()
   .review-cost-center-v2 :deep(.reference-page__actions .el-date-editor),
   .review-cost-center-v2 :deep(.reference-page__actions .el-select),
   .review-cost-center-v2 :deep(.reference-page__actions .el-segmented),
-  .review-cost-center-v2 :deep(.reference-page__actions .el-button) {
+  .review-cost-center-v2 :deep(.reference-page__actions .el-button),
+  .cost-snapshot-status {
     width: 100% !important;
   }
 
   .cost-ledger,
-  .cost-flow {
+  .cost-flow,
+  .cost-review-status,
+  .cost-review-status__actions {
     grid-template-columns: 1fr;
   }
 

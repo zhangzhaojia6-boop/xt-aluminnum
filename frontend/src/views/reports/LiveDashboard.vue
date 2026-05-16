@@ -7,7 +7,7 @@
     data-testid="live-dashboard"
   >
     <template #actions>
-      <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" />
+      <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" @change="handleTargetDateChange" />
       <div class="live-dashboard__connection">
         <span :class="['live-dashboard__connection-dot', `is-${connectionTone}`]"></span>
         <span>{{ connectionLabel }}</span>
@@ -51,12 +51,12 @@
       </article>
     </section>
 
-    <section v-if="externalReadinessLanes.length" class="external-readiness-lanes" aria-label="外部联通明细">
+    <section v-if="externalReadinessLanes.length || externalMissingInputs.length" class="external-readiness-lanes" aria-label="外部联通明细">
       <div class="external-readiness-lanes__head">
         <strong>外部联通明细</strong>
         <span>{{ externalReadinessReady ? '全部通过' : externalIssueLabel }}</span>
       </div>
-      <div class="external-readiness-lanes__grid">
+      <div v-if="externalReadinessLanes.length" class="external-readiness-lanes__grid">
         <article
           v-for="lane in externalReadinessLanes"
           :key="lane.code"
@@ -72,6 +72,30 @@
           </div>
           <em>{{ lane.meta }}</em>
         </article>
+      </div>
+      <div v-if="externalMissingInputs.length" class="external-readiness-missing" aria-label="缺失输入清单">
+        <div class="external-readiness-missing__head">
+          <strong>缺失输入清单</strong>
+          <span>{{ externalMissingInputLabel }}</span>
+        </div>
+        <div class="external-readiness-missing__table">
+          <div class="external-readiness-missing__row external-readiness-missing__row--head" aria-hidden="true">
+            <span>用途</span>
+            <span>所在位置</span>
+            <span>缺失字段</span>
+            <span>影响范围</span>
+            <span>建议取值</span>
+          </div>
+          <div v-for="item in externalMissingInputs" :key="item.key" class="external-readiness-missing__row">
+            <strong data-label="用途">{{ item.purpose }}</strong>
+            <span data-label="所在位置">{{ item.location }}</span>
+            <span class="external-readiness-missing__fields" data-label="缺失字段">
+              <i v-for="field in item.missingFields" :key="field">{{ field }}</i>
+            </span>
+            <span data-label="影响范围">{{ item.impact }}</span>
+            <span data-label="建议取值">{{ item.suggestedValue }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -108,6 +132,26 @@
           :class="`is-${bar.tone}`"
           :style="{ height: `${bar.height}%` }"
         ></i>
+      </div>
+    </section>
+
+    <section class="live-reality-strip" :class="`is-${liveRealityStatus.tone}`" aria-label="实时数据日期">
+      <div class="live-reality-strip__block live-reality-strip__block--date">
+        <span>实时数据日期</span>
+        <strong>{{ liveRealityStatus.primaryLabel }}</strong>
+        <em>{{ liveRealityStatus.currentDateLabel }}</em>
+        <em>{{ liveRealityStatus.activeDateLabel }}</em>
+      </div>
+      <div class="live-reality-strip__block">
+        <span>填报端上传</span>
+        <strong>{{ liveRealityStatus.fillLabel }}</strong>
+        <em>{{ liveRealityStatus.matchLabel }}</em>
+      </div>
+      <div class="live-reality-strip__block live-reality-strip__block--mes">
+        <span>外部 MES 机列绑定</span>
+        <strong>{{ liveRealityStatus.bindingLabel }}</strong>
+        <em>{{ liveRealityStatus.mesLabel }} · {{ liveRealityStatus.routeLabel }}</em>
+        <em>{{ liveRealityStatus.upstreamLabel }} · {{ liveRealityStatus.pendingLabel }}</em>
       </div>
     </section>
 
@@ -185,6 +229,38 @@
           <strong>{{ row.workshopName }}</strong>
           <em>{{ row.shiftName }}</em>
           <b>{{ row.entryCount }} 卷</b>
+        </span>
+      </div>
+    </section>
+
+    <section v-if="missingOutputWeightSummary.entryCount" class="live-missing-output" :class="`is-${missingOutputWeightSummary.tone}`" aria-label="待补产出重量">
+      <div class="live-missing-output__metric">
+        <span>待补产出重量</span>
+        <strong>{{ missingOutputWeightSummary.entryCount }}</strong>
+        <em>卷缺产出</em>
+      </div>
+      <div class="live-missing-output__meta">
+        <span>{{ formatWeight(missingOutputWeightSummary.input) }} 吨投入</span>
+        <span>{{ formatWeight(missingOutputWeightSummary.scrap) }} 吨废料</span>
+      </div>
+      <div class="live-missing-output__rows">
+        <span
+          v-for="item in missingOutputWeightSummary.items"
+          :key="item.entryId || item.trackingCardNo"
+        >
+          <span class="live-missing-output__item-main">
+            <strong>{{ item.workshopName }}</strong>
+            <em>{{ item.machineName }} / {{ item.shiftName }}</em>
+            <b>{{ item.trackingCardNo }}</b>
+          </span>
+          <el-button
+            size="small"
+            :icon="EditPen"
+            class="live-missing-output__fix"
+            @click="openMissingOutputDialog(item)"
+          >
+            补重量
+          </el-button>
         </span>
       </div>
     </section>
@@ -502,6 +578,55 @@
       </el-table>
     </el-card>
 
+    <el-dialog
+      v-model="missingOutputDialogVisible"
+      title="补产出重量"
+      width="min(440px, calc(100vw - 24px))"
+      class="live-missing-output-dialog"
+    >
+      <div v-if="activeMissingOutput" class="live-missing-output-dialog__meta">
+        <span>{{ activeMissingOutput.workshopName }}</span>
+        <span>{{ activeMissingOutput.machineName }}</span>
+        <span>{{ activeMissingOutput.shiftName }}</span>
+        <span>{{ activeMissingOutput.trackingCardNo }}</span>
+      </div>
+      <div class="live-missing-output-dialog__form">
+        <label>
+          <span>产出重量</span>
+          <el-input-number
+            v-model="missingOutputForm.output_weight"
+            :min="0"
+            :max="activeMissingOutputInputLimit || undefined"
+            :precision="3"
+            :step="0.1"
+            controls-position="right"
+          />
+          <em>吨</em>
+        </label>
+        <label>
+          <span>补正原因</span>
+          <el-input
+            v-model="missingOutputForm.reason"
+            type="textarea"
+            :rows="3"
+            maxlength="2000"
+            show-word-limit
+          />
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="missingOutputDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="missingOutputSubmitting"
+          :disabled="!canSubmitMissingOutput"
+          @click="submitMissingOutputWeight"
+        >
+          确认补正
+        </el-button>
+      </template>
+    </el-dialog>
+
     <el-drawer v-model="drawerVisible" size="560px" :title="drawerTitle">
       <div class="live-drawer__meta" v-if="activeCell">
         <span>{{ activeCell.workshop_name }}</span>
@@ -540,14 +665,15 @@
 </template>
 
 <script setup>
-import { Download, RefreshRight, Setting } from '@element-plus/icons-vue'
+import { Download, EditPen, RefreshRight, Setting } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchMesSyncRuns, fetchMesSyncStatus } from '../../api/mes'
-import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, resolveMissingOutputWeight } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
@@ -557,13 +683,17 @@ import {
 } from '../../utils/liveDashboardFormatters'
 import {
   buildMachineOwnershipSummary,
+  buildMissingOutputWeightSummary,
   buildOutputDistribution,
   buildFillIntakeSummary,
+  buildLiveRealityStatus,
   buildPendingAssignmentSummary,
   buildShiftOutputRhythm,
   buildUnboundFillSummary,
   buildWorkshopFillIntakeRows,
   buildCommandCenterSummary,
+  shouldRedirectToActiveBusinessDate,
+  shouldSwitchToRealtimeBusinessDate,
   sortWorkshopsForCommandCenter,
   statusTextForCell,
   statusToneForCell
@@ -574,11 +704,15 @@ const authStore = useAuthStore()
 const route = useRoute()
 
 const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const autoActiveDateMode = ref(true)
 const loading = ref(false)
 const drawerVisible = ref(false)
 const drawerLoading = ref(false)
+const missingOutputDialogVisible = ref(false)
+const missingOutputSubmitting = ref(false)
 const activePanels = ref([])
 const activeCell = ref(null)
+const activeMissingOutput = ref(null)
 const aggregation = ref(createEmptyAggregation(targetDate.value))
 const factorySnapshot = ref({})
 const deliverySnapshot = ref({})
@@ -586,6 +720,7 @@ const mesSyncStatus = ref({})
 const mesSyncRuns = ref({ summary: {}, items: [] })
 const externalReadiness = ref({})
 const drawerData = ref({ items: [] })
+const missingOutputForm = ref({ output_weight: null, reason: '' })
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
 
@@ -602,6 +737,9 @@ function createEmptyAggregation(businessDate) {
     workshops: [],
     yield_matrix_lane: {},
     mes_sync_status: {},
+    business_date_context: {},
+    mes_machine_binding: {},
+    data_quality: {},
     data_source: 'work_order_runtime',
     factory_total: {
       input: 0,
@@ -690,6 +828,23 @@ const externalWarningIssues = computed(() => {
   const warningIssues = externalReadiness.value.warning_issues || externalReadiness.value.warningIssues || []
   return Array.isArray(warningIssues) ? warningIssues : []
 })
+const externalMissingInputs = computed(() => {
+  const missingInputs = externalReadiness.value.missing_inputs || externalReadiness.value.missingInputs || []
+  if (!Array.isArray(missingInputs)) return []
+  return missingInputs.slice(0, 5).map((item, index) => {
+    const issueCode = String(item.issue_code || item.issueCode || '').trim()
+    const missingFields = item.missing_fields || item.missingFields || []
+    return {
+      key: `${issueCode || item.purpose || 'external-input'}-${index}`,
+      purpose: item.purpose || issueCode || '外部输入',
+      location: item.location || '服务器 backend/.env',
+      missingFields: Array.isArray(missingFields) ? missingFields : [],
+      impact: item.impact || '正式试用前需要补齐',
+      suggestedValue: item.suggested_value || item.suggestedValue || '按现场真实配置填写'
+    }
+  })
+})
+const externalMissingInputLabel = computed(() => `${externalMissingInputs.value.length} 项待补输入`)
 const externalHardIssueCount = computed(() => externalHardIssues.value.length)
 const externalReadinessLoaded = computed(() => Object.keys(externalReadiness.value || {}).length > 0)
 const externalReadinessReady = computed(() => (
@@ -729,7 +884,18 @@ const marginToneClass = computed(() => `is-${marginTone(managementOverview.value
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
+const liveRealityStatus = computed(() => buildLiveRealityStatus(aggregation.value))
 const pendingAssignmentSummary = computed(() => buildPendingAssignmentSummary(aggregation.value, 3))
+const missingOutputWeightSummary = computed(() => buildMissingOutputWeightSummary(aggregation.value, 3))
+const activeMissingOutputInputLimit = computed(() => numberValue(activeMissingOutput.value?.inputWeight))
+const canSubmitMissingOutput = computed(() => {
+  const outputWeight = Number(missingOutputForm.value.output_weight)
+  const reason = String(missingOutputForm.value.reason || '').trim()
+  if (!activeMissingOutput.value?.entryId) return false
+  if (!Number.isFinite(outputWeight) || outputWeight <= 0) return false
+  if (activeMissingOutputInputLimit.value > 0 && outputWeight > activeMissingOutputInputLimit.value) return false
+  return reason.length > 0
+})
 const workshopFillIntakeRows = computed(() => buildWorkshopFillIntakeRows(sortedWorkshops.value, 6))
 const outputDistributionSummary = computed(() => {
   if (!outputDistributionRows.value.length) return '暂无产量'
@@ -918,6 +1084,17 @@ async function loadAggregation({ silent = false } = {}) {
       business_date: targetDate.value,
       workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value)
     })
+    const redirectDate = shouldRedirectToActiveBusinessDate({
+      targetDate: targetDate.value,
+      aggregation: liveData,
+      autoMode: autoActiveDateMode.value
+    })
+    if (redirectDate) {
+      targetDate.value = redirectDate
+      return
+    }
+    aggregation.value = liveData
+    activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     const [factoryResult, deliveryResult, mesResult, mesRunsResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
@@ -925,14 +1102,12 @@ async function loadAggregation({ silent = false } = {}) {
       fetchMesSyncRuns({ limit: 12 }),
       fetchExternalReadiness()
     ])
-    aggregation.value = liveData
     factorySnapshot.value = factoryResult.status === 'fulfilled' ? factoryResult.value : {}
     deliverySnapshot.value = deliveryResult.status === 'fulfilled' ? deliveryResult.value : {}
     mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
     mesSyncRuns.value = mesRunsResult.status === 'fulfilled' ? mesRunsResult.value : { summary: {}, items: [] }
     externalReadiness.value = externalResult.status === 'fulfilled' ? externalResult.value : {}
     lastLoadedAt.value = new Date().toISOString()
-    activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
     if (drawerVisible.value && activeCell.value) {
       await loadDrawer(activeCell.value, { preserveOpen: true })
     }
@@ -945,10 +1120,46 @@ async function loadDashboardSurface() {
   await loadAggregation()
 }
 
+function openMissingOutputDialog(item) {
+  activeMissingOutput.value = item
+  missingOutputForm.value = { output_weight: null, reason: '' }
+  missingOutputDialogVisible.value = true
+}
+
+async function submitMissingOutputWeight() {
+  const outputWeight = Number(missingOutputForm.value.output_weight)
+  const reason = String(missingOutputForm.value.reason || '').trim()
+  if (activeMissingOutputInputLimit.value > 0 && outputWeight > activeMissingOutputInputLimit.value) {
+    ElMessage.warning('产出重量不能大于投入重量')
+    return
+  }
+  if (!canSubmitMissingOutput.value) {
+    ElMessage.warning('请填写产出重量和补正原因')
+    return
+  }
+
+  missingOutputSubmitting.value = true
+  try {
+    await resolveMissingOutputWeight(activeMissingOutput.value.entryId, {
+      output_weight: outputWeight,
+      reason
+    })
+    ElMessage.success('产出重量已补正')
+    missingOutputDialogVisible.value = false
+    activeMissingOutput.value = null
+    await loadDashboardSurface()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '补正失败')
+  } finally {
+    missingOutputSubmitting.value = false
+  }
+}
+
 async function initializeActiveBusinessDate() {
   try {
     const payload = await fetchLiveActiveDate()
     if (payload?.business_date && payload.business_date !== targetDate.value) {
+      autoActiveDateMode.value = true
       targetDate.value = payload.business_date
       return true
     }
@@ -956,6 +1167,24 @@ async function initializeActiveBusinessDate() {
     return false
   }
   return false
+}
+
+function handleTargetDateChange() {
+  autoActiveDateMode.value = false
+}
+
+function switchToRealtimeBusinessDateFromEvent(payload = {}) {
+  const eventBusinessDate = String(payload.business_date || '').trim()
+  if (!shouldSwitchToRealtimeBusinessDate({
+    targetDate: targetDate.value,
+    eventBusinessDate,
+    aggregation: aggregation.value,
+    autoMode: autoActiveDateMode.value
+  })) {
+    return false
+  }
+  targetDate.value = eventBusinessDate
+  return true
 }
 
 function scheduleReload() {
@@ -1016,7 +1245,10 @@ function syncDrawerWithVerification(payload) {
 }
 
 function applyEntrySubmitted(payload) {
-  if (payload.business_date && payload.business_date !== targetDate.value) return
+  if (payload.business_date && payload.business_date !== targetDate.value) {
+    if (switchToRealtimeBusinessDateFromEvent(payload)) return
+    return
+  }
   const match = findCell(payload)
   if (!match) {
     scheduleReload()
@@ -1142,16 +1374,16 @@ function exportSummary() {
 
 watch(targetDate, async () => {
   drawerVisible.value = false
+  missingOutputDialogVisible.value = false
   activeCell.value = null
+  activeMissingOutput.value = null
   drawerData.value = { items: [] }
   await loadDashboardSurface()
 })
 
 onMounted(async () => {
-  const dateChanged = await initializeActiveBusinessDate()
-  if (!dateChanged) {
-    await loadDashboardSurface()
-  }
+  await initializeActiveBusinessDate()
+  await loadDashboardSurface()
 })
 
 onBeforeUnmount(() => {
@@ -1303,6 +1535,7 @@ onBeforeUnmount(() => {
 .management-overview-card {
   display: grid;
   align-content: space-between;
+  min-width: 0;
   min-height: 112px;
   padding: 15px;
   border: 1px solid var(--command-line);
@@ -1319,12 +1552,16 @@ onBeforeUnmount(() => {
 
 .management-overview-card span,
 .management-flow__node span {
+  overflow: hidden;
   color: var(--xt-text-muted);
   font-size: 12px;
   font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card strong {
+  overflow: hidden;
   color: var(--command-ink);
   font-family: var(--xt-font-number);
   font-size: 30px;
@@ -1332,6 +1569,8 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card--primary span,
@@ -1341,10 +1580,13 @@ onBeforeUnmount(() => {
 }
 
 .management-overview-card em {
+  overflow: hidden;
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .management-overview-card.is-success {
@@ -1554,6 +1796,68 @@ onBeforeUnmount(() => {
   background: #9aa8ba;
 }
 
+.live-reality-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.82fr) minmax(180px, 0.55fr) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.15);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(244, 249, 255, 0.94), rgba(255, 255, 255, 0.97)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.06);
+}
+
+.live-reality-strip.is-warning {
+  border-color: rgba(183, 121, 31, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 229, 0.78), rgba(255, 255, 255, 0.96)),
+    #fff;
+}
+
+.live-reality-strip__block {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.live-reality-strip__block span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.live-reality-strip__block strong {
+  overflow-wrap: anywhere;
+  color: var(--command-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.live-reality-strip__block em {
+  overflow-wrap: anywhere;
+  color: var(--command-blue-deep);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.live-reality-strip.is-warning .live-reality-strip__block--date em:first-of-type {
+  color: var(--command-amber);
+}
+
+.live-reality-strip__block--mes {
+  border-color: rgba(39, 88, 146, 0.16);
+}
+
 .external-readiness-lanes {
   display: grid;
   gap: 10px;
@@ -1662,6 +1966,92 @@ onBeforeUnmount(() => {
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.external-readiness-missing {
+  display: grid;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(39, 88, 146, 0.12);
+}
+
+.external-readiness-missing__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.external-readiness-missing__head strong {
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__head span {
+  color: var(--command-red);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__table {
+  display: grid;
+  gap: 6px;
+}
+
+.external-readiness-missing__row {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.7fr) minmax(126px, 0.85fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(190px, 1.25fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid rgba(39, 88, 146, 0.1);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.external-readiness-missing__row--head {
+  padding-block: 5px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.external-readiness-missing__row--head span {
+  color: var(--xt-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.external-readiness-missing__row > strong,
+.external-readiness-missing__row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.external-readiness-missing__row > strong {
+  color: var(--command-ink);
+  font-weight: 900;
+}
+
+.external-readiness-missing__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.external-readiness-missing__fields i {
+  padding: 2px 5px;
+  border: 1px solid rgba(39, 88, 146, 0.12);
+  border-radius: 5px;
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+  font-style: normal;
+  font-weight: 900;
 }
 
 .fill-intake-strip {
@@ -1999,6 +2389,150 @@ onBeforeUnmount(() => {
   font-family: var(--xt-font-number);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+}
+
+.live-missing-output {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.52fr) minmax(220px, 0.7fr) 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(194, 65, 52, 0.25);
+  border-radius: var(--command-radius);
+  background:
+    linear-gradient(180deg, rgba(255, 231, 226, 0.64), rgba(255, 255, 255, 0.94)),
+    #fff;
+  box-shadow: 0 14px 32px rgba(194, 65, 52, 0.08);
+}
+
+.live-missing-output__metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-missing-output__metric span,
+.live-missing-output__metric em,
+.live-missing-output__meta span,
+.live-missing-output__rows em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-missing-output__metric strong {
+  color: var(--command-red);
+  font-family: var(--xt-font-number);
+  font-size: 25px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.live-missing-output__meta,
+.live-missing-output__rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.live-missing-output__meta span,
+.live-missing-output__rows > span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid rgba(194, 65, 52, 0.18);
+  border-radius: var(--command-radius-sm);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.live-missing-output__item-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-missing-output__rows strong,
+.live-missing-output__rows b {
+  color: var(--command-ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output__rows b {
+  color: var(--command-red);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.live-missing-output__fix {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--command-radius-sm);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.live-missing-output-dialog__meta span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius-sm);
+  background: var(--command-blue-soft);
+  color: var(--command-blue-deep);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__form {
+  display: grid;
+  gap: 14px;
+}
+
+.live-missing-output-dialog__form label {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-missing-output-dialog__form label:nth-child(2) {
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: start;
+}
+
+.live-missing-output-dialog__form span {
+  color: var(--command-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.live-missing-output-dialog__form em {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.live-missing-output-dialog__form :deep(.el-input-number) {
+  width: 100%;
 }
 
 .live-unbound-fill__action {
@@ -2880,7 +3414,9 @@ onBeforeUnmount(() => {
   }
 
   .live-pending-assignment,
-  .live-unbound-fill {
+  .live-missing-output,
+  .live-unbound-fill,
+  .live-reality-strip {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
@@ -2891,6 +3427,10 @@ onBeforeUnmount(() => {
 
   .external-readiness-lanes__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .external-readiness-missing__row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .live-machine-ownership {
@@ -2953,6 +3493,31 @@ onBeforeUnmount(() => {
 
   .mes-sync-stability {
     grid-template-columns: 1fr;
+  }
+
+  .external-readiness-missing__row {
+    grid-template-columns: 1fr;
+  }
+
+  .external-readiness-missing__row--head {
+    display: none;
+  }
+
+  .external-readiness-missing__row > [data-label] {
+    display: grid;
+    gap: 3px;
+  }
+
+  .external-readiness-missing__row > [data-label]::before {
+    content: attr(data-label);
+    color: var(--xt-text-muted);
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .external-readiness-missing__row > .external-readiness-missing__fields {
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .mes-connection-strip__meta {

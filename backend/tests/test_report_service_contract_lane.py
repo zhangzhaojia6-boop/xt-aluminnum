@@ -355,6 +355,44 @@ def test_build_history_digest_tracks_daily_trend_and_period_archives(tmp_path, m
         db.close()
 
 
+def test_build_history_digest_converts_mobile_coil_aggregate_kg_to_tons(tmp_path, monkeypatch) -> None:
+    db, workshop, shift = build_history_session(tmp_path)
+    target_date = date(2026, 5, 12)
+    try:
+        for business_date, output_weight in [
+            (date(2026, 5, 11), 126_460.0),
+            (target_date, 281_120.0),
+        ]:
+            db.add(
+                ShiftProductionData(
+                    business_date=business_date,
+                    shift_config_id=shift.id,
+                    workshop_id=workshop.id,
+                    output_weight=output_weight,
+                    data_source='mobile_coil_agg',
+                    data_status='pending',
+                )
+            )
+        db.commit()
+
+        monkeypatch.setattr('app.services.report_service.mobile_report_service.summarize_mobile_inventory', lambda *_args, **_kwargs: [])
+        monkeypatch.setattr('app.services.report_service.build_contract_projection', lambda *_args, **_kwargs: {})
+        monkeypatch.setattr(
+            'app.services.report_service.energy_service.summarize_energy_for_date',
+            lambda *_args, **_kwargs: {'energy_per_ton': None},
+        )
+
+        payload = report_service._build_history_digest(db, target_date=target_date, window_days=2)
+
+        assert [item['output_weight'] for item in payload['daily_snapshots']] == [126.46, 281.12]
+        assert payload['month_archive']['total_output'] == 407.58
+        assert payload['month_archive']['average_daily_output'] == 203.79
+        assert payload['year_archive']['total_output'] == 407.58
+        assert max(item['output_weight'] for item in payload['daily_snapshots']) < 10000
+    finally:
+        db.close()
+
+
 def test_current_shift_output_uses_non_voided_runtime_rows_in_tons(tmp_path) -> None:
     db, workshop, shift = build_history_session(tmp_path)
     target_date = date(2026, 5, 6)

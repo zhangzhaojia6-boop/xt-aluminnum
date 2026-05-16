@@ -79,10 +79,26 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
   }
 
   const liveAggregation = {
-    business_date: '2026-04-23',
+    business_date: '2026-05-12',
+    business_date_context: {
+      requested_business_date: '2026-05-12',
+      current_business_date: '2026-05-13',
+      active_business_date: '2026-05-12',
+      active_date_source: 'recent_upload',
+      latest_fill_business_date: '2026-05-12',
+      requested_entry_count: 36,
+      current_date_entry_count: 0,
+      active_date_entry_count: 36,
+      has_current_date_entries: false,
+      is_requested_current_date: false,
+      is_showing_active_business_date: true
+    },
     overall_progress: {
       submitted_cells: 2,
-      total_cells: 3
+      total_cells: 3,
+      formal_entry_count: 36,
+      draft_entry_count: 0,
+      total_entry_count: 36
     },
     workshops: [
       {
@@ -133,6 +149,21 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     yield_matrix_lane: {},
     mes_sync_status: {
       lag_seconds: 45
+    },
+    mes_machine_binding: {
+      mes_row_count: 21,
+      mes_rows_with_machine: 8,
+      mes_rows_without_machine: 13,
+      direct_machine_code_count: 0,
+      route_inferred_machine_count: 8,
+      unresolved_machine_count: 13,
+      upstream_machine_code_missing_count: 21,
+      fill_entry_count: 36,
+      fill_entries_with_mes_match: 22,
+      fill_entries_bound_to_machine: 22,
+      fill_entries_pending_machine: 0,
+      pending_assignment_entry_count: 0,
+      pending_machine_assignment_count: 0
     },
     data_source: 'work_order_runtime',
     factory_total: {

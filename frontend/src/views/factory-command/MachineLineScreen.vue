@@ -9,6 +9,14 @@
         <span>实时流入</span>
         <strong>{{ formatTons(totalActiveTons) }}</strong>
       </article>
+      <article>
+        <span>外部 MES 匹配</span>
+        <strong>{{ totalMesMatchedFillCount }}</strong>
+      </article>
+      <article>
+        <span>路线推断</span>
+        <strong>{{ totalRouteInferredCount }}</strong>
+      </article>
       <article :class="{ 'is-warning': unboundLineCount > 0 }">
         <span>未绑定机列</span>
         <strong>{{ unboundLineCount }}</strong>
@@ -48,6 +56,12 @@
           </div>
         </div>
 
+        <div class="fc-line__mes">
+          <span>外部 MES 匹配 <strong>{{ line.mesMatchedFillCount }}</strong> / {{ line.fillEntryCount }} 卷</span>
+          <span>直连机列 <strong>{{ line.directMachineCodeCount }}</strong></span>
+          <span>路线推断 <strong>{{ line.routeInferredMachineCount }}</strong></span>
+        </div>
+
         <footer class="fc-line__foot">
           <span :class="['fc-line__binding', `is-${line.bindingTone}`]">{{ line.bindingLabel }}</span>
           <span>经营估算 {{ line.costLabel }}</span>
@@ -75,6 +89,8 @@ const store = useFactoryCommandStore()
 const freshness = computed(() => store.overview?.freshness || {})
 const maxActiveTons = computed(() => Math.max(...store.machineLines.map((line) => numberValue(line.active_tons ?? line.activeTons)), 1))
 const totalActiveTons = computed(() => lineCards.value.reduce((total, line) => total + line.rawActiveTons, 0))
+const totalMesMatchedFillCount = computed(() => lineCards.value.reduce((total, line) => total + line.mesMatchedFillCount, 0))
+const totalRouteInferredCount = computed(() => lineCards.value.reduce((total, line) => total + line.routeInferredMachineCount, 0))
 const unboundLineCount = computed(() => lineCards.value.filter((line) => line.bindingTone === 'warning').length)
 const lineCards = computed(() => store.machineLines.map((line) => {
   const display = formatLineDisplay(line)
@@ -82,6 +98,7 @@ const lineCards = computed(() => store.machineLines.map((line) => {
   const finishedTons = numberValue(line.finished_tons ?? line.finishedTons)
   const costEstimate = line.cost_estimate || line.costEstimate || {}
   const marginEstimate = line.margin_estimate || line.marginEstimate || {}
+  const mesBinding = line.mes_binding || line.mesBinding || {}
   const isUnbound = (line.machine_binding_status || line.machineBindingStatus) === 'unbound'
   return {
     raw: line,
@@ -93,6 +110,10 @@ const lineCards = computed(() => store.machineLines.map((line) => {
     activeTons: formatTons(activeTons),
     rawActiveTons: activeTons,
     finishedTons: formatTons(finishedTons),
+    fillEntryCount: numberValue(mesBinding.fill_entry_count ?? mesBinding.fillEntryCount),
+    mesMatchedFillCount: numberValue(mesBinding.mes_matched_fill_count ?? mesBinding.mesMatchedFillCount),
+    directMachineCodeCount: numberValue(mesBinding.direct_machine_code_count ?? mesBinding.directMachineCodeCount),
+    routeInferredMachineCount: numberValue(mesBinding.route_inferred_machine_count ?? mesBinding.routeInferredMachineCount),
     stalledCount: numberValue(line.stalled_count ?? line.stalledCount),
     barWidth: `${Math.max((activeTons / maxActiveTons.value) * 100, activeTons > 0 ? 8 : 0)}%`,
     bindingLabel: isUnbound ? '未绑定机列' : '机列已绑定',
@@ -140,7 +161,7 @@ onMounted(async () => {
 
 .fc-lines__summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -286,6 +307,34 @@ onMounted(async () => {
   color: oklch(92% 0.01 252);
   font-family: var(--xt-font-number);
   font-size: 20px;
+  font-weight: 900;
+}
+
+.fc-line__mes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fc-line__mes span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid oklch(28% 0.03 252);
+  border-radius: 6px;
+  background: oklch(16% 0.018 252);
+  color: oklch(58% 0.02 252);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.fc-line__mes strong {
+  color: oklch(92% 0.01 252);
+  font-family: var(--xt-font-number);
+  font-size: 13px;
   font-weight: 900;
 }
 

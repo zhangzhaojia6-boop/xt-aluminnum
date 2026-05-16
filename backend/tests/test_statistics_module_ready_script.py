@@ -225,6 +225,36 @@ def test_inspect_statistics_module_ready_reports_hard_issues_when_required_integ
         'APP_CONNECTION_API_BASE',
         'APP_CONNECTION_API_KEY',
     ]
+    purposes = {item['purpose'] for item in payload['missing_inputs']}
+    assert 'LLM/AI 摘要增强' in purposes
+    assert '应用连接外发' in purposes
+    assert '钉钉日报触达' in purposes
+    llm_input = next(item for item in payload['missing_inputs'] if item['issue_code'] == 'LLM_DISABLED')
+    assert llm_input['location'] == '服务器 backend/.env'
+    assert 'LLM_API_KEY' in llm_input['missing_fields']
+    assert 'LLM_ENABLED=true' in llm_input['suggested_value']
+
+
+def test_missing_inputs_markdown_uses_operator_columns_without_secret_values() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(
+            LLM_ENABLED=False,
+            APP_CONNECTION_ENABLED=False,
+        ),
+        sessionmaker_factory=_sessionmaker_with_dingtalk_counts(user_count=0, employee_count=0),
+    )
+
+    markdown = module.format_missing_inputs_markdown(payload['missing_inputs'])
+
+    assert '| 用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值 |' in markdown
+    assert 'LLM/AI 摘要增强' in markdown
+    assert '应用连接外发' in markdown
+    assert '钉钉真实人员触达' in markdown
+    assert '<现场提供>' in markdown
+    assert 'llm-key' not in markdown
+    assert 'app-key' not in markdown
 
 
 def test_inspect_statistics_module_ready_reports_mes_when_not_configured() -> None:
@@ -301,3 +331,79 @@ def test_external_env_template_can_target_rest_api_mes() -> None:
     assert 'MES_API_BASE=' in template
     assert 'MES_API_KEY=' in template
     assert 'MES_MVC_BASE_URL=' not in template
+
+
+def test_inspect_statistics_module_ready_does_not_probe_live_aggregation_by_default() -> None:
+    module = _load_script_module()
+
+    def fail_if_called(_db):
+        raise AssertionError('live aggregation probe should be opt-in')
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        live_aggregation_probe=fail_if_called,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['stats']['live_aggregation_checked'] is False
+    assert payload['stats']['live_aggregation_ok'] is None
+
+
+def test_inspect_statistics_module_ready_can_probe_live_aggregation() -> None:
+    module = _load_script_module()
+
+    def live_probe(db):
+        assert isinstance(db, _DummySession)
+        return {
+            'business_date': '2026-05-12',
+            'business_date_source': 'recent_upload',
+            'data_source': 'mixed',
+            'total_entry_count': 37,
+            'formal_entry_count': 37,
+            'draft_entry_count': 0,
+            'mes_row_count': 23,
+            'fill_entries_with_mes_match': 24,
+            'fill_entries_bound_to_machine': 24,
+            'pending_assignment_entry_count': 0,
+        }
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        check_live_aggregation=True,
+        live_aggregation_probe=live_probe,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['stats']['live_aggregation_checked'] is True
+    assert payload['stats']['live_aggregation_ok'] is True
+    assert payload['stats']['live_aggregation_business_date'] == '2026-05-12'
+    assert payload['stats']['live_aggregation_date_source'] == 'recent_upload'
+    assert payload['stats']['live_aggregation_data_source'] == 'mixed'
+    assert payload['stats']['live_aggregation_total_entry_count'] == 37
+    assert payload['stats']['live_aggregation_mes_row_count'] == 23
+    assert payload['stats']['live_aggregation_bound_to_machine_count'] == 24
+    assert payload['stats']['live_aggregation_pending_assignment_count'] == 0
+
+
+def test_inspect_statistics_module_ready_blocks_when_live_aggregation_probe_fails() -> None:
+    module = _load_script_module()
+
+    def failing_probe(_db):
+        raise RuntimeError('database details should not leak')
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        check_live_aggregation=True,
+        live_aggregation_probe=failing_probe,
+    )
+
+    assert payload['hard_gate_passed'] is False
+    assert payload['module_usable'] is False
+    issue = next(item for item in payload['hard_issues'] if item['code'] == 'LIVE_AGGREGATION_UNAVAILABLE')
+    assert 'RuntimeError' in issue['message']
+    assert 'database details should not leak' not in issue['message']
+    assert payload['stats']['live_aggregation_checked'] is True
+    assert payload['stats']['live_aggregation_ok'] is False

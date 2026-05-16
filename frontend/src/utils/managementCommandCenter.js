@@ -271,6 +271,92 @@ export function buildFillIntakeSummary(aggregation = {}) {
   }
 }
 
+export function buildLiveRealityStatus(aggregation = {}) {
+  const progress = aggregation.overall_progress || aggregation.overallProgress || {}
+  const context = aggregation.business_date_context || aggregation.businessDateContext || {}
+  const binding = aggregation.mes_machine_binding || aggregation.mesMachineBinding || {}
+  const requestedDate = context.requested_business_date || context.requestedBusinessDate || aggregation.business_date || '--'
+  const currentDate = context.current_business_date || context.currentBusinessDate || requestedDate
+  const activeDate = context.active_business_date || context.activeBusinessDate || requestedDate
+  const currentDateEntryCount = numberValue(context.current_date_entry_count ?? context.currentDateEntryCount)
+  const activeDateEntryCount = numberValue(context.active_date_entry_count ?? context.activeDateEntryCount)
+  const fillEntryCount = numberValue(binding.fill_entry_count ?? binding.fillEntryCount ?? progress.total_entry_count ?? progress.totalEntryCount)
+  const mesRowCount = numberValue(binding.mes_row_count ?? binding.mesRowCount)
+  const matchedFillCount = numberValue(binding.fill_entries_with_mes_match ?? binding.fillEntriesWithMesMatch)
+  const boundFillCount = numberValue(binding.fill_entries_bound_to_machine ?? binding.fillEntriesBoundToMachine)
+  const pendingMachineCount = numberValue(binding.fill_entries_pending_machine ?? binding.fillEntriesPendingMachine ?? binding.pending_machine_assignment_count)
+  const routeInferredCount = numberValue(binding.route_inferred_machine_count ?? binding.routeInferredMachineCount)
+  const missingMachineCodeCount = numberValue(binding.upstream_machine_code_missing_count ?? binding.upstreamMachineCodeMissingCount)
+  const isCurrentDateEmpty = currentDateEntryCount === 0 && currentDate !== activeDate
+
+  return {
+    tone: isCurrentDateEmpty ? 'warning' : 'success',
+    primaryLabel: `当前显示 ${requestedDate}`,
+    currentDateLabel: currentDateEntryCount > 0
+      ? `今天 ${currentDate} 已填报 ${currentDateEntryCount} 卷`
+      : `今天 ${currentDate} 暂无填报`,
+    activeDateLabel: activeDate && activeDate !== currentDate
+      ? `最近有效日 ${activeDate} · ${activeDateEntryCount} 卷`
+      : `有效填报 ${activeDateEntryCount} 卷`,
+    fillLabel: `填报端 ${fillEntryCount} 卷`,
+    mesLabel: `外部 MES ${mesRowCount} 行`,
+    matchLabel: `匹配填报 ${matchedFillCount} 卷`,
+    bindingLabel: `已绑机列 ${boundFillCount} 卷`,
+    routeLabel: `路线推断 ${routeInferredCount} 行`,
+    upstreamLabel: missingMachineCodeCount > 0 ? `上游机列码缺失 ${missingMachineCodeCount} 行` : '上游机列码完整',
+    pendingLabel: `待归属 ${pendingMachineCount} 卷`,
+  }
+}
+
+export function shouldSwitchToRealtimeBusinessDate({
+  targetDate,
+  eventBusinessDate,
+  aggregation = {},
+  autoMode = true,
+} = {}) {
+  const eventDate = String(eventBusinessDate || '').trim()
+  const currentTarget = String(targetDate || '').trim()
+  if (!autoMode || !eventDate || !currentTarget || eventDate === currentTarget) return false
+
+  const context = aggregation.business_date_context || aggregation.businessDateContext || {}
+  const requestedDate = String(context.requested_business_date || context.requestedBusinessDate || aggregation.business_date || currentTarget)
+  const currentDate = String(context.current_business_date || context.currentBusinessDate || requestedDate)
+  const activeDate = String(context.active_business_date || context.activeBusinessDate || requestedDate)
+  const requestedEntryCount = numberValue(context.requested_entry_count ?? context.requestedEntryCount)
+  const currentDateEntryCount = numberValue(context.current_date_entry_count ?? context.currentDateEntryCount)
+
+  const targetIsCurrentDate = currentTarget === currentDate && requestedDate === currentTarget
+  if (targetIsCurrentDate && requestedEntryCount === 0 && currentDateEntryCount === 0) {
+    return true
+  }
+
+  return currentTarget === activeDate && eventDate === currentDate
+}
+
+export function shouldRedirectToActiveBusinessDate({
+  targetDate,
+  aggregation = {},
+  autoMode = true,
+} = {}) {
+  const currentTarget = String(targetDate || '').trim()
+  if (!autoMode || !currentTarget) return ''
+
+  const context = aggregation.business_date_context || aggregation.businessDateContext || {}
+  const requestedDate = String(context.requested_business_date || context.requestedBusinessDate || aggregation.business_date || currentTarget)
+  const currentDate = String(context.current_business_date || context.currentBusinessDate || requestedDate)
+  const activeDate = String(context.active_business_date || context.activeBusinessDate || '').trim()
+  if (!activeDate || activeDate === currentTarget) return ''
+
+  const requestedEntryCount = numberValue(context.requested_entry_count ?? context.requestedEntryCount)
+  const currentDateEntryCount = numberValue(context.current_date_entry_count ?? context.currentDateEntryCount)
+  const activeDateEntryCount = numberValue(context.active_date_entry_count ?? context.activeDateEntryCount)
+  const targetIsCurrentDate = currentTarget === currentDate && requestedDate === currentTarget
+  if (targetIsCurrentDate && requestedEntryCount === 0 && currentDateEntryCount === 0 && activeDateEntryCount > 0) {
+    return activeDate
+  }
+  return ''
+}
+
 export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
   const progress = aggregation.overall_progress || aggregation.overallProgress || {}
   const rawSummary = progress.pending_assignment || progress.pendingAssignment || aggregation.pending_assignment || {}
@@ -299,6 +385,32 @@ export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
       output: numberValue(row.output),
     })),
     tone: numberValue(rawSummary.entry_count ?? rawSummary.entryCount) > 0 ? 'warning' : 'success',
+  }
+}
+
+export function buildMissingOutputWeightSummary(aggregation = {}, limit = 3) {
+  const quality = aggregation.data_quality || aggregation.dataQuality || {}
+  const rawSummary = quality.missing_output_weight || quality.missingOutputWeight || {}
+  const items = Array.isArray(rawSummary.items) ? rawSummary.items : []
+  const safeLimit = Math.max(Number(limit) || 0, 0)
+  const entryCount = numberValue(rawSummary.entry_count ?? rawSummary.entryCount)
+
+  return {
+    entryCount,
+    input: numberValue(rawSummary.input),
+    scrap: numberValue(rawSummary.scrap),
+    items: items.slice(0, safeLimit).map((item) => ({
+      entryId: item.entry_id ?? item.entryId ?? null,
+      workOrderId: item.work_order_id ?? item.workOrderId ?? null,
+      trackingCardNo: item.tracking_card_no || item.trackingCardNo || '--',
+      workshopName: item.workshop_name || item.workshopName || '未标记车间',
+      machineName: item.machine_name || item.machineName || '未标记机列',
+      shiftName: item.shift_name || item.shiftName || '未标记班次',
+      inputWeight: numberValue(item.input_weight ?? item.inputWeight),
+      scrapWeight: numberValue(item.scrap_weight ?? item.scrapWeight),
+      entryStatus: item.entry_status || item.entryStatus || '',
+    })),
+    tone: entryCount > 0 ? 'danger' : 'success',
   }
 }
 

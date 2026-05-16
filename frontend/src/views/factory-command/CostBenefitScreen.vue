@@ -13,7 +13,10 @@
         <span>待补口径</span>
         <strong>{{ missingDataText }}</strong>
       </article>
-      <button type="button" @click="askAi">问 AI</button>
+      <div class="fc-cost__actions">
+        <RouterLink class="fc-cost__action" to="/manage/factory/cost/accounting">策略核算</RouterLink>
+        <button type="button" class="fc-cost__action" @click="askAi">问 AI</button>
+      </div>
     </section>
   </FactoryCommandShell>
 </template>
@@ -56,12 +59,18 @@ onMounted(async () => {
 }
 
 .fc-cost article,
-.fc-cost button {
+.fc-cost__actions {
   min-height: 108px;
   padding: 14px;
   border: 1px solid rgba(43, 93, 178, 0.13);
   border-radius: 8px;
   background: #fff;
+}
+
+.fc-cost__actions {
+  display: grid;
+  gap: 10px;
+  min-width: 132px;
 }
 
 .fc-cost span {
@@ -79,10 +88,25 @@ onMounted(async () => {
   font-weight: 900;
 }
 
-.fc-cost button {
+.fc-cost__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
   background: var(--xt-primary);
   color: #fff;
   font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.fc-cost__action + .fc-cost__action {
+  border-color: rgba(43, 93, 178, 0.16);
+  background: #fff;
+  color: var(--xt-primary);
 }
 
 @media (max-width: 820px) {

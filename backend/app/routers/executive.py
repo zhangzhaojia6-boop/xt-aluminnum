@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -113,6 +113,20 @@ class ProcessingFeeRuleIn(BaseModel):
     is_vat_inclusive: bool = True
     effective_from: date
     effective_to: Optional[date] = None
+    note: Optional[str] = None
+
+
+class CostStrategySnapshotIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    table_models: dict[str, list[dict]] = Field(default_factory=dict, alias='tableModels')
+
+
+class CostReviewStatusUpdateIn(BaseModel):
+    month: str
+    workshop_code: str
+    strategy_code: str
+    action: str = Field(pattern='^(review|close)$')
     note: Optional[str] = None
 
 
@@ -223,6 +237,60 @@ def recompute(
         'cost_aggregated': len(agg_decisions),
         'profit_snapshots': len(profit_decisions),
     }
+
+
+@router.post('/cost-strategy-snapshots')
+def persist_cost_strategy_snapshot(
+    body: CostStrategySnapshotIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_admin(current_user)
+    try:
+        result = executive_service.persist_cost_strategy_snapshot(
+            db,
+            table_models=body.table_models,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    db.commit()
+    return result
+
+
+@router.get('/cost-strategy-snapshots/review-status')
+def cost_strategy_review_status(
+    month: str = Query(..., min_length=7, max_length=7),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_view_access(current_user)
+    try:
+        return executive_service.build_cost_strategy_review_status(db, month=month)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post('/cost-strategy-snapshots/review-status')
+def update_cost_strategy_review_status(
+    body: CostReviewStatusUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_admin(current_user)
+    try:
+        result = executive_service.update_cost_strategy_review_status(
+            db,
+            month=body.month,
+            workshop_code=body.workshop_code,
+            strategy_code=body.strategy_code,
+            action=body.action,
+            note=body.note,
+            operator_id=current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    db.commit()
+    return result
 
 
 @router.post('/aluminum-price/fetch')
