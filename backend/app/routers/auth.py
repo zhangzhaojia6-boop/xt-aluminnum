@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.auth import create_access_token, get_password_hash, verify_password
+from app.core.auth import create_access_token, create_refresh_token, decode_refresh_token, get_password_hash, verify_password
 from app.core.deps import get_current_user, get_db
 from app.models.master import Equipment, Workshop
 from app.models.system import User
-from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLoginResponse, UserInfo
+from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLoginResponse, RefreshRequest, UserInfo
 from app.services.audit_service import log_action
 from app.services.equipment_service import build_machine_info
 
@@ -45,6 +45,7 @@ def login(
     db.refresh(user)
 
     token = create_access_token(subject=str(user.id))
+    refresh = create_refresh_token(subject=str(user.id))
     bound_equipment = (
         db.query(Equipment)
         .filter(Equipment.bound_user_id == user.id)
@@ -69,9 +70,34 @@ def login(
     user_info = UserInfo.model_validate(user)
     return {
         'access_token': token,
+        'refresh_token': refresh,
         'token_type': 'bearer',
         'user': user_info.model_dump(),
         'machine_info': machine_info,
+    }
+
+
+@router.post('/refresh', response_model=LoginResponse)
+def refresh_token(
+    body: RefreshRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        payload = decode_refresh_token(body.refresh_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail='Invalid or expired refresh token')
+    user = db.get(User, int(payload['sub']))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail='User not found or disabled')
+    new_access = create_access_token(subject=str(user.id))
+    new_refresh = create_refresh_token(subject=str(user.id))
+    user_info = UserInfo.model_validate(user)
+    return {
+        'access_token': new_access,
+        'refresh_token': new_refresh,
+        'token_type': 'bearer',
+        'user': user_info.model_dump(),
+        'machine_info': None,
     }
 
 
@@ -145,6 +171,7 @@ def qr_login(
         user_info = UserInfo.model_validate(user)
         return {
             'access_token': token,
+            'refresh_token': create_refresh_token(subject=str(user.id)),
             'token_type': 'bearer',
             'user': user_info.model_dump(),
             'machine_info': machine_info,
@@ -188,6 +215,7 @@ def qr_login(
     user_info = UserInfo.model_validate(user)
     return {
         'access_token': token,
+        'refresh_token': create_refresh_token(subject=str(user.id)),
         'token_type': 'bearer',
         'user': user_info.model_dump(),
         'machine_info': machine_info,

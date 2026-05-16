@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.auth import create_access_token, get_password_hash
+from app.core.auth import create_access_token, create_refresh_token, get_password_hash
 from app.core.deps import get_db
 from app.database import Base
 from app.main import app
@@ -77,6 +77,7 @@ def test_login_returns_token_and_records_audit(tmp_path) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body['access_token']
+    assert body['refresh_token']
     assert body['token_type'] == 'bearer'
     assert body['user']['id'] == user_id
     assert body['user']['username'] == 'operator'
@@ -170,6 +171,34 @@ def test_me_rejects_invalid_token(tmp_path) -> None:
 
     assert response.status_code == 401
     assert response.json()['detail'] == 'Invalid authentication credentials'
+
+
+def test_refresh_returns_new_login_response(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    user_id = _seed_user(session_factory, username='refreshed')
+    _override_db(session_factory)
+    refresh = create_refresh_token(subject=str(user_id))
+
+    response = TestClient(app).post('/api/v1/auth/refresh', json={'refresh_token': refresh})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body['access_token']
+    assert body['refresh_token']
+    assert body['token_type'] == 'bearer'
+    assert body['user']['id'] == user_id
+
+
+def test_refresh_rejects_access_token(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    user_id = _seed_user(session_factory)
+    _override_db(session_factory)
+    access = create_access_token(subject=str(user_id))
+
+    response = TestClient(app).post('/api/v1/auth/refresh', json={'refresh_token': access})
+
+    assert response.status_code == 401
+    assert response.json()['detail'] == 'Invalid or expired refresh token'
 
 
 def test_logout_response_contract() -> None:

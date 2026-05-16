@@ -40,9 +40,14 @@ class UserInfo(BaseModel):
 
 class LoginResponse(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     user: UserInfo
     machine_info: Optional[MachineInfo] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class WorkshopQrResponse(BaseModel):
