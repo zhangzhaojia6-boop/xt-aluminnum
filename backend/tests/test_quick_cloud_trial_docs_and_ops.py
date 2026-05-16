@@ -831,13 +831,14 @@ def test_backend_completion_gate_records_live_check_blockers() -> None:
     state = _read('docs/deploy/current-state.md')
 
     for expected in [
-        '`codex/gai@05b70bb`',
+        '`codex/gai@e93dcf7`',
         'python scripts/check_llm_live.py --json',
         'python scripts/dingtalk_cli.py send-test --userid <dingtalk_user_id> --json',
-        '`940 passed, 3 skipped, 124 deselected`',
-        'GitHub Actions `ci #365`',
+        '`941 passed, 3 skipped, 124 deselected`',
+        'WSL/Python 3.12 后端全量为 `941 passed, 3 skipped, 124 deselected`',
+        'GitHub Actions `ci #366`',
         '`frontend-build`、`backend-tests`、`compose-smoke` 全部 success',
-        '`Deploy Staging #6` success',
+        '`Deploy Staging #7` success',
         '`token_received=true`、`token_length=32`',
         '`missing_scope=qyapi_get_department_member`',
         '`LLM_API_KEY`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` 仍为空',
