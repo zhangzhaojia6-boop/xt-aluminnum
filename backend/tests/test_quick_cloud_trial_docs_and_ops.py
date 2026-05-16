@@ -827,6 +827,27 @@ def test_external_readiness_docs_expose_env_template_command() -> None:
         assert expected in state
 
 
+def test_backend_completion_gate_records_live_check_blockers() -> None:
+    state = _read('docs/deploy/current-state.md')
+
+    for expected in [
+        '`codex/gai@05b70bb`',
+        'python scripts/check_llm_live.py --json',
+        'python scripts/dingtalk_cli.py send-test --userid <dingtalk_user_id> --json',
+        '`940 passed, 3 skipped, 124 deselected`',
+        'GitHub Actions `ci #365`',
+        '`frontend-build`、`backend-tests`、`compose-smoke` 全部 success',
+        '`Deploy Staging #6` success',
+        '`token_received=true`、`token_length=32`',
+        '`missing_scope=qyapi_get_department_member`',
+        '`LLM_API_KEY`、`APP_CONNECTION_API_BASE`、`APP_CONNECTION_API_KEY` 仍为空',
+        '`docs/superpowers/plans/2026-05-16-backend-completion.md`',
+        '`钉钉推送真实送达` 与 `AI 助手返回真实 LLM 回答` 仍不能打勾',
+        '不能调用 goal complete',
+    ]:
+        assert expected in state
+
+
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
     deploy = _read('scripts/deploy_trial.sh')
     check = _read('scripts/check_trial_stack.sh')
