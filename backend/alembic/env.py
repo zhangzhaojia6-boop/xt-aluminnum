@@ -24,7 +24,10 @@ def _should_bootstrap_sqlite_at_head(connection) -> bool:
     if connection.dialect.name != 'sqlite':
         return False
 
-    revision_argument = context.get_revision_argument()
+    try:
+        revision_argument = context.get_revision_argument()
+    except KeyError:
+        return False
     revision_arguments = (
         set(revision_argument)
         if isinstance(revision_argument, (list, tuple, set))

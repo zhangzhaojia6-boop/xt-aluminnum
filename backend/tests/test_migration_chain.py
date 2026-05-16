@@ -27,6 +27,17 @@ def test_alembic_sqlite_upgrade_downgrade_upgrade_from_empty_database(tmp_path) 
         assert result.returncode == 0, result.stderr
 
 
+def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
+    database_url = f"sqlite:///{(tmp_path / 'migration_current.db').as_posix()}"
+
+    upgrade = _run_alembic('upgrade head', database_url)
+    assert upgrade.returncode == 0, upgrade.stderr
+
+    current = _run_alembic('current', database_url)
+    assert current.returncode == 0, current.stderr
+    assert '0030_assistant_usage' in current.stdout
+
+
 def test_seed_production_script_is_available() -> None:
     script = BACKEND_ROOT / 'scripts' / 'seed_production.py'
 
