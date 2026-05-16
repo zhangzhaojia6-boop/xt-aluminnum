@@ -30,6 +30,9 @@ export default defineConfig({
             if (normalizedId.includes('/three/')) {
               return 'vendor-three'
             }
+            if (normalizedId.includes('/echarts/') || normalizedId.includes('/zrender/')) {
+              return 'vendor-echarts'
+            }
             if (normalizedId.includes('/element-plus/') || normalizedId.includes('/@element-plus/')) {
               return 'vendor-ui'
             }

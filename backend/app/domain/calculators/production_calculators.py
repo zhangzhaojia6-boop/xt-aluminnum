@@ -34,3 +34,27 @@ def daily_cumulative_output(ri_chan_liang_ton: Iterable[float | int | None]) -> 
 def monthly_cumulative_output(yue_nei_ri_chan_liang_ton: Iterable[float | int | None]) -> float:
     """月累计产量口径：月内已确认产量求和；来源见 docs/domain/xintai-real-fields.md「生产」小节。"""
     return _sum_values(yue_nei_ri_chan_liang_ton)
+
+
+def reporting_rate(reported_count: int, expected_count: int) -> float:
+    if expected_count == 0:
+        return 0.0
+    return reported_count / expected_count
+
+
+def day_over_day_change(today_output: float, yesterday_output: float) -> float:
+    if yesterday_output == 0:
+        return 0.0
+    return (today_output - yesterday_output) / yesterday_output
+
+
+def month_average_daily_output(monthly_total: float, active_days: int) -> float:
+    if active_days == 0:
+        return 0.0
+    return monthly_total / active_days
+
+
+def contract_fulfillment_rate(delivered_tons: float, contract_tons: float) -> float:
+    if contract_tons == 0:
+        return 0.0
+    return delivered_tons / contract_tons

@@ -258,6 +258,12 @@ class WorkOrderEntry(Base):
     __tablename__ = 'work_order_entries'
     __table_args__ = (
         Index('ix_work_order_entries_work_order_workshop_date', 'work_order_id', 'workshop_id', 'business_date'),
+        UniqueConstraint(
+            'work_order_id',
+            'shift_id',
+            'business_date',
+            name='uq_work_order_entries_dedup',
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

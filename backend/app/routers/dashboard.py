@@ -133,3 +133,43 @@ def workshop_dashboard_alias(
         target_date=target_date or date.today(),
         workshop_id=selected_workshop_id,
     )
+
+
+@router.get('/cumulative')
+def cumulative_dashboard(
+    request: Request,
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return report_service.build_cumulative(db, target_date=target_date or date.today())
+
+
+@router.get('/comparison')
+def comparison_dashboard(
+    request: Request,
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return report_service.build_comparison(db, target_date=target_date or date.today())
+
+
+@router.get('/timeseries')
+def timeseries_dashboard(
+    request: Request,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    from datetime import timedelta
+    effective_end = end_date or date.today()
+    effective_start = start_date or (effective_end - timedelta(days=30))
+    return report_service.build_timeseries(db, start_date=effective_start, end_date=effective_end)

@@ -274,4 +274,27 @@
 | 铜剂吨耗 | tong_ji_dun_hao_kg_per_ton | 耗材表有表头但 5.5 有效值不足。 | 耗材表.xls / 能耗 | TODO：等待有值归档。 |
 | 再生油出 | zai_sheng_you_chu_kg | 耗材表有表头但 5.5 有效值不足。 | 耗材表.xls / 能耗 | TODO：等待有值归档。 |
 | 再生油回 | zai_sheng_you_hui_kg | 耗材表有表头但 5.5 有效值不足。 | 耗材表.xls / 能耗 | TODO：等待有值归档。 |
-| 机列吨气耗对比基准 | ji_lie_dun_qi_hao_dui_bi_base | 机列能耗表“对比”未说明是对昨日还是指标。 | 铸二5月5日能耗表.xls / Sheet2 | TODO：业务确认。 |
+| 机列吨气耗对比基准 | ji_lie_dun_qi_hao_dui_bi_base | 机列能耗表”对比”未说明是对昨日还是指标。 | 铸二5月5日能耗表.xls / Sheet2 | TODO：业务确认。 |
+
+## Calculator 口径映射 (A2 新增 2026-05-16)
+
+| Calculator 函数 | 对应字段 slug | 公式 | 防护 |
+| --- | --- | --- | --- |
+| yield_rate | yue_cheng_pin_lv | chan_liang / tou_liao_liang | 分母=0 返回 0 |
+| scrap_rate | chan_sheng_fei_liao_ri_he_ton / tou_liao_liang_ri_he_ton | fei_liao / tou_liao | 分母=0 返回 0 |
+| shift_output | ri_chan_liang_ri_he_ton (多班次) | Σ ban_ci_chan_liang | None→0 |
+| daily_cumulative_output | ri_chan_liang_ri_he_ton (多车间) | Σ ri_chan_liang | None→0 |
+| monthly_cumulative_output | ri_chan_liang_lei_ji_ton | Σ yue_nei_ri_chan_liang | None→0 |
+| unit_energy_consumption | dian_hao_kwh_per_ton | hao_dian_liang / chan_liang | 分母=0 返回 0 |
+| peak_valley_split | 峰谷平尖各字段 | 尖+峰+平+谷→总量+各占比 | 总量=0 占比=0 |
+| cross_workshop_aggregate | 各车间电量 | Σ che_jian_neng_hao → total+count+max | — |
+| defect_rate | bu_he_ge_juan / he_ji_juan | 不合格/合计 | 分母=0 返回 0 |
+| pareto_top_n | 缺陷类型计数 | 降序排列+累计占比 | 空 dict 返回 [] |
+| disposition_breakdown | 处置类型计数 | 各类型/总数 | 总数=0 返回空 |
+| attendance_rate | shi_dao / ying_dao | 实到/应到 | 分母=0 返回 0 |
+| overtime_hours | jia_ban_fen_zhong | 分钟/60 | — |
+| makeup_card_rate | bu_ka_ci_shu / da_ka_ci_shu | 补卡/打卡 | 分母=0 返回 0 |
+| reporting_rate | 已报班次 / 应报班次 | reported/expected | 分母=0 返回 0 |
+| day_over_day_change | 今日产量 vs 昨日产量 | (today-yesterday)/yesterday | 昨日=0 返回 0 |
+| month_average_daily_output | 月累计 / 有效天数 | monthly_total/active_days | 天数=0 返回 0 |
+| contract_fulfillment_rate | 已交付 / 合同量 | delivered/contract | 合同=0 返回 0 |

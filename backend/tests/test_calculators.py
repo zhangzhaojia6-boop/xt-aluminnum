@@ -254,3 +254,81 @@ def test_makeup_card_rate_uses_makeup_count_over_clock_count(
     expected_rate: float,
 ) -> None:
     assert makeup_card_rate(bu_ka_ci_shu_count, da_ka_ci_shu_count) == pytest.approx(expected_rate)
+
+
+# --- A2 新增口径测试（红阶段） ---
+
+from app.domain.calculators.production_calculators import (
+    reporting_rate,
+    day_over_day_change,
+    month_average_daily_output,
+)
+from app.domain.calculators.production_calculators import contract_fulfillment_rate
+
+
+@pytest.mark.parametrize(
+    ('reported_count', 'expected_count', 'expected_rate'),
+    [
+        pytest.param(18, 20, 0.9, id='5.5-normal-shift-reporting'),
+        pytest.param(20, 20, 1.0, id='5.5-full-reporting'),
+        pytest.param(0, 20, 0.0, id='5.5-no-reporting'),
+        pytest.param(15, 0, 0.0, id='5.5-zero-expected-guard'),
+    ],
+)
+def test_reporting_rate_calculates_shift_coverage(
+    reported_count: int,
+    expected_count: int,
+    expected_rate: float,
+) -> None:
+    assert reporting_rate(reported_count, expected_count) == pytest.approx(expected_rate)
+
+
+@pytest.mark.parametrize(
+    ('today_output', 'yesterday_output', 'expected_change'),
+    [
+        pytest.param(356.9, 340.75, (356.9 - 340.75) / 340.75, id='5.5-finishing-dod-up'),
+        pytest.param(60.38, 76.49, (60.38 - 76.49) / 76.49, id='5.5-casting-dod-down'),
+        pytest.param(100.0, 100.0, 0.0, id='5.5-no-change'),
+        pytest.param(50.0, 0.0, 0.0, id='5.5-zero-yesterday-guard'),
+    ],
+)
+def test_day_over_day_change_computes_ratio(
+    today_output: float,
+    yesterday_output: float,
+    expected_change: float,
+) -> None:
+    assert day_over_day_change(today_output, yesterday_output) == pytest.approx(expected_change)
+
+
+@pytest.mark.parametrize(
+    ('monthly_total', 'active_days', 'expected_avg'),
+    [
+        pytest.param(1909.92, 16, 1909.92 / 16, id='5.5-rolling-month-avg'),
+        pytest.param(251.07, 8, 251.07 / 8, id='5.5-casting-month-avg'),
+        pytest.param(1688.376, 14, 1688.376 / 14, id='5.5-finishing-month-avg'),
+        pytest.param(500.0, 0, 0.0, id='5.5-zero-days-guard'),
+    ],
+)
+def test_month_average_daily_output_divides_by_active_days(
+    monthly_total: float,
+    active_days: int,
+    expected_avg: float,
+) -> None:
+    assert month_average_daily_output(monthly_total, active_days) == pytest.approx(expected_avg)
+
+
+@pytest.mark.parametrize(
+    ('delivered_tons', 'contract_tons', 'expected_rate'),
+    [
+        pytest.param(850.0, 1000.0, 0.85, id='5.5-contract-partial-delivery'),
+        pytest.param(1000.0, 1000.0, 1.0, id='5.5-contract-full-delivery'),
+        pytest.param(1200.0, 1000.0, 1.2, id='5.5-contract-over-delivery'),
+        pytest.param(0.0, 0.0, 0.0, id='5.5-zero-contract-guard'),
+    ],
+)
+def test_contract_fulfillment_rate_computes_delivery_ratio(
+    delivered_tons: float,
+    contract_tons: float,
+    expected_rate: float,
+) -> None:
+    assert contract_fulfillment_rate(delivered_tons, contract_tons) == pytest.approx(expected_rate)

@@ -57,6 +57,11 @@ const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
 const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
 const ExecutiveDashboard = () => import('../views/executive/ExecutiveDashboard.vue')
 const ProcessingFeeAdmin = () => import('../views/executive/ProcessingFeeAdmin.vue')
+const InventoryCenter = () => import('../views/inventory/InventoryCenter.vue')
+const CostCenter = () => import('../views/cost/CostCenter.vue')
+const ContractsCenter = () => import('../views/contracts/ContractsCenter.vue')
+const OpsCenter = () => import('../views/ops/OpsCenter.vue')
+const SettingsCenter = () => import('../views/settings/SettingsCenter.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
 const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
@@ -155,6 +160,11 @@ const rawRoutes = [
       { path: 'imports', name: 'manage-imports', component: ImportHistory, meta: { ...adminMeta, title: '导入历史', canonical: '/manage/imports' } },
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
+      { path: 'inventory', name: 'manage-inventory', component: InventoryCenter, meta: { ...reviewMeta, title: '库存出入中心', canonical: '/manage/inventory' } },
+      { path: 'cost-center', name: 'manage-cost-center', component: CostCenter, meta: { ...reviewMeta, title: '成本与效益中心', canonical: '/manage/cost-center' } },
+      { path: 'contracts', name: 'manage-contracts', component: ContractsCenter, meta: { ...reviewMeta, title: '合同与订单中心', canonical: '/manage/contracts' } },
+      { path: 'ops-center', name: 'manage-ops-center', component: OpsCenter, meta: { ...reviewMeta, title: '运维告警中心', canonical: '/manage/ops-center' } },
+      { path: 'settings-center', name: 'manage-settings-center', component: SettingsCenter, meta: { ...adminMeta, title: '系统配置中心', canonical: '/manage/settings-center' } },
       { path: 'admin', name: 'admin-overview', redirect: '/manage/admin/settings', meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/settings', name: 'admin-ops-reliability', component: LiveDashboard, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },

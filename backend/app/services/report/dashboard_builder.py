@@ -802,3 +802,97 @@ def build_statistics_dashboard(db: Session, *, target_date: date) -> dict:
             for batch in recent_batches
         ],
     }
+
+
+def build_cumulative(db: Session, *, target_date: date) -> dict[str, Any]:
+    from app.domain.calculators.production_calculators import (
+        month_average_daily_output,
+        monthly_cumulative_output,
+    )
+    from app.domain.calculators.energy_calculators import unit_energy_consumption
+
+    month_start = target_date.replace(day=1)
+    rows = (
+        db.query(
+            ShiftProductionData.business_date,
+            func.sum(ShiftProductionData.output_weight).label('daily_output'),
+            func.sum(ShiftProductionData.electricity_kwh).label('daily_energy'),
+        )
+        .filter(
+            ShiftProductionData.business_date >= month_start,
+            ShiftProductionData.business_date <= target_date,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .group_by(ShiftProductionData.business_date)
+        .all()
+    )
+    daily_outputs = [float(r.daily_output or 0) for r in rows]
+    daily_energies = [float(r.daily_energy or 0) for r in rows]
+    active_days = len(daily_outputs)
+    month_total_output = float(monthly_cumulative_output(daily_outputs))
+    month_total_energy = sum(daily_energies)
+    avg_daily = month_average_daily_output(month_total_output, active_days)
+    avg_energy_per_ton = unit_energy_consumption(month_total_energy, month_total_output)
+
+    return {
+        'month_total_output': month_total_output,
+        'month_total_energy': month_total_energy,
+        'average_daily_output': avg_daily,
+        'average_energy_per_ton': avg_energy_per_ton,
+        'active_days': active_days,
+        'target_date': target_date.isoformat(),
+    }
+
+
+def build_comparison(db: Session, *, target_date: date) -> dict[str, Any]:
+    from app.domain.calculators.production_calculators import day_over_day_change
+
+    def _day_total(d: date) -> float:
+        result = (
+            db.query(func.sum(ShiftProductionData.output_weight))
+            .filter(
+                ShiftProductionData.business_date == d,
+                ShiftProductionData.data_status != 'voided',
+            )
+            .scalar()
+        )
+        return float(result or 0)
+
+    today_val = _day_total(target_date)
+    yesterday_val = _day_total(target_date - timedelta(days=1))
+    week_ago_val = _day_total(target_date - timedelta(days=7))
+
+    return {
+        'target_date': target_date.isoformat(),
+        'today_output': today_val,
+        'yesterday_output': yesterday_val,
+        'week_ago_output': week_ago_val,
+        'day_over_day': day_over_day_change(today_val, yesterday_val),
+        'week_over_week': day_over_day_change(today_val, week_ago_val),
+    }
+
+
+def build_timeseries(db: Session, *, start_date: date, end_date: date) -> list[dict[str, Any]]:
+    rows = (
+        db.query(
+            ShiftProductionData.business_date,
+            func.sum(ShiftProductionData.output_weight).label('output'),
+            func.sum(ShiftProductionData.electricity_kwh).label('energy'),
+        )
+        .filter(
+            ShiftProductionData.business_date >= start_date,
+            ShiftProductionData.business_date <= end_date,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .group_by(ShiftProductionData.business_date)
+        .order_by(ShiftProductionData.business_date)
+        .all()
+    )
+    return [
+        {
+            'date': r.business_date.isoformat(),
+            'output': float(r.output or 0),
+            'energy': float(r.energy or 0),
+        }
+        for r in rows
+    ]

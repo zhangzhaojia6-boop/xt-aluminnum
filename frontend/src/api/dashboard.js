@@ -39,6 +39,21 @@ export async function fetchExternalReadiness() {
   return data
 }
 
+export async function fetchCumulative(params = {}) {
+  const { data } = await api.get('/dashboard/cumulative', { params })
+  return data
+}
+
+export async function fetchComparison(params = {}) {
+  const { data } = await api.get('/dashboard/comparison', { params })
+  return data
+}
+
+export async function fetchTimeseries(params = {}) {
+  const { data } = await api.get('/dashboard/timeseries', { params })
+  return data
+}
+
 export async function fetchFactoryDirectorSummary(params = {}) {
   return fetchFactoryDashboard(params)
 }

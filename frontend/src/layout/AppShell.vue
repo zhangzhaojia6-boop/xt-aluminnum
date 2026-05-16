@@ -85,7 +85,7 @@
         <el-card class="panel">
           <template #header>最近问答</template>
           <div v-if="assistantStore.history.length" class="page-stack">
-            <div v-for="item in assistantStore.history.slice(0, 5)" :key="item.at" class="panel" style="padding: 10px;">
+            <div v-for="item in assistantStore.history.slice(0, 5)" :key="item.at" class="panel" style="padding: var(--xt-space-3);">
               <div class="stat-label">{{ item.query }}</div>
               <div class="note">{{ item.response?.answer || item.response?.summary || '已完成' }}</div>
             </div>
