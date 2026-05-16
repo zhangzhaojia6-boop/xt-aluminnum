@@ -234,6 +234,39 @@ def sync_clock_payload(
     }
 
 
+def send_test_notification(
+    userid: str,
+    *,
+    message: str = '数据中枢钉钉联通测试',
+    service: Any = dingtalk_service.service,
+) -> dict[str, Any]:
+    status = build_status_payload(service)
+    user_id = str(userid or '').strip()
+    if not status['configured']:
+        return {
+            'ok': False,
+            'configured': False,
+            'missing': status['missing'],
+            'message': 'DingTalk is not configured',
+        }
+    if not user_id:
+        return {
+            'ok': False,
+            'configured': True,
+            'userid_masked': None,
+            'message': 'DingTalk userid is required',
+        }
+
+    ok, detail = service.send_work_notification(user_id, message)
+    return {
+        'ok': bool(ok),
+        'configured': True,
+        'userid_masked': _mask(user_id),
+        'detail': detail,
+        'message_length': len(str(message)),
+    }
+
+
 def _print_payload(payload: dict[str, Any], *, json_mode: bool, command: str) -> None:
     if json_mode:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -275,6 +308,13 @@ def _print_payload(payload: dict[str, Any], *, json_mode: bool, command: str) ->
         print(f"synced={summary.get('synced', 0)}")
         print(f"skipped={summary.get('skipped', 0)}")
         print(f"failed={summary.get('failed', 0)}")
+        return
+
+    if command == 'send-test':
+        print(f"send_test={'ok' if payload['ok'] else 'failed'}")
+        if payload.get('userid_masked'):
+            print(f"userid={payload['userid_masked']}")
+        print(f"detail={payload.get('detail') or payload.get('message', 'unknown')}")
 
 
 def _exit_code(command: str, payload: dict[str, Any]) -> int:
@@ -307,6 +347,11 @@ def _build_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument('--end-date', default=today, help='End date, YYYY-MM-DD')
     sync_parser.add_argument('--json', action='store_true', help='Output JSON only')
 
+    send_parser = subparsers.add_parser('send-test')
+    send_parser.add_argument('--userid', required=True, help='DingTalk userid to receive the test notification')
+    send_parser.add_argument('--message', default='数据中枢钉钉联通测试', help='Message body for the test notification')
+    send_parser.add_argument('--json', action='store_true', help='Output JSON only')
+
     return parser
 
 
@@ -338,6 +383,8 @@ def main(
             sessionmaker_factory=sessionmaker_factory,
             sync_func=sync_func,
         )
+    elif args.command == 'send-test':
+        payload = send_test_notification(args.userid, message=args.message, service=service)
     else:
         parser.error(f'unsupported command: {args.command}')
 

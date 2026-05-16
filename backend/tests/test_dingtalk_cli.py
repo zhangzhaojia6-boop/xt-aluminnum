@@ -36,6 +36,7 @@ class _FakeDingTalkService:
             agent_id=agent_id,
         )
         self._token = token
+        self.sent_messages: list[tuple[str, str | dict]] = []
 
     @property
     def enabled(self) -> bool:
@@ -63,6 +64,10 @@ class _FakeDingTalkService:
                 'name': '无手机号员工',
             },
         ]
+
+    def send_work_notification(self, userid: str, content: str | dict) -> tuple[bool, str]:
+        self.sent_messages.append((userid, content))
+        return True, 'dingtalk_sent'
 
 
 def test_status_payload_reports_missing_fields_without_leaking_secret() -> None:
@@ -220,3 +225,38 @@ def test_main_contacts_json_reports_permission_scope_without_leaking_contact_val
     assert payload['department_access'] is False
     assert payload['missing_scope'] == 'qyapi_get_department_member'
     assert '13800000000' not in output
+
+
+def test_send_test_requires_configured_dingtalk_without_sending() -> None:
+    service = _FakeDingTalkService(app_key='key')
+
+    payload = MODULE.send_test_notification('dt-user-1', service=service)
+
+    assert payload['ok'] is False
+    assert payload['configured'] is False
+    assert 'DINGTALK_APP_SECRET' in payload['missing']
+    assert service.sent_messages == []
+
+
+def test_main_send_test_json_masks_userid_and_sends_message(capsys) -> None:
+    service = _FakeDingTalkService(
+        corp_id='corp',
+        app_key='key',
+        app_secret='secret',
+        agent_id='agent',
+    )
+
+    exit_code = MODULE.main(
+        ['send-test', '--userid', 'dt-user-secret', '--message', '联通测试', '--json'],
+        service=service,
+    )
+
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+
+    assert exit_code == 0
+    assert payload['ok'] is True
+    assert payload['detail'] == 'dingtalk_sent'
+    assert payload['userid_masked'] != 'dt-user-secret'
+    assert 'dt-user-secret' not in output
+    assert service.sent_messages == [('dt-user-secret', '联通测试')]
