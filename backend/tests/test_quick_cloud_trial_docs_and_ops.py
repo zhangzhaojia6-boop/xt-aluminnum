@@ -834,8 +834,8 @@ def test_backend_completion_gate_records_live_check_blockers() -> None:
         '`codex/gai` 最新 HEAD',
         'python scripts/check_llm_live.py --json',
         'python scripts/dingtalk_cli.py send-test --userid <dingtalk_user_id> --json',
-        '`941 passed, 3 skipped, 124 deselected`',
-        'WSL/Python 3.12 后端全量为 `941 passed, 3 skipped, 124 deselected`',
+        '`942 passed, 3 skipped, 124 deselected`',
+        'WSL/Python 3.12 后端全量为 `942 passed, 3 skipped, 124 deselected`',
         'GitHub Actions 对最新 HEAD 的 `frontend-build`、`backend-tests`、`compose-smoke` 全部 success',
         'Deploy Staging 对最新 HEAD success',
         '`token_received=true`、`token_length=32`',
@@ -844,8 +844,36 @@ def test_backend_completion_gate_records_live_check_blockers() -> None:
         '`docs/superpowers/plans/2026-05-16-backend-completion.md`',
         '`钉钉推送真实送达` 与 `AI 助手返回真实 LLM 回答` 仍不能打勾',
         '不能调用 goal complete',
+        'docs/audits/2026-05-17-backend-completion-gate-audit.md',
+        '目标必须保持 active',
     ]:
         assert expected in state
+
+
+def test_backend_completion_gate_audit_records_final_acceptance_requirements() -> None:
+    audit = _read('docs/audits/2026-05-17-backend-completion-gate-audit.md')
+
+    for expected in [
+        '`docs/superpowers/plans/2026-05-16-backend-completion.md`',
+        '`alembic upgrade head` 从空库建表成功',
+        'Windows 后端全量 `942 passed, 3 skipped, 124 deselected`',
+        'WSL/Python 3.12 后端全量 `942 passed, 3 skipped, 124 deselected`',
+        '`mes_sync.configured=true`',
+        '`fetched_count=50`、`upserted_count=50`',
+        '`daily_report`、`mes_sync`、`fill_reminder`、`data_archive`',
+        '`/health`、`/healthz`、`/readyz`',
+        '`frontend-build`、`backend-tests`、`compose-smoke`、`deploy-staging`',
+        '`DINGTALK_NO_BOUND_USERS`',
+        '`DINGTALK_CONTACTS_PERMISSION_MISSING`',
+        '`missing_scope=qyapi_get_department_member`',
+        '`LLM_API_KEY` 为空',
+        '生产 `main@ed4a7b2` 不包含 `check_llm_live.py` 和 `dingtalk_cli.py send-test`',
+        'python scripts/dingtalk_cli.py send-test --userid <real_dingtalk_user_id> --json',
+        'python scripts/check_llm_live.py --json',
+        '`ok=true`、`response_received=true`',
+        '本目标必须保持 active',
+    ]:
+        assert expected in audit
 
 
 def test_quick_trial_ops_scripts_exist_with_expected_commands() -> None:
