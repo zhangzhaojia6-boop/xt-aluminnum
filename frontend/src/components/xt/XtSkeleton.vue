@@ -1,35 +1,43 @@
 <template>
-  <div class="xt-skeleton" :class="{ 'is-animated': animated }">
-    <div v-if="loading" class="xt-skeleton__content">
+  <div class="xt-skeleton" :class="{ 'is-animated': animated }" aria-label="正在加载">
+    <div v-if="showSkeleton" class="xt-skeleton__content">
       <slot name="template">
-        <div class="xt-skeleton__row" v-for="i in rows" :key="i">
-          <div class="xt-skeleton__item" :style="{ width: itemWidth(i) }"></div>
+        <div v-for="i in rows" :key="i" class="xt-skeleton__row">
+          <div class="xt-skeleton__item" :style="{ width: itemWidth(i) }" />
         </div>
       </slot>
-      <!-- Scan line animation matching industrial.css -->
-      <div class="xt-scan-line"></div>
     </div>
-    <slot v-else></slot>
+    <slot v-else />
   </div>
 </template>
 
 <script setup>
-defineProps({
-  loading: Boolean,
+import { computed } from 'vue'
+
+defineOptions({ name: 'XtSkeleton' })
+
+const props = defineProps({
+  loading: {
+    type: Boolean,
+    default: null,
+  },
   animated: {
     type: Boolean,
-    default: true
+    default: true,
   },
   rows: {
     type: Number,
-    default: 3
-  }
+    default: 3,
+  },
 })
+
+const showSkeleton = computed(() => (props.loading === null ? true : props.loading))
 
 const itemWidth = (i) => {
   if (i === 1) return '40%'
-  if (i === 3) return '60%'
-  return '90%'
+  if (i % 3 === 0) return '60%'
+  if (i % 2 === 0) return '88%'
+  return '100%'
 }
 </script>
 
@@ -42,8 +50,11 @@ const itemWidth = (i) => {
 .xt-skeleton__content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--xt-space-3, 12px);
+}
+
+.xt-skeleton__row {
+  display: flex;
 }
 
 .xt-skeleton__item {
@@ -55,9 +66,9 @@ const itemWidth = (i) => {
 .is-animated .xt-skeleton__item {
   background: linear-gradient(
     90deg,
-    var(--xt-bg-panel-soft) 25%,
+    var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.05)) 25%,
     rgba(255, 255, 255, 0.08) 37%,
-    var(--xt-bg-panel-soft) 63%
+    var(--xt-bg-panel-soft, rgba(255, 255, 255, 0.05)) 63%
   );
   background-size: 400% 100%;
   animation: xt-skeleton-loading 1.4s ease infinite;

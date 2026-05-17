@@ -12,6 +12,7 @@ import router, { installRouterGuards } from './router'
 import { setupApiInterceptors } from './api'
 import { useAuthStore } from './stores/auth'
 import { installSW } from './sw-register'
+import { installErrorMonitor } from './plugins/errorMonitor'
 import './design/xt-tokens.css'
 import './design/xt-base.css'
 import './design/xt-motion.css'
@@ -36,14 +37,11 @@ setupApiInterceptors(router, pinia)
 app.use(router)
 
 import('echarts/core').then(({ registerTheme }) => {
-  import('./design/echarts-hud.js').then(({ XT_HUD_THEME_NAME, registerHudEchartsTheme }) => {
+  import('./design/echarts-hud.js').then(({ registerHudEchartsTheme }) => {
     registerHudEchartsTheme({ registerTheme })
   })
 })
 
 app.mount('#app')
-)
-  })
-})
 
-app.mount('#app')
+installSW()

@@ -22,7 +22,6 @@ export default defineConfig({
       manifest: {
         name: '数据中枢',
         short_name: '数据中枢',
-        description: '铝业生产旁路监控系统数据中枢',
         theme_color: '#0B63F6',
         background_color: '#0F172A',
         display: 'standalone',

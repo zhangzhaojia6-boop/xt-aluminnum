@@ -8,10 +8,9 @@
           <circle cx="12" cy="12" r="2" fill="currentColor"/>
         </svg>
       </div>
-      <h3>扫描引导</h3>
-      <p>请将二维码置于框内，保持光线充足。系统将自动识别并跳转。</p>
+      <div class="xt-camera-guide__frame" aria-hidden="true" />
       <div class="xt-camera-guide__actions">
-        <el-button type="primary" @click="dismiss">我知道了</el-button>
+        <el-button type="primary" @click="dismiss">开始扫码</el-button>
       </div>
     </div>
   </div>
@@ -27,7 +26,6 @@ const dismiss = () => {
   localStorage.setItem('xt-camera-guide-seen', 'true')
 }
 
-// Auto dismiss check
 if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide-seen')) {
   visible.value = false
 }
@@ -63,18 +61,13 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide
   filter: drop-shadow(0 0 10px rgba(11, 99, 246, 0.5));
 }
 
-.xt-camera-guide__content h3 {
-  margin: 0 0 12px;
-  color: var(--xt-text);
-  font-family: var(--xt-font-display);
-  font-size: 20px;
-}
-
-.xt-camera-guide__content p {
-  margin: 0 0 24px;
-  color: var(--xt-text-muted);
-  font-size: 14px;
-  line-height: 1.6;
+.xt-camera-guide__frame {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 24px;
+  border: 1px solid var(--xt-primary-border);
+  border-radius: var(--xt-radius-lg);
+  box-shadow: 0 0 24px rgba(11, 99, 246, 0.25) inset;
 }
 
 .xt-camera-guide__actions .el-button {

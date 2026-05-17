@@ -1,57 +1,64 @@
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
+import { reportFrontendPerf } from '../api/telemetry.js'
 
-/**
- * Performance Monitoring Composable
- * Tracks LCP, FID, CLS, etc.
- */
 export function usePerformance(routeName) {
-  const reportPerf = (metric) => {
-    console.log(`[PerfMonitor][${routeName}]`, metric)
-    // Send to backend telemetry
-    // fetch('/api/telemetry/perf', { method: 'POST', body: JSON.stringify(metric) })
+  const observers = []
+
+  function safeObserve(type, handler) {
+    if (typeof PerformanceObserver === 'undefined') return
+    try {
+      const observer = new PerformanceObserver(handler)
+      observer.observe({ type, buffered: true })
+      observers.push(observer)
+    } catch (_) {
+      // unsupported entry type — skip silently
+    }
   }
 
   onMounted(() => {
-    if (typeof PerformanceObserver === 'undefined') return
-
-    // Track Largest Contentful Paint
-    const lcpObserver = new PerformanceObserver((entryList) => {
+    safeObserve('largest-contentful-paint', (entryList) => {
       const entries = entryList.getEntries()
-      const lastEntry = entries[entries.length - 1]
-      reportPerf({
-        metric: 'LCP',
-        value: lastEntry.renderTime || lastEntry.loadTime,
-        route: routeName
-      })
+      const last = entries[entries.length - 1]
+      if (!last) return
+      const value = last.renderTime || last.loadTime || last.startTime
+      reportFrontendPerf({ route: routeName, metric: 'LCP', value })
     })
-    lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true })
 
-    // Track First Input Delay
-    const fidObserver = new PerformanceObserver((entryList) => {
-      entryList.getEntries().forEach((entry) => {
-        reportPerf({
+    safeObserve('first-input', (entryList) => {
+      for (const entry of entryList.getEntries()) {
+        reportFrontendPerf({
+          route: routeName,
           metric: 'FID',
           value: entry.processingStart - entry.startTime,
-          route: routeName
         })
-      })
-    })
-    fidObserver.observe({ type: 'first-input', buffered: true })
-
-    // Track Layout Shift
-    let clsValue = 0
-    const clsObserver = new PerformanceObserver((entryList) => {
-      for (const entry of entryList.getEntries()) {
-        if (!entry.hadRecentInput) {
-          clsValue += entry.value
-          reportPerf({
-            metric: 'CLS_STEP',
-            value: clsValue,
-            route: routeName
-          })
-        }
       }
     })
-    clsObserver.observe({ type: 'layout-shift', buffered: true })
+
+    let clsValue = 0
+    safeObserve('layout-shift', (entryList) => {
+      for (const entry of entryList.getEntries()) {
+        if (!entry.hadRecentInput) clsValue += entry.value
+      }
+    })
+
+    if (typeof window !== 'undefined') {
+      const flushCls = () => {
+        if (clsValue <= 0) return
+        reportFrontendPerf({ route: routeName, metric: 'CLS', value: clsValue })
+        clsValue = 0
+      }
+      window.addEventListener('pagehide', flushCls, { once: true })
+    }
+  })
+
+  onBeforeUnmount(() => {
+    while (observers.length) {
+      const observer = observers.pop()
+      try {
+        observer.disconnect()
+      } catch (_) {
+        // ignore
+      }
+    }
   })
 }
