@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { VitePWA } from 'vite-plugin-pwa'
 
 const proxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000'
 
@@ -15,6 +16,64 @@ export default defineConfig({
           importStyle: 'css'
         })
       ]
+    }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: '数据中枢',
+        short_name: '数据中枢',
+        description: '铝业生产旁路监控系统数据中枢',
+        theme_color: '#0B63F6',
+        background_color: '#0F172A',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\/api\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 3600
+              }
+            }
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'image-cache'
+            }
+          },
+          {
+            urlPattern: /\.(?:js|css|html)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'static-resources'
+            }
+          }
+        ]
+      }
     })
   ],
   build: {

@@ -50,6 +50,7 @@ export default defineConfig({
     headless: true,
     ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL }),
     trace: 'retain-on-failure',
-    screenshot: 'only-on-failure'
+    screenshot: 'only-on-failure',
+    storageState: 'e2e/.auth/user.json'
   }
 })

@@ -272,6 +272,13 @@ function ensureOnlineListener() {
   window.addEventListener('online', () => {
     replayPendingRequests()
   })
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'SYNC_COMPLETE') {
+        replayPendingRequests()
+      }
+    })
+  }
   onlineListenerBound = true
 }
 

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>离线模式 - 数据中枢</title>
+    <style>
+        body {
+            background-color: #0F172A;
+            color: #0B63F6;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            border: 2px solid #0B63F6;
+            padding: 40px;
+            position: relative;
+            box-shadow: 0 0 20px rgba(11, 99, 246, 0.3);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+        .container::before {
+            content: "SYSTEM STATUS: OFFLINE";
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background-color: #0F172A;
+            padding: 0 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            animation: blink 2s infinite;
+        }
+        p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+        .hud-line {
+            height: 1px;
+            background-color: #0B63F6;
+            margin: 20px 0;
+            width: 100%;
+            opacity: 0.5;
+        }
+        .status-box {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 30px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        .status-item span {
+            color: #ffffff;
+            opacity: 0.7;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .retry-btn {
+            margin-top: 30px;
+            background-color: transparent;
+            color: #0B63F6;
+            border: 1px solid #0B63F6;
+            padding: 10px 25px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        .retry-btn:hover {
+            background-color: #0B63F6;
+            color: #0F172A;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>连接中断</h1>
+        <div class="hud-line"></div>
+        <p>检测到网络连接丢失。系统正在尝试重新连接到数据中枢。</p>
+        <p>当前处于离线预览模式，部分实时数据可能无法加载。</p>
+        
+        <div class="status-box">
+            <div class="status-item">NETWORK: <span>DISCONNECTED</span></div>
+            <div class="status-item">STORAGE: <span>LOCAL CACHE ONLY</span></div>
+            <div class="status-item">LOCATION: <span>ALUMINUM BYPASS SITE</span></div>
+            <div class="status-item">PROTOCOL: <span>PWA-OFFLINE-01</span></div>
+        </div>
+
+        <button class="retry-btn" onclick="window.location.reload()">重新连接</button>
+    </div>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<template>
+  <div v-if="visible" class="xt-camera-guide" @click="dismiss">
+    <div class="xt-camera-guide__content panel">
+      <div class="xt-camera-guide__icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 7V5C3 3.89543 3.89543 3 5 3H7M17 3H19C20.1046 3 21 3.89543 21 5V7M21 17V19C21 20.1046 20.1046 21 19 21H17M7 21H5C3.89543 21 3 20.1046 3 19V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor"/>
+        </svg>
+      </div>
+      <h3>扫描引导</h3>
+      <p>请将二维码置于框内，保持光线充足。系统将自动识别并跳转。</p>
+      <div class="xt-camera-guide__actions">
+        <el-button type="primary" @click="dismiss">我知道了</el-button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const visible = ref(true)
+
+const dismiss = () => {
+  visible.value = false
+  localStorage.setItem('xt-camera-guide-seen', 'true')
+}
+
+// Auto dismiss check
+if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide-seen')) {
+  visible.value = false
+}
+</script>
+
+<style scoped>
+.xt-camera-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.xt-camera-guide__content {
+  max-width: 320px;
+  text-align: center;
+  padding: 32px;
+  background: var(--xt-bg-panel);
+  border: 1px solid var(--xt-primary-border);
+  box-shadow: 0 0 40px rgba(11, 99, 246, 0.3);
+}
+
+.xt-camera-guide__icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  color: var(--xt-primary);
+  filter: drop-shadow(0 0 10px rgba(11, 99, 246, 0.5));
+}
+
+.xt-camera-guide__content h3 {
+  margin: 0 0 12px;
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: 20px;
+}
+
+.xt-camera-guide__content p {
+  margin: 0 0 24px;
+  color: var(--xt-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.xt-camera-guide__actions .el-button {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--xt-radius-lg);
+  font-weight: 900;
+}
+</style>

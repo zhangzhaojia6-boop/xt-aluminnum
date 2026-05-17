@@ -1,6 +1,15 @@
 <template>
   <div class="mobile-shell mobile-shell--entry" data-testid="mobile-entry">
-    <section class="mobile-entry-stage panel">
+    <!-- Pull to refresh indicator -->
+    <div 
+      class="mobile-pull-indicator" 
+      :style="{ height: pullDistance + 'px', opacity: pullDistance / 80 }"
+    >
+      <div class="xt-execution-pulse" v-if="refreshing">同步中...</div>
+      <div v-else>下拉刷新</div>
+    </div>
+
+    <section class="mobile-entry-stage panel" :style="{ transform: `translateY(${pullDistance}px)` }">
       <div class="mobile-entry-stage__top">
         <div>
           <div v-if="false" class="mobile-kicker">03 独立填报端</div>
@@ -36,7 +45,9 @@
         class="panel"
       />
 
-      <div v-if="authenticating" class="mobile-entry-stage__empty">正在校验身份…</div>
+      <div v-if="authenticating" class="mobile-entry-stage__empty">
+        <XtSkeleton :loading="true" :rows="2" />
+      </div>
       <div v-else-if="authError" class="mobile-entry-stage__empty">
         <p>{{ authError }}</p>
         <p>请重试钉钉鉴权，或改用账号登录。</p>
@@ -55,11 +66,7 @@
         </div>
       </div>
       <div v-else-if="loading" class="mobile-entry-stage__empty">
-        <p>正在加载当前任务…</p>
-        <p>可稍后重试。</p>
-        <div class="mobile-entry-stage__action-row">
-          <el-button type="primary" plain class="mobile-inline-action" :loading="loading" @click="load">再次尝试</el-button>
-        </div>
+        <XtSkeleton :loading="true" :rows="4" />
       </div>
       <div v-else-if="loadError" class="mobile-entry-stage__empty">
         <p>{{ loadError }}</p>
@@ -125,7 +132,9 @@
 
     <el-card v-if="showReminderPanel" class="panel mobile-card">
       <template #header>提醒</template>
-      <ReminderList :items="current.active_reminders || []" empty-text="当前没有提醒。" />
+      <XtSkeleton :loading="loading" :rows="2">
+        <ReminderList :items="current.active_reminders || []" empty-text="当前没有提醒。" />
+      </XtSkeleton>
     </el-card>
 
   </div>
@@ -137,12 +146,18 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCurrentShift, fetchMobileBootstrap } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
+import { usePullRefresh } from '../../composables/usePullRefresh.js'
+import { usePerformance } from '../../composables/usePerformance.js'
+import XtSkeleton from '../../components/xt/XtSkeleton.vue'
 import { formatScopeLabel, formatStatusLabel } from '../../utils/display.js'
 import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
 import ReminderList from './ReminderList.vue'
+
+// Performance monitoring
+usePerformance('MobileEntry')
 
 const ROLE_COLOR_MAP = {
   shift_leader: 'var(--m-role-operator)',
@@ -170,6 +185,9 @@ const loadError = ref('')
 const bootstrap = ref({})
 const current = ref({})
 const hasCurrentShift = computed(() => Boolean(current.value?.shift_id))
+
+// Pull refresh setup
+const { pullDistance, refreshing } = usePullRefresh(load)
 
 const isMachineBound = computed(() => Boolean(current.value?.is_machine_bound || bootstrap.value?.is_machine_bound || auth.isMachineBound))
 const transitionMapping = computed(() => buildMobileTransitionMapping({
@@ -409,6 +427,21 @@ onMounted(load)
 </script>
 
 <style scoped>
+.mobile-shell--entry {
+  overflow-x: hidden;
+}
+
+.mobile-pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--xt-primary);
+  font-size: 13px;
+  font-weight: 800;
+  transition: height 0.1s ease;
+}
+
 .mobile-entry-stage,
 .mobile-entry-stage__top,
 .mobile-entry-stage__hero,
@@ -423,6 +456,7 @@ onMounted(load)
   background: var(--xt-bg-panel);
   border-color: var(--xt-border-light);
   border-radius: var(--xt-radius-2xl);
+  transition: transform 0.1s ease;
 }
 
 .mobile-entry-stage__top {

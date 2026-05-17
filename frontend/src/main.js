@@ -11,6 +11,7 @@ import App from './App.vue'
 import router, { installRouterGuards } from './router'
 import { setupApiInterceptors } from './api'
 import { useAuthStore } from './stores/auth'
+import { installSW } from './sw-register'
 import './design/xt-tokens.css'
 import './design/xt-base.css'
 import './design/xt-motion.css'
@@ -19,6 +20,8 @@ import './design/industrial.css'
 
 const app = createApp(App)
 const pinia = createPinia()
+
+installErrorMonitor(app)
 
 app.use(pinia)
 app.component(ElConfigProvider.name, ElConfigProvider)
@@ -35,6 +38,11 @@ app.use(router)
 import('echarts/core').then(({ registerTheme }) => {
   import('./design/echarts-hud.js').then(({ XT_HUD_THEME_NAME, registerHudEchartsTheme }) => {
     registerHudEchartsTheme({ registerTheme })
+  })
+})
+
+app.mount('#app')
+)
   })
 })
 

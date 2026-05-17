@@ -72,7 +72,7 @@ const option = computed(() => ({
 </script>
 
 <template>
-  <div class="xt-line-chart" :style="{ height }">
+  <div class="xt-line-chart" :style="{ height }" role="img" :aria-label="`折线图: ${series.map(s => s.name).join(', ')}`" >
     <VChart :option="option" autoresize />
   </div>
 </template>

@@ -2,7 +2,13 @@
   <Teleport to="body">
     <Transition name="xt-drawer">
       <div v-if="modelValue" class="xt-drawer-overlay" @click.self="close">
-        <aside class="xt-drawer" :class="[`xt-drawer--${side}`, `xt-drawer--${size}`]" role="dialog" :aria-label="title">
+        <aside 
+          ref="drawerRef"
+          class="xt-drawer" 
+          :class="[`xt-drawer--${side}`, `xt-drawer--${size}`]" 
+          role="dialog" 
+          :aria-label="title"
+        >
           <header class="xt-drawer__header">
             <h2 class="xt-drawer__title">{{ title }}</h2>
             <button class="xt-drawer__close" aria-label="Close" @click="close">
@@ -24,6 +30,9 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import { useFocusTrap } from '../../composables/useFocusTrap'
+
 defineOptions({ name: 'XtDrawer' })
 
 const props = defineProps({
@@ -46,6 +55,9 @@ const props = defineProps({
     validator: v => ['narrow', 'normal', 'wide'].includes(v)
   }
 })
+
+const drawerRef = ref(null)
+useFocusTrap(drawerRef)
 
 const emit = defineEmits(['update:modelValue'])
 const close = () => emit('update:modelValue', false)

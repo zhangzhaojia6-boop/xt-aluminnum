@@ -359,12 +359,18 @@ import { formatNumber, formatStatusLabel } from '../../utils/display'
 import { requestErrorMessage } from '../../utils/reportStatus'
 import { shiftReportStatusTagType as statusTagType, isMeaningfulLocalDraft } from '../../utils/shiftReportHelpers'
 import { isWithinSubmitCooldown } from '../../utils/submitGuard'
+import { usePerformance } from '../../composables/usePerformance'
+import XtSkeleton from '../../components/xt/XtSkeleton.vue'
 import MobileSwipeWorkspace from '../../components/mobile/MobileSwipeWorkspace.vue'
 import ReminderList from './ReminderList.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+// Performance monitoring
+usePerformance('ShiftReportForm')
+
 const { enqueuePendingRequest } = useRetryQueue()
 const { lastSubmitTime, submitCooldownActive, startCooldown: startSubmitCooldown } = useSubmitCooldown()
 const saving = ref(false)
