@@ -831,9 +831,9 @@ def test_backend_completion_gate_records_live_check_blockers() -> None:
     state = _read('docs/deploy/current-state.md')
 
     for expected in [
-        '`codex/gai` 最新 HEAD',
+        '`main@a57af67`',
         'python scripts/check_llm_live.py --json',
-        'python scripts/dingtalk_cli.py send-test --userid <dingtalk_user_id> --json',
+        'send-test --userid admin',
         '`947 passed, 3 skipped, 124 deselected`',
         'WSL/Python 3.12 后端全量为 `947 passed, 3 skipped, 124 deselected`',
         'GitHub Actions 对最新 HEAD 的 `frontend-build`、`backend-tests`、`compose-smoke` 全部 success',
@@ -843,13 +843,13 @@ def test_backend_completion_gate_records_live_check_blockers() -> None:
         '`missing_scope=qyapi_get_department_member`',
         '`dingtalk_user_id` 非空数量均为 0',
         '`ok=true`、`response_received=true`、`DATA_HUB_LLM_OK`',
+        '`detail=dingtalk_sent`',
         '`docs/superpowers/plans/2026-05-16-backend-completion.md`',
-        '`钉钉推送真实送达` 仍不能打勾',
-        '不能调用 goal complete',
         'docs/audits/2026-05-17-backend-completion-gate-audit.md',
-        'python scripts/check_backend_completion_gate.py --json --dingtalk-userid <real_dingtalk_user_id>',
+        'PYTHONPATH=. .venv/bin/python scripts/check_backend_completion_gate.py --json --dingtalk-userid admin',
         '校验计划内 readiness、LLM live check、钉钉 token 和真实工作通知送达',
-        '目标必须保持 active',
+        '`APP_CONNECTION_DISABLED`',
+        '钉钉通讯录缺 `qyapi_get_department_member`',
     ]:
         assert expected in state
 
@@ -866,20 +866,21 @@ def test_backend_completion_gate_audit_records_final_acceptance_requirements() -
         '`fetched_count=50`、`upserted_count=50`',
         '`daily_report`、`mes_sync`、`fill_reminder`、`data_archive`',
         '`/health`、`/healthz`、`/readyz`',
-        '`frontend-build`、`backend-tests`、`compose-smoke`、`deploy-staging`',
+        '`frontend-build`、`backend-tests`、`compose-smoke` 全部 success',
+        '`codex/gai@a57af67` 的 Deploy Staging success',
         '`DINGTALK_NO_BOUND_USERS`',
         '`DINGTALK_CONTACTS_PERMISSION_MISSING`',
         '`missing_scope=qyapi_get_department_member`',
         '`DATA_HUB_LLM_OK`',
-        '生产环境 MES、workflow 和钉钉 token 已通过',
+        '生产 LLM live check、钉钉 token',
         '生产库 `users`、`employees` 的 `dingtalk_user_id` 非空数量均为 0',
-        '生产 `main@ed4a7b2` 不包含 `check_llm_live.py` 和 `dingtalk_cli.py send-test`',
-        'python scripts/dingtalk_cli.py send-test --userid <real_dingtalk_user_id> --json',
-        'python scripts/check_llm_live.py --json',
-        'python scripts/check_backend_completion_gate.py --json --dingtalk-userid <real_dingtalk_user_id>',
+        '`PYTHONPATH=. .venv/bin/python scripts/dingtalk_cli.py send-test --userid admin --message',
+        '`PYTHONPATH=. .venv/bin/python scripts/check_llm_live.py --json`',
+        '`PYTHONPATH=. .venv/bin/python scripts/check_backend_completion_gate.py --json --dingtalk-userid admin`',
         '`ok=true`、`response_received=true`',
+        '`ok=true`、`detail=dingtalk_sent`',
         '后端完成聚合门禁返回 `ok=true` 且 exit 0',
-        '本目标必须保持 active',
+        '后续只保留应用连接外发、钉钉通讯录权限和试点人员绑定为运营类跟进项',
     ]:
         assert expected in audit
 
