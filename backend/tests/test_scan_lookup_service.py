@@ -325,3 +325,179 @@ def test_scan_lookup_raises_not_found_when_qr_unknown(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db, pytest.raises(scan_lookup_service.ScanLookupNotFound):
         scan_lookup_service.lookup_qr(db, qr='missing')
+
+
+def _seed_workshop_with_machines(db, *, workshop_code: str, workshop_name: str, machines: list[dict]):
+    workshop = Workshop(code=workshop_code, name=workshop_name, workshop_type='cold_rolling', sort_order=1, is_active=True)
+    db.add(workshop)
+    db.flush()
+    seeded = []
+    for spec in machines:
+        equipment = Equipment(
+            code=spec['code'],
+            name=spec['name'],
+            workshop_id=workshop.id,
+            equipment_type=spec['equipment_type'],
+            operational_status='running',
+            shift_mode='three',
+            is_active=True,
+        )
+        db.add(equipment)
+        seeded.append(equipment)
+    db.flush()
+    return workshop, seeded
+
+
+def test_scan_lookup_binds_machine_when_workshop_process_unique(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _, machines = _seed_workshop_with_machines(
+            db,
+            workshop_code='2050',
+            workshop_name='2050车间',
+            machines=[{'code': 'LZ2050-1', 'name': '2050冷轧机', 'equipment_type': 'cold_mill'}],
+        )
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-BIND-1',
+                tracking_card_no='TRACK-BIND-1',
+                material_code='R3-2050-A',
+                qr_code='QR-BIND-1',
+                alloy_grade='5052',
+                spec_display='3.175×1524',
+                current_workshop='2050车间',
+                current_process='冷轧',
+                next_workshop='新厂在线车间',
+                next_process='北线退火',
+            )
+        )
+        db.commit()
+        machine_id = machines[0].id
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-BIND-1')
+
+    assert payload['source'] == 'coil_snapshot'
+    assert payload['machine_line_id'] == machine_id
+    assert payload['machine_line_code'] == 'LZ2050-1'
+    assert payload['machine_line_name'] == '2050冷轧机'
+    assert payload['machine_binding_source'] == 'route_inferred'
+
+
+def test_scan_lookup_keeps_machine_unresolved_when_multiple_candidates(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_workshop_with_machines(
+            db,
+            workshop_code='JZ',
+            workshop_name='精整车间',
+            machines=[
+                {'code': 'SLIT-1', 'name': '1#纵剪', 'equipment_type': 'slitter'},
+                {'code': 'SLIT-2', 'name': '2#纵剪', 'equipment_type': 'slitter'},
+            ],
+        )
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-MULTI-1',
+                tracking_card_no='TRACK-MULTI-1',
+                qr_code='QR-MULTI-1',
+                alloy_grade='3003',
+                spec_display='1.0×1000',
+                current_workshop='精整车间',
+                current_process='纵剪',
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-MULTI-1')
+
+    assert payload['source'] == 'coil_snapshot'
+    assert payload['machine_line_id'] is None
+    assert payload['machine_line_code'] is None
+    assert payload['machine_line_name'] is None
+    assert payload['machine_binding_source'] == 'unresolved'
+
+
+def test_scan_lookup_uses_direct_machine_code_when_present(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _, machines = _seed_workshop_with_machines(
+            db,
+            workshop_code='2050',
+            workshop_name='2050车间',
+            machines=[
+                {'code': 'LZ2050-1', 'name': '1#冷轧', 'equipment_type': 'cold_mill'},
+                {'code': 'LZ2050-2', 'name': '2#冷轧', 'equipment_type': 'cold_mill'},
+            ],
+        )
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-DIRECT-1',
+                tracking_card_no='TRACK-DIRECT-1',
+                qr_code='QR-DIRECT-1',
+                machine_code='LZ2050-2',
+                alloy_grade='5052',
+                spec_display='2.0×1200',
+                current_workshop='2050车间',
+                current_process='冷轧',
+            )
+        )
+        db.commit()
+        target_id = machines[1].id
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-DIRECT-1')
+
+    assert payload['machine_line_id'] == target_id
+    assert payload['machine_line_code'] == 'LZ2050-2'
+    assert payload['machine_binding_source'] == 'direct_machine_code'
+
+
+def test_scan_lookup_returns_unresolved_when_workshop_unknown(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-UNK-1',
+                tracking_card_no='TRACK-UNK-1',
+                qr_code='QR-UNK-1',
+                alloy_grade='5052',
+                spec_display='2.0×1200',
+                current_workshop='未知车间',
+                current_process='冷轧',
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-UNK-1')
+
+    assert payload['machine_line_id'] is None
+    assert payload['machine_binding_source'] == 'unresolved'
+
+
+def test_scan_lookup_machine_binding_omitted_for_machine_identity_qr(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        workshop = _seed_workshop(db)
+        db.add(
+            Equipment(
+                code='ZD-MID',
+                name='机台直扫',
+                workshop_id=workshop.id,
+                equipment_type='ingot_caster',
+                operational_status='running',
+                shift_mode='three',
+                qr_code='XT-ZD-MID',
+                is_active=True,
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='XT-ZD-MID')
+
+    assert payload['source'] == 'machine_identity'
+    assert 'machine_line_id' not in payload
+    assert 'machine_binding_source' not in payload

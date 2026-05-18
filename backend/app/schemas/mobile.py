@@ -254,3 +254,7 @@ class MobileScanLookupOut(BaseModel):
     header_fields: dict[str, Any] = Field(default_factory=dict)
     lock_keys: list[str] = Field(default_factory=list)
     lock_token: str | None = None
+    machine_line_id: int | None = None
+    machine_line_code: str | None = None
+    machine_line_name: str | None = None
+    machine_binding_source: str | None = None

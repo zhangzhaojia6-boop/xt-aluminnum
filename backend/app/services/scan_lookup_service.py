@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from decimal import Decimal
 from typing import Any
 
@@ -8,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.models.master import Equipment
 from app.models.mes import MesCoilSnapshot
+from app.services import master_service
 from app.services.locked_fields_service import sign_locked_fields
+from app.services.realtime_service import _infer_mes_machine_id_from_route
 from app.utils.tracking_cards import tracking_card_lookup_key, tracking_card_sql_lookup_key
 
 SUBMISSION_LOCK_KEYS = ('tracking_card_no', 'alloy_grade', 'input_spec')
@@ -45,7 +48,7 @@ def _spec_display(row: MesCoilSnapshot) -> str | None:
     return '×'.join(parts) if parts else None
 
 
-def _coil_payload(row: MesCoilSnapshot, *, source: str) -> dict:
+def _coil_payload(db: Session, row: MesCoilSnapshot, *, source: str) -> dict:
     spec_display = _spec_display(row)
     header_fields = _compact(
         {
@@ -67,11 +70,16 @@ def _coil_payload(row: MesCoilSnapshot, *, source: str) -> dict:
     )
     lock_keys = [key for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')]
     locked_snapshot = _submission_locked_snapshot(header_fields)
+    binding = _resolve_machine_binding_for_snapshot(db, row)
     return {
         'source': source,
         'header_fields': header_fields,
         'lock_keys': lock_keys,
         'lock_token': sign_locked_fields(locked_snapshot) if locked_snapshot else None,
+        'machine_line_id': binding['machine_line_id'],
+        'machine_line_code': binding['machine_line_code'],
+        'machine_line_name': binding['machine_line_name'],
+        'machine_binding_source': binding['machine_binding_source'],
     }
 
 
@@ -98,6 +106,83 @@ def _submission_locked_snapshot(header_fields: dict[str, Any]) -> dict[str, Any]
 def _has_coil_snapshot_table(db: Session) -> bool:
     bind = db.get_bind()
     return inspect(bind).has_table(MesCoilSnapshot.__tablename__)
+
+
+def _safe_resolve_canonical(db: Session, *, entity_type: str, value: object | None) -> str:
+    raw = str(value or '').strip()
+    if not raw:
+        return ''
+    try:
+        return master_service.resolve_canonical_code(
+            db, entity_type=entity_type, value=raw, source_type='mes_mvc'
+        ) or raw
+    except Exception:
+        return raw
+
+
+def _resolve_machine_binding_for_snapshot(db: Session, row: MesCoilSnapshot) -> dict:
+    empty = {
+        'machine_line_id': None,
+        'machine_line_code': None,
+        'machine_line_name': None,
+        'machine_binding_source': 'unresolved',
+    }
+
+    workshop_rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
+    if not workshop_rows:
+        return empty
+
+    machine_id_by_code: dict[str, Equipment] = {}
+    machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    for machine in workshop_rows:
+        if machine.code:
+            machine_id_by_code[str(machine.code).strip().upper()] = machine
+        if machine.workshop_id is not None:
+            machines_by_workshop[machine.workshop_id].append(machine)
+
+    raw_machine_code = _safe_resolve_canonical(db, entity_type='equipment', value=row.machine_code)
+    direct = machine_id_by_code.get(raw_machine_code.strip().upper()) if raw_machine_code else None
+    if direct is not None:
+        return {
+            'machine_line_id': direct.id,
+            'machine_line_code': direct.code,
+            'machine_line_name': direct.name,
+            'machine_binding_source': 'direct_machine_code',
+        }
+
+    raw_workshop = row.workshop_code or row.current_workshop or row.next_workshop
+    canonical_workshop = _safe_resolve_canonical(db, entity_type='workshop', value=raw_workshop)
+    if not canonical_workshop:
+        return empty
+
+    from app.models.master import Workshop
+
+    workshop = (
+        db.query(Workshop)
+        .filter(Workshop.is_active.is_(True))
+        .filter(or_(Workshop.code == canonical_workshop, Workshop.name == canonical_workshop))
+        .first()
+    )
+    if workshop is None:
+        return empty
+
+    process_hint = row.current_process or row.process_code or row.next_process
+    inferred_id = _infer_mes_machine_id_from_route(
+        machines=machines_by_workshop.get(workshop.id, []),
+        process_hint=process_hint,
+    )
+    if inferred_id is None:
+        return empty
+
+    inferred = next((m for m in machines_by_workshop[workshop.id] if m.id == inferred_id), None)
+    if inferred is None:
+        return empty
+    return {
+        'machine_line_id': inferred.id,
+        'machine_line_code': inferred.code,
+        'machine_line_name': inferred.name,
+        'machine_binding_source': 'route_inferred',
+    }
 
 
 def _latest_tracking_card_snapshot(db: Session, tracking_card_no: str) -> MesCoilSnapshot | None:
@@ -174,7 +259,7 @@ def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_n
     row = _latest_tracking_card_snapshot(db, value)
     if row is None:
         return {}
-    return _submission_locked_snapshot(_coil_payload(row, source='tracking_card')['header_fields'])
+    return _submission_locked_snapshot(_coil_payload(db, row, source='tracking_card')['header_fields'])
 
 
 def flow_context_for_identifier(db: Session, *, identifier: str) -> dict[str, Any]:
@@ -186,7 +271,7 @@ def flow_context_for_identifier(db: Session, *, identifier: str) -> dict[str, An
     row = _latest_identifier_snapshot(db, value)
     if row is None:
         return {}
-    header_fields = _coil_payload(row, source='coil_identifier')['header_fields']
+    header_fields = _coil_payload(db, row, source='coil_identifier')['header_fields']
     flow = _compact(
         {
             'current_workshop': header_fields.get('current_workshop'),
@@ -220,15 +305,15 @@ def lookup_qr(db: Session, *, qr: str) -> dict:
     if _has_coil_snapshot_table(db):
         row = _latest_qr_snapshot(db, value)
         if row is not None:
-            return _coil_payload(row, source='coil_snapshot')
+            return _coil_payload(db, row, source='coil_snapshot')
 
         row = _latest_tracking_card_snapshot(db, value)
         if row is not None:
-            return _coil_payload(row, source='tracking_card')
+            return _coil_payload(db, row, source='tracking_card')
 
         row = _latest_identifier_snapshot(db, value)
         if row is not None:
-            return _coil_payload(row, source='coil_identifier')
+            return _coil_payload(db, row, source='coil_identifier')
 
     equipment = db.query(Equipment).filter(Equipment.qr_code == value).order_by(Equipment.id.asc()).first()
     if equipment is not None:
