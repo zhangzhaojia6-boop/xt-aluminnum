@@ -23,10 +23,10 @@
   --xt-gray-800: #1e293b;
   --xt-gray-900: #0f172a;
 
-  --xt-success: oklch(52% 0.13 158);
+  --xt-success: oklch(49% 0.13 158);
   --xt-success-light: oklch(95% 0.035 158);
   --xt-success-border: rgba(22, 138, 85, 0.20);
-  --xt-warning: oklch(61% 0.12 75);
+  --xt-warning: oklch(49% 0.12 75);
   --xt-warning-light: oklch(95% 0.045 75);
   --xt-warning-border: rgba(183, 121, 31, 0.22);
   --xt-danger: oklch(55% 0.15 28);
@@ -51,7 +51,7 @@
 
   --xt-text: oklch(21% 0.025 250);
   --xt-text-secondary: oklch(43% 0.032 250);
-  --xt-text-muted: oklch(62% 0.025 250);
+  --xt-text-muted: oklch(48% 0.028 250);
   --xt-text-soft: oklch(32% 0.028 250);
   --xt-text-inverse: #ffffff;
 

@@ -30,7 +30,7 @@ test('factory route renders the production board smoke surface', async ({ page }
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(factoryBoard.getByRole('heading', { name: '工厂作业看板' })).toBeVisible()
-  await expect(factoryBoard.getByText('鑫泰铝业 数据中枢')).toBeVisible()
+  await expect(factoryBoard.getByRole('heading', { name: '鑫泰铝业 数据中枢' })).toBeVisible()
   await expect(factoryBoard.getByTestId('review-home-hero')).toBeVisible()
   await expect(factoryBoard.getByTestId('review-assistant-dock')).toBeVisible()
   const detailToggle = factoryBoard.getByRole('button', { name: /展开运行详情|收起运行详情/ })
@@ -99,12 +99,11 @@ test('brain route renders the AI control smoke surface', async ({ page }) => {
   await page.goto('/manage/ai-assistant')
 
   const aiWorkstation = page.locator('.ai-workstation')
-  const reviewAside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
+  const manageShell = page.getByTestId('manage-shell')
 
-  await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(reviewAside).toBeVisible()
-  await expect(reviewAside.locator('.xt-manage__nav-item.is-active', { hasText: 'AI 助手' })).toBeVisible()
-  await expect(reviewAside.getByRole('link', { name: '工厂总览 全局' })).toBeVisible()
+  await expect(manageShell).toBeVisible()
+  await expect(manageShell.getByRole('button', { name: 'AI 助手' })).toBeVisible()
+  await expect(manageShell.getByRole('button', { name: '搜索 Ctrl K' })).toBeVisible()
   await expect(aiWorkstation).toBeVisible()
   await expect(aiWorkstation.getByRole('heading', { name: 'AI 工作台' })).toBeVisible()
   await expect(aiWorkstation.getByText(/对话|暂无对话|加载中/).first()).toBeVisible()

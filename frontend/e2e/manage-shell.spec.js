@@ -63,9 +63,9 @@ test.describe('ManageShell layout', () => {
     await setupReviewSessionAndMocks(page)
     await page.goto('/manage/overview')
 
-    await page.keyboard.press('Control+K')
+    await page.getByRole('button', { name: '搜索 Ctrl K' }).click()
 
-    const dialog = page.getByRole('dialog', { name: '搜索' })
+    const dialog = page.locator('.xt-search-overlay')
     await expect(dialog).toBeVisible()
     await dialog.getByPlaceholder('搜索功能').fill('质量')
 
@@ -77,7 +77,7 @@ test.describe('ManageShell layout', () => {
 
     await expect(page).toHaveURL(/\/manage\/quality$/)
     await expect(page.getByRole('heading', { name: '质量与告警中心' })).toBeVisible()
-    await expect(dialog).toHaveCount(0)
+    await expect(dialog).toBeHidden()
   })
 })
 

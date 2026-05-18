@@ -1,5 +1,11 @@
 import { api } from './index'
 
+function unwrapItems(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && Array.isArray(payload.items)) return payload.items
+  return []
+}
+
 export async function generateReport(payload) {
   const { data } = await api.post('/reports/generate', payload)
   return data
@@ -7,7 +13,7 @@ export async function generateReport(payload) {
 
 export async function fetchReports(params = {}) {
   const { data } = await api.get('/reports', { params })
-  return data
+  return unwrapItems(data)
 }
 
 export async function fetchReportDetail(id) {

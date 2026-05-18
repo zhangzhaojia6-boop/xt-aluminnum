@@ -66,6 +66,23 @@ def test_create_admin_preserves_existing_password_hash(tmp_path, monkeypatch) ->
         assert stored.is_active is True
 
 
+def test_create_admin_can_explicitly_reset_existing_password(tmp_path, monkeypatch) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    admin_id = _seed_admin(session_factory)
+    module = _load_create_admin_module()
+    monkeypatch.setattr(module, 'get_sessionmaker', lambda: session_factory)
+
+    user = module.create_admin('admin', 'New#2026', 'System Admin', reset_password=True)
+
+    assert user.id == admin_id
+    with session_factory() as db:
+        stored = db.get(User, admin_id)
+        assert verify_password('Existing#2026', stored.password_hash) is False
+        assert verify_password('New#2026', stored.password_hash) is True
+        assert stored.role == 'admin'
+        assert stored.is_active is True
+
+
 def test_ensure_admin_user_preserves_existing_password_hash(tmp_path, monkeypatch) -> None:
     session_factory = build_sessionmaker(tmp_path)
     admin_id = _seed_admin(session_factory)

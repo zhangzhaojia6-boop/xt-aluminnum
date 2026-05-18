@@ -12,7 +12,7 @@ from app.database import get_sessionmaker
 from app.models.system import User
 
 
-def create_admin(username: str, password: str, name: str) -> User:
+def create_admin(username: str, password: str, name: str, *, reset_password: bool = False) -> User:
     SessionLocal = get_sessionmaker()
     db = SessionLocal()
     try:
@@ -26,6 +26,8 @@ def create_admin(username: str, password: str, name: str) -> User:
             user.is_reviewer = True
             user.is_manager = True
             user.is_active = True
+            if reset_password:
+                user.password_hash = get_password_hash(password)
         else:
             user = User(
                 username=username,
@@ -52,8 +54,9 @@ def main() -> None:
     parser.add_argument('--username', default=settings.INIT_ADMIN_USERNAME)
     parser.add_argument('--password', default=settings.INIT_ADMIN_PASSWORD)
     parser.add_argument('--name', default=settings.INIT_ADMIN_NAME)
+    parser.add_argument('--reset-password', action='store_true')
     args = parser.parse_args()
-    user = create_admin(args.username, args.password, args.name)
+    user = create_admin(args.username, args.password, args.name, reset_password=args.reset_password)
     print(f'admin ready: {user.username}')
 
 

@@ -224,6 +224,7 @@ const rawRoutes = [
   { path: '/cost/accounting', redirect: '/manage/factory/cost' },
   { path: '/roadmap/next', redirect: '/manage/overview' },
   { path: '/dashboard', redirect: '/manage/overview' },
+  { path: '/dashboard/executive', redirect: '/manage/executive' },
   { path: '/dashboard/factory', redirect: '/manage/factory' },
   { path: '/dashboard/workshop', redirect: '/manage/workshop' },
   { path: '/dashboard/statistics', redirect: '/manage/statistics' },

@@ -6,14 +6,18 @@ import { dingtalkH5LoginApi } from '../api/dingtalk.js'
 const TOKEN_KEY = 'aluminum_bypass_token'
 const USER_KEY = 'aluminum_bypass_user'
 const MACHINE_KEY = 'aluminum_bypass_machine'
+const PLAYWRIGHT_STORAGE_STATE = import.meta.env?.VITE_PLAYWRIGHT_STORAGE_STATE === '1'
 
 function readStoredToken() {
-  return sessionStorage.getItem(TOKEN_KEY) || ''
+  return sessionStorage.getItem(TOKEN_KEY)
+    || (PLAYWRIGHT_STORAGE_STATE ? localStorage.getItem(TOKEN_KEY) || localStorage.getItem('xt_access_token') : '')
+    || ''
 }
 
 function readStoredJson(key) {
   try {
-    return JSON.parse(sessionStorage.getItem(key) || 'null')
+    const source = sessionStorage.getItem(key) || (PLAYWRIGHT_STORAGE_STATE ? localStorage.getItem(key) : '')
+    return JSON.parse(source || 'null')
   } catch {
     sessionStorage.removeItem(key)
     return null

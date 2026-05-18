@@ -8,7 +8,7 @@
       <div class="xt-metric-card__value xt-countup">
         {{ formattedValue }}<span v-if="unit" class="xt-metric-card__unit">{{ unit }}</span>
       </div>
-      <div v-if="change !== null" class="xt-metric-card__change" :class="changeClass">
+      <div v-if="hasChange" class="xt-metric-card__change" :class="changeClass">
         {{ changePrefix }}{{ formattedChange }}%
       </div>
     </div>
@@ -30,7 +30,7 @@ const props = defineProps({
   },
   value: {
     type: Number,
-    required: true
+    default: null
   },
   unit: {
     type: String,
@@ -52,10 +52,12 @@ const props = defineProps({
 })
 
 const formattedValue = computed(() => {
+  if (!Number.isFinite(props.value)) return '—'
   if (props.value >= 10000) return (props.value / 10000).toFixed(props.precision) + '万'
   return props.value.toLocaleString('zh-CN', { maximumFractionDigits: props.precision })
 })
 
+const hasChange = computed(() => Number.isFinite(props.change))
 const formattedChange = computed(() => Math.abs(props.change * 100).toFixed(1))
 const changePrefix = computed(() => props.change > 0 ? '+' : props.change < 0 ? '-' : '')
 const changeClass = computed(() => ({

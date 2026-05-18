@@ -90,3 +90,7 @@ test('legacy cost and ai paths redirect to the slim management surfaces', () => 
   assert.match(routerSource, /path: '\/review\/cost-accounting', redirect: preserveRouteState\('\/manage\/factory\/cost'\)/)
   assert.match(routerSource, /path: '\/review\/brain', redirect: preserveRouteState\('\/manage\/ai-assistant'\)/)
 })
+
+test('legacy dashboard executive path redirects to the management cockpit', () => {
+  assert.match(routerSource, /path: '\/dashboard\/executive', redirect: '\/manage\/executive'/)
+})

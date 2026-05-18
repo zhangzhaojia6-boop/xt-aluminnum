@@ -3,7 +3,7 @@ import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
 test.describe('Executive Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await setupReviewSessionAndMocks(page)
+    await setupReviewSessionAndMocks(page, { skipLogin: true })
   })
 
   test('renders executive dashboard with profit KPIs', async ({ page }) => {

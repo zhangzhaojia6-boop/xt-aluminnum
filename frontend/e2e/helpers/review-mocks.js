@@ -216,6 +216,68 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     }
   ]
 
+  const executiveDashboard = {
+    business_date: '2026-05-12',
+    total_output_tons: 1175,
+    total_revenue: 184000,
+    total_cost: 23900,
+    total_profit: 160100,
+    profit_margin_pct: 87.01,
+    vs_yesterday_profit_delta: 11200,
+    vs_yesterday_profit_delta_pct: 7.52,
+    mtd_revenue: 184000,
+    mtd_cost: 23900,
+    mtd_profit: 160100,
+    workshops: [
+      {
+        workshop_id: 1,
+        workshop_code: 'ZP1',
+        workshop_name: '挤压车间',
+        output_tons: 1175,
+        revenue: 184000,
+        cost: 23900,
+        profit: 160100,
+        has_missing_fee_rule: false
+      }
+    ],
+    aluminum_price: {
+      price_date: '2026-05-12',
+      price_per_ton: 20240,
+      delta_vs_prev: 120
+    },
+    is_estimated: true,
+    has_missing_fee_rule: false,
+    estimation_note: '阶段 1：按车间粒度估算。'
+  }
+
+  const executiveMachineRanking = [
+    {
+      workshop_id: 1,
+      workshop_code: 'ZP1',
+      workshop_name: '挤压车间',
+      machine_line_id: 101,
+      alloy_grade: '6061',
+      process_type: '挤压',
+      output_tons: 1175,
+      processing_fee_per_ton: 180,
+      revenue: 184000,
+      cost: 23900,
+      gross_profit: 160100,
+      gross_margin_pct: 87.01,
+      has_missing_fee_rule: false,
+      is_estimated: true,
+      note: '测试估算'
+    }
+  ]
+
+  const executivePriceTrend = [
+    { price_date: '2026-05-08', price_per_ton: 19960, source: 'mock' },
+    { price_date: '2026-05-09', price_per_ton: 20080, source: 'mock' },
+    { price_date: '2026-05-10', price_per_ton: 20120, source: 'mock' },
+    { price_date: '2026-05-11', price_per_ton: 20120, source: 'mock' },
+    { price_date: '2026-05-12', price_per_ton: 20240, source: 'mock' }
+  ]
+
   await page.route('**/api/v1/factory-command/overview', async (route) => {
     await fulfillJson(route, factoryCommandOverview)
   })
@@ -261,6 +323,18 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       { kind: 'warehouse', label: '成品库', tons: 52 },
       { kind: 'shipment', label: '发货', tons: 48 }
     ])
+  })
+
+  await page.route('**/api/v1/executive/dashboard**', async (route) => {
+    await fulfillJson(route, executiveDashboard)
+  })
+
+  await page.route('**/api/v1/executive/machine-ranking**', async (route) => {
+    await fulfillJson(route, executiveMachineRanking)
+  })
+
+  await page.route('**/api/v1/executive/aluminum-price-trend**', async (route) => {
+    await fulfillJson(route, executivePriceTrend)
   })
 
   await page.route('**/api/v1/dashboard/factory-director**', async (route) => {
@@ -468,6 +542,28 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       })
     })
   })
+
+  await page.route('**/api/v1/master/equipment**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 101,
+            code: 'XT-ZD-1',
+            name: 'XT-ZD-1',
+            workshop_id: 1,
+            workshop_name: '挤压车间',
+            bound_user_id: null,
+            bound_user_name: '',
+            bound_username: ''
+          }
+        ],
+        total: 1
+      })
+    })
+  })
   await page.route('**/api/v1/imports/history**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -567,19 +663,38 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  const aiConversations = [
+    {
+      id: 'conv-1',
+      title: 'AI 工作台',
+      created_at: '2026-04-23T08:00:00Z',
+      updated_at: '2026-04-23T08:10:00Z'
+    }
+  ]
+
+  const aiMessages = [
+    {
+      id: 'msg-1',
+      role: 'assistant',
+      content: '当前生产运行稳定。',
+      created_at: '2026-04-23T08:10:00Z'
+    }
+  ]
+
+  await page.route('**/api/v1/ai/assistant/conversations', async (route) => {
+    await fulfillJson(route, aiConversations)
+  })
+
+  await page.route('**/api/v1/ai/assistant/conversations/*/messages', async (route) => {
+    await fulfillJson(route, aiMessages)
+  })
+
   await page.route('**/api/v1/ai/conversations', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        items: [
-          {
-            id: 'conv-1',
-            title: 'AI 工作台',
-            created_at: '2026-04-23T08:00:00Z',
-            updated_at: '2026-04-23T08:10:00Z'
-          }
-        ]
+        items: aiConversations
       })
     })
   })
@@ -676,10 +791,116 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
-  await loginThroughMockedPassword(page, {
-    token,
-    user,
-    username: session.username,
-    password: session.password
+  await page.route('**/api/v1/dashboard/external-readiness', async (route) => {
+    await fulfillJson(route, {
+      hard_gate_passed: false,
+      module_usable: false,
+      external_connection_enabled: false,
+      hard_issues: [
+        {
+          level: 'hard',
+          code: 'MES_UNCONFIGURED',
+          required_env: ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
+        },
+        {
+          level: 'hard',
+          code: 'WORKFLOW_DISABLED',
+          required_env: ['WORKFLOW_ENABLED']
+        },
+        {
+          level: 'hard',
+          code: 'LLM_DISABLED',
+          required_env: ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_ENDPOINT_ID']
+        },
+        {
+          level: 'hard',
+          code: 'DINGTALK_DISABLED',
+          required_env: ['DINGTALK_ENABLED', 'DINGTALK_CORP_ID', 'DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET', 'DINGTALK_AGENT_ID']
+        },
+        {
+          level: 'hard',
+          code: 'APP_CONNECTION_CONFIG_MISSING',
+          required_env: ['APP_CONNECTION_ENABLED', 'APP_CONNECTION_PUSH_MODE', 'APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY']
+        }
+      ],
+      warning_issues: [],
+      missing_inputs: [
+        {
+          issue_code: 'MES_UNCONFIGURED',
+          level: 'hard',
+          purpose: '外部 MES 数据源',
+          location: '服务器 backend/.env',
+          missing_fields: ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+          impact: '外部 MES 投影不可用，实时流转与机列绑定只能依赖本地填报。',
+          suggested_value: 'MES_ADAPTER=mvc；其余字段填现场 MES 地址和账号密钥。'
+        },
+        {
+          issue_code: 'WORKFLOW_DISABLED',
+          level: 'hard',
+          purpose: '自动日报 workflow',
+          location: '服务器 backend/.env',
+          missing_fields: ['WORKFLOW_ENABLED'],
+          impact: '自动日报生成与后续触达链路不会运行。',
+          suggested_value: 'WORKFLOW_ENABLED=true。'
+        },
+        {
+          issue_code: 'LLM_DISABLED',
+          level: 'hard',
+          purpose: 'LLM/AI 摘要增强',
+          location: '服务器 backend/.env',
+          missing_fields: ['LLM_ENABLED', 'LLM_API_BASE', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_ENDPOINT_ID'],
+          impact: 'AI 摘要与分析增强不可用，不能宣称 AI 能力正式联通。',
+          suggested_value: 'LLM_ENABLED=true；LLM_API_KEY=<redacted>'
+        },
+        {
+          issue_code: 'DINGTALK_DISABLED',
+          level: 'hard',
+          purpose: '钉钉日报触达',
+          location: '服务器 backend/.env',
+          missing_fields: ['DINGTALK_ENABLED', 'DINGTALK_CORP_ID', 'DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET', 'DINGTALK_AGENT_ID'],
+          impact: '日报和提醒不能发送到钉钉。',
+          suggested_value: 'DINGTALK_ENABLED=true；其余字段填钉钉开放平台真实应用配置。'
+        },
+        {
+          issue_code: 'APP_CONNECTION_CONFIG_MISSING',
+          level: 'hard',
+          purpose: '应用连接外发',
+          location: '服务器 backend/.env',
+          missing_fields: ['APP_CONNECTION_ENABLED', 'APP_CONNECTION_PUSH_MODE', 'APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+          impact: '统计模块不能对外推送，正式外部连接面未启用。',
+          suggested_value: 'APP_CONNECTION_ENABLED=true；APP_CONNECTION_API_KEY=<redacted>'
+        }
+      ]
+    })
   })
+
+  await page.route('**/api/v1/mes/sync-status', async (route) => {
+    await fulfillJson(route, {
+      status: 'unconfigured',
+      source: 'local_entry',
+      action_required: 'configure_mes',
+      required_env: ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+      last_synced_at: null
+    })
+  })
+
+  await page.route('**/api/v1/mes/sync-runs**', async (route) => {
+    await fulfillJson(route, {
+      summary: {
+        total_count: 0,
+        success_count: 0,
+        failed_count: 0
+      },
+      items: []
+    })
+  })
+
+  if (!session.skipLogin) {
+    await loginThroughMockedPassword(page, {
+      token,
+      user,
+      username: session.username,
+      password: session.password
+    })
+  }
 }

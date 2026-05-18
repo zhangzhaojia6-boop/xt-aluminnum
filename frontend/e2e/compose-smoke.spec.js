@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
+import { clearAuthStorage } from './helpers/mock-login'
 
 const username = firstEnv('PLAYWRIGHT_USERNAME', 'INIT_ADMIN_USERNAME')
 const password = firstEnv('PLAYWRIGHT_PASSWORD', 'INIT_ADMIN_PASSWORD')
@@ -10,6 +11,7 @@ test('production compose serves login and authenticated manage route', async ({ 
     ['PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', password]
   ])
 
+  await clearAuthStorage(page)
   await page.goto('/login')
 
   await expect(page.getByTestId('login-brand')).toBeVisible()

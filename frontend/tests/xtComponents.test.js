@@ -25,6 +25,14 @@ test('XtMetricCard formats large values with 万 suffix', () => {
   assert.match(src, /万/)
 })
 
+test('XtMetricCard tolerates missing metric values and changes', () => {
+  const src = source('../src/components/xt/XtMetricCard.vue')
+  assert.match(src, /Number\.isFinite\(props\.value\)/)
+  assert.match(src, /return '—'/)
+  assert.match(src, /hasChange/)
+  assert.match(src, /Number\.isFinite\(props\.change\)/)
+})
+
 test('XtMetricCard shows change direction classes', () => {
   const src = source('../src/components/xt/XtMetricCard.vue')
   assert.match(src, /xt-metric-card__change--up/)

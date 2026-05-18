@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
 
+test.use({ storageState: { cookies: [], origins: [] } })
+
 test('login page mounts HUD theme and particle backdrop', async ({ page }) => {
   await page.goto('/login')
   await expect(page.locator('html')).toHaveAttribute('data-xt-theme', 'hud')

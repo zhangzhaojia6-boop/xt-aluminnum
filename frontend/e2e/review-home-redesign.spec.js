@@ -15,7 +15,7 @@ async function expectFactoryCenter(page) {
   await expect(page.getByTestId('factory-dashboard')).toBeVisible()
   await expect(page.getByRole('heading', { name: '工厂作业看板' })).toBeVisible()
   await expect(page.getByTestId('review-home-hero')).toBeVisible()
-  await expect(page.getByTestId('agent-runtime-flow')).toBeVisible()
+  await expect(page.getByTestId('delivery-ready-card')).toBeVisible()
   await expect(page.getByTestId('review-assistant-dock')).toBeVisible()
   await expectNoHorizontalOverflow(page)
 }
@@ -47,10 +47,10 @@ test('manage shell keeps the factory center readable across desktop tablet and m
 
 test('manage shell keeps dense centers readable on tablet and mobile widths', async ({ page }) => {
   const centers = [
-    { path: '/manage/overview', testId: 'review-overview-center' },
+    { path: '/manage/executive', selector: '.exec-root' },
     { path: '/manage/factory', testId: 'factory-dashboard' },
     { path: '/manage/master', testId: 'admin-master-center' },
-    { path: '/manage/ai', selector: '.ai-workstation' }
+    { path: '/manage/ai-assistant', selector: '.ai-workstation' }
   ]
 
   for (const width of [1100, 430]) {
@@ -76,13 +76,13 @@ test('factory center shows read-only production board and review actions', async
   await page.goto('/manage/factory')
 
   await expect(page.getByTestId('factory-dashboard')).toBeVisible()
-  await expect(page.getByText('鑫泰铝业 数据中枢')).toBeVisible()
-  await expect(page.getByTestId('agent-runtime-flow')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '鑫泰铝业 数据中枢' })).toBeVisible()
+  await expect(page.getByTestId('delivery-ready-card')).toBeVisible()
   await expect(page.getByTestId('review-assistant-dock')).toBeVisible()
   const detailToggle = page.getByRole('button', { name: /展开运行详情|收起运行详情/ })
   await expect(detailToggle).toBeVisible()
   if ((await detailToggle.textContent())?.includes('展开')) await detailToggle.click()
-  await expect(page.getByText('今日产量')).toBeVisible()
+  await expect(page.getByText('今日产量').first()).toBeVisible()
   await expect(page.getByText('单吨能耗').first()).toBeVisible()
   await expect(page.getByText('交付状态')).toBeVisible()
   await expect(page.getByText('今日上报状态')).toBeVisible()

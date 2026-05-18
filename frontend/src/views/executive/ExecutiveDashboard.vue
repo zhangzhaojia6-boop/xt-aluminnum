@@ -261,11 +261,11 @@ onMounted(reload)
   padding: 0 14px;
   border: 0;
   border-radius: 6px;
-  background: oklch(62% 0.18 255);
+  background: oklch(52% 0.18 255);
   color: #fff;
   font-weight: 850;
   cursor: pointer;
-  box-shadow: 0 0 12px oklch(62% 0.18 255 / 0.25);
+  box-shadow: 0 0 12px oklch(52% 0.18 255 / 0.25);
 }
 .exec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -391,7 +391,7 @@ onMounted(reload)
 .rank-profit { text-align: right; }
 .rank-profit strong { display: block; font-size: 15px; font-weight: 900; }
 .rank-row.loss .rank-profit strong { color: oklch(78% 0.16 28); }
-.rank-rev { color: oklch(50% 0.02 252); font-size: 11px; font-weight: 800; }
+.rank-rev { color: oklch(70% 0.02 252); font-size: 11px; font-weight: 800; }
 .missing-tag { color: oklch(72% 0.14 75); font-weight: 800; }
 
 .price-hero {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { clearAuthStorage } from './helpers/mock-login'
 
 function fillUser(overrides = {}) {
   return {
@@ -91,6 +92,7 @@ async function mockMobileEntry(page, options = {}) {
 
 test('dingtalk auth code inside redirect is consumed and stripped before entry landing', async ({ page }) => {
   let postedCode = ''
+  await clearAuthStorage(page)
   await mockMobileEntry(page)
   await page.route('**/api/v1/dingtalk/h5-login', async (route) => {
     postedCode = route.request().postDataJSON().code
@@ -117,6 +119,7 @@ test('dingtalk auth code inside redirect is consumed and stripped before entry l
 test('machine qr query signs in and lands on the machine-bound entry surface', async ({ page }) => {
   const machine = machineInfo()
   let postedQr = ''
+  await clearAuthStorage(page)
   await mockMobileEntry(page, { machine })
   await page.route('**/api/v1/auth/qr-login', async (route) => {
     postedQr = route.request().postDataJSON().qr_code
@@ -142,6 +145,7 @@ test('machine qr query signs in and lands on the machine-bound entry surface', a
 
 test('workshop qr result and workshop query keep users on login with workshop hint', async ({ page }) => {
   let postedQr = ''
+  await clearAuthStorage(page)
   await page.route('**/api/v1/auth/qr-login', async (route) => {
     postedQr = route.request().postDataJSON().qr_code
     await route.fulfill({

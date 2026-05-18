@@ -117,7 +117,29 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     port: 4173,
-    strictPort: true
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false
+      },
+      '/uploads': {
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false
+      },
+      '/healthz': {
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false
+      },
+      '/readyz': {
+        target: proxyTarget,
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   server: {
     host: '0.0.0.0',

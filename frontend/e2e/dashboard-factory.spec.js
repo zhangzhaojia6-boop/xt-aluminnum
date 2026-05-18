@@ -7,18 +7,18 @@ test.describe('Factory Director Dashboard', () => {
   })
 
   test('renders factory dashboard with KPI metrics', async ({ page }) => {
-    await page.goto('/manage/overview')
+    await page.goto('/manage/factory')
     await expect(page.getByTestId('factory-dashboard')).toBeVisible()
-    await expect(page.getByText('今日产量')).toBeVisible()
+    await expect(page.getByText('今日产量').first()).toBeVisible()
   })
 
   test('date picker changes target date', async ({ page }) => {
-    await page.goto('/manage/overview')
-    await expect(page.locator('.el-date-editor')).toBeVisible()
+    await page.goto('/manage/factory')
+    await expect(page.locator('.review-home-hero__controls .el-date-editor')).toBeVisible()
   })
 
   test('shows loading state then content', async ({ page }) => {
-    await page.goto('/manage/overview')
+    await page.goto('/manage/factory')
     await expect(page.getByTestId('factory-dashboard')).toBeVisible()
   })
 })

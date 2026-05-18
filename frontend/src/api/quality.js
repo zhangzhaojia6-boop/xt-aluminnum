@@ -1,5 +1,11 @@
 import { api } from './index'
 
+function unwrapItems(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && Array.isArray(payload.items)) return payload.items
+  return []
+}
+
 export async function runQualityChecks(payload) {
   const { data } = await api.post('/quality/run-checks', payload)
   return data
@@ -7,7 +13,7 @@ export async function runQualityChecks(payload) {
 
 export async function fetchQualityIssues(params = {}) {
   const { data } = await api.get('/quality/issues', { params })
-  return data
+  return unwrapItems(data)
 }
 
 export async function resolveQualityIssue(id, note) {

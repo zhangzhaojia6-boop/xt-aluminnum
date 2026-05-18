@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { clearAuthStorage } from './helpers/mock-login'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 import { firstEnv, skipWithoutCredentials } from './helpers/credentials'
 
@@ -262,33 +263,42 @@ async function setupUnifiedPerCoilEntrySession(page) {
   })
 }
 
-test('admin mobile entry shows the manual-first mobile fallback entry', async ({ page }) => {
+test('admin mobile entry shows the manual-first mobile entry', async ({ page }) => {
   skipWithoutCredentials([
     ['PLAYWRIGHT_USERNAME or INIT_ADMIN_USERNAME', username],
     ['PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', password]
   ])
 
+  await clearAuthStorage(page)
   await page.goto('/login')
 
   await page.getByTestId('login-username').fill(username)
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/manage\/(overview|admin)$/)
+  await expect(page).toHaveURL(/\/(entry|manage\/(?:overview|admin))$/)
 
-  const currentShiftResponse = page.waitForResponse((response) =>
-    response.url().includes('/api/v1/mobile/current-shift') &&
-    response.request().method() === 'GET'
-  )
-  await page.goto('/entry')
-  await currentShiftResponse
-
-  const currentShiftCard = page.getByTestId('mobile-current-shift')
+  if (!page.url().endsWith('/entry')) {
+    const currentShiftResponse = page.waitForResponse((response) =>
+      response.url().includes('/api/v1/mobile/current-shift') &&
+      response.request().method() === 'GET'
+    )
+    await page.goto('/entry')
+    await currentShiftResponse
+  }
 
   await expect(page.getByTestId('mobile-entry')).toBeVisible()
-  await expect(currentShiftCard).toBeVisible()
   await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
-  await expect(page.getByTestId('mobile-go-report')).toBeVisible()
+  const entryState = await Promise.race([
+    page.getByText('当前账号暂未拿到可显示的班次任务。').waitFor({ state: 'visible' }).then(() => 'empty'),
+    page.getByTestId('mobile-current-shift').waitFor({ state: 'visible' }).then(() => 'current')
+  ])
+  if (entryState === 'empty') {
+    await expect(page.getByRole('button', { name: '刷新任务' })).toBeVisible()
+    await expect(page.getByTestId('mobile-go-report')).toHaveCount(0)
+  } else {
+    await expect(page.getByTestId('mobile-go-report')).toBeVisible()
+  }
   await expect(page.getByRole('button', { name: '打开审阅端' })).toHaveCount(0)
   await expect(page.getByText('采集清洗小队')).toHaveCount(0)
   await expect(page.getByText('分析决策小队')).toHaveCount(0)

@@ -8,7 +8,7 @@ test.describe('Workshop Director Dashboard', () => {
 
   test('renders workshop dashboard page', async ({ page }) => {
     await page.goto('/manage/workshop')
-    await expect(page.locator('.page-stack, [data-testid]')).toBeVisible()
+    await expect(page.getByTestId('workshop-dashboard')).toBeVisible()
   })
 
   test('shows workshop-level metrics', async ({ page }) => {
