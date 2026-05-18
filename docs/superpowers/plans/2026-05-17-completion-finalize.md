@@ -269,3 +269,14 @@ codex exec "执行 docs/superpowers/plans/2026-05-17-completion-finalize.md 的 
 - 试点人员 dingtalk_user_id 绑定（运营侧）
 - 移动端真机测试（需要 PWA 安装到 Android 验证）
 - 性能基准（plan B 备份）
+
+---
+
+## 执行结果（2026-05-18）
+
+- E2 全量 E2E：Chromium `112 passed / 3 skipped / 0 failed`，Mobile `21 passed / 0 failed`；审计见 `docs/audits/2026-05-17-e2e-full-run-audit.md`。
+- E3 对比度审计：`12 passed / 0 failed`，`color-contrast` 违规为 0；审计见 `docs/audits/2026-05-17-a11y-contrast-audit.md`。
+- E4 B 类真实缺陷：前端单测 `237 passed`，缺陷回归 E2E `22 passed`。
+- E5 生产形态冒烟：`13 passed / 0 failed`，HTTP、telemetry、关键页面与截图证据见 `docs/audits/2026-05-17-system-smoke-audit.md`。
+- E6 文档同步：收口摘要见 `docs/audits/2026-05-17-completion-summary.md`。
+- E7 完全体门禁：`docs/ops/full_completion_gate.json` 为 `ok=true`，`blockers=[]`；完整证据见 `docs/audits/2026-05-17-full-completion-evidence.md`。
