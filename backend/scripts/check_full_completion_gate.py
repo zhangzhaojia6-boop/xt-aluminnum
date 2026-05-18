@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import argparse
 import json
 import os
@@ -171,6 +172,7 @@ def run_backend_completion_gate(runner: CommandRunner) -> dict:
             None,
         )
         check = make_command_check('backend_completion_gate', result)
+        check['mode'] = 'live'
         if result.returncode == 0:
             try:
                 payload = json.loads(result.stdout)
@@ -190,10 +192,15 @@ def run_backend_completion_gate(runner: CommandRunner) -> dict:
 
     audit_text = BACKEND_GATE_AUDIT.read_text(encoding='utf-8')
     ok = '返回 `ok=true`' in audit_text and ('`blockers=[]`' in audit_text or 'blockers=[]' in audit_text)
+    mtime = datetime.fromtimestamp(BACKEND_GATE_AUDIT.stat().st_mtime, tz=timezone.utc)
+    age_days = max(0, (datetime.now(timezone.utc) - mtime).days)
     return {
         'ok': ok,
         'mode': 'audit',
         'audit': str(BACKEND_GATE_AUDIT.relative_to(REPO_ROOT)),
+        'audit_last_modified': mtime.date().isoformat(),
+        'audit_age_days': age_days,
+        'mode_advisory': 'audit-mode reads a static doc; set FULL_COMPLETION_BACKEND_GATE_MODE=live to run the production gate command',
         'production_command': 'PYTHONPATH=. .venv/bin/python scripts/check_backend_completion_gate.py --json --dingtalk-userid admin',
     }
 

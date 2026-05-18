@@ -93,3 +93,27 @@ def test_full_completion_gate_reports_failed_check(monkeypatch) -> None:
     assert payload['blockers'] == [
         {'code': 'FRONTEND_UNIT', 'message': 'frontend_unit failed'}
     ]
+
+
+def test_backend_completion_gate_audit_mode_exposes_visibility(tmp_path, monkeypatch) -> None:
+    module = _load_script_module()
+    audit_path = tmp_path / 'audit.md'
+    audit_path.write_text('生产返回 `ok=true` 且 `blockers=[]`', encoding='utf-8')
+    monkeypatch.setattr(module, 'BACKEND_GATE_AUDIT', audit_path)
+    monkeypatch.setattr(module, 'REPO_ROOT', tmp_path)
+    monkeypatch.delenv('FULL_COMPLETION_BACKEND_GATE_MODE', raising=False)
+
+    def runner(*args, **kwargs):
+        raise AssertionError('audit-mode must not invoke any subprocess')
+
+    check = module.run_backend_completion_gate(runner)
+
+    assert check['ok'] is True
+    assert check['mode'] == 'audit'
+    assert 'audit_age_days' in check
+    assert isinstance(check['audit_age_days'], int)
+    assert check['audit_age_days'] >= 0
+    assert 'audit_last_modified' in check
+    assert 'mode_advisory' in check
+    assert 'FULL_COMPLETION_BACKEND_GATE_MODE=live' in check['mode_advisory']
+
