@@ -176,6 +176,7 @@ import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
 import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
+import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
 
 const auth = useAuthStore()
 
@@ -311,6 +312,7 @@ async function handleScanLookup(qr) {
     const result = qr ? await scanLookup(qr) : await scan()
     if (!result) return
     applyScanLookupResult(result)
+    warnIfMachineMismatch(result, auth)
     ElMessage.success(result.source === 'machine_identity' ? '已识别机台' : '已带出卷头字段')
   } catch (e) {
     ElMessage.error(e?.response?.data?.detail || '扫码失败')
