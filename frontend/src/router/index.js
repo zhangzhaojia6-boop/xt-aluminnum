@@ -62,8 +62,12 @@ function withMeta(route) {
   }
 }
 
-function preserveRouteState(path) {
-  return (to) => ({ path, query: to.query, hash: to.hash })
+function preserveRouteState(path, query = {}) {
+  return (to) => ({
+    path,
+    query: { ...to.query, ...(typeof query === 'function' ? query(to) : query) },
+    hash: to.hash
+  })
 }
 
 const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }
@@ -129,16 +133,16 @@ const rawRoutes = [
       { path: 'factory/cost', name: 'factory-command-cost', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/today' } },
       { path: 'factory/cost/accounting', name: 'factory-command-cost-accounting', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '策略核算', centerNo: '10', canonical: '/manage/today' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
-      { path: 'factory/exceptions', name: 'factory-command-exceptions', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/alerts' } },
+      { path: 'factory/exceptions', name: 'factory-command-exceptions', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'anomaly' }, hash: to.hash }), meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/alerts' } },
       { path: 'factory', name: 'factory-dashboard', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/production' } },
       { path: 'workshop', name: 'workshop-dashboard', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/production' } },
-      { path: 'entry-center', name: 'review-task-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常与补录', centerNo: '07', canonical: '/manage/alerts' } },
+      { path: 'entry-center', name: 'review-task-center', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'anomaly' }, hash: to.hash }), meta: { ...reviewMeta, title: '异常与补录', centerNo: '07', canonical: '/manage/alerts' } },
       { path: 'shift', redirect: '/manage/master' },
-      { path: 'reconciliation', name: 'review-reconciliation-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/alerts' } },
+      { path: 'reconciliation', name: 'review-reconciliation-center', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'reconciliation' }, hash: to.hash }), meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/alerts' } },
       { path: 'reconciliation/detail/:id', name: 'reconciliation-detail', component: ReconciliationDetail, meta: { ...reviewMeta, title: '差异详情' } },
-      { path: 'anomaly', name: 'manage-anomaly', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/alerts' } },
-      { path: 'quality', name: 'review-quality-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/alerts' } },
-      { path: 'quality/detail/:id', name: 'quality-detail', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/alerts' } },
+      { path: 'anomaly', name: 'manage-anomaly', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'anomaly' }, hash: to.hash }), meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/alerts' } },
+      { path: 'quality', name: 'review-quality-center', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'quality' }, hash: to.hash }), meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/alerts' } },
+      { path: 'quality/detail/:id', name: 'quality-detail', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'quality', id: to.params.id }, hash: to.hash }), meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/alerts' } },
       { path: 'statistics', name: 'statistics-dashboard', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '统计中心', canonical: '/manage/today' } },
       { path: 'cost', name: 'review-cost-accounting', redirect: '/manage/factory/cost', meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
@@ -171,8 +175,8 @@ const rawRoutes = [
   { path: '/review/workshop', redirect: preserveRouteState('/manage/production') },
   { path: '/review/tasks', redirect: preserveRouteState('/manage/alerts') },
   { path: '/review/reports', redirect: preserveRouteState('/manage/reports') },
-  { path: '/review/quality', redirect: preserveRouteState('/manage/alerts') },
-  { path: '/review/reconciliation', redirect: preserveRouteState('/manage/alerts') },
+  { path: '/review/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
+  { path: '/review/reconciliation', redirect: preserveRouteState('/manage/alerts', { surface: 'reconciliation' }) },
   { path: '/review/ingestion', name: 'review-ingestion-center', redirect: preserveRouteState('/manage/ingestion') },
   { path: '/review/ops', name: 'review-ops-reliability', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/governance', name: 'review-governance-center', redirect: preserveRouteState('/manage/admin/governance') },
@@ -205,7 +209,7 @@ const rawRoutes = [
   { path: '/workshop', redirect: '/manage/production' },
   { path: '/ingestion/mapping', redirect: '/manage/ingestion' },
   { path: '/reports/delivery', redirect: '/manage/reports' },
-  { path: '/alerts/quality', redirect: '/manage/alerts' },
+  { path: '/alerts/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
   { path: '/ops/reliability', redirect: '/manage/admin/settings' },
   { path: '/governance', redirect: '/manage/admin/governance' },
   { path: '/cost/accounting', redirect: '/manage/today' },
@@ -224,9 +228,9 @@ const rawRoutes = [
   { path: '/shift/detail/:id', name: 'shift-detail', component: ShiftDetail, meta: { ...reviewMeta, title: '班次详情' } },
   { path: '/reports/list', redirect: '/manage/reports' },
   { path: '/reports/detail/:id', redirect: '/manage/today' },
-  { path: '/quality/center', redirect: '/manage/alerts' },
-  { path: '/quality/detail/:id', redirect: '/manage/alerts' },
-  { path: '/reconciliation/center', redirect: '/manage/alerts' },
+  { path: '/quality/center', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
+  { path: '/quality/detail/:id', redirect: preserveRouteState('/manage/alerts', (to) => ({ surface: 'quality', id: to.params.id })) },
+  { path: '/reconciliation/center', redirect: preserveRouteState('/manage/alerts', { surface: 'reconciliation' }) },
   { path: '/reconciliation/detail/:id', redirect: (to) => `/manage/reconciliation/detail/${to.params.id}` },
   { path: '/master', redirect: '/manage/master' },
   { path: '/master/workshop', name: 'master-workshop', redirect: '/manage/master' },

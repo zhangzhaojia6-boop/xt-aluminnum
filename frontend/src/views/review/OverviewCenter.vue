@@ -68,7 +68,7 @@
             :key="item.name"
             type="button"
             class="review-overview-center__quick"
-            @click="go(item.name)"
+            @click="go(item.route || item.name)"
           >
             <span>{{ item.label }}</span>
             <strong>{{ item.hint }}</strong>
@@ -157,7 +157,7 @@ const quickEntries = [
   { name: 'manage-production', label: '看板', hint: '厂级 / 车间' },
   { name: 'manage-alerts', label: '审阅', hint: '待审任务' },
   { name: 'review-report-center', label: '日报', hint: '交付与发布' },
-  { name: 'manage-alerts', label: '质量', hint: '告警与处理' },
+  { name: 'manage-alerts', label: '质量', hint: '告警与处理', route: { name: 'manage-alerts', query: { surface: 'quality' } } },
   { name: 'manage-today', label: '成本', hint: '策略核算' },
   { name: 'factory-ai-assistant', label: 'AI', hint: '摘要与问答' },
   { name: 'admin-ingestion-center', label: '接入', hint: '导入 / 映射' },
@@ -397,12 +397,12 @@ function toFactoryStatus(status) {
   return 'normal'
 }
 
-function go(routeName) {
-  router.push({ name: routeName })
+function go(target) {
+  router.push(typeof target === 'string' ? { name: target } : target)
 }
 
 function openReferenceModule(item) {
-  if (item?.routeName) go(item.routeName)
+  if (item?.route || item?.routeName) go(item.route || item.routeName)
 }
 
 function moduleMetrics(item) {

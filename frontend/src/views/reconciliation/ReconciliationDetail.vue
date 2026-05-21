@@ -63,7 +63,7 @@ async function load() {
 }
 
 function backToCenter() {
-  const query = {}
+  const query = { surface: 'reconciliation' }
   for (const key of ['business_date', 'reconciliation_type', 'status', 'desktop']) {
     if (typeof route.query[key] === 'string' && route.query[key]) query[key] = route.query[key]
   }

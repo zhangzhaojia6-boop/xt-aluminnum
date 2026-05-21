@@ -553,6 +553,7 @@ function goReconciliationCenter() {
   router.push({
     name: 'manage-alerts',
     query: {
+      surface: 'reconciliation',
       business_date: targetDate.value,
       status: 'open',
       ...buildDesktopPreservingQuery()

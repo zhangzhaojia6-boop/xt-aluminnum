@@ -9,6 +9,7 @@ const reportListSrc = readFileSync(new URL('../src/views/reports/ReportList.vue'
 const reconciliationDetailSrc = readFileSync(new URL('../src/views/reconciliation/ReconciliationDetail.vue', import.meta.url), 'utf8')
 const reviewTaskCenterSrc = readFileSync(new URL('../src/views/review/ReviewTaskCenter.vue', import.meta.url), 'utf8')
 const overviewCenterSrc = readFileSync(new URL('../src/views/review/OverviewCenter.vue', import.meta.url), 'utf8')
+const alertsPageSrc = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.vue', import.meta.url), 'utf8')
 const overviewQuickEntriesBlock = overviewCenterSrc.slice(
   overviewCenterSrc.indexOf('const quickEntries = ['),
   overviewCenterSrc.indexOf('const referenceModules = [')
@@ -87,6 +88,41 @@ test('legacy alerts routes redirect to manage-alerts', () => {
   }
 })
 
+test('legacy alerts routes preserve alert surface', () => {
+  for (const [path, surface] of [
+    ['reconciliation', 'reconciliation'],
+    ['quality', 'quality'],
+    ['quality/detail/:id', 'quality'],
+    ['anomaly', 'anomaly'],
+    ['entry-center', 'anomaly'],
+    ['factory/exceptions', 'anomaly']
+  ]) {
+    const line = routeLine(path)
+
+    assert.ok(line, `route '${path}' should exist`)
+    assert.match(line, new RegExp(`surface:\\s*['"]${surface}['"]`), `route '${path}' should preserve ${surface} surface`)
+    assert.match(line, /query:\s*\{\s*\.\.\.to\.query/, `route '${path}' should preserve existing query`)
+    assert.match(line, /hash:\s*to\.hash/, `route '${path}' should preserve hash`)
+  }
+
+  assert.match(src, /path:\s*['"]\/review\/quality['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]quality['"]\s*\}\)/)
+  assert.match(src, /path:\s*['"]\/review\/reconciliation['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]reconciliation['"]\s*\}\)/)
+  assert.match(src, /path:\s*['"]\/quality\/center['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]quality['"]\s*\}\)/)
+  assert.match(src, /path:\s*['"]\/quality\/detail\/:id['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\(to\)\s*=>\s*\(\{\s*surface:\s*['"]quality['"],\s*id:\s*to\.params\.id\s*\}\)\)/)
+  assert.match(src, /path:\s*['"]\/reconciliation\/center['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]reconciliation['"]\s*\}\)/)
+})
+
+test('alerts page switches legacy centers by surface query', () => {
+  assert.match(alertsPageSrc, /import\s+\{\s*computed\s*\}\s+from\s+['"]vue['"]/)
+  assert.match(alertsPageSrc, /useRoute\(\)/)
+  assert.match(alertsPageSrc, /route\.query\.surface\s*===\s*['"]reconciliation['"]/)
+  assert.match(alertsPageSrc, /route\.query\.surface\s*===\s*['"]quality['"]/)
+  assert.match(alertsPageSrc, /import\s+ReconciliationCenter\s+from\s+['"]\.\.\/\.\.\/reconciliation\/ReconciliationCenter\.vue['"]/)
+  assert.match(alertsPageSrc, /import\s+QualityCenter\s+from\s+['"]\.\.\/\.\.\/quality\/QualityCenter\.vue['"]/)
+  assert.match(alertsPageSrc, /import\s+AnomalyReview\s+from\s+['"]\.\.\/\.\.\/attendance\/AnomalyReview\.vue['"]/)
+  assert.match(alertsPageSrc, /<component\s+:is="activeSurfaceComponent"\s*\/>/)
+})
+
 test('dead component routes are redirects only if retained', () => {
   for (const path of ['statistics', 'reports/detail/:id']) {
     const line = routeLine(path)
@@ -116,6 +152,9 @@ test('legacy route callers use the owner skeleton tabs', () => {
     /name:\s*['"]review-reconciliation-center['"]/,
     'review task center should open manage alerts for reconciliation center'
   )
+  assert.match(reconciliationDetailSrc, /surface:\s*['"]reconciliation['"]/, 'reconciliation detail should keep reconciliation surface')
+  assert.match(reviewTaskCenterSrc, /surface:\s*['"]reconciliation['"]/, 'review task center should keep reconciliation surface')
+  assert.match(overviewCenterSrc, /surface:\s*['"]quality['"]/, 'overview quality entry should keep quality surface')
 
   for (const routeName of ['factory-dashboard', 'review-task-center', 'review-quality-center', 'review-cost-accounting']) {
     assert.doesNotMatch(
