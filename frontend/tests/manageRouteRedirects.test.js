@@ -4,6 +4,19 @@ import { readFileSync } from 'node:fs'
 
 const src = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
 const manageBlock = src.slice(src.indexOf("path: '/manage'"), src.indexOf("path: '/review'"))
+const factoryCommandShellSrc = readFileSync(new URL('../src/views/factory-command/FactoryCommandShell.vue', import.meta.url), 'utf8')
+const reportListSrc = readFileSync(new URL('../src/views/reports/ReportList.vue', import.meta.url), 'utf8')
+const reconciliationDetailSrc = readFileSync(new URL('../src/views/reconciliation/ReconciliationDetail.vue', import.meta.url), 'utf8')
+const reviewTaskCenterSrc = readFileSync(new URL('../src/views/review/ReviewTaskCenter.vue', import.meta.url), 'utf8')
+const overviewCenterSrc = readFileSync(new URL('../src/views/review/OverviewCenter.vue', import.meta.url), 'utf8')
+const overviewQuickEntriesBlock = overviewCenterSrc.slice(
+  overviewCenterSrc.indexOf('const quickEntries = ['),
+  overviewCenterSrc.indexOf('const referenceModules = [')
+)
+const overviewAiActionsBlock = overviewCenterSrc.slice(
+  overviewCenterSrc.indexOf('const aiManagerActions = computed(() => ['),
+  overviewCenterSrc.indexOf('const aiTodaySummary = computed')
+)
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -89,4 +102,40 @@ test('deleted route paths stay absent', () => {
   for (const path of ['live-dashboard', 'manage-data-portal']) {
     assert.equal(src.includes(`path: '${path}'`), false, `route '${path}' should not exist`)
   }
+})
+
+test('legacy route callers use the owner skeleton tabs', () => {
+  assert.doesNotMatch(reportListSrc, /name:\s*['"]report-detail['"]/, 'report list should not open removed report detail route')
+  assert.doesNotMatch(
+    reconciliationDetailSrc,
+    /name:\s*['"]review-reconciliation-center['"]/,
+    'reconciliation detail should return to manage alerts'
+  )
+  assert.doesNotMatch(
+    reviewTaskCenterSrc,
+    /name:\s*['"]review-reconciliation-center['"]/,
+    'review task center should open manage alerts for reconciliation center'
+  )
+
+  for (const routeName of ['factory-dashboard', 'review-task-center', 'review-quality-center', 'review-cost-accounting']) {
+    assert.doesNotMatch(
+      overviewQuickEntriesBlock,
+      new RegExp(`name:\\s*['"]${routeName}['"]`),
+      `overview quick entries should not point to ${routeName}`
+    )
+  }
+  for (const routeName of ['factory-dashboard', 'review-quality-center']) {
+    assert.doesNotMatch(
+      overviewAiActionsBlock,
+      new RegExp(`routeName:\\s*['"]${routeName}['"]`),
+      `overview AI actions should not point to ${routeName}`
+    )
+  }
+})
+
+test('factory command shell supports embedded production mounting', () => {
+  assert.match(factoryCommandShellSrc, /embedded:\s*\{\s*type:\s*Boolean/, 'shell should expose embedded Boolean prop')
+  assert.match(factoryCommandShellSrc, /fc-shell--embedded/, 'shell should add embedded class')
+  assert.match(factoryCommandShellSrc, /<header\s+v-if="!embedded"\s+class="fc-shell__head"/, 'shell header should be hidden when embedded')
+  assert.match(factoryCommandShellSrc, /<div\s+v-if="!embedded"\s+class="fc-shell__grid"/, 'shell grid should be hidden when embedded')
 })

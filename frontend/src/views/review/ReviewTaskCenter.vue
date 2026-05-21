@@ -551,7 +551,7 @@ function goReconciliationDetail(id) {
 
 function goReconciliationCenter() {
   router.push({
-    name: 'review-reconciliation-center',
+    name: 'manage-alerts',
     query: {
       business_date: targetDate.value,
       status: 'open',

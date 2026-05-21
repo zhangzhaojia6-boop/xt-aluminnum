@@ -69,7 +69,7 @@ function backToCenter() {
   }
   if (!query.business_date && item.value?.business_date) query.business_date = item.value.business_date
   if (!query.status && item.value?.status) query.status = item.value.status
-  router.push({ name: 'review-reconciliation-center', query })
+  router.push({ name: 'manage-alerts', query })
 }
 
 onMounted(load)

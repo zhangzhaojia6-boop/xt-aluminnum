@@ -3,7 +3,7 @@
     <header class="xt-production__header">
       <h1>生产</h1>
     </header>
-    <FactoryOverview />
+    <FactoryOverview embedded />
   </section>
 </template>
 

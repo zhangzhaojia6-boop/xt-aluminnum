@@ -154,11 +154,11 @@ const productionLines = [
 ]
 
 const quickEntries = [
-  { name: 'factory-dashboard', label: '看板', hint: '厂级 / 车间' },
-  { name: 'review-task-center', label: '审阅', hint: '待审任务' },
+  { name: 'manage-production', label: '看板', hint: '厂级 / 车间' },
+  { name: 'manage-alerts', label: '审阅', hint: '待审任务' },
   { name: 'review-report-center', label: '日报', hint: '交付与发布' },
-  { name: 'review-quality-center', label: '质量', hint: '告警与处理' },
-  { name: 'review-cost-accounting', label: '成本', hint: '策略核算' },
+  { name: 'manage-alerts', label: '质量', hint: '告警与处理' },
+  { name: 'manage-today', label: '成本', hint: '策略核算' },
   { name: 'factory-ai-assistant', label: 'AI', hint: '摘要与问答' },
   { name: 'admin-ingestion-center', label: '接入', hint: '导入 / 映射' },
   { name: 'admin-ops-reliability', label: '运维', hint: '健康与探针' }
@@ -343,14 +343,14 @@ const aiManagerActions = computed(() => [
     label: '预测',
     detail: aiRiskSummary.value[0] || '当前无突出风险。',
     status: factoryMapAlerts.value.length ? 'warning' : 'normal',
-    routeName: 'review-quality-center'
+    routeName: 'manage-alerts'
   },
   {
     key: 'analysis',
     label: '分析',
     detail: aiTodaySummary.value[0],
     status: 'normal',
-    routeName: 'factory-dashboard'
+    routeName: 'manage-production'
   },
   {
     key: 'assistant',

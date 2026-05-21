@@ -66,7 +66,7 @@
         </el-table-column>
         <el-table-column label="操作" width="110">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row.id)">查看详情</el-button>
+            <el-button link type="primary" @click="openToday">今日</el-button>
           </template>
         </el-table-column>
       </ReferenceDataTable>
@@ -97,8 +97,8 @@ const filters = reactive({
   status: ''
 })
 
-function openDetail(id) {
-  router.push({ name: 'report-detail', params: { id } })
+function openToday() {
+  router.push({ name: 'manage-today' })
 }
 
 function buildSummaryLine(row) {
