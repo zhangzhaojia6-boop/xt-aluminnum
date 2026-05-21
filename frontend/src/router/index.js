@@ -22,13 +22,8 @@ const UnifiedEntryForm = () => import('../views/mobile/UnifiedEntryForm.vue')
 const OCRCapture = () => import('../views/mobile/OCRCapture.vue')
 const ShiftReportHistory = () => import('../views/mobile/ShiftReportHistory.vue')
 const EntryDrafts = () => import('../views/entry/EntryDrafts.vue')
-const ReviewTaskCenter = () => import('../views/review/ReviewTaskCenter.vue')
 const ShiftDetail = () => import('../views/shift/ShiftDetail.vue')
-const ReconciliationCenter = () => import('../views/reconciliation/ReconciliationCenter.vue')
 const ReconciliationDetail = () => import('../views/reconciliation/ReconciliationDetail.vue')
-const AnomalyReview = () => import('../views/attendance/AnomalyReview.vue')
-const QualityCenter = () => import('../views/quality/QualityCenter.vue')
-const Statistics = () => import('../views/dashboard/Statistics.vue')
 const ReportList = () => import('../views/reports/ReportList.vue')
 const IngestionCenter = () => import('../views/review/IngestionCenter.vue')
 const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
@@ -40,33 +35,22 @@ const UserManagement = () => import('../views/master/UserManagement.vue')
 const WorkshopTemplateConfig = () => import('../views/master/WorkshopTemplateConfig.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboard = () => import('../views/reports/LiveDashboard.vue')
-const FactoryDirector = () => import('../views/dashboard/FactoryDirector.vue')
-const WorkshopDirector = () => import('../views/dashboard/WorkshopDirector.vue')
 const FileImport = () => import('../views/imports/FileImport.vue')
 const EnergyCenter = () => import('../views/energy/EnergyCenter.vue')
 const AttendanceOverview = () => import('../views/attendance/AttendanceOverview.vue')
 const AttendanceDetail = () => import('../views/attendance/AttendanceDetail.vue')
 const ExceptionList = () => import('../views/attendance/ExceptionList.vue')
-const ReportDetail = () => import('../views/reports/ReportDetail.vue')
-const QualityDetail = () => import('../views/quality/QualityDetail.vue')
 const QRCodePrint = () => import('../views/master/QRCodePrint.vue')
-const FactoryOverview = () => import('../views/factory-command/FactoryOverview.vue')
-const ProductionFlowScreen = () => import('../views/factory-command/ProductionFlowScreen.vue')
-const MachineLineScreen = () => import('../views/factory-command/MachineLineScreen.vue')
-const CoilTrace = () => import('../views/factory-command/CoilTrace.vue')
-const CostBenefitScreen = () => import('../views/factory-command/CostBenefitScreen.vue')
-const CostAccountingCenter = () => import('../views/review/CostAccountingCenter.vue')
-const ExecutiveDashboard = () => import('../views/executive/ExecutiveDashboard.vue')
-const ProcessingFeeAdmin = () => import('../views/executive/ProcessingFeeAdmin.vue')
 const InventoryCenter = () => import('../views/inventory/InventoryCenter.vue')
-const CostCenter = () => import('../views/cost/CostCenter.vue')
 const ContractsCenter = () => import('../views/contracts/ContractsCenter.vue')
 const OpsCenter = () => import('../views/ops/OpsCenter.vue')
 const SettingsCenter = () => import('../views/settings/SettingsCenter.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
-const ExceptionMap = () => import('../views/factory-command/ExceptionMap.vue')
 const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
 const TeamLeadWorkerDetail = () => import('../views/team/TeamLeadWorkerDetail.vue')
+const TodayPage = () => import('../views/manage/today/TodayPage.vue')
+const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
+const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -132,30 +116,33 @@ const rawRoutes = [
     component: ManageShell,
     meta: { ...reviewMeta, title: '管理工作台', canonical: '/manage' },
     children: [
-      { path: '', redirect: '/manage/overview' },
-      { path: 'overview', name: 'review-overview-home', component: FactoryOverview, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂总览', centerNo: '01', canonical: '/manage/overview' } },
-      { path: 'executive', name: 'executive-dashboard', component: ExecutiveDashboard, meta: { ...reviewMeta, title: '经营驾驶舱', centerNo: '01', canonical: '/manage/executive' } },
-      { path: 'executive/processing-fees', name: 'executive-processing-fees', component: ProcessingFeeAdmin, meta: { ...adminMeta, title: '加工费管理', centerNo: '14', canonical: '/manage/executive/processing-fees' } },
-      { path: 'factory/flow', name: 'factory-command-flow', component: ProductionFlowScreen, meta: { ...reviewMeta, title: '生产流转', centerNo: '05', canonical: '/manage/factory/flow' } },
-      { path: 'factory/machine-lines', name: 'factory-command-machine-lines', component: MachineLineScreen, meta: { ...reviewMeta, title: '车间机列', centerNo: '05', canonical: '/manage/factory/machine-lines' } },
-      { path: 'factory/coils', name: 'factory-command-coils', component: CoilTrace, meta: { ...reviewMeta, title: '卷级追踪', centerNo: '05', canonical: '/manage/factory/coils' } },
-      { path: 'factory/cost', name: 'factory-command-cost', component: CostBenefitScreen, meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
-      { path: 'factory/cost/accounting', name: 'factory-command-cost-accounting', component: CostAccountingCenter, meta: { ...reviewMeta, title: '策略核算', centerNo: '10', canonical: '/manage/factory/cost/accounting' } },
+      { path: '', redirect: '/manage/today' },
+      { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '今日', canonical: '/manage/today' } },
+      { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
+      { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
+      { path: 'overview', name: 'review-overview-home', redirect: { name: 'manage-today' }, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂总览', centerNo: '01', canonical: '/manage/today' } },
+      { path: 'executive', name: 'executive-dashboard', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '经营驾驶舱', centerNo: '01', canonical: '/manage/today' } },
+      { path: 'executive/processing-fees', name: 'executive-processing-fees', redirect: { name: 'manage-today' }, meta: { ...adminMeta, title: '加工费管理', centerNo: '14', canonical: '/manage/today' } },
+      { path: 'factory/flow', name: 'factory-command-flow', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '生产流转', centerNo: '05', canonical: '/manage/production' } },
+      { path: 'factory/machine-lines', name: 'factory-command-machine-lines', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '车间机列', centerNo: '05', canonical: '/manage/production' } },
+      { path: 'factory/coils', name: 'factory-command-coils', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '卷级追踪', centerNo: '05', canonical: '/manage/production' } },
+      { path: 'factory/cost', name: 'factory-command-cost', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/today' } },
+      { path: 'factory/cost/accounting', name: 'factory-command-cost-accounting', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '策略核算', centerNo: '10', canonical: '/manage/today' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
-      { path: 'factory/exceptions', name: 'factory-command-exceptions', component: ExceptionMap, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/factory/exceptions' } },
-      { path: 'factory', name: 'factory-dashboard', component: FactoryDirector, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/factory' } },
-      { path: 'workshop', name: 'workshop-dashboard', component: WorkshopDirector, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/workshop' } },
-      { path: 'entry-center', name: 'review-task-center', component: ReviewTaskCenter, meta: { ...reviewMeta, title: '异常与补录', centerNo: '07', canonical: '/manage/entry-center' } },
+      { path: 'factory/exceptions', name: 'factory-command-exceptions', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/alerts' } },
+      { path: 'factory', name: 'factory-dashboard', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '工厂作业看板', centerNo: '05', canonical: '/manage/production' } },
+      { path: 'workshop', name: 'workshop-dashboard', redirect: { name: 'manage-production' }, meta: { ...reviewMeta, title: '车间作业看板', centerNo: '05', canonical: '/manage/production' } },
+      { path: 'entry-center', name: 'review-task-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常与补录', centerNo: '07', canonical: '/manage/alerts' } },
       { path: 'shift', redirect: '/manage/master' },
-      { path: 'reconciliation', name: 'review-reconciliation-center', component: ReconciliationCenter, meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/reconciliation' } },
+      { path: 'reconciliation', name: 'review-reconciliation-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/alerts' } },
       { path: 'reconciliation/detail/:id', name: 'reconciliation-detail', component: ReconciliationDetail, meta: { ...reviewMeta, title: '差异详情' } },
-      { path: 'anomaly', name: 'manage-anomaly', component: AnomalyReview, meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/anomaly' } },
-      { path: 'quality', name: 'review-quality-center', component: QualityCenter, meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/quality' } },
-      { path: 'quality/detail/:id', name: 'quality-detail', component: QualityDetail, meta: { ...reviewMeta, title: '质量详情' } },
-      { path: 'statistics', name: 'statistics-dashboard', component: Statistics, meta: { ...reviewMeta, title: '统计中心', canonical: '/manage/statistics' } },
+      { path: 'anomaly', name: 'manage-anomaly', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/alerts' } },
+      { path: 'quality', name: 'review-quality-center', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/alerts' } },
+      { path: 'quality/detail/:id', name: 'quality-detail', redirect: { name: 'manage-alerts' }, meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/alerts' } },
+      { path: 'statistics', name: 'statistics-dashboard', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '统计中心', canonical: '/manage/today' } },
       { path: 'cost', name: 'review-cost-accounting', redirect: '/manage/factory/cost', meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
-      { path: 'reports/detail/:id', name: 'report-detail', component: ReportDetail, meta: { ...reviewMeta, title: '日报详情' } },
+      { path: 'reports/detail/:id', name: 'report-detail', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '日报详情', canonical: '/manage/today' } },
       { path: 'ingestion', name: 'admin-ingestion-center', component: IngestionCenter, meta: { ...adminMeta, title: '数据接入与字段映射中心', centerNo: '06', canonical: '/manage/ingestion' } },
       { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据与模板中心', centerNo: '14', canonical: '/manage/master' } },
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
@@ -163,7 +150,7 @@ const rawRoutes = [
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'inventory', name: 'manage-inventory', component: InventoryCenter, meta: { ...reviewMeta, title: '库存出入中心', canonical: '/manage/inventory' } },
-      { path: 'cost-center', name: 'manage-cost-center', component: CostCenter, meta: { ...reviewMeta, title: '成本与效益中心', canonical: '/manage/cost-center' } },
+      { path: 'cost-center', name: 'manage-cost-center', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '成本与效益中心', canonical: '/manage/today' } },
       { path: 'contracts', name: 'manage-contracts', component: ContractsCenter, meta: { ...reviewMeta, title: '合同与订单中心', canonical: '/manage/contracts' } },
       { path: 'ops-center', name: 'manage-ops-center', component: OpsCenter, meta: { ...reviewMeta, title: '运维告警中心', canonical: '/manage/ops-center' } },
       { path: 'settings-center', name: 'manage-settings-center', component: SettingsCenter, meta: { ...adminMeta, title: '系统配置中心', canonical: '/manage/settings-center' } },
@@ -178,23 +165,23 @@ const rawRoutes = [
       { path: 'admin/qr-print', name: 'admin-qr-print', component: QRCodePrint, meta: { ...adminMeta, title: 'QR 码打印', canonical: '/manage/admin/qr-print' } }
     ]
   },
-  { path: '/review', redirect: preserveRouteState('/manage/overview') },
-  { path: '/review/overview', redirect: preserveRouteState('/manage/overview') },
-  { path: '/review/factory', redirect: preserveRouteState('/manage/factory') },
-  { path: '/review/workshop', redirect: preserveRouteState('/manage/workshop') },
-  { path: '/review/tasks', redirect: preserveRouteState('/manage/entry-center') },
+  { path: '/review', redirect: preserveRouteState('/manage/today') },
+  { path: '/review/overview', redirect: preserveRouteState('/manage/today') },
+  { path: '/review/factory', redirect: preserveRouteState('/manage/production') },
+  { path: '/review/workshop', redirect: preserveRouteState('/manage/production') },
+  { path: '/review/tasks', redirect: preserveRouteState('/manage/alerts') },
   { path: '/review/reports', redirect: preserveRouteState('/manage/reports') },
-  { path: '/review/quality', redirect: preserveRouteState('/manage/quality') },
-  { path: '/review/reconciliation', redirect: preserveRouteState('/manage/reconciliation') },
+  { path: '/review/quality', redirect: preserveRouteState('/manage/alerts') },
+  { path: '/review/reconciliation', redirect: preserveRouteState('/manage/alerts') },
   { path: '/review/ingestion', name: 'review-ingestion-center', redirect: preserveRouteState('/manage/ingestion') },
   { path: '/review/ops', name: 'review-ops-reliability', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/governance', name: 'review-governance-center', redirect: preserveRouteState('/manage/admin/governance') },
   { path: '/review/templates', name: 'review-template-center', redirect: preserveRouteState('/manage/admin/templates') },
-  { path: '/review/cost-accounting', redirect: preserveRouteState('/manage/factory/cost') },
-  { path: '/review/cost', redirect: preserveRouteState('/manage/factory/cost') },
-  { path: '/review/roadmap', redirect: preserveRouteState('/manage/overview') },
+  { path: '/review/cost-accounting', redirect: preserveRouteState('/manage/today') },
+  { path: '/review/cost', redirect: preserveRouteState('/manage/today') },
+  { path: '/review/roadmap', redirect: preserveRouteState('/manage/today') },
   { path: '/review/brain', redirect: preserveRouteState('/manage/ai-assistant') },
-  { path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/overview') },
+  { path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/today') },
   { path: '/admin', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/overview', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/ingestion', redirect: preserveRouteState('/manage/ingestion') },
@@ -214,20 +201,20 @@ const rawRoutes = [
   { path: '/mobile/attendance', redirect: (to) => ({ path: '/entry/attendance', query: to.query, hash: to.hash }) },
   { path: '/mobile/history', redirect: (to) => ({ path: '/entry/history', query: to.query, hash: to.hash }) },
   { path: '/worker', redirect: (to) => ({ name: 'mobile-entry', query: to.query, hash: to.hash }) },
-  { path: '/factory', redirect: '/manage/factory' },
-  { path: '/workshop', redirect: '/manage/workshop' },
+  { path: '/factory', redirect: '/manage/production' },
+  { path: '/workshop', redirect: '/manage/production' },
   { path: '/ingestion/mapping', redirect: '/manage/ingestion' },
   { path: '/reports/delivery', redirect: '/manage/reports' },
-  { path: '/alerts/quality', redirect: '/manage/quality' },
+  { path: '/alerts/quality', redirect: '/manage/alerts' },
   { path: '/ops/reliability', redirect: '/manage/admin/settings' },
   { path: '/governance', redirect: '/manage/admin/governance' },
-  { path: '/cost/accounting', redirect: '/manage/factory/cost' },
-  { path: '/roadmap/next', redirect: '/manage/overview' },
-  { path: '/dashboard', redirect: '/manage/overview' },
-  { path: '/dashboard/executive', redirect: '/manage/executive' },
-  { path: '/dashboard/factory', redirect: '/manage/factory' },
-  { path: '/dashboard/workshop', redirect: '/manage/workshop' },
-  { path: '/dashboard/statistics', redirect: '/manage/statistics' },
+  { path: '/cost/accounting', redirect: '/manage/today' },
+  { path: '/roadmap/next', redirect: '/manage/today' },
+  { path: '/dashboard', redirect: '/manage/today' },
+  { path: '/dashboard/executive', redirect: '/manage/today' },
+  { path: '/dashboard/factory', redirect: '/manage/production' },
+  { path: '/dashboard/workshop', redirect: '/manage/production' },
+  { path: '/dashboard/statistics', redirect: '/manage/today' },
   { path: '/imports/files', name: 'file-import', component: FileImport, meta: { ...adminMeta, title: '文件上传' } },
   { path: '/imports/history', redirect: '/manage/imports' },
   { path: '/energy/center', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心' } },
@@ -236,10 +223,10 @@ const rawRoutes = [
   { path: '/attendance/exceptions', name: 'attendance-exceptions', component: ExceptionList, meta: { ...reviewMeta, title: '异常列表' } },
   { path: '/shift/detail/:id', name: 'shift-detail', component: ShiftDetail, meta: { ...reviewMeta, title: '班次详情' } },
   { path: '/reports/list', redirect: '/manage/reports' },
-  { path: '/reports/detail/:id', redirect: (to) => `/manage/reports/detail/${to.params.id}` },
-  { path: '/quality/center', redirect: '/manage/quality' },
-  { path: '/quality/detail/:id', redirect: (to) => `/manage/quality/detail/${to.params.id}` },
-  { path: '/reconciliation/center', redirect: '/manage/reconciliation' },
+  { path: '/reports/detail/:id', redirect: '/manage/today' },
+  { path: '/quality/center', redirect: '/manage/alerts' },
+  { path: '/quality/detail/:id', redirect: '/manage/alerts' },
+  { path: '/reconciliation/center', redirect: '/manage/alerts' },
   { path: '/reconciliation/detail/:id', redirect: (to) => `/manage/reconciliation/detail/${to.params.id}` },
   { path: '/master', redirect: '/manage/master' },
   { path: '/master/workshop', name: 'master-workshop', redirect: '/manage/master' },
@@ -253,8 +240,8 @@ const rawRoutes = [
   { path: '/master/workshop-template', name: 'master-workshop-template', redirect: '/manage/admin/templates' },
   { path: '/master/workshop-templates', redirect: '/manage/admin/templates' },
   { path: '/master/rules', redirect: '/manage/admin/rules' },
-  { path: '/', redirect: '/manage/overview' },
-  { path: '/:pathMatch(.*)*', redirect: '/manage/overview' }
+  { path: '/', redirect: '/manage/today' },
+  { path: '/:pathMatch(.*)*', redirect: '/manage/today' }
 ]
 
 const routes = rawRoutes.map(withMeta)
