@@ -663,6 +663,29 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  await page.route('**/api/v1/attendance/anomalies**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          detail_id: 1,
+          business_date: '2026-05-12',
+          workshop_name: '挤压车间',
+          machine_name: 'XT-ZD-1',
+          shift_name: '白班',
+          employee_name: '张三',
+          dingtalk_clock_in: '08:02',
+          dingtalk_clock_out: '',
+          auto_status: 'missing_clock_out',
+          leader_status: 'normal',
+          hr_status: 'pending',
+          override_reason: '下班卡缺失'
+        }
+      ])
+    })
+  })
+
   const aiConversations = [
     {
       id: 'conv-1',

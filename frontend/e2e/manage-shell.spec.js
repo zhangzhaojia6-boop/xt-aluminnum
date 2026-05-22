@@ -7,14 +7,14 @@ test.describe('ManageShell layout', () => {
 
     await page.goto('/review/overview')
 
-    await expect(page).toHaveURL(/\/manage\/overview$/)
+    await expect(page).toHaveURL(/\/manage\/today$/)
     await expect(page.locator('.xt-manage__sidebar')).toBeVisible()
-    await expect(page.locator('.xt-manage__nav-item.router-link-active')).toContainText('总览')
+    await expect(page.locator('.xt-manage__nav-item.router-link-active')).toContainText('今日')
   })
 
   test('sidebar collapses and remembers state', async ({ page }) => {
     await setupReviewSessionAndMocks(page)
-    await page.goto('/manage/overview')
+    await page.goto('/manage/today')
 
     await page.locator('.xt-manage__collapse-btn').click()
 
@@ -31,52 +31,50 @@ test.describe('ManageShell layout', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('xt-sidebar-collapsed'))).toBe('false')
   })
 
-  test('factory cost benefit surface is visible from the management navigation', async ({ page }) => {
+  test('settings drawer exposes frozen destination items', async ({ page }) => {
     await setupReviewSessionAndMocks(page)
-    await page.goto('/manage/overview')
+    await page.goto('/manage/today')
 
-    await expect(page.locator('.xt-manage__nav-item', { hasText: '经营效益' })).toBeVisible()
-    await page.locator('.xt-manage__nav-item', { hasText: '经营效益' }).click()
-    await expect(page).toHaveURL(/\/manage\/factory\/cost$/)
-    await expect(page.getByRole('heading', { name: '经营效益' })).toBeVisible()
-    await expect(page.getByText('经营估算')).toBeVisible()
-    await expect(page.getByText('毛差估算')).toBeVisible()
+    await page.getByRole('button', { name: '设置' }).click()
+
+    await expect(page.getByText('杂项 (冻结)')).toBeVisible()
+    await expect(page.getByRole('link', { name: /库存去向/ })).toBeVisible()
   })
 
   test('mobile drawer navigation opens, routes, and closes', async ({ page }) => {
     await page.setViewportSize({ width: 1000, height: 844 })
     await setupReviewSessionAndMocks(page)
-    await page.goto('/manage/overview')
+    await page.goto('/manage/today')
 
     await page.getByRole('button', { name: '打开导航' }).click()
 
     const drawer = page.locator('.xt-manage__drawer')
     await expect(drawer).toBeVisible()
-    await drawer.getByRole('link', { name: '经营效益 估算' }).click()
+    await drawer.getByRole('link', { name: '生产', exact: true }).click()
 
-    await expect(page).toHaveURL(/\/manage\/factory\/cost/)
-    await expect(page.getByRole('heading', { name: '经营效益' })).toBeVisible()
+    await expect(page).toHaveURL(/\/manage\/production/)
+    await expect(page.getByTestId('manage-production')).toBeVisible()
     await expect(drawer).toBeHidden()
   })
 
   test('search overlay filters and routes to the selected result', async ({ page }) => {
     await setupReviewSessionAndMocks(page)
-    await page.goto('/manage/overview')
+    await page.goto('/manage/today')
 
     await page.getByRole('button', { name: '搜索 Ctrl K' }).click()
 
     const dialog = page.locator('.xt-search-overlay')
     await expect(dialog).toBeVisible()
-    await dialog.getByPlaceholder('搜索功能').fill('质量')
+    await dialog.getByPlaceholder('搜索功能').fill('异常')
 
-    const qualityResult = dialog.locator('.xt-manage__search-item', { hasText: '质量' })
-    await expect(qualityResult).toBeVisible()
-    await expect(dialog.locator('.xt-manage__search-item', { hasText: '经营效益' })).toHaveCount(0)
+    const alertResult = dialog.locator('.xt-manage__search-item', { hasText: '异常' })
+    await expect(alertResult).toBeVisible()
+    await expect(dialog.locator('.xt-manage__search-item', { hasText: '生产' })).toHaveCount(0)
 
-    await qualityResult.click()
+    await alertResult.click()
 
-    await expect(page).toHaveURL(/\/manage\/quality$/)
-    await expect(page.getByRole('heading', { name: '质量与告警中心' })).toBeVisible()
+    await expect(page).toHaveURL(/\/manage\/alerts$/)
+    await expect(page.getByTestId('manage-alerts')).toBeVisible()
     await expect(dialog).toBeHidden()
   })
 })

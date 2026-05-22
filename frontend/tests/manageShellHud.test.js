@@ -36,6 +36,16 @@ test('ManageShell keeps 数据中枢 brand text', () => {
   assert.match(src, /数据中枢/)
 })
 
+test('ManageShell brand lands on the owner today tab', () => {
+  assert.match(src, /class="xt-manage__brand" to="\/manage\/today"/)
+  assert.doesNotMatch(src, /class="xt-manage__brand" to="\/manage\/overview"/)
+})
+
+test('ManageShell wires the settings drawer trigger', () => {
+  assert.match(src, /SettingsDrawer v-model:open="settingsDrawerOpen"/)
+  assert.match(src, /aria-label="设置" @click="settingsDrawerOpen = true"/)
+})
+
 test('ManageShell has no forbidden product lexicon', () => {
   assert.doesNotMatch(src, /cyberpunk|palantir|quantum|sci-?fi/i)
 })
