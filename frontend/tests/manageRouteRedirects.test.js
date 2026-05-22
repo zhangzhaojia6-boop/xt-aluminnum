@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { findCenterByRouteName, resolveRouteMeta } from '../src/config/navigation.js'
 
 const src = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
 const manageBlock = src.slice(src.indexOf("path: '/manage'"), src.indexOf("path: '/review'"))
@@ -59,6 +60,37 @@ test('three new top-level manage routes are wired', () => {
   for (const path of ['today', 'production', 'alerts']) {
     assert.ok(routeLine(path), `route '${path}' should exist`)
   }
+})
+
+test('owner skeleton route metadata stays unique', () => {
+  assert.deepEqual(
+    {
+      title: resolveRouteMeta('manage-today', {}).title,
+      centerNo: resolveRouteMeta('manage-today', {}).centerNo,
+      canonical: resolveRouteMeta('manage-today', {}).canonical,
+      centerNoFromMap: findCenterByRouteName('manage-today')?.no
+    },
+    {
+      title: '系统总览主视图',
+      centerNo: '01',
+      canonical: '/manage/today',
+      centerNoFromMap: '01'
+    }
+  )
+  assert.deepEqual(
+    {
+      title: resolveRouteMeta('manage-alerts', {}).title,
+      centerNo: resolveRouteMeta('manage-alerts', {}).centerNo,
+      canonical: resolveRouteMeta('manage-alerts', {}).canonical,
+      centerNoFromMap: findCenterByRouteName('manage-alerts')?.no
+    },
+    {
+      title: '异常与补录',
+      centerNo: '07',
+      canonical: '/manage/alerts',
+      centerNoFromMap: '07'
+    }
+  )
 })
 
 test('legacy today routes redirect to manage-today', () => {

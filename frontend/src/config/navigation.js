@@ -65,7 +65,7 @@ export const centerNavigation = [
     title: '质量与告警中心',
     zone: 'review',
     path: '/manage/alerts?surface=quality',
-    routeName: 'manage-alerts',
+    routeName: 'review-quality-center',
     icon: '质',
     summary: '质量告警、处理状态、追溯'
   },
@@ -75,7 +75,7 @@ export const centerNavigation = [
     title: '经营效益',
     zone: 'review',
     path: '/manage/today',
-    routeName: 'manage-today',
+    routeName: 'factory-command-cost',
     icon: '效',
     summary: '经营估算、策略口径、能耗与人工'
   },
