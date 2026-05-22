@@ -47,13 +47,15 @@ Phase A 把管理端骨架收拢到 3 tab（今日 / 生产 / 异常），路由
 
 ### 3.2 5 数定义
 
-| # | 标题 | 数据 | 公式 |
+后端 `management_estimate.estimated_*` 系列单位为**元**；前端展示万元时统一 `value / 10000`。`leader_metrics.total_output_weight`、`history_digest.month_archive.total_output` 单位为**吨**，原值直显。
+
+| # | 标题 | 数据 | 展示 |
 |---|---|---|---|
-| 1 | 日产量 | `leader_metrics.total_output_weight` | 单位 吨，2 位小数 |
-| 2 | 比昨日 | `analysis_handoff.trend.output_delta_vs_yesterday` | 单位 吨，正绿负橙，箭头 ↑↓ |
-| 3 | 日吨成本 | `management_estimate.estimated_cost / leader_metrics.total_output_weight` | 单位 元/吨，0 位小数；total_output 为 0 时显 — |
-| 4 | 月累产量 | `history_digest.month_archive.total_output` | 单位 吨，0 位小数 |
-| 5 | 估算毛利 | `management_estimate.estimated_margin` | 单位 万元，1 位小数；estimate_ready=false 时灰显 |
+| 1 | 日产量 | `leader_metrics.total_output_weight` | 吨，2 位小数 |
+| 2 | 比昨日 | `analysis_handoff.trend.output_delta_vs_yesterday` | 吨，2 位小数；正绿负橙，箭头 ↑↓ |
+| 3 | 日吨成本 | `management_estimate.estimated_cost / leader_metrics.total_output_weight` | 元/吨，0 位小数；total_output ≤ 0 或 estimated_cost null 时显 — |
+| 4 | 月累产量 | `history_digest.month_archive.total_output` | 吨，0 位小数 |
+| 5 | 估算毛利 | `management_estimate.estimated_margin / 10000` | 万元，1 位小数；`estimate_ready=false` 时灰显 + 角标"估算未就绪" |
 
 数字卡不点击。生产 tab 也是厂级合计 + 车间排名表，没有"日产量对应的子页面"可跳；强加点击会落到没意义的滚动锚点。Phase C 重做生产下钻时再考虑信任锚点。
 
@@ -70,23 +72,27 @@ Phase A 把管理端骨架收拢到 3 tab（今日 / 生产 / 异常），路由
 
 固定 3 个坑位（不是 top N、不是排序）：
 
-| 坑位 | 触发 | 卡片标题 | 跳转 |
+| 坑位 | 触发字段 | 卡片标题 | 跳转 |
 |---|---|---|---|
-| 1 生产 | `production_exception_count > 0` | "生产异常 N 件" | `/manage/alerts?surface=anomaly` |
-| 2 对账 | `reconciliation_open_count > 0` | "对账未结 N 条" | `/manage/alerts?surface=reconciliation` |
-| 3 填报 | `unreported_shift_count > 0` | "未填报班次 N 个" | `/manage/alerts?surface=anomaly` |
+| 1 生产 | `exception_lane.production_exception_count > 0` | "生产异常 N 件" | `/manage/alerts?surface=anomaly` |
+| 2 对账 | `exception_lane.reconciliation_open_count > 0` | "对账未结 N 条" | `/manage/alerts?surface=reconciliation` |
+| 3 填报 | `exception_lane.unreported_shift_count > 0` | "未填报班次 N 个" | `/manage/alerts?surface=anomaly` |
+
+**字段统一从 `exception_lane` 取**——`unreported_shift_count` 在 `management_estimate` 里也有同名字段，但 `exception_lane` 是异常域权威值，避免两边数字不一致。
 
 各坑位独立判断：count = 0 时该卡显灰底"无"，不参与排序。3 个全 0 时区域整体不渲染（不要硬塞"今日无要紧事"占位）。
 
 ### 3.5 成本一行
 
-`management_estimate.estimated_cost` 是合计估算，**后端没有拆电+气**——`assumptions` 里只有单价不是用量。to boss.md 里的"电费 14.00 万、气费 18.77 万"是 prose 字符串不是结构化字段。
+`management_estimate.estimated_cost` 是合计估算（**单位元**），**后端没有拆电+气**——`assumptions` 里只有单价不是用量。to boss.md 里的"电费 14.00 万、气费 18.77 万"是 prose 字符串不是结构化字段。
 
 展示：
 
 ```
 今日估算成本 X.XX 万   口径：估算
 ```
+
+前端 `value / 10000`、保留 2 位小数。`estimated_cost` null 或 `estimate_ready=false` 时整行灰显，数值显 —。
 
 不做"展开看电费气费"——后端没数据。Phase C 如要拆，需后端 `management_estimate` 加 `electricity_cost_value` / `gas_cost_value` 字段。
 
@@ -106,13 +112,15 @@ Phase A 把管理端骨架收拢到 3 tab（今日 / 生产 / 异常），路由
 
 ### 4.2 厂级 5 数
 
-| # | 标题 | 数据 |
-|---|---|---|
-| 1 | 已产 | `leader_metrics.total_output_weight` |
-| 2 | 比昨日 | `analysis_handoff.trend.output_delta_vs_yesterday` |
-| 3 | 估算毛利 | `management_estimate.estimated_margin` |
-| 4 | 合同缺口 | `management_estimate.remaining_weight` |
-| 5 | 日吨能耗 | `leader_metrics.energy_per_ton` |
+| # | 标题 | 数据 | 展示 |
+|---|---|---|---|
+| 1 | 已产 | `leader_metrics.total_output_weight` | 吨，2 位小数 |
+| 2 | 比昨日 | `analysis_handoff.trend.output_delta_vs_yesterday` | 吨，2 位小数；正绿负橙 |
+| 3 | 估算毛利 | `management_estimate.estimated_margin / 10000` | 万元，1 位小数；`estimate_ready=false` 时灰显 |
+| 4 | 合同缺口 | `management_estimate.remaining_weight` | 吨，0 位小数；null 显 — |
+| 5 | 日吨能耗 | `leader_metrics.energy_per_ton` | kWh/吨（按后端原值），1 位小数 |
+
+"比昨日"今日和生产 tab 都显示——刻意保留，让两个 tab 各自能独立读懂："产了多少 + 比昨日好坏"是同一个信息单元，拆开后任一 tab 都缺一半。
 
 ### 4.3 车间排名表
 
@@ -177,6 +185,7 @@ Phase B 只做"日"——和今日 tab 共用同一个 `DateSwitcher`（前/后�
 - 今日要紧事 3 个坑位独立判断；count = 0 时该卡显灰底"无"；3 个全 0 时区域整体不渲染
 - 要紧事卡片 count > 0 时点击 → 跳 `/manage/alerts` 带正确 surface query
 - 成本一行只显合计 + "口径：估算"，**不展开拆电气**
+- 估算金额（毛利 / 成本）后端单位为元，前端 ÷10000 显万元；要紧事字段统一从 `exception_lane` 取
 - 不出现"达成率"、"班次进度"、"月同比"、"top 3"字样
 - 车间排名表 target_value 列标注为"月均"，**不染色**；null 时显 —
 - summary_text 整段渲染，不前端切段
