@@ -42,6 +42,9 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
+          <button class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true">
+            <el-icon><Setting /></el-icon>
+          </button>
           <button class="xt-manage__assistant-trigger" type="button" @click="openAssistantFromTopbar">
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 助手</span>
@@ -116,15 +119,17 @@
       :initial-prompt="assistantInitialPrompt"
       @prompt-consumed="assistantInitialPrompt = ''"
     />
+    <SettingsDrawer v-model:open="settingsDrawerOpen" />
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { ChatDotRound, Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
+import { ChatDotRound, Expand, Fold, Menu, Search, Setting } from '@element-plus/icons-vue'
 
 import AiAssistantDrawer from '../components/ai/AiAssistantDrawer.vue'
+import SettingsDrawer from '../components/manage/SettingsDrawer.vue'
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
@@ -141,6 +146,7 @@ const collapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const drawerOpen = ref(false)
 const searchOpen = ref(false)
 const assistantOpen = ref(false)
+const settingsDrawerOpen = ref(false)
 const assistantContextOverride = ref(null)
 const assistantInitialPrompt = ref('')
 const keyword = ref('')
@@ -352,6 +358,7 @@ onBeforeUnmount(() => {
 .xt-manage__hamburger,
 .xt-manage__search-trigger,
 .xt-manage__assistant-trigger,
+.xt-manage__settings-trigger,
 .xt-manage__user {
   border: 0;
   background: transparent;
@@ -367,6 +374,7 @@ onBeforeUnmount(() => {
 .xt-manage__hamburger:active,
 .xt-manage__search-trigger:active,
 .xt-manage__assistant-trigger:active,
+.xt-manage__settings-trigger:active,
 .xt-manage__user:active {
   transform: scale(0.96);
 }
@@ -382,6 +390,7 @@ onBeforeUnmount(() => {
   .xt-manage__hamburger:hover,
   .xt-manage__search-trigger:hover,
   .xt-manage__assistant-trigger:hover,
+  .xt-manage__settings-trigger:hover,
   .xt-manage__user:hover {
     background: var(--xt-bg-panel-soft);
     color: var(--xt-text);
@@ -461,6 +470,16 @@ onBeforeUnmount(() => {
   color: var(--xt-text-inverse);
   font-size: var(--xt-text-sm);
   font-weight: 850;
+}
+
+.xt-manage__settings-trigger {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--xt-text-secondary);
 }
 
 .xt-manage__user {
