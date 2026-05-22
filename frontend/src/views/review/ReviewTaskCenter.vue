@@ -531,14 +531,14 @@ function riskTagType(risk) {
 
 function goWorkshop(workshopId) {
   if (!workshopId) {
-    router.push({ name: 'workshop-dashboard' })
+    router.push({ name: 'manage-production' })
     return
   }
-  router.push({ name: 'workshop-dashboard', query: { workshop_id: String(workshopId) } })
+  router.push({ name: 'manage-production', query: { workshop_id: String(workshopId) } })
 }
 
 function goFactory() {
-  router.push({ name: 'factory-dashboard' })
+  router.push({ name: 'manage-production' })
 }
 
 function goReconciliationDetail(id) {

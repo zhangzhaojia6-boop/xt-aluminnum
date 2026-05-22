@@ -24,6 +24,7 @@ const ShiftReportHistory = () => import('../views/mobile/ShiftReportHistory.vue'
 const EntryDrafts = () => import('../views/entry/EntryDrafts.vue')
 const ShiftDetail = () => import('../views/shift/ShiftDetail.vue')
 const ReconciliationDetail = () => import('../views/reconciliation/ReconciliationDetail.vue')
+const QualityDetail = () => import('../views/quality/QualityDetail.vue')
 const ReportList = () => import('../views/reports/ReportList.vue')
 const IngestionCenter = () => import('../views/review/IngestionCenter.vue')
 const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
@@ -142,7 +143,7 @@ const rawRoutes = [
       { path: 'reconciliation/detail/:id', name: 'reconciliation-detail', component: ReconciliationDetail, meta: { ...reviewMeta, title: '差异详情' } },
       { path: 'anomaly', name: 'manage-anomaly', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'anomaly' }, hash: to.hash }), meta: { ...reviewMeta, title: '异常审核', canonical: '/manage/alerts' } },
       { path: 'quality', name: 'review-quality-center', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'quality' }, hash: to.hash }), meta: { ...reviewMeta, title: '质量与告警中心', centerNo: '09', canonical: '/manage/alerts' } },
-      { path: 'quality/detail/:id', name: 'quality-detail', redirect: (to) => ({ name: 'manage-alerts', query: { ...to.query, surface: 'quality', id: to.params.id }, hash: to.hash }), meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/alerts' } },
+      { path: 'quality/detail/:id', name: 'quality-detail', component: QualityDetail, meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/quality/detail/:id' } },
       { path: 'statistics', name: 'statistics-dashboard', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '统计中心', canonical: '/manage/today' } },
       { path: 'cost', name: 'review-cost-accounting', redirect: '/manage/factory/cost', meta: { ...reviewMeta, title: '经营效益', centerNo: '10', canonical: '/manage/factory/cost' } },
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
@@ -229,7 +230,7 @@ const rawRoutes = [
   { path: '/reports/list', redirect: '/manage/reports' },
   { path: '/reports/detail/:id', redirect: '/manage/today' },
   { path: '/quality/center', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
-  { path: '/quality/detail/:id', redirect: preserveRouteState('/manage/alerts', (to) => ({ surface: 'quality', id: to.params.id })) },
+  { path: '/quality/detail/:id', redirect: (to) => ({ path: `/manage/quality/detail/${to.params.id}`, query: to.query, hash: to.hash }) },
   { path: '/reconciliation/center', redirect: preserveRouteState('/manage/alerts', { surface: 'reconciliation' }) },
   { path: '/reconciliation/detail/:id', redirect: (to) => `/manage/reconciliation/detail/${to.params.id}` },
   { path: '/master', redirect: '/manage/master' },

@@ -1,7 +1,7 @@
 <template>
   <div class="xt-manage" :class="{ 'xt-manage--collapsed': collapsed }" data-testid="manage-shell">
     <aside class="xt-manage__sidebar">
-      <RouterLink class="xt-manage__brand" to="/manage/overview" aria-label="鑫泰铝业数据中枢">
+      <RouterLink class="xt-manage__brand" to="/manage/today" aria-label="鑫泰铝业数据中枢">
         <XtLogo :variant="collapsed ? 'icon' : 'full'" />
         <span v-if="!collapsed" class="xt-manage__brand-text">数据中枢</span>
       </RouterLink>
@@ -158,7 +158,7 @@ const assistantContext = computed(() => assistantContextOverride.value || ({
   route: route.path,
   scope: {
     type: 'route',
-    key: route.path || '/manage/overview'
+    key: route.path || '/manage/today'
   }
 }))
 
@@ -189,7 +189,7 @@ function handleAssistantOpen(event) {
     route: route.path,
     scope: detail.scope || {
       type: 'route',
-      key: route.path || '/manage/overview'
+      key: route.path || '/manage/today'
     },
     freshness: detail.freshness || {}
   }

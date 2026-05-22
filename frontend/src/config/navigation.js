@@ -4,8 +4,8 @@ export const centerNavigation = [
     no: '01',
     title: '系统总览主视图',
     zone: 'review',
-    path: '/manage/overview',
-    routeName: 'review-overview-home',
+    path: '/manage/today',
+    routeName: 'manage-today',
     icon: '总',
     summary: '今日产量、达成率、异常、补录、交付状态'
   },
@@ -24,8 +24,8 @@ export const centerNavigation = [
     no: '05',
     title: '工厂作业看板',
     zone: 'review',
-    path: '/manage/factory',
-    routeName: 'factory-dashboard',
+    path: '/manage/production',
+    routeName: 'manage-production',
     icon: '厂',
     summary: '产线产量、OEE、异常、趋势'
   },
@@ -44,8 +44,8 @@ export const centerNavigation = [
     no: '07',
     title: '异常与补录',
     zone: 'review',
-    path: '/manage/entry-center',
-    routeName: 'review-task-center',
+    path: '/manage/alerts',
+    routeName: 'manage-alerts',
     icon: '补',
     summary: '缺报、退回、差异、同步滞后、风险等级'
   },
@@ -64,8 +64,8 @@ export const centerNavigation = [
     no: '09',
     title: '质量与告警中心',
     zone: 'review',
-    path: '/manage/quality',
-    routeName: 'review-quality-center',
+    path: '/manage/alerts?surface=quality',
+    routeName: 'manage-alerts',
     icon: '质',
     summary: '质量告警、处理状态、追溯'
   },
@@ -74,8 +74,8 @@ export const centerNavigation = [
     no: '10',
     title: '经营效益',
     zone: 'review',
-    path: '/manage/factory/cost',
-    routeName: 'factory-command-cost',
+    path: '/manage/today',
+    routeName: 'manage-today',
     icon: '效',
     summary: '经营估算、策略口径、能耗与人工'
   },
@@ -148,10 +148,13 @@ const routeMetaByName = {
   'mobile-report-history': { center: 'entry', group: '录入端', order: 6, icon: 'Tickets', legacy: false, roles: ['entry'], keepAlive: true },
   'entry-drafts': { center: 'entry', group: '录入端', order: 7, icon: 'DocumentCopy', legacy: false, roles: ['entry'], keepAlive: true },
 
-  'review-overview-home': { center: 'overview', group: '总览中心', order: 1, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
-  'factory-dashboard': { center: 'factory', group: '总览中心', order: 2, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
-  'workshop-dashboard': { center: 'factory', group: '总览中心', order: 3, icon: 'Monitor', legacy: false, roles: ['review'], keepAlive: true },
-  'review-task-center': { center: 'tasks', group: '审阅处置', order: 4, icon: 'List', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-today': { center: 'overview', group: '三页骨架', order: 1, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-production': { center: 'factory', group: '三页骨架', order: 2, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-alerts': { center: 'tasks', group: '三页骨架', order: 3, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
+  'review-overview-home': { center: 'overview', group: '兼容入口', order: 101, icon: 'House', legacy: true, roles: ['review'], keepAlive: false },
+  'factory-dashboard': { center: 'factory', group: '兼容入口', order: 102, icon: 'DataBoard', legacy: true, roles: ['review'], keepAlive: false },
+  'workshop-dashboard': { center: 'factory', group: '兼容入口', order: 103, icon: 'Monitor', legacy: true, roles: ['review'], keepAlive: false },
+  'review-task-center': { center: 'tasks', group: '兼容入口', order: 104, icon: 'List', legacy: true, roles: ['review'], keepAlive: false },
   'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
   'review-reconciliation-center': { center: 'quality', group: '质量与核对', order: 7, icon: 'Connection', legacy: false, roles: ['review'], keepAlive: true },
@@ -186,9 +189,12 @@ const routeMetaByName = {
 }
 
 const commandMetaByName = {
-  'review-overview-home': { shortLabel: '总览', commandGroup: '总览', secondaryGroup: '全局' },
-  'factory-dashboard': { shortLabel: '工厂', commandGroup: '工厂', secondaryGroup: '作业' },
-  'workshop-dashboard': { shortLabel: '车间', commandGroup: '工厂', secondaryGroup: '作业' },
+  'manage-today': { shortLabel: '今日', commandGroup: '今日', secondaryGroup: '全局' },
+  'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
+  'manage-alerts': { shortLabel: '异常', commandGroup: '异常', secondaryGroup: '处置' },
+  'review-overview-home': { shortLabel: '总览', commandGroup: '兼容入口', secondaryGroup: '全局' },
+  'factory-dashboard': { shortLabel: '工厂', commandGroup: '兼容入口', secondaryGroup: '作业' },
+  'workshop-dashboard': { shortLabel: '车间', commandGroup: '兼容入口', secondaryGroup: '作业' },
   'review-task-center': { shortLabel: '录入', commandGroup: '填报', secondaryGroup: '岗位直录' },
   'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
@@ -225,30 +231,12 @@ const entryNavigation = [
 
 const reviewNavigation = [
   {
-    key: 'overview',
-    label: '总览中心',
+    key: 'owner-tabs',
+    label: '三页骨架',
     items: [
-      { routeName: 'review-overview-home', label: '总览', access: 'review' },
-      { routeName: 'factory-dashboard', label: '工厂', access: 'review' },
-      { routeName: 'workshop-dashboard', label: '车间', access: 'review' }
-    ]
-  },
-  {
-    key: 'review',
-    label: '审阅处置',
-    items: [
-      { routeName: 'review-task-center', label: '录入', access: 'review' },
-      { routeName: 'review-report-center', label: '日报', access: 'review' },
-      { routeName: 'review-quality-center', label: '质量', access: 'review' },
-      { routeName: 'review-reconciliation-center', label: '核对', access: 'review' }
-    ]
-  },
-  {
-    key: 'analysis',
-    label: '经营与智能',
-    items: [
-      { routeName: 'factory-command-cost', label: '经营效益', access: 'review' },
-      { routeName: 'factory-ai-assistant', label: 'AI 助手', access: 'review' }
+      { routeName: 'manage-today', label: '今日', access: 'review' },
+      { routeName: 'manage-production', label: '生产', access: 'review' },
+      { routeName: 'manage-alerts', label: '异常', access: 'review' }
     ]
   }
 ]
