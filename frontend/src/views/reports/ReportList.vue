@@ -64,11 +64,6 @@
             {{ buildSummaryLine(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="110">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openToday">今日</el-button>
-          </template>
-        </el-table-column>
       </ReferenceDataTable>
     </ReferenceModuleCard>
   </ReferencePageFrame>
@@ -76,7 +71,6 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
@@ -87,7 +81,6 @@ import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vu
 import { fetchReports } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
 
-const router = useRouter()
 const items = ref([])
 
 const filters = reactive({
@@ -96,10 +89,6 @@ const filters = reactive({
   report_type: '',
   status: ''
 })
-
-function openToday() {
-  router.push({ name: 'manage-today' })
-}
 
 function buildSummaryLine(row) {
   const reportData = row?.report_data || {}

@@ -4,7 +4,6 @@
     direction="rtl"
     size="360px"
     title="设置"
-    aria-label="管理端设置"
     class="xt-settings-drawer-panel"
     @update:model-value="emit('update:open', $event)"
   >
