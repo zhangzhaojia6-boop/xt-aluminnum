@@ -22,9 +22,10 @@ test('TodayPage composes the 6 Phase B pieces', () => {
   assert.match(src, /useDashboardSnapshot/)
 })
 
-test('TodayPage default page title format includes 日报', () => {
+test('TodayPage h1 is the static tab title (date label lives in DateSwitcher)', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /日报/)
+  assert.match(src, /<h1>今日<\/h1>/)
+  assert.equal(/pageTitle/.test(src), false)
 })
 
 test('TodayPage 数字卡 not bound to click handlers', () => {

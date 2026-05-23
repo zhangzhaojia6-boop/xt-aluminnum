@@ -1,7 +1,7 @@
 <template>
   <section class="xt-today" data-testid="manage-today">
     <header class="xt-today__header">
-      <h1>{{ pageTitle }}</h1>
+      <h1>今日</h1>
       <DateSwitcher
         :model-value="snapshot.targetDate.value"
         :loading="snapshot.loading.value"
@@ -31,7 +31,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
@@ -43,11 +42,6 @@ import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.
 
 const snapshot = useDashboardSnapshot()
 snapshot.load()
-
-const pageTitle = computed(() => {
-  const d = dayjs(snapshot.targetDate.value)
-  return `${d.month() + 1}月${d.date()}日 日报`
-})
 
 const fmt = (v, digits = 2) =>
   (v == null || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(digits)
