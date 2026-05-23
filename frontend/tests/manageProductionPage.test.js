@@ -17,9 +17,9 @@ test('ProductionPage imports DateSwitcher and KpiBar (no duplication)', () => {
   assert.match(SRC, /KpiBar/)
 })
 
-test('ProductionPage imports RouterLink from vue-router for workshop deep-link', () => {
-  assert.match(SRC, /from\s+['"]vue-router['"]/)
-  assert.match(SRC, /\/manage\/production\/workshop\//)
+test('ProductionPage renders workshop name as text (no dead deep-link to unimplemented route)', () => {
+  assert.equal(/RouterLink/.test(SRC), false)
+  assert.equal(/\/manage\/production\/workshop\//.test(SRC), false)
 })
 
 test('ProductionPage exposes the 5 KPI labels from spec §4.2', () => {

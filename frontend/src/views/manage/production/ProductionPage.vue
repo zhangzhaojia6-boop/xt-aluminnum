@@ -29,14 +29,7 @@
         </thead>
         <tbody>
           <tr v-for="row in rankedRows" :key="row.key">
-            <td>
-              <RouterLink
-                v-if="row.workshopId != null"
-                :to="`/manage/production/workshop/${row.workshopId}`"
-                class="xt-production__link"
-              >{{ row.name }}</RouterLink>
-              <span v-else>{{ row.name }}</span>
-            </td>
+            <td>{{ row.name }}</td>
             <td class="is-num">
               <span>{{ fmt(row.totalOutput, 2) }}</span>
               <small>吨</small>
@@ -58,7 +51,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
@@ -109,7 +101,6 @@ const rankedRows = computed(() => {
       const compareArrow = compare == null ? '' : (compare > 0 ? '↑' : compare < 0 ? '↓' : '')
       return {
         key: r.workshop_id ?? r.workshop_name ?? i,
-        workshopId: r.workshop_id ?? null,
         name: r.workshop_name || '—',
         totalOutput: Number(r.total_output || 0),
         compareValue: compare,
@@ -156,6 +147,4 @@ const rankedRows = computed(() => {
 .xt-production__table .is-muted { color: var(--xt-text-muted); }
 .xt-production__table .tone-positive { color: var(--xt-color-success); }
 .xt-production__table .tone-negative { color: var(--xt-color-warning); }
-.xt-production__link { color: var(--xt-text); text-decoration: none; font-weight: 700; }
-.xt-production__link:hover { text-decoration: underline; }
 </style>
