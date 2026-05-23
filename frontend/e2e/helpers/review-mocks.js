@@ -345,6 +345,7 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
         leader_summary: { summary_text: '今日主线稳定，关注交付缺口。' },
         leader_metrics: {
           today_total_output: 1175,
+          total_output_weight: 1175,
           energy_per_ton: 234.6,
           in_process_weight: 80,
           storage_finished_weight: 52,
@@ -360,11 +361,21 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           yield_rate: 98.2,
           total_attendance: 33
         },
+        analysis_handoff: {
+          trend: {
+            current_output: 1175,
+            yesterday_output: 1120,
+            output_delta_vs_yesterday: 55,
+            seven_day_average_output: 1100
+          },
+          freshness: { freshness_status: 'fresh' }
+        },
         management_estimate: {
           estimate_ready: true,
           estimated_revenue: 280000,
           estimated_cost: 210000,
           estimated_margin: 70000,
+          remaining_weight: 60,
           energy_cost: 46000,
           labor_cost: 38000,
           active_contract_count: 3,
@@ -372,6 +383,24 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           active_coil_count: 10,
           reporting_rate: 94
         },
+        production_lane: [
+          {
+            workshop_id: 1,
+            workshop_name: '挤压车间',
+            total_output: 1175,
+            target_value: 1100,
+            compare_value: 1120,
+            delta_vs_yesterday: 55
+          },
+          {
+            workshop_id: 2,
+            workshop_name: '熔铸车间',
+            total_output: 800,
+            target_value: 850,
+            compare_value: 760,
+            delta_vs_yesterday: 40
+          }
+        ],
         month_to_date_output: 1175,
         exception_lane: {
           unreported_shift_count: 1,
