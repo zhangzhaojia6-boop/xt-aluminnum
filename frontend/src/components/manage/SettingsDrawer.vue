@@ -103,7 +103,7 @@ function closeDrawer() {
   flex: 0 0 auto;
   padding: 1px var(--xt-space-2);
   border-radius: var(--xt-radius-pill);
-  background: rgba(102, 112, 133, 0.1);
+  background: var(--xt-bg-panel-soft);
   color: var(--xt-text-muted);
   font-size: 10px;
   font-weight: 850;
