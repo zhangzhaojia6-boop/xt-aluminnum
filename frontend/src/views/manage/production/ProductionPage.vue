@@ -104,7 +104,7 @@ const rankedRows = computed(() => {
   return [...rows]
     .sort((a, b) => Number(b.total_output || 0) - Number(a.total_output || 0))
     .map((r, i) => {
-      const compare = r.compare_value == null ? null : Number(r.compare_value)
+      const compare = r.delta_vs_yesterday == null ? null : Number(r.delta_vs_yesterday)
       const compareTone = compare == null ? null : (compare > 0 ? 'positive' : compare < 0 ? 'negative' : 'neutral')
       const compareArrow = compare == null ? '' : (compare > 0 ? '↑' : compare < 0 ? '↓' : '')
       return {
