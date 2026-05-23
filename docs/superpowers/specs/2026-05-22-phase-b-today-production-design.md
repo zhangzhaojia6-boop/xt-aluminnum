@@ -40,7 +40,7 @@ Phase A 把管理端骨架收拢到 3 tab（今日 / 生产 / 异常），路由
 
 1. **头部**：日期前/后箭头 + 当前日期显示 + 刷新按钮 + 同步状态指示（绿/黄/红，从 `analysis_handoff.freshness` 来）
 2. **5 数概览条**：5 张数字卡一排，电脑横排、手机两行 3+2
-3. **车间分布条形图**：横向条形图，今日产量+月累两组，按今日产量降序
+3. **车间分布条形图**：横向条形图，今日产量+月日均两组，按今日产量降序
 4. **今日要紧事**：固定 3 个坑位（生产/对账/填报）
 5. **成本一行**：估算合计 + 口径标记
 6. **完整正文（折叠）**：默认折起，展开 = `leader_summary.summary_text` 整段（不前端切段）
@@ -62,9 +62,9 @@ Phase A 把管理端骨架收拢到 3 tab（今日 / 生产 / 异常），路由
 ### 3.3 车间分布条形图
 
 - 数据源：`production_lane[]`
-- 横向条，每个 workshop 一行，两组（今日 / 月累）
+- 横向条，每个 workshop 一行，两组（今日 / 月日均，月日均 = `production_lane[].target_value`）
 - 排序：今日产量降序
-- 颜色：今日 = `--xt-color-accent`，月累 = `--xt-color-muted`
+- 颜色：今日 = `--xt-color-accent`，月日均 = `--xt-color-muted`
 - ECharts，bar series，复用现有 `frontend/src/components/charts/` 模式
 - 高度：电脑 360px 固定，手机 240px
 
