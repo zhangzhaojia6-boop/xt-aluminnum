@@ -15,14 +15,14 @@ const hasData = computed(() => mapped.value.length > 0)
 const option = computed(() => {
   const m = mapped.value
   return {
-    legend: { data: ['今日', '月累参考'], top: 0 },
+    legend: { data: ['今日', '月日均'], top: 0 },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 90, right: 24, top: 32, bottom: 28 },
     xAxis: { type: 'value', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'category', data: m.map((r) => r.name).reverse(), axisLabel: { fontSize: 12, fontWeight: 700 } },
     series: [
       { name: '今日', type: 'bar', data: m.map((r) => r.today).reverse(), itemStyle: { color: '#1f6feb' }, barGap: 0 },
-      { name: '月累参考', type: 'bar', data: m.map((r) => r.compare).reverse(), itemStyle: { color: '#b0b8c1' } }
+      { name: '月日均', type: 'bar', data: m.map((r) => r.monthAvg).reverse(), itemStyle: { color: '#b0b8c1' } }
     ]
   }
 })
