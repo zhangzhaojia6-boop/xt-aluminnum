@@ -1,6 +1,7 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import { fetchFactoryDashboard } from '../api/dashboard.js'
+import { requestErrorMessage } from '../utils/reportStatus.js'
 
 export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now = new Date() } = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
@@ -9,23 +10,29 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
   const loading = ref(false)
   const lastError = ref('')
   const lastRefreshAt = ref('')
+  let inflight = Promise.resolve()
 
-  async function load() {
+  function load() {
     loading.value = true
-    try {
-      data.value = await fetchImpl({ target_date: targetDate.value })
-      lastRefreshAt.value = new Date().toISOString()
-      lastError.value = ''
-    } catch (err) {
-      lastError.value = err?.message || '加载失败'
-    } finally {
-      loading.value = false
-    }
+    inflight = (async () => {
+      try {
+        data.value = await fetchImpl({ target_date: targetDate.value })
+        lastRefreshAt.value = new Date().toISOString()
+        lastError.value = ''
+      } catch (err) {
+        lastError.value = requestErrorMessage(err, '数据加载失败，请稍后重试')
+      } finally {
+        loading.value = false
+      }
+    })()
+    return inflight
   }
 
-  async function stepDate(deltaDays) {
+  watch(targetDate, () => load(), { flush: 'sync' })
+
+  function stepDate(deltaDays) {
     targetDate.value = dayjs(targetDate.value).add(deltaDays, 'day').format('YYYY-MM-DD')
-    await load()
+    return inflight
   }
 
   return {

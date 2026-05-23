@@ -30,3 +30,12 @@ test('useDashboardSnapshot freshness reads analysis_handoff.freshness.freshness_
   await snap.load()
   assert.equal(snap.freshnessStatus.value, 'green')
 })
+
+test('useDashboardSnapshot sets lastError on fetch failure without throwing', async () => {
+  const fakeFetch = async () => { throw new Error('boom') }
+  const mod = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-23T10:00:00Z') })
+  await snap.load()
+  assert.ok(snap.lastError.value, 'expected lastError to be set')
+  assert.equal(snap.loading.value, false)
+})
