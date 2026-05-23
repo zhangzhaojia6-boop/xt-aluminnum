@@ -20,14 +20,21 @@
 - `frontend/src/composables/useDashboardSnapshot.js` —— 单 API 拉取 + 日期切换 + freshness
 - `frontend/src/components/manage/KpiBar.vue` —— 5 数概览条
 - `frontend/src/components/manage/WorkshopBarChart.vue` —— 横向条形图
+- `frontend/src/components/manage/_workshopRows.js` —— `mapWorkshopRows()` 纯函数，便于单测
 - `frontend/src/components/manage/KeyEventList.vue` —— 要紧事 3 坑位
+- `frontend/src/components/manage/_keyEvents.js` —— `buildKeyEvents()` / `hasAnyEvent()` / `SLOTS` 纯逻辑
 - `frontend/src/components/manage/CostLine.vue` —— 成本一行
 - `frontend/src/components/manage/DateSwitcher.vue` —— 日期前/后/刷新
-- `frontend/tests/manageKpiBar.test.js`
-- `frontend/tests/manageWorkshopBarChart.test.js`
-- `frontend/tests/manageKeyEventList.test.js`
+- `frontend/tests/manageKpiBar.test.js`（源码断言模式，无 mount）
+- `frontend/tests/manageWorkshopBarChart.test.js`（测 `_workshopRows.js`）
+- `frontend/tests/manageKeyEventList.test.js`（测 `_keyEvents.js`）
 - `frontend/tests/manageDashboardSnapshot.test.js`
 - `frontend/e2e/manage-today-production.spec.js`
+
+**测试策略说明：** 项目用 `node --test`，未安装 `@vue/test-utils`，且 Node ESM 不能直接 import `.vue`。已存在的 `xtComponents.test.js` 用 `readFileSync` + `assert.match` 做 SFC 模板/script 内容断言。Phase B 沿用：
+- 纯函数（`mapWorkshopRows` / `buildKeyEvents` / `hasAnyEvent`）抽到 `_*.js` 模块，单测 import + 调用
+- SFC 本身（KpiBar / KeyEventList template 部分）用源码字符串断言（5 v-for、class 名、test-id）
+- 渲染行为最终由 e2e（Task 9）兜底
 
 **重写：**
 - `frontend/src/views/manage/today/TodayPage.vue` —— 从 `<OverviewCenter />` 占位换成真实首屏
