@@ -11,10 +11,31 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
   test.beforeEach(async ({ page }) => {
     await setupReviewSessionAndMocks(page)
     await mockQualityIssues(page, [
-      { id: 'q1', occurred_at: '2026-05-19T11:00:00', summary: '抽检不合格' }
+      {
+        id: 'q1',
+        issue_type: 'invalid_value',
+        source_type: 'production',
+        dimension_key: 'yield_rate',
+        field_name: 'yield_rate',
+        issue_level: 'warning',
+        issue_desc: '抽检不合格',
+        status: 'open',
+        business_date: '2026-05-19',
+        created_at: '2026-05-19T11:00:00',
+        updated_at: '2026-05-19T11:00:00'
+      }
     ])
     await mockReconciliationItems(page, [
-      { id: 'rc1', occurred_at: '2026-05-19T09:50:00', summary: '3 笔过磅与系统差异' }
+      {
+        id: 'rc1',
+        reconciliation_type: 'production_vs_mes',
+        dimension_key: '过磅重量',
+        source_a_value: 100,
+        source_b_value: 97,
+        diff_value: 3,
+        status: 'open',
+        created_at: '2026-05-19T09:50:00'
+      }
     ])
   })
 
@@ -23,7 +44,7 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
     await page.getByRole('link', { name: /对账未结/ }).click()
     await expect(page).toHaveURL(/\/manage\/alerts\?domain=reconciliation/)
     await expect(page.locator('.xt-domain-chip', { hasText: /对账/ })).toHaveClass(/is-active/)
-    await expect(page.getByText('3 笔过磅与系统差异')).toBeVisible()
+    await expect(page.getByText(/生产与 MES 核对/)).toBeVisible()
     await expect(page.getByText('抽检不合格')).toHaveCount(0)
   })
 
@@ -39,8 +60,8 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
     await page.getByRole('button', { name: /生产 \d/ }).click()
     await page.getByRole('button', { name: /对账 \d/ }).click()
     await expect(page.getByText('抽检不合格')).toHaveCount(0)
-    await expect(page.getByText('一车间早班产量异常 -2.4%')).toBeVisible()
-    await expect(page.getByText('3 笔过磅与系统差异')).toBeVisible()
+    await expect(page.getByText(/挤压车间 早班 迟报/)).toBeVisible()
+    await expect(page.getByText(/生产与 MES 核对/)).toBeVisible()
   })
 
   test('quality 500 → fallback card injected', async ({ page }) => {
@@ -51,7 +72,7 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
 
   test('production card click navigates to legacy surface', async ({ page }) => {
     await page.goto('/manage/alerts')
-    await page.getByText('一车间早班产量异常 -2.4%').click()
+    await page.getByText(/挤压车间 早班 迟报/).click()
     await expect(page).toHaveURL(/\/manage\/alerts\/legacy\?surface=anomaly/)
   })
 })

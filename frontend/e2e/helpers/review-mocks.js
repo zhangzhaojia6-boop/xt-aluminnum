@@ -410,10 +410,23 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           reminder_late_count: 1,
           reconciliation_open_count: 1,
           recent_items: [
-            { id: 'p1', occurred_at: '2026-05-19T10:23:00', summary: '一车间早班产量异常 -2.4%' }
+            {
+              report_id: 'p1',
+              workshop_name: '挤压车间',
+              shift_name: '早班',
+              exception_type: 'late_report',
+              note: '产量低于阈值 2.4%',
+              created_at: '2026-05-19T10:23:00'
+            }
           ],
           returned_items: [
-            { id: 'r1', occurred_at: '2026-05-19T08:15:00', summary: '一车间晚班 未填报' }
+            {
+              report_id: 'r1',
+              workshop_name: '挤压车间',
+              shift_name: '晚班',
+              returned_reason: '数据缺失需补录',
+              created_at: '2026-05-19T08:15:00'
+            }
           ],
           reminder_items: []
         },
@@ -677,24 +690,21 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        items: [
-          {
-            id: 1,
-            issue_type: 'yield_rate',
-            severity: 'warning',
-            status: 'open',
-            title: '成材率低于阈值',
-            workshop_name: '挤压车间',
-            machine_name: 'XT-ZD-1',
-            business_date: '2026-04-23',
-            detail: '白班成材率低于目标值'
-          }
-        ],
-        total: 1,
-        skip: 0,
-        limit: 20
-      })
+      body: JSON.stringify([
+        {
+          id: 1,
+          issue_type: 'yield_rate',
+          source_type: 'production',
+          dimension_key: 'yield_rate',
+          field_name: 'yield_rate',
+          issue_level: 'warning',
+          issue_desc: '挤压车间白班成材率低于目标值',
+          status: 'open',
+          business_date: '2026-04-23',
+          created_at: '2026-04-23T10:00:00',
+          updated_at: '2026-04-23T10:00:00'
+        }
+      ])
     })
   })
 
