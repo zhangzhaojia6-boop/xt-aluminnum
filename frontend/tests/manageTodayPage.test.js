@@ -18,7 +18,7 @@ test('TodayPage composes the 6 Phase B pieces', () => {
   assert.match(src, /WorkshopBarChart/)
   assert.match(src, /KeyEventList/)
   assert.match(src, /CostLine/)
-  assert.match(src, /<details/)
+  assert.match(src, /SummaryHero/)
   assert.match(src, /useDashboardSnapshot/)
 })
 
@@ -40,9 +40,11 @@ test('TodayPage uses --xt-* tokens, no hex in style block', () => {
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(styleBlock), false)
 })
 
-test('TodayPage hides KeyEventList when no events', () => {
+test('TodayPage keeps KeyEventList always visible (无异常时常驻)', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<KeyEventList[\s\S]*?v-if="hasKeyEvents"/)
+  // KeyEventList 不再被 v-if 包裹——常驻显示，让"今日 0 异常"也能看见
+  assert.equal(/<KeyEventList[\s\S]{0,80}v-if=/.test(src), false)
+  assert.match(src, /<KeyEventList/)
 })
 
 test('TodayPage estimated_margin uses /10000 conversion to 万元', () => {

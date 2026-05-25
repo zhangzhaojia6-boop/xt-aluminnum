@@ -8,6 +8,7 @@
         :freshness="timeline.freshnessStatus.value"
         @step="timeline.stepDate"
         @refresh="timeline.load"
+        @pick="(d) => timeline.targetDate.value = d"
       />
     </header>
     <DomainFilterChips

@@ -49,7 +49,18 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
 
   return {
     targetDate, data, loading, lastError, lastRefreshAt,
-    leaderMetrics: computed(() => data.value.leader_metrics || {}),
+    leaderMetrics: computed(() => {
+      const lm = data.value.leader_metrics || {}
+      const sm = data.value.leader_summary?.metrics || {}
+      return {
+        ...lm,
+        total_output_weight: lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? null,
+        energy_per_ton: lm.energy_per_ton ?? sm.energy_per_ton ?? null,
+        yield_rate: lm.yield_rate ?? sm.yield_rate ?? null,
+        reporting_rate: lm.reporting_rate ?? sm.reporting_rate ?? null,
+        anomaly_total: lm.anomaly_total ?? sm.anomaly_total ?? 0
+      }
+    }),
     monthArchive: computed(() => data.value.history_digest?.month_archive || {}),
     trend: computed(() => data.value.analysis_handoff?.trend || {}),
     managementEstimate: computed(() => data.value.management_estimate || {}),

@@ -8,6 +8,7 @@
         :freshness="snapshot.freshnessStatus.value"
         @step="snapshot.stepDate"
         @refresh="snapshot.load"
+        @pick="(d) => snapshot.targetDate.value = d"
       />
     </header>
 
