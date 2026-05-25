@@ -409,7 +409,14 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           returned_shift_count: 1,
           pending_report_publish_count: 1,
           reminder_late_count: 1,
-          reconciliation_open_count: 1
+          reconciliation_open_count: 1,
+          recent_items: [
+            { id: 'p1', occurred_at: '2026-05-19T10:23:00', summary: '一车间早班产量异常 -2.4%' }
+          ],
+          returned_items: [
+            { id: 'r1', occurred_at: '2026-05-19T08:15:00', summary: '一车间晚班 未填报' }
+          ],
+          reminder_items: []
         },
         workshop_reporting_status: [
           {
@@ -692,6 +699,10 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  await page.route('**/api/v1/reconciliation/items**', async (route) => {
+    await fulfillJson(route, [])
+  })
+
   await page.route('**/api/v1/attendance/anomalies**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -955,4 +966,22 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       password: session.password
     })
   }
+}
+
+export async function mockQualityIssues(page, body = []) {
+  await page.route('**/api/v1/quality/issues**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  )
+}
+
+export async function mockReconciliationItems(page, body = []) {
+  await page.route('**/api/v1/reconciliation/items**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  )
+}
+
+export async function mockQualityFailure(page) {
+  await page.route('**/api/v1/quality/issues**', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' })
+  )
 }
