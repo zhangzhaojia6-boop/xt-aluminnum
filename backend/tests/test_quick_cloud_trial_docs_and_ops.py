@@ -804,11 +804,14 @@ def test_external_readiness_docs_expose_env_template_command() -> None:
 
     assert '--env-template' in script
     assert '--check-live-aggregation' in script
+    assert '--check-app-connection-live' in script
     assert '--missing-inputs' in script
     assert 'python scripts/check_statistics_module_ready.py --env-template' in state
     assert 'python scripts/check_statistics_module_ready.py --json --check-live-aggregation' in state
+    assert 'python scripts/check_statistics_module_ready.py --json --check-live-aggregation --check-app-connection-live' in state
     assert 'python scripts/check_statistics_module_ready.py --missing-inputs' in state
     assert 'python scripts/check_statistics_module_ready.py --env-template' in ops
+    assert 'python scripts/check_statistics_module_ready.py --json --check-live-aggregation --check-app-connection-live' in ops
     assert '不回显现有密钥' in state
     assert '实时聚合只读探针' in state
     assert '用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值' in state
@@ -1199,9 +1202,11 @@ def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> 
     assert '当前运行代码部署基准为 `136cec2`' in state
     assert '当前 hard issue 只剩 `APP_CONNECTION_DISABLED`' in state
     assert '`llm_enabled=true`、`llm_model_ref_set=true`' in state
+    assert '--check-app-connection-live' in state
     assert '外部正式联通闸门仍未通过' in gaps
     assert '`LLM_DISABLED`' not in gaps
     assert '生产 LLM 已启用并有 live check 证据' in gaps
+    assert '--check-app-connection-live' in gaps
     assert '`APP_CONNECTION_DISABLED`' in gaps
     assert '`DINGTALK_NO_BOUND_USERS`' in gaps
     assert '不能把 `/readyz` ready 误判为外部联通完成' in gaps

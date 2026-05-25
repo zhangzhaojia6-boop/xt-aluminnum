@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 import warnings
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
@@ -161,6 +161,13 @@ _MISSING_INPUT_CATALOG: dict[str, dict[str, Any]] = {
         'missing_fields': ['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
         'impact': '应用连接 API 已启用但没有真实地址或密钥。',
         'suggested_value': 'APP_CONNECTION_API_BASE=<现场提供>；APP_CONNECTION_API_KEY=<现场提供>。',
+    },
+    'APP_CONNECTION_LIVE_FAILED': {
+        'purpose': '应用连接外发',
+        'location': '外部应用连接 API',
+        'missing_fields': ['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+        'impact': '应用连接 API 已配置但 readiness 测试 POST 未收到 2xx，不能证明正式外发可用。',
+        'suggested_value': '确认下游 API 地址、Bearer 密钥、网络白名单和 2xx 响应后重跑 --check-app-connection-live。',
     },
 }
 
@@ -352,6 +359,57 @@ def _run_live_aggregation_probe(
     }, None
 
 
+def _build_app_connection_live_probe_payload() -> dict[str, Any]:
+    today = date.today().isoformat()
+    return {
+        'payload_version': 1,
+        'dispatch_key': f"readiness:{datetime.now(timezone.utc).isoformat()}",
+        'report_date': today,
+        'metrics': {
+            'report_date': today,
+            'total_output_weight': 0,
+            'total_energy': 0,
+            'energy_per_ton': 0,
+            'reporting_rate': 0,
+            'total_attendance': 0,
+            'contract_weight': 0,
+            'yield_rate': 0,
+            'anomaly_total': 0,
+            'anomaly_digest': '应用连接联通测试',
+            'in_process_weight': 0,
+            'consumable_weight': 0,
+        },
+        'leader_summary': '数据中枢应用连接联通测试',
+        'delivery_status': {
+            'report_id': 0,
+            'status': 'readiness_check',
+            'generated_scope': 'readiness_probe',
+        },
+        'summary_source': 'deterministic',
+    }
+
+
+def _default_app_connection_live_probe(runtime_settings: Settings) -> dict[str, Any]:
+    from app.services.app_connection_service import dispatch_app_connection_payload
+
+    return dispatch_app_connection_payload(
+        payload=_build_app_connection_live_probe_payload(),
+        settings=runtime_settings,
+    )
+
+
+def _run_app_connection_live_probe(
+    runtime_settings: Settings,
+    app_connection_live_probe: Callable[[Settings], dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], str | None]:
+    probe = app_connection_live_probe or _default_app_connection_live_probe
+    try:
+        payload = probe(runtime_settings)
+    except Exception as exc:  # noqa: BLE001
+        return {}, exc.__class__.__name__
+    return payload, None
+
+
 def build_external_env_template(*, runtime_settings: Settings | None = None) -> str:
     runtime = runtime_settings or settings
     mes_adapter = (runtime.MES_ADAPTER or 'null').strip().lower()
@@ -423,6 +481,8 @@ def inspect_statistics_module_ready(
     dingtalk_contacts_checker: Callable[..., dict[str, Any]] | None = None,
     check_live_aggregation: bool = False,
     live_aggregation_probe: Callable[[Any], dict[str, Any]] | None = None,
+    check_app_connection_live: bool = False,
+    app_connection_live_probe: Callable[[Settings], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     runtime = runtime_settings or settings
     issues: list[dict[str, Any]] = []
@@ -774,6 +834,35 @@ def inspect_statistics_module_ready(
         app_connection_ready = True
         external_connection_enabled = True
 
+    app_connection_live_checked = bool(check_app_connection_live)
+    app_connection_live_ok: bool | None = None
+    app_connection_live_result: dict[str, Any] = {}
+    app_connection_live_error: str | None = None
+    if app_connection_live_checked and app_connection_ready:
+        app_connection_live_result, app_connection_live_error = _run_app_connection_live_probe(
+            runtime,
+            app_connection_live_probe=app_connection_live_probe,
+        )
+        app_connection_live_ok = (
+            app_connection_live_error is None
+            and app_connection_live_result.get('status') == 'sent'
+            and (
+                app_connection_live_result.get('http_status') is None
+                or 200 <= int(app_connection_live_result.get('http_status') or 0) < 300
+            )
+        )
+        if not app_connection_live_ok:
+            detail = app_connection_live_error or app_connection_live_result.get('detail') or 'unknown'
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='APP_CONNECTION_LIVE_FAILED',
+                    message=f'应用连接 readiness POST 未送达：{detail}。',
+                    suggestion='检查 APP_CONNECTION_API_BASE / APP_CONNECTION_API_KEY / 网络白名单，并确认下游返回 2xx 后重跑 --check-app-connection-live。',
+                    required_env=['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY'],
+                )
+            )
+
     live_aggregation_checked = bool(check_live_aggregation)
     live_aggregation_ok: bool | None = None
     live_aggregation_stats: dict[str, Any] = {}
@@ -831,6 +920,11 @@ def inspect_statistics_module_ready(
             'dingtalk_contact_count': dingtalk_contact_count,
             'app_connection_enabled': runtime.APP_CONNECTION_ENABLED,
             'app_connection_push_mode': app_connection_mode,
+            'app_connection_live_checked': app_connection_live_checked,
+            'app_connection_live_ok': app_connection_live_ok,
+            'app_connection_live_status': app_connection_live_result.get('status'),
+            'app_connection_live_http_status': app_connection_live_result.get('http_status'),
+            'app_connection_live_detail': app_connection_live_error or app_connection_live_result.get('detail'),
             'runtime_valid': runtime_valid,
             'database_ok': database_ok,
             'live_aggregation_checked': live_aggregation_checked,
@@ -858,6 +952,7 @@ def main() -> int:
     parser.add_argument('--check-dingtalk-contacts', action='store_true', help='显式执行钉钉通讯录只读权限诊断')
     parser.add_argument('--dingtalk-department-id', type=int, default=1, help='钉钉通讯录诊断部门 ID')
     parser.add_argument('--check-live-aggregation', action='store_true', help='显式执行实时聚合只读探针，验证管理端实时数据服务可计算')
+    parser.add_argument('--check-app-connection-live', action='store_true', help='显式向应用连接 API 发送 readiness POST，验证外发真的收到 2xx')
     args = parser.parse_args()
 
     if args.env_template:
@@ -868,6 +963,7 @@ def main() -> int:
         check_dingtalk_contacts=args.check_dingtalk_contacts,
         dingtalk_department_id=args.dingtalk_department_id,
         check_live_aggregation=args.check_live_aggregation,
+        check_app_connection_live=args.check_app_connection_live,
     )
     if args.json_mode:
         print(json.dumps(result, ensure_ascii=False, indent=2))

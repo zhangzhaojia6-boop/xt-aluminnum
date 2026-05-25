@@ -49,6 +49,7 @@
 - 当前 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍返回 hard fail：`APP_CONNECTION_DISABLED`
 - 生产 LLM 已启用并有 live check 证据，当前不再作为外部联通 hard issue 跟进
 - 正式试用闸门应加跑 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation`，用实时聚合只读探针确认管理端实时数据服务可计算；当天无填报不算失败，服务异常才算 `LIVE_AGGREGATION_UNAVAILABLE`
+- 应用连接 API 填入真实地址和密钥后，应加跑 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation --check-app-connection-live`；该命令会发真实 readiness POST，只有下游返回 2xx 才能证明应用连接外发闭环
 - 对外索取现场输入前应先跑 `python scripts/check_statistics_module_ready.py --missing-inputs`，输出用途、所在位置、缺失字段、影响范围和建议取值，不凭记忆手写清单
 - 当前 warning 仍为 `DINGTALK_NO_BOUND_USERS`：钉钉应用已启用，但 active 用户/员工没有绑定 `dingtalk_user_id`，真实人员触达和客户端 UAT 未闭环
 - 若正式试用前要自动同步通讯录，应加跑 `python scripts/check_statistics_module_ready.py --json --check-dingtalk-contacts`；当前仍返回 `DINGTALK_CONTACTS_PERMISSION_MISSING`，缺钉钉开放平台权限 `qyapi_get_department_member`

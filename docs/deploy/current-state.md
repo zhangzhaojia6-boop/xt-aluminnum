@@ -126,6 +126,7 @@ db 容器: PostgreSQL 15
 - 生产 `/readyz` 复验：`status=ready`、`environment=production`、`target_date=2026-05-25`、`hard_gate_passed=true`，`database/equipment_binding/schedule/pipeline=ok`，MES 最近同步 `last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
 - 根目录 readiness 包装器已随本轮部署上线：生产 `/srv/aluminum-bypass/scripts/check_statistics_module_ready.py` 存在，可从仓库根目录委托后端检查脚本执行。
 - 生产外部联通复验：`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍按预期 exit `2`，当前 hard issue 只剩 `APP_CONNECTION_DISABLED`；`LLM` 已启用且 `llm_model_ref_set=true`，不再是当前 hard issue。
+- 应用连接真实送达门禁已补齐为显式 opt-in：现场填好 `APP_CONNECTION_API_BASE` / `APP_CONNECTION_API_KEY` 后，运行 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation --check-app-connection-live`，该命令会向应用连接 API 发送 readiness POST，只有返回 2xx 才能证明外发闭环。
 - 生产缺失输入清单复验：`python scripts/check_statistics_module_ready.py --missing-inputs` 当前只输出 `应用连接外发` 与 `钉钉真实人员触达` 两行；未回显真实密钥值。
 - 生产钉钉只读/轻触达复验：`send-test --userid admin --json` 返回 `ok=true`、`detail=dingtalk_sent`；通讯录读取仍缺 `qyapi_get_department_member`，生产 active users/employees 的 `dingtalk_user_id` 非空数量仍为 `0/0`，因此真实试点人员触达尚未闭环。
 - 成本策略快照持久化 API 本轮验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `6 passed`；`python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `50 passed, 1 deselected, 6 warnings`；`python -m pytest backend/tests -q` 为 `813 passed, 124 deselected, 39 warnings`。
@@ -224,6 +225,14 @@ db 容器: PostgreSQL 15
 ```bash
 python scripts/check_statistics_module_ready.py --json --check-live-aggregation
 ```
+
+应用连接 API 填入真实地址和密钥后，再显式执行真实 POST 探针：
+
+```bash
+python scripts/check_statistics_module_ready.py --json --check-live-aggregation --check-app-connection-live
+```
+
+`--check-app-connection-live` 会向应用连接 API 发送 readiness payload；没有现场授权或下游测试接收准备时不要运行。
 
 缺少现场输入时，可直接输出按 `用途 | 所在位置 | 缺失字段 | 影响范围 | 建议取值` 组织的清单：
 

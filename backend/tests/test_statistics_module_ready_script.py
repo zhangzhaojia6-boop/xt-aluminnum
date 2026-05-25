@@ -417,3 +417,72 @@ def test_inspect_statistics_module_ready_blocks_when_live_aggregation_probe_fail
     assert 'database details should not leak' not in issue['message']
     assert payload['stats']['live_aggregation_checked'] is True
     assert payload['stats']['live_aggregation_ok'] is False
+
+
+def test_inspect_statistics_module_ready_does_not_probe_app_connection_by_default() -> None:
+    module = _load_script_module()
+
+    def fail_if_called(_settings):
+        raise AssertionError('app connection live probe should be opt-in')
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        app_connection_live_probe=fail_if_called,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['stats']['app_connection_live_checked'] is False
+    assert payload['stats']['app_connection_live_ok'] is None
+
+
+def test_inspect_statistics_module_ready_can_probe_app_connection_live_delivery() -> None:
+    module = _load_script_module()
+
+    def live_probe(runtime):
+        assert runtime.APP_CONNECTION_ENABLED is True
+        assert runtime.app_connection_push_mode_normalized == 'enabled'
+        return {
+            'status': 'sent',
+            'push_mode': 'enabled',
+            'http_status': 204,
+            'detail': 'app_connection_sent',
+        }
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        check_app_connection_live=True,
+        app_connection_live_probe=live_probe,
+    )
+
+    assert payload['hard_gate_passed'] is True
+    assert payload['stats']['app_connection_live_checked'] is True
+    assert payload['stats']['app_connection_live_ok'] is True
+    assert payload['stats']['app_connection_live_status'] == 'sent'
+    assert payload['stats']['app_connection_live_http_status'] == 204
+
+
+def test_inspect_statistics_module_ready_blocks_when_app_connection_live_probe_fails() -> None:
+    module = _load_script_module()
+
+    payload = module.inspect_statistics_module_ready(
+        runtime_settings=_build_settings(),
+        sessionmaker_factory=_sessionmaker_ok,
+        check_app_connection_live=True,
+        app_connection_live_probe=lambda _runtime: {
+            'status': 'failed',
+            'push_mode': 'enabled',
+            'http_status': 500,
+            'detail': 'app_connection_http_500',
+        },
+    )
+
+    assert payload['hard_gate_passed'] is False
+    assert payload['module_usable'] is False
+    issue = next(item for item in payload['hard_issues'] if item['code'] == 'APP_CONNECTION_LIVE_FAILED')
+    assert issue['required_env'] == ['APP_CONNECTION_API_BASE', 'APP_CONNECTION_API_KEY']
+    assert payload['stats']['app_connection_live_checked'] is True
+    assert payload['stats']['app_connection_live_ok'] is False
+    assert payload['stats']['app_connection_live_status'] == 'failed'
+    assert payload['stats']['app_connection_live_http_status'] == 500
