@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import {
   normalizeFactoryDirector,
@@ -9,7 +9,6 @@ import {
 
 const FALLBACK_ROUTE = {
   production: '/manage/alerts/legacy?surface=anomaly',
-  reporting: '/manage/alerts/legacy?surface=anomaly',
   quality: '/manage/alerts/legacy?surface=quality',
   reconciliation: '/manage/alerts/legacy?surface=reconciliation'
 }
@@ -40,6 +39,8 @@ export function createAlertsTimeline({
   const loading = ref(false)
   const lastError = ref('')
   const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false })
+  let token = 0
+  let inflight = Promise.resolve()
 
   function fallbackCard(domain) {
     return {
@@ -55,43 +56,56 @@ export function createAlertsTimeline({
 
   function load() {
     loading.value = true
-    return (async () => {
+    const my = ++token
+    inflight = (async () => {
       const date = targetDate.value
-      const [fd, q, r] = await Promise.allSettled([
-        fdImpl({ target_date: date }),
-        qImpl({ target_date: date }),
-        rImpl({ target_date: date, status: 'open' })
-      ])
-      const buckets = []
-      const fail = { factoryDirector: false, quality: false, reconciliation: false }
-      if (fd.status === 'fulfilled') {
-        buckets.push(normalizeFactoryDirector(fd.value, date))
-      } else {
-        fail.factoryDirector = true
-        buckets.push([fallbackCard('production')])
+      try {
+        const [fd, q, r] = await Promise.allSettled([
+          fdImpl({ target_date: date }),
+          qImpl({ target_date: date }),
+          rImpl({ target_date: date, status: 'open' })
+        ])
+        if (my !== token) return
+        const buckets = []
+        const fail = { factoryDirector: false, quality: false, reconciliation: false }
+        if (fd.status === 'fulfilled') {
+          buckets.push(normalizeFactoryDirector(fd.value, date))
+        } else {
+          fail.factoryDirector = true
+          buckets.push([fallbackCard('production')])
+        }
+        if (q.status === 'fulfilled') {
+          buckets.push(normalizeQuality(q.value, date))
+        } else {
+          fail.quality = true
+          buckets.push([fallbackCard('quality')])
+        }
+        if (r.status === 'fulfilled') {
+          buckets.push(normalizeReconciliation(r.value, date))
+        } else {
+          fail.reconciliation = true
+          buckets.push([fallbackCard('reconciliation')])
+        }
+        endpointFailed.value = fail
+        events.value = mergeAndSort(buckets)
+        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0)
+        lastError.value = fails >= 2 ? '部分数据加载失败，已切换占位卡' : ''
+      } finally {
+        if (my === token) loading.value = false
       }
-      if (q.status === 'fulfilled') {
-        buckets.push(normalizeQuality(q.value, date))
-      } else {
-        fail.quality = true
-        buckets.push([fallbackCard('quality')])
-      }
-      if (r.status === 'fulfilled') {
-        buckets.push(normalizeReconciliation(r.value, date))
-      } else {
-        fail.reconciliation = true
-        buckets.push([fallbackCard('reconciliation')])
-      }
-      endpointFailed.value = fail
-      events.value = mergeAndSort(buckets)
-      lastError.value = ''
-      loading.value = false
     })()
+    return inflight
+  }
+
+  watch(targetDate, () => load(), { flush: 'sync' })
+
+  function setDomains(next) {
+    domains.value = Array.isArray(next) ? [...next] : []
   }
 
   function stepDate(deltaDays) {
     targetDate.value = dayjs(targetDate.value).add(deltaDays, 'day').format('YYYY-MM-DD')
-    return load()
+    return inflight
   }
 
   const domainCounts = computed(() => {
@@ -119,7 +133,7 @@ export function createAlertsTimeline({
   return {
     targetDate, domains, events, filteredEvents, domainCounts,
     loading, lastError, freshnessStatus,
-    load, stepDate
+    load, stepDate, setDomains
   }
 }
 

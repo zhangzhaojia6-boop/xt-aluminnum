@@ -3,6 +3,13 @@ import dayjs from 'dayjs'
 import { fetchFactoryDashboard } from '../api/dashboard.js'
 import { requestErrorMessage } from '../utils/reportStatus.js'
 
+const FRESHNESS_MAP = { fresh: 'green', stale: 'yellow', missing: 'red' }
+function normalizeFreshness(raw) {
+  if (!raw) return null
+  if (raw === 'green' || raw === 'yellow' || raw === 'red') return raw
+  return FRESHNESS_MAP[raw] || null
+}
+
 export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now = new Date() } = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
   const targetDate = ref(yesterday)
@@ -10,19 +17,24 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
   const loading = ref(false)
   const lastError = ref('')
   const lastRefreshAt = ref('')
+  let token = 0
   let inflight = Promise.resolve()
 
   function load() {
     loading.value = true
+    const my = ++token
     inflight = (async () => {
       try {
-        data.value = await fetchImpl({ target_date: targetDate.value })
+        const next = await fetchImpl({ target_date: targetDate.value })
+        if (my !== token) return
+        data.value = next
         lastRefreshAt.value = new Date().toISOString()
         lastError.value = ''
       } catch (err) {
+        if (my !== token) return
         lastError.value = requestErrorMessage(err, '数据加载失败，请稍后重试')
       } finally {
-        loading.value = false
+        if (my === token) loading.value = false
       }
     })()
     return inflight
@@ -44,7 +56,7 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
     productionLane: computed(() => data.value.production_lane || []),
     exceptionLane: computed(() => data.value.exception_lane || {}),
     leaderSummary: computed(() => data.value.leader_summary || {}),
-    freshnessStatus: computed(() => data.value.analysis_handoff?.freshness?.freshness_status || null),
+    freshnessStatus: computed(() => normalizeFreshness(data.value.analysis_handoff?.freshness?.freshness_status)),
     load, stepDate
   }
 }
