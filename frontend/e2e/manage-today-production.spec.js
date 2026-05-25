@@ -18,7 +18,7 @@ test.describe('manage today/production content', () => {
     const reconLink = page.getByRole('link', { name: /对账未结/ })
     await expect(reconLink).toBeVisible()
     await reconLink.click()
-    await expect(page).toHaveURL(/\/manage\/alerts.*surface=reconciliation/)
+    await expect(page).toHaveURL(/\/manage\/alerts.*domain=reconciliation/)
   })
 
   test('production shows 5 数 + 车间排名表', async ({ page }) => {

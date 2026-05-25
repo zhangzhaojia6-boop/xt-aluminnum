@@ -38,7 +38,7 @@ test.describe('owner three-tab skeleton', () => {
     await expect(page).toHaveURL(/\/manage\/production$/)
 
     await page.goto('/manage/quality')
-    await expect(page).toHaveURL(/\/manage\/alerts(?:\?surface=quality)?$/)
+    await expect(page).toHaveURL(/\/manage\/alerts(?:\?domain=quality)?$/)
   })
 
   test('settings drawer exposes frozen destinations and routes to the page', async ({ page }) => {
