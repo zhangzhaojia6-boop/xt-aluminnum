@@ -1,4 +1,6 @@
 .env
+to boss/
+参考/
 *.pyc
 __pycache__/
 .pytest_cache/
