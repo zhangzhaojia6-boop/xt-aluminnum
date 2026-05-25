@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 export async function fetchLiveAggregation(params = {}) {
   const { data } = await api.get('/aggregation/live', { params })

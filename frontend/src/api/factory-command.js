@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 export async function fetchFactoryCommandOverview() {
   const { data } = await api.get('/factory-command/overview')

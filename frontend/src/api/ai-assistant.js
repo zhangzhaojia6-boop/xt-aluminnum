@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 export async function fetchAssistantConversations() {
   const { data } = await api.get('/ai/assistant/conversations')

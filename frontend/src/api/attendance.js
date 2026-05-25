@@ -1,4 +1,4 @@
-﻿import { api } from './index'
+﻿import { api } from './index.js'
 
 export async function importSchedules(file, templateCode = null) {
   const formData = new FormData()
