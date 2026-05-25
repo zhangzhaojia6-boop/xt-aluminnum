@@ -22,9 +22,9 @@ test('EventCard uses no hex or rgba color literals', () => {
   assert.equal(/rgba?\(\s*\d/.test(style), false)
 })
 
-test('EventCard whole-card is clickable, no inner button', () => {
+test('EventCard root is a native button for a11y', () => {
   assert.match(SRC, /@click/)
-  assert.equal(/<button/.test(SRC), false)
+  assert.match(SRC, /<button[\s\S]*type="button"/)
   assert.equal(/<el-button/.test(SRC), false)
 })
 

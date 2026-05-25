@@ -2,7 +2,6 @@
   <div class="xt-domain-chips" role="group" aria-label="异常域过滤">
     <button
       type="button"
-      role="button"
       class="xt-domain-chip"
       :class="{ 'is-active': isAllActive }"
       @click="clearDomains"
@@ -11,7 +10,6 @@
       v-for="d in DOMAIN_DEFS"
       :key="d.key"
       type="button"
-      role="button"
       class="xt-domain-chip"
       :class="{ 'is-active': isActive(d.key) }"
       @click="toggle(d.key)"
@@ -68,7 +66,7 @@ function toggle(key) {
 }
 .xt-domain-chip.is-active {
   background: var(--xt-color-accent);
-  color: var(--xt-text-on-accent, white);
+  color: var(--xt-text-on-accent);
 }
 @media (hover: hover) {
   .xt-domain-chip:hover { background: var(--xt-bg-panel-soft); color: var(--xt-text); }

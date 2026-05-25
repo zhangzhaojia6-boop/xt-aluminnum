@@ -1,17 +1,15 @@
 <template>
-  <div
+  <button
+    type="button"
     class="xt-event-card"
     :class="{ 'is-fallback': event.isFallback }"
-    role="button"
-    tabindex="0"
     @click="emit('open', event)"
-    @keyup.enter="emit('open', event)"
   >
     <span class="xt-event-card__time">{{ timeLabel }}</span>
     <span class="xt-event-card__pill" :class="`pill-${event.domain}`">{{ domainLabel }}</span>
     <span class="xt-event-card__summary">{{ event.summary }}</span>
     <span class="xt-event-card__arrow" aria-hidden="true">→</span>
-  </div>
+  </button>
 </template>
 
 <script setup>
@@ -35,8 +33,13 @@ const timeLabel = computed(() => {
   grid-template-columns: 60px 56px 1fr 24px;
   align-items: center;
   gap: var(--xt-space-2);
+  width: 100%;
   min-height: 56px;
   padding: var(--xt-space-2) var(--xt-space-3);
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: inherit;
   cursor: pointer;
   transition: background-color var(--xt-motion-fast) var(--xt-ease), transform var(--xt-motion-fast) var(--xt-ease);
 }
@@ -50,7 +53,7 @@ const timeLabel = computed(() => {
   justify-self: start;
   padding: 1px var(--xt-space-2);
   border-radius: var(--xt-radius-pill);
-  font-size: 10px;
+  font-size: var(--xt-text-xs);
   font-weight: 850;
 }
 .pill-production { color: var(--xt-color-warning); background: color-mix(in srgb, var(--xt-color-warning) 12%, transparent); }

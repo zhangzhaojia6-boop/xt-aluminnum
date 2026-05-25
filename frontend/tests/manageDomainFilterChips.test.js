@@ -25,6 +25,6 @@ test('DomainFilterChips style block uses --xt-* tokens, no hex', () => {
   assert.match(style, /var\(--xt-/)
 })
 
-test('DomainFilterChips uses role=button, accessible', () => {
-  assert.match(SRC, /role="button"|tabindex/)
+test('DomainFilterChips uses native button elements, accessible', () => {
+  assert.match(SRC, /<button[\s\S]*type="button"/)
 })
