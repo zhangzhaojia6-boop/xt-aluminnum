@@ -38,6 +38,12 @@
   --xt-primary-border: rgba(11, 99, 246, 0.20);
   --xt-accent-border: rgba(183, 121, 31, 0.20);
 
+  --xt-color-success: var(--xt-success);
+  --xt-color-warning: var(--xt-warning);
+  --xt-color-danger: var(--xt-danger);
+  --xt-color-accent: var(--xt-accent);
+  --xt-text-on-accent: var(--xt-text-inverse);
+
   --xt-bg-page: oklch(97.3% 0.008 248);
   --xt-bg-shell: oklch(94.4% 0.012 248);
   --xt-bg-panel: oklch(99.7% 0.002 248);

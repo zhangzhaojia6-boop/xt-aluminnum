@@ -1,7 +1,7 @@
 <template>
-  <section class="fc-shell">
-    <div class="fc-shell__grid"></div>
-    <header class="fc-shell__head">
+  <section class="fc-shell" :class="{ 'fc-shell--embedded': embedded }">
+    <div v-if="!embedded" class="fc-shell__grid"></div>
+    <header v-if="!embedded" class="fc-shell__head">
       <div class="fc-shell__brand">
         <span class="fc-shell__system">鑫泰铝业 数据中枢</span>
         <h1>{{ title }}</h1>
@@ -32,6 +32,7 @@ import { formatSyncTime, freshnessLabel, sourceLabel } from '../../utils/factory
 defineProps({
   title: { type: String, required: true },
   active: { type: String, required: true },
+  embedded: { type: Boolean, default: false },
   freshness: { type: Object, default: () => ({}) }
 })
 
@@ -190,6 +191,18 @@ const tabs = [
   position: relative;
   z-index: 1;
   min-width: 0;
+}
+
+.fc-shell--embedded {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.fc-shell--embedded .fc-shell__body {
+  position: relative;
+  z-index: auto;
 }
 
 @media (max-width: 900px) {

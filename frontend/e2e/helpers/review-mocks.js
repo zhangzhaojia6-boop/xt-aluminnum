@@ -344,7 +344,7 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       body: JSON.stringify({
         leader_summary: { summary_text: '今日主线稳定，关注交付缺口。' },
         leader_metrics: {
-          today_total_output: 1175,
+          total_output_weight: 1175,
           energy_per_ton: 234.6,
           in_process_weight: 80,
           storage_finished_weight: 52,
@@ -360,11 +360,21 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           yield_rate: 98.2,
           total_attendance: 33
         },
+        analysis_handoff: {
+          trend: {
+            current_output: 1175,
+            yesterday_output: 1120,
+            output_delta_vs_yesterday: 55,
+            seven_day_average_output: 1100
+          },
+          freshness: { freshness_status: 'fresh' }
+        },
         management_estimate: {
           estimate_ready: true,
           estimated_revenue: 280000,
           estimated_cost: 210000,
           estimated_margin: 70000,
+          remaining_weight: 60,
           energy_cost: 46000,
           labor_cost: 38000,
           active_contract_count: 3,
@@ -372,6 +382,24 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           active_coil_count: 10,
           reporting_rate: 94
         },
+        production_lane: [
+          {
+            workshop_id: 1,
+            workshop_name: '挤压车间',
+            total_output: 1175,
+            target_value: 1100,
+            compare_value: 1120,
+            delta_vs_yesterday: 55
+          },
+          {
+            workshop_id: 2,
+            workshop_name: '熔铸车间',
+            total_output: 800,
+            target_value: 850,
+            compare_value: 760,
+            delta_vs_yesterday: 40
+          }
+        ],
         month_to_date_output: 1175,
         exception_lane: {
           unreported_shift_count: 1,
@@ -380,7 +408,14 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
           returned_shift_count: 1,
           pending_report_publish_count: 1,
           reminder_late_count: 1,
-          reconciliation_open_count: 1
+          reconciliation_open_count: 1,
+          recent_items: [
+            { id: 'p1', occurred_at: '2026-05-19T10:23:00', summary: '一车间早班产量异常 -2.4%' }
+          ],
+          returned_items: [
+            { id: 'r1', occurred_at: '2026-05-19T08:15:00', summary: '一车间晚班 未填报' }
+          ],
+          reminder_items: []
         },
         workshop_reporting_status: [
           {
@@ -663,6 +698,33 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  await page.route('**/api/v1/reconciliation/items**', async (route) => {
+    await fulfillJson(route, [])
+  })
+
+  await page.route('**/api/v1/attendance/anomalies**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          detail_id: 1,
+          business_date: '2026-05-12',
+          workshop_name: '挤压车间',
+          machine_name: 'XT-ZD-1',
+          shift_name: '白班',
+          employee_name: '张三',
+          dingtalk_clock_in: '08:02',
+          dingtalk_clock_out: '',
+          auto_status: 'missing_clock_out',
+          leader_status: 'normal',
+          hr_status: 'pending',
+          override_reason: '下班卡缺失'
+        }
+      ])
+    })
+  })
+
   const aiConversations = [
     {
       id: 'conv-1',
@@ -903,4 +965,22 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       password: session.password
     })
   }
+}
+
+export async function mockQualityIssues(page, body = []) {
+  await page.route('**/api/v1/quality/issues**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  )
+}
+
+export async function mockReconciliationItems(page, body = []) {
+  await page.route('**/api/v1/reconciliation/items**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  )
+}
+
+export async function mockQualityFailure(page) {
+  await page.route('**/api/v1/quality/issues**', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' })
+  )
 }

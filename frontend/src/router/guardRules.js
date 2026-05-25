@@ -31,9 +31,9 @@ function configLanding(authStore) {
 }
 
 function reviewLanding(authStore) {
-  if (authStore.canAccessReviewSurface) return { name: 'review-overview-home' }
-  if (authStore.canAccessFactoryDashboard) return { name: 'factory-dashboard' }
-  if (authStore.canAccessWorkshopDashboard) return { name: 'workshop-dashboard' }
+  if (authStore.canAccessReviewSurface) return { name: 'manage-today' }
+  if (authStore.canAccessFactoryDashboard) return { name: 'manage-production' }
+  if (authStore.canAccessWorkshopDashboard) return { name: 'manage-production' }
   const config = configLanding(authStore)
   if (config.name !== 'login') return config
   return { name: 'login' }

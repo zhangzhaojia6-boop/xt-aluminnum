@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 export async function generateReconciliation(payload) {
   const { data } = await api.post('/reconciliation/generate', payload)

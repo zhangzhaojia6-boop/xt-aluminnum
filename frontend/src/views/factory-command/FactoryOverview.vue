@@ -1,5 +1,5 @@
 <template>
-  <FactoryCommandShell title="工厂总览" active="overview" :freshness="freshness">
+  <FactoryCommandShell title="工厂总览" active="overview" :freshness="freshness" :embedded="embedded">
     <section class="fc-hero">
       <div class="fc-hero__grid"></div>
       <div class="fc-hero__scan"></div>
@@ -221,6 +221,9 @@ import FactoryCommandShell from './FactoryCommandShell.vue'
 
 const store = useFactoryCommandStore()
 const route = useRoute()
+defineProps({
+  embedded: { type: Boolean, default: false }
+})
 const liveBusinessDate = ref('')
 const liveAggregation = ref(null)
 const pendingAssignment = ref({ summary: {}, items: [] })

@@ -63,13 +63,13 @@ async function load() {
 }
 
 function backToCenter() {
-  const query = {}
+  const query = { surface: 'reconciliation' }
   for (const key of ['business_date', 'reconciliation_type', 'status', 'desktop']) {
     if (typeof route.query[key] === 'string' && route.query[key]) query[key] = route.query[key]
   }
   if (!query.business_date && item.value?.business_date) query.business_date = item.value.business_date
   if (!query.status && item.value?.status) query.status = item.value.status
-  router.push({ name: 'review-reconciliation-center', query })
+  router.push({ name: 'manage-alerts', query })
 }
 
 onMounted(load)

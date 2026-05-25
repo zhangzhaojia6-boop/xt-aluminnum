@@ -34,7 +34,7 @@
             :key="item.key"
             type="button"
             :class="`is-${item.status}`"
-            @click="go(item.routeName)"
+            @click="go(item.route || item.routeName)"
           >
             <span>{{ item.label }}</span>
             <strong>{{ item.detail }}</strong>
@@ -68,7 +68,7 @@
             :key="item.name"
             type="button"
             class="review-overview-center__quick"
-            @click="go(item.name)"
+            @click="go(item.route || item.name)"
           >
             <span>{{ item.label }}</span>
             <strong>{{ item.hint }}</strong>
@@ -154,27 +154,27 @@ const productionLines = [
 ]
 
 const quickEntries = [
-  { name: 'factory-dashboard', label: '看板', hint: '厂级 / 车间' },
-  { name: 'review-task-center', label: '审阅', hint: '待审任务' },
+  { name: 'manage-production', label: '看板', hint: '厂级 / 车间' },
+  { name: 'manage-alerts', label: '审阅', hint: '待审任务' },
   { name: 'review-report-center', label: '日报', hint: '交付与发布' },
-  { name: 'review-quality-center', label: '质量', hint: '告警与处理' },
-  { name: 'review-cost-accounting', label: '成本', hint: '策略核算' },
+  { name: 'manage-alerts', label: '质量', hint: '告警与处理', route: { name: 'manage-alerts', query: { surface: 'quality' } } },
+  { name: 'manage-today', label: '成本', hint: '策略核算' },
   { name: 'factory-ai-assistant', label: 'AI', hint: '摘要与问答' },
   { name: 'admin-ingestion-center', label: '接入', hint: '导入 / 映射' },
   { name: 'admin-ops-reliability', label: '运维', hint: '健康与探针' }
 ]
 
 const referenceModules = [
-  { number: '01', title: '系统总览主视图', shortTitle: '总览', subtitle: '全局链路', owner: '审阅端', variant: 'overview', routeName: 'review-overview-home', status: 'success', statusLabel: '在线' },
+  { number: '01', title: '系统总览主视图', shortTitle: '总览', subtitle: '全局链路', owner: '审阅端', variant: 'overview', routeName: 'manage-today', status: 'success', statusLabel: '在线' },
   { number: '02', title: '登录与角色入口', shortTitle: '入口', subtitle: '角色分流', owner: '公共入口', variant: 'entry', routeName: 'login', status: 'success', statusLabel: '在线' },
   { number: '03', title: '独立填报端', shortTitle: '填报端', subtitle: '手机优先', owner: '录入端', variant: 'entry', routeName: 'mobile-entry', status: 'success', statusLabel: '在线' },
   { number: '04', title: '填报流程页', shortTitle: '流程页', subtitle: '一岗一表', owner: '录入端', variant: 'entry', routeName: 'mobile-entry', status: 'success', statusLabel: '在线' },
-  { number: '05', title: '工厂作业看板', shortTitle: '工厂', subtitle: '厂级作战图', owner: '审阅端', variant: 'factory', routeName: 'factory-dashboard', status: 'success', statusLabel: '在线' },
+  { number: '05', title: '工厂作业看板', shortTitle: '工厂', subtitle: '厂级作战图', owner: '审阅端', variant: 'factory', routeName: 'manage-production', status: 'success', statusLabel: '在线' },
   { number: '06', title: '数据接入与字段映射中心', shortTitle: '接入', subtitle: '字段映射', owner: '管理端', variant: 'ingestion', routeName: 'admin-ingestion-center', status: 'success', statusLabel: '在线' },
-  { number: '07', title: '审阅中心', shortTitle: '审阅', subtitle: '异常处置', owner: '审阅端', variant: 'review', routeName: 'review-task-center', status: 'success', statusLabel: '在线' },
+  { number: '07', title: '审阅中心', shortTitle: '审阅', subtitle: '异常处置', owner: '审阅端', variant: 'review', routeName: 'manage-alerts', status: 'success', statusLabel: '在线' },
   { number: '08', title: '日报与交付中心', shortTitle: '日报', subtitle: '自动交付', owner: '审阅端', variant: 'report', routeName: 'review-report-center', status: 'success', statusLabel: '在线' },
-  { number: '09', title: '质量与告警中心', shortTitle: '质量', subtitle: '阈值预警', owner: '审阅端', variant: 'quality', routeName: 'review-quality-center', status: 'success', statusLabel: '在线' },
-  { number: '10', title: '成本核算与效益中心', shortTitle: '成本', subtitle: '收益核算', owner: '审阅端', variant: 'cost', routeName: 'review-cost-accounting', status: 'success', statusLabel: '在线' },
+  { number: '09', title: '质量与告警中心', shortTitle: '质量', subtitle: '阈值预警', owner: '审阅端', variant: 'quality', routeName: 'manage-alerts', route: { name: 'manage-alerts', query: { surface: 'quality' } }, status: 'success', statusLabel: '在线' },
+  { number: '10', title: '成本核算与效益中心', shortTitle: '成本', subtitle: '收益核算', owner: '审阅端', variant: 'cost', routeName: 'manage-today', status: 'success', statusLabel: '在线' },
   { number: '11', title: 'AI 助手', shortTitle: 'AI 助手', subtitle: '站内助手', owner: '审阅端', variant: 'brain', routeName: 'factory-ai-assistant', status: 'success', statusLabel: '在线' },
   { number: '12', title: '系统运维与观测', shortTitle: '运维', subtitle: '健康探针', owner: '管理端', variant: 'ops', routeName: 'admin-ops-reliability', status: 'success', statusLabel: '在线' },
   { number: '13', title: '权限与治理中心', shortTitle: '治理', subtitle: '角色隔离', owner: '管理端', variant: 'governance', routeName: 'admin-governance-center', status: 'success', statusLabel: '在线' },
@@ -343,14 +343,14 @@ const aiManagerActions = computed(() => [
     label: '预测',
     detail: aiRiskSummary.value[0] || '当前无突出风险。',
     status: factoryMapAlerts.value.length ? 'warning' : 'normal',
-    routeName: 'review-quality-center'
+    route: { name: 'manage-alerts', query: { surface: 'quality' } }
   },
   {
     key: 'analysis',
     label: '分析',
     detail: aiTodaySummary.value[0],
     status: 'normal',
-    routeName: 'factory-dashboard'
+    routeName: 'manage-production'
   },
   {
     key: 'assistant',
@@ -397,12 +397,12 @@ function toFactoryStatus(status) {
   return 'normal'
 }
 
-function go(routeName) {
-  router.push({ name: routeName })
+function go(target) {
+  router.push(typeof target === 'string' ? { name: target } : target)
 }
 
 function openReferenceModule(item) {
-  if (item?.routeName) go(item.routeName)
+  if (item?.route || item?.routeName) go(item.route || item.routeName)
 }
 
 function moduleMetrics(item) {

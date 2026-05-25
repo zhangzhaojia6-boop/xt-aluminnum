@@ -8,8 +8,8 @@ import {
 
 function route(overrides = {}) {
   return {
-    name: 'review-overview-home',
-    fullPath: '/manage/overview?x=1',
+    name: 'manage-today',
+    fullPath: '/manage/today?x=1',
     query: {},
     meta: { requiresAuth: true, zone: 'manage', access: 'review' },
     matched: [],
@@ -52,7 +52,30 @@ test('resolveGuardDecision blocks non-admin users from admin access', () => {
       to: route({ meta: { requiresAuth: true, zone: 'manage', access: 'admin' } }),
       auth: auth({ defaultSurface: 'review' }),
     }),
-    { name: 'review-overview-home' }
+    { name: 'manage-today' }
+  )
+})
+
+test('resolveGuardDecision lands factory or workshop dashboard users on production', () => {
+  const loginRoute = route({
+    name: 'login',
+    fullPath: '/login',
+    meta: { requiresAuth: false, zone: 'public', access: 'public' },
+  })
+
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: loginRoute,
+      auth: auth({ canAccessReviewSurface: false, canAccessFactoryDashboard: true }),
+    }),
+    { name: 'manage-production' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: loginRoute,
+      auth: auth({ canAccessReviewSurface: false, canAccessWorkshopDashboard: true }),
+    }),
+    { name: 'manage-production' }
   )
 })
 

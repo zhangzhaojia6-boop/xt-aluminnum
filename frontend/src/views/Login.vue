@@ -217,7 +217,7 @@ function isDingTalkRuntime() {
 
 function surfaceLandingPath(surface) {
   if (surface === 'entry' && auth.entrySurface) return '/entry'
-  if (surface === 'review' && auth.reviewSurface) return '/manage/overview'
+  if (surface === 'review' && auth.reviewSurface) return '/manage/today'
   if (surface === 'admin' && auth.adminSurface) return '/admin'
   return ''
 }
@@ -228,8 +228,8 @@ function resolveDefaultLandingPath() {
   if (selectedLanding) return selectedLanding
   if (auth.defaultSurface === 'entry') return '/entry'
   if (auth.defaultSurface === 'admin') return '/admin'
-  if (auth.defaultSurface === 'review') return '/manage/overview'
-  return auth.canAccessDesktop ? '/manage/overview' : '/entry'
+  if (auth.defaultSurface === 'review') return '/manage/today'
+  return auth.canAccessDesktop ? '/manage/today' : '/entry'
 }
 
 function resolveRedirectPath() {

@@ -1,7 +1,7 @@
 <template>
   <div class="xt-manage" :class="{ 'xt-manage--collapsed': collapsed }" data-testid="manage-shell">
     <aside class="xt-manage__sidebar">
-      <RouterLink class="xt-manage__brand" to="/manage/overview" aria-label="鑫泰铝业数据中枢">
+      <RouterLink class="xt-manage__brand" to="/manage/today" aria-label="鑫泰铝业数据中枢">
         <XtLogo :variant="collapsed ? 'icon' : 'full'" />
         <span v-if="!collapsed" class="xt-manage__brand-text">数据中枢</span>
       </RouterLink>
@@ -42,6 +42,9 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
+          <button class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true">
+            <el-icon><Setting /></el-icon>
+          </button>
           <button class="xt-manage__assistant-trigger" type="button" @click="openAssistantFromTopbar">
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 助手</span>
@@ -116,15 +119,17 @@
       :initial-prompt="assistantInitialPrompt"
       @prompt-consumed="assistantInitialPrompt = ''"
     />
+    <SettingsDrawer v-model:open="settingsDrawerOpen" />
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { ChatDotRound, Expand, Fold, Menu, Search } from '@element-plus/icons-vue'
+import { ChatDotRound, Expand, Fold, Menu, Search, Setting } from '@element-plus/icons-vue'
 
 import AiAssistantDrawer from '../components/ai/AiAssistantDrawer.vue'
+import SettingsDrawer from '../components/manage/SettingsDrawer.vue'
 import { XtLogo } from '../components/xt'
 import { manageNavGroups } from '../config/manage-navigation'
 import { useAuthStore } from '../stores/auth'
@@ -141,6 +146,7 @@ const collapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const drawerOpen = ref(false)
 const searchOpen = ref(false)
 const assistantOpen = ref(false)
+const settingsDrawerOpen = ref(false)
 const assistantContextOverride = ref(null)
 const assistantInitialPrompt = ref('')
 const keyword = ref('')
@@ -158,7 +164,7 @@ const assistantContext = computed(() => assistantContextOverride.value || ({
   route: route.path,
   scope: {
     type: 'route',
-    key: route.path || '/manage/overview'
+    key: route.path || '/manage/today'
   }
 }))
 
@@ -189,7 +195,7 @@ function handleAssistantOpen(event) {
     route: route.path,
     scope: detail.scope || {
       type: 'route',
-      key: route.path || '/manage/overview'
+      key: route.path || '/manage/today'
     },
     freshness: detail.freshness || {}
   }
@@ -218,7 +224,12 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   min-height: 100dvh;
   background:
-    linear-gradient(180deg, rgba(239, 246, 255, 0.78), rgba(255, 255, 255, 0.96) 38%, rgba(246, 248, 252, 0.98));
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--xt-primary-light) 78%, transparent),
+      color-mix(in srgb, var(--xt-bg-panel) 96%, transparent) 38%,
+      color-mix(in srgb, var(--xt-bg-page) 98%, transparent)
+    );
   color: var(--xt-text);
 }
 
@@ -229,9 +240,9 @@ onBeforeUnmount(() => {
   width: var(--xt-sidebar-width);
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.96);
-  border-right: 1px solid rgba(43, 93, 178, 0.12);
-  box-shadow: 1px 0 0 rgba(43, 93, 178, 0.05);
+  background: color-mix(in srgb, var(--xt-bg-panel) 96%, transparent);
+  border-right: 1px solid var(--xt-primary-border);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--xt-primary) 5%, transparent);
   transition: width var(--xt-motion-normal) var(--xt-ease);
 }
 
@@ -245,21 +256,20 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-4);
-  border-bottom: 1px solid rgba(43, 93, 178, 0.12);
+  border-bottom: 1px solid var(--xt-primary-border);
   color: var(--xt-text);
   text-decoration: none;
 }
 
 .xt-manage__brand-text {
   margin-left: auto;
-  padding: 3px var(--xt-space-2);
-  border: 1px solid rgba(11, 99, 246, 0.18);
+  padding: var(--xt-space-1) var(--xt-space-2);
+  border: 1px solid var(--xt-primary-border);
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary-light);
   color: var(--xt-primary);
   font-size: var(--xt-text-xs);
   font-weight: 700;
-  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -315,13 +325,13 @@ onBeforeUnmount(() => {
 }
 
 .xt-manage__nav-item.is-active {
-  background: #fff;
+  background: var(--xt-bg-panel);
   color: var(--xt-primary);
   font-weight: 700;
   box-shadow:
     inset 3px 0 0 var(--xt-primary),
-    inset 0 0 0 1px rgba(11, 99, 246, 0.15),
-    0 8px 20px rgba(11, 99, 246, 0.07);
+    inset 0 0 0 1px var(--xt-primary-border),
+    0 8px 20px color-mix(in srgb, var(--xt-primary) 7%, transparent);
 }
 
 .xt-manage__nav-label {
@@ -339,7 +349,7 @@ onBeforeUnmount(() => {
 
 .xt-manage__nav-label small {
   color: var(--xt-text-muted);
-  font-size: 10px;
+  font-size: var(--xt-text-xs);
   font-weight: 760;
 }
 
@@ -352,6 +362,7 @@ onBeforeUnmount(() => {
 .xt-manage__hamburger,
 .xt-manage__search-trigger,
 .xt-manage__assistant-trigger,
+.xt-manage__settings-trigger,
 .xt-manage__user {
   border: 0;
   background: transparent;
@@ -367,13 +378,14 @@ onBeforeUnmount(() => {
 .xt-manage__hamburger:active,
 .xt-manage__search-trigger:active,
 .xt-manage__assistant-trigger:active,
+.xt-manage__settings-trigger:active,
 .xt-manage__user:active {
   transform: scale(0.96);
 }
 
 .xt-manage__collapse-btn {
   height: 48px;
-  border-top: 1px solid rgba(43, 93, 178, 0.12);
+  border-top: 1px solid var(--xt-primary-border);
   color: var(--xt-text-muted);
 }
 
@@ -382,6 +394,7 @@ onBeforeUnmount(() => {
   .xt-manage__hamburger:hover,
   .xt-manage__search-trigger:hover,
   .xt-manage__assistant-trigger:hover,
+  .xt-manage__settings-trigger:hover,
   .xt-manage__user:hover {
     background: var(--xt-bg-panel-soft);
     color: var(--xt-text);
@@ -407,9 +420,11 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--xt-space-3);
   padding: 0 var(--xt-space-5);
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(43, 93, 178, 0.12);
-  box-shadow: 0 1px 0 rgba(43, 93, 178, 0.04), 0 12px 30px rgba(25, 62, 118, 0.05);
+  background: color-mix(in srgb, var(--xt-bg-panel) 94%, transparent);
+  border-bottom: 1px solid var(--xt-primary-border);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--xt-primary) 4%, transparent),
+    0 12px 30px color-mix(in srgb, var(--xt-primary) 5%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -424,21 +439,21 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
-  border: 1px solid rgba(43, 93, 178, 0.16);
+  border: 1px solid var(--xt-primary-border);
   border-radius: var(--xt-radius-pill);
   color: var(--xt-text-muted);
-  background: #fff;
+  background: var(--xt-bg-panel);
 }
 
 .xt-manage__search-trigger kbd {
   margin-left: auto;
   padding: 1px var(--xt-space-2);
-  border: 1px solid rgba(43, 93, 178, 0.12);
+  border: 1px solid var(--xt-primary-border);
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary-light);
   color: var(--xt-text-muted);
   font-family: var(--xt-font-mono);
-  font-size: 11px;
+  font-size: var(--xt-text-xs);
   font-weight: 700;
   line-height: 1.5;
 }
@@ -456,11 +471,21 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--xt-space-2);
   padding: 0 var(--xt-space-3);
-  border-radius: 8px;
+  border-radius: var(--xt-radius-lg);
   background: var(--xt-bg-ink);
   color: var(--xt-text-inverse);
   font-size: var(--xt-text-sm);
   font-weight: 850;
+}
+
+.xt-manage__settings-trigger {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--xt-radius-lg);
+  color: var(--xt-text-secondary);
 }
 
 .xt-manage__user {

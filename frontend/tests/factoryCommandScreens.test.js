@@ -91,6 +91,6 @@ test('factory cost screen exposes strategy snapshot workspace route', () => {
 
   assert.match(cost, /策略核算/)
   assert.match(cost, /\/manage\/factory\/cost\/accounting/)
-  assert.match(router, /CostAccountingCenter/)
-  assert.match(router, /factory\/cost\/accounting/)
+  assert.doesNotMatch(router, /CostAccountingCenter/)
+  assert.match(router, /path: 'factory\/cost\/accounting'[\s\S]*redirect: \{ name: 'manage-today' \}/)
 })

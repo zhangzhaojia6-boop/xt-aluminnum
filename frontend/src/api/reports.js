@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 function unwrapItems(payload) {
   if (Array.isArray(payload)) return payload

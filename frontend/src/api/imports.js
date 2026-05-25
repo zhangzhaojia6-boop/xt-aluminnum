@@ -1,4 +1,4 @@
-import { api } from './index'
+import { api } from './index.js'
 
 export async function uploadImportFile(formData) {
   const { data } = await api.post('/imports/upload', formData, {

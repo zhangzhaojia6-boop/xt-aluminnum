@@ -159,7 +159,7 @@ function goEntry() {
 
 function goReview() {
   navOpen.value = false
-  router.push({ name: 'review-overview-home' })
+  router.push({ name: 'manage-today' })
 }
 
 function goAdmin() {
