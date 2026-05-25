@@ -81,8 +81,11 @@ const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || 
 
 <style scoped>
 .xt-today { display: flex; flex-direction: column; gap: var(--xt-space-4); }
-.xt-today__header { display: flex; align-items: center; justify-content: space-between; gap: var(--xt-space-3); }
+.xt-today__header { display: flex; align-items: center; justify-content: space-between; gap: var(--xt-space-3); flex-wrap: wrap; }
 .xt-today__header h1 { margin: 0; font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text); }
+@media (max-width: 720px) {
+  .xt-today__header { flex-direction: column; align-items: stretch; }
+}
 .xt-today__digest { background: var(--xt-bg-panel); border: 1px solid var(--xt-border); border-radius: var(--xt-radius-md); padding: var(--xt-space-3); }
 .xt-today__digest summary { cursor: pointer; font-weight: 700; color: var(--xt-text-secondary); }
 .xt-today__digest p { margin: var(--xt-space-3) 0 0; line-height: 1.7; color: var(--xt-text); white-space: pre-wrap; }

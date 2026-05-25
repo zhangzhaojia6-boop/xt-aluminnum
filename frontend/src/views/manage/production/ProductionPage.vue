@@ -68,7 +68,7 @@ const kpiItems = computed(() => {
   const me = snapshot.managementEstimate.value
 
   const delta = trend.output_delta_vs_yesterday
-  const deltaTone = delta == null ? null : (Number(delta) > 0 ? 'positive' : Number(delta) < 0 ? 'negative' : 'neutral')
+  const deltaTone = delta == null ? null : (Number(delta) > 0 ? 'positive' : Number(delta) < 0 ? 'negative' : null)
   const deltaArrow = delta == null ? '' : (Number(delta) > 0 ? '↑' : Number(delta) < 0 ? '↓' : '')
   const deltaText = delta == null ? '—' : `${deltaArrow}${fmt(Math.abs(Number(delta)), 2)}`
 
@@ -97,7 +97,7 @@ const rankedRows = computed(() => {
     .sort((a, b) => Number(b.total_output || 0) - Number(a.total_output || 0))
     .map((r, i) => {
       const compare = r.delta_vs_yesterday == null ? null : Number(r.delta_vs_yesterday)
-      const compareTone = compare == null ? null : (compare > 0 ? 'positive' : compare < 0 ? 'negative' : 'neutral')
+      const compareTone = compare == null ? null : (compare > 0 ? 'positive' : compare < 0 ? 'negative' : null)
       const compareArrow = compare == null ? '' : (compare > 0 ? '↑' : compare < 0 ? '↓' : '')
       return {
         key: r.workshop_id ?? r.workshop_name ?? i,
@@ -114,8 +114,11 @@ const rankedRows = computed(() => {
 
 <style scoped>
 .xt-production { display: flex; flex-direction: column; gap: var(--xt-space-4); }
-.xt-production__header { display: flex; align-items: center; justify-content: space-between; gap: var(--xt-space-3); }
+.xt-production__header { display: flex; align-items: center; justify-content: space-between; gap: var(--xt-space-3); flex-wrap: wrap; }
 .xt-production__header h1 { margin: 0; font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text); }
+@media (max-width: 720px) {
+  .xt-production__header { flex-direction: column; align-items: stretch; }
+}
 .xt-production__error {
   padding: var(--xt-space-2) var(--xt-space-3);
   background: var(--xt-bg-panel);

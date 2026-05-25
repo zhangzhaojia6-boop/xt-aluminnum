@@ -26,7 +26,7 @@ const display = computed(() => {
 }
 .xt-cost-line.is-muted { opacity: 0.6; }
 .xt-cost-line__label { font-size: var(--xt-text-sm); color: var(--xt-text-secondary); font-weight: 700; }
-.xt-cost-line__value { font-size: var(--xt-text-xl); font-weight: 850; color: var(--xt-text); }
+.xt-cost-line__value { font-size: var(--xt-text-xl); font-weight: 850; color: var(--xt-text); font-variant-numeric: tabular-nums; }
 .xt-cost-line__unit { font-size: var(--xt-text-sm); color: var(--xt-text-secondary); }
 .xt-cost-line__pill {
   margin-left: auto; padding: 2px var(--xt-space-2);

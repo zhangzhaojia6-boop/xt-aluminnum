@@ -33,7 +33,7 @@ defineProps({ items: { type: Array, default: () => [] } })
 }
 .xt-kpi-bar__card.is-muted { opacity: 0.55; }
 .xt-kpi-bar__label { font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-weight: 700; }
-.xt-kpi-bar__value { display: flex; align-items: baseline; gap: var(--xt-space-1); font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text); }
+.xt-kpi-bar__value { display: flex; align-items: baseline; gap: var(--xt-space-1); font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text); font-variant-numeric: tabular-nums; }
 .xt-kpi-bar__value small { font-size: var(--xt-text-xs); color: var(--xt-text-secondary); font-weight: 700; }
 .xt-kpi-bar__card.tone-positive .xt-kpi-bar__value { color: var(--xt-color-success); }
 .xt-kpi-bar__card.tone-negative .xt-kpi-bar__value { color: var(--xt-color-warning); }

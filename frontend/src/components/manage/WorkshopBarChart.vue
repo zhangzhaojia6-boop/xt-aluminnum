@@ -12,8 +12,17 @@ use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent]
 const props = defineProps({ rows: { type: Array, default: () => [] } })
 const mapped = computed(() => mapWorkshopRows(props.rows))
 const hasData = computed(() => mapped.value.length > 0)
+
+function readToken(name, fallback) {
+  if (typeof window === 'undefined' || !window.getComputedStyle) return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
 const option = computed(() => {
   const m = mapped.value
+  const todayColor = readToken('--xt-color-accent', '#1f6feb')
+  const avgColor = readToken('--xt-text-muted', '#b0b8c1')
   return {
     legend: { data: ['今日', '月日均'], top: 0 },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -21,8 +30,8 @@ const option = computed(() => {
     xAxis: { type: 'value', axisLabel: { fontSize: 11 } },
     yAxis: { type: 'category', data: m.map((r) => r.name).reverse(), axisLabel: { fontSize: 12, fontWeight: 700 } },
     series: [
-      { name: '今日', type: 'bar', data: m.map((r) => r.today).reverse(), itemStyle: { color: '#1f6feb' }, barGap: 0 },
-      { name: '月日均', type: 'bar', data: m.map((r) => r.monthAvg).reverse(), itemStyle: { color: '#b0b8c1' } }
+      { name: '今日', type: 'bar', data: m.map((r) => r.today).reverse(), itemStyle: { color: todayColor }, barGap: 0 },
+      { name: '月日均', type: 'bar', data: m.map((r) => r.monthAvg).reverse(), itemStyle: { color: avgColor } }
     ]
   }
 })
