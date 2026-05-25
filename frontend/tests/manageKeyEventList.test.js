@@ -11,7 +11,7 @@ test('SLOTS has 3 fixed slots in order: production, reconciliation, unreported',
   assert.equal(SLOTS.length, 3)
   assert.deepEqual(SLOTS.map((s) => s.slot), ['production', 'reconciliation', 'unreported'])
   assert.deepEqual(SLOTS.map((s) => s.field), ['production_exception_count', 'reconciliation_open_count', 'unreported_shift_count'])
-  assert.deepEqual(SLOTS.map((s) => s.surface), ['anomaly', 'reconciliation', 'anomaly'])
+  assert.deepEqual(SLOTS.map((s) => s.domain), ['production', 'reconciliation', 'reporting'])
 })
 
 test('buildKeyEvents marks active=true for count>0, false for 0/missing', () => {
@@ -52,10 +52,10 @@ test('KeyEventList renders 3 cards with active/muted variants and RouterLink', (
   assert.match(src, /RouterLink/)
 })
 
-test('KeyEventList active card links to /manage/alerts with surface query', () => {
+test('KeyEventList active card links to /manage/alerts with domain query', () => {
   const src = source('../src/components/manage/KeyEventList.vue')
   assert.match(src, /path:\s*'\/manage\/alerts'/)
-  assert.match(src, /surface:\s*item\.surface/)
+  assert.match(src, /domain:\s*item\.domain/)
 })
 
 test('KeyEventList muted card shows label + 无', () => {

@@ -18,7 +18,7 @@ const items = computed(() => buildKeyEvents(props.exceptionLane))
     >
       <RouterLink
         v-if="item.active"
-        :to="{ path: '/manage/alerts', query: { surface: item.surface } }"
+        :to="{ path: '/manage/alerts', query: { domain: item.domain } }"
         class="xt-key-events__link"
       >
         <span class="xt-key-events__title">{{ item.label }} {{ item.count }} {{ item.unit }}</span>
