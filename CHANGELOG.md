@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.2.0.0] - 2026-05-25
+
+### Added
+- 管理端三大主视图骨架：`/manage/today`（系统总览）、`/manage/production`（生产）、`/manage/alerts`（异常与补录），统一中心编号 01/05/07
+- 异常与补录单列时间线：`AlertsPage` 重写为 EventTimeline + DomainFilterChips + EventCard 组合，支持 4 域（生产/质检/对账/填报）筛选与 fallback 卡片
+- `useAlertsTimeline` composable：基于 `Promise.allSettled` 的并行抓取 + 单端点失败兜底卡片 + inflight 令牌防竞态
+- `KpiBar` 5 数组件、`WorkshopBarChart` 横向对比柱状图、`KeyEventList` 三槽要紧事、`CostLine` 单位换算（元 ↔ 万）
+- `/manage/alerts/legacy` 路由保留旧三页面挂载入口
+
+### Changed
+- 旧入口（`overview` / `executive` / `entry-center` / `reconciliation` / `quality` / `anomaly` / `factory` / `workshop` 等）统一改为 `redirect`，通过 `preserveRouteState('/manage/alerts', { surface })` 保留 query/hash
+- 模块目录与导航 catalog：质检模块入口统一为 `?domain=quality`
+- `ManageShell` 头部、抽屉、品牌区颜色全部由 `--xt-*` token + `color-mix` 驱动，移除 hex/rgba 字面量
+- `WorkshopBarChart` ECharts 系列颜色改用运行时 `readToken('--xt-color-accent')` 注入
+- `KpiBar` / `CostLine` 数值列启用 `font-variant-numeric: tabular-nums`
+- `TodayPage` / `ProductionPage` 顶部 720px 断点改为纵向堆叠
+- `frontend/src/api/*.js` 14 个模块统一 `import { api } from './index.js'` 显式扩展名
+
+### Fixed
+- 设计 token 别名缺失：补全 `--xt-color-success/warning/danger/accent` 与 `--xt-text-on-accent`，消除组件未定义引用
+- `useAlertsTimeline` / `useDashboardSnapshot` 并发抓取竞态：引入 inflight 令牌 + `try/finally` 保证 `loading.value` 释放
+- `useAlertsTimeline.targetDate` 切换缺少 watcher：补 `watch(targetDate, () => load(), { flush: 'sync' })`
+- `AlertsPage` 域比对用 `JSON.stringify` 受顺序影响：改为 `sameDomains(a, b)` 排序后比对
+- `EventCard` 可达性：`<div role="button" tabindex="0">` 改为原生 `<button type="button">`
+- `EventTimeline` 空态文案重复：仅在 empty 分支保留单条 `<p class="xt-event-timeline__empty">`
+- `DomainFilterChips` 原生 `<button>` 上的冗余 `role="button"` 移除
+- `KpiBar` 残留 `tone="neutral"` 分支删除（CSS 仅定义 positive/negative）
+- `freshness` 状态映射：`fresh→green / stale→yellow / missing→red`，原始 green/yellow/red 透传
+- e2e mocks 重复字段 `today_total_output` 删除，仅保留 `total_output_weight`
+
 ## [0.1.0.0] - 2026-05-09
 
 ### Added
