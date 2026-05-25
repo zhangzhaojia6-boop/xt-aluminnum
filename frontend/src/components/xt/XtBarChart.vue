@@ -5,10 +5,12 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { useHudChartTheme } from '../../composables/useHudChartTheme.js'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent])
 
 defineOptions({ name: 'XtBarChart' })
+const chartTheme = useHudChartTheme()
 
 const props = defineProps({
   series: {
@@ -83,7 +85,7 @@ const option = computed(() => {
 
 <template>
   <div class="xt-bar-chart" :style="{ height }" role="img" :aria-label="`柱状图: ${series.map(s => s.name).join(', ')}`" >
-    <VChart :option="option" autoresize />
+    <VChart :option="option" :theme="chartTheme" autoresize />
   </div>
 </template>
 

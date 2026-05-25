@@ -30,9 +30,17 @@ export function writeHudPreference(enabled) {
   } catch {
     /* ignore quota / SSR */
   }
+  if (typeof document !== 'undefined') {
+    if (enabled) applyHudTheme()
+    else clearHudTheme()
+  }
 }
 
 export function useHudTheme(options = {}) {
+  if (typeof document !== 'undefined') {
+    if (options.force || readHudPreference()) applyHudTheme()
+    else clearHudTheme()
+  }
   onMounted(() => {
     if (options.force || readHudPreference()) applyHudTheme()
   })

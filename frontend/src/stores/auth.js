@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 
 import { dingtalkLoginApi, loginApi, meApi, qrLoginApi, workshopQuickEntryApi } from '../api/auth.js'
 import { dingtalkH5LoginApi } from '../api/dingtalk.js'
+import { fetchUserPreferences } from '../api/user-preferences.js'
+import { writeHudPreference } from '../composables/useHudTheme.js'
 
 const TOKEN_KEY = 'aluminum_bypass_token'
 const USER_KEY = 'aluminum_bypass_user'
@@ -135,6 +137,16 @@ export const useAuthStore = defineStore('auth', {
       this.machineContext = normalizeMachine(readStoredJson(MACHINE_KEY))
       this.hydrated = true
     },
+    async syncThemePreference() {
+      if (this.token === '') return null
+      try {
+        const prefs = await fetchUserPreferences()
+        writeHudPreference(prefs?.theme === 'hud')
+        return prefs
+      } catch {
+        return null
+      }
+    },
     setSession(token, user, machineContext = null) {
       this.token = token
       this.user = normalizeUser(user)
@@ -146,6 +158,7 @@ export const useAuthStore = defineStore('auth', {
       } else {
         sessionStorage.removeItem(MACHINE_KEY)
       }
+      void this.syncThemePreference()
     },
     setMachineContext(machineContext) {
       this.machineContext = normalizeMachine(machineContext)
@@ -170,6 +183,7 @@ export const useAuthStore = defineStore('auth', {
       sessionStorage.removeItem(TOKEN_KEY)
       sessionStorage.removeItem(USER_KEY)
       sessionStorage.removeItem(MACHINE_KEY)
+      writeHudPreference(false)
     },
     async login(payload) {
       const result = await loginApi(payload)

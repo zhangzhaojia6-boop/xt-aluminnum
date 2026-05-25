@@ -1,10 +1,11 @@
 from importlib.util import module_from_spec, spec_from_file_location
 
 from app.config import Settings
-from tests.path_helpers import BACKEND_ROOT
+from tests.path_helpers import BACKEND_ROOT, REPO_ROOT
 
 
 SCRIPT_PATH = BACKEND_ROOT / 'scripts' / 'check_statistics_module_ready.py'
+ROOT_WRAPPER_PATH = REPO_ROOT / 'scripts' / 'check_statistics_module_ready.py'
 
 
 def _load_script_module():
@@ -42,6 +43,15 @@ def _build_settings(**overrides) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)
+
+
+def test_repo_root_statistics_module_ready_wrapper_delegates_to_backend_script() -> None:
+    src = ROOT_WRAPPER_PATH.read_text(encoding='utf-8')
+
+    assert "BACKEND_ROOT = REPO_ROOT / 'backend'" in src
+    assert "BACKEND_SCRIPT = BACKEND_ROOT / 'scripts' / 'check_statistics_module_ready.py'" in src
+    assert 'os.chdir(BACKEND_ROOT)' in src
+    assert "runpy.run_path(str(BACKEND_SCRIPT), run_name='__main__')" in src
 
 
 class _DummySession:

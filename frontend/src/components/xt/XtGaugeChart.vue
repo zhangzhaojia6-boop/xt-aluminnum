@@ -5,10 +5,12 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { GaugeChart } from 'echarts/charts'
 import { TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { useHudChartTheme } from '../../composables/useHudChartTheme.js'
 
 use([CanvasRenderer, GaugeChart, TooltipComponent])
 
 defineOptions({ name: 'XtGaugeChart' })
+const chartTheme = useHudChartTheme()
 
 const props = defineProps({
   value: {
@@ -77,7 +79,7 @@ const option = computed(() => ({
 
 <template>
   <div class="xt-gauge-chart" :style="{ height }">
-    <VChart :option="option" autoresize />
+    <VChart :option="option" :theme="chartTheme" autoresize />
   </div>
 </template>
 

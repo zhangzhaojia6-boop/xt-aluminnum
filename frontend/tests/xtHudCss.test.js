@@ -47,6 +47,13 @@ test('xt-hud.css contains no !important', () => {
   assert.equal(src.includes('!important'), false, 'HUD CSS must not use !important')
 })
 
+test('xt-hud.css follows compact radius and letter-spacing rules', () => {
+  const src = fs.readFileSync(file, 'utf8')
+  assert.doesNotMatch(src, /letter-spacing:\s*-/)
+  assert.match(src, /--xt-hud-radius-lg:\s*8px/)
+  assert.doesNotMatch(src, /--xt-hud-radius-lg:\s*(1[0-9]|[2-9][0-9])px/)
+})
+
 test('xt-hud.css defines HUD tokens as CSS variables', () => {
   const src = fs.readFileSync(file, 'utf8')
   for (const v of ['--xt-hud-canvas', '--xt-hud-panel', '--xt-hud-border', '--xt-hud-text', '--xt-hud-primary']) {

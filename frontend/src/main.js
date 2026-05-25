@@ -35,6 +35,7 @@ installRouterGuards(router, authStore)
 setupApiInterceptors(router, pinia)
 
 app.use(router)
+void authStore.syncThemePreference()
 
 import('echarts/core').then(({ registerTheme }) => {
   import('./design/echarts-hud.js').then(({ registerHudEchartsTheme }) => {

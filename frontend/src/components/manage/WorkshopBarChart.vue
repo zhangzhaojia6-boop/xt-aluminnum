@@ -5,11 +5,13 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { useHudChartTheme } from '../../composables/useHudChartTheme.js'
 import { mapWorkshopRows } from './_workshopRows.js'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent])
 
 const props = defineProps({ rows: { type: Array, default: () => [] } })
+const chartTheme = useHudChartTheme()
 const mapped = computed(() => mapWorkshopRows(props.rows))
 const hasData = computed(() => mapped.value.length > 0)
 
@@ -39,7 +41,7 @@ const option = computed(() => {
 
 <template>
   <div class="xt-workshop-bar" data-testid="manage-workshop-bar">
-    <VChart v-if="hasData" :option="option" autoresize class="xt-workshop-bar__canvas" />
+    <VChart v-if="hasData" :option="option" :theme="chartTheme" autoresize class="xt-workshop-bar__canvas" />
     <div v-else class="xt-workshop-bar__empty">暂无车间产量数据</div>
   </div>
 </template>
