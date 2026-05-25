@@ -1,6 +1,6 @@
 # 数据中枢当前部署状态
 
-更新时间：2026-05-13 11:38:25 +08:00
+更新时间：2026-05-25 15:50:56 +08:00
 
 ## 1. 仓库状态
 
@@ -122,6 +122,12 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
+- 本轮部署：`main@136cec2` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `/srv/aluminum-bypass` 的 `HEAD` 与 `origin/main` 均为 `136cec2`，工作区干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 生产 `/readyz` 复验：`status=ready`、`environment=production`、`target_date=2026-05-25`、`hard_gate_passed=true`，`database/equipment_binding/schedule/pipeline=ok`，MES 最近同步 `last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
+- 根目录 readiness 包装器已随本轮部署上线：生产 `/srv/aluminum-bypass/scripts/check_statistics_module_ready.py` 存在，可从仓库根目录委托后端检查脚本执行。
+- 生产外部联通复验：`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍按预期 exit `2`，当前 hard issue 只剩 `APP_CONNECTION_DISABLED`；`LLM` 已启用且 `llm_model_ref_set=true`，不再是当前 hard issue。
+- 生产缺失输入清单复验：`python scripts/check_statistics_module_ready.py --missing-inputs` 当前只输出 `应用连接外发` 与 `钉钉真实人员触达` 两行；未回显真实密钥值。
+- 生产钉钉只读/轻触达复验：`send-test --userid admin --json` 返回 `ok=true`、`detail=dingtalk_sent`；通讯录读取仍缺 `qyapi_get_department_member`，生产 active users/employees 的 `dingtalk_user_id` 非空数量仍为 `0/0`，因此真实试点人员触达尚未闭环。
 - 成本策略快照持久化 API 本轮验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `6 passed`；`python -m pytest backend/tests/test_cost_backend_contract.py backend/tests/test_executive_pipeline.py backend/tests/test_processing_fee_engine.py backend/tests/test_quick_cloud_trial_docs_and_ops.py -q` 为 `50 passed, 1 deselected, 6 warnings`；`python -m pytest backend/tests -q` 为 `813 passed, 124 deselected, 39 warnings`。
 - 成本策略快照前端保存入口验证：`npm --prefix frontend test -- factoryCommandScreens.test.js managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`136 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost` 与 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，策略核算入口和“保存快照”按钮可见。
 - 成本月度复核状态边界验证：`python -m pytest backend/tests/test_cost_backend_contract.py -q` 为 `10 passed`；`npm --prefix frontend test -- managementCommandCenter.test.js` 实际跑完全部前端 `tests/*.test.js`，`137 passed`；`npm --prefix frontend run build` 通过；本地 Playwright 复验 `/manage/factory/cost/accounting?desktop=1` 在 `1440px` 和 `390px` 下均无横向溢出，月度复核状态带可见，`复核通过` 可用，`月结锁定` 在未复核前禁用。
@@ -209,9 +215,8 @@ db 容器: PostgreSQL 15
 - `mes_sync.fetched_count=50`
 - `mes_sync.upserted_count=50`
 
-`python scripts/check_statistics_module_ready.py --json` 仍然是预期 hard fail。原因不是数据库、MES 或代码阻断，而是其余正式外部联通尚未配置真实值：
+`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍然是预期 hard fail。原因不是数据库、MES、workflow、LLM 或代码阻断，而是应用连接外发尚未配置真实值：
 
-- `LLM_DISABLED`
 - `APP_CONNECTION_DISABLED`
 
 正式试用闸门复验时应使用带实时聚合只读探针的命令，避免只看配置而漏掉管理端实时数据服务是否可计算：
@@ -226,15 +231,17 @@ python scripts/check_statistics_module_ready.py --json --check-live-aggregation
 python scripts/check_statistics_module_ready.py --missing-inputs
 ```
 
-2026-05-13 线上复验结论：
+2026-05-25 线上复验结论：
 
 - `hard_gate_passed=false`、`module_usable=false`、`external_connection_enabled=false`
 - 已通过的基础项：`local_runnable=true`、`runtime_valid=true`、`database_ok=true`
 - 已通过的业务底座：`workflow_enabled=true`、`auto_publish_enabled=true`、`auto_push_enabled=true`
 - 外部 MES 当前可用：`mes_adapter=mvc`、`mes_ready=true`
-- 正式外发仍缺：`llm_enabled=false`、`llm_model_ref_set=false`、`app_connection_enabled=false`、`app_connection_push_mode=disabled`
-- 实时聚合只读探针用于返回 `live_aggregation_business_date`、`live_aggregation_data_source`、`live_aggregation_total_entry_count`、`live_aggregation_mes_row_count` 与 `live_aggregation_bound_to_machine_count`；当天无填报不等于探针失败，只有服务异常才进入 `LIVE_AGGREGATION_UNAVAILABLE`
+- LLM 当前已配置：`llm_enabled=true`、`llm_model_ref_set=true`
+- 正式外发仍缺：`app_connection_enabled=false`、`app_connection_push_mode=disabled`
+- 实时聚合只读探针当前可用：`live_aggregation_ok=true`、`live_aggregation_business_date=2026-05-25`、`live_aggregation_date_source=current_date`、`live_aggregation_data_source=work_order_runtime`；当天无填报不等于探针失败，只有服务异常才进入 `LIVE_AGGREGATION_UNAVAILABLE`
 - 钉钉应用已启用但未绑定真实人员：`warning_issues=DINGTALK_NO_BOUND_USERS`、`active_dingtalk_user_count=0`、`active_dingtalk_employee_count=0`
+- 钉钉轻触达已验证：`send-test --userid admin --json` 返回 `ok=true`、`detail=dingtalk_sent`；这只能证明测试 userid 可送达，不能替代试点 active 用户/员工绑定。
 
 正式联通前可先生成不回显现有密钥的 `.env` 填写模板：
 
@@ -277,10 +284,10 @@ MES_API_KEY=...
 
 ## 6. 远端与 Vercel 探测记录
 
-最近一次 ECS 修复验证：2026-05-06 23:16 左右。
+最近一次 ECS 修复验证：2026-05-25 15:35 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
-- 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD` 与 `origin/main` 对齐，工作区干净。
+- 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD=origin/main=136cec2`，工作区干净。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
 - 本轮已部署 `main@ac48f3b`：MES 同步批内重复投影修复已上线；生产 one-shot 同步返回 `coil_snapshots fetched=50 upserted=50`、`mes_follow_cards fetched=50 upserted=50`、`mes_dispatch fetched=50 upserted=50`，未再触发 `mes_coil_snapshots.coil_id` 唯一键冲突。

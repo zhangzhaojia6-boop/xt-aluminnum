@@ -17,7 +17,7 @@
 
 ## 3. 旧 E2E 用例对结构依赖较强
 
-- 当前 `frontend/e2e` 已有 34 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
+- 当前 `frontend/e2e` 已有 37 个 Playwright spec 文件；质量、差异核对、日报交付等审阅中心关键流已分别落到 `quality-center.spec.js`、`reconciliation-center.spec.js`、`reports-center.spec.js`
 - 后续新增页面结构时继续优先复用 `frontend/e2e/helpers/review-mocks.js`，避免环境依赖导致假失败
 
 ## 4. Entry 独立端与 mobile 兼容期并存
@@ -46,12 +46,13 @@
 ## 8. 外部正式联通闸门仍未通过
 
 - 生产 `/readyz` 已为 ready，外部 MES 同步也可用，但这只代表系统地基和 MES 投影链路可用，不能把 `/readyz` ready 误判为外部联通完成
-- 当前 `python scripts/check_statistics_module_ready.py --json` 仍返回 hard fail：`LLM_DISABLED`、`APP_CONNECTION_DISABLED`
+- 当前 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍返回 hard fail：`APP_CONNECTION_DISABLED`
+- 生产 LLM 已启用并有 live check 证据，当前不再作为外部联通 hard issue 跟进
 - 正式试用闸门应加跑 `python scripts/check_statistics_module_ready.py --json --check-live-aggregation`，用实时聚合只读探针确认管理端实时数据服务可计算；当天无填报不算失败，服务异常才算 `LIVE_AGGREGATION_UNAVAILABLE`
 - 对外索取现场输入前应先跑 `python scripts/check_statistics_module_ready.py --missing-inputs`，输出用途、所在位置、缺失字段、影响范围和建议取值，不凭记忆手写清单
 - 当前 warning 仍为 `DINGTALK_NO_BOUND_USERS`：钉钉应用已启用，但 active 用户/员工没有绑定 `dingtalk_user_id`，真实人员触达和客户端 UAT 未闭环
 - 若正式试用前要自动同步通讯录，应加跑 `python scripts/check_statistics_module_ready.py --json --check-dingtalk-contacts`；当前仍返回 `DINGTALK_CONTACTS_PERMISSION_MISSING`，缺钉钉开放平台权限 `qyapi_get_department_member`
-- 后续正式试用前需要在服务器 `backend/.env` 补齐真实 LLM、应用连接 API 和钉钉人员绑定；缺密钥时只能保留清单，不能猜值或写入仓库
+- 后续正式试用前需要在服务器 `backend/.env` 补齐真实应用连接 API，并给试点 active 用户/员工绑定真实钉钉 userid；缺密钥或缺真实人员标识时只能保留清单，不能猜值或写入仓库
 
 ## 9. `2026-04-22` 每日产量源表仍阻断
 
