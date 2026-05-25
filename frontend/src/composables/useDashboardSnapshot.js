@@ -65,6 +65,7 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
     trend: computed(() => data.value.analysis_handoff?.trend || {}),
     managementEstimate: computed(() => data.value.management_estimate || {}),
     productionLane: computed(() => data.value.production_lane || []),
+    yesterdayShiftBreakdown: computed(() => data.value.yesterday_shift_breakdown || { shifts: [] }),
     exceptionLane: computed(() => data.value.exception_lane || {}),
     leaderSummary: computed(() => data.value.leader_summary || {}),
     freshnessStatus: computed(() => normalizeFreshness(data.value.analysis_handoff?.freshness?.freshness_status)),

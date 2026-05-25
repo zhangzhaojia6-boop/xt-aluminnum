@@ -65,6 +65,90 @@ def _build_production_lane(db: Session, *, target_date: date, workshop_id: int |
         )
     return lane
 
+_SHIFT_LABEL_MAP = {'A': '白班', 'B': '中班', 'C': '晚班'}
+_SHIFT_DISPLAY_ORDER = ['A', 'B', 'C']
+
+
+def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
+    """三班分解：返回 target_date 当天的白/中/晚三班产量、能耗、异常拆分。
+    7:30 是日循环节点 —— 主操实时填报后，到 7:30 时 target_date(=昨日) 的三班数据自然完整。
+    上层 useDashboardSnapshot 默认 target_date = 昨天，所以每天 7:30 看到的就是
+    昨日三班的精准数据；切换日期则按所选日返回。"""
+    rows = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.business_date == target_date,
+            ShiftProductionData.data_status.in_(['pending', 'reviewed', 'confirmed']),
+        )
+        .all()
+    )
+    shifts = db.query(ShiftConfig).all()
+    shift_by_id = {s.id: s for s in shifts}
+
+    grouped: dict[str, list[ShiftProductionData]] = {code: [] for code in _SHIFT_DISPLAY_ORDER}
+    for row in rows:
+        cfg = shift_by_id.get(row.shift_config_id)
+        if not cfg or cfg.code not in grouped:
+            continue
+        grouped[cfg.code].append(row)
+
+    workshop_total = db.query(Workshop).filter(Workshop.is_active.is_(True)).count()
+
+    exception_counts = dict(
+        db.query(ProductionException.shift_config_id, func.count(ProductionException.id))
+        .filter(
+            ProductionException.business_date == target_date,
+            ProductionException.shift_config_id.isnot(None),
+        )
+        .group_by(ProductionException.shift_config_id)
+        .all()
+    )
+
+    breakdown = []
+    grand_output = 0.0
+    grand_energy_kwh = 0.0
+    for code in _SHIFT_DISPLAY_ORDER:
+        items = grouped[code]
+        total_output = round(sum(_shift_weight_tons(it, 'output_weight') for it in items), 2)
+        total_energy = round(sum(float(it.electricity_kwh or 0) for it in items), 1)
+        energy_per_ton = round(total_energy / total_output, 1) if total_output > 0 and total_energy > 0 else None
+        reported_workshops = len({it.workshop_id for it in items})
+        ex_count = 0
+        for sid, sc in shift_by_id.items():
+            if sc.code == code:
+                ex_count += int(exception_counts.get(sid, 0) or 0)
+        cfg_match = next((s for s in shifts if s.code == code), None)
+        breakdown.append(
+            {
+                'shift_code': code,
+                'shift_name': _SHIFT_LABEL_MAP.get(code, code),
+                'shift_window': (
+                    f"{cfg_match.start_time.strftime('%H:%M')}-{cfg_match.end_time.strftime('%H:%M')}"
+                    if cfg_match
+                    else None
+                ),
+                'total_output': total_output,
+                'total_energy_kwh': total_energy,
+                'energy_per_ton': energy_per_ton,
+                'reported_workshops': reported_workshops,
+                'expected_workshops': workshop_total,
+                'shift_count': len(items),
+                'exception_count': ex_count,
+            }
+        )
+        grand_output += total_output
+        grand_energy_kwh += total_energy
+
+    grand_energy_per_ton = round(grand_energy_kwh / grand_output, 1) if grand_output > 0 and grand_energy_kwh > 0 else None
+    return {
+        'business_date': target_date.isoformat(),
+        'total_output': round(grand_output, 2),
+        'total_energy_kwh': round(grand_energy_kwh, 1),
+        'energy_per_ton': grand_energy_per_ton,
+        'shifts': breakdown,
+    }
+
+
 def _build_energy_lane(db: Session, *, target_date: date, workshop_id: int | None = None) -> list[dict]:
     energy_rows = energy_service.get_energy_summary(db, business_date=target_date, workshop_id=workshop_id)
     return [

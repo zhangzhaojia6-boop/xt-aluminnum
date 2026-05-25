@@ -478,6 +478,29 @@ class InventoryLaneRowOut(DashboardSourceMetaOut):
     contract_received: float | None = None
 
 
+class YesterdayShiftRowOut(BaseModel):
+    model_config = ConfigDict(extra='allow')
+    shift_code: str
+    shift_name: str
+    shift_window: str | None = None
+    total_output: float | None = None
+    total_energy_kwh: float | None = None
+    energy_per_ton: float | None = None
+    reported_workshops: int | None = None
+    expected_workshops: int | None = None
+    shift_count: int | None = None
+    exception_count: int | None = None
+
+
+class YesterdayShiftBreakdownOut(BaseModel):
+    model_config = ConfigDict(extra='allow')
+    business_date: calendar_date | None = None
+    total_output: float | None = None
+    total_energy_kwh: float | None = None
+    energy_per_ton: float | None = None
+    shifts: list[YesterdayShiftRowOut] = []
+
+
 class FactoryDashboardResponse(BaseModel):
     model_config = ConfigDict(extra='allow')
 
@@ -496,6 +519,7 @@ class FactoryDashboardResponse(BaseModel):
     energy_lane: list[EnergyLaneRowOut] | None = None
     inventory_lane: list[InventoryLaneRowOut] | None = None
     exception_lane: DashboardExceptionLaneOut | None = None
+    yesterday_shift_breakdown: YesterdayShiftBreakdownOut | None = None
     contract_progress: ContractProgressOut | None = None
     workshop_reporting_status: list[WorkshopReportingStatusOut] | None = None
     analysis_handoff: AnalysisHandoffOut | None = None

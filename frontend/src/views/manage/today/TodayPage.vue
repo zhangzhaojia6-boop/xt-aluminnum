@@ -29,6 +29,8 @@
       />
     </header>
 
+    <YesterdayShiftPanel :payload="snapshot.yesterdayShiftBreakdown.value" />
+
     <SummaryHero
       :text="summaryText"
       :date="snapshot.targetDate.value"
@@ -72,6 +74,7 @@ import CostLine from '../../../components/manage/CostLine.vue'
 import OutputTrendLine from '../../../components/manage/OutputTrendLine.vue'
 import FilerRoster from '../../../components/manage/FilerRoster.vue'
 import SummaryHero from '../../../components/manage/SummaryHero.vue'
+import YesterdayShiftPanel from '../../../components/manage/YesterdayShiftPanel.vue'
 import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
