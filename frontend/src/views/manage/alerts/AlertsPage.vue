@@ -57,7 +57,7 @@ function syncRouteFromDomains(domains) {
 }
 
 function onDomainsChange(next) {
-  timeline.domains.value = next
+  timeline.setDomains(next)
   syncRouteFromDomains(next)
 }
 
@@ -66,15 +66,22 @@ const openCount = computed(
 )
 
 onMounted(() => {
-  timeline.domains.value = readDomainsFromRoute()
+  timeline.setDomains(readDomainsFromRoute())
   if (route.query.surface) syncRouteFromDomains(timeline.domains.value)
   timeline.load()
 })
 
+function sameDomains(a, b) {
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((v, i) => v === sb[i])
+}
+
 watch(() => route.query, () => {
   const next = readDomainsFromRoute()
-  if (JSON.stringify(next) !== JSON.stringify(timeline.domains.value)) {
-    timeline.domains.value = next
+  if (!sameDomains(next, timeline.domains.value)) {
+    timeline.setDomains(next)
   }
 })
 </script>
