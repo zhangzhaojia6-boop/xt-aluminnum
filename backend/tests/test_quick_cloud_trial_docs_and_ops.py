@@ -623,7 +623,7 @@ def test_current_deploy_state_tracks_current_head_and_validation_evidence() -> N
     assert '`npm --prefix frontend run build`：通过' in state
     assert '`git diff --check HEAD~1..HEAD`：通过' in state
     assert '最近一次 ECS 修复验证：2026-05-25 15:35 左右。' in state
-    assert '`HEAD=origin/main=136cec2`' in state
+    assert '当前运行代码部署基准为 `136cec2`' in state
     assert '本轮已部署 `main@c880265`' in state
     assert '本轮已部署 `main@e97f5ee`' in state
     assert '管理端实时态势新增“车间填报接入”三段图和“草稿待归属”汇总' in state
@@ -1196,7 +1196,7 @@ def test_known_gaps_tracks_external_readiness_and_april_22_source_blockers() -> 
     assert '`APP_CONNECTION_DISABLED`' in state
     assert '`DINGTALK_NO_BOUND_USERS`' in state
     assert '`main@136cec2`' in state
-    assert '`HEAD=origin/main=136cec2`' in state
+    assert '当前运行代码部署基准为 `136cec2`' in state
     assert '当前 hard issue 只剩 `APP_CONNECTION_DISABLED`' in state
     assert '`llm_enabled=true`、`llm_model_ref_set=true`' in state
     assert '外部正式联通闸门仍未通过' in gaps

@@ -122,7 +122,7 @@ db 容器: PostgreSQL 15
 
 在当前 `main` HEAD 上已完成代码与路由文档回归验证：
 
-- 本轮部署：`main@136cec2` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；服务器 `/srv/aluminum-bypass` 的 `HEAD` 与 `origin/main` 均为 `136cec2`，工作区干净，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
+- 本轮运行代码部署基准：`main@136cec2` 已通过 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 上线；后续仅文档/测试提交可在服务器仓库快进，不需要重启服务，`aluminum-bypass.service` 与 `nginx.service` 均为 active。
 - 生产 `/readyz` 复验：`status=ready`、`environment=production`、`target_date=2026-05-25`、`hard_gate_passed=true`，`database/equipment_binding/schedule/pipeline=ok`，MES 最近同步 `last_run_status=success`、`fetched_count=50`、`upserted_count=50`。
 - 根目录 readiness 包装器已随本轮部署上线：生产 `/srv/aluminum-bypass/scripts/check_statistics_module_ready.py` 存在，可从仓库根目录委托后端检查脚本执行。
 - 生产外部联通复验：`python scripts/check_statistics_module_ready.py --json --check-live-aggregation` 仍按预期 exit `2`，当前 hard issue 只剩 `APP_CONNECTION_DISABLED`；`LLM` 已启用且 `llm_model_ref_set=true`，不再是当前 hard issue。
@@ -287,7 +287,7 @@ MES_API_KEY=...
 最近一次 ECS 修复验证：2026-05-25 15:35 左右。
 
 - SSH：`root@8.140.218.13` key 登录可用。
-- 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，`HEAD=origin/main=136cec2`，工作区干净。
+- 远端仓库：`/srv/aluminum-bypass` 已快进到当前 `main` HEAD，工作区干净；当前运行代码部署基准为 `136cec2`，后续仅文档/测试提交不改变线上运行逻辑。
 - 远端运行形态：宿主机 nginx + `aluminum-bypass.service` + 宿主机 PostgreSQL；`docker compose ps` 当前无运行容器。
 - 已用 `./scripts/deploy_systemd_host.sh --pull http://8.140.218.13` 完成 systemd 宿主机部署闭环。
 - 本轮已部署 `main@ac48f3b`：MES 同步批内重复投影修复已上线；生产 one-shot 同步返回 `coil_snapshots fetched=50 upserted=50`、`mes_follow_cards fetched=50 upserted=50`、`mes_dispatch fetched=50 upserted=50`，未再触发 `mes_coil_snapshots.coil_id` 唯一键冲突。
