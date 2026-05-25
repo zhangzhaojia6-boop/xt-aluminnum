@@ -47,14 +47,57 @@ test('normalizeFactoryDirector falls back to target_date midnight when occurred_
   assert.equal(out[0].occurredAt, '2026-05-19T00:00:00')
 })
 
-test('normalizeFactoryDirector composes summary from workshop+shift+desc when missing', () => {
+test('normalizeFactoryDirector composes summary from workshop+shift+exception_type when missing', () => {
   const payload = {
     exception_lane: {
-      recent_items: [{ id: 'p1', workshop_name: '一车间', shift_label: '早班', event_type: '产量异常' }]
+      recent_items: [
+        { report_id: 'p1', workshop_name: '一车间', shift_name: '早班', exception_type: 'output_anomaly' }
+      ]
     }
   }
   const out = normalizeFactoryDirector(payload, DATE)
-  assert.equal(out[0].summary, '一车间 早班 产量异常')
+  assert.match(out[0].summary, /一车间 早班/)
+  assert.equal(out[0].id, 'production:p1')
+})
+
+test('normalizeFactoryDirector returned_items use returned_reason as summary', () => {
+  const payload = {
+    exception_lane: {
+      returned_items: [
+        { report_id: 'r1', workshop_name: '二车间', shift_name: '夜班', returned_reason: '数据缺失需补录' }
+      ]
+    }
+  }
+  const out = normalizeFactoryDirector(payload, DATE)
+  assert.equal(out[0].summary, '二车间 夜班：数据缺失需补录')
+  assert.equal(out[0].domain, 'reporting')
+})
+
+test('normalizeQuality uses issue_desc when summary missing (real backend shape)', () => {
+  const items = [
+    { id: 6, issue_desc: '当日未导入能耗数据', issue_type: 'completeness', dimension_key: 'energy', created_at: '2026-05-19T11:00:00' }
+  ]
+  const out = normalizeQuality(items, DATE)
+  assert.equal(out[0].summary, '当日未导入能耗数据')
+  assert.equal(out[0].id, 'quality:6')
+  assert.equal(out[0].occurredAt, '2026-05-19T11:00:00')
+})
+
+test('normalizeReconciliation composes summary from source_a/source_b values', () => {
+  const items = [
+    {
+      id: 9,
+      reconciliation_type: 'cross_source',
+      dimension_key: 'production_kg',
+      source_a_value: 12345,
+      source_b_value: 12100,
+      created_at: '2026-05-19T09:50:00'
+    }
+  ]
+  const out = normalizeReconciliation(items, DATE)
+  assert.match(out[0].summary, /production_kg/)
+  assert.match(out[0].summary, /12345/)
+  assert.match(out[0].summary, /12100/)
 })
 
 test('normalizeFactoryDirector handles null exception_lane safely', () => {
