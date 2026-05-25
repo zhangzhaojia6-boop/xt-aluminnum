@@ -97,6 +97,8 @@ export function createAlertsTimeline({
 
   function stepDate(deltaDays) {
     targetDate.value = dayjs(targetDate.value).add(deltaDays, 'day').format('YYYY-MM-DD')
+    // The watch(targetDate, ..., { flush: 'sync' }) above fires before this returns,
+    // so `inflight` has already been reassigned to the new load's promise.
     return inflight
   }
 
