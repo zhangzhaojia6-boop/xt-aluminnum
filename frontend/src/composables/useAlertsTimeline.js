@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import {
   normalizeFactoryDirector,
@@ -7,7 +7,6 @@ import {
   mergeAndSort
 } from '../components/manage/_alertEventNormalize.js'
 
-const DOMAINS = ['production', 'reporting', 'quality', 'reconciliation']
 const FALLBACK_ROUTE = {
   production: '/manage/alerts/legacy?surface=anomaly',
   reporting: '/manage/alerts/legacy?surface=anomaly',
@@ -40,8 +39,7 @@ export function createAlertsTimeline({
   const events = ref([])
   const loading = ref(false)
   const lastError = ref('')
-  const failed = ref({ production: false, reporting: false, quality: false, reconciliation: false })
-  let inflight = Promise.resolve()
+  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false })
 
   function fallbackCard(domain) {
     return {
@@ -57,7 +55,7 @@ export function createAlertsTimeline({
 
   function load() {
     loading.value = true
-    inflight = (async () => {
+    return (async () => {
       const date = targetDate.value
       const [fd, q, r] = await Promise.allSettled([
         fdImpl({ target_date: date }),
@@ -65,12 +63,11 @@ export function createAlertsTimeline({
         rImpl({ target_date: date, status: 'open' })
       ])
       const buckets = []
-      const fail = { production: false, reporting: false, quality: false, reconciliation: false }
+      const fail = { factoryDirector: false, quality: false, reconciliation: false }
       if (fd.status === 'fulfilled') {
         buckets.push(normalizeFactoryDirector(fd.value, date))
       } else {
-        fail.production = true
-        fail.reporting = true
+        fail.factoryDirector = true
         buckets.push([fallbackCard('production')])
       }
       if (q.status === 'fulfilled') {
@@ -85,21 +82,16 @@ export function createAlertsTimeline({
         fail.reconciliation = true
         buckets.push([fallbackCard('reconciliation')])
       }
-      failed.value = fail
+      endpointFailed.value = fail
       events.value = mergeAndSort(buckets)
       lastError.value = ''
       loading.value = false
     })()
-    return inflight
   }
-
-  watch(targetDate, () => load(), { flush: 'sync' })
 
   function stepDate(deltaDays) {
     targetDate.value = dayjs(targetDate.value).add(deltaDays, 'day').format('YYYY-MM-DD')
-    // The watch(targetDate, ..., { flush: 'sync' }) above fires before this returns,
-    // so `inflight` has already been reassigned to the new load's promise.
-    return inflight
+    return load()
   }
 
   const domainCounts = computed(() => {
@@ -117,7 +109,8 @@ export function createAlertsTimeline({
   })
 
   const freshnessStatus = computed(() => {
-    const fails = DOMAINS.filter((d) => failed.value[d]).length
+    const f = endpointFailed.value
+    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0)
     if (fails === 0) return 'green'
     if (fails >= 3) return 'red'
     return 'yellow'
