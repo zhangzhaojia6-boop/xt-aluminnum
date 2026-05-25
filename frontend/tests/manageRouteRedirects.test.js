@@ -10,7 +10,7 @@ const reportListSrc = readFileSync(new URL('../src/views/reports/ReportList.vue'
 const reconciliationDetailSrc = readFileSync(new URL('../src/views/reconciliation/ReconciliationDetail.vue', import.meta.url), 'utf8')
 const reviewTaskCenterSrc = readFileSync(new URL('../src/views/review/ReviewTaskCenter.vue', import.meta.url), 'utf8')
 const overviewCenterSrc = readFileSync(new URL('../src/views/review/OverviewCenter.vue', import.meta.url), 'utf8')
-const alertsPageSrc = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.vue', import.meta.url), 'utf8')
+const alertsPageSrc = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.legacy.vue', import.meta.url), 'utf8')
 const manageShellSrc = readFileSync(new URL('../src/layout/ManageShell.vue', import.meta.url), 'utf8')
 const loginSrc = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
 const commandLoginSrc = readFileSync(new URL('../src/reference-command/pages/CommandLogin.vue', import.meta.url), 'utf8')
@@ -162,7 +162,7 @@ test('legacy alerts routes preserve alert surface', () => {
   assert.match(src, /path:\s*['"]\/reconciliation\/center['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]reconciliation['"]\s*\}\)/)
 })
 
-test('alerts page switches legacy centers by surface query', () => {
+test('alerts legacy page switches centers by surface query', () => {
   assert.match(alertsPageSrc, /import\s+\{\s*computed\s*\}\s+from\s+['"]vue['"]/)
   assert.match(alertsPageSrc, /useRoute\(\)/)
   assert.match(alertsPageSrc, /route\.query\.surface\s*===\s*['"]reconciliation['"]/)
