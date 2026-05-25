@@ -64,7 +64,7 @@ export const centerNavigation = [
     no: '09',
     title: '质量与告警中心',
     zone: 'review',
-    path: '/manage/alerts?surface=quality',
+    path: '/manage/alerts?domain=quality',
     routeName: 'review-quality-center',
     icon: '质',
     summary: '质量告警、处理状态、追溯'

@@ -100,7 +100,7 @@ export const referenceModules = Object.freeze([
     title: '质量与告警中心',
     surface: 'review',
     routeName: 'manage-alerts',
-    routePath: '/manage/alerts?surface=quality',
+    routePath: '/manage/alerts?domain=quality',
     layout: 'quality-alerts',
     kpiKeys: ['alerts', 'severe', 'closed', 'aiSignals'],
     primary: { type: 'table', source: 'quality' },

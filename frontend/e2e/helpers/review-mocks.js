@@ -344,7 +344,6 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       body: JSON.stringify({
         leader_summary: { summary_text: '今日主线稳定，关注交付缺口。' },
         leader_metrics: {
-          today_total_output: 1175,
           total_output_weight: 1175,
           energy_per_ton: 234.6,
           in_process_weight: 80,

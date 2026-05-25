@@ -150,9 +150,11 @@ test('legacy alerts routes preserve alert surface', () => {
     const line = routeLine(path)
 
     assert.ok(line, `route '${path}' should exist`)
-    assert.match(line, new RegExp(`surface:\\s*['"]${surface}['"]`), `route '${path}' should preserve ${surface} surface`)
-    assert.match(line, /query:\s*\{\s*\.\.\.to\.query/, `route '${path}' should preserve existing query`)
-    assert.match(line, /hash:\s*to\.hash/, `route '${path}' should preserve hash`)
+    assert.match(
+      line,
+      new RegExp(`preserveRouteState\\(['"]\\/manage\\/alerts['"],\\s*\\{\\s*surface:\\s*['"]${surface}['"]\\s*\\}\\)`),
+      `route '${path}' should redirect via preserveRouteState with ${surface}`
+    )
   }
 
   assert.match(src, /path:\s*['"]\/review\/quality['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]quality['"]\s*\}\)/)
@@ -244,7 +246,7 @@ test('legacy route callers use the owner skeleton tabs', () => {
   assert.match(navigationSrc, /routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"][\s\S]*routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should expose skeleton routes')
   assert.match(moduleCatalogSrc, /moduleId:\s*['"]01['"][\s\S]*routeName:\s*['"]manage-today['"][\s\S]*routePath:\s*['"]\/manage\/today['"]/, 'module catalog overview should land on today')
   assert.match(moduleCatalogSrc, /moduleId:\s*['"]05['"][\s\S]*routeName:\s*['"]manage-production['"][\s\S]*routePath:\s*['"]\/manage\/production['"]/, 'module catalog factory should land on production')
-  assert.match(moduleCatalogSrc, /moduleId:\s*['"]09['"][\s\S]*routeName:\s*['"]manage-alerts['"][\s\S]*routePath:\s*['"]\/manage\/alerts\?surface=quality['"]/, 'module catalog quality should land on quality surface')
+  assert.match(moduleCatalogSrc, /moduleId:\s*['"]09['"][\s\S]*routeName:\s*['"]manage-alerts['"][\s\S]*routePath:\s*['"]\/manage\/alerts\?domain=quality['"]/, 'module catalog quality should land on quality surface')
 })
 
 test('factory command shell supports embedded production mounting', () => {
