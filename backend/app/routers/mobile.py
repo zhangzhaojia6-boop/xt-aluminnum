@@ -276,6 +276,7 @@ def create_coil_entry(
 
 
 ROLE_FIELD_MAPPING = {
+    # Legacy 8-bucket — 退役过渡期保留 (G7)
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
     'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '耗材统计'},
@@ -284,6 +285,14 @@ ROLE_FIELD_MAPPING = {
     'contracts': {'extra_filter': 'contracts', 'label': '合同与投料'},
     'inventory_keeper': {'sections': ['entry'], 'label': '库存数据'},
     'utility_manager': {'extra_filter': 'utility_manager', 'label': '水电气'},
+    # New owner roles (G7)
+    'quality_owner': {'extra_filter': 'qc', 'label': '全公司质检'},
+    'planning_owner': {'extra_filter': 'contracts', 'label': '全公司合同'},
+    'energy_chief': {'extra_filter': 'energy_stat', 'label': '跨车间能耗合计'},
+    'storage_owner': {'sections': ['shift'], 'label': '储备四件'},
+    'shipment_outflow_owner': {'sections': ['extra'], 'label': '园区剪切流水'},
+    'recovery_owner': {'sections': ['shift'], 'label': '回收产量'},
+    'overhaul_owner': {'sections': ['shift'], 'label': '大修磨辊子+能耗'},
 }
 
 

@@ -15,6 +15,14 @@ ROLE_ALIASES = {
     'UM': 'utility_manager',
     'IK': 'inventory_keeper',
     'CT': 'contracts',
+    # G7: new owner short codes
+    'QM': 'quality_owner',
+    'PL': 'planning_owner',
+    'EC': 'energy_chief',
+    'FS': 'storage_owner',
+    'PSH': 'shipment_outflow_owner',
+    'RC': 'recovery_owner',
+    'OH': 'overhaul_owner',
 }
 
 READ_ALL = '*'

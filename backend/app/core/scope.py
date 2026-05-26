@@ -19,11 +19,16 @@ MOBILE_ROLES = {
     'utility_manager',
     'machine_operator',
     'consumable_stat',
+    # G7: + owner roles (corresponding to qc/energy_stat/contracts/inventory_keeper)
+    'quality_owner',
+    'energy_chief',
+    'planning_owner',
+    'storage_owner',
 }
 REVIEWER_ROLES = {'statistician', 'workshop_director', 'reviewer', 'stat'}
 MANAGER_ROLES = {'factory_director', 'senior_manager', 'manager'}
 WORK_ORDER_GLOBAL_ENTRY_ROLES = {'admin', 'statistician', 'stat', 'manager', 'factory_director', 'senior_manager'}
-WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'contracts'}
+WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'contracts', 'planning_owner'}  # G7: + owner role
 WORK_ORDER_LOCAL_ENTRY_ROLES = {
     'shift_leader',
     'qc',
@@ -33,6 +38,11 @@ WORK_ORDER_LOCAL_ENTRY_ROLES = {
     'contracts',
     'inventory_keeper',
     'utility_manager',
+    # G7: + owner roles (corresponding to qc/energy_stat/contracts/inventory_keeper)
+    'quality_owner',
+    'energy_chief',
+    'planning_owner',
+    'storage_owner',
 }
 
 

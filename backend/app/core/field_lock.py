@@ -12,6 +12,14 @@ ENTRY_STATUS_BY_ROLE = {
     'contracts': 'submitted',
     'inventory_keeper': 'submitted',
     'utility_manager': 'submitted',
+    # G7: new owner roles
+    'quality_owner': 'approved',
+    'planning_owner': 'submitted',
+    'energy_chief': 'approved',
+    'storage_owner': 'submitted',
+    'shipment_outflow_owner': 'submitted',
+    'recovery_owner': 'submitted',
+    'overhaul_owner': 'submitted',
 }
 
 
@@ -32,6 +40,14 @@ def next_entry_status_for_role(user_role: str, *, current_status: str) -> str:
         'contracts': {'draft', 'submitted'},
         'inventory_keeper': {'draft', 'submitted'},
         'utility_manager': {'draft', 'submitted'},
+        # G7: new owner roles (mirror predecessor transitions)
+        'quality_owner': {'verified', 'approved', 'submitted'},
+        'planning_owner': {'draft', 'submitted'},
+        'energy_chief': {'verified', 'approved'},
+        'storage_owner': {'draft', 'submitted'},
+        'shipment_outflow_owner': {'draft', 'submitted'},
+        'recovery_owner': {'draft', 'submitted'},
+        'overhaul_owner': {'draft', 'submitted'},
     }
     if current_status not in allowed_current_statuses[normalized_role]:
         raise ValueError(f'entry status {current_status} cannot transition for role {normalized_role}')
