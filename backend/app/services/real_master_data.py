@@ -717,40 +717,27 @@ def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, worksh
         user = username_user
 
     if user is None:
-        pin = generate_random_pin(6)
-        user = User(
-            username=equipment.code,
-            password_hash=get_password_hash(pin),
-            pin_code=pin,
-            name=f"{workshop.name} {equipment.name}",
-            role='shift_leader',
-            workshop_id=workshop.id,
-            team_id=None,
-            data_scope_type='self_workshop',
-            assigned_shift_ids=equipment.assigned_shift_ids,
-            is_mobile_user=True,
-            is_reviewer=False,
-            is_manager=False,
-            is_active=equipment.operational_status == 'running',
-        )
-        db.add(user)
-        db.flush()
-    else:
-        user.username = equipment.code
-        user.name = f"{workshop.name} {equipment.name}"
-        user.role = 'shift_leader'
-        user.workshop_id = workshop.id
-        user.team_id = None
-        user.data_scope_type = 'self_workshop'
-        user.assigned_shift_ids = equipment.assigned_shift_ids
-        user.is_mobile_user = True
-        user.is_reviewer = False
-        user.is_manager = False
-        user.is_active = equipment.operational_status == 'running'
-        if not user.pin_code:
-            user.pin_code = generate_random_pin(6)
-        if not user.password_hash or not verify_password(user.pin_code, user.password_hash):
-            user.password_hash = get_password_hash(user.pin_code)
+        # Auto-seed disabled 2026-05-27: do not create per-equipment shift_leader
+        # accounts on startup. Stage 2 cleanup deletes accounts with last_login
+        # IS NULL; recreating them here would resurrect deleted users every
+        # restart. Existing accounts are still updated below.
+        return
+
+    user.username = equipment.code
+    user.name = f"{workshop.name} {equipment.name}"
+    user.role = 'shift_leader'
+    user.workshop_id = workshop.id
+    user.team_id = None
+    user.data_scope_type = 'self_workshop'
+    user.assigned_shift_ids = equipment.assigned_shift_ids
+    user.is_mobile_user = True
+    user.is_reviewer = False
+    user.is_manager = False
+    user.is_active = equipment.operational_status == 'running'
+    if not user.pin_code:
+        user.pin_code = generate_random_pin(6)
+    if not user.password_hash or not verify_password(user.pin_code, user.password_hash):
+        user.password_hash = get_password_hash(user.pin_code)
 
     equipment.bound_user_id = user.id
 
@@ -807,23 +794,11 @@ def _ensure_special_owner_account(
     stable_pin = E2E_OWNER_PIN_BY_USERNAME.get(username)
 
     if user is None:
-        pin = stable_pin or generate_random_pin(6)
-        user = User(
-            username=username,
-            password_hash=get_password_hash(pin),
-            pin_code=pin,
-            name=f'{workshop.name}{team.name}{role_label}',
-            role=role_code,
-            workshop_id=workshop.id,
-            team_id=team.id,
-            data_scope_type='self_workshop',
-            assigned_shift_ids=assigned_shift_ids,
-            is_mobile_user=True,
-            is_reviewer=False,
-            is_manager=False,
-            is_active=True,
-        )
-        db.add(user)
+        # Auto-seed disabled 2026-05-27: do not create per-shift owner accounts
+        # (EN/MT/QC/PLAN/INV/UTILITY) on startup. Stage 2 cleanup deletes
+        # accounts with last_login IS NULL; recreating them here would
+        # resurrect deleted users every restart. Update path retained so that
+        # accounts still bound to real workers stay current.
         return
 
     user.name = f'{workshop.name}{team.name}{role_label}'
