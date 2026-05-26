@@ -27,6 +27,9 @@ class FakeQuery:
     def order_by(self, *_args, **_kwargs):
         return self
 
+    def group_by(self, *_args, **_kwargs):
+        return self
+
     def limit(self, *_args, **_kwargs):
         return self
 
@@ -106,6 +109,10 @@ class FactoryDashboardDB:
             FakeQuery(scalar_value=0),
             FakeQuery(first_value=latest_report),
             FakeQuery(scalar_value=0),
+            FakeQuery(all_value=[]),
+            FakeQuery(all_value=[]),
+            FakeQuery(all_value=[]),
+            FakeQuery(all_value=[]),
         ]
 
     def query(self, *_args, **_kwargs):

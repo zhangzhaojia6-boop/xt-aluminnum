@@ -118,9 +118,12 @@ def _to_number(value: Decimal | float | int | None) -> float | None:
     return float(value)
 
 
+_KG_DATA_SOURCES = {'mobile_coil_agg'}
+
+
 def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
     value = _to_float(getattr(item, field_name, None)) or 0.0
-    if getattr(item, 'data_source', None) == 'mobile_coil_agg':
+    if getattr(item, 'data_source', None) in _KG_DATA_SOURCES:
         return value / 1000
     return value
 
