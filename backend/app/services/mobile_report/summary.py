@@ -362,6 +362,9 @@ def _aggregate_coil_to_shift(
     workshop_id: int,
     machine_id: int | None = None,
 ):
+    # Disabled 2026-05-27: mobile_coil_agg duplicate filing path retired.
+    # Mobile filing now flows only through data_source='mobile' via lifecycle.py.
+    return
     entry_query = db.query(
         func.sum(WorkOrderEntry.input_weight).label('total_input'),
         func.sum(WorkOrderEntry.output_weight).label('total_output'),

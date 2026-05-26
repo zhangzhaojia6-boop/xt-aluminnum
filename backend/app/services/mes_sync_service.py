@@ -470,7 +470,8 @@ def sync_coil_snapshots(
 
         lag_seconds = None
         if last_event_at is not None:
-            lag_seconds = max((synced_at - last_event_at).total_seconds(), 0.0)
+            normalized_last_event = last_event_at if last_event_at.tzinfo else last_event_at.replace(tzinfo=timezone.utc)
+            lag_seconds = max((synced_at - normalized_last_event).total_seconds(), 0.0)
 
         run_log.finished_at = _utcnow()
         run_log.status = 'success'
