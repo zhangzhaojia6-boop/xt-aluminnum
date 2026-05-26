@@ -199,6 +199,20 @@ class ReporterAgent(BaseAgent):
 
         report_data = self._ensure_auto_publish_workflow(db=db, report=report)
         push_key = _build_push_key(report)
+
+        quality_gate_status = getattr(report, "quality_gate_status", None)
+        if quality_gate_status == "blocked":
+            report_data["auto_push_blocked_reason"] = "quality_gate_blocked"
+            report.report_data = report_data
+            log_pilot_event(
+                "auto_push_skipped",
+                report_id=report.id,
+                report_date=target_date.isoformat(),
+                reason="quality_gate_blocked",
+                push_key=push_key,
+            )
+            return self._decisions
+
         if report_data.get("auto_push_last_key") == push_key:
             log_pilot_event(
                 "auto_push_skipped",
