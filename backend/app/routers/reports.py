@@ -22,6 +22,10 @@ from app.schemas.reports import (
     ReportPipelineResponse,
 )
 from app.services import report_service
+from app.services.dingtalk_daily_report import (
+    DailyReportPushError,
+    push_daily_report_to_dingtalk,
+)
 
 router = APIRouter(tags=['reports'])
 
@@ -180,6 +184,24 @@ def finalize_report(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return DailyReportOut.model_validate(entity)
+
+
+@router.post('/{report_id}/push-dingtalk')
+def push_dingtalk(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_report_publish_access(current_user)
+    try:
+        result = push_daily_report_to_dingtalk(
+            db,
+            report_id=report_id,
+            operator=current_user,
+        )
+    except DailyReportPushError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result
 
 
 @router.get('/{report_id}/export')
