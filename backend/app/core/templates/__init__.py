@@ -72,6 +72,8 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'JZ': 'finishing',
     'JZ2': 'finishing',
     'JQ': 'shearing',
+    'LJ': 'straightening',
+    'CH': 'finishing',
     'CT': 'coating',
     'HS': 'recycling',
     'CPK': 'inventory',
@@ -93,6 +95,9 @@ WORKSHOP_TYPE_ALIASES = {
     'annealing': 'annealing',
     'coating': 'coating',
     'recycling': 'recycling',
+    'straightening': 'straightening',
+    'la_jiao': 'straightening',
+    'quenching': 'finishing',
 }
 
 ENERGY_OWNER_FIELDS = [
@@ -154,6 +159,71 @@ CONSUMABLE_OWNER_FIELDS = {
         {'name': 'high_temp_tape_daily', 'label': '高温胶带日用', 'type': 'number', 'unit': '卷', 'required': False, 'role_write': ['consumable_stat'], 'role_read': ['consumable_stat', 'admin', 'manager']},
     ],
 }
+
+
+def _consumable_field(name: str, label: str, unit: str = 'kg') -> dict:
+    return {
+        'name': name,
+        'label': label,
+        'type': 'number',
+        'unit': unit,
+        'required': False,
+        'role_write': ['machine_operator', 'consumable_stat'],
+        'role_read': ['machine_operator', 'consumable_stat', 'admin', 'manager'],
+    }
+
+
+MACHINE_OPERATOR_CONSUMABLE_FIELDS: dict[str, list[dict]] = {
+    'casting': [
+        _consumable_field('liquefied_gas_per_ton', '液化气吨耗'),
+        _consumable_field('titanium_wire_per_ton', '钛丝吨耗'),
+        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
+        _consumable_field('magnesium_per_ton', '镁锭吨耗'),
+        _consumable_field('manganese_per_ton', '锰剂吨耗'),
+        _consumable_field('iron_per_ton', '铁剂吨耗'),
+        _consumable_field('copper_per_ton', '铜剂吨耗'),
+    ],
+    'hot_roll': [
+        _consumable_field('hot_roll_emulsion_per_ton', '热轧乳液吨耗'),
+    ],
+    'cold_roll': [
+        _consumable_field('rolling_oil_per_ton', '轧制油吨耗'),
+        _consumable_field('filter_agent_per_ton', '飞滤剂吨耗'),
+        _consumable_field('diatomite_per_ton', '硅藻土吨耗'),
+        _consumable_field('white_earth_per_ton', '白土吨耗'),
+        _consumable_field('filter_cloth_daily', '滤布日用', '米'),
+        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+        _consumable_field('regen_oil_out', '再生油出'),
+        _consumable_field('regen_oil_in', '再生油回'),
+    ],
+    'finishing': [
+        _consumable_field('rolling_oil_per_ton', '轧制油吨耗'),
+        _consumable_field('d40_per_ton', 'D40吨耗'),
+        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
+        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
+        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
+        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+    ],
+    'shearing': [
+        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+    ],
+    'annealing': [
+        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+    ],
+    'coating': [
+        _consumable_field('paint_per_ton', '油漆吨耗'),
+    ],
+}
+
+QUALITY_NOTE_FIELD = {
+    'name': 'quality_note',
+    'label': '质量问题备注',
+    'type': 'textarea',
+    'required': False,
+    'role_write': ['machine_operator', 'qc'],
+    'role_read': READ_ALL,
+}
+
 
 CONTRACT_OWNER_FIELDS = [
     {
@@ -559,8 +629,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_spec', 'label': '下机规格', 'type': 'spec', 'required': False, 'hint': '()×()×()'},
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('cold_roll', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -596,8 +669,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '上机锭重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机卷重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'trim_weight', 'label': '切头重量', 'type': 'number', 'unit': 'kg', 'required': False},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('hot_roll', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -633,8 +709,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('finishing', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -661,7 +740,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'supports_ocr': False,
     },
     'shearing': {
-        'display_name': '园区剪切车间',
+        'display_name': '剪切车间',
         'tempo': 'fast',
         'entry_fields': [
             {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
@@ -672,8 +751,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_spec', 'label': '下机规格', 'type': 'spec', 'required': False, 'hint': '()×()×()'},
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('shearing', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -709,12 +791,14 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '投入铝锭', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'scrap_weight', 'label': '废料', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg', 'required': False},
+            QUALITY_NOTE_FIELD,
         ],
         'shift_fields': [
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³'},
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('casting', []),
         ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
@@ -746,8 +830,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'tray_weight', 'label': '托盘重量', 'type': 'number', 'unit': 'kg', 'required': False},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('shearing', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -774,12 +861,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'supports_ocr': False,
     },
     'inventory': {
-        'display_name': '成品库与公辅',
+        'display_name': '成品库',
         'tempo': 'fast',
         'entry_fields': INVENTORY_OWNER_FIELDS,
         'shift_fields': [],
         'extra_fields': [
-            *UTILITY_OWNER_FIELDS,
             *CONTRACT_PROGRESS_FIELDS,
         ],
         'qc_fields': [],
@@ -796,7 +882,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'supports_ocr': False,
     },
     'annealing': {
-        'display_name': '在线退火车间',
+        'display_name': '在线退火分厂',
         'tempo': 'fast',
         'entry_fields': [
             {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
@@ -804,8 +890,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('annealing', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -832,7 +921,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'supports_ocr': False,
     },
     'coating': {
-        'display_name': '彩涂车间',
+        'display_name': '彩涂',
         'tempo': 'fast',
         'entry_fields': [
             {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
@@ -840,8 +929,11 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
+            QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [],
+        'shift_fields': [
+            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('coating', []),
+        ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
