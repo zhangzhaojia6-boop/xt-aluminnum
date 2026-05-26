@@ -175,8 +175,9 @@ def live_active_business_date(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_realtime_user),
 ) -> LiveActiveBusinessDateOut:
-    del current_user
-    payload = realtime_service.resolve_live_business_date(db)
+    summary = build_scope_summary(current_user)
+    workshop_scope = resolve_work_order_entry_workshop_scope(summary)
+    payload = realtime_service.resolve_live_business_date(db, workshop_id=workshop_scope)
     return LiveActiveBusinessDateOut(**payload)
 
 

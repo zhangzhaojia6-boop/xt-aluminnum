@@ -83,12 +83,13 @@ def resolve_live_business_date(
     today: date | None = None,
     now: datetime | None = None,
     lookback_hours: int = ACTIVE_DATE_LOOKBACK_HOURS,
+    workshop_id: int | None = None,
 ) -> dict:
     resolved_now = now or _local_now()
     resolved_today = today or resolved_now.date()
     cutoff = resolved_now - timedelta(hours=max(int(lookback_hours or ACTIVE_DATE_LOOKBACK_HOURS), 1))
 
-    recent_entry = (
+    entry_query = (
         db.query(
             WorkOrderEntry.business_date,
             func.count(WorkOrderEntry.id).label('entry_count'),
@@ -98,6 +99,11 @@ def resolve_live_business_date(
             WorkOrderEntry.business_date <= resolved_today,
             WorkOrderEntry.created_at >= cutoff,
         )
+    )
+    if workshop_id is not None:
+        entry_query = entry_query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    recent_entry = (
+        entry_query
         .group_by(WorkOrderEntry.business_date)
         .order_by(func.max(WorkOrderEntry.created_at).desc(), WorkOrderEntry.business_date.desc())
         .first()
@@ -109,7 +115,7 @@ def resolve_live_business_date(
             'recent_entry_count': int(recent_entry.entry_count or 0),
         }
 
-    recent_shift = (
+    shift_query = (
         db.query(
             ShiftProductionData.business_date,
             func.count(ShiftProductionData.id).label('entry_count'),
@@ -120,6 +126,11 @@ def resolve_live_business_date(
             ShiftProductionData.updated_at >= cutoff,
             ShiftProductionData.data_status != 'voided',
         )
+    )
+    if workshop_id is not None:
+        shift_query = shift_query.filter(ShiftProductionData.workshop_id == workshop_id)
+    recent_shift = (
+        shift_query
         .group_by(ShiftProductionData.business_date)
         .order_by(func.max(ShiftProductionData.updated_at).desc(), ShiftProductionData.business_date.desc())
         .first()

@@ -209,7 +209,8 @@ def test_live_active_business_date_endpoint_calls_service(monkeypatch) -> None:
     def fake_get_db():
         yield DummyDB(current_user)
 
-    def fake_resolve_live_business_date(db):
+    def fake_resolve_live_business_date(db, *, workshop_id=None):
+        assert workshop_id is None
         return {'business_date': '2026-05-06', 'source': 'recent_upload', 'recent_entry_count': 7}
 
     app.dependency_overrides[get_db] = fake_get_db
@@ -224,6 +225,42 @@ def test_live_active_business_date_endpoint_calls_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == {'business_date': '2026-05-06', 'source': 'recent_upload', 'recent_entry_count': 7}
+
+    app.dependency_overrides.clear()
+
+
+def test_live_active_business_date_passes_workshop_scope_for_shift_leader(monkeypatch) -> None:
+    current_user = User(
+        id=42,
+        username='lz2050-leader',
+        password_hash='x',
+        name='Cold Roll Leader',
+        role='shift_leader',
+        workshop_id=5,
+        data_scope_type='self_workshop',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    captured = {}
+
+    def fake_resolve_live_business_date(db, *, workshop_id=None):
+        captured['workshop_id'] = workshop_id
+        return {'business_date': '2026-05-06', 'source': 'recent_upload', 'recent_entry_count': 3}
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.resolve_live_business_date', fake_resolve_live_business_date)
+
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/active-date',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert captured['workshop_id'] == 5
 
     app.dependency_overrides.clear()
 
