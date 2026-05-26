@@ -27,19 +27,24 @@ from app.models.executive import (
 )
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
-from app.models.energy import EnergyImportRecord, MachineEnergyRecord
+from app.models.energy import EnergyImportRecord, MachineEnergyDailyCompare, MachineEnergyRecord
 from app.models.consumable import DailyConsumableLog
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesImportRecord, MesMachineLineSnapshot, MesSyncCursor, MesSyncRunLog
 from app.models.production import (
+    AlloySpecBreakdown,
     FieldAmendment,
     MobileReminderRecord,
     MobileShiftReport,
+    OverhaulDaily,
     ProductionException,
+    ProductionPlanDaily,
+    RecoveryDaily,
     ShiftProductionData,
+    ShipmentOutflowRecord,
     WorkOrder,
     WorkOrderEntry,
 )
-from app.models.quality import DataQualityIssue
+from app.models.quality import DataQualityIssue, QualityIssueLog, QualityYieldDaily
 from app.models.reconciliation import DataReconciliationItem
 from app.models.reports import DailyReport
 from app.models.rule_config import RuleConfig
@@ -83,6 +88,7 @@ __all__ = [
     'FieldAmendment',
     'EnergyImportRecord',
     'MachineEnergyRecord',
+    'MachineEnergyDailyCompare',
     'DailyConsumableLog',
     'MesImportRecord',
     'MesCoilSnapshot',
@@ -91,6 +97,13 @@ __all__ = [
     'MesSyncCursor',
     'MesSyncRunLog',
     'DataQualityIssue',
+    'QualityYieldDaily',
+    'QualityIssueLog',
+    'ProductionPlanDaily',
+    'AlloySpecBreakdown',
+    'ShipmentOutflowRecord',
+    'RecoveryDaily',
+    'OverhaulDaily',
     'DataReconciliationItem',
     'ImportBatch',
     'ImportRow',

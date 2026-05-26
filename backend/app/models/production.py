@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.models.base import json_object_type
 
 AUTO_CONFIRMED_REPORT_STATUSES = {'approved', 'auto_confirmed'}
 
@@ -121,6 +122,7 @@ class MobileShiftReport(Base):
     dingtalk_union_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     attendance_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attendance_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
     input_weight: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
     output_weight: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
     scrap_weight: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
@@ -332,3 +334,97 @@ class FieldAmendment(Base):
     approved_by: Mapped[int | None] = mapped_column(Integer, ForeignKey('users.id'), nullable=True, index=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default='pending', index=True)
+
+
+class ProductionPlanDaily(Base):
+    __tablename__ = 'production_plan_daily'
+    __table_args__ = (
+        UniqueConstraint('business_date', 'workshop_code', name='uq_production_plan_date_workshop'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    workshop_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    input_daily: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    input_monthly: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    contract_today: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    contract_total_remaining: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    billet_total: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AlloySpecBreakdown(Base):
+    __tablename__ = 'alloy_spec_breakdown'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    workshop_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    alloy_grade: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    spec_text: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    weight_tons: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    scrap_count_casting1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scrap_count_casting2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ShipmentOutflowRecord(Base):
+    __tablename__ = 'shipment_outflow_record'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    customer_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    batch_no: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    alloy_state: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    finished_spec: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    coil_weight: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    net_weight: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    source_workshop_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class RecoveryDaily(Base):
+    __tablename__ = 'recovery_daily'
+    __table_args__ = (
+        UniqueConstraint('business_date', name='uq_recovery_daily_date'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    recovery_output_tons: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class OverhaulDaily(Base):
+    __tablename__ = 'overhaul_daily'
+    __table_args__ = (
+        UniqueConstraint('business_date', name='uq_overhaul_daily_date'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    roller_grind_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    energy_kwh: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    gas_m3: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

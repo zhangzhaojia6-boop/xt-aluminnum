@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,6 +37,27 @@ class MachineEnergyRecord(Base):
     machine_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     energy_kwh: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
     gas_m3: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MachineEnergyDailyCompare(Base):
+    __tablename__ = 'machine_energy_daily_compare'
+    __table_args__ = (
+        UniqueConstraint('business_date', 'machine_id', name='uq_machine_energy_compare_date_machine'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey('equipment.id'), nullable=False, index=True)
+    workshop_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('workshops.id'), nullable=True, index=True)
+    gas_per_ton_today: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    gas_per_ton_yesterday: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    gas_per_ton_target: Mapped[float | None] = mapped_column(Numeric(14, 3), nullable=True)
+    compare_arrow: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
