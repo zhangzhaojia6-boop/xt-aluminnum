@@ -1,7 +1,7 @@
 """Per-workshop QR PDF — one PDF file per workshop.
 
-Each PDF contains the workshop's machine QRs + 车间看板 + 电工 + 内勤
-codes that belong to that workshop. Output:
+Each PDF contains the workshop's machine QRs + 电工 + 内勤 codes that
+belong to that workshop. Output:
 backend/二维码/<workshop>/二维码-<workshop>.pdf
 
 Run after generate_qrcodes.py.
@@ -78,7 +78,6 @@ def find_workshop_code(ws_dir_name: str) -> str:
 
 def main() -> None:
     workshop_dirs = [d for d in QR_DIR.iterdir() if d.is_dir() and not d.name.startswith('_')]
-    kiosk_dir = QR_DIR / '_车间看板'
     energy_dir = QR_DIR / '_电工'
     cs_dir = QR_DIR / '_内勤'
 
@@ -87,12 +86,10 @@ def main() -> None:
         ws_name = ws_dir.name
         ws_code = find_workshop_code(ws_name)
         machine_pngs = sorted(ws_dir.glob('机列_*.png'))
-        kiosk_pngs = sorted(kiosk_dir.glob(f'车间_{ws_code}*.png')) if kiosk_dir.exists() else []
         energy_pngs = sorted(energy_dir.glob(f'电工_{ws_code}-*.png')) if energy_dir.exists() else []
-        cs_workshop_dir = cs_dir / ws_name if cs_dir.exists() else None
-        cs_pngs = sorted(cs_workshop_dir.glob('内勤_*.png')) if cs_workshop_dir and cs_workshop_dir.exists() else []
+        cs_pngs = sorted(cs_dir.glob(f'内勤_{ws_code}-*.png')) if cs_dir.exists() else []
 
-        if not (machine_pngs or kiosk_pngs or energy_pngs or cs_pngs):
+        if not (machine_pngs or energy_pngs or cs_pngs):
             continue
 
         out_pdf = ws_dir / f'二维码-{ws_name}.pdf'
@@ -100,12 +97,11 @@ def main() -> None:
         c.setTitle(f'鑫泰铝业 · {ws_name} · 二维码')
 
         render_section(c, ws_name, '机列', machine_pngs)
-        render_section(c, ws_name, '车间看板', kiosk_pngs)
         render_section(c, ws_name, '电工', energy_pngs)
         render_section(c, ws_name, '内勤', cs_pngs)
 
         c.save()
-        total = len(machine_pngs) + len(kiosk_pngs) + len(energy_pngs) + len(cs_pngs)
+        total = len(machine_pngs) + len(energy_pngs) + len(cs_pngs)
         built.append((ws_name, total, out_pdf))
 
     factory_dir = QR_DIR / '_全厂'

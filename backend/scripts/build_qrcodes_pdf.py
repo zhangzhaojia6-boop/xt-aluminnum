@@ -16,16 +16,15 @@ from reportlab.pdfgen import canvas
 
 ROOT = Path(__file__).resolve().parents[1]
 QR_DIR = ROOT / '二维码'
-OUT_PDF = QR_DIR / '二维码总册.pdf'
+OUT_PDF = QR_DIR / '二维码总册-v2.pdf'
 
 pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
 SECTIONS = [
     ('机列扫码', sorted(p for p in QR_DIR.glob('*/机列_*.png'))),
-    ('车间看板', sorted((QR_DIR / '_车间看板').glob('车间_*.png'))),
     ('电工码',   sorted((QR_DIR / '_电工').glob('电工_*.png'))),
+    ('内勤码',   sorted((QR_DIR / '_内勤').glob('内勤_*.png'))),
     ('全厂码',   sorted((QR_DIR / '_全厂').glob('全厂_*.png'))),
-    ('内勤码',   sorted(p for p in (QR_DIR / '_内勤').glob('*/内勤_*.png'))),
 ]
 
 PAGE_W, PAGE_H = A4

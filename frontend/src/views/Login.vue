@@ -78,15 +78,6 @@
           class="panel"
         />
 
-        <el-alert
-          v-if="workshopHint"
-          :title="workshopHint"
-          type="info"
-          show-icon
-          :closable="false"
-          class="panel"
-        />
-
         <el-form ref="formRef" :model="form" :rules="rules" class="login-card__form" @submit.prevent="submit">
           <el-form-item prop="username">
             <el-input
@@ -150,7 +141,6 @@ const formRef = ref()
 const loading = ref(false)
 const qrLoginPending = ref(false)
 const dingtalkLoginPending = ref(false)
-const workshopHint = ref('')
 const selectedSurface = ref('review')
 
 const form = reactive({
@@ -287,30 +277,13 @@ async function tryQrLogin() {
 
   qrLoginPending.value = true
   try {
-    const result = await auth.qrLogin(qrCode)
-    if (result.type === 'workshop_redirect') {
-      workshopHint.value = `车间：${result.workshop_name || result.workshop_code}，请用该车间的角色账号登录`
-      return
-    }
-    ElMessage.success('机台登录成功')
+    await auth.qrLogin(qrCode)
+    ElMessage.success('扫码登录成功')
     await router.replace({ name: 'mobile-entry' })
   } catch {
     // error toast is handled by axios interceptor
   } finally {
     qrLoginPending.value = false
-  }
-}
-
-function applyWorkshopContext() {
-  const wsCode = resolveQueryValue('workshop')
-  if (!wsCode) return
-  workshopHint.value = `车间：${wsCode}，请用该车间的角色账号登录`
-}
-
-function applyUsernamePrefill() {
-  const username = resolveQueryValue('u')
-  if (username && !form.username) {
-    form.username = username
   }
 }
 
@@ -322,8 +295,6 @@ onMounted(async () => {
   const dingtalkLoggedIn = await tryDingtalkLogin()
   if (dingtalkLoggedIn) return
   await tryQrLogin()
-  applyWorkshopContext()
-  applyUsernamePrefill()
 })
 </script>
 

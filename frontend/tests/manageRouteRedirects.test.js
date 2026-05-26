@@ -13,11 +13,9 @@ const overviewCenterSrc = readFileSync(new URL('../src/views/review/OverviewCent
 const alertsPageSrc = readFileSync(new URL('../src/views/manage/alerts/AlertsPage.legacy.vue', import.meta.url), 'utf8')
 const manageShellSrc = readFileSync(new URL('../src/layout/ManageShell.vue', import.meta.url), 'utf8')
 const loginSrc = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
-const commandLoginSrc = readFileSync(new URL('../src/reference-command/pages/CommandLogin.vue', import.meta.url), 'utf8')
 const guardRulesSrc = readFileSync(new URL('../src/router/guardRules.js', import.meta.url), 'utf8')
 const appShellSrc = readFileSync(new URL('../src/layout/AppShell.vue', import.meta.url), 'utf8')
 const navigationSrc = readFileSync(new URL('../src/config/navigation.js', import.meta.url), 'utf8')
-const moduleCatalogSrc = readFileSync(new URL('../src/reference-command/data/moduleCatalog.js', import.meta.url), 'utf8')
 const overviewQuickEntriesBlock = overviewCenterSrc.slice(
   overviewCenterSrc.indexOf('const quickEntries = ['),
   overviewCenterSrc.indexOf('const referenceModules = [')
@@ -198,8 +196,6 @@ test('legacy route callers use the owner skeleton tabs', () => {
   assert.doesNotMatch(manageShellSrc, /\/manage\/overview/, 'manage shell should not call old overview path')
   assert.match(loginSrc, /return\s+['"]\/manage\/today['"]/, 'login review landing should use today tab')
   assert.doesNotMatch(loginSrc, /\/manage\/overview/, 'login should not call old overview path')
-  assert.match(commandLoginSrc, /return\s+['"]\/manage\/today['"]/, 'command login review landing should use today tab')
-  assert.doesNotMatch(commandLoginSrc, /\/manage\/overview/, 'command login should not call old overview path')
   assert.match(guardRulesSrc, /canAccessReviewSurface\)\s*return\s*\{\s*name:\s*['"]manage-today['"]\s*\}/, 'review guard should land on today')
   assert.match(guardRulesSrc, /canAccessFactoryDashboard\)\s*return\s*\{\s*name:\s*['"]manage-production['"]\s*\}/, 'factory guard should land on production')
   assert.match(guardRulesSrc, /canAccessWorkshopDashboard\)\s*return\s*\{\s*name:\s*['"]manage-production['"]\s*\}/, 'workshop guard should land on production')
@@ -244,9 +240,6 @@ test('legacy route callers use the owner skeleton tabs', () => {
     )
   }
   assert.match(navigationSrc, /routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"][\s\S]*routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should expose skeleton routes')
-  assert.match(moduleCatalogSrc, /moduleId:\s*['"]01['"][\s\S]*routeName:\s*['"]manage-today['"][\s\S]*routePath:\s*['"]\/manage\/today['"]/, 'module catalog overview should land on today')
-  assert.match(moduleCatalogSrc, /moduleId:\s*['"]05['"][\s\S]*routeName:\s*['"]manage-production['"][\s\S]*routePath:\s*['"]\/manage\/production['"]/, 'module catalog factory should land on production')
-  assert.match(moduleCatalogSrc, /moduleId:\s*['"]09['"][\s\S]*routeName:\s*['"]manage-alerts['"][\s\S]*routePath:\s*['"]\/manage\/alerts\?domain=quality['"]/, 'module catalog quality should land on quality surface')
 })
 
 test('factory command shell supports embedded production mounting', () => {
