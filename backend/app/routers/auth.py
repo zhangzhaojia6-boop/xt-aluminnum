@@ -243,4 +243,12 @@ ROLE_QR_SUFFIX_MAP = {
     'IK': ('inventory_keeper', '成品库'),
     'UM': ('utility_manager', '水电气'),
     'CS': ('consumable_stat', '内勤'),
+    # G14: owner role QRs
+    'QM': ('quality_owner', '质检内勤'),
+    'PL': ('planning_owner', '计划内勤'),
+    'EC': ('energy_chief', '总电工'),
+    'FS': ('storage_owner', '成品库'),
+    'PSH': ('shipment_outflow_owner', '园区剪切'),
+    'RC': ('recovery_owner', '回收'),
+    'OH': ('overhaul_owner', '大修'),
 }
