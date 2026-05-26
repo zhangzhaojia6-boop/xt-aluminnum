@@ -109,7 +109,39 @@
       <template #production>
         <el-card class="panel mobile-card">
           <template #header>本班关键数字</template>
-          <div class="mobile-form-grid">
+          <div v-if="form.machine_production_records.length" class="mobile-energy-machine-list">
+            <div
+              v-for="(rec, idx) in form.machine_production_records"
+              :key="rec.equipment_id || idx"
+              class="mobile-energy-machine-row"
+            >
+              <div class="mobile-energy-machine-name">{{ rec.machine_name || `机列${idx + 1}` }}</div>
+              <div class="mobile-form-grid">
+                <div class="mobile-field">
+                  <label>投入量</label>
+                  <el-input v-model.number="rec.input_weight" :disabled="!canEdit" inputmode="decimal" placeholder="投入量" />
+                </div>
+                <div class="mobile-field">
+                  <label>产出量</label>
+                  <el-input v-model.number="rec.output_weight" :disabled="!canEdit" inputmode="decimal" placeholder="产出量" />
+                </div>
+                <div class="mobile-field">
+                  <label>废料量</label>
+                  <el-input v-model.number="rec.scrap_weight" :disabled="!canEdit" inputmode="decimal" placeholder="废料量" />
+                </div>
+              </div>
+            </div>
+            <div class="mobile-energy-total">
+              <span>合计投入: {{ productionTotalInput }}</span>
+              <span>合计产出: {{ productionTotalOutput }}</span>
+              <span>合计废料: {{ productionTotalScrap }}</span>
+            </div>
+            <div class="mobile-field" style="margin-top:12px">
+              <label>出勤人数</label>
+              <el-input v-model.number="form.attendance_count" :disabled="!canEdit" inputmode="numeric" placeholder="人数" />
+            </div>
+          </div>
+          <div v-else class="mobile-form-grid">
             <div class="mobile-field">
               <label>出勤人数</label>
               <el-input v-model.number="form.attendance_count" :disabled="!canEdit" inputmode="numeric" placeholder="人数" />
@@ -396,6 +428,7 @@ const form = reactive({
   electricity_daily: null,
   gas_daily: null,
   machine_energy_records: [],
+  machine_production_records: [],
   has_exception: false,
   exception_type: '',
   note: '',
@@ -441,6 +474,18 @@ const energyTotalKwh = computed(() => {
 })
 const energyTotalGas = computed(() => {
   const total = form.machine_energy_records.reduce((sum, r) => sum + (Number(r.gas_m3) || 0), 0)
+  return total ? total.toFixed(2) : '-'
+})
+const productionTotalInput = computed(() => {
+  const total = form.machine_production_records.reduce((sum, r) => sum + (Number(r.input_weight) || 0), 0)
+  return total ? total.toFixed(2) : '-'
+})
+const productionTotalOutput = computed(() => {
+  const total = form.machine_production_records.reduce((sum, r) => sum + (Number(r.output_weight) || 0), 0)
+  return total ? total.toFixed(2) : '-'
+})
+const productionTotalScrap = computed(() => {
+  const total = form.machine_production_records.reduce((sum, r) => sum + (Number(r.scrap_weight) || 0), 0)
   return total ? total.toFixed(2) : '-'
 })
 const currentPage = computed(() => swipePages[Math.max(currentPageIndex.value, 0)] || swipePages[0])
@@ -548,6 +593,20 @@ function assignForm(data) {
   } else {
     form.machine_energy_records = savedRecords.map((r) => ({ ...r }))
   }
+  const savedProduction = data.machine_production_records || []
+  if (machines.length) {
+    const prodMap = Object.fromEntries(savedProduction.map((r) => [r.equipment_id, r]))
+    form.machine_production_records = machines.map((m) => ({
+      equipment_id: m.machine_id,
+      machine_code: m.machine_code,
+      machine_name: m.machine_name,
+      input_weight: prodMap[m.machine_id]?.input_weight ?? null,
+      output_weight: prodMap[m.machine_id]?.output_weight ?? null,
+      scrap_weight: prodMap[m.machine_id]?.scrap_weight ?? null,
+    }))
+  } else {
+    form.machine_production_records = savedProduction.map((r) => ({ ...r }))
+  }
   form.has_exception = Boolean(data.has_exception)
   form.exception_type = data.exception_type || ''
   form.note = data.note || ''
@@ -591,6 +650,14 @@ function buildPayload() {
     machine_energy_records: form.machine_energy_records.filter(
       (r) => r.energy_kwh !== null || r.gas_m3 !== null
     ),
+    machine_production_records: form.machine_production_records
+      .filter((r) => r.input_weight !== null || r.output_weight !== null || r.scrap_weight !== null)
+      .map((r) => ({
+        equipment_id: r.equipment_id,
+        input_weight: r.input_weight,
+        output_weight: r.output_weight,
+        scrap_weight: r.scrap_weight,
+      })),
     has_exception: form.has_exception,
     exception_type: form.exception_type || null,
     note: form.note || null,
@@ -599,11 +666,16 @@ function buildPayload() {
 }
 
 function validateBeforeSubmit() {
-  const requiredFields = [
-    ['attendance_count', '出勤人数'],
-    ['input_weight', '投入量'],
-    ['output_weight', '产出量']
-  ]
+  const hasPerMachine = form.machine_production_records.some(
+    (r) => r.input_weight !== null || r.output_weight !== null
+  )
+  const requiredFields = hasPerMachine
+    ? [['attendance_count', '出勤人数']]
+    : [
+        ['attendance_count', '出勤人数'],
+        ['input_weight', '投入量'],
+        ['output_weight', '产出量']
+      ]
   const missing = requiredFields.find(([field]) => form[field] === null || form[field] === '')
   if (missing) {
     ElMessage.warning(`请先填写：${missing[1]}`)

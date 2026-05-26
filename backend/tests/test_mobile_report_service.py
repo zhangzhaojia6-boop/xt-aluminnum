@@ -164,3 +164,39 @@ def test_agent_decision_snapshot_derives_auto_confirmed_from_report_status() -> 
     assert snapshot['agent_decision_status'] == 'auto_confirmed'
     assert snapshot['agent_decision_action'] == 'auto_confirm'
     assert snapshot['agent_decision_agent'] == 'validator'
+
+
+def test_machine_production_records_in_allowed_data_keys() -> None:
+    """G13: payload normalization must accept per-machine production rows."""
+    from app.services.mobile_report.lifecycle import (
+        MOBILE_REPORT_ALLOWED_DATA_KEYS,
+        _sum_machine_production,
+    )
+
+    assert 'machine_production_records' in MOBILE_REPORT_ALLOWED_DATA_KEYS
+    rows = [
+        {'equipment_id': 1, 'input_weight': 10.0, 'output_weight': 9.5, 'scrap_weight': 0.3},
+        {'equipment_id': 2, 'input_weight': 8.0, 'output_weight': 7.6, 'scrap_weight': 0.2},
+    ]
+    assert _sum_machine_production(rows) == (18.0, 17.1, 0.5)
+
+
+def test_sum_machine_production_with_partial_values() -> None:
+    """G13: missing values stay missing — don't fabricate zeros."""
+    from app.services.mobile_report.lifecycle import _sum_machine_production
+
+    rows = [
+        {'equipment_id': 1, 'input_weight': 10.0, 'output_weight': None, 'scrap_weight': 0.3},
+        {'equipment_id': 2, 'input_weight': None, 'output_weight': 7.6, 'scrap_weight': None},
+    ]
+    in_, out, scrap = _sum_machine_production(rows)
+    assert in_ == 10.0
+    assert out == 7.6
+    assert scrap == 0.3
+
+
+def test_sum_machine_production_empty_returns_none() -> None:
+    from app.services.mobile_report.lifecycle import _sum_machine_production
+
+    assert _sum_machine_production([]) == (None, None, None)
+    assert _sum_machine_production([{'equipment_id': 1}]) == (None, None, None)

@@ -31,6 +31,7 @@ from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.pilot_observability_service import log_pilot_event
+from app.services.production_per_machine_service import upsert_per_machine_rows
 
 
 def _find_mobile_report(
@@ -255,6 +256,12 @@ def _serialize_mobile_report(
         'agent_decision_at': decision_snapshot.get('agent_decision_at'),
         'active_reminders': active_reminders,
         'machine_energy_records': _load_machine_energy_records(db, report_id=report.id) if report else [],
+        'machine_production_records': _load_machine_production_records(
+            db,
+            business_date=business_date,
+            shift_config_id=shift.id,
+            workshop_id=workshop.id,
+        ) if report else [],
         'workshop_machines': _get_workshop_machines(db, workshop_id=workshop.id),
         'submitted_at': report.submitted_at if report else None,
         'last_saved_at': report.last_saved_at if report else None,
@@ -344,6 +351,47 @@ def _sync_to_shift_production(
     report.linked_production_data_id = entity.id
     return entity
 
+def _upsert_per_machine_production(
+    db: Session,
+    *,
+    report: MobileShiftReport,
+    shift: ShiftConfig,
+    workshop: Workshop,
+    team: Team | None,
+    rows: list[dict],
+) -> list[ShiftProductionData]:
+    """G13 — write one ShiftProductionData row per机列 instead of one
+    workshop-bucket aggregate. Empty/zeroed rows are filtered upstream
+    by the per-machine service. ``linked_production_data_id`` keeps
+    pointing at the first machine's row for back-compat with the
+    auto-validator handoff.
+    """
+    cleaned: list[dict] = []
+    for raw in rows:
+        eq_id = raw.get('equipment_id')
+        if not eq_id:
+            continue
+        cleaned.append({
+            'equipment_id': int(eq_id),
+            'input_weight': raw.get('input_weight'),
+            'output_weight': raw.get('output_weight'),
+            'scrap_weight': raw.get('scrap_weight'),
+            'electricity_kwh': raw.get('electricity_kwh'),
+            'actual_headcount': raw.get('actual_headcount'),
+            'notes': raw.get('notes'),
+        })
+    saved = upsert_per_machine_rows(
+        db,
+        business_date=report.business_date,
+        shift_config_id=shift.id,
+        workshop_id=workshop.id,
+        team_id=team.id if team else None,
+        rows=cleaned,
+    )
+    if saved and report.linked_production_data_id is None:
+        report.linked_production_data_id = saved[0].id
+    return saved
+
 def _required_submit_fields(payload: dict) -> list[str]:
     field_labels = {
         'input_weight': '投入重量',
@@ -377,6 +425,7 @@ MOBILE_REPORT_ALLOWED_DATA_KEYS = {
     'note',
     'optional_photo_url',
     'machine_energy_records',
+    'machine_production_records',
 }
 
 def _normalize_mobile_report_payload(payload: dict) -> dict:
@@ -433,6 +482,50 @@ def _sum_machine_energy(records: list[dict]) -> tuple[float | None, float | None
     total_kwh = sum(kwh_values) if kwh_values else None
     total_gas = sum(gas_values) if gas_values else None
     return total_kwh, total_gas
+
+
+def _sum_machine_production(records: list[dict]) -> tuple[float | None, float | None, float | None]:
+    in_vals = [r.get('input_weight') for r in records if r.get('input_weight') is not None]
+    out_vals = [r.get('output_weight') for r in records if r.get('output_weight') is not None]
+    scrap_vals = [r.get('scrap_weight') for r in records if r.get('scrap_weight') is not None]
+    return (
+        sum(in_vals) if in_vals else None,
+        sum(out_vals) if out_vals else None,
+        sum(scrap_vals) if scrap_vals else None,
+    )
+
+
+def _load_machine_production_records(
+    db: Session,
+    *,
+    business_date: date,
+    shift_config_id: int,
+    workshop_id: int,
+) -> list[dict]:
+    if not hasattr(db, 'query'):
+        return []
+    rows = (
+        db.query(ShiftProductionData)
+        .filter(
+            ShiftProductionData.business_date == business_date,
+            ShiftProductionData.shift_config_id == shift_config_id,
+            ShiftProductionData.workshop_id == workshop_id,
+            ShiftProductionData.equipment_id.isnot(None),
+            ShiftProductionData.data_status != 'voided',
+            ShiftProductionData.data_source == 'mobile',
+        )
+        .order_by(ShiftProductionData.equipment_id.asc())
+        .all()
+    )
+    return [
+        {
+            'equipment_id': row.equipment_id,
+            'input_weight': _to_float(row.input_weight),
+            'output_weight': _to_float(row.output_weight),
+            'scrap_weight': _to_float(row.scrap_weight),
+        }
+        for row in rows
+    ]
 
 def store_report_photo(
     report,
@@ -680,6 +773,16 @@ def save_or_submit_report(
         report.electricity_daily = total_kwh
         report.gas_daily = total_gas
 
+    machine_production_records = payload.get('machine_production_records') or []
+    if machine_production_records:
+        total_input, total_output, total_scrap = _sum_machine_production(machine_production_records)
+        if total_input is not None:
+            report.input_weight = total_input
+        if total_output is not None:
+            report.output_weight = total_output
+        if total_scrap is not None:
+            report.scrap_weight = total_scrap
+
     decision_snapshot = None
     if submit:
         missing = _required_submit_fields(payload)
@@ -692,7 +795,17 @@ def save_or_submit_report(
         report.submitted_at = _local_now()
         report.submitted_by_user_id = current_user.id
         report.returned_reason = None
-        _sync_to_shift_production(db, report=report, shift=shift, workshop=workshop, team=team)
+        if machine_production_records:
+            _upsert_per_machine_production(
+                db,
+                report=report,
+                shift=shift,
+                workshop=workshop,
+                team=team,
+                rows=machine_production_records,
+            )
+        else:
+            _sync_to_shift_production(db, report=report, shift=shift, workshop=workshop, team=team)
         db.flush()
 
         # === 自动校验（替代人工审核）===
