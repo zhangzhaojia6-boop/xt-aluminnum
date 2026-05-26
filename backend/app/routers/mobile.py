@@ -8,7 +8,17 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.permissions import get_current_mobile_user
 from app.core.scope import build_scope_summary
-from app.core.workshop_templates import WORKSHOP_TYPE_BY_WORKSHOP_CODE, get_workshop_template_definition, resolve_workshop_type
+from app.core.workshop_templates import (
+    INVENTORY_OWNER_FIELDS,
+    OVERHAUL_OWNER_FIELDS,
+    QC_OWNER_FIELDS,
+    RECOVERY_OWNER_FIELDS,
+    SHIPMENT_OUTFLOW_OWNER_FIELDS,
+    UTILITY_OWNER_FIELDS,
+    WORKSHOP_TYPE_BY_WORKSHOP_CODE,
+    get_workshop_template_definition,
+    resolve_workshop_type,
+)
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.mobile import (
@@ -276,17 +286,16 @@ def create_coil_entry(
 
 
 ROLE_FIELD_MAPPING = {
-    # truth-source §2.1 final role matrix — old 8-bucket retired
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
     'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
-    'quality_owner': {'extra_filter': 'qc', 'label': '全公司质检'},
+    'quality_owner': {'direct_fields': QC_OWNER_FIELDS, 'label': '全公司质检'},
     'planning_owner': {'extra_filter': 'contracts', 'label': '全公司合同'},
-    'energy_chief': {'extra_filter': 'energy_stat', 'label': '跨车间能耗合计'},
-    'storage_owner': {'sections': ['shift'], 'label': '储备四件'},
-    'shipment_outflow_owner': {'sections': ['extra'], 'label': '园区剪切流水'},
-    'recovery_owner': {'sections': ['shift'], 'label': '回收产量'},
-    'overhaul_owner': {'sections': ['shift'], 'label': '大修磨辊子+能耗'},
+    'energy_chief': {'direct_fields': UTILITY_OWNER_FIELDS, 'label': '跨车间能耗合计'},
+    'storage_owner': {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'},
+    'shipment_outflow_owner': {'direct_fields': SHIPMENT_OUTFLOW_OWNER_FIELDS, 'label': '园区剪切流水'},
+    'recovery_owner': {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'},
+    'overhaul_owner': {'direct_fields': OVERHAUL_OWNER_FIELDS, 'label': '大修磨辊子+能耗'},
 }
 
 
@@ -344,7 +353,11 @@ def entry_fields(
     groups = []
     is_per_coil = role == 'machine_operator'
 
-    if 'extra_filter' in mapping:
+    if 'direct_fields' in mapping:
+        fields = mapping['direct_fields']
+        if fields:
+            groups.append({'label': mapping.get('label', '填报'), 'fields': fields})
+    elif 'extra_filter' in mapping:
         target_role = mapping['extra_filter']
         fields = []
         for f in template.get('extra_fields', []):

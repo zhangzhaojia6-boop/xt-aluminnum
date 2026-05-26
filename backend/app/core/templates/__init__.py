@@ -557,6 +557,92 @@ UTILITY_OWNER_FIELDS = [
     },
 ]
 
+SHIPMENT_OUTFLOW_OWNER_FIELDS = [
+    {
+        'name': 'daily_shearing_output',
+        'label': '当日剪切产量',
+        'type': 'number',
+        'unit': '吨',
+        'required': True,
+        'role_write': ['shipment_outflow_owner'],
+        'role_read': ['shipment_outflow_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'month_to_date_shearing_output',
+        'label': '月累计剪切产量',
+        'type': 'number',
+        'unit': '吨',
+        'required': False,
+        'role_write': ['shipment_outflow_owner'],
+        'role_read': ['shipment_outflow_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'shearing_notes',
+        'label': '备注',
+        'type': 'textarea',
+        'required': False,
+        'role_write': ['shipment_outflow_owner'],
+        'role_read': ['shipment_outflow_owner', 'admin', 'manager'],
+    },
+]
+
+RECOVERY_OWNER_FIELDS = [
+    {
+        'name': 'recovery_weight',
+        'label': '回收重量',
+        'type': 'number',
+        'unit': 'kg',
+        'required': True,
+        'role_write': ['recovery_owner'],
+        'role_read': ['recovery_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'recovery_material_type',
+        'label': '物料类型',
+        'type': 'text',
+        'required': False,
+        'role_write': ['recovery_owner'],
+        'role_read': ['recovery_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'recovery_notes',
+        'label': '备注',
+        'type': 'textarea',
+        'required': False,
+        'role_write': ['recovery_owner'],
+        'role_read': ['recovery_owner', 'admin', 'manager'],
+    },
+]
+
+OVERHAUL_OWNER_FIELDS = [
+    {
+        'name': 'roller_grinding_count',
+        'label': '磨辊子数量',
+        'type': 'number',
+        'unit': '个',
+        'required': True,
+        'role_write': ['overhaul_owner'],
+        'role_read': ['overhaul_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'overhaul_energy_kwh',
+        'label': '大修用电',
+        'type': 'number',
+        'unit': 'kWh',
+        'required': False,
+        'role_write': ['overhaul_owner'],
+        'role_read': ['overhaul_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'overhaul_notes',
+        'label': '备注',
+        'type': 'textarea',
+        'required': False,
+        'role_write': ['overhaul_owner'],
+        'role_read': ['overhaul_owner', 'admin', 'manager'],
+    },
+]
+
 CONTRACT_PROGRESS_FIELDS = [
     {
         'name': 'daily_contract_weight',
@@ -1027,7 +1113,7 @@ from app.core.templates import permissions as permissions
 from app.core.templates import resolver as resolver
 
 _MODULES = (resolver, loader, permissions)
-_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
+_PUBLIC_ALL = ['WORK_ORDER_FIELD_NAMES', 'WORK_ORDER_ENTRY_FIELD_NAMES', 'NUMERIC_FIELD_NAMES', 'TIME_FIELD_NAMES', 'WORKSHOP_TYPE_BY_WORKSHOP_CODE', 'WORKSHOP_TYPE_ALIASES', 'ENERGY_OWNER_FIELDS', 'MAINTENANCE_OWNER_FIELDS', 'HYDRAULIC_OWNER_FIELDS', 'CONSUMABLE_OWNER_FIELDS', 'CONTRACT_OWNER_FIELDS', 'QC_OWNER_FIELDS', 'INVENTORY_OWNER_FIELDS', 'UTILITY_OWNER_FIELDS', 'SHIPMENT_OUTFLOW_OWNER_FIELDS', 'RECOVERY_OWNER_FIELDS', 'OVERHAUL_OWNER_FIELDS', 'CONTRACT_PROGRESS_FIELDS', 'DEFAULT_WORKSHOP_TEMPLATES', 'WORKSHOP_TEMPLATES', 'normalize_workshop_type', 'normalize_template_key', 'resolve_template_key', 'resolve_workshop_type', 'get_workshop_template_definition', 'normalize_template_definition_payload', 'get_workshop_template', '_merge_supplemental_sections']
 
 
 def _all_names() -> set[str]:
