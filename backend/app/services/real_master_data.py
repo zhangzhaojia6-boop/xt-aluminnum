@@ -249,18 +249,11 @@ SHIFT_TEAMS = [
     ('C', '大夜班组', 3),
 ]
 
-PRODUCTION_OWNER_ACCOUNTS = [
-    ('EN', '电工班长', 'energy_stat'),
-    ('MT', '机修班长', 'maintenance_lead'),
-    ('QC', '质检责任人', 'qc'),
-    ('PLAN', '合同责任人', 'contracts'),
-]
-
-WAREHOUSE_OWNER_ACCOUNTS = [
-    ('INV', '成品库负责人', 'inventory_keeper'),
-    ('PLAN', '计划科负责人', 'contracts'),
-    ('UTILITY', '水电气负责人', 'utility_manager'),
-]
+# Truth-source three-layer schema retires the per-shift × per-workshop owner
+# accounts. New owner roles are全公司唯一, seeded via seed_owner_role_qrs.py
+# as virtual_role_qr equipment (FACTORY-QM/PL/EC/FS/PSH/RC/OH).
+PRODUCTION_OWNER_ACCOUNTS: list[tuple[str, str, str]] = []
+WAREHOUSE_OWNER_ACCOUNTS: list[tuple[str, str, str]] = []
 
 E2E_OWNER_PIN_BY_USERNAME = {
     'CPK-A-INV': '506371',
@@ -939,6 +932,50 @@ def seed_mes_master_aliases(db: Session) -> None:
         item.is_active = True
 
 
+OWNER_QR_SPECS = [
+    ('QM', '质检内勤', 'CPK'),
+    ('PL', '计划内勤', 'CPK'),
+    ('EC', '总电工', 'CPK'),
+    ('FS', '成品库', 'CPK'),
+    ('PSH', '园区剪切', 'JQ'),
+    ('RC', '回收', 'HS'),
+    ('OH', '大修', 'CPK'),
+]
+
+
+def seed_owner_role_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
+    for suffix, label, host_code in OWNER_QR_SPECS:
+        host = workshops_by_code.get(host_code)
+        if host is None:
+            continue
+        equipment_code = f'{host.code}-{suffix}'
+        existing = db.execute(
+            select(Equipment).where(Equipment.code == equipment_code)
+        ).scalar_one_or_none()
+        if existing is not None:
+            existing.equipment_type = 'virtual_role_qr'
+            existing.workshop_id = host.id
+            existing.qr_code = f'XT-{equipment_code}'
+            existing.is_active = True
+            existing.operational_status = 'running'
+            if not existing.name:
+                existing.name = f'{host.name}{label}'
+            continue
+        db.add(
+            Equipment(
+                code=equipment_code,
+                name=f'{host.name}{label}',
+                workshop_id=host.id,
+                equipment_type='virtual_role_qr',
+                operational_status='running',
+                qr_code=f'XT-{equipment_code}',
+                sort_order=9991,
+                is_active=True,
+            )
+        )
+    db.flush()
+
+
 def seed_real_master_data(db: Session) -> None:
     _deactivate_placeholder_rows(db, Workshop)
     _deactivate_placeholder_rows(db, Team)
@@ -950,6 +987,7 @@ def seed_real_master_data(db: Session) -> None:
     seed_real_equipment(db, workshops_by_code)
     seed_mes_master_aliases(db)
     seed_special_owner_users(db, workshops_by_code)
+    seed_owner_role_qrs(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
 
     db.commit()

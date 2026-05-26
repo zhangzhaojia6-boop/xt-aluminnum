@@ -174,12 +174,20 @@ usePerformance('MobileEntry')
 const ROLE_COLOR_MAP = {
   shift_leader: 'var(--m-role-operator)',
   mobile_user: 'var(--m-role-operator)',
+  machine_operator: 'var(--m-role-operator)',
   energy_stat: 'var(--m-role-energy)',
   consumable_stat: 'var(--m-role-consumable)',
   qc: 'var(--m-role-qc)',
   utility_manager: 'var(--m-role-utility)',
   inventory_keeper: 'var(--m-role-inventory)',
   contracts: 'var(--m-role-contracts)',
+  quality_owner: 'var(--m-role-qc)',
+  planning_owner: 'var(--m-role-contracts)',
+  energy_chief: 'var(--m-role-energy)',
+  storage_owner: 'var(--m-role-inventory)',
+  shipment_outflow_owner: 'var(--m-role-utility)',
+  recovery_owner: 'var(--m-role-consumable)',
+  overhaul_owner: 'var(--m-role-utility)',
 }
 
 const route = useRoute()
