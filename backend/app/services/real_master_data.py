@@ -252,7 +252,6 @@ SHIFT_TEAMS = [
 PRODUCTION_OWNER_ACCOUNTS = [
     ('EN', '电工班长', 'energy_stat'),
     ('MT', '机修班长', 'maintenance_lead'),
-    ('HY', '液压班长', 'hydraulic_lead'),
     ('QC', '质检责任人', 'qc'),
     ('PLAN', '合同责任人', 'contracts'),
 ]
@@ -280,7 +279,6 @@ VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'HY': ('hydraulic_lead', '液压'),
     'MT': ('maintenance_lead', '机修'),
 }
 

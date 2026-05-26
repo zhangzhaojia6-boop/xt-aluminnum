@@ -21,10 +21,8 @@ from app.models.system import User
 WORKSHOP_ROLES = [
     ('energy_stat', 'EN', '电工'),
     ('maintenance_lead', 'MT', '机修'),
-    ('hydraulic_lead', 'HY', '液压'),
     ('consumable_stat', 'CS', '耗材统计'),
     ('qc', 'QC', '质检'),
-    ('weigher', 'WG', '称重'),
 ]
 
 FACTORY_ROLES = [

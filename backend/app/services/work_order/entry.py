@@ -463,11 +463,6 @@ def _build_entry_event_payload(
             occurred_at=_utcnow(),
         )
         return 'entry_submitted', attach_workflow_event(base_payload, workflow_event)
-    if normalized_role == 'weigher' and entity.entry_status in {'verified', 'approved'}:
-        return 'entry_verified', {
-            **base_payload,
-            'verification_status': entity.entry_status,
-        }
     return None, None
 
 def _build_entry_saved_event_payload(
@@ -739,9 +734,6 @@ def update_entry(
         template_key=template_key,
         user_role=operator.role,
     )
-    if normalize_role(operator.role) == 'weigher':
-        entity.weigher_user_id = operator.id
-        entity.weighed_at = entity.weighed_at or _utcnow()
     if normalize_role(operator.role) == 'qc':
         entity.qc_user_id = operator.id
         entity.qc_at = entity.qc_at or _utcnow()
@@ -789,9 +781,6 @@ def submit_entry(
         apply_entry_submit(entity, user_role=operator.role)
     except ValueError as exc:
         raise _http_error(status.HTTP_403_FORBIDDEN, str(exc))
-    if normalize_role(operator.role) == 'weigher':
-        entity.weigher_user_id = operator.id
-        entity.weighed_at = entity.verified_at or entity.weighed_at or _utcnow()
     if normalize_role(operator.role) == 'qc':
         entity.qc_user_id = operator.id
         entity.qc_at = entity.approved_at or entity.qc_at or _utcnow()

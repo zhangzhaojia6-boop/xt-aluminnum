@@ -238,6 +238,5 @@ def logout() -> dict:
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'HY': ('hydraulic_lead', '液压'),
     'MT': ('maintenance_lead', '机修'),
 }

@@ -7,9 +7,8 @@ def test_shift_leader_can_only_write_owned_entry_fields() -> None:
 
     assert 'input_weight' in writable
     assert 'output_weight' in writable
-    assert 'verified_input_weight' not in writable
     assert check_field_write('work_order_entries', 'input_weight', 'shift_leader') is True
-    assert check_field_write('work_order_entries', 'verified_input_weight', 'shift_leader') is False
+    assert check_field_write('work_order_entries', 'energy_kwh', 'shift_leader') is False
 
 
 def test_shift_leader_cannot_read_sensitive_contract_fields() -> None:
@@ -33,14 +32,14 @@ def test_contracts_can_manage_contract_header_fields_globally() -> None:
 
 
 def test_submit_locks_only_current_role_fields() -> None:
-    locked = set(get_fields_to_lock('work_order_entries', 'weigher'))
+    locked = set(get_fields_to_lock('work_order_entries', 'shift_leader'))
 
-    assert 'verified_input_weight' in locked
-    assert 'verified_output_weight' in locked
-    assert 'input_weight' not in locked
+    assert 'input_weight' in locked
+    assert 'output_weight' in locked
+    assert 'energy_kwh' not in locked
 
 
 def test_entry_status_progression_is_role_aware() -> None:
     assert next_entry_status_for_role('shift_leader', current_status='draft') == 'submitted'
-    assert next_entry_status_for_role('weigher', current_status='submitted') == 'verified'
-    assert next_entry_status_for_role('qc', current_status='verified') == 'approved'
+    assert next_entry_status_for_role('qc', current_status='submitted') == 'approved'
+    assert next_entry_status_for_role('energy_stat', current_status='verified') == 'approved'

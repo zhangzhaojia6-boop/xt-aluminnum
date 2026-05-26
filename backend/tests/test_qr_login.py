@@ -324,7 +324,6 @@ def test_qr_login_virtual_role_rejects_invalid_role_suffix(tmp_path) -> None:
     [
         ('ZR2-EN', 'XT-ZR2-EN', 'energy_stat', 'per_shift', 'shift_report'),
         ('ZR2-MT', 'XT-ZR2-MT', 'maintenance_lead', 'per_shift', 'shift_report'),
-        ('ZR2-HY', 'XT-ZR2-HY', 'hydraulic_lead', 'per_shift', 'shift_report'),
         ('ZR2-1-OP', 'XT-ZR2-1-OP', 'machine_operator', 'per_coil', 'coil_entry'),
     ],
 )

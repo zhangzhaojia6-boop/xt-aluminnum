@@ -7,7 +7,6 @@ from app.core.field_permissions import get_writable_fields, normalize_role
 
 ENTRY_STATUS_BY_ROLE = {
     'shift_leader': 'submitted',
-    'weigher': 'verified',
     'qc': 'approved',
     'energy_stat': 'approved',
     'contracts': 'submitted',
@@ -27,9 +26,8 @@ def next_entry_status_for_role(user_role: str, *, current_status: str) -> str:
         raise ValueError(f'role {normalized_role} cannot submit work order entries')
 
     allowed_current_statuses = {
-        'shift_leader': {'draft', 'submitted'},
-        'weigher': {'submitted', 'verified'},
-        'qc': {'verified', 'approved'},
+        'shift_leader': {'draft', 'submitted', 'verified'},
+        'qc': {'verified', 'approved', 'submitted'},
         'energy_stat': {'verified', 'approved'},
         'contracts': {'draft', 'submitted'},
         'inventory_keeper': {'draft', 'submitted'},

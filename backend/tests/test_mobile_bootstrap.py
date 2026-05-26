@@ -191,7 +191,7 @@ def test_settings_reject_conflicting_mobile_bootstrap_contracts(overrides: dict,
         settings.validate_runtime_settings()
 
 
-@pytest.mark.parametrize('role', ['shift_leader', 'energy_stat', 'maintenance_lead', 'hydraulic_lead', 'inventory_keeper', 'utility_manager', 'contracts'])
+@pytest.mark.parametrize('role', ['shift_leader', 'energy_stat', 'maintenance_lead', 'inventory_keeper', 'utility_manager', 'contracts'])
 def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) -> None:
     user = User(
         id=28,
@@ -344,7 +344,7 @@ def test_get_current_shift_allows_machine_user_when_other_owner_report_exists(mo
 
 @pytest.mark.parametrize(
     'role',
-    ['energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat', 'qc', 'weigher', 'inventory_keeper', 'utility_manager', 'contracts'],
+    ['energy_stat', 'maintenance_lead', 'consumable_stat', 'qc', 'inventory_keeper', 'utility_manager', 'contracts'],
 )
 def test_get_current_shift_allows_field_owner_when_shift_report_has_other_owner(monkeypatch, role: str) -> None:
     current_user = User(

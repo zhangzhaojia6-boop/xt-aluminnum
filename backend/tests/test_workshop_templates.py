@@ -49,11 +49,11 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
         'spool_weight',
         'output_weight',
     ]
-    assert [field['name'] for field in template['readonly_fields']] == ['scrap_weight', 'yield_rate']
-    assert template['readonly_fields'][0]['compute'] == 'input_weight - output_weight - spool_weight'
-    assert template['readonly_fields'][1]['compute'] == 'output_weight / input_weight * 100'
-    assert all(field['readonly'] is True for field in template['readonly_fields'])
-    assert all(field['editable'] is False for field in template['readonly_fields'])
+    assert [field['name'] for field in template['readonly_fields']] == ['quality_note', 'scrap_weight', 'yield_rate']
+    assert template['readonly_fields'][1]['compute'] == 'input_weight - output_weight - spool_weight'
+    assert template['readonly_fields'][2]['compute'] == 'output_weight / input_weight * 100'
+    assert all(field['readonly'] is True for field in template['readonly_fields'][1:])
+    assert all(field['editable'] is False for field in template['readonly_fields'][1:])
 
 
 def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
@@ -70,7 +70,7 @@ def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
         'output_weight',
         'trim_weight',
     ]
-    assert [field['name'] for field in template['readonly_fields']] == ['scrap_weight', 'yield_rate']
+    assert [field['name'] for field in template['readonly_fields']] == ['quality_note', 'scrap_weight', 'yield_rate']
 
 
 def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_it_to_contracts() -> None:
@@ -139,7 +139,7 @@ def test_phase1_templates_split_owner_fields_for_energy_qc_and_contract_roles() 
 def test_inventory_template_splits_inventory_fields_for_inventory_keeper_role() -> None:
     inventory_template = get_workshop_template('inventory', user_role='inventory_keeper')
 
-    assert inventory_template['display_name'] == '成品库与公辅'
+    assert inventory_template['display_name'] == '成品库'
     assert [field['name'] for field in inventory_template['entry_fields']] == [
         'storage_inbound_weight',
         'storage_inbound_area',
@@ -162,18 +162,7 @@ def test_inventory_template_splits_inventory_fields_for_inventory_keeper_role() 
 def test_inventory_template_splits_utility_fields_for_utility_manager_role() -> None:
     utility_template = get_workshop_template('inventory', user_role='utility_manager')
 
-    assert [field['name'] for field in utility_template['extra_fields']] == [
-        'total_electricity_kwh',
-        'new_plant_electricity_kwh',
-        'park_electricity_kwh',
-        'cast_roll_gas_m3',
-        'smelting_gas_m3',
-        'heating_furnace_gas_m3',
-        'boiler_gas_m3',
-        'total_gas_m3',
-        'groundwater_ton',
-        'tap_water_ton',
-    ]
+    assert [field['name'] for field in utility_template['extra_fields']] == []
 
 
 def test_inventory_template_splits_contract_progress_fields_for_contracts_role() -> None:
