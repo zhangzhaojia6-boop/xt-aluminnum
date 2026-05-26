@@ -65,6 +65,7 @@ def main() -> None:
         "FROM equipment e LEFT JOIN workshops w ON e.workshop_id=w.id "
         "WHERE e.is_active=true AND e.qr_code IS NOT NULL "
         "  AND e.equipment_type NOT LIKE 'virtual_%' "
+        "  AND e.operational_status='running' "
         "ORDER BY w.sort_order, e.sort_order, e.code"
         ") t;"
     )
@@ -81,6 +82,18 @@ def main() -> None:
         ") t;"
     )
     print(f'  {len(energy_qrs)} 电工码')
+
+    print('Pulling 全厂级 role QRs (FACTORY-*)...')
+    factory_qrs = remote_json(
+        "SELECT json_agg(t) FROM ("
+        "SELECT e.code, e.name, e.qr_code "
+        "FROM equipment e "
+        "WHERE e.is_active=true AND e.equipment_type='virtual_role_qr' "
+        "  AND e.code LIKE 'FACTORY-%' "
+        "ORDER BY e.sort_order, e.code"
+        ") t;"
+    )
+    print(f'  {len(factory_qrs)} 全厂码')
 
     print('Pulling workshop kiosks (with consumables)...')
     workshops = remote_json(
@@ -155,6 +168,21 @@ def main() -> None:
         })
     sections.append({'group': '车间电工（能耗填报）', 'kind': '电工', 'cards': cards})
 
+    # Factory-level role QRs (QC / CT / UM / IK).
+    cards = []
+    for q in factory_qrs:
+        url = f"{PROD_HOST_URL}/login?machine={quote(q['qr_code'])}"
+        fname = f"全厂_{safe(q['code'])}.png"
+        target = OUT / '_全厂' / fname
+        render_qr(url, target, [q['name'], q['code']])
+        cards.append({
+            'title': q['name'] or q['code'],
+            'subtitle': f"全厂 · {q['code']}",
+            'url': url,
+            'rel': str(target.relative_to(OUT)).replace('\\', '/'),
+        })
+    sections.append({'group': '全厂级专项（质检/计划/总电工/成品库）', 'kind': '全厂', 'cards': cards})
+
     # Personnel personal-login QR.
     cards = []
     for u in personnel:
@@ -185,7 +213,7 @@ def main() -> None:
                  '</style></head><body>')
     index.append(f'<h1>鑫泰铝业 数据中枢 · 扫码入口总册</h1>')
     index.append(f'<p style="color:#737a87;font-size:13px;margin:0 0 16px">'
-                 f'机列 {len(equipment)} · 车间 {len(workshops)} · 电工 {len(energy_qrs)} · 内勤 {len(personnel)}</p>')
+                 f'机列 {len(equipment)} · 车间 {len(workshops)} · 电工 {len(energy_qrs)} · 全厂 {len(factory_qrs)} · 内勤 {len(personnel)}</p>')
     for sec in sections:
         index.append(f'<h2>{sec["group"]} · {sec["kind"]} ({len(sec["cards"])})</h2>')
         index.append('<div class="grid">')
