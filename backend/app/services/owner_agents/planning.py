@@ -64,6 +64,7 @@ def replace_alloy_breakdown(
         AlloySpecBreakdown.business_date == business_date,
         AlloySpecBreakdown.workshop_code == workshop_code,
     ).delete(synchronize_session=False)
+    db.flush()
 
     created: list[AlloySpecBreakdown] = []
     for raw in rows:

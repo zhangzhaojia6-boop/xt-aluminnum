@@ -60,6 +60,7 @@ def replace_for_date(
     db.query(ShipmentOutflowRecord).filter(
         ShipmentOutflowRecord.business_date == business_date
     ).delete(synchronize_session=False)
+    db.flush()
 
     created: list[ShipmentOutflowRecord] = []
     for raw in rows:
