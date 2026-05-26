@@ -279,7 +279,11 @@ VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'MT': ('maintenance_lead', '机修'),
+    'QC': ('qc', '质检'),
+    'CT': ('contracts', '计划'),
+    'IK': ('inventory_keeper', '成品库'),
+    'UM': ('utility_manager', '水电气'),
+    'CS': ('consumable_stat', '内勤'),
 }
 
 MES_WORKSHOP_ALIASES = [

@@ -12,7 +12,7 @@ from app.models.master import Equipment, Workshop
 from app.models.system import User
 
 VIRTUAL_EQUIPMENT_TYPES = {"virtual_role_qr", "virtual_workshop_qr"}
-REPORTING_ROLE_SUFFIXES = ("-OP", "-EN", "-HY", "-MT")
+REPORTING_ROLE_SUFFIXES = ("-OP", "-EN", "-CS", "-QC", "-CT", "-IK", "-UM")
 from app.services.audit_service import record_entity_change
 
 

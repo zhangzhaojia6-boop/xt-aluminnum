@@ -24,7 +24,7 @@ from app.models.system import User
 
 
 FACTORY_USERNAMES = {'FACTORY-UM', 'FACTORY-IK', 'FACTORY-CT'}
-WORKSHOP_SUFFIXES = {'-EN', '-MT', '-HY', '-CS', '-QC', '-WG'}
+WORKSHOP_SUFFIXES = {'-EN', '-CS', '-QC'}
 KEEP_ROLES = {'admin', 'shift_leader', 'machine_operator'}
 
 
