@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '二维码'
 PROD_HOST = 'root@8.140.218.13'
 DB_PASS = 'xt_bypass_2026'
-PROD_HOST_URL = 'http://8.140.218.13:8000'  # 现场扫码后端 base
+PROD_HOST_URL = 'https://xtmijd.com'  # 现场扫码后端 base
 
 
 def remote_json(sql: str) -> list[dict]:
