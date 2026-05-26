@@ -114,3 +114,21 @@ Codex 是执行者——承接明确定义的后端逻辑、数据处理、批�
 - 选项题用最少的字给我看清楚，不要每个选项配三行解释。
 - 工厂里实际怎么说，就跟我怎么说。"班长""主操""电工""过磅"这些直接用，不要翻译成 `shift_leader / machine_operator / energy_stat / weigher` 再讲一遍。
 - 拿不准的事直接问，不要先假设三种情况再排除。
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
