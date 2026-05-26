@@ -11,12 +11,25 @@ from app.models.mes import MesImportRecord
 from app.models.master import Workshop
 from app.models.shift import ShiftConfig
 from app.models.energy import EnergyImportRecord
-from app.models.production import ShiftProductionData
+from app.models.production import (
+    AlloySpecBreakdown,
+    MobileShiftReport,
+    ProductionPlanDaily,
+    ShiftProductionData,
+)
 from app.models.reconciliation import DataReconciliationItem
 from app.models.system import User
 from app.services.audit_service import record_audit
 
-RECON_TYPES = ('attendance_vs_production', 'production_vs_mes', 'energy_vs_production', 'report_vs_source')
+RECON_TYPES = (
+    'attendance_vs_production',
+    'production_vs_mes',
+    'energy_vs_production',
+    'report_vs_source',
+    'cumulative_diff',
+    'alloy_spec_vs_input',
+    'attendance_detail_vs_total',
+)
 STATUS_PROCESSED = {'confirmed', 'ignored', 'corrected'}
 
 
@@ -379,3 +392,134 @@ def update_item_status(
     db.commit()
     db.refresh(item)
     return item
+
+
+def generate_cumulative_diff(
+    db: Session,
+    *,
+    business_date: date,
+    dimension_key: str,
+    field_name: str,
+    cumulative: float,
+    sum_shifts: float,
+    tolerance: float = 0.0,
+) -> DataReconciliationItem:
+    diff = _to_float(cumulative) - _to_float(sum_shifts)
+    status = 'ok' if abs(diff) <= tolerance else 'open'
+    item = DataReconciliationItem(
+        business_date=business_date,
+        reconciliation_type='cumulative_diff',
+        source_a='meter_cumulative',
+        source_b='shift_sum',
+        dimension_key=dimension_key,
+        field_name=field_name,
+        source_a_value=str(cumulative),
+        source_b_value=str(sum_shifts),
+        diff_value=diff,
+        status=status,
+    )
+    db.add(item)
+    db.flush()
+    return item
+
+
+def generate_alloy_spec_vs_input(
+    db: Session,
+    *,
+    business_date: date,
+) -> list[DataReconciliationItem]:
+    breakdown_rows = (
+        db.query(
+            AlloySpecBreakdown.workshop_code,
+            func.sum(AlloySpecBreakdown.weight_tons).label('total_weight'),
+        )
+        .filter(AlloySpecBreakdown.business_date == business_date)
+        .group_by(AlloySpecBreakdown.workshop_code)
+        .all()
+    )
+    breakdown_map: dict[str, float] = {}
+    for workshop_code, total_weight in breakdown_rows:
+        breakdown_map[workshop_code] = _to_float(total_weight)
+
+    plan_rows = (
+        db.query(ProductionPlanDaily.workshop_code, ProductionPlanDaily.input_daily)
+        .filter(ProductionPlanDaily.business_date == business_date)
+        .all()
+    )
+    plan_map: dict[str, float] = {}
+    for workshop_code, input_daily in plan_rows:
+        plan_map[workshop_code] = _to_float(input_daily)
+
+    created: list[DataReconciliationItem] = []
+    keys = set(breakdown_map.keys()) | set(plan_map.keys())
+    for workshop_code in keys:
+        breakdown_total = breakdown_map.get(workshop_code, 0.0)
+        plan_total = plan_map.get(workshop_code, 0.0)
+        if breakdown_total == plan_total:
+            continue
+        item = _create_item(
+            db,
+            business_date=business_date,
+            reconciliation_type='alloy_spec_vs_input',
+            source_a='alloy_spec_breakdown',
+            source_b='production_plan_daily',
+            dimension_key=f'workshop:{workshop_code}',
+            field_name='input_daily',
+            source_a_value=breakdown_total,
+            source_b_value=plan_total,
+        )
+        created.append(item)
+    db.flush()
+    return created
+
+
+def _sum_attendance_payload(payload: dict | None) -> float:
+    if not payload:
+        return 0.0
+    total = 0.0
+    for value in payload.values():
+        if isinstance(value, dict):
+            total += _sum_attendance_payload(value)
+        elif isinstance(value, (int, float)):
+            total += float(value)
+        elif isinstance(value, list):
+            for entry in value:
+                if isinstance(entry, dict):
+                    total += _sum_attendance_payload(entry)
+                elif isinstance(entry, (int, float)):
+                    total += float(entry)
+    return total
+
+
+def generate_attendance_detail_vs_total(
+    db: Session,
+    *,
+    business_date: date,
+) -> list[DataReconciliationItem]:
+    rows = (
+        db.query(MobileShiftReport)
+        .filter(MobileShiftReport.business_date == business_date)
+        .all()
+    )
+    created: list[DataReconciliationItem] = []
+    for row in rows:
+        if row.attendance_payload is None:
+            continue
+        detail_sum = _sum_attendance_payload(row.attendance_payload)
+        total = float(row.attendance_count or 0)
+        if detail_sum == total:
+            continue
+        item = _create_item(
+            db,
+            business_date=business_date,
+            reconciliation_type='attendance_detail_vs_total',
+            source_a='attendance_payload',
+            source_b='attendance_count',
+            dimension_key=f'shift_report:{row.id}',
+            field_name='headcount',
+            source_a_value=detail_sum,
+            source_b_value=total,
+        )
+        created.append(item)
+    db.flush()
+    return created
