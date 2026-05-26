@@ -280,3 +280,81 @@ def test_mvc_mes_adapter_writeback_is_disabled():
     )
 
     assert adapter.push_completion('BN-2601', 10.5, 98.0) is False
+
+
+def _logged_in_adapter(rows: list[dict], calls: list) -> MvcMesAdapter:
+    return MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for(
+            [
+                _Response(text='<input name="__RequestVerificationToken" type="hidden" value="t" />', cookies={'csrf': 'c'}),
+                _Response(payload={'status': True, 'message': '验证成功!'}, cookies={'sid': 'a'}),
+                _Response(payload={'status': True, 'message': '登录成功!'}),
+                _Response(payload={'aaData': [{'name': 'dispatch'}]}),
+                _Response(payload={'aaData': rows, 'recordsTotal': len(rows)}),
+            ],
+            calls,
+        ),
+    )
+
+
+def test_mvc_mes_adapter_resolves_event_time_from_str_create_date():
+    rows = [
+        {
+            'BatchNumber': '26RA04358',
+            'Id': 1,
+            'CurrentWorkShop': '2050车间',
+            'CurrentProcess': '冷轧',
+            'StatusName': '生产中',
+            'StrCreateDate': '2026-05-26 11:01',
+        }
+    ]
+    items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
+    assert items[0].event_time == datetime(2026, 5, 26, 11, 1)
+    assert items[0].updated_at == datetime(2026, 5, 26, 11, 1)
+
+
+def test_mvc_mes_adapter_resolves_event_time_from_dotnet_date_string():
+    rows = [
+        {
+            'BatchNumber': 'B-1',
+            'Id': 2,
+            'CurrentWorkShop': 'WS',
+            'StatusName': '在库',
+            'CreateDate': '/Date(1779764483310)/',
+        }
+    ]
+    items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
+    assert items[0].event_time is not None
+    assert items[0].event_time.year == 2026
+
+
+def test_mvc_mes_adapter_prefers_str_feeding_date_over_str_create_date():
+    rows = [
+        {
+            'BatchNumber': 'B-2',
+            'Id': 3,
+            'CurrentWorkShop': 'WS',
+            'StatusName': '生产中',
+            'StrCreateDate': '2026-05-26 11:01',
+            'StrFeedingDate': '2026-05-26 14:30:00',
+        }
+    ]
+    items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
+    assert items[0].event_time == datetime(2026, 5, 26, 14, 30, 0)
+
+
+def test_mvc_mes_adapter_event_time_is_none_when_no_date_fields_present():
+    rows = [
+        {
+            'BatchNumber': 'B-3',
+            'Id': 4,
+            'CurrentWorkShop': 'WS',
+            'StatusName': '生产中',
+        }
+    ]
+    items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
+    assert items[0].event_time is None
+    assert items[0].updated_at is None

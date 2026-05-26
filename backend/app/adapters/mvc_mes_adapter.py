@@ -83,7 +83,31 @@ def _datetime(value: Any) -> datetime | None:
     try:
         return datetime.fromisoformat(text)
     except ValueError:
-        return None
+        pass
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d %H:%M', '%Y-%m-%d', '%Y/%m/%d'):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _coil_event_time(row: Mapping[str, Any]) -> datetime | None:
+    for key in (
+        'EventTime',
+        'OperateDate',
+        'StrOperateDate',
+        'StrFeedingDate',
+        'StrCreateDate',
+        'CreateTime',
+        'CreateDate',
+        'UpdateTime',
+        'UpdatedAt',
+    ):
+        parsed = _datetime(row.get(key))
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _nested_product_id(row: Mapping[str, Any]) -> str | None:
@@ -236,19 +260,20 @@ class MvcMesAdapter(MesAdapter):
                 metadata[key] = _float(row.get(key))
             elif key in row:
                 metadata[key] = row.get(key)
+        event_time = _coil_event_time(row)
         return CoilSnapshot(
             coil_id=_coil_key(row),
             tracking_card_no=_text(row.get('BatchNumber') or row.get('CardNo') or row.get('BatchNo')) or '',
             qr_code=_text(row.get('QrCode') or row.get('QRCode')),
             batch_no=_text(row.get('BatchNumber') or row.get('BatchNo')),
-            contract_no=_text(row.get('ContractNo') or row.get('ContractNumber')),
+            contract_no=_text(row.get('ContractNo') or row.get('ContractNumber') or row.get('ContractCode')),
             workshop_code=_text(row.get('CurrentWorkShop') or row.get('WorkShopName')),
             process_code=_text(row.get('CurrentProcess') or row.get('ProcessName')),
             machine_code=_text(row.get('DeviceName') or row.get('MachineName')),
             shift_code=_text(row.get('ShiftName') or row.get('ShiftCode')),
             status=_text(row.get('StatusName') or row.get('Status')),
-            event_time=_datetime(row.get('EventTime') or row.get('CreateTime')),
-            updated_at=_datetime(row.get('UpdateTime') or row.get('UpdatedAt') or row.get('CreateTime')),
+            event_time=event_time,
+            updated_at=_datetime(row.get('UpdateTime') or row.get('UpdatedAt')) or event_time,
             metadata=metadata,
         )
 
