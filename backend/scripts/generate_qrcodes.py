@@ -70,6 +70,18 @@ def main() -> None:
     )
     print(f'  {len(equipment)} machines')
 
+    print('Pulling 电工 role QRs...')
+    energy_qrs = remote_json(
+        "SELECT json_agg(t) FROM ("
+        "SELECT e.code, e.name, e.qr_code, w.code AS ws_code, w.name AS ws_name "
+        "FROM equipment e LEFT JOIN workshops w ON e.workshop_id=w.id "
+        "WHERE e.is_active=true AND e.equipment_type='virtual_role_qr' "
+        "  AND e.code LIKE '%-EN' "
+        "ORDER BY w.sort_order, e.code"
+        ") t;"
+    )
+    print(f'  {len(energy_qrs)} 电工码')
+
     print('Pulling workshop kiosks (with consumables)...')
     workshops = remote_json(
         "SELECT json_agg(t) FROM ("
@@ -128,6 +140,21 @@ def main() -> None:
         })
     sections.append({'group': '车间扫码看板', 'kind': '车间', 'cards': cards})
 
+    # 电工 role QRs (auto-login as energy_stat for the workshop).
+    cards = []
+    for q in energy_qrs:
+        url = f"{PROD_HOST_URL}/login?machine={quote(q['qr_code'])}"
+        fname = f"电工_{safe(q['code'])}.png"
+        target = OUT / '_电工' / fname
+        render_qr(url, target, [q['name'], q['code']])
+        cards.append({
+            'title': q['name'] or f"{q['ws_name']} 电工",
+            'subtitle': f"电工 · {q['ws_code']} · {q['code']}",
+            'url': url,
+            'rel': str(target.relative_to(OUT)).replace('\\', '/'),
+        })
+    sections.append({'group': '车间电工（能耗填报）', 'kind': '电工', 'cards': cards})
+
     # Personnel personal-login QR.
     cards = []
     for u in personnel:
@@ -158,7 +185,7 @@ def main() -> None:
                  '</style></head><body>')
     index.append(f'<h1>鑫泰铝业 数据中枢 · 扫码入口总册</h1>')
     index.append(f'<p style="color:#737a87;font-size:13px;margin:0 0 16px">'
-                 f'机列 {len(equipment)} · 车间 {len(workshops)} · 内勤 {len(personnel)}</p>')
+                 f'机列 {len(equipment)} · 车间 {len(workshops)} · 电工 {len(energy_qrs)} · 内勤 {len(personnel)}</p>')
     for sec in sections:
         index.append(f'<h2>{sec["group"]} · {sec["kind"]} ({len(sec["cards"])})</h2>')
         index.append('<div class="grid">')

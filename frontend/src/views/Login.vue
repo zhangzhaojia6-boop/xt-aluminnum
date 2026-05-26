@@ -307,6 +307,13 @@ function applyWorkshopContext() {
   workshopHint.value = `车间：${wsCode}，请用该车间的角色账号登录`
 }
 
+function applyUsernamePrefill() {
+  const username = resolveQueryValue('u')
+  if (username && !form.username) {
+    form.username = username
+  }
+}
+
 onMounted(async () => {
   if (isDingTalkRuntime() && !resolveAuthCode()) {
     await router.replace({ name: 'mobile-entry', query: route.query })
@@ -316,6 +323,7 @@ onMounted(async () => {
   if (dingtalkLoggedIn) return
   await tryQrLogin()
   applyWorkshopContext()
+  applyUsernamePrefill()
 })
 </script>
 
