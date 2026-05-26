@@ -276,7 +276,7 @@ def create_coil_entry(
 
 
 ROLE_FIELD_MAPPING = {
-    'machine_operator': {'sections': ['entry', 'shift'], 'label': '产量数据'},
+    'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
     'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '耗材统计'},
     'qc': {'sections': ['qc'], 'label': '质检数据'},
