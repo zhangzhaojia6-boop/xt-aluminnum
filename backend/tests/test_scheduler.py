@@ -1,4 +1,7 @@
-from app.core.scheduler import setup_scheduler
+from unittest.mock import MagicMock
+
+from app.core import scheduler as scheduler_module
+from app.core.scheduler import release_scheduler_leader, setup_scheduler, try_acquire_scheduler_leader
 
 
 class FakeScheduler:
@@ -36,3 +39,80 @@ def test_setup_scheduler_is_idempotent() -> None:
     setup_scheduler(scheduler)
 
     assert len(scheduler.jobs) == first_count
+
+
+def _reset_leader_state() -> None:
+    scheduler_module._leader_connection = None
+
+
+def test_try_acquire_returns_true_immediately_for_non_postgres(monkeypatch) -> None:
+    _reset_leader_state()
+    fake_engine = MagicMock()
+    fake_engine.dialect.name = 'sqlite'
+    monkeypatch.setattr('app.database.get_engine', lambda: fake_engine)
+
+    assert try_acquire_scheduler_leader() is True
+    fake_engine.connect.assert_not_called()
+
+
+def test_try_acquire_returns_true_when_postgres_lock_succeeds(monkeypatch) -> None:
+    _reset_leader_state()
+    fake_conn = MagicMock()
+    fake_conn.execute.return_value.scalar.return_value = True
+    fake_engine = MagicMock()
+    fake_engine.dialect.name = 'postgresql'
+    fake_engine.connect.return_value = fake_conn
+    monkeypatch.setattr('app.database.get_engine', lambda: fake_engine)
+
+    try:
+        assert try_acquire_scheduler_leader() is True
+        assert scheduler_module._leader_connection is fake_conn
+        fake_conn.close.assert_not_called()
+    finally:
+        scheduler_module._leader_connection = None
+
+
+def test_try_acquire_returns_false_and_closes_when_lock_unavailable(monkeypatch) -> None:
+    _reset_leader_state()
+    fake_conn = MagicMock()
+    fake_conn.execute.return_value.scalar.return_value = False
+    fake_engine = MagicMock()
+    fake_engine.dialect.name = 'postgresql'
+    fake_engine.connect.return_value = fake_conn
+    monkeypatch.setattr('app.database.get_engine', lambda: fake_engine)
+
+    assert try_acquire_scheduler_leader() is False
+    assert scheduler_module._leader_connection is None
+    fake_conn.close.assert_called_once()
+
+
+def test_try_acquire_is_idempotent_when_already_leader(monkeypatch) -> None:
+    _reset_leader_state()
+    held_conn = MagicMock()
+    scheduler_module._leader_connection = held_conn
+    fake_engine = MagicMock()
+    monkeypatch.setattr('app.database.get_engine', lambda: fake_engine)
+
+    try:
+        assert try_acquire_scheduler_leader() is True
+        fake_engine.connect.assert_not_called()
+    finally:
+        scheduler_module._leader_connection = None
+
+
+def test_release_unlocks_and_closes_connection() -> None:
+    _reset_leader_state()
+    fake_conn = MagicMock()
+    scheduler_module._leader_connection = fake_conn
+
+    release_scheduler_leader()
+
+    fake_conn.execute.assert_called_once()
+    fake_conn.close.assert_called_once()
+    assert scheduler_module._leader_connection is None
+
+
+def test_release_is_safe_when_not_leader() -> None:
+    _reset_leader_state()
+    release_scheduler_leader()
+    assert scheduler_module._leader_connection is None

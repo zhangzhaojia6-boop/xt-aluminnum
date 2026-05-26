@@ -18,7 +18,7 @@ from app.core import event_bus as event_bus_service
 from app.core import health as health_service
 from app.core.exceptions import BusinessException, business_exception_handler, http_exception_handler
 from app.core.logging import configure_json_logging
-from app.core.scheduler import scheduler, setup_scheduler
+from app.core.scheduler import scheduler, setup_scheduler, try_acquire_scheduler_leader, release_scheduler_leader
 from app.routers.config import router as config_router
 from app.routers import ai, assistant, assistant_actions, attendance, auth, command, dashboard, dingtalk, energy, executive, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, team_lead, telemetry, templates, user_preferences, users, work_orders
 from app.services import dingtalk_service
@@ -69,7 +69,7 @@ async def lifespan(_: FastAPI):
     settings.validate_runtime_settings()
     uploads_dir = settings.upload_dir_path
     uploads_dir.mkdir(parents=True, exist_ok=True)
-    if scheduler and not scheduler.running:
+    if scheduler and not scheduler.running and try_acquire_scheduler_leader():
         setup_scheduler(scheduler)
         dingtalk_service.register_jobs(scheduler)
         event_bus_service.register_jobs(scheduler)
@@ -270,6 +270,7 @@ async def lifespan(_: FastAPI):
     yield
     if scheduler and scheduler.running:
         scheduler.shutdown(wait=False)
+    release_scheduler_leader()
 
 
 app = FastAPI(

@@ -1,14 +1,69 @@
 from __future__ import annotations
 
+import logging
+
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
 except ImportError:  # pragma: no cover
     BackgroundScheduler = None
 
+from sqlalchemy import text
+
 from app.config import settings
 
 
+logger = logging.getLogger(__name__)
+
 scheduler = BackgroundScheduler(timezone=settings.DEFAULT_TIMEZONE) if BackgroundScheduler else None
+
+SCHEDULER_LEADER_LOCK_KEY = 0x5CEDDE5CADE00001  # 使用任意稳定整数即可，确保多 worker 共用同一 key
+_leader_connection = None
+
+
+def try_acquire_scheduler_leader() -> bool:
+    """尝试获取调度器领导锁。同一时间只有一个 worker 拿得到。
+
+    使用 PostgreSQL session-level advisory lock：拿到锁的那个 worker 持有专用连接直到进程退出，
+    自动释放给下一个候选 worker。SQLite / 非 Postgres 后端直接放行（开发模式假装单 worker）。
+    """
+    global _leader_connection
+    if _leader_connection is not None:
+        return True
+
+    from app.database import get_engine
+
+    engine = get_engine()
+    if engine.dialect.name != 'postgresql':
+        return True
+
+    conn = engine.connect()
+    try:
+        result = conn.execute(text('SELECT pg_try_advisory_lock(:key)'), {'key': SCHEDULER_LEADER_LOCK_KEY}).scalar()
+    except Exception:
+        conn.close()
+        raise
+
+    if not result:
+        conn.close()
+        logger.info('scheduler leader lock not acquired (another worker holds it); scheduler stays idle')
+        return False
+
+    _leader_connection = conn
+    logger.info('scheduler leader lock acquired; this worker will run cron jobs')
+    return True
+
+
+def release_scheduler_leader() -> None:
+    global _leader_connection
+    if _leader_connection is None:
+        return
+    try:
+        _leader_connection.execute(text('SELECT pg_advisory_unlock(:key)'), {'key': SCHEDULER_LEADER_LOCK_KEY})
+    except Exception:
+        logger.warning('failed to release scheduler leader lock cleanly', exc_info=True)
+    finally:
+        _leader_connection.close()
+        _leader_connection = None
 
 
 def _add_job_once(target_scheduler, func, trigger: str, *, job_id: str, **kwargs) -> None:
