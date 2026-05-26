@@ -60,6 +60,8 @@ class _FakeDB:
             return _Query(self.mobile_reports)
         if model is Equipment:
             return _Query(self.equipment)
+        if model is MasterCodeAlias.alias_code:
+            return _Query([])
         raise AssertionError(model)
 
 
@@ -881,6 +883,39 @@ def test_factory_command_filters_projection_rows_by_workshop_scope(monkeypatch):
     assert [item['line_code'] for item in lines] == ['冷轧:01']
     assert [item['coil_key'] for item in coils] == ['MES:1']
     assert coils[0]['line_code'] == '冷轧:01'
+
+
+def test_factory_command_workshop_scope_expands_via_master_code_aliases(tmp_path, monkeypatch):
+    db = _factory_realtime_session(tmp_path)
+    workshop = Workshop(id=1, code='LZ2050', name='2050冷轧', sort_order=1, is_active=True)
+    db.add(workshop)
+    db.add_all(
+        [
+            MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code='LZ2050',
+                alias_code='2050车间',
+                alias_name='2050车间',
+                source_type='mes_mvc',
+                is_active=True,
+            ),
+            MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code='LZ2050',
+                alias_code='冷轧2050车间',
+                alias_name='冷轧2050车间',
+                source_type='mes_mvc',
+                is_active=True,
+            ),
+        ]
+    )
+    db.commit()
+
+    scope = SimpleNamespace(is_admin=False, data_scope_type='self_workshop', workshop_id=1)
+    tokens = factory_command_service._scope_workshop_tokens(db, scope)
+
+    assert tokens is not None
+    assert {'LZ2050', '2050冷轧', '2050车间', '冷轧2050车间'}.issubset(tokens)
 
 
 def test_flow_suggestion_returns_ambiguous_status_for_duplicate_tracking_card(monkeypatch):

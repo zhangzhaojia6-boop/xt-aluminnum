@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.scope import ScopeSummary
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
 from app.models.production import MobileShiftReport, ShiftProductionData
 from app.services.equipment_service import resolve_reporting_machine_from_candidates
@@ -108,7 +108,9 @@ def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] 
         return set()
     workshop = _query_first(db.query(Workshop).filter(Workshop.id == scope.workshop_id))
     tokens = {str(scope.workshop_id)}
+    canonical_code: str | None = None
     if workshop is not None:
+        canonical_code = (str(getattr(workshop, 'code', '') or '') or None)
         tokens.update(
             token
             for token in (
@@ -117,6 +119,17 @@ def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] 
             )
             if token
         )
+    if canonical_code:
+        alias_rows = (
+            db.query(MasterCodeAlias.alias_code)
+            .filter(
+                MasterCodeAlias.entity_type == 'workshop',
+                MasterCodeAlias.canonical_code == canonical_code,
+                MasterCodeAlias.is_active.is_(True),
+            )
+            .all()
+        )
+        tokens.update(str(row[0]) for row in alias_rows if row and row[0])
     return {str(token).strip() for token in tokens if str(token).strip()}
 
 
