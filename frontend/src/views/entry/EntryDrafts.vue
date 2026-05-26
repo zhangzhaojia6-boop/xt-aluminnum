@@ -90,8 +90,8 @@ async function resumeDraft(item) {
   }).then(() => true).catch(() => false)
   if (!confirmed) return
   router.push({
-    name: 'mobile-report-form-advanced',
-    params: {
+    name: 'mobile-unified-entry',
+    query: {
       businessDate: item.businessDate,
       shiftId: item.shiftId
     }

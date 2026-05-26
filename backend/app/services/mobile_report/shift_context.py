@@ -219,7 +219,7 @@ def _build_current_shift_fallback(
 def _resolve_entry_mode(role: str) -> str:
     if role in ('shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'):
         return 'coil_entry'
-    if role in ('energy_stat', 'maintenance_lead', 'hydraulic_lead', 'consumable_stat', 'qc', 'weigher'):
+    if role in ('energy_stat', 'consumable_stat', 'qc'):
         return 'auxiliary_shift_entry'
     if role in ('utility_manager', 'inventory_keeper', 'contracts'):
         return 'owner_daily_entry'

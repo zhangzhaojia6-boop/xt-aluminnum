@@ -94,11 +94,9 @@ const pageError = ref('')
 
 const advancedRoleBuckets = [
   'machine_operator',
-  'weigher',
   'qc',
   'energy_stat',
-  'maintenance_lead',
-  'hydraulic_lead',
+  'consumable_stat',
   'contracts',
   'inventory_keeper',
   'utility_manager'
@@ -115,7 +113,7 @@ function isAdvancedHistoryItem(item) {
 }
 
 function resolveDetailRouteName(item = {}) {
-  return isAdvancedHistoryItem(item) ? 'mobile-report-form-advanced' : 'mobile-report-form'
+  return isAdvancedHistoryItem(item) ? 'mobile-unified-entry' : 'mobile-report-form'
 }
 
 function statusTagType(status) {
@@ -154,8 +152,19 @@ function requestErrorMessage(error, fallback = '操作失败') {
 }
 
 function openDetail(item) {
+  const routeName = resolveDetailRouteName(item)
+  if (routeName === 'mobile-unified-entry') {
+    router.push({
+      name: routeName,
+      query: {
+        businessDate: item.business_date,
+        shiftId: item.shift_id
+      }
+    })
+    return
+  }
   router.push({
-    name: resolveDetailRouteName(item),
+    name: routeName,
     params: {
       businessDate: item.business_date,
       shiftId: item.shift_id

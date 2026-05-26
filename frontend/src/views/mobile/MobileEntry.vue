@@ -45,6 +45,16 @@
         class="panel"
       />
 
+      <el-alert
+        v-if="!authenticating && !authError && !loading && !loadError && hasCurrentShift && shiftHint"
+        :title="shiftHint"
+        :type="shiftMismatch ? 'warning' : 'info'"
+        show-icon
+        :closable="false"
+        class="panel"
+        data-testid="shift-clock-hint"
+      />
+
       <div v-if="authenticating" class="mobile-entry-stage__empty">
         <XtSkeleton :loading="true" :rows="2" />
       </div>
@@ -141,7 +151,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCurrentShift, fetchMobileBootstrap } from '../../api/mobile.js'
@@ -154,6 +164,7 @@ import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
+import { describeInferredShift, isShiftMismatch } from '../../utils/shiftClock.js'
 import ReminderList from './ReminderList.vue'
 
 // Performance monitoring
@@ -163,11 +174,8 @@ const ROLE_COLOR_MAP = {
   shift_leader: 'var(--m-role-operator)',
   mobile_user: 'var(--m-role-operator)',
   energy_stat: 'var(--m-role-energy)',
-  maintenance_lead: 'var(--m-role-maintenance)',
-  hydraulic_lead: 'var(--m-role-hydraulic)',
   consumable_stat: 'var(--m-role-consumable)',
   qc: 'var(--m-role-qc)',
-  weigher: 'var(--m-role-weigher)',
   utility_manager: 'var(--m-role-utility)',
   inventory_keeper: 'var(--m-role-inventory)',
   contracts: 'var(--m-role-contracts)',
@@ -200,18 +208,17 @@ const pageTitle = computed(() => roleBucketMeta.value.title)
 const pageSubtitle = computed(() => roleBucketMeta.value.subtitle)
 const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || auth.role] || 'var(--m-role-operator)')
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
-const advancedRoleBuckets = [
-  'machine_operator',
-  'weigher',
-  'qc',
-  'energy_stat',
-  'maintenance_lead',
-  'hydraulic_lead',
-  'consumable_stat',
-  'contracts',
-  'inventory_keeper',
-  'utility_manager'
-]
+const inferredShift = ref(describeInferredShift())
+const shiftClockTimer = ref(null)
+const shiftMismatch = computed(() => isShiftMismatch(current.value?.shift_code))
+const shiftHint = computed(() => {
+  const wall = inferredShift.value
+  if (!wall) return ''
+  if (shiftMismatch.value && current.value?.shift_name) {
+    return `当前时段属于 ${wall.code} ${wall.name}，但页面正在显示 ${current.value.shift_name}，如不一致请下拉刷新或联系班长。`
+  }
+  return `按 7:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
+})
 const currentFacts = computed(() => [
   { label: '日期', value: current.value?.business_date || '-' },
   { label: isMachineBound.value ? '机台' : '班组', value: isMachineBound.value ? (current.value?.machine_name || bootstrap.value?.machine_name || '-') : (current.value?.team_name || '-') },
@@ -397,17 +404,21 @@ async function retryAuth() {
 function goReport() {
   if (!current.value?.shift_id) return
   const bucket = transitionMapping.value.role_bucket
-  let reportRouteName
-  if (bucket === 'machine_operator') {
+  const ROLE_BUCKETS_USING_UNIFIED = new Set([
+    'machine_operator',
+    'energy_stat',
+    'consumable_stat',
+    'qc',
+    'contracts',
+    'inventory_keeper',
+    'utility_manager',
+  ])
+  if (ROLE_BUCKETS_USING_UNIFIED.has(bucket)) {
     router.push({ name: 'mobile-unified-entry' })
     return
-  } else if (advancedRoleBuckets.includes(bucket)) {
-    reportRouteName = 'mobile-report-form-advanced'
-  } else {
-    reportRouteName = 'mobile-report-form'
   }
   router.push({
-    name: reportRouteName,
+    name: 'mobile-report-form',
     params: {
       businessDate: current.value.business_date,
       shiftId: current.value.shift_id
@@ -423,7 +434,19 @@ function goReportHistory() {
   router.push({ name: 'mobile-report-history' })
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  shiftClockTimer.value = setInterval(() => {
+    inferredShift.value = describeInferredShift()
+  }, 60 * 1000)
+})
+
+onUnmounted(() => {
+  if (shiftClockTimer.value) {
+    clearInterval(shiftClockTimer.value)
+    shiftClockTimer.value = null
+  }
+})
 </script>
 
 <style scoped>

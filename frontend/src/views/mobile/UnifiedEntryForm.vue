@@ -130,6 +130,46 @@
         </div>
       </section>
 
+      <section v-if="showQualityModule" class="ue-group" data-testid="quality-module">
+        <h3 class="ue-group__title">质量问题（可选）</h3>
+        <div class="ue-fields">
+          <div class="ue-field">
+            <label class="ue-field__label">本卷有质量问题</label>
+            <el-switch v-model="quality.has_issue" />
+          </div>
+          <template v-if="quality.has_issue">
+            <div class="ue-field">
+              <label class="ue-field__label">问题类型</label>
+              <el-select v-model="quality.issue_type" placeholder="选择类型">
+                <el-option label="外观" value="外观" />
+                <el-option label="尺寸" value="尺寸" />
+                <el-option label="性能" value="性能" />
+                <el-option label="包装" value="包装" />
+                <el-option label="其他" value="其他" />
+              </el-select>
+            </div>
+            <div class="ue-field">
+              <label class="ue-field__label">问题描述</label>
+              <textarea
+                v-model="quality.issue_note"
+                class="ue-input ue-input--textarea"
+                rows="2"
+                placeholder="简述发现的质量问题"
+              />
+            </div>
+            <div class="ue-field">
+              <label class="ue-field__label">现场照片</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                @change="handleQualityPhoto"
+              />
+              <span v-if="quality.photo_name" class="ue-readonly-item__label">已选：{{ quality.photo_name }}</span>
+            </div>
+          </template>
+        </div>
+      </section>
+
       <div class="ue-actions">
         <button class="ue-submit" :disabled="submitting" @click="handleSubmit">
           {{ submitting ? '提交中…' : (mode === 'per_coil' ? '录入本卷' : '提交') }}
@@ -208,15 +248,12 @@ const roleLabel = computed(() => {
   const labels = {
     machine_operator: '主操',
     energy_stat: '电工',
-    maintenance_lead: '机修',
-    hydraulic_lead: '液压',
     consumable_stat: '耗材',
-    qc: '质检',
-    weigher: '称重',
+    qc: '质检内勤',
     shift_leader: '班长',
-    contracts: '计划科',
+    contracts: '计划内勤',
     inventory_keeper: '成品库',
-    utility_manager: '水电气',
+    utility_manager: '总电工',
   }
   return labels[auth.role] || auth.displayName
 })
@@ -224,11 +261,8 @@ const roleLabel = computed(() => {
 const ROLE_COLORS = {
   machine_operator: 'oklch(51% 0.17 255)',
   energy_stat: 'oklch(52% 0.13 158)',
-  maintenance_lead: 'oklch(61% 0.12 75)',
-  hydraulic_lead: 'oklch(54% 0.095 54)',
   consumable_stat: 'oklch(50% 0.15 252)',
   qc: 'oklch(55% 0.15 28)',
-  weigher: 'oklch(43% 0.032 250)',
   contracts: 'oklch(51% 0.17 255)',
   inventory_keeper: 'oklch(54% 0.095 54)',
   utility_manager: 'oklch(52% 0.13 158)',
@@ -236,6 +270,48 @@ const ROLE_COLORS = {
 const roleColor = computed(() => ROLE_COLORS[auth.role] || 'oklch(51% 0.17 255)')
 
 const dynamicOptionsMap = reactive({})
+
+const quality = reactive({
+  has_issue: false,
+  issue_type: '',
+  issue_note: '',
+  photo_name: '',
+  photo_data_url: '',
+})
+const showQualityModule = computed(() => mode.value === 'per_coil' && auth.role === 'machine_operator')
+
+function resetQuality() {
+  quality.has_issue = false
+  quality.issue_type = ''
+  quality.issue_note = ''
+  quality.photo_name = ''
+  quality.photo_data_url = ''
+}
+
+function handleQualityPhoto(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 4 * 1024 * 1024) {
+    ElMessage.warning('图片需小于 4MB')
+    event.target.value = ''
+    return
+  }
+  quality.photo_name = file.name
+  const reader = new FileReader()
+  reader.onload = () => { quality.photo_data_url = String(reader.result || '') }
+  reader.readAsDataURL(file)
+}
+
+function buildQualityPayload() {
+  if (!quality.has_issue) return null
+  return {
+    has_issue: true,
+    issue_type: quality.issue_type || '',
+    issue_note: quality.issue_note || '',
+    photo_name: quality.photo_name || '',
+    photo_data_url: quality.photo_data_url || '',
+  }
+}
 
 function resolveFieldOptions(field) {
   if (field.options) return field.options
@@ -356,6 +432,7 @@ function buildCoilEntryPayload(sc) {
   const values = normalizedFormValues()
   const trackingKey = identityField.value || 'tracking_card_no'
   const trackingCardNo = String(values[trackingKey] || '').trim()
+  const qualityPayload = buildQualityPayload()
   return {
     tracking_card_no: trackingCardNo,
     alloy_grade: values.alloy_grade || null,
@@ -372,6 +449,7 @@ function buildCoilEntryPayload(sc) {
     shift_id: sc.shift_id,
     locked_fields_snapshot: lockedFieldsSnapshot.value,
     locked_fields_token: lockedFieldsToken.value,
+    extra_payload: qualityPayload ? { quality_issue: qualityPayload } : null,
   }
 }
 
@@ -506,6 +584,7 @@ async function handleSubmit() {
       }
       lockedFieldsSnapshot.value = {}
       lockedFieldsToken.value = ''
+      resetQuality()
     } else {
       const payload = buildMobileReportPayload(sc)
       await saveMobileReport(payload)

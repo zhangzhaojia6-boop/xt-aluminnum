@@ -278,11 +278,8 @@ def create_coil_entry(
 ROLE_FIELD_MAPPING = {
     'machine_operator': {'sections': ['entry', 'shift'], 'label': '产量数据'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
-    'maintenance_lead': {'extra_filter': 'maintenance_lead', 'label': '设备维护'},
-    'hydraulic_lead': {'extra_filter': 'hydraulic_lead', 'label': '液压耗材'},
     'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '耗材统计'},
     'qc': {'sections': ['qc'], 'label': '质检数据'},
-    'weigher': {'sections': ['entry'], 'label': '称重数据'},
     'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
     'contracts': {'extra_filter': 'contracts', 'label': '合同与投料'},
     'inventory_keeper': {'sections': ['entry'], 'label': '库存数据'},
