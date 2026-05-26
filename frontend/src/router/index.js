@@ -18,6 +18,7 @@ const AttendanceConfirm = () => import('../views/mobile/AttendanceConfirm.vue')
 const ShiftReportForm = () => import('../views/mobile/ShiftReportForm.vue')
 const CoilEntryWorkbench = () => import('../views/mobile/CoilEntryWorkbench.vue')
 const UnifiedEntryForm = () => import('../views/mobile/UnifiedEntryForm.vue')
+const ConsumableEntry = () => import('../views/mobile/ConsumableEntry.vue')
 const OCRCapture = () => import('../views/mobile/OCRCapture.vue')
 const ShiftReportHistory = () => import('../views/mobile/ShiftReportHistory.vue')
 const EntryDrafts = () => import('../views/entry/EntryDrafts.vue')
@@ -89,6 +90,7 @@ const rawRoutes = [
     children: [
       { path: '', name: 'mobile-entry', component: MobileEntry, meta: { ...entryMeta, title: '独立填报端首页', centerNo: '03', canonical: '/entry' } },
       { path: 'fill', name: 'mobile-unified-entry', component: UnifiedEntryForm, meta: { ...entryMeta, title: '填报', centerNo: '04', canonical: '/entry/fill' } },
+      { path: 'consumables', name: 'mobile-consumable-entry', component: ConsumableEntry, meta: { ...entryMeta, title: '辅材填报', centerNo: '04', canonical: '/entry/consumables' } },
       { path: 'report', redirect: { name: 'mobile-entry' } },
       { path: 'report/:businessDate/:shiftId', name: 'mobile-report-form', component: ShiftReportForm, meta: { ...entryMeta, title: '快速填报', centerNo: '04', canonical: '/entry/report/:businessDate/:shiftId' } },
       { path: 'advanced/:businessDate/:shiftId', name: 'mobile-report-form-advanced', redirect: { name: 'mobile-unified-entry' } },

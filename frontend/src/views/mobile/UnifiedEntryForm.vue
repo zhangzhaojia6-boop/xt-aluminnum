@@ -433,6 +433,12 @@ function buildCoilEntryPayload(sc) {
   const trackingKey = identityField.value || 'tracking_card_no'
   const trackingCardNo = String(values[trackingKey] || '').trim()
   const qualityPayload = buildQualityPayload()
+  const extra = {}
+  if (qualityPayload) extra.quality_issue = qualityPayload
+  if (values.process_stage) extra.process_stage = values.process_stage
+  if (values.pass_count !== null && values.pass_count !== undefined && values.pass_count !== '') {
+    extra.pass_count = values.pass_count
+  }
   return {
     tracking_card_no: trackingCardNo,
     alloy_grade: values.alloy_grade || null,
@@ -449,7 +455,7 @@ function buildCoilEntryPayload(sc) {
     shift_id: sc.shift_id,
     locked_fields_snapshot: lockedFieldsSnapshot.value,
     locked_fields_token: lockedFieldsToken.value,
-    extra_payload: qualityPayload ? { quality_issue: qualityPayload } : null,
+    extra_payload: Object.keys(extra).length ? extra : null,
   }
 }
 

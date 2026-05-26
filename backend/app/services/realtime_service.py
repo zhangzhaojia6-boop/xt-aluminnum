@@ -904,6 +904,129 @@ def _entry_weight_kg_to_tons(entry: WorkOrderEntry, field_name: str) -> float:
     return _to_float(value) / 1000
 
 
+def _extra_pass_count(extra: Any) -> int:
+    if not isinstance(extra, dict):
+        return 0
+    raw = extra.get('pass_count')
+    if raw in (None, ''):
+        return 0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 0
+    if value <= 0:
+        return 0
+    return int(value)
+
+
+def _build_mtd_totals(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_ids: list[int],
+    workshop_id: int | None,
+) -> dict[str, Any]:
+    """Sum month-to-date production from entries for the given workshops.
+
+    Range: [first day of business_date's month .. business_date] inclusive.
+    Weights stored in kg are converted to tons. Pass count is read from
+    extra_payload.pass_count for mobile_coil entries.
+    """
+    month_start = date(business_date.year, business_date.month, 1)
+    query = (
+        db.query(WorkOrderEntry)
+        .filter(WorkOrderEntry.business_date >= month_start)
+        .filter(WorkOrderEntry.business_date <= business_date)
+    )
+    if workshop_id is not None:
+        query = query.filter(WorkOrderEntry.workshop_id == workshop_id)
+    elif workshop_ids:
+        query = query.filter(WorkOrderEntry.workshop_id.in_(workshop_ids))
+    else:
+        return {
+            'by_workshop': {},
+            'factory': {
+                'mtd_input': 0.0,
+                'mtd_output': 0.0,
+                'mtd_scrap': 0.0,
+                'mtd_yield_rate': None,
+                'mtd_pass_count_total': 0,
+            },
+        }
+
+    by_workshop: dict[int, dict[str, float]] = defaultdict(
+        lambda: {
+            'mtd_input': 0.0,
+            'mtd_output': 0.0,
+            'mtd_scrap': 0.0,
+            'mtd_pass_count_total': 0,
+        }
+    )
+    factory_input = 0.0
+    factory_output = 0.0
+    factory_scrap = 0.0
+    factory_pass_total = 0
+
+    for entry in query.all():
+        if entry.workshop_id is None:
+            continue
+        bucket = by_workshop[int(entry.workshop_id)]
+        input_t = _entry_weight_kg_to_tons(entry, 'input_weight')
+        output_t = _entry_weight_kg_to_tons(entry, 'output_weight')
+        scrap_t = _to_float(entry.scrap_weight) / 1000
+        bucket['mtd_input'] += input_t
+        bucket['mtd_output'] += output_t
+        bucket['mtd_scrap'] += scrap_t
+        factory_input += input_t
+        factory_output += output_t
+        factory_scrap += scrap_t
+        if entry.entry_type == 'mobile_coil':
+            passes = _extra_pass_count(entry.extra_payload)
+            bucket['mtd_pass_count_total'] += passes
+            factory_pass_total += passes
+
+    rounded: dict[int, dict[str, Any]] = {}
+    for ws_id, bucket in by_workshop.items():
+        rounded[ws_id] = {
+            'mtd_input': round(bucket['mtd_input'], 2),
+            'mtd_output': round(bucket['mtd_output'], 2),
+            'mtd_scrap': round(bucket['mtd_scrap'], 2),
+            'mtd_yield_rate': _round_rate(bucket['mtd_input'], bucket['mtd_output']),
+            'mtd_pass_count_total': int(bucket['mtd_pass_count_total']),
+        }
+    return {
+        'by_workshop': rounded,
+        'factory': {
+            'mtd_input': round(factory_input, 2),
+            'mtd_output': round(factory_output, 2),
+            'mtd_scrap': round(factory_scrap, 2),
+            'mtd_yield_rate': _round_rate(factory_input, factory_output),
+            'mtd_pass_count_total': int(factory_pass_total),
+            'month_start': month_start.isoformat(),
+            'month_end': business_date.isoformat(),
+        },
+    }
+
+
+def _inject_mtd_into_payload(payload: dict, mtd: dict) -> dict:
+    by_workshop = mtd.get('by_workshop') or {}
+    empty = {
+        'mtd_input': 0.0,
+        'mtd_output': 0.0,
+        'mtd_scrap': 0.0,
+        'mtd_yield_rate': None,
+        'mtd_pass_count_total': 0,
+    }
+    for workshop in payload.get('workshops') or []:
+        ws_id = workshop.get('workshop_id')
+        bucket = by_workshop.get(int(ws_id), empty) if ws_id is not None else empty
+        total = workshop.setdefault('workshop_total', {})
+        total.update(bucket)
+    factory_total = payload.setdefault('factory_total', {})
+    factory_total.update(mtd.get('factory') or {})
+    return payload
+
+
 def _iso_datetime(value) -> str | None:
     if value is None:
         return None
@@ -1624,6 +1747,13 @@ def build_live_aggregation(
         yield_matrix_lane=build_yield_matrix_projection(db, target_date=business_date),
     )
     payload['business_date'] = business_date.isoformat()
+    mtd_totals = _build_mtd_totals(
+        db,
+        business_date=business_date,
+        workshop_ids=workshop_ids,
+        workshop_id=scoped_workshop_id,
+    )
+    payload = _inject_mtd_into_payload(payload, mtd_totals)
     payload['business_date_context'] = _build_live_business_date_context(
         db,
         requested_date=business_date,

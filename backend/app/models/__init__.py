@@ -28,6 +28,7 @@ from app.models.executive import (
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
+from app.models.consumable import DailyConsumableLog
 from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesImportRecord, MesMachineLineSnapshot, MesSyncCursor, MesSyncRunLog
 from app.models.production import (
     FieldAmendment,
@@ -82,6 +83,7 @@ __all__ = [
     'FieldAmendment',
     'EnergyImportRecord',
     'MachineEnergyRecord',
+    'DailyConsumableLog',
     'MesImportRecord',
     'MesCoilSnapshot',
     'MesMachineLineSnapshot',

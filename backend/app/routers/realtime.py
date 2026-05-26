@@ -25,6 +25,7 @@ from app.schemas.realtime import (
     LivePendingAssignmentOut,
 )
 from app.services import realtime_service
+from app.services import pass_count_service
 
 
 router = APIRouter(tags=['realtime'])
@@ -248,3 +249,47 @@ def live_pending_assignment(
         current_user=current_user,
     )
     return LivePendingAssignmentOut(**payload)
+
+
+@router.get('/aggregation/pass-count/shift', name='pass-count-by-shift')
+def pass_count_by_shift(
+    request: Request,
+    business_date: date,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_pass_count', limit=60, window_seconds=60)
+    summary = build_scope_summary(current_user)
+    scoped = resolve_work_order_entry_workshop_scope(summary)
+    if scoped is not None:
+        workshop_id = scoped
+    return pass_count_service.build_shift_pass_count(
+        db,
+        business_date=business_date,
+        workshop_id=workshop_id,
+    )
+
+
+@router.get('/aggregation/pass-count/month', name='pass-count-by-month')
+def pass_count_by_month(
+    request: Request,
+    year: int,
+    month: int,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_pass_count_month', limit=30, window_seconds=60)
+    summary = build_scope_summary(current_user)
+    scoped = resolve_work_order_entry_workshop_scope(summary)
+    if scoped is not None:
+        workshop_id = scoped
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail='month must be 1..12')
+    return pass_count_service.build_monthly_pass_count(
+        db,
+        year=year,
+        month=month,
+        workshop_id=workshop_id,
+    )

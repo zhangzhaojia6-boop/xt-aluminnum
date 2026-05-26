@@ -136,6 +136,7 @@
         <div class="mobile-entry-stage__quick-grid">
           <el-button type="primary" plain @click="goReport">填报</el-button>
           <el-button plain @click="goReportHistory">历史记录</el-button>
+          <el-button plain @click="goConsumableEntry">辅材填报</el-button>
         </div>
       </div>
     </section>
@@ -432,6 +433,10 @@ function goLogin() {
 
 function goReportHistory() {
   router.push({ name: 'mobile-report-history' })
+}
+
+function goConsumableEntry() {
+  router.push({ name: 'mobile-consumable-entry' })
 }
 
 onMounted(() => {

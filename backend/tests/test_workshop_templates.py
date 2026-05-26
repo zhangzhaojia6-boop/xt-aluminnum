@@ -40,7 +40,9 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
     assert template['tempo'] == 'fast'
     assert template['supports_ocr'] is False
     assert [field['name'] for field in template['entry_fields']] == [
-        'batch_no',
+        'tracking_card_no',
+        'process_stage',
+        'pass_count',
         'input_spec',
         'alloy_grade',
         'material_state',
@@ -83,7 +85,7 @@ def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_i
     shift_leader_entry_names = [field['name'] for field in shift_leader_template['entry_fields']]
 
     assert shift_leader_entry_names == [
-        'batch_no',
+        'tracking_card_no',
         'input_spec',
         'alloy_grade',
         'material_state',

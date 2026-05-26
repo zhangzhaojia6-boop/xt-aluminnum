@@ -621,7 +621,14 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '冷轧车间',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
+            {'name': 'process_stage', 'label': '工序', 'type': 'select', 'required': True,
+             'options': [
+                 {'value': 'billet', 'label': '开坯'},
+                 {'value': 'intermediate_anneal', 'label': '中退'},
+                 {'value': 'finished', 'label': '成品'},
+             ]},
+            {'name': 'pass_count', 'label': '道次', 'type': 'number', 'required': True, 'hint': '本卷轧制道次数'},
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'alloy_grade', 'label': '合金成分', 'type': 'select', 'required': True, 'options_source': 'alloy_grades', 'hint': '如 5052, 3003'},
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states', 'hint': '如 O, H14, T4'},
@@ -703,7 +710,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '精整车间',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
             {'name': 'input_spec', 'label': '规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'alloy_grade', 'label': '合金', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states'},
@@ -743,7 +750,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '剪切车间',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'alloy_grade', 'label': '成分', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states'},
@@ -822,7 +829,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '拉矫车间',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
             {'name': 'input_spec', 'label': '规格', 'type': 'spec', 'required': True, 'hint': '()×()×C', 'spec_suffix': 'C'},
             {'name': 'alloy_grade', 'label': '合金', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states'},
@@ -885,7 +892,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '在线退火分厂',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
             {'name': 'alloy_grade', 'label': '合金', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
@@ -924,7 +931,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'display_name': '彩涂',
         'tempo': 'fast',
         'entry_fields': [
-            {'name': 'batch_no', 'label': '批号', 'type': 'text', 'required': True},
+            {'name': 'tracking_card_no', 'label': '随行卡号', 'type': 'text', 'required': True},
             {'name': 'alloy_grade', 'label': '合金', 'type': 'select', 'required': True, 'options_source': 'alloy_grades'},
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
