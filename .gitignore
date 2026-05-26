@@ -39,3 +39,5 @@ ssl/
 .worktrees/
 .gstack/
 .context/
+底层/
+frontend/二维码/
