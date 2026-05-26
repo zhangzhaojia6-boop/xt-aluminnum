@@ -363,15 +363,12 @@ def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
     assert fields_payload['mode'] == expected_mode
     assert fields_payload['submit_target'] == expected_submit_target
     assert isinstance(fields_payload['groups'], list)
+    assert fields_payload['groups']
+    assert all(isinstance(group.get('fields'), list) for group in fields_payload['groups'])
+    assert fields_payload['groups'][0]['fields']
     if expected_role == 'consumable_stat':
-        # Consumable owner fields are merged into the workshop template by a
-        # separate pipeline; tracked separately. Here we only assert the QR
-        # auto-login and role mapping work.
-        pass
-    else:
-        assert fields_payload['groups']
-        assert all(isinstance(group.get('fields'), list) for group in fields_payload['groups'])
-        assert fields_payload['groups'][0]['fields']
+        first_group_field_names = {f['name'] for f in fields_payload['groups'][0]['fields']}
+        assert 'liquefied_gas_per_ton' in first_group_field_names
     if expected_role == 'machine_operator':
         assert fields_payload['identity_field'] == 'tracking_card_no'
         first_group_fields = fields_payload['groups'][0]['fields']

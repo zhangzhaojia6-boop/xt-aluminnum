@@ -644,6 +644,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
+            *CONSUMABLE_OWNER_FIELDS.get('cold_roll', []),
         ],
         'qc_fields': QC_OWNER_FIELDS,
         'readonly_fields': [
@@ -684,6 +685,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
+            *CONSUMABLE_OWNER_FIELDS.get('hot_roll', []),
         ],
         'qc_fields': QC_OWNER_FIELDS,
         'readonly_fields': [
@@ -724,6 +726,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
+            *CONSUMABLE_OWNER_FIELDS.get('finishing', []),
         ],
         'qc_fields': QC_OWNER_FIELDS,
         'readonly_fields': [
@@ -810,6 +813,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
+            *CONSUMABLE_OWNER_FIELDS.get('casting', []),
         ],
         'qc_fields': QC_OWNER_FIELDS,
         'readonly_fields': [
