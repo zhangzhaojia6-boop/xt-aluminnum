@@ -158,7 +158,17 @@ def generate_reconciliation(
     reconciliation_type: str | None,
     operator: User,
 ) -> list[DataReconciliationItem]:
-    types = [reconciliation_type] if reconciliation_type else ['attendance_vs_production', 'production_vs_mes', 'energy_vs_production']
+    types = (
+        [reconciliation_type]
+        if reconciliation_type
+        else [
+            'attendance_vs_production',
+            'production_vs_mes',
+            'energy_vs_production',
+            'alloy_spec_vs_input',
+            'attendance_detail_vs_total',
+        ]
+    )
     for item in types:
         if item not in RECON_TYPES:
             raise ValueError(f'unsupported reconciliation_type: {item}')
@@ -325,6 +335,12 @@ def generate_reconciliation(
                         source_b_value=output_weight,
                     )
                 )
+
+    if 'alloy_spec_vs_input' in types:
+        created.extend(generate_alloy_spec_vs_input(db, business_date=business_date))
+
+    if 'attendance_detail_vs_total' in types:
+        created.extend(generate_attendance_detail_vs_total(db, business_date=business_date))
 
     db.commit()
     for item in created:

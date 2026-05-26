@@ -202,3 +202,43 @@ def test_cumulative_diff_zero_tolerance_treats_diff_as_open(db):
     db.commit()
     assert item.status == 'open'
     assert float(item.diff_value) == pytest.approx(-0.05)
+
+
+def test_orchestrator_dispatches_alloy_spec_and_attendance_detail(db, monkeypatch):
+    """generate_reconciliation must invoke G8 rules when called without a type."""
+    from types import SimpleNamespace
+    from app.services import reconciliation_service
+
+    bd = date(2026, 5, 24)
+    db.add(ProductionPlanDaily(
+        business_date=bd, workshop_code='ZR2', input_daily=100.0,
+    ))
+    db.add(AlloySpecBreakdown(
+        business_date=bd, workshop_code='ZR2',
+        alloy_grade='1060', weight_tons=80.0,
+    ))
+    ws = Workshop(code='ZR2', name='铸轧二', is_active=True)
+    sc = ShiftConfig(
+        code='LONG', name='长白班', shift_type='day',
+        start_time=time(7, 30), end_time=time(15, 30),
+    )
+    db.add_all([ws, sc])
+    db.commit()
+    db.add(MobileShiftReport(
+        business_date=bd, shift_config_id=sc.id, workshop_id=ws.id,
+        attendance_count=8,
+        attendance_payload={'machine_lines': {'ZR2-1': 5}},
+    ))
+    db.commit()
+
+    monkeypatch.setattr(reconciliation_service, 'record_audit', lambda *_a, **_kw: None)
+
+    items = reconciliation_service.generate_reconciliation(
+        db,
+        business_date=bd,
+        reconciliation_type=None,
+        operator=SimpleNamespace(id=1),
+    )
+    types_seen = {it.reconciliation_type for it in items}
+    assert 'alloy_spec_vs_input' in types_seen
+    assert 'attendance_detail_vs_total' in types_seen
