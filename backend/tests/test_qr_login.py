@@ -373,6 +373,13 @@ def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
         assert fields_payload['identity_field'] == 'tracking_card_no'
         first_group_fields = fields_payload['groups'][0]['fields']
         assert first_group_fields[0]['name'] == 'tracking_card_no'
+        all_field_names = {
+            f['name']
+            for group in fields_payload['groups']
+            for f in group['fields']
+        }
+        assert 'liquefied_gas_per_ton' not in all_field_names
+        assert 'titanium_wire_per_ton' not in all_field_names
     else:
         assert fields_payload['identity_field'] is None
 

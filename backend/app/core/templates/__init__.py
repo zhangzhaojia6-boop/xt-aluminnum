@@ -168,8 +168,8 @@ def _consumable_field(name: str, label: str, unit: str = 'kg') -> dict:
         'type': 'number',
         'unit': unit,
         'required': False,
-        'role_write': ['machine_operator', 'consumable_stat'],
-        'role_read': ['machine_operator', 'consumable_stat', 'admin', 'manager'],
+        'role_write': ['consumable_stat'],
+        'role_read': ['consumable_stat', 'admin', 'manager'],
     }
 
 
@@ -638,9 +638,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('cold_roll', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -679,9 +677,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'trim_weight', 'label': '切头重量', 'type': 'number', 'unit': 'kg', 'required': False},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('hot_roll', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -720,9 +716,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('finishing', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -763,9 +757,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('shearing', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -808,7 +800,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³'},
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('casting', []),
         ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
@@ -843,9 +834,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'tray_weight', 'label': '托盘重量', 'type': 'number', 'unit': 'kg', 'required': False},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('shearing', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -903,9 +892,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('annealing', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
@@ -942,9 +929,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
         ],
-        'shift_fields': [
-            *MACHINE_OPERATOR_CONSUMABLE_FIELDS.get('coating', []),
-        ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
