@@ -207,16 +207,17 @@ const roleOptions = [
   { value: 'workshop_director', label: '车间观察者' },
   { value: 'team_leader', label: '班长' },
   { value: 'shift_leader', label: '班长(移动端)' },
-  { value: 'qc', label: '质检内勤' },
   { value: 'energy_stat', label: '电工' },
-  { value: 'consumable_stat', label: '耗材统计' },
-  { value: 'contracts', label: '计划内勤' },
-  { value: 'inventory_keeper', label: '成品库负责人' },
-  { value: 'utility_manager', label: '总电工' },
   { value: 'machine_operator', label: '主操' },
+  { value: 'quality_owner', label: '质检内勤 owner' },
+  { value: 'planning_owner', label: '计划内勤 owner' },
+  { value: 'energy_chief', label: '总电工 owner' },
+  { value: 'storage_owner', label: '成品库 owner' },
+  { value: 'shipment_outflow_owner', label: '园区剪切 owner' },
+  { value: 'recovery_owner', label: '回收 owner' },
+  { value: 'overhaul_owner', label: '大修 owner' },
   { value: 'statistician', label: '观察角色（旧总统计兼容）' },
-  { value: 'reviewer', label: '观察角色（旧审核兼容）' },
-  { value: 'mobile_user', label: '移动端填报角色（兼容）' }
+  { value: 'reviewer', label: '观察角色（旧审核兼容）' }
 ]
 
 const loading = ref(false)

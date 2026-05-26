@@ -416,11 +416,6 @@ function goReport() {
   const ROLE_BUCKETS_USING_UNIFIED = new Set([
     'machine_operator',
     'energy_stat',
-    'consumable_stat',
-    'qc',
-    'contracts',
-    'inventory_keeper',
-    'utility_manager',
     'quality_owner',
     'planning_owner',
     'energy_chief',

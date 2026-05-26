@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 
+# G7 truth-source-three-layer-schema.md §2.1:
+# Field-level semantic tags (qc / contracts / inventory_keeper /
+# utility_manager / consumable_stat) survive as field-ownership
+# contracts. User-table `role` column uses the new 7 owners +
+# machine_operator/shift_leader/energy_stat. owner-agents read the
+# field tags via `extra_filter` (see app/routers/mobile.py).
 ROLE_ALIASES = {
     'factory_director': 'manager',
     'senior_manager': 'manager',
@@ -15,7 +21,7 @@ ROLE_ALIASES = {
     'UM': 'utility_manager',
     'IK': 'inventory_keeper',
     'CT': 'contracts',
-    # G7: new owner short codes
+    # G7: new owner short codes — map to field-level tags they own
     'QM': 'quality_owner',
     'PL': 'planning_owner',
     'EC': 'energy_chief',

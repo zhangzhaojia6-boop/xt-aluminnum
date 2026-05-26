@@ -98,6 +98,14 @@ Codex 是执行者——承接明确定义的后端逻辑、数据处理、批�
 - 与用户对话时使用中文。代码注释、commit message、变量名保持英文。
 - 技术术语可以用英文原文，但解释和讨论用中文。
 
+## 云端同步规则
+
+- 跟云端 (`8.140.218.13` /srv/aluminum-bypass/) 同步代码只走 git 仓库：本地 commit → push 到 main → 云端 `git pull` → 重启服务 / 重建前端 dist。
+- 禁止用 `scp` / `rsync` / 直接编辑云端文件 / 把本地未提交内容拷贝过去等任何绕开 git 的同步路径，避免本地与云端漂移。
+- 一次性脚本 (临时 reset / 数据修复 / 巡检脚本) 也要先入库 (放 `scripts/` 或同等位置) 再 push，不要在云端就地写或本地不提交就 scp。
+- 云端只允许执行：`git pull`、`pip install`、`npm run build`、`alembic upgrade`、`systemctl restart aluminum-bypass`、`nginx -s reload` 这一类幂等的部署动作。
+- 紧急回滚：`git revert` 一笔新提交后 push，不要在云端 `git reset --hard` 制造分叉。
+
 ## 表达规则
 
 - 跟用户讲话用大白话，不要堆术语。能用"账号"就别说"user 实体"，能说"先不动"就别说"保持现状"。

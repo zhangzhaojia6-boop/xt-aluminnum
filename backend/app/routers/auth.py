@@ -236,14 +236,10 @@ def logout() -> dict:
 
 
 ROLE_QR_SUFFIX_MAP = {
+    # truth-source §2.1 final QR suffix map — legacy QC/CT/IK/UM/CS retired
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'QC': ('qc', '质检'),
-    'CT': ('contracts', '计划'),
-    'IK': ('inventory_keeper', '成品库'),
-    'UM': ('utility_manager', '水电气'),
-    'CS': ('consumable_stat', '内勤'),
-    # G14: owner role QRs
+    # 7 owner + 3 独立 owner — full-company unique
     'QM': ('quality_owner', '质检内勤'),
     'PL': ('planning_owner', '计划内勤'),
     'EC': ('energy_chief', '总电工'),

@@ -6,42 +6,32 @@ from app.models.system import User
 
 
 VALID_SCOPE_TYPES = {'self_team', 'self_workshop', 'assigned', 'all'}
+# truth-source-three-layer-schema.md §2.1 final role matrix
 MOBILE_ROLES = {
+    'machine_operator',
+    'shift_leader',
     'team_leader',
     'deputy_leader',
-    'mobile_user',
-    'shift_leader',
-    'qc',
     'energy_stat',
-    'maintenance_lead',
-    'contracts',
-    'inventory_keeper',
-    'utility_manager',
-    'machine_operator',
-    'consumable_stat',
-    # G7: + owner roles (corresponding to qc/energy_stat/contracts/inventory_keeper)
     'quality_owner',
-    'energy_chief',
     'planning_owner',
+    'energy_chief',
     'storage_owner',
+    'shipment_outflow_owner',
+    'recovery_owner',
+    'overhaul_owner',
 }
 REVIEWER_ROLES = {'statistician', 'workshop_director', 'reviewer', 'stat'}
 MANAGER_ROLES = {'factory_director', 'senior_manager', 'manager'}
 WORK_ORDER_GLOBAL_ENTRY_ROLES = {'admin', 'statistician', 'stat', 'manager', 'factory_director', 'senior_manager'}
-WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'contracts', 'planning_owner'}  # G7: + owner role
+WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'planning_owner'}
 WORK_ORDER_LOCAL_ENTRY_ROLES = {
     'shift_leader',
-    'qc',
-    'energy_stat',
     'team_leader',
-    'maintenance_lead',
-    'contracts',
-    'inventory_keeper',
-    'utility_manager',
-    # G7: + owner roles (corresponding to qc/energy_stat/contracts/inventory_keeper)
+    'energy_stat',
     'quality_owner',
-    'energy_chief',
     'planning_owner',
+    'energy_chief',
     'storage_owner',
 }
 
