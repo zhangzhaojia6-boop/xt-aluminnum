@@ -445,7 +445,7 @@ def build_assistant_image(
             image_url = str(asset.get('image_url') or '').strip()
             if image_url:
                 is_mock = False
-                badge_text = str(asset.get('model') or runtime.LLM_MODEL or runtime.LLM_ENDPOINT_ID or 'DeepSeek-V3.2').strip()[:40] or 'DeepSeek-V3.2'
+                badge_text = str(asset.get('model') or runtime.LLM_MODEL or runtime.LLM_ENDPOINT_ID or 'DeepSeek-V4-Lite').strip()[:40] or 'DeepSeek-V4-Lite'
         except Exception:  # noqa: BLE001
             image_url = ''
 

@@ -101,7 +101,7 @@ def build_env_content(
         'LLM_API_BASE=https://ark.cn-beijing.volces.com/api/v3',
         'LLM_API_KEY=',
         'LLM_ENDPOINT_ID=',
-        'LLM_MODEL=DeepSeek-V3.2',
+        'LLM_MODEL=DeepSeek-V4-Lite',
         'LLM_IMAGE_MODEL=',
         'LLM_IMAGE_ENDPOINT_ID=',
         'LLM_TIMEOUT_SECONDS=20',

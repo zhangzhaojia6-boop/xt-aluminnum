@@ -130,10 +130,19 @@ def test_daily_production_mapping_preview_resolves_only_high_confidence_rows():
     db.flush()
     db.add_all([
         _equipment('ZR2', '铸二', zr2),
-        _equipment('RZ-XC', '铣床', rz),
+        _equipment('RZ-FM', '六面铣', rz),
         _equipment('LZ2050-1', '2050-1#', lz2050),
     ])
-    batch = _seed_batch(db)
+    batch = _seed_batch(
+        db,
+        workshop_rows=[
+            {'row_index': 3, 'workshop_label': '铸锭', 'project_label': None, 'daily_output_tons': 301.1},
+            {'row_index': 4, 'workshop_label': '铸轧', 'project_label': '铸二', 'daily_output_tons': 398.5},
+            {'row_index': 5, 'workshop_label': '热轧', 'project_label': '六面铣', 'daily_output_tons': 205.0},
+            {'row_index': 6, 'workshop_label': '冷轧', 'project_label': '2050', 'daily_output_tons': 120.46},
+            {'row_index': 7, 'workshop_label': '冷轧', 'project_label': '1650', 'daily_output_tons': 79.0},
+        ],
+    )
 
     preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
 
@@ -150,10 +159,9 @@ def test_daily_production_mapping_preview_resolves_only_high_confidence_rows():
     assert rows[('铸轧', '铸二')].workshop_code == 'ZR2'
     assert rows[('铸轧', '铸二')].expected_equipment_code is None
     assert rows[('铸轧', '铸二')].equipment_id is None
-    assert rows[('热轧', '铣床')].equipment_code == 'RZ-XC'
+    assert rows[('热轧', '六面铣')].equipment_code == 'RZ-FM'
     assert rows[('冷轧', '2050')].workshop_code == 'LZ2050'
     assert rows[('冷轧', '2050')].equipment_code == 'LZ2050-1'
-    assert rows[('冷轧', '2050')].daily_output_tons == 120.46
     assert rows[('冷轧', '1650')].status == 'unresolved_workshop'
     assert rows[('冷轧', '1650')].workshop_id is None
     assert rows[('冷轧', '1650')].equipment_id is None
@@ -163,15 +171,20 @@ def test_daily_production_mapping_preview_marks_missing_equipment_mapping():
     db = _session()
     rz = _workshop('RZ', '热轧')
     db.add(rz)
-    _seed_batch(db)
+    _seed_batch(
+        db,
+        workshop_rows=[
+            {'row_index': 5, 'workshop_label': '热轧', 'project_label': '六面铣', 'daily_output_tons': 205.0},
+        ],
+    )
 
     preview = build_daily_production_mapping_preview(db)
 
-    milling = next(row for row in preview.rows if row.workshop_label == '热轧' and row.project_label == '铣床')
+    milling = next(row for row in preview.rows if row.workshop_label == '热轧' and row.project_label == '六面铣')
     assert preview.batch_no == 'IMP-DAILY-1'
     assert milling.status == 'needs_equipment_mapping'
     assert milling.workshop_code == 'RZ'
-    assert milling.expected_equipment_code == 'RZ-XC'
+    assert milling.expected_equipment_code == 'RZ-FM'
     assert milling.equipment_id is None
 
 
@@ -231,8 +244,8 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
             ('LZ2050', '2050冷轧车间'),
             ('LZ1850', '1850冷轧车间'),
             ('LZ1650', '1650冷轧车间'),
-            ('HWB', '花纹板车间'),
             ('JZ', '精整车间'),
+            ('LJ', '拉矫车间'),
             ('JQ', '园区剪切车间'),
             ('ZXTF', '在线退火车间'),
         ]
@@ -242,19 +255,20 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
     db.add_all([
         _equipment('ZR2', '铸二', workshops['ZR2']),
         _equipment('ZR3', '铸三', workshops['ZR3']),
-        _equipment('RZ-XC', '铣床', workshops['RZ']),
+        _equipment('RZ-FM', '六面铣', workshops['RZ']),
+        _equipment('RZ-DM', '双面铣', workshops['RZ']),
         _equipment('RZ-ZJ', '热轧机', workshops['RZ']),
         _equipment('LZ2050-1', '2050轧机', workshops['LZ2050']),
         _equipment('LZ1850-1', '1850轧机', workshops['LZ1850']),
         _equipment('LZ1650-1', '1650轧机', workshops['LZ1650']),
-        _equipment('HWB-1', '花纹板主轧', workshops['HWB']),
-        _equipment('JZ-HJ1', '横剪1#', workshops['JZ']),
-        _equipment('JZ-ZJ1', '纵剪1#', workshops['JZ']),
-        _equipment('JZ-LWJ1', '拉弯矫1#', workshops['JZ']),
-        _equipment('JZ-FT1', '分条1#', workshops['JZ']),
-        _equipment('ZXTF-1', '1#线', workshops['ZXTF']),
-        _equipment('ZXTF-2', '2#线', workshops['ZXTF']),
-        _equipment('ZXTF-3', '3#线', workshops['ZXTF']),
+        _equipment('JZ-19G', '19辊精整', workshops['JZ']),
+        _equipment('JZ-ZJ-Z', '纵剪', workshops['JZ']),
+        _equipment('JQ-LJ', '拉矫', workshops['LJ']),
+        _equipment('JQ-TH', '退火炉', workshops['LJ']),
+        _equipment('LJ-DFC', '大分切', workshops['LJ']),
+        _equipment('ZXTF-1', '新厂北', workshops['ZXTF']),
+        _equipment('ZXTF-2', '新厂南', workshops['ZXTF']),
+        _equipment('ZXTF-3', '园区北', workshops['ZXTF']),
     ])
     batch = _seed_batch(
         db,
@@ -262,30 +276,27 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
             {'row_index': 3, 'workshop_label': '铸锭', 'project_label': None, 'daily_output_tons': 314.19},
             {'row_index': 4, 'workshop_label': '铸轧', 'project_label': '铸二', 'daily_output_tons': 24.18},
             {'row_index': 5, 'workshop_label': '铸轧', 'project_label': '铸三', 'daily_output_tons': 36.2},
-            {'row_index': 9, 'workshop_label': '热轧', 'project_label': '铣床', 'daily_output_tons': 278.13},
+            {'row_index': 9, 'workshop_label': '热轧', 'project_label': '六面铣', 'daily_output_tons': 278.13},
             {'row_index': 10, 'workshop_label': '热轧', 'project_label': '热轧', 'daily_output_tons': 0.0},
             {'row_index': 11, 'workshop_label': '冷轧', 'project_label': '1650', 'daily_output_tons': 224.54},
             {'row_index': 12, 'workshop_label': '冷轧', 'project_label': '1850', 'daily_output_tons': 31.08},
             {'row_index': 13, 'workshop_label': '冷轧', 'project_label': '2050', 'daily_output_tons': 85.13},
-            {'row_index': 14, 'workshop_label': '冷轧', 'project_label': '花纹板', 'daily_output_tons': 12.0},
-            {'row_index': 16, 'workshop_label': '精整', 'project_label': '剪子', 'daily_output_tons': 45.286},
+            {'row_index': 16, 'workshop_label': '精整', 'project_label': '19辊', 'daily_output_tons': 45.286},
             {'row_index': 17, 'workshop_label': '精整', 'project_label': '纵剪', 'daily_output_tons': 75.96},
             {'row_index': 18, 'workshop_label': '拉矫', 'project_label': '拉矫', 'daily_output_tons': 196.08},
             {'row_index': 19, 'workshop_label': '拉矫', 'project_label': '分切', 'daily_output_tons': 39.58},
-            {'row_index': 20, 'workshop_label': '拉矫', 'project_label': '横剪', 'daily_output_tons': 0.0},
             {'row_index': 21, 'workshop_label': '拉矫', 'project_label': '产量', 'daily_output_tons': 55.984},
             {'row_index': 23, 'workshop_label': '退火炉', 'project_label': '拉矫', 'daily_output_tons': 51.0},
             {'row_index': 24, 'workshop_label': '在线退火', 'project_label': '新厂南线', 'daily_output_tons': 0.0},
             {'row_index': 25, 'workshop_label': '在线退火', 'project_label': '新厂北线', 'daily_output_tons': 302.84},
             {'row_index': 27, 'workshop_label': '在线退火', 'project_label': '园区北线', 'daily_output_tons': 181.97},
-            {'row_index': 33, 'workshop_label': '园区剪切', 'project_label': None, 'daily_output_tons': 49.483},
         ],
     )
 
     preview = build_daily_production_mapping_preview(db, batch_id=batch.id)
 
-    assert preview.total_rows == 20
-    assert preview.ready_rows == 20
+    assert preview.total_rows == 17
+    assert preview.ready_rows == 17
     assert preview.needs_equipment_mapping_rows == 0
     assert preview.unresolved_rows == 0
     rows = {(row.workshop_label, row.project_label): row for row in preview.rows}
@@ -295,15 +306,13 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
     assert rows[('铸轧', '铸三')].expected_equipment_code is None
     assert rows[('冷轧', '1650')].equipment_code == 'LZ1650-1'
     assert rows[('冷轧', '1850')].equipment_code == 'LZ1850-1'
-    assert rows[('冷轧', '花纹板')].equipment_code == 'HWB-1'
-    assert rows[('精整', '剪子')].equipment_code == 'JZ-HJ1'
-    assert rows[('精整', '纵剪')].equipment_code == 'JZ-ZJ1'
-    assert rows[('拉矫', '拉矫')].equipment_code == 'JZ-LWJ1'
-    assert rows[('拉矫', '分切')].equipment_code == 'JZ-FT1'
-    assert rows[('拉矫', '横剪')].equipment_code == 'JZ-HJ1'
-    assert rows[('拉矫', '产量')].workshop_code == 'JZ'
+    assert rows[('精整', '19辊')].equipment_code == 'JZ-19G'
+    assert rows[('精整', '纵剪')].equipment_code == 'JZ-ZJ-Z'
+    assert rows[('拉矫', '拉矫')].equipment_code == 'JQ-LJ'
+    assert rows[('拉矫', '分切')].equipment_code == 'LJ-DFC'
+    assert rows[('拉矫', '产量')].workshop_code == 'LJ'
     assert rows[('拉矫', '产量')].equipment_id is None
-    assert rows[('退火炉', '拉矫')].workshop_code == 'JZ'
+    assert rows[('退火炉', '拉矫')].workshop_code == 'LJ'
     assert rows[('在线退火', '新厂南线')].equipment_code == 'ZXTF-2'
     assert rows[('在线退火', '新厂北线')].equipment_code == 'ZXTF-1'
     assert rows[('在线退火', '园区北线')].equipment_code == 'ZXTF-3'

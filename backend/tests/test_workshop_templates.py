@@ -51,11 +51,24 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
         'spool_weight',
         'output_weight',
     ]
-    assert [field['name'] for field in template['readonly_fields']] == ['quality_note', 'scrap_weight', 'yield_rate']
-    assert template['readonly_fields'][1]['compute'] == 'input_weight - output_weight - spool_weight'
-    assert template['readonly_fields'][2]['compute'] == 'output_weight / input_weight * 100'
-    assert all(field['readonly'] is True for field in template['readonly_fields'][1:])
-    assert all(field['editable'] is False for field in template['readonly_fields'][1:])
+    readonly_names = [field['name'] for field in template['readonly_fields']]
+    assert readonly_names == [
+        'quality_note',
+        'quality_issue_type',
+        'quality_issue_card_no',
+        'quality_issue_desc',
+        'quality_issue_photo_path',
+        'scrap_weight',
+        'yield_rate',
+    ]
+    scrap_index = readonly_names.index('scrap_weight')
+    yield_index = readonly_names.index('yield_rate')
+    assert template['readonly_fields'][scrap_index]['compute'] == 'input_weight - output_weight - spool_weight'
+    assert template['readonly_fields'][yield_index]['compute'] == 'output_weight / input_weight * 100'
+    assert template['readonly_fields'][scrap_index]['readonly'] is True
+    assert template['readonly_fields'][yield_index]['readonly'] is True
+    assert template['readonly_fields'][scrap_index]['editable'] is False
+    assert template['readonly_fields'][yield_index]['editable'] is False
 
 
 def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
@@ -72,7 +85,15 @@ def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
         'output_weight',
         'trim_weight',
     ]
-    assert [field['name'] for field in template['readonly_fields']] == ['quality_note', 'scrap_weight', 'yield_rate']
+    assert [field['name'] for field in template['readonly_fields']] == [
+        'quality_note',
+        'quality_issue_type',
+        'quality_issue_card_no',
+        'quality_issue_desc',
+        'quality_issue_photo_path',
+        'scrap_weight',
+        'yield_rate',
+    ]
 
 
 def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_it_to_contracts() -> None:
