@@ -224,6 +224,50 @@ QUALITY_NOTE_FIELD = {
     'role_read': READ_ALL,
 }
 
+QUALITY_ISSUE_TYPE_FIELD = {
+    'name': 'quality_issue_type',
+    'label': '质量问题类型',
+    'type': 'select',
+    'required': False,
+    'options_source': 'quality_issue_types',
+    'role_write': ['machine_operator', 'qc'],
+    'role_read': READ_ALL,
+}
+
+QUALITY_ISSUE_CARD_NO_FIELD = {
+    'name': 'quality_issue_card_no',
+    'label': '涉及卷号',
+    'type': 'text',
+    'required': False,
+    'role_write': ['machine_operator', 'qc'],
+    'role_read': READ_ALL,
+}
+
+QUALITY_ISSUE_DESC_FIELD = {
+    'name': 'quality_issue_desc',
+    'label': '问题描述',
+    'type': 'textarea',
+    'required': False,
+    'role_write': ['machine_operator', 'qc'],
+    'role_read': READ_ALL,
+}
+
+QUALITY_ISSUE_PHOTO_FIELD = {
+    'name': 'quality_issue_photo_path',
+    'label': '现场照片',
+    'type': 'photo',
+    'required': False,
+    'role_write': ['machine_operator', 'qc'],
+    'role_read': READ_ALL,
+}
+
+QUALITY_ISSUE_FIELDS = [
+    QUALITY_ISSUE_TYPE_FIELD,
+    QUALITY_ISSUE_CARD_NO_FIELD,
+    QUALITY_ISSUE_DESC_FIELD,
+    QUALITY_ISSUE_PHOTO_FIELD,
+]
+
 
 CONTRACT_OWNER_FIELDS = [
     {
@@ -637,6 +681,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -676,6 +721,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机卷重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'trim_weight', 'label': '切头重量', 'type': 'number', 'unit': 'kg', 'required': False},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -715,6 +761,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -756,6 +803,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -794,6 +842,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'scrap_weight', 'label': '废料', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg', 'required': False},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
@@ -833,6 +882,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'tray_weight', 'label': '托盘重量', 'type': 'number', 'unit': 'kg', 'required': False},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -891,6 +941,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -928,6 +979,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
