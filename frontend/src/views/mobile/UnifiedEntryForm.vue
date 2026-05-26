@@ -254,6 +254,13 @@ const roleLabel = computed(() => {
     contracts: '计划内勤',
     inventory_keeper: '成品库',
     utility_manager: '总电工',
+    quality_owner: '全公司质检',
+    planning_owner: '全公司合同',
+    energy_chief: '能耗矩阵',
+    storage_owner: '储备四件',
+    shipment_outflow_owner: '园区剪切',
+    recovery_owner: '回收产量',
+    overhaul_owner: '大修能耗',
   }
   return labels[auth.role] || auth.displayName
 })
@@ -266,6 +273,13 @@ const ROLE_COLORS = {
   contracts: 'oklch(51% 0.17 255)',
   inventory_keeper: 'oklch(54% 0.095 54)',
   utility_manager: 'oklch(52% 0.13 158)',
+  quality_owner: 'oklch(55% 0.15 28)',
+  planning_owner: 'oklch(51% 0.17 255)',
+  energy_chief: 'oklch(52% 0.13 158)',
+  storage_owner: 'oklch(54% 0.095 54)',
+  shipment_outflow_owner: 'oklch(52% 0.13 158)',
+  recovery_owner: 'oklch(50% 0.15 252)',
+  overhaul_owner: 'oklch(52% 0.13 158)',
 }
 const roleColor = computed(() => ROLE_COLORS[auth.role] || 'oklch(51% 0.17 255)')
 

@@ -421,6 +421,13 @@ function goReport() {
     'contracts',
     'inventory_keeper',
     'utility_manager',
+    'quality_owner',
+    'planning_owner',
+    'energy_chief',
+    'storage_owner',
+    'shipment_outflow_owner',
+    'recovery_owner',
+    'overhaul_owner',
   ])
   if (ROLE_BUCKETS_USING_UNIFIED.has(bucket)) {
     router.push({ name: 'mobile-unified-entry' })
