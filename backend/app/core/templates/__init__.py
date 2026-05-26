@@ -118,50 +118,9 @@ ENERGY_OWNER_FIELDS = [
     },
 ]
 
-MAINTENANCE_OWNER_FIELDS = [
-    {
-        'name': 'downtime_minutes',
-        'label': '停机分钟',
-        'type': 'number',
-        'unit': 'min',
-        'required': False,
-        'role_write': ['maintenance_lead'],
-        'role_read': ['maintenance_lead', 'admin', 'manager'],
-        'hint': '由机修班长补录设备停机时长。',
-    },
-    {
-        'name': 'downtime_reason',
-        'label': '停机原因',
-        'type': 'text',
-        'required': False,
-        'role_write': ['maintenance_lead'],
-        'role_read': ['maintenance_lead', 'admin', 'manager'],
-        'hint': '由机修班长补录设备状态说明。',
-    },
-]
+MAINTENANCE_OWNER_FIELDS: list[dict] = []
 
-HYDRAULIC_OWNER_FIELDS = [
-    {
-        'name': 'hydraulic_oil_32',
-        'label': '32#液压油',
-        'type': 'number',
-        'unit': '桶',
-        'required': False,
-        'role_write': ['hydraulic_lead'],
-        'role_read': ['hydraulic_lead', 'admin', 'manager'],
-        'hint': '由液压班长补录当班耗材。',
-    },
-    {
-        'name': 'hydraulic_oil_46',
-        'label': '46#液压油',
-        'type': 'number',
-        'unit': '桶',
-        'required': False,
-        'role_write': ['hydraulic_lead'],
-        'role_read': ['hydraulic_lead', 'admin', 'manager'],
-        'hint': '由液压班长补录当班耗材。',
-    },
-]
+HYDRAULIC_OWNER_FIELDS: list[dict] = []
 
 CONSUMABLE_OWNER_FIELDS = {
     'casting': [
@@ -604,8 +563,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -643,8 +600,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -682,8 +637,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -723,8 +676,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -767,8 +718,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         ],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -801,8 +750,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
-            *HYDRAULIC_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -861,7 +808,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
@@ -898,7 +844,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
-            *MAINTENANCE_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
         ],
         'qc_fields': QC_OWNER_FIELDS,
