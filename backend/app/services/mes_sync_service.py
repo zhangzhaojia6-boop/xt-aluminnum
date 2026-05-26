@@ -459,8 +459,8 @@ def sync_coil_snapshots(
                 upserted_count += 1
             if replayed:
                 replayed_count += 1
-            event_at = item.updated_at or item.event_time
-            if event_at and (last_event_at is None or event_at > last_event_at):
+            event_at = _as_utc(item.updated_at or item.event_time)
+            if event_at and (last_event_at is None or event_at > _as_utc(last_event_at)):
                 last_event_at = event_at
 
         cursor.cursor_value = next_cursor

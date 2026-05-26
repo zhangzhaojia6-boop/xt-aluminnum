@@ -83,7 +83,7 @@ def build_management_estimate(
         'unreported_shift_count': int(mobile_summary.get('unreported_count') or 0),
         'reporting_rate': round(_to_float(mobile_summary.get('reporting_rate')), 2),
         'total_attendance': int(total_attendance or 0),
-        'sync_lag_seconds': sync_status.get('lag_seconds') if sync_status else None,
+        'sync_lag_seconds': int(sync_status['lag_seconds']) if sync_status and sync_status.get('lag_seconds') is not None else None,
         'sync_status': sync_status.get('last_run_status') if sync_status else 'idle',
         'assumptions': {
             'revenue_per_ton': assumptions.revenue_per_ton,
