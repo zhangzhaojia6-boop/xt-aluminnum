@@ -191,7 +191,7 @@ def test_settings_reject_conflicting_mobile_bootstrap_contracts(overrides: dict,
         settings.validate_runtime_settings()
 
 
-@pytest.mark.parametrize('role', ['shift_leader', 'energy_stat', 'maintenance_lead', 'inventory_keeper', 'utility_manager', 'contracts'])
+@pytest.mark.parametrize('role', ['shift_leader', 'energy_stat'])
 def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) -> None:
     user = User(
         id=28,

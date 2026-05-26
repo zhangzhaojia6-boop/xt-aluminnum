@@ -135,14 +135,13 @@ def test_execute_action_promotes_pending_assignment_draft_and_aggregates(tmp_pat
         )
 
         db.refresh(entry)
-        aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
         assert result['decisions'][0]['action'] == 'auto_confirm'
         assert entry.entry_status == 'submitted'
         assert entry.machine_id == machine.id
         assert entry.submitted_at is not None
         assert entry.extra_payload['pending_assignment_action']['action'] == 'promote_draft_entry'
-        assert aggregate.equipment_id == machine.id
-        assert float(aggregate.output_weight) == 96000.0
+        # mobile_coil_agg dual-write retired — no aggregate row expected
+        assert db.query(ShiftProductionData).count() == 0
     finally:
         db.close()
 

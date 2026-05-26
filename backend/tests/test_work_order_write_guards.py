@@ -222,6 +222,10 @@ def test_owner_only_creator_can_update_submitted_entry_without_override(monkeypa
     monkeypatch.setattr('app.services.work_order_service._model_to_dict', lambda entity: dict(entity.__dict__))
     monkeypatch.setattr('app.services.work_order_service._resolve_entry_workshop_type', lambda *_args, **_kwargs: 'inventory')
     monkeypatch.setattr(
+        'app.services.work_order_service._normalize_template_section_payload',
+        lambda payload, **_kwargs: payload,
+    )
+    monkeypatch.setattr(
         'app.services.work_order_service._apply_entry_fields',
         lambda entity, payload, **_kwargs: setattr(entity, 'extra_payload', payload.get('extra_payload')),
     )
@@ -238,7 +242,7 @@ def test_owner_only_creator_can_update_submitted_entry_without_override(monkeypa
         db,
         entry_id=entry.id,
         payload={'extra_payload': {'shipment_weight': 88}},
-        operator=_user(id=101, role='inventory_keeper', workshop_id=1),
+        operator=_user(id=101, role='storage_owner', workshop_id=1),
     )
 
     assert payload == {'id': 77, 'extra_payload': {'shipment_weight': 88}}

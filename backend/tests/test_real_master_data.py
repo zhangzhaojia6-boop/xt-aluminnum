@@ -198,56 +198,25 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
 
         running_machine = next(item for item in equipment if item.code == 'ZR2-1')
         stopped_machine = next(item for item in equipment if item.code == 'ZR2-3')
-        running_user = db.get(User, running_machine.bound_user_id)
-        stopped_user = db.get(User, stopped_machine.bound_user_id)
 
         assert running_machine.qr_code == 'XT-ZR2-1'
-        assert running_machine.bound_user_id is not None
-        assert running_user is not None
-        assert running_user.username == 'ZR2-1'
-        assert running_user.name == '铸轧二 1#机'
-        assert running_user.pin_code is not None
-        assert len(running_user.pin_code) == 6
-        assert running_user.pin_code.isdigit()
-        assert running_user.is_active is True
-        assert running_user.assigned_shift_ids == [1, 2, 3]
+        # Auto-seed of per-equipment accounts retired — bound_user_id stays None for fresh seed
+        assert running_machine.bound_user_id is None
 
         assert stopped_machine.qr_code == 'XT-ZR2-3'
-        assert stopped_machine.bound_user_id is not None
-        assert stopped_user is not None
-        assert stopped_user.username == 'ZR2-3'
-        assert stopped_user.is_active is False
+        assert stopped_machine.bound_user_id is None
 
-        energy_owner = db.execute(select(User).where(User.username == 'ZR2-A-EN')).scalar_one()
-        qc_owner = db.execute(select(User).where(User.username == 'ZR2-B-QC')).scalar_one()
-        contract_owner = db.execute(select(User).where(User.username == 'CPK-A-PLAN')).scalar_one()
-        inventory_owner = db.execute(select(User).where(User.username == 'CPK-A-INV')).scalar_one()
-        utility_owner_a = db.execute(select(User).where(User.username == 'CPK-A-UTILITY')).scalar_one()
-        utility_owner = db.execute(select(User).where(User.username == 'CPK-C-UTILITY')).scalar_one()
+        # New owner role QRs — factory-wide unique (G14)
+        qm = db.execute(select(User).where(User.username == 'CPK-QM')).scalar_one()
+        pl = db.execute(select(User).where(User.username == 'CPK-PL')).scalar_one()
+        ec = db.execute(select(User).where(User.username == 'CPK-EC')).scalar_one()
+        fs = db.execute(select(User).where(User.username == 'CPK-FS')).scalar_one()
 
-        assert energy_owner.role == 'energy_stat'
-        assert energy_owner.workshop_id == next(item for item in workshops if item.code == 'ZR2').id
-        assert energy_owner.assigned_shift_ids == [1]
-        assert energy_owner.is_mobile_user is True
-
-        assert qc_owner.role == 'qc'
-        assert qc_owner.assigned_shift_ids == [2]
-        assert qc_owner.is_active is True
-
-        assert inventory_owner.role == 'inventory_keeper'
-        assert inventory_owner.workshop_id == next(item for item in workshops if item.code == 'CPK').id
-        assert inventory_owner.assigned_shift_ids == [1]
-        assert inventory_owner.pin_code == '506371'
-
-        assert contract_owner.role == 'contracts'
-        assert contract_owner.pin_code == '101901'
-
-        assert utility_owner_a.role == 'utility_manager'
-        assert utility_owner_a.pin_code == '591767'
-
-        assert utility_owner.role == 'utility_manager'
-        assert utility_owner.assigned_shift_ids == [3]
-        assert utility_owner.pin_code is not None
+        assert qm.role == 'quality_owner'
+        assert qm.is_mobile_user is True
+        assert pl.role == 'planning_owner'
+        assert ec.role == 'energy_chief'
+        assert fs.role == 'storage_owner'
 
         zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-')]
         assert [(item.code, item.name, item.equipment_type, item.qr_code) for item in zxtf_equipment] == [
@@ -287,7 +256,8 @@ def test_seed_real_master_data_preserves_existing_qr_codes_and_seeds_mes_aliases
 
         machine = db.execute(select(Equipment).where(Equipment.code == 'LZ2050-1')).scalar_one()
         assert machine.qr_code == 'PRINTED-LZ2050-1'
-        assert machine.bound_user_id is not None
+        # Auto-seed retired — no pre-existing user so bound_user_id stays None
+        assert machine.bound_user_id is None
 
         aliases = {
             (item.entity_type, item.canonical_code, item.alias_code, item.alias_name, item.source_type)
@@ -394,12 +364,28 @@ def test_seed_real_master_data_keeps_existing_machine_account_binding_and_pin(tm
 
     db = build_session(tmp_path)
     try:
+        from app.core.auth import get_password_hash
+        # Pre-create a user account so the seed function binds it
+        pre_user = User(
+            username='ZR2-1',
+            password_hash=get_password_hash('123456'),
+            name='铸轧二 1#机',
+            role='shift_leader',
+            is_mobile_user=True,
+            is_active=True,
+            pin_code='123456',
+        )
+        db.add(pre_user)
+        db.commit()
+        db.refresh(pre_user)
+        original_user_id = pre_user.id
+
         seed_real_master_data(db)
 
         first_machine = db.execute(select(Equipment).where(Equipment.code == 'ZR2-1')).scalar_one()
         first_user = db.get(User, first_machine.bound_user_id)
         assert first_user is not None
-        original_user_id = first_user.id
+        assert first_user.id == original_user_id
         original_pin = first_user.pin_code
 
         seed_real_master_data(db)

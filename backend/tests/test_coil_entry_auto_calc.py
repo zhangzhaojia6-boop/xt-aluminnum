@@ -229,12 +229,9 @@ def test_coil_entry_uses_bound_machine_for_management_aggregation(tmp_path):
 
         entry = db.get(WorkOrderEntry, result['id'])
         assert entry.entry_status == 'submitted'
-        aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
         assert entry.machine_id == equipment.id
-        assert aggregate.equipment_id == equipment.id
-        assert float(aggregate.input_weight) == 1000.0
-        assert float(aggregate.output_weight) == 960.0
-        assert float(aggregate.scrap_weight) == 40.0
+        # mobile_coil_agg dual-write retired — no aggregate row expected
+        assert db.query(ShiftProductionData).count() == 0
     finally:
         db.close()
 
@@ -301,9 +298,9 @@ def test_coil_entry_uses_reporting_machine_for_virtual_role_binding(tmp_path):
         )
 
         entry = db.get(WorkOrderEntry, result['id'])
-        aggregate = db.query(ShiftProductionData).filter(ShiftProductionData.data_source == 'mobile_coil_agg').one()
         assert entry.machine_id == real_machine.id
-        assert aggregate.equipment_id == real_machine.id
+        # mobile_coil_agg dual-write retired
+        assert db.query(ShiftProductionData).count() == 0
     finally:
         db.close()
 
@@ -391,10 +388,8 @@ def test_coil_entry_aggregates_by_bound_machine_not_only_workshop_shift(tmp_path
             current_user=second_user,
         )
 
-        aggregates = db.query(ShiftProductionData).order_by(ShiftProductionData.equipment_id.asc()).all()
-        assert len(aggregates) == 2
-        assert [row.equipment_id for row in aggregates] == [first_machine.id, second_machine.id]
-        assert [float(row.output_weight) for row in aggregates] == [960.0, 1900.0]
+        # mobile_coil_agg dual-write retired — no aggregate rows expected
+        assert db.query(ShiftProductionData).count() == 0
     finally:
         db.close()
 
@@ -447,7 +442,8 @@ def test_coil_shift_aggregation_ignores_draft_rows(tmp_path):
         db.close()
 
 
-def test_coil_shift_aggregation_voids_stale_aggregate_when_only_drafts_remain(tmp_path):
+def test_coil_shift_aggregation_is_noop_after_retirement(tmp_path):
+    """mobile_coil_agg dual-write retired — _aggregate_coil_to_shift is now a no-op."""
     db = build_session(tmp_path)
     try:
         workshop = Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_roll')
@@ -462,34 +458,7 @@ def test_coil_shift_aggregation_voids_stale_aggregate_when_only_drafts_remain(tm
             sort_order=1,
             is_active=True,
         )
-        work_order = WorkOrder(
-            id=1,
-            tracking_card_no='DRAFT-COIL-STALE-001',
-            process_route_code='mobile',
-            overall_status='created',
-        )
-        draft_entry = WorkOrderEntry(
-            work_order_id=work_order.id,
-            workshop_id=workshop.id,
-            shift_id=shift.id,
-            business_date=date(2026, 5, 2),
-            input_weight=100000,
-            output_weight=96000,
-            scrap_weight=4000,
-            entry_type='mobile_coil',
-            entry_status='draft',
-        )
-        stale_aggregate = ShiftProductionData(
-            business_date=date(2026, 5, 2),
-            shift_config_id=shift.id,
-            workshop_id=workshop.id,
-            input_weight=100000,
-            output_weight=96000,
-            scrap_weight=4000,
-            data_source='mobile_coil_agg',
-            data_status='pending',
-        )
-        db.add_all([workshop, shift, work_order, draft_entry, stale_aggregate])
+        db.add_all([workshop, shift])
         db.commit()
 
         _aggregate_coil_to_shift(
@@ -500,17 +469,6 @@ def test_coil_shift_aggregation_voids_stale_aggregate_when_only_drafts_remain(tm
             machine_id=None,
         )
 
-        db.refresh(stale_aggregate)
-        assert stale_aggregate.data_status == 'voided'
-        assert stale_aggregate.voided_reason == 'no submitted mobile coil entries'
-        assert (
-            db.query(ShiftProductionData)
-            .filter(
-                ShiftProductionData.data_source == 'mobile_coil_agg',
-                ShiftProductionData.data_status != 'voided',
-            )
-            .count()
-            == 0
-        )
+        assert db.query(ShiftProductionData).count() == 0
     finally:
         db.close()
