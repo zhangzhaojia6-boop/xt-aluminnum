@@ -126,6 +126,8 @@
             <el-input :model-value="inputSpecParts[0]" :disabled="isLockedField('input_spec')" inputmode="decimal" placeholder="厚" @update:model-value="updateInputSpec(0, $event)" />
             <span class="mobile-spec-sep">×</span>
             <el-input :model-value="inputSpecParts[1]" :disabled="isLockedField('input_spec')" inputmode="decimal" placeholder="宽" @update:model-value="updateInputSpec(1, $event)" />
+            <span class="mobile-spec-sep">×</span>
+            <el-input :model-value="inputSpecParts[2]" :disabled="isLockedField('input_spec')" inputmode="decimal" placeholder="长" @update:model-value="updateInputSpec(2, $event)" />
           </div>
         </div>
         <div class="mobile-field">
@@ -134,6 +136,8 @@
             <el-input :model-value="outputSpecParts[0]" inputmode="decimal" placeholder="厚" @update:model-value="updateOutputSpec(0, $event)" />
             <span class="mobile-spec-sep">×</span>
             <el-input :model-value="outputSpecParts[1]" inputmode="decimal" placeholder="宽" @update:model-value="updateOutputSpec(1, $event)" />
+            <span class="mobile-spec-sep">×</span>
+            <el-input :model-value="outputSpecParts[2]" inputmode="decimal" placeholder="长" @update:model-value="updateOutputSpec(2, $event)" />
           </div>
         </div>
         <div class="mobile-field">
@@ -262,7 +266,7 @@ const suggestedScrap = computed(() => {
 
 function splitSpec(value) {
   const parts = String(value || '').split(/[×xX*]/).map(p => p.trim())
-  return [parts[0] || '', parts[1] || '']
+  return [parts[0] || '', parts[1] || '', parts[2] || '']
 }
 function joinSpec(parts) {
   const clean = parts.map(p => String(p || '').trim())
