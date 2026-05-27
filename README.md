@@ -36,7 +36,26 @@
 
 ## 快速启动
 
-开发联调：
+**本地开发：**
+
+```bash
+# 配置本地环境（使用 SQLite）
+cp backend/.env.example backend/.env
+
+# 启动后端
+cd backend
+uvicorn app.main:app --reload
+
+# 启动前端
+cd frontend
+npm run dev
+```
+
+**生产部署：**
+
+详见 [DEPLOY.md](./DEPLOY.md)
+
+**Docker Compose（未来计划）：**
 
 ```bash
 docker compose up -d --build
