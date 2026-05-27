@@ -12,6 +12,7 @@ to boss/
 __pycache__/
 .pytest_cache/
 .tmp-pytest/
+.codegraph/
 backend/.pytest-cache/
 backend/.pytest-cache-2/
 backend/pytest-cache-files-*/

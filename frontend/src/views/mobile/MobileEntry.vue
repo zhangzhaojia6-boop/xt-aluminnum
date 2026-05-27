@@ -449,10 +449,6 @@ function goReportHistory() {
   router.push({ name: 'mobile-report-history' })
 }
 
-function goConsumableEntry() {
-  router.push({ name: 'mobile-consumable-entry' })
-}
-
 onMounted(() => {
   load()
   shiftClockTimer.value = setInterval(() => {
