@@ -151,7 +151,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             ('ZR2-C', '大夜班组'),
         ]
 
-        zr2_equipment = [item for item in equipment if item.code.startswith('ZR2-')]
+        zr2_equipment = [item for item in equipment if item.code.startswith('ZR2-') and item.equipment_type != 'virtual_role_qr']
         assert [(item.code, item.name, item.equipment_type) for item in zr2_equipment] == [
             ('ZR2-1', '1#机', 'cast_roller'),
             ('ZR2-2', '2#机', 'cast_roller'),
@@ -171,7 +171,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         ]
         assert zr2_equipment[0].custom_fields and zr2_equipment[0].custom_fields[0]['name'] == 'al_liquid_kg'
 
-        zr3_equipment = [item for item in equipment if item.code.startswith('ZR3-')]
+        zr3_equipment = [item for item in equipment if item.code.startswith('ZR3-') and item.equipment_type != 'virtual_role_qr']
         assert [(item.code, item.name, item.equipment_type) for item in zr3_equipment] == [
             ('ZR3-1', '1#机', 'cast_roller'),
             ('ZR3-2', '2#机', 'cast_roller'),
@@ -218,7 +218,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         assert ec.role == 'energy_chief'
         assert fs.role == 'storage_owner'
 
-        zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-')]
+        zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-') and item.equipment_type != 'virtual_role_qr']
         assert [(item.code, item.name, item.equipment_type, item.qr_code) for item in zxtf_equipment] == [
             ('ZXTF-1', '新厂北', 'annealing_line', 'XT-ZXTF-1'),
             ('ZXTF-2', '新厂南', 'annealing_line', 'XT-ZXTF-2'),
@@ -275,7 +275,7 @@ def test_seed_real_master_data_preserves_existing_qr_codes_and_seeds_mes_aliases
         zxtf_lines = db.execute(select(Equipment).where(Equipment.workshop_id == zxtf.id).order_by(Equipment.code.asc())).scalars().all()
         assert zxtf.name == '在线退火分厂'
         assert zxtf.workshop_type == 'annealing'
-        assert [(item.code, item.qr_code, item.operational_status) for item in zxtf_lines] == [
+        assert [(item.code, item.qr_code, item.operational_status) for item in zxtf_lines if item.equipment_type != 'virtual_role_qr'] == [
             ('ZXTF-1', 'XT-ZXTF-1', 'running'),
             ('ZXTF-2', 'XT-ZXTF-2', 'running'),
             ('ZXTF-3', 'XT-ZXTF-3', 'running'),

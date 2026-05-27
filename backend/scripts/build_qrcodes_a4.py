@@ -37,6 +37,8 @@ QR_SIZE = 120 * mm
 WORKSHOP_NAME = {w['code']: w['name'] for w in WORKSHOPS}
 
 OWNER_LABEL = {
+    'BZ': '班长',
+    'EN': '电工',
     'QM': '质检内勤',
     'PL': '计划内勤',
     'EC': '总电工',
@@ -111,16 +113,23 @@ def main() -> None:
             )
             count += 1
 
+    _PER_WORKSHOP_SUFFIXES = {'BZ', 'EN', 'OP'}
     for suffix, label, host_code in OWNER_QR_SPECS:
         ws_name = WORKSHOP_NAME.get(host_code, host_code)
         eq_code = f"{host_code}-{suffix}"
         qr_code = f"XT-{eq_code}"
         url = f"{PROD_URL}/login?machine={quote(qr_code)}"
+        if suffix in _PER_WORKSHOP_SUFFIXES:
+            title = f"{ws_name} {label}"
+            subtitle = f"角色码 · {eq_code}"
+        else:
+            title = label
+            subtitle = f"全厂专项 · {eq_code}"
         _draw_page(
             c,
             url=url,
-            title=label,
-            subtitle=f"全厂专项 · {eq_code}",
+            title=title,
+            subtitle=subtitle,
             tag=f'{label}扫码入口',
         )
         count += 1

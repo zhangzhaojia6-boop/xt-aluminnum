@@ -272,6 +272,7 @@ VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
+    'BZ': ('shift_leader', '班长'),
     # G14: owner role QRs
     'QM': ('quality_owner', '质检内勤'),
     'PL': ('planning_owner', '计划内勤'),
@@ -927,7 +928,14 @@ def seed_mes_master_aliases(db: Session) -> None:
         item.is_active = True
 
 
+_PRODUCTION_WORKSHOP_CODES = [
+    'ZD', 'ZR2', 'ZR3', 'RZ',
+    'LZ2050', 'LZ1850', 'LZ1650',
+    'JZ', 'JQ', 'LJ', 'ZXTF', 'CH',
+]
 OWNER_QR_SPECS = [
+    *[('BZ', '班长', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
+    *[('EN', '电工', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     ('QM', '质检内勤', 'CPK'),
     ('PL', '计划内勤', 'CPK'),
     ('EC', '总电工', 'CPK'),
