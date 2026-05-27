@@ -13,6 +13,7 @@ from app.models.system import User
 from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLoginResponse, RefreshRequest, UserInfo
 from app.services.audit_service import log_action
 from app.services.equipment_service import build_machine_info
+from app.services.real_master_data import ROLE_QR_SUFFIX_MAP
 
 router = APIRouter(tags=['auth'])
 
@@ -235,16 +236,3 @@ def logout() -> dict:
     return {'success': True, 'data': None, 'message': 'logout success', 'total': None}
 
 
-ROLE_QR_SUFFIX_MAP = {
-    # truth-source §2.1 final QR suffix map — legacy QC/CT/IK/UM/CS retired
-    'OP': ('machine_operator', '主操'),
-    'EN': ('energy_stat', '电工'),
-    # 7 owner + 3 独立 owner — full-company unique
-    'QM': ('quality_owner', '质检内勤'),
-    'PL': ('planning_owner', '计划内勤'),
-    'EC': ('energy_chief', '总电工'),
-    'FS': ('storage_owner', '成品库'),
-    'PSH': ('shipment_outflow_owner', '园区剪切'),
-    'RC': ('recovery_owner', '回收'),
-    'OH': ('overhaul_owner', '大修'),
-}

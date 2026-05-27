@@ -272,11 +272,6 @@ VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'QC': ('qc', '质检'),
-    'CT': ('contracts', '计划'),
-    'IK': ('inventory_keeper', '成品库'),
-    'UM': ('utility_manager', '水电气'),
-    'CS': ('consumable_stat', '内勤'),
     # G14: owner role QRs
     'QM': ('quality_owner', '质检内勤'),
     'PL': ('planning_owner', '计划内勤'),

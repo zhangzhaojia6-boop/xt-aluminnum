@@ -121,6 +121,14 @@ ENERGY_OWNER_FIELDS = [
         'role_read': ['energy_stat', 'admin', 'manager'],
         'hint': '由电工班长或能耗责任人补录。',
     },
+    {
+        'name': 'energy_note',
+        'label': '能耗备注',
+        'type': 'textarea',
+        'required': False,
+        'role_write': ['energy_stat'],
+        'role_read': ['energy_stat', 'admin', 'manager'],
+    },
 ]
 
 MAINTENANCE_OWNER_FIELDS: list[dict] = []
@@ -306,7 +314,7 @@ QC_OWNER_FIELDS = [
         'label': '质检结论',
         'type': 'text',
         'required': False,
-        'role_write': ['qc'],
+        'role_write': ['qc', 'quality_owner'],
         'role_read': ['qc', 'admin', 'manager'],
         'hint': '由质检岗位补录本班结论。',
     },
@@ -315,7 +323,7 @@ QC_OWNER_FIELDS = [
         'label': '质检备注',
         'type': 'text',
         'required': False,
-        'role_write': ['qc'],
+        'role_write': ['qc', 'quality_owner'],
         'role_read': ['qc', 'admin', 'manager'],
         'hint': '由质检岗位补录异常说明。',
     },
@@ -328,7 +336,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': True,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录当日入库成品。'
     },
@@ -338,7 +346,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '㎡',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录当日入库面积。'
     },
@@ -348,7 +356,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录本厂区转入园区成品库重量。'
     },
@@ -358,7 +366,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录园区入成品库重量。'
     },
@@ -368,7 +376,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录月累计入库成品。'
     },
@@ -378,7 +386,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '㎡',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录月累计入库面积。'
     },
@@ -388,7 +396,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': True,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录当日发货重量。'
     },
@@ -398,7 +406,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '㎡',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录当日发货面积。'
     },
@@ -408,7 +416,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录月累计对外发货重量。'
     },
@@ -418,7 +426,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '㎡',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录月累计对外发货面积。'
     },
@@ -428,7 +436,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录寄存重量。'
     },
@@ -438,7 +446,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': True,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录库存结存。'
     },
@@ -448,7 +456,7 @@ INVENTORY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['inventory_keeper'],
+        'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
         'hint': '由成品库负责人补录剪切备料重量。'
     },
@@ -461,7 +469,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'kWh',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录全厂总用电量。'
     },
@@ -471,7 +479,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'kWh',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录新厂用电量。'
     },
@@ -481,7 +489,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'kWh',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录园区用电量。'
     },
@@ -491,7 +499,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'm³',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录铸轧分厂天然气用量。'
     },
@@ -501,7 +509,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'm³',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录铸锭熔炼炉天然气用量。'
     },
@@ -511,7 +519,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'm³',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录热轧加热炉天然气用量。'
     },
@@ -521,7 +529,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'm³',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录锅炉天然气用量。'
     },
@@ -531,7 +539,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': 'm³',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录天然气总量。'
     },
@@ -541,7 +549,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录地下水使用量。'
     },
@@ -551,7 +559,7 @@ UTILITY_OWNER_FIELDS = [
         'type': 'number',
         'unit': '吨',
         'required': False,
-        'role_write': ['utility_manager'],
+        'role_write': ['utility_manager', 'energy_chief'],
         'role_read': ['utility_manager', 'admin', 'manager'],
         'hint': '由水电气负责人补录自来水使用量。'
     },
@@ -629,6 +637,15 @@ OVERHAUL_OWNER_FIELDS = [
         'label': '大修用电',
         'type': 'number',
         'unit': 'kWh',
+        'required': False,
+        'role_write': ['overhaul_owner'],
+        'role_read': ['overhaul_owner', 'admin', 'manager'],
+    },
+    {
+        'name': 'overhaul_gas_m3',
+        'label': '大修耗气',
+        'type': 'number',
+        'unit': 'm³',
         'required': False,
         'role_write': ['overhaul_owner'],
         'role_read': ['overhaul_owner', 'admin', 'manager'],

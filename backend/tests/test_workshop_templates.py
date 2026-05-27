@@ -149,7 +149,7 @@ def test_phase1_templates_split_owner_fields_for_energy_qc_and_contract_roles() 
     contracts_template = get_workshop_template('hot_roll', user_role='contracts')
 
     assert 'energy_kwh' not in [field['name'] for field in shift_leader_template['extra_fields']]
-    assert [field['name'] for field in energy_template['extra_fields']] == ['energy_kwh', 'gas_m3']
+    assert [field['name'] for field in energy_template['extra_fields']] == ['energy_kwh', 'gas_m3', 'energy_note']
     assert [field['name'] for field in qc_template['qc_fields']] == ['qc_grade', 'qc_notes']
     assert [field['name'] for field in contracts_template['extra_fields']] == [
         'contract_no',
