@@ -356,134 +356,94 @@ QC_OWNER_FIELDS = [
 
 INVENTORY_OWNER_FIELDS = [
     {
-        'name': 'storage_inbound_weight',
-        'label': '入库成品',
+        'name': 'park_inbound_daily',
+        'label': '园区入库（日合）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录当日入库成品。'
+        'hint': '园区当日入库重量'
     },
     {
-        'name': 'storage_inbound_area',
-        'label': '入库面积',
-        'type': 'number',
-        'unit': '㎡',
-        'required': False,
-        'role_write': ['inventory_keeper', 'storage_owner'],
-        'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录当日入库面积。'
-    },
-    {
-        'name': 'plant_to_park_inbound_weight',
-        'label': '本厂区入园区库',
+        'name': 'park_inbound_monthly',
+        'label': '园区入库（月累计）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录本厂区转入园区成品库重量。'
+        'hint': '园区本月累计入库重量'
     },
     {
-        'name': 'park_to_storage_inbound_weight',
-        'label': '园区入成品库',
+        'name': 'park_outbound_daily',
+        'label': '园区出库（日合）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录园区入成品库重量。'
+        'hint': '园区当日出库重量'
     },
     {
-        'name': 'month_to_date_inbound_weight',
-        'label': '月累计入库',
+        'name': 'park_outbound_monthly',
+        'label': '园区出库（月累计）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录月累计入库成品。'
+        'hint': '园区本月累计出库重量'
     },
     {
-        'name': 'month_to_date_inbound_area',
-        'label': '月累计入库面积',
-        'type': 'number',
-        'unit': '㎡',
-        'required': False,
-        'role_write': ['inventory_keeper', 'storage_owner'],
-        'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录月累计入库面积。'
-    },
-    {
-        'name': 'shipment_weight',
-        'label': '对外发货',
+        'name': 'new_plant_inbound_daily',
+        'label': '新厂入库（日合）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录当日发货重量。'
+        'hint': '新厂当日入库重量'
     },
     {
-        'name': 'shipment_area',
-        'label': '发货面积',
-        'type': 'number',
-        'unit': '㎡',
-        'required': False,
-        'role_write': ['inventory_keeper', 'storage_owner'],
-        'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录当日发货面积。'
-    },
-    {
-        'name': 'month_to_date_shipment_weight',
-        'label': '月累计发货',
+        'name': 'new_plant_inbound_monthly',
+        'label': '新厂入库（月累计）',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录月累计对外发货重量。'
+        'hint': '新厂本月累计入库重量'
     },
     {
-        'name': 'month_to_date_shipment_area',
-        'label': '月累计发货面积',
+        'name': 'new_plant_outbound_daily',
+        'label': '新厂出库（日合）',
         'type': 'number',
-        'unit': '㎡',
+        'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录月累计对外发货面积。'
+        'hint': '新厂当日出库重量'
+    },
+    {
+        'name': 'new_plant_outbound_monthly',
+        'label': '新厂出库（月累计）',
+        'type': 'number',
+        'unit': '吨',
+        'required': False,
+        'role_write': ['inventory_keeper', 'storage_owner'],
+        'role_read': ['inventory_keeper', 'admin', 'manager'],
+        'hint': '新厂本月累计出库重量'
     },
     {
         'name': 'consignment_weight',
-        'label': '寄存吨位',
+        'label': '成品库寄存',
         'type': 'number',
         'unit': '吨',
         'required': False,
         'role_write': ['inventory_keeper', 'storage_owner'],
         'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录寄存重量。'
-    },
-    {
-        'name': 'finished_inventory_weight',
-        'label': '成品库存',
-        'type': 'number',
-        'unit': '吨',
-        'required': True,
-        'role_write': ['inventory_keeper', 'storage_owner'],
-        'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录库存结存。'
-    },
-    {
-        'name': 'shearing_prepared_weight',
-        'label': '剪切备料',
-        'type': 'number',
-        'unit': '吨',
-        'required': False,
-        'role_write': ['inventory_keeper', 'storage_owner'],
-        'role_read': ['inventory_keeper', 'admin', 'manager'],
-        'hint': '由成品库负责人补录剪切备料重量。'
+        'hint': '成品库寄存重量'
     },
 ]
 
