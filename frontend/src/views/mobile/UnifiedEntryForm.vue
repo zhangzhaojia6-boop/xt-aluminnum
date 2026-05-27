@@ -344,8 +344,14 @@ function computeReadonly(rf) {
 function syncSpec(field) {
   const p0 = specParts[field.name + '_0'] || ''
   const p1 = specParts[field.name + '_1'] || ''
-  const p2 = field.spec_suffix || specParts[field.name + '_2'] || ''
-  form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
+  // If field has spec_suffix, only include p0 and p1 in form value (for locked field validation)
+  // The suffix is display-only and should not be part of the submitted value
+  if (field.spec_suffix) {
+    form[field.name] = [p0, p1].filter(Boolean).join('×')
+  } else {
+    const p2 = specParts[field.name + '_2'] || ''
+    form[field.name] = [p0, p1, p2].filter(Boolean).join('×')
+  }
 }
 
 function isLockedField(name) {
