@@ -102,7 +102,7 @@ ENERGY_OWNER_FIELDS = [
         'label': '电耗',
         'type': 'number',
         'unit': 'kWh',
-        'required': True,
+        'required': False,
         'role_write': ['energy_stat'],
         'role_read': ['energy_stat', 'admin', 'manager'],
         'hint': '由电工班长或能耗责任人补录。',
@@ -244,6 +244,11 @@ MACHINE_OPERATOR_CONSUMABLE_FIELDS: dict[str, list[dict]] = {
         _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
     ],
     'annealing': [
+        _consumable_field('rolling_oil_per_ton', '轧制油吨耗'),
+        _consumable_field('d40_per_ton', 'D40吨耗'),
+        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
+        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
+        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
         _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
     ],
     'coating': [
