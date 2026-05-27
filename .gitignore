@@ -1,4 +1,11 @@
 .env
+.env.local
+.env.*.local
+.env.production.backup
+backend/.env
+backend/.env.local
+backend/.env.*.local
+backend/.env.*.backup
 to boss/
 参考/
 *.pyc
@@ -12,6 +19,10 @@ backend/.pytest-run-*/
 backend/.codex-preview.db
 backend/local-dev.db
 backend/test_migration_chain.db
+backend/.codegraph/
+check_shift_leaders.py
+deploy.sh
+local-dev.db
 node_modules/
 dist/
 uploads/
