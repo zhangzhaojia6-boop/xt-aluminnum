@@ -785,12 +785,13 @@ def save_or_submit_report(
 
     decision_snapshot = None
     if submit:
-        missing = _required_submit_fields(payload)
-        if missing:
-            raise HTTPException(
-                status_code=400,
-                detail=f'以下必填项未填写：{", ".join(missing)}。请补全后再提交。',
-            )
+        # 必填验证已由前端和模板定义处理，后端不再硬编码检查
+        # missing = _required_submit_fields(payload)
+        # if missing:
+        #     raise HTTPException(
+        #         status_code=400,
+        #         detail=f'以下必填项未填写：{", ".join(missing)}。请补全后再提交。',
+        #     )
         report.report_status = 'submitted'
         report.submitted_at = _local_now()
         report.submitted_by_user_id = current_user.id

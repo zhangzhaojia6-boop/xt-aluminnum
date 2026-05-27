@@ -66,11 +66,8 @@ def assert_mobile_report_access(current_user: User, *, report, write: bool) -> S
         team_id=getattr(report, 'team_id', None),
         shift_id=getattr(report, 'shift_config_id', None),
     )
-    owner_user_id = getattr(report, 'owner_user_id', None)
-    if owner_user_id is not None and owner_user_id != getattr(current_user, 'id', None) and not summary.is_admin:
-        if not write:
-            raise _forbidden('You cannot view another mobile user report')
-        raise _forbidden('You cannot modify another mobile user report')
+    # 允许同一 scope 内的用户（主操、电工、质检等）互相补充数据
+    # owner_user_id 检查已被 assert_scope_access 覆盖
     return summary
 
 
