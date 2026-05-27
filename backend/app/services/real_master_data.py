@@ -272,7 +272,6 @@ VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
-    'BZ': ('shift_leader', '班长'),
     'CS': ('consumable_stat', '内勤'),
     # G14: owner role QRs
     'QM': ('quality_owner', '质检内勤'),
@@ -859,6 +858,18 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
             workshop.is_active = True
 
         qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
+
+        # BZ (班长) role QRs are deprecated. Mark equipment and user as inactive.
+        # Historical context: commit 5e66f6c added BZ QRs, later removed from
+        # OWNER_QR_SPECS but DB records persist. This prevents resurrection on startup.
+        if qr_suffix == 'BZ':
+            equipment.is_active = False
+            username = equipment.code.upper()
+            user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
+            if user is not None:
+                user.is_active = False
+            continue
+
         mapping = ROLE_QR_SUFFIX_MAP.get(qr_suffix)
         if mapping is None:
             equipment.is_active = False
@@ -935,7 +946,6 @@ _PRODUCTION_WORKSHOP_CODES = [
     'JZ', 'JQ', 'LJ', 'ZXTF', 'CH',
 ]
 OWNER_QR_SPECS = [
-    *[('BZ', '班长', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     *[('EN', '电工', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     *[('CS', '内勤', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     ('QM', '质检内勤', 'CPK'),
