@@ -273,6 +273,7 @@ ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
     'BZ': ('shift_leader', '班长'),
+    'CS': ('consumable_stat', '内勤'),
     # G14: owner role QRs
     'QM': ('quality_owner', '质检内勤'),
     'PL': ('planning_owner', '计划内勤'),
@@ -936,6 +937,7 @@ _PRODUCTION_WORKSHOP_CODES = [
 OWNER_QR_SPECS = [
     *[('BZ', '班长', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     *[('EN', '电工', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
+    *[('CS', '内勤', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
     ('QM', '质检内勤', 'CPK'),
     ('PL', '计划内勤', 'CPK'),
     ('EC', '总电工', 'CPK'),

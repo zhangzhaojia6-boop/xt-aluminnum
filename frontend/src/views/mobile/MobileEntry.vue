@@ -136,7 +136,7 @@
         <div class="mobile-entry-stage__quick-grid">
           <el-button type="primary" plain @click="goReport">填报</el-button>
           <el-button plain @click="goReportHistory">历史记录</el-button>
-          <el-button plain @click="goConsumableEntry">辅材填报</el-button>
+          <el-button v-if="auth.role === 'consumable_stat'" plain @click="goConsumableEntry">辅材填报</el-button>
         </div>
       </div>
     </section>
@@ -416,6 +416,7 @@ function goReport() {
   const ROLE_BUCKETS_USING_UNIFIED = new Set([
     'machine_operator',
     'energy_stat',
+    'consumable_stat',
     'quality_owner',
     'planning_owner',
     'energy_chief',

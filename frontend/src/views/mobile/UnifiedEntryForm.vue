@@ -248,6 +248,7 @@ const roleLabel = computed(() => {
   const labels = {
     machine_operator: '主操',
     energy_stat: '电工',
+    consumable_stat: '内勤',
     shift_leader: '班长',
     quality_owner: '全公司质检',
     planning_owner: '全公司合同',
@@ -263,6 +264,7 @@ const roleLabel = computed(() => {
 const ROLE_COLORS = {
   machine_operator: 'oklch(51% 0.17 255)',
   energy_stat: 'oklch(52% 0.13 158)',
+  consumable_stat: 'oklch(54% 0.095 54)',
   quality_owner: 'oklch(55% 0.15 28)',
   planning_owner: 'oklch(51% 0.17 255)',
   energy_chief: 'oklch(52% 0.13 158)',

@@ -39,6 +39,7 @@ WORKSHOP_NAME = {w['code']: w['name'] for w in WORKSHOPS}
 OWNER_LABEL = {
     'BZ': '班长',
     'EN': '电工',
+    'CS': '内勤',
     'QM': '质检内勤',
     'PL': '计划内勤',
     'EC': '总电工',
@@ -113,7 +114,7 @@ def main() -> None:
             )
             count += 1
 
-    _PER_WORKSHOP_SUFFIXES = {'BZ', 'EN', 'OP'}
+    _PER_WORKSHOP_SUFFIXES = {'BZ', 'EN', 'CS', 'OP'}
     for suffix, label, host_code in OWNER_QR_SPECS:
         ws_name = WORKSHOP_NAME.get(host_code, host_code)
         eq_code = f"{host_code}-{suffix}"

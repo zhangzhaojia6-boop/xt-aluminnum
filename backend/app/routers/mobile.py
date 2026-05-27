@@ -289,6 +289,7 @@ ROLE_FIELD_MAPPING = {
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
     'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
+    'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '辅材数据'},
     'quality_owner': {'direct_fields': QC_OWNER_FIELDS, 'label': '全公司质检'},
     'planning_owner': {'extra_filter': 'contracts', 'label': '全公司合同'},
     'energy_chief': {'direct_fields': UTILITY_OWNER_FIELDS, 'label': '跨车间能耗合计'},
