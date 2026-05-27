@@ -624,7 +624,7 @@ RECOVERY_OWNER_FIELDS = [
         'name': 'recovery_weight',
         'label': '回收重量',
         'type': 'number',
-        'unit': 'kg',
+        'unit': '块',
         'required': False,
         'role_write': ['recovery_owner'],
         'role_read': ['recovery_owner', 'admin', 'manager'],
