@@ -538,9 +538,17 @@ def _required_positive_weight(payload: dict, key: str, detail: str) -> Decimal:
 
 def _validate_coil_entry_weights(payload: dict) -> None:
     input_weight = _required_positive_weight(payload, 'input_weight', 'input_weight_required')
-    output_weight = _required_positive_weight(payload, 'output_weight', 'output_weight_required')
-    if output_weight > input_weight:
-        raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
+    # output_weight 改为可选
+    output_weight_raw = payload.get('output_weight')
+    if output_weight_raw is not None:
+        try:
+            output_weight = Decimal(str(output_weight_raw))
+            if not output_weight.is_finite() or output_weight <= 0:
+                raise HTTPException(status_code=422, detail='output_weight_invalid')
+            if output_weight > input_weight:
+                raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(status_code=422, detail='output_weight_invalid') from exc
 
 
 def create_coil_entry(

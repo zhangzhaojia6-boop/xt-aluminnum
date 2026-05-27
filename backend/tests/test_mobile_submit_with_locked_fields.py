@@ -221,7 +221,8 @@ def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
     assert response.json()['tracking_card_no'] == 'TRACK-LOCK-2'
 
 
-def test_mobile_coil_entry_rejects_missing_output_weight(tmp_path) -> None:
+def test_mobile_coil_entry_accepts_missing_output_weight(tmp_path) -> None:
+    """output_weight 改为可选后，允许不填"""
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
     client = _client_with_db(session_factory)
@@ -240,10 +241,15 @@ def test_mobile_coil_entry_rejects_missing_output_weight(tmp_path) -> None:
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 422
-    assert response.json()['detail'] == 'output_weight_required'
+    assert response.status_code == 200
+    data = response.json()
+    assert 'id' in data or 'work_order_id' in data
     with session_factory() as db:
-        assert db.query(WorkOrderEntry).count() == 0
+        entries = db.query(WorkOrderEntry).all()
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.input_weight == 1000
+        assert entry.output_weight is None
 
 
 def test_mobile_coil_entry_rejects_output_weight_above_input_weight(tmp_path) -> None:

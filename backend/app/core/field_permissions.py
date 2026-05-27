@@ -60,8 +60,6 @@ FIELD_OWNERSHIP = {
         'scrap_weight': {'write': ['shift_leader'], 'read': [READ_ALL]},
         'spool_weight': {'write': ['shift_leader'], 'read': [READ_ALL]},
         'operator_notes': {'write': ['shift_leader'], 'read': [READ_ALL]},
-        'verified_input_weight': {'write': ['shift_leader'], 'read': [READ_ALL]},
-        'verified_output_weight': {'write': ['shift_leader'], 'read': [READ_ALL]},
         'qc_grade': {'write': ['qc'], 'read': [READ_ALL]},
         'qc_notes': {'write': ['qc'], 'read': [READ_ALL]},
         'energy_kwh': {'write': ['energy_stat'], 'read': ['energy_stat', 'admin', 'manager', 'statistician']},
