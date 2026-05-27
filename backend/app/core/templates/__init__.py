@@ -969,7 +969,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
         ],
         'shift_fields': [],
         'extra_fields': [
-            # 铸造车间电工不填报能耗数据（已在 entry_fields 的 gas_consumption 中填写）
+            *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
             *CONSUMABLE_OWNER_FIELDS.get('casting', []),
         ],
