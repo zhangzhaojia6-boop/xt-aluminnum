@@ -338,22 +338,14 @@ CONTRACT_OWNER_FIELDS = [
 
 QC_OWNER_FIELDS = [
     {
-        'name': 'qc_grade',
-        'label': '质检结论',
-        'type': 'text',
+        'name': 'plant_wide_yield_rate',
+        'label': '全厂总成品率',
+        'type': 'number',
+        'unit': '%',
         'required': False,
         'role_write': ['qc', 'quality_owner'],
         'role_read': ['qc', 'admin', 'manager'],
-        'hint': '由质检岗位补录本班结论。',
-    },
-    {
-        'name': 'qc_notes',
-        'label': '质检备注',
-        'type': 'text',
-        'required': False,
-        'role_write': ['qc', 'quality_owner'],
-        'role_read': ['qc', 'admin', 'manager'],
-        'hint': '由质检岗位补录异常说明。',
+        'hint': '由质检岗位补录全厂总成品率。',
     },
 ]
 
