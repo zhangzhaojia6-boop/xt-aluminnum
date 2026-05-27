@@ -60,8 +60,8 @@ EQUIPMENT_BY_WORKSHOP = {
     'ZD': [
         {'code': 'ZD-1', 'name': '1#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'ZD-2', 'name': '2#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'running'},
-        {'code': 'ZD-3', 'name': '3#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'stopped'},
-        {'code': 'ZD-4', 'name': '4#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'stopped'},
+        {'code': 'ZD-3', 'name': '3#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'ZD-4', 'name': '4#线', 'machine_type': 'ingot_caster', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
     'ZR2': [
         {
