@@ -53,11 +53,6 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
     ]
     readonly_names = [field['name'] for field in template['readonly_fields']]
     assert readonly_names == [
-        'quality_note',
-        'quality_issue_type',
-        'quality_issue_card_no',
-        'quality_issue_desc',
-        'quality_issue_photo_path',
         'scrap_weight',
         'yield_rate',
     ]
@@ -86,11 +81,6 @@ def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
         'trim_weight',
     ]
     assert [field['name'] for field in template['readonly_fields']] == [
-        'quality_note',
-        'quality_issue_type',
-        'quality_issue_card_no',
-        'quality_issue_desc',
-        'quality_issue_photo_path',
         'scrap_weight',
         'yield_rate',
     ]

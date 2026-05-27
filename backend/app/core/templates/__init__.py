@@ -783,8 +783,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_spec', 'label': '下机规格', 'type': 'spec', 'required': False, 'hint': '()×()×()'},
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -823,8 +821,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '上机锭重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机卷重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'trim_weight', 'label': '切头重量', 'type': 'number', 'unit': 'kg', 'required': False},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -863,8 +859,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'material_state', 'label': '状态', 'type': 'select', 'required': False, 'options_source': 'material_states'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -905,8 +899,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'output_spec', 'label': '下机规格', 'type': 'spec', 'required': False, 'hint': '()×()×()'},
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -948,8 +940,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³', 'role_write': ['energy_stat', 'shift_leader']},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -983,8 +973,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'spool_weight', 'label': '套筒重量', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'tray_weight', 'label': '托盘重量', 'type': 'number', 'unit': 'kg', 'required': False},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -1042,8 +1030,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [
@@ -1080,8 +1066,6 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_spec', 'label': '上机规格', 'type': 'spec', 'required': True, 'hint': '()×()×()'},
             {'name': 'input_weight', 'label': '上机重量', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'output_weight', 'label': '下机重量', 'type': 'number', 'unit': 'kg', 'required': True},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
         ],
         'shift_fields': [],
         'extra_fields': [

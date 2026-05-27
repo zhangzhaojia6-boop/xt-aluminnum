@@ -56,12 +56,13 @@ def test_empty_payload_round_trip():
     assert flatten_payload(payload) == {}
 
 
-def test_quality_issue_fields_in_machine_operator_template():
-    """G11 — main entry templates must surface the quality-issue
-    section (not just `quality_note`)."""
+def test_quality_issue_fields_not_in_entry_fields():
+    """G11 — quality-issue fields are handled by the frontend interactive
+    module, NOT duplicated in template entry_fields."""
     from app.core.templates import DEFAULT_WORKSHOP_TEMPLATES
 
-    expected_keys = {
+    quality_keys = {
+        'quality_note',
         'quality_issue_type',
         'quality_issue_card_no',
         'quality_issue_desc',
@@ -70,5 +71,5 @@ def test_quality_issue_fields_in_machine_operator_template():
     for workshop_type in ('cold_roll', 'hot_roll', 'casting', 'finishing', 'shearing', 'straightening'):
         template = DEFAULT_WORKSHOP_TEMPLATES[workshop_type]
         names = {field['name'] for field in template['entry_fields']}
-        missing = expected_keys - names
-        assert not missing, f'{workshop_type} missing quality-issue fields: {missing}'
+        overlap = quality_keys & names
+        assert not overlap, f'{workshop_type} should not have quality fields in entry_fields: {overlap}'
