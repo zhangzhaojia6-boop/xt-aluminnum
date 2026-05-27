@@ -718,7 +718,7 @@ def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, worksh
 
     user.username = equipment.code
     user.name = f"{workshop.name} {equipment.name}"
-    user.role = 'shift_leader'
+    user.role = 'machine_operator'
     user.workshop_id = workshop.id
     user.team_id = None
     user.data_scope_type = 'self_workshop'

@@ -377,10 +377,6 @@ def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
         }
         assert 'liquefied_gas_per_ton' not in all_field_names
         assert 'titanium_wire_per_ton' not in all_field_names
-        assert 'paper_furnace' not in all_field_names
-        assert 'static_furnace' not in all_field_names
-        assert 'unit_output' not in all_field_names
-        assert 'gas_consumption' not in all_field_names
     else:
         assert fields_payload['identity_field'] is None
 

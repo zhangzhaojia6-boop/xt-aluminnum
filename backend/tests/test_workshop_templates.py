@@ -133,13 +133,12 @@ def test_casting_template_is_slow_and_includes_actual_extra_fields() -> None:
         'input_weight',
         'scrap_weight',
         'skin_weight',
-    ]
-    assert [field['name'] for field in template['shift_fields']] == [
         'paper_furnace',
         'static_furnace',
         'unit_output',
         'gas_consumption',
     ]
+    assert [field['name'] for field in template['shift_fields']] == []
     assert template['extra_fields'] == []
 
 

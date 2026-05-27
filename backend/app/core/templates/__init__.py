@@ -927,15 +927,14 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'input_weight', 'label': '投入铝锭', 'type': 'number', 'unit': 'kg', 'required': True},
             {'name': 'scrap_weight', 'label': '废料', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg', 'required': False},
-            QUALITY_NOTE_FIELD,
-            *QUALITY_ISSUE_FIELDS,
-        ],
-        'shift_fields': [
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³'},
+            QUALITY_NOTE_FIELD,
+            *QUALITY_ISSUE_FIELDS,
         ],
+        'shift_fields': [],
         'extra_fields': [
             *ENERGY_OWNER_FIELDS,
             *CONTRACT_OWNER_FIELDS,
