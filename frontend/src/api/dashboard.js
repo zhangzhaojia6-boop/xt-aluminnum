@@ -62,6 +62,11 @@ export async function fetchStatisticsReviewSummary(params = {}) {
   return fetchStatisticsDashboard(params)
 }
 
+export async function fetchDailyProduction(params = {}) {
+  const { data } = await api.get('/dashboard/daily-production', { params })
+  return data
+}
+
 export const dashboardApi = {
   getFactoryData: fetchFactoryDashboard,
   getWorkshopData: fetchWorkshopDashboard,

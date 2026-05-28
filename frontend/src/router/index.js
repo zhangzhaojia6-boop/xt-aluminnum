@@ -125,6 +125,7 @@ const rawRoutes = [
       { path: '', redirect: '/manage/today' },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '今日', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
+      { path: 'daily-report', name: 'manage-daily-report', component: () => import('../views/manage/daily-report/DailyProductionOverview.vue'), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/daily-report' } },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
       { path: 'alerts/legacy', name: 'manage-alerts-legacy', component: () => import('../views/manage/alerts/AlertsPage.legacy.vue'), meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts/legacy' } },
       { path: 'overview', name: 'review-overview-home', redirect: { name: 'manage-today' }, alias: ['dashboard'], meta: { ...reviewMeta, title: '工厂总览', centerNo: '01', canonical: '/manage/today' } },
