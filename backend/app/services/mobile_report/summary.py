@@ -545,8 +545,10 @@ def _validate_coil_entry_weights(payload: dict) -> None:
             output_weight = Decimal(str(output_weight_raw))
             if not output_weight.is_finite() or output_weight <= 0:
                 raise HTTPException(status_code=422, detail='output_weight_invalid')
-            if output_weight > input_weight:
-                raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
+            # 移除下机重量不能大于上机重量的硬性限制
+            # 某些工序（复合、涂层、包装）或计量误差可能导致下机重量大于上机重量
+            # if output_weight > input_weight:
+            #     raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
         except (InvalidOperation, ValueError) as exc:
             raise HTTPException(status_code=422, detail='output_weight_invalid') from exc
 
