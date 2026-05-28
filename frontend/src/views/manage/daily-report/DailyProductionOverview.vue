@@ -267,6 +267,9 @@ function deltaClass(v) {
   margin: 0 auto;
 }
 
+.dr-page :deep(.xt-kpi-bar) { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 900px) { .dr-page :deep(.xt-kpi-bar) { grid-template-columns: repeat(3, 1fr); } }
+
 .dr-header {
   display: flex;
   align-items: center;
