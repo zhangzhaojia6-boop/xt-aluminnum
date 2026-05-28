@@ -100,10 +100,15 @@ Codex 是执行者——承接明确定义的后端逻辑、数据处理、批�
 
 ## 云端同步规则
 
+**绝对禁止直接修改云端服务器。** 所有变更必须走 本地修改 → 本地测试 → git commit → git push → 云端 git pull 的流程。
+
 - 跟云端 (`8.140.218.13` /srv/aluminum-bypass/) 同步代码只走 git 仓库：本地 commit → push 到 main → 云端 `git pull` → 重启服务 / 重建前端 dist。
 - 禁止用 `scp` / `rsync` / 直接编辑云端文件 / 把本地未提交内容拷贝过去等任何绕开 git 的同步路径，避免本地与云端漂移。
+- 禁止在云端直接执行 `INSERT` / `UPDATE` / `DELETE` / `ALTER TABLE` 等写操作修改数据库。数据修复脚本必须先入库再通过部署流程执行。
+- 禁止在云端直接修改配置文件（`.env`、nginx 配置等）。配置变更也走 git。
 - 一次性脚本 (临时 reset / 数据修复 / 巡检脚本) 也要先入库 (放 `scripts/` 或同等位置) 再 push，不要在云端就地写或本地不提交就 scp。
 - 云端只允许执行：`git pull`、`pip install`、`npm run build`、`alembic upgrade`、`systemctl restart aluminum-bypass`、`nginx -s reload` 这一类幂等的部署动作。
+- 云端允许只读操作：`SELECT` 查询、`journalctl` 查看日志、`systemctl status` 检查状态等不改变系统状态的命令。
 - 紧急回滚：`git revert` 一笔新提交后 push，不要在云端 `git reset --hard` 制造分叉。
 
 ## 表达规则
