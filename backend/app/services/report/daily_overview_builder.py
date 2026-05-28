@@ -28,6 +28,16 @@ def _round2(v: float | None) -> float | None:
     return round(v, 2)
 
 
+def _fmt_delta_label(delta: float | None, *, suffix: str = '') -> str | None:
+    if delta is None:
+        return None
+    d = round(delta, 2)
+    if d == 0:
+        return None
+    arrow = '↑' if d > 0 else '↓'
+    return f'比昨日 {arrow}{abs(d)}{suffix}'
+
+
 def _delta(today: float | None, yesterday: float | None) -> float | None:
     if today is None or yesterday is None:
         return None
@@ -247,16 +257,16 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     header_kpis = [
         {'key': 'total_output', 'label': '车间总产量', 'value': _round2(total_today), 'unit': '吨',
          'delta': _delta(total_today, total_yesterday),
-         'delta_label': f'比昨日 {"↑" if total_today >= total_yesterday else "↓"}{abs(round(total_today - total_yesterday, 1))}'},
+         'delta_label': _fmt_delta_label(total_today - total_yesterday)},
         {'key': 'monthly_output', 'label': '月累计产量', 'value': _round2(total_monthly), 'unit': '吨'},
         {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total), 'unit': '吨'},
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),
-         'delta_label': f'比昨日 {"↑" if (yield_rates.get("daily_delta") or 0) >= 0 else "↓"}{abs(yield_rates.get("daily_delta") or 0)}%' if yield_rates.get('daily_delta') is not None else None},
+         'delta_label': _fmt_delta_label(yield_rates.get('daily_delta'), suffix='%')},
         {'key': 'daily_contracts', 'label': '当天接合同', 'value': contracts['daily_new'], 'unit': '个'},
         {'key': 'remaining_contracts', 'label': '总余合同量', 'value': contracts['remaining'], 'unit': '个',
          'delta': contracts['remaining_delta'],
-         'delta_label': f'比昨日 {"↑" if contracts["remaining_delta"] >= 0 else "↓"}{abs(contracts["remaining_delta"])}'},
+         'delta_label': _fmt_delta_label(contracts['remaining_delta'])},
         {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': cost.get('cost_per_ton'), 'unit': '元/吨'},
     ]
 
