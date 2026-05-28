@@ -1,4 +1,4 @@
-# 设计稿反推落地计划
+﻿# 设计稿反推落地计划
 
 > 本计划只覆盖“由 image-2 理想设计稿反推到可运行项目”的路径。业务链路修复和真实数据入库继续按独立闭环推进。
 
@@ -14,7 +14,7 @@
 
 - 技术栈：Vue 3、Vite、Element Plus、Pinia、ECharts、Three.js。
 - 页面壳层：`frontend/src/layout/ManageShell.vue`、`EntryShell.vue` 已存在。
-- 管理端路由：`/manage/overview`、`/manage/factory/*`、`/manage/reports`、`/manage/quality`、`/manage/ingestion`、`/manage/ai-assistant`、`/manage/admin/*` 已存在。
+- 管理端路由：`/manage/today`、`/manage/factory/*`、`/manage/reports`、`/manage/quality`、`/manage/ingestion`、`/manage/ai-assistant`、`/manage/admin/*` 已存在。
 - 设计 token：`frontend/src/design/xt-tokens.css` 已有工业蓝体系，但仍偏浅色；深色工业中枢 token 需要继续补齐。
 - 目标图：`docs/ui-reference/highres/01-overview.png` 到 `15-entry-responsive.png` 已存在，但它们属于旧浅色基线，不能作为最终视觉方向。
 - 当前约束：本计划只约束设计反推与页面还原，不覆盖已上线的数据链路、移动填报和 MES 绑定修复。
@@ -73,7 +73,7 @@ npm run build
 
 优先顺序：
 
-1. `/manage/overview`：总览驾驶舱，先解决离谱产量、单位和来源可见性。
+1. `/manage/today`：总览驾驶舱，先解决离谱产量、单位和来源可见性。
 2. `/manage/factory/machine-lines`：机列视图，打通填报端实时上传与外部生产系统线索绑定。
 3. `/manage/entry-center`：审核中心，突出待归属、锁定字段冲突、补录缺口。
 4. `/manage/ingestion`：数据接入，展示导入批次、字段映射、dry-run/staging 状态。
@@ -86,7 +86,7 @@ npm run build
 
 | 目标页 | 当前路由 / 入口 | 主要代码入口 | 数据 / BFF 口径 | 下一步还原动作 |
 | --- | --- | --- | --- | --- |
-| 全域工业 AI 生产中枢总览驾驶舱 | `/manage/overview` | `frontend/src/views/factory-command/FactoryOverview.vue` | `factory_command_service.build_overview()`、`realtime_service.build_live_aggregation()` | 用深色中枢首屏重排日/月累计、填报实时性、外部 MES 绑定、异常、AI 摘要 |
+| 全域工业 AI 生产中枢总览驾驶舱 | `/manage/today` | `frontend/src/views/factory-command/FactoryOverview.vue` | `factory_command_service.build_overview()`、`realtime_service.build_live_aggregation()` | 用深色中枢首屏重排日/月累计、填报实时性、外部 MES 绑定、异常、AI 摘要 |
 | 工厂总览页 | `/manage/factory`、`/manage/factory/flow` | `FactoryDirector.vue`、`ProductionFlowScreen.vue` | `factory_command_service.list_workshops()`、生产流转 view model | 按车间 -> 机列 -> 班次 -> 卷号展示生产流转和来源新鲜度 |
 | 经营驾驶舱 | `/manage/executive` | `ExecutiveDashboard.vue` | `dashboard_service`、经营估算 schemas | 补日/月/年累计、利润估算、合同达成、风险动作，不作财务结算 |
 | 移动录入端 | `/entry`、`/entry/fill`、`/entry/coil/:businessDate/:shiftId` | `MobileEntry.vue`、`UnifiedEntryForm.vue`、`CoilEntryWorkbench.vue` | `work_orders`、mobile report services、扫码锁定字段 | 深色移动工作台、按卷录入、草稿、异常补录、自动校验 |

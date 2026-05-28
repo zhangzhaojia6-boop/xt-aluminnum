@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+﻿import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
 async function loginAsAdmin(page) {
@@ -268,7 +268,7 @@ test('manager lands in manage shell without admin navigation', async ({ page }) 
     }
   })
 
-  await page.goto('/manage/overview')
+  await page.goto('/manage/today')
 
   await expect(page).toHaveURL(/\/manage\/overview$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
@@ -295,7 +295,7 @@ test('super admin can switch between admin entry and review surfaces', async ({ 
 
   await page.goto('/manage/admin')
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await page.goto('/manage/overview')
+  await page.goto('/manage/today')
   await expect(page).toHaveURL(/\/manage\/overview$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 })

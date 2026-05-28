@@ -1,4 +1,4 @@
-# 当前路由地图（2026-05-05）
+﻿# 当前路由地图（2026-05-05）
 
 ## 入口层
 
@@ -11,7 +11,7 @@
 
 ## 正式中心导航（现状）
 
-- 01 系统总览主视图：`/manage/overview`
+- 01 系统总览主视图：`/manage/today`
 - 03 独立填报端首页：`/entry`
 - 05 工厂作业看板：`/manage/factory`
 - 06 数据接入与字段映射中心：`/manage/ingestion`
@@ -37,7 +37,7 @@
 
 ## 审阅/管理链路（现状）
 
-- `/review/overview` -> `/manage/overview` -> `review-overview-home` -> `FactoryOverview.vue`，正式中心：系统总览主视图。
+- `/review/overview` -> `/manage/today` -> `review-overview-home` -> `FactoryOverview.vue`，正式中心：系统总览主视图。
 - `/review/tasks` -> `/manage/entry-center` -> `review-task-center` -> `ReviewTaskCenter.vue`，正式中心：审阅中心。
 - `/review/reports` -> `/manage/reports` -> `review-report-center` -> `ReportList.vue`，正式中心：日报与交付中心；当前通过 `frontend/src/api/reports.js` 调用 `/api/v1/reports`、详情、审核、发布、最终版和导出接口，不再走读面 mock。
 - `/review/cost-accounting`、`/review/cost`、`/manage/cost` -> `/manage/factory/cost` -> `factory-command-cost` -> `CostBenefitScreen.vue`，正式中心：经营效益；当前通过 factory-command store 调用 `/api/v1/factory-command/cost-benefit`，展示经营估算、毛差估算和待补口径，不作为财务结算或月度入账依据。`/manage/factory/cost/accounting` -> `factory-command-cost-accounting` -> `CostAccountingCenter.vue`，作为策略核算工作台承接 `frontend/src/services/costing/*` 的表模型快照和 admin-only “保存快照”动作；该入口仍不等同于人工复核或正式月结。
@@ -46,7 +46,7 @@
 - `/review/factory` -> `/manage/factory` -> `factory-dashboard` -> `FactoryDirector.vue`，正式中心：工厂作业看板。
 - `/review/workshop` -> `/manage/workshop` -> `workshop-dashboard` -> `WorkshopDirector.vue`，作为车间看板兼容保留。
 - `/review/brain` -> `/manage/ai-assistant` -> `factory-ai-assistant` -> `AiWorkstation.vue`，正式中心：AI 助手；当前通过 `useAiChatStore` 接会话、消息、主动汇报和关注列表，不使用前端读面 mock。后端是否 live 由 assistant 能力与模型配置决定，AI 仅提供辅助解释与建议，不自动执行质量、成本、排产或交付动作。
-- `/review/roadmap` -> `/manage/overview`，路线图入口隔离。
+- `/review/roadmap` -> `/manage/today`，路线图入口隔离。
 - `/review/ingestion`、`/review/ops-reliability`、`/review/governance`、`/review/template-center` -> 对应 `/manage/*` 管理路由，管理能力不再挂在审阅端。
 - `/admin` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`，管理端默认落点。
 - `/admin/ingestion` -> `/manage/ingestion` -> `admin-ingestion-center` -> `IngestionCenter.vue`，正式中心：数据接入与字段映射中心；当前调用导入历史、排班、打卡、生产、能源、MES 导出与通用导入接口。本页不表示外部 MES/ERP 已正式联通。

@@ -1,13 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-
 import { buildOverviewWipSummary } from '../src/utils/overviewWipSummary.js'
-
-const overviewCenterSource = readFileSync(
-  new URL('../src/views/review/OverviewCenter.vue', import.meta.url),
-  'utf8',
-)
 
 test('buildOverviewWipSummary renders MES projection values and source state', () => {
   const summary = buildOverviewWipSummary({
@@ -49,9 +42,3 @@ test('buildOverviewWipSummary hides values when WIP source is unavailable', () =
   assert.equal(summary.sourceTone, 'danger')
 })
 
-test('OverviewCenter uses live factory command data instead of WIP mock', () => {
-  assert.match(overviewCenterSource, /fetchFactoryCommandOverview/)
-  assert.match(overviewCenterSource, /buildOverviewWipSummary/)
-  assert.doesNotMatch(overviewCenterSource, /mesWipSnapshotMock/)
-  assert.doesNotMatch(overviewCenterSource, /source-badge is-fallback">fallback/)
-})

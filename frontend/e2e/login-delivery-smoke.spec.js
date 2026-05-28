@@ -63,13 +63,13 @@ test('compact manage routes default to entry unless desktop query is set', async
   await page.setViewportSize({ width: 430, height: 932 })
   await setupReviewSessionAndMocks(page)
 
-  await page.goto('/manage/overview')
+  await page.goto('/manage/today')
 
   await expect(page).toHaveURL(/\/entry$/)
   await expect(page.getByTestId('entry-shell')).toBeVisible()
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 
-  await page.goto('/manage/overview?desktop=1')
+  await page.goto('/manage/today?desktop=1')
 
   await expect(page).toHaveURL(/\/manage\/overview\?desktop=1$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()

@@ -21,6 +21,8 @@ const adminAuth = {
 const requiredPaths = [
   '/manage/ingestion',
   '/manage/master',
+  '/manage/alias',
+  '/manage/imports',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',
@@ -28,6 +30,7 @@ const requiredPaths = [
   '/manage/ops-center',
   '/manage/settings-center',
   '/manage/ai-assistant',
+  '/manage/admin/qr-print',
   '/manage/factory/destinations',
   '/manage/inventory',
   '/manage/contracts'
@@ -36,11 +39,14 @@ const requiredPaths = [
 const adminPaths = [
   '/manage/ingestion',
   '/manage/master',
+  '/manage/alias',
+  '/manage/imports',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',
   '/manage/admin/governance',
-  '/manage/settings-center'
+  '/manage/settings-center',
+  '/manage/admin/qr-print'
 ]
 
 const reviewPaths = [
@@ -91,7 +97,7 @@ test('frozen item paths are exact', () => {
   assert.deepEqual(frozen.map((item) => item.path).sort(), frozenPaths)
 })
 
-test('config includes the 12 required settings paths', () => {
+test('config includes the required settings paths', () => {
   const paths = itemPaths(SETTINGS_GROUPS)
 
   assert.deepEqual(paths.sort(), [...requiredPaths].sort())

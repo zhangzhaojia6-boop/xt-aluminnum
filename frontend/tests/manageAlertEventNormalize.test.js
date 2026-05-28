@@ -23,7 +23,7 @@ test('normalizeFactoryDirector maps recent_items to production domain', () => {
   assert.equal(out[0].domain, 'production')
   assert.equal(out[0].summary, '一车间产量异常')
   assert.equal(out[0].occurredAt, '2026-05-19T10:23:00')
-  assert.equal(out[0].detailRoute, '/manage/alerts/legacy?surface=anomaly')
+  assert.equal(out[0].detailRoute, '/manage/alerts?surface=anomaly')
   assert.equal(out[0].status, 'open')
 })
 
@@ -118,14 +118,14 @@ test('normalizeQuality maps to quality domain with quality detail route', () => 
   const out = normalizeQuality(items, DATE)
   assert.equal(out[0].id, 'quality:q1')
   assert.equal(out[0].domain, 'quality')
-  assert.equal(out[0].detailRoute, '/manage/alerts/legacy?surface=quality')
+  assert.equal(out[0].detailRoute, '/manage/alerts?surface=quality')
 })
 
 test('normalizeReconciliation maps to reconciliation domain', () => {
   const items = [{ id: 'r1', summary: '过磅差异', occurred_at: '2026-05-19T09:50:00' }]
   const out = normalizeReconciliation(items, DATE)
   assert.equal(out[0].domain, 'reconciliation')
-  assert.equal(out[0].detailRoute, '/manage/alerts/legacy?surface=reconciliation')
+  assert.equal(out[0].detailRoute, '/manage/alerts?surface=reconciliation')
 })
 
 test('id falls back to domain:index when raw id missing', () => {

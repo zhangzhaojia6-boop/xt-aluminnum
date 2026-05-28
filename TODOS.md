@@ -2,6 +2,20 @@
 
 按组件/功能分组，每项标注优先级（P0 最高 → P4 最低）。已完成的项移至文末 `## Completed`。
 
+## Open
+
+- **合并 3 份 canAccess 重复函数**
+  - **Priority:** P4
+  - `manage-navigation.js`、`manage-settings-drawer.js`、`navigation.js` 各有一份 `canAccess`，逻辑类似但不完全相同。合并为一份共享函数。
+
+- **清理 backend factory-command API/store 死代码**
+  - **Priority:** P4
+  - 前端 factory-command 视图已大量删除，backend `routers/factory_command.py` 和 frontend `stores/factory-command.js` 可能有不再被调用的端点和 action。
+
+- **补导航配置单元测试**
+  - **Priority:** P4
+  - `manage-navigation.js`、`manage-settings-drawer.js`、`navigation.js` 的分组逻辑和权限过滤缺少完整单元测试覆盖。
+
 ## Completed
 
 - **Phase C-1：异常与补录单列时间线**

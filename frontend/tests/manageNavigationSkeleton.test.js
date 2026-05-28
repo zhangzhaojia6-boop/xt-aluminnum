@@ -25,23 +25,23 @@ const adminPaths = [
   '/manage/admin/rules'
 ]
 
-test('owner skeleton exposes exactly the three top-level labels', () => {
+test('owner skeleton exposes current top-level labels', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '异常'])
+  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '异常', '交付'])
 })
 
-test('owner skeleton keeps one item per top-level group', () => {
+test('owner skeleton keeps daily report under today and report under delivery', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [2, 1, 1, 1])
 })
 
-test('owner skeleton paths point to today, production, and alerts', () => {
+test('owner skeleton paths point to current user-facing manage pages', () => {
   const groups = manageNavGroups(reviewAuth)
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(paths, ['/manage/today', '/manage/production', '/manage/alerts'])
+  assert.deepEqual(paths, ['/manage/today', '/manage/daily-report', '/manage/production', '/manage/alerts', '/manage/reports'])
 })
 
 test('admin configuration paths stay out of top-level navigation for admin auth', () => {

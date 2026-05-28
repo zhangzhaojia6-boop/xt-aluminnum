@@ -19,7 +19,7 @@ def global_search(
         raise HTTPException(status_code=422, detail='q must not be blank')
     query = stripped_query.lower()
     navigation = [
-        {'title': '总览', 'path': '/manage/overview', 'group': 'manage'},
+        {'title': '总览', 'path': '/manage/today', 'group': 'manage'},
         {'title': '填报中心', 'path': '/entry', 'group': 'entry'},
         {'title': 'AI 工作台', 'path': '/manage/ai', 'group': 'manage'},
     ]

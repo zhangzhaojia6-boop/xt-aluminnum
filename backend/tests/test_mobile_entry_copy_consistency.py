@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from pathlib import Path
@@ -70,9 +70,9 @@ def test_legacy_review_and_admin_redirects_preserve_query_and_hash() -> None:
     assert "function preserveRouteState(path)" in source
 
     expected_redirects = [
-        "path: '/review', redirect: preserveRouteState('/manage/overview')",
+        "path: '/review', redirect: preserveRouteState('/manage/today')",
         "path: '/review/reports', redirect: preserveRouteState('/manage/reports')",
-        "path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/overview')",
+        "path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/today')",
         "path: '/admin', redirect: preserveRouteState('/manage/admin/settings')",
         "path: '/admin/master/templates', redirect: preserveRouteState('/manage/admin/templates')",
         "path: '/admin/:pathMatch(.*)*', redirect: preserveRouteState('/manage/admin/settings')",
@@ -652,7 +652,7 @@ def test_review_router_closes_core_centers_for_target_granularity() -> None:
     assert "centerNo: '11'" in source
     assert "path: '/ops/reliability', redirect: '/manage/admin/settings'" in source
     assert "path: '/cost/accounting', redirect: '/manage/factory/cost'" in source
-    assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
+    assert "path: '/roadmap/next', redirect: '/manage/today'" in source
     assert "path: '/master/workshop-templates'" in source
     assert "redirect: '/manage/admin/templates'" in source
 
@@ -946,8 +946,8 @@ def test_login_review_surface_uses_manage_canonical_landing() -> None:
     login = _read_repo_file("frontend/src/views/Login.vue")
     command_login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
 
-    assert "return '/manage/overview'" in login
-    assert "return '/manage/overview'" in command_login
+    assert "return '/manage/today'" in login
+    assert "return '/manage/today'" in command_login
     assert "return '/review/overview'" not in login
     assert "return '/review/overview'" not in command_login
 

@@ -4,6 +4,8 @@ export const SETTINGS_GROUPS = [
     items: [
       { title: '接入', path: '/manage/ingestion', access: 'admin' },
       { title: '主数据', path: '/manage/master', access: 'admin' },
+      { title: '别名映射', path: '/manage/alias', access: 'admin' },
+      { title: '导入历史', path: '/manage/imports', access: 'admin' },
       { title: '模板', path: '/manage/admin/templates', access: 'admin' },
       { title: '规则', path: '/manage/admin/rules', access: 'admin' }
     ]
@@ -26,6 +28,7 @@ export const SETTINGS_GROUPS = [
   {
     label: '杂项 (冻结)',
     items: [
+      { title: 'QR 打印', path: '/manage/admin/qr-print', access: 'admin' },
       { title: '库存去向', path: '/manage/factory/destinations', access: 'review', frozen: true },
       { title: '库存', path: '/manage/inventory', access: 'review', frozen: true },
       { title: '合同', path: '/manage/contracts', access: 'review', frozen: true }

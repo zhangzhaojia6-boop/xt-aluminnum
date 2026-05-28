@@ -118,7 +118,7 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 const currentContext = computed(() => {
-  const routeScope = { type: 'route', key: route.path || '/manage/overview' }
+  const routeScope = { type: 'route', key: route.path || '/manage/today' }
   const scope = props.context?.scope || routeScope
   return {
     route: props.context?.route || route.path,

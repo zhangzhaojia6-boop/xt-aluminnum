@@ -2,7 +2,8 @@ import {
   Bell,
   DataLine,
   Histogram,
-  Sunny
+  Sunny,
+  TrendCharts
 } from '@element-plus/icons-vue'
 
 const NAV_GROUPS = [
@@ -26,6 +27,13 @@ const NAV_GROUPS = [
     commandGroup: '异常',
     items: [
       { title: '异常', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '异常' }
+    ]
+  },
+  {
+    label: '交付',
+    commandGroup: '交付',
+    items: [
+      { title: '报表', shortLabel: '报表', path: '/manage/reports', icon: TrendCharts, access: 'review', commandGroup: '交付' }
     ]
   }
 ]

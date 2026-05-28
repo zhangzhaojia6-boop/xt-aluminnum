@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -133,7 +133,7 @@ def test_reference_command_catalog_declares_15_target_modules_without_roadmap_pa
         assert title in catalog
 
     for current_token in [
-        "routePath: '/manage/overview'",
+        "routePath: '/manage/today'",
         "routePath: '/manage/factory'",
         "routePath: '/manage/ingestion'",
         "routePath: '/manage/entry-center'",
@@ -268,7 +268,7 @@ def test_review_overview_uses_single_reference_module_01() -> None:
     assert "XtTable" in overview
     assert "name: 'review-overview-home'" in router
     assert "component: LiveDashboard" in router
-    assert "canonical: '/manage/overview'" in router
+    assert "canonical: '/manage/today'" in router
 
 
 def test_entry_surface_is_entry_only_and_matches_modules_03_04() -> None:
@@ -344,7 +344,7 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
 
     assert "# UI 复刻规范（参考图级生产指挥中心执行规格）" in spec
     required_rows = [
-        "| 01 | 系统总览主视图 | 审阅端 | `/manage/overview` |",
+        "| 01 | 系统总览主视图 | 审阅端 | `/manage/today` |",
         "| 02 | 登录与角色入口 | 公共入口 | `/login` |",
         "| 03 | 独立填报端首页 | 录入端 | `/entry` |",
         "| 04 | 填报流程页 | 录入端 | `/entry/report/*`、`/entry/advanced/*` |",
@@ -380,7 +380,7 @@ def test_ui_replica_spec_locks_reference_module_granularity() -> None:
 
     for route_line in [
         "访问 `/review/*`、`/admin/*` 或 `/manage/*` 必须回跳 `/entry`",
-        "`/manage/overview`",
+        "`/manage/today`",
         "`/manage/factory`",
         "`/manage/entry-center`",
         "`/manage/admin/settings`",
@@ -758,7 +758,7 @@ def test_unified_shells_and_core_route_meta_follow_three_surface_blueprint() -> 
         ("canonical: '/entry'", "'03'"),
         ("path: 'report/:businessDate/:shiftId'", "'04'"),
         ("path: 'advanced/:businessDate/:shiftId'", "'04'"),
-        ("canonical: '/manage/overview'", "'01'"),
+        ("canonical: '/manage/today'", "'01'"),
         ("canonical: '/manage/factory'", "'05'"),
         ("canonical: '/manage/workshop'", "'05'"),
         ("canonical: '/manage/entry-center'", "'07'"),
@@ -891,7 +891,7 @@ def test_route_docs_match_live_centers_not_legacy_center_mocks() -> None:
 def test_mes_wip_data_audit_points_to_current_manage_surfaces() -> None:
     audit = _read_repo_file("docs/MES_WIP_DATA_AUDIT.md")
 
-    assert "前端展示位置：`/manage/factory`、`/manage/overview`、`/manage/ingestion`" in audit
+    assert "前端展示位置：`/manage/factory`、`/manage/today`、`/manage/ingestion`" in audit
     assert "前端展示位置：`/review/factory`、`/review/overview`、`/admin/ingestion`" not in audit
 
 
@@ -899,7 +899,7 @@ def test_current_route_map_lists_canonical_manage_center_paths() -> None:
     route_map = _read_repo_file("docs/current-route-map.md")
 
     for row in [
-        "- 01 系统总览主视图：`/manage/overview`",
+        "- 01 系统总览主视图：`/manage/today`",
         "- 05 工厂作业看板：`/manage/factory`",
         "- 06 数据接入与字段映射中心：`/manage/ingestion`",
         "- 07 审阅中心：`/manage/entry-center`",
@@ -914,7 +914,7 @@ def test_current_route_map_lists_canonical_manage_center_paths() -> None:
         "- `/admin/*`：管理端兼容入口，正式管理页面统一落到 `/manage/*`",
         "`/review/reconciliation` -> `/manage/reconciliation` -> `review-reconciliation-center`",
         "`/review/workshop` -> `/manage/workshop` -> `workshop-dashboard`",
-        "`/review/roadmap` -> `/manage/overview`",
+        "`/review/roadmap` -> `/manage/today`",
         "`/admin` -> `/manage/admin/settings` -> `admin-ops-reliability` -> `LiveDashboard.vue`",
     ]:
         assert row in route_map
@@ -1007,7 +1007,7 @@ def test_cost_accounting_runtime_strategy_workspace_is_documented() -> None:
 def test_review_roadmap_is_legacy_redirect_not_formal_center() -> None:
     source = _read_repo_file("frontend/src/router/index.js")
 
-    assert "{ path: '/review/roadmap', redirect: preserveRouteState('/manage/overview') }" in source
+    assert "{ path: '/review/roadmap', redirect: preserveRouteState('/manage/today') }" in source
     assert "name: 'review-roadmap-center'" not in source
     assert "moduleId: '16'" not in source
 

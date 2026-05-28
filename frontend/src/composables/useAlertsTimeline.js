@@ -8,9 +8,9 @@ import {
 } from '../components/manage/_alertEventNormalize.js'
 
 const FALLBACK_ROUTE = {
-  production: '/manage/alerts/legacy?surface=anomaly',
-  quality: '/manage/alerts/legacy?surface=quality',
-  reconciliation: '/manage/alerts/legacy?surface=reconciliation'
+  production: '/manage/alerts?surface=anomaly',
+  quality: '/manage/alerts?surface=quality',
+  reconciliation: '/manage/alerts?surface=reconciliation'
 }
 
 async function defaultFetchFD(params) {
@@ -47,7 +47,7 @@ export function createAlertsTimeline({
       id: `${domain}:__fallback__`,
       domain,
       occurredAt: `${targetDate.value}T23:59:59`,
-      summary: '加载失败，点击查看老页',
+      summary: '加载失败，点击查看异常页',
       detailRoute: FALLBACK_ROUTE[domain],
       status: null,
       isFallback: true

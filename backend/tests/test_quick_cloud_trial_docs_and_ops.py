@@ -1,4 +1,4 @@
-import importlib.util
+﻿import importlib.util
 import os
 import subprocess
 from pathlib import Path
@@ -179,7 +179,7 @@ def test_vercel_preview_uses_current_manage_smoke_paths() -> None:
         '- `main`',
         '- `/login`',
         '- `/entry`',
-        '- `/manage/overview`',
+        '- `/manage/today`',
         '- `/manage/ai-assistant`',
         '- `/manage/reports`',
         '- `/manage/quality`',
@@ -1316,7 +1316,7 @@ def test_operational_docs_use_current_entry_and_manage_routes() -> None:
     supplier = _read('docs/供应商对接手册-前端重构版.md')
 
     for token in [
-        '`/manage/overview` 可访问',
+        '`/manage/today` 可访问',
         '`/manage/factory`、`/manage/workshop` 可访问',
     ]:
         assert token in launch
@@ -1330,7 +1330,7 @@ def test_operational_docs_use_current_entry_and_manage_routes() -> None:
         assert token in identity
 
     for token in [
-        '审阅端：`/manage/overview`',
+        '审阅端：`/manage/today`',
         '厂级看板：`/manage/factory`',
         '车间看板：`/manage/workshop`',
         '`/review/*` 与 `/admin/*` 保留兼容 redirect 到 `/manage/*`',

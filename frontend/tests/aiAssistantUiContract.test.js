@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 function source(path) {
   return readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -58,18 +58,19 @@ test('ai workstation exposes assistant inbox tabs without stale capability copy'
   assert.doesNotMatch(workstation, /预测 \/ 分析 \/ 执行/)
 })
 
-test('overview center uses canonical assistant label and route', () => {
-  const overview = source('../src/views/review/OverviewCenter.vue')
+test('current management shell uses canonical assistant label and route context', () => {
+  const shell = source('../src/layout/ManageShell.vue')
+  const drawer = source('../src/components/ai/AiAssistantDrawer.vue')
 
-  assert.match(overview, /AI 助手/)
-  assert.match(overview, /factory-ai-assistant/)
-  assert.doesNotMatch(overview, /AI 总控中心/)
-  assert.doesNotMatch(overview, /review-brain-center/)
-  assert.doesNotMatch(overview, /进入 AI 工作台生成动作/)
+  assert.match(shell, /AI 助手/)
+  assert.match(drawer, /\/manage\/today/)
+  assert.doesNotMatch(shell, /AI 总控中心/)
+  assert.doesNotMatch(shell, /review-brain-center/)
+  assert.doesNotMatch(drawer, /\/manage\/overview/)
 })
 
-test('factory command screens offer scoped ask ai entry points', () => {
-  const screens = [
+test('retired factory command screens are no longer AI entry surfaces', () => {
+  const retiredScreens = [
     '../src/views/factory-command/FactoryOverview.vue',
     '../src/views/factory-command/ProductionFlowScreen.vue',
     '../src/views/factory-command/MachineLineScreen.vue',
@@ -78,10 +79,10 @@ test('factory command screens offer scoped ask ai entry points', () => {
     '../src/views/factory-command/ExceptionMap.vue'
   ]
 
-  for (const path of screens) {
-    const file = source(path)
-    assert.match(file, /问 AI/)
-    assert.match(file, /scope:\s*\{\s*type:/)
-    assert.match(file, /openAiAssistant/)
+  for (const path of retiredScreens) {
+    assert.equal(existsSync(new URL(path, import.meta.url)), false, `${path} should be deleted`)
   }
+
+  const destination = source('../src/views/factory-command/DestinationScreen.vue')
+  assert.doesNotMatch(destination, /问 AI/)
 })

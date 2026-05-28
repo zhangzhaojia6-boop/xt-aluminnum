@@ -37,10 +37,10 @@ defineProps({
 })
 
 const tabs = [
-  { key: 'overview', label: '总览', path: '/manage/overview' },
-  { key: 'flow', label: '流转', path: '/manage/factory/flow' },
-  { key: 'machine-lines', label: '机列', path: '/manage/factory/machine-lines' },
-  { key: 'exceptions', label: '异常', path: '/manage/factory/exceptions' }
+  { key: 'overview', label: '总览', path: '/manage/today' },
+  { key: 'production', label: '生产', path: '/manage/production' },
+  { key: 'destinations', label: '库存去向', path: '/manage/factory/destinations' },
+  { key: 'exceptions', label: '异常', path: '/manage/alerts?surface=anomaly' }
 ]
 </script>
 

@@ -4,9 +4,9 @@ import {
   formatReconciliationTypeLabel
 } from '../../utils/display.js'
 
-const FD_LEGACY = '/manage/alerts/legacy?surface=anomaly'
-const Q_LEGACY = '/manage/alerts/legacy?surface=quality'
-const R_LEGACY = '/manage/alerts/legacy?surface=reconciliation'
+const FD_ROUTE = '/manage/alerts?surface=anomaly'
+const Q_ROUTE = '/manage/alerts?surface=quality'
+const R_ROUTE = '/manage/alerts?surface=reconciliation'
 
 function safeArray(v) {
   return Array.isArray(v) ? v : []
@@ -86,7 +86,7 @@ export function normalizeFactoryDirector(payload, targetDate) {
       domain: 'production',
       occurredAt: fallbackOccurredAt(row, targetDate),
       summary: productionSummary(row),
-      detailRoute: FD_LEGACY,
+      detailRoute: FD_ROUTE,
       status: fallbackStatus(row)
     })
   })
@@ -96,7 +96,7 @@ export function normalizeFactoryDirector(payload, targetDate) {
       domain: 'reporting',
       occurredAt: fallbackOccurredAt(row, targetDate),
       summary: reportingSummary(row),
-      detailRoute: FD_LEGACY,
+      detailRoute: FD_ROUTE,
       status: fallbackStatus(row)
     })
   })
@@ -109,7 +109,7 @@ export function normalizeQuality(items, targetDate) {
     domain: 'quality',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: qualitySummary(row),
-    detailRoute: Q_LEGACY,
+    detailRoute: Q_ROUTE,
     status: fallbackStatus(row)
   }))
 }
@@ -120,7 +120,7 @@ export function normalizeReconciliation(items, targetDate) {
     domain: 'reconciliation',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: reconciliationSummary(row),
-    detailRoute: R_LEGACY,
+    detailRoute: R_ROUTE,
     status: fallbackStatus(row)
   }))
 }

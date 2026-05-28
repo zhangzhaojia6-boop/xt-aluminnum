@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+﻿import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
 test.beforeEach(async ({ page }, testInfo) => {
@@ -176,7 +176,7 @@ test('review roadmap legacy path redirects to review overview', async ({ page })
 })
 
 test('review navigation does not expose roadmap as a formal center', async ({ page }) => {
-  await page.goto('/manage/overview')
+  await page.goto('/manage/today')
 
   const reviewAside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   const roadmapItem = reviewAside.locator('.xt-manage__nav-item', { hasText: '路线图' })

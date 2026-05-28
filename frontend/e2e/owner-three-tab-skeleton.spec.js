@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+﻿import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
 
 test.describe('owner three-tab skeleton', () => {
@@ -31,7 +31,7 @@ test.describe('owner three-tab skeleton', () => {
   })
 
   test('legacy management paths redirect into the owner skeleton', async ({ page }) => {
-    await page.goto('/manage/overview')
+    await page.goto('/manage/today')
     await expect(page).toHaveURL(/\/manage\/today$/)
 
     await page.goto('/manage/factory')

@@ -1,4 +1,4 @@
-# Vercel Preview 轻测试清单
+﻿# Vercel Preview 轻测试清单
 
 ## 定位
 
@@ -58,7 +58,7 @@ Preview 不承诺真实后端能力，不伪造生产数据，不作为 MES、ER
 
 - `/login`
 - `/entry`
-- `/manage/overview`
+- `/manage/today`
 - `/manage/ai-assistant`
 - `/manage/reports`
 - `/manage/quality`

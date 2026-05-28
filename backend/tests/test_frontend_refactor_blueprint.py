@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
@@ -22,7 +22,7 @@ def test_navigation_declares_15_center_blueprint_without_roadmap() -> None:
 
     assert "export const centerNavigation" in source
     required = [
-        ("no: '01'", "title: '系统总览主视图'", "zone: 'review'", "path: '/manage/overview'"),
+        ("no: '01'", "title: '系统总览主视图'", "zone: 'review'", "path: '/manage/today'"),
         ("no: '03'", "title: '独立填报端首页'", "zone: 'entry'", "path: '/entry'"),
         ("no: '05'", "title: '工厂作业看板'", "zone: 'review'", "path: '/manage/factory'"),
         ("no: '06'", "title: '数据接入与字段映射中心'", "zone: 'admin'", "path: '/manage/ingestion'"),
@@ -51,7 +51,7 @@ def test_refactor_blueprint_documents_canonical_manage_routes() -> None:
     blueprint = _read("docs/REFACTOR_BLUEPRINT.md")
 
     for current_line in [
-        "- `/manage/overview`",
+        "- `/manage/today`",
         "- `/manage/factory`",
         "- `/manage/workshop`",
         "- `/manage/entry-center`",
@@ -65,7 +65,7 @@ def test_refactor_blueprint_documents_canonical_manage_routes() -> None:
         "- `/manage/admin/governance`",
         "- `/manage/master`",
         "- `/manage/admin/templates`",
-        "- 01 系统总览主视图：`/manage/overview`",
+        "- 01 系统总览主视图：`/manage/today`",
         "- 05 工厂作业看板：`/manage/factory`",
         "- 06 数据接入与字段映射中心：`/manage/ingestion`",
         "- 07 异常与补录：`/manage/entry-center`",
@@ -160,7 +160,7 @@ def test_ai_center_is_formal_and_roadmap_is_isolated_redirect() -> None:
     assert "centerNo: '11'" in assistant_block
     assert "canonical: '/manage/ai-assistant'" in assistant_block
 
-    assert "path: '/roadmap/next', redirect: '/manage/overview'" in source
+    assert "path: '/roadmap/next', redirect: '/manage/today'" in source
     assert "name: 'review-roadmap-center'" not in source
 
 
@@ -169,7 +169,7 @@ def test_legacy_paths_redirect_to_canonical_three_surfaces() -> None:
 
     for legacy, canonical in [
         ("path: '/mobile'", "path: '/entry'"),
-        ("path: '/dashboard'", "redirect: '/manage/overview'"),
+        ("path: '/dashboard'", "redirect: '/manage/today'"),
         ("path: '/master'", "redirect: '/manage/master'"),
         ("path: 'ingestion'", "name: 'admin-ingestion-center'"),
         ("path: 'admin/templates'", "name: 'admin-template-center'"),

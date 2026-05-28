@@ -1,11 +1,11 @@
-# 上线试用就绪清单（前端重构版）
+﻿# 上线试用就绪清单（前端重构版）
 
 ## A. 构建与可达性
 
 - [x] `npm --prefix frontend run build` 通过
 - [x] `/login` 可访问
 - [x] `/entry` 可访问
-- [x] `/manage/overview` 可访问
+- [x] `/manage/today` 可访问
 - [x] `/manage/factory`、`/manage/workshop` 可访问
 - [x] legacy 路径（`/mobile/*`、`/dashboard/*`、`/review/*`）可兼容跳转
 

@@ -26,10 +26,6 @@ const liveDashboardSource = readFileSync(
   new URL('../src/views/reports/LiveDashboard.vue', import.meta.url),
   'utf8',
 )
-const costCenterSource = readFileSync(
-  new URL('../src/views/review/CostAccountingCenter.vue', import.meta.url),
-  'utf8',
-)
 const referenceFrameSource = readFileSync(
   new URL('../src/components/reference/ReferencePageFrame.vue', import.meta.url),
   'utf8',
@@ -587,7 +583,7 @@ test('sortWorkshopsForCommandCenter puts workshops needing attention first', () 
   assert.equal(sortWorkshopsForCommandCenter(workshops)[0].workshop_name, '缺报车间')
 })
 
-test('manageNavGroups keeps the manager surface focused on daily factory work', () => {
+test('manageNavGroups keeps the manager surface focused on daily factory work and delivery', () => {
   const groups = manageNavGroups({
     canAccessReviewSurface: true,
     reviewSurface: true,
@@ -597,8 +593,8 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
   })
   const items = groups.flatMap((group) => group.items)
 
-  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '异常'])
-  assert.deepEqual(items.map((item) => item.path), ['/manage/today', '/manage/production', '/manage/alerts'])
+  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '异常', '交付'])
+  assert.deepEqual(items.map((item) => item.path), ['/manage/today', '/manage/daily-report', '/manage/production', '/manage/alerts', '/manage/reports'])
 
   for (const path of [
     '/manage/admin/settings',
@@ -722,44 +718,24 @@ test('realtime api exposes missing output weight correction endpoint', () => {
   assert.match(realtimeApiSource, /skipErrorToast:\s*true/)
 })
 
-test('CostAccountingCenter starts with a readable operating ledger', () => {
-  assert.match(costCenterSource, /收入估算/)
-  assert.match(costCenterSource, /成本估算/)
-  assert.match(costCenterSource, /毛利估算/)
-  assert.match(costCenterSource, /每吨成本/)
-  assert.doesNotMatch(costCenterSource, /revenuePerTon:\s*1200/)
-  assert.match(costCenterSource, /process-mobile-list/)
-  assert.match(costCenterSource, /高级参数/)
+test('retired CostAccountingCenter is absent from the active router', () => {
+  assert.doesNotMatch(routerSource, /CostAccountingCenter/)
+  assert.doesNotMatch(routerSource, /factory\/cost\/accounting/)
+  assert.doesNotMatch(routerSource, /factory-command-cost-accounting/)
 })
 
-test('CostAccountingCenter can persist generated cost table snapshots', () => {
+test('executive api keeps cost strategy snapshot endpoints available for backend compatibility', () => {
   assert.match(executiveApiSource, /saveCostStrategySnapshot/)
   assert.match(executiveApiSource, /api\.post\('\/executive\/cost-strategy-snapshots'/)
   assert.match(executiveApiSource, /tableModels/)
-  assert.match(costCenterSource, /saveCostStrategySnapshot/)
-  assert.match(costCenterSource, /data-testid="cost-snapshot-save"/)
-  assert.match(costCenterSource, /保存快照/)
-  assert.match(costCenterSource, /snapshotSaving/)
-  assert.match(costCenterSource, /snapshotSavedAt/)
-  assert.match(costCenterSource, /canPersistSnapshot/)
-  assert.match(costCenterSource, /useAuthStore/)
-  assert.match(costCenterSource, /handleSaveSnapshot/)
 })
 
-test('CostAccountingCenter exposes monthly review status boundary', () => {
+test('executive api keeps monthly review status endpoints available for backend compatibility', () => {
   assert.match(executiveApiSource, /fetchCostStrategyReviewStatus/)
   assert.match(executiveApiSource, /updateCostStrategyReviewStatus/)
   assert.match(executiveApiSource, /cost-strategy-snapshots\/review-status/)
   assert.match(executiveApiSource, /api\.get/)
   assert.match(executiveApiSource, /api\.post/)
-  assert.match(costCenterSource, /data-testid="cost-review-status"/)
-  assert.match(costCenterSource, /月度复核/)
-  assert.match(costCenterSource, /复核通过/)
-  assert.match(costCenterSource, /月结锁定/)
-  assert.match(costCenterSource, /fetchCostStrategyReviewStatus/)
-  assert.match(costCenterSource, /updateCostStrategyReviewStatus/)
-  assert.match(costCenterSource, /reviewStatusRows/)
-  assert.match(costCenterSource, /handleReviewStatusAction/)
 })
 
 test('LiveDashboard keeps the command matrix contained on narrow screens', () => {
