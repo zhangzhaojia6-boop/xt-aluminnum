@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.production import WorkOrder, WorkOrderEntry
 from app.services import energy_service
-from app.services.report._utils import _KG_DATA_SOURCES, _to_float
+from app.services.report._utils import _to_float
 
 
 DEFAULT_ELECTRICITY_PRICE = 0.65
@@ -20,13 +20,6 @@ DEFAULT_GAS_PRICE = 3.60
 
 def _workshop_map(db: Session) -> dict[int, str]:
     return {w.id: w.name for w in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()}
-
-
-def _weight_tons(value: float | Decimal | None, data_source: str | None = None) -> float:
-    v = _to_float(value)
-    if data_source in _KG_DATA_SOURCES:
-        return v / 1000
-    return v
 
 
 def _round2(v: float | None) -> float | None:
@@ -44,50 +37,48 @@ def _delta(today: float | None, yesterday: float | None) -> float | None:
 def _query_output_by_workshop(db: Session, start: date, end: date) -> dict[int, float]:
     rows = (
         db.query(
-            ShiftProductionData.workshop_id,
-            ShiftProductionData.data_source,
-            func.sum(ShiftProductionData.output_weight),
+            WorkOrderEntry.workshop_id,
+            func.sum(WorkOrderEntry.output_weight),
         )
         .filter(
-            ShiftProductionData.business_date >= start,
-            ShiftProductionData.business_date <= end,
-            ShiftProductionData.data_status.notin_(['voided']),
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
         )
-        .group_by(ShiftProductionData.workshop_id, ShiftProductionData.data_source)
+        .group_by(WorkOrderEntry.workshop_id)
         .all()
     )
     result: dict[int, float] = {}
-    for wid, ds, total in rows:
+    for wid, total in rows:
         if wid is None:
             continue
-        result[wid] = result.get(wid, 0) + _weight_tons(total, ds)
+        result[wid] = _to_float(total) / 1000
     return result
 
 
 def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict[int, dict]:
     rows = (
         db.query(
-            ShiftProductionData.workshop_id,
-            ShiftProductionData.data_source,
-            func.sum(ShiftProductionData.input_weight),
-            func.sum(ShiftProductionData.output_weight),
+            WorkOrderEntry.workshop_id,
+            func.sum(WorkOrderEntry.input_weight),
+            func.sum(WorkOrderEntry.output_weight),
         )
         .filter(
-            ShiftProductionData.business_date >= start,
-            ShiftProductionData.business_date <= end,
-            ShiftProductionData.data_status.notin_(['voided']),
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
         )
-        .group_by(ShiftProductionData.workshop_id, ShiftProductionData.data_source)
+        .group_by(WorkOrderEntry.workshop_id)
         .all()
     )
     result: dict[int, dict] = {}
-    for wid, ds, inp, out in rows:
+    for wid, inp, out in rows:
         if wid is None:
             continue
-        prev = result.get(wid, {'input': 0.0, 'output': 0.0})
-        prev['input'] += _weight_tons(inp, ds)
-        prev['output'] += _weight_tons(out, ds)
-        result[wid] = prev
+        result[wid] = {
+            'input': _to_float(inp) / 1000,
+            'output': _to_float(out) / 1000,
+        }
     return result
 
 
@@ -215,20 +206,11 @@ def _build_contracts(db: Session, target_date: date) -> dict:
         .scalar()
     ) or 0
 
-    yesterday_remaining = (
-        db.query(func.count(WorkOrder.id))
-        .filter(
-            WorkOrder.overall_status.notin_(['completed', 'cancelled']),
-            func.date(WorkOrder.created_at) <= target_date - timedelta(days=1),
-        )
-        .scalar()
-    ) or 0
-
     return {
         'daily_new': daily_new,
         'monthly_total': monthly_total,
         'remaining': remaining,
-        'remaining_delta': remaining - yesterday_remaining,
+        'remaining_delta': daily_new,
     }
 
 
