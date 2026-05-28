@@ -232,10 +232,8 @@ def test_unified_design_shell_and_app_components_exist() -> None:
 def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
     checks = {
         "frontend/src/views/Login.vue": [
-            "login-stage__role-grid",
-            "录入端",
-            "审阅端",
-            "管理端",
+            "管理员登录",
+            "仅管理员可登录管理端",
             "auth.login",
             "auth.dingtalkLogin",
         ],
@@ -245,19 +243,18 @@ def test_first_round_core_pages_use_app_components_and_mock_notice() -> None:
             "填报",
             "历史记录",
         ],
-        "frontend/src/views/review/OverviewCenter.vue": [
+        "frontend/src/views/reports/LiveDashboard.vue": [
             "ReferencePageFrame",
             "今日产量",
-            "AI 今日摘要",
-            "AI 风险摘要",
-        ],
-        "frontend/src/views/review/ReviewTaskCenter.vue": [
-            "ReferencePageFrame",
-            "异常与补录",
-            "缺报",
-            "退回",
-            "差异",
+            "缺报班次",
             "同步滞后",
+        ],
+        "frontend/src/views/manage/alerts/AlertsPage.vue": [
+            "data-testid=\"manage-alerts\"",
+            "useAlertsTimeline",
+            "DomainFilterChips",
+            "EventTimeline",
+            "异常",
         ],
     }
     for relative_path, tokens in checks.items():

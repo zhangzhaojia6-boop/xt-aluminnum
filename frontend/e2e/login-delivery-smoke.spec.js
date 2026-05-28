@@ -16,9 +16,9 @@ async function login(page) {
   await page.goto('/login')
 
   await expect(page.getByTestId('login-brand')).toBeVisible()
-  await expect(page.getByTestId('login-surface-entry')).toBeVisible()
-  await expect(page.getByTestId('login-surface-review')).toBeVisible()
-  await expect(page.getByTestId('login-surface-admin')).toBeVisible()
+  await expect(page.getByText('管理员登录')).toBeVisible()
+  await expect(page.getByTestId('login-surface-entry')).toHaveCount(0)
+  await expect(page.getByTestId('login-surface-review')).toHaveCount(0)
   await page.getByTestId('login-username').fill(username)
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
@@ -27,7 +27,7 @@ async function login(page) {
 test('login and view report delivery center contract', async ({ page }) => {
   await login(page)
 
-  await expect(page).toHaveURL(/\/(manage\/admin|entry|manage\/overview)$/)
+  await expect(page).toHaveURL(/\/manage\/admin/)
 
   await page.goto('/manage/reports')
 
@@ -46,16 +46,7 @@ test('compact clients land on mobile entry instead of review home by default', a
   await page.setViewportSize({ width: 430, height: 932 })
   await login(page)
 
-  await expect(page).toHaveURL(/\/(manage\/admin|mobile|entry|manage\/(overview|factory))/)
-  if (page.url().includes('/manage/admin')) {
-    await expect(page.getByTestId('manage-shell')).toBeVisible()
-    return
-  }
-  if (page.url().includes('/mobile') || page.url().includes('/entry')) {
-    await expect(page.getByTestId('mobile-entry')).toBeVisible()
-    await expect(page.getByRole('button', { name: '打开审阅端' })).toHaveCount(0)
-    return
-  }
+  await expect(page).toHaveURL(/\/manage\/admin/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 })
 

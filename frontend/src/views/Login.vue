@@ -26,29 +26,12 @@
           active-key="ai"
         />
 
-        <div class="login-stage__role-grid">
-          <button
-            v-for="option in surfaceOptions"
-            :key="option.value"
-            type="button"
-            :class="['login-stage__role-card', { 'is-accent': selectedSurface === option.value }]"
-            :data-testid="`login-surface-${option.value}`"
-            :aria-pressed="selectedSurface === option.value"
-            @click="selectedSurface = option.value"
-          >
-            <div class="login-stage__role-top">
-              <span>{{ option.label }}</span>
-              <em>{{ option.badge }}</em>
-            </div>
-            <strong>{{ option.title }}</strong>
-          </button>
-        </div>
       </div>
 
       <div class="login-card panel">
         <div class="login-card__head">
-          <span>审阅端 / 管理端</span>
-          <strong>账号登录</strong>
+          <span>管理端</span>
+          <strong>管理员登录</strong>
         </div>
 
         <el-alert
@@ -76,6 +59,16 @@
           show-icon
           :closable="false"
           class="panel"
+        />
+
+        <el-alert
+          v-if="loginError"
+          :title="loginError"
+          type="error"
+          show-icon
+          :closable="false"
+          class="panel"
+          data-testid="login-error"
         />
 
         <el-form ref="formRef" :model="form" :rules="rules" class="login-card__form" @submit.prevent="submit">
@@ -111,12 +104,6 @@
             进入系统
           </el-button>
         </el-form>
-
-        <div class="login-card__foot">
-          <span>录入端走钉钉</span>
-          <span>审阅端</span>
-          <span>管理端</span>
-        </div>
       </div>
     </section>
   </div>
@@ -141,18 +128,12 @@ const formRef = ref()
 const loading = ref(false)
 const qrLoginPending = ref(false)
 const dingtalkLoginPending = ref(false)
-const selectedSurface = ref('review')
+const loginError = ref('')
 
 const form = reactive({
   username: '',
   password: ''
 })
-
-const surfaceOptions = [
-  { value: 'entry', label: '录入端', badge: '钉钉', title: '现场填报' },
-  { value: 'review', label: '审阅端', badge: '桌面', title: '生产审阅' },
-  { value: 'admin', label: '管理端', badge: '桌面', title: '系统配置' }
-]
 
 const loginMapNodes = [
   { key: 'furnace', label: '熔铸炉', short: '炉', status: 'normal', x: '15%', y: '24%' },
@@ -205,21 +186,8 @@ function isDingTalkRuntime() {
   return Boolean(window.dd) || /DingTalk/i.test(userAgent)
 }
 
-function surfaceLandingPath(surface) {
-  if (surface === 'entry' && auth.entrySurface) return '/entry'
-  if (surface === 'review' && auth.reviewSurface) return '/manage/today'
-  if (surface === 'admin' && auth.adminSurface) return '/admin'
-  return ''
-}
-
 function resolveDefaultLandingPath() {
-  if (['team_leader', 'deputy_leader'].includes(auth.role)) return '/team-lead'
-  const selectedLanding = surfaceLandingPath(selectedSurface.value)
-  if (selectedLanding) return selectedLanding
-  if (auth.defaultSurface === 'entry') return '/entry'
-  if (auth.defaultSurface === 'admin') return '/admin'
-  if (auth.defaultSurface === 'review') return '/manage/today'
-  return auth.canAccessDesktop ? '/manage/today' : '/entry'
+  return auth.adminSurface ? '/admin' : '/login'
 }
 
 function resolveRedirectPath() {
@@ -241,14 +209,32 @@ function resolveRedirectPath() {
   }
 }
 
+function resolveLoginError(error) {
+  if (!error?.response) return '登录服务连接失败'
+  if (error.response.status === 429) return '尝试次数过多，请稍后再试'
+  if (error.response.status === 403) return '账号已停用'
+  if (error.response.status === 400 || error.response.status === 401) return '账号或密码不正确'
+  return '登录失败，请稍后再试'
+}
+
 async function submit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
+  loginError.value = ''
   try {
     await auth.login({ username: form.username, password: form.password })
+    if (!auth.adminSurface) {
+      auth.logout()
+      loginError.value = '仅管理员可登录管理端'
+      ElMessage.error(loginError.value)
+      return
+    }
     ElMessage.success('登录成功')
     router.push(resolveRedirectPath())
+  } catch (error) {
+    loginError.value = resolveLoginError(error)
+    ElMessage.error(loginError.value)
   } finally {
     loading.value = false
   }
@@ -319,7 +305,6 @@ onMounted(async () => {
 .login-stage__hero,
 .login-card,
 .login-stage__headline,
-.login-stage__role-grid,
 .login-card__head,
 .login-card__form {
   display: grid;
@@ -357,11 +342,10 @@ onMounted(async () => {
 }
 
 .login-stage__eyebrow,
-.login-card__head span,
-.login-stage__role-top span {
+.login-card__head span {
   font-size: 12px;
   letter-spacing: 0;
-  color: var(--app-muted);
+  color: var(--xt-hud-text-muted, var(--app-muted));
 }
 
 .login-stage__headline h2 {
@@ -469,78 +453,6 @@ onMounted(async () => {
   font-size: var(--xt-text-sm);
 }
 
-.login-stage__role-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.login-stage__role-card {
-  display: grid;
-  gap: 12px;
-  min-height: 122px;
-  padding: 16px;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  border-radius: var(--xt-radius-xl);
-  background: var(--xt-bg-panel-soft);
-  border: 1px solid var(--xt-border-light);
-  box-shadow: var(--app-shadow-xs);
-  transition:
-    transform var(--app-motion-base) var(--app-motion-curve),
-    background-color var(--app-motion-base) var(--app-motion-curve),
-    border-color var(--app-motion-base) ease,
-    color var(--app-motion-base) ease;
-}
-
-.login-stage__role-card:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.22);
-  outline-offset: 3px;
-}
-
-@media (hover: hover) {
-  .login-stage__role-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--xt-primary-border);
-    background: var(--xt-bg-panel-strong);
-  }
-}
-
-.login-stage__role-card:active {
-  transform: scale(0.98);
-}
-
-.login-stage__role-card.is-accent {
-  border-color: rgba(11, 99, 246, 0.28);
-  background: var(--xt-primary-light);
-}
-
-.login-stage__role-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.login-stage__role-top em {
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--xt-primary);
-  background: var(--xt-primary-soft);
-  border: 1px solid rgba(11, 99, 246, 0.18);
-  border-radius: 999px;
-  min-height: 26px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-}
-
-.login-stage__role-card strong {
-  font-size: 24px;
-  line-height: 1.12;
-  letter-spacing: 0;
-  color: var(--app-text);
-}
-
 .login-card {
   align-content: start;
   padding: 28px;
@@ -556,7 +468,7 @@ onMounted(async () => {
   font-size: 30px;
   line-height: 1;
   letter-spacing: 0;
-  color: var(--app-text);
+  color: var(--xt-hud-text, var(--app-text));
   font-family: var(--xt-font-display);
   font-weight: 900;
 }
@@ -568,24 +480,6 @@ onMounted(async () => {
 
 .login-card :deep(.el-button) {
   border-radius: 12px;
-}
-
-.login-card__foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.login-card__foot span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.04);
-  color: var(--app-muted);
-  font-size: 13px;
-  font-weight: 600;
 }
 
 @media (max-width: 980px) {
@@ -612,10 +506,6 @@ onMounted(async () => {
 
   .login-stage__map {
     min-height: 220px;
-  }
-
-  .login-stage__role-grid {
-    grid-template-columns: 1fr;
   }
 }
 

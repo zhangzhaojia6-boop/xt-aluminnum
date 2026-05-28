@@ -1,7 +1,7 @@
 import { api } from './index.js'
 
 export async function loginApi({ username, password }) {
-  const { data } = await api.post('/auth/login', { username, password })
+  const { data } = await api.post('/auth/login', { username, password }, { skipErrorToast: true })
   return data
 }
 

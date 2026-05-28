@@ -9,12 +9,12 @@ const shellSource = readFileSync(new URL('../src/views/team/TeamLeadShell.vue', 
 const overviewSource = readFileSync(new URL('../src/views/team/TeamLeadOverview.vue', import.meta.url), 'utf8')
 const workerDetailSource = readFileSync(new URL('../src/views/team/TeamLeadWorkerDetail.vue', import.meta.url), 'utf8')
 
-test('team lead route and login dispatch are wired', () => {
+test('team lead route stays wired outside password login', () => {
   assert.match(routerSource, /path: '\/team-lead'/)
   assert.match(routerSource, /TeamLeadShell/)
-  assert.match(loginSource, /team_leader/)
-  assert.match(loginSource, /deputy_leader/)
-  assert.match(loginSource, /\/team-lead/)
+  assert.doesNotMatch(loginSource, /team_leader/)
+  assert.doesNotMatch(loginSource, /deputy_leader/)
+  assert.doesNotMatch(loginSource, /\/team-lead/)
 })
 
 test('team lead api and shell expose five quadrants without helper copy', () => {

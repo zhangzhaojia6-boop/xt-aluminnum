@@ -230,13 +230,16 @@ def test_reference_command_keeps_legacy_routes_and_route_names() -> None:
         assert legacy_path in router
 
 
-def test_login_route_uses_three_surface_handoff() -> None:
+def test_login_route_keeps_admin_password_entrance_only() -> None:
     router = _read_repo_file("frontend/src/router/index.js")
     login = _read_repo_file("frontend/src/views/Login.vue")
 
     assert "component: Login" in router
-    for role in ["录入端", "审阅端", "管理端"]:
-        assert role in login
+    assert "管理员登录" in login
+    assert "仅管理员可登录管理端" in login
+    assert "login-stage__role-grid" not in login
+    assert "login-surface-entry" not in login
+    assert "login-surface-review" not in login
     assert "loginRoleHandoffImage" not in login
     assert "cmd-login-reference" not in login
     assert "login-stage" in login

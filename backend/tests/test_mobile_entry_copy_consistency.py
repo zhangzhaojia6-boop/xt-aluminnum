@@ -942,14 +942,12 @@ def test_machine_qr_urls_use_login_machine_entrypoint() -> None:
     assert "/mobile?machine=" not in wizard
 
 
-def test_login_review_surface_uses_manage_canonical_landing() -> None:
+def test_login_password_entrance_uses_admin_landing() -> None:
     login = _read_repo_file("frontend/src/views/Login.vue")
-    command_login = _read_repo_file("frontend/src/reference-command/pages/CommandLogin.vue")
 
-    assert "return '/manage/today'" in login
-    assert "return '/manage/today'" in command_login
+    assert "return auth.adminSurface ? '/admin' : '/login'" in login
+    assert "return '/manage/today'" not in login
     assert "return '/review/overview'" not in login
-    assert "return '/review/overview'" not in command_login
 
 
 def test_review_dashboards_parse_structured_load_errors() -> None:
