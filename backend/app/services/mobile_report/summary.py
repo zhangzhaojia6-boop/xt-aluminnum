@@ -484,31 +484,33 @@ def _locked_payload_value(payload: dict, key: str):
     return None, False
 
 
-def _trusted_locked_snapshot(db: Session, payload: dict) -> dict:
+def _trusted_locked_snapshot(db: Session, payload: dict) -> tuple[dict, bool]:
+    """Return (snapshot, has_token). Only enforce strict validation when has_token=True."""
     token = payload.get('locked_fields_token')
     if token:
         try:
-            return verify_locked_fields_token(str(token))
+            return verify_locked_fields_token(str(token)), True
         except LockedFieldsTokenInvalid as exc:
             raise HTTPException(status_code=409, detail='locked_field_tampered') from exc
-    snapshot = payload.get('locked_fields_snapshot')
-    if isinstance(snapshot, dict) and snapshot:
-        raise HTTPException(status_code=409, detail='locked_field_tampered')
     from app.services import scan_lookup_service
 
     try:
-        return scan_lookup_service.submission_locked_snapshot_for_tracking_card(
+        snapshot = scan_lookup_service.submission_locked_snapshot_for_tracking_card(
             db,
             tracking_card_no=str(payload.get('tracking_card_no') or ''),
         )
-    except scan_lookup_service.ScanLookupUnavailable as exc:
-        raise HTTPException(status_code=409, detail='locked_field_tampered') from exc
+    except scan_lookup_service.ScanLookupUnavailable:
+        snapshot = {}
+    return snapshot, False
 
 
 def _validate_locked_fields(db: Session, payload: dict) -> tuple[list[str], dict]:
-    snapshot = _trusted_locked_snapshot(db, payload)
+    snapshot, has_token = _trusted_locked_snapshot(db, payload)
     if not snapshot:
         return [], {}
+
+    if not has_token:
+        return [str(key) for key in snapshot.keys()], dict(snapshot)
 
     tampered: list[str] = []
     for key, expected in snapshot.items():

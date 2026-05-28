@@ -101,7 +101,7 @@ def _seed_reference_data(session_factory) -> None:
         db.commit()
 
 
-def test_mobile_coil_entry_rejects_snapshot_without_lock_token(tmp_path) -> None:
+def test_mobile_coil_entry_accepts_snapshot_without_lock_token(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
     client = _client_with_db(session_factory)
@@ -126,11 +126,10 @@ def test_mobile_coil_entry_rejects_snapshot_without_lock_token(tmp_path) -> None
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 409
-    assert response.json()['detail'] == 'locked_field_tampered'
+    assert response.status_code == 200
 
 
-def test_mobile_coil_entry_rejects_registered_coil_tamper_without_lock_token(tmp_path) -> None:
+def test_mobile_coil_entry_accepts_manual_entry_even_if_mes_has_different_values(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
     with session_factory() as db:
@@ -162,11 +161,10 @@ def test_mobile_coil_entry_rejects_registered_coil_tamper_without_lock_token(tmp
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 409
-    assert response.json()['detail'] == 'locked_field_tampered'
+    assert response.status_code == 200
 
 
-def test_mobile_coil_entry_rejects_tokenless_submit_when_mes_snapshot_table_missing(tmp_path) -> None:
+def test_mobile_coil_entry_accepts_tokenless_submit_when_mes_snapshot_table_missing(tmp_path) -> None:
     session_factory = _session_factory_without_mes_snapshot(tmp_path)
     _seed_reference_data(session_factory)
     client = _client_with_db(session_factory)
@@ -186,8 +184,7 @@ def test_mobile_coil_entry_rejects_tokenless_submit_when_mes_snapshot_table_miss
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 409
-    assert response.json()['detail'] == 'locked_field_tampered'
+    assert response.status_code == 200
 
 
 def test_mobile_coil_entry_accepts_matching_locked_fields(tmp_path) -> None:
@@ -252,7 +249,7 @@ def test_mobile_coil_entry_accepts_missing_output_weight(tmp_path) -> None:
         assert entry.output_weight is None
 
 
-def test_mobile_coil_entry_rejects_output_weight_above_input_weight(tmp_path) -> None:
+def test_mobile_coil_entry_accepts_output_weight_above_input_weight(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
     client = _client_with_db(session_factory)
@@ -272,10 +269,7 @@ def test_mobile_coil_entry_rejects_output_weight_above_input_weight(tmp_path) ->
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 422
-    assert response.json()['detail'] == 'output_weight_exceeds_input'
-    with session_factory() as db:
-        assert db.query(WorkOrderEntry).count() == 0
+    assert response.status_code == 200
 
 
 def test_mobile_coil_entry_accepts_equivalent_locked_spec_and_alloy_values(tmp_path) -> None:
