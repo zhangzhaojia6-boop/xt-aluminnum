@@ -1,5 +1,6 @@
 import {
   Bell,
+  DataLine,
   Histogram,
   Sunny
 } from '@element-plus/icons-vue'
@@ -9,7 +10,8 @@ const NAV_GROUPS = [
     label: '今日',
     commandGroup: '今日',
     items: [
-      { title: '今日', shortLabel: '今日', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '今日' }
+      { title: '今日', shortLabel: '今日', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '今日' },
+      { title: '日报总览', shortLabel: '日报', path: '/manage/daily-report', icon: DataLine, access: 'review', commandGroup: '今日' }
     ]
   },
   {
