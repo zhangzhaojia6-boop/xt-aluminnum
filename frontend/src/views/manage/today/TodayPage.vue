@@ -2,7 +2,7 @@
   <section class="xt-today" data-testid="manage-today">
     <header class="xt-today__header">
       <div class="xt-today__title-wrap">
-        <h1>今日</h1>
+        <h1>昨日总览</h1>
         <button
           v-if="reportingStatus.length"
           type="button"
@@ -41,12 +41,13 @@
 
     <div class="xt-today__row">
       <OutputTrendLine :series="trendSeries" :days="14" class="xt-today__row-trend" />
-      <CostLine
-        :estimate="snapshot.managementEstimate.value"
-        :series="trendSeries"
-        :days="14"
-        class="xt-today__row-cost"
-      />
+        <CostLine
+          :estimate="snapshot.managementEstimate.value"
+          :series="trendSeries"
+          :days="14"
+          cost-label="昨日估算成本"
+          class="xt-today__row-cost"
+        />
     </div>
 
     <WorkshopBarChart :rows="snapshot.productionLane.value" />
@@ -163,37 +164,37 @@ const kpiItems = computed(() => {
   const deltaSign = (delta != null && Number(delta) > 0) ? '+' : ''
   const deltaText = delta == null ? null : `${deltaSign}${fmt(delta, 1)} t`
 
-  return [
-    {
-      key: 'output',
-      label: '日产量',
-      value: fmt(lm.total_output_weight, 2),
-      unit: '吨',
+      return [
+        {
+          key: 'output',
+          label: '昨日成品',
+          value: fmt(lm.total_output_weight, 2),
+          unit: '吨',
       deltaText,
       deltaTone,
       spark: outputTonsSpark.value,
       sparkTone: 'primary'
     },
-    {
-      key: 'energy',
-      label: '日吨能耗',
-      value: fmt(lm.energy_per_ton, 1),
-      unit: 'kWh/吨',
+        {
+          key: 'energy',
+          label: '昨日吨能耗',
+          value: fmt(lm.energy_per_ton, 1),
+          unit: 'kWh/吨',
       spark: energyPerTonSpark.value,
       sparkTone: 'warning'
     },
-    {
-      key: 'cost',
-      label: '日吨成本',
-      value: tonCost,
-      unit: '元/吨',
-      hint: cost == null ? '估算未就绪' : null
-    },
-    {
-      key: 'mtd',
-      label: '月累产量',
-      value: fmt(ma.total_output, 0),
-      unit: '吨',
+        {
+          key: 'cost',
+          label: '昨日吨成本',
+          value: tonCost,
+          unit: '元/吨',
+          hint: cost == null ? '估算未就绪' : null
+        },
+        {
+          key: 'mtd',
+          label: '月累计成品',
+          value: fmt(ma.total_output, 0),
+          unit: '吨',
       spark: mtdSpark.value,
       sparkTone: 'success'
     },

@@ -77,7 +77,7 @@ const kpiItems = computed(() => {
   const marginValue = marginReady ? (Number(me.estimated_margin) / 10000).toFixed(1) : '—'
 
   return [
-    { key: 'output', label: '已产', value: fmt(lm.total_output_weight, 2), unit: '吨' },
+    { key: 'output', label: '成品产量', value: fmt(lm.total_output_weight, 2), unit: '吨' },
     { key: 'delta', label: '比昨日', value: deltaText, unit: '吨', tone: deltaTone },
     {
       key: 'margin',

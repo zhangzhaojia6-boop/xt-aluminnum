@@ -18,6 +18,7 @@ from app.models.reconciliation import DataReconciliationItem
 from app.services import energy_service
 from app.services import mes_sync_service
 from app.services import quality_service
+from app.services.report import daily_overview_builder
 from app.models.reports import DailyReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -874,26 +875,20 @@ def build_comparison(db: Session, *, target_date: date) -> dict[str, Any]:
 
 
 def build_timeseries(db: Session, *, start_date: date, end_date: date) -> list[dict[str, Any]]:
-    rows = (
-        db.query(
-            ShiftProductionData.business_date,
-            func.sum(ShiftProductionData.output_weight).label('output'),
-            func.sum(ShiftProductionData.electricity_kwh).label('energy'),
-        )
-        .filter(
-            ShiftProductionData.business_date >= start_date,
-            ShiftProductionData.business_date <= end_date,
-            ShiftProductionData.data_status != 'voided',
-        )
-        .group_by(ShiftProductionData.business_date)
-        .order_by(ShiftProductionData.business_date)
-        .all()
-    )
-    return [
-        {
-            'date': r.business_date.isoformat(),
-            'output': float(r.output or 0),
-            'energy': float(r.energy or 0),
-        }
-        for r in rows
-    ]
+    output_by_date = daily_overview_builder._query_plant_output_totals_by_date(db, start_date, end_date)
+    payload: list[dict[str, Any]] = []
+    current = start_date
+    while current <= end_date:
+        energy_summary = energy_service.summarize_energy_for_date(db, business_date=current)
+        output_tons = float(output_by_date.get(current) or 0.0)
+        energy_value = float(energy_summary.get('electricity_value') or 0.0)
+        if output_tons > 0 or energy_value > 0:
+            payload.append(
+                {
+                    'date': current.isoformat(),
+                    'output': round(output_tons * 1000, 3),
+                    'energy': energy_value,
+                }
+            )
+        current += timedelta(days=1)
+    return payload

@@ -6,9 +6,10 @@ function source(rel) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8')
 }
 
-test('CostLine renders 今日估算成本 + 口径：估算 with required test-id', () => {
+test('CostLine renders configurable cost label + 口径：估算 with required test-id', () => {
   const src = source('../src/components/manage/CostLine.vue')
   assert.match(src, /data-testid="manage-cost-line"/)
+  assert.match(src, /costLabel/)
   assert.match(src, /今日估算成本/)
   assert.match(src, /口径：估算/)
 })

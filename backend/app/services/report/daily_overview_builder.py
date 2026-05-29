@@ -10,12 +10,15 @@ from sqlalchemy.orm import Session
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot
 from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.shift import ShiftConfig
+from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
 from app.services.report._utils import _to_float
 
 
 DEFAULT_ELECTRICITY_PRICE = 0.65
 DEFAULT_GAS_PRICE = 3.60
+SHIFT_ORDER = ('A', 'B', 'C')
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
@@ -238,6 +241,143 @@ def _build_cost(total_output: float, energy: dict) -> dict:
     }
 
 
+def _entry_sort_key(row: WorkOrderEntry) -> tuple:
+    return (
+        row.approved_at or row.verified_at or row.submitted_at or row.updated_at or row.created_at,
+        row.id,
+    )
+
+
+def _query_latest_mobile_coil_rows(db: Session, start: date, end: date) -> list[WorkOrderEntry]:
+    rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
+            WorkOrderEntry.entry_type == 'mobile_coil',
+            WorkOrderEntry.output_weight.is_not(None),
+        )
+        .all()
+    )
+
+    latest_by_work_order_day: dict[tuple[date, int], WorkOrderEntry] = {}
+    for row in rows:
+        if row.work_order_id is None or row.business_date is None:
+            continue
+        key = (row.business_date, int(row.work_order_id))
+        current = latest_by_work_order_day.get(key)
+        if current is None or _entry_sort_key(row) >= _entry_sort_key(current):
+            latest_by_work_order_day[key] = row
+    return list(latest_by_work_order_day.values())
+
+
+def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = _query_latest_mobile_coil_rows(db, start, end)
+    totals: dict[date, float] = {}
+    for row in rows:
+        business_date = row.business_date
+        totals[business_date] = totals.get(business_date, 0.0) + (_to_float(row.output_weight) / 1000)
+    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+
+
+def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
+    month_start = target_date.replace(day=1)
+    totals_by_date = _query_plant_output_totals_by_date(db, month_start, target_date)
+    daily_output = totals_by_date.get(target_date, 0.0)
+    yesterday_output = totals_by_date.get(target_date - timedelta(days=1), 0.0)
+    monthly_output = sum(totals_by_date.values())
+    total_electricity = _to_float(energy.get('total_electricity'))
+    energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
+    return {
+        'basis': 'latest_mobile_coil_output',
+        'basis_label': '全厂成品产量',
+        'daily_output': _round2(daily_output),
+        'yesterday_output': _round2(yesterday_output),
+        'monthly_output': _round2(monthly_output),
+        'energy_per_ton': energy_per_ton,
+    }
+
+
+def _build_shift_breakdown(db: Session, target_date: date) -> dict:
+    latest_rows = _query_latest_mobile_coil_rows(db, target_date, target_date)
+    shift_meta = {
+        item.id: item
+        for item in db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
+    }
+
+    def canonical_shift_code(meta: ShiftConfig | None) -> str | None:
+        code = str(getattr(meta, 'code', '') or '').strip().upper()
+        name = str(getattr(meta, 'name', '') or '').strip()
+        if code in {'A', 'DAY'} or '白班' in name:
+            return 'A'
+        if code in {'B', 'MID'} or '中班' in name or '小夜' in name:
+            return 'B'
+        if code in {'C', 'NIGHT'} or '夜班' in name or '大夜' in name:
+            return 'C'
+        return None
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in latest_rows:
+        if row.shift_id is None:
+            continue
+        meta = shift_meta.get(int(row.shift_id))
+        bucket = canonical_shift_code(meta)
+        if bucket is None:
+            continue
+        payload = grouped.setdefault(
+            bucket,
+            {
+                'meta': meta,
+                'total_output': 0.0,
+                'total_energy': 0.0,
+                'entry_count': 0,
+                'workshop_count': 0,
+            },
+        )
+        payload['total_output'] += round((_to_float(getattr(row, 'output_weight', None)) / 1000), 2)
+        payload['total_energy'] += round(_to_float(getattr(row, 'energy_kwh', None)), 1)
+        payload['entry_count'] += 1
+        payload['workshop_count'] += 1 if getattr(row, 'workshop_id', None) is not None else 0
+
+    shifts: list[dict[str, Any]] = []
+    grand_output = 0.0
+    grand_energy = 0.0
+    for code in SHIFT_ORDER:
+        bucket = grouped.get(code) or {}
+        meta = bucket.get('meta')
+        total_output = round(float(bucket.get('total_output') or 0.0), 2)
+        total_energy = round(float(bucket.get('total_energy') or 0.0), 1)
+        entry_count = int(bucket.get('entry_count') or 0)
+        workshop_count = int(bucket.get('workshop_count') or 0)
+        grand_output += total_output
+        grand_energy += total_energy
+        shift_window = ''
+        if meta is not None:
+            shift_window = f"{meta.start_time.strftime('%H:%M')}-{meta.end_time.strftime('%H:%M')}"
+        shifts.append({
+            'shift_code': code,
+            'shift_name': meta.name if meta is not None else code,
+            'shift_window': shift_window,
+            'shift_count': entry_count,
+            'total_output': total_output,
+            'reported_workshops': workshop_count,
+            'expected_workshops': workshop_count,
+            'energy_per_ton': round(total_energy / total_output, 1) if total_output > 0 and total_energy > 0 else None,
+            'exception_count': 0,
+        })
+    return {
+        'business_date': target_date.isoformat(),
+        'total_output': round(grand_output, 2),
+        'total_throughput': round(grand_output, 2),
+        'output_basis': 'latest_mobile_coil_output',
+        'output_basis_label': '全厂成品产量',
+        'total_energy_kwh': round(grand_energy, 1),
+        'energy_per_ton': round(grand_energy / grand_output, 1) if grand_output > 0 and grand_energy > 0 else None,
+        'shifts': shifts,
+    }
+
+
 def build_daily_production_overview(db: Session, *, target_date: date) -> dict[str, Any]:
     ws_map = _workshop_map(db)
 
@@ -246,6 +386,8 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     yield_rates = _build_yield_rates(db, target_date)
     energy = _build_energy(db, target_date)
     contracts = _build_contracts(db, target_date)
+    plant_output = _build_plant_output(db, target_date, energy)
+    shift_breakdown = _build_shift_breakdown(db, target_date)
 
     total_today = sum(r['daily_output'] or 0 for r in workshop_output)
     total_yesterday = sum(r['yesterday_output'] or 0 for r in workshop_output)
@@ -253,6 +395,7 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     wip_total = sum(r['total_weight'] or 0 for r in wip)
 
     cost = _build_cost(total_today, energy)
+    plant_cost = _build_cost(plant_output['daily_output'] or 0, energy)
 
     header_kpis = [
         {'key': 'total_output', 'label': '车间总产量', 'value': _round2(total_today), 'unit': '吨',
@@ -273,12 +416,15 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     return {
         'target_date': target_date.isoformat(),
         'header_kpis': header_kpis,
+        'plant_output': plant_output,
+        'shift_breakdown': shift_breakdown,
         'workshop_output': workshop_output,
         'wip_distribution': wip,
         'yield_rates': yield_rates,
         'energy': energy,
         'contracts': contracts,
         'cost': cost,
+        'plant_cost': plant_cost,
         'attendance': None,
         'oil_consumption': None,
     }

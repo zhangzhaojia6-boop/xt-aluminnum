@@ -25,7 +25,8 @@ use([
 const props = defineProps({
   estimate: { type: Object, default: () => ({}) },
   series: { type: Array, default: () => [] },
-  days: { type: Number, default: 14 }
+  days: { type: Number, default: 14 },
+  costLabel: { type: String, default: '今日估算成本' }
 })
 
 const chartTheme = useHudChartTheme()
@@ -120,7 +121,7 @@ const option = computed(() => {
   <section class="xt-cost-panel" data-testid="manage-cost-line">
     <header class="xt-cost-panel__head">
       <div class="xt-cost-panel__cost" :class="{ 'is-muted': muted }">
-        <span class="xt-cost-panel__cost-label">今日估算成本</span>
+        <span class="xt-cost-panel__cost-label">{{ costLabel }}</span>
         <div class="xt-cost-panel__cost-row">
           <span class="xt-cost-panel__cost-value">{{ costWan }}</span>
           <span class="xt-cost-panel__cost-unit" v-if="!muted">万</span>

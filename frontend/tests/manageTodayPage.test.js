@@ -22,9 +22,9 @@ test('TodayPage composes the 6 Phase B pieces', () => {
   assert.match(src, /useDashboardSnapshot/)
 })
 
-test('TodayPage h1 is the static tab title (date label lives in DateSwitcher)', () => {
+test('TodayPage h1 is the static yesterday overview title (date label lives in DateSwitcher)', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<h1>今日<\/h1>/)
+  assert.match(src, /<h1>昨日总览<\/h1>/)
   assert.equal(/pageTitle/.test(src), false)
 })
 
