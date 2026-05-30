@@ -31,6 +31,22 @@ test('useDashboardSnapshot freshness reads analysis_handoff.freshness.freshness_
   assert.equal(snap.freshnessStatus.value, 'green')
 })
 
+test('useDashboardSnapshot does not treat missing energy as zero', async () => {
+  const fakeFetch = async () => ({ leader_summary: { metrics: { energy_per_ton: 0 } } })
+  const fakeDailyFetch = async () => ({
+    energy: { data_available: false },
+    plant_output: { daily_output: 10, energy_per_ton: null }
+  })
+  const mod = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = mod.createDashboardSnapshot({
+    fetchImpl: fakeFetch,
+    fetchDailyImpl: fakeDailyFetch,
+    now: new Date('2026-05-23T10:00:00Z')
+  })
+  await snap.load()
+  assert.equal(snap.leaderMetrics.value.energy_per_ton, null)
+})
+
 test('useDashboardSnapshot sets lastError on fetch failure without throwing', async () => {
   const fakeFetch = async () => { throw new Error('boom') }
   const mod = await import('../src/composables/useDashboardSnapshot.js')

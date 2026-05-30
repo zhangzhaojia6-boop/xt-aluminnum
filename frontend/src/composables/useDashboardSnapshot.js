@@ -11,7 +11,7 @@ function normalizeFreshness(raw) {
   return FRESHNESS_MAP[raw] || null
 }
 
-export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now = new Date() } = {}) {
+export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fetchDailyImpl = fetchDailyProduction, now = new Date() } = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
   const targetDate = ref(yesterday)
   const data = ref({})
@@ -28,7 +28,7 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
       try {
         const [factoryResult, dailyResult] = await Promise.allSettled([
           fetchImpl({ target_date: targetDate.value }),
-          fetchDailyProduction({ target_date: targetDate.value })
+          fetchDailyImpl({ target_date: targetDate.value })
         ])
         if (my !== token) return
         const next = factoryResult.status === 'fulfilled' ? { ...factoryResult.value } : {}
@@ -60,10 +60,13 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, now
     leaderMetrics: computed(() => {
       const dailyOverview = data.value.daily_overview || {}
       const plantOutput = dailyOverview.plant_output || {}
+      const dailyEnergy = dailyOverview.energy || {}
       const lm = data.value.leader_metrics || {}
       const sm = data.value.leader_summary?.metrics || {}
       const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? null
-      const energyPerTon = plantOutput.energy_per_ton ?? lm.energy_per_ton ?? sm.energy_per_ton ?? null
+      const energyPerTon = dailyEnergy.data_available === false
+        ? null
+        : plantOutput.energy_per_ton ?? lm.energy_per_ton ?? sm.energy_per_ton ?? null
       return {
         ...lm,
         total_output_weight: totalOutput,
