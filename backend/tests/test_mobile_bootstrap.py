@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +14,12 @@ from app.main import app
 from app.models.master import Workshop, WorkshopTemplateConfig
 from app.models.system import User
 from app.routers.mobile import entry_fields
-from app.services.mobile_report_service import ShiftContext, get_current_shift, get_mobile_bootstrap
+from app.services.mobile_report_service import (
+    ShiftContext,
+    get_current_shift,
+    get_mobile_bootstrap,
+    resolve_owner_daily_business_date,
+)
 
 
 class DummyDB:
@@ -207,6 +212,57 @@ def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) 
 
     assert summary.is_mobile_user is True
     assert can_view_work_order_entries(summary) is True
+
+
+def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backfill() -> None:
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 29)) == date(2026, 5, 30)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 30)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 0)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 1)) == date(2026, 5, 30)
+
+
+def test_get_current_shift_owner_daily_uses_backfill_business_date_without_shift(monkeypatch) -> None:
+    current_user = User(
+        id=44,
+        username='CPK-QM',
+        password_hash='x',
+        name='成品库内勤',
+        role='storage_owner',
+        workshop_id=11,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    monkeypatch.setattr(
+        'app.services.mobile_report_service.assert_mobile_user_access',
+        lambda *_args, **_kwargs: SimpleNamespace(is_admin=False),
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service._infer_current_shift',
+        lambda *_args, **_kwargs: ShiftContext(
+            business_date=date(2026, 5, 30),
+            shift=None,
+            workshop=type('Workshop', (), {'id': 11, 'code': 'CPK', 'name': '成品库', 'workshop_type': 'inventory'})(),
+            team=None,
+            machine=None,
+        ),
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service.resolve_owner_daily_business_date',
+        lambda *_args, **_kwargs: date(2026, 5, 29),
+    )
+    monkeypatch.setattr(
+        'app.services.mobile_report_service.dingtalk_service.service.resolve_mobile_identity',
+        lambda *_args, **_kwargs: {'entry_channel': 'qr_role', 'dingtalk_ready': False, 'dingtalk_hint': None},
+    )
+    monkeypatch.setattr('app.services.mobile_report_service.resolve_workshop_type', lambda *_args, **_kwargs: 'inventory')
+
+    payload = get_current_shift(DummyDB(), current_user=current_user)
+
+    assert payload['business_date'] == date(2026, 5, 29)
+    assert payload['shift_id'] is None
+    assert payload['can_submit'] is True
+    assert payload['ownership_note'] is None
 
 
 def test_get_current_shift_returns_machine_bound_context(monkeypatch) -> None:

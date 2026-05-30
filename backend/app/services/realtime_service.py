@@ -28,6 +28,12 @@ from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
+from app.services.real_master_data import (
+    OWNER_DAILY_ROLES,
+    REPORTING_MACHINE_CODE_SET,
+    REPORTING_MACHINE_WORKSHOP_CODES,
+    REPORTING_ROLE_QR_CODE_SET,
+)
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.utils.tracking_cards import tracking_card_lookup_candidates, tracking_card_lookup_key
 
@@ -35,6 +41,17 @@ LOCAL_SHIFT_DATA_SOURCE = 'mobile_coil_agg'
 LOCAL_SHIFT_DATA_STATUSES = {'pending', 'submitted', 'reviewed', 'confirmed'}
 FORMAL_ENTRY_STATUSES = {'submitted', 'verified', 'approved'}
 ACTIVE_DATE_LOOKBACK_HOURS = 36
+OWNER_DAILY_ENTRY_TYPE = 'owner_daily'
+OWNER_DAILY_ROLE_LABELS = {
+    'consumable_stat': '内勤',
+    'quality_owner': '质检内勤',
+    'planning_owner': '计划内勤',
+    'energy_chief': '总电工',
+    'storage_owner': '成品库',
+    'shipment_outflow_owner': '园区剪切',
+    'recovery_owner': '回收',
+    'overhaul_owner': '大修',
+}
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -217,11 +234,36 @@ def _build_live_business_date_context(db: Session, *, requested_date: date, work
     }
 
 
+def _has_reporting_workshop_rows(db: Session) -> bool:
+    return bool(
+        db.query(func.count(Workshop.id))
+        .filter(
+            Workshop.is_active.is_(True),
+            Workshop.code.in_(tuple(REPORTING_MACHINE_WORKSHOP_CODES)),
+        )
+        .scalar()
+        or 0
+    )
+
+
+def _has_reporting_machine_rows(db: Session) -> bool:
+    return bool(
+        db.query(func.count(Equipment.id))
+        .filter(
+            Equipment.is_active.is_(True),
+            Equipment.code.in_(tuple(REPORTING_MACHINE_CODE_SET)),
+        )
+        .scalar()
+        or 0
+    )
+
+
 def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts) -> dict:
     pending_entries = [
         item
         for item in entries
-        if item.get('machine_id') is None or item.get('shift_id') is None
+        if item.get('entry_type') != OWNER_DAILY_ENTRY_TYPE
+        and (item.get('machine_id') is None or item.get('shift_id') is None)
     ]
     entry_count = len(pending_entries)
     if entry_count == 0:
@@ -784,6 +826,70 @@ def aggregate_live_payload(
         'data_quality': {
             'missing_output_weight': missing_output_weight,
         },
+    }
+
+
+def _build_owner_daily_status(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None,
+) -> dict[str, Any]:
+    users_query = db.query(User).filter(
+        User.is_active.is_(True),
+        User.role.in_(tuple(OWNER_DAILY_ROLES)),
+        User.username.in_(tuple(REPORTING_ROLE_QR_CODE_SET)),
+    )
+    if workshop_id is not None:
+        users_query = users_query.filter(User.workshop_id == workshop_id)
+    users = users_query.order_by(User.workshop_id.asc(), User.username.asc()).all()
+    user_ids = [item.id for item in users]
+    latest_by_user: dict[int, WorkOrderEntry] = {}
+    if user_ids:
+        rows = (
+            db.query(WorkOrderEntry)
+            .filter(
+                WorkOrderEntry.business_date == business_date,
+                WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
+                WorkOrderEntry.created_by_user_id.in_(user_ids),
+            )
+            .order_by(WorkOrderEntry.updated_at.asc(), WorkOrderEntry.id.asc())
+            .all()
+        )
+        for row in rows:
+            if row.created_by_user_id is None:
+                continue
+            latest_by_user[int(row.created_by_user_id)] = row
+
+    workshop_ids = {item.workshop_id for item in users if item.workshop_id is not None}
+    workshops = db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all() if workshop_ids else []
+    workshop_by_id = {item.id: item for item in workshops}
+    items = []
+    submitted_count = 0
+    for user in users:
+        entry = latest_by_user.get(int(user.id))
+        is_submitted = entry is not None and entry.entry_status in FORMAL_ENTRY_STATUSES
+        submitted_count += 1 if is_submitted else 0
+        workshop = workshop_by_id.get(user.workshop_id)
+        items.append(
+            {
+                'user_id': user.id,
+                'username': user.username,
+                'person_name': user.name,
+                'role': user.role,
+                'role_label': OWNER_DAILY_ROLE_LABELS.get(user.role, user.role),
+                'workshop_id': user.workshop_id,
+                'workshop_name': workshop.name if workshop else None,
+                'status': 'submitted' if is_submitted else 'not_started',
+                'entry_id': entry.id if entry else None,
+                'updated_at': entry.updated_at.isoformat() if entry and entry.updated_at else None,
+            }
+        )
+    return {
+        'business_date': business_date.isoformat(),
+        'submitted_count': submitted_count,
+        'total_count': len(items),
+        'items': items,
     }
 
 
@@ -1495,7 +1601,10 @@ def _load_mes_snapshot_rows(
     workshop_rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_id_by_code = {str(item.code or '').strip().upper(): item.id for item in workshop_rows if item.code}
     workshop_name_by_id = {item.id: item.name for item in workshop_rows}
-    machine_rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
+    machine_query = db.query(Equipment).filter(Equipment.is_active.is_(True))
+    if _has_reporting_machine_rows(db):
+        machine_query = machine_query.filter(Equipment.code.in_(tuple(REPORTING_MACHINE_CODE_SET)))
+    machine_rows = machine_query.all()
     machine_id_by_code = {str(item.code or '').strip().upper(): item.id for item in machine_rows if item.code}
     machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
     for machine in machine_rows:
@@ -1696,12 +1805,16 @@ def build_live_aggregation(
 ) -> dict:
     scoped_workshop_id = _resolve_workshop_filter(current_user=current_user, workshop_id=workshop_id)
     workshops_query = db.query(Workshop).filter(Workshop.is_active.is_(True))
+    if _has_reporting_workshop_rows(db):
+        workshops_query = workshops_query.filter(Workshop.code.in_(tuple(REPORTING_MACHINE_WORKSHOP_CODES)))
     if scoped_workshop_id is not None:
         workshops_query = workshops_query.filter(Workshop.id == scoped_workshop_id)
     workshops = workshops_query.order_by(Workshop.sort_order.asc(), Workshop.id.asc()).all()
     workshop_ids = [item.id for item in workshops]
 
     machines_query = db.query(Equipment).filter(Equipment.is_active.is_(True))
+    if _has_reporting_machine_rows(db):
+        machines_query = machines_query.filter(Equipment.code.in_(tuple(REPORTING_MACHINE_CODE_SET)))
     if workshop_ids:
         machines_query = machines_query.filter(Equipment.workshop_id.in_(workshop_ids))
     else:
@@ -1765,6 +1878,11 @@ def build_live_aggregation(
         pending_assignment=(payload.get('overall_progress') or {}).get('pending_assignment') or {},
     )
     payload['mes_sync_status'] = mes_sync_service.latest_sync_status(db)
+    payload['owner_daily_status'] = _build_owner_daily_status(
+        db,
+        business_date=business_date,
+        workshop_id=scoped_workshop_id,
+    )
     payload['data_source'] = data_source
     return payload
 

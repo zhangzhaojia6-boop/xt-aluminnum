@@ -114,6 +114,22 @@ DEFAULT_FIELD_MAPPING_TEMPLATES = [
 ]
 
 
+def apply_admin_account_contract(user: User, *, name: str, password: str | None = None) -> User:
+    user.name = name
+    user.role = 'admin'
+    user.workshop_id = None
+    user.team_id = None
+    user.data_scope_type = 'all'
+    user.assigned_shift_ids = None
+    user.is_mobile_user = False
+    user.is_reviewer = True
+    user.is_manager = True
+    user.is_active = True
+    if password is not None:
+        user.password_hash = get_password_hash(password)
+    return user
+
+
 def seed_system_configs(db: Session) -> None:
     existing = {item.config_key: item for item in db.query(SystemConfig).all()}
     for key, value, description in DEFAULT_SYSTEM_CONFIGS:
@@ -197,27 +213,15 @@ def seed_field_mapping_templates(db: Session) -> None:
 def ensure_admin_user(db: Session) -> User:
     user = db.query(User).filter(User.username == settings.INIT_ADMIN_USERNAME).first()
     if user:
-        user.name = settings.INIT_ADMIN_NAME
-        user.role = 'admin'
-        user.data_scope_type = 'all'
-        user.assigned_shift_ids = None
-        user.is_mobile_user = False
-        user.is_reviewer = True
-        user.is_manager = True
-        user.is_active = True
+        apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME)
     else:
         user = User(
             username=settings.INIT_ADMIN_USERNAME,
             password_hash=get_password_hash(settings.INIT_ADMIN_PASSWORD),
-            name=settings.INIT_ADMIN_NAME,
+            name='admin',
             role='admin',
-            data_scope_type='all',
-            assigned_shift_ids=None,
-            is_mobile_user=False,
-            is_reviewer=True,
-            is_manager=True,
-            is_active=True,
         )
+        apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME)
         db.add(user)
     db.commit()
     db.refresh(user)

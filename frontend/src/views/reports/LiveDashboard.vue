@@ -413,6 +413,29 @@
     </section>
 
     <div class="live-dashboard__section-title">
+      <strong>内勤每日填报</strong>
+      <span>{{ ownerDailySummary }}</span>
+    </div>
+
+    <section v-if="ownerDailyItems.length" class="owner-daily-panel" aria-label="内勤每日填报">
+      <article
+        v-for="item in ownerDailyItems"
+        :key="item.username"
+        class="owner-daily-card"
+        :class="`is-${ownerDailyTone(item)}`"
+      >
+        <div class="owner-daily-card__person">
+          <strong>{{ item.person_name || item.username }}</strong>
+          <span>{{ item.role_label }} · {{ item.workshop_name || '全厂' }}</span>
+        </div>
+        <div class="owner-daily-card__status">
+          <strong>{{ ownerDailyStatusText(item.status) }}</strong>
+          <span>{{ item.updated_at ? dayjs(item.updated_at).format('HH:mm') : targetDate }}</span>
+        </div>
+      </article>
+    </section>
+
+    <div class="live-dashboard__section-title">
       <strong>机列填报明细</strong>
       <span>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }} 班次</span>
     </div>
@@ -740,6 +763,11 @@ function createEmptyAggregation(businessDate) {
     business_date_context: {},
     mes_machine_binding: {},
     data_quality: {},
+    owner_daily_status: {
+      submitted_count: 0,
+      total_count: 0,
+      items: []
+    },
     data_source: 'work_order_runtime',
     factory_total: {
       input: 0,
@@ -882,6 +910,9 @@ const externalReadinessLanes = computed(() => {
 })
 const marginToneClass = computed(() => `is-${marginTone(managementOverview.value.estimatedMargin)}`)
 const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation.value.workshops || []))
+const ownerDailyStatus = computed(() => aggregation.value.owner_daily_status || { submitted_count: 0, total_count: 0, items: [] })
+const ownerDailyItems = computed(() => Array.isArray(ownerDailyStatus.value.items) ? ownerDailyStatus.value.items : [])
+const ownerDailySummary = computed(() => `${numberValue(ownerDailyStatus.value.submitted_count)}/${numberValue(ownerDailyStatus.value.total_count)} 人`)
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
 const liveRealityStatus = computed(() => buildLiveRealityStatus(aggregation.value))
@@ -1039,6 +1070,14 @@ function getWorkshopShifts(workshop) {
 
 function getAttendanceShifts(workshop) {
   return getWorkshopShifts(workshop)
+}
+
+function ownerDailyTone(item) {
+  return item?.status === 'submitted' ? 'success' : 'danger'
+}
+
+function ownerDailyStatusText(status) {
+  return status === 'submitted' ? '已填' : '待填'
 }
 
 function getWorkshopShiftTotals(workshop) {
@@ -2963,6 +3002,58 @@ onBeforeUnmount(() => {
   color: var(--xt-text-secondary);
   font-size: 12px;
   font-weight: 800;
+}
+
+.owner-daily-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin: -2px 0 14px;
+}
+
+.owner-daily-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 76px;
+  padding: 13px 14px;
+  border: 1px solid var(--command-line);
+  border-radius: 18px;
+  background: var(--command-panel);
+  box-shadow: 0 12px 28px rgba(25, 62, 118, 0.06);
+}
+
+.owner-daily-card.is-success {
+  border-color: color-mix(in srgb, var(--command-green), transparent 60%);
+}
+
+.owner-daily-card.is-danger {
+  border-color: color-mix(in srgb, var(--command-red), transparent 58%);
+}
+
+.owner-daily-card__person,
+.owner-daily-card__status {
+  display: grid;
+  gap: 4px;
+}
+
+.owner-daily-card__person strong,
+.owner-daily-card__status strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.owner-daily-card__person span,
+.owner-daily-card__status span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.owner-daily-card__status {
+  justify-items: end;
 }
 
 .command-status-strip {

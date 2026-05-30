@@ -159,3 +159,13 @@ export async function createCoilEntry(payload, config = {}) {
   const { data } = await api.post('/mobile/coil-entry', payload, config)
   return data
 }
+
+export async function fetchOwnerDailyEntry(businessDate) {
+  const { data } = await api.get(`/mobile/owner-daily/${businessDate}`)
+  return data
+}
+
+export async function saveOwnerDailyEntry(payload, config = {}) {
+  const { data } = await api.post('/mobile/owner-daily', payload, config)
+  return data
+}

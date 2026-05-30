@@ -35,7 +35,7 @@ from app.schemas.master import (
 from app.schemas.templates import WorkshopTemplateConfigOut, WorkshopTemplateConfigUpsert
 from app.services import equipment_service, master_service, workshop_template_service
 from app.services.audit_service import log_action
-from app.services.real_master_data import build_process_business_hierarchy
+from app.services.real_master_data import REPORTING_MACHINE_CODE_SET, build_process_business_hierarchy
 from app.services.yield_rate_deprecation_map_service import build_yield_rate_deprecation_map
 
 
@@ -409,6 +409,7 @@ def delete_employee(
 @router.get('/equipment', response_model=PaginatedResponse[EquipmentOut])
 def list_equipment(
     workshop_id: int | None = None,
+    reporting_only: bool = False,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
@@ -418,6 +419,8 @@ def list_equipment(
     query = db.query(Equipment).filter(Equipment.is_active.is_(True)).order_by(Equipment.sort_order.asc(), Equipment.id.asc())
     if workshop_id:
         query = query.filter(Equipment.workshop_id == workshop_id)
+    if reporting_only:
+        query = query.filter(Equipment.code.in_(tuple(REPORTING_MACHINE_CODE_SET)))
     return _paginate_query(query, skip=skip, limit=limit)
 
 

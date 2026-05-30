@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -44,6 +44,9 @@ LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 PHOTO_ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
 PHOTO_MAX_BYTES = 5 * 1024 * 1024
+
+OWNER_DAILY_BACKFILL_START = time(7, 30)
+OWNER_DAILY_BACKFILL_END = time(9, 0)
 
 @dataclass(slots=True)
 class ShiftContext:
@@ -195,6 +198,12 @@ def _local_now(now: datetime | None = None) -> datetime:
     if now.tzinfo is None:
         return now.replace(tzinfo=LOCAL_TZ)
     return now.astimezone(LOCAL_TZ)
+
+def resolve_owner_daily_business_date(now: datetime | None = None) -> date:
+    current_local = _local_now(now)
+    if OWNER_DAILY_BACKFILL_START <= current_local.time() <= OWNER_DAILY_BACKFILL_END:
+        return current_local.date() - timedelta(days=1)
+    return current_local.date()
 
 def _month_range(target_date: date) -> tuple[date, date]:
     month_start = target_date.replace(day=1)

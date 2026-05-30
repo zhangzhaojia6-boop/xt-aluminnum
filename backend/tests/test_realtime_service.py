@@ -947,10 +947,9 @@ def test_build_live_aggregation_resolves_virtual_role_qr_to_reporting_machine(tm
     )
 
     real_machine = next(item for item in payload['workshops'][0]['machines'] if item['machine_id'] == 123)
-    virtual_machine = next(item for item in payload['workshops'][0]['machines'] if item['machine_id'] == 81)
     assert real_machine['day_total']['output'] == 29.85
     assert real_machine['shifts'][0]['submitted_count'] == 1
-    assert virtual_machine['day_total']['output'] == 0.0
+    assert all(item['machine_id'] != 81 for item in payload['workshops'][0]['machines'])
 
 
 def test_build_live_cell_detail_pairs_fill_upload_with_mes_machine_binding(tmp_path) -> None:

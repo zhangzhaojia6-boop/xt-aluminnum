@@ -215,6 +215,23 @@ class MobileCoilEntryPayload(BaseModel):
     shift_id: int = Field(gt=0)
 
 
+class MobileOwnerDailyPayload(BaseModel):
+    business_date: date
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class MobileOwnerDailyOut(BaseModel):
+    id: int
+    business_date: date
+    workshop_id: int
+    workshop_name: str | None = None
+    role: str
+    role_label: str | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
+    entry_status: str
+    updated_at: datetime | None = None
+
+
 class MobileCoilEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -31,6 +31,7 @@ from app.services import dingtalk_service
 from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user
 from app.services.pilot_observability_service import log_pilot_event
+from app.services.real_master_data import OWNER_DAILY_ROLES
 
 
 def _shift_window_for_date(business_date: date, shift: ShiftConfig) -> tuple[datetime, datetime]:
@@ -183,8 +184,9 @@ def _build_current_shift_fallback(
     workshop: Workshop | None = None,
     machine: Equipment | None = None,
 ) -> dict:
+    business_date = resolve_owner_daily_business_date() if (current_user.role or '') in OWNER_DAILY_ROLES else _local_now().date()
     return {
-        'business_date': _local_now().date(),
+        'business_date': business_date,
         'shift_id': None,
         'shift_code': None,
         'shift_name': None,
@@ -219,10 +221,10 @@ def _build_current_shift_fallback(
 def _resolve_entry_mode(role: str) -> str:
     if role in ('shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'):
         return 'coil_entry'
-    if role in ('energy_stat', 'consumable_stat', 'qc', 'maintenance_lead'):
-        return 'auxiliary_shift_entry'
-    if role in ('utility_manager', 'inventory_keeper', 'contracts'):
+    if role in OWNER_DAILY_ROLES or role in ('utility_manager', 'inventory_keeper', 'contracts'):
         return 'owner_daily_entry'
+    if role in ('energy_stat', 'qc', 'maintenance_lead'):
+        return 'auxiliary_shift_entry'
     return 'coil_entry'
 
 SHIFT_REPORT_OWNERSHIP_ROLES = {'shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'}
@@ -285,28 +287,30 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         'attendance_pending_count': 0,
     }
     uses_report_ownership = _uses_shift_report_ownership(current_user)
+    is_owner_daily_role = (current_user.role or '') in OWNER_DAILY_ROLES
+    business_date = resolve_owner_daily_business_date() if is_owner_daily_role else context.business_date
     report = None
-    if context.shift is not None:
+    if context.shift is not None and not is_owner_daily_role:
         from app.services import attendance_confirm_service
 
         attendance_snapshot = attendance_confirm_service.get_shift_confirmation_snapshot(
             db,
-            business_date=context.business_date,
+            business_date=business_date,
             workshop_id=context.workshop.id,
             shift_id=context.shift.id,
         )
         if uses_report_ownership:
             report = _find_mobile_report(
                 db,
-                business_date=context.business_date,
+                business_date=business_date,
                 shift_id=context.shift.id,
                 workshop_id=context.workshop.id,
                 team_id=context.team.id if context.team else None,
             )
     ownership_note = _ownership_note(report=report, current_user=current_user) if uses_report_ownership else None
-    if context.shift is None:
+    if context.shift is None and not is_owner_daily_role:
         ownership_note = '当前车间未配置可用班次，请联系管理员在“班次配置”中启用班次。'
-    can_submit = context.shift is not None
+    can_submit = is_owner_daily_role or context.shift is not None
     report_id = report.id if report else None
     entry_mode = _resolve_entry_mode(current_user.role or '')
     report_status = report.report_status if report else ('coil_entry' if context.shift and entry_mode == 'coil_entry' else 'unreported')
@@ -333,7 +337,7 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         raise
 
     return {
-        'business_date': context.business_date,
+        'business_date': business_date,
         'shift_id': context.shift.id if context.shift else None,
         'shift_code': context.shift.code if context.shift else None,
         'shift_name': context.shift.name if context.shift else None,
@@ -357,13 +361,13 @@ def get_current_shift(db: Session, *, current_user: User) -> dict:
         'ownership_note': ownership_note,
         'active_reminders': _active_reminders_for_context(
             db,
-            business_date=context.business_date,
+            business_date=business_date,
             shift_id=context.shift.id if context.shift else 0,
             workshop_id=context.workshop.id,
             team_id=context.team.id if context.team else None,
             leader_user_id=current_user.id,
         )
-        if context.shift is not None
+        if context.shift is not None and not is_owner_daily_role
         else [],
         **attendance_snapshot,
         'workshop_machines': _get_workshop_machines(db, workshop_id=context.workshop.id),

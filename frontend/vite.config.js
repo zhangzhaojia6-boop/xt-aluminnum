@@ -19,6 +19,7 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       manifest: {
         name: '数据中枢',
         short_name: '数据中枢',
@@ -45,30 +46,16 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/healthz$/, /^\/readyz$/],
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 3600
-              }
-            }
-          },
           {
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'image-cache'
-            }
-          },
-          {
-            urlPattern: /\.(?:js|css|html)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'static-resources'
             }
           }
         ]

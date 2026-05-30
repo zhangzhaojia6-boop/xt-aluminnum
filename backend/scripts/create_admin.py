@@ -10,6 +10,7 @@ from app.config import settings
 from app.core.auth import get_password_hash
 from app.database import get_sessionmaker
 from app.models.system import User
+from app.services.bootstrap import apply_admin_account_contract
 
 
 def create_admin(username: str, password: str, name: str, *, reset_password: bool = False) -> User:
@@ -18,29 +19,15 @@ def create_admin(username: str, password: str, name: str, *, reset_password: boo
     try:
         user = db.query(User).filter(User.username == username).first()
         if user:
-            user.name = name
-            user.role = 'admin'
-            user.data_scope_type = 'all'
-            user.assigned_shift_ids = None
-            user.is_mobile_user = False
-            user.is_reviewer = True
-            user.is_manager = True
-            user.is_active = True
-            if reset_password:
-                user.password_hash = get_password_hash(password)
+            apply_admin_account_contract(user, name=name, password=password if reset_password else None)
         else:
             user = User(
                 username=username,
                 password_hash=get_password_hash(password),
-                name=name,
+                name='admin',
                 role='admin',
-                data_scope_type='all',
-                assigned_shift_ids=None,
-                is_mobile_user=False,
-                is_reviewer=True,
-                is_manager=True,
-                is_active=True,
             )
+            apply_admin_account_contract(user, name=name)
             db.add(user)
         db.commit()
         db.refresh(user)

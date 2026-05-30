@@ -519,7 +519,7 @@ onMounted(async () => {
     const [workshopItems, teamItems, equipmentItems] = await Promise.all([
       fetchWorkshops({ limit: 500 }),
       fetchTeams({ limit: 500 }),
-      fetchEquipment({ limit: 500 })
+      fetchEquipment({ limit: 500, reporting_only: true })
     ])
     workshops.value = workshopItems
     teams.value = teamItems

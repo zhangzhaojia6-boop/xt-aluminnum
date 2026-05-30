@@ -3,7 +3,7 @@
     <header class="ue-identity" :style="{ '--role-color': roleColor }">
       <div class="ue-identity__main">
         <strong>{{ roleLabel }}</strong>
-        <span>{{ workshopName }} · {{ shiftName }} · {{ businessDate }}</span>
+        <span>{{ identityMeta }}</span>
       </div>
     </header>
 
@@ -14,6 +14,10 @@
       <div v-if="mode === 'per_coil'" class="ue-coil-header">
         <strong class="ue-coil-seq">第{{ coilSeq }}卷</strong>
         <span class="ue-coil-shift">{{ shiftName }} · 已录{{ history.length }}卷</span>
+      </div>
+      <div v-else-if="mode === 'owner_daily'" class="ue-person-header">
+        <strong>{{ auth.displayName || roleLabel }}</strong>
+        <span>{{ businessDate }} · 每日一录</span>
       </div>
 
       <div v-if="mode === 'per_coil' && canScan" class="ue-scan-row">
@@ -172,7 +176,7 @@
 
       <div class="ue-actions">
         <button class="ue-submit" :disabled="submitting" @click="handleSubmit">
-          {{ submitting ? '提交中…' : (mode === 'per_coil' ? '录入本卷' : '提交') }}
+          {{ submitting ? '提交中…' : submitButtonText }}
         </button>
         <button
           v-if="mode === 'per_coil' && lastCoilData"
@@ -185,7 +189,7 @@
       </div>
 
       <section v-if="history.length" class="ue-group">
-        <h3 class="ue-group__title">{{ mode === 'per_coil' ? `本班已录 (${history.length}卷)` : `本班已录 (${history.length})` }}</h3>
+        <h3 class="ue-group__title">{{ historyTitle }}</h3>
         <div class="ue-history">
           <div v-for="(item, i) in history" :key="i" class="ue-history-item">
             <span class="ue-history-item__index">{{ mode === 'per_coil' ? `第${item.seq || history.length - i}卷` : `#${i + 1}` }}</span>
@@ -200,6 +204,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import dayjs from 'dayjs'
 import { useAuthStore } from '../../stores/auth.js'
 import {
   fetchCurrentShift,
@@ -210,6 +215,8 @@ import {
   fetchCoilList,
   createCoilEntry,
   fetchFieldOptions,
+  fetchOwnerDailyEntry,
+  saveOwnerDailyEntry,
 } from '../../api/mobile.js'
 import { isEmptyValue, toNumber as normalizeNumberValue } from '../../utils/fieldValueHelpers.js'
 import { computeReadonlyValue } from '../../utils/unifiedEntryHelpers.js'
@@ -244,6 +251,10 @@ const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
 const shiftName = computed(() => shiftContext.value?.shift_name || '')
 const businessDate = computed(() => shiftContext.value?.business_date || '')
+const identityMeta = computed(() => {
+  if (mode.value === 'owner_daily') return `${workshopName.value} · ${businessDate.value}`
+  return `${workshopName.value} · ${shiftName.value} · ${businessDate.value}`
+})
 const roleLabel = computed(() => {
   const labels = {
     machine_operator: '主操',
@@ -285,6 +296,16 @@ const quality = reactive({
   photo_data_url: '',
 })
 const showQualityModule = computed(() => mode.value === 'per_coil' && auth.role === 'machine_operator')
+const submitButtonText = computed(() => {
+  if (mode.value === 'per_coil') return '录入本卷'
+  if (mode.value === 'owner_daily') return `提交 ${businessDate.value || '每日一录'}`
+  return '提交'
+})
+const historyTitle = computed(() => {
+  if (mode.value === 'per_coil') return `本班已录 (${history.value.length}卷)`
+  if (mode.value === 'owner_daily') return `${businessDate.value || '本日'} 已录`
+  return `本班已录 (${history.value.length})`
+})
 
 function resetQuality() {
   quality.has_issue = false
@@ -492,6 +513,13 @@ function buildMobileReportPayload(sc) {
   }
 }
 
+function buildOwnerDailyPayload(sc) {
+  return {
+    business_date: sc.business_date || dayjs().format('YYYY-MM-DD'),
+    data: normalizedFormValues(),
+  }
+}
+
 function initSpecParts(fieldName, value, suffix) {
   const parts = (value || '').split(/[×xX*]/)
   specParts[fieldName + '_0'] = parts[0] || ''
@@ -533,10 +561,6 @@ async function loadData() {
   try {
     const [shift, fields] = await Promise.all([fetchCurrentShift(), fetchEntryFields()])
     shiftContext.value = shift
-    if (!shift.shift_id) {
-      error.value = '未找到当前班次，请联系管理员配置班次。'
-      return
-    }
     if (fields.error) {
       error.value = fields.error
       return
@@ -546,6 +570,10 @@ async function loadData() {
     mode.value = fields.mode || 'per_shift'
     submitTarget.value = fields.submit_target || (fields.mode === 'per_coil' ? 'coil_entry' : 'shift_report')
     identityField.value = fields.identity_field || null
+    if (!shift.shift_id && mode.value !== 'owner_daily') {
+      error.value = '未找到当前班次，请联系管理员配置班次。'
+      return
+    }
 
     for (const g of groups.value) {
       for (const f of g.fields) {
@@ -568,6 +596,18 @@ async function loadData() {
       } catch { /* first time, no report yet */ }
     }
 
+    if (mode.value === 'owner_daily') {
+      try {
+        const existing = await fetchOwnerDailyEntry(shift.business_date)
+        if (existing?.data) {
+          for (const [k, v] of Object.entries(existing.data)) {
+            if (k in form && v != null) form[k] = v
+          }
+          history.value = [existing]
+        }
+      } catch { /* first time, no daily owner row yet */ }
+    }
+
     if (mode.value === 'per_coil') {
       try {
         const coils = await fetchCoilList(shift.business_date, shift.shift_id)
@@ -585,7 +625,7 @@ async function loadData() {
 async function handleSubmit() {
   if (submitting.value) return
   const sc = shiftContext.value
-  if (!sc?.shift_id) return
+  if (!sc || (submitTarget.value !== 'owner_daily' && !sc.shift_id)) return
   if (!validateVisibleRequiredFields()) return
   if (!validateBusinessRules()) return
 
@@ -603,6 +643,10 @@ async function handleSubmit() {
       lockedFieldsSnapshot.value = {}
       lockedFieldsToken.value = ''
       resetQuality()
+    } else if (submitTarget.value === 'owner_daily') {
+      const saved = await saveOwnerDailyEntry(buildOwnerDailyPayload(sc), { skipErrorToast: true })
+      ElMessage.success('提交成功')
+      history.value = saved ? [saved] : []
     } else {
       const payload = buildMobileReportPayload(sc)
       await saveMobileReport(payload)
@@ -680,6 +724,27 @@ onMounted(loadData)
 .ue-coil-shift {
   font-size: 13px;
   color: var(--xt-text-muted);
+}
+
+.ue-person-header {
+  display: grid;
+  gap: 4px;
+  margin: 16px 16px 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--role-color), transparent 68%);
+  border-radius: var(--xt-radius-xl);
+  background: color-mix(in srgb, var(--role-color), transparent 91%);
+}
+
+.ue-person-header strong {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--xt-text);
+}
+
+.ue-person-header span {
+  font-size: 13px;
+  color: var(--xt-text-secondary);
 }
 
 .ue-scan-row {
@@ -918,4 +983,3 @@ onMounted(loadData)
   color: var(--xt-text);
 }
 </style>
-

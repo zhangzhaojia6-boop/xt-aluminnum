@@ -160,11 +160,58 @@ def test_login_bootstraps_initial_admin(tmp_path, monkeypatch) -> None:
     body = response.json()
     assert body['user']['username'] == 'bootstrap_admin'
     assert body['user']['role'] == 'admin'
+    assert body['user']['admin_surface'] is True
+    assert body['user']['review_surface'] is True
+    assert body['user']['entry_surface'] is True
 
     with session_factory() as db:
         users = db.query(User).all()
         assert len(users) == 1
         assert users[0].name == 'Bootstrap Admin'
+
+
+def test_login_repairs_initial_admin_contract(tmp_path, monkeypatch) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_USERNAME', 'admin')
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_PASSWORD', 'Admin#2026')
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_NAME', 'System Admin')
+    _override_db(session_factory)
+    with session_factory() as db:
+        db.add(
+            User(
+                username='admin',
+                password_hash=get_password_hash('Admin#2026'),
+                name='Broken Admin',
+                role='machine_operator',
+                data_scope_type='self_workshop',
+                workshop_id=2,
+                team_id=3,
+                assigned_shift_ids=[1],
+                is_mobile_user=True,
+                is_reviewer=False,
+                is_manager=False,
+                is_active=False,
+            )
+        )
+        db.commit()
+
+    response = TestClient(app).post(
+        '/api/v1/auth/login',
+        json={'username': 'admin', 'password': 'Admin#2026'},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body['user']['role'] == 'admin'
+    assert body['user']['admin_surface'] is True
+    with session_factory() as db:
+        user = db.query(User).filter(User.username == 'admin').one()
+        assert user.role == 'admin'
+        assert user.data_scope_type == 'all'
+        assert user.workshop_id is None
+        assert user.team_id is None
+        assert user.assigned_shift_ids is None
+        assert user.is_active is True
 
 
 def test_me_returns_current_user_for_valid_token(tmp_path) -> None:

@@ -333,6 +333,14 @@ def test_build_history_digest_tracks_daily_trend_and_period_archives(tmp_path, m
                 'energy_per_ton': round(kwargs['business_date'].day / 10, 2),
             },
         )
+        storage_output = {
+            date(2026, 4, 11 + offset): output_weight
+            for offset, output_weight in enumerate(seeded_output)
+        }
+        monkeypatch.setattr(
+            'app.services.report_service._plant_storage_output_totals_by_date',
+            lambda *_args, **_kwargs: storage_output,
+        )
 
         payload = report_service._build_history_digest(db, target_date=target_date)
 
@@ -389,7 +397,7 @@ def test_build_history_digest_converts_mobile_coil_aggregate_kg_to_tons(tmp_path
             lambda *_args, **_kwargs: {'energy_per_ton': None},
         )
 
-        payload = report_service._build_history_digest(db, target_date=target_date, window_days=2)
+        payload = report_service._build_history_digest(db, target_date=target_date, workshop_id=workshop.id, window_days=2)
 
         assert [item['output_weight'] for item in payload['daily_snapshots']] == [126.46, 281.12]
         assert payload['month_archive']['total_output'] == 407.58
@@ -434,7 +442,7 @@ def test_current_shift_output_uses_non_voided_runtime_rows_in_tons(tmp_path) -> 
         )
         db.commit()
 
-        assert report_service._current_shift_output(db, target_date=target_date) == 42.35
+        assert report_service._current_shift_output(db, target_date=target_date, workshop_id=workshop.id) == 42.35
     finally:
         db.close()
 
@@ -875,3 +883,61 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
     }
     assert payload['analysis_handoff']['risk']['blocker_digest'] == '无异常'
     assert payload['analysis_handoff']['trend']['current_output'] == 180.5
+
+
+def test_exception_lane_ignores_legacy_mobile_report_red_lights_when_mobile_coil_active(monkeypatch) -> None:
+    row = SimpleNamespace(
+        id=1,
+        work_order_id=11,
+        business_date=date(2026, 5, 29),
+        workshop_id=1,
+        output_weight=1200.0,
+    )
+    monkeypatch.setattr(
+        'app.services.report.lane_builders.daily_overview_builder._query_latest_mobile_coil_rows',
+        lambda *_args, **_kwargs: [row],
+    )
+    monkeypatch.setattr(
+        'app.services.report.lane_builders.mobile_report_service.summarize_mobile_reporting',
+        lambda *_args, **_kwargs: {
+            'unreported_count': 7,
+            'returned_count': 2,
+            'late_count': 1,
+            'exception_count': 3,
+            'returned_items': [{'id': 1}],
+        },
+    )
+    monkeypatch.setattr(
+        'app.services.report.lane_builders.mobile_reminder_service.summarize_reminders',
+        lambda *_args, **_kwargs: {
+            'unreported_count': 7,
+            'late_report_count': 1,
+            'today_reminder_count': 8,
+            'recent_items': [{'id': 2}],
+        },
+    )
+    monkeypatch.setattr(
+        'app.services.report.lane_builders.mobile_report_service.count_linked_open_production_exceptions',
+        lambda *_args, **_kwargs: 0,
+    )
+    monkeypatch.setattr(
+        'app.services.report.lane_builders.mobile_report_service.recent_mobile_exceptions',
+        lambda *_args, **_kwargs: [{'id': 3}],
+    )
+
+    payload = report_service._build_exception_lane(
+        FactoryDashboardDB(None),
+        target_date=date(2026, 5, 29),
+    )
+
+    assert payload['reporting_source'] == 'mobile_coil'
+    assert payload['mobile_coil_entry_count'] == 1
+    assert payload['mobile_coil_workshop_count'] == 1
+    assert payload['unreported_shift_count'] == 0
+    assert payload['returned_shift_count'] == 0
+    assert payload['late_shift_count'] == 0
+    assert payload['mobile_exception_count'] == 0
+    assert payload['legacy_unreported_shift_count'] == 7
+    assert payload['returned_items'] == []
+    assert payload['reminder_items'] == []
+    assert payload['recent_items'] == []

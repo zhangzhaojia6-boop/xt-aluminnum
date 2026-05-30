@@ -140,7 +140,7 @@ def test_phase1_templates_split_owner_fields_for_energy_qc_and_contract_roles() 
 
     assert 'energy_kwh' not in [field['name'] for field in shift_leader_template['extra_fields']]
     assert [field['name'] for field in energy_template['extra_fields']] == ['energy_kwh', 'gas_m3', 'energy_note']
-    assert [field['name'] for field in qc_template['qc_fields']] == ['qc_grade', 'qc_notes']
+    assert [field['name'] for field in qc_template['qc_fields']] == ['plant_wide_yield_rate']
     assert [field['name'] for field in contracts_template['extra_fields']] == [
         'contract_no',
         'customer_name',
@@ -153,19 +153,15 @@ def test_inventory_template_splits_inventory_fields_for_inventory_keeper_role() 
 
     assert inventory_template['display_name'] == '成品库'
     assert [field['name'] for field in inventory_template['entry_fields']] == [
-        'storage_inbound_weight',
-        'storage_inbound_area',
-        'plant_to_park_inbound_weight',
-        'park_to_storage_inbound_weight',
-        'month_to_date_inbound_weight',
-        'month_to_date_inbound_area',
-        'shipment_weight',
-        'shipment_area',
-        'month_to_date_shipment_weight',
-        'month_to_date_shipment_area',
+        'park_inbound_daily',
+        'park_inbound_monthly',
+        'park_outbound_daily',
+        'park_outbound_monthly',
+        'new_plant_inbound_daily',
+        'new_plant_inbound_monthly',
+        'new_plant_outbound_daily',
+        'new_plant_outbound_monthly',
         'consignment_weight',
-        'finished_inventory_weight',
-        'shearing_prepared_weight',
     ]
     assert [field['name'] for field in inventory_template['readonly_fields']] == ['actual_inventory_weight']
     assert inventory_template['readonly_fields'][0]['compute'] == 'finished_inventory_weight - consignment_weight'

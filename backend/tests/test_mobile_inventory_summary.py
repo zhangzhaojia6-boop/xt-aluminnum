@@ -165,3 +165,44 @@ def test_summarize_mobile_inventory_prefers_owner_only_inventory_source_over_mob
         assert items[0]['source_variant'] == 'owner'
     finally:
         db.close()
+
+
+def test_summarize_mobile_inventory_reads_current_park_and_new_plant_fields(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=11, code='CPK', name='成品库', workshop_type='inventory', sort_order=1, is_active=True)
+        user = User(id=7, username='CPK-QM', password_hash='x', name='成品库负责人', role='storage_owner', is_active=True)
+        work_order = WorkOrder(
+            id=21,
+            tracking_card_no='OWNER-storage_owner-7-2026-04-17',
+            process_route_code='owner_daily',
+            overall_status='submitted',
+            created_by=user.id,
+        )
+        entry = WorkOrderEntry(
+            id=31,
+            work_order_id=work_order.id,
+            workshop_id=workshop.id,
+            shift_id=None,
+            business_date=date(2026, 4, 17),
+            entry_type='owner_daily',
+            entry_status='submitted',
+            created_by=user.id,
+            created_by_user_id=user.id,
+            extra_payload={
+                'park_inbound_daily': 12.5,
+                'new_plant_inbound_daily': 6.0,
+                'park_outbound_daily': 3.25,
+                'new_plant_outbound_daily': 4.75,
+            },
+        )
+        db.add_all([workshop, user, work_order, entry])
+        db.commit()
+
+        items = summarize_mobile_inventory(db, target_date=date(2026, 4, 17))
+
+        assert items[0]['storage_finished'] == 18.5
+        assert items[0]['shipment_weight'] == 8.0
+        assert items[0]['source'] == 'owner_only'
+    finally:
+        db.close()

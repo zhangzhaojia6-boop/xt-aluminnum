@@ -12,6 +12,7 @@ from app.models.master import Equipment, Workshop
 from app.models.system import User
 from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLoginResponse, RefreshRequest, UserInfo
 from app.services.audit_service import log_action
+from app.services.bootstrap import apply_admin_account_contract
 from app.services.equipment_service import build_machine_info
 from app.services.real_master_data import ROLE_QR_SUFFIX_MAP
 
@@ -35,16 +36,26 @@ def login(
     if not user and body.username == settings.INIT_ADMIN_USERNAME and body.password == settings.INIT_ADMIN_PASSWORD:
         user = User(
             username=settings.INIT_ADMIN_USERNAME,
-            password_hash=get_password_hash(settings.INIT_ADMIN_PASSWORD),
-            name=settings.INIT_ADMIN_NAME,
+            password_hash='',
+            name='admin',
             role='admin',
-            is_active=True,
         )
+        apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME, password=settings.INIT_ADMIN_PASSWORD)
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    if not user or not verify_password(body.password, user.password_hash):
+    if user and body.username == settings.INIT_ADMIN_USERNAME:
+        password_ok = verify_password(body.password, user.password_hash)
+        if not password_ok and body.password == settings.INIT_ADMIN_PASSWORD:
+            apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME, password=settings.INIT_ADMIN_PASSWORD)
+            password_ok = True
+        if not password_ok:
+            raise HTTPException(status_code=400, detail='Invalid username or password')
+        apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME)
+        db.commit()
+        db.refresh(user)
+    elif not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=400, detail='Invalid username or password')
     if not user.is_active:
         raise HTTPException(status_code=403, detail='User is disabled')
@@ -234,5 +245,3 @@ def qr_login(
 @router.post('/logout')
 def logout() -> dict:
     return {'success': True, 'data': None, 'message': 'logout success', 'total': None}
-
-

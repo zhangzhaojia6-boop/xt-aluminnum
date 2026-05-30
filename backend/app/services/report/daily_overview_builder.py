@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.production import MobileShiftReport, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
@@ -57,6 +57,7 @@ def _query_output_by_workshop(db: Session, start: date, end: date) -> dict[int, 
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
+            WorkOrderEntry.entry_type == 'mobile_coil',
         )
         .group_by(WorkOrderEntry.workshop_id)
         .all()
@@ -80,6 +81,7 @@ def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
+            WorkOrderEntry.entry_type == 'mobile_coil',
         )
         .group_by(WorkOrderEntry.workshop_id)
         .all()
@@ -272,12 +274,73 @@ def _query_latest_mobile_coil_rows(db: Session, start: date, end: date) -> list[
     return list(latest_by_work_order_day.values())
 
 
-def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    rows = _query_latest_mobile_coil_rows(db, start, end)
+def _payload_number(payload: dict, field_name: str) -> float | None:
+    value = payload.get(field_name)
+    if value is None or value == '':
+        return None
+    return _to_float(value)
+
+
+def _owner_storage_inbound_tons(payload: dict) -> float:
+    direct_value = _payload_number(payload, 'storage_inbound_weight')
+    if direct_value is not None:
+        return direct_value
+    component_total = 0.0
+    has_component = False
+    for field_name in ('park_inbound_daily', 'new_plant_inbound_daily', 'park_to_storage_inbound_weight'):
+        value = _payload_number(payload, field_name)
+        if value is None:
+            continue
+        component_total += value
+        has_component = True
+    return component_total if has_component else 0.0
+
+
+def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = (
+        db.query(WorkOrderEntry)
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .filter(
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
+            WorkOrderEntry.machine_id.is_(None),
+            Workshop.workshop_type == 'inventory',
+        )
+        .all()
+    )
     totals: dict[date, float] = {}
     for row in rows:
-        business_date = row.business_date
-        totals[business_date] = totals.get(business_date, 0.0) + (_to_float(row.output_weight) / 1000)
+        inbound_tons = _owner_storage_inbound_tons(dict(row.extra_payload or {}))
+        if inbound_tons <= 0:
+            continue
+        totals[row.business_date] = totals.get(row.business_date, 0.0) + inbound_tons
+    return totals
+
+
+def _query_shift_report_storage_finished_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = (
+        db.query(
+            MobileShiftReport.business_date,
+            func.sum(MobileShiftReport.storage_finished),
+        )
+        .filter(
+            MobileShiftReport.business_date >= start,
+            MobileShiftReport.business_date <= end,
+            MobileShiftReport.report_status.in_(tuple(SUBMITTED_STATUSES)),
+            MobileShiftReport.storage_finished.is_not(None),
+        )
+        .group_by(MobileShiftReport.business_date)
+        .all()
+    )
+    return {business_date: _to_float(total) for business_date, total in rows}
+
+
+def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    totals = _query_owner_storage_inbound_by_date(db, start, end)
+    fallback_totals = _query_shift_report_storage_finished_by_date(db, start, end)
+    for business_date, total in fallback_totals.items():
+        totals.setdefault(business_date, total)
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
@@ -290,8 +353,8 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
     return {
-        'basis': 'latest_mobile_coil_output',
-        'basis_label': '全厂成品产量',
+        'basis': 'storage_inbound_output',
+        'basis_label': '全厂入库产量',
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
         'monthly_output': _round2(monthly_output),
@@ -370,8 +433,8 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
         'business_date': target_date.isoformat(),
         'total_output': round(grand_output, 2),
         'total_throughput': round(grand_output, 2),
-        'output_basis': 'latest_mobile_coil_output',
-        'output_basis_label': '全厂成品产量',
+        'output_basis': 'mobile_coil_process_output',
+        'output_basis_label': '工序下机量',
         'total_energy_kwh': round(grand_energy, 1),
         'energy_per_ton': round(grand_energy / grand_output, 1) if grand_output > 0 and grand_energy > 0 else None,
         'shifts': shifts,
@@ -394,14 +457,14 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     total_monthly = sum(r['monthly_output'] or 0 for r in workshop_output)
     wip_total = sum(r['total_weight'] or 0 for r in wip)
 
-    cost = _build_cost(total_today, energy)
+    process_cost = _build_cost(total_today, energy)
     plant_cost = _build_cost(plant_output['daily_output'] or 0, energy)
 
     header_kpis = [
-        {'key': 'total_output', 'label': '车间总产量', 'value': _round2(total_today), 'unit': '吨',
-         'delta': _delta(total_today, total_yesterday),
-         'delta_label': _fmt_delta_label(total_today - total_yesterday)},
-        {'key': 'monthly_output', 'label': '月累计产量', 'value': _round2(total_monthly), 'unit': '吨'},
+        {'key': 'plant_inbound_output', 'label': '全厂入库产量', 'value': plant_output['daily_output'], 'unit': '吨',
+         'delta': _delta(plant_output['daily_output'], plant_output['yesterday_output']),
+         'delta_label': _fmt_delta_label(_delta(plant_output['daily_output'], plant_output['yesterday_output']))},
+        {'key': 'plant_inbound_monthly', 'label': '入库月累计', 'value': plant_output['monthly_output'], 'unit': '吨'},
         {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total), 'unit': '吨'},
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),
@@ -410,7 +473,7 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
         {'key': 'remaining_contracts', 'label': '总余合同量', 'value': contracts['remaining'], 'unit': '个',
          'delta': contracts['remaining_delta'],
          'delta_label': _fmt_delta_label(contracts['remaining_delta'])},
-        {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': cost.get('cost_per_ton'), 'unit': '元/吨'},
+        {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': plant_cost.get('cost_per_ton'), 'unit': '元/吨'},
     ]
 
     return {
@@ -423,8 +486,9 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
         'yield_rates': yield_rates,
         'energy': energy,
         'contracts': contracts,
-        'cost': cost,
+        'cost': plant_cost,
         'plant_cost': plant_cost,
+        'process_cost': process_cost,
         'attendance': None,
         'oil_consumption': None,
     }

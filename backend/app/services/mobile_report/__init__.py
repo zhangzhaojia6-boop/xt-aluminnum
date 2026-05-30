@@ -10,7 +10,7 @@ from app.services.mobile_report import shift_context as shift_context
 from app.services.mobile_report import summary as summary
 
 _MODULES = (_utils, lifecycle, shift_context, summary)
-_PUBLIC_ALL = ['save_or_submit_report', 'upload_report_photo', 'store_report_photo', 'get_report_detail', 'list_report_history', 'sync_mobile_status_from_review', 'calculate_mobile_report_metrics', 'get_current_shift', 'get_mobile_bootstrap', 'summarize_mobile_reporting', 'summarize_mobile_inventory', 'recent_mobile_exceptions', 'count_linked_open_production_exceptions', 'list_coil_entries', 'create_coil_entry']
+_PUBLIC_ALL = ['save_or_submit_report', 'upload_report_photo', 'store_report_photo', 'get_report_detail', 'list_report_history', 'sync_mobile_status_from_review', 'calculate_mobile_report_metrics', 'get_current_shift', 'get_mobile_bootstrap', 'summarize_mobile_reporting', 'summarize_mobile_inventory', 'recent_mobile_exceptions', 'count_linked_open_production_exceptions', 'list_coil_entries', 'create_coil_entry', 'get_owner_daily_entry', 'save_owner_daily_entry', 'resolve_owner_daily_business_date']
 
 
 def _all_names() -> set[str]:

@@ -53,8 +53,8 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
             'daily_output': 18.5,
             'yesterday_output': 17.2,
             'monthly_output': 220.0,
-            'basis': 'latest_mobile_coil_output',
-            'basis_label': '全厂成品产量',
+            'basis': 'storage_inbound_output',
+            'basis_label': '全厂入库产量',
             'energy_per_ton': 172.97,
         },
     )
@@ -63,9 +63,9 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
         '_build_shift_breakdown',
         lambda *_args, **_kwargs: {
             'business_date': '2026-05-29',
-            'total_output': 18.5,
-            'output_basis': 'latest_mobile_coil_output',
-            'output_basis_label': '全厂成品产量',
+            'total_output': 120.0,
+            'output_basis': 'mobile_coil_process_output',
+            'output_basis_label': '工序下机量',
             'energy_per_ton': 172.97,
             'shifts': [],
         },
@@ -74,84 +74,33 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
     payload = daily_overview_builder.build_daily_production_overview(None, target_date=date(2026, 5, 29))
 
     assert payload['plant_output']['daily_output'] == 18.5
-    assert payload['plant_output']['basis_label'] == '全厂成品产量'
+    assert payload['plant_output']['basis_label'] == '全厂入库产量'
     assert payload['plant_cost']['basis_weight'] == 18.5
     assert payload['plant_cost']['cost_per_ton'] == round(2.08 * 10000 / 18.5, 0)
-    assert payload['shift_breakdown']['output_basis_label'] == '全厂成品产量'
+    assert payload['shift_breakdown']['output_basis_label'] == '工序下机量'
+    assert payload['header_kpis'][0]['label'] == '全厂入库产量'
 
 
-def test_build_plant_output_uses_latest_mobile_coil_entry_per_work_order(monkeypatch) -> None:
-    class _FakeQuery:
-        def __init__(self, rows):
-            self._rows = rows
+def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
+    assert daily_overview_builder._owner_storage_inbound_tons({
+        'park_inbound_daily': 12.5,
+        'new_plant_inbound_daily': 6.0,
+    }) == 18.5
+    assert daily_overview_builder._owner_storage_inbound_tons({
+        'storage_inbound_weight': 7.2,
+        'park_inbound_daily': 12.5,
+    }) == 7.2
 
-        def filter(self, *_args, **_kwargs):
-            return self
 
-        def all(self):
-            return self._rows
-
-    class _FakeDB:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def query(self, *_args, **_kwargs):
-            return _FakeQuery(self._rows)
-
-    rows = [
-        type('Row', (), {
-            'id': 1,
-            'work_order_id': 11,
-            'business_date': date(2026, 5, 29),
-            'output_weight': 1200.0,
-            'entry_status': 'submitted',
-            'entry_type': 'mobile_coil',
-            'approved_at': None,
-            'verified_at': None,
-            'submitted_at': None,
-            'updated_at': None,
-            'created_at': None,
-        })(),
-        type('Row', (), {
-            'id': 2,
-            'work_order_id': 11,
-            'business_date': date(2026, 5, 29),
-            'output_weight': 1500.0,
-            'entry_status': 'submitted',
-            'entry_type': 'mobile_coil',
-            'approved_at': None,
-            'verified_at': None,
-            'submitted_at': None,
-            'updated_at': None,
-            'created_at': None,
-        })(),
-        type('Row', (), {
-            'id': 3,
-            'work_order_id': 12,
-            'business_date': date(2026, 5, 29),
-            'output_weight': 500.0,
-            'entry_status': 'approved',
-            'entry_type': 'mobile_coil',
-            'approved_at': None,
-            'verified_at': None,
-            'submitted_at': None,
-            'updated_at': None,
-            'created_at': None,
-        })(),
-        type('Row', (), {
-            'id': 4,
-            'work_order_id': 12,
-            'business_date': date(2026, 5, 28),
-            'output_weight': 800.0,
-            'entry_status': 'approved',
-            'entry_type': 'mobile_coil',
-            'approved_at': None,
-            'verified_at': None,
-            'submitted_at': None,
-            'updated_at': None,
-            'created_at': None,
-        })(),
-    ]
+def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_plant_output_totals_by_date',
+        lambda *_args, **_kwargs: {
+            date(2026, 5, 28): 0.8,
+            date(2026, 5, 29): 2.0,
+        },
+    )
     energy = {
         'total_electricity': 400.0,
         'total_gas': 0.0,
@@ -161,16 +110,16 @@ def test_build_plant_output_uses_latest_mobile_coil_entry_per_work_order(monkeyp
         'by_workshop': [],
     }
 
-    payload = daily_overview_builder._build_plant_output(_FakeDB(rows), date(2026, 5, 29), energy)
+    payload = daily_overview_builder._build_plant_output(None, date(2026, 5, 29), energy)
 
     assert payload['daily_output'] == 2.0
     assert payload['yesterday_output'] == 0.8
     assert payload['monthly_output'] == 2.8
-    assert payload['basis'] == 'latest_mobile_coil_output'
-    assert payload['basis_label'] == '全厂成品产量'
+    assert payload['basis'] == 'storage_inbound_output'
+    assert payload['basis_label'] == '全厂入库产量'
 
 
-def test_build_timeseries_uses_mobile_coil_plant_output(monkeypatch) -> None:
+def test_build_timeseries_uses_storage_inbound_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_plant_output_totals_by_date',
@@ -191,3 +140,13 @@ def test_build_timeseries_uses_mobile_coil_plant_output(monkeypatch) -> None:
         {'date': '2026-05-28', 'output': 1054039.0, 'energy': 18000.0},
         {'date': '2026-05-29', 'output': 152124.0, 'energy': 3200.0},
     ]
+
+
+def test_factory_dashboard_runtime_output_prefers_storage_inbound_totals(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_plant_output_totals_by_date',
+        lambda *_args, **_kwargs: {date(2026, 5, 29): 1.5},
+    )
+
+    assert dashboard_builder._current_shift_output(None, target_date=date(2026, 5, 29)) == 1.5

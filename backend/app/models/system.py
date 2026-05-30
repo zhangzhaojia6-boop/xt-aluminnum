@@ -35,6 +35,18 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    @property
+    def admin_surface(self) -> bool:
+        return self.role == 'admin'
+
+    @property
+    def review_surface(self) -> bool:
+        return self.admin_surface or self.is_manager
+
+    @property
+    def entry_surface(self) -> bool:
+        return self.admin_surface or self.is_mobile_user
+
 
 class SystemConfig(Base):
     __tablename__ = 'system_configs'

@@ -36,8 +36,8 @@ WORKSHOPS = [
     {'code': 'ZD', 'name': '铸锭分厂', 'sort_order': 1},
     {'code': 'ZR2', 'name': '铸轧二', 'sort_order': 2},
     {'code': 'ZR3', 'name': '铸轧三', 'sort_order': 3},
-    {'code': 'ZR5', 'name': '铸轧五', 'sort_order': 4, 'is_active': False},
-    {'code': 'ZR6', 'name': '铸轧六', 'sort_order': 5, 'is_active': False},
+    {'code': 'ZR5', 'name': '铸轧五', 'sort_order': 4},
+    {'code': 'ZR6', 'name': '铸轧六', 'sort_order': 5},
     {'code': 'RZ', 'name': '热轧', 'sort_order': 6},
     {'code': 'LZ2050', 'name': '2050冷轧', 'sort_order': 7},
     {'code': 'LZ1850', 'name': '1850冷轧', 'sort_order': 8},
@@ -50,7 +50,7 @@ WORKSHOPS = [
     {'code': 'JQ', 'name': '剪切车间', 'sort_order': 15},
     {'code': 'LJ', 'name': '拉矫车间', 'sort_order': 16},
     {'code': 'CT', 'name': '彩涂', 'sort_order': 17, 'is_active': False},
-    {'code': 'HS', 'name': '回收车间', 'sort_order': 18, 'is_active': False},
+    {'code': 'HS', 'name': '回收车间', 'sort_order': 18},
     {'code': 'CPK', 'name': '成品库', 'sort_order': 19},
     {'code': 'ZXTF', 'name': '在线退火分厂', 'sort_order': 200},
     {'code': 'CH', 'name': '淬火车间', 'sort_order': 220},
@@ -268,6 +268,25 @@ REAL_EQUIPMENT_CODES = {
     for equipment_rows in EQUIPMENT_BY_WORKSHOP.values()
     for row in equipment_rows
 }
+REPORTING_MACHINE_CODES = (
+    'ZD-1', 'ZD-2', 'ZD-3', 'ZD-4',
+    'ZR2-1', 'ZR2-2', 'ZR2-5', 'ZR2-6',
+    'ZR3-1', 'ZR3-2', 'ZR3-3', 'ZR3-4', 'ZR3-5', 'ZR3-6', 'ZR3-7', 'ZR3-8', 'ZR3-9',
+    'ZR5-1', 'ZR6-1',
+    'RZ-ZJ', 'RZ-FM', 'RZ-DM', 'RZ-MED', 'RZ-HE', 'RZ-JC',
+    'LZ2050-1', 'LZ1850-1', 'LZ1650-1',
+    'JZ-19G', 'JZ-19N', 'JZ-ZJ-Z',
+    'JQ-1', 'JQ-2', 'JQ-3', 'JQ-4', 'JQ-ZJ',
+    'JQ-LJ', 'LJ-DFC', 'LJ-XJZ', 'JQ-TH',
+    'CH-CHX', 'CH-JZ1', 'CH-JZ2', 'CH-PG1', 'CH-PG2', 'CH-JQ', 'CH-LS',
+    'ZXTF-1', 'ZXTF-2', 'ZXTF-3', 'ZXTF-4',
+)
+REPORTING_MACHINE_CODE_SET = set(REPORTING_MACHINE_CODES)
+REPORTING_MACHINE_WORKSHOP_CODES = {
+    workshop_code
+    for workshop_code, equipment_rows in EQUIPMENT_BY_WORKSHOP.items()
+    if any(row['code'] in REPORTING_MACHINE_CODE_SET for row in equipment_rows)
+}
 VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
@@ -281,6 +300,24 @@ ROLE_QR_SUFFIX_MAP = {
     'PSH': ('shipment_outflow_owner', '园区剪切'),
     'RC': ('recovery_owner', '回收'),
     'OH': ('overhaul_owner', '大修'),
+}
+REPORTING_ROLE_QR_CODES = (
+    'ZD-EN', 'ZR2-EN', 'ZR3-EN', 'RZ-EN', 'LZ2050-EN', 'LZ1850-EN', 'LZ1650-EN',
+    'JZ-EN', 'JQ-EN', 'LJ-EN', 'ZXTF-EN', 'CH-EN',
+    'ZD-CS', 'ZR2-CS', 'ZR3-CS', 'RZ-CS', 'LZ2050-CS', 'LZ1850-CS', 'LZ1650-CS',
+    'JZ-CS', 'JQ-CS', 'LJ-CS', 'ZXTF-CS', 'CH-CS',
+    'CPK-QM', 'CPK-PL', 'CPK-EC', 'CPK-FS', 'JQ-PSH', 'HS-RC', 'CPK-OH',
+)
+REPORTING_ROLE_QR_CODE_SET = set(REPORTING_ROLE_QR_CODES)
+OWNER_DAILY_ROLES = {
+    'consumable_stat',
+    'quality_owner',
+    'planning_owner',
+    'energy_chief',
+    'storage_owner',
+    'shipment_outflow_owner',
+    'recovery_owner',
+    'overhaul_owner',
 }
 
 MES_WORKSHOP_ALIASES = [
@@ -333,7 +370,7 @@ MES_WORKSHOP_ALIASES = [
 ]
 
 PROCESS_BUSINESS_UNITS = [
-    {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3']},
+    {'unit_code': 'casting_branch', 'unit_name': '铸轧分厂', 'workshop_codes': ['ZD', 'ZR2', 'ZR3', 'ZR5', 'ZR6']},
     {'unit_code': 'rolling_branch', 'unit_name': '轧制分厂', 'workshop_codes': ['RZ', 'LZ2050', 'LZ1850', 'LZ1650', 'LZ1450']},
     {'unit_code': 'finishing_branch', 'unit_name': '精整车间', 'workshop_codes': ['JZ']},
     {'unit_code': 'lazheng_branch', 'unit_name': '拉矫车间', 'workshop_codes': ['LJ']},

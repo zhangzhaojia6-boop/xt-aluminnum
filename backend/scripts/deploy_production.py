@@ -142,6 +142,21 @@ NGINX_CONF = f'''server {{
         try_files $uri =404;
     }}
 
+    location = /sw.js {{
+        add_header Cache-Control "no-store, must-revalidate" always;
+        try_files $uri =404;
+    }}
+
+    location = /manifest.webmanifest {{
+        add_header Cache-Control "no-store, must-revalidate" always;
+        try_files $uri =404;
+    }}
+
+    location = /manifest.json {{
+        add_header Cache-Control "no-store, must-revalidate" always;
+        try_files $uri =404;
+    }}
+
     location /api/ {{
         proxy_pass http://127.0.0.1:8000/api/;
         proxy_http_version 1.1;

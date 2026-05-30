@@ -64,6 +64,8 @@ def test_create_admin_preserves_existing_password_hash(tmp_path, monkeypatch) ->
         assert verify_password('New#2026', stored.password_hash) is False
         assert stored.role == 'admin'
         assert stored.is_active is True
+        assert stored.workshop_id is None
+        assert stored.team_id is None
 
 
 def test_create_admin_can_explicitly_reset_existing_password(tmp_path, monkeypatch) -> None:
@@ -81,6 +83,8 @@ def test_create_admin_can_explicitly_reset_existing_password(tmp_path, monkeypat
         assert verify_password('New#2026', stored.password_hash) is True
         assert stored.role == 'admin'
         assert stored.is_active is True
+        assert stored.workshop_id is None
+        assert stored.team_id is None
 
 
 def test_ensure_admin_user_preserves_existing_password_hash(tmp_path, monkeypatch) -> None:
@@ -98,6 +102,8 @@ def test_ensure_admin_user_preserves_existing_password_hash(tmp_path, monkeypatc
         assert verify_password('New#2026', stored.password_hash) is False
         assert stored.role == 'admin'
         assert stored.is_active is True
+        assert stored.workshop_id is None
+        assert stored.team_id is None
 
 
 def test_create_admin_creates_missing_admin_with_requested_password(tmp_path, monkeypatch) -> None:
@@ -113,3 +119,6 @@ def test_create_admin_creates_missing_admin_with_requested_password(tmp_path, mo
         assert verify_password('Initial#2026', stored.password_hash) is True
         assert stored.role == 'admin'
         assert stored.data_scope_type == 'all'
+        assert stored.admin_surface is True
+        assert stored.review_surface is True
+        assert stored.entry_surface is True

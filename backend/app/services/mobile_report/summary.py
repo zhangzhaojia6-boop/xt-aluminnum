@@ -33,6 +33,7 @@ from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.locked_fields_service import LockedFieldsTokenInvalid, verify_locked_fields_token
 from app.services.pilot_observability_service import log_pilot_event
+from app.services.real_master_data import OWNER_DAILY_ROLES
 from app.services.work_order._utils import _normalize_flow_payload
 
 
@@ -153,6 +154,14 @@ def summarize_mobile_inventory(
     inventory_payload_fields = {
         'storage_inbound_weight',
         'storage_inbound_area',
+        'park_inbound_daily',
+        'park_inbound_monthly',
+        'park_outbound_daily',
+        'park_outbound_monthly',
+        'new_plant_inbound_daily',
+        'new_plant_inbound_monthly',
+        'new_plant_outbound_daily',
+        'new_plant_outbound_monthly',
         'plant_to_park_inbound_weight',
         'park_to_storage_inbound_weight',
         'month_to_date_inbound_weight',
@@ -235,8 +244,20 @@ def summarize_mobile_inventory(
         payload['source'] = 'owner_only'
         payload['source_label'] = '专项补录'
         payload['source_variant'] = 'owner'
-        payload['storage_finished'] += _to_float(extra_payload.get('storage_inbound_weight')) or 0.0
-        payload['shipment_weight'] += _to_float(extra_payload.get('shipment_weight')) or 0.0
+        inbound_weight = _to_float(extra_payload.get('storage_inbound_weight'))
+        if inbound_weight is None:
+            inbound_weight = (
+                (_to_float(extra_payload.get('park_inbound_daily')) or 0.0)
+                + (_to_float(extra_payload.get('new_plant_inbound_daily')) or 0.0)
+            )
+        shipment_weight = _to_float(extra_payload.get('shipment_weight'))
+        if shipment_weight is None:
+            shipment_weight = (
+                (_to_float(extra_payload.get('park_outbound_daily')) or 0.0)
+                + (_to_float(extra_payload.get('new_plant_outbound_daily')) or 0.0)
+            )
+        payload['storage_finished'] += inbound_weight or 0.0
+        payload['shipment_weight'] += shipment_weight or 0.0
         payload['storage_inbound_area'] += _to_float(extra_payload.get('storage_inbound_area')) or 0.0
         payload['shipment_area'] += _to_float(extra_payload.get('shipment_area')) or 0.0
         payload['consignment_weight'] += _to_float(extra_payload.get('consignment_weight')) or 0.0
@@ -649,6 +670,128 @@ def create_coil_entry(
         'business_date': entry.business_date,
         'created_at': None,
     }
+
+
+OWNER_DAILY_ENTRY_TYPE = 'owner_daily'
+OWNER_DAILY_ROLE_LABELS = {
+    'consumable_stat': '内勤',
+    'quality_owner': '质检内勤',
+    'planning_owner': '计划内勤',
+    'energy_chief': '总电工',
+    'storage_owner': '成品库',
+    'shipment_outflow_owner': '园区剪切',
+    'recovery_owner': '回收',
+    'overhaul_owner': '大修',
+}
+
+
+def _owner_daily_tracking_card(*, role: str, user_id: int, business_date: date) -> str:
+    return f"OWNER-{role}-{user_id}-{business_date.isoformat()}"
+
+
+def _owner_daily_response(entry: WorkOrderEntry, *, workshop: Workshop | None, current_user: User) -> dict:
+    return {
+        'id': entry.id,
+        'business_date': entry.business_date,
+        'workshop_id': entry.workshop_id,
+        'workshop_name': workshop.name if workshop else None,
+        'role': current_user.role,
+        'role_label': OWNER_DAILY_ROLE_LABELS.get(current_user.role, current_user.role),
+        'data': dict(entry.extra_payload or {}),
+        'entry_status': entry.entry_status,
+        'updated_at': entry.updated_at if hasattr(entry, 'updated_at') else None,
+    }
+
+
+def get_owner_daily_entry(
+    db: Session,
+    *,
+    business_date: date,
+    current_user: User,
+) -> dict | None:
+    assert_mobile_user_access(current_user)
+    role = current_user.role or ''
+    if role not in OWNER_DAILY_ROLES:
+        raise HTTPException(status_code=403, detail='owner_daily_role_required')
+    workshop_id = current_user.workshop_id or build_scope_summary(current_user).workshop_id
+    if not workshop_id:
+        raise HTTPException(status_code=400, detail='当前账号未绑定车间，请先在用户管理中设置车间归属。')
+    entry = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
+            WorkOrderEntry.created_by_user_id == current_user.id,
+        )
+        .order_by(WorkOrderEntry.updated_at.desc(), WorkOrderEntry.id.desc())
+        .first()
+    )
+    if entry is None:
+        return None
+    return _owner_daily_response(entry, workshop=db.get(Workshop, workshop_id), current_user=current_user)
+
+
+def save_owner_daily_entry(
+    db: Session,
+    *,
+    payload: dict,
+    current_user: User,
+) -> dict:
+    assert_mobile_user_access(current_user)
+    role = current_user.role or ''
+    if role not in OWNER_DAILY_ROLES:
+        raise HTTPException(status_code=403, detail='owner_daily_role_required')
+    workshop_id = current_user.workshop_id or build_scope_summary(current_user).workshop_id
+    if not workshop_id:
+        raise HTTPException(status_code=400, detail='当前账号未绑定车间，请先在用户管理中设置车间归属。')
+
+    raw_business_date = payload.get('business_date') or resolve_owner_daily_business_date()
+    business_date = date.fromisoformat(raw_business_date) if isinstance(raw_business_date, str) else raw_business_date
+    data = dict(payload.get('data') or {})
+    from app.models.production import WorkOrder
+
+    tracking_card_no = _owner_daily_tracking_card(role=role, user_id=current_user.id, business_date=business_date)
+    work_order = db.query(WorkOrder).filter(WorkOrder.tracking_card_no == tracking_card_no).first()
+    if work_order is None:
+        work_order = WorkOrder(
+            tracking_card_no=tracking_card_no,
+            process_route_code='owner_daily',
+            overall_status='created',
+            created_by=current_user.id,
+        )
+        db.add(work_order)
+        db.flush()
+
+    entry = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.work_order_id == work_order.id,
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
+            WorkOrderEntry.created_by_user_id == current_user.id,
+        )
+        .first()
+    )
+    if entry is None:
+        entry = WorkOrderEntry(
+            work_order_id=work_order.id,
+            workshop_id=workshop_id,
+            machine_id=None,
+            shift_id=None,
+            business_date=business_date,
+            entry_type=OWNER_DAILY_ENTRY_TYPE,
+            created_by=current_user.id,
+            created_by_user_id=current_user.id,
+        )
+        db.add(entry)
+
+    entry.workshop_id = workshop_id
+    entry.extra_payload = data
+    entry.entry_status = 'submitted'
+    entry.submitted_at = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE))
+    db.commit()
+    db.refresh(entry)
+    return _owner_daily_response(entry, workshop=db.get(Workshop, workshop_id), current_user=current_user)
 
 
 def _flow_context_from_external_snapshot(db: Session, payload: dict) -> dict:

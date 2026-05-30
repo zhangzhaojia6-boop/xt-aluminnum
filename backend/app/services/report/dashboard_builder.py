@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from sqlalchemy import case, func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.event_bus import event_bus
@@ -106,8 +107,45 @@ def build_delivery_status(db: Session, *, target_date: date) -> dict:
         'missing_steps': missing_steps,
     }
 
+def _mobile_coil_output_totals_by_date(
+    db: Session,
+    *,
+    start_date: date,
+    end_date: date,
+    workshop_id: int | None = None,
+) -> dict[date, float]:
+    totals: dict[date, float] = {}
+    try:
+        rows = daily_overview_builder._query_latest_mobile_coil_rows(db, start_date, end_date)
+    except SQLAlchemyError:
+        return {}
+    for row in rows:
+        if workshop_id and row.workshop_id != workshop_id:
+            continue
+        totals[row.business_date] = totals.get(row.business_date, 0.0) + (_to_float(row.output_weight) / 1000)
+    return {business_date: round(total, 2) for business_date, total in totals.items()}
+
+def _plant_storage_output_totals_by_date(
+    db: Session,
+    *,
+    start_date: date,
+    end_date: date,
+) -> dict[date, float]:
+    try:
+        return daily_overview_builder._query_plant_output_totals_by_date(db, start_date, end_date)
+    except SQLAlchemyError:
+        return {}
+
 def _month_to_date_output(db: Session, *, target_date: date, workshop_id: int | None = None) -> float:
     month_start = target_date.replace(day=1)
+    if workshop_id is None:
+        return round(sum(_plant_storage_output_totals_by_date(db, start_date=month_start, end_date=target_date).values()), 2)
+    mobile_totals = _mobile_coil_output_totals_by_date(
+        db,
+        start_date=month_start,
+        end_date=target_date,
+        workshop_id=workshop_id,
+    )
     query = db.query(ShiftProductionData).filter(
         ShiftProductionData.business_date >= month_start,
         ShiftProductionData.business_date <= target_date,
@@ -115,9 +153,24 @@ def _month_to_date_output(db: Session, *, target_date: date, workshop_id: int | 
     )
     if workshop_id:
         query = query.filter(ShiftProductionData.workshop_id == workshop_id)
-    return round(sum(_shift_weight_tons(item, 'output_weight') for item in query.all()), 2)
+    legacy_total_by_date: dict[date, float] = {}
+    for item in query.all():
+        if item.business_date in mobile_totals:
+            continue
+        legacy_total_by_date[item.business_date] = legacy_total_by_date.get(item.business_date, 0.0) + _shift_weight_tons(item, 'output_weight')
+    return round(sum(mobile_totals.values()) + sum(legacy_total_by_date.values()), 2)
 
 def _current_shift_output(db: Session, *, target_date: date, workshop_id: int | None = None) -> float:
+    if workshop_id is None:
+        return round(_plant_storage_output_totals_by_date(db, start_date=target_date, end_date=target_date).get(target_date, 0.0), 2)
+    mobile_output = _mobile_coil_output_totals_by_date(
+        db,
+        start_date=target_date,
+        end_date=target_date,
+        workshop_id=workshop_id,
+    ).get(target_date)
+    if mobile_output is not None:
+        return round(mobile_output, 2)
     query = db.query(ShiftProductionData).filter(
         ShiftProductionData.business_date == target_date,
         ShiftProductionData.data_status != 'voided',
@@ -133,6 +186,14 @@ def _output_totals_by_date(
     end_date: date,
     workshop_id: int | None = None,
 ) -> dict[date, float]:
+    if workshop_id is None:
+        return _plant_storage_output_totals_by_date(db, start_date=start_date, end_date=end_date)
+    mobile_totals = _mobile_coil_output_totals_by_date(
+        db,
+        start_date=start_date,
+        end_date=end_date,
+        workshop_id=workshop_id,
+    )
     query = (
         db.query(ShiftProductionData)
         .filter(
@@ -146,9 +207,10 @@ def _output_totals_by_date(
     totals: dict[date, float] = {}
     for item in query.all():
         business_date = getattr(item, 'business_date', None)
-        if business_date is None:
+        if business_date is None or business_date in mobile_totals:
             continue
         totals[business_date] = totals.get(business_date, 0.0) + _shift_weight_tons(item, 'output_weight')
+    totals.update(mobile_totals)
     return {business_date: round(total_output, 2) for business_date, total_output in totals.items()}
 
 def _active_output_dates(
@@ -158,6 +220,16 @@ def _active_output_dates(
     end_date: date,
     workshop_id: int | None = None,
 ) -> list[date]:
+    if workshop_id is None:
+        return sorted(_plant_storage_output_totals_by_date(db, start_date=start_date, end_date=end_date).keys())
+    mobile_dates = set(
+        _mobile_coil_output_totals_by_date(
+            db,
+            start_date=start_date,
+            end_date=end_date,
+            workshop_id=workshop_id,
+        ).keys()
+    )
     query = (
         db.query(ShiftProductionData.business_date)
         .filter(
@@ -169,7 +241,8 @@ def _active_output_dates(
     )
     if workshop_id:
         query = query.filter(ShiftProductionData.workshop_id == workshop_id)
-    return sorted(row[0] for row in query.all() if row and row[0] is not None)
+    legacy_dates = {row[0] for row in query.all() if row and row[0] is not None}
+    return sorted(mobile_dates | legacy_dates)
 
 def _build_history_digest(
     db: Session,

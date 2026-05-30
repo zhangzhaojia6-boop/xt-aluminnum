@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from sqlalchemy import case, func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.event_bus import event_bus
@@ -37,7 +38,8 @@ from app.services.production_service import (
     build_workshop_output_summary,
     mark_shift_data_published,
 )
-from app.services.report._utils import CANONICAL_REPORT_SCOPE, _shift_weight_tons
+from app.services.report import daily_overview_builder
+from app.services.report._utils import CANONICAL_REPORT_SCOPE, _shift_weight_tons, _to_float
 
 
 def _build_production_lane(db: Session, *, target_date: date, workshop_id: int | None = None) -> list[dict]:
@@ -208,6 +210,12 @@ def _lane_source_meta(source: str | None) -> dict[str, str]:
 def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | None = None) -> dict:
     mobile_summary = mobile_report_service.summarize_mobile_reporting(db, target_date=target_date, workshop_id=workshop_id)
     reminder_summary = mobile_reminder_service.summarize_reminders(db, target_date=target_date, workshop_id=workshop_id)
+    coil_output_by_workshop, mobile_coil_entry_count = _mobile_coil_output_by_workshop(
+        db,
+        target_date=target_date,
+        workshop_id=workshop_id,
+    )
+    uses_mobile_coil_chain = mobile_coil_entry_count > 0
     open_reconciliation = int(
         db.query(func.count(DataReconciliationItem.id))
         .filter(DataReconciliationItem.business_date == target_date, DataReconciliationItem.status == 'open')
@@ -222,14 +230,28 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
     )
     if workshop_id:
         unpublished_reports = 0
+    legacy_unreported_count = mobile_summary.get('unreported_count', 0)
+    legacy_returned_count = mobile_summary.get('returned_count', 0)
+    legacy_late_count = mobile_summary.get('late_count', 0)
+    legacy_exception_count = mobile_summary.get('exception_count', 0)
+    reminder_unreported_count = reminder_summary.get('unreported_count', 0)
+    reminder_late_count = reminder_summary.get('late_report_count', 0)
+    today_reminder_count = reminder_summary.get('today_reminder_count', 0)
     return {
-        'unreported_shift_count': mobile_summary.get('unreported_count', 0),
-        'returned_shift_count': mobile_summary.get('returned_count', 0),
-        'late_shift_count': mobile_summary.get('late_count', 0),
-        'mobile_exception_count': mobile_summary.get('exception_count', 0),
-        'reminder_unreported_count': reminder_summary.get('unreported_count', 0),
-        'reminder_late_count': reminder_summary.get('late_report_count', 0),
-        'today_reminder_count': reminder_summary.get('today_reminder_count', 0),
+        'unreported_shift_count': 0 if uses_mobile_coil_chain else legacy_unreported_count,
+        'returned_shift_count': 0 if uses_mobile_coil_chain else legacy_returned_count,
+        'late_shift_count': 0 if uses_mobile_coil_chain else legacy_late_count,
+        'mobile_exception_count': 0 if uses_mobile_coil_chain else legacy_exception_count,
+        'legacy_unreported_shift_count': legacy_unreported_count,
+        'legacy_returned_shift_count': legacy_returned_count,
+        'legacy_late_shift_count': legacy_late_count,
+        'legacy_mobile_exception_count': legacy_exception_count,
+        'mobile_coil_entry_count': mobile_coil_entry_count,
+        'mobile_coil_workshop_count': len(coil_output_by_workshop),
+        'reporting_source': 'mobile_coil' if uses_mobile_coil_chain else 'mobile_shift_reports',
+        'reminder_unreported_count': 0 if uses_mobile_coil_chain else reminder_unreported_count,
+        'reminder_late_count': 0 if uses_mobile_coil_chain else reminder_late_count,
+        'today_reminder_count': 0 if uses_mobile_coil_chain else today_reminder_count,
         'production_exception_count': mobile_report_service.count_linked_open_production_exceptions(
             db,
             target_date=target_date,
@@ -237,9 +259,9 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
         ),
         'reconciliation_open_count': open_reconciliation,
         'pending_report_publish_count': unpublished_reports,
-        'returned_items': mobile_summary.get('returned_items', []),
-        'reminder_items': reminder_summary.get('recent_items', []),
-        'recent_items': mobile_report_service.recent_mobile_exceptions(
+        'returned_items': [] if uses_mobile_coil_chain else mobile_summary.get('returned_items', []),
+        'reminder_items': [] if uses_mobile_coil_chain else reminder_summary.get('recent_items', []),
+        'recent_items': [] if uses_mobile_coil_chain else mobile_report_service.recent_mobile_exceptions(
             db,
             target_date=target_date,
             workshop_id=workshop_id,
@@ -468,6 +490,7 @@ _REPORT_STATUS_PRIORITY = {
     'submitted': 3,
     CANONICAL_REPORT_SCOPE: 4,
     'approved': 4,
+    'not_applicable': 5,
 }
 
 def _workshop_reporting_meta(report_status: str) -> dict[str, str]:
@@ -488,10 +511,39 @@ def _workshop_reporting_meta(report_status: str) -> dict[str, str]:
 
 def _coil_reporting_meta() -> dict[str, str]:
     return {
-        'source_label': '卷级直录',
-        'source_variant': 'coil',
-        'status_hint': '现场卷级数据已进入待确认汇总',
+        'source_label': '主操直录',
+        'source_variant': 'mobile',
+        'status_hint': '现场扫码数据已进入管理端',
     }
+
+def _coil_idle_meta() -> dict[str, str]:
+    return {
+        'source_label': '主操直录',
+        'source_variant': 'mobile',
+        'status_hint': '本日暂无扫码成品产出',
+    }
+
+def _mobile_coil_output_by_workshop(
+    db: Session,
+    *,
+    target_date: date,
+    workshop_id: int | None = None,
+) -> tuple[dict[int, float], int]:
+    output_by_workshop: dict[int, float] = {}
+    entry_count = 0
+    try:
+        rows = daily_overview_builder._query_latest_mobile_coil_rows(db, target_date, target_date)
+    except SQLAlchemyError:
+        return {}, 0
+    for row in rows:
+        if workshop_id and row.workshop_id != workshop_id:
+            continue
+        if row.workshop_id is None:
+            continue
+        entry_count += 1
+        wid = int(row.workshop_id)
+        output_by_workshop[wid] = output_by_workshop.get(wid, 0.0) + (_to_float(row.output_weight) / 1000)
+    return output_by_workshop, entry_count
 
 def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dict]:
     workshops = (
@@ -526,19 +578,21 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
         reports_by_workshop.setdefault(int(row.workshop_id), []).append(row)
         report_key_status[(int(row.workshop_id), row.team_id, int(row.shift_config_id))] = _mobile_report_decision_status(row)
 
-    coil_rows = (
-        db.query(ShiftProductionData)
-        .filter(
-            ShiftProductionData.business_date == target_date,
-            ShiftProductionData.data_status == 'pending',
-            ShiftProductionData.data_source == 'mobile_coil_agg',
+    coil_output_by_workshop, _entry_count = _mobile_coil_output_by_workshop(db, target_date=target_date)
+    uses_mobile_coil_chain = bool(coil_output_by_workshop)
+    if not uses_mobile_coil_chain:
+        coil_rows = (
+            db.query(ShiftProductionData)
+            .filter(
+                ShiftProductionData.business_date == target_date,
+                ShiftProductionData.data_status == 'pending',
+                ShiftProductionData.data_source == 'mobile_coil_agg',
+            )
+            .all()
         )
-        .all()
-    )
-    coil_output_by_workshop: dict[int, float] = {}
-    for row in coil_rows:
-        wid = int(row.workshop_id)
-        coil_output_by_workshop[wid] = coil_output_by_workshop.get(wid, 0.0) + _shift_weight_tons(row, 'output_weight')
+        for row in coil_rows:
+            wid = int(row.workshop_id)
+            coil_output_by_workshop[wid] = coil_output_by_workshop.get(wid, 0.0) + _shift_weight_tons(row, 'output_weight')
 
     merged: list[dict] = []
     for workshop in workshops:
@@ -547,7 +601,9 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
         coil_output = coil_output_by_workshop.get(wid)
         expected_keys = expected_by_workshop.get(wid, set())
         statuses = [_mobile_report_decision_status(row) for row in workshop_reports]
-        if not statuses and coil_output is not None:
+        if uses_mobile_coil_chain:
+            statuses = ['submitted'] if coil_output is not None else ['not_applicable']
+        elif not statuses and coil_output is not None:
             statuses.append('draft')
         elif expected_keys:
             for key in expected_keys:
@@ -558,7 +614,10 @@ def _build_workshop_reporting_status(db: Session, target_date: date) -> list[dic
         report_status = min(statuses, key=lambda item: _REPORT_STATUS_PRIORITY.get(item, 99))
         output_weight = round(sum(_to_float(row.output_weight) for row in workshop_reports), 2) if workshop_reports else None
         source_meta = _workshop_reporting_meta(report_status)
-        if not workshop_reports and coil_output is not None:
+        if uses_mobile_coil_chain:
+            output_weight = round(coil_output, 2) if coil_output is not None else None
+            source_meta = _coil_reporting_meta() if coil_output is not None else _coil_idle_meta()
+        elif not workshop_reports and coil_output is not None:
             output_weight = round(coil_output, 2)
             source_meta = _coil_reporting_meta()
         merged.append(

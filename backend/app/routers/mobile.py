@@ -28,6 +28,8 @@ from app.schemas.mobile import (
     MobileCoilEntryPayload,
     MobileCurrentShiftOut,
     MobilePhotoUploadResponse,
+    MobileOwnerDailyOut,
+    MobileOwnerDailyPayload,
     MobileReminderActionRequest,
     MobileReminderRecordOut,
     MobileReportHistoryResponse,
@@ -37,6 +39,7 @@ from app.schemas.mobile import (
     MobileShiftReportOut,
 )
 from app.services import factory_command_service, mobile_reminder_service, mobile_report_service, scan_lookup_service
+from app.services.real_master_data import OWNER_DAILY_ROLES
 
 router = APIRouter(tags=['mobile'])
 
@@ -285,6 +288,34 @@ def create_coil_entry(
     return MobileCoilEntryOut(**entry)
 
 
+@router.get('/owner-daily/{business_date}', response_model=MobileOwnerDailyOut | None, name='mobile-owner-daily-detail')
+def owner_daily_detail(
+    business_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileOwnerDailyOut | None:
+    payload = mobile_report_service.get_owner_daily_entry(
+        db,
+        business_date=business_date,
+        current_user=current_user,
+    )
+    return MobileOwnerDailyOut(**payload) if payload else None
+
+
+@router.post('/owner-daily', response_model=MobileOwnerDailyOut, name='mobile-owner-daily-save')
+def save_owner_daily(
+    body: MobileOwnerDailyPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileOwnerDailyOut:
+    payload = mobile_report_service.save_owner_daily_entry(
+        db,
+        payload=body.model_dump(),
+        current_user=current_user,
+    )
+    return MobileOwnerDailyOut(**payload)
+
+
 ROLE_FIELD_MAPPING = {
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
     'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
@@ -353,6 +384,7 @@ def entry_fields(
 
     groups = []
     is_per_coil = role == 'machine_operator'
+    is_owner_daily = role in OWNER_DAILY_ROLES
 
     if 'direct_fields' in mapping:
         fields = mapping['direct_fields']
@@ -398,8 +430,8 @@ def entry_fields(
     return {
         'groups': groups,
         'readonly_fields': readonly_filtered,
-        'mode': 'per_coil' if is_per_coil else 'per_shift',
-        'submit_target': 'coil_entry' if is_per_coil else 'shift_report',
+        'mode': 'per_coil' if is_per_coil else 'owner_daily' if is_owner_daily else 'per_shift',
+        'submit_target': 'coil_entry' if is_per_coil else 'owner_daily' if is_owner_daily else 'shift_report',
         'identity_field': 'tracking_card_no' if is_per_coil else None,
         'workshop_type': ws_type,
         'role': role,

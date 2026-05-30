@@ -34,6 +34,9 @@ class UserInfo(BaseModel):
     is_mobile_user: bool = False
     is_reviewer: bool = False
     is_manager: bool = False
+    admin_surface: bool = False
+    review_surface: bool = False
+    entry_surface: bool = False
 
     model_config = {"from_attributes": True}
 

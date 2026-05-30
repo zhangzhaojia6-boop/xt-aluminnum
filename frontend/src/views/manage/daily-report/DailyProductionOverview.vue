@@ -71,7 +71,7 @@
         <thead>
           <tr>
             <th>车间</th>
-            <th class="num">日产（吨）</th>
+            <th class="num">下机量（吨）</th>
             <th class="num">比昨日</th>
             <th class="num">月累计（吨）</th>
           </tr>
@@ -84,7 +84,7 @@
             <td class="num">{{ fmtNum(w.monthly_output) }}</td>
           </tr>
           <tr class="dr-table__total">
-            <td>合计</td>
+            <td>过站合计</td>
             <td class="num">{{ fmtNum(totalToday) }}</td>
             <td class="num" :class="deltaClass(totalToday - totalYesterday)">{{ fmtDelta(totalToday - totalYesterday) }}</td>
             <td class="num">{{ fmtNum(totalMonthly) }}</td>
