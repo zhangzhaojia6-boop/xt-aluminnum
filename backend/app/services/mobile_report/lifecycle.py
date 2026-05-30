@@ -754,29 +754,40 @@ def save_or_submit_report(
         _ensure_mobile_override_for_locked_report(report, current_user, override_reason=override_reason)
 
     original = _model_to_dict(report)
+    is_energy_only_report = (current_user.role or '') == 'energy_stat'
     report.owner_user_id = report.owner_user_id or current_user.id
     report.leader_user_id = current_user.id
     report.leader_name = current_user.name
     report.dingtalk_user_id = current_user.dingtalk_user_id
     report.dingtalk_union_id = current_user.dingtalk_union_id
     report.last_action_by_user_id = current_user.id
-    report.attendance_count = payload.get('attendance_count')
-    report.input_weight = payload.get('input_weight')
-    report.output_weight = payload.get('output_weight')
-    report.scrap_weight = payload.get('scrap_weight')
-    report.storage_prepared = payload.get('storage_prepared')
-    report.storage_finished = payload.get('storage_finished')
-    report.shipment_weight = payload.get('shipment_weight')
-    report.contract_received = payload.get('contract_received')
-    report.electricity_daily = payload.get('electricity_daily')
-    report.gas_daily = payload.get('gas_daily')
-    report.has_exception = bool(payload.get('has_exception'))
-    report.exception_type = payload.get('exception_type')
-    report.note = payload.get('note')
-    report.optional_photo_url = payload.get('optional_photo_url')
+    if is_energy_only_report:
+        report.electricity_daily = payload.get('electricity_daily')
+        report.gas_daily = payload.get('gas_daily')
+        report.note = payload.get('note')
+    else:
+        report.attendance_count = payload.get('attendance_count')
+        report.input_weight = payload.get('input_weight')
+        report.output_weight = payload.get('output_weight')
+        report.scrap_weight = payload.get('scrap_weight')
+        report.storage_prepared = payload.get('storage_prepared')
+        report.storage_finished = payload.get('storage_finished')
+        report.shipment_weight = payload.get('shipment_weight')
+        report.contract_received = payload.get('contract_received')
+        report.electricity_daily = payload.get('electricity_daily')
+        report.gas_daily = payload.get('gas_daily')
+        report.has_exception = bool(payload.get('has_exception'))
+        report.exception_type = payload.get('exception_type')
+        report.note = payload.get('note')
+        report.optional_photo_url = payload.get('optional_photo_url')
     report.last_saved_at = _local_now()
 
     machine_energy_records = payload.get('machine_energy_records') or []
+    has_machine_energy_value = any(
+        rec.get('energy_kwh') is not None or rec.get('gas_m3') is not None
+        for rec in machine_energy_records
+        if isinstance(rec, dict)
+    )
     if machine_energy_records:
         total_kwh, total_gas = _sum_machine_energy(machine_energy_records)
         report.electricity_daily = total_kwh
@@ -793,8 +804,9 @@ def save_or_submit_report(
             report.scrap_weight = total_scrap
 
     decision_snapshot = None
-    is_energy_only_report = (current_user.role or '') == 'energy_stat'
     if submit:
+        if is_energy_only_report and report.electricity_daily is None and report.gas_daily is None and not has_machine_energy_value:
+            raise HTTPException(status_code=400, detail='请至少填写电耗或气耗后再提交。')
         # 必填验证已由前端和模板定义处理，后端不再硬编码检查
         # missing = _required_submit_fields(payload)
         # if missing:

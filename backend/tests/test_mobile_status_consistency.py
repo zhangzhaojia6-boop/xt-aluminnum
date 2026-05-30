@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
+
 from app.services.mobile_report_service import save_or_submit_report
 
 
@@ -236,3 +239,74 @@ def test_energy_stat_submit_keeps_energy_report_submitted(monkeypatch) -> None:
     assert report.gas_daily == 80.0
     assert report.returned_reason is None
     assert shift_data.data_status == "pending"
+
+
+def test_energy_stat_submit_preserves_existing_production_fields(monkeypatch) -> None:
+    shift = SimpleNamespace(id=1, is_active=True, code="D", name="白班")
+    workshop = SimpleNamespace(id=1, code="ZR1", name="铸轧")
+    team = SimpleNamespace(id=10, name="甲班")
+    report = _report()
+    report.attendance_count = 12
+    report.input_weight = 100.0
+    report.output_weight = 95.0
+    report.scrap_weight = 2.0
+    report.report_status = "returned"
+    report.returned_reason = "旧的产量校验退回原因"
+    shift_data = _shift_data()
+    db = _FakeDB(shift=shift, report=report, shift_data=shift_data)
+
+    _patch_common(monkeypatch, workshop=workshop, team=team)
+    monkeypatch.setattr("app.services.mobile_report_service._find_mobile_report", lambda *_args, **_kwargs: report)
+    monkeypatch.setattr(
+        "app.services.mobile_report_service._sync_to_shift_production",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("energy_stat must not sync production")),
+    )
+    monkeypatch.setattr(
+        "app.services.mobile_report_service.validator_agent",
+        SimpleNamespace(execute=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("energy_stat must not run production validator"))),
+    )
+
+    save_or_submit_report(
+        db,
+        payload={
+            "business_date": date(2026, 4, 6),
+            "shift_id": 1,
+            "electricity_daily": 1200.0,
+            "gas_daily": 80.0,
+        },
+        current_user=_user(role="energy_stat"),
+        submit=True,
+    )
+
+    assert report.attendance_count == 12
+    assert report.input_weight == 100.0
+    assert report.output_weight == 95.0
+    assert report.scrap_weight == 2.0
+    assert report.electricity_daily == 1200.0
+    assert report.gas_daily == 80.0
+
+
+def test_energy_stat_submit_rejects_empty_energy_payload(monkeypatch) -> None:
+    shift = SimpleNamespace(id=1, is_active=True, code="D", name="白班")
+    workshop = SimpleNamespace(id=1, code="ZR1", name="铸轧")
+    team = SimpleNamespace(id=10, name="甲班")
+    report = _report()
+    shift_data = _shift_data()
+    db = _FakeDB(shift=shift, report=report, shift_data=shift_data)
+
+    _patch_common(monkeypatch, workshop=workshop, team=team)
+    monkeypatch.setattr("app.services.mobile_report_service._find_mobile_report", lambda *_args, **_kwargs: report)
+
+    with pytest.raises(HTTPException) as exc:
+        save_or_submit_report(
+            db,
+            payload={
+                "business_date": date(2026, 4, 6),
+                "shift_id": 1,
+            },
+            current_user=_user(role="energy_stat"),
+            submit=True,
+        )
+
+    assert exc.value.status_code == 400
+    assert "请至少填写电耗或气耗" in exc.value.detail
