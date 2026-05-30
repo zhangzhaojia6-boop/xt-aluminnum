@@ -33,7 +33,7 @@ test('owner skeleton exposes current top-level labels', () => {
 test('owner skeleton keeps daily report under today and report under delivery', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [2, 2, 1, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [2, 3, 1, 1])
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
@@ -44,6 +44,7 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
     '/manage/today',
     '/manage/daily-report',
     '/manage/production',
+    '/manage/fill-details',
     '/energy/center',
     '/attendance/overview',
     '/manage/reports',

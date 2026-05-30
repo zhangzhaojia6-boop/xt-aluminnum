@@ -17,9 +17,9 @@ DEFAULT_SYSTEM_CONFIGS = [
 ]
 
 DEFAULT_SHIFT_CONFIGS = [
-    ('A', '白班', 'day', time(7, 0), time(15, 0), False, 0, 1),
-    ('B', '小夜', 'evening', time(15, 0), time(23, 0), True, 0, 2),
-    ('C', '大夜', 'night', time(23, 0), time(7, 0), True, -1, 3),
+    ('C', '大夜', 'night', time(23, 30), time(7, 30), True, -1, 1),
+    ('A', '长白班', 'day', time(7, 30), time(15, 30), False, 0, 2),
+    ('B', '小夜', 'evening', time(15, 30), time(23, 30), False, 0, 3),
 ]
 
 DEFAULT_FIELD_MAPPING_TEMPLATES = [

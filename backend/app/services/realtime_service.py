@@ -12,6 +12,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
+from app.core.business_time import resolve_production_business_date
 from app.core.scope import (
     build_scope_summary,
     can_view_all_work_order_entries,
@@ -141,7 +142,7 @@ def resolve_live_business_date(
     workshop_id: int | None = None,
 ) -> dict:
     resolved_now = now or _local_now()
-    resolved_today = today or resolved_now.date()
+    resolved_today = today or resolve_production_business_date(resolved_now)
     cutoff = resolved_now - timedelta(hours=max(int(lookback_hours or ACTIVE_DATE_LOOKBACK_HOURS), 1))
 
     entry_query = (
@@ -240,7 +241,7 @@ def _latest_live_fill_business_date(db: Session, *, today: date, workshop_id: in
 
 def _build_live_business_date_context(db: Session, *, requested_date: date, workshop_id: int | None) -> dict:
     resolved_now = _local_now()
-    current_date = resolved_now.date()
+    current_date = resolve_production_business_date(resolved_now)
     active_payload = resolve_live_business_date(db, today=current_date, now=resolved_now)
     active_date = _parse_business_date(active_payload.get('business_date'))
     latest_fill_date = _latest_live_fill_business_date(db, today=current_date, workshop_id=workshop_id)
@@ -1294,7 +1295,7 @@ def build_fill_detail_ledger(
         .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
         .outerjoin(Equipment, Equipment.id == WorkOrderEntry.machine_id)
         .outerjoin(ShiftConfig, ShiftConfig.id == WorkOrderEntry.shift_id)
-        .outerjoin(creator_user, creator_user.id == WorkOrderEntry.created_by_user_id)
+        .outerjoin(creator_user, creator_user.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
         .filter(WorkOrderEntry.business_date == business_date)
     )
     if scoped_workshop_id is not None:

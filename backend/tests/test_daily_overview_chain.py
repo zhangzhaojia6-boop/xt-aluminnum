@@ -4,6 +4,11 @@ from datetime import date
 from datetime import time
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.database import Base
+from app.models.mes import MesCoilSnapshot
 from app.services import report_service
 from app.services.report import daily_overview_builder
 from app.services.report import dashboard_builder
@@ -92,6 +97,36 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
         'storage_inbound_weight': 7.2,
         'park_inbound_daily': 12.5,
     }) == 7.2
+
+
+def test_wip_distribution_uses_mes_current_state_not_target_date(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesCoilSnapshot(
+            coil_id='MES:OLD-WIP',
+            tracking_card_no='OLD-WIP',
+            business_date=date(2026, 5, 27),
+            current_workshop='冷轧车间',
+            current_process='轧制',
+            material_weight=2500.0,
+        ),
+        MesCoilSnapshot(
+            coil_id='MES:STOCK',
+            tracking_card_no='STOCK',
+            business_date=date(2026, 5, 29),
+            current_workshop='冷轧车间',
+            current_process='入库',
+            status_name='已入库',
+            material_weight=5000.0,
+        ),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
+
+    assert payload == [{'workshop': '冷轧车间', 'coil_count': 1, 'total_weight': 2.5}]
 
 
 def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
@@ -203,7 +238,7 @@ def test_factory_dashboard_runtime_output_prefers_storage_inbound_totals(monkeyp
 
 
 def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> None:
-    shift_a = SimpleNamespace(id=1, code='A', name='白班', start_time=time(7, 30), end_time=time(15, 30))
+    shift_a = SimpleNamespace(id=1, code='A', name='长白班', start_time=time(7, 30), end_time=time(15, 30))
     shift_b = SimpleNamespace(id=2, code='B', name='小夜', start_time=time(15, 30), end_time=time(23, 30))
 
     class FakeQuery:
@@ -245,7 +280,9 @@ def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> Non
 
     payload = daily_overview_builder._build_shift_breakdown(FakeDB(), date(2026, 5, 29))
 
-    assert payload['shifts'][0]['shift_count'] == 3
-    assert payload['shifts'][0]['reported_workshops'] == 2
-    assert payload['shifts'][0]['expected_workshops'] == 2
-    assert payload['shifts'][1]['reported_workshops'] == 1
+    by_code = {item['shift_code']: item for item in payload['shifts']}
+    assert [item['shift_code'] for item in payload['shifts']] == ['C', 'A', 'B']
+    assert by_code['A']['shift_count'] == 3
+    assert by_code['A']['reported_workshops'] == 2
+    assert by_code['A']['expected_workshops'] == 2
+    assert by_code['B']['reported_workshops'] == 1

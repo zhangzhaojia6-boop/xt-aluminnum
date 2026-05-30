@@ -217,14 +217,18 @@ const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || au
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
 const inferredShift = ref(describeInferredShift())
 const shiftClockTimer = ref(null)
-const shiftMismatch = computed(() => isShiftMismatch(current.value?.shift_code))
+const shiftMismatch = computed(() => {
+  const wall = inferredShift.value
+  if (current.value?.business_date && wall?.businessDate && current.value.business_date !== wall.businessDate) return true
+  return isShiftMismatch(current.value?.shift_code)
+})
 const shiftHint = computed(() => {
   const wall = inferredShift.value
   if (!wall) return ''
   if (shiftMismatch.value && current.value?.shift_name) {
-    return `当前时段属于 ${wall.code} ${wall.name}，但页面正在显示 ${current.value.shift_name}，如不一致请下拉刷新或联系班长。`
+    return `当前时段属于 ${wall.code} ${wall.name}（${wall.businessDate}），页面将自动刷新最新任务。`
   }
-  return `按 7:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
+  return `按 23:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
 })
 const currentFacts = computed(() => [
   { label: '日期', value: current.value?.business_date || '-' },
@@ -444,10 +448,16 @@ function goReportHistory() {
   router.push({ name: 'mobile-report-history' })
 }
 
+async function refreshShiftClock() {
+  inferredShift.value = describeInferredShift()
+  if (!shiftMismatch.value || loading.value || authenticating.value || retryingAuth.value) return
+  await load()
+}
+
 onMounted(() => {
   load()
   shiftClockTimer.value = setInterval(() => {
-    inferredShift.value = describeInferredShift()
+    refreshShiftClock()
   }, 60 * 1000)
 })
 

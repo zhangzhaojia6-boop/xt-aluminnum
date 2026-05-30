@@ -47,6 +47,7 @@ const DestinationScreen = () => import('../views/factory-command/DestinationScre
 const TodayPage = () => import('../views/manage/today/TodayPage.vue')
 const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
+const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -116,6 +117,7 @@ const rawRoutes = [
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
       { path: 'daily-report', name: 'manage-daily-report', component: () => import('../views/manage/daily-report/DailyProductionOverview.vue'), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/daily-report' } },
+      { path: 'fill-details', name: 'manage-fill-details', component: FillDetailsPage, meta: { ...reviewMeta, title: '填报明细', canonical: '/manage/fill-details' } },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
       { path: 'factory/exceptions', name: 'factory-command-exceptions', redirect: preserveRouteState('/manage/alerts', { surface: 'anomaly' }), meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/alerts' } },

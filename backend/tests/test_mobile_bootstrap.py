@@ -215,10 +215,12 @@ def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) 
 
 
 def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backfill() -> None:
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 29)) == date(2026, 5, 30)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 29)) == date(2026, 5, 29)
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 30)) == date(2026, 5, 29)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 0)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 8, 59)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 0)) == date(2026, 5, 30)
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 1)) == date(2026, 5, 30)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 31)
 
 
 def test_get_current_shift_owner_daily_uses_backfill_business_date_without_shift(monkeypatch) -> None:

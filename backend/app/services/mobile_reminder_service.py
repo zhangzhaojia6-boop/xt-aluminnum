@@ -8,19 +8,33 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.business_time import OWNER_DAILY_CUTOFF, resolve_owner_daily_business_date, resolve_production_business_date
 from app.core.permissions import assert_scope_access
 from app.core.scope import build_scope_summary
 from app.models.attendance import AttendanceSchedule
-from app.models.production import MobileReminderRecord, MobileShiftReport
+from app.models.production import MobileReminderRecord, MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
 from app.services.audit_service import record_audit
+from app.services.real_master_data import OWNER_DAILY_ROLES
 
 LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 READY_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
+READY_OWNER_DAILY_STATUSES = {'submitted', 'verified', 'approved'}
 OPEN_REMINDER_STATUSES = {'pending', 'sent', 'acknowledged'}
 MOBILE_ROLE_NAMES = {'machine_operator', 'energy_stat', 'mobile_user'}
+OWNER_DAILY_ENTRY_TYPE = 'owner_daily'
+OWNER_DAILY_ROLE_LABELS = {
+    'consumable_stat': '内勤',
+    'quality_owner': '质检内勤',
+    'planning_owner': '计划内勤',
+    'energy_chief': '总电工',
+    'storage_owner': '成品库',
+    'shipment_outflow_owner': '园区剪切',
+    'recovery_owner': '回收',
+    'overhaul_owner': '大修',
+}
 
 
 def _local_now(now: datetime | None = None) -> datetime:
@@ -174,6 +188,81 @@ def _leader_map_for_rows(db: Session, *, expected_rows: list) -> tuple[dict[tupl
     return leader_map, user_map
 
 
+def _daily_shift_id(db: Session) -> int | None:
+    shift = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc()).first()
+    return int(shift.id) if shift is not None else None
+
+
+def _reported_owner_daily_user_ids(db: Session, *, business_date: date) -> set[int]:
+    rows = (
+        db.query(
+            func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by)
+        )
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
+            WorkOrderEntry.entry_status.in_(tuple(READY_OWNER_DAILY_STATUSES)),
+        )
+        .all()
+    )
+    return {int(user_id) for (user_id,) in rows if user_id is not None}
+
+
+def _owner_daily_candidates(
+    db: Session,
+    *,
+    business_date: date,
+    scope_summary,
+    now: datetime | None,
+) -> tuple[list[dict], dict[int, User]]:
+    daily_shift_id = _daily_shift_id(db)
+    if daily_shift_id is None:
+        return [], {}
+
+    query = db.query(User).filter(
+        User.is_active.is_(True),
+        User.role.in_(tuple(OWNER_DAILY_ROLES)),
+        or_(User.is_mobile_user.is_(True), User.is_reviewer.is_(True), User.is_manager.is_(True)),
+    )
+    if not scope_summary.is_admin and scope_summary.data_scope_type != 'all':
+        if scope_summary.workshop_id is not None:
+            query = query.filter(User.workshop_id == scope_summary.workshop_id)
+        if scope_summary.data_scope_type == 'self_team' and scope_summary.team_id is not None:
+            query = query.filter(User.team_id == scope_summary.team_id)
+
+    users = query.order_by(User.id.asc()).all()
+    reported_user_ids = _reported_owner_daily_user_ids(db, business_date=business_date)
+    current_local = _local_now(now)
+    if current_local.date() > business_date and current_local.time() >= OWNER_DAILY_CUTOFF:
+        reminder_type = 'daily_late_report'
+    elif current_local.date() > business_date + timedelta(days=1):
+        reminder_type = 'daily_late_report'
+    else:
+        reminder_type = 'daily_unreported'
+    user_map = {int(user.id): user for user in users}
+    candidates = []
+    for user in users:
+        workshop_id = getattr(user, 'workshop_id', None)
+        if user.id in reported_user_ids or workshop_id is None:
+            continue
+        role_label = OWNER_DAILY_ROLE_LABELS.get(user.role or '', user.role or '每日一填')
+        candidates.append(
+            {
+                'business_date': business_date,
+                'shift_config_id': daily_shift_id,
+                'workshop_id': workshop_id,
+                'team_id': getattr(user, 'team_id', None),
+                'leader_user_id': user.id,
+                'reminder_type': reminder_type,
+                'reminder_status': 'pending',
+                'reminder_channel': 'system',
+                'reminder_count': 1,
+                'note': f'每日一填：{role_label}',
+            }
+        )
+    return candidates, user_map
+
+
 def run_reminders(
     db: Session,
     *,
@@ -182,7 +271,9 @@ def run_reminders(
     grace_minutes: int = 30,
 ) -> list[dict]:
     _ensure_reminder_operator(current_user)
-    business_date = target_date or _local_now().date()
+    current_local = _local_now()
+    business_date = target_date or resolve_production_business_date(current_local)
+    daily_business_date = target_date or resolve_owner_daily_business_date(current_local)
 
     schedule_query = (
         db.query(
@@ -208,8 +299,6 @@ def run_reminders(
             schedule_query = schedule_query.filter(AttendanceSchedule.shift_config_id.in_(scope_summary.assigned_shift_ids))
 
     expected_rows = schedule_query.all()
-    if not expected_rows:
-        return []
 
     report_query = db.query(MobileShiftReport).filter(MobileShiftReport.business_date == business_date)
     expected_keys = {_schedule_key(row) for row in expected_rows}
@@ -230,6 +319,14 @@ def run_reminders(
         now=_local_now(),
         grace_minutes=grace_minutes,
     )
+    daily_candidates, daily_users = _owner_daily_candidates(
+        db,
+        business_date=daily_business_date,
+        scope_summary=scope_summary,
+        now=current_local,
+    )
+    candidates.extend(daily_candidates)
+    leader_users.update(daily_users)
 
     now_utc = datetime.utcnow()
     entities: list[MobileReminderRecord] = []
@@ -275,9 +372,14 @@ def run_reminders(
             entity.note = candidate.get('note') or entity.note
         db.flush()
         if reminder_channel == 'dingtalk_reserved':
+            content = (
+                f"{candidate['business_date']} {candidate.get('note') or '每日一填'} 尚未完成，请尽快处理。"
+                if str(candidate['reminder_type']).startswith('daily_')
+                else f"{candidate['business_date']} 班次 {candidate['shift_config_id']} 尚未完成填报，请尽快处理。"
+            )
             dingtalk_service.service.send_text(
                 title='班次填报提醒',
-                content=f"{candidate['business_date']} 班次 {candidate['shift_config_id']} 尚未完成填报，请尽快处理。",
+                content=content,
             )
         record_audit(
             db,
@@ -424,6 +526,8 @@ def summarize_reminders(
     return {
         'unreported_count': len([row for row in rows if row.reminder_type == 'unreported' and row.reminder_status != 'closed']),
         'late_report_count': len([row for row in rows if row.reminder_type == 'late_report' and row.reminder_status != 'closed']),
+        'daily_unreported_count': len([row for row in rows if row.reminder_type == 'daily_unreported' and row.reminder_status != 'closed']),
+        'daily_late_report_count': len([row for row in rows if row.reminder_type == 'daily_late_report' and row.reminder_status != 'closed']),
         'today_reminder_count': sum(int(row.reminder_count or 0) for row in rows),
         'recent_items': [_serialize_reminder(row) for row in rows[-8:]],
     }

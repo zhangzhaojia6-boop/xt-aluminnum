@@ -163,10 +163,12 @@ async def lifespan(_: FastAPI):
                     logger.exception('AI briefing generation failed')
 
         def _ensure_master_data():
+            from app.services.bootstrap import seed_shift_configs
             from app.services.real_master_data import seed_real_master_data
 
             with session_factory() as session:
                 try:
+                    seed_shift_configs(session)
                     seed_real_master_data(session)
                 except Exception:
                     session.rollback()

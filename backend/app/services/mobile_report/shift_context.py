@@ -103,7 +103,8 @@ def _infer_current_shift(db: Session, current_user: User, now: datetime | None =
     current_local = _local_now(now)
     workshop, team = _resolve_workshop_team(db, current_user)
     machine = get_bound_machine_for_user(db, user_id=current_user.id)
-    candidate_dates = [current_local.date(), current_local.date() - timedelta(days=1)]
+    active_business_date = resolve_production_business_date(current_local)
+    candidate_dates = [active_business_date, active_business_date - timedelta(days=1)]
     shifts_by_id = {item.id: item for item in _machine_shift_candidates(db, workshop_id=workshop.id, machine=machine)}
 
     schedule_query = (
@@ -140,7 +141,7 @@ def _infer_current_shift(db: Session, current_user: User, now: datetime | None =
         return ShiftContext(business_date=matched[0], shift=matched[1], workshop=workshop, team=team, machine=machine)
 
     first_shift = next(iter(shifts_by_id.values()), None)
-    return ShiftContext(business_date=current_local.date(), shift=first_shift, workshop=workshop, team=team, machine=machine)
+    return ShiftContext(business_date=active_business_date, shift=first_shift, workshop=workshop, team=team, machine=machine)
 
 def _get_workshop_machines(db: Session, *, workshop_id: int) -> list[dict]:
     if not hasattr(db, 'query'):
@@ -184,7 +185,11 @@ def _build_current_shift_fallback(
     workshop: Workshop | None = None,
     machine: Equipment | None = None,
 ) -> dict:
-    business_date = resolve_owner_daily_business_date() if (current_user.role or '') in OWNER_DAILY_ROLES else _local_now().date()
+    business_date = (
+        resolve_owner_daily_business_date()
+        if (current_user.role or '') in OWNER_DAILY_ROLES
+        else resolve_production_business_date()
+    )
     return {
         'business_date': business_date,
         'shift_id': None,

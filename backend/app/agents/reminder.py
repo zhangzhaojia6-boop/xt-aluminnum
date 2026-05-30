@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -25,7 +26,8 @@ from app.models.production import MobileReminderRecord, MobileShiftReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
-from app.services.mobile_reminder_service import _shift_deadline
+from app.core.business_time import local_now, resolve_owner_daily_business_date, resolve_production_business_date
+from app.services.mobile_reminder_service import _owner_daily_candidates, _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
 MOBILE_ROLE_NAMES = {"machine_operator", "energy_stat", "mobile_user"}
@@ -136,8 +138,6 @@ class ReminderAgent(BaseAgent):
         if shift_config_id is not None:
             schedule_query = schedule_query.filter(AttendanceSchedule.shift_config_id == shift_config_id)
         expected_rows = schedule_query.all()
-        if not expected_rows:
-            return self._decisions
 
         report_rows = (
             db.query(MobileShiftReport)
@@ -161,7 +161,7 @@ class ReminderAgent(BaseAgent):
             item.id: item for item in db.query(ShiftConfig).filter(ShiftConfig.id.in_(shift_ids)).all()
         } if shift_ids else {}
 
-        now_local = datetime.now(timezone.utc).astimezone()
+        now_local = local_now()
         for item in expected_rows:
             key = (item.business_date, item.shift_config_id, item.workshop_id, item.team_id)
             if key in report_key_set:
@@ -268,6 +268,116 @@ class ReminderAgent(BaseAgent):
                 f"【催报升级】{workshop_name} {shift_name} 已催报{next_count}次未响应，请管理员关注。负责人：{leader.name}",
                 workshop_id=item.workshop_id,
                 shift_id=item.shift_config_id,
+                leader_user_id=leader.id,
+                reminder_count=next_count,
+            )
+
+        current_business_date = resolve_production_business_date(now_local)
+        daily_business_date = (
+            resolve_owner_daily_business_date(now_local)
+            if target_date == current_business_date
+            else target_date
+        )
+        daily_scope = SimpleNamespace(is_admin=True, data_scope_type="all", workshop_id=None, team_id=None)
+        daily_candidates, daily_users = _owner_daily_candidates(
+            db,
+            business_date=daily_business_date,
+            scope_summary=daily_scope,
+            now=now_local,
+        )
+        daily_workshop_ids = {int(item["workshop_id"]) for item in daily_candidates if item.get("workshop_id") is not None}
+        daily_workshop_names = {
+            item.id: item.name for item in db.query(Workshop).filter(Workshop.id.in_(daily_workshop_ids)).all()
+        } if daily_workshop_ids else {}
+
+        for candidate in daily_candidates:
+            leader = daily_users.get(int(candidate["leader_user_id"]))
+            if leader is None:
+                continue
+
+            workshop_name = daily_workshop_names.get(int(candidate["workshop_id"]), f"车间{candidate['workshop_id']}")
+            role_label = candidate.get("note") or "每日一填"
+            history_query = db.query(MobileReminderRecord).filter(
+                MobileReminderRecord.business_date == candidate["business_date"],
+                MobileReminderRecord.shift_config_id == candidate["shift_config_id"],
+                MobileReminderRecord.workshop_id == candidate["workshop_id"],
+                MobileReminderRecord.team_id == candidate["team_id"],
+                MobileReminderRecord.leader_user_id == leader.id,
+            )
+            type_query = history_query.filter(MobileReminderRecord.reminder_type == candidate["reminder_type"])
+            existing = type_query.first()
+            reminder_count = max(
+                int(history_query.count()),
+                int(getattr(existing, "reminder_count", 0) or 0),
+            )
+            next_count = reminder_count + 1
+
+            if reminder_count < 3:
+                entity = existing
+                if entity is None:
+                    entity = MobileReminderRecord(
+                        business_date=candidate["business_date"],
+                        shift_config_id=candidate["shift_config_id"],
+                        workshop_id=candidate["workshop_id"],
+                        team_id=candidate["team_id"],
+                        leader_user_id=leader.id,
+                        reminder_type=candidate["reminder_type"],
+                    )
+                    db.add(entity)
+                entity.reminder_status = "sent"
+                entity.reminder_channel = _resolve_notify_identity(leader)[0]
+                entity.reminder_count = next_count
+                entity.last_reminded_at = datetime.now(timezone.utc)
+                entity.note = role_label
+                message = (
+                    f"【催报提醒】{workshop_name} {role_label} 尚未提交，"
+                    f"请尽快在填报端完成。（第{next_count}次提醒）"
+                )
+                self._send_reminder_message(leader, message)
+                self.record_decision(
+                    AgentAction.AUTO_REMIND,
+                    "mobile_reminder_record",
+                    0,
+                    message,
+                    workshop_id=candidate["workshop_id"],
+                    shift_id=candidate["shift_config_id"],
+                    leader_user_id=leader.id,
+                    reminder_count=next_count,
+                )
+                continue
+
+            escalation_query = history_query.filter(MobileReminderRecord.reminder_type == "daily_escalation")
+            escalation = escalation_query.first()
+            if escalation is None:
+                escalation = MobileReminderRecord(
+                    business_date=candidate["business_date"],
+                    shift_config_id=candidate["shift_config_id"],
+                    workshop_id=candidate["workshop_id"],
+                    team_id=candidate["team_id"],
+                    leader_user_id=leader.id,
+                    reminder_type="daily_escalation",
+                )
+                db.add(escalation)
+            escalation.reminder_status = "sent"
+            escalation.reminder_channel = _resolve_notify_identity(leader)[0]
+            escalation.reminder_count = next_count
+            escalation.last_reminded_at = datetime.now(timezone.utc)
+            escalation.note = f"{role_label} 自动升级提醒管理员"
+
+            for admin_user in self._admin_users(db):
+                escalation_message = (
+                    f"【催报升级】{workshop_name} {role_label} 已催报{next_count}次未响应，"
+                    f"请管理员关注。负责人：{leader.name}"
+                )
+                self._send_escalation_message(admin_user, escalation_message)
+
+            self.record_decision(
+                AgentAction.AUTO_ALERT,
+                "mobile_reminder_record",
+                0,
+                f"【催报升级】{workshop_name} {role_label} 已催报{next_count}次未响应，请管理员关注。负责人：{leader.name}",
+                workshop_id=candidate["workshop_id"],
+                shift_id=candidate["shift_config_id"],
                 leader_user_id=leader.id,
                 reminder_count=next_count,
             )

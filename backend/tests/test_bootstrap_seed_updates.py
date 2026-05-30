@@ -65,12 +65,12 @@ def test_seed_shift_configs_updates_existing_shift_name_and_times() -> None:
 
     seed_shift_configs(db)
 
-    assert existing.name == '白班'
-    assert str(existing.start_time) == '07:00:00'
-    assert str(existing.end_time) == '15:00:00'
+    assert existing.name == '长白班'
+    assert str(existing.start_time) == '07:30:00'
+    assert str(existing.end_time) == '15:30:00'
     assert existing.is_cross_day is False
     assert existing.business_day_offset == 0
-    assert existing.sort_order == 1
+    assert existing.sort_order == 2
     assert existing.is_active is True
 
 

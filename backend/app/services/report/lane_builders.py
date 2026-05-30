@@ -67,8 +67,8 @@ def _build_production_lane(db: Session, *, target_date: date, workshop_id: int |
         )
     return lane
 
-_SHIFT_LABEL_MAP = {'A': '白班', 'B': '中班', 'C': '晚班'}
-_SHIFT_DISPLAY_ORDER = ['A', 'B', 'C']
+_SHIFT_LABEL_MAP = {'C': '大夜', 'A': '长白班', 'B': '小夜'}
+_SHIFT_DISPLAY_ORDER = ['C', 'A', 'B']
 
 # 铸轧分厂 = 上游铸造工序（铸锭/铸二/铸三/铸五/铸六）。
 # 全厂日产量按"铸轧分厂出料"算，避免下游车间过工序量重复计入。
@@ -76,10 +76,8 @@ _PLANT_OUTPUT_WORKSHOP_CODES = {'ZD', 'ZR2', 'ZR3', 'ZR5', 'ZR6'}
 
 
 def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
-    """三班分解：返回 target_date 当天的白/中/晚三班产量、能耗、异常拆分。
-    7:30 是日循环节点 —— 主操实时填报后，到 7:30 时 target_date(=昨日) 的三班数据自然完整。
-    上层 useDashboardSnapshot 默认 target_date = 昨天，所以每天 7:30 看到的就是
-    昨日三班的精准数据；切换日期则按所选日返回。
+    """三班分解：返回 target_date 当天的大夜、长白班、小夜产量、能耗、异常拆分。
+    23:30 是日循环节点，业务日范围为前一晚 23:30 到当天 23:30。
 
     全厂日产量口径：按"铸轧分厂出料"（上游铸造工序）求和，避免下游过工序量重复计入。
     """
@@ -236,8 +234,8 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
     legacy_returned_count = mobile_summary.get('returned_count', 0)
     legacy_late_count = mobile_summary.get('late_count', 0)
     legacy_exception_count = mobile_summary.get('exception_count', 0)
-    reminder_unreported_count = reminder_summary.get('unreported_count', 0)
-    reminder_late_count = reminder_summary.get('late_report_count', 0)
+    reminder_unreported_count = reminder_summary.get('unreported_count', 0) + reminder_summary.get('daily_unreported_count', 0)
+    reminder_late_count = reminder_summary.get('late_report_count', 0) + reminder_summary.get('daily_late_report_count', 0)
     today_reminder_count = reminder_summary.get('today_reminder_count', 0)
     return {
         'unreported_shift_count': 0 if uses_mobile_coil_chain else legacy_unreported_count,
@@ -251,9 +249,9 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
         'mobile_coil_entry_count': mobile_coil_entry_count,
         'mobile_coil_workshop_count': len(coil_output_by_workshop),
         'reporting_source': 'mobile_coil' if uses_mobile_coil_chain else 'mobile_shift_reports',
-        'reminder_unreported_count': 0 if uses_mobile_coil_chain else reminder_unreported_count,
-        'reminder_late_count': 0 if uses_mobile_coil_chain else reminder_late_count,
-        'today_reminder_count': 0 if uses_mobile_coil_chain else today_reminder_count,
+        'reminder_unreported_count': reminder_unreported_count,
+        'reminder_late_count': reminder_late_count,
+        'today_reminder_count': today_reminder_count,
         'production_exception_count': mobile_report_service.count_linked_open_production_exceptions(
             db,
             target_date=target_date,
@@ -262,7 +260,7 @@ def _build_exception_lane(db: Session, *, target_date: date, workshop_id: int | 
         'reconciliation_open_count': open_reconciliation,
         'pending_report_publish_count': unpublished_reports,
         'returned_items': [] if uses_mobile_coil_chain else mobile_summary.get('returned_items', []),
-        'reminder_items': [] if uses_mobile_coil_chain else reminder_summary.get('recent_items', []),
+        'reminder_items': reminder_summary.get('recent_items', []),
         'recent_items': [] if uses_mobile_coil_chain else mobile_report_service.recent_mobile_exceptions(
             db,
             target_date=target_date,

@@ -21,6 +21,7 @@ const NAV_GROUPS = [
     commandGroup: '生产',
     items: [
       { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
+      { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产' },
       { title: '能耗', shortLabel: '能耗', path: '/energy/center', icon: DataLine, access: 'review', commandGroup: '生产' }
     ]
   },

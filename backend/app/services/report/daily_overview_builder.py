@@ -20,7 +20,7 @@ from app.services.report._utils import _to_float
 
 DEFAULT_ELECTRICITY_PRICE = 0.65
 DEFAULT_GAS_PRICE = 3.60
-SHIFT_ORDER = ('A', 'B', 'C')
+SHIFT_ORDER = ('C', 'A', 'B')
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
@@ -147,7 +147,6 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
             func.sum(MesCoilSnapshot.material_weight),
         )
         .filter(
-            MesCoilSnapshot.business_date == target_date,
             MesCoilSnapshot.delivery_date.is_(None),
             MesCoilSnapshot.allocation_date.is_(None),
             not_finished_stock,

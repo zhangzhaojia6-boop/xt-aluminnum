@@ -948,5 +948,8 @@ def test_exception_lane_ignores_legacy_mobile_report_red_lights_when_mobile_coil
     assert payload['mobile_exception_count'] == 0
     assert payload['legacy_unreported_shift_count'] == 7
     assert payload['returned_items'] == []
-    assert payload['reminder_items'] == []
+    assert payload['reminder_unreported_count'] == 7
+    assert payload['reminder_late_count'] == 1
+    assert payload['today_reminder_count'] == 8
+    assert payload['reminder_items'] == [{'id': 2}]
     assert payload['recent_items'] == []

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.agents.validator import validator_agent
 from app.agents.base import AgentAction, AgentDecision
 from app.config import settings
+from app.core.business_time import OWNER_DAILY_CUTOFF, PRODUCTION_BUSINESS_DAY_START
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
@@ -98,7 +99,7 @@ def summarize_mobile_reporting(
     report_map = {_report_key(row): row for row in reports}
     config_warnings: list[str] = []
     if not expected_keys:
-        config_warnings.append('当日应报清单为空，请先导入排班/应报数据后再看上报率。')
+        config_warnings.append('当日班次应报清单为空，仅检查每日一填岗位。')
 
     submitted_count = len([row for row in reports if row.report_status == 'submitted'])
     approved_count = len([row for row in reports if row.report_status in APPROVED_REPORT_STATUSES])
@@ -745,8 +746,14 @@ def save_owner_daily_entry(
     if not workshop_id:
         raise HTTPException(status_code=400, detail='当前账号未绑定车间，请先在用户管理中设置车间归属。')
 
-    raw_business_date = payload.get('business_date') or resolve_owner_daily_business_date()
-    business_date = date.fromisoformat(raw_business_date) if isinstance(raw_business_date, str) else raw_business_date
+    resolved_business_date = resolve_owner_daily_business_date()
+    raw_business_date = payload.get('business_date')
+    business_date = date.fromisoformat(raw_business_date) if isinstance(raw_business_date, str) else (raw_business_date or resolved_business_date)
+    current_local = _local_now()
+    if current_local.time() < OWNER_DAILY_CUTOFF and business_date >= current_local.date():
+        business_date = resolved_business_date
+    elif current_local.time() >= PRODUCTION_BUSINESS_DAY_START and business_date <= current_local.date():
+        business_date = resolved_business_date
     data = dict(payload.get('data') or {})
     from app.models.production import WorkOrder
 

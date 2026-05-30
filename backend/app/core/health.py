@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 import os
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
 from app.config import settings
+from app.core.business_time import resolve_production_business_date
 from app.database import get_engine, get_sessionmaker
 from app.services import mes_sync_service
 
@@ -16,7 +16,7 @@ def _utc_timestamp() -> str:
 
 
 def current_business_date() -> date:
-    return datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()
+    return resolve_production_business_date()
 
 
 def build_liveness_payload() -> dict:

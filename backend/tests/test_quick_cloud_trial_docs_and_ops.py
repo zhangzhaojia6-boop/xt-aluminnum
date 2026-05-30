@@ -1161,7 +1161,7 @@ def test_known_gaps_describes_schedule_gate_with_configured_timezone() -> None:
     compose = _read('docker-compose.yml')
     prod_compose = _read('docker-compose.prod.yml')
 
-    assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in health
+    assert 'resolve_production_business_date()' in health
     assert 'datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()' in schedule_seed
     assert 'python scripts/init_real_master_data.py &&' in compose
     assert 'python scripts/init_real_master_data.py &&' in prod_compose

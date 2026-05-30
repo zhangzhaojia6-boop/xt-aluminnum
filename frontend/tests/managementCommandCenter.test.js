@@ -211,13 +211,13 @@ test('buildPendingAssignmentSummary exposes draft coils missing machine ownershi
         rows: [
           {
             workshop_name: '2050冷轧车间',
-            shift_name: '夜班',
+            shift_name: '大夜',
             entry_count: 9,
             output: 77.21,
           },
           {
             workshop_name: '精整车间',
-            shift_name: '夜班',
+            shift_name: '大夜',
             entry_count: 4,
             output: 37.25,
           },
@@ -233,7 +233,7 @@ test('buildPendingAssignmentSummary exposes draft coils missing machine ownershi
   assert.equal(summary.output, 120.46)
   assert.equal(summary.rows.length, 2)
   assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
-  assert.equal(summary.rows[0].shiftName, '夜班')
+  assert.equal(summary.rows[0].shiftName, '大夜')
   assert.equal(summary.rows[0].entryCount, 9)
   assert.equal(summary.tone, 'warning')
 })
@@ -352,18 +352,18 @@ test('buildOutputDistribution ranks live machine output and marks unbound lines'
       machines: [
         {
           machine_id: -5003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           day_total: { output: 74110 },
           shifts: [
-            { shift_name: '白班', total_output: 0 },
-            { shift_name: '夜班', total_output: 74110 },
+            { shift_name: '长白班', total_output: 0 },
+            { shift_name: '大夜', total_output: 74110 },
           ],
         },
         {
           machine_id: 12,
           machine_name: '2#轧机',
           day_total: { output: 9100 },
-          shifts: [{ shift_name: '白班', total_output: 9100 }],
+          shifts: [{ shift_name: '长白班', total_output: 9100 }],
         },
       ],
     },
@@ -372,9 +372,9 @@ test('buildOutputDistribution ranks live machine output and marks unbound lines'
       machines: [
         {
           machine_id: -8003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           day_total: { output: 37250 },
-          shifts: [{ shift_name: '夜班', total_output: 37250 }],
+          shifts: [{ shift_name: '大夜', total_output: 37250 }],
         },
       ],
     },
@@ -382,10 +382,10 @@ test('buildOutputDistribution ranks live machine output and marks unbound lines'
 
   assert.equal(rows.length, 2)
   assert.equal(rows[0].workshopName, '2050冷轧车间')
-  assert.equal(rows[0].machineName, '未绑定机列 / 夜班')
+  assert.equal(rows[0].machineName, '未绑定机列 / 大夜')
   assert.equal(rows[0].bindingLabel, '未绑定')
   assert.equal(rows[0].share, 100)
-  assert.equal(rows[0].shiftLabel, '夜班')
+  assert.equal(rows[0].shiftLabel, '大夜')
   assert.equal(rows[1].output, 37250)
   assert.equal(rows[1].share, 50.26)
 })
@@ -398,13 +398,13 @@ test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
       machines: [
         {
           machine_id: -5001,
-          machine_name: '未绑定机列 / 白班',
-          shifts: [{ shift_name: '白班', total_output: 9100, total_input: 9800 }],
+          machine_name: '未绑定机列 / 长白班',
+          shifts: [{ shift_name: '长白班', total_output: 9100, total_input: 9800 }],
         },
         {
           machine_id: -5003,
-          machine_name: '未绑定机列 / 夜班',
-          shifts: [{ shift_name: '夜班', total_output: 74110, total_input: 78100 }],
+          machine_name: '未绑定机列 / 大夜',
+          shifts: [{ shift_name: '大夜', total_output: 74110, total_input: 78100 }],
         },
       ],
     },
@@ -414,20 +414,20 @@ test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
       machines: [
         {
           machine_id: -8003,
-          machine_name: '未绑定机列 / 夜班',
-          shifts: [{ shift_name: '夜班', total_output: 37250, total_input: 38900 }],
+          machine_name: '未绑定机列 / 大夜',
+          shifts: [{ shift_name: '大夜', total_output: 37250, total_input: 38900 }],
         },
       ],
     },
   ])
 
   assert.equal(rows.length, 2)
-  assert.equal(rows[0].shiftName, '夜班')
+  assert.equal(rows[0].shiftName, '大夜')
   assert.equal(rows[0].output, 111360)
   assert.equal(rows[0].input, 117000)
   assert.equal(rows[0].machineCount, 2)
   assert.equal(rows[0].share, 92.45)
-  assert.equal(rows[1].shiftName, '白班')
+  assert.equal(rows[1].shiftName, '长白班')
   assert.equal(rows[1].machineCount, 1)
   assert.equal(rows[1].share, 7.55)
 })
@@ -440,23 +440,23 @@ test('buildUnboundFillSummary totals direct entries that still need machine owne
       machines: [
         {
           machine_id: -5001,
-          machine_name: '未绑定机列 / 白班',
+          machine_name: '未绑定机列 / 长白班',
           machine_binding_status: 'unbound',
           day_total: { output: 9100, input: 9800 },
-          shifts: [{ shift_name: '白班', total_output: 9100, total_input: 9800 }],
+          shifts: [{ shift_name: '长白班', total_output: 9100, total_input: 9800 }],
         },
         {
           machine_id: -5003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           day_total: { output: 74110, input: 78100 },
-          shifts: [{ shift_name: '夜班', total_output: 74110, total_input: 78100 }],
+          shifts: [{ shift_name: '大夜', total_output: 74110, total_input: 78100 }],
         },
         {
           machine_id: 5021,
           machine_name: '已绑定 1#线',
           machine_binding_status: 'bound',
           day_total: { output: 6000, input: 6500 },
-          shifts: [{ shift_name: '白班', total_output: 6000, total_input: 6500 }],
+          shifts: [{ shift_name: '长白班', total_output: 6000, total_input: 6500 }],
         },
       ],
     },
@@ -466,10 +466,10 @@ test('buildUnboundFillSummary totals direct entries that still need machine owne
       machines: [
         {
           machine_id: -8003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           machineBindingStatus: 'unbound',
           day_total: { output: 37250, input: 38900 },
-          shifts: [{ shift_name: '夜班', total_output: 37250, total_input: 38900 }],
+          shifts: [{ shift_name: '大夜', total_output: 37250, total_input: 38900 }],
         },
       ],
     },
@@ -481,7 +481,7 @@ test('buildUnboundFillSummary totals direct entries that still need machine owne
   assert.equal(summary.output, 120460)
   assert.equal(summary.input, 126800)
   assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
-  assert.equal(summary.rows[0].shiftLabel, '夜班')
+  assert.equal(summary.rows[0].shiftLabel, '大夜')
   assert.equal(summary.rows[0].output, 74110)
 })
 
@@ -498,7 +498,7 @@ test('buildMachineOwnershipSummary separates bound output from unbound fill outp
         },
         {
           machine_id: -5003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           day_total: { output: 74110, input: 78100 },
         },
       ],
@@ -508,7 +508,7 @@ test('buildMachineOwnershipSummary separates bound output from unbound fill outp
       machines: [
         {
           machine_id: -8003,
-          machine_name: '未绑定机列 / 夜班',
+          machine_name: '未绑定机列 / 大夜',
           machineBindingStatus: 'unbound',
           day_total: { output: 46350, input: 48700 },
         },
@@ -598,6 +598,7 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
     '/manage/today',
     '/manage/daily-report',
     '/manage/production',
+    '/manage/fill-details',
     '/energy/center',
     '/attendance/overview',
     '/manage/reports',

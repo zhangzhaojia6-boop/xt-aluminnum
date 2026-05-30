@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 from app.agents.validator import validator_agent
 from app.agents.base import AgentAction, AgentDecision
 from app.config import settings
+from app.core.business_time import (
+    local_now as _core_local_now,
+    resolve_owner_daily_business_date,
+    resolve_production_business_date,
+)
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
@@ -44,9 +49,6 @@ LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 PHOTO_ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
 PHOTO_MAX_BYTES = 5 * 1024 * 1024
-
-OWNER_DAILY_BACKFILL_START = time(7, 30)
-OWNER_DAILY_BACKFILL_END = time(9, 0)
 
 @dataclass(slots=True)
 class ShiftContext:
@@ -193,17 +195,7 @@ def _normalize_filename(name: str) -> str:
     return f'{safe_stem}{suffix}'
 
 def _local_now(now: datetime | None = None) -> datetime:
-    if now is None:
-        return datetime.now(LOCAL_TZ)
-    if now.tzinfo is None:
-        return now.replace(tzinfo=LOCAL_TZ)
-    return now.astimezone(LOCAL_TZ)
-
-def resolve_owner_daily_business_date(now: datetime | None = None) -> date:
-    current_local = _local_now(now)
-    if OWNER_DAILY_BACKFILL_START <= current_local.time() <= OWNER_DAILY_BACKFILL_END:
-        return current_local.date() - timedelta(days=1)
-    return current_local.date()
+    return _core_local_now(now)
 
 def _month_range(target_date: date) -> tuple[date, date]:
     month_start = target_date.replace(day=1)

@@ -64,12 +64,12 @@ test('normalizeFactoryDirector returned_items use returned_reason as summary', (
   const payload = {
     exception_lane: {
       returned_items: [
-        { report_id: 'r1', workshop_name: '二车间', shift_name: '夜班', returned_reason: '数据缺失需补录' }
+        { report_id: 'r1', workshop_name: '二车间', shift_name: '大夜', returned_reason: '数据缺失需补录' }
       ]
     }
   }
   const out = normalizeFactoryDirector(payload, DATE)
-  assert.equal(out[0].summary, '二车间 夜班：数据缺失需补录')
+  assert.equal(out[0].summary, '二车间 大夜：数据缺失需补录')
   assert.equal(out[0].domain, 'reporting')
 })
 

@@ -120,6 +120,7 @@ const routeMetaByName = {
 
   'manage-today': { center: 'overview', group: '三页骨架', order: 1, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
   'manage-production': { center: 'factory', group: '三页骨架', order: 2, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-fill-details': { center: 'factory', group: '生产', order: 3, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
   'manage-alerts': { group: '兼容入口', order: 103, icon: 'WarningFilled', legacy: true, roles: ['review'], keepAlive: false },
   'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
@@ -155,6 +156,7 @@ const routeMetaByName = {
 const commandMetaByName = {
   'manage-today': { shortLabel: '昨日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
+  'manage-fill-details': { shortLabel: '明细', commandGroup: '生产', secondaryGroup: '填报' },
   'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
   'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
@@ -191,7 +193,8 @@ const reviewNavigation = [
     label: '三页骨架',
     items: [
       { routeName: 'manage-today', label: '昨日日报', access: 'review' },
-      { routeName: 'manage-production', label: '生产', access: 'review' }
+      { routeName: 'manage-production', label: '生产', access: 'review' },
+      { routeName: 'manage-fill-details', label: '填报明细', access: 'review' }
     ]
   }
 ]

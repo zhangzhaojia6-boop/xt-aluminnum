@@ -84,11 +84,11 @@ const props = defineProps({
   payload: { type: Object, default: () => ({ shifts: [], total_output: 0 }) }
 })
 
-const SHIFT_ORDER = ['A', 'B', 'C']
+const SHIFT_ORDER = ['C', 'A', 'B']
 const SHIFT_FALLBACK = {
-  A: { shift_code: 'A', shift_name: '白班', shift_window: '07:00-15:00', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 },
-  B: { shift_code: 'B', shift_name: '中班', shift_window: '15:00-23:00', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 },
-  C: { shift_code: 'C', shift_name: '晚班', shift_window: '23:00-07:00', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 }
+  C: { shift_code: 'C', shift_name: '大夜', shift_window: '23:30-07:30', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 },
+  A: { shift_code: 'A', shift_name: '长白班', shift_window: '07:30-15:30', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 },
+  B: { shift_code: 'B', shift_name: '小夜', shift_window: '15:30-23:30', shift_count: 0, total_output: 0, reported_workshops: 0, expected_workshops: 0, energy_per_ton: null, exception_count: 0 }
 }
 
 const shifts = computed(() => {
