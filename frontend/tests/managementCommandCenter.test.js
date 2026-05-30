@@ -583,7 +583,7 @@ test('sortWorkshopsForCommandCenter puts workshops needing attention first', () 
   assert.equal(sortWorkshopsForCommandCenter(workshops)[0].workshop_name, '缺报车间')
 })
 
-test('manageNavGroups keeps the manager surface focused on daily factory work and delivery', () => {
+test('manageNavGroups keeps the manager surface focused on daily factory work', () => {
   const groups = manageNavGroups({
     canAccessReviewSurface: true,
     reviewSurface: true,
@@ -593,7 +593,7 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
   })
   const items = groups.flatMap((group) => group.items)
 
-  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤', '交付'])
+  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤'])
   assert.deepEqual(items.map((item) => item.path), [
     '/manage/live',
     '/manage/today',
@@ -602,9 +602,9 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
     '/energy/center',
     '/manage/alerts',
     '/attendance/overview',
-    '/manage/reports',
   ])
   assert.equal(items.some((item) => item.path === '/manage/daily-report'), false)
+  assert.equal(items.some((item) => item.path === '/manage/reports'), false)
 
   for (const path of [
     '/manage/admin/settings',

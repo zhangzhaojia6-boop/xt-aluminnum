@@ -27,13 +27,13 @@ const adminPaths = [
 test('owner skeleton exposes current top-level labels', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤', '交付'])
+  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤'])
 })
 
 test('owner skeleton keeps one stable entry per core surface', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 4, 1, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 4, 1])
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
@@ -48,11 +48,11 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
     '/energy/center',
     '/manage/alerts',
     '/attendance/overview',
-    '/manage/reports',
   ])
   assert.equal(paths.includes('/manage/daily-report'), false)
   assert.equal(paths.includes('/manage/ops-center'), false)
   assert.equal(paths.includes('/manage/settings-center'), false)
+  assert.equal(paths.includes('/manage/reports'), false)
 })
 
 test('admin core configuration paths are exposed in top-level navigation for admin auth', () => {

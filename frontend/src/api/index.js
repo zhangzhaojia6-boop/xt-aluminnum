@@ -29,11 +29,12 @@ export function setupApiInterceptors(router, pinia) {
       const status = error?.response?.status
       const detail = error?.response?.data?.detail
       const skipErrorToast = Boolean(error?.config?.skipErrorToast)
+      const skipAuthLogout = Boolean(error?.config?.skipAuthLogout)
       const message = Array.isArray(detail)
         ? detail.map((item) => item?.msg || item).join('; ')
         : detail || error?.message || '请求失败，请检查网络'
 
-      if (status === 401) {
+      if (status === 401 && !skipAuthLogout) {
         authStore.logout()
         if (router.currentRoute.value.name !== 'login') {
           router.push({ name: 'login' })

@@ -35,6 +35,7 @@ test('TodayPage exposes core page entrances including admin settings', () => {
   assert.match(src, /\/energy\/center/)
   assert.match(src, /\/manage\/admin\/settings/)
   assert.match(src, /auth\.adminSurface/)
+  assert.equal(/\/manage\/reports/.test(src), false)
 })
 
 test('TodayPage 数字卡 not bound to click handlers', () => {
@@ -63,4 +64,21 @@ test('TodayPage estimated_margin uses /10000 conversion to 万元', () => {
 test('TodayPage muted-state estimated_margin emits hint 估算未就绪', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /估算未就绪/)
+})
+
+test('TodayPage owns the daily report settlement section', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /data-testid="daily-report-section"/)
+  for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '算法能耗', '电工填报', '算法成品率', '内勤对照', '外部 MES 当前在制']) {
+    assert.match(src, new RegExp(label), `missing daily report label ${label}`)
+  }
+})
+
+test('TodayPage binds daily report blocks to the daily overview payload', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /dailyOverview/)
+  assert.match(src, /buildDailySettlementCards/)
+  assert.match(src, /buildDailyComparisonCards/)
+  assert.match(src, /buildDailyWorkshopRows/)
+  assert.match(src, /buildDailyWipRows/)
 })

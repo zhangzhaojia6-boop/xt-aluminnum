@@ -1,7 +1,7 @@
 import { api } from './index.js'
 
 export async function fetchUserPreferences(config = {}) {
-  const { data } = await api.get('/user/preferences', { skipErrorToast: true, ...config })
+  const { data } = await api.get('/user/preferences', { skipErrorToast: true, skipAuthLogout: true, ...config })
   return data
 }
 

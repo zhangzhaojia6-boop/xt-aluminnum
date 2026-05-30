@@ -19,6 +19,7 @@ export const SETTINGS_GROUPS = [
   {
     label: '工具',
     items: [
+      { title: '归档报表', path: '/manage/reports', access: 'review' },
       { title: 'AI', path: '/manage/ai-assistant', access: 'review' }
     ]
   },

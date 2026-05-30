@@ -40,16 +40,6 @@ export const centerNavigation = [
     summary: '产线产量、OEE、趋势'
   },
   {
-    id: 'reports',
-    no: '08',
-    title: '日报与交付中心',
-    zone: 'review',
-    path: '/manage/reports',
-    routeName: 'review-report-center',
-    icon: '报',
-    summary: '日报、交付清单、导出状态'
-  },
-  {
     id: 'cost',
     no: '10',
     title: '经营效益',
@@ -133,7 +123,7 @@ const routeMetaByName = {
   'manage-production': { center: 'factory', group: '三页骨架', order: 3, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
   'manage-fill-details': { center: 'factory', group: '生产', order: 4, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
   'manage-alerts': { group: '兼容入口', order: 103, icon: 'WarningFilled', legacy: true, roles: ['review'], keepAlive: false },
-  'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
+  'review-report-center': { group: '归档入口', order: 105, icon: 'TrendCharts', legacy: true, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
   'review-reconciliation-center': { center: 'quality', group: '质量与核对', order: 7, icon: 'Connection', legacy: false, roles: ['review'], keepAlive: true },
   'factory-ai-assistant': { center: 'brain', group: '经营与智能', order: 9, icon: 'MagicStick', legacy: false, roles: ['review'], keepAlive: true },
@@ -166,10 +156,10 @@ const routeMetaByName = {
 
 const commandMetaByName = {
   'manage-live': { shortLabel: '实时', commandGroup: '生产实时', secondaryGroup: '全局' },
-  'manage-today': { shortLabel: '昨日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
+  'manage-today': { shortLabel: '昨日日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
   'manage-fill-details': { shortLabel: '明细', commandGroup: '生产', secondaryGroup: '填报' },
-  'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
+  'review-report-center': { shortLabel: '归档', commandGroup: '工具', secondaryGroup: '报表' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
   'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
   'factory-ai-assistant': { shortLabel: 'AI 助手', commandGroup: 'AI 助手', secondaryGroup: '站内' },

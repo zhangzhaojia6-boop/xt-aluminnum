@@ -11,14 +11,14 @@ test.describe('manage today/production content', () => {
     await expect(page.getByTestId('manage-today')).toBeVisible()
 
     const kpi = page.getByTestId('manage-kpi-bar')
-    for (const label of ['日产量', '比昨日', '日吨成本', '月累产量', '估算毛利']) {
+    for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '吨电耗', '日成品率']) {
       await expect(kpi.getByText(label, { exact: true }).first()).toBeVisible()
     }
 
-    const reconLink = page.getByRole('link', { name: /对账未结/ })
-    await expect(reconLink).toBeVisible()
-    await reconLink.click()
-    await expect(page).toHaveURL(/\/manage\/alerts.*domain=reconciliation/)
+    const alertLink = page.locator('.xt-today__quick-link', { hasText: '异常' })
+    await expect(alertLink).toBeVisible()
+    await alertLink.click()
+    await expect(page).toHaveURL(/\/manage\/alerts/)
   })
 
   test('production shows 5 数 + 车间排名表', async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe('manage today/production content', () => {
     await expect(page.getByTestId('manage-production')).toBeVisible()
 
     const kpi = page.getByTestId('manage-kpi-bar')
-    for (const label of ['已产', '比昨日', '估算毛利', '合同缺口', '日吨能耗']) {
+    for (const label of ['入库产量', '比昨日', '估算毛利', '合同缺口', '日吨能耗']) {
       await expect(kpi.getByText(label, { exact: true }).first()).toBeVisible()
     }
 

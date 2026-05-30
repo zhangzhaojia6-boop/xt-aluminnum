@@ -46,10 +46,12 @@ test.describe('ManageShell layout', () => {
     await setupReviewSessionAndMocks(page)
     await page.goto('/manage/today')
 
-    await page.getByRole('button', { name: '打开导航' }).click()
+    await expect(page).toHaveURL(/\/manage\/today/)
+    await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
 
+    await page.getByRole('button', { name: '打开导航' }).click()
     const drawer = page.locator('.xt-manage__drawer')
-    await expect(drawer).toBeVisible()
+    await expect(page.getByRole('navigation', { name: '移动端管理导航' })).toBeVisible()
     await drawer.getByRole('link', { name: '生产', exact: true }).click()
 
     await expect(page).toHaveURL(/\/manage\/production/)
@@ -69,7 +71,7 @@ test.describe('ManageShell layout', () => {
 
     const alertResult = dialog.locator('.xt-manage__search-item', { hasText: '异常' })
     await expect(alertResult).toBeVisible()
-    await expect(dialog.locator('.xt-manage__search-item', { hasText: '生产' })).toHaveCount(0)
+    await expect(dialog.locator('.xt-manage__search-item')).toHaveCount(1)
 
     await alertResult.click()
 

@@ -84,6 +84,8 @@ test('owner skeleton route metadata stays unique', () => {
   )
   assert.equal(findCenterByRouteName('manage-alerts'), null)
   assert.equal(resolveRouteMeta('manage-alerts', {}).legacy, true)
+  assert.equal(findCenterByRouteName('review-report-center'), null)
+  assert.equal(resolveRouteMeta('review-report-center', {}).legacy, true)
 })
 
 test('quality detail remains a preserved component route', () => {
@@ -144,6 +146,20 @@ test('legacy route callers use the owner skeleton tabs', () => {
   assert.match(navigationSrc, /routeName:\s*['"]manage-live['"][\s\S]*routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"]/, 'navigation catalog should expose active skeleton routes')
   const centerNavigationBlock = navigationSrc.slice(0, navigationSrc.indexOf('const centerByRouteName'))
   assert.doesNotMatch(centerNavigationBlock, /routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should not surface alerts as an active center')
+  assert.doesNotMatch(centerNavigationBlock, /routeName:\s*['"]review-report-center['"]/, 'navigation catalog should not surface reports as an active center')
+})
+
+test('report archive route stays readable but is not a generation console', () => {
+  const line = routeLine('reports')
+  const reportsApiSrc = readFileSync(new URL('../src/api/reports.js', import.meta.url), 'utf8')
+
+  assert.ok(line, "route 'reports' should exist as an archive")
+  assert.match(line, /\bcomponent:\s*ReportList\b/)
+  assert.match(line, /canonical:\s*['"]\/manage\/reports['"]/)
+  assert.match(reportsApiSrc, /export\s+async\s+function\s+fetchReports/)
+  for (const mutation of ['generateReport', 'reviewReport', 'publishReport', 'runDailyPipeline', 'finalizeReport', 'exportReport']) {
+    assert.equal(reportsApiSrc.includes(`function ${mutation}`), false, `${mutation} should not stay as an unused frontend API wrapper`)
+  }
 })
 
 test('factory command shell supports embedded production mounting', () => {

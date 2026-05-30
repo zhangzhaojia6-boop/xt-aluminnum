@@ -27,6 +27,7 @@ const requiredPaths = [
   '/manage/admin/users',
   '/manage/admin/governance',
   '/manage/ai-assistant',
+  '/manage/reports',
   '/manage/admin/qr-print',
   '/manage/factory/destinations',
   '/manage/inventory',
@@ -46,6 +47,7 @@ const adminPaths = [
 
 const reviewPaths = [
   '/manage/ai-assistant',
+  '/manage/reports',
   '/manage/factory/destinations',
   '/manage/inventory',
   '/manage/contracts'
@@ -97,6 +99,14 @@ test('config includes the required settings paths', () => {
   assert.deepEqual(paths.sort(), [...requiredPaths].sort())
   assert.equal(paths.includes('/manage/ops-center'), false)
   assert.equal(paths.includes('/manage/settings-center'), false)
+})
+
+test('reports stay available as a low-frequency archive entry only', () => {
+  const groups = settingsDrawerGroups(reviewAuth)
+  const tools = groups.find((group) => group.label === '工具')
+
+  assert.ok(tools, 'tools group should exist')
+  assert.equal(tools.items.some((item) => item.path === '/manage/reports' && item.title === '归档报表'), true)
 })
 
 test('config uses current real manage paths only', () => {

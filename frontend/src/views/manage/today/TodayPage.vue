@@ -50,6 +50,86 @@
 
     <KpiBar :items="kpiItems" />
 
+    <section id="daily-report" class="xt-today__daily" data-testid="daily-report-section">
+      <header class="xt-today__daily-head">
+        <div>
+          <span class="xt-today__daily-eyebrow">昨日日报</span>
+          <h2>昨日日报结算</h2>
+        </div>
+        <div class="xt-today__daily-tags" aria-label="日报核心口径">
+          <span v-for="label in dailySectionLabels" :key="label">{{ label }}</span>
+        </div>
+      </header>
+
+      <div class="xt-today__daily-grid">
+        <article class="xt-today__panel xt-today__panel--compare">
+          <header class="xt-today__panel-head">
+            <h3>算法与填报对照</h3>
+            <span>算法能耗 · 电工填报 · 算法成品率 · 内勤对照</span>
+          </header>
+          <div class="xt-today__compare-grid">
+            <div
+              v-for="item in comparisonCards"
+              :key="item.key"
+              class="xt-today__compare-card"
+              :class="`tone-${item.tone}`"
+            >
+              <div class="xt-today__compare-title">{{ item.title }}</div>
+              <div class="xt-today__compare-row">
+                <span>{{ item.primaryLabel }}</span>
+                <b>{{ item.primaryValue }}</b>
+              </div>
+              <div class="xt-today__compare-row is-muted">
+                <span>{{ item.compareLabel }}</span>
+                <b>{{ item.compareValue }}</b>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="xt-today__panel xt-today__panel--wip">
+          <header class="xt-today__panel-head">
+            <h3>外部 MES 当前在制</h3>
+            <span>{{ wipRows.length }} 个位置</span>
+          </header>
+          <div v-if="wipRows.length" class="xt-today__wip-grid">
+            <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
+              <span>{{ row.title }}</span>
+              <b>{{ row.weightText }}</b>
+              <small>{{ row.countText }} · {{ row.sourceLabel }}</small>
+            </div>
+          </div>
+          <div v-else class="xt-today__empty">暂无在制料数据</div>
+        </article>
+      </div>
+
+      <article class="xt-today__panel">
+        <header class="xt-today__panel-head">
+          <h3>车间过站下机参考</h3>
+          <span>不计入全厂最终产量</span>
+        </header>
+        <table v-if="workshopRows.length" class="xt-today__table">
+          <thead>
+            <tr>
+              <th>车间</th>
+              <th class="is-num">过站下机</th>
+              <th class="is-num">比昨日</th>
+              <th class="is-num">月累计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in workshopRows" :key="row.key">
+              <td>{{ row.workshop }}</td>
+              <td class="is-num">{{ row.dailyOutputText }}</td>
+              <td class="is-num">{{ row.deltaText }}</td>
+              <td class="is-num">{{ row.monthlyOutputText }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="xt-today__empty">暂无车间过站数据</div>
+      </article>
+    </section>
+
     <div class="xt-today__row">
       <OutputTrendLine :series="trendSeries" :days="14" class="xt-today__row-trend" />
         <CostLine
@@ -90,6 +170,12 @@ import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.
 import { fetchTimeseries } from '../../../api/dashboard.js'
 import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
+import {
+  buildDailyComparisonCards,
+  buildDailySettlementCards,
+  buildDailyWorkshopRows,
+  buildDailyWipRows,
+} from '../../../utils/manageDailyReportSurface.js'
 
 const auth = useAuthStore()
 const snapshot = useDashboardSnapshot()
@@ -161,51 +247,26 @@ const mtdSpark = computed(() => {
   })
 })
 
+const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
+const settlementCards = computed(() => buildDailySettlementCards(dailyOverview.value))
+const comparisonCards = computed(() => buildDailyComparisonCards(dailyOverview.value))
+const workshopRows = computed(() => buildDailyWorkshopRows(dailyOverview.value.workshop_output || []))
+const wipRows = computed(() => buildDailyWipRows(dailyOverview.value.wip_distribution || []))
+const dailySectionLabels = ['全厂入库产量', '过站下机参考', '合同吨数']
+
 const kpiItems = computed(() => {
-  const lm = snapshot.leaderMetrics.value
-  const ma = snapshot.monthArchive.value
-  const trend = snapshot.trend.value
   const me = snapshot.managementEstimate.value
-
-  const totalOutput = Number(lm.total_output_weight || 0)
-  const cost = me.estimated_cost
-  const tonCost = (totalOutput > 0 && cost != null) ? (Number(cost) / totalOutput).toFixed(0) : '—'
-  const delta = trend.output_delta_vs_yesterday
-  const deltaTone = delta == null ? null : (Number(delta) >= 0 ? 'positive' : 'negative')
-  const deltaSign = (delta != null && Number(delta) > 0) ? '+' : ''
-  const deltaText = delta == null ? null : `${deltaSign}${fmt(delta, 1)} t`
-
-      return [
-        {
-          key: 'output',
-          label: '昨日成品',
-          value: fmt(lm.total_output_weight, 2),
-          unit: '吨',
-      deltaText,
-      deltaTone,
-      spark: outputTonsSpark.value,
-      sparkTone: 'primary'
-    },
-        {
-          key: 'energy',
-          label: '昨日吨能耗',
-          value: fmt(lm.energy_per_ton, 1),
-          unit: 'kWh/吨',
-      spark: energyPerTonSpark.value,
-      sparkTone: 'warning'
-    },
-        {
-          key: 'cost',
-          label: '昨日吨成本',
-          value: tonCost,
-          unit: '元/吨',
-          hint: cost == null ? '估算未就绪' : null
-        },
-        {
-          key: 'mtd',
-          label: '月累计成品',
-          value: fmt(ma.total_output, 0),
-          unit: '吨',
+  return [
+    ...settlementCards.value.map((item) => ({
+      ...item,
+      spark: item.key === 'plant-output' ? outputTonsSpark.value : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
+      sparkTone: item.key === 'energy-per-ton' ? 'warning' : 'primary',
+    })),
+    {
+      key: 'mtd',
+      label: '月累计成品',
+      value: fmt(snapshot.monthArchive.value.total_output, 0),
+      unit: '吨',
       spark: mtdSpark.value,
       sparkTone: 'success'
     },
@@ -229,7 +290,6 @@ const quickLinks = computed(() => {
     { label: '填报明细', path: '/manage/fill-details' },
     { label: '异常', path: '/manage/alerts' },
     { label: '能耗', path: '/energy/center' },
-    { label: '报表', path: '/manage/reports' },
   ]
   if (auth.adminSurface) {
     links.push(
@@ -271,9 +331,170 @@ const quickLinks = computed(() => {
   color: var(--xt-text);
   border-color: var(--xt-border-strong);
 }
+.xt-today__daily {
+  display: grid;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-4);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-lg, var(--xt-radius-md));
+  background:
+    linear-gradient(160deg, var(--xt-bg-panel) 0%, var(--xt-bg-panel-soft) 100%);
+}
+.xt-today__daily-head,
+.xt-today__panel-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--xt-space-3);
+  flex-wrap: wrap;
+}
+.xt-today__daily-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+  letter-spacing: 0.16em;
+}
+.xt-today__daily h2,
+.xt-today__panel h3 {
+  margin: 0;
+  color: var(--xt-text);
+  font-weight: 850;
+  letter-spacing: -0.02em;
+}
+.xt-today__daily h2 { font-size: var(--xt-text-xl); }
+.xt-today__panel h3 { font-size: var(--xt-text-base); }
+.xt-today__daily-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+  flex-wrap: wrap;
+}
+.xt-today__daily-tags span {
+  padding: 5px 10px;
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-pill);
+  color: var(--xt-text-secondary);
+  background: var(--xt-bg-panel);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+}
+.xt-today__daily-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--xt-space-3);
+}
+.xt-today__panel {
+  display: grid;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-3);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel);
+}
+.xt-today__panel-head span {
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+}
+.xt-today__compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xt-space-2);
+}
+.xt-today__compare-card {
+  display: grid;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel-soft);
+}
+.xt-today__compare-card.tone-warning { border-color: var(--xt-warning, var(--xt-color-warning)); }
+.xt-today__compare-card.tone-primary { border-color: var(--xt-primary); }
+.xt-today__compare-title {
+  color: var(--xt-text);
+  font-size: var(--xt-text-sm);
+  font-weight: 850;
+}
+.xt-today__compare-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+}
+.xt-today__compare-row b {
+  color: var(--xt-text);
+  font-size: var(--xt-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+.xt-today__compare-row.is-muted b {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-base);
+}
+.xt-today__wip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xt-space-2);
+}
+.xt-today__wip-card {
+  display: grid;
+  gap: 3px;
+  padding: var(--xt-space-2);
+  border: 1px solid var(--xt-border-light, var(--xt-border));
+  border-radius: var(--xt-radius-md);
+  background: var(--xt-bg-panel-soft);
+}
+.xt-today__wip-card span {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+}
+.xt-today__wip-card b {
+  color: var(--xt-text);
+  font-size: var(--xt-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+.xt-today__wip-card small {
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 700;
+}
+.xt-today__table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--xt-text);
+  font-size: var(--xt-text-sm);
+}
+.xt-today__table th,
+.xt-today__table td {
+  padding: var(--xt-space-2);
+  border-bottom: 1px solid var(--xt-border-light, var(--xt-border));
+}
+.xt-today__table th {
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  text-align: left;
+}
+.xt-today__table .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.xt-today__empty {
+  padding: var(--xt-space-4);
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-sm);
+  text-align: center;
+}
 @media (max-width: 720px) {
   .xt-today__header { flex-direction: column; align-items: stretch; }
   .xt-today__title-wrap { width: 100%; justify-content: space-between; }
+  .xt-today__daily-grid,
+  .xt-today__compare-grid,
+  .xt-today__wip-grid { grid-template-columns: 1fr; }
 }
 
 .xt-today__filer-badge {

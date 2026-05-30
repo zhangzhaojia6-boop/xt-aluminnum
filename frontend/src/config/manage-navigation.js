@@ -19,7 +19,7 @@ const NAV_GROUPS = [
     label: '昨日日报',
     commandGroup: '昨日日报',
     items: [
-      { title: '昨日日报', shortLabel: '昨日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' }
+      { title: '昨日日报', shortLabel: '昨日日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' }
     ]
   },
   {
@@ -37,13 +37,6 @@ const NAV_GROUPS = [
     commandGroup: '考勤',
     items: [
       { title: '考勤', shortLabel: '考勤', path: '/attendance/overview', icon: Sunny, access: 'review', commandGroup: '考勤' }
-    ]
-  },
-  {
-    label: '交付',
-    commandGroup: '交付',
-    items: [
-      { title: '报表', shortLabel: '报表', path: '/manage/reports', icon: TrendCharts, access: 'review', commandGroup: '交付' }
     ]
   },
   {

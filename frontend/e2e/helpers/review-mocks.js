@@ -278,6 +278,78 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     { price_date: '2026-05-12', price_per_ton: 20240, source: 'mock' }
   ]
 
+  const dailyProductionOverview = {
+    business_date: '2026-05-12',
+    plant_output: {
+      daily_output: 1175,
+      monthly_output: 1175,
+      yesterday_output: 1120,
+      energy_per_ton: 234.6,
+      basis: 'finished_goods_inbound',
+      basis_label: '全厂成品入库产量'
+    },
+    contracts: {
+      daily_new: 120,
+      unit: '吨'
+    },
+    energy: {
+      data_available: true,
+      total_electricity: 275655,
+      owner_electricity: 274000,
+      total_gas: 12,
+      total_cost: 4.6,
+      energy_per_ton: 234.6
+    },
+    yield_rates: {
+      daily: 98.2,
+      owner_daily: 97.9
+    },
+    plant_cost: {
+      total: 21,
+      cost_per_ton: 178.72
+    },
+    workshop_output: [
+      {
+        workshop_id: 1,
+        workshop: '挤压车间',
+        daily_output: 1175,
+        monthly_output: 1175,
+        delta: 55
+      },
+      {
+        workshop_id: 2,
+        workshop: '熔铸车间',
+        daily_output: 800,
+        monthly_output: 800,
+        delta: 40
+      }
+    ],
+    wip_distribution: [
+      {
+        workshop: '挤压车间',
+        total_weight: 80,
+        coil_count: 10
+      }
+    ],
+    shift_breakdown: {
+      expected_workshops: 2,
+      reported_workshops: 2,
+      shifts: [
+        { shift_code: 'C', shift_name: '大夜', reported_workshops: 2, expected_workshops: 2, output_weight: 390 },
+        { shift_code: 'A', shift_name: '长白班', reported_workshops: 2, expected_workshops: 2, output_weight: 410 },
+        { shift_code: 'B', shift_name: '小夜', reported_workshops: 2, expected_workshops: 2, output_weight: 375 }
+      ]
+    }
+  }
+
+  const timeseries = [
+    { date: '2026-05-08', output_weight: 1080000, energy: 251000 },
+    { date: '2026-05-09', output_weight: 1110000, energy: 258000 },
+    { date: '2026-05-10', output_weight: 1090000, energy: 254000 },
+    { date: '2026-05-11', output_weight: 1120000, energy: 260000 },
+    { date: '2026-05-12', output_weight: 1175000, energy: 275655 }
+  ]
+
   await page.route('**/api/v1/factory-command/overview', async (route) => {
     await fulfillJson(route, factoryCommandOverview)
   })
@@ -335,6 +407,14 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
 
   await page.route('**/api/v1/executive/aluminum-price-trend**', async (route) => {
     await fulfillJson(route, executivePriceTrend)
+  })
+
+  await page.route('**/api/v1/dashboard/daily-production**', async (route) => {
+    await fulfillJson(route, dailyProductionOverview)
+  })
+
+  await page.route('**/api/v1/dashboard/timeseries**', async (route) => {
+    await fulfillJson(route, timeseries)
   })
 
   await page.route('**/api/v1/dashboard/factory-director**', async (route) => {

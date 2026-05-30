@@ -11,6 +11,13 @@ test('user preferences api wraps GET and PUT theme endpoints with quiet errors',
   assert.match(src, /api\.get\('\/user\/preferences'/)
   assert.match(src, /api\.put\('\/user\/preferences'/)
   assert.match(src, /skipErrorToast:\s*true/)
+  assert.match(src, /skipAuthLogout:\s*true/)
+})
+
+test('api interceptor can keep login when optional request gets 401', () => {
+  const src = source('../src/api/index.js')
+  assert.match(src, /skipAuthLogout/)
+  assert.match(src, /status === 401 && !skipAuthLogout/)
 })
 
 test('auth store syncs server theme preference into HUD local preference', () => {
