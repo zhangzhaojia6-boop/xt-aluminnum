@@ -89,7 +89,7 @@ def _seed_inventory_owner_rows(db) -> None:
         workshop_id=workshop.id,
         shift_id=shift.id,
         business_date=date(2026, 4, 17),
-        entry_type='completed',
+        entry_type='owner_daily',
         entry_status='submitted',
         created_by=user.id,
         created_by_user_id=user.id,
@@ -108,7 +108,7 @@ def _seed_inventory_owner_rows(db) -> None:
         workshop_id=workshop.id,
         shift_id=shift.id,
         business_date=date(2026, 4, 17),
-        entry_type='completed',
+        entry_type='owner_daily',
         entry_status='submitted',
         created_by=user.id,
         created_by_user_id=user.id,
@@ -205,6 +205,24 @@ def test_summarize_energy_for_date_falls_back_to_owner_entry_payloads(tmp_path) 
         session.close()
 
 
+def test_owner_daily_energy_does_not_depend_on_inventory_workshop_type(tmp_path) -> None:
+    session = build_session(tmp_path)
+    db = _EnergyFallbackDB(session)
+    try:
+        _seed_inventory_owner_rows(db)
+        workshop = db.get(Workshop, 11)
+        workshop.workshop_type = 'factory_special'
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'owner_only'
+        assert payload['electricity_value'] == 1000.0
+        assert payload['owner_totals']['electricity_value'] == 1000.0
+    finally:
+        session.close()
+
+
 def test_get_energy_summary_falls_back_to_owner_entry_payloads(tmp_path) -> None:
     session = build_session(tmp_path)
     db = _EnergyFallbackDB(session)
@@ -275,7 +293,7 @@ def test_summarize_energy_for_date_owner_only_rows_do_not_double_count_output(tm
             workshop_id=11,
             shift_id=1,
             business_date=date(2026, 4, 17),
-            entry_type='completed',
+            entry_type='owner_daily',
             entry_status='submitted',
             created_by=7,
             created_by_user_id=7,

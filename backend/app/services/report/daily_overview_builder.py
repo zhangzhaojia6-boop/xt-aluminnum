@@ -383,8 +383,8 @@ def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) ->
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
+            WorkOrderEntry.entry_type == 'owner_daily',
             WorkOrderEntry.machine_id.is_(None),
-            Workshop.workshop_type == 'inventory',
         )
         .all()
     )

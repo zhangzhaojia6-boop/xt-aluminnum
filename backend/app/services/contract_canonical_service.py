@@ -344,8 +344,8 @@ def _load_owner_entry_contract_snapshots(db: Session, *, target_date: date) -> l
         .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
         .filter(
             WorkOrderEntry.business_date == target_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
-            Workshop.workshop_type == 'inventory',
         )
         .all()
     )

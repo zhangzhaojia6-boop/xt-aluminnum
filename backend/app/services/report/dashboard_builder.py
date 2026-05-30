@@ -318,7 +318,7 @@ def _build_factory_boss_summary(
         focus_items.append(blocker_digest)
     focus_text = '；'.join(focus_items) if focus_items else '建议关注未闭环班次与单吨能耗波动。'
     return (
-        f"{target_date.month}月{target_date.day}日，全厂今日产量 {total_output:.2f} 吨，"
+        f"{target_date.month}月{target_date.day}日，全厂入库产量 {total_output:.2f} 吨，"
         f"月累计 {monthly_output:.2f} 吨，上报率 {reporting_rate_text}。"
         f"今日能耗 {total_energy:.2f}，单吨电耗 {energy_text}。"
         f"移动填报异常 {exception_total} 个，建议关注：{focus_text}"
@@ -416,9 +416,8 @@ def _build_dashboard_leader_summary(
 
 def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     production_report = _generate_production_report(db, report_date=target_date, scope=CANONICAL_REPORT_SCOPE)
-    production_report_output = _to_float(production_report.get('total_output_weight', 0.0))
     runtime_output = _current_shift_output(db, target_date=target_date)
-    total_output = runtime_output if runtime_output > 0 else production_report_output
+    total_output = runtime_output
     shift_count = int(production_report.get('shift_count', 0) or 0)
     confirmed_shift_count = int(production_report.get('auto_confirmed_shifts', 0) or 0)
     reviewed_shift_count = 0
@@ -502,6 +501,8 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     return {
         'target_date': target_date.isoformat(),
         'today_total_output': total_output,
+        'process_total_output': _to_float(production_report.get('process_output_weight')),
+        'total_output_basis': 'storage_inbound_output',
         'month_to_date_output': month_output,
         'history_digest': history_digest,
         'total_energy': energy_summary['total_energy'],
@@ -882,10 +883,10 @@ def build_cumulative(db: Session, *, target_date: date) -> dict[str, Any]:
     from app.domain.calculators.energy_calculators import unit_energy_consumption
 
     month_start = target_date.replace(day=1)
+    output_by_date = daily_overview_builder._query_plant_output_totals_by_date(db, month_start, target_date)
     rows = (
         db.query(
             ShiftProductionData.business_date,
-            func.sum(ShiftProductionData.output_weight).label('daily_output'),
             func.sum(ShiftProductionData.electricity_kwh).label('daily_energy'),
         )
         .filter(
@@ -896,7 +897,7 @@ def build_cumulative(db: Session, *, target_date: date) -> dict[str, Any]:
         .group_by(ShiftProductionData.business_date)
         .all()
     )
-    daily_outputs = [float(r.daily_output or 0) for r in rows]
+    daily_outputs = list(output_by_date.values())
     daily_energies = [float(r.daily_energy or 0) for r in rows]
     active_days = len(daily_outputs)
     month_total_output = float(monthly_cumulative_output(daily_outputs))
@@ -918,15 +919,7 @@ def build_comparison(db: Session, *, target_date: date) -> dict[str, Any]:
     from app.domain.calculators.production_calculators import day_over_day_change
 
     def _day_total(d: date) -> float:
-        result = (
-            db.query(func.sum(ShiftProductionData.output_weight))
-            .filter(
-                ShiftProductionData.business_date == d,
-                ShiftProductionData.data_status != 'voided',
-            )
-            .scalar()
-        )
-        return float(result or 0)
+        return float(daily_overview_builder._query_plant_output_totals_by_date(db, d, d).get(d, 0.0))
 
     today_val = _day_total(target_date)
     yesterday_val = _day_total(target_date - timedelta(days=1))

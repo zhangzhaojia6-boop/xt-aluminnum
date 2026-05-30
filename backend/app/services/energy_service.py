@@ -238,8 +238,8 @@ def _load_owner_only_energy_rows(
         .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
         .filter(
             WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
-            Workshop.workshop_type == 'inventory',
         )
         .all()
     )

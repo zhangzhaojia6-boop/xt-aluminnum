@@ -31,6 +31,7 @@ from app.services.deterministic_orchestration_service import build_runtime_orche
 from app.services.management_estimate_service import build_management_estimate
 from app.services import mobile_report_service
 from app.services import mobile_reminder_service
+from app.services.report import daily_overview_builder
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.services.yield_matrix_delivery_target_service import resolve_yield_matrix_delivery_targets
 from app.services.production_service import (
@@ -454,7 +455,13 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
     items = _query_shift_items(db, report_date=report_date, scope=canonical_scope)
     mobile_summary = mobile_report_service.summarize_mobile_reporting(db, target_date=report_date)
 
-    total_output = sum(_shift_weight_tons(item, 'output_weight') for item in items)
+    process_output = sum(_shift_weight_tons(item, 'output_weight') for item in items)
+    plant_output_by_date = daily_overview_builder._query_plant_output_totals_by_date(
+        db,
+        report_date,
+        report_date,
+    )
+    total_output = plant_output_by_date.get(report_date, 0.0)
     total_qualified = sum(_shift_weight_tons(item, 'qualified_weight') for item in items)
     total_scrap = sum(_shift_weight_tons(item, 'scrap_weight') for item in items)
     total_downtime = sum(int(item.downtime_minutes or 0) for item in items)
@@ -497,6 +504,9 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
         'scope': canonical_scope,
         'canonical_scope': canonical_scope,
         'total_output_weight': total_output,
+        'total_output_basis': 'storage_inbound_output',
+        'process_output_weight': process_output,
+        'process_output_basis': 'mobile_coil_process_output',
         'shift_count': len(items),
         'workshop_output': workshop_output,
         'shift_output': shift_output,

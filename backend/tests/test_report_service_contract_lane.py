@@ -184,6 +184,10 @@ def test_generate_production_report_includes_contract_lane_projection(monkeypatc
             'quality_status': 'ready',
         },
     )
+    monkeypatch.setattr(
+        'app.services.report_service.daily_overview_builder._query_plant_output_totals_by_date',
+        lambda *_args, **_kwargs: {date(2026, 4, 8): 0.0},
+    )
 
     payload = report_service._generate_production_report(ProductionReportDB(), report_date=date(2026, 4, 8), scope='auto_confirmed')
 
@@ -228,12 +232,18 @@ def test_generate_production_report_converts_mobile_coil_aggregates_to_tons(monk
         'app.services.report_service.energy_service.summarize_energy_for_date',
         lambda *_args, **_kwargs: {'total_energy': 0.0, 'energy_per_ton': None, 'rows': []},
     )
+    monkeypatch.setattr(
+        'app.services.report_service.daily_overview_builder._query_plant_output_totals_by_date',
+        lambda *_args, **_kwargs: {date(2026, 5, 6): 18.5},
+    )
     monkeypatch.setattr('app.services.report_service.build_contract_projection', lambda *_args, **_kwargs: {})
     monkeypatch.setattr('app.services.report_service.build_yield_matrix_projection', lambda *_args, **_kwargs: {})
 
     payload = report_service._generate_production_report(ProductionReportDB(), report_date=date(2026, 5, 6), scope='auto_confirmed')
 
-    assert payload['total_output_weight'] == 74.11
+    assert payload['total_output_weight'] == 18.5
+    assert payload['total_output_basis'] == 'storage_inbound_output'
+    assert payload['process_output_weight'] == 74.11
     assert payload['qualified_weight'] == 72.5
     assert payload['scrap_weight'] == 1.5
     assert payload['workshop_output'] == {'2050冷轧车间': 74.11}
@@ -662,7 +672,7 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     )
     monkeypatch.setattr('app.services.report_service.quality_service.blocker_summary', lambda *_args, **_kwargs: '仍有 1 条质量阻塞')
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
-    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 0.0)
+    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 180.5)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
     monkeypatch.setattr('app.services.report_service._build_history_digest', lambda *_args, **_kwargs: {'daily_snapshots': [], 'month_archive': {}, 'year_archive': {}})
@@ -808,7 +818,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
         lambda *_args, **_kwargs: {'digest': '无异常', 'has_blockers': False},
     )
     monkeypatch.setattr('app.services.report_service._month_to_date_output', lambda *_args, **_kwargs: 1000.0)
-    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 0.0)
+    monkeypatch.setattr('app.services.report_service._current_shift_output', lambda *_args, **_kwargs: 180.5)
     monkeypatch.setattr('app.services.report_service._build_factory_boss_summary', lambda *_args, **_kwargs: '旧老板摘要')
     monkeypatch.setattr('app.services.report_service.build_management_estimate', lambda *_args, **_kwargs: {})
     monkeypatch.setattr(

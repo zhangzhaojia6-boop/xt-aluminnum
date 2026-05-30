@@ -174,8 +174,10 @@ def _assert_factory_dashboard_contains_row(client: TestClient) -> None:
     response = client.get('/api/v1/dashboard/factory-director', params={'target_date': BUSINESS_DATE.isoformat()})
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload['leader_metrics']['today_total_output'] >= SUBMITTED_OUTPUT_WEIGHT
-    assert payload['today_total_output'] >= SUBMITTED_OUTPUT_WEIGHT
+    assert payload['total_output_basis'] == 'storage_inbound_output'
+    assert payload['today_total_output'] == 0
+    assert payload['leader_metrics']['today_total_output'] == 0
+    assert payload['process_total_output'] >= SUBMITTED_OUTPUT_WEIGHT
     assert any(
         item.get('workshop_id') == 1 and item.get('total_output', 0) >= SUBMITTED_OUTPUT_WEIGHT
         for item in payload.get('workshop_output_summary', [])
