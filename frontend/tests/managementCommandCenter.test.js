@@ -636,6 +636,7 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /内勤全厂用电/)
   assert.match(liveDashboardSource, /毛利估算|亏损估算/)
   assert.match(liveDashboardSource, /风险项/)
+  assert.doesNotMatch(liveDashboardSource, /异常 \{\{ managementOverview\.blockerBreakdown\.anomalyCount/)
   assert.match(liveDashboardSource, /外部 MES/)
   assert.match(liveDashboardSource, /fetchMesSyncStatus/)
   assert.match(liveDashboardSource, /fetchMesSyncRuns/)

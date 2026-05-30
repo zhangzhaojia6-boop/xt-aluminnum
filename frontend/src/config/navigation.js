@@ -30,26 +30,6 @@ export const centerNavigation = [
     summary: '产线产量、OEE、趋势'
   },
   {
-    id: 'ingestion',
-    no: '06',
-    title: '数据接入与字段映射中心',
-    zone: 'admin',
-    path: '/manage/ingestion',
-    routeName: 'admin-ingestion-center',
-    icon: '接',
-    summary: '数据源、字段映射、导入批次、错误率'
-  },
-  {
-    id: 'tasks',
-    no: '07',
-    title: '异常与补录',
-    zone: 'review',
-    path: '/manage/alerts',
-    routeName: 'manage-alerts',
-    icon: '补',
-    summary: '缺报、退回、差异、同步滞后、风险等级'
-  },
-  {
     id: 'reports',
     no: '08',
     title: '日报与交付中心',
@@ -58,16 +38,6 @@ export const centerNavigation = [
     routeName: 'review-report-center',
     icon: '报',
     summary: '日报、交付清单、导出状态'
-  },
-  {
-    id: 'quality',
-    no: '09',
-    title: '质量与告警中心',
-    zone: 'review',
-    path: '/manage/alerts?domain=quality',
-    routeName: 'review-quality-center',
-    icon: '质',
-    summary: '质量告警、处理状态、追溯'
   },
   {
     id: 'cost',
@@ -150,7 +120,7 @@ const routeMetaByName = {
 
   'manage-today': { center: 'overview', group: '三页骨架', order: 1, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
   'manage-production': { center: 'factory', group: '三页骨架', order: 2, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
-  'manage-alerts': { center: 'tasks', group: '三页骨架', order: 3, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-alerts': { group: '兼容入口', order: 103, icon: 'WarningFilled', legacy: true, roles: ['review'], keepAlive: false },
   'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
   'review-reconciliation-center': { center: 'quality', group: '质量与核对', order: 7, icon: 'Connection', legacy: false, roles: ['review'], keepAlive: true },
@@ -158,19 +128,19 @@ const routeMetaByName = {
   'review-brain-center': { center: 'brain', group: '兼容入口', order: 109, icon: 'MagicStick', legacy: true, roles: ['review'], keepAlive: false },
 
   'admin-overview': { center: 'ops', group: '兼容入口', order: 100, icon: 'Cpu', legacy: true, roles: ['admin'], keepAlive: false },
-  'admin-ingestion-center': { center: 'ingestion', group: '数据与模板', order: 2, icon: 'Connection', legacy: false, roles: ['admin'], keepAlive: true },
+  'admin-ingestion-center': { group: '兼容入口', order: 202, icon: 'Connection', legacy: true, roles: ['admin'], keepAlive: false },
   'admin-template-center': { center: 'master', group: '数据与模板', order: 3, icon: 'SetUp', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-master-workshop': { center: 'master', group: '数据与模板', order: 4, icon: 'OfficeBuilding', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-ops-reliability': { center: 'ops', group: '运行保障', order: 5, icon: 'Cpu', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-governance-center': { center: 'governance', group: '权限治理', order: 6, icon: 'UserFilled', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-users': { center: 'governance', group: '权限治理', order: 7, icon: 'User', legacy: false, roles: ['admin'], keepAlive: true },
 
-  'review-ingestion-center': { center: 'ingestion', group: '兼容入口', order: 101, icon: 'Connection', legacy: true, roles: ['admin'], keepAlive: false },
+  'review-ingestion-center': { group: '兼容入口', order: 101, icon: 'Connection', legacy: true, roles: ['admin'], keepAlive: false },
   'review-ops-reliability': { center: 'ops', group: '兼容入口', order: 102, icon: 'Cpu', legacy: true, roles: ['admin'], keepAlive: false },
   'review-governance-center': { center: 'governance', group: '兼容入口', order: 103, icon: 'UserFilled', legacy: true, roles: ['admin'], keepAlive: false },
   'review-template-center': { center: 'master', group: '兼容入口', order: 104, icon: 'SetUp', legacy: true, roles: ['admin'], keepAlive: false },
-  'file-import': { center: 'ingestion', group: '兼容入口', order: 201, icon: 'UploadFilled', legacy: true, roles: ['admin'], keepAlive: false },
-  'import-history': { center: 'ingestion', group: '兼容入口', order: 202, icon: 'Document', legacy: true, roles: ['admin'], keepAlive: false },
+  'file-import': { group: '兼容入口', order: 201, icon: 'UploadFilled', legacy: true, roles: ['admin'], keepAlive: false },
+  'import-history': { group: '兼容入口', order: 203, icon: 'Document', legacy: true, roles: ['admin'], keepAlive: false },
   'master-workshop': { center: 'master', group: '兼容入口', order: 301, icon: 'OfficeBuilding', legacy: true, roles: ['admin'], keepAlive: false },
   'master-team': { center: 'master', group: '兼容入口', order: 302, icon: 'UserFilled', legacy: true, roles: ['admin'], keepAlive: false },
   'master-employee': { center: 'master', group: '兼容入口', order: 303, icon: 'User', legacy: true, roles: ['admin'], keepAlive: false },
@@ -185,13 +155,11 @@ const routeMetaByName = {
 const commandMetaByName = {
   'manage-today': { shortLabel: '今日', commandGroup: '今日', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
-  'manage-alerts': { shortLabel: '异常', commandGroup: '异常', secondaryGroup: '处置' },
   'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
   'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
   'factory-ai-assistant': { shortLabel: 'AI 助手', commandGroup: 'AI 助手', secondaryGroup: '站内' },
   'review-brain-center': { shortLabel: 'AI 助手', commandGroup: '兼容入口', secondaryGroup: '站内' },
-  'admin-ingestion-center': { shortLabel: '数据接入', commandGroup: '管理', secondaryGroup: '接入' },
   'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '模板' },
   'admin-template-center': { shortLabel: '模板', commandGroup: '管理', secondaryGroup: '模板' },
   'admin-ops-reliability': { shortLabel: '设置', commandGroup: '管理', secondaryGroup: '运行' },

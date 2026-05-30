@@ -69,7 +69,7 @@ export function buildManagementOverview({ aggregation = {}, dashboard = {}, deli
     deliveryBlocker,
     pendingPublish,
   }
-  const blockerCount = missingCells + anomalyCount + deliveryBlocker + pendingPublish
+  const blockerCount = missingCells + deliveryBlocker + pendingPublish
 
   return {
     inputWeight,

@@ -57,7 +57,7 @@ test('buildManagementOverview exposes management first-screen metrics', () => {
     deliveryBlocker: 1,
     pendingPublish: 1,
   })
-  assert.equal(overview.blockerCount, 9)
+  assert.equal(overview.blockerCount, 4)
   assert.equal(overview.deliveryReady, false)
   assert.equal(overview.storageFinishedWeight, 52)
   assert.equal(overview.shipmentWeight, 48)
@@ -85,7 +85,7 @@ test('buildManagementOverview falls back cleanly when estimate is not configured
   assert.equal(marginTone(null), 'muted')
 })
 
-test('buildManagementOverview explains blockers by missing, anomalies, delivery, and publish work', () => {
+test('buildManagementOverview excludes anomaly counts from proactive blockers', () => {
   const overview = buildManagementOverview({
     aggregation: {
       overall_progress: {
@@ -116,7 +116,7 @@ test('buildManagementOverview explains blockers by missing, anomalies, delivery,
     deliveryBlocker: 1,
     pendingPublish: 5,
   })
-  assert.equal(overview.blockerCount, 25)
+  assert.equal(overview.blockerCount, 9)
 })
 
 test('marginTone maps operating estimate to readable states', () => {

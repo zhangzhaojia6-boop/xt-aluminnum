@@ -42,7 +42,7 @@
       <article class="management-overview-card" :class="{ 'is-danger': managementOverview.blockerCount > 0 }">
         <span>风险项</span>
         <strong>{{ managementOverview.blockerCount }}</strong>
-        <em>缺报 {{ managementOverview.blockerBreakdown.missingCells }} · 异常 {{ managementOverview.blockerBreakdown.anomalyCount }} · 交付 {{ managementOverview.blockerBreakdown.deliveryBlocker }} · 发布 {{ managementOverview.blockerBreakdown.pendingPublish }} · 关注 {{ managementOverview.blockerBreakdown.attentionCells }}</em>
+        <em>缺报 {{ managementOverview.blockerBreakdown.missingCells }} · 交付 {{ managementOverview.blockerBreakdown.deliveryBlocker }} · 发布 {{ managementOverview.blockerBreakdown.pendingPublish }} · 关注 {{ managementOverview.blockerBreakdown.attentionCells }}</em>
       </article>
       <article class="management-overview-card" :class="{ 'is-success': externalReadinessReady, 'is-danger': externalHardIssueCount > 0 }">
         <span>外部联通闸门</span>

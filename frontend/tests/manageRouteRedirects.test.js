@@ -25,7 +25,7 @@ function routeLine(path) {
 }
 
 test('three new top-level manage routes are wired', () => {
-  for (const path of ['today', 'production', 'alerts']) {
+  for (const path of ['today', 'production']) {
     assert.ok(routeLine(path), `route '${path}' should exist`)
   }
 })
@@ -45,20 +45,8 @@ test('owner skeleton route metadata stays unique', () => {
       centerNoFromMap: '01'
     }
   )
-  assert.deepEqual(
-    {
-      title: resolveRouteMeta('manage-alerts', {}).title,
-      centerNo: resolveRouteMeta('manage-alerts', {}).centerNo,
-      canonical: resolveRouteMeta('manage-alerts', {}).canonical,
-      centerNoFromMap: findCenterByRouteName('manage-alerts')?.no
-    },
-    {
-      title: '异常与补录',
-      centerNo: '07',
-      canonical: '/manage/alerts',
-      centerNoFromMap: '07'
-    }
-  )
+  assert.equal(findCenterByRouteName('manage-alerts'), null)
+  assert.equal(resolveRouteMeta('manage-alerts', {}).legacy, true)
 })
 
 test('quality detail remains a preserved component route', () => {
@@ -116,7 +104,9 @@ test('legacy route callers use the owner skeleton tabs', () => {
     'reconciliation detail should return to manage alerts'
   )
   assert.match(reconciliationDetailSrc, /surface:\s*['"]reconciliation['"]/, 'reconciliation detail should keep reconciliation surface')
-  assert.match(navigationSrc, /routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"][\s\S]*routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should expose skeleton routes')
+  assert.match(navigationSrc, /routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"]/, 'navigation catalog should expose active skeleton routes')
+  const centerNavigationBlock = navigationSrc.slice(0, navigationSrc.indexOf('const centerByRouteName'))
+  assert.doesNotMatch(centerNavigationBlock, /routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should not surface alerts as an active center')
 })
 
 test('factory command shell supports embedded production mounting', () => {
