@@ -7,7 +7,7 @@ export const centerNavigation = [
     path: '/manage/today',
     routeName: 'manage-today',
     icon: '总',
-    summary: '今日产量、达成率、补录、交付状态'
+    summary: '昨日产量、达成率、补录、交付状态'
   },
   {
     id: 'entry',
@@ -153,7 +153,7 @@ const routeMetaByName = {
 }
 
 const commandMetaByName = {
-  'manage-today': { shortLabel: '今日', commandGroup: '今日', secondaryGroup: '全局' },
+  'manage-today': { shortLabel: '昨日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
   'review-report-center': { shortLabel: '日报', commandGroup: '总览', secondaryGroup: '交付' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
@@ -190,7 +190,7 @@ const reviewNavigation = [
     key: 'owner-tabs',
     label: '三页骨架',
     items: [
-      { routeName: 'manage-today', label: '今日', access: 'review' },
+      { routeName: 'manage-today', label: '昨日日报', access: 'review' },
       { routeName: 'manage-production', label: '生产', access: 'review' }
     ]
   }

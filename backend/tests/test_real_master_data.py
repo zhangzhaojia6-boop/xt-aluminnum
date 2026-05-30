@@ -494,20 +494,28 @@ def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop
         db.close()
 
 
-def test_seed_real_master_data_includes_1650_1850_hwb(tmp_path) -> None:
+def test_seed_real_master_data_includes_1650_1850_and_keeps_retired_hwb_inactive(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 
     db = build_session(tmp_path)
     try:
         seed_real_master_data(db)
 
-        workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all() if item.is_active}
-        for code in ('LZ1650', 'LZ1850', 'HWB'):
-            assert code in workshops, f'workshop {code} missing after seed'
+        all_workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all()}
+        active_workshops = {code: item for code, item in all_workshops.items() if item.is_active}
+        for code in ('LZ1650', 'LZ1850'):
+            assert code in active_workshops, f'workshop {code} missing after seed'
+        for code in ('LZ1450', 'LZ3', 'HWB', 'JZ2', 'CT'):
+            assert code in all_workshops, f'workshop {code} missing after seed'
+            assert all_workshops[code].is_active is False, f'workshop {code} should stay retired'
 
-        equipment = {item.code: item for item in db.execute(select(Equipment)).scalars().all() if item.is_active}
-        for code in ('LZ1650-1', 'LZ1850-1', 'HWB-1'):
-            assert code in equipment, f'equipment {code} missing after seed'
+        active_equipment = {item.code: item for item in db.execute(select(Equipment)).scalars().all() if item.is_active}
+        for code in ('LZ1650-1', 'LZ1850-1'):
+            assert code in active_equipment, f'equipment {code} missing after seed'
+
+        inactive_equipment = {item.code: item for item in db.execute(select(Equipment)).scalars().all() if not item.is_active}
+        for code in ('HWB-1', 'CT-TQ', 'JZ2-1'):
+            assert code in inactive_equipment, f'equipment {code} should stay retired'
     finally:
         db.close()
 

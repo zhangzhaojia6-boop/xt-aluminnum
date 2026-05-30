@@ -1,5 +1,4 @@
 from datetime import date
-from types import SimpleNamespace
 
 from app.services import report_service
 
@@ -21,12 +20,7 @@ class FakeQuery:
 
 class FakeDB:
     def __init__(self):
-        completed_batches = [
-            SimpleNamespace(import_type=import_type)
-            for import_type in report_service.REQUIRED_IMPORT_TYPES + ("contract_report",)
-        ]
         self._queries = [
-            FakeQuery(all_value=completed_batches),
             FakeQuery(scalar_value=0),
             FakeQuery(scalar_value=3),
             FakeQuery(scalar_value=2),

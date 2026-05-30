@@ -199,6 +199,28 @@ def test_machine_production_records_in_allowed_data_keys() -> None:
     assert _sum_machine_production(rows) == (18.0, 17.1, 0.5)
 
 
+def test_mobile_report_payload_keeps_machine_energy_records() -> None:
+    from app.schemas.mobile import MobileReportPayload, MobileShiftReportOut
+
+    payload = MobileReportPayload.model_validate({
+        'business_date': '2026-05-30',
+        'shift_id': 1,
+        'machine_energy_records': [{'machine_id': 103, 'energy_kwh': 1200, 'gas_m3': 80}],
+    })
+
+    out = MobileShiftReportOut.model_validate({
+        'business_date': '2026-05-30',
+        'shift_id': 1,
+        'workshop_id': 13,
+        'leader_name': '电工',
+        'report_status': 'submitted',
+        'machine_energy_records': payload.machine_energy_records,
+    })
+
+    assert payload.machine_energy_records[0]['energy_kwh'] == 1200
+    assert out.machine_energy_records[0]['machine_id'] == 103
+
+
 def test_sum_machine_production_with_partial_values() -> None:
     """G13: missing values stay missing — don't fabricate zeros."""
     from app.services.mobile_report.lifecycle import _sum_machine_production

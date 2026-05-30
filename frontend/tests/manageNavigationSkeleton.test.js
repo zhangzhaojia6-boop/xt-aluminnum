@@ -27,7 +27,7 @@ const adminPaths = [
 test('owner skeleton exposes current top-level labels', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '考勤', '交付'])
+  assert.deepEqual(groups.map((group) => group.label), ['昨日日报', '生产', '考勤', '交付'])
 })
 
 test('owner skeleton keeps daily report under today and report under delivery', () => {

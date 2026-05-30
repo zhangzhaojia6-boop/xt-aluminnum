@@ -806,7 +806,14 @@ def build_workshop_output_summary(
     target_date: date,
     status_scope: str = 'include_reviewed',
 ) -> list[dict]:
-    query = db.query(ShiftProductionData).filter(ShiftProductionData.business_date == target_date)
+    query = (
+        db.query(ShiftProductionData)
+        .join(Workshop, Workshop.id == ShiftProductionData.workshop_id)
+        .filter(
+            ShiftProductionData.business_date == target_date,
+            Workshop.is_active.is_(True),
+        )
+    )
     if status_scope == 'confirmed_only':
         query = query.filter(ShiftProductionData.data_status == 'confirmed')
     elif status_scope == 'include_pending':

@@ -53,6 +53,8 @@ class MobileReportPayload(BaseModel):
     contract_received: float | None = Field(default=None, ge=0)
     electricity_daily: float | None = Field(default=None, ge=0)
     gas_daily: float | None = Field(default=None, ge=0)
+    machine_energy_records: list[dict[str, Any]] = Field(default_factory=list)
+    machine_production_records: list[dict[str, Any]] = Field(default_factory=list)
     has_exception: bool = False
     exception_type: str | None = Field(default=None, max_length=64)
     note: str | None = Field(default=None, max_length=1000)
@@ -112,6 +114,9 @@ class MobileShiftReportOut(BaseModel):
     target_value: float | None = None
     compare_value: float | None = None
     energy_per_ton: float | None = None
+    machine_energy_records: list[dict[str, Any]] = Field(default_factory=list)
+    machine_production_records: list[dict[str, Any]] = Field(default_factory=list)
+    workshop_machines: list[dict[str, Any]] = Field(default_factory=list)
     submitted_at: datetime | None = None
     last_saved_at: datetime | None = None
     updated_at: datetime | None = None

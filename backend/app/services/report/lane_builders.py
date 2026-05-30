@@ -85,16 +85,18 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
     """
     rows = (
         db.query(ShiftProductionData)
+        .join(Workshop, Workshop.id == ShiftProductionData.workshop_id)
         .filter(
             ShiftProductionData.business_date == target_date,
             ShiftProductionData.data_status.in_(['pending', 'reviewed', 'confirmed']),
+            Workshop.is_active.is_(True),
         )
         .all()
     )
     shifts = db.query(ShiftConfig).all()
     shift_by_id = {s.id: s for s in shifts}
 
-    workshops = db.query(Workshop).all()
+    workshops = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_code_by_id = {w.id: w.code for w in workshops}
     plant_output_workshop_ids = {
         w.id for w in workshops if w.code in _PLANT_OUTPUT_WORKSHOP_CODES

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.models.master import Workshop
@@ -54,11 +54,13 @@ def _query_output_by_workshop(db: Session, start: date, end: date) -> dict[int, 
             WorkOrderEntry.workshop_id,
             func.sum(WorkOrderEntry.output_weight),
         )
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
         .filter(
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
             WorkOrderEntry.entry_type == 'mobile_coil',
+            Workshop.is_active.is_(True),
         )
         .group_by(WorkOrderEntry.workshop_id)
         .all()
@@ -78,11 +80,13 @@ def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict
             func.sum(WorkOrderEntry.input_weight),
             func.sum(WorkOrderEntry.output_weight),
         )
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
         .filter(
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
             WorkOrderEntry.entry_type == 'mobile_coil',
+            Workshop.is_active.is_(True),
         )
         .group_by(WorkOrderEntry.workshop_id)
         .all()
@@ -105,7 +109,7 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
     monthly = _query_output_by_workshop(db, month_start, target_date)
 
     rows = []
-    all_ids = set(today) | set(monthly)
+    all_ids = (set(today) | set(monthly)) & set(ws_map)
     for wid in sorted(all_ids, key=lambda w: -(today.get(w, 0))):
         name = ws_map.get(wid, f'车间{wid}')
         d = _round2(today.get(wid, 0))
@@ -122,18 +126,33 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
     return rows
 
 
-def _build_wip_distribution(db: Session) -> list[dict]:
+def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
+    def present(column):
+        return and_(column.isnot(None), column != '')
+
+    workshop_label = func.coalesce(
+        func.nullif(MesCoilSnapshot.current_workshop, ''),
+        func.nullif(MesCoilSnapshot.workshop_code, ''),
+        func.nullif(MesCoilSnapshot.next_process, ''),
+    )
+    not_finished_stock = and_(
+        MesCoilSnapshot.in_stock_date.is_(None),
+        or_(MesCoilSnapshot.status_name.is_(None), MesCoilSnapshot.status_name != '已入库'),
+    )
     rows = (
         db.query(
-            MesCoilSnapshot.current_workshop,
+            workshop_label,
             func.count(MesCoilSnapshot.id),
             func.sum(MesCoilSnapshot.material_weight),
         )
         .filter(
-            MesCoilSnapshot.current_workshop.isnot(None),
-            MesCoilSnapshot.current_workshop != '',
+            MesCoilSnapshot.business_date == target_date,
+            MesCoilSnapshot.delivery_date.is_(None),
+            MesCoilSnapshot.allocation_date.is_(None),
+            not_finished_stock,
+            or_(present(MesCoilSnapshot.current_process), present(MesCoilSnapshot.next_process)),
         )
-        .group_by(MesCoilSnapshot.current_workshop)
+        .group_by(workshop_label)
         .all()
     )
     result = []
@@ -149,6 +168,36 @@ def _build_wip_distribution(db: Session) -> list[dict]:
 
 
 def _build_yield_rates(db: Session, target_date: date) -> dict:
+    def normalize_yield(value: float | None) -> float | None:
+        if value is None:
+            return None
+        raw = float(value)
+        if raw < 0:
+            return None
+        percent = raw * 100 if raw <= 1.5 else raw
+        if percent > 100:
+            return None
+        return percent
+
+    def yield_from_entries(start: date, end: date) -> float | None:
+        values = (
+            db.query(WorkOrderEntry.yield_rate)
+            .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+            .filter(
+                WorkOrderEntry.business_date >= start,
+                WorkOrderEntry.business_date <= end,
+                WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
+                WorkOrderEntry.entry_type == 'mobile_coil',
+                WorkOrderEntry.yield_rate.isnot(None),
+                Workshop.is_active.is_(True),
+            )
+            .all()
+        )
+        normalized = [v for (item,) in values if (v := normalize_yield(item)) is not None]
+        if not normalized:
+            return None
+        return round(sum(normalized) / len(normalized), 2)
+
     today_data = _query_input_output_by_workshop(db, target_date, target_date)
     yesterday_data = _query_input_output_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
     month_start = target_date.replace(day=1)
@@ -161,15 +210,16 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
             return None
         return round(total_out / total_in * 100, 2)
 
-    daily = calc_yield(today_data)
-    yesterday = calc_yield(yesterday_data)
-    monthly = calc_yield(monthly_data)
+    daily = yield_from_entries(target_date, target_date) or calc_yield(today_data)
+    yesterday = yield_from_entries(target_date - timedelta(days=1), target_date - timedelta(days=1)) or calc_yield(yesterday_data)
+    monthly = yield_from_entries(month_start, target_date) or calc_yield(monthly_data)
 
     return {
         'daily': daily,
         'daily_delta': _delta(daily, yesterday),
         'monthly': monthly,
         'owner_daily': _owner_daily_value(db, target_date, 'plant_wide_yield_rate'),
+        'basis': 'mobile_coil_yield_rate',
     }
 
 
@@ -203,11 +253,18 @@ def _build_energy(db: Session, target_date: date) -> dict:
     owner_totals = summary.get('owner_totals') or {}
     mobile_totals = summary.get('mobile_totals') or {}
     system_totals = summary.get('system_totals') or {}
-    elec_cost = round(elec * DEFAULT_ELECTRICITY_PRICE / 10000, 2)
-    gas_cost = round(gas * DEFAULT_GAS_PRICE / 10000, 2)
+    has_energy_data = bool(summary.get('rows')) and summary.get('primary_source') != 'none'
+    has_owner_data = int(owner_totals.get('row_count') or 0) > 0
+    has_mobile_data = int(mobile_totals.get('row_count') or 0) > 0
+    has_system_data = int(system_totals.get('row_count') or 0) > 0
+    if not has_energy_data:
+        elec = None
+        gas = None
+    elec_cost = round(elec * DEFAULT_ELECTRICITY_PRICE / 10000, 2) if elec is not None else None
+    gas_cost = round(gas * DEFAULT_GAS_PRICE / 10000, 2) if gas is not None else None
 
     by_workshop = []
-    for row in summary.get('rows', []):
+    for row in summary.get('rows', []) if has_energy_data else []:
         by_workshop.append({
             'workshop': row.get('workshop_code', ''),
             'daily_electricity': _round2(_to_float(row.get('electricity_value'))),
@@ -218,15 +275,16 @@ def _build_energy(db: Session, target_date: date) -> dict:
         'total_electricity': _round2(elec),
         'total_gas': _round2(gas),
         'primary_source': summary.get('primary_source'),
-        'owner_electricity': _round2(_to_float(owner_totals.get('electricity_value'))),
-        'owner_gas': _round2(_to_float(owner_totals.get('gas_value'))),
-        'owner_total_energy': _round2(_to_float(owner_totals.get('total_energy'))),
-        'mobile_total_energy': _round2(_to_float(mobile_totals.get('total_energy'))),
-        'system_total_energy': _round2(_to_float(system_totals.get('total_energy'))),
-        'energy_per_ton': _round2(_to_float(summary.get('energy_per_ton'))),
+        'owner_electricity': _round2(_to_float(owner_totals.get('electricity_value'))) if has_owner_data else None,
+        'owner_gas': _round2(_to_float(owner_totals.get('gas_value'))) if has_owner_data else None,
+        'owner_total_energy': _round2(_to_float(owner_totals.get('total_energy'))) if has_owner_data else None,
+        'mobile_total_energy': _round2(_to_float(mobile_totals.get('total_energy'))) if has_mobile_data else None,
+        'system_total_energy': _round2(_to_float(system_totals.get('total_energy'))) if has_system_data else None,
+        'energy_per_ton': _round2(_to_float(summary.get('energy_per_ton'))) if has_energy_data else None,
         'electricity_cost': elec_cost,
         'gas_cost': gas_cost,
-        'total_cost': round(elec_cost + gas_cost, 2),
+        'total_cost': round((elec_cost or 0) + (gas_cost or 0), 2) if elec_cost is not None or gas_cost is not None else None,
+        'data_available': has_energy_data,
         'by_workshop': by_workshop,
     }
 
@@ -250,10 +308,10 @@ def _build_contracts(db: Session, target_date: date) -> dict:
 
 
 def _build_cost(total_output: float, energy: dict) -> dict:
-    elec_cost = energy.get('electricity_cost', 0)
-    gas_cost = energy.get('gas_cost', 0)
-    total = round(elec_cost + gas_cost, 2)
-    cost_per_ton = round(total * 10000 / total_output, 0) if total_output > 0 else None
+    elec_cost = energy.get('electricity_cost')
+    gas_cost = energy.get('gas_cost')
+    total = round((elec_cost or 0) + (gas_cost or 0), 2) if elec_cost is not None or gas_cost is not None else None
+    cost_per_ton = round(total * 10000 / total_output, 0) if total is not None and total_output > 0 else None
     return {
         'electricity_cost': elec_cost,
         'gas_cost': gas_cost,
@@ -465,7 +523,7 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     ws_map = _workshop_map(db)
 
     workshop_output = _build_workshop_output(db, target_date, ws_map)
-    wip = _build_wip_distribution(db)
+    wip = _build_wip_distribution(db, target_date)
     yield_rates = _build_yield_rates(db, target_date)
     energy = _build_energy(db, target_date)
     contracts = _build_contracts(db, target_date)

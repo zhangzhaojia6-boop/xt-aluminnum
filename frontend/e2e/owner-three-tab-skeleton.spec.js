@@ -10,8 +10,8 @@ test.describe('owner three-tab skeleton', () => {
     await page.goto('/manage/today')
 
     await expect(page.getByTestId('manage-today')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '今日' })).toBeVisible()
-    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-group-label')).toHaveText(['今日', '生产', '异常'])
+    await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
+    await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-group-label')).toHaveText(['昨日日报', '生产', '异常'])
   })
 
   test('navigates the three owner tabs without 404', async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe('owner three-tab skeleton', () => {
     await expect(page).toHaveURL(/\/manage\/alerts$/)
     await expect(page.getByTestId('manage-alerts')).toBeVisible()
 
-    await page.getByRole('link', { name: '今日', exact: true }).click()
+    await page.getByRole('link', { name: '昨日日报', exact: true }).click()
     await expect(page).toHaveURL(/\/manage\/today$/)
     await expect(page.getByTestId('manage-today')).toBeVisible()
   })

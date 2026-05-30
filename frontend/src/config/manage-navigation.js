@@ -9,11 +9,11 @@ import {
 
 const NAV_GROUPS = [
   {
-    label: '今日',
-    commandGroup: '今日',
+    label: '昨日日报',
+    commandGroup: '昨日日报',
     items: [
-      { title: '今日', shortLabel: '今日', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '今日' },
-      { title: '日报总览', shortLabel: '日报', path: '/manage/daily-report', icon: DataLine, access: 'review', commandGroup: '今日' }
+      { title: '昨日日报', shortLabel: '昨日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' },
+      { title: '日报总览', shortLabel: '日报', path: '/manage/daily-report', icon: DataLine, access: 'review', commandGroup: '昨日日报' }
     ]
   },
   {

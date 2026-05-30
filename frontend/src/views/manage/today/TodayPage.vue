@@ -148,8 +148,8 @@ const energyPerTonSpark = computed(() => {
   const tail = trendSeries.value.slice(-7)
   return tail.map((r) => {
     const tons = Number(r.output_weight ?? r.output ?? 0) / 1000
-    const kwh = Number(r.energy ?? 0)
-    return tons > 0 ? kwh / tons : null
+    const kwh = r.energy == null ? null : Number(r.energy)
+    return tons > 0 && kwh != null ? kwh / tons : null
   })
 })
 const mtdSpark = computed(() => {

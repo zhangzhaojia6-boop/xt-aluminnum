@@ -648,13 +648,14 @@ def seed_real_workshops(db: Session) -> dict[str, Workshop]:
     for payload in WORKSHOPS:
         item = existing.get(payload['code'])
         workshop_type = WORKSHOP_TYPE_BY_WORKSHOP_CODE.get(payload['code'])
+        is_active = payload.get('is_active', True)
         if item is None:
             item = Workshop(
                 code=payload['code'],
                 name=payload['name'],
                 workshop_type=workshop_type,
                 sort_order=payload['sort_order'],
-                is_active=True,
+                is_active=is_active,
             )
             db.add(item)
             existing[payload['code']] = item
@@ -663,7 +664,7 @@ def seed_real_workshops(db: Session) -> dict[str, Workshop]:
         item.name = payload['name']
         item.workshop_type = workshop_type
         item.sort_order = payload['sort_order']
-        item.is_active = True
+        item.is_active = is_active
 
     db.flush()
     return existing
@@ -672,7 +673,9 @@ def seed_real_workshops(db: Session) -> dict[str, Workshop]:
 def seed_real_teams(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
     existing = {item.code: item for item in db.execute(select(Team)).scalars().all()}
     for workshop in WORKSHOPS:
-        workshop_id = workshops_by_code[workshop['code']].id
+        host_workshop = workshops_by_code[workshop['code']]
+        workshop_id = host_workshop.id
+        is_active = bool(host_workshop.is_active)
         for shift_code, team_name, sort_order in SHIFT_TEAMS:
             team_code = f"{workshop['code']}-{shift_code}"
             item = existing.get(team_code)
@@ -682,7 +685,7 @@ def seed_real_teams(db: Session, workshops_by_code: dict[str, Workshop]) -> None
                     name=team_name,
                     workshop_id=workshop_id,
                     sort_order=sort_order,
-                    is_active=True,
+                    is_active=is_active,
                 )
                 db.add(item)
                 existing[team_code] = item
@@ -691,7 +694,7 @@ def seed_real_teams(db: Session, workshops_by_code: dict[str, Workshop]) -> None
             item.name = team_name
             item.workshop_id = workshop_id
             item.sort_order = sort_order
-            item.is_active = True
+            item.is_active = is_active
 
 
 def _equipment_payload(payload: dict, workshop_id: int) -> dict:
@@ -759,7 +762,7 @@ def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, worksh
     user.is_mobile_user = True
     user.is_reviewer = False
     user.is_manager = False
-    user.is_active = equipment.operational_status == 'running'
+    user.is_active = bool(equipment.is_active) and equipment.operational_status == 'running'
     if not user.pin_code:
         user.pin_code = generate_random_pin(6)
     if not user.password_hash or not verify_password(user.pin_code, user.password_hash):
@@ -776,6 +779,7 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
         workshop_id = workshop.id
         for sort_order, payload in enumerate(equipment_rows, start=1):
             normalized = _equipment_payload({**payload, 'sort_order': sort_order}, workshop_id)
+            normalized['is_active'] = bool(workshop.is_active) and bool(normalized['is_active'])
             item = existing.get(payload['code'])
             if item is None:
                 item = Equipment(**normalized)
@@ -792,7 +796,7 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
             item.custom_fields = normalized['custom_fields']
             item.qr_code = _keep_existing_qr_code(item.qr_code, normalized['qr_code'])
             item.sort_order = normalized['sort_order']
-            item.is_active = True
+            item.is_active = bool(workshop.is_active) and bool(normalized['is_active'])
 
         for payload in equipment_rows:
             item = existing[payload['code']]

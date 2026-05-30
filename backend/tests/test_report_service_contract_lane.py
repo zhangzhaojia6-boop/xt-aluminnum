@@ -24,6 +24,9 @@ class FakeQuery:
     def filter(self, *_args, **_kwargs):
         return self
 
+    def join(self, *_args, **_kwargs):
+        return self
+
     def order_by(self, *_args, **_kwargs):
         return self
 
@@ -45,12 +48,7 @@ class FakeQuery:
 
 class DeliveryStatusDB:
     def __init__(self):
-        completed_batches = [
-            SimpleNamespace(import_type=import_type)
-            for import_type in report_service.REQUIRED_IMPORT_TYPES
-        ]
         self._queries = [
-            FakeQuery(all_value=completed_batches),
             FakeQuery(scalar_value=0),
             FakeQuery(scalar_value=1),
             FakeQuery(scalar_value=1),
@@ -143,16 +141,15 @@ def build_history_session(tmp_path):
     return db, workshop, shift
 
 
-def test_build_delivery_status_requires_contract_report_import(monkeypatch) -> None:
+def test_build_delivery_status_no_longer_requires_import_batches(monkeypatch) -> None:
     monkeypatch.setattr('app.services.report_service.quality_service.count_open_issues', lambda *_args, **_kwargs: 0)
     monkeypatch.setattr('app.services.report_service.quality_service.count_open_blockers', lambda *_args, **_kwargs: 0)
 
     payload = report_service.build_delivery_status(DeliveryStatusDB(), target_date=date(2026, 4, 8))
 
-    assert payload['imports_completed'] is False
-    assert payload['delivery_ready'] is False
-    assert any(step.startswith('imports_missing:') for step in payload['missing_steps'])
-    assert 'contract_report' in payload['missing_steps'][0]
+    assert payload['imports_completed'] is True
+    assert payload['delivery_ready'] is True
+    assert not any(step.startswith('imports_missing:') for step in payload['missing_steps'])
 
 
 def test_generate_production_report_includes_contract_lane_projection(monkeypatch) -> None:

@@ -118,15 +118,15 @@
             </div>
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">电费</span>
-              <span class="dr-stat-row__value">{{ data.energy.electricity_cost }} <small>万元</small></span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.energy.electricity_cost) }} <small>万元</small></span>
             </div>
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">气费</span>
-              <span class="dr-stat-row__value">{{ data.energy.gas_cost }} <small>万元</small></span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.energy.gas_cost) }} <small>万元</small></span>
             </div>
             <div class="dr-stat-row dr-stat-row--highlight">
               <span class="dr-stat-row__label">能耗合计</span>
-              <span class="dr-stat-row__value tone-accent">{{ data.energy.total_cost }} <small>万元</small></span>
+              <span class="dr-stat-row__value tone-accent">{{ fmtNum(data.energy.total_cost) }} <small>万元</small></span>
             </div>
           </div>
           <table v-if="data.energy.by_workshop?.length" class="dr-table dr-table--compact">
@@ -210,7 +210,7 @@ import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
 import { fetchDailyProduction } from '../../../api/dashboard.js'
 
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const targetDate = ref(dayjs().subtract(1, 'day').format('YYYY-MM-DD'))
 const loading = ref(false)
 const data = ref(null)
 

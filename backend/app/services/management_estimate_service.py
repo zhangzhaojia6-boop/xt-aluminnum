@@ -19,6 +19,13 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
 def _resolve_assumptions(runtime_settings=None) -> ManagementEstimateAssumptions:
     runtime = runtime_settings
     return ManagementEstimateAssumptions(
@@ -49,7 +56,10 @@ def build_management_estimate(
         )
 
     energy_cost = None
-    if assumptions.electricity_cost_per_unit is not None or assumptions.gas_cost_per_unit is not None:
+    energy_row_count = len(energy_summary.get('rows') or [])
+    if energy_row_count > 0 and (
+        assumptions.electricity_cost_per_unit is not None or assumptions.gas_cost_per_unit is not None
+    ):
         electricity_cost = _to_float(energy_summary.get('electricity_value')) * _to_float(assumptions.electricity_cost_per_unit)
         gas_cost = _to_float(energy_summary.get('gas_value')) * _to_float(assumptions.gas_cost_per_unit)
         energy_cost = round(electricity_cost + gas_cost, 2)
@@ -66,6 +76,15 @@ def build_management_estimate(
     if estimated_revenue is not None and estimated_cost is not None:
         estimated_margin = round(estimated_revenue - estimated_cost, 2)
 
+    today_advanced_weight = _first_present(
+        contract_lane.get('daily_contract_weight'),
+        contract_progress.get('today_advanced_weight'),
+    )
+    remaining_weight = _first_present(
+        contract_lane.get('remaining_contract_weight'),
+        contract_progress.get('remaining_weight'),
+    )
+
     return {
         'estimate_ready': estimated_revenue is not None and estimated_cost is not None,
         'estimated_revenue': estimated_revenue,
@@ -77,8 +96,9 @@ def build_management_estimate(
         'stalled_contract_count': int(contract_progress.get('stalled_contract_count') or 0),
         'active_coil_count': int(contract_progress.get('active_coil_count') or 0),
         'stalled_coil_count': int(contract_progress.get('stalled_coil_count') or 0),
-        'today_advanced_weight': round(_to_float(contract_progress.get('today_advanced_weight')), 2),
-        'remaining_weight': round(_to_float(contract_progress.get('remaining_weight')), 2),
+        'today_advanced_weight': round(_to_float(today_advanced_weight), 2),
+        'remaining_weight': round(_to_float(remaining_weight), 2),
+        'contract_weight_unit': '吨',
         'reported_shift_count': int(mobile_summary.get('reported_count') or 0),
         'unreported_shift_count': int(mobile_summary.get('unreported_count') or 0),
         'reporting_rate': round(_to_float(mobile_summary.get('reporting_rate')), 2),

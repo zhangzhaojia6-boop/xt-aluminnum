@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -194,14 +194,16 @@ def timeseries_dashboard(
     request: Request,
     start_date: date | None = None,
     end_date: date | None = None,
+    target_date: date | None = None,
+    days: int = 30,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    from datetime import timedelta
-    effective_end = end_date or date.today()
-    effective_start = start_date or (effective_end - timedelta(days=30))
+    safe_days = min(max(int(days or 30), 1), 366)
+    effective_end = end_date or target_date or date.today()
+    effective_start = start_date or (effective_end - timedelta(days=safe_days - 1))
     return report_service.build_timeseries(db, start_date=effective_start, end_date=effective_end)
 
 

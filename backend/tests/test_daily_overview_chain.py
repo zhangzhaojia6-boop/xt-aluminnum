@@ -142,6 +142,31 @@ def test_daily_overview_contracts_use_weight_projection(monkeypatch) -> None:
     assert payload['unit'] == '吨'
 
 
+def test_build_energy_returns_none_when_no_real_energy_rows(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder.energy_service,
+        'summarize_energy_for_date',
+        lambda *_args, **_kwargs: {
+            'electricity_value': 0.0,
+            'gas_value': 0.0,
+            'primary_source': 'none',
+            'rows': [],
+            'owner_totals': {'electricity_value': 0.0, 'gas_value': 0.0, 'total_energy': 0.0, 'row_count': 0},
+            'mobile_totals': {'total_energy': 0.0, 'row_count': 0},
+            'system_totals': {'total_energy': 0.0, 'row_count': 0},
+            'energy_per_ton': None,
+        },
+    )
+
+    payload = daily_overview_builder._build_energy(None, date(2026, 5, 29))
+
+    assert payload['data_available'] is False
+    assert payload['total_electricity'] is None
+    assert payload['total_gas'] is None
+    assert payload['owner_electricity'] is None
+    assert payload['total_cost'] is None
+
+
 def test_build_timeseries_uses_storage_inbound_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,

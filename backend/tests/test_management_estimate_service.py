@@ -18,8 +18,8 @@ def test_build_management_estimate_computes_revenue_cost_and_margin():
             'today_advanced_weight': 100.0,
             'remaining_weight': 300.0,
         },
-        contract_lane={'daily_contract_weight': 150.0},
-        energy_summary={'electricity_value': 100.0, 'gas_value': 40.0},
+        contract_lane={'daily_contract_weight': 150.0, 'remaining_contract_weight': 260.0},
+        energy_summary={'electricity_value': 100.0, 'gas_value': 40.0, 'rows': [{'source': 'mobile'}]},
         mobile_summary={'reported_count': 8, 'unreported_count': 2, 'reporting_rate': 80.0},
         total_attendance=20,
         sync_status={'lag_seconds': 120, 'last_run_status': 'success'},
@@ -32,3 +32,6 @@ def test_build_management_estimate_computes_revenue_cost_and_margin():
     assert payload['labor_cost'] == 1000.0
     assert payload['estimated_cost'] == 1128.0
     assert payload['estimated_margin'] == 178872.0
+    assert payload['today_advanced_weight'] == 150.0
+    assert payload['remaining_weight'] == 260.0
+    assert payload['contract_weight_unit'] == '吨'

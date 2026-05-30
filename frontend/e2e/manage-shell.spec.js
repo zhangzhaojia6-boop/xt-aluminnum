@@ -9,7 +9,7 @@ test.describe('ManageShell layout', () => {
 
     await expect(page).toHaveURL(/\/manage\/today$/)
     await expect(page.locator('.xt-manage__sidebar')).toBeVisible()
-    await expect(page.locator('.xt-manage__nav-item.router-link-active')).toContainText('今日')
+    await expect(page.locator('.xt-manage__nav-item.router-link-active')).toContainText('昨日日报')
   })
 
   test('sidebar collapses and remembers state', async ({ page }) => {

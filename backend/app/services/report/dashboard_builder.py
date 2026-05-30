@@ -12,7 +12,6 @@ from app.core.field_permissions import normalize_role
 from app.core.workflow_events import attach_workflow_event, build_workflow_event
 from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.attendance import AttendanceSchedule
-from app.models.imports import ImportBatch
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ProductionException, ShiftProductionData
 from app.models.reconciliation import DataReconciliationItem
@@ -42,16 +41,7 @@ from app.services.production_service import (
 
 
 def build_delivery_status(db: Session, *, target_date: date) -> dict:
-    completed_batches = (
-        db.query(ImportBatch)
-        .filter(func.date(ImportBatch.created_at) == target_date)
-        .filter(ImportBatch.status.in_(['completed', 'partial_success']))
-        .all()
-    )
-    completed_types = {item.import_type for item in completed_batches}
-    required_import_types = REQUIRED_IMPORT_TYPES + ('contract_report',)
-    missing_imports = [item for item in required_import_types if item not in completed_types]
-    imports_completed = len(missing_imports) == 0
+    imports_completed = True
 
     reconciliation_open_count = int(
         db.query(func.count(DataReconciliationItem.id))
@@ -73,16 +63,13 @@ def build_delivery_status(db: Session, *, target_date: date) -> dict:
     reports_ready_count = reports_reviewed_count + reports_published_count
 
     delivery_ready = (
-        imports_completed
-        and blocker_count == 0
+        blocker_count == 0
         and reconciliation_open_count == 0
         and reports_generated > 0
         and reports_ready_count > 0
     )
 
     missing_steps: list[str] = []
-    if missing_imports:
-        missing_steps.append(f"imports_missing:{','.join(missing_imports)}")
     if reconciliation_open_count > 0:
         missing_steps.append('reconciliation_open')
     if blocker_count > 0:
@@ -955,8 +942,11 @@ def build_timeseries(db: Session, *, start_date: date, end_date: date) -> list[d
     while current <= end_date:
         energy_summary = energy_service.summarize_energy_for_date(db, business_date=current)
         output_tons = float(output_by_date.get(current) or 0.0)
-        energy_value = float(energy_summary.get('electricity_value') or 0.0)
-        if output_tons > 0 or energy_value > 0:
+        has_energy_data = energy_summary.get('primary_source') != 'none' and (
+            'rows' not in energy_summary or bool(energy_summary.get('rows'))
+        )
+        energy_value = float(energy_summary.get('electricity_value') or 0.0) if has_energy_data else None
+        if output_tons > 0 or (energy_value is not None and energy_value > 0):
             payload.append(
                 {
                     'date': current.isoformat(),
