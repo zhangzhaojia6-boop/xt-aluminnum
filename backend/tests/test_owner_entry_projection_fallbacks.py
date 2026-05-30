@@ -96,6 +96,8 @@ def _seed_inventory_owner_rows(db) -> None:
         extra_payload={
             'daily_contract_weight': 59.0,
             'month_to_date_contract_weight': 2991.0,
+            'remaining_contract_weight': 1200.0,
+            'remaining_contract_delta_weight': -30.0,
             'daily_input_weight': 237.0,
             'month_to_date_input_weight': 3319.0,
         },
@@ -142,6 +144,8 @@ def test_build_contract_projection_falls_back_to_owner_entry_payloads(tmp_path, 
 
         assert payload['daily_contract_weight'] == 59.0
         assert payload['month_to_date_contract_weight'] == 2991.0
+        assert payload['remaining_contract_weight'] == 1200.0
+        assert payload['remaining_contract_delta_weight'] == -30.0
         assert payload['daily_input_weight'] == 237.0
         assert payload['month_to_date_input_weight'] == 3319.0
         assert payload['quality_status'] == 'owner_only'
@@ -294,7 +298,7 @@ def test_summarize_energy_for_date_owner_only_rows_do_not_double_count_output(tm
         session.close()
 
 
-def test_summarize_energy_for_date_keeps_system_and_owner_energy_separate(tmp_path) -> None:
+def test_summarize_energy_for_date_uses_owner_before_import_rows(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
         _seed_inventory_owner_rows(db)
@@ -313,9 +317,9 @@ def test_summarize_energy_for_date_keeps_system_and_owner_energy_separate(tmp_pa
 
         payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
 
-        assert payload['primary_source'] == 'system'
-        assert payload['electricity_value'] == 500.0
-        assert payload['total_energy'] == 500.0
+        assert payload['primary_source'] == 'owner_only'
+        assert payload['electricity_value'] == 1000.0
+        assert payload['total_energy'] == 1250.0
         assert payload['owner_totals']['electricity_value'] == 1000.0
         assert payload['owner_totals']['total_energy'] == 1250.0
         assert payload['system_totals']['total_energy'] == 500.0
@@ -357,7 +361,7 @@ def test_summarize_energy_for_date_prefers_mobile_shift_energy(tmp_path) -> None
         db.close()
 
 
-def test_summarize_energy_for_date_keeps_import_rows_not_replaced_by_mobile(tmp_path) -> None:
+def test_summarize_energy_for_date_uses_mobile_before_import_rows(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
         _seed_inventory_owner_rows(db)
@@ -403,8 +407,8 @@ def test_summarize_energy_for_date_keeps_import_rows_not_replaced_by_mobile(tmp_
 
         payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
 
-        assert payload['primary_source'] == 'mixed_mobile_system'
-        assert payload['total_energy'] == 877.0
+        assert payload['primary_source'] == 'mobile_shift_report'
+        assert payload['total_energy'] == 377.0
         assert payload['mobile_totals']['total_energy'] == 377.0
         assert payload['system_totals']['total_energy'] == 500.0
     finally:

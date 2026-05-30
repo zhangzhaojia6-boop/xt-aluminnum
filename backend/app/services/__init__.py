@@ -25,7 +25,6 @@ from app.services import (
     report_service,
     rule_config_service,
     shift_engine,
-    team_lead_service,
     work_order_service,
     workshop_template_service,
 )
@@ -57,7 +56,6 @@ __all__ = [
     'report_service',
     'rule_config_service',
     'shift_engine',
-    'team_lead_service',
     'work_order_service',
     'workshop_template_service',
 ]

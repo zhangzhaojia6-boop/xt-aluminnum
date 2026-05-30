@@ -7,7 +7,7 @@ export const centerNavigation = [
     path: '/manage/today',
     routeName: 'manage-today',
     icon: '总',
-    summary: '今日产量、达成率、异常、补录、交付状态'
+    summary: '今日产量、达成率、补录、交付状态'
   },
   {
     id: 'entry',
@@ -17,7 +17,7 @@ export const centerNavigation = [
     path: '/entry',
     routeName: 'mobile-entry',
     icon: '填',
-    summary: '今日班次、待填任务、已提交、异常待补'
+    summary: '今日班次、待填任务、已提交'
   },
   {
     id: 'factory',
@@ -27,7 +27,7 @@ export const centerNavigation = [
     path: '/manage/production',
     routeName: 'manage-production',
     icon: '厂',
-    summary: '产线产量、OEE、异常、趋势'
+    summary: '产线产量、OEE、趋势'
   },
   {
     id: 'ingestion',
@@ -223,8 +223,7 @@ const reviewNavigation = [
     label: '三页骨架',
     items: [
       { routeName: 'manage-today', label: '今日', access: 'review' },
-      { routeName: 'manage-production', label: '生产', access: 'review' },
-      { routeName: 'manage-alerts', label: '异常', access: 'review' }
+      { routeName: 'manage-production', label: '生产', access: 'review' }
     ]
   }
 ]
@@ -234,7 +233,6 @@ const adminNavigation = [
     key: 'admin-main',
     label: '管理端',
     items: [
-      { routeName: 'admin-ingestion-center', label: '数据接入', access: 'admin' },
       { routeName: 'admin-master-workshop', label: '主数据', access: 'admin' },
       { routeName: 'admin-template-center', label: '模板中心', access: 'admin' },
       { routeName: 'admin-users', label: '用户管理', access: 'admin' },

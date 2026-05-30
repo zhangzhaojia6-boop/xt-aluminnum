@@ -63,8 +63,6 @@
 
     <WorkshopBarChart :rows="snapshot.productionLane.value" />
 
-    <KeyEventList :exception-lane="snapshot.exceptionLane.value" />
-
     <Transition name="xt-roster-slide">
       <FilerRoster
         v-if="rosterOpen"
@@ -82,7 +80,6 @@ import { RouterLink } from 'vue-router'
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
 import WorkshopBarChart from '../../../components/manage/WorkshopBarChart.vue'
-import KeyEventList from '../../../components/manage/KeyEventList.vue'
 import CostLine from '../../../components/manage/CostLine.vue'
 import OutputTrendLine from '../../../components/manage/OutputTrendLine.vue'
 import FilerRoster from '../../../components/manage/FilerRoster.vue'
@@ -229,12 +226,10 @@ const quickLinks = computed(() => {
     { label: '日报', path: '/manage/daily-report' },
     { label: '生产', path: '/manage/production' },
     { label: '能耗', path: '/energy/center' },
-    { label: '异常', path: '/manage/alerts' },
     { label: '报表', path: '/manage/reports' },
   ]
   if (auth.adminSurface) {
     links.push(
-      { label: '接入', path: '/manage/ingestion' },
       { label: '主数据', path: '/manage/master' },
       { label: '用户', path: '/manage/admin/users' },
       { label: '模板', path: '/manage/admin/templates' },

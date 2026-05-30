@@ -593,13 +593,12 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
   })
   const items = groups.flatMap((group) => group.items)
 
-  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '异常', '交付'])
+  assert.deepEqual(groups.map((group) => group.label), ['今日', '生产', '考勤', '交付'])
   assert.deepEqual(items.map((item) => item.path), [
     '/manage/today',
     '/manage/daily-report',
     '/manage/production',
     '/energy/center',
-    '/manage/alerts',
     '/attendance/overview',
     '/manage/reports',
   ])
@@ -608,7 +607,6 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
     '/manage/admin/settings',
     '/manage/admin/rules',
     '/manage/factory/destinations',
-    '/manage/ingestion',
     '/manage/master'
   ]) {
     assert.equal(items.some((item) => item.path === path), false)
@@ -634,7 +632,7 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /口径对照/)
   assert.match(liveDashboardSource, /算法成材率/)
   assert.match(liveDashboardSource, /内勤成品率/)
-  assert.match(liveDashboardSource, /系统总能耗/)
+  assert.match(liveDashboardSource, /算法总能耗/)
   assert.match(liveDashboardSource, /内勤全厂用电/)
   assert.match(liveDashboardSource, /毛利估算|亏损估算/)
   assert.match(liveDashboardSource, /风险项/)

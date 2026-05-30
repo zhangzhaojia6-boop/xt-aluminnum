@@ -119,6 +119,29 @@ def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
     assert payload['basis_label'] == '全厂入库产量'
 
 
+def test_daily_overview_contracts_use_weight_projection(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder,
+        'build_contract_projection',
+        lambda *_args, **_kwargs: {
+            'daily_contract_weight': 59.5,
+            'month_to_date_contract_weight': 2991.25,
+            'remaining_contract_weight': 1200.0,
+            'remaining_contract_delta_weight': -30.0,
+            'owner_entry_count': 1,
+            'quality_status': 'owner_only',
+        },
+    )
+
+    payload = daily_overview_builder._build_contracts(None, date(2026, 5, 29))
+
+    assert payload['daily_new'] == 59.5
+    assert payload['monthly_total'] == 2991.25
+    assert payload['remaining'] == 1200.0
+    assert payload['remaining_delta'] == -30.0
+    assert payload['unit'] == '吨'
+
+
 def test_build_timeseries_uses_storage_inbound_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,

@@ -2,10 +2,8 @@ export const SETTINGS_GROUPS = [
   {
     label: '配置',
     items: [
-      { title: '接入', path: '/manage/ingestion', access: 'admin' },
       { title: '主数据', path: '/manage/master', access: 'admin' },
       { title: '别名映射', path: '/manage/alias', access: 'admin' },
-      { title: '导入历史', path: '/manage/imports', access: 'admin' },
       { title: '模板', path: '/manage/admin/templates', access: 'admin' },
       { title: '规则', path: '/manage/admin/rules', access: 'admin' }
     ]

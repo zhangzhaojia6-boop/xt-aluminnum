@@ -1,11 +1,11 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.system import User
-from app.schemas.energy import EnergyImportResponse, EnergyImportSummary, EnergySummaryOut
+from app.schemas.energy import EnergyImportResponse, EnergySummaryOut
 from app.services import energy_service
 
 router = APIRouter(tags=['energy'])
@@ -17,13 +17,8 @@ def import_energy(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> EnergyImportResponse:
-    result = energy_service.import_energy_data(db, upload_file=file, current_user=current_user)
-    return EnergyImportResponse(
-        batch_id=result.batch_id,
-        batch_no=result.batch_no,
-        import_type=result.import_type,
-        summary=EnergyImportSummary(**result.summary),
-    )
+    _ = file, db, current_user
+    raise HTTPException(status_code=410, detail='能耗导入功能已停用，请使用电工/内勤每日填报。')
 
 
 @router.get('/summary', response_model=list[EnergySummaryOut])

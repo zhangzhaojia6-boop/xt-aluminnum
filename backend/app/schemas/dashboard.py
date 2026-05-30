@@ -257,6 +257,8 @@ class ContractLaneItemOut(BaseModel):
     delivery_scope: str | None = None
     daily_contract_weight: float | None = None
     month_to_date_contract_weight: float | None = None
+    remaining_contract_weight: float | None = None
+    remaining_contract_delta_weight: float | None = None
     daily_input_weight: float | None = None
     month_to_date_input_weight: float | None = None
     lineage_hash: str | None = None
@@ -272,6 +274,8 @@ class ContractLaneOut(BaseModel):
     delivery_scopes: list[str] | None = None
     daily_contract_weight: float | None = None
     month_to_date_contract_weight: float | None = None
+    remaining_contract_weight: float | None = None
+    remaining_contract_delta_weight: float | None = None
     daily_input_weight: float | None = None
     month_to_date_input_weight: float | None = None
     quality_status: str | None = None

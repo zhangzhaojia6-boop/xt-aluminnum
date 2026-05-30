@@ -19,10 +19,8 @@ const adminAuth = {
 }
 
 const requiredPaths = [
-  '/manage/ingestion',
   '/manage/master',
   '/manage/alias',
-  '/manage/imports',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',
@@ -37,10 +35,8 @@ const requiredPaths = [
 ]
 
 const adminPaths = [
-  '/manage/ingestion',
   '/manage/master',
   '/manage/alias',
-  '/manage/imports',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',

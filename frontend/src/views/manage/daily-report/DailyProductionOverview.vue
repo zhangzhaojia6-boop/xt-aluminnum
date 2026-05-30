@@ -45,15 +45,15 @@
           <div class="dr-stat-rows">
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">当天接合同</span>
-              <span class="dr-stat-row__value">{{ data.contracts.daily_new }} <small>个</small></span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.contracts.daily_new) }} <small>{{ data.contracts.unit || '吨' }}</small></span>
             </div>
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">月累计合同</span>
-              <span class="dr-stat-row__value">{{ fmtNum(data.contracts.monthly_total) }} <small>个</small></span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.contracts.monthly_total) }} <small>{{ data.contracts.unit || '吨' }}</small></span>
             </div>
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">总余合同量</span>
-              <span class="dr-stat-row__value tone-accent">{{ fmtNum(data.contracts.remaining) }} <small>个</small></span>
+              <span class="dr-stat-row__value tone-accent">{{ fmtNum(data.contracts.remaining) }} <small>{{ data.contracts.unit || '吨' }}</small></span>
             </div>
             <div v-if="data.contracts.remaining_delta" class="dr-stat-row__delta">
               比昨日 {{ data.contracts.remaining_delta >= 0 ? '↑' : '↓' }}{{ Math.abs(data.contracts.remaining_delta) }}
@@ -101,12 +101,20 @@
         <template v-if="data?.energy">
           <div class="dr-stat-rows">
             <div class="dr-stat-row">
-              <span class="dr-stat-row__label">总用电</span>
+              <span class="dr-stat-row__label">算法总用电</span>
               <span class="dr-stat-row__value">{{ fmtNum(data.energy.total_electricity) }} <small>度</small></span>
             </div>
             <div class="dr-stat-row">
-              <span class="dr-stat-row__label">总用气</span>
+              <span class="dr-stat-row__label">算法总用气</span>
               <span class="dr-stat-row__value">{{ fmtNum(data.energy.total_gas) }} <small>m³</small></span>
+            </div>
+            <div class="dr-stat-row">
+              <span class="dr-stat-row__label">内勤用电对照</span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.energy.owner_electricity) }} <small>度</small></span>
+            </div>
+            <div class="dr-stat-row">
+              <span class="dr-stat-row__label">内勤用气对照</span>
+              <span class="dr-stat-row__value">{{ fmtNum(data.energy.owner_gas) }} <small>m³</small></span>
             </div>
             <div class="dr-stat-row">
               <span class="dr-stat-row__label">电费</span>
@@ -143,11 +151,15 @@
           <template v-if="data?.yield_rates?.daily != null">
             <div class="dr-yield-grid">
               <div class="dr-yield-card">
-                <div class="dr-yield-card__label">日成品率</div>
+                <div class="dr-yield-card__label">算法日成品率</div>
                 <div class="dr-yield-card__value">{{ data.yield_rates.daily }}%</div>
                 <div class="dr-yield-card__delta" :class="deltaClass(data.yield_rates.daily_delta)">
                   {{ fmtDelta(data.yield_rates.daily_delta) }}%
                 </div>
+              </div>
+              <div v-if="data.yield_rates.owner_daily != null" class="dr-yield-card">
+                <div class="dr-yield-card__label">内勤成品率对照</div>
+                <div class="dr-yield-card__value">{{ fmtNum(data.yield_rates.owner_daily) }}%</div>
               </div>
               <div v-if="data.yield_rates.monthly != null" class="dr-yield-card">
                 <div class="dr-yield-card__label">月成品率</div>

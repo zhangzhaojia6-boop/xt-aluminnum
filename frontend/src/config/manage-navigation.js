@@ -25,11 +25,10 @@ const NAV_GROUPS = [
     ]
   },
   {
-    label: '异常',
-    commandGroup: '异常',
+    label: '考勤',
+    commandGroup: '考勤',
     items: [
-      { title: '异常', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '异常' },
-      { title: '考勤', shortLabel: '考勤', path: '/attendance/overview', icon: Sunny, access: 'review', commandGroup: '异常' }
+      { title: '考勤', shortLabel: '考勤', path: '/attendance/overview', icon: Sunny, access: 'review', commandGroup: '考勤' }
     ]
   },
   {
@@ -43,7 +42,6 @@ const NAV_GROUPS = [
     label: '系统',
     commandGroup: '系统',
     items: [
-      { title: '数据接入', shortLabel: '接入', path: '/manage/ingestion', icon: DataLine, access: 'admin', commandGroup: '系统' },
       { title: '主数据', shortLabel: '主数', path: '/manage/master', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
       { title: '模板中心', shortLabel: '模板', path: '/manage/admin/templates', icon: DataLine, access: 'admin', commandGroup: '系统' },

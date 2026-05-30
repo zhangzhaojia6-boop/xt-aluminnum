@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from datetime import date
 import json
 
@@ -14,31 +13,15 @@ class DummyDB:
     pass
 
 
-def test_energy_import_endpoint(monkeypatch) -> None:
+def test_energy_import_endpoint_is_disabled() -> None:
     def fake_get_db():
         yield DummyDB()
 
     def fake_get_user() -> User:
         return User(id=7, username='energy', password_hash='x', name='Energy', role='admin', is_active=True)
 
-    def fake_import(db, *, upload_file, current_user):
-        assert upload_file.filename == 'energy_sample.csv'
-        return SimpleNamespace(
-            batch_id=501,
-            batch_no='IMP-ENERGY-501',
-            import_type='energy',
-            summary={
-                'batch_no': 'IMP-ENERGY-501',
-                'total_rows': 1,
-                'success_rows': 1,
-                'failed_rows': 0,
-                'columns': ['business_date', 'workshop_code', 'shift_code', 'energy_type', 'energy_value'],
-            },
-        )
-
     app.dependency_overrides[get_db] = fake_get_db
     app.dependency_overrides[get_current_user] = fake_get_user
-    monkeypatch.setattr('app.routers.energy.energy_service.import_energy_data', fake_import)
 
     client = TestClient(app)
     response = client.post(
@@ -52,10 +35,8 @@ def test_energy_import_endpoint(monkeypatch) -> None:
         },
     )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body['batch_id'] == 501
-    assert body['import_type'] == 'energy'
+    assert response.status_code == 410
+    assert response.json()['detail'] == '能耗导入功能已停用，请使用电工/内勤每日填报。'
 
     app.dependency_overrides.clear()
 

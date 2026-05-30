@@ -23,6 +23,8 @@ CONTRACT_FIELD_ORDER = [
     'delivery_scope',
     'daily_contract_weight',
     'month_to_date_contract_weight',
+    'remaining_contract_weight',
+    'remaining_contract_delta_weight',
     'daily_input_weight',
     'month_to_date_input_weight',
     'lineage_hash',
@@ -32,6 +34,8 @@ CONTRACT_FIELD_ORDER = [
 FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     'daily_contract_weight': ('当日合同', '今日合同', '日合同', '合同量', '当天合同'),
     'month_to_date_contract_weight': ('月累计合同', '本月累计合同', '累计合同', '合同累计'),
+    'remaining_contract_weight': ('总余合同量', '余合同量', '余合同', '剩余合同'),
+    'remaining_contract_delta_weight': ('余合同较昨日', '余合同变化', '较昨日余合同', '余合同增减'),
     'daily_input_weight': ('当日投料', '今日投料', '日投料', '投料量', '投料'),
     'month_to_date_input_weight': ('月累计投料', '本月累计投料', '累计投料', '坯总量', '月坯总量'),
 }
@@ -53,6 +57,8 @@ class ContractDailySnapshot:
     delivery_scope: str
     daily_contract_weight: float | None
     month_to_date_contract_weight: float | None
+    remaining_contract_weight: float | None
+    remaining_contract_delta_weight: float | None
     daily_input_weight: float | None
     month_to_date_input_weight: float | None
     lineage_hash: str
@@ -158,8 +164,17 @@ def normalize_delivery_scope(sheet_name: str, frame: pd.DataFrame | None = None)
 
 
 def _quality_status(values: dict[str, float | None]) -> str:
-    filled = sum(1 for item in values.values() if item is not None)
-    if filled == len(values):
+    required_values = {
+        field_name: values.get(field_name)
+        for field_name in (
+            'daily_contract_weight',
+            'month_to_date_contract_weight',
+            'daily_input_weight',
+            'month_to_date_input_weight',
+        )
+    }
+    filled = sum(1 for item in required_values.values() if item is not None)
+    if filled == len(required_values):
         return 'ready'
     if filled >= 2:
         return 'warning'
@@ -183,6 +198,8 @@ def parse_contract_sheet(
         for field_name in (
             'daily_contract_weight',
             'month_to_date_contract_weight',
+            'remaining_contract_weight',
+            'remaining_contract_delta_weight',
             'daily_input_weight',
             'month_to_date_input_weight',
         )
@@ -265,6 +282,8 @@ def build_contract_daily_snapshot(mapped_data: dict[str, Any]) -> ContractDailyS
         'delivery_scope': mapped_data.get('delivery_scope') or 'factory',
         'daily_contract_weight': mapped_data.get('daily_contract_weight'),
         'month_to_date_contract_weight': mapped_data.get('month_to_date_contract_weight'),
+        'remaining_contract_weight': mapped_data.get('remaining_contract_weight'),
+        'remaining_contract_delta_weight': mapped_data.get('remaining_contract_delta_weight'),
         'daily_input_weight': mapped_data.get('daily_input_weight'),
         'month_to_date_input_weight': mapped_data.get('month_to_date_input_weight'),
     }
@@ -277,6 +296,8 @@ def build_contract_daily_snapshot(mapped_data: dict[str, Any]) -> ContractDailyS
         delivery_scope=str(payload['delivery_scope']),
         daily_contract_weight=_parse_float(payload['daily_contract_weight']),
         month_to_date_contract_weight=_parse_float(payload['month_to_date_contract_weight']),
+        remaining_contract_weight=_parse_float(payload['remaining_contract_weight']),
+        remaining_contract_delta_weight=_parse_float(payload['remaining_contract_delta_weight']),
         daily_input_weight=_parse_float(payload['daily_input_weight']),
         month_to_date_input_weight=_parse_float(payload['month_to_date_input_weight']),
         lineage_hash=str(mapped_data.get('lineage_hash') or _build_lineage_hash(payload)),
@@ -336,6 +357,8 @@ def _load_owner_entry_contract_snapshots(db: Session, *, target_date: date) -> l
             for field_name in (
                 'daily_contract_weight',
                 'month_to_date_contract_weight',
+                'remaining_contract_weight',
+                'remaining_contract_delta_weight',
                 'daily_input_weight',
                 'month_to_date_input_weight',
             )
@@ -348,6 +371,8 @@ def _load_owner_entry_contract_snapshots(db: Session, *, target_date: date) -> l
             'delivery_scope': 'factory',
             'daily_contract_weight': payload.get('daily_contract_weight'),
             'month_to_date_contract_weight': payload.get('month_to_date_contract_weight'),
+            'remaining_contract_weight': payload.get('remaining_contract_weight'),
+            'remaining_contract_delta_weight': payload.get('remaining_contract_delta_weight'),
             'daily_input_weight': payload.get('daily_input_weight'),
             'month_to_date_input_weight': payload.get('month_to_date_input_weight'),
         }
@@ -359,6 +384,8 @@ def _load_owner_entry_contract_snapshots(db: Session, *, target_date: date) -> l
                 delivery_scope='factory',
                 daily_contract_weight=_parse_float(snapshot_payload['daily_contract_weight']),
                 month_to_date_contract_weight=_parse_float(snapshot_payload['month_to_date_contract_weight']),
+                remaining_contract_weight=_parse_float(snapshot_payload['remaining_contract_weight']),
+                remaining_contract_delta_weight=_parse_float(snapshot_payload['remaining_contract_delta_weight']),
                 daily_input_weight=_parse_float(snapshot_payload['daily_input_weight']),
                 month_to_date_input_weight=_parse_float(snapshot_payload['month_to_date_input_weight']),
                 lineage_hash=_build_lineage_hash(snapshot_payload),
@@ -381,6 +408,8 @@ def build_contract_projection(db: Session, *, target_date: date) -> dict[str, An
         'delivery_scopes': delivery_scopes,
         'daily_contract_weight': round(sum(item.daily_contract_weight or 0.0 for item in snapshots), 3),
         'month_to_date_contract_weight': round(sum(item.month_to_date_contract_weight or 0.0 for item in snapshots), 3),
+        'remaining_contract_weight': round(sum(item.remaining_contract_weight or 0.0 for item in snapshots), 3),
+        'remaining_contract_delta_weight': round(sum(item.remaining_contract_delta_weight or 0.0 for item in snapshots), 3),
         'daily_input_weight': round(sum(item.daily_input_weight or 0.0 for item in snapshots), 3),
         'month_to_date_input_weight': round(sum(item.month_to_date_input_weight or 0.0 for item in snapshots), 3),
         'quality_status': 'owner_only' if owner_entry_snapshots else 'ready',

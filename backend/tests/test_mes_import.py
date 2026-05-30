@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from datetime import date
 import json
 
@@ -14,32 +13,15 @@ class DummyDB:
     pass
 
 
-def test_mes_import_endpoint(monkeypatch) -> None:
+def test_mes_import_endpoint_is_disabled() -> None:
     def fake_get_db():
         yield DummyDB()
 
     def fake_get_user() -> User:
         return User(id=1, username='admin', password_hash='x', name='Admin', role='admin', is_active=True)
 
-    def fake_import_mes_export(db, *, upload_file, current_user):
-        assert current_user.id == 1
-        assert upload_file.filename == 'mes_export.csv'
-        return SimpleNamespace(
-            batch_id=301,
-            batch_no='IMP-MES-301',
-            import_type='mes_export',
-            summary={
-                'batch_no': 'IMP-MES-301',
-                'total_rows': 1,
-                'success_rows': 1,
-                'failed_rows': 0,
-                'columns': ['business_date', 'workshop_code', 'shift_code', 'metric_code', 'metric_name', 'metric_value'],
-            },
-        )
-
     app.dependency_overrides[get_db] = fake_get_db
     app.dependency_overrides[get_current_user] = fake_get_user
-    monkeypatch.setattr('app.routers.mes.mes_service.import_mes_export', fake_import_mes_export)
 
     client = TestClient(app)
     response = client.post(
@@ -53,11 +35,8 @@ def test_mes_import_endpoint(monkeypatch) -> None:
         },
     )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body['batch_id'] == 301
-    assert body['import_type'] == 'mes_export'
-    assert body['summary']['success_rows'] == 1
+    assert response.status_code == 410
+    assert response.json()['detail'] == 'MES 导入功能已停用，请使用移动端每日填报。'
 
     app.dependency_overrides.clear()
 

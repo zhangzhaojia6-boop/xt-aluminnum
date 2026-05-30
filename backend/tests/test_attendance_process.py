@@ -45,6 +45,29 @@ def test_attendance_process_endpoint(monkeypatch) -> None:
     app.dependency_overrides.clear()
 
 
+def test_attendance_import_endpoints_are_disabled() -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user() -> User:
+        return User(id=1, username='admin', password_hash='x', name='Admin', role='admin', is_active=True)
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    client = TestClient(app)
+    for path in ('/api/v1/attendance/schedules/import', '/api/v1/attendance/clocks/import'):
+        response = client.post(
+            path,
+            files={'file': ('attendance.csv', b'employee_no,business_date\nE1,2026-03-25\n', 'text/csv')},
+        )
+
+        assert response.status_code == 410
+        assert response.json()['detail'] == '考勤导入功能已停用，请使用移动端每日填报。'
+
+    app.dependency_overrides.clear()
+
+
 def test_match_schedule_for_aware_clock_datetime() -> None:
     shift = ShiftConfig(
         id=1,

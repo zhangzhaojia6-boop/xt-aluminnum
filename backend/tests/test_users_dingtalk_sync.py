@@ -99,7 +99,7 @@ def test_admin_can_sync_dingtalk_contacts_into_mobile_users(tmp_path, monkeypatc
     with session_factory() as db:
         stored = db.execute(select(User).where(User.username == '13900002000')).scalar_one()
         assert stored.name == '王五'
-        assert stored.role == 'shift_leader'
+        assert stored.role == 'machine_operator'
         assert stored.dingtalk_user_id == 'dt_200'
         assert stored.dingtalk_union_id == 'union_200'
         assert stored.is_mobile_user is True

@@ -2,17 +2,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.models.imports import ImportBatch, ImportRow
+from app.models.imports import ImportBatch
 from app.models.system import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.imports import (
     DailyProductionMappingPreviewOut,
     ImportBatchOut,
-    ImportRowOut,
-    ImportSummary,
     ImportUploadResponse,
 )
-from app.services import import_service
 from app.services.daily_production_mapping_service import (
     build_daily_production_mapping_preview,
     serialize_daily_production_mapping_preview,
@@ -28,21 +25,8 @@ async def upload_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ImportUploadResponse:
-    result = import_service.store_import_file(upload_file=file, db=db, current_user=current_user, import_type=import_type)
-
-    rows = (
-        db.query(ImportRow)
-        .filter(ImportRow.batch_id == result.batch.id)
-        .order_by(ImportRow.row_number.asc())
-        .limit(100)
-        .all()
-    )
-
-    return ImportUploadResponse(
-        batch=ImportBatchOut.model_validate(result.batch),
-        rows=[ImportRowOut.model_validate(item) for item in rows],
-        summary=ImportSummary(**result.summary),
-    )
+    _ = file, import_type, db, current_user
+    raise HTTPException(status_code=410, detail='文件导入功能已停用，请使用移动端每日填报。')
 
 
 @router.get('/history', response_model=PaginatedResponse[ImportBatchOut])

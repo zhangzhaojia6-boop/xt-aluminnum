@@ -64,9 +64,9 @@
         <em>质检内勤实填</em>
       </article>
       <article class="source-compare-card">
-        <span>系统总能耗</span>
-        <strong>{{ formatMetric(energyCompare.systemTotalEnergy, '') }}</strong>
-        <em>{{ energyCompare.systemPerTon == null ? '吨能耗 --' : `吨能耗 ${formatMetric(energyCompare.systemPerTon, 'kWh/吨')}` }}</em>
+        <span>算法总能耗</span>
+        <strong>{{ formatMetric(energyCompare.algorithmTotalEnergy, '') }}</strong>
+        <em>{{ energyCompare.algorithmPerTon == null ? '吨能耗 --' : `吨能耗 ${formatMetric(energyCompare.algorithmPerTon, 'kWh/吨')}` }}</em>
       </article>
       <article class="source-compare-card">
         <span>内勤全厂用电</span>
@@ -959,7 +959,6 @@ function sumOwnerDailyTotals(keys) {
 }
 const energyCompare = computed(() => {
   const summary = factorySnapshot.value.energy_summary || {}
-  const systemTotals = summary.system_totals || {}
   const ownerTotals = summary.owner_totals || {}
   const ownerElectricity = ownerTotals.electricity_value
     ?? ownerDailyTotalsByKey.value.total_electricity_kwh?.value
@@ -968,8 +967,8 @@ const energyCompare = computed(() => {
     ?? ownerDailyTotalsByKey.value.total_gas_m3?.value
     ?? sumOwnerDailyTotals(['cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3'])
   return {
-    systemTotalEnergy: systemTotals.total_energy ?? summary.total_energy ?? null,
-    systemPerTon: systemTotals.energy_per_ton ?? summary.energy_per_ton ?? null,
+    algorithmTotalEnergy: summary.total_energy ?? null,
+    algorithmPerTon: summary.energy_per_ton ?? null,
     ownerElectricity,
     ownerGas,
   }

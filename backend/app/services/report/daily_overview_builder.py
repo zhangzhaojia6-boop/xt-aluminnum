@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import MobileShiftReport, WorkOrder, WorkOrderEntry
+from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
+from app.services.contract_canonical_service import build_contract_projection
 from app.services.report._utils import _to_float
 
 
@@ -168,7 +169,27 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
         'daily': daily,
         'daily_delta': _delta(daily, yesterday),
         'monthly': monthly,
+        'owner_daily': _owner_daily_value(db, target_date, 'plant_wide_yield_rate'),
     }
+
+
+def _owner_daily_value(db: Session, target_date: date, field_name: str) -> float | None:
+    rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date == target_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
+        )
+        .order_by(WorkOrderEntry.updated_at.asc(), WorkOrderEntry.id.asc())
+        .all()
+    )
+    value = None
+    for row in rows:
+        payload = row.extra_payload or {}
+        if payload.get(field_name) is not None:
+            value = _to_float(payload.get(field_name))
+    return value
 
 
 def _build_energy(db: Session, target_date: date) -> dict:
@@ -179,6 +200,9 @@ def _build_energy(db: Session, target_date: date) -> dict:
 
     elec = _to_float(summary.get('electricity_value'))
     gas = _to_float(summary.get('gas_value'))
+    owner_totals = summary.get('owner_totals') or {}
+    mobile_totals = summary.get('mobile_totals') or {}
+    system_totals = summary.get('system_totals') or {}
     elec_cost = round(elec * DEFAULT_ELECTRICITY_PRICE / 10000, 2)
     gas_cost = round(gas * DEFAULT_GAS_PRICE / 10000, 2)
 
@@ -193,6 +217,13 @@ def _build_energy(db: Session, target_date: date) -> dict:
     return {
         'total_electricity': _round2(elec),
         'total_gas': _round2(gas),
+        'primary_source': summary.get('primary_source'),
+        'owner_electricity': _round2(_to_float(owner_totals.get('electricity_value'))),
+        'owner_gas': _round2(_to_float(owner_totals.get('gas_value'))),
+        'owner_total_energy': _round2(_to_float(owner_totals.get('total_energy'))),
+        'mobile_total_energy': _round2(_to_float(mobile_totals.get('total_energy'))),
+        'system_total_energy': _round2(_to_float(system_totals.get('total_energy'))),
+        'energy_per_ton': _round2(_to_float(summary.get('energy_per_ton'))),
         'electricity_cost': elec_cost,
         'gas_cost': gas_cost,
         'total_cost': round(elec_cost + gas_cost, 2),
@@ -201,31 +232,20 @@ def _build_energy(db: Session, target_date: date) -> dict:
 
 
 def _build_contracts(db: Session, target_date: date) -> dict:
-    month_start = target_date.replace(day=1)
-
-    daily_new = (
-        db.query(func.count(WorkOrder.id))
-        .filter(func.date(WorkOrder.created_at) == target_date)
-        .scalar()
-    ) or 0
-
-    monthly_total = (
-        db.query(func.count(WorkOrder.id))
-        .filter(func.date(WorkOrder.created_at) >= month_start, func.date(WorkOrder.created_at) <= target_date)
-        .scalar()
-    ) or 0
-
-    remaining = (
-        db.query(func.count(WorkOrder.id))
-        .filter(WorkOrder.overall_status.notin_(['completed', 'cancelled']))
-        .scalar()
-    ) or 0
+    projection = build_contract_projection(db, target_date=target_date)
+    daily_new = _round2(_to_float(projection.get('daily_contract_weight')))
+    monthly_total = _round2(_to_float(projection.get('month_to_date_contract_weight')))
+    remaining = _round2(_to_float(projection.get('remaining_contract_weight')))
+    remaining_delta = _round2(_to_float(projection.get('remaining_contract_delta_weight')))
 
     return {
         'daily_new': daily_new,
         'monthly_total': monthly_total,
         'remaining': remaining,
-        'remaining_delta': daily_new,
+        'remaining_delta': remaining_delta,
+        'unit': '吨',
+        'basis': 'owner_daily_contract_weight' if projection.get('owner_entry_count') else 'contract_projection',
+        'quality_status': projection.get('quality_status'),
     }
 
 
@@ -469,8 +489,8 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),
          'delta_label': _fmt_delta_label(yield_rates.get('daily_delta'), suffix='%')},
-        {'key': 'daily_contracts', 'label': '当天接合同', 'value': contracts['daily_new'], 'unit': '个'},
-        {'key': 'remaining_contracts', 'label': '总余合同量', 'value': contracts['remaining'], 'unit': '个',
+        {'key': 'daily_contracts', 'label': '当天接合同', 'value': contracts['daily_new'], 'unit': '吨'},
+        {'key': 'remaining_contracts', 'label': '总余合同量', 'value': contracts['remaining'], 'unit': '吨',
          'delta': contracts['remaining_delta'],
          'delta_label': _fmt_delta_label(contracts['remaining_delta'])},
         {'key': 'energy_cost_per_ton', 'label': '综合能耗成本', 'value': plant_cost.get('cost_per_ton'), 'unit': '元/吨'},

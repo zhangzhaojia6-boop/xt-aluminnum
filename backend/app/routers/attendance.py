@@ -26,8 +26,7 @@ from app.schemas.attendance import (
     ClockRecordOut,
     ExceptionResolveRequest,
 )
-from app.schemas.imports import ImportSummary
-from app.services import attendance_confirm_service, attendance_service, import_service
+from app.services import attendance_confirm_service, attendance_service
 
 router = APIRouter(tags=['attendance'])
 
@@ -39,13 +38,8 @@ def import_schedules(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AttendanceImportResponse:
-    result = import_service.import_attendance_schedules(db, file, current_user, template_code)
-    return AttendanceImportResponse(
-        batch_id=result.batch.id,
-        batch_no=result.batch.batch_no,
-        import_type=result.batch.import_type,
-        summary=ImportSummary(**result.summary),
-    )
+    _ = file, template_code, db, current_user
+    raise HTTPException(status_code=410, detail='考勤导入功能已停用，请使用移动端每日填报。')
 
 
 @router.get('/schedules', response_model=list[AttendanceScheduleOut])
@@ -73,13 +67,8 @@ def import_clocks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AttendanceImportResponse:
-    result = import_service.import_clock_records(db, file, current_user, template_code)
-    return AttendanceImportResponse(
-        batch_id=result.batch.id,
-        batch_no=result.batch.batch_no,
-        import_type=result.batch.import_type,
-        summary=ImportSummary(**result.summary),
-    )
+    _ = file, template_code, db, current_user
+    raise HTTPException(status_code=410, detail='考勤导入功能已停用，请使用移动端每日填报。')
 
 
 @router.get('/clocks', response_model=list[ClockRecordOut])

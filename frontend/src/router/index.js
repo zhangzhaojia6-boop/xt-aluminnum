@@ -26,17 +26,14 @@ const ShiftDetail = () => import('../views/shift/ShiftDetail.vue')
 const ReconciliationDetail = () => import('../views/reconciliation/ReconciliationDetail.vue')
 const QualityDetail = () => import('../views/quality/QualityDetail.vue')
 const ReportList = () => import('../views/reports/ReportList.vue')
-const IngestionCenter = () => import('../views/review/IngestionCenter.vue')
 const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
 const AiWorkstation = () => import('../views/ai/AiWorkstation.vue')
 const Workshop = () => import('../views/master/Workshop.vue')
 const AliasMapping = () => import('../views/master/AliasMapping.vue')
-const ImportHistory = () => import('../views/imports/ImportHistory.vue')
 const UserManagement = () => import('../views/master/UserManagement.vue')
 const WorkshopTemplateConfig = () => import('../views/master/WorkshopTemplateConfig.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboard = () => import('../views/reports/LiveDashboard.vue')
-const FileImport = () => import('../views/imports/FileImport.vue')
 const EnergyCenter = () => import('../views/energy/EnergyCenter.vue')
 const AttendanceOverview = () => import('../views/attendance/AttendanceOverview.vue')
 const AttendanceDetail = () => import('../views/attendance/AttendanceDetail.vue')
@@ -128,10 +125,10 @@ const rawRoutes = [
       { path: 'quality/detail/:id', name: 'quality-detail', component: QualityDetail, meta: { ...reviewMeta, title: '质量详情', canonical: '/manage/quality/detail/:id' } },
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
       { path: 'reports/detail/:id', name: 'report-detail', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '日报详情', canonical: '/manage/today' } },
-      { path: 'ingestion', name: 'admin-ingestion-center', component: IngestionCenter, meta: { ...adminMeta, title: '数据接入与字段映射中心', centerNo: '06', canonical: '/manage/ingestion' } },
+      { path: 'ingestion', name: 'admin-ingestion-center', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '数据导入已停用', centerNo: '06', canonical: '/manage/admin/settings' } },
       { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据与模板中心', centerNo: '14', canonical: '/manage/master' } },
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
-      { path: 'imports', name: 'manage-imports', component: ImportHistory, meta: { ...adminMeta, title: '导入历史', canonical: '/manage/imports' } },
+      { path: 'imports', name: 'manage-imports', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '导入历史已停用', canonical: '/manage/admin/settings' } },
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'inventory', name: 'manage-inventory', component: InventoryCenter, meta: { ...reviewMeta, title: '库存出入中心', canonical: '/manage/inventory' } },
@@ -157,7 +154,7 @@ const rawRoutes = [
   { path: '/review/reports', redirect: preserveRouteState('/manage/reports') },
   { path: '/review/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
   { path: '/review/reconciliation', redirect: preserveRouteState('/manage/alerts', { surface: 'reconciliation' }) },
-  { path: '/review/ingestion', name: 'review-ingestion-center', redirect: preserveRouteState('/manage/ingestion') },
+  { path: '/review/ingestion', name: 'review-ingestion-center', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/ops', name: 'review-ops-reliability', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/governance', name: 'review-governance-center', redirect: preserveRouteState('/manage/admin/governance') },
   { path: '/review/templates', name: 'review-template-center', redirect: preserveRouteState('/manage/admin/templates') },
@@ -168,7 +165,7 @@ const rawRoutes = [
   { path: '/review/:pathMatch(.*)*', redirect: preserveRouteState('/manage/today') },
   { path: '/admin', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/overview', redirect: preserveRouteState('/manage/admin/settings') },
-  { path: '/admin/ingestion', redirect: preserveRouteState('/manage/ingestion') },
+  { path: '/admin/ingestion', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/master', redirect: preserveRouteState('/manage/master') },
   { path: '/admin/master/workshop', redirect: preserveRouteState('/manage/master') },
   { path: '/admin/master/templates', redirect: preserveRouteState('/manage/admin/templates') },
@@ -187,7 +184,7 @@ const rawRoutes = [
   { path: '/worker', redirect: (to) => ({ name: 'mobile-entry', query: to.query, hash: to.hash }) },
   { path: '/factory', redirect: '/manage/production' },
   { path: '/workshop', redirect: '/manage/production' },
-  { path: '/ingestion/mapping', redirect: '/manage/ingestion' },
+  { path: '/ingestion/mapping', redirect: '/manage/admin/settings' },
   { path: '/reports/delivery', redirect: '/manage/reports' },
   { path: '/alerts/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
   { path: '/ops/reliability', redirect: '/manage/admin/settings' },
@@ -199,8 +196,8 @@ const rawRoutes = [
   { path: '/dashboard/factory', redirect: '/manage/production' },
   { path: '/dashboard/workshop', redirect: '/manage/production' },
   { path: '/dashboard/statistics', redirect: '/manage/today' },
-  { path: '/imports/files', name: 'file-import', component: FileImport, meta: { ...adminMeta, title: '文件上传' } },
-  { path: '/imports/history', redirect: '/manage/imports' },
+  { path: '/imports/files', name: 'file-import', redirect: preserveRouteState('/manage/admin/settings'), meta: { ...adminMeta, title: '文件上传已停用' } },
+  { path: '/imports/history', redirect: '/manage/admin/settings' },
   { path: '/energy/center', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心' } },
   { path: '/attendance/overview', name: 'attendance-overview', component: AttendanceOverview, meta: { ...reviewMeta, title: '考勤总览' } },
   { path: '/attendance/detail/:employeeId/:businessDate', name: 'attendance-detail', component: AttendanceDetail, meta: { ...reviewMeta, title: '考勤详情' } },

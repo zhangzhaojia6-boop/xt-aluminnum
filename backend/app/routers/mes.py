@@ -4,9 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary
 from app.models.system import User
-from app.schemas.mes import MesImportResponse, MesImportSummary
+from app.schemas.mes import MesImportResponse
 from app.schemas.mes_sync import MesSyncRunsOut, MesSyncStatusOut
-from app.services import mes_service
 from app.services import mes_sync_service
 
 router = APIRouter(tags=['mes'])
@@ -18,13 +17,8 @@ def import_mes_export(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MesImportResponse:
-    result = mes_service.import_mes_export(db, upload_file=file, current_user=current_user)
-    return MesImportResponse(
-        batch_id=result.batch_id,
-        batch_no=result.batch_no,
-        import_type=result.import_type,
-        summary=MesImportSummary(**result.summary),
-    )
+    _ = file, db, current_user
+    raise HTTPException(status_code=410, detail='MES 导入功能已停用，请使用移动端每日填报。')
 
 
 @router.get('/sync-status', response_model=MesSyncStatusOut)

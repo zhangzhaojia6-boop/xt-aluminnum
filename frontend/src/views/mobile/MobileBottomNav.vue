@@ -32,35 +32,23 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Clock, DocumentCopy, HomeFilled, Tickets } from '@element-plus/icons-vue'
 
 import { useRetryQueue } from '../../composables/useRetryQueue'
-import { fetchCurrentShift } from '../../api/mobile'
 
 const route = useRoute()
 const router = useRouter()
 const { pendingCount, replayPendingRequests, syncing } = useRetryQueue()
-const pendingAttendanceCount = ref(0)
-
 const navItems = computed(() => {
   return [
     { to: { name: 'mobile-entry' }, name: 'mobile-entry', label: '首页', badge: 0, icon: HomeFilled },
-    { to: { name: 'mobile-attendance-confirm' }, name: 'mobile-attendance-confirm', label: '异常', badge: pendingAttendanceCount.value, icon: Clock },
+    { to: { name: 'mobile-attendance-confirm' }, name: 'mobile-attendance-confirm', label: '考勤', badge: 0, icon: Clock },
     { to: { name: 'mobile-report-history' }, name: 'mobile-report-history', label: '历史', badge: 0, icon: Tickets },
     { to: { name: 'entry-drafts' }, name: 'entry-drafts', label: '草稿', badge: 0, icon: DocumentCopy }
   ]
 })
-
-async function loadBadge() {
-  try {
-    const currentShift = await fetchCurrentShift()
-    pendingAttendanceCount.value = Number(currentShift?.attendance_pending_count || 0)
-  } catch {
-    pendingAttendanceCount.value = 0
-  }
-}
 
 function go(item) {
   const itemName = item.to?.name
@@ -90,12 +78,4 @@ function isActiveNavItem(item) {
   return route.name === item.to?.name && hasTargetQueries(route.query, item.to?.query)
 }
 
-watch(
-  () => route.fullPath,
-  () => {
-    loadBadge()
-  }
-)
-
-onMounted(loadBadge)
 </script>

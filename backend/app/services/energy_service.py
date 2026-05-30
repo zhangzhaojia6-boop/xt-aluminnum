@@ -363,18 +363,12 @@ def _load_mobile_shift_energy_rows(
     return list(grouped.values())
 
 
-def _energy_row_key(item: dict) -> tuple[object | None, object | None]:
-    return (
-        item.get('workshop_id') if item.get('workshop_id') is not None else item.get('workshop_code'),
-        item.get('shift_config_id') if item.get('shift_config_id') is not None else item.get('shift_code'),
-    )
-
-
 def _primary_energy_rows(*, mobile_rows: list[dict], system_rows: list[dict], owner_rows: list[dict]) -> list[dict]:
     if mobile_rows:
-        mobile_keys = {_energy_row_key(item) for item in mobile_rows}
-        return [*mobile_rows, *[item for item in system_rows if _energy_row_key(item) not in mobile_keys]]
-    return system_rows or owner_rows
+        return mobile_rows
+    if owner_rows:
+        return owner_rows
+    return system_rows
 
 
 def get_energy_summary(
@@ -491,14 +485,12 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     mobile_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in mobile_rows)
     mobile_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in mobile_rows)
     primary_source = (
-        'mixed_mobile_system'
-        if mobile_rows and len(primary_rows) > len(mobile_rows)
-        else 'mobile_shift_report'
+        'mobile_shift_report'
         if mobile_rows
-        else 'system'
-        if system_rows
         else 'owner_only'
         if owner_rows
+        else 'system'
+        if system_rows
         else 'none'
     )
     return {
@@ -551,14 +543,12 @@ def workshop_energy_summary(
         'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows),
         'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows),
         'primary_source': (
-            'mixed_mobile_system'
-            if mobile_rows and len(primary_rows) > len(mobile_rows)
-            else 'mobile_shift_report'
+            'mobile_shift_report'
             if mobile_rows
-            else 'system'
-            if system_rows
             else 'owner_only'
             if owner_rows
+            else 'system'
+            if system_rows
             else 'none'
         ),
     }

@@ -9,7 +9,6 @@ from app.core.permissions import assert_review_access, get_current_reviewer_user
 from app.core.scope import build_scope_summary
 from app.core.deps import get_current_user, get_db
 from app.models.system import User
-from app.schemas.imports import ImportSummary
 from app.schemas.production import (
     ProductionExceptionOut,
     ShiftDataActionRequest,
@@ -53,19 +52,8 @@ def import_production_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ProductionImportResponse:
-    result = production_service.import_shift_production_data(
-        db,
-        upload_file=file,
-        current_user=current_user,
-        template_code=template_code,
-        duplicate_strategy=duplicate_strategy,
-    )
-    return ProductionImportResponse(
-        batch_id=result.batch_id,
-        batch_no=result.batch_no,
-        import_type=result.import_type,
-        summary=ImportSummary(**result.summary),
-    )
+    _ = file, template_code, duplicate_strategy, db, current_user
+    raise HTTPException(status_code=410, detail='生产导入功能已停用，请使用移动端每日填报。')
 
 
 @router.get('/shift-data', response_model=list[ShiftProductionDataOut])
