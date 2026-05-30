@@ -894,9 +894,15 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
         workshop = db.get(Workshop, equipment.workshop_id)
         if workshop is None:
             equipment.is_active = False
+            equipment.operational_status = 'stopped'
             continue
         if not workshop.is_active:
-            workshop.is_active = True
+            equipment.is_active = False
+            equipment.operational_status = 'stopped'
+            user = db.execute(select(User).where(User.username == equipment.code.upper())).scalar_one_or_none()
+            if user is not None:
+                user.is_active = False
+            continue
 
         qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
 
@@ -914,6 +920,10 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
         mapping = ROLE_QR_SUFFIX_MAP.get(qr_suffix)
         if mapping is None:
             equipment.is_active = False
+            equipment.operational_status = 'stopped'
+            user = db.execute(select(User).where(User.username == equipment.code.upper())).scalar_one_or_none()
+            if user is not None:
+                user.is_active = False
             continue
 
         system_role, role_label = mapping

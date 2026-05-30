@@ -494,6 +494,52 @@ def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop
         db.close()
 
 
+def test_seed_real_master_data_does_not_resurrect_retired_role_qr(tmp_path) -> None:
+    from app.core.auth import get_password_hash
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        retired = Workshop(code='LZ3', name='旧冷轧三', sort_order=88, is_active=False)
+        db.add(retired)
+        db.commit()
+        db.refresh(retired)
+        db.add_all([
+            Equipment(
+                code='LZ3-CS',
+                name='冷轧三内勤',
+                workshop_id=retired.id,
+                equipment_type='virtual_role_qr',
+                operational_status='running',
+                qr_code='XT-LZ3-CS',
+                is_active=True,
+            ),
+            User(
+                username='LZ3-CS',
+                password_hash=get_password_hash('123456'),
+                name='冷轧三内勤',
+                role='utility_manager',
+                workshop_id=retired.id,
+                is_mobile_user=True,
+                is_active=True,
+            ),
+        ])
+        db.commit()
+
+        seed_real_master_data(db)
+
+        refreshed_workshop = db.execute(select(Workshop).where(Workshop.code == 'LZ3')).scalar_one()
+        role_qr = db.execute(select(Equipment).where(Equipment.code == 'LZ3-CS')).scalar_one()
+        role_user = db.execute(select(User).where(User.username == 'LZ3-CS')).scalar_one()
+
+        assert refreshed_workshop.is_active is False
+        assert role_qr.is_active is False
+        assert role_qr.operational_status == 'stopped'
+        assert role_user.is_active is False
+    finally:
+        db.close()
+
+
 def test_seed_real_master_data_includes_1650_1850_and_keeps_retired_hwb_inactive(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 
