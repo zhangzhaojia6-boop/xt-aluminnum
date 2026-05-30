@@ -32,6 +32,7 @@ from app.services.audit_service import record_entity_change
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_for_equipment
 from app.services.pilot_observability_service import log_pilot_event
 from app.services.production_per_machine_service import upsert_per_machine_rows
+from app.services.real_master_data import OWNER_DAILY_ROLES
 
 
 def _find_mobile_report(
@@ -405,6 +406,9 @@ def _required_submit_fields(payload: dict) -> list[str]:
     return missing
 
 MOBILE_REPORT_DATA_KEY_MAP = {
+    'energy_kwh': 'electricity_daily',
+    'energy_note': 'note',
+    'gas_m3': 'gas_daily',
     'operator_notes': 'note',
 }
 
@@ -418,7 +422,10 @@ MOBILE_REPORT_ALLOWED_DATA_KEYS = {
     'shipment_weight',
     'contract_received',
     'electricity_daily',
+    'energy_kwh',
+    'energy_note',
     'gas_daily',
+    'gas_m3',
     'has_exception',
     'exception_type',
     'operator_notes',
@@ -705,6 +712,8 @@ def save_or_submit_report(
     user_agent: str | None = None,
 ) -> dict:
     assert_mobile_user_access(current_user)
+    if (current_user.role or '') in OWNER_DAILY_ROLES:
+        raise HTTPException(status_code=409, detail='owner_daily_endpoint_required')
     payload = _normalize_mobile_report_payload(payload)
     workshop, team = _resolve_workshop_team(db, current_user)
     shift = db.get(ShiftConfig, int(payload['shift_id']))
@@ -784,6 +793,7 @@ def save_or_submit_report(
             report.scrap_weight = total_scrap
 
     decision_snapshot = None
+    is_energy_only_report = (current_user.role or '') == 'energy_stat'
     if submit:
         # 必填验证已由前端和模板定义处理，后端不再硬编码检查
         # missing = _required_submit_fields(payload)
@@ -796,37 +806,39 @@ def save_or_submit_report(
         report.submitted_at = _local_now()
         report.submitted_by_user_id = current_user.id
         report.returned_reason = None
-        if machine_production_records:
-            _upsert_per_machine_production(
-                db,
-                report=report,
-                shift=shift,
-                workshop=workshop,
-                team=team,
-                rows=machine_production_records,
-            )
-        else:
-            _sync_to_shift_production(db, report=report, shift=shift, workshop=workshop, team=team)
+        if not is_energy_only_report:
+            if machine_production_records:
+                _upsert_per_machine_production(
+                    db,
+                    report=report,
+                    shift=shift,
+                    workshop=workshop,
+                    team=team,
+                    rows=machine_production_records,
+                )
+            else:
+                _sync_to_shift_production(db, report=report, shift=shift, workshop=workshop, team=team)
         db.flush()
 
-        # === 自动校验（替代人工审核）===
-        # 工人提交后，由校验 Agent 自动判断数据是否合格
-        # 合格则自动确认，不合格则退回并给出可执行修改建议
-        _report_data = {
-            'attendance_count': getattr(report, 'attendance_count', None),
-            'input_weight': _to_float(getattr(report, 'input_weight', None)),
-            'output_weight': _to_float(getattr(report, 'output_weight', None)),
-            'scrap_weight': _to_float(getattr(report, 'scrap_weight', None)),
-            'electricity_daily': _to_float(getattr(report, 'electricity_daily', None)),
-            'gas_daily': _to_float(getattr(report, 'gas_daily', None)),
-        }
-        decisions = validator_agent.execute(
-            db=db,
-            report_id=report.id,
-            report_data=_report_data,
-            workshop_code=workshop.code,
-        )
-        decision_snapshot = _build_agent_decision_snapshot(report=report, decisions=decisions)
+        if not is_energy_only_report:
+            # === 自动校验（替代人工审核）===
+            # 工人提交后，由校验 Agent 自动判断数据是否合格
+            # 合格则自动确认，不合格则退回并给出可执行修改建议
+            _report_data = {
+                'attendance_count': getattr(report, 'attendance_count', None),
+                'input_weight': _to_float(getattr(report, 'input_weight', None)),
+                'output_weight': _to_float(getattr(report, 'output_weight', None)),
+                'scrap_weight': _to_float(getattr(report, 'scrap_weight', None)),
+                'electricity_daily': _to_float(getattr(report, 'electricity_daily', None)),
+                'gas_daily': _to_float(getattr(report, 'gas_daily', None)),
+            }
+            decisions = validator_agent.execute(
+                db=db,
+                report_id=report.id,
+                report_data=_report_data,
+                workshop_code=workshop.code,
+            )
+            decision_snapshot = _build_agent_decision_snapshot(report=report, decisions=decisions)
         log_pilot_event(
             "worker_report_submitted",
             report_id=report.id,

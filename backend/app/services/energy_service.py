@@ -5,13 +5,13 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import UploadFile
-from sqlalchemy import func
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.energy import EnergyImportRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
-from app.models.production import ShiftProductionData, WorkOrderEntry
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import import_service
@@ -302,6 +302,81 @@ def _load_owner_only_energy_rows(
     return list(grouped.values())
 
 
+def _load_mobile_shift_energy_rows(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None = None,
+    shift_config_id: int | None = None,
+) -> list[dict]:
+    query = (
+        db.query(MobileShiftReport, Workshop, ShiftConfig)
+        .join(Workshop, Workshop.id == MobileShiftReport.workshop_id)
+        .join(ShiftConfig, ShiftConfig.id == MobileShiftReport.shift_config_id)
+        .filter(
+            MobileShiftReport.business_date == business_date,
+            MobileShiftReport.report_status.in_(('submitted', 'approved', 'auto_confirmed')),
+            or_(MobileShiftReport.electricity_daily.isnot(None), MobileShiftReport.gas_daily.isnot(None)),
+        )
+    )
+    if workshop_id is not None:
+        query = query.filter(MobileShiftReport.workshop_id == workshop_id)
+    if shift_config_id is not None:
+        query = query.filter(MobileShiftReport.shift_config_id == shift_config_id)
+
+    grouped: dict[tuple[int, int], dict] = {}
+    for report, workshop, shift in query.all():
+        key = (report.workshop_id, report.shift_config_id)
+        bucket = grouped.setdefault(
+            key,
+            {
+                'business_date': business_date.isoformat(),
+                'workshop_id': report.workshop_id,
+                'workshop_code': workshop.code,
+                'shift_config_id': report.shift_config_id,
+                'shift_code': shift.code,
+                'electricity_value': 0.0,
+                'gas_value': 0.0,
+                'water_value': 0.0,
+                'total_energy': 0.0,
+                'output_weight': 0.0,
+                'energy_per_ton': None,
+                'source': 'mobile_shift_report',
+            },
+        )
+        electricity_value = _to_float(report.electricity_daily) or 0.0
+        gas_value = _to_float(report.gas_daily) or 0.0
+        bucket['electricity_value'] += electricity_value
+        bucket['gas_value'] += gas_value
+        bucket['total_energy'] += electricity_value + gas_value
+
+    for (workshop_key, shift_key), bucket in grouped.items():
+        output_weight = _sum_shift_output_tons(
+            db,
+            business_date=business_date,
+            workshop_id=workshop_key,
+            shift_config_id=shift_key,
+        )
+        bucket['output_weight'] = output_weight
+        bucket['energy_per_ton'] = bucket['total_energy'] / output_weight if output_weight else None
+
+    return list(grouped.values())
+
+
+def _energy_row_key(item: dict) -> tuple[object | None, object | None]:
+    return (
+        item.get('workshop_id') if item.get('workshop_id') is not None else item.get('workshop_code'),
+        item.get('shift_config_id') if item.get('shift_config_id') is not None else item.get('shift_code'),
+    )
+
+
+def _primary_energy_rows(*, mobile_rows: list[dict], system_rows: list[dict], owner_rows: list[dict]) -> list[dict]:
+    if mobile_rows:
+        mobile_keys = {_energy_row_key(item) for item in mobile_rows}
+        return [*mobile_rows, *[item for item in system_rows if _energy_row_key(item) not in mobile_keys]]
+    return system_rows or owner_rows
+
+
 def get_energy_summary(
     db: Session,
     *,
@@ -324,6 +399,16 @@ def get_energy_summary(
             query = query.filter(EnergyImportRecord.shift_code == shift_code)
 
     rows = query.all()
+    mobile_rows = (
+        _load_mobile_shift_energy_rows(
+            db,
+            business_date=business_date,
+            workshop_id=workshop_id,
+            shift_config_id=shift_config_id,
+        )
+        if business_date is not None
+        else []
+    )
     owner_rows = (
         _load_owner_only_energy_rows(db, business_date=business_date, workshop_id=workshop_id)
         if business_date is not None
@@ -331,7 +416,7 @@ def get_energy_summary(
     )
     if shift_config_id is not None:
         owner_rows = [row for row in owner_rows if row.get('shift_config_id') == shift_config_id]
-    if not rows:
+    if not rows and not mobile_rows:
         return owner_rows
     workshop_id_map = _resolve_workshop_id(db)
     shift_id_map = _resolve_shift_id(db)
@@ -351,6 +436,7 @@ def get_energy_summary(
                 'total_energy': 0.0,
                 'output_weight': 0.0,
                 'energy_per_ton': None,
+                'source': 'energy_import',
             },
         )
         energy_val = float(item.energy_value or 0)
@@ -379,14 +465,15 @@ def get_energy_summary(
         if hasattr(payload['business_date'], 'isoformat'):
             payload['business_date'] = payload['business_date'].isoformat()
 
-    return [*grouped.values(), *owner_rows]
+    return [*grouped.values(), *mobile_rows, *owner_rows]
 
 
 def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     rows = get_energy_summary(db, business_date=business_date)
     owner_rows = [item for item in rows if item.get('source') == 'owner_only']
-    system_rows = [item for item in rows if item.get('source') != 'owner_only']
-    primary_rows = system_rows or owner_rows
+    mobile_rows = [item for item in rows if item.get('source') == 'mobile_shift_report']
+    system_rows = [item for item in rows if item.get('source') == 'energy_import' or item.get('source') is None]
+    primary_rows = _primary_energy_rows(mobile_rows=mobile_rows, system_rows=system_rows, owner_rows=owner_rows)
 
     electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in primary_rows)
     gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows)
@@ -401,6 +488,19 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     owner_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in owner_rows)
     system_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in system_rows)
     system_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in system_rows)
+    mobile_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in mobile_rows)
+    mobile_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in mobile_rows)
+    primary_source = (
+        'mixed_mobile_system'
+        if mobile_rows and len(primary_rows) > len(mobile_rows)
+        else 'mobile_shift_report'
+        if mobile_rows
+        else 'system'
+        if system_rows
+        else 'owner_only'
+        if owner_rows
+        else 'none'
+    )
     return {
         'electricity_value': electricity_value,
         'gas_value': gas_value,
@@ -408,7 +508,7 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
         'total_energy': total_energy,
         'total_output_weight': total_output,
         'energy_per_ton': energy_per_ton,
-        'primary_source': 'system' if system_rows else ('owner_only' if owner_rows else 'none'),
+        'primary_source': primary_source,
         'system_totals': {
             'total_energy': system_total_energy,
             'total_output_weight': system_total_output,
@@ -424,6 +524,12 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
             'energy_per_ton': owner_total_energy / owner_total_output if owner_total_output else None,
             'row_count': len(owner_rows),
         },
+        'mobile_totals': {
+            'total_energy': mobile_total_energy,
+            'total_output_weight': mobile_total_output,
+            'energy_per_ton': mobile_total_energy / mobile_total_output if mobile_total_output else None,
+            'row_count': len(mobile_rows),
+        },
         'rows': rows,
     }
 
@@ -436,14 +542,25 @@ def workshop_energy_summary(
 ) -> dict:
     rows = get_energy_summary(db, business_date=business_date, workshop_id=workshop_id)
     owner_rows = [item for item in rows if item.get('source') == 'owner_only']
-    system_rows = [item for item in rows if item.get('source') != 'owner_only']
-    primary_rows = system_rows or owner_rows
+    mobile_rows = [item for item in rows if item.get('source') == 'mobile_shift_report']
+    system_rows = [item for item in rows if item.get('source') == 'energy_import' or item.get('source') is None]
+    primary_rows = _primary_energy_rows(mobile_rows=mobile_rows, system_rows=system_rows, owner_rows=owner_rows)
     totals = {
         'electricity_value': sum(_to_float(item.get('electricity_value')) or 0.0 for item in primary_rows),
         'gas_value': sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows),
         'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows),
         'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows),
-        'primary_source': 'system' if system_rows else ('owner_only' if owner_rows else 'none'),
+        'primary_source': (
+            'mixed_mobile_system'
+            if mobile_rows and len(primary_rows) > len(mobile_rows)
+            else 'mobile_shift_report'
+            if mobile_rows
+            else 'system'
+            if system_rows
+            else 'owner_only'
+            if owner_rows
+            else 'none'
+        ),
     }
     output_weight = _sum_shift_output_tons(
         db,

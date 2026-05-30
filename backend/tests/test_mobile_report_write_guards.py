@@ -88,6 +88,22 @@ def _report(**overrides):
     return SimpleNamespace(**payload)
 
 
+def test_owner_daily_role_rejects_shift_report_endpoint(monkeypatch) -> None:
+    db = _DummyDB(SimpleNamespace(id=1, is_active=True))
+    monkeypatch.setattr('app.services.mobile_report_service.assert_mobile_user_access', lambda *_args, **_kwargs: None)
+
+    with pytest.raises(HTTPException) as exc:
+        save_or_submit_report(
+            db,
+            payload={'business_date': date(2026, 3, 28), 'shift_id': 1, 'output_weight': 92},
+            current_user=_user(role='consumable_stat'),
+            submit=False,
+        )
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == 'owner_daily_endpoint_required'
+
+
 def test_save_report_rejects_submitted_report_without_override_reason(monkeypatch) -> None:
     shift = SimpleNamespace(id=1, is_active=True)
     workshop = SimpleNamespace(id=1, name='冷轧')

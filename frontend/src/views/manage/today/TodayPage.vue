@@ -29,6 +29,17 @@
       />
     </header>
 
+    <nav class="xt-today__quick-nav" aria-label="核心入口">
+      <RouterLink
+        v-for="link in quickLinks"
+        :key="link.path"
+        class="xt-today__quick-link"
+        :to="link.path"
+      >
+        {{ link.label }}
+      </RouterLink>
+    </nav>
+
     <YesterdayShiftPanel :payload="snapshot.yesterdayShiftBreakdown.value" />
 
     <SummaryHero
@@ -66,6 +77,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
@@ -80,7 +92,9 @@ import { rosterStats, buildFilerRoster } from '../../../components/manage/_filer
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
 import { fetchUsersPage } from '../../../api/users.js'
+import { useAuthStore } from '../../../stores/auth.js'
 
+const auth = useAuthStore()
 const snapshot = useDashboardSnapshot()
 snapshot.load()
 
@@ -210,6 +224,26 @@ const kpiItems = computed(() => {
 })
 
 const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
+const quickLinks = computed(() => {
+  const links = [
+    { label: '日报', path: '/manage/daily-report' },
+    { label: '生产', path: '/manage/production' },
+    { label: '能耗', path: '/energy/center' },
+    { label: '异常', path: '/manage/alerts' },
+    { label: '报表', path: '/manage/reports' },
+  ]
+  if (auth.adminSurface) {
+    links.push(
+      { label: '接入', path: '/manage/ingestion' },
+      { label: '主数据', path: '/manage/master' },
+      { label: '用户', path: '/manage/admin/users' },
+      { label: '模板', path: '/manage/admin/templates' },
+      { label: '规则', path: '/manage/admin/rules' },
+      { label: '设置', path: '/manage/admin/settings' },
+    )
+  }
+  return links
+})
 </script>
 
 <style scoped>
@@ -220,6 +254,25 @@ const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || 
 }
 .xt-today__title-wrap { display: flex; align-items: center; gap: var(--xt-space-3); flex-wrap: wrap; }
 .xt-today__header h1 { margin: 0; font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text); letter-spacing: -0.02em; }
+.xt-today__quick-nav {
+  display: flex; align-items: center; gap: var(--xt-space-2);
+  overflow-x: auto; padding-bottom: 2px;
+}
+.xt-today__quick-link {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid var(--xt-border);
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-bg-panel);
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-sm);
+  font-weight: 800;
+  text-decoration: none;
+}
+.xt-today__quick-link:hover {
+  color: var(--xt-text);
+  border-color: var(--xt-border-strong);
+}
 @media (max-width: 720px) {
   .xt-today__header { flex-direction: column; align-items: stretch; }
   .xt-today__title-wrap { width: 100%; justify-content: space-between; }

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
-from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.models.energy import EnergyImportRecord
@@ -26,6 +26,7 @@ def build_session(tmp_path):
             User.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            MobileShiftReport.__table__,
             ShiftProductionData.__table__,
             EnergyImportRecord.__table__,
         ],
@@ -319,5 +320,92 @@ def test_summarize_energy_for_date_keeps_system_and_owner_energy_separate(tmp_pa
         assert payload['owner_totals']['total_energy'] == 1250.0
         assert payload['system_totals']['total_energy'] == 500.0
         assert any(row.get('source') == 'owner_only' for row in payload['rows'])
+    finally:
+        db.close()
+
+
+def test_summarize_energy_for_date_prefers_mobile_shift_energy(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add(
+            MobileShiftReport(
+                id=61,
+                business_date=date(2026, 4, 17),
+                shift_config_id=1,
+                workshop_id=11,
+                team_id=None,
+                leader_user_id=8,
+                leader_name='电工',
+                report_status='submitted',
+                electricity_daily=333.0,
+                gas_daily=44.0,
+            )
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'mobile_shift_report'
+        assert payload['electricity_value'] == 333.0
+        assert payload['gas_value'] == 44.0
+        assert payload['total_energy'] == 377.0
+        assert payload['owner_totals']['total_energy'] == 1250.0
+        assert payload['mobile_totals']['row_count'] == 1
+        assert any(row.get('source') == 'mobile_shift_report' for row in payload['rows'])
+    finally:
+        db.close()
+
+
+def test_summarize_energy_for_date_keeps_import_rows_not_replaced_by_mobile(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add(
+            ShiftConfig(
+                id=2,
+                code='B',
+                name='中班',
+                shift_type='middle',
+                start_time=time(16, 0),
+                end_time=time(0, 0),
+                is_cross_day=True,
+                sort_order=2,
+                is_active=True,
+            )
+        )
+        db.add_all(
+            [
+                MobileShiftReport(
+                    id=61,
+                    business_date=date(2026, 4, 17),
+                    shift_config_id=1,
+                    workshop_id=11,
+                    team_id=None,
+                    leader_user_id=8,
+                    leader_name='电工',
+                    report_status='submitted',
+                    electricity_daily=333.0,
+                    gas_daily=44.0,
+                ),
+                EnergyImportRecord(
+                    id=52,
+                    business_date=date(2026, 4, 17),
+                    workshop_code='CPK',
+                    shift_code='B',
+                    energy_type='electricity',
+                    energy_value=500.0,
+                    unit='kWh',
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'mixed_mobile_system'
+        assert payload['total_energy'] == 877.0
+        assert payload['mobile_totals']['total_energy'] == 377.0
+        assert payload['system_totals']['total_energy'] == 500.0
     finally:
         db.close()

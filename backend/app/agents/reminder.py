@@ -28,7 +28,7 @@ from app.services import dingtalk_service
 from app.services.mobile_reminder_service import _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
-MOBILE_ROLE_NAMES = {"team_leader", "deputy_leader", "mobile_user"}
+MOBILE_ROLE_NAMES = {"machine_operator", "energy_stat", "mobile_user"}
 
 
 def _resolve_notify_identity(user: User) -> tuple[str, str]:
@@ -175,19 +175,6 @@ class ReminderAgent(BaseAgent):
             if leader is None:
                 continue
 
-            reminder_count = int(
-                db.query(MobileReminderRecord)
-                .filter(
-                    MobileReminderRecord.business_date == item.business_date,
-                    MobileReminderRecord.shift_config_id == item.shift_config_id,
-                    MobileReminderRecord.workshop_id == item.workshop_id,
-                    MobileReminderRecord.team_id == item.team_id,
-                    MobileReminderRecord.leader_user_id == leader.id,
-                )
-                .count()
-            )
-            next_count = reminder_count + 1
-
             workshop_name = workshop_name_map.get(int(item.workshop_id), f"车间{item.workshop_id}")
             shift_name = shift_name_map.get(int(item.shift_config_id), f"班次{item.shift_config_id}")
             shift_obj = shift_map.get(int(item.shift_config_id))
@@ -199,21 +186,38 @@ class ReminderAgent(BaseAgent):
             ):
                 reminder_type = "late_report"
 
+            history_query = db.query(MobileReminderRecord).filter(
+                MobileReminderRecord.business_date == item.business_date,
+                MobileReminderRecord.shift_config_id == item.shift_config_id,
+                MobileReminderRecord.workshop_id == item.workshop_id,
+                MobileReminderRecord.team_id == item.team_id,
+                MobileReminderRecord.leader_user_id == leader.id,
+            )
+            type_query = history_query.filter(MobileReminderRecord.reminder_type == reminder_type)
+            existing = type_query.first()
+            reminder_count = max(
+                int(history_query.count()),
+                int(getattr(existing, "reminder_count", 0) or 0),
+            )
+            next_count = reminder_count + 1
+
             if reminder_count < 3:
-                entity = MobileReminderRecord(
-                    business_date=item.business_date,
-                    shift_config_id=item.shift_config_id,
-                    workshop_id=item.workshop_id,
-                    team_id=item.team_id,
-                    leader_user_id=leader.id,
-                    reminder_type=reminder_type,
-                    reminder_status="sent",
-                    reminder_channel=_resolve_notify_identity(leader)[0],
-                    reminder_count=next_count,
-                    last_reminded_at=datetime.now(timezone.utc),
-                    note=None,
-                )
-                db.add(entity)
+                entity = existing
+                if entity is None:
+                    entity = MobileReminderRecord(
+                        business_date=item.business_date,
+                        shift_config_id=item.shift_config_id,
+                        workshop_id=item.workshop_id,
+                        team_id=item.team_id,
+                        leader_user_id=leader.id,
+                        reminder_type=reminder_type,
+                    )
+                    db.add(entity)
+                entity.reminder_status = "sent"
+                entity.reminder_channel = _resolve_notify_identity(leader)[0]
+                entity.reminder_count = next_count
+                entity.last_reminded_at = datetime.now(timezone.utc)
+                entity.note = None
                 message = (
                     f"【催报提醒】{workshop_name} {shift_name} 的生产数据尚未提交，"
                     f"请尽快在钉钉中完成填报。（第{next_count}次提醒）"
@@ -231,20 +235,23 @@ class ReminderAgent(BaseAgent):
                 )
                 continue
 
-            escalation = MobileReminderRecord(
-                business_date=item.business_date,
-                shift_config_id=item.shift_config_id,
-                workshop_id=item.workshop_id,
-                team_id=item.team_id,
-                leader_user_id=leader.id,
-                reminder_type="escalation",
-                reminder_status="sent",
-                reminder_channel=_resolve_notify_identity(leader)[0],
-                reminder_count=next_count,
-                last_reminded_at=datetime.now(timezone.utc),
-                note="自动升级提醒管理员",
-            )
-            db.add(escalation)
+            escalation_query = history_query.filter(MobileReminderRecord.reminder_type == "escalation")
+            escalation = escalation_query.first()
+            if escalation is None:
+                escalation = MobileReminderRecord(
+                    business_date=item.business_date,
+                    shift_config_id=item.shift_config_id,
+                    workshop_id=item.workshop_id,
+                    team_id=item.team_id,
+                    leader_user_id=leader.id,
+                    reminder_type="escalation",
+                )
+                db.add(escalation)
+            escalation.reminder_status = "sent"
+            escalation.reminder_channel = _resolve_notify_identity(leader)[0]
+            escalation.reminder_count = next_count
+            escalation.last_reminded_at = datetime.now(timezone.utc)
+            escalation.note = "自动升级提醒管理员"
 
             admin_users = self._admin_users(db)
             for admin_user in admin_users:

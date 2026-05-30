@@ -260,7 +260,7 @@ const roleLabel = computed(() => {
     machine_operator: '主操',
     energy_stat: '电工',
     consumable_stat: '内勤',
-    shift_leader: '班长',
+    shift_leader: '已取消班长',
     quality_owner: '全公司质检',
     planning_owner: '全公司合同',
     energy_chief: '能耗矩阵',
@@ -494,6 +494,8 @@ function buildCoilEntryPayload(sc) {
 
 function buildMobileReportPayload(sc) {
   const values = normalizedFormValues()
+  const electricityDaily = values.electricity_daily ?? values.energy_kwh
+  const gasDaily = values.gas_daily ?? values.gas_m3
   return {
     business_date: sc.business_date,
     shift_id: sc.shift_id,
@@ -505,11 +507,11 @@ function buildMobileReportPayload(sc) {
     storage_finished: normalizeNumberValue(values.storage_finished),
     shipment_weight: normalizeNumberValue(values.shipment_weight),
     contract_received: normalizeNumberValue(values.contract_received),
-    electricity_daily: normalizeNumberValue(values.electricity_daily),
-    gas_daily: normalizeNumberValue(values.gas_daily),
+    electricity_daily: normalizeNumberValue(electricityDaily),
+    gas_daily: normalizeNumberValue(gasDaily),
     has_exception: Boolean(values.has_exception),
     exception_type: values.exception_type || null,
-    note: values.operator_notes || values.note || null,
+    note: values.operator_notes || values.energy_note || values.note || null,
   }
 }
 

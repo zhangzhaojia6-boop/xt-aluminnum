@@ -47,10 +47,10 @@ class _FakeDB:
         return None
 
 
-def _user() -> SimpleNamespace:
+def _user(role: str = "team_leader") -> SimpleNamespace:
     return SimpleNamespace(
         id=11,
-        role="team_leader",
+        role=role,
         workshop_id=1,
         team_id=10,
         data_scope_type="self_team",
@@ -197,4 +197,42 @@ def test_submit_invalid_report_changes_status_to_returned(monkeypatch) -> None:
     assert payload["report_status"] == "returned"
     assert report.report_status == "returned"
     assert "产出重量大于投入重量" in (report.returned_reason or "")
+    assert shift_data.data_status == "pending"
+
+
+def test_energy_stat_submit_keeps_energy_report_submitted(monkeypatch) -> None:
+    shift = SimpleNamespace(id=1, is_active=True, code="D", name="白班")
+    workshop = SimpleNamespace(id=1, code="ZR1", name="铸轧")
+    team = SimpleNamespace(id=10, name="甲班")
+    report = _report()
+    shift_data = _shift_data()
+    db = _FakeDB(shift=shift, report=report, shift_data=shift_data)
+
+    _patch_common(monkeypatch, workshop=workshop, team=team)
+    monkeypatch.setattr("app.services.mobile_report_service._find_mobile_report", lambda *_args, **_kwargs: report)
+    monkeypatch.setattr(
+        "app.services.mobile_report_service._sync_to_shift_production",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("energy_stat must not sync production")),
+    )
+    monkeypatch.setattr(
+        "app.services.mobile_report_service.validator_agent",
+        SimpleNamespace(execute=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("energy_stat must not run production validator"))),
+    )
+
+    payload = save_or_submit_report(
+        db,
+        payload={
+            "business_date": date(2026, 4, 6),
+            "shift_id": 1,
+            "electricity_daily": 1200.0,
+            "gas_daily": 80.0,
+        },
+        current_user=_user(role="energy_stat"),
+        submit=True,
+    )
+
+    assert payload["report_status"] == "submitted"
+    assert report.electricity_daily == 1200.0
+    assert report.gas_daily == 80.0
+    assert report.returned_reason is None
     assert shift_data.data_status == "pending"

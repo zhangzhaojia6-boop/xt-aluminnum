@@ -28,6 +28,14 @@ test('TodayPage h1 is the static yesterday overview title (date label lives in D
   assert.equal(/pageTitle/.test(src), false)
 })
 
+test('TodayPage exposes core page entrances including admin settings', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /\/manage\/daily-report/)
+  assert.match(src, /\/energy\/center/)
+  assert.match(src, /\/manage\/admin\/settings/)
+  assert.match(src, /auth\.adminSurface/)
+})
+
 test('TodayPage 数字卡 not bound to click handlers', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   // KpiBar usage in template should not have @click

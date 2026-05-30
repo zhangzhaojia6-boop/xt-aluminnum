@@ -20,7 +20,7 @@ from app.core.exceptions import BusinessException, business_exception_handler, h
 from app.core.logging import configure_json_logging
 from app.core.scheduler import scheduler, setup_scheduler, try_acquire_scheduler_leader, release_scheduler_leader
 from app.routers.config import router as config_router
-from app.routers import ai, assistant, assistant_actions, attendance, auth, command, consumables, dashboard, dingtalk, energy, executive, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, team_lead, telemetry, templates, user_preferences, users, work_orders
+from app.routers import ai, assistant, assistant_actions, attendance, auth, command, consumables, dashboard, dingtalk, energy, executive, export, factory_command, imports, master, mes, mobile, notifications, ocr, production, quality, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, work_orders
 from app.services import dingtalk_service
 
 logger = logging.getLogger(__name__)
@@ -311,7 +311,6 @@ app.include_router(mobile.router, prefix=f'{settings.API_V1_PREFIX}/mobile')
 app.include_router(ocr.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(reports.router, prefix=f'{settings.API_V1_PREFIX}/reports')
 app.include_router(rule_configs.router, prefix=f'{settings.API_V1_PREFIX}/rule-configs')
-app.include_router(team_lead.router, prefix=f'{settings.API_V1_PREFIX}/team-lead')
 app.include_router(mes.router, prefix=f'{settings.API_V1_PREFIX}/mes')
 app.include_router(factory_command.router, prefix=f'{settings.API_V1_PREFIX}/factory-command')
 app.include_router(executive.router, prefix=f'{settings.API_V1_PREFIX}/executive')

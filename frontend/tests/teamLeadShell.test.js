@@ -3,32 +3,22 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const routerSource = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
-const loginSource = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
-const apiSource = readFileSync(new URL('../src/api/team-lead.js', import.meta.url), 'utf8')
-const shellSource = readFileSync(new URL('../src/views/team/TeamLeadShell.vue', import.meta.url), 'utf8')
-const overviewSource = readFileSync(new URL('../src/views/team/TeamLeadOverview.vue', import.meta.url), 'utf8')
-const workerDetailSource = readFileSync(new URL('../src/views/team/TeamLeadWorkerDetail.vue', import.meta.url), 'utf8')
+const guardSource = readFileSync(new URL('../src/router/guardRules.js', import.meta.url), 'utf8')
+const userManagementSource = readFileSync(new URL('../src/views/master/UserManagement.vue', import.meta.url), 'utf8')
 
-test('team lead route stays wired outside password login', () => {
+test('team lead board is cancelled from active routes', () => {
   assert.match(routerSource, /path: '\/team-lead'/)
-  assert.match(routerSource, /TeamLeadShell/)
-  assert.doesNotMatch(loginSource, /team_leader/)
-  assert.doesNotMatch(loginSource, /deputy_leader/)
-  assert.doesNotMatch(loginSource, /\/team-lead/)
+  assert.match(routerSource, /redirect: \(to\) => \(\{ path: '\/entry'/)
+  assert.doesNotMatch(routerSource, /TeamLeadShell/)
+  assert.doesNotMatch(routerSource, /teamLeadMeta/)
+  assert.doesNotMatch(routerSource, /team-lead-worker-detail/)
 })
 
-test('team lead api and shell expose five quadrants without helper copy', () => {
-  assert.match(apiSource, /fetchTeamLeadOverview/)
-  assert.match(apiSource, /\/team-lead\/overview/)
-  assert.match(shellSource, /setInterval/)
-  assert.match(overviewSource, /scheduled_count/)
-  assert.match(overviewSource, /attended_count/)
-  assert.match(overviewSource, /reported_count/)
-  assert.match(overviewSource, /returned_count/)
-  assert.match(overviewSource, /reminder_count/)
-  assert.match(routerSource, /team-lead-worker-detail/)
-  assert.match(overviewSource, /normalizedMembers/)
-  assert.match(overviewSource, /member\.route/)
-  assert.match(workerDetailSource, /team-lead-worker-detail/)
-  assert.doesNotMatch(overviewSource, /helperText|description|tooltip|explanation|rationale/)
+test('team lead roles are no longer selectable or used as landing roles', () => {
+  assert.doesNotMatch(userManagementSource, /value: 'team_leader'/)
+  assert.doesNotMatch(userManagementSource, /value: 'shift_leader'/)
+  assert.doesNotMatch(userManagementSource, /value: 'deputy_leader'/)
+  assert.match(userManagementSource, /value: 'consumable_stat'/)
+  assert.doesNotMatch(guardSource, /isTeamLeadRole/)
+  assert.doesNotMatch(guardSource, /team_lead/)
 })

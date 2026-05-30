@@ -20,14 +20,16 @@ const NAV_GROUPS = [
     label: '生产',
     commandGroup: '生产',
     items: [
-      { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' }
+      { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
+      { title: '能耗', shortLabel: '能耗', path: '/energy/center', icon: DataLine, access: 'review', commandGroup: '生产' }
     ]
   },
   {
     label: '异常',
     commandGroup: '异常',
     items: [
-      { title: '异常', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '异常' }
+      { title: '异常', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '异常' },
+      { title: '考勤', shortLabel: '考勤', path: '/attendance/overview', icon: Sunny, access: 'review', commandGroup: '异常' }
     ]
   },
   {
@@ -41,6 +43,11 @@ const NAV_GROUPS = [
     label: '系统',
     commandGroup: '系统',
     items: [
+      { title: '数据接入', shortLabel: '接入', path: '/manage/ingestion', icon: DataLine, access: 'admin', commandGroup: '系统' },
+      { title: '主数据', shortLabel: '主数', path: '/manage/master', icon: Histogram, access: 'admin', commandGroup: '系统' },
+      { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
+      { title: '模板中心', shortLabel: '模板', path: '/manage/admin/templates', icon: DataLine, access: 'admin', commandGroup: '系统' },
+      { title: '规则配置', shortLabel: '规则', path: '/manage/admin/rules', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统' }
     ]
   }

@@ -39,6 +39,24 @@ def test_normalize_mobile_report_payload_flattens_unified_entry_data() -> None:
     assert payload['note'] == '本班正常'
 
 
+def test_normalize_mobile_report_payload_maps_energy_template_fields() -> None:
+    payload = _normalize_payload_for_test(
+        {
+            'business_date': date(2026, 5, 1),
+            'shift_id': 1,
+            'data': {
+                'energy_kwh': 1200.5,
+                'gas_m3': 88.0,
+                'energy_note': '电表已核对',
+            },
+        }
+    )
+
+    assert payload['electricity_daily'] == 1200.5
+    assert payload['gas_daily'] == 88.0
+    assert payload['note'] == '电表已核对'
+
+
 def test_required_submit_fields_reads_normalized_payload() -> None:
     payload = _normalize_payload_for_test(
         {

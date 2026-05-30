@@ -205,10 +205,9 @@ const roleOptions = [
   { value: 'senior_manager', label: '高级管理' },
   { value: 'manager', label: '车间管理者' },
   { value: 'workshop_director', label: '车间观察者' },
-  { value: 'team_leader', label: '班长' },
-  { value: 'shift_leader', label: '班长(移动端)' },
   { value: 'energy_stat', label: '电工' },
   { value: 'machine_operator', label: '主操' },
+  { value: 'consumable_stat', label: '生产内勤' },
   { value: 'quality_owner', label: '质检内勤 owner' },
   { value: 'planning_owner', label: '计划内勤 owner' },
   { value: 'energy_chief', label: '总电工 owner' },
@@ -249,7 +248,7 @@ const form = reactive({
   username: '',
   password: '',
   name: '',
-  role: 'shift_leader',
+  role: 'machine_operator',
   workshop_id: null,
   team_id: null,
   bound_machine_id: null,
@@ -307,7 +306,7 @@ function resetFormState() {
   form.username = ''
   form.password = ''
   form.name = ''
-  form.role = 'shift_leader'
+  form.role = 'machine_operator'
   form.workshop_id = null
   form.team_id = null
   form.bound_machine_id = null

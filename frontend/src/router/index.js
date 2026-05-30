@@ -47,8 +47,6 @@ const ContractsCenter = () => import('../views/contracts/ContractsCenter.vue')
 const OpsCenter = () => import('../views/ops/OpsCenter.vue')
 const SettingsCenter = () => import('../views/settings/SettingsCenter.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
-const TeamLeadShell = () => import('../views/team/TeamLeadShell.vue')
-const TeamLeadWorkerDetail = () => import('../views/team/TeamLeadWorkerDetail.vue')
 const TodayPage = () => import('../views/manage/today/TodayPage.vue')
 const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
@@ -74,7 +72,6 @@ function preserveRouteState(path, query = {}) {
 const entryMeta = { requiresAuth: true, zone: 'entry', access: 'entry' }
 const reviewMeta = { requiresAuth: true, zone: 'manage', access: 'review' }
 const adminMeta = { requiresAuth: true, zone: 'manage', access: 'admin' }
-const teamLeadMeta = { requiresAuth: true, zone: 'team-lead', access: 'team_lead' }
 
 const rawRoutes = [
   {
@@ -107,15 +104,11 @@ const rawRoutes = [
   },
   {
     path: '/team-lead',
-    name: 'team-lead',
-    component: TeamLeadShell,
-    meta: { ...teamLeadMeta, title: '班长一屏', canonical: '/team-lead' }
+    redirect: (to) => ({ path: '/entry', query: to.query, hash: to.hash })
   },
   {
     path: '/team-lead/worker/:employeeId/:businessDate',
-    name: 'team-lead-worker-detail',
-    component: TeamLeadWorkerDetail,
-    meta: { ...teamLeadMeta, title: '人员详情', canonical: '/team-lead/worker/:employeeId/:businessDate' }
+    redirect: (to) => ({ path: '/entry', query: to.query, hash: to.hash })
   },
   {
     path: '/manage',

@@ -21,10 +21,6 @@ export function resolveRouteAccess(to = {}) {
   return to.meta?.access || matchedAccess
 }
 
-function isTeamLeadRole(authStore) {
-  return ['team_leader', 'deputy_leader'].includes(authStore.role)
-}
-
 function configLanding(authStore) {
   if (authStore.adminSurface) return { name: 'admin-ops-reliability' }
   return { name: 'login' }
@@ -45,7 +41,6 @@ function adminLanding(authStore) {
 }
 
 function defaultLanding(authStore, compactClient) {
-  if (isTeamLeadRole(authStore)) return { name: 'team-lead' }
   if (compactClient && authStore.canAccessFillSurface) return { name: 'mobile-entry' }
   if (authStore.canAccessFillSurface && !authStore.canAccessReviewSurface) return { name: 'mobile-entry' }
   if (authStore.defaultSurface === 'admin') return adminLanding(authStore)
@@ -92,7 +87,7 @@ export function resolveGuardDecision({
     return null
   }
 
-  if (auth.isFillOnlyRole && !isTeamLeadRole(auth) && to.meta.zone !== 'entry' && to.name !== 'login') {
+  if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
     return { name: 'mobile-entry' }
   }
 
@@ -129,9 +124,6 @@ export function resolveGuardDecision({
     return defaultLanding(auth, compactClient)
   }
   if (access === 'manager' && !(auth.isAdmin || auth.isManager)) {
-    return defaultLanding(auth, compactClient)
-  }
-  if (access === 'team_lead' && !(auth.isAdmin || isTeamLeadRole(auth))) {
     return defaultLanding(auth, compactClient)
   }
   if (access === 'admin_strict' && !auth.isAdmin) {

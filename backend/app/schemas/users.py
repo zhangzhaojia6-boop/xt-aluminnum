@@ -104,7 +104,7 @@ class UserResetPasswordResponse(BaseModel):
 
 class UserDingtalkSyncRequest(BaseModel):
     department_id: int = Field(default=1, ge=1)
-    role: str = Field(default='shift_leader', min_length=1, max_length=32)
+    role: str = Field(default='machine_operator', min_length=1, max_length=32)
     is_mobile_user: bool = True
 
     @field_validator('role')

@@ -20,7 +20,7 @@ from app.services.audit_service import record_audit
 LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 READY_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 OPEN_REMINDER_STATUSES = {'pending', 'sent', 'acknowledged'}
-MOBILE_ROLE_NAMES = {'team_leader', 'deputy_leader', 'mobile_user'}
+MOBILE_ROLE_NAMES = {'machine_operator', 'energy_stat', 'mobile_user'}
 
 
 def _local_now(now: datetime | None = None) -> datetime:

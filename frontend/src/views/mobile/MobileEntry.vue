@@ -409,14 +409,7 @@ async function retryAuth() {
 }
 
 function goReport() {
-  if (!current.value?.shift_id) return
   const bucket = transitionMapping.value.role_bucket
-
-  if (bucket === 'consumable_stat') {
-    router.push({ name: 'mobile-consumable-entry' })
-    return
-  }
-
   const ROLE_BUCKETS_USING_UNIFIED = new Set([
     'machine_operator',
     'energy_stat',
@@ -424,10 +417,12 @@ function goReport() {
     'planning_owner',
     'energy_chief',
     'storage_owner',
+    'consumable_stat',
     'shipment_outflow_owner',
     'recovery_owner',
     'overhaul_owner',
   ])
+  if (!current.value?.shift_id && !ROLE_BUCKETS_USING_UNIFIED.has(bucket)) return
   if (ROLE_BUCKETS_USING_UNIFIED.has(bucket)) {
     router.push({ name: 'mobile-unified-entry' })
     return

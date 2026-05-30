@@ -34,22 +34,30 @@ test('owner skeleton exposes current top-level labels', () => {
 test('owner skeleton keeps daily report under today and report under delivery', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [2, 1, 1, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [2, 2, 2, 1])
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
   const groups = manageNavGroups(reviewAuth)
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(paths, ['/manage/today', '/manage/daily-report', '/manage/production', '/manage/alerts', '/manage/reports'])
+  assert.deepEqual(paths, [
+    '/manage/today',
+    '/manage/daily-report',
+    '/manage/production',
+    '/energy/center',
+    '/manage/alerts',
+    '/attendance/overview',
+    '/manage/reports',
+  ])
 })
 
-test('admin configuration paths stay out of top-level navigation for admin auth', () => {
+test('admin core configuration paths are exposed in top-level navigation for admin auth', () => {
   const groups = manageNavGroups(adminAuth)
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
   for (const path of adminPaths) {
-    assert.equal(paths.includes(path), false)
+    assert.equal(paths.includes(path), true)
   }
 })
 

@@ -33,12 +33,13 @@ class _FakeQuery:
 
 
 class _FakeDB:
-    def __init__(self, *, schedule_rows, report_rows, reminder_count, leader, admins):
+    def __init__(self, *, schedule_rows, report_rows, reminder_count, leader, admins, existing_reminder=None):
         self.schedule_rows = schedule_rows
         self.report_rows = report_rows
         self.reminder_count = reminder_count
         self.leader = leader
         self.admins = admins
+        self.existing_reminder = existing_reminder
         self.added = []
         self._user_query_call = 0
 
@@ -54,7 +55,7 @@ class _FakeDB:
         if model_name == "ShiftConfig":
             return _FakeQuery(rows=[SimpleNamespace(id=1, name="早班", code="A", end_time=time(8, 0), start_time=time(0, 0), business_day_offset=0, is_cross_day=False)])
         if model_name == "MobileReminderRecord":
-            return _FakeQuery(count_value=self.reminder_count)
+            return _FakeQuery(first=self.existing_reminder, count_value=self.reminder_count)
         if model_name == "User":
             self._user_query_call += 1
             if self._user_query_call <= 1:
@@ -87,6 +88,37 @@ def test_reminder_agent_message_template(monkeypatch) -> None:
     assert sent and "第1次提醒" in sent[0][1]
     assert db.added[0].reminder_channel == "dingtalk"
     assert "钉钉" in decisions[0].reason
+
+
+def test_reminder_agent_updates_existing_record_instead_of_inserting(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", False, raising=False)
+    sent = []
+    existing = SimpleNamespace(
+        reminder_status="pending",
+        reminder_channel="system",
+        reminder_count=1,
+        last_reminded_at=None,
+        note="old",
+    )
+    agent = ReminderAgent()
+    monkeypatch.setattr(agent, "_send_reminder_message", lambda userid, content: sent.append((userid, content)))
+    db = _FakeDB(
+        schedule_rows=[SimpleNamespace(business_date=date(2026, 4, 4), shift_config_id=1, workshop_id=1, team_id=None)],
+        report_rows=[],
+        reminder_count=1,
+        leader=SimpleNamespace(id=10, name="张三", username="zhangsan", dingtalk_user_id=None),
+        admins=[],
+        existing_reminder=existing,
+    )
+
+    decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
+
+    assert len(decisions) == 1
+    assert db.added == []
+    assert existing.reminder_status == "sent"
+    assert existing.reminder_count == 2
+    assert existing.note is None
+    assert sent and "第2次提醒" in sent[0][1]
 
 
 def test_reminder_agent_escalation_template(monkeypatch) -> None:
