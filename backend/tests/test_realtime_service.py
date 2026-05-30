@@ -5,9 +5,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import realtime_service
@@ -25,6 +26,8 @@ def build_realtime_session(tmp_path):
             MasterCodeAlias.__table__,
             ShiftConfig.__table__,
             ShiftProductionData.__table__,
+            MobileShiftReport.__table__,
+            MachineEnergyRecord.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             MesCoilSnapshot.__table__,
@@ -165,6 +168,55 @@ def test_build_live_aggregation_blends_mes_projection_with_bound_fill_entries(tm
     assert machine['machine_binding_status'] == 'bound'
     assert machine['day_total']['output'] == 14.9
     assert machine['shifts'][0]['submitted_count'] == 2
+
+
+def test_build_fill_detail_ledger_includes_machine_energy_without_double_counting(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            User(id=85, username='electrician', password_hash='x', name='电工张', role='machine_operator'),
+            MobileShiftReport(
+                id=901,
+                business_date=date(2026, 5, 6),
+                shift_config_id=3,
+                workshop_id=2,
+                submitted_by_user_id=85,
+                leader_name='电工张',
+                output_weight=12.5,
+                electricity_daily=100.0,
+                gas_daily=8.0,
+                report_status='submitted',
+                submitted_at=datetime(2026, 5, 6, 23, 20),
+            ),
+            MachineEnergyRecord(
+                id=902,
+                shift_report_id=901,
+                machine_id=11,
+                machine_code='LZ2050-1',
+                machine_name='2050# 主操',
+                energy_kwh=88.0,
+                gas_m3=7.0,
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = realtime_service.build_fill_detail_ledger(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+        search='电工张',
+    )
+
+    assert payload['summary']['source_counts']['machine_energy'] == 1
+    assert payload['summary']['source_counts']['mobile_shift_report'] == 1
+    assert payload['summary']['energy_kwh'] == 88.0
+    assert payload['summary']['gas_m3'] == 7.0
+    assert payload['items'][0]['responsible_name'] == '电工张'
 
 
 def test_build_live_aggregation_reports_formal_mobile_entries_missing_output_weight(tmp_path, monkeypatch) -> None:

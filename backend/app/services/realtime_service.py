@@ -22,7 +22,7 @@ from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, 
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesCoilSnapshot
-from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import attendance_confirm_service
