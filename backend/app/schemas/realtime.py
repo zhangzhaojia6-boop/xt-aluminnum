@@ -47,6 +47,7 @@ class LiveAggregationOut(BaseModel):
     data_quality: dict = Field(default_factory=dict)
     mes_machine_binding: dict = Field(default_factory=dict)
     yield_matrix_lane: dict = Field(default_factory=dict)
+    owner_daily_status: dict = Field(default_factory=dict)
     mes_sync_status: dict = Field(default_factory=dict)
     data_source: str = 'work_order_runtime'
 

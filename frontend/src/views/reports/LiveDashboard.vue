@@ -52,6 +52,7 @@
     </section>
 
     <section class="source-compare-strip" aria-label="口径对照">
+      <strong class="source-compare-strip__title">口径对照</strong>
       <article class="source-compare-card">
         <span>算法成材率</span>
         <strong :class="yieldToneClass(managementOverview.yieldRate)">{{ formatPercent(managementOverview.yieldRate) }}</strong>
@@ -3088,6 +3089,13 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin: -2px 0 14px;
+}
+
+.source-compare-strip__title {
+  grid-column: 1 / -1;
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 950;
 }
 
 .source-compare-card {

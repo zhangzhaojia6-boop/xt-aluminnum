@@ -175,6 +175,12 @@ def test_live_aggregation_endpoint_calls_service(monkeypatch) -> None:
                 }
             ],
             'factory_total': {'input': 100.0, 'output': 97.0, 'scrap': 3.0, 'yield_rate': 97.0},
+            'owner_daily_status': {
+                'submitted_count': 1,
+                'total_count': 1,
+                'totals': [{'key': 'total_electricity_kwh', 'label': '全厂用电', 'value': 1200.0, 'unit': 'kWh'}],
+                'items': [],
+            },
         }
 
     app.dependency_overrides[get_db] = fake_get_db
@@ -191,6 +197,7 @@ def test_live_aggregation_endpoint_calls_service(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()['overall_progress']['submitted_cells'] == 4
     assert response.json()['workshops'][0]['workshop_name'] == '鐑涧杞﹂棿'
+    assert response.json()['owner_daily_status']['totals'][0]['key'] == 'total_electricity_kwh'
 
     app.dependency_overrides.clear()
 
