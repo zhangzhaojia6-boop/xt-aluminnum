@@ -52,3 +52,11 @@ test('admin configuration paths stay out of top-level navigation for admin auth'
     assert.equal(paths.includes(path), false)
   }
 })
+
+test('admin skeleton exposes system settings in top-level navigation', () => {
+  const groups = manageNavGroups(adminAuth)
+  const items = groups.flatMap((group) => group.items)
+
+  assert.equal(items.some((item) => item.path === '/manage/admin/settings'), true)
+  assert.equal(items.some((item) => item.title === '系统设置'), true)
+})

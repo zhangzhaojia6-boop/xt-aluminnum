@@ -27,6 +27,7 @@ def build_session(tmp_path):
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             ShiftProductionData.__table__,
+            EnergyImportRecord.__table__,
         ],
     )
     return sessionmaker(bind=engine, future=True)()
@@ -290,3 +291,33 @@ def test_summarize_energy_for_date_owner_only_rows_do_not_double_count_output(tm
         assert payload['energy_per_ton'] == 10.0
     finally:
         session.close()
+
+
+def test_summarize_energy_for_date_keeps_system_and_owner_energy_separate(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add(
+            EnergyImportRecord(
+                id=51,
+                business_date=date(2026, 4, 17),
+                workshop_code='CPK',
+                shift_code='A',
+                energy_type='electricity',
+                energy_value=500.0,
+                unit='kWh',
+            )
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'system'
+        assert payload['electricity_value'] == 500.0
+        assert payload['total_energy'] == 500.0
+        assert payload['owner_totals']['electricity_value'] == 1000.0
+        assert payload['owner_totals']['total_energy'] == 1250.0
+        assert payload['system_totals']['total_energy'] == 500.0
+        assert any(row.get('source') == 'owner_only' for row in payload['rows'])
+    finally:
+        db.close()

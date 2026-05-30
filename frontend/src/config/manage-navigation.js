@@ -2,6 +2,7 @@ import {
   Bell,
   DataLine,
   Histogram,
+  Setting,
   Sunny,
   TrendCharts
 } from '@element-plus/icons-vue'
@@ -34,6 +35,13 @@ const NAV_GROUPS = [
     commandGroup: '交付',
     items: [
       { title: '报表', shortLabel: '报表', path: '/manage/reports', icon: TrendCharts, access: 'review', commandGroup: '交付' }
+    ]
+  },
+  {
+    label: '系统',
+    commandGroup: '系统',
+    items: [
+      { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统' }
     ]
   }
 ]

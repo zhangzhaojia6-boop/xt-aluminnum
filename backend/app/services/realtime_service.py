@@ -52,12 +52,49 @@ OWNER_DAILY_ROLE_LABELS = {
     'recovery_owner': '回收',
     'overhaul_owner': '大修',
 }
+OWNER_DAILY_FIELD_META = {
+    'plant_wide_yield_rate': ('全厂总成品率', '%'),
+    'total_electricity_kwh': ('全厂用电', 'kWh'),
+    'new_plant_electricity_kwh': ('新厂用电', 'kWh'),
+    'park_electricity_kwh': ('园区用电', 'kWh'),
+    'total_gas_m3': ('天然气总量', 'm3'),
+    'cast_roll_gas_m3': ('铸轧天然气', 'm3'),
+    'smelting_gas_m3': ('铸锭熔炼炉天然气', 'm3'),
+    'heating_furnace_gas_m3': ('热轧加热炉天然气', 'm3'),
+    'boiler_gas_m3': ('锅炉天然气', 'm3'),
+    'groundwater_ton': ('地下水', '吨'),
+    'tap_water_ton': ('自来水', '吨'),
+    'park_inbound_daily': ('园区入库日合', '吨'),
+    'new_plant_inbound_daily': ('新厂入库日合', '吨'),
+    'park_outbound_daily': ('园区出库日合', '吨'),
+    'new_plant_outbound_daily': ('新厂出库日合', '吨'),
+    'consignment_weight': ('成品库寄存', '吨'),
+}
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
     if value is None:
         return 0.0
     return float(value)
+
+
+def _payload_float(value: Any) -> float | None:
+    if value is None or value == '':
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _owner_daily_metrics(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    metrics = []
+    for key, (label, unit) in OWNER_DAILY_FIELD_META.items():
+        value = _payload_float(payload.get(key))
+        if value is None:
+            continue
+        metrics.append({'key': key, 'label': label, 'value': value, 'unit': unit})
+    return metrics
 
 
 def _entry_weight_tons(item: dict, field_name: str) -> float:
@@ -865,12 +902,18 @@ def _build_owner_daily_status(
     workshops = db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all() if workshop_ids else []
     workshop_by_id = {item.id: item for item in workshops}
     items = []
+    totals: dict[str, float] = {}
     submitted_count = 0
     for user in users:
         entry = latest_by_user.get(int(user.id))
         is_submitted = entry is not None and entry.entry_status in FORMAL_ENTRY_STATUSES
         submitted_count += 1 if is_submitted else 0
         workshop = workshop_by_id.get(user.workshop_id)
+        payload = dict(entry.extra_payload or {}) if entry else {}
+        metrics = _owner_daily_metrics(payload) if is_submitted else []
+        for metric in metrics:
+            key = str(metric['key'])
+            totals[key] = totals.get(key, 0.0) + float(metric['value'])
         items.append(
             {
                 'user_id': user.id,
@@ -883,12 +926,23 @@ def _build_owner_daily_status(
                 'status': 'submitted' if is_submitted else 'not_started',
                 'entry_id': entry.id if entry else None,
                 'updated_at': entry.updated_at.isoformat() if entry and entry.updated_at else None,
+                'metrics': metrics,
             }
         )
     return {
         'business_date': business_date.isoformat(),
         'submitted_count': submitted_count,
         'total_count': len(items),
+        'totals': [
+            {
+                'key': key,
+                'label': OWNER_DAILY_FIELD_META[key][0],
+                'value': round(value, 4),
+                'unit': OWNER_DAILY_FIELD_META[key][1],
+            }
+            for key, value in totals.items()
+            if key in OWNER_DAILY_FIELD_META
+        ],
         'items': items,
     }
 

@@ -51,6 +51,29 @@
       </article>
     </section>
 
+    <section class="source-compare-strip" aria-label="口径对照">
+      <article class="source-compare-card">
+        <span>算法成材率</span>
+        <strong :class="yieldToneClass(managementOverview.yieldRate)">{{ formatPercent(managementOverview.yieldRate) }}</strong>
+        <em>{{ runtimeYieldSourceLabel }}</em>
+      </article>
+      <article class="source-compare-card">
+        <span>内勤成品率</span>
+        <strong :class="yieldToneClass(ownerYieldRate)">{{ formatMetric(ownerYieldRate, '%') }}</strong>
+        <em>质检内勤实填</em>
+      </article>
+      <article class="source-compare-card">
+        <span>系统总能耗</span>
+        <strong>{{ formatMetric(energyCompare.systemTotalEnergy, '') }}</strong>
+        <em>{{ energyCompare.systemPerTon == null ? '吨能耗 --' : `吨能耗 ${formatMetric(energyCompare.systemPerTon, 'kWh/吨')}` }}</em>
+      </article>
+      <article class="source-compare-card">
+        <span>内勤全厂用电</span>
+        <strong>{{ formatMetric(energyCompare.ownerElectricity, 'kWh') }}</strong>
+        <em>{{ energyCompare.ownerGas == null ? '天然气 --' : `天然气 ${formatMetric(energyCompare.ownerGas, 'm3')}` }}</em>
+      </article>
+    </section>
+
     <section v-if="externalReadinessLanes.length || externalMissingInputs.length" class="external-readiness-lanes" aria-label="外部联通明细">
       <div class="external-readiness-lanes__head">
         <strong>外部联通明细</strong>
@@ -431,6 +454,11 @@
         <div class="owner-daily-card__status">
           <strong>{{ ownerDailyStatusText(item.status) }}</strong>
           <span>{{ item.updated_at ? dayjs(item.updated_at).format('HH:mm') : targetDate }}</span>
+        </div>
+        <div v-if="ownerDailyMetricItems(item).length" class="owner-daily-card__metrics">
+          <span v-for="metric in ownerDailyMetricItems(item)" :key="metric.key">
+            {{ metric.label }} <b>{{ formatMetric(metric.value, metric.unit) }}</b>
+          </span>
         </div>
       </article>
     </section>
@@ -913,6 +941,44 @@ const sortedWorkshops = computed(() => sortWorkshopsForCommandCenter(aggregation
 const ownerDailyStatus = computed(() => aggregation.value.owner_daily_status || { submitted_count: 0, total_count: 0, items: [] })
 const ownerDailyItems = computed(() => Array.isArray(ownerDailyStatus.value.items) ? ownerDailyStatus.value.items : [])
 const ownerDailySummary = computed(() => `${numberValue(ownerDailyStatus.value.submitted_count)}/${numberValue(ownerDailyStatus.value.total_count)} 人`)
+const ownerDailyTotalsByKey = computed(() => {
+  const totals = Array.isArray(ownerDailyStatus.value.totals) ? ownerDailyStatus.value.totals : []
+  return Object.fromEntries(totals.map((item) => [item.key, item]))
+})
+const ownerYieldRate = computed(() => ownerDailyTotalsByKey.value.plant_wide_yield_rate?.value ?? null)
+function sumOwnerDailyTotals(keys) {
+  let hasValue = false
+  const total = keys.reduce((sum, key) => {
+    const value = ownerDailyTotalsByKey.value[key]?.value
+    if (value === null || value === undefined || value === '') return sum
+    hasValue = true
+    return sum + numberValue(value)
+  }, 0)
+  return hasValue ? total : null
+}
+const energyCompare = computed(() => {
+  const summary = factorySnapshot.value.energy_summary || {}
+  const systemTotals = summary.system_totals || {}
+  const ownerTotals = summary.owner_totals || {}
+  const ownerElectricity = ownerTotals.electricity_value
+    ?? ownerDailyTotalsByKey.value.total_electricity_kwh?.value
+    ?? sumOwnerDailyTotals(['new_plant_electricity_kwh', 'park_electricity_kwh'])
+  const ownerGas = ownerTotals.gas_value
+    ?? ownerDailyTotalsByKey.value.total_gas_m3?.value
+    ?? sumOwnerDailyTotals(['cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3'])
+  return {
+    systemTotalEnergy: systemTotals.total_energy ?? summary.total_energy ?? null,
+    systemPerTon: systemTotals.energy_per_ton ?? summary.energy_per_ton ?? null,
+    ownerElectricity,
+    ownerGas,
+  }
+})
+const runtimeYieldSourceLabel = computed(() => {
+  const source = aggregation.value.factory_total?.yield_rate_source || ''
+  if (source === 'yield_matrix_lane') return '成品率表口径'
+  if (source === 'runtime_work_order') return '扫码下机量算法'
+  return '系统算法口径'
+})
 const outputDistributionRows = computed(() => buildOutputDistribution(sortedWorkshops.value, 5))
 const fillIntakeSummary = computed(() => buildFillIntakeSummary(aggregation.value))
 const liveRealityStatus = computed(() => buildLiveRealityStatus(aggregation.value))
@@ -1078,6 +1144,19 @@ function ownerDailyTone(item) {
 
 function ownerDailyStatusText(status) {
   return status === 'submitted' ? '已填' : '待填'
+}
+
+function ownerDailyMetricItems(item) {
+  const metrics = Array.isArray(item?.metrics) ? item.metrics : []
+  return metrics.slice(0, 4)
+}
+
+function formatMetric(value, unit = '') {
+  if (value === null || value === undefined || value === '') return '--'
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  const text = unit === '%' ? formatPercent(number) : formatWeight(number)
+  return unit && unit !== '%' ? `${text} ${unit}` : text
 }
 
 function getWorkshopShiftTotals(workshop) {
@@ -3004,6 +3083,39 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
+.source-compare-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: -2px 0 14px;
+}
+
+.source-compare-card {
+  display: grid;
+  gap: 6px;
+  min-height: 104px;
+  padding: 15px;
+  border: 1px solid var(--command-line);
+  border-radius: var(--command-radius);
+  background: var(--command-panel);
+  box-shadow: 0 14px 32px rgba(25, 62, 118, 0.07);
+}
+
+.source-compare-card span,
+.source-compare-card em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.source-compare-card strong {
+  color: var(--command-ink);
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
 .owner-daily-panel {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -3013,7 +3125,8 @@ onBeforeUnmount(() => {
 
 .owner-daily-card {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   min-height: 76px;
@@ -3054,6 +3167,42 @@ onBeforeUnmount(() => {
 
 .owner-daily-card__status {
   justify-items: end;
+}
+
+.owner-daily-card__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.owner-daily-card__metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--command-blue), transparent 90%);
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.owner-daily-card__metrics b {
+  color: var(--command-ink);
+  font-weight: 950;
+}
+
+@media (max-width: 1040px) {
+  .source-compare-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .source-compare-strip {
+    grid-template-columns: 1fr;
+  }
 }
 
 .command-status-strip {

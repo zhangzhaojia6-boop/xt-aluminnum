@@ -324,8 +324,15 @@ def get_energy_summary(
             query = query.filter(EnergyImportRecord.shift_code == shift_code)
 
     rows = query.all()
-    if not rows and business_date is not None:
-        return _load_owner_only_energy_rows(db, business_date=business_date, workshop_id=workshop_id)
+    owner_rows = (
+        _load_owner_only_energy_rows(db, business_date=business_date, workshop_id=workshop_id)
+        if business_date is not None
+        else []
+    )
+    if shift_config_id is not None:
+        owner_rows = [row for row in owner_rows if row.get('shift_config_id') == shift_config_id]
+    if not rows:
+        return owner_rows
     workshop_id_map = _resolve_workshop_id(db)
     shift_id_map = _resolve_shift_id(db)
 
@@ -372,18 +379,28 @@ def get_energy_summary(
         if hasattr(payload['business_date'], 'isoformat'):
             payload['business_date'] = payload['business_date'].isoformat()
 
-    return list(grouped.values())
+    return [*grouped.values(), *owner_rows]
 
 
 def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     rows = get_energy_summary(db, business_date=business_date)
+    owner_rows = [item for item in rows if item.get('source') == 'owner_only']
+    system_rows = [item for item in rows if item.get('source') != 'owner_only']
+    primary_rows = system_rows or owner_rows
 
-    electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in rows)
-    gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in rows)
-    water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in rows)
-    total_energy = sum(item['total_energy'] for item in rows)
-    total_output = sum(item['output_weight'] for item in rows)
+    electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in primary_rows)
+    gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows)
+    water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows)
+    total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows)
+    total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in primary_rows)
     energy_per_ton = total_energy / total_output if total_output else None
+    owner_electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in owner_rows)
+    owner_gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in owner_rows)
+    owner_water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in owner_rows)
+    owner_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in owner_rows)
+    owner_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in owner_rows)
+    system_total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in system_rows)
+    system_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in system_rows)
     return {
         'electricity_value': electricity_value,
         'gas_value': gas_value,
@@ -391,6 +408,22 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
         'total_energy': total_energy,
         'total_output_weight': total_output,
         'energy_per_ton': energy_per_ton,
+        'primary_source': 'system' if system_rows else ('owner_only' if owner_rows else 'none'),
+        'system_totals': {
+            'total_energy': system_total_energy,
+            'total_output_weight': system_total_output,
+            'energy_per_ton': system_total_energy / system_total_output if system_total_output else None,
+            'row_count': len(system_rows),
+        },
+        'owner_totals': {
+            'electricity_value': owner_electricity_value,
+            'gas_value': owner_gas_value,
+            'water_value': owner_water_value,
+            'total_energy': owner_total_energy,
+            'total_output_weight': owner_total_output,
+            'energy_per_ton': owner_total_energy / owner_total_output if owner_total_output else None,
+            'row_count': len(owner_rows),
+        },
         'rows': rows,
     }
 
@@ -402,11 +435,15 @@ def workshop_energy_summary(
     workshop_id: int | None,
 ) -> dict:
     rows = get_energy_summary(db, business_date=business_date, workshop_id=workshop_id)
+    owner_rows = [item for item in rows if item.get('source') == 'owner_only']
+    system_rows = [item for item in rows if item.get('source') != 'owner_only']
+    primary_rows = system_rows or owner_rows
     totals = {
-        'electricity_value': sum(_to_float(item.get('electricity_value')) or 0.0 for item in rows),
-        'gas_value': sum(_to_float(item.get('gas_value')) or 0.0 for item in rows),
-        'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in rows),
-        'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in rows),
+        'electricity_value': sum(_to_float(item.get('electricity_value')) or 0.0 for item in primary_rows),
+        'gas_value': sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows),
+        'water_value': sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows),
+        'total_energy': sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows),
+        'primary_source': 'system' if system_rows else ('owner_only' if owner_rows else 'none'),
     }
     output_weight = _sum_shift_output_tons(
         db,

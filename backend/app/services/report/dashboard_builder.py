@@ -554,6 +554,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         'mobile_reporting_summary': mobile_summary,
         'reminder_summary': reminder_summary,
         'blocker_summary': blocker_summary,
+        'energy_summary': energy_summary,
         'production_lane': _build_production_lane(db, target_date=target_date),
         'yesterday_shift_breakdown': _build_yesterday_shift_breakdown(db, target_date=target_date),
         'energy_lane': energy_lane,
