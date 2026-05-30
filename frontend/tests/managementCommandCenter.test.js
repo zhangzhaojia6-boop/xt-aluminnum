@@ -593,16 +593,18 @@ test('manageNavGroups keeps the manager surface focused on daily factory work an
   })
   const items = groups.flatMap((group) => group.items)
 
-  assert.deepEqual(groups.map((group) => group.label), ['昨日日报', '生产', '考勤', '交付'])
+  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤', '交付'])
   assert.deepEqual(items.map((item) => item.path), [
+    '/manage/live',
     '/manage/today',
-    '/manage/daily-report',
     '/manage/production',
     '/manage/fill-details',
     '/energy/center',
+    '/manage/alerts',
     '/attendance/overview',
     '/manage/reports',
   ])
+  assert.equal(items.some((item) => item.path === '/manage/daily-report'), false)
 
   for (const path of [
     '/manage/admin/settings',

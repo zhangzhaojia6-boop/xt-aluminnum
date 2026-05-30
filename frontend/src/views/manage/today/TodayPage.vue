@@ -223,14 +223,16 @@ const kpiItems = computed(() => {
 const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
 const quickLinks = computed(() => {
   const links = [
-    { label: '日报', path: '/manage/daily-report' },
+    { label: '实时', path: '/manage/live' },
+    { label: '日报', path: '/manage/today?section=daily-report' },
     { label: '生产', path: '/manage/production' },
+    { label: '填报明细', path: '/manage/fill-details' },
+    { label: '异常', path: '/manage/alerts' },
     { label: '能耗', path: '/energy/center' },
     { label: '报表', path: '/manage/reports' },
   ]
   if (auth.adminSurface) {
     links.push(
-      { label: '填报明细', path: '/manage/fill-details' },
       { label: '主数据', path: '/manage/master' },
       { label: '用户', path: '/manage/admin/users' },
       { label: '模板', path: '/manage/admin/templates' },

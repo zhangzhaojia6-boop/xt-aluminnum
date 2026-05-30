@@ -29,7 +29,9 @@ test('TodayPage h1 is the static yesterday overview title (date label lives in D
 
 test('TodayPage exposes core page entrances including admin settings', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /\/manage\/daily-report/)
+  assert.match(src, /\/manage\/live/)
+  assert.match(src, /\/manage\/today\?section=daily-report/)
+  assert.equal(/\/manage\/daily-report/.test(src), false)
   assert.match(src, /\/energy\/center/)
   assert.match(src, /\/manage\/admin\/settings/)
   assert.match(src, /auth\.adminSurface/)
@@ -47,10 +49,10 @@ test('TodayPage uses --xt-* tokens, no hex in style block', () => {
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(styleBlock), false)
 })
 
-test('TodayPage does not proactively surface exception prompts', () => {
+test('TodayPage keeps exception as an entrance without proactive prompts', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.equal(/KeyEventList/.test(src), false)
-  assert.equal(/\/manage\/alerts/.test(src), false)
+  assert.match(src, /\/manage\/alerts/)
 })
 
 test('TodayPage estimated_margin uses /10000 conversion to 万元', () => {

@@ -24,10 +24,47 @@ function routeLine(path) {
     .find((line) => new RegExp(`path:\\s*'${escapeRegExp(path)}'`).test(line))
 }
 
-test('three new top-level manage routes are wired', () => {
-  for (const path of ['today', 'production']) {
+test('core top-level manage routes are wired', () => {
+  for (const path of ['live', 'today', 'production']) {
     assert.ok(routeLine(path), `route '${path}' should exist`)
   }
+})
+
+test('live route is the realtime command surface', () => {
+  const line = routeLine('live')
+
+  assert.ok(line, "route 'live' should exist")
+  assert.match(src, /const\s+LiveDashboardPage\s*=\s*\(\)\s*=>\s*import\(['"]\.\.\/views\/manage\/live\/LiveDashboardPage\.vue['"]\)/)
+  assert.match(line, /\bname:\s*['"]manage-live['"]/)
+  assert.match(line, /\bcomponent:\s*LiveDashboardPage\b/)
+  assert.match(line, /canonical:\s*['"]\/manage\/live['"]/)
+  assert.doesNotMatch(line, /\bcomponent:\s*LiveDashboard\b/)
+})
+
+test('daily report and incomplete operation pages redirect to stable destinations', () => {
+  const redirects = [
+    ['daily-report', /redirect:\s*preserveRouteState\(['"]\/manage\/today['"],\s*\{\s*section:\s*['"]daily-report['"]\s*\}\)/],
+    ['ops-center', /redirect:\s*preserveRouteState\(['"]\/manage\/admin\/settings['"]\)/],
+    ['settings-center', /redirect:\s*preserveRouteState\(['"]\/manage\/admin\/settings['"]\)/],
+  ]
+
+  for (const [path, redirectPattern] of redirects) {
+    const line = routeLine(path)
+
+    assert.ok(line, `route '${path}' should exist`)
+    assert.match(line, redirectPattern, `route '${path}' should redirect to its stable page`)
+    assert.doesNotMatch(line, /\bcomponent:\s*(DailyProductionOverview|OpsCenter|SettingsCenter)\b/)
+  }
+})
+
+test('system settings route is a lightweight settings page, not the realtime dashboard', () => {
+  const line = routeLine('admin/settings')
+
+  assert.ok(line, "route 'admin/settings' should exist")
+  assert.match(src, /const\s+SystemSettingsPage\s*=\s*\(\)\s*=>\s*import\(['"]\.\.\/views\/manage\/admin\/SystemSettingsPage\.vue['"]\)/)
+  assert.match(line, /\bname:\s*['"]admin-ops-reliability['"]/)
+  assert.match(line, /\bcomponent:\s*SystemSettingsPage\b/)
+  assert.doesNotMatch(line, /\bcomponent:\s*LiveDashboard\b/)
 })
 
 test('owner skeleton route metadata stays unique', () => {
@@ -104,7 +141,7 @@ test('legacy route callers use the owner skeleton tabs', () => {
     'reconciliation detail should return to manage alerts'
   )
   assert.match(reconciliationDetailSrc, /surface:\s*['"]reconciliation['"]/, 'reconciliation detail should keep reconciliation surface')
-  assert.match(navigationSrc, /routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"]/, 'navigation catalog should expose active skeleton routes')
+  assert.match(navigationSrc, /routeName:\s*['"]manage-live['"][\s\S]*routeName:\s*['"]manage-today['"][\s\S]*routeName:\s*['"]manage-production['"]/, 'navigation catalog should expose active skeleton routes')
   const centerNavigationBlock = navigationSrc.slice(0, navigationSrc.indexOf('const centerByRouteName'))
   assert.doesNotMatch(centerNavigationBlock, /routeName:\s*['"]manage-alerts['"]/, 'navigation catalog should not surface alerts as an active center')
 })

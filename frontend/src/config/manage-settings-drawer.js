@@ -4,6 +4,7 @@ export const SETTINGS_GROUPS = [
     items: [
       { title: '主数据', path: '/manage/master', access: 'admin' },
       { title: '别名映射', path: '/manage/alias', access: 'admin' },
+      { title: '系统设置', path: '/manage/admin/settings', access: 'admin' },
       { title: '模板', path: '/manage/admin/templates', access: 'admin' },
       { title: '规则', path: '/manage/admin/rules', access: 'admin' }
     ]
@@ -16,10 +17,8 @@ export const SETTINGS_GROUPS = [
     ]
   },
   {
-    label: '运维',
+    label: '工具',
     items: [
-      { title: '运维', path: '/manage/ops-center', access: 'review' },
-      { title: '系统', path: '/manage/settings-center', access: 'admin' },
       { title: 'AI', path: '/manage/ai-assistant', access: 'review' }
     ]
   },

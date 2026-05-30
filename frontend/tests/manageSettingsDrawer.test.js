@@ -21,12 +21,11 @@ const adminAuth = {
 const requiredPaths = [
   '/manage/master',
   '/manage/alias',
+  '/manage/admin/settings',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',
   '/manage/admin/governance',
-  '/manage/ops-center',
-  '/manage/settings-center',
   '/manage/ai-assistant',
   '/manage/admin/qr-print',
   '/manage/factory/destinations',
@@ -37,16 +36,15 @@ const requiredPaths = [
 const adminPaths = [
   '/manage/master',
   '/manage/alias',
+  '/manage/admin/settings',
   '/manage/admin/templates',
   '/manage/admin/rules',
   '/manage/admin/users',
   '/manage/admin/governance',
-  '/manage/settings-center',
   '/manage/admin/qr-print'
 ]
 
 const reviewPaths = [
-  '/manage/ops-center',
   '/manage/ai-assistant',
   '/manage/factory/destinations',
   '/manage/inventory',
@@ -97,6 +95,8 @@ test('config includes the required settings paths', () => {
   const paths = itemPaths(SETTINGS_GROUPS)
 
   assert.deepEqual(paths.sort(), [...requiredPaths].sort())
+  assert.equal(paths.includes('/manage/ops-center'), false)
+  assert.equal(paths.includes('/manage/settings-center'), false)
 })
 
 test('config uses current real manage paths only', () => {

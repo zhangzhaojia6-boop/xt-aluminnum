@@ -33,7 +33,7 @@ const AliasMapping = () => import('../views/master/AliasMapping.vue')
 const UserManagement = () => import('../views/master/UserManagement.vue')
 const WorkshopTemplateConfig = () => import('../views/master/WorkshopTemplateConfig.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
-const LiveDashboard = () => import('../views/reports/LiveDashboard.vue')
+const LiveDashboardPage = () => import('../views/manage/live/LiveDashboardPage.vue')
 const EnergyCenter = () => import('../views/energy/EnergyCenter.vue')
 const AttendanceOverview = () => import('../views/attendance/AttendanceOverview.vue')
 const AttendanceDetail = () => import('../views/attendance/AttendanceDetail.vue')
@@ -41,13 +41,12 @@ const ExceptionList = () => import('../views/attendance/ExceptionList.vue')
 const QRCodePrint = () => import('../views/master/QRCodePrint.vue')
 const InventoryCenter = () => import('../views/inventory/InventoryCenter.vue')
 const ContractsCenter = () => import('../views/contracts/ContractsCenter.vue')
-const OpsCenter = () => import('../views/ops/OpsCenter.vue')
-const SettingsCenter = () => import('../views/settings/SettingsCenter.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const TodayPage = () => import('../views/manage/today/TodayPage.vue')
 const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
+const SystemSettingsPage = () => import('../views/manage/admin/SystemSettingsPage.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -114,9 +113,10 @@ const rawRoutes = [
     meta: { ...reviewMeta, title: '管理工作台', canonical: '/manage' },
     children: [
       { path: '', redirect: '/manage/today' },
+      { path: 'live', name: 'manage-live', component: LiveDashboardPage, meta: { ...reviewMeta, title: '生产实时', canonical: '/manage/live' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
-      { path: 'daily-report', name: 'manage-daily-report', component: () => import('../views/manage/daily-report/DailyProductionOverview.vue'), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/daily-report' } },
+      { path: 'daily-report', name: 'manage-daily-report', redirect: preserveRouteState('/manage/today', { section: 'daily-report' }), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/today' } },
       { path: 'fill-details', name: 'manage-fill-details', component: FillDetailsPage, meta: { ...reviewMeta, title: '填报明细', canonical: '/manage/fill-details' } },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
@@ -135,11 +135,11 @@ const rawRoutes = [
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'inventory', name: 'manage-inventory', component: InventoryCenter, meta: { ...reviewMeta, title: '库存出入中心', canonical: '/manage/inventory' } },
       { path: 'contracts', name: 'manage-contracts', component: ContractsCenter, meta: { ...reviewMeta, title: '合同与订单中心', canonical: '/manage/contracts' } },
-      { path: 'ops-center', name: 'manage-ops-center', component: OpsCenter, meta: { ...reviewMeta, title: '运维告警中心', canonical: '/manage/ops-center' } },
-      { path: 'settings-center', name: 'manage-settings-center', component: SettingsCenter, meta: { ...adminMeta, title: '系统配置中心', canonical: '/manage/settings-center' } },
+      { path: 'ops-center', name: 'manage-ops-center', redirect: preserveRouteState('/manage/admin/settings'), meta: { ...reviewMeta, title: '系统设置', canonical: '/manage/admin/settings' } },
+      { path: 'settings-center', name: 'manage-settings-center', redirect: preserveRouteState('/manage/admin/settings'), meta: { ...adminMeta, title: '系统设置', canonical: '/manage/admin/settings' } },
       { path: 'admin', name: 'admin-overview', redirect: '/manage/admin/settings', meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/setting', redirect: { name: 'admin-ops-reliability' } },
-      { path: 'admin/settings', name: 'admin-ops-reliability', component: LiveDashboard, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
+      { path: 'admin/settings', name: 'admin-ops-reliability', component: SystemSettingsPage, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
       { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
       { path: 'admin/templates', name: 'admin-template-center', component: WorkshopTemplateConfig, meta: { ...adminMeta, title: '模板中心', centerNo: '14', canonical: '/manage/admin/templates' } },

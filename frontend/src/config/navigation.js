@@ -1,5 +1,15 @@
 export const centerNavigation = [
   {
+    id: 'live',
+    no: '00',
+    title: '生产实时',
+    zone: 'review',
+    path: '/manage/live',
+    routeName: 'manage-live',
+    icon: '实',
+    summary: '实时产量、机列状态、能耗对照'
+  },
+  {
     id: 'overview',
     no: '01',
     title: '系统总览主视图',
@@ -62,12 +72,12 @@ export const centerNavigation = [
   {
     id: 'ops',
     no: '12',
-    title: '系统运维与观测',
+    title: '系统设置',
     zone: 'admin',
     path: '/manage/admin/settings',
     routeName: 'admin-ops-reliability',
-    icon: '运',
-    summary: 'health、ready、版本、响应时间'
+    icon: '设',
+    summary: '系统入口、主数据、用户、模板、规则'
   },
   {
     id: 'governance',
@@ -118,9 +128,10 @@ const routeMetaByName = {
   'mobile-report-history': { center: 'entry', group: '录入端', order: 6, icon: 'Tickets', legacy: false, roles: ['entry'], keepAlive: true },
   'entry-drafts': { center: 'entry', group: '录入端', order: 7, icon: 'DocumentCopy', legacy: false, roles: ['entry'], keepAlive: true },
 
-  'manage-today': { center: 'overview', group: '三页骨架', order: 1, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
-  'manage-production': { center: 'factory', group: '三页骨架', order: 2, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
-  'manage-fill-details': { center: 'factory', group: '生产', order: 3, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-live': { center: 'live', group: '三页骨架', order: 1, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-today': { center: 'overview', group: '三页骨架', order: 2, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-production': { center: 'factory', group: '三页骨架', order: 3, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-fill-details': { center: 'factory', group: '生产', order: 4, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
   'manage-alerts': { group: '兼容入口', order: 103, icon: 'WarningFilled', legacy: true, roles: ['review'], keepAlive: false },
   'review-report-center': { center: 'reports', group: '审阅处置', order: 5, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
@@ -154,6 +165,7 @@ const routeMetaByName = {
 }
 
 const commandMetaByName = {
+  'manage-live': { shortLabel: '实时', commandGroup: '生产实时', secondaryGroup: '全局' },
   'manage-today': { shortLabel: '昨日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
   'manage-fill-details': { shortLabel: '明细', commandGroup: '生产', secondaryGroup: '填报' },
@@ -164,7 +176,7 @@ const commandMetaByName = {
   'review-brain-center': { shortLabel: 'AI 助手', commandGroup: '兼容入口', secondaryGroup: '站内' },
   'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '模板' },
   'admin-template-center': { shortLabel: '模板', commandGroup: '管理', secondaryGroup: '模板' },
-  'admin-ops-reliability': { shortLabel: '设置', commandGroup: '管理', secondaryGroup: '运行' },
+  'admin-ops-reliability': { shortLabel: '设置', commandGroup: '管理', secondaryGroup: '系统' },
   'admin-governance-center': { shortLabel: '治理', commandGroup: '管理', secondaryGroup: '权限' },
   'admin-users': { shortLabel: '用户', commandGroup: '管理', secondaryGroup: '权限' },
   'mobile-entry': { shortLabel: '填报', commandGroup: '填报', secondaryGroup: '移动' }
@@ -192,6 +204,7 @@ const reviewNavigation = [
     key: 'owner-tabs',
     label: '三页骨架',
     items: [
+      { routeName: 'manage-live', label: '生产实时', access: 'review' },
       { routeName: 'manage-today', label: '昨日日报', access: 'review' },
       { routeName: 'manage-production', label: '生产', access: 'review' },
       { routeName: 'manage-fill-details', label: '填报明细', access: 'review' }
@@ -208,7 +221,7 @@ const adminNavigation = [
       { routeName: 'admin-template-center', label: '模板中心', access: 'admin' },
       { routeName: 'admin-users', label: '用户管理', access: 'admin' },
       { routeName: 'admin-governance-center', label: '权限治理', access: 'admin' },
-      { routeName: 'admin-ops-reliability', label: '系统运维', access: 'admin' }
+      { routeName: 'admin-ops-reliability', label: '系统设置', access: 'admin' }
     ]
   }
 ]

@@ -9,11 +9,17 @@ import {
 
 const NAV_GROUPS = [
   {
+    label: '生产实时',
+    commandGroup: '生产实时',
+    items: [
+      { title: '生产实时', shortLabel: '实时', path: '/manage/live', icon: TrendCharts, access: 'review', commandGroup: '生产实时' }
+    ]
+  },
+  {
     label: '昨日日报',
     commandGroup: '昨日日报',
     items: [
-      { title: '昨日日报', shortLabel: '昨日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' },
-      { title: '日报总览', shortLabel: '日报', path: '/manage/daily-report', icon: DataLine, access: 'review', commandGroup: '昨日日报' }
+      { title: '昨日日报', shortLabel: '昨日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' }
     ]
   },
   {
@@ -22,7 +28,8 @@ const NAV_GROUPS = [
     items: [
       { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
       { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产' },
-      { title: '能耗', shortLabel: '能耗', path: '/energy/center', icon: DataLine, access: 'review', commandGroup: '生产' }
+      { title: '能耗', shortLabel: '能耗', path: '/energy/center', icon: DataLine, access: 'review', commandGroup: '生产' },
+      { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产' }
     ]
   },
   {
