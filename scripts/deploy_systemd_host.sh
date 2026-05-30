@@ -71,6 +71,7 @@ BACKUP_FILE="${BACKUP_FILE:-$BACKUP_DIR/systemd-predeploy-$TIMESTAMP.dump}"
 BACKEND_BASE_URL="${PARSED_BASE_URL:-${BACKEND_BASE_URL:-http://127.0.0.1:8000}}"
 READY_RETRIES="${READY_RETRIES:-24}"
 READY_INTERVAL_SECONDS="${READY_INTERVAL_SECONDS:-5}"
+ADMIN_LOGIN_PASSWORD="${ADMIN_LOGIN_PASSWORD:-${DEPLOY_ADMIN_LOGIN_PASSWORD:-}}"
 
 cd "$REPO_ROOT"
 
@@ -173,13 +174,15 @@ if [ ! -f "$BACKEND_ENV_FILE" ]; then
   exit 1
 fi
 
-require_command pg_dump
-require_command pg_restore
-require_command curl
-require_command systemctl
-require_command npm
-if [ "$SKIP_PULL" -eq 0 ]; then
-  require_command git
+if [ "$DRY_RUN" -eq 0 ]; then
+  require_command pg_dump
+  require_command pg_restore
+  require_command curl
+  require_command systemctl
+  require_command npm
+  if [ "$SKIP_PULL" -eq 0 ]; then
+    require_command git
+  fi
 fi
 
 SQLALCHEMY_DB_URL="${DATABASE_URL:-$(get_env_value DATABASE_URL)}"
@@ -227,6 +230,11 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo " - 可选同步: git pull --ff-only origin main"
   echo " - 备份数据库并用 pg_restore -l 校验"
   echo " - 安装后端依赖，执行 Alembic 和基础数据初始化"
+  if [ -n "$ADMIN_LOGIN_PASSWORD" ]; then
+    echo " - 管理员登录密码: 通过 create_admin.py --reset-password 单独重置（不输出密码）"
+  else
+    echo " - 管理员账号: 保持已有密码，仅确保账号权限契约"
+  fi
   echo " - 构建前端"
   echo " - 重启 systemd 服务并检查 /readyz hard_gate_passed=true"
   if [ "$REQUIRE_EXTERNAL" -eq 1 ]; then
@@ -253,7 +261,11 @@ fi
 .venv/bin/alembic upgrade head
 .venv/bin/python scripts/init_master_data.py
 .venv/bin/python scripts/init_real_master_data.py
-.venv/bin/python scripts/create_admin.py
+if [ -n "$ADMIN_LOGIN_PASSWORD" ]; then
+  .venv/bin/python scripts/create_admin.py --password "$ADMIN_LOGIN_PASSWORD" --reset-password
+else
+  .venv/bin/python scripts/create_admin.py
+fi
 
 cd "$FRONTEND_DIR"
 npm ci --include=dev

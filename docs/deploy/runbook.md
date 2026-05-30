@@ -115,6 +115,8 @@ DEFAULT_TIMEZONE=Asia/Shanghai
 VITE_API_BASE_URL=/api/v1
 ```
 
+`INIT_ADMIN_PASSWORD` 是生产启动校验和首次初始化用的强密码。若现场需要把已有 `admin` 登录密码重置成另一个值，部署时用 `ADMIN_LOGIN_PASSWORD=实际登录密码 ./scripts/deploy_systemd_host.sh --pull https://your.domain.example`，不要把短密码写进生产 `.env`。
+
 首轮浏览器试跑推荐保持：
 
 ```env
@@ -360,7 +362,7 @@ cd /srv/aluminum-bypass
 - 80 通 443 不通：检查证书文件、nginx 日志、安全组 443。
 - `/readyz` 不通过：先看后端日志和数据库连接。
 - 前端能打开但 API 失败：检查 `/api/` 反代、`VITE_API_BASE_URL=/api/v1`、`CORS_ORIGINS`。
-- 登录失败：检查 `INIT_ADMIN_PASSWORD` 是否是初始化时的密码；已有数据库不会因为改 `.env` 自动改老账号密码。
+- 登录失败：先用 `ADMIN_LOGIN_PASSWORD=实际登录密码 ./scripts/deploy_systemd_host.sh --pull ...` 重置已有 `admin`；不要把短登录密码写进 `.env` 的 `INIT_ADMIN_PASSWORD`，否则生产启动校验会拦截。
 
 ## 14. 发布纪律
 

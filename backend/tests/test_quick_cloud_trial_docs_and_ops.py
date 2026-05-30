@@ -56,6 +56,7 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert 'FRONTEND_DIR="$REPO_ROOT/frontend"' in script
     assert 'BACKEND_ENV_FILE="$BACKEND_DIR/.env"' in script
     assert 'BACKUP_FILE="${BACKUP_FILE:-$BACKUP_DIR/systemd-predeploy-$TIMESTAMP.dump}"' in script
+    assert 'ADMIN_LOGIN_PASSWORD="${ADMIN_LOGIN_PASSWORD:-${DEPLOY_ADMIN_LOGIN_PASSWORD:-}}"' in script
     assert 'SQLALCHEMY_DB_URL="${DATABASE_URL:-$(get_env_value DATABASE_URL)}"' in script
     assert 'normalize_pg_dump_url()' in script
     assert 'postgresql+*://*)' in script
@@ -66,6 +67,7 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert '部署 systemd host 前必须设置 APP_ENV=production' in script
     assert 'require_env_value SECRET_KEY' in script
     assert 'require_env_value INIT_ADMIN_PASSWORD' in script
+    assert 'if [ "$DRY_RUN" -eq 0 ]; then' in script
     assert 'if is_weak_secret_key "$SECRET_KEY_VALUE"; then' in script
     assert 'if is_weak_admin_password "$INIT_ADMIN_PASSWORD_VALUE"; then' in script
     assert '.venv/bin/python -m pip install -r requirements.txt' in script
@@ -73,6 +75,8 @@ def test_systemd_host_deploy_script_matches_current_ecs_topology() -> None:
     assert '.venv/bin/python scripts/init_master_data.py' in script
     assert '.venv/bin/python scripts/init_real_master_data.py' in script
     assert '.venv/bin/python scripts/create_admin.py' in script
+    assert '.venv/bin/python scripts/create_admin.py --password "$ADMIN_LOGIN_PASSWORD" --reset-password' in script
+    assert '管理员登录密码: 通过 create_admin.py --reset-password 单独重置' in script
     assert 'npm ci --include=dev' in script
     assert 'npm rebuild' in script
     assert 'VITE_API_BASE_URL="${VITE_API_BASE_URL:-/api/v1}" npm run build' in script
