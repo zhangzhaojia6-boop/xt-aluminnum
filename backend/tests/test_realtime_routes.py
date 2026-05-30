@@ -34,6 +34,7 @@ def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('live-aggregation') == '/api/v1/aggregation/live'
     assert app.url_path_for('live-active-business-date') == '/api/v1/aggregation/live/active-date'
     assert app.url_path_for('live-aggregation-detail') == '/api/v1/aggregation/live/detail'
+    assert app.url_path_for('live-fill-details') == '/api/v1/aggregation/live/fill-details'
     assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
     assert app.url_path_for('live-missing-output-resolve', entry_id=7) == '/api/v1/aggregation/live/missing-output/7'
 
@@ -328,6 +329,82 @@ def test_live_aggregation_detail_endpoint_calls_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()['items'][0]['tracking_card_no'] == 'RA240001'
+
+    app.dependency_overrides.clear()
+
+
+def test_live_fill_details_endpoint_calls_service(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_detail(db, *, business_date, workshop_id, search, limit, current_user):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        assert search == '1#'
+        assert limit == 20
+        assert current_user.id == 7
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 1,
+            'summary': {
+                'entry_count': 1,
+                'machine_count': 1,
+                'owner_count': 1,
+                'output': 96.0,
+                'energy_kwh': 120.0,
+                'gas_m3': 0.0,
+                'source_counts': {'work_order_entry': 1},
+            },
+            'items': [
+                {
+                    'row_id': 'entry-101',
+                    'source_type': 'work_order_entry',
+                    'source_label': '扫码卷明细',
+                    'entry_id': 101,
+                    'tracking_card_no': 'RA260506001',
+                    'business_date': '2026-05-06',
+                    'workshop_id': 2,
+                    'workshop_name': '2050冷轧车间',
+                    'machine_id': 11,
+                    'machine_name': '1#机列',
+                    'shift_id': 3,
+                    'shift_name': '夜班',
+                    'responsible_user_id': 9,
+                    'responsible_name': '张三',
+                    'responsible_username': 'operator-1',
+                    'status': 'submitted',
+                    'entry_type': 'mobile_coil',
+                    'output_weight': 96.0,
+                    'energy_kwh': 120.0,
+                    'search_text': '1#机列 张三 RA260506001',
+                }
+            ],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.build_fill_detail_ledger', fake_detail)
+
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/fill-details',
+        params={'business_date': '2026-05-06', 'workshop_id': 2, 'search': '1#', 'limit': 20},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['items'][0]['responsible_name'] == '张三'
+    assert response.json()['summary']['machine_count'] == 1
 
     app.dependency_overrides.clear()
 

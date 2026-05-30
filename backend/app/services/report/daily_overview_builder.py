@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from app.models.attendance import AttendanceSchedule
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot
 from app.models.production import MobileShiftReport, WorkOrderEntry
@@ -458,6 +459,25 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
             return 'C'
         return None
 
+    expected_workshops_by_shift: dict[str, set[int]] = {code: set() for code in SHIFT_ORDER}
+    schedule_rows = (
+        db.query(AttendanceSchedule.workshop_id, AttendanceSchedule.shift_config_id)
+        .join(Workshop, Workshop.id == AttendanceSchedule.workshop_id)
+        .filter(
+            AttendanceSchedule.business_date == target_date,
+            AttendanceSchedule.workshop_id.is_not(None),
+            AttendanceSchedule.shift_config_id.is_not(None),
+            Workshop.is_active.is_(True),
+        )
+        .distinct()
+        .all()
+    )
+    for row in schedule_rows:
+        bucket = canonical_shift_code(shift_meta.get(int(row.shift_config_id)))
+        if bucket is None or row.workshop_id is None:
+            continue
+        expected_workshops_by_shift[bucket].add(int(row.workshop_id))
+
     grouped: dict[str, dict[str, Any]] = {}
     for row in latest_rows:
         if row.shift_id is None:
@@ -473,13 +493,15 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
                 'total_output': 0.0,
                 'total_energy': 0.0,
                 'entry_count': 0,
-                'workshop_count': 0,
+                'workshop_ids': set(),
             },
         )
         payload['total_output'] += round((_to_float(getattr(row, 'output_weight', None)) / 1000), 2)
         payload['total_energy'] += round(_to_float(getattr(row, 'energy_kwh', None)), 1)
         payload['entry_count'] += 1
-        payload['workshop_count'] += 1 if getattr(row, 'workshop_id', None) is not None else 0
+        workshop_id = getattr(row, 'workshop_id', None)
+        if workshop_id is not None:
+            payload['workshop_ids'].add(int(workshop_id))
 
     shifts: list[dict[str, Any]] = []
     grand_output = 0.0
@@ -490,7 +512,9 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
         total_output = round(float(bucket.get('total_output') or 0.0), 2)
         total_energy = round(float(bucket.get('total_energy') or 0.0), 1)
         entry_count = int(bucket.get('entry_count') or 0)
-        workshop_count = int(bucket.get('workshop_count') or 0)
+        workshop_ids = bucket.get('workshop_ids') or set()
+        workshop_count = len(workshop_ids)
+        expected_workshops = len(expected_workshops_by_shift.get(code) or set()) or workshop_count
         grand_output += total_output
         grand_energy += total_energy
         shift_window = ''
@@ -503,7 +527,7 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
             'shift_count': entry_count,
             'total_output': total_output,
             'reported_workshops': workshop_count,
-            'expected_workshops': workshop_count,
+            'expected_workshops': expected_workshops,
             'energy_per_ton': round(total_energy / total_output, 1) if total_output > 0 and total_energy > 0 else None,
             'exception_count': 0,
         })

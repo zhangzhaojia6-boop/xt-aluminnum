@@ -234,7 +234,10 @@ const routes = rawRoutes.map(withMeta)
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
+  scrollBehavior(to) {
+    if (to.hash) {
+      return { el: to.hash, top: 12 }
+    }
     return { top: 0 }
   }
 })

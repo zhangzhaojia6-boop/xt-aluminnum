@@ -15,6 +15,11 @@ export async function fetchLiveCellDetail(params = {}) {
   return data
 }
 
+export async function fetchLiveFillDetails(params = {}) {
+  const { data } = await api.get('/aggregation/live/fill-details', { params })
+  return data
+}
+
 export async function fetchPendingAssignmentEntries(params = {}) {
   const { data } = await api.get('/aggregation/live/pending-assignment', { params })
   return data

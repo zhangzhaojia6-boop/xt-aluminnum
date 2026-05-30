@@ -10,6 +10,7 @@ class LeaderMetricsOut(BaseModel):
     total_output_weight: float | None = None
     total_energy: float | None = None
     energy_per_ton: float | None = None
+    energy_available: bool | None = None
     reporting_rate: float | None = None
     total_attendance: int | None = None
     contract_weight: float | None = None

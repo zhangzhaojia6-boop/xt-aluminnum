@@ -469,6 +469,53 @@
       <span>{{ commandSummary.submittedCells }}/{{ commandSummary.totalCells }} 班次</span>
     </div>
 
+    <section id="fill-details" class="fill-detail-ledger" aria-label="填报明细台账">
+      <div class="fill-detail-ledger__head">
+        <div>
+          <strong>填报明细台账</strong>
+          <span>{{ fillDetailSummary }}</span>
+        </div>
+        <div class="fill-detail-ledger__tools">
+          <el-input
+            v-model="fillDetailSearch"
+            class="fill-detail-ledger__search"
+            clearable
+            placeholder="搜索机列、责任人、随行卡、车间"
+          />
+          <el-button :loading="fillDetailLoading" @click="loadFillDetails()">刷新</el-button>
+        </div>
+      </div>
+      <el-table
+        :data="visibleFillDetailRows"
+        v-loading="fillDetailLoading"
+        stripe
+        size="small"
+        max-height="360"
+        empty-text="当前日期暂无填报明细"
+      >
+        <el-table-column prop="source_label" label="来源" width="110" />
+        <el-table-column prop="workshop_name" label="车间" min-width="130" show-overflow-tooltip />
+        <el-table-column prop="machine_name" label="机列/岗位" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="shift_name" label="班次" width="100" />
+        <el-table-column label="责任人" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.responsible_name || row.responsible_username || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">{{ formatEntryStatus(row.status) }}</template>
+        </el-table-column>
+        <el-table-column prop="tracking_card_no" label="随行卡" min-width="140" show-overflow-tooltip />
+        <el-table-column label="产出" width="100" align="right">
+          <template #default="{ row }">{{ formatOptionalWeight(row.output_weight) }}</template>
+        </el-table-column>
+        <el-table-column label="能耗" min-width="130" align="right">
+          <template #default="{ row }">{{ formatFillEnergy(row) }}</template>
+        </el-table-column>
+        <el-table-column label="更新时间" width="130">
+          <template #default="{ row }">{{ formatFillUpdatedAt(row) }}</template>
+        </el-table-column>
+      </el-table>
+    </section>
+
     <div class="live-dashboard__workshops" v-loading="loading">
       <el-empty
         v-if="!loading && !sortedWorkshops.length"
@@ -725,7 +772,7 @@ import { useRoute } from 'vue-router'
 
 import { fetchDeliveryStatus, fetchExternalReadiness, fetchFactoryDashboard } from '../../api/dashboard'
 import { fetchMesSyncRuns, fetchMesSyncStatus } from '../../api/mes'
-import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, resolveMissingOutputWeight } from '../../api/realtime'
+import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLiveFillDetails, resolveMissingOutputWeight } from '../../api/realtime'
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
@@ -773,6 +820,9 @@ const mesSyncRuns = ref({ summary: {}, items: [] })
 const externalReadiness = ref({})
 const drawerData = ref({ items: [] })
 const missingOutputForm = ref({ output_weight: null, reason: '' })
+const fillDetails = ref({ summary: {}, items: [] })
+const fillDetailSearch = ref('')
+const fillDetailLoading = ref(false)
 const updatedKeys = ref({})
 const lastLoadedAt = ref('')
 
@@ -977,6 +1027,17 @@ const energyCompare = computed(() => {
     ownerGas,
   }
 })
+const fillDetailRows = computed(() => Array.isArray(fillDetails.value.items) ? fillDetails.value.items : [])
+const visibleFillDetailRows = computed(() => {
+  const keyword = String(fillDetailSearch.value || '').trim().toLowerCase()
+  if (!keyword) return fillDetailRows.value
+  return fillDetailRows.value.filter((row) => String(row.search_text || '').toLowerCase().includes(keyword))
+})
+const fillDetailSummary = computed(() => {
+  const machineIds = new Set(visibleFillDetailRows.value.map((row) => row.machine_id).filter((item) => item !== null && item !== undefined))
+  const owners = new Set(visibleFillDetailRows.value.map((row) => row.responsible_user_id || row.responsible_username || row.responsible_name).filter(Boolean))
+  return `${visibleFillDetailRows.value.length} 条 · ${machineIds.size} 台机列 · ${owners.size} 人`
+})
 const runtimeYieldSourceLabel = computed(() => {
   const source = aggregation.value.factory_total?.yield_rate_source || ''
   if (source === 'yield_matrix_lane') return '成品率表口径'
@@ -1163,6 +1224,26 @@ function formatMetric(value, unit = '') {
   return unit && unit !== '%' ? `${text} ${unit}` : text
 }
 
+function formatFillEnergy(row) {
+  const parts = []
+  if (row.energy_kwh !== null && row.energy_kwh !== undefined) {
+    parts.push(`${formatWeight(row.energy_kwh)} kWh`)
+  }
+  if (row.gas_m3 !== null && row.gas_m3 !== undefined) {
+    parts.push(`${formatWeight(row.gas_m3)} m3`)
+  }
+  return parts.length ? parts.join(' / ') : '—'
+}
+
+function formatOptionalWeight(value) {
+  return value === null || value === undefined || value === '' ? '—' : formatWeight(value)
+}
+
+function formatFillUpdatedAt(row) {
+  const value = row.updated_at || row.submitted_at
+  return value ? dayjs(value).format('MM-DD HH:mm') : '—'
+}
+
 function getWorkshopShiftTotals(workshop) {
   return workshop?.shift_totals || []
 }
@@ -1196,6 +1277,21 @@ function clearHandledEvents() {
   handledEventIds.clear()
 }
 
+async function loadFillDetails({ silent = false } = {}) {
+  if (!silent) fillDetailLoading.value = true
+  try {
+    fillDetails.value = await fetchLiveFillDetails({
+      business_date: targetDate.value,
+      workshop_id: streamScope.value === 'all' ? undefined : Number(streamScope.value),
+      limit: 800
+    })
+  } catch (_error) {
+    fillDetails.value = { summary: {}, items: [] }
+  } finally {
+    fillDetailLoading.value = false
+  }
+}
+
 async function loadAggregation({ silent = false } = {}) {
   if (!silent) {
     loading.value = true
@@ -1217,6 +1313,7 @@ async function loadAggregation({ silent = false } = {}) {
     }
     aggregation.value = liveData
     activePanels.value = sortWorkshopsForCommandCenter(liveData.workshops || []).map((item) => String(item.workshop_id))
+    const fillDetailPromise = loadFillDetails({ silent: true })
     const [factoryResult, deliveryResult, mesResult, mesRunsResult, externalResult] = await Promise.allSettled([
       fetchFactoryDashboard({ target_date: targetDate.value }),
       fetchDeliveryStatus({ target_date: targetDate.value }),
@@ -1229,6 +1326,7 @@ async function loadAggregation({ silent = false } = {}) {
     mesSyncStatus.value = mesResult.status === 'fulfilled' ? mesResult.value : {}
     mesSyncRuns.value = mesRunsResult.status === 'fulfilled' ? mesRunsResult.value : { summary: {}, items: [] }
     externalReadiness.value = externalResult.status === 'fulfilled' ? externalResult.value : {}
+    await fillDetailPromise
     lastLoadedAt.value = new Date().toISOString()
     if (drawerVisible.value && activeCell.value) {
       await loadDrawer(activeCell.value, { preserveOpen: true })
@@ -3204,6 +3302,57 @@ onBeforeUnmount(() => {
   font-weight: 950;
 }
 
+.fill-detail-ledger {
+  display: grid;
+  gap: 10px;
+  margin: -4px 0 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(39, 88, 146, 0.14);
+  border-radius: var(--command-radius);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 14px 30px rgba(25, 62, 118, 0.05);
+}
+
+.fill-detail-ledger__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fill-detail-ledger__head > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.fill-detail-ledger__head strong {
+  color: var(--command-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.fill-detail-ledger__head span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.fill-detail-ledger__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(460px, 100%);
+}
+
+.fill-detail-ledger__search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.fill-detail-ledger :deep(.el-table) {
+  border-radius: var(--command-radius-sm);
+}
+
 @media (max-width: 1040px) {
   .source-compare-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3793,6 +3942,16 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .fill-detail-ledger__head,
+  .fill-detail-ledger__tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fill-detail-ledger__search {
+    min-width: 0;
   }
 
   .live-shift-rhythm__head {

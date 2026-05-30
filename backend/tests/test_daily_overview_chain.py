@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import date
+from datetime import time
+from types import SimpleNamespace
 
 from app.services import report_service
 from app.services.report import daily_overview_builder
@@ -198,3 +200,52 @@ def test_factory_dashboard_runtime_output_prefers_storage_inbound_totals(monkeyp
     )
 
     assert dashboard_builder._current_shift_output(None, target_date=date(2026, 5, 29)) == 1.5
+
+
+def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> None:
+    shift_a = SimpleNamespace(id=1, code='A', name='白班', start_time=time(7, 30), end_time=time(15, 30))
+    shift_b = SimpleNamespace(id=2, code='B', name='小夜', start_time=time(15, 30), end_time=time(23, 30))
+
+    class FakeQuery:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def join(self, *_args, **_kwargs):
+            return self
+
+        def filter(self, *_args, **_kwargs):
+            return self
+
+        def distinct(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeDB:
+        def query(self, *args):
+            if args and args[0] is daily_overview_builder.ShiftConfig:
+                return FakeQuery([shift_a, shift_b])
+            return FakeQuery([
+                SimpleNamespace(workshop_id=10, shift_config_id=1),
+                SimpleNamespace(workshop_id=11, shift_config_id=1),
+                SimpleNamespace(workshop_id=10, shift_config_id=2),
+            ])
+
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_latest_mobile_coil_rows',
+        lambda *_args, **_kwargs: [
+            SimpleNamespace(shift_id=1, workshop_id=10, output_weight=1000, energy_kwh=10),
+            SimpleNamespace(shift_id=1, workshop_id=10, output_weight=2000, energy_kwh=20),
+            SimpleNamespace(shift_id=1, workshop_id=11, output_weight=3000, energy_kwh=30),
+            SimpleNamespace(shift_id=2, workshop_id=10, output_weight=4000, energy_kwh=40),
+        ],
+    )
+
+    payload = daily_overview_builder._build_shift_breakdown(FakeDB(), date(2026, 5, 29))
+
+    assert payload['shifts'][0]['shift_count'] == 3
+    assert payload['shifts'][0]['reported_workshops'] == 2
+    assert payload['shifts'][0]['expected_workshops'] == 2
+    assert payload['shifts'][1]['reported_workshops'] == 1

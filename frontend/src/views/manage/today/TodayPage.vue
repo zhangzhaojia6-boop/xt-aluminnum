@@ -230,6 +230,7 @@ const quickLinks = computed(() => {
   ]
   if (auth.adminSurface) {
     links.push(
+      { label: '填报明细', path: '/manage/admin/settings#fill-details' },
       { label: '主数据', path: '/manage/master' },
       { label: '用户', path: '/manage/admin/users' },
       { label: '模板', path: '/manage/admin/templates' },

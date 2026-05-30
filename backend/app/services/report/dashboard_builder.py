@@ -372,10 +372,17 @@ def _build_dashboard_leader_summary(
     blocker_summary: dict[str, Any] | None,
     yield_matrix_lane: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    energy_rows = energy_summary.get('rows')
+    energy_available = (
+        (energy_summary.get('primary_source') not in {'none', None} and ('rows' not in energy_summary or bool(energy_rows)))
+        or _to_float(energy_summary.get('total_energy')) > 0
+        or _to_float(energy_summary.get('energy_per_ton')) > 0
+    )
     report_data = {
         'total_output_weight': total_output,
         'total_energy': energy_summary.get('total_energy'),
         'energy_per_ton': energy_summary.get('energy_per_ton'),
+        'energy_available': energy_available,
         'reporting_rate': mobile_summary.get('reporting_rate'),
         'total_attendance': int((latest_report.report_data or {}).get('total_attendance') or 0)
         if latest_report and isinstance(latest_report.report_data, dict)

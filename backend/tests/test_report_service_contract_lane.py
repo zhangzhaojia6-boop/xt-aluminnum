@@ -613,6 +613,7 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
             'pending_or_unreported_shifts': 0,
             'returned_shifts': 0,
             'energy_per_ton': 5.2,
+            'yield_matrix_lane': {'quality_status': 'ready', 'company_total_yield': 94.4},
         },
     )
     monkeypatch.setattr(
@@ -758,6 +759,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
             'pending_or_unreported_shifts': 0,
             'returned_shifts': 0,
             'energy_per_ton': 5.2,
+            'yield_matrix_lane': {'quality_status': 'ready', 'company_total_yield': 94.4},
         },
     )
     monkeypatch.setattr(

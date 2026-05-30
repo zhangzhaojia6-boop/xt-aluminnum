@@ -144,3 +144,52 @@ class LivePendingAssignmentOut(BaseModel):
     total: int = 0
     summary: LivePendingAssignmentSummaryOut = Field(default_factory=LivePendingAssignmentSummaryOut)
     items: list[LivePendingAssignmentItemOut] = Field(default_factory=list)
+
+
+class LiveFillDetailSummaryOut(BaseModel):
+    entry_count: int = 0
+    machine_count: int = 0
+    owner_count: int = 0
+    output: float = 0
+    energy_kwh: float = 0
+    gas_m3: float = 0
+    source_counts: dict = Field(default_factory=dict)
+
+
+class LiveFillDetailItemOut(BaseModel):
+    row_id: str
+    source_type: str
+    source_label: str
+    entry_id: int | None = None
+    report_id: int | None = None
+    tracking_card_no: str | None = None
+    business_date: str
+    workshop_id: int | None = None
+    workshop_name: str | None = None
+    machine_id: int | None = None
+    machine_name: str | None = None
+    shift_id: int | None = None
+    shift_name: str | None = None
+    responsible_user_id: int | None = None
+    responsible_name: str | None = None
+    responsible_username: str | None = None
+    status: str | None = None
+    entry_type: str | None = None
+    input_weight: float | None = None
+    output_weight: float | None = None
+    scrap_weight: float | None = None
+    yield_rate: float | None = None
+    energy_kwh: float | None = None
+    gas_m3: float | None = None
+    submitted_at: str | None = None
+    updated_at: str | None = None
+    metrics: list[dict] = Field(default_factory=list)
+    search_text: str = ''
+
+
+class LiveFillDetailOut(BaseModel):
+    business_date: str
+    workshop_id: int | None = None
+    total: int = 0
+    summary: LiveFillDetailSummaryOut = Field(default_factory=LiveFillDetailSummaryOut)
+    items: list[LiveFillDetailItemOut] = Field(default_factory=list)

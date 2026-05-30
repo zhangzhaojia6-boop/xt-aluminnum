@@ -20,6 +20,7 @@ from app.schemas.realtime import (
     LiveActiveBusinessDateOut,
     LiveAggregationOut,
     LiveCellDetailOut,
+    LiveFillDetailOut,
     LiveMissingOutputWeightResolveOut,
     LiveMissingOutputWeightResolveRequest,
     LivePendingAssignmentOut,
@@ -231,6 +232,28 @@ def live_aggregation_detail(
         current_user=current_user,
     )
     return LiveCellDetailOut(**payload)
+
+
+@router.get('/aggregation/live/fill-details', response_model=LiveFillDetailOut, name='live-fill-details')
+def live_fill_details(
+    request: Request,
+    business_date: date,
+    workshop_id: int | None = None,
+    search: str | None = None,
+    limit: int = 800,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> LiveFillDetailOut:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_fill_details', limit=60, window_seconds=60)
+    payload = realtime_service.build_fill_detail_ledger(
+        db,
+        business_date=business_date,
+        workshop_id=workshop_id,
+        search=search,
+        limit=limit,
+        current_user=current_user,
+    )
+    return LiveFillDetailOut(**payload)
 
 
 @router.get('/aggregation/live/pending-assignment', response_model=LivePendingAssignmentOut, name='live-pending-assignment')

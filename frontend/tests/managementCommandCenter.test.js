@@ -714,6 +714,10 @@ test('LiveDashboard first screen uses management-readable labels', () => {
   assert.match(liveDashboardSource, /submitMissingOutputWeight/)
   assert.match(liveDashboardSource, /el-input-number/)
   assert.match(liveDashboardSource, /经营链路/)
+  assert.match(liveDashboardSource, /填报明细台账/)
+  assert.match(liveDashboardSource, /fillDetailSearch/)
+  assert.match(liveDashboardSource, /visibleFillDetailRows/)
+  assert.match(liveDashboardSource, /fetchLiveFillDetails/)
   assert.match(liveDashboardSource, /ownerDailyMetricItems/)
   assert.match(liveDashboardSource, /ownerDailyTotalsByKey/)
   assert.match(liveDashboardSource, /energy_summary/)
@@ -731,6 +735,11 @@ test('realtime api exposes missing output weight correction endpoint', () => {
   assert.match(realtimeApiSource, /api\.patch/)
   assert.match(realtimeApiSource, /\/aggregation\/live\/missing-output\/\$\{entryId\}/)
   assert.match(realtimeApiSource, /skipErrorToast:\s*true/)
+})
+
+test('realtime api exposes fill detail ledger endpoint', () => {
+  assert.match(realtimeApiSource, /fetchLiveFillDetails/)
+  assert.match(realtimeApiSource, /api\.get\('\/aggregation\/live\/fill-details'/)
 })
 
 test('retired CostAccountingCenter is absent from the active router', () => {

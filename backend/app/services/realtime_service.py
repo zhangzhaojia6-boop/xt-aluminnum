@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
 from app.core.scope import (
@@ -19,6 +19,7 @@ from app.core.scope import (
     resolve_work_order_entry_workshop_scope,
 )
 from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, ShiftAttendanceConfirmation
+from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesCoilSnapshot
 from app.models.production import ShiftProductionData, WorkOrder, WorkOrderEntry
@@ -1193,6 +1194,250 @@ def _iso_datetime(value) -> str | None:
     if hasattr(value, 'isoformat'):
         return value.isoformat()
     return str(value)
+
+
+def _append_search_text(row: dict) -> dict:
+    values = [
+        row.get('source_label'),
+        row.get('tracking_card_no'),
+        row.get('workshop_name'),
+        row.get('machine_name'),
+        row.get('shift_name'),
+        row.get('responsible_name'),
+        row.get('responsible_username'),
+        row.get('status'),
+        row.get('entry_type'),
+    ]
+    for metric in row.get('metrics') or []:
+        values.extend([metric.get('label'), metric.get('value'), metric.get('unit')])
+    row['search_text'] = ' '.join(str(item) for item in values if item not in (None, ''))
+    return row
+
+
+def _fill_source_label(source_type: str) -> str:
+    return {
+        'work_order_entry': '扫码卷明细',
+        'owner_daily': '内勤每日',
+        'mobile_shift_report': '班次汇总',
+        'machine_energy': '机台能耗',
+        'mes_projection': '外部 MES',
+        'local_shift_data': '班次产量',
+    }.get(source_type, '填报明细')
+
+
+def _user_name(user: User | None) -> str | None:
+    if user is None:
+        return None
+    return user.name or user.username
+
+
+def build_fill_detail_ledger(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None,
+    current_user: User,
+    search: str | None = None,
+    limit: int = 800,
+) -> dict:
+    scoped_workshop_id = _resolve_workshop_filter(current_user=current_user, workshop_id=workshop_id)
+    safe_limit = min(max(int(limit or 800), 1), 2000)
+    items: list[dict[str, Any]] = []
+
+    workshop_name_by_id = {item.id: item.name for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()}
+    machine_name_by_id = {item.id: item.name for item in db.query(Equipment).filter(Equipment.is_active.is_(True)).all()}
+    shift_name_by_id = {item.id: item.name for item in db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()}
+
+    energy_user = aliased(User)
+    energy_rows_query = (
+        db.query(MachineEnergyRecord, MobileShiftReport, Workshop, ShiftConfig, energy_user)
+        .join(MobileShiftReport, MobileShiftReport.id == MachineEnergyRecord.shift_report_id)
+        .join(Workshop, Workshop.id == MobileShiftReport.workshop_id)
+        .join(ShiftConfig, ShiftConfig.id == MobileShiftReport.shift_config_id)
+        .outerjoin(energy_user, energy_user.id == MobileShiftReport.submitted_by_user_id)
+        .filter(MobileShiftReport.business_date == business_date)
+    )
+    if scoped_workshop_id is not None:
+        energy_rows_query = energy_rows_query.filter(MobileShiftReport.workshop_id == scoped_workshop_id)
+    machine_energy_report_ids: set[int] = set()
+    for energy, report, workshop, shift, user in energy_rows_query.order_by(MachineEnergyRecord.id.desc()).all():
+        machine_energy_report_ids.add(int(report.id))
+        source_type = 'machine_energy'
+        row = {
+            'row_id': f'machine-energy-{energy.id}',
+            'source_type': source_type,
+            'source_label': _fill_source_label(source_type),
+            'report_id': report.id,
+            'business_date': business_date.isoformat(),
+            'workshop_id': report.workshop_id,
+            'workshop_name': workshop.name,
+            'machine_id': energy.machine_id,
+            'machine_name': energy.machine_name or machine_name_by_id.get(energy.machine_id) or '未标记机列',
+            'shift_id': report.shift_config_id,
+            'shift_name': shift.name,
+            'responsible_user_id': getattr(user, 'id', None),
+            'responsible_name': _user_name(user) or report.leader_name,
+            'responsible_username': getattr(user, 'username', None),
+            'status': report.report_status,
+            'entry_type': source_type,
+            'energy_kwh': round(_to_float(energy.energy_kwh), 3) if energy.energy_kwh is not None else None,
+            'gas_m3': round(_to_float(energy.gas_m3), 3) if energy.gas_m3 is not None else None,
+            'submitted_at': _iso_datetime(report.submitted_at),
+            'updated_at': _iso_datetime(energy.updated_at),
+        }
+        items.append(_append_search_text(row))
+
+    creator_user = aliased(User)
+    entry_rows_query = (
+        db.query(WorkOrderEntry, WorkOrder, Workshop, Equipment, ShiftConfig, creator_user)
+        .join(WorkOrder, WorkOrder.id == WorkOrderEntry.work_order_id)
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .outerjoin(Equipment, Equipment.id == WorkOrderEntry.machine_id)
+        .outerjoin(ShiftConfig, ShiftConfig.id == WorkOrderEntry.shift_id)
+        .outerjoin(creator_user, creator_user.id == WorkOrderEntry.created_by_user_id)
+        .filter(WorkOrderEntry.business_date == business_date)
+    )
+    if scoped_workshop_id is not None:
+        entry_rows_query = entry_rows_query.filter(WorkOrderEntry.workshop_id == scoped_workshop_id)
+    for entry, work_order, workshop, machine, shift, user in entry_rows_query.order_by(WorkOrderEntry.updated_at.desc(), WorkOrderEntry.id.desc()).all():
+        source_type = 'owner_daily' if entry.entry_type == OWNER_DAILY_ENTRY_TYPE else 'work_order_entry'
+        input_weight = _entry_weight_kg_to_tons(entry, 'input_weight')
+        output_weight = _entry_weight_kg_to_tons(entry, 'output_weight')
+        scrap_weight = _entry_weight_kg_to_tons(entry, 'scrap_weight')
+        metrics = _owner_daily_metrics(entry.extra_payload or {}) if source_type == 'owner_daily' else []
+        row = {
+            'row_id': f'entry-{entry.id}',
+            'source_type': source_type,
+            'source_label': _fill_source_label(source_type),
+            'entry_id': entry.id,
+            'tracking_card_no': work_order.tracking_card_no,
+            'business_date': entry.business_date.isoformat(),
+            'workshop_id': entry.workshop_id,
+            'workshop_name': workshop.name,
+            'machine_id': entry.machine_id,
+            'machine_name': '内勤岗' if source_type == 'owner_daily' else (machine.name if machine else '未绑定机列'),
+            'shift_id': entry.shift_id,
+            'shift_name': shift.name if shift else None,
+            'responsible_user_id': getattr(user, 'id', None),
+            'responsible_name': _user_name(user),
+            'responsible_username': getattr(user, 'username', None),
+            'status': entry.entry_status,
+            'entry_type': entry.entry_type,
+            'input_weight': round(input_weight, 3) if input_weight else None,
+            'output_weight': round(output_weight, 3) if output_weight else None,
+            'scrap_weight': round(scrap_weight, 3) if scrap_weight else None,
+            'yield_rate': _round_rate(input_weight, output_weight),
+            'energy_kwh': round(_to_float(entry.energy_kwh), 3) if entry.energy_kwh is not None else None,
+            'gas_m3': round(_to_float(entry.gas_m3), 3) if entry.gas_m3 is not None else None,
+            'submitted_at': _iso_datetime(entry.submitted_at),
+            'updated_at': _iso_datetime(entry.updated_at),
+            'metrics': metrics,
+        }
+        items.append(_append_search_text(row))
+
+    owner_user = aliased(User)
+    submitter_user = aliased(User)
+    report_rows_query = (
+        db.query(MobileShiftReport, Workshop, ShiftConfig, owner_user, submitter_user)
+        .join(Workshop, Workshop.id == MobileShiftReport.workshop_id)
+        .join(ShiftConfig, ShiftConfig.id == MobileShiftReport.shift_config_id)
+        .outerjoin(owner_user, owner_user.id == MobileShiftReport.owner_user_id)
+        .outerjoin(submitter_user, submitter_user.id == MobileShiftReport.submitted_by_user_id)
+        .filter(MobileShiftReport.business_date == business_date)
+    )
+    if scoped_workshop_id is not None:
+        report_rows_query = report_rows_query.filter(MobileShiftReport.workshop_id == scoped_workshop_id)
+    for report, workshop, shift, owner, submitter in report_rows_query.order_by(MobileShiftReport.updated_at.desc(), MobileShiftReport.id.desc()).all():
+        source_type = 'mobile_shift_report'
+        report_has_machine_energy = int(report.id) in machine_energy_report_ids
+        row = {
+            'row_id': f'mobile-report-{report.id}',
+            'source_type': source_type,
+            'source_label': _fill_source_label(source_type),
+            'report_id': report.id,
+            'business_date': report.business_date.isoformat(),
+            'workshop_id': report.workshop_id,
+            'workshop_name': workshop.name,
+            'machine_name': '班次汇总',
+            'shift_id': report.shift_config_id,
+            'shift_name': shift.name,
+            'responsible_user_id': getattr(submitter or owner, 'id', None),
+            'responsible_name': _user_name(submitter) or _user_name(owner) or report.leader_name,
+            'responsible_username': getattr(submitter or owner, 'username', None),
+            'status': report.report_status,
+            'entry_type': source_type,
+            'input_weight': round(_to_float(report.input_weight), 3) if report.input_weight is not None else None,
+            'output_weight': round(_to_float(report.output_weight), 3) if report.output_weight is not None else None,
+            'scrap_weight': round(_to_float(report.scrap_weight), 3) if report.scrap_weight is not None else None,
+            'energy_kwh': None if report_has_machine_energy else (round(_to_float(report.electricity_daily), 3) if report.electricity_daily is not None else None),
+            'gas_m3': None if report_has_machine_energy else (round(_to_float(report.gas_daily), 3) if report.gas_daily is not None else None),
+            'submitted_at': _iso_datetime(report.submitted_at),
+            'updated_at': _iso_datetime(report.updated_at),
+        }
+        items.append(_append_search_text(row))
+
+    for mes_item in _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id):
+        source_type = 'mes_projection'
+        row = {
+            'row_id': f"mes-{mes_item.get('id')}",
+            'source_type': source_type,
+            'source_label': _fill_source_label(source_type),
+            'entry_id': mes_item.get('id'),
+            'tracking_card_no': mes_item.get('tracking_card_no'),
+            'business_date': business_date.isoformat(),
+            'workshop_id': mes_item.get('workshop_id'),
+            'workshop_name': workshop_name_by_id.get(mes_item.get('workshop_id')),
+            'machine_id': mes_item.get('machine_id'),
+            'machine_name': machine_name_by_id.get(mes_item.get('machine_id')) or mes_item.get('machine_code') or '未匹配机列',
+            'shift_id': mes_item.get('shift_id'),
+            'shift_name': shift_name_by_id.get(mes_item.get('shift_id')),
+            'status': mes_item.get('entry_status'),
+            'entry_type': source_type,
+            'input_weight': round(_entry_weight_tons(mes_item, 'input_weight'), 3) if mes_item.get('input_weight') is not None else None,
+            'output_weight': round(_entry_weight_tons(mes_item, 'output_weight'), 3) if mes_item.get('output_weight') is not None else None,
+            'scrap_weight': round(_entry_weight_tons(mes_item, 'scrap_weight'), 3) if mes_item.get('scrap_weight') is not None else None,
+        }
+        items.append(_append_search_text(row))
+
+    needle = str(search or '').strip().lower()
+    if needle:
+        items = [item for item in items if needle in str(item.get('search_text') or '').lower()]
+
+    items.sort(key=lambda item: (item.get('updated_at') or item.get('submitted_at') or '', item.get('row_id') or ''), reverse=True)
+    visible_items = items[:safe_limit]
+    source_counts: dict[str, int] = defaultdict(int)
+    machine_ids: set[int] = set()
+    owner_keys: set[str] = set()
+    output_total = 0.0
+    energy_total = 0.0
+    gas_total = 0.0
+    for item in visible_items:
+        source_counts[str(item.get('source_type') or 'unknown')] += 1
+        if item.get('machine_id') is not None:
+            machine_ids.add(int(item['machine_id']))
+        owner_key = item.get('responsible_user_id') or item.get('responsible_username') or item.get('responsible_name')
+        if owner_key:
+            owner_keys.add(str(owner_key))
+        if item.get('source_type') in {'work_order_entry', 'mes_projection', 'local_shift_data'}:
+            output_total += _to_float(item.get('output_weight'))
+        energy_total += _to_float(item.get('energy_kwh'))
+        gas_total += _to_float(item.get('gas_m3'))
+
+    return {
+        'business_date': business_date.isoformat(),
+        'workshop_id': scoped_workshop_id,
+        'total': len(visible_items),
+        'summary': {
+            'entry_count': len(visible_items),
+            'machine_count': len(machine_ids),
+            'owner_count': len(owner_keys),
+            'output': round(output_total, 3),
+            'energy_kwh': round(energy_total, 3),
+            'gas_m3': round(gas_total, 3),
+            'source_counts': dict(source_counts),
+        },
+        'items': visible_items,
+    }
 
 
 def build_pending_assignment_detail(
