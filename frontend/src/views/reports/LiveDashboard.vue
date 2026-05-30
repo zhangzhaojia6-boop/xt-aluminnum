@@ -960,15 +960,19 @@ function sumOwnerDailyTotals(keys) {
 const energyCompare = computed(() => {
   const summary = factorySnapshot.value.energy_summary || {}
   const ownerTotals = summary.owner_totals || {}
-  const ownerElectricity = ownerTotals.electricity_value
-    ?? ownerDailyTotalsByKey.value.total_electricity_kwh?.value
-    ?? sumOwnerDailyTotals(['new_plant_electricity_kwh', 'park_electricity_kwh'])
-  const ownerGas = ownerTotals.gas_value
-    ?? ownerDailyTotalsByKey.value.total_gas_m3?.value
-    ?? sumOwnerDailyTotals(['cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3'])
+  const hasAlgorithmEnergy = summary.primary_source && summary.primary_source !== 'none' && (summary.rows || []).length > 0
+  const hasOwnerEnergy = Number(ownerTotals.row_count || 0) > 0
+  const ownerElectricity = hasOwnerEnergy
+    ? ownerTotals.electricity_value
+    : ownerDailyTotalsByKey.value.total_electricity_kwh?.value
+      ?? sumOwnerDailyTotals(['new_plant_electricity_kwh', 'park_electricity_kwh'])
+  const ownerGas = hasOwnerEnergy
+    ? ownerTotals.gas_value
+    : ownerDailyTotalsByKey.value.total_gas_m3?.value
+      ?? sumOwnerDailyTotals(['cast_roll_gas_m3', 'smelting_gas_m3', 'heating_furnace_gas_m3', 'boiler_gas_m3'])
   return {
-    algorithmTotalEnergy: summary.total_energy ?? null,
-    algorithmPerTon: summary.energy_per_ton ?? null,
+    algorithmTotalEnergy: hasAlgorithmEnergy ? summary.total_energy : null,
+    algorithmPerTon: hasAlgorithmEnergy ? summary.energy_per_ton : null,
     ownerElectricity,
     ownerGas,
   }
