@@ -27,6 +27,24 @@ test('ShiftReportHistory renders machine operator all-day coil entries', () => {
   assert.match(src, /录入人：/)
 })
 
+test('ShiftReportHistory keeps the all-day record contract visible in the UI', () => {
+  assert.match(src, /data-testid="entry-history-page"/)
+  assert.match(src, /data-testid="entry-history-record"/)
+  assert.match(src, /ALL-DAY LOG/)
+  assert.match(src, /RECORD TIMELINE/)
+  assert.match(src, /visibleCountLabel/)
+  assert.match(src, /historySeq\(index\)/)
+  assert.match(src, /historyToneClass\(item\)/)
+})
+
+test('ShiftReportHistory uses the industrial blue motion language', () => {
+  assert.match(src, /#00f2ff/)
+  assert.match(src, /historyLogScan/)
+  assert.match(src, /historyLogCardIn/)
+  assert.match(src, /historyLogLed/)
+  assert.doesNotMatch(src, /#[a-fA-F0-9]{0,2}8b5cf6|purple|violet|lavender/i)
+})
+
 test('ShiftReportHistory protects mobile header from narrow date controls', () => {
   assert.match(src, /\.mobile-top\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
   assert.match(src, /\.header-actions\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/)
