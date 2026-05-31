@@ -126,14 +126,21 @@ class MobileShiftReportHistoryItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    source_type: str = 'shift_report'
+    role_bucket: str | None = None
     business_date: date
-    shift_id: int
+    shift_id: int | None = None
     shift_code: str | None = None
     shift_name: str | None = None
     workshop_name: str | None = None
     team_name: str | None = None
+    machine_name: str | None = None
+    created_by_name: str | None = None
+    tracking_card_no: str | None = None
     report_status: str
+    input_weight: float | None = None
     output_weight: float | None = None
+    scrap_weight: float | None = None
     electricity_daily: float | None = None
     gas_daily: float | None = None
     has_exception: bool = False

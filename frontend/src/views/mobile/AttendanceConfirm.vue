@@ -3,7 +3,7 @@
     <div class="mobile-top">
       <div>
         <h1>考勤确认</h1>
-        <p>先看钉钉原始打卡，再由班长确认或纠偏，异常会自动进入人事复核。</p>
+        <p>先看钉钉原始打卡，再由现场负责人确认或纠偏，异常会自动进入人事复核。</p>
       </div>
       <div class="header-actions">
         <el-button plain @click="loadPage">刷新</el-button>
@@ -154,7 +154,7 @@
               maxlength="200"
               show-word-limit
               :disabled="locked"
-              placeholder="班长修改自动判定时必须说明原因"
+              placeholder="现场负责人修改自动判定时必须说明原因"
             />
           </div>
 

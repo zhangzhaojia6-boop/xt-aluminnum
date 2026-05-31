@@ -298,7 +298,14 @@ function isActive(path) {
 .xt-entry :deep(.mobile-card.el-card),
 .xt-entry :deep(.mobile-placeholder),
 .xt-entry :deep(.mobile-inline-state),
-.xt-entry :deep(.template-empty) {
+.xt-entry :deep(.template-empty),
+.xt-entry :deep(.mobile-history-item),
+.xt-entry :deep(.mobile-attendance-card),
+.xt-entry :deep(.mobile-ocr-field),
+.xt-entry :deep(.mobile-sticky-actions),
+.xt-entry :deep(.mobile-overview-item),
+.xt-entry :deep(.mobile-history-grid > div),
+.xt-entry :deep(.mobile-upload-box) {
   border: 1px solid var(--entry-line);
   background:
     linear-gradient(145deg, rgba(12, 34, 62, 0.84), rgba(5, 14, 28, 0.74)),
@@ -316,8 +323,39 @@ function isActive(path) {
 
 .xt-entry :deep(.mobile-top p),
 .xt-entry :deep(.page-title p),
-.xt-entry :deep(.note) {
+.xt-entry :deep(.note),
+.xt-entry :deep(.mobile-history-meta),
+.xt-entry :deep(.mobile-history-note),
+.xt-entry :deep(.mobile-field-meta),
+.xt-entry :deep(.mobile-attendance-card__clock),
+.xt-entry :deep(.mobile-attendance-card__metrics),
+.xt-entry :deep(.consumable-actions__hint),
+.xt-entry :deep(.consumable-fields__type) {
   color: var(--xt-text-secondary);
+}
+
+.xt-entry :deep(.mobile-history-title),
+.xt-entry :deep(.mobile-attendance-card__name),
+.xt-entry :deep(.mobile-overview-item strong),
+.xt-entry :deep(.mobile-history-grid strong),
+.xt-entry :deep(.mobile-field label),
+.xt-entry :deep(.panel-header h1) {
+  color: var(--xt-text);
+  text-shadow: 0 0 18px rgba(0, 242, 255, 0.12);
+}
+
+.xt-entry :deep(.mobile-history-item),
+.xt-entry :deep(.mobile-attendance-card),
+.xt-entry :deep(.mobile-overview-item),
+.xt-entry :deep(.mobile-history-grid > div) {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.xt-entry :deep(.mobile-attendance-card.is-anomaly) {
+  border-color: rgba(255, 92, 53, 0.38);
+  background:
+    linear-gradient(145deg, rgba(58, 20, 18, 0.78), rgba(7, 14, 26, 0.78)),
+    radial-gradient(circle at 14% 0%, rgba(255, 92, 53, 0.16), transparent 42%);
 }
 
 .xt-entry :deep(.el-card) {
@@ -333,7 +371,9 @@ function isActive(path) {
 
 .xt-entry :deep(.el-input__wrapper),
 .xt-entry :deep(.el-select__wrapper),
-.xt-entry :deep(.el-textarea__inner) {
+.xt-entry :deep(.el-textarea__inner),
+.xt-entry :deep(.el-input-number .el-input__wrapper),
+.xt-entry :deep(.mobile-history-date .el-input__wrapper) {
   background: rgba(3, 12, 24, 0.72);
   border: 1px solid rgba(0, 242, 255, 0.16);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -341,8 +381,21 @@ function isActive(path) {
 
 .xt-entry :deep(.el-input__inner),
 .xt-entry :deep(.el-select__placeholder),
+.xt-entry :deep(.el-select__selected-item),
 .xt-entry :deep(.el-textarea__inner) {
   color: var(--xt-text);
+}
+
+.xt-entry :deep(.el-form-item__label),
+.xt-entry :deep(.panel-subtitle),
+.xt-entry :deep(.consumable-fields__hint) {
+  color: var(--xt-text-secondary);
+}
+
+.xt-entry :deep(.el-tag) {
+  border-color: rgba(0, 242, 255, 0.22);
+  background: rgba(0, 242, 255, 0.08);
+  color: #dffbff;
 }
 
 .xt-entry :deep(.el-button--primary) {
@@ -358,9 +411,38 @@ function isActive(path) {
   color: var(--xt-text);
 }
 
+.xt-entry :deep(.el-button--danger.is-plain) {
+  border-color: rgba(255, 92, 53, 0.38);
+  background: rgba(255, 92, 53, 0.08);
+  color: #ffd5ca;
+}
+
+.xt-entry :deep(.mobile-sticky-actions .el-button--primary),
+.xt-entry :deep(.consumable-actions .el-button--primary),
+.xt-entry :deep(.mobile-history-item .el-button--primary.is-plain) {
+  position: relative;
+  overflow: hidden;
+}
+
+.xt-entry :deep(.mobile-sticky-actions .el-button--primary::after),
+.xt-entry :deep(.consumable-actions .el-button--primary::after),
+.xt-entry :deep(.mobile-history-item .el-button--primary.is-plain::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: translateX(-112%);
+  animation: xtEntryButtonSweep 4.8s ease-in-out infinite;
+}
+
 @keyframes xtEntryScan {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(240%); }
+}
+
+@keyframes xtEntryButtonSweep {
+  0%, 52% { transform: translateX(-112%); }
+  100% { transform: translateX(112%); }
 }
 
 @media (max-width: 600px) {

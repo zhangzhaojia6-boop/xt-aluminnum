@@ -50,33 +50,43 @@
       <template #header>最近记录</template>
       <div v-if="!items.length" class="mobile-placeholder">暂无历史填报记录。</div>
       <div v-else class="mobile-history-list">
-        <div v-for="item in items" :key="item.id" class="mobile-history-item">
+        <div v-for="item in items" :key="historyItemKey(item)" class="mobile-history-item">
           <div class="mobile-history-main">
             <div>
               <div class="mobile-history-title">
                 {{ item.business_date }} / {{ item.shift_name || item.shift_code || '-' }}
               </div>
               <div class="mobile-history-meta">
-                {{ item.workshop_name || '-' }} · {{ item.team_name || '未分班组' }}
+                {{ historyActorMeta(item) }}
               </div>
             </div>
-            <el-tag :type="statusTagType(item.report_status)" effect="light">
-              {{ formatStatusLabel(item.report_status) }}
-            </el-tag>
+            <div class="mobile-history-tags">
+              <el-tag effect="light">{{ sourceTagLabel(item) }}</el-tag>
+              <el-tag :type="statusTagType(item.report_status)" effect="light">
+                {{ formatStatusLabel(item.report_status) }}
+              </el-tag>
+            </div>
           </div>
-          <div class="mobile-history-grid">
+          <div v-if="isCoilHistoryItem(item)" class="mobile-history-grid">
+            <div><span>随行卡</span><strong>{{ item.tracking_card_no || '-' }}</strong></div>
+            <div><span>投料</span><strong>{{ formatNumber(item.input_weight) }}</strong></div>
+            <div><span>下机</span><strong>{{ formatNumber(item.output_weight) }}</strong></div>
+            <div><span>废料</span><strong>{{ formatNumber(item.scrap_weight) }}</strong></div>
+          </div>
+          <div v-else class="mobile-history-grid">
             <div><span>产量</span><strong>{{ formatNumber(item.output_weight) }}</strong></div>
             <div><span>日电耗</span><strong>{{ formatNumber(item.electricity_daily) }}</strong></div>
             <div><span>日气耗</span><strong>{{ formatNumber(item.gas_daily) }}</strong></div>
             <div><span>图片</span><strong>{{ item.photo_file_name || '未上传' }}</strong></div>
           </div>
+          <div v-if="item.created_by_name" class="mobile-history-note">录入人：{{ item.created_by_name }}</div>
           <div v-if="item.has_exception || item.exception_type" class="mobile-history-note">
             异常：{{ item.exception_type || '已标记异常' }}
           </div>
           <div v-if="item.returned_reason" class="mobile-history-note">退回原因：{{ item.returned_reason }}</div>
           <div class="mobile-history-actions">
             <span class="mobile-history-meta">最近保存：{{ item.last_saved_at || '-' }}</span>
-            <el-button text type="primary" @click="openDetail(item)">继续查看</el-button>
+            <el-button text type="primary" @click="openDetail(item)">{{ actionLabel(item) }}</el-button>
           </div>
         </div>
       </div>
@@ -133,6 +143,33 @@ function statusTagType(status) {
   if (status === 'returned') return 'danger'
   if (status === 'draft') return 'warning'
   return 'info'
+}
+
+function historyItemKey(item) {
+  return `${item.source_type || 'shift_report'}-${item.id}`
+}
+
+function isCoilHistoryItem(item) {
+  return item?.source_type === 'mobile_coil'
+}
+
+function sourceTagLabel(item) {
+  if (isCoilHistoryItem(item)) return '主操逐卷'
+  if (item?.source_type === 'owner_daily') return '专项每日'
+  return '班次汇总'
+}
+
+function historyActorMeta(item) {
+  const parts = [
+    item.workshop_name,
+    item.machine_name || item.team_name,
+    item.created_by_name
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : '-'
+}
+
+function actionLabel(item) {
+  return isCoilHistoryItem(item) ? '继续录入' : '继续查看'
 }
 
 async function load() {
@@ -215,6 +252,14 @@ onMounted(load)
 
 .mobile-history-date {
   width: 100%;
+}
+
+.mobile-history-tags {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .mobile-inline-action {

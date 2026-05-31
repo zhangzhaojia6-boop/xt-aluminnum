@@ -227,6 +227,8 @@ onMounted(loadWorkshops)
 
 .consumable-fields {
   margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 242, 255, 0.1);
 }
 
 .consumable-fields__hint {
@@ -234,17 +236,24 @@ onMounted(loadWorkshops)
   justify-content: space-between;
   align-items: baseline;
   font-size: 14px;
-  color: var(--text-secondary, #5a6478);
+  color: var(--xt-text-secondary);
   margin-bottom: 8px;
 }
 
 .consumable-fields__type {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 242, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 242, 255, 0.08);
+  color: var(--xt-primary);
   font-size: 12px;
-  color: var(--text-tertiary, #8a93a6);
+  font-weight: 700;
 }
 
 .consumable-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   margin-top: 16px;
@@ -252,17 +261,39 @@ onMounted(loadWorkshops)
 
 .consumable-actions__hint {
   font-size: 12px;
-  color: var(--text-tertiary, #8a93a6);
+  color: var(--xt-text-muted);
 }
 
 .panel-header h1 {
   margin: 0;
-  font-size: 20px;
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 18px rgba(0, 242, 255, 0.16);
 }
 
 .panel-subtitle {
   margin: 4px 0 0;
-  color: var(--text-secondary, #5a6478);
+  color: var(--xt-text-secondary);
   font-size: 13px;
+}
+
+.consumable-form :deep(.el-form-item__label) {
+  color: var(--xt-text-secondary);
+  font-weight: 700;
+}
+
+.consumable-form :deep(.el-input-number .el-input__inner) {
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .consumable-actions {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

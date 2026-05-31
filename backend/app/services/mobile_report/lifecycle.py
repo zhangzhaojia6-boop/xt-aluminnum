@@ -23,6 +23,7 @@ from app.models.production import (
     MobileShiftReport,
     ProductionException,
     ShiftProductionData,
+    WorkOrder,
     WorkOrderEntry,
 )
 from app.models.shift import ShiftConfig
@@ -931,11 +932,50 @@ def list_report_history(
         .limit(max(1, min(limit, 30)))
         .all()
     )
+    coil_rows = []
+    if is_all_day_query and (current_user.role or '') == 'machine_operator':
+        coil_query = db.query(WorkOrderEntry).filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.workshop_id == workshop.id,
+            WorkOrderEntry.entry_type == 'mobile_coil',
+        )
+        bound_machine = get_bound_machine_for_user(db, user_id=current_user.id)
+        reporting_machine = resolve_reporting_machine_for_equipment(db, bound_machine) if bound_machine else None
+        if reporting_machine is not None:
+            coil_query = coil_query.filter(WorkOrderEntry.machine_id == reporting_machine.id)
+        else:
+            coil_query = coil_query.filter(
+                or_(
+                    WorkOrderEntry.created_by_user_id == current_user.id,
+                    WorkOrderEntry.created_by == current_user.id,
+                )
+            )
+        coil_rows = (
+            coil_query.order_by(
+                WorkOrderEntry.business_date.desc(),
+                WorkOrderEntry.updated_at.desc().nullslast(),
+                WorkOrderEntry.id.desc(),
+            )
+            .limit(max(1, min(limit, 30)))
+            .all()
+        )
+
     shift_ids = {row.shift_config_id for row in rows}
-    shift_map = {item.id: item for item in db.query(ShiftConfig).filter(ShiftConfig.id.in_(shift_ids)).all()} if rows else {}
+    shift_ids.update(row.shift_id for row in coil_rows if row.shift_id is not None)
+    shift_map = {item.id: item for item in db.query(ShiftConfig).filter(ShiftConfig.id.in_(shift_ids)).all()} if shift_ids else {}
+
+    work_order_ids = {row.work_order_id for row in coil_rows}
+    work_order_map = {item.id: item for item in db.query(WorkOrder).filter(WorkOrder.id.in_(work_order_ids)).all()} if work_order_ids else {}
+    machine_ids = {row.machine_id for row in coil_rows if row.machine_id is not None}
+    machine_map = {item.id: item for item in db.query(Equipment).filter(Equipment.id.in_(machine_ids)).all()} if machine_ids else {}
+    user_ids = {(row.created_by_user_id or row.created_by) for row in coil_rows if (row.created_by_user_id or row.created_by)}
+    user_map = {item.id: item for item in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
     items = [
         {
             'id': row.id,
+            'source_type': 'shift_report',
+            'role_bucket': current_user.role,
             'business_date': row.business_date,
             'shift_id': row.shift_config_id,
             'shift_code': shift_map.get(row.shift_config_id).code if shift_map.get(row.shift_config_id) else None,
@@ -955,6 +995,45 @@ def list_report_history(
         }
         for row in rows
     ]
+    for row in coil_rows:
+        shift = shift_map.get(row.shift_id)
+        work_order = work_order_map.get(row.work_order_id)
+        machine = machine_map.get(row.machine_id)
+        created_by = user_map.get(row.created_by_user_id or row.created_by)
+        items.append({
+            'id': row.id,
+            'source_type': 'mobile_coil',
+            'role_bucket': 'machine_operator',
+            'business_date': row.business_date,
+            'shift_id': row.shift_id,
+            'shift_code': shift.code if shift else None,
+            'shift_name': shift.name if shift else None,
+            'workshop_name': workshop.name,
+            'team_name': machine.name if machine else None,
+            'machine_name': machine.name if machine else None,
+            'created_by_name': created_by.name if created_by else None,
+            'tracking_card_no': work_order.tracking_card_no if work_order else None,
+            'report_status': row.entry_status,
+            'input_weight': _to_float(row.input_weight),
+            'output_weight': _to_float(row.output_weight),
+            'scrap_weight': _to_float(row.scrap_weight),
+            'electricity_daily': _to_float(row.energy_kwh),
+            'gas_daily': _to_float(row.gas_m3),
+            'has_exception': False,
+            'exception_type': None,
+            'photo_file_name': None,
+            'submitted_at': row.submitted_at,
+            'last_saved_at': row.updated_at or row.created_at,
+            'returned_reason': None,
+        })
+    items.sort(
+        key=lambda item: (
+            item['business_date'].isoformat(),
+            str(item.get('last_saved_at') or item.get('submitted_at') or ''),
+        ),
+        reverse=True,
+    )
+    items = items[:max(1, min(limit, 30))]
     return {'items': items, 'total': len(items)}
 
 def sync_mobile_status_from_review(

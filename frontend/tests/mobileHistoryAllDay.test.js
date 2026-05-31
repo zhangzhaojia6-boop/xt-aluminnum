@@ -17,6 +17,16 @@ test('ShiftReportHistory gives operators a date-level history control', () => {
   assert.match(src, /按整日查看有权限的录入记录/)
 })
 
+test('ShiftReportHistory renders machine operator all-day coil entries', () => {
+  assert.match(src, /historyItemKey\(item\)/)
+  assert.match(src, /item\?\.source_type === 'mobile_coil'/)
+  assert.match(src, /item\.tracking_card_no/)
+  assert.match(src, /item\.input_weight/)
+  assert.match(src, /item\.scrap_weight/)
+  assert.match(src, /主操逐卷/)
+  assert.match(src, /录入人：/)
+})
+
 test('ShiftReportHistory protects mobile header from narrow date controls', () => {
   assert.match(src, /\.mobile-top\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
   assert.match(src, /\.header-actions\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/)

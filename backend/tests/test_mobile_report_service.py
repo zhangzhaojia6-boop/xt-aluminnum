@@ -3,8 +3,10 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from app.agents.base import AgentAction, AgentDecision
-from app.models.production import MobileShiftReport
+from app.models.master import Equipment
+from app.models.production import MobileShiftReport, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services import mobile_report_service
 from app.services.mobile_report_service import (
     _build_agent_decision_snapshot,
@@ -269,15 +271,27 @@ class _HistoryFakeQuery:
 
 
 class _HistoryFakeDB:
-    def __init__(self, report_rows, shift_rows):
+    def __init__(self, report_rows, shift_rows, coil_rows=None, work_orders=None, equipment_rows=None, user_rows=None):
         self.report_query = _HistoryFakeQuery(report_rows)
         self.shift_query = _HistoryFakeQuery(shift_rows)
+        self.coil_query = _HistoryFakeQuery(coil_rows or [])
+        self.work_order_query = _HistoryFakeQuery(work_orders or [])
+        self.equipment_query = _HistoryFakeQuery(equipment_rows or [])
+        self.user_query = _HistoryFakeQuery(user_rows or [])
 
     def query(self, model):
         if model is MobileShiftReport:
             return self.report_query
         if model is ShiftConfig:
             return self.shift_query
+        if model is WorkOrderEntry:
+            return self.coil_query
+        if model is WorkOrder:
+            return self.work_order_query
+        if model is Equipment:
+            return self.equipment_query
+        if model is User:
+            return self.user_query
         raise AssertionError(f'unexpected model {model!r}')
 
 
@@ -299,6 +313,31 @@ def _history_report(**overrides):
         'last_saved_at': datetime(2026, 5, 30, 8, 0, 0),
         'updated_at': datetime(2026, 5, 30, 8, 0, 0),
         'returned_reason': None,
+    }
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def _history_coil_entry(**overrides):
+    base = {
+        'id': 88,
+        'work_order_id': 501,
+        'business_date': date(2026, 5, 30),
+        'shift_id': 2,
+        'workshop_id': 7,
+        'machine_id': 12,
+        'input_weight': 9.8,
+        'output_weight': 9.4,
+        'scrap_weight': 0.4,
+        'energy_kwh': None,
+        'gas_m3': None,
+        'entry_status': 'submitted',
+        'operator_notes': '本卷正常',
+        'created_by_user_id': 99,
+        'created_by': 99,
+        'submitted_at': datetime(2026, 5, 30, 12, 10, 0),
+        'updated_at': datetime(2026, 5, 30, 12, 10, 0),
+        'created_at': datetime(2026, 5, 30, 12, 1, 0),
     }
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -336,6 +375,44 @@ def test_list_report_history_all_day_uses_business_date_without_current_shift_fi
 
     assert [item['shift_name'] for item in payload['items']] == ['大夜', '长白班']
     assert db.report_query.filter_count == 2
+
+
+def test_list_report_history_all_day_includes_machine_operator_coil_entries(monkeypatch) -> None:
+    db = _HistoryFakeDB(
+        report_rows=[],
+        shift_rows=[SimpleNamespace(id=2, code='A', name='长白班')],
+        coil_rows=[_history_coil_entry()],
+        work_orders=[SimpleNamespace(id=501, tracking_card_no='TX-20260530-001')],
+        equipment_rows=[SimpleNamespace(id=12, name='2050# 主操')],
+        user_rows=[SimpleNamespace(id=99, name='张师傅')],
+    )
+    current_user = SimpleNamespace(id=99, role='machine_operator')
+    monkeypatch.setattr(mobile_report_service, 'assert_mobile_user_access', lambda _user: SimpleNamespace(is_admin=False))
+    monkeypatch.setattr(
+        mobile_report_service,
+        '_resolve_workshop_team',
+        lambda _db, _user: (
+            SimpleNamespace(id=7, name='退火一车间'),
+            SimpleNamespace(id=3, name='大夜班', workshop_id=7, is_active=True),
+        ),
+    )
+    monkeypatch.setattr(mobile_report_service, 'get_bound_machine_for_user', lambda *_args, **_kwargs: SimpleNamespace(id=12))
+    monkeypatch.setattr(mobile_report_service, 'resolve_reporting_machine_for_equipment', lambda _db, machine: machine)
+
+    payload = mobile_report_service.list_report_history(
+        db,
+        current_user=current_user,
+        limit=30,
+        business_date=date(2026, 5, 30),
+        all_day=True,
+    )
+
+    assert payload['items'][0]['source_type'] == 'mobile_coil'
+    assert payload['items'][0]['role_bucket'] == 'machine_operator'
+    assert payload['items'][0]['tracking_card_no'] == 'TX-20260530-001'
+    assert payload['items'][0]['machine_name'] == '2050# 主操'
+    assert payload['items'][0]['created_by_name'] == '张师傅'
+    assert payload['items'][0]['output_weight'] == 9.4
 
 
 def test_list_report_history_default_keeps_current_team_and_owner_scope(monkeypatch) -> None:
