@@ -613,7 +613,7 @@ async function loadData() {
     if (mode.value === 'per_coil') {
       try {
         const coils = await fetchCoilList(shift.business_date, shift.shift_id)
-        history.value = coils || []
+        history.value = Array.isArray(coils) ? coils : []
         coilSeq.value = history.value.length + 1
       } catch { /* no coils yet */ }
     }
@@ -669,7 +669,8 @@ onMounted(loadData)
 .unified-entry {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--xt-bg-page);
+  background: transparent;
+  color: var(--xt-text);
   padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -681,9 +682,14 @@ onMounted(loadData)
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  background: var(--xt-bg-ink);
+  background:
+    linear-gradient(135deg, rgba(0, 242, 255, 0.14), rgba(4, 16, 31, 0.92)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
+  border-bottom: 1px solid rgba(0, 242, 255, 0.18);
   border-left: 3px solid var(--role-color);
   color: var(--xt-text-inverse);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
 }
 
 .ue-identity__main strong {
@@ -692,11 +698,14 @@ onMounted(loadData)
   font-weight: 850;
   line-height: 1.18;
   letter-spacing: -0.012em;
+  color: var(--xt-text);
+  text-shadow: 0 0 20px rgba(0, 242, 255, 0.18);
 }
 
 .ue-identity__main span {
   font-size: 13px;
-  opacity: 0.6;
+  color: var(--xt-text-secondary);
+  opacity: 1;
 }
 
 .ue-loading, .ue-error {
@@ -721,6 +730,7 @@ onMounted(loadData)
   font-weight: 950;
   letter-spacing: -0.02em;
   color: var(--xt-primary);
+  text-shadow: 0 0 20px rgba(0, 242, 255, 0.18);
 }
 
 .ue-coil-shift {
@@ -735,7 +745,10 @@ onMounted(loadData)
   padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--role-color), transparent 68%);
   border-radius: var(--xt-radius-xl);
-  background: color-mix(in srgb, var(--role-color), transparent 91%);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--role-color), transparent 86%), rgba(5, 14, 28, 0.78)),
+    radial-gradient(circle at 12% 0%, rgba(0, 242, 255, 0.1), transparent 48%);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
 }
 
 .ue-person-header strong {
@@ -758,7 +771,7 @@ onMounted(loadData)
   min-height: 44px;
   border: 1px solid var(--xt-primary);
   border-radius: 10px;
-  background: var(--xt-bg-panel);
+  background: rgba(0, 242, 255, 0.08);
   color: var(--xt-primary);
   font-size: 15px;
   font-weight: 800;
@@ -782,15 +795,18 @@ onMounted(loadData)
 }
 
 .ue-fields {
-  background: var(--xt-bg-panel);
+  background:
+    linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76)),
+    radial-gradient(circle at 10% 0%, rgba(0, 242, 255, 0.08), transparent 42%);
+  border: 1px solid rgba(0, 242, 255, 0.14);
   border-radius: var(--xt-radius-xl);
-  box-shadow: var(--xt-shadow-sm);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 4px 16px;
 }
 
 .ue-field {
   padding: 12px 0;
-  border-bottom: 1px solid var(--xt-border-light);
+  border-bottom: 1px solid rgba(0, 242, 255, 0.1);
 }
 
 .ue-field:last-child { border-bottom: none; }
@@ -820,11 +836,11 @@ onMounted(loadData)
   width: 100%;
   min-height: 48px;
   padding: 8px 12px;
-  border: 1px solid var(--xt-border);
+  border: 1px solid rgba(0, 242, 255, 0.16);
   border-radius: 8px;
   font-size: 16px;
   font-family: inherit;
-  background: var(--xt-bg-page);
+  background: rgba(2, 9, 18, 0.68);
   color: var(--xt-text);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -834,7 +850,7 @@ onMounted(loadData)
 
 .ue-input:focus {
   border-color: var(--xt-primary);
-  box-shadow: var(--app-focus-ring);
+  box-shadow: var(--app-focus-ring), inset 0 -1px 0 rgba(0, 242, 255, 0.5);
 }
 
 .ue-input--number {
@@ -869,10 +885,11 @@ onMounted(loadData)
 .ue-readonly-item {
   flex: 1;
   min-width: 100px;
-  background: var(--xt-bg-panel);
+  background: rgba(3, 12, 24, 0.62);
+  border: 1px solid rgba(0, 242, 255, 0.12);
   border-radius: 10px;
   padding: 12px;
-  box-shadow: var(--xt-shadow-sm);
+  box-shadow: none;
 }
 
 .ue-readonly-item__label {
@@ -895,21 +912,33 @@ onMounted(loadData)
 }
 
 .ue-submit {
+  position: relative;
+  overflow: hidden;
   display: block;
   width: 100%;
   min-height: 48px;
   border: none;
   border-radius: 10px;
-  background: var(--xt-primary);
-  color: #fff;
+  background: linear-gradient(135deg, #00f2ff, #74f5ff);
+  color: #001d22;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.1s;
+  box-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+  transition: transform 0.1s, box-shadow 0.15s;
 }
 
 .ue-submit:active { transform: scale(0.96); }
 .ue-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ue-submit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  transform: translateX(-110%);
+  animation: ueSubmitSweep 4.4s ease-in-out infinite;
+}
 
 .ue-split-btn {
   display: block;
@@ -918,7 +947,7 @@ onMounted(loadData)
   margin-top: 8px;
   border: 1.5px solid var(--xt-primary);
   border-radius: 10px;
-  background: transparent;
+  background: rgba(0, 242, 255, 0.06);
   color: var(--xt-primary);
   font-size: 14px;
   font-weight: 600;
@@ -927,6 +956,13 @@ onMounted(loadData)
 }
 
 .ue-split-btn:active { background: var(--xt-primary-soft); }
+
+.unified-entry :deep(.el-select__wrapper) {
+  min-height: 48px;
+  border: 1px solid rgba(0, 242, 255, 0.16);
+  background: rgba(2, 9, 18, 0.68);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
 
 .ue-spec-row {
   display: flex;
@@ -948,7 +984,7 @@ onMounted(loadData)
 }
 
 .ue-spec-fixed {
-  background: var(--xt-bg-panel);
+  background: rgba(0, 242, 255, 0.07);
   border-color: transparent;
   color: var(--xt-text-secondary);
   font-weight: 700;
@@ -957,9 +993,10 @@ onMounted(loadData)
 }
 
 .ue-history {
-  background: var(--xt-bg-panel);
+  background: linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76));
+  border: 1px solid rgba(0, 242, 255, 0.14);
   border-radius: var(--xt-radius-xl);
-  box-shadow: var(--xt-shadow-sm);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 
@@ -968,7 +1005,7 @@ onMounted(loadData)
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--xt-border-light);
+  border-bottom: 1px solid rgba(0, 242, 255, 0.1);
   font-size: 14px;
 }
 
@@ -983,5 +1020,10 @@ onMounted(loadData)
 
 .ue-history-item__summary {
   color: var(--xt-text);
+}
+
+@keyframes ueSubmitSweep {
+  0%, 48% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
 }
 </style>
