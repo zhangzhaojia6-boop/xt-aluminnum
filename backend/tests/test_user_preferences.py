@@ -24,6 +24,12 @@ def _build_sessionmaker(tmp_path):
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
+def _build_sessionmaker_without_preferences(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'user-prefs-missing.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[User.__table__])
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
 def _override_db(session_factory) -> None:
     def fake_get_db():
         db = session_factory()
@@ -82,6 +88,19 @@ def test_put_preferences_unauthenticated(tmp_path):
 
 def test_get_preferences_default_null(tmp_path):
     session_factory = _build_sessionmaker(tmp_path)
+    _override_db(session_factory)
+    try:
+        user_id = _seed_user(session_factory)
+        client = TestClient(app)
+        resp = client.get('/api/v1/user/preferences', headers=_auth_headers(user_id))
+        assert resp.status_code == 200
+        assert resp.json() == {'theme': None}
+    finally:
+        _reset()
+
+
+def test_get_preferences_tolerates_missing_optional_table(tmp_path):
+    session_factory = _build_sessionmaker_without_preferences(tmp_path)
     _override_db(session_factory)
     try:
         user_id = _seed_user(session_factory)

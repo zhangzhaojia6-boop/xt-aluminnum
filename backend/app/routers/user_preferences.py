@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -12,16 +13,26 @@ from app.schemas.user_preferences import UserPreferencesIn, UserPreferencesOut
 router = APIRouter(tags=['user-preferences'])
 
 
+def _is_missing_preferences_table(error: OperationalError) -> bool:
+    return 'no such table: user_preferences' in str(error.orig).lower()
+
+
 @router.get('/preferences', response_model=UserPreferencesOut)
 def read_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> UserPreferencesOut:
-    prefs = (
-        db.query(UserPreferences)
-        .filter(UserPreferences.user_id == current_user.id)
-        .one_or_none()
-    )
+    try:
+        prefs = (
+            db.query(UserPreferences)
+            .filter(UserPreferences.user_id == current_user.id)
+            .one_or_none()
+        )
+    except OperationalError as error:
+        db.rollback()
+        if _is_missing_preferences_table(error):
+            return UserPreferencesOut(theme=None)
+        raise
     return UserPreferencesOut(theme=prefs.theme if prefs else None)
 
 

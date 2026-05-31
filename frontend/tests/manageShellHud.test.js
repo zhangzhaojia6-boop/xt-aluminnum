@@ -94,6 +94,20 @@ test('ManageShell keeps adaptive navigation usable in icon and mobile modes', ()
   assert.match(src, /display:\s*flex;\s*flex-direction:\s*column;/)
 })
 
+test('ManageShell preserves desktop override while navigating inside mobile drawer', () => {
+  assert.match(scriptBody, /function navTo\(path\)/)
+  assert.match(scriptBody, /isMobileViewport\.value && route\.query\.desktop === ['"]1['"]/)
+  assert.match(scriptBody, /return \{ path, query: \{ desktop: ['"]1['"] \} \}/)
+  assert.match(src, /:to="navTo\(item\.path\)"/)
+})
+
+test('ManageShell supplies dark industrial tokens to nested management pages', () => {
+  assert.match(src, /--xt-bg-panel:\s*rgba\(6,\s*26,\s*49,\s*0\.88\)/)
+  assert.match(src, /--xt-bg-ink-panel:\s*#081d34/)
+  assert.match(src, /--xt-text:\s*var\(--manage-text\)/)
+  assert.match(src, /--xt-border:\s*var\(--manage-line\)/)
+})
+
 test('ManageShell removes app chrome from printed pages', () => {
   assert.match(src, /@media print/)
   assert.match(src, /\.xt-manage__sidebar,\s*\.xt-manage__topbar,\s*:deep\(\.xt-manage__drawer\)\s*\{\s*display:\s*none !important;/)

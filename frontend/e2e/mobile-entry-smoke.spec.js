@@ -60,7 +60,7 @@ async function setupFillOnlyEntrySession(page) {
     data_scope_type: 'self_team',
     assigned_shift_ids: []
   }
-  await setupReviewSessionAndMocks(page, { token, user })
+  await setupReviewSessionAndMocks(page, { token, user, skipLogin: true })
   await seedStoredSession(page, token, user)
 
   await page.route('**/api/v1/auth/me', async (route) => {
@@ -276,7 +276,7 @@ test('admin mobile entry shows the manual-first mobile entry', async ({ page }) 
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/(entry|manage\/(?:overview|admin))$/)
+  await expect(page).toHaveURL(/\/(?:entry|manage\/admin(?:\/settings)?)$/)
 
   if (!page.url().endsWith('/entry')) {
     const currentShiftResponse = page.waitForResponse((response) =>

@@ -22,7 +22,7 @@
           <RouterLink
             v-for="item in group.items"
             :key="item.path"
-            :to="item.path"
+            :to="navTo(item.path)"
             class="xt-manage__nav-item"
             :class="{ 'is-active': isActive(item.path) }"
             :title="item.title"
@@ -111,7 +111,7 @@
           <RouterLink
             v-for="item in group.items"
             :key="item.path"
-            :to="item.path"
+            :to="navTo(item.path)"
             class="xt-manage__nav-item"
             :class="{ 'is-active': isActive(item.path) }"
             :aria-label="item.title"
@@ -134,7 +134,7 @@
         <RouterLink
           v-for="item in filteredSearchItems"
           :key="item.path"
-          :to="item.path"
+          :to="navTo(item.path)"
           class="xt-manage__search-item"
           @click="searchOpen = false"
         >
@@ -216,6 +216,13 @@ function isActive(path) {
   return route.path === path || route.path.startsWith(`${path}/`)
 }
 
+function navTo(path) {
+  if (isMobileViewport.value && route.query.desktop === '1') {
+    return { path, query: { desktop: '1' } }
+  }
+  return path
+}
+
 function toggleCollapse() {
   if (isAutoRail.value || isMobileViewport.value) return
   userCollapsed.value = !userCollapsed.value
@@ -290,6 +297,23 @@ onBeforeUnmount(() => {
   --manage-sidebar-rail: var(--xt-sidebar-collapsed);
   --manage-text: rgba(225, 253, 255, 0.92);
   --manage-warn: #ffab00;
+  --xt-bg-page: transparent;
+  --xt-bg-shell: var(--manage-bg);
+  --xt-bg-panel: rgba(6, 26, 49, 0.88);
+  --xt-bg-panel-soft: rgba(9, 36, 63, 0.74);
+  --xt-bg-panel-muted: rgba(12, 45, 78, 0.78);
+  --xt-bg-panel-strong: rgba(10, 38, 66, 0.95);
+  --xt-bg-depth: var(--manage-bg-strong);
+  --xt-bg-ink: #020812;
+  --xt-bg-ink-soft: #061d35;
+  --xt-bg-ink-panel: #081d34;
+  --xt-text: var(--manage-text);
+  --xt-text-secondary: var(--manage-muted);
+  --xt-text-muted: rgba(156, 190, 212, 0.62);
+  --xt-text-soft: rgba(208, 230, 242, 0.86);
+  --xt-border: var(--manage-line);
+  --xt-border-light: rgba(0, 242, 255, 0.1);
+  --xt-border-strong: var(--manage-line-strong);
   min-height: 100vh;
   min-height: 100dvh;
   background:

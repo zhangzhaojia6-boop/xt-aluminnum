@@ -42,9 +42,9 @@ test.describe('ManageShell layout', () => {
   })
 
   test('mobile drawer navigation opens, routes, and closes', async ({ page }) => {
-    await page.setViewportSize({ width: 1000, height: 844 })
+    await page.setViewportSize({ width: 860, height: 844 })
     await setupReviewSessionAndMocks(page)
-    await page.goto('/manage/today')
+    await page.goto('/manage/today?desktop=1')
 
     await expect(page).toHaveURL(/\/manage\/today/)
     await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
