@@ -90,7 +90,7 @@ test('ticker exposes the first-screen factory signals without fake zeros', () =>
     '外部 MES',
   ])
   assert.equal(items[0].value, '126.42 吨')
-  assert.equal(items[1].value, '211.80 吨')
+  assert.equal(items[1].value, '211.8 吨')
   assert.equal(items[2].value, '暂无可信数据')
   assert.equal(items[3].value, '暂无可信数据')
   assert.equal(items[2].value.includes('0 kWh'), false)
@@ -160,17 +160,17 @@ test('metric comparison keeps algorithm values primary and filled values visible
 
   assert.equal(items[0].label, '全厂总产量')
   assert.equal(items[0].primaryLabel, '算法')
-  assert.equal(items[0].primaryValue, '126.40 吨')
+  assert.equal(items[0].primaryValue, '126.4 吨')
   assert.equal(items[0].compareLabel, '填报')
-  assert.equal(items[0].compareValue, '120.80 吨')
-  assert.equal(items[1].primaryValue, '8840.00 kWh')
-  assert.equal(items[1].compareValue, '8700.00 kWh')
+  assert.equal(items[0].compareValue, '120.8 吨')
+  assert.equal(items[1].primaryValue, '8,840 kWh')
+  assert.equal(items[1].compareValue, '8,700 kWh')
 })
 
 test('event rail and trusted metric formatting expose empty, error and disconnected states', () => {
   assert.equal(formatTrustedMetric(null, 'kWh'), '暂无可信数据')
   assert.equal(formatTrustedMetric(undefined, '吨'), '暂无可信数据')
-  assert.equal(formatTrustedMetric(0, 'kWh'), '0.00 kWh')
+  assert.equal(formatTrustedMetric(0, 'kWh'), '0 kWh')
 
   const events = buildLiveEventItems({
     streamStatus: 'reconnecting',

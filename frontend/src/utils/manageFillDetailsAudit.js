@@ -12,7 +12,7 @@ function formatNumber(value, digits = 2) {
   const numeric = toNumber(value)
   if (numeric === null) return MISSING_AUDIT_VALUE
   return numeric.toLocaleString('zh-CN', {
-    minimumFractionDigits: digits,
+    minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   })
 }
@@ -182,7 +182,10 @@ function statusText(value) {
 function fixedMetric(value, digits = 3) {
   const numeric = toNumber(value)
   if (numeric === null) return null
-  return numeric.toFixed(digits)
+  return numeric.toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  })
 }
 
 function contentText(row = {}) {

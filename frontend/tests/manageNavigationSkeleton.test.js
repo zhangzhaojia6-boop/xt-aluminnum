@@ -45,9 +45,9 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
     '/manage/today',
     '/manage/production',
     '/manage/fill-details',
-    '/energy/center',
+    '/manage/energy',
     '/manage/alerts',
-    '/attendance/overview',
+    '/manage/attendance',
   ])
   assert.equal(paths.includes('/manage/daily-report'), false)
   assert.equal(paths.includes('/manage/ops-center'), false)

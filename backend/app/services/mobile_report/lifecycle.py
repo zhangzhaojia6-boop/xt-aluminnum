@@ -898,15 +898,28 @@ def save_or_submit_report(
         agent_decision_snapshot=decision_snapshot,
     )
 
-def list_report_history(db: Session, *, current_user: User, limit: int = 10) -> dict:
+def list_report_history(
+    db: Session,
+    *,
+    current_user: User,
+    limit: int = 10,
+    business_date: date | None = None,
+    all_day: bool = False,
+) -> dict:
     summary = assert_mobile_user_access(current_user)
     workshop, team = _resolve_workshop_team(db, current_user)
     query = db.query(MobileShiftReport).filter(MobileShiftReport.workshop_id == workshop.id)
-    if team is None:
-        query = query.filter(MobileShiftReport.team_id.is_(None))
-    else:
-        query = query.filter(MobileShiftReport.team_id == team.id)
-    if not summary.is_admin:
+    if business_date is not None:
+        query = query.filter(MobileShiftReport.business_date == business_date)
+
+    is_all_day_query = all_day and business_date is not None
+    if not is_all_day_query:
+        if team is None:
+            query = query.filter(MobileShiftReport.team_id.is_(None))
+        else:
+            query = query.filter(MobileShiftReport.team_id == team.id)
+
+    if not summary.is_admin and not is_all_day_query:
         query = query.filter(MobileShiftReport.owner_user_id == current_user.id)
 
     rows = (

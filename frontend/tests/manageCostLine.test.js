@@ -14,10 +14,10 @@ test('CostLine renders configurable cost label + 口径：估算 with required t
   assert.match(src, /口径：估算/)
 })
 
-test('CostLine divides estimated_cost by 10000 with 2 decimals', () => {
+test('CostLine divides estimated_cost by 10000 and trims trailing zero decimals', () => {
   const src = source('../src/components/manage/CostLine.vue')
   assert.match(src, /\/\s*10000/)
-  assert.match(src, /toFixed\(2\)/)
+  assert.match(src, /formatNumber\(Number\(props\.estimate\.estimated_cost\) \/ 10000,\s*2\)/)
 })
 
 test('CostLine mutes when estimate_ready is false or estimated_cost null', () => {

@@ -1,7 +1,10 @@
 from datetime import date
 from datetime import datetime
+from types import SimpleNamespace
 
 from app.agents.base import AgentAction, AgentDecision
+from app.models.production import MobileShiftReport
+from app.models.shift import ShiftConfig
 from app.services import mobile_report_service
 from app.services.mobile_report_service import (
     _build_agent_decision_snapshot,
@@ -240,3 +243,117 @@ def test_sum_machine_production_empty_returns_none() -> None:
 
     assert _sum_machine_production([]) == (None, None, None)
     assert _sum_machine_production([{'equipment_id': 1}]) == (None, None, None)
+
+
+class _HistoryFakeQuery:
+    def __init__(self, rows):
+        self.rows = rows
+        self.filter_count = 0
+        self.limit_value = None
+
+    def filter(self, *args, **kwargs):
+        self.filter_count += len(args)
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def limit(self, value):
+        self.limit_value = value
+        return self
+
+    def all(self):
+        if self.limit_value is None:
+            return self.rows
+        return self.rows[:self.limit_value]
+
+
+class _HistoryFakeDB:
+    def __init__(self, report_rows, shift_rows):
+        self.report_query = _HistoryFakeQuery(report_rows)
+        self.shift_query = _HistoryFakeQuery(shift_rows)
+
+    def query(self, model):
+        if model is MobileShiftReport:
+            return self.report_query
+        if model is ShiftConfig:
+            return self.shift_query
+        raise AssertionError(f'unexpected model {model!r}')
+
+
+def _history_report(**overrides):
+    base = {
+        'id': 1,
+        'business_date': date(2026, 5, 30),
+        'shift_config_id': 1,
+        'workshop_id': 7,
+        'team_id': 3,
+        'report_status': 'submitted',
+        'output_weight': 12,
+        'electricity_daily': None,
+        'gas_daily': None,
+        'has_exception': False,
+        'exception_type': None,
+        'photo_file_name': None,
+        'submitted_at': None,
+        'last_saved_at': datetime(2026, 5, 30, 8, 0, 0),
+        'updated_at': datetime(2026, 5, 30, 8, 0, 0),
+        'returned_reason': None,
+    }
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_list_report_history_all_day_uses_business_date_without_current_shift_filter(monkeypatch) -> None:
+    db = _HistoryFakeDB(
+        report_rows=[
+            _history_report(id=1, shift_config_id=1, team_id=3),
+            _history_report(id=2, shift_config_id=2, team_id=4),
+        ],
+        shift_rows=[
+            SimpleNamespace(id=1, code='C', name='大夜'),
+            SimpleNamespace(id=2, code='A', name='长白班'),
+        ],
+    )
+    current_user = SimpleNamespace(id=99, role='operator')
+    monkeypatch.setattr(mobile_report_service, 'assert_mobile_user_access', lambda _user: SimpleNamespace(is_admin=False))
+    monkeypatch.setattr(
+        mobile_report_service,
+        '_resolve_workshop_team',
+        lambda _db, _user: (
+            SimpleNamespace(id=7, name='退火一车间'),
+            SimpleNamespace(id=3, name='大夜班', workshop_id=7, is_active=True),
+        ),
+    )
+
+    payload = mobile_report_service.list_report_history(
+        db,
+        current_user=current_user,
+        limit=30,
+        business_date=date(2026, 5, 30),
+        all_day=True,
+    )
+
+    assert [item['shift_name'] for item in payload['items']] == ['大夜', '长白班']
+    assert db.report_query.filter_count == 2
+
+
+def test_list_report_history_default_keeps_current_team_and_owner_scope(monkeypatch) -> None:
+    db = _HistoryFakeDB(
+        report_rows=[_history_report()],
+        shift_rows=[SimpleNamespace(id=1, code='C', name='大夜')],
+    )
+    current_user = SimpleNamespace(id=99, role='operator')
+    monkeypatch.setattr(mobile_report_service, 'assert_mobile_user_access', lambda _user: SimpleNamespace(is_admin=False))
+    monkeypatch.setattr(
+        mobile_report_service,
+        '_resolve_workshop_team',
+        lambda _db, _user: (
+            SimpleNamespace(id=7, name='退火一车间'),
+            SimpleNamespace(id=3, name='大夜班', workshop_id=7, is_active=True),
+        ),
+    )
+
+    mobile_report_service.list_report_history(db, current_user=current_user, limit=10)
+
+    assert db.report_query.filter_count == 3

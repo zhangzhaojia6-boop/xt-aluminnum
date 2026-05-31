@@ -51,9 +51,24 @@ test('audit ticker uses plant inbound output and ton contract values', () => {
   })
 
   assert.equal(items.find((item) => item.key === 'plant-output')?.value, '81.25 吨')
-  assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '90.00 吨')
-  assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.50 吨')
+  assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '90 吨')
+  assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.5 吨')
   assert.equal(items.find((item) => item.key === 'mes-sync')?.value, '同步恢复中')
+})
+
+test('audit ticker hides trailing zero decimals without losing non-zero decimals', () => {
+  const items = buildAuditTickerItems({
+    dailyOverview: {
+      ...dailyOverview,
+      plant_output: { daily_output: 81 },
+      contracts: { daily_new: 12.5, unit: '吨' },
+      workshop_output: [{ workshop: '退火一车间', daily_output: 40 }],
+    },
+  })
+
+  assert.equal(items.find((item) => item.key === 'plant-output')?.value, '81 吨')
+  assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '40 吨')
+  assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.5 吨')
 })
 
 test('audit ticker never renders fake zero when energy is unavailable', () => {
@@ -84,8 +99,8 @@ test('source chain cards keep algorithm values primary and filled values seconda
       ['contract', '当天接合同', '总余合同量'],
     ],
   )
-  assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, '1,200.00 度')
-  assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '1,180.00 度')
+  assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, '1,200 度')
+  assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '1,180 度')
 })
 
 test('fill ledger rows expose person, post, submit time and content', () => {
@@ -124,7 +139,7 @@ test('fill ledger rows expose person, post, submit time and content', () => {
   assert.equal(rows[0].responsibleText, '张三')
   assert.equal(rows[0].submittedText, '05-30 08:12')
   assert.match(rows[0].contentText, /全厂用电 1200kWh/)
-  assert.match(rows[1].contentText, /产量 9.500 吨/)
+  assert.match(rows[1].contentText, /产量 9.5 吨/)
 })
 
 test('fill ledger search matches responsible person, machine and tracking card', () => {

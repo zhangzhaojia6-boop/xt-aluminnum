@@ -599,9 +599,9 @@ test('manageNavGroups keeps the manager surface focused on daily factory work', 
     '/manage/today',
     '/manage/production',
     '/manage/fill-details',
-    '/energy/center',
+    '/manage/energy',
     '/manage/alerts',
-    '/attendance/overview',
+    '/manage/attendance',
   ])
   assert.equal(items.some((item) => item.path === '/manage/daily-report'), false)
   assert.equal(items.some((item) => item.path === '/manage/reports'), false)

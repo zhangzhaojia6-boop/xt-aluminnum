@@ -163,111 +163,251 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.xt-date-switcher { position: relative; display: flex; align-items: center; gap: var(--xt-space-2); }
+.xt-date-switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+}
+
 .xt-date-switcher__btn,
 .xt-date-switcher__refresh,
 .xt-date-switcher__label {
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--xt-space-3);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  background: var(--xt-bg-panel);
-  color: var(--xt-text);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-lg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 5%, transparent), transparent),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 82%, var(--xt-bg-panel));
+  color: var(--xt-text-inverse);
   font-size: var(--xt-text-sm);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
 }
+
 .xt-date-switcher__btn:hover:not(:disabled),
 .xt-date-switcher__refresh:hover:not(:disabled),
-.xt-date-switcher__label:hover { border-color: var(--xt-border-strong); }
-.xt-date-switcher__btn:disabled,
-.xt-date-switcher__refresh:disabled { opacity: 0.5; cursor: not-allowed; }
-.xt-date-switcher__label {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: var(--xt-text-md); font-weight: 800; color: var(--xt-text);
+.xt-date-switcher__label:hover {
+  border-color: color-mix(in srgb, var(--xt-primary) 62%, var(--xt-border-ink));
+  background: color-mix(in srgb, var(--xt-primary) 14%, var(--xt-bg-ink-panel));
 }
-.xt-date-switcher__label.is-open { border-color: var(--xt-primary, var(--xt-color-accent)); }
-.xt-date-switcher__caret { font-size: 10px; color: var(--xt-text-muted); }
-.xt-date-switcher__dot { width: 8px; height: 8px; border-radius: 50%; }
-.xt-date-switcher__dot.is-green { background: var(--xt-color-success); }
-.xt-date-switcher__dot.is-yellow { background: var(--xt-color-warning); }
-.xt-date-switcher__dot.is-red { background: var(--xt-color-danger); }
+
+.xt-date-switcher__btn:active:not(:disabled),
+.xt-date-switcher__refresh:active:not(:disabled),
+.xt-date-switcher__label:active {
+  transform: scale(0.96);
+}
+
+.xt-date-switcher__btn:disabled,
+.xt-date-switcher__refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.xt-date-switcher__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-md);
+  font-weight: 900;
+}
+
+.xt-date-switcher__label.is-open {
+  border-color: var(--xt-primary);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 28%, transparent);
+}
+
+.xt-date-switcher__caret {
+  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  font-size: 10px;
+}
+
+.xt-date-switcher__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.xt-date-switcher__dot.is-green { background: var(--xt-color-success); color: var(--xt-color-success); }
+.xt-date-switcher__dot.is-yellow { background: var(--xt-color-warning); color: var(--xt-color-warning); }
+.xt-date-switcher__dot.is-red { background: var(--xt-color-danger); color: var(--xt-color-danger); }
 
 .xt-cal-pop {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 36px;
   z-index: 60;
-  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--xt-space-2);
+  width: 286px;
   padding: var(--xt-space-3);
-  background: var(--xt-bg-panel);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
-  display: flex; flex-direction: column; gap: var(--xt-space-2);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 28%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-xl);
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 34%),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 94%, var(--xt-bg-panel));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
+    0 24px 60px color-mix(in srgb, var(--xt-bg-ink) 70%, transparent);
 }
+
 .xt-cal-pop__head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--xt-space-2);
 }
-.xt-cal-pop__title { font-size: var(--xt-text-sm); font-weight: 800; color: var(--xt-text); }
+
+.xt-cal-pop__title {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-sm);
+  font-weight: 900;
+}
+
 .xt-cal-pop__nav {
-  width: 28px; height: 28px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--xt-border); border-radius: var(--xt-radius-sm);
-  background: transparent; color: var(--xt-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-sm);
+  background: transparent;
+  color: color-mix(in srgb, var(--xt-text-inverse) 66%, transparent);
   cursor: pointer;
 }
-.xt-cal-pop__nav:hover { border-color: var(--xt-border-strong); color: var(--xt-text); }
+
+.xt-cal-pop__nav:hover {
+  border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
+  color: var(--xt-text-inverse);
+}
 
 .xt-cal-pop__weekdays {
-  display: grid; grid-template-columns: repeat(7, 1fr);
-  font-size: 11px; color: var(--xt-text-muted); font-weight: 700;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  font-size: 11px;
+  font-weight: 800;
   text-align: center;
 }
-.xt-cal-pop__weekdays span { padding: 4px 0; }
-.xt-cal-pop__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+
+.xt-cal-pop__weekdays span {
+  padding: 4px 0;
+}
+
+.xt-cal-pop__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
 .xt-cal-pop__cell {
   height: 30px;
   border: 1px solid transparent;
   border-radius: var(--xt-radius-sm);
   background: transparent;
-  font-size: var(--xt-text-xs); font-weight: 700;
-  color: var(--xt-text);
-  cursor: pointer;
+  color: color-mix(in srgb, var(--xt-text-inverse) 78%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
 }
-.xt-cal-pop__cell:hover:not(:disabled) { background: var(--xt-bg-panel-soft); border-color: var(--xt-border); }
-.xt-cal-pop__cell.is-out { color: var(--xt-text-muted); opacity: 0.55; }
-.xt-cal-pop__cell.is-today { color: var(--xt-primary, var(--xt-color-accent)); }
+
+.xt-cal-pop__cell:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--xt-primary) 26%, var(--xt-border));
+  background: color-mix(in srgb, var(--xt-primary) 10%, var(--xt-bg-panel-soft));
+}
+
+.xt-cal-pop__cell:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.xt-cal-pop__cell.is-out {
+  color: color-mix(in srgb, var(--xt-text-inverse) 34%, transparent);
+  opacity: 0.68;
+}
+
+.xt-cal-pop__cell.is-today {
+  color: var(--xt-primary);
+}
+
 .xt-cal-pop__cell.is-selected {
-  background: var(--xt-primary, #1f6feb);
-  color: #fff;
-  border-color: var(--xt-primary, #1f6feb);
+  border-color: var(--xt-primary);
+  background: color-mix(in srgb, var(--xt-primary) 82%, var(--xt-bg-ink-panel));
+  color: var(--xt-text-inverse);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 30%, transparent);
 }
-.xt-cal-pop__cell.is-future { color: var(--xt-text-muted); opacity: 0.4; cursor: not-allowed; }
+
+.xt-cal-pop__cell.is-future {
+  color: color-mix(in srgb, var(--xt-text-inverse) 30%, transparent);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 .xt-cal-pop__quick {
-  display: flex; gap: 6px; justify-content: space-between;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
   padding-top: var(--xt-space-2);
-  border-top: 1px dashed var(--xt-border);
+  border-top: 1px dashed color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
 }
+
 .xt-cal-pop__quick-btn {
   flex: 1;
-  padding: 4px 0;
-  background: transparent;
-  border: 1px solid var(--xt-border);
+  padding: 5px 0;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
   border-radius: var(--xt-radius-sm);
-  color: var(--xt-text-secondary);
-  font-size: 11px; font-weight: 700;
+  background: transparent;
+  color: color-mix(in srgb, var(--xt-text-inverse) 62%, transparent);
+  font-size: 11px;
+  font-weight: 800;
   cursor: pointer;
 }
-.xt-cal-pop__quick-btn:hover { border-color: var(--xt-border-strong); color: var(--xt-text); }
-.xt-cal-pop__quick-btn--accent { color: var(--xt-primary, var(--xt-color-accent)); border-color: var(--xt-primary, var(--xt-color-accent)); }
+
+.xt-cal-pop__quick-btn:hover {
+  border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
+  color: var(--xt-text-inverse);
+}
+
+.xt-cal-pop__quick-btn--accent {
+  border-color: var(--xt-primary);
+  color: var(--xt-primary);
+}
 
 .xt-cal-pop-enter-active,
-.xt-cal-pop-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
+.xt-cal-pop-leave-active {
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
 .xt-cal-pop-enter-from,
-.xt-cal-pop-leave-to { opacity: 0; transform: translateY(-4px); }
+.xt-cal-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xt-date-switcher__btn,
+  .xt-date-switcher__refresh,
+  .xt-date-switcher__label,
+  .xt-cal-pop__cell,
+  .xt-cal-pop-enter-active,
+  .xt-cal-pop-leave-active {
+    transition: none;
+  }
+}
 </style>

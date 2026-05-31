@@ -40,8 +40,8 @@ function readToken(name, fallback) {
 }
 
 const option = computed(() => {
-  const lineColor = readToken('--xt-primary', '#1f6feb')
-  const avgColor = readToken('--xt-text-muted', '#94a3b8')
+  const lineColor = readToken('--xt-primary', 'rgb(94, 184, 255)')
+  const avgColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
   return {
     grid: { left: 48, right: 16, top: 24, bottom: 28 },
     tooltip: {
@@ -108,41 +108,65 @@ const option = computed(() => {
 
 <style scoped>
 .xt-output-trend {
-  background: var(--xt-bg-panel);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  padding: var(--xt-space-3);
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
+  border-radius: var(--xt-radius-xl);
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 36%),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
+    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+  overflow: hidden;
 }
+
+.xt-output-trend::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--xt-primary), transparent);
+  opacity: 0.85;
+}
+
 .xt-output-trend__head {
+  position: relative;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--xt-space-2);
 }
+
 .xt-output-trend__title {
+  color: var(--xt-text-inverse);
   font-size: var(--xt-text-sm);
-  font-weight: 800;
-  color: var(--xt-text);
+  font-weight: 900;
 }
+
 .xt-output-trend__meta {
+  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
   font-size: var(--xt-text-xs);
-  color: var(--xt-text-muted);
   font-variant-numeric: tabular-nums;
 }
+
 .xt-output-trend__canvas {
+  position: relative;
   width: 100%;
   height: 220px;
 }
+
 .xt-output-trend__empty {
-  height: 220px;
   display: grid;
   place-items: center;
-  color: var(--xt-text-muted);
+  height: 220px;
+  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
   font-size: var(--xt-text-sm);
 }
+
 @media (max-width: 720px) {
   .xt-output-trend__canvas { height: 180px; }
 }

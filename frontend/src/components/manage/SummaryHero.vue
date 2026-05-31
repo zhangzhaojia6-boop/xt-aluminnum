@@ -68,73 +68,161 @@ const formattedDate = computed(() => {
 
 <style scoped>
 .xt-summary-hero {
-  display: grid;
-  grid-template-columns: 4px 1fr;
-  gap: var(--xt-space-3);
-  background: linear-gradient(135deg, var(--xt-bg-panel) 0%, var(--xt-bg-panel-soft) 100%);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  padding: var(--xt-space-3) var(--xt-space-4);
   position: relative;
+  display: grid;
+  grid-template-columns: 5px 1fr;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-4);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 26%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-xl);
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--xt-primary) 20%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--xt-bg-ink-panel) 90%, var(--xt-bg-panel)), var(--xt-bg-ink));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
+    0 18px 44px color-mix(in srgb, var(--xt-bg-ink) 58%, transparent);
   overflow: hidden;
 }
-.xt-summary-hero__bar {
-  width: 4px; height: 100%;
-  background: linear-gradient(180deg, var(--xt-primary, #1f6feb) 0%, var(--xt-success, #3ba55c) 100%);
-  border-radius: 2px;
-  align-self: stretch;
+
+.xt-summary-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent),
+    linear-gradient(color-mix(in srgb, var(--xt-text-inverse) 4%, transparent) 50%, transparent 50%);
+  background-size: auto, 100% 4px;
+  opacity: 0.45;
 }
-.xt-summary-hero__body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.xt-summary-hero__bar {
+  width: 5px;
+  height: 100%;
+  align-self: stretch;
+  border-radius: var(--xt-radius-pill);
+  background: linear-gradient(180deg, var(--xt-primary), var(--xt-success));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--xt-primary) 52%, transparent);
+}
+
+.xt-summary-hero__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--xt-space-2);
+  min-width: 0;
+}
+
 .xt-summary-hero__head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--xt-space-2);
 }
-.xt-summary-hero__caption { display: flex; align-items: center; gap: var(--xt-space-2); }
+
+.xt-summary-hero__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+}
+
 .xt-summary-hero__pill {
-  display: inline-flex; align-items: center;
-  padding: 1px 8px;
-  background: var(--xt-primary, #1f6feb);
-  color: #fff;
-  font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 52%, transparent);
   border-radius: var(--xt-radius-pill);
+  background: color-mix(in srgb, var(--xt-primary) 20%, transparent);
+  color: var(--xt-text-inverse);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 28%, transparent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
+
 .xt-summary-hero__date {
-  font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-weight: 700;
+  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
 }
+
 .xt-summary-hero__toggle {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 10px;
-  background: transparent;
-  border: 1px solid var(--xt-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border-ink));
   border-radius: var(--xt-radius-pill);
-  color: var(--xt-text-secondary);
-  font-size: var(--xt-text-xs); font-weight: 700;
+  background: color-mix(in srgb, var(--xt-bg-ink-panel) 62%, transparent);
+  color: color-mix(in srgb, var(--xt-text-inverse) 68%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
   cursor: pointer;
-  transition: border-color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
 }
-.xt-summary-hero__toggle:hover { border-color: var(--xt-border-strong); color: var(--xt-text); }
-.xt-summary-hero__chev { font-size: 12px; transition: transform 160ms ease; }
-.xt-summary-hero__chev.is-open { transform: rotate(90deg); }
+
+.xt-summary-hero__toggle:hover {
+  border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
+  color: var(--xt-text-inverse);
+}
+
+.xt-summary-hero__toggle:active {
+  transform: scale(0.97);
+}
+
+.xt-summary-hero__chev {
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.xt-summary-hero__chev.is-open {
+  transform: rotate(90deg);
+}
+
 .xt-summary-hero__lead {
   margin: 0;
+  color: var(--xt-text-inverse);
   font-size: var(--xt-text-md);
-  font-weight: 600;
-  line-height: 1.65;
-  color: var(--xt-text);
+  font-weight: 700;
+  line-height: 1.72;
   letter-spacing: -0.005em;
 }
-.xt-summary-hero__lead--muted { color: var(--xt-text-muted); font-weight: 500; }
+
+.xt-summary-hero__lead--muted {
+  color: color-mix(in srgb, var(--xt-text-inverse) 50%, transparent);
+  font-weight: 600;
+}
+
 .xt-summary-hero__rest {
   margin-top: var(--xt-space-2);
   padding-top: var(--xt-space-2);
-  border-top: 1px dashed var(--xt-border);
+  border-top: 1px dashed color-mix(in srgb, var(--xt-primary) 22%, var(--xt-border-ink));
+  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
   font-size: var(--xt-text-sm);
-  line-height: 1.7;
-  color: var(--xt-text-secondary);
+  line-height: 1.72;
   white-space: pre-wrap;
 }
+
 .xt-hero-expand-enter-active,
-.xt-hero-expand-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
+.xt-hero-expand-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
 .xt-hero-expand-enter-from,
-.xt-hero-expand-leave-to { opacity: 0; transform: translateY(-4px); }
+.xt-hero-expand-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xt-summary-hero__toggle,
+  .xt-hero-expand-enter-active,
+  .xt-hero-expand-leave-active {
+    transition: none;
+  }
+}
 </style>

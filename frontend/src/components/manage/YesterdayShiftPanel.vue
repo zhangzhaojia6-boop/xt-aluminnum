@@ -115,7 +115,12 @@ const dateLabel = computed(() => {
 })
 
 const fmt = (v, digits = 2) =>
-  (v == null || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(digits)
+  (v == null || Number.isNaN(Number(v)))
+    ? '—'
+    : Number(v).toLocaleString('zh-CN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    })
 
 function sharePct(s) {
   const total = Number(props.payload?.total_output || 0)
@@ -202,7 +207,7 @@ function sharePct(s) {
 }
 .xt-shifts__cell.is-a .xt-shifts__shift-dot { background: #ffd166; box-shadow: 0 0 8px rgba(255, 209, 102, 0.45); }
 .xt-shifts__cell.is-b .xt-shifts__shift-dot { background: #66b2ff; box-shadow: 0 0 8px rgba(102, 178, 255, 0.45); }
-.xt-shifts__cell.is-c .xt-shifts__shift-dot { background: #b388ff; box-shadow: 0 0 8px rgba(179, 136, 255, 0.45); }
+.xt-shifts__cell.is-c .xt-shifts__shift-dot { background: #74f5ff; box-shadow: 0 0 8px rgba(116, 245, 255, 0.45); }
 .xt-shifts__shift-name { color: #f3f6fb; font-weight: 800; }
 .xt-shifts__shift-window {
   color: rgba(180, 200, 235, 0.55); font-weight: 700; font-size: 11px;
@@ -229,7 +234,7 @@ function sharePct(s) {
   transition: width 320ms cubic-bezier(.4,0,.2,1);
 }
 .xt-shifts__cell.is-a .xt-shifts__share-fill { background: linear-gradient(90deg, rgba(255, 209, 102, 0.85), rgba(255, 209, 102, 0.45)); }
-.xt-shifts__cell.is-c .xt-shifts__share-fill { background: linear-gradient(90deg, rgba(179, 136, 255, 0.85), rgba(179, 136, 255, 0.45)); }
+.xt-shifts__cell.is-c .xt-shifts__share-fill { background: linear-gradient(90deg, rgba(116, 245, 255, 0.85), rgba(116, 245, 255, 0.45)); }
 .xt-shifts__share-text {
   font-size: 11px; color: rgba(180, 200, 235, 0.7);
   font-weight: 700; font-variant-numeric: tabular-nums;

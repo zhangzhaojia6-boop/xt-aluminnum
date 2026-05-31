@@ -3,9 +3,17 @@
     <div class="mobile-top">
       <div>
         <h1>历史填报</h1>
-        <p>只看你有权限的班次记录。</p>
+        <p>按整日查看有权限的录入记录。</p>
       </div>
       <div class="header-actions">
+        <el-date-picker
+          v-model="businessDate"
+          type="date"
+          value-format="YYYY-MM-DD"
+          size="small"
+          class="mobile-history-date"
+          @change="load"
+        />
         <el-button plain class="mobile-inline-action" @click="load">刷新</el-button>
       </div>
     </div>
@@ -85,12 +93,14 @@ import { fetchMobileHistory } from '../../api/mobile'
 import { formatNumber, formatStatusLabel } from '../../utils/display'
 import { useAuthStore } from '../../stores/auth'
 import { resolveTransitionRoleBucket } from '../../utils/mobileTransition'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const router = useRouter()
 const auth = useAuthStore()
 const items = ref([])
 const loading = ref(true)
 const pageError = ref('')
+const businessDate = ref(inferBusinessDate())
 
 const advancedRoleBuckets = [
   'machine_operator',
@@ -129,7 +139,11 @@ async function load() {
   loading.value = true
   pageError.value = ''
   try {
-    const data = await fetchMobileHistory({ limit: 12 })
+    const data = await fetchMobileHistory({
+      business_date: businessDate.value,
+      all_day: true,
+      limit: 30,
+    })
     items.value = data.items || []
   } catch (error) {
     pageError.value = requestErrorMessage(error, '加载历史记录失败，请重试。')

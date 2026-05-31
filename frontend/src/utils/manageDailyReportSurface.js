@@ -12,7 +12,7 @@ function formatNumber(value, digits = 2) {
   const numeric = toNumber(value)
   if (numeric === null) return MISSING_DAILY_VALUE
   return numeric.toLocaleString('zh-CN', {
-    minimumFractionDigits: digits,
+    minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   })
 }
@@ -27,7 +27,7 @@ function formatPlainMetric(value, digits = 2) {
   const numeric = toNumber(value)
   if (numeric === null) return MISSING_DAILY_VALUE
   return numeric.toLocaleString('zh-CN', {
-    minimumFractionDigits: digits,
+    minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   })
 }

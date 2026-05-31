@@ -28,7 +28,7 @@ const NAV_GROUPS = [
     items: [
       { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
       { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产' },
-      { title: '能耗', shortLabel: '能耗', path: '/energy/center', icon: DataLine, access: 'review', commandGroup: '生产' },
+      { title: '能耗', shortLabel: '能耗', path: '/manage/energy', icon: DataLine, access: 'review', commandGroup: '生产' },
       { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产' }
     ]
   },
@@ -36,7 +36,7 @@ const NAV_GROUPS = [
     label: '考勤',
     commandGroup: '考勤',
     items: [
-      { title: '考勤', shortLabel: '考勤', path: '/attendance/overview', icon: Sunny, access: 'review', commandGroup: '考勤' }
+      { title: '考勤', shortLabel: '考勤', path: '/manage/attendance', icon: Sunny, access: 'review', commandGroup: '考勤' }
     ]
   },
   {

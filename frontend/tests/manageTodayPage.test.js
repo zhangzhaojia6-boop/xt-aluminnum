@@ -32,7 +32,7 @@ test('TodayPage exposes core page entrances including admin settings', () => {
   assert.match(src, /\/manage\/live/)
   assert.match(src, /\/manage\/today\?section=daily-report/)
   assert.equal(/\/manage\/daily-report/.test(src), false)
-  assert.match(src, /\/energy\/center/)
+  assert.match(src, /\/manage\/energy/)
   assert.match(src, /\/manage\/admin\/settings/)
   assert.match(src, /auth\.adminSurface/)
   assert.equal(/\/manage\/reports/.test(src), false)

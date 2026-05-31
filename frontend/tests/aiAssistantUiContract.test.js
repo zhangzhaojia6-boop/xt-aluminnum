@@ -58,6 +58,24 @@ test('ai workstation exposes assistant inbox tabs without stale capability copy'
   assert.doesNotMatch(workstation, /预测 \/ 分析 \/ 执行/)
 })
 
+test('ai workstation aligns to the cyber industrial visual system without changing chat wiring', () => {
+  const workstation = source('../src/views/ai/AiWorkstation.vue')
+
+  assert.match(workstation, /data-testid="ai-workstation-page"/)
+  assert.match(workstation, /COMMAND AI/)
+  assert.match(workstation, /aiStats/)
+  assert.match(workstation, /store\.sendMessage/)
+  assert.match(workstation, /store\.loadConversations/)
+  assert.match(workstation, /AiBriefingInbox/)
+  assert.match(workstation, /AiWatchlistPanel/)
+  assert.match(workstation, /--ai-accent:\s*#00f2ff/)
+  assert.match(workstation, /aiSweep/)
+  assert.match(workstation, /aiPulse/)
+  assert.match(workstation, /:deep\(\.ai-conversations\)/)
+  assert.match(workstation, /:deep\(\.ai-message__bubble\)/)
+  assert.match(workstation, /:deep\(\.xt-ai-action-card\)/)
+})
+
 test('current management shell uses canonical assistant label and route context', () => {
   const shell = source('../src/layout/ManageShell.vue')
   const drawer = source('../src/components/ai/AiAssistantDrawer.vue')

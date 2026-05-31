@@ -12,6 +12,7 @@ import {
 import VChart from 'vue-echarts'
 import { useHudChartTheme } from '../../composables/useHudChartTheme.js'
 import { shapeEnergyTrend, energyTrendStats } from './_costPanel.js'
+import { formatNumber } from '../../utils/display.js'
 
 use([
   CanvasRenderer,
@@ -36,7 +37,7 @@ const muted = computed(() =>
 )
 const costWan = computed(() => {
   if (muted.value) return '—'
-  return (Number(props.estimate.estimated_cost) / 10000).toFixed(2)
+  return formatNumber(Number(props.estimate.estimated_cost) / 10000, 2)
 })
 const tonCost = computed(() => {
   const c = Number(props.estimate?.estimated_cost || 0)
@@ -56,8 +57,8 @@ function readToken(name, fallback) {
 }
 
 const option = computed(() => {
-  const lineColor = readToken('--xt-warning', '#cc8a1f')
-  const muteColor = readToken('--xt-text-muted', '#94a3b8')
+  const lineColor = readToken('--xt-warning', 'rgb(240, 184, 74)')
+  const muteColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
   const data = shaped.value.map((p) => p.energyPerTon)
   const lastIdx = data.length - 1
   return {
@@ -97,7 +98,7 @@ const option = computed(() => {
       markPoint: lastIdx >= 0 ? {
         symbol: 'circle',
         symbolSize: 10,
-        itemStyle: { color: lineColor, borderColor: '#fff', borderWidth: 2 },
+        itemStyle: { color: lineColor, borderColor: 'rgba(255, 255, 255, 0.9)', borderWidth: 2 },
         data: [{ coord: [lastIdx, data[lastIdx]] }]
       } : undefined,
       markLine: stats.value.avg > 0 ? {
@@ -152,55 +153,132 @@ const option = computed(() => {
 
 <style scoped>
 .xt-cost-panel {
-  background: var(--xt-bg-panel);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  padding: var(--xt-space-3);
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--xt-space-3);
-}
-.xt-cost-panel__head { display: flex; flex-direction: column; gap: 2px; }
-.xt-cost-panel__cost.is-muted { opacity: 0.55; }
-.xt-cost-panel__cost-label { font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-weight: 700; }
-.xt-cost-panel__cost-row {
-  display: flex; align-items: baseline; gap: var(--xt-space-2);
-  margin-top: 2px;
-}
-.xt-cost-panel__cost-value {
-  font-size: var(--xt-text-2xl); font-weight: 850; color: var(--xt-text);
-  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
-}
-.xt-cost-panel__cost-unit { font-size: var(--xt-text-sm); color: var(--xt-text-secondary); font-weight: 700; }
-.xt-cost-panel__cost-pill {
-  margin-left: auto; padding: 2px var(--xt-space-2);
-  background: var(--xt-warning-light);
-  color: var(--xt-warning);
-  border: 1px solid var(--xt-warning-border);
-  font-size: var(--xt-text-xs); font-weight: 800;
-  border-radius: var(--xt-radius-pill);
-  font-variant-numeric: tabular-nums;
-}
-.xt-cost-panel__cost-pill.is-muted {
-  background: var(--xt-bg-panel-soft);
-  color: var(--xt-text-muted);
-  border-color: var(--xt-border);
+  min-height: 100%;
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-warning) 26%, var(--xt-border));
+  border-radius: var(--xt-radius-xl);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--xt-warning) 16%, transparent), transparent 38%),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
+    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+  overflow: hidden;
 }
 
-.xt-cost-panel__trend { display: flex; flex-direction: column; gap: 4px; }
-.xt-cost-panel__trend-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--xt-space-2);
+.xt-cost-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--xt-warning), transparent);
+  opacity: 0.85;
 }
-.xt-cost-panel__trend-title { font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-weight: 700; }
-.xt-cost-panel__trend-meta {
-  font-size: var(--xt-text-xs); color: var(--xt-text-secondary);
+
+.xt-cost-panel__head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.xt-cost-panel__cost.is-muted {
+  opacity: 0.58;
+}
+
+.xt-cost-panel__cost-label {
+  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-cost-panel__cost-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--xt-space-2);
+  margin-top: 2px;
+}
+
+.xt-cost-panel__cost-value {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--xt-warning) 28%, transparent);
+}
+
+.xt-cost-panel__cost-unit {
+  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  font-size: var(--xt-text-sm);
+  font-weight: 800;
+}
+
+.xt-cost-panel__cost-pill {
+  margin-left: auto;
+  padding: 3px var(--xt-space-2);
+  border: 1px solid color-mix(in srgb, var(--xt-warning) 42%, var(--xt-border));
+  border-radius: var(--xt-radius-pill);
+  background: color-mix(in srgb, var(--xt-warning-light) 10%, transparent);
+  color: color-mix(in srgb, var(--xt-warning) 72%, var(--xt-text-inverse));
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
   font-variant-numeric: tabular-nums;
 }
-.xt-cost-panel__trend-meta b { color: var(--xt-text); font-weight: 850; }
-.xt-cost-panel__chart { width: 100%; height: 138px; }
+
+.xt-cost-panel__cost-pill.is-muted {
+  border-color: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border));
+  background: color-mix(in srgb, var(--xt-bg-panel-soft) 8%, transparent);
+  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+}
+
+.xt-cost-panel__trend {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xt-cost-panel__trend-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+}
+
+.xt-cost-panel__trend-title {
+  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-cost-panel__trend-meta {
+  color: color-mix(in srgb, var(--xt-text-inverse) 62%, transparent);
+  font-size: var(--xt-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-cost-panel__trend-meta b {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-weight: 900;
+}
+
+.xt-cost-panel__chart {
+  width: 100%;
+  height: 138px;
+}
+
 .xt-cost-panel__empty {
-  height: 138px; display: grid; place-items: center;
-  color: var(--xt-text-muted); font-size: var(--xt-text-sm);
+  display: grid;
+  place-items: center;
+  height: 138px;
+  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  font-size: var(--xt-text-sm);
 }
 </style>

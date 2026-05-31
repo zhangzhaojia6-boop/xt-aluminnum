@@ -134,6 +134,8 @@ def submit_report(
 @router.get('/report/history', response_model=MobileReportHistoryResponse, name='mobile-report-history')
 def report_history(
     limit: int = 10,
+    business_date: date | None = Query(default=None),
+    all_day: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_mobile_user),
 ) -> MobileReportHistoryResponse:
@@ -141,6 +143,8 @@ def report_history(
         db,
         current_user=current_user,
         limit=limit,
+        business_date=business_date,
+        all_day=all_day,
     )
     return MobileReportHistoryResponse(
         items=[MobileShiftReportHistoryItemOut(**item) for item in payload['items']],

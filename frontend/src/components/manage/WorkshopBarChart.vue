@@ -7,6 +7,7 @@ import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/compon
 import VChart from 'vue-echarts'
 import { useHudChartTheme } from '../../composables/useHudChartTheme.js'
 import { mapWorkshopRows } from './_workshopRows.js'
+import { formatNumber } from '../../utils/display.js'
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent, LegendComponent])
 
@@ -27,10 +28,10 @@ const peakValue = computed(() =>
 
 const option = computed(() => {
   const m = mapped.value
-  const todayColor = readToken('--xt-primary', '#1f6feb')
-  const peakColor = readToken('--xt-success', '#3ba55c')
-  const avgColor = readToken('--xt-text-muted', '#94a3b8')
-  const labelColor = readToken('--xt-text', '#0f172a')
+  const todayColor = readToken('--xt-primary', 'rgb(94, 184, 255)')
+  const peakColor = readToken('--xt-success', 'rgb(78, 203, 138)')
+  const avgColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.58)')
+  const labelColor = readToken('--xt-text-inverse', 'rgba(224, 236, 255, 0.9)')
 
   const reversed = [...m].reverse()
   const peak = peakValue.value
@@ -73,8 +74,8 @@ const option = computed(() => {
         const deltaTxt = delta == null ? '' :
           `<br/><span style="color:${delta >= 0 ? peakColor : avgColor}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}%</span> vs 月均`
         return `<b>${name}</b><br/>` +
-          `今日 ${Number(today || 0).toFixed(2)} 吨<br/>` +
-          (avg != null ? `月均 ${Number(avg).toFixed(2)} 吨${deltaTxt}` : '月均 —')
+          `今日 ${formatNumber(today || 0, 2)} 吨<br/>` +
+          (avg != null ? `月均 ${formatNumber(avg, 2)} 吨${deltaTxt}` : '月均 —')
       }
     },
     grid: { left: 110, right: 56, top: 32, bottom: 16 },
@@ -107,7 +108,7 @@ const option = computed(() => {
           fontSize: 11,
           fontWeight: 700,
           color: labelColor,
-          formatter: (p) => Number(p.value || 0).toFixed(1)
+          formatter: (p) => formatNumber(p.value || 0, 1)
         }
       },
       {
@@ -127,7 +128,7 @@ const option = computed(() => {
     <header class="xt-workshop-bar__head">
       <span class="xt-workshop-bar__title">车间产量排名</span>
       <span v-if="hasData" class="xt-workshop-bar__meta">
-        共 <b>{{ mapped.length }}</b> 个 · 峰值 <b>{{ peakValue.toFixed(1) }}</b> 吨
+        共 <b>{{ mapped.length }}</b> 个 · 峰值 <b>{{ formatNumber(peakValue, 1) }}</b> 吨
       </span>
     </header>
     <VChart
@@ -143,19 +144,70 @@ const option = computed(() => {
 
 <style scoped>
 .xt-workshop-bar {
-  background: var(--xt-bg-panel);
-  border: 1px solid var(--xt-border);
-  border-radius: var(--xt-radius-md);
-  padding: var(--xt-space-3);
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 24%, var(--xt-border));
+  border-radius: var(--xt-radius-xl);
+  background:
+    radial-gradient(circle at 96% 0%, color-mix(in srgb, var(--xt-success) 14%, transparent), transparent 34%),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
+    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+  overflow: hidden;
 }
-.xt-workshop-bar__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--xt-space-2); }
-.xt-workshop-bar__title { font-size: var(--xt-text-base); font-weight: 850; color: var(--xt-text); }
-.xt-workshop-bar__meta { font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-variant-numeric: tabular-nums; }
-.xt-workshop-bar__meta b { color: var(--xt-text); font-weight: 850; }
-.xt-workshop-bar__canvas { width: 100%; height: 420px; }
-@media (max-width: 720px) { .xt-workshop-bar__canvas { height: 280px; } }
-.xt-workshop-bar__empty { color: var(--xt-text-muted); padding: var(--xt-space-4); text-align: center; }
+
+.xt-workshop-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--xt-success), var(--xt-primary), transparent);
+  opacity: 0.85;
+}
+
+.xt-workshop-bar__head {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+}
+
+.xt-workshop-bar__title {
+  color: var(--xt-text-inverse);
+  font-size: var(--xt-text-base);
+  font-weight: 900;
+}
+
+.xt-workshop-bar__meta {
+  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  font-size: var(--xt-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-workshop-bar__meta b {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-weight: 900;
+}
+
+.xt-workshop-bar__canvas {
+  position: relative;
+  width: 100%;
+  height: 420px;
+}
+
+.xt-workshop-bar__empty {
+  padding: var(--xt-space-4);
+  color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .xt-workshop-bar__canvas { height: 280px; }
+}
 </style>
