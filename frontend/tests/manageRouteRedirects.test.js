@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { findCenterByRouteName, resolveRouteMeta } from '../src/config/navigation.js'
 
 const src = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
@@ -54,6 +54,16 @@ test('daily report and incomplete operation pages redirect to stable destination
     assert.ok(line, `route '${path}' should exist`)
     assert.match(line, redirectPattern, `route '${path}' should redirect to its stable page`)
     assert.doesNotMatch(line, /\bcomponent:\s*(DailyProductionOverview|OpsCenter|SettingsCenter)\b/)
+  }
+})
+
+test('redirected legacy pages do not leave unused frontend modules behind', () => {
+  for (const page of [
+    '../src/views/manage/daily-report/DailyProductionOverview.vue',
+    '../src/views/ops/OpsCenter.vue',
+    '../src/views/settings/SettingsCenter.vue',
+  ]) {
+    assert.equal(existsSync(new URL(page, import.meta.url)), false, `${page} should stay removed`)
   }
 })
 
