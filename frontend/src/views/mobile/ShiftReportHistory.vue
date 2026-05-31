@@ -194,3 +194,41 @@ function goEntry() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.mobile-top {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.mobile-top h1,
+.mobile-top p {
+  writing-mode: horizontal-tb;
+}
+
+.header-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.mobile-history-date {
+  width: 100%;
+}
+
+.mobile-inline-action {
+  min-height: 40px;
+}
+
+@media (max-width: 480px) {
+  .header-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-inline-action {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+</style>

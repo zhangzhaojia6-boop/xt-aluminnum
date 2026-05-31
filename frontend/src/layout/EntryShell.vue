@@ -35,7 +35,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { Document, EditPen, HomeFilled, User } from '@element-plus/icons-vue'
+import { Document, EditPen, HomeFilled, Tickets } from '@element-plus/icons-vue'
 
 import { XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth'
@@ -48,9 +48,9 @@ const currentShift = computed(() => auth.machineContext?.machine_name || auth.ma
 
 const tabs = [
   { path: '/entry', label: '首页', icon: HomeFilled },
-  { path: '/entry/report', label: '录入', icon: EditPen },
+  { path: '/entry/fill', label: '录入', icon: EditPen },
+  { path: '/entry/history', label: '历史', icon: Tickets },
   { path: '/entry/drafts', label: '草稿', icon: Document },
-  { path: '/entry/profile', label: '我的', icon: User }
 ]
 
 function isActive(path) {

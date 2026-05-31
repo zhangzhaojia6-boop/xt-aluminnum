@@ -16,3 +16,10 @@ test('ShiftReportHistory gives operators a date-level history control', () => {
   assert.match(src, /@change="load"/)
   assert.match(src, /按整日查看有权限的录入记录/)
 })
+
+test('ShiftReportHistory protects mobile header from narrow date controls', () => {
+  assert.match(src, /\.mobile-top\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+  assert.match(src, /\.header-actions\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/)
+  assert.match(src, /@media \(max-width:\s*480px\)/)
+  assert.match(src, /\.mobile-inline-action\s*\{[\s\S]*min-height:\s*44px/)
+})
