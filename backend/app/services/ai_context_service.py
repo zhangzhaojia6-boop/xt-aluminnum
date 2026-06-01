@@ -7,8 +7,11 @@ from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
+from app.adapters.llm import generate_llm_summary_with_usage
+from app.config import Settings, settings as runtime_settings
 from app.core.scope import build_scope_summary
 from app.models.assistant import AiContextPack
+from app.models.assistant_usage import AssistantUsage
 from app.services import factory_command_service
 
 
@@ -45,6 +48,55 @@ def _sanitize(value: Any) -> Any:
 def _source_hash(payload: Mapping[str, Any]) -> str:
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode('utf-8')
     return hashlib.sha256(encoded).hexdigest()[:32]
+
+
+def _llm_ready(runtime: Settings) -> bool:
+    has_model_ref = bool(str(runtime.LLM_ENDPOINT_ID or runtime.LLM_MODEL or '').strip())
+    return bool(
+        runtime.LLM_ENABLED
+        and str(runtime.LLM_API_BASE or '').strip()
+        and str(runtime.LLM_API_KEY or '').strip()
+        and has_model_ref
+    )
+
+
+def _daily_window_start(now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    return datetime(current.year, current.month, current.day, tzinfo=timezone.utc)
+
+
+def _can_record_usage(db: Session, user: Any) -> bool:
+    return callable(getattr(db, 'query', None)) and callable(getattr(db, 'add', None)) and getattr(user, 'id', None) is not None
+
+
+def _within_daily_limit(db: Session, user: Any, *, runtime: Settings) -> bool:
+    if not _can_record_usage(db, user):
+        return True
+    used = (
+        db.query(AssistantUsage)
+        .filter(AssistantUsage.user_id == int(user.id), AssistantUsage.created_at >= _daily_window_start())
+        .count()
+    )
+    return used < int(runtime.LLM_DAILY_QUERY_LIMIT or 0)
+
+
+def _record_llm_usage(db: Session, user: Any, *, runtime: Settings, response) -> None:
+    if not _can_record_usage(db, user):
+        return
+    db.add(
+        AssistantUsage(
+            user_id=int(user.id),
+            endpoint='ai_context_answer',
+            model=str(runtime.LLM_ENDPOINT_ID or runtime.LLM_MODEL or '').strip(),
+            input_tokens=max(0, int(getattr(response, 'input_tokens', 0) or 0)),
+            output_tokens=max(0, int(getattr(response, 'output_tokens', 0) or 0)),
+            total_tokens=max(0, int(getattr(response, 'total_tokens', 0) or 0)),
+            raw_usage=dict(getattr(response, 'raw_usage', None) or {}),
+        )
+    )
+    commit = getattr(db, 'commit', None)
+    if callable(commit):
+        commit()
 
 
 def _delay_hours(item: Mapping[str, Any]) -> float:
@@ -139,6 +191,141 @@ def _filter_for_assistant_scope(
     return machine_lines, coils
 
 
+def _compact_for_llm(pack: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        'scope': pack.get('scope') or {},
+        'freshness': pack.get('freshness') or {},
+        'top_abnormal_coils': list(pack.get('top_abnormal_coils') or [])[:5],
+        'machine_line_metrics': list(pack.get('machine_line_metrics') or [])[:8],
+        'route_refs': list(pack.get('route_refs') or [])[:8],
+        'rules_fired': list(pack.get('rules_fired') or [])[:6],
+        'known_missing_data': list(pack.get('known_missing_data') or []),
+    }
+
+
+def _build_deterministic_answer(pack: Mapping[str, Any]) -> dict[str, Any]:
+    missing_data = list(pack.get('known_missing_data') or [])
+    freshness_status = (pack.get('freshness') or {}).get('status')
+    confidence = 'high'
+    if freshness_status in {'stale', 'unconfigured'}:
+        confidence = 'medium'
+    if freshness_status in _SYNC_CRITICAL_STATUSES:
+        confidence = 'low'
+    evidence_refs = []
+    for rule in pack.get('rules_fired') or []:
+        evidence_refs.extend(rule.get('evidence_refs') or [])
+    if not evidence_refs and pack.get('machine_line_metrics'):
+        first_line = pack['machine_line_metrics'][0]
+        evidence_refs.append({'kind': 'machine', 'key': str(first_line.get('line_code') or '')})
+
+    if pack.get('top_abnormal_coils'):
+        answer = f"已找到 {len(pack['top_abnormal_coils'])} 条需关注卷，建议先看停滞和缺下工序记录。"
+    else:
+        answer = '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
+
+    return {
+        'answer': answer,
+        'confidence': confidence,
+        'evidence_refs': evidence_refs[:8],
+        'missing_data': missing_data,
+        'recommended_next_actions': ['查看证据卷', '打开工厂总览', '创建关注项'],
+        'can_create_watch': True,
+    }
+
+
+def _parse_llm_answer(content: str) -> dict[str, Any] | None:
+    text = str(content or '').strip()
+    if not text:
+        return None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find('{')
+        end = text.rfind('}')
+        if start < 0 or end <= start:
+            return {'answer': text}
+        try:
+            payload = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            return {'answer': text}
+    return payload if isinstance(payload, dict) else None
+
+
+def _ground_answer_with_llm(
+    *,
+    db: Session,
+    user: Any,
+    question: str,
+    pack: Mapping[str, Any],
+    deterministic: dict[str, Any],
+    runtime: Settings,
+) -> dict[str, Any]:
+    if not _llm_ready(runtime) or not _within_daily_limit(db, user, runtime=runtime):
+        return deterministic
+
+    safe_context = _sanitize(_compact_for_llm(pack))
+    messages = [
+        {
+            'role': 'system',
+            'content': (
+                '你是鑫泰铝业 数据中枢的 AI 总管。只能基于给定事实回答，'
+                '不得编造产量、能耗、合同量、成品率或人员信息。'
+                '如果事实不足，必须明确说“数据不足”。严格返回 JSON。'
+            ),
+        },
+        {
+            'role': 'user',
+            'content': (
+                '请把系统已算出的事实组织成管理者能直接执行的中文回答。'
+                '仅允许输出字段：answer、recommended_next_actions。'
+                f'\nQUESTION={question}'
+                f'\nDETERMINISTIC_ANSWER={json.dumps(deterministic, ensure_ascii=False, default=str)}'
+                f'\nSAFE_CONTEXT={json.dumps(safe_context, ensure_ascii=False, default=str)}'
+            ),
+        },
+    ]
+    try:
+        response = generate_llm_summary_with_usage(messages=messages, settings=runtime, max_tokens=512)
+        parsed = _parse_llm_answer(response.content)
+    except Exception:  # noqa: BLE001
+        rollback = getattr(db, 'rollback', None)
+        if callable(rollback):
+            rollback()
+        return deterministic
+
+    answer_text = str((parsed or {}).get('answer') or '').strip()
+    if not answer_text:
+        return deterministic
+
+    next_actions = (parsed or {}).get('recommended_next_actions')
+    if not isinstance(next_actions, list):
+        next_actions = deterministic['recommended_next_actions']
+    else:
+        next_actions = [str(item).strip() for item in next_actions if str(item or '').strip()][:4]
+        if not next_actions:
+            next_actions = deterministic['recommended_next_actions']
+
+    _record_llm_usage(db, user, runtime=runtime, response=response)
+    return {
+        **deterministic,
+        'answer': answer_text[:500],
+        'recommended_next_actions': next_actions,
+    }
+
+
+def build_runtime_status(*, settings: Settings | None = None) -> dict[str, Any]:
+    runtime = settings or runtime_settings
+    model_ref_set = bool(str(runtime.LLM_ENDPOINT_ID or runtime.LLM_MODEL or '').strip())
+    llm_configured = _llm_ready(runtime)
+    return {
+        'engine': 'grounded_llm' if llm_configured else 'deterministic',
+        'llm_configured': llm_configured,
+        'model_ref_set': model_ref_set,
+        'canonical_entry': '/manage/ai-assistant',
+        'legacy_llm_entry': '/api/v1/assistant',
+    }
+
+
 def build_context_pack(
     db: Session,
     *,
@@ -211,32 +398,15 @@ def answer_from_context(
     question: str,
     intent: str = 'factory_status',
     scope: dict[str, Any] | None = None,
+    settings: Settings | None = None,
 ) -> dict[str, Any]:
     pack = build_context_pack(db, user=user, intent=intent, scope=scope)
-    missing_data = list(pack.get('known_missing_data') or [])
-    freshness_status = (pack.get('freshness') or {}).get('status')
-    confidence = 'high'
-    if freshness_status in {'stale', 'unconfigured'}:
-        confidence = 'medium'
-    if freshness_status in _SYNC_CRITICAL_STATUSES:
-        confidence = 'low'
-    evidence_refs = []
-    for rule in pack.get('rules_fired') or []:
-        evidence_refs.extend(rule.get('evidence_refs') or [])
-    if not evidence_refs and pack.get('machine_line_metrics'):
-        first_line = pack['machine_line_metrics'][0]
-        evidence_refs.append({'kind': 'machine', 'key': str(first_line.get('line_code') or '')})
-
-    if pack.get('top_abnormal_coils'):
-        answer = f"已找到 {len(pack['top_abnormal_coils'])} 条需关注卷，建议先看停滞和缺下工序记录。"
-    else:
-        answer = '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
-
-    return {
-        'answer': answer,
-        'confidence': confidence,
-        'evidence_refs': evidence_refs[:8],
-        'missing_data': missing_data,
-        'recommended_next_actions': ['查看证据卷', '打开工厂总览', '创建关注项'],
-        'can_create_watch': True,
-    }
+    deterministic = _build_deterministic_answer(pack)
+    return _ground_answer_with_llm(
+        db=db,
+        user=user,
+        question=question,
+        pack=pack,
+        deterministic=deterministic,
+        runtime=settings or runtime_settings,
+    )

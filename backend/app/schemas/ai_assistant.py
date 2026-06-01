@@ -51,6 +51,14 @@ class AiAnswerOut(BaseModel):
     can_create_watch: bool
 
 
+class AiRuntimeOut(BaseModel):
+    engine: str
+    llm_configured: bool
+    model_ref_set: bool
+    canonical_entry: str
+    legacy_llm_entry: str
+
+
 class AiConversationMessageResponseOut(BaseModel):
     user_message: AiMessageOut
     assistant_message: AiMessageOut

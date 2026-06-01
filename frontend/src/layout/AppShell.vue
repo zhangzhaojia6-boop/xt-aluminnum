@@ -55,56 +55,18 @@
       </el-main>
     </el-container>
 
-    <el-drawer
-      v-model="assistantDrawerOpen"
-      title="AI 总大脑"
-      direction="rtl"
-      size="420px"
-      append-to-body
-    >
-      <div class="page-stack">
-        <el-input
-          v-model="assistantQuery"
-          type="textarea"
-          :rows="4"
-          placeholder="例如：今天哪个车间成本吨耗最高，原因是什么？"
-        />
-        <div class="header-actions">
-          <el-button type="primary" :loading="assistantStore.querying" @click="runAssistant">执行</el-button>
-          <el-button plain :loading="assistantStore.loadingProbe" @click="refreshProbe">刷新探针</el-button>
-        </div>
-        <el-alert
-          v-if="assistantStore.liveProbe"
-          :title="assistantStore.liveProbe.overall_ok ? 'AI 探针就绪' : 'AI 探针未就绪'"
-          :type="assistantStore.liveProbe.overall_ok ? 'success' : 'warning'"
-          :description="probeDescription"
-          show-icon
-          :closable="false"
-        />
-        <el-alert v-if="assistantStore.lastError" :title="assistantStore.lastError" type="error" show-icon :closable="false" />
-        <el-card class="panel">
-          <template #header>最近问答</template>
-          <div v-if="assistantStore.history.length" class="page-stack">
-            <div v-for="item in assistantStore.history.slice(0, 5)" :key="item.at" class="panel" style="padding: var(--xt-space-3);">
-              <div class="stat-label">{{ item.query }}</div>
-              <div class="note">{{ item.response?.answer || item.response?.summary || '已完成' }}</div>
-            </div>
-          </div>
-          <div v-else class="note">暂无记录</div>
-        </el-card>
-      </div>
-    </el-drawer>
+    <AiAssistantDrawer v-model="assistantDrawerOpen" :context="assistantContext" />
   </el-container>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, ref, watch } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
+import AiAssistantDrawer from '../components/ai/AiAssistantDrawer.vue'
 import { XtLogo } from '../components/xt'
 import { buildShellNavigation } from '../config/navigation'
-import { useAssistantStore } from '../stores/assistant'
 import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
@@ -117,9 +79,7 @@ const props = defineProps({
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const assistantStore = useAssistantStore()
 const assistantDrawerOpen = ref(false)
-const assistantQuery = ref('')
 const navOpen = ref(false)
 
 const zoneLabel = computed(() => {
@@ -139,11 +99,13 @@ const showEntrySwitch = computed(() => props.zone !== 'entry' && auth.entrySurfa
 const showReviewSwitch = computed(() => props.zone !== 'review' && auth.reviewSurface)
 const showAdminSwitch = computed(() => props.zone !== 'admin' && auth.isAdmin)
 const showAssistant = computed(() => props.zone === 'review' && auth.reviewSurface)
-const probeDescription = computed(() => {
-  const probe = assistantStore.liveProbe
-  if (!probe) return ''
-  return `文本=${probe.text_probe_ok ? '正常' : '异常'} | 图像=${probe.image_probe_ok ? '正常' : '异常'}`
-})
+const assistantContext = computed(() => ({
+  route: route.path,
+  scope: {
+    type: 'route',
+    key: route.path || '/manage/today'
+  }
+}))
 
 function handleSelect(routeName) {
   if (!routeName) return
@@ -172,28 +134,6 @@ async function logout() {
   auth.logout()
   router.push({ name: 'login' })
 }
-
-async function runAssistant() {
-  const query = String(assistantQuery.value || '').trim()
-  if (!query) {
-    ElMessage.warning('请输入问题')
-    return
-  }
-  try {
-    await assistantStore.ask(query, 'answer')
-    assistantQuery.value = ''
-  } catch {
-    // Error already handled in store and interceptor.
-  }
-}
-
-async function refreshProbe() {
-  await assistantStore.loadLiveProbe()
-}
-
-onMounted(() => {
-  assistantStore.loadCapabilities(false)
-})
 
 watch(() => route.fullPath, () => {
   navOpen.value = false

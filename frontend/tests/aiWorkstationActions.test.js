@@ -9,6 +9,8 @@ const inboxSource = readFileSync(new URL('../src/components/ai/AiBriefingInbox.v
 test('assistant action api and store wire one click execution', () => {
   assert.match(apiSource, /executeAssistantAction/)
   assert.match(apiSource, /\/assistant\/actions/)
+  assert.match(apiSource, /\/ai\/runtime/)
+  assert.match(apiSource, /skipAuthLogout:\s*true/)
   assert.match(storeSource, /executeBriefingAction/)
   assert.match(storeSource, /executeAssistantAction/)
 })

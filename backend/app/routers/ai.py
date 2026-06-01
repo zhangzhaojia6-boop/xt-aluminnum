@@ -24,6 +24,7 @@ from app.schemas.ai_assistant import (
     AiConversationOut,
     AiMessageCreateIn,
     AiMessageOut,
+    AiRuntimeOut,
     AiWatchlistCreateIn,
     AiWatchlistOut,
     AiWatchlistPatchIn,
@@ -511,6 +512,14 @@ def ask_assistant(
         intent=body.intent,
         scope=body.scope or {},
     )
+
+
+@router.get('/runtime', response_model=AiRuntimeOut)
+def ai_runtime_status(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ensure_factory_ai_access(current_user)
+    return ai_context_service.build_runtime_status()
 
 
 @router.get('/briefings', response_model=list[AiBriefingOut])

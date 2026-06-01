@@ -4,6 +4,7 @@ import axios from 'axios'
 import { apiBaseUrl } from '../api'
 import {
   createAssistantConversation,
+  fetchAiRuntime,
   fetchAssistantConversations,
   fetchAssistantMessages,
   sendAssistantMessage
@@ -90,7 +91,9 @@ export const useAiChatStore = defineStore('ai-chat', {
     messages: [],
     loadingConversations: false,
     loadingMessages: false,
+    loadingRuntime: false,
     streaming: false,
+    runtime: null,
     lastError: '',
     abortController: null
   }),
@@ -116,6 +119,25 @@ export const useAiChatStore = defineStore('ai-chat', {
         throw error
       } finally {
         this.loadingConversations = false
+      }
+    },
+    async loadRuntime() {
+      if (this.loadingRuntime) return this.runtime
+      this.loadingRuntime = true
+      try {
+        this.runtime = await fetchAiRuntime()
+        return this.runtime
+      } catch {
+        this.runtime = {
+          engine: 'unknown',
+          llm_configured: false,
+          model_ref_set: false,
+          canonical_entry: '/manage/ai-assistant',
+          legacy_llm_entry: '/api/v1/assistant'
+        }
+        return this.runtime
+      } finally {
+        this.loadingRuntime = false
       }
     },
     async loadMessages(conversationId) {

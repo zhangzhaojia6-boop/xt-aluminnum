@@ -22,6 +22,9 @@
           <span>{{ statusText }} · 证据上下文</span>
         </div>
         <div class="ai-workstation__telemetry" aria-label="AI 工作台状态">
+          <b class="ai-workstation__runtime" :class="{ 'is-live': store.runtime?.llm_configured }">
+            {{ runtimeText }}
+          </b>
           <span v-for="stat in aiStats" :key="stat.label">
             <small>{{ stat.label }}</small>
             <strong>{{ stat.value }}</strong>
@@ -116,8 +119,14 @@ const activeToolCalls = computed(() => {
 const aiStats = computed(() => [
   { label: '对话', value: store.conversations.length },
   { label: '消息', value: store.messages.length },
-  { label: '证据', value: activeToolCalls.value.length }
+  { label: '证据', value: activeToolCalls.value.length },
+  { label: '引擎', value: store.runtime?.engine === 'grounded_llm' ? '事实+LLM' : '规则' }
 ])
+const runtimeText = computed(() => {
+  if (store.loadingRuntime) return 'AI 状态检查中'
+  if (store.runtime?.llm_configured) return '事实约束 LLM'
+  return '规则兜底'
+})
 const showThinkingState = computed(() => store.loadingMessages || store.streaming || activeToolCalls.value.length > 0 || Boolean(store.lastError))
 const statusText = computed(() => {
   if (store.streaming) return '生成中'
@@ -128,7 +137,7 @@ const statusText = computed(() => {
 
 onMounted(async () => {
   try {
-    await store.loadConversations()
+    await Promise.all([store.loadConversations(), store.loadRuntime()])
   } catch {
     ElMessage.error(store.lastError || '加载对话失败')
   }
@@ -282,8 +291,37 @@ async function send() {
 .ai-workstation__telemetry {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(74px, 1fr));
+  grid-template-columns: minmax(118px, auto) repeat(4, minmax(74px, 1fr));
   gap: 10px;
+}
+
+.ai-workstation__runtime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 54px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 171, 0, 0.36);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(68, 42, 8, 0.62), rgba(30, 18, 4, 0.78)),
+    rgba(255, 171, 0, 0.12);
+  color: #ffd36f;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ai-workstation__runtime.is-live {
+  border-color: rgba(0, 242, 255, 0.42);
+  background:
+    linear-gradient(180deg, rgba(10, 64, 88, 0.62), rgba(2, 18, 32, 0.86)),
+    rgba(0, 242, 255, 0.12);
+  color: #7ff8ff;
+  box-shadow: 0 0 24px rgba(0, 242, 255, 0.16);
 }
 
 .ai-workstation__telemetry span {
@@ -625,7 +663,7 @@ async function send() {
   }
 
   .ai-workstation__telemetry {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ai-workstation :deep(.ai-conversations) {

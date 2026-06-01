@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from app.adapters.llm import LlmTextResponse
+from app.config import Settings
+from app.models.assistant_usage import AssistantUsage
 from app.services import ai_context_service
 
 
@@ -15,6 +18,22 @@ class _FakeDB:
 
     def flush(self):
         return None
+
+
+def _llm_settings(**overrides):
+    values = {
+        'APP_ENV': 'development',
+        'DATABASE_URL': 'sqlite:///:memory:',
+        'SECRET_KEY': 's' * 32,
+        'INIT_ADMIN_PASSWORD': 'AdminPassword#2026',
+        'LLM_ENABLED': True,
+        'LLM_API_BASE': 'https://llm.example.invalid/v1',
+        'LLM_API_KEY': 'key',
+        'LLM_MODEL': 'deepseek-v3',
+        'LLM_DAILY_QUERY_LIMIT': 5,
+    }
+    values.update(overrides)
+    return Settings(**values)
 
 
 def test_context_pack_includes_factory_scope_and_excludes_sensitive_fields(monkeypatch):
@@ -136,3 +155,116 @@ def test_offline_mes_data_is_low_confidence(monkeypatch):
 
     assert answer['confidence'] == 'low'
     assert 'mes_offline' in answer['missing_data']
+
+
+def test_answer_from_context_uses_llm_only_after_grounded_pack(monkeypatch):
+    db = _FakeDB()
+    captured = {}
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'fresh', 'lag_seconds': 30})
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'list_machine_lines',
+        lambda _db: [{'line_code': '冷轧:01', 'active_coil_count': 2, 'source_payload': {'api_key': 'secret'}}],
+    )
+    monkeypatch.setattr(
+        ai_context_service.factory_command_service,
+        'list_coils',
+        lambda _db: [{'coil_key': 'MES:1', 'line_code': '冷轧:01', 'current_process': '轧制', 'delay_hours': 4}],
+    )
+
+    def fake_llm(**kwargs):
+        captured['messages'] = kwargs['messages']
+        return LlmTextResponse(
+            content='{"answer":"AI 总管建议先看冷轧:01 的停滞卷，并核对下一工序资源。","recommended_next_actions":["查看证据卷","确认下一工序资源"]}',
+            input_tokens=10,
+            output_tokens=9,
+            total_tokens=19,
+            raw_usage={'total_tokens': 19},
+        )
+
+    monkeypatch.setattr(ai_context_service, 'generate_llm_summary_with_usage', fake_llm)
+
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='今天先看哪里？',
+        intent='factory_status',
+        scope={'type': 'machine', 'key': '冷轧:01'},
+        settings=_llm_settings(),
+    )
+
+    prompt = '\n'.join(item['content'] for item in captured['messages'])
+    assert answer['answer'].startswith('AI 总管建议')
+    assert answer['recommended_next_actions'] == ['查看证据卷', '确认下一工序资源']
+    assert answer['confidence'] == 'high'
+    assert 'secret' not in prompt
+    assert 'DETERMINISTIC_ANSWER' in prompt
+    assert 'SAFE_CONTEXT' in prompt
+
+
+def test_answer_from_context_falls_back_when_llm_is_unconfigured(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'fresh', 'lag_seconds': 30})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+
+    def fail_llm(**_kwargs):
+        raise AssertionError('LLM should not be called when disabled')
+
+    monkeypatch.setattr(ai_context_service, 'generate_llm_summary_with_usage', fail_llm)
+
+    answer = ai_context_service.answer_from_context(
+        db,
+        user=SimpleNamespace(id=7, data_scope_type='all'),
+        question='今天先看哪里？',
+        settings=_llm_settings(LLM_ENABLED=False),
+    )
+
+    assert answer['answer'] == '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
+
+
+def test_answer_from_context_records_usage_and_respects_daily_limit(tmp_path, monkeypatch):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.database import Base
+    from app.models.assistant import AiContextPack
+    from app.models.system import User
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'ai-context-usage.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[User.__table__, AssistantUsage.__table__, AiContextPack.__table__])
+    db = sessionmaker(bind=engine, future=True)()
+    user = User(username='manager', password_hash='x', name='Manager', role='manager', is_active=True)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'build_freshness', lambda _db: {'status': 'fresh', 'lag_seconds': 30})
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_machine_lines', lambda _db: [])
+    monkeypatch.setattr(ai_context_service.factory_command_service, 'list_coils', lambda _db: [])
+    monkeypatch.setattr(
+        ai_context_service,
+        'generate_llm_summary_with_usage',
+        lambda **_kwargs: LlmTextResponse(content='{"answer":"已基于上下文回答。"}', input_tokens=1, output_tokens=2, total_tokens=3, raw_usage={}),
+    )
+
+    try:
+        answer = ai_context_service.answer_from_context(
+            db,
+            user=user,
+            question='今天先看哪里？',
+            settings=_llm_settings(LLM_DAILY_QUERY_LIMIT=1),
+        )
+        assert answer['answer'] == '已基于上下文回答。'
+        assert db.query(AssistantUsage).count() == 1
+
+        limited = ai_context_service.answer_from_context(
+            db,
+            user=user,
+            question='继续问',
+            settings=_llm_settings(LLM_DAILY_QUERY_LIMIT=1),
+        )
+        assert limited['answer'] == '当前上下文未发现明确异常，建议继续查看同步新鲜度和机列负荷。'
+        assert db.query(AssistantUsage).count() == 1
+    finally:
+        db.close()

@@ -25,6 +25,11 @@ export async function askAssistant(payload = {}) {
   return data
 }
 
+export async function fetchAiRuntime() {
+  const { data } = await api.get('/ai/runtime', { skipErrorToast: true, skipAuthLogout: true })
+  return data
+}
+
 export async function fetchBriefings() {
   const { data } = await api.get('/ai/briefings')
   return data

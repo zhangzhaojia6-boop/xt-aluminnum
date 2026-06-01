@@ -147,6 +147,32 @@ def test_assistant_factory_context_rejects_non_manager(monkeypatch):
     assert response.status_code == 403
 
 
+def test_ai_runtime_status_is_truthful_for_manager(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = _manager_user
+    monkeypatch.setattr(
+        'app.routers.ai.ai_context_service.build_runtime_status',
+        lambda: {
+            'engine': 'grounded_llm',
+            'llm_configured': True,
+            'model_ref_set': True,
+            'canonical_entry': '/manage/ai-assistant',
+            'legacy_llm_entry': '/api/v1/assistant',
+        },
+    )
+
+    response = TestClient(app).get('/api/v1/ai/runtime')
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'engine': 'grounded_llm',
+        'llm_configured': True,
+        'model_ref_set': True,
+        'canonical_entry': '/manage/ai-assistant',
+        'legacy_llm_entry': '/api/v1/assistant',
+    }
+
+
 def test_assistant_factory_context_allows_scope_summary_reviewer_role(monkeypatch):
     app.dependency_overrides[get_db] = _fake_db
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
