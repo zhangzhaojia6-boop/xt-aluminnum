@@ -772,7 +772,7 @@ def _estimate(*, missing_data: list[str] | None = None, label: str = '经营估�
 
 
 def build_freshness(db: Session, *, now=None) -> dict[str, Any]:
-    status = latest_sync_status(db, now=now)
+    status = latest_sync_status(db, now=now if isinstance(now, datetime) else None)
     lag_seconds = status.get('lag_seconds')
     source_status = status.get('status')
     if source_status in {'unconfigured', 'migration_missing', 'failed'}:

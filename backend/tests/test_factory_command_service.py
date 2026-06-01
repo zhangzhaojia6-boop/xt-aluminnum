@@ -1223,6 +1223,22 @@ def test_freshness_thresholds(monkeypatch):
     assert high_risk['risk_tone'] == 'high'
 
 
+def test_freshness_uses_real_time_when_overview_receives_business_date(monkeypatch):
+    db = _FakeDB()
+    seen_now = []
+
+    def fake_latest_sync_status(_db, now=None):
+        seen_now.append(now)
+        return {'lag_seconds': 60, 'status': 'fresh'}
+
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', fake_latest_sync_status)
+
+    freshness = factory_command_service.build_freshness(db, now=date(2026, 6, 1))
+
+    assert freshness['status'] == 'fresh'
+    assert seen_now == [None]
+
+
 def test_freshness_preserves_unconfigured_and_migration_states(monkeypatch):
     db = _FakeDB()
 
