@@ -109,6 +109,16 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
+def _identifier(value: Any) -> str | None:
+    text = _text(value)
+    if text is None:
+        return None
+    normalized = text.lower()
+    if normalized in {'0', '00000000-0000-0000-0000-000000000000'}:
+        return None
+    return text
+
+
 def _float(value: Any) -> float | None:
     if value in (None, ''):
         return None
@@ -197,7 +207,7 @@ def _safe_metadata(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _record_id(row: Mapping[str, Any], *fallback_keys: str) -> str:
     for key in ('Id', 'ID', *fallback_keys, 'BatchNumber', 'MaterialCode', 'Code', 'Name'):
-        text = _text(row.get(key))
+        text = _identifier(row.get(key))
         if text:
             return text
     payload = json.dumps(dict(row), ensure_ascii=False, sort_keys=True, default=str)

@@ -19,14 +19,26 @@ class FakeScheduler:
         }
 
 
-def test_setup_scheduler_registers_backend_completion_jobs() -> None:
+def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
+    monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'mvc')
     scheduler = FakeScheduler()
 
     setup_scheduler(scheduler)
 
-    assert set(scheduler.jobs) >= {'daily_report', 'mes_sync', 'fill_reminder', 'data_archive'}
+    assert set(scheduler.jobs) >= {
+        'daily_report',
+        'mes_sync_core',
+        'mes_sync_realtime',
+        'mes_sync_business',
+        'mes_sync_reference',
+        'fill_reminder',
+        'data_archive',
+    }
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
-    assert scheduler.jobs['mes_sync']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_business']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_reference']['trigger'] == 'interval'
     assert scheduler.jobs['fill_reminder']['trigger'] == 'cron'
     assert scheduler.jobs['data_archive']['trigger'] == 'cron'
 

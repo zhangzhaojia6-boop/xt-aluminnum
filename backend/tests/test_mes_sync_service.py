@@ -393,6 +393,63 @@ def test_sync_mes_projection_keeps_successful_sources_when_one_source_fails(monk
     assert next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot').coil_id == 'MES:8842'
 
 
+def test_mes_projection_profiles_split_realtime_business_and_reference(monkeypatch):
+    def stat(key: str) -> mes_sync_service.MesSyncStats:
+        return mes_sync_service.MesSyncStats(
+            cursor_key=key,
+            fetched_count=0,
+            upserted_count=0,
+            replayed_count=0,
+            next_cursor=None,
+            lag_seconds=None,
+            last_event_at=None,
+            last_synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
+            status='success',
+        )
+
+    patched = {
+        'sync_mes_follow_cards': 'mes_follow_cards',
+        'sync_mes_dispatch': 'mes_dispatch',
+        'sync_mes_wip_total': 'mes_wip_total',
+        'sync_mes_stock': 'mes_stock',
+        'sync_mes_workshop_process_records': 'mes_workshop_process_records',
+        'sync_mes_stock_records': 'mes_stock_records',
+        'sync_mes_material_records': 'mes_material_records',
+        'sync_mes_yield_records': 'mes_yield_records',
+        'sync_mes_crafts': 'mes_crafts',
+        'sync_mes_devices': 'mes_devices',
+        'sync_mes_reference_items': 'mes_reference_items',
+        'sync_mes_machine_lines': 'mes_machine_lines',
+    }
+    for func_name, cursor_key in patched.items():
+        monkeypatch.setattr(
+            mes_sync_service,
+            func_name,
+            lambda _db, now=None, cursor_key=cursor_key: stat(cursor_key),
+        )
+
+    db = _FakeDB()
+    realtime = mes_sync_service.sync_mes_realtime_projection(db)
+    business = mes_sync_service.sync_mes_business_projection(db)
+    reference = mes_sync_service.sync_mes_reference_projection(db)
+
+    assert [item.cursor_key for item in realtime] == ['mes_follow_cards', 'mes_dispatch']
+    assert [item.cursor_key for item in business] == [
+        'mes_wip_total',
+        'mes_stock',
+        'mes_workshop_process_records',
+        'mes_stock_records',
+        'mes_material_records',
+        'mes_yield_records',
+    ]
+    assert [item.cursor_key for item in reference] == [
+        'mes_crafts',
+        'mes_devices',
+        'mes_reference_items',
+        'mes_machine_lines',
+    ]
+
+
 def test_sync_projection_step_reraises_database_errors():
     db = _FakeDB()
 
@@ -572,3 +629,37 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
     assert wip.workshop_name == '2050车间'
     assert wip.process_name == '冷轧'
     assert float(wip.doing_weight_tons) == 430.0
+
+
+def test_sync_reference_items_falls_back_when_mes_returns_zero_uuid_ids(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-reference-zero-ids.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesReferenceItem.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    zero_uuid = '00000000-0000-0000-0000-000000000000'
+    synced_at = datetime(2026, 6, 1, 8, 35, tzinfo=UTC)
+
+    class Adapter:
+        def list_reference_items(self):
+            return [
+                MesSourceRecord(
+                    source_id=zero_uuid,
+                    source_path='/Material/GetBoardList',
+                    metadata={'Id': zero_uuid, 'Name': '7#', 'PID': zero_uuid},
+                ),
+                MesSourceRecord(
+                    source_id=zero_uuid,
+                    source_path='/Material/GetBoardList',
+                    metadata={'Id': zero_uuid, 'Name': '8#', 'PID': zero_uuid},
+                ),
+            ]
+
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
+
+    with Session() as db:
+        stats = mes_sync_service.sync_mes_reference_items(db, now=synced_at)
+        db.commit()
+        rows = db.scalars(select(MesReferenceItem).order_by(MesReferenceItem.source_id)).all()
+
+    assert stats.fetched_count == 2
+    assert stats.upserted_count == 2
+    assert [row.source_id for row in rows] == ['7#', '8#']

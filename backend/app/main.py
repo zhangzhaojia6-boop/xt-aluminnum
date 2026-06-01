@@ -129,18 +129,6 @@ async def lifespan(_: FastAPI):
                     session.rollback()
                     reminder_agent.logger.exception('Reminder failed')
 
-        def _run_mes_sync():
-            from app.services import mes_sync_service
-
-            with session_factory() as session:
-                try:
-                    mes_sync_service.sync_coil_snapshots(db=session)
-                    mes_sync_service.sync_mes_projection(db=session)
-                    session.commit()
-                except Exception:
-                    session.rollback()
-                    logger.exception('MES sync failed')
-
         def _run_schedule_seed():
             from app.services.pilot_schedule_seed import seed_default_pilot_schedule
 
@@ -195,16 +183,6 @@ async def lifespan(_: FastAPI):
             coalesce=True,
             max_instances=1,
         )
-        if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
-            scheduler.add_job(
-                _run_mes_sync,
-                'interval',
-                minutes=settings.MES_SYNC_POLL_MINUTES,
-                id='mes_sync',
-                replace_existing=True,
-                coalesce=True,
-                max_instances=1,
-            )
         scheduler.add_job(
             _run_reminder_sweep,
             'interval',

@@ -88,6 +88,9 @@ class Settings(BaseSettings):
     MES_SYNC_LIMIT: int = 200
     MES_SYNC_WINDOW_MINUTES: int = 10
     MES_SYNC_POLL_MINUTES: int = 1
+    MES_REALTIME_SYNC_POLL_MINUTES: int = 5
+    MES_BUSINESS_SYNC_POLL_MINUTES: int = 10
+    MES_REFERENCE_SYNC_POLL_MINUTES: int = 360
     MES_SYNC_RETRY_LIMIT: int = 3
     MES_SYNC_BACKOFF_SECONDS: float = 2.0
     PILOT_WORKSHOP_CODES: str = ''
@@ -246,6 +249,15 @@ class Settings(BaseSettings):
 
         if self.MES_SYNC_POLL_MINUTES <= 0:
             issues.append('MES_SYNC_POLL_MINUTES must be greater than 0')
+
+        if self.MES_REALTIME_SYNC_POLL_MINUTES <= 0:
+            issues.append('MES_REALTIME_SYNC_POLL_MINUTES must be greater than 0')
+
+        if self.MES_BUSINESS_SYNC_POLL_MINUTES <= 0:
+            issues.append('MES_BUSINESS_SYNC_POLL_MINUTES must be greater than 0')
+
+        if self.MES_REFERENCE_SYNC_POLL_MINUTES <= 0:
+            issues.append('MES_REFERENCE_SYNC_POLL_MINUTES must be greater than 0')
 
         if self.MES_SYNC_RETRY_LIMIT < 0:
             issues.append('MES_SYNC_RETRY_LIMIT must be zero or greater')

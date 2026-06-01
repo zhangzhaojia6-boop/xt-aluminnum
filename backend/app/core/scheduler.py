@@ -88,10 +88,43 @@ def setup_scheduler(target_scheduler=None):
     from app.tasks.daily_report import generate_daily_reports
     from app.tasks.data_archive import archive_old_data
     from app.tasks.fill_reminder import send_fill_reminders
-    from app.tasks.mes_sync import sync_mes_coil_snapshots
+    from app.tasks.mes_sync import (
+        sync_mes_business_projection,
+        sync_mes_coil_snapshots,
+        sync_mes_realtime_projection,
+        sync_mes_reference_projection,
+    )
 
     _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=6, minute=0)
-    _add_job_once(active_scheduler, sync_mes_coil_snapshots, 'interval', job_id='mes_sync', minutes=30)
+    if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
+        _add_job_once(
+            active_scheduler,
+            sync_mes_coil_snapshots,
+            'interval',
+            job_id='mes_sync_core',
+            minutes=settings.MES_SYNC_POLL_MINUTES,
+        )
+        _add_job_once(
+            active_scheduler,
+            sync_mes_realtime_projection,
+            'interval',
+            job_id='mes_sync_realtime',
+            minutes=settings.MES_REALTIME_SYNC_POLL_MINUTES,
+        )
+        _add_job_once(
+            active_scheduler,
+            sync_mes_business_projection,
+            'interval',
+            job_id='mes_sync_business',
+            minutes=settings.MES_BUSINESS_SYNC_POLL_MINUTES,
+        )
+        _add_job_once(
+            active_scheduler,
+            sync_mes_reference_projection,
+            'interval',
+            job_id='mes_sync_reference',
+            minutes=settings.MES_REFERENCE_SYNC_POLL_MINUTES,
+        )
     _add_job_once(active_scheduler, send_fill_reminders, 'cron', job_id='fill_reminder', hour='8,14,20', minute=0)
     _add_job_once(active_scheduler, archive_old_data, 'cron', job_id='data_archive', day_of_week='sun', hour=2)
     return active_scheduler

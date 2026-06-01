@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import hashlib
+import json
 from typing import Any, Mapping
 
 from sqlalchemy import text
@@ -99,6 +101,16 @@ def _to_text(value: Any) -> str | None:
     return text or None
 
 
+def _to_source_identifier(value: Any) -> str | None:
+    text = _to_text(value)
+    if text is None:
+        return None
+    normalized = text.lower()
+    if normalized in {'0', '00000000-0000-0000-0000-000000000000'}:
+        return None
+    return text
+
+
 def _to_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
@@ -174,13 +186,15 @@ def _metadata_value(metadata: Mapping[str, Any], *keys: str) -> Any:
 
 
 def _source_id(record: MesSourceRecord, *keys: str) -> str:
-    if _to_text(record.source_id):
-        return str(record.source_id)
+    source_id = _to_source_identifier(record.source_id)
+    if source_id:
+        return source_id
     for key in keys:
-        text_value = _to_text(record.metadata.get(key))
+        text_value = _to_source_identifier(record.metadata.get(key))
         if text_value:
             return text_value
-    return 'unknown'
+    payload = json.dumps(dict(record.metadata or {}), ensure_ascii=False, sort_keys=True, default=str)
+    return f'fallback:{hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]}'
 
 
 def _mes_product_id(snapshot: CoilSnapshot) -> str | None:
@@ -765,8 +779,11 @@ def _sync_source_records(
     id_keys: tuple[str, ...] = ('Id',),
 ) -> MesSyncStats:
     upserted_count = 0
+    deduped_rows: dict[str, MesSourceRecord] = {}
     for row in rows:
         source_id = _source_id(row, *id_keys)
+        deduped_rows[source_id] = row
+    for source_id, row in deduped_rows.items():
         if _upsert_by_source_id(db, model=model, source_id=source_id, fields=field_builder(row, synced_at)):
             upserted_count += 1
     return _stats(cursor_key=cursor_key, fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
@@ -832,7 +849,11 @@ def sync_mes_reference_items(db: Session, *, now: datetime | None = None) -> Mes
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_reference_items()
     upserted_count = 0
+    deduped_rows: dict[tuple[str, str], MesSourceRecord] = {}
     for row in rows:
+        key = (_reference_source_type(row.source_path), _source_id(row, 'Id', 'Code', 'Name'))
+        deduped_rows[key] = row
+    for row in deduped_rows.values():
         if _upsert_reference_item(db, record=row, synced_at=synced_at):
             upserted_count += 1
     return _stats(cursor_key='mes_reference_items', fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
@@ -928,22 +949,62 @@ def _sync_projection_step(
         )
 
 
+def _run_projection_steps(
+    db: Session,
+    *,
+    synced_at: datetime,
+    steps: tuple[tuple[str, str], ...],
+) -> list[MesSyncStats]:
+    return [
+        _sync_projection_step(db, cursor_key=cursor_key, synced_at=synced_at, runner=globals()[runner_name])
+        for cursor_key, runner_name in steps
+    ]
+
+
+REALTIME_PROJECTION_STEPS = (
+    ('mes_follow_cards', 'sync_mes_follow_cards'),
+    ('mes_dispatch', 'sync_mes_dispatch'),
+)
+
+BUSINESS_PROJECTION_STEPS = (
+    ('mes_wip_total', 'sync_mes_wip_total'),
+    ('mes_stock', 'sync_mes_stock'),
+    ('mes_workshop_process_records', 'sync_mes_workshop_process_records'),
+    ('mes_stock_records', 'sync_mes_stock_records'),
+    ('mes_material_records', 'sync_mes_material_records'),
+    ('mes_yield_records', 'sync_mes_yield_records'),
+)
+
+REFERENCE_PROJECTION_STEPS = (
+    ('mes_crafts', 'sync_mes_crafts'),
+    ('mes_devices', 'sync_mes_devices'),
+    ('mes_reference_items', 'sync_mes_reference_items'),
+    ('mes_machine_lines', 'sync_mes_machine_lines'),
+)
+
+
+def sync_mes_realtime_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
+    synced_at = now or _utcnow()
+    return _run_projection_steps(db, synced_at=synced_at, steps=REALTIME_PROJECTION_STEPS)
+
+
+def sync_mes_business_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
+    synced_at = now or _utcnow()
+    return _run_projection_steps(db, synced_at=synced_at, steps=BUSINESS_PROJECTION_STEPS)
+
+
+def sync_mes_reference_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
+    synced_at = now or _utcnow()
+    return _run_projection_steps(db, synced_at=synced_at, steps=REFERENCE_PROJECTION_STEPS)
+
+
 def sync_mes_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
     synced_at = now or _utcnow()
-    return [
-        _sync_projection_step(db, cursor_key='mes_crafts', synced_at=synced_at, runner=sync_mes_crafts),
-        _sync_projection_step(db, cursor_key='mes_devices', synced_at=synced_at, runner=sync_mes_devices),
-        _sync_projection_step(db, cursor_key='mes_follow_cards', synced_at=synced_at, runner=sync_mes_follow_cards),
-        _sync_projection_step(db, cursor_key='mes_dispatch', synced_at=synced_at, runner=sync_mes_dispatch),
-        _sync_projection_step(db, cursor_key='mes_wip_total', synced_at=synced_at, runner=sync_mes_wip_total),
-        _sync_projection_step(db, cursor_key='mes_stock', synced_at=synced_at, runner=sync_mes_stock),
-        _sync_projection_step(db, cursor_key='mes_workshop_process_records', synced_at=synced_at, runner=sync_mes_workshop_process_records),
-        _sync_projection_step(db, cursor_key='mes_stock_records', synced_at=synced_at, runner=sync_mes_stock_records),
-        _sync_projection_step(db, cursor_key='mes_material_records', synced_at=synced_at, runner=sync_mes_material_records),
-        _sync_projection_step(db, cursor_key='mes_yield_records', synced_at=synced_at, runner=sync_mes_yield_records),
-        _sync_projection_step(db, cursor_key='mes_reference_items', synced_at=synced_at, runner=sync_mes_reference_items),
-        _sync_projection_step(db, cursor_key='mes_machine_lines', synced_at=synced_at, runner=sync_mes_machine_lines),
-    ]
+    return (
+        sync_mes_reference_projection(db, now=synced_at)
+        + sync_mes_realtime_projection(db, now=synced_at)
+        + sync_mes_business_projection(db, now=synced_at)
+    )
 
 
 def _upsert_machine_line(db: Session, *, source: MesMachineLineSource, synced_at: datetime) -> bool:
