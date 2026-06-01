@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import { fetchFactoryDashboard } from '../api/dashboard.js'
 import { fetchDailyProduction } from '../api/dashboard.js'
+import { fetchFactoryCommandOverview } from '../api/factory-command.js'
 import { requestErrorMessage } from '../utils/reportStatus.js'
 
 const FRESHNESS_MAP = { fresh: 'green', stale: 'yellow', missing: 'red' }
@@ -11,7 +12,12 @@ function normalizeFreshness(raw) {
   return FRESHNESS_MAP[raw] || null
 }
 
-export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fetchDailyImpl = fetchDailyProduction, now = new Date() } = {}) {
+export function createDashboardSnapshot({
+  fetchImpl = fetchFactoryDashboard,
+  fetchDailyImpl = fetchDailyProduction,
+  fetchFactoryCommandImpl = fetchFactoryCommandOverview,
+  now = new Date()
+} = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
   const targetDate = ref(yesterday)
   const data = ref({})
@@ -26,13 +32,15 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fet
     const my = ++token
     inflight = (async () => {
       try {
-        const [factoryResult, dailyResult] = await Promise.allSettled([
+        const [factoryResult, dailyResult, factoryCommandResult] = await Promise.allSettled([
           fetchImpl({ target_date: targetDate.value }),
-          fetchDailyImpl({ target_date: targetDate.value })
+          fetchDailyImpl({ target_date: targetDate.value }),
+          fetchFactoryCommandImpl({ target_date: targetDate.value })
         ])
         if (my !== token) return
         const next = factoryResult.status === 'fulfilled' ? { ...factoryResult.value } : {}
         next.daily_overview = dailyResult.status === 'fulfilled' ? dailyResult.value : {}
+        next.factory_command_overview = factoryCommandResult.status === 'fulfilled' ? factoryCommandResult.value : {}
         data.value = next
         lastRefreshAt.value = new Date().toISOString()
         lastError.value = dailyResult.status === 'rejected'
@@ -57,13 +65,16 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fet
 
   return {
     targetDate, data, loading, lastError, lastRefreshAt,
+    factoryCommandOverview: computed(() => data.value.factory_command_overview || {}),
     leaderMetrics: computed(() => {
       const dailyOverview = data.value.daily_overview || {}
       const plantOutput = dailyOverview.plant_output || {}
       const dailyEnergy = dailyOverview.energy || {}
+      const factoryCommand = data.value.factory_command_overview || {}
       const lm = data.value.leader_metrics || {}
       const sm = data.value.leader_summary?.metrics || {}
-      const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? null
+      const factoryCommandOutput = factoryCommand.today_output_tons ?? factoryCommand.storage_finished_weight ?? null
+      const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? factoryCommandOutput ?? null
       const energyPerTon = dailyEnergy.data_available === false
         ? null
         : plantOutput.energy_per_ton ?? lm.energy_per_ton ?? sm.energy_per_ton ?? null
@@ -71,9 +82,9 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fet
         ...lm,
         total_output_weight: totalOutput,
         today_total_output: totalOutput,
-        storage_finished_weight: plantOutput.daily_output ?? lm.storage_finished_weight ?? sm.storage_finished_weight ?? null,
+        storage_finished_weight: plantOutput.daily_output ?? lm.storage_finished_weight ?? sm.storage_finished_weight ?? factoryCommandOutput ?? null,
         energy_per_ton: energyPerTon,
-        yield_rate: lm.yield_rate ?? sm.yield_rate ?? null,
+        yield_rate: lm.yield_rate ?? sm.yield_rate ?? factoryCommand.yield_rate ?? null,
         reporting_rate: lm.reporting_rate ?? sm.reporting_rate ?? null,
         anomaly_total: lm.anomaly_total ?? sm.anomaly_total ?? 0
       }
@@ -103,12 +114,14 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fet
       const dailyOverview = data.value.daily_overview || {}
       const plantOutput = dailyOverview.plant_output || {}
       const plantCost = dailyOverview.plant_cost || {}
+      const factoryCommand = data.value.factory_command_overview || {}
+      const factoryCommandOutput = factoryCommand.today_output_tons ?? null
       return {
         ...estimate,
         estimate_ready: plantCost.cost_per_ton != null ? true : estimate.estimate_ready,
         estimated_cost: plantCost.total != null ? Number(plantCost.total) * 10000 : estimate.estimated_cost,
-        total_output_weight: plantOutput.daily_output ?? estimate.total_output_weight ?? null,
-        output_tons: plantOutput.daily_output ?? estimate.output_tons ?? null,
+        total_output_weight: plantOutput.daily_output ?? estimate.total_output_weight ?? factoryCommandOutput ?? null,
+        output_tons: plantOutput.daily_output ?? estimate.output_tons ?? factoryCommandOutput ?? null,
         cost_basis_label: plantOutput.basis_label || estimate.cost_basis_label || null
       }
     }),
@@ -122,6 +135,17 @@ export function createDashboardSnapshot({ fetchImpl = fetchFactoryDashboard, fet
           total_output: row.daily_output,
           delta_vs_yesterday: row.delta,
           target_value: row.monthly_output != null ? Number(row.monthly_output) / dayOfMonth : null
+        }))
+      }
+      const factoryWorkshops = data.value.factory_command_overview?.workshop_summary || []
+      if (factoryWorkshops.length) {
+        return factoryWorkshops.map((row, index) => ({
+          workshop_id: row.workshop_id ?? row.workshop_name ?? index,
+          workshop_name: row.workshop_name || row.workshop || '--',
+          total_output: row.total_output_tons ?? row.total_output ?? row.active_tons ?? 0,
+          delta_vs_yesterday: row.delta ?? null,
+          target_value: null,
+          source: data.value.factory_command_overview?.source || 'factory_command'
         }))
       }
       return data.value.production_lane || []

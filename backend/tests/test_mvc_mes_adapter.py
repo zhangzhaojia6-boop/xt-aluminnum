@@ -358,3 +358,144 @@ def test_mvc_mes_adapter_event_time_is_none_when_no_date_fields_present():
     items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
     assert items[0].event_time is None
     assert items[0].updated_at is None
+
+
+def test_mvc_mes_adapter_rejects_write_like_table_paths_before_network():
+    calls = []
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for([], calls),
+    )
+
+    with pytest.raises(ValueError, match='read-only'):
+        adapter._post_table('/Device/Delete')
+
+    assert calls == []
+
+
+def test_mvc_mes_adapter_paginates_workshop_process_records_and_sanitizes_payload():
+    calls = []
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for(
+            [
+                _Response(text='<input name="__RequestVerificationToken" type="hidden" value="token-1" />'),
+                _Response(payload={'status': True}),
+                _Response(payload={'status': True}),
+                _Response(payload={'data': []}),
+                _Response(
+                    payload={
+                        'data': [
+                            {
+                                'Id': 101,
+                                'BatchNumber': '26RA04597',
+                                'CustomerSimple': '河南富邦鑫泰',
+                                'WorkShop': '园区在线车间',
+                                'Process': '在线退火',
+                                'Worker': '刘统帅',
+                                'DeviceName': '园区北线（WIFI）',
+                                'BeginWeight': '7550',
+                                'EndWeight': '7450',
+                                'StrEndDatetime': '2026-06-01 15:15',
+                                'Password': 'secret',
+                                'Mobile': '13800000000',
+                            },
+                            {
+                                'Id': 102,
+                                'BatchNumber': '26RA04561',
+                                'CustomerSimple': '河南联汇',
+                                'EndWeight': '14570',
+                            },
+                        ],
+                        'recordsTotal': 3,
+                    }
+                ),
+                _Response(
+                    payload={
+                        'data': [
+                            {
+                                'Id': 103,
+                                'BatchNumber': '26RA03887',
+                                'CustomerSimple': '河南富邦鑫泰',
+                                'EndWeight': '9400',
+                            }
+                        ],
+                        'recordsTotal': 3,
+                    }
+                ),
+            ],
+            calls,
+        ),
+    )
+
+    records = adapter.list_workshop_process_records(limit=5, page_size=2)
+
+    assert [record.source_id for record in records] == ['101', '102', '103']
+    assert records[0].source_path == '/Report/ProductionWorkshopReport'
+    assert records[0].event_time == datetime(2026, 6, 1, 15, 15)
+    assert records[0].metadata['BatchNumber'] == '26RA04597'
+    assert 'Password' not in records[0].metadata
+    assert 'Mobile' not in records[0].metadata
+    table_calls = [call for call in calls if call['url'].endswith('/Report/ProductionWorkshopReport')]
+    assert [call['data']['start'] for call in table_calls] == [0, 2]
+    assert [call['data']['length'] for call in table_calls] == [2, 2]
+
+
+def test_mvc_mes_adapter_uses_stable_fallback_source_id_when_row_has_no_id():
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for([], []),
+    )
+
+    first = adapter._source_record('/Material/GetList', {'Weight': '1000', 'Password': 'secret'})
+    second = adapter._source_record('/Material/GetList', {'Weight': '2000', 'Password': 'secret'})
+
+    assert first.source_id.startswith('fallback:')
+    assert second.source_id.startswith('fallback:')
+    assert first.source_id != second.source_id
+    assert 'Password' not in first.metadata
+
+
+def test_mvc_mes_adapter_reads_wip_total_from_html_page():
+    calls = []
+    adapter = MvcMesAdapter(
+        base_url='https://mes.example.com',
+        username='mes-user',
+        password='mes-pass',
+        sender=_sender_for(
+            [
+                _Response(text='<input name="__RequestVerificationToken" type="hidden" value="token-1" />'),
+                _Response(payload={'status': True}),
+                _Response(payload={'status': True}),
+                _Response(payload={'data': []}),
+                _Response(
+                    text='''
+                    <html><body>
+                      <div>2050车间</div><div>430.0</div>
+                      <div>退火</div><div>-</div>
+                      <div>冷轧</div><div>430.0</div>
+                      <div>拉矫车间</div><div>320.5</div>
+                      <div>洗拉</div><div>107.5</div>
+                    </body></html>
+                    ''',
+                    headers={'content-type': 'text/html; charset=utf-8'},
+                ),
+            ],
+            calls,
+        ),
+    )
+
+    totals = adapter.list_wip_totals()
+
+    assert [item.workshop_name for item in totals] == ['2050车间', '拉矫车间']
+    assert totals[0].doing_weight == 430.0
+    assert totals[0].metadata['process_totals'] == {'冷轧': 430.0}
+    assert totals[1].metadata['process_totals'] == {'洗拉': 107.5}
+    assert calls[-1]['method'] == 'GET'
+    assert calls[-1]['url'].endswith('/Dispatch/DoingReportTotal')

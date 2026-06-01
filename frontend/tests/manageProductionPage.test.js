@@ -15,6 +15,7 @@ test('ProductionPage uses single-API useDashboardSnapshot composable', () => {
 test('ProductionPage imports DateSwitcher and KpiBar (no duplication)', () => {
   assert.match(SRC, /DateSwitcher/)
   assert.match(SRC, /KpiBar/)
+  assert.match(SRC, /FactorySourceStrip/)
 })
 
 test('ProductionPage renders workshop name as text (no dead deep-link to unimplemented route)', () => {
@@ -71,4 +72,8 @@ test('ProductionPage KPI cards have no @click bindings (not navigable)', () => {
 
 test('ProductionPage shows empty placeholder when production_lane is empty', () => {
   assert.match(SRC, /无车间数据/)
+})
+
+test('ProductionPage shows the same factory command source basis as today page', () => {
+  assert.match(SRC, /<FactorySourceStrip[\s\S]*:overview="snapshot\.factoryCommandOverview\.value"/)
 })

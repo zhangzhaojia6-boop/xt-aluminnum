@@ -79,6 +79,14 @@ class MesWipTotal:
 
 
 @dataclass(slots=True)
+class MesSourceRecord:
+    source_id: str
+    source_path: str
+    event_time: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class MesMachineLineSource:
     line_code: str
     line_name: str
@@ -129,6 +137,25 @@ class MesAdapter(ABC):
 
     def list_stock(self, *, limit: int = 200) -> list[MesStockItem]:
         _ = limit
+        return []
+
+    def list_workshop_process_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
+        _ = limit
+        return []
+
+    def list_stock_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
+        _ = limit
+        return []
+
+    def list_material_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
+        _ = limit
+        return []
+
+    def list_yield_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
+        _ = limit
+        return []
+
+    def list_reference_items(self) -> list[MesSourceRecord]:
         return []
 
     def list_machine_line_sources(self) -> list[MesMachineLineSource]:

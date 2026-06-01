@@ -30,6 +30,20 @@ test('buildOverviewWipSummary marks local fallback data without sample tonnage',
   assert.equal(summary.sourceTone, 'warning')
 })
 
+test('buildOverviewWipSummary renders MES extended values as trusted external data', () => {
+  const summary = buildOverviewWipSummary({
+    source: 'mes_extended',
+    wip_tons: 13.5,
+    today_output_tons: 6.2,
+    freshness: { status: 'fresh', source: 'mes_extended' },
+  })
+
+  assert.equal(summary.wipTotalTonLabel, '13.5 t')
+  assert.equal(summary.dailyOutputTonLabel, '6.2 t')
+  assert.equal(summary.sourceLabel, 'MES 扩展数据')
+  assert.equal(summary.sourceTone, 'success')
+})
+
 test('buildOverviewWipSummary hides values when WIP source is unavailable', () => {
   const summary = buildOverviewWipSummary({
     source: 'unavailable',

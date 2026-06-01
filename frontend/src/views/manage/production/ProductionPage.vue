@@ -17,6 +17,8 @@
 
     <KpiBar :items="kpiItems" />
 
+    <FactorySourceStrip :overview="snapshot.factoryCommandOverview.value" />
+
     <div v-if="snapshot.lastError.value" class="xt-production__error">{{ snapshot.lastError.value }}</div>
 
     <div class="xt-production__grid">
@@ -104,6 +106,7 @@ import { computed } from 'vue'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
+import FactorySourceStrip from '../../../components/manage/FactorySourceStrip.vue'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 
 const snapshot = useDashboardSnapshot()

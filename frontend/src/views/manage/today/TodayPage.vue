@@ -50,6 +50,8 @@
 
     <KpiBar :items="kpiItems" />
 
+    <FactorySourceStrip :overview="snapshot.factoryCommandOverview.value" />
+
     <section id="daily-report" class="xt-today__daily" data-testid="daily-report-section">
       <header class="xt-today__daily-head">
         <div>
@@ -159,6 +161,7 @@ import { RouterLink } from 'vue-router'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
+import FactorySourceStrip from '../../../components/manage/FactorySourceStrip.vue'
 import WorkshopBarChart from '../../../components/manage/WorkshopBarChart.vue'
 import CostLine from '../../../components/manage/CostLine.vue'
 import OutputTrendLine from '../../../components/manage/OutputTrendLine.vue'

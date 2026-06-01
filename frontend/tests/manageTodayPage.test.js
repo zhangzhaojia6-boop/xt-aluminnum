@@ -18,6 +18,7 @@ test('TodayPage composes the active overview pieces', () => {
   assert.match(src, /WorkshopBarChart/)
   assert.match(src, /CostLine/)
   assert.match(src, /SummaryHero/)
+  assert.match(src, /FactorySourceStrip/)
   assert.match(src, /useDashboardSnapshot/)
 })
 
@@ -81,4 +82,9 @@ test('TodayPage binds daily report blocks to the daily overview payload', () => 
   assert.match(src, /buildDailyComparisonCards/)
   assert.match(src, /buildDailyWorkshopRows/)
   assert.match(src, /buildDailyWipRows/)
+})
+
+test('TodayPage shows factory command source basis without changing business fields', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /<FactorySourceStrip[\s\S]*:overview="snapshot\.factoryCommandOverview\.value"/)
 })

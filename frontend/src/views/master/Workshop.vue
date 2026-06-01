@@ -1,5 +1,5 @@
 <template>
-  <div class="page-stack workshop-master" data-testid="admin-master-center">
+  <div class="page-stack workshop-master" data-testid="admin-master-center" title="车间主数据">
     <section class="workshop-master__hero" aria-labelledby="workshop-master-title">
       <div class="workshop-master__title-block">
         <span class="workshop-master__eyebrow">MASTER DATA GRID</span>

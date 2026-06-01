@@ -8,9 +8,18 @@ from sqlalchemy import and_, false, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import resolve_production_business_date
 from app.core.scope import ScopeSummary
 from app.models.master import Equipment, MasterCodeAlias, Workshop
-from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
+from app.models.mes import (
+    CoilFlowEvent,
+    MesCoilSnapshot,
+    MesMachineLineSnapshot,
+    MesStockRecord,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+    MesYieldRecord,
+)
 from app.models.production import MobileShiftReport, ShiftProductionData
 from app.services.equipment_service import resolve_reporting_machine_from_candidates
 from app.services.mes_sync_service import latest_sync_status
@@ -606,18 +615,151 @@ def _event_sort_key(event: Any) -> tuple[float, int]:
 def _business_date(now: Any = None) -> date:
     current = now or datetime.now(timezone.utc)
     if isinstance(current, datetime):
-        return current.date()
+        return resolve_production_business_date(current)
     if isinstance(current, date):
         return current
-    return datetime.now(timezone.utc).date()
+    return resolve_production_business_date(datetime.now(timezone.utc))
 
 
 def _same_business_date(value: Any, target: date) -> bool:
     if isinstance(value, datetime):
-        return value.date() == target
+        return resolve_production_business_date(value) == target
     if isinstance(value, date):
         return value == target
     return False
+
+
+def _mes_extended_freshness(freshness: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(freshness)
+    payload['source'] = 'mes_extended'
+    return payload
+
+
+def _scoped_mes_extended_rows(
+    db: Session,
+    model: type,
+    *,
+    scope: ScopeSummary | None = None,
+    workshop_field: str | None = 'workshop_name',
+) -> list[Any]:
+    tokens = _scope_workshop_tokens(db, scope)
+    rows = _safe_all(db, model)
+    if tokens is None:
+        return rows
+    if not tokens or not workshop_field:
+        return []
+    return [row for row in rows if _matches_workshop(getattr(row, workshop_field, None), tokens)]
+
+
+def _latest_mes_extended_business_date(db: Session, *, fallback: date, scope: ScopeSummary | None = None) -> date:
+    dates: list[date] = []
+    for model, workshop_field in (
+        (MesWorkshopProcessRecord, 'workshop_name'),
+        (MesStockRecord, None),
+        (MesYieldRecord, None),
+    ):
+        for row in _scoped_mes_extended_rows(db, model, scope=scope, workshop_field=workshop_field):
+            business_date = getattr(row, 'business_date', None)
+            if isinstance(business_date, datetime):
+                business_date = business_date.date()
+            if isinstance(business_date, date) and business_date <= fallback:
+                dates.append(business_date)
+    return max(dates) if dates else fallback
+
+
+def _mes_extended_rows_for_date(rows: Iterable[Any], target_date: date) -> list[Any]:
+    return [row for row in rows if _same_business_date(getattr(row, 'business_date', None), target_date)]
+
+
+def _latest_wip_snapshots(rows: Iterable[Any]) -> list[Any]:
+    row_list = list(rows)
+    if not row_list:
+        return []
+    latest = max(
+        (
+            getattr(row, 'snapshot_at', None)
+            for row in row_list
+            if getattr(row, 'snapshot_at', None) is not None
+        ),
+        default=None,
+    )
+    if latest is None:
+        return row_list
+    return [row for row in row_list if getattr(row, 'snapshot_at', None) == latest]
+
+
+def _build_overview_from_mes_extended(
+    db: Session,
+    *,
+    freshness: Mapping[str, Any],
+    target_date: date,
+    scope: ScopeSummary | None = None,
+    abnormal_count: int = 0,
+    previous_day: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    process_rows = _mes_extended_rows_for_date(
+        _scoped_mes_extended_rows(db, MesWorkshopProcessRecord, scope=scope, workshop_field='workshop_name'),
+        target_date,
+    )
+    stock_rows = _scoped_mes_extended_rows(db, MesStockRecord, scope=scope, workshop_field=None)
+    today_stock_rows = _mes_extended_rows_for_date(stock_rows, target_date)
+    yield_rows = _mes_extended_rows_for_date(
+        _scoped_mes_extended_rows(db, MesYieldRecord, scope=scope, workshop_field=None),
+        target_date,
+    )
+    wip_rows = _latest_wip_snapshots(
+        _scoped_mes_extended_rows(db, MesWipTotalSnapshot, scope=scope, workshop_field='workshop_name')
+    )
+    if not (process_rows or stock_rows or yield_rows or wip_rows):
+        return None
+
+    total_input = sum(_number(getattr(row, 'input_weight_tons', None)) for row in process_rows)
+    total_output = sum(_number(getattr(row, 'output_weight_tons', None)) for row in process_rows)
+    today_output = sum(_number(getattr(row, 'net_weight_tons', None)) for row in today_stock_rows)
+    stock_total = sum(_number(getattr(row, 'net_weight_tons', None)) for row in stock_rows)
+    wip_total = sum(_number(getattr(row, 'doing_weight_tons', None)) for row in wip_rows)
+    if wip_total <= 0 and total_input > 0:
+        wip_total = max(total_input - total_output, 0.0)
+
+    grouped: dict[str, list[Any]] = defaultdict(list)
+    for row in process_rows:
+        grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+    workshop_summary = []
+    for workshop_name, rows in grouped.items():
+        workshop_input = sum(_number(getattr(row, 'input_weight_tons', None)) for row in rows)
+        workshop_output = sum(_number(getattr(row, 'output_weight_tons', None)) for row in rows)
+        workshop_summary.append(
+            {
+                'workshop_name': workshop_name,
+                'row_count': len(rows),
+                'total_input_tons': round(workshop_input, 4),
+                'total_output_tons': round(workshop_output, 4),
+                'yield_rate': round(workshop_output / workshop_input * 100, 2) if workshop_input else None,
+            }
+        )
+    yield_rate = round(total_output / total_input * 100, 2) if total_input else None
+    if yield_rate is None and yield_rows:
+        rates = [_number(getattr(row, 'yield_rate', None)) for row in yield_rows]
+        rates = [value for value in rates if value > 0]
+        yield_rate = round(sum(rates) / len(rates), 2) if rates else None
+
+    missing_data = ['cost_inputs']
+    response_freshness = _mes_extended_freshness(freshness)
+    return {
+        'source': response_freshness['source'],
+        'freshness': response_freshness,
+        'wip_tons': round(wip_total, 4),
+        'today_output_tons': round(today_output, 4),
+        'stock_tons': round(stock_total, 4),
+        'total_input_tons': round(total_input, 4),
+        'total_output_tons': round(total_output, 4),
+        'yield_rate': yield_rate,
+        'workshop_summary': sorted(workshop_summary, key=lambda item: item['total_output_tons'], reverse=True),
+        'abnormal_count': abnormal_count,
+        'cost_estimate': _estimate(missing_data=missing_data),
+        'missing_data': missing_data,
+        'previous_day': previous_day,
+    }
 
 
 def _estimate(*, missing_data: list[str] | None = None, label: str = '经营估算') -> dict[str, Any]:
@@ -934,6 +1076,17 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
             target_date=target_date,
             scope=scope,
         )
+        if not _has_local_overview_rows(result):
+            extended_target_date = _latest_mes_extended_business_date(db, fallback=today, scope=scope)
+            extended_result = _build_overview_from_mes_extended(
+                db,
+                freshness=freshness,
+                target_date=extended_target_date,
+                scope=scope,
+                previous_day=previous_day,
+            )
+            if extended_result is not None:
+                return extended_result
         result['previous_day'] = previous_day
         return result
 
@@ -958,6 +1111,18 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
     has_local_rows = _has_local_overview_rows(local_overview)
     local_output_tons = local_overview['total_output_tons'] if has_local_rows else 0.0
     response_freshness = _mixed_freshness(freshness) if has_local_rows else freshness
+    if not has_local_rows:
+        extended_target_date = _latest_mes_extended_business_date(db, fallback=current_date, scope=scope)
+        extended_overview = _build_overview_from_mes_extended(
+            db,
+            freshness=freshness,
+            target_date=extended_target_date,
+            scope=scope,
+            abnormal_count=abnormal_count,
+            previous_day=previous_day,
+        )
+        if extended_overview is not None:
+            return extended_overview
     return {
         'source': response_freshness.get('source') or 'mes_projection',
         'freshness': response_freshness,
@@ -1002,6 +1167,37 @@ def _list_workshops_from_shift_data(
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
+def _list_workshops_from_mes_extended(
+    db: Session,
+    *,
+    freshness: Mapping[str, Any],
+    target_date: date,
+    scope: ScopeSummary | None = None,
+) -> list[dict[str, Any]]:
+    rows = _mes_extended_rows_for_date(
+        _scoped_mes_extended_rows(db, MesWorkshopProcessRecord, scope=scope, workshop_field='workshop_name'),
+        target_date,
+    )
+    if not rows:
+        return []
+    response_freshness = _mes_extended_freshness(freshness)
+    grouped: dict[str, list[Any]] = defaultdict(list)
+    for row in rows:
+        grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+    items = []
+    for workshop_name, workshop_rows in grouped.items():
+        items.append(
+            {
+                'workshop_name': workshop_name,
+                'active_coil_count': len(workshop_rows),
+                'active_tons': round(sum(_number(getattr(row, 'output_weight_tons', None)) for row in workshop_rows), 4),
+                'stalled_count': 0,
+                'freshness': response_freshness,
+            }
+        )
+    return sorted(items, key=lambda item: item['active_tons'], reverse=True)
+
+
 def list_workshops(
     db: Session,
     *,
@@ -1015,12 +1211,22 @@ def list_workshops(
         return _workshops_from_live_aggregation(live_payload, freshness=freshness)
     target_date = _latest_local_business_date(db, fallback=_business_date(now), scope=scope)
     if _should_use_local_shift_data(db, freshness):
-        return _list_workshops_from_shift_data(
+        local_items = _list_workshops_from_shift_data(
             db,
             freshness=freshness,
             target_date=target_date,
             scope=scope,
         )
+        if local_items:
+            return local_items
+        extended_target_date = _latest_mes_extended_business_date(db, fallback=_business_date(now), scope=scope)
+        extended_items = _list_workshops_from_mes_extended(
+            db,
+            freshness=freshness,
+            target_date=extended_target_date,
+            scope=scope,
+        )
+        return extended_items
 
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in _scoped_coils(db, scope=scope):
@@ -1042,6 +1248,16 @@ def list_workshops(
         target_date=target_date,
         scope=scope,
     )
+    if not local_items:
+        extended_target_date = _latest_mes_extended_business_date(db, fallback=_business_date(now), scope=scope)
+        extended_items = _list_workshops_from_mes_extended(
+            db,
+            freshness=freshness,
+            target_date=extended_target_date,
+            scope=scope,
+        )
+        if extended_items:
+            return extended_items
     by_name = {str(item['workshop_name']): item for item in items}
     for local_item in local_items:
         existing = by_name.get(str(local_item['workshop_name']))

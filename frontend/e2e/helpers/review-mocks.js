@@ -350,7 +350,7 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     { date: '2026-05-12', output_weight: 1175000, energy: 275655 }
   ]
 
-  await page.route('**/api/v1/factory-command/overview', async (route) => {
+  await page.route('**/api/v1/factory-command/overview**', async (route) => {
     await fulfillJson(route, factoryCommandOverview)
   })
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -138,6 +139,36 @@ def test_factory_command_routes_are_registered(monkeypatch):
 
     machine_lines_response = client.get('/api/v1/factory-command/machine-lines')
     assert machine_lines_response.json()[0]['machine_binding_status'] == 'unbound'
+
+
+def test_factory_command_overview_accepts_target_date(monkeypatch):
+    app.dependency_overrides[get_db] = _fake_db
+    app.dependency_overrides[get_current_user] = _manager_user
+    seen = {}
+
+    def build_overview(_db, *, scope=None, current_user=None, now=None):
+        seen['now'] = now
+        return {
+            'freshness': {'status': 'fresh', 'source': 'mes_extended'},
+            'source': 'mes_extended',
+            'wip_tons': 0,
+            'today_output_tons': 0,
+            'stock_tons': 0,
+            'total_input_tons': 0,
+            'total_output_tons': 0,
+            'yield_rate': None,
+            'workshop_summary': [],
+            'abnormal_count': 0,
+            'cost_estimate': {'label': '经营估算'},
+            'missing_data': [],
+        }
+
+    monkeypatch.setattr('app.routers.factory_command.factory_command_service.build_overview', build_overview)
+
+    response = TestClient(app).get('/api/v1/factory-command/overview?target_date=2026-05-22')
+
+    assert response.status_code == 200
+    assert seen['now'] == date(2026, 5, 22)
 
 
 def test_factory_command_rejects_non_manager(monkeypatch):

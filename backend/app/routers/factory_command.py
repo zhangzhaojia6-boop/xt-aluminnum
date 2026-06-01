@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -28,9 +30,16 @@ def _ensure_factory_command_access(user: User) -> ScopeSummary:
 
 
 @router.get('/overview', response_model=FactoryOverviewOut)
-def overview(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> FactoryOverviewOut:
+def overview(
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FactoryOverviewOut:
     scope = _ensure_factory_command_access(current_user)
-    return factory_command_service.build_overview(db, scope=scope, current_user=current_user)
+    kwargs = {'scope': scope, 'current_user': current_user}
+    if target_date is not None:
+        kwargs['now'] = target_date
+    return factory_command_service.build_overview(db, **kwargs)
 
 
 @router.get('/workshops', response_model=list[FactoryWorkshopOut])

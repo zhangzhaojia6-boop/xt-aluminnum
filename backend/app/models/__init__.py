@@ -29,7 +29,20 @@ from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
 from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
 from app.models.energy import EnergyImportRecord, MachineEnergyDailyCompare, MachineEnergyRecord
 from app.models.consumable import DailyConsumableLog
-from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesImportRecord, MesMachineLineSnapshot, MesSyncCursor, MesSyncRunLog
+from app.models.mes import (
+    CoilFlowEvent,
+    MesCoilSnapshot,
+    MesImportRecord,
+    MesMachineLineSnapshot,
+    MesMaterialRecord,
+    MesReferenceItem,
+    MesStockRecord,
+    MesSyncCursor,
+    MesSyncRunLog,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+    MesYieldRecord,
+)
 from app.models.production import (
     AlloySpecBreakdown,
     FieldAmendment,
@@ -93,6 +106,12 @@ __all__ = [
     'MesImportRecord',
     'MesCoilSnapshot',
     'MesMachineLineSnapshot',
+    'MesWorkshopProcessRecord',
+    'MesStockRecord',
+    'MesMaterialRecord',
+    'MesYieldRecord',
+    'MesReferenceItem',
+    'MesWipTotalSnapshot',
     'CoilFlowEvent',
     'MesSyncCursor',
     'MesSyncRunLog',

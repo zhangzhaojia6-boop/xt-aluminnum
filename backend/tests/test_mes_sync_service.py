@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -6,9 +6,18 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
-from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource
+from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource, MesSourceRecord, MesWipTotal
 from app.database import Base
-from app.models.mes import CoilFlowEvent, MesCoilSnapshot
+from app.models.mes import (
+    CoilFlowEvent,
+    MesCoilSnapshot,
+    MesMaterialRecord,
+    MesReferenceItem,
+    MesStockRecord,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+    MesYieldRecord,
+)
 from app.services import mes_sync_service
 
 
@@ -398,3 +407,168 @@ def test_sync_projection_step_reraises_database_errors():
             synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
             runner=broken_runner,
         )
+
+
+def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive_payloads(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-extended-sync.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            MesWorkshopProcessRecord.__table__,
+            MesStockRecord.__table__,
+            MesMaterialRecord.__table__,
+            MesYieldRecord.__table__,
+            MesReferenceItem.__table__,
+            MesWipTotalSnapshot.__table__,
+        ],
+    )
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    synced_at = datetime(2026, 6, 1, 8, 35, tzinfo=UTC)
+
+    class Adapter:
+        def list_workshop_process_records(self, *, limit):
+            return [
+                MesSourceRecord(
+                    source_id='101',
+                    source_path='/Report/ProductionWorkshopReport',
+                    event_time=datetime(2026, 6, 1, 15, 15, tzinfo=UTC),
+                    metadata={
+                        'Id': 101,
+                        'BatchNumber': '26RA04597',
+                        'CustomerSimple': '河南富邦鑫泰',
+                        'WorkShop': '园区在线车间',
+                        'Process': '在线退火',
+                        'Worker': '刘统帅',
+                        'DeviceName': '园区北线（WIFI）',
+                        'BeginWeight': '7550',
+                        'EndWeight': '7450',
+                        'YieldRate': '98.7',
+                        'Password': 'secret',
+                    },
+                )
+            ]
+
+        def list_stock_records(self, *, limit):
+            return [
+                MesSourceRecord(
+                    source_id='stock-1',
+                    source_path='/Stock/GetList',
+                    event_time=datetime(2026, 6, 1, 16, 0, tzinfo=UTC),
+                    metadata={
+                        'Id': 'stock-1',
+                        'BatchNumber': '26RA04597',
+                        'CustomerSimple': '河南富邦鑫泰',
+                        'ContractCode': 'HT-2601',
+                        'NetWeight': '11800',
+                        'GrossWeight': '12000',
+                        'InStockDate': '2026-06-01 16:00:00',
+                        'StatusName': '已入库',
+                    },
+                )
+            ]
+
+        def list_material_records(self, *, limit):
+            return [
+                MesSourceRecord(
+                    source_id='26-s-2-085-2',
+                    source_path='/Material/GetList',
+                    event_time=datetime(2026, 6, 1, 11, 10, tzinfo=UTC),
+                    metadata={
+                        'MaterialCode': '26-s-2-085-2',
+                        'WorkShopRolling': '铸三车间',
+                        'WorkShopLine': '2#',
+                        'PositionName': 'D区',
+                        'Alloy': '3004',
+                        'Specification': '3.9*1110*C',
+                        'Weight': '10338',
+                        'StatusName': '可使用',
+                    },
+                )
+            ]
+
+        def list_yield_records(self, *, limit):
+            return [
+                MesSourceRecord(
+                    source_id='yield-1',
+                    source_path='/Report/YieldReport',
+                    event_time=datetime(2026, 6, 1, 16, 0, tzinfo=UTC),
+                    metadata={
+                        'Id': 'yield-1',
+                        'BatchNumber': '26RA04597',
+                        'ContractCode': 'HT-2601',
+                        'CustomerSimple': '河南富邦鑫泰',
+                        'ContractTotalWeight': '42.5',
+                        'FeedingWeight': '12.4',
+                        'InStockNetWeight': '11.8',
+                        'YieldRate': '95.16',
+                    },
+                )
+            ]
+
+        def list_reference_items(self):
+            return [
+                MesSourceRecord(
+                    source_id='device-1',
+                    source_path='/Device/GetList',
+                    metadata={
+                        'Id': 'device-1',
+                        'Name': '园区北线（WIFI）',
+                        'WorkShop': '园区在线车间',
+                        'Craft': '在线退火',
+                        'StatusName': '正常',
+                        'Password': 'must-not-persist',
+                    },
+                )
+            ]
+
+        def list_wip_totals(self):
+            return [
+                MesWipTotal(
+                    workshop_name='2050车间',
+                    doing_weight=430.0,
+                    metadata={'process_totals': {'冷轧': 430.0}},
+                )
+            ]
+
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
+
+    with Session() as db:
+        process_stats = mes_sync_service.sync_mes_workshop_process_records(db, now=synced_at)
+        stock_stats = mes_sync_service.sync_mes_stock_records(db, now=synced_at)
+        material_stats = mes_sync_service.sync_mes_material_records(db, now=synced_at)
+        yield_stats = mes_sync_service.sync_mes_yield_records(db, now=synced_at)
+        reference_stats = mes_sync_service.sync_mes_reference_items(db, now=synced_at)
+        wip_stats = mes_sync_service.sync_mes_wip_total(db, now=synced_at)
+        db.commit()
+
+        process = db.scalar(select(MesWorkshopProcessRecord))
+        stock = db.scalar(select(MesStockRecord))
+        material = db.scalar(select(MesMaterialRecord))
+        yield_record = db.scalar(select(MesYieldRecord))
+        reference = db.scalar(select(MesReferenceItem))
+        wip = db.scalar(select(MesWipTotalSnapshot))
+
+    assert process_stats.upserted_count == 1
+    assert stock_stats.upserted_count == 1
+    assert material_stats.upserted_count == 1
+    assert yield_stats.upserted_count == 1
+    assert reference_stats.upserted_count == 1
+    assert wip_stats.upserted_count == 1
+    assert process.batch_no == '26RA04597'
+    assert process.customer_alias == '河南富邦鑫泰'
+    assert process.output_weight_kg == 7450.0
+    assert float(process.output_weight_tons) == 7.45
+    assert process.business_date == date(2026, 6, 1)
+    assert 'Password' not in process.source_payload
+    assert stock.contract_no == 'HT-2601'
+    assert float(stock.net_weight_tons) == 11.8
+    assert stock.business_date == date(2026, 6, 2)
+    assert material.workshop_name == '铸三车间'
+    assert float(material.weight_tons) == 10.338
+    assert float(yield_record.contract_total_weight_tons) == 42.5
+    assert yield_record.business_date == date(2026, 6, 2)
+    assert reference.source_type == 'device'
+    assert 'Password' not in reference.source_payload
+    assert wip.workshop_name == '2050车间'
+    assert wip.process_name == '冷轧'
+    assert float(wip.doing_weight_tons) == 430.0

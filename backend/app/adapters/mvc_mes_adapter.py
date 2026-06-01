@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
+from html import unescape
+import json
 import re
 from typing import Any, Callable, Mapping
 
@@ -13,6 +16,7 @@ from app.adapters.mes_adapter import (
     MesAdapter,
     MesDevice,
     MesMachineLineSource,
+    MesSourceRecord,
     MesStockItem,
     MesWipTotal,
     ScheduleItem,
@@ -31,6 +35,67 @@ _PRESERVED_DISPATCH_KEYS = (
     'StatusName',
     'MaterialCode',
 )
+
+_READ_ONLY_PATH_HINTS = (
+    'GetList',
+    'QueryList',
+    'Report',
+    'Total',
+    'GetTreeList',
+    'GetBoardList',
+    'GetDetailList',
+    'GetItem',
+    'Index',
+)
+
+_WRITE_PATH_HINTS = (
+    'Save',
+    'Delete',
+    'Deleted',
+    'Remove',
+    'Set',
+    'Invalid',
+    'Disabled',
+    'Enabled',
+    'Unbind',
+    'Recovery',
+    'Revoke',
+    'Send',
+    'Update',
+    'Edit',
+    'Add',
+    'Upload',
+    'Import',
+)
+
+_SENSITIVE_KEYS = {
+    'Password',
+    'NewPassword',
+    'NewPasswordConfirm',
+    'OldPassword',
+    'Mobile',
+    'CustomerMobile',
+    'Address',
+    'CustomerAddress',
+    'Email',
+}
+
+_WORKSHOP_NAMES = {
+    '1450车间',
+    '1650车间',
+    '1850车间',
+    '2050车间',
+    '拉矫车间',
+    '热轧车间',
+    '精整',
+    '彩涂',
+    '新厂在线车间',
+    '园区在线车间',
+    '园区淬火车间',
+    '园区精整',
+    '园区圆片',
+    '铣床车间',
+}
 
 
 def _to_mapping(value: Any) -> Mapping[str, Any]:
@@ -96,6 +161,8 @@ def _coil_event_time(row: Mapping[str, Any]) -> datetime | None:
     for key in (
         'EventTime',
         'OperateDate',
+        'EndDatetime',
+        'StrEndDatetime',
         'StrOperateDate',
         'StrFeedingDate',
         'StrCreateDate',
@@ -122,6 +189,76 @@ def _coil_key(row: Mapping[str, Any]) -> str:
     batch_no = _text(row.get('BatchNumber') or row.get('BatchNo') or row.get('CardNo')) or 'unknown'
     material_code = _text(row.get('MaterialCode')) or 'unknown'
     return f'fallback:{batch_no}:{material_code}'
+
+
+def _safe_metadata(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {str(key): value for key, value in row.items() if str(key) not in _SENSITIVE_KEYS}
+
+
+def _record_id(row: Mapping[str, Any], *fallback_keys: str) -> str:
+    for key in ('Id', 'ID', *fallback_keys, 'BatchNumber', 'MaterialCode', 'Code', 'Name'):
+        text = _text(row.get(key))
+        if text:
+            return text
+    payload = json.dumps(dict(row), ensure_ascii=False, sort_keys=True, default=str)
+    return f'fallback:{hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]}'
+
+
+def _ensure_read_only_path(path: str) -> None:
+    tail = path.rsplit('/', 1)[-1]
+    if any(hint in tail for hint in _WRITE_PATH_HINTS):
+        raise ValueError(f'MES MVC path is not read-only: {path}')
+    if not any(hint in tail for hint in _READ_ONLY_PATH_HINTS):
+        raise ValueError(f'MES MVC path is not in the read-only allowlist: {path}')
+
+
+def _html_tokens(html: str) -> list[str]:
+    text = re.sub(r'<[^>]+>', '\n', html)
+    return [
+        token.strip()
+        for token in re.split(r'[\r\n]+', unescape(text))
+        if token.strip()
+    ]
+
+
+def _parse_wip_total_html(html: str) -> list[MesWipTotal]:
+    tokens = _html_tokens(html)
+    items: list[MesWipTotal] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token not in _WORKSHOP_NAMES and not token.endswith('车间'):
+            index += 1
+            continue
+        workshop_name = token
+        index += 1
+        total_weight = _float(tokens[index]) if index < len(tokens) else None
+        if index < len(tokens):
+            index += 1
+        process_totals: dict[str, float] = {}
+        while index < len(tokens):
+            process_name = tokens[index]
+            if process_name in _WORKSHOP_NAMES or process_name.endswith('车间'):
+                break
+            index += 1
+            if index >= len(tokens):
+                break
+            process_weight = _float(tokens[index])
+            index += 1
+            if process_weight is not None and process_name != '-':
+                process_totals[process_name] = process_weight
+        if total_weight is not None or process_totals:
+            items.append(
+                MesWipTotal(
+                    workshop_name=workshop_name,
+                    doing_weight=total_weight,
+                    metadata={
+                        'source_path': '/Dispatch/DoingReportTotal',
+                        'process_totals': process_totals,
+                    },
+                )
+            )
+    return items
 
 
 class MvcMesAdapter(MesAdapter):
@@ -209,16 +346,20 @@ class MvcMesAdapter(MesAdapter):
         return self._list_coils('/Dispatch/QueryList', limit=limit)
 
     def list_wip_totals(self) -> list[MesWipTotal]:
-        rows = self._post_table('/Dispatch/DoingReportTotal')
-        return [
-            MesWipTotal(
-                workshop_name=_text(row.get('WorkShopName') or row.get('WorkshopName')) or '',
-                doing_count=_int(row.get('DoingCount') or row.get('Count')),
-                doing_weight=_float(row.get('DoingWeight') or row.get('Weight')),
-                metadata=dict(row),
-            )
-            for row in rows
-        ]
+        response = self._get_response('/Dispatch/DoingReportTotal')
+        payload = self._payload(response)
+        rows = self._extract_rows(payload)
+        if rows:
+            return [
+                MesWipTotal(
+                    workshop_name=_text(row.get('WorkShopName') or row.get('WorkshopName')) or '',
+                    doing_count=_int(row.get('DoingCount') or row.get('Count')),
+                    doing_weight=_float(row.get('DoingWeight') or row.get('Weight')),
+                    metadata=_safe_metadata(row),
+                )
+                for row in rows
+            ]
+        return _parse_wip_total_html(response.text or '')
 
     def list_stock(self, *, limit: int = 200) -> list[MesStockItem]:
         rows = self._post_table('/Stock/GetList', limit=limit)
@@ -232,6 +373,25 @@ class MvcMesAdapter(MesAdapter):
             )
             for row in rows
         ]
+
+    def list_workshop_process_records(self, *, limit: int = 200, page_size: int = 100) -> list[MesSourceRecord]:
+        return self._list_source_records('/Report/ProductionWorkshopReport', limit=limit, page_size=page_size)
+
+    def list_stock_records(self, *, limit: int = 200, page_size: int = 100) -> list[MesSourceRecord]:
+        return self._list_source_records('/Stock/GetList', limit=limit, page_size=page_size)
+
+    def list_material_records(self, *, limit: int = 200, page_size: int = 100) -> list[MesSourceRecord]:
+        return self._list_source_records('/Material/GetList', limit=limit, page_size=page_size, fallback_key='MaterialCode')
+
+    def list_yield_records(self, *, limit: int = 200, page_size: int = 100) -> list[MesSourceRecord]:
+        return self._list_source_records('/Report/YieldReport', limit=limit, page_size=page_size)
+
+    def list_reference_items(self) -> list[MesSourceRecord]:
+        records: list[MesSourceRecord] = []
+        for path in ('/Craft/GetList', '/Device/GetList', '/Dict/GetTreeList', '/Material/GetBoardList'):
+            rows = self._post_table_pages(path, limit=500, page_size=100)
+            records.extend(self._source_record(path, row) for row in rows)
+        return records
 
     def list_machine_line_sources(self) -> list[MesMachineLineSource]:
         devices = self.list_devices()
@@ -248,6 +408,26 @@ class MvcMesAdapter(MesAdapter):
                 )
             )
         return items
+
+    def _list_source_records(
+        self,
+        path: str,
+        *,
+        limit: int,
+        page_size: int,
+        fallback_key: str | None = None,
+    ) -> list[MesSourceRecord]:
+        rows = self._post_table_pages(path, limit=limit, page_size=page_size)
+        return [self._source_record(path, row, fallback_key=fallback_key) for row in rows]
+
+    def _source_record(self, path: str, row: Mapping[str, Any], *, fallback_key: str | None = None) -> MesSourceRecord:
+        metadata = _safe_metadata(row)
+        return MesSourceRecord(
+            source_id=_record_id(metadata, *(key for key in (fallback_key,) if key)) or 'unknown',
+            source_path=path,
+            event_time=_coil_event_time(metadata),
+            metadata=metadata,
+        )
 
     def _list_coils(self, path: str, *, limit: int = 200) -> list[CoilSnapshot]:
         rows = self._post_table(path, limit=limit)
@@ -278,10 +458,33 @@ class MvcMesAdapter(MesAdapter):
         )
 
     def _post_table(self, path: str, *, limit: int = 200) -> list[Mapping[str, Any]]:
+        return self._post_table_pages(path, limit=limit, page_size=limit)
+
+    def _post_table_pages(self, path: str, *, limit: int = 200, page_size: int = 100) -> list[Mapping[str, Any]]:
+        _ensure_read_only_path(path)
+        bounded_limit = max(0, int(limit))
+        bounded_page_size = max(1, min(int(page_size), bounded_limit or int(page_size)))
+        rows: list[Mapping[str, Any]] = []
+        start = 0
+        total: int | None = None
+        while len(rows) < bounded_limit:
+            current_length = min(bounded_page_size, bounded_limit - len(rows))
+            payload = self._post_table_payload(path, start=start, length=current_length)
+            page_rows = self._extract_rows(payload)
+            rows.extend(page_rows)
+            total = self._extract_total(payload, default=total)
+            if not page_rows or len(page_rows) < current_length:
+                break
+            start += len(page_rows)
+            if total is not None and start >= total:
+                break
+        return rows[:bounded_limit]
+
+    def _post_table_payload(self, path: str, *, start: int, length: int) -> Mapping[str, Any]:
         data = {
             'draw': 1,
-            'start': 0,
-            'length': limit,
+            'start': start,
+            'length': length,
         }
         response = self._request(
             'POST',
@@ -299,7 +502,19 @@ class MvcMesAdapter(MesAdapter):
             payload = self._payload(response)
             if self._looks_like_login_page(response=response, payload=payload):
                 raise RuntimeError(f'MES MVC request failed after relogin: {path}')
-        return self._extract_rows(payload)
+        return payload
+
+    def _get_response(self, path: str):
+        _ensure_read_only_path(path)
+        response = self._request('GET', path, data={})
+        payload = self._payload(response)
+        if self._looks_like_login_page(response=response, payload=payload):
+            self._reset_session()
+            response = self._request('GET', path, data={})
+            payload = self._payload(response)
+            if self._looks_like_login_page(response=response, payload=payload):
+                raise RuntimeError(f'MES MVC request failed after relogin: {path}')
+        return response
 
     def _request(self, method: str, path: str, *, data: Mapping[str, Any] | None = None) -> httpx.Response:
         if not self._logged_in and path not in {'/Login/Index', '/Login/CheckLogin', '/Login/QueryLogin'}:
@@ -435,6 +650,14 @@ class MvcMesAdapter(MesAdapter):
         if not isinstance(rows, list):
             return []
         return [row for row in rows if isinstance(row, Mapping)]
+
+    @staticmethod
+    def _extract_total(payload: Mapping[str, Any], *, default: int | None = None) -> int | None:
+        for key in ('recordsTotal', 'recordsFiltered', 'total', 'Total'):
+            value = _int(payload.get(key))
+            if value is not None:
+                return value
+        return default
 
     @staticmethod
     def _is_success_payload(payload: Mapping[str, Any]) -> bool:

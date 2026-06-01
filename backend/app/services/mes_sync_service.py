@@ -10,9 +10,22 @@ from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.adapters import get_mes_adapter
-from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource
+from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource, MesSourceRecord, MesWipTotal
 from app.config import settings
-from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot, MesSyncCursor, MesSyncRunLog
+from app.core.business_time import resolve_production_business_date
+from app.models.mes import (
+    CoilFlowEvent,
+    MesCoilSnapshot,
+    MesMachineLineSnapshot,
+    MesMaterialRecord,
+    MesReferenceItem,
+    MesStockRecord,
+    MesSyncCursor,
+    MesSyncRunLog,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+    MesYieldRecord,
+)
 
 
 SYNC_CURSOR_KEY = 'coil_snapshots'
@@ -90,6 +103,45 @@ def _to_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+_SENSITIVE_PAYLOAD_KEYS = {
+    'Password',
+    'NewPassword',
+    'NewPasswordConfirm',
+    'OldPassword',
+    'Mobile',
+    'CustomerMobile',
+    'Address',
+    'CustomerAddress',
+    'Email',
+}
+
+
+def _safe_payload(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    return {str(key): value for key, value in metadata.items() if str(key) not in _SENSITIVE_PAYLOAD_KEYS}
+
+
+def _kg_to_tons(value: Any) -> float | None:
+    number = _to_float(value)
+    if number is None:
+        return None
+    return round(number / 1000, 6)
+
+
+def _record_event_time(record: MesSourceRecord, *keys: str) -> datetime | None:
+    if record.event_time is not None:
+        return record.event_time
+    for key in keys:
+        parsed = _parse_datetime(record.metadata.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _record_business_date(record: MesSourceRecord, *keys: str) -> Any:
+    event_time = _record_event_time(record, *keys)
+    return resolve_production_business_date(event_time) if event_time is not None else None
+
+
 def _parse_datetime(value: Any) -> datetime | None:
     if value in (None, ''):
         return None
@@ -119,6 +171,16 @@ def _metadata_value(metadata: Mapping[str, Any], *keys: str) -> Any:
         if key in metadata:
             return metadata[key]
     return None
+
+
+def _source_id(record: MesSourceRecord, *keys: str) -> str:
+    if _to_text(record.source_id):
+        return str(record.source_id)
+    for key in keys:
+        text_value = _to_text(record.metadata.get(key))
+        if text_value:
+            return text_value
+    return 'unknown'
 
 
 def _mes_product_id(snapshot: CoilSnapshot) -> str | None:
@@ -554,6 +616,228 @@ def _sync_coil_list(db: Session, *, cursor_key: str, rows: list[CoilSnapshot], s
     )
 
 
+def _upsert_by_source_id(db: Session, *, model: type, source_id: str, fields: Mapping[str, Any]) -> bool:
+    existing = _query_first(db.query(model).filter(model.source_id == source_id))
+    if existing is None:
+        db.add(model(source_id=source_id, **fields))
+        return True
+    for key, value in fields.items():
+        setattr(existing, key, value)
+    return True
+
+
+def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
+    payload = _safe_payload(record.metadata)
+    end_time = _record_event_time(record, 'EndDatetime', 'StrEndDatetime', 'CalcDatetime', 'StrOperateDate')
+    input_kg = _to_float(_metadata_value(payload, 'BeginWeight', 'InputWeight', 'UpWeight'))
+    output_kg = _to_float(_metadata_value(payload, 'EndWeight', 'OutputWeight', 'CalcWeight'))
+    return {
+        'source_path': record.source_path,
+        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
+        'workshop_name': _to_text(_metadata_value(payload, 'WorkShop', 'Workshop', 'WorkShopName')),
+        'process_name': _to_text(_metadata_value(payload, 'Process', 'ProcessName', 'WorkShopProcess')),
+        'worker_name': _to_text(_metadata_value(payload, 'Worker', 'WorkerName', 'Operator')),
+        'device_name': _to_text(_metadata_value(payload, 'DeviceName', 'Device', 'MachineName')),
+        'input_weight_kg': input_kg,
+        'input_weight_tons': _kg_to_tons(input_kg),
+        'output_weight_kg': output_kg,
+        'output_weight_tons': _kg_to_tons(output_kg),
+        'yield_rate': _to_float(_metadata_value(payload, 'YieldRate', 'CraftYield')),
+        'end_time': end_time,
+        'business_date': resolve_production_business_date(end_time) if end_time is not None else _record_business_date(record, 'StrOperateDate'),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+
+
+def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
+    payload = _safe_payload(record.metadata)
+    in_stock_date = _record_event_time(record, 'InStockDate', 'StrInStockDate')
+    net_kg = _to_float(_metadata_value(payload, 'NetWeight', 'InStockNetWeight'))
+    gross_kg = _to_float(_metadata_value(payload, 'GrossWeight'))
+    return {
+        'source_path': record.source_path,
+        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'contract_no': _to_text(_metadata_value(payload, 'ContractCode', 'ContractNo')),
+        'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
+        'net_weight_kg': net_kg,
+        'net_weight_tons': _kg_to_tons(net_kg),
+        'gross_weight_kg': gross_kg,
+        'gross_weight_tons': _kg_to_tons(gross_kg),
+        'in_stock_date': in_stock_date,
+        'business_date': resolve_production_business_date(in_stock_date) if in_stock_date is not None else _record_business_date(record),
+        'status_name': _to_text(_metadata_value(payload, 'StatusName', 'Status')),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+
+
+def _material_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
+    payload = _safe_payload(record.metadata)
+    production_date = _record_event_time(record, 'ProductionDate', 'StrProductionDate')
+    weight_kg = _to_float(_metadata_value(payload, 'Weight', 'MaterialWeight'))
+    return {
+        'source_path': record.source_path,
+        'material_code': _to_text(_metadata_value(payload, 'MaterialCode', 'MaterialAutoCode')),
+        'workshop_name': _to_text(_metadata_value(payload, 'WorkShopRolling', 'PWorkShop', 'WorkShop')),
+        'line_name': _to_text(_metadata_value(payload, 'WorkShopLine', 'LineName')),
+        'position_name': _to_text(_metadata_value(payload, 'PositionName', 'Position')),
+        'alloy_grade': _to_text(_metadata_value(payload, 'Alloy')),
+        'spec_display': _to_text(_metadata_value(payload, 'Specification', 'Spec')),
+        'weight_kg': weight_kg,
+        'weight_tons': _kg_to_tons(weight_kg),
+        'production_date': production_date,
+        'business_date': resolve_production_business_date(production_date) if production_date is not None else _record_business_date(record),
+        'status_name': _to_text(_metadata_value(payload, 'StatusName', 'Status')),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+
+
+def _yield_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
+    payload = _safe_payload(record.metadata)
+    report_time = _record_event_time(record, 'InStockDate', 'StrInStockDate', 'OperateDate', 'StrOperateDate')
+    return {
+        'source_path': record.source_path,
+        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'contract_no': _to_text(_metadata_value(payload, 'ContractCode', 'ContractNo')),
+        'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
+        'contract_total_weight_tons': _to_float(_metadata_value(payload, 'ContractTotalWeight', 'ContractNoticeDetailTotalWeight')),
+        'feeding_weight_tons': _to_float(_metadata_value(payload, 'FeedingWeight')),
+        'in_stock_net_weight_tons': _to_float(_metadata_value(payload, 'InStockNetWeight', 'NetWeight')),
+        'yield_rate': _to_float(_metadata_value(payload, 'YieldRate', 'Yield')),
+        'report_time': report_time,
+        'business_date': resolve_production_business_date(report_time) if report_time is not None else _record_business_date(record),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+
+
+def _reference_source_type(source_path: str) -> str:
+    if source_path.startswith('/Craft/'):
+        return 'craft'
+    if source_path.startswith('/Device/'):
+        return 'device'
+    if source_path.startswith('/Dict/'):
+        return 'dict'
+    if source_path.startswith('/Material/'):
+        return 'material_board'
+    return source_path.strip('/').replace('/', '_').lower() or 'unknown'
+
+
+def _upsert_reference_item(db: Session, *, record: MesSourceRecord, synced_at: datetime) -> bool:
+    payload = _safe_payload(record.metadata)
+    source_type = _reference_source_type(record.source_path)
+    source_id = _source_id(record, 'Id', 'Code', 'Name')
+    existing = _query_first(
+        db.query(MesReferenceItem).filter(
+            MesReferenceItem.source_type == source_type,
+            MesReferenceItem.source_id == source_id,
+        )
+    )
+    fields = {
+        'source_path': record.source_path,
+        'code': _to_text(_metadata_value(payload, 'Code')),
+        'name': _to_text(_metadata_value(payload, 'Name', 'Craft', 'DeviceName')),
+        'parent_id': _to_text(_metadata_value(payload, 'PID', 'ParentID', 'WorkShopID')),
+        'workshop_name': _to_text(_metadata_value(payload, 'WorkShop', 'WorkShopName')),
+        'status_name': _to_text(_metadata_value(payload, 'StatusName', 'Status')),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+    if existing is None:
+        db.add(MesReferenceItem(source_type=source_type, source_id=source_id, **fields))
+        return True
+    for key, value in fields.items():
+        setattr(existing, key, value)
+    return True
+
+
+def _sync_source_records(
+    db: Session,
+    *,
+    cursor_key: str,
+    rows: list[MesSourceRecord],
+    synced_at: datetime,
+    model: type,
+    field_builder,
+    id_keys: tuple[str, ...] = ('Id',),
+) -> MesSyncStats:
+    upserted_count = 0
+    for row in rows:
+        source_id = _source_id(row, *id_keys)
+        if _upsert_by_source_id(db, model=model, source_id=source_id, fields=field_builder(row, synced_at)):
+            upserted_count += 1
+    return _stats(cursor_key=cursor_key, fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
+
+
+def sync_mes_workshop_process_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    rows = get_mes_adapter().list_workshop_process_records(limit=settings.MES_SYNC_LIMIT)
+    return _sync_source_records(
+        db,
+        cursor_key='mes_workshop_process_records',
+        rows=rows,
+        synced_at=synced_at,
+        model=MesWorkshopProcessRecord,
+        field_builder=_workshop_process_fields,
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_stock_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    rows = get_mes_adapter().list_stock_records(limit=settings.MES_SYNC_LIMIT)
+    return _sync_source_records(
+        db,
+        cursor_key='mes_stock_records',
+        rows=rows,
+        synced_at=synced_at,
+        model=MesStockRecord,
+        field_builder=_stock_fields,
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_material_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    rows = get_mes_adapter().list_material_records(limit=settings.MES_SYNC_LIMIT)
+    return _sync_source_records(
+        db,
+        cursor_key='mes_material_records',
+        rows=rows,
+        synced_at=synced_at,
+        model=MesMaterialRecord,
+        field_builder=_material_fields,
+        id_keys=('MaterialCode', 'Id'),
+    )
+
+
+def sync_mes_yield_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    rows = get_mes_adapter().list_yield_records(limit=settings.MES_SYNC_LIMIT)
+    return _sync_source_records(
+        db,
+        cursor_key='mes_yield_records',
+        rows=rows,
+        synced_at=synced_at,
+        model=MesYieldRecord,
+        field_builder=_yield_fields,
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_reference_items(db: Session, *, now: datetime | None = None) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    rows = get_mes_adapter().list_reference_items()
+    upserted_count = 0
+    for row in rows:
+        if _upsert_reference_item(db, record=row, synced_at=synced_at):
+            upserted_count += 1
+    return _stats(cursor_key='mes_reference_items', fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
+
+
 def sync_mes_follow_cards(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_follow_cards(limit=settings.MES_SYNC_LIMIT)
@@ -567,10 +851,37 @@ def sync_mes_dispatch(db: Session, *, now: datetime | None = None) -> MesSyncSta
 
 
 def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncStats:
-    _ = db
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_wip_totals()
-    return _stats(cursor_key='mes_wip_total', fetched_count=len(rows), synced_at=synced_at)
+    upserted_count = 0
+    for row in rows:
+        process_totals = _to_mapping(row.metadata.get('process_totals'))
+        if process_totals:
+            for process_name, weight in process_totals.items():
+                source_id = f'{row.workshop_name}:{process_name}'
+                fields = {
+                    'workshop_name': row.workshop_name,
+                    'process_name': _to_text(process_name),
+                    'doing_count': row.doing_count,
+                    'doing_weight_tons': _to_float(weight),
+                    'snapshot_at': synced_at,
+                    'source_payload': _safe_payload(row.metadata),
+                }
+                if _upsert_by_source_id(db, model=MesWipTotalSnapshot, source_id=source_id, fields=fields):
+                    upserted_count += 1
+            continue
+        source_id = f'{row.workshop_name}:total'
+        fields = {
+            'workshop_name': row.workshop_name,
+            'process_name': None,
+            'doing_count': row.doing_count,
+            'doing_weight_tons': row.doing_weight,
+            'snapshot_at': synced_at,
+            'source_payload': _safe_payload(row.metadata),
+        }
+        if _upsert_by_source_id(db, model=MesWipTotalSnapshot, source_id=source_id, fields=fields):
+            upserted_count += 1
+    return _stats(cursor_key='mes_wip_total', fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
 
 
 def sync_mes_stock(db: Session, *, now: datetime | None = None) -> MesSyncStats:
@@ -626,6 +937,11 @@ def sync_mes_projection(db: Session, *, now: datetime | None = None) -> list[Mes
         _sync_projection_step(db, cursor_key='mes_dispatch', synced_at=synced_at, runner=sync_mes_dispatch),
         _sync_projection_step(db, cursor_key='mes_wip_total', synced_at=synced_at, runner=sync_mes_wip_total),
         _sync_projection_step(db, cursor_key='mes_stock', synced_at=synced_at, runner=sync_mes_stock),
+        _sync_projection_step(db, cursor_key='mes_workshop_process_records', synced_at=synced_at, runner=sync_mes_workshop_process_records),
+        _sync_projection_step(db, cursor_key='mes_stock_records', synced_at=synced_at, runner=sync_mes_stock_records),
+        _sync_projection_step(db, cursor_key='mes_material_records', synced_at=synced_at, runner=sync_mes_material_records),
+        _sync_projection_step(db, cursor_key='mes_yield_records', synced_at=synced_at, runner=sync_mes_yield_records),
+        _sync_projection_step(db, cursor_key='mes_reference_items', synced_at=synced_at, runner=sync_mes_reference_items),
         _sync_projection_step(db, cursor_key='mes_machine_lines', synced_at=synced_at, runner=sync_mes_machine_lines),
     ]
 

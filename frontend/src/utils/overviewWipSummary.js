@@ -1,5 +1,6 @@
 const SOURCE_LABELS = {
   mes_projection: 'MES 投影',
+  mes_extended: 'MES 扩展数据',
   local_shift_data: '本地填报',
   unavailable: '未接入',
 }

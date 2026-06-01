@@ -8,7 +8,15 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
-from app.models.mes import CoilFlowEvent, MesCoilSnapshot, MesMachineLineSnapshot
+from app.models.mes import (
+    CoilFlowEvent,
+    MesCoilSnapshot,
+    MesMachineLineSnapshot,
+    MesStockRecord,
+    MesWipTotalSnapshot,
+    MesWorkshopProcessRecord,
+    MesYieldRecord,
+)
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -36,7 +44,21 @@ class _Query:
 
 
 class _FakeDB:
-    def __init__(self, *, coils=None, lines=None, events=None, workshops=None, shift_rows=None, mobile_reports=None, equipment=None):
+    def __init__(
+        self,
+        *,
+        coils=None,
+        lines=None,
+        events=None,
+        workshops=None,
+        shift_rows=None,
+        mobile_reports=None,
+        equipment=None,
+        process_records=None,
+        stock_records=None,
+        yield_records=None,
+        wip_snapshots=None,
+    ):
         self.coils = coils or []
         self.lines = lines or []
         self.events = events or []
@@ -44,6 +66,10 @@ class _FakeDB:
         self.shift_rows = shift_rows or []
         self.mobile_reports = mobile_reports or []
         self.equipment = equipment or []
+        self.process_records = process_records or []
+        self.stock_records = stock_records or []
+        self.yield_records = yield_records or []
+        self.wip_snapshots = wip_snapshots or []
 
     def query(self, model):
         if model is MesCoilSnapshot:
@@ -60,6 +86,14 @@ class _FakeDB:
             return _Query(self.mobile_reports)
         if model is Equipment:
             return _Query(self.equipment)
+        if model is MesWorkshopProcessRecord:
+            return _Query(self.process_records)
+        if model is MesStockRecord:
+            return _Query(self.stock_records)
+        if model is MesYieldRecord:
+            return _Query(self.yield_records)
+        if model is MesWipTotalSnapshot:
+            return _Query(self.wip_snapshots)
         if model is MasterCodeAlias.alias_code:
             return _Query([])
         raise AssertionError(model)
@@ -289,6 +323,185 @@ def test_factory_overview_blends_local_mobile_coil_aggregates_when_projection_ex
             'total_output_tons': 3.5,
             'yield_rate': 87.5,
         }
+    ]
+
+
+def test_factory_overview_uses_mes_extended_tables_when_local_rows_absent(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='在线退火分厂', net_weight=10.0),
+        ],
+        process_records=[
+            SimpleNamespace(
+                id=1,
+                business_date=date(2026, 5, 2),
+                workshop_name='在线退火分厂',
+                input_weight_tons=12.0,
+                output_weight_tons=11.4,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 23, 40, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                id=2,
+                business_date=date(2026, 5, 2),
+                workshop_name='冷轧',
+                input_weight_tons=8.0,
+                output_weight_tons=7.1,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 22, 10, tzinfo=UTC),
+            ),
+        ],
+        stock_records=[
+            SimpleNamespace(
+                id=1,
+                business_date=date(2026, 5, 2),
+                net_weight_tons=6.2,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 23, 50, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                id=2,
+                business_date=date(2026, 5, 1),
+                net_weight_tons=2.3,
+                last_seen_from_mes_at=datetime(2026, 5, 1, 23, 50, tzinfo=UTC),
+            ),
+        ],
+        wip_snapshots=[
+            SimpleNamespace(
+                id=1,
+                workshop_name='在线退火分厂',
+                process_name='退火',
+                doing_weight_tons=9.5,
+                snapshot_at=datetime(2026, 5, 2, 23, 58, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                id=2,
+                workshop_name='冷轧',
+                process_name='轧制',
+                doing_weight_tons=4.0,
+                snapshot_at=datetime(2026, 5, 2, 23, 58, tzinfo=UTC),
+            ),
+        ],
+        yield_records=[
+            SimpleNamespace(
+                id=1,
+                business_date=date(2026, 5, 2),
+                yield_rate=93.3,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 23, 59, tzinfo=UTC),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T23:59:00+00:00',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert overview['source'] == 'mes_extended'
+    assert overview['freshness']['source'] == 'mes_extended'
+    assert overview['total_input_tons'] == 20.0
+    assert overview['total_output_tons'] == 18.5
+    assert overview['yield_rate'] == 92.5
+    assert overview['today_output_tons'] == 6.2
+    assert overview['stock_tons'] == 8.5
+    assert overview['wip_tons'] == 13.5
+    assert overview['workshop_summary'] == [
+        {
+            'workshop_name': '在线退火分厂',
+            'row_count': 1,
+            'total_input_tons': 12.0,
+            'total_output_tons': 11.4,
+            'yield_rate': 95.0,
+        },
+        {
+            'workshop_name': '冷轧',
+            'row_count': 1,
+            'total_input_tons': 8.0,
+            'total_output_tons': 7.1,
+            'yield_rate': 88.75,
+        },
+    ]
+
+
+def test_factory_workshops_use_mes_extended_process_rows_when_local_rows_absent(monkeypatch):
+    db = _FakeDB(
+        coils=[],
+        process_records=[
+            SimpleNamespace(
+                id=1,
+                business_date=date(2026, 5, 2),
+                workshop_name='在线退火分厂',
+                output_weight_tons=11.4,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 23, 40, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                id=2,
+                business_date=date(2026, 5, 2),
+                workshop_name='冷轧',
+                output_weight_tons=7.1,
+                last_seen_from_mes_at=datetime(2026, 5, 2, 22, 10, tzinfo=UTC),
+            ),
+            SimpleNamespace(
+                id=3,
+                business_date=date(2026, 5, 1),
+                workshop_name='冷轧',
+                output_weight_tons=99.0,
+                last_seen_from_mes_at=datetime(2026, 5, 1, 22, 10, tzinfo=UTC),
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T23:59:00+00:00',
+        },
+    )
+
+    workshops = factory_command_service.list_workshops(db, now=datetime(2026, 5, 2, 8, 1, tzinfo=UTC))
+
+    assert workshops == [
+        {
+            'workshop_name': '在线退火分厂',
+            'active_coil_count': 1,
+            'active_tons': 11.4,
+            'stalled_count': 0,
+            'freshness': {
+                'status': 'fresh',
+                'lag_seconds': 60,
+                'last_synced_at': '2026-05-02T23:59:00+00:00',
+                'last_event_at': None,
+                'source': 'mes_extended',
+                'configured': True,
+                'migration_ready': True,
+                'action_required': 'none',
+                'risk_tone': 'normal',
+            },
+        },
+        {
+            'workshop_name': '冷轧',
+            'active_coil_count': 1,
+            'active_tons': 7.1,
+            'stalled_count': 0,
+            'freshness': {
+                'status': 'fresh',
+                'lag_seconds': 60,
+                'last_synced_at': '2026-05-02T23:59:00+00:00',
+                'last_event_at': None,
+                'source': 'mes_extended',
+                'configured': True,
+                'migration_ready': True,
+                'action_required': 'none',
+                'risk_tone': 'normal',
+            },
+        },
     ]
 
 

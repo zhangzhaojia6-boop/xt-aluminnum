@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -93,6 +93,149 @@ class MesMachineLineSnapshot(Base):
     workshop_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     slot_no: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesWorkshopProcessRecord(Base):
+    __tablename__ = 'mes_workshop_process_records'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    source_path: Mapped[str] = mapped_column(String(128), nullable=False)
+    batch_no: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    customer_alias: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    workshop_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    process_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    worker_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    device_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    input_weight_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    input_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    output_weight_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    output_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    yield_rate: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    business_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesStockRecord(Base):
+    __tablename__ = 'mes_stock_records'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    source_path: Mapped[str] = mapped_column(String(128), nullable=False)
+    batch_no: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    contract_no: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    customer_alias: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    net_weight_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    net_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    gross_weight_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    gross_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    in_stock_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    business_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    status_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesMaterialRecord(Base):
+    __tablename__ = 'mes_material_records'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    source_path: Mapped[str] = mapped_column(String(128), nullable=False)
+    material_code: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    workshop_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    line_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    position_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    alloy_grade: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    spec_display: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    production_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    business_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    status_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesYieldRecord(Base):
+    __tablename__ = 'mes_yield_records'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    source_path: Mapped[str] = mapped_column(String(128), nullable=False)
+    batch_no: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    contract_no: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    customer_alias: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    contract_total_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    feeding_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    in_stock_net_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    yield_rate: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
+    report_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    business_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesReferenceItem(Base):
+    __tablename__ = 'mes_reference_items'
+    __table_args__ = (UniqueConstraint('source_type', 'source_id', name='uq_mes_reference_type_source'),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    source_path: Mapped[str] = mapped_column(String(128), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    parent_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    workshop_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    status_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    last_seen_from_mes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class MesWipTotalSnapshot(Base):
+    __tablename__ = 'mes_wip_total_snapshots'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(192), nullable=False, unique=True, index=True)
+    workshop_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    process_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    doing_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    doing_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
