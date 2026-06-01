@@ -3,6 +3,8 @@ import { request } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { shouldIgnoreHttpsErrors } from './helpers/tls.js'
+
 const AUTH_FILE = path.resolve('e2e/.auth/user.json')
 const FRONTEND_ORIGIN = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4173'
 const BACKEND_URL = process.env.PLAYWRIGHT_BACKEND_URL || 'http://localhost:8000'
@@ -17,7 +19,10 @@ async function loginWithRetry() {
   let lastError
 
   for (let attempt = 1; attempt <= 30; attempt += 1) {
-    const ctx = await request.newContext({ baseURL: BACKEND_URL })
+    const ctx = await request.newContext({
+      baseURL: BACKEND_URL,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors({ baseURL: BACKEND_URL })
+    })
     try {
       const response = await ctx.post('/api/v1/auth/login', {
         data: { username: USERNAME, password: PASSWORD }

@@ -103,6 +103,7 @@ jobs:
         working-directory: frontend
         timeout-minutes: 5
         env:
+          PLAYWRIGHT_BACKEND_URL: https://127.0.0.1
           PLAYWRIGHT_SKIP_WEB_SERVER: "1"
       - name: Capture compose logs
         if: always()
