@@ -296,6 +296,22 @@ const quality = reactive({
   photo_data_url: '',
 })
 const showQualityModule = computed(() => mode.value === 'per_coil' && auth.role === 'machine_operator')
+const COIL_DIRECT_FIELDS = new Set([
+  'tracking_card_no',
+  'alloy_grade',
+  'input_spec',
+  'output_spec',
+  'on_machine_time',
+  'off_machine_time',
+  'input_weight',
+  'output_weight',
+  'unit_output',
+  'scrap_weight',
+  'material_state',
+  'spool_weight',
+  'operator_name',
+  'operator_notes',
+])
 const submitButtonText = computed(() => {
   if (mode.value === 'per_coil') return '录入本卷'
   if (mode.value === 'owner_daily') return `提交 ${businessDate.value || '每日一录'}`
@@ -337,6 +353,20 @@ function buildQualityPayload() {
     issue_note: quality.issue_note || '',
     photo_name: quality.photo_name || '',
     photo_data_url: quality.photo_data_url || '',
+  }
+}
+
+function hasPayloadValue(value) {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim() !== ''
+  if (Array.isArray(value)) return value.length > 0
+  return true
+}
+
+function appendTemplateExtraFields(extra, values) {
+  for (const [key, value] of Object.entries(values)) {
+    if (COIL_DIRECT_FIELDS.has(key) || !hasPayloadValue(value)) continue
+    extra[key] = value
   }
 }
 
@@ -465,23 +495,23 @@ function buildCoilEntryPayload(sc) {
   const values = normalizedFormValues()
   const trackingKey = identityField.value || 'tracking_card_no'
   const trackingCardNo = String(values[trackingKey] || '').trim()
+  const outputWeight = values.output_weight ?? values.unit_output
   const qualityPayload = buildQualityPayload()
   const extra = {}
+  appendTemplateExtraFields(extra, values)
   if (qualityPayload) extra.quality_issue = qualityPayload
-  if (values.process_stage) extra.process_stage = values.process_stage
-  if (values.pass_count !== null && values.pass_count !== undefined && values.pass_count !== '') {
-    extra.pass_count = values.pass_count
-  }
   return {
     tracking_card_no: trackingCardNo,
     alloy_grade: values.alloy_grade || null,
-    input_spec: values.input_spec || null,
+    input_spec: values.input_spec || values.ingot_spec || null,
     output_spec: values.output_spec || null,
     on_machine_time: values.on_machine_time || null,
     off_machine_time: values.off_machine_time || null,
     input_weight: values.input_weight,
-    output_weight: values.output_weight,
+    output_weight: outputWeight,
     scrap_weight: values.scrap_weight,
+    material_state: values.material_state || null,
+    spool_weight: values.spool_weight,
     operator_name: values.operator_name || auth.displayName || '',
     operator_notes: values.operator_notes || '',
     business_date: sc.business_date,

@@ -219,6 +219,89 @@ def test_build_fill_detail_ledger_includes_machine_energy_without_double_countin
     assert payload['items'][0]['responsible_name'] == '电工张'
 
 
+def test_build_fill_detail_ledger_exposes_template_extra_payload_metrics(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='ZR3', name='铸三车间', workshop_type='casting', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='大夜', shift_type='night', start_time=time(23, 30), end_time=time(8, 0), is_active=True),
+            Equipment(id=11, code='ZR3-1', name='铸三1#', workshop_id=2, is_active=True),
+            User(id=85, username='operator', password_hash='x', name='主操王', role='machine_operator'),
+            User(id=86, username='energy-chief', password_hash='x', name='总电工李', role='energy_chief'),
+            WorkOrder(id=601, tracking_card_no='TRACK-ZR3-1', process_route_code='mobile', overall_status='created'),
+            WorkOrder(id=602, tracking_card_no='OWNER-energy_chief-86-2026-05-06', process_route_code='owner_daily', overall_status='created'),
+            WorkOrderEntry(
+                id=701,
+                work_order_id=601,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=3,
+                business_date=date(2026, 5, 6),
+                input_weight=1000.0,
+                output_weight=960.0,
+                scrap_weight=40.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+                submitted_at=datetime(2026, 5, 6, 7, 40),
+                extra_payload={
+                    'ingot_spec': '6×1600',
+                    'cast_speed': 720,
+                    'skin_weight': 12,
+                },
+            ),
+            WorkOrderEntry(
+                id=702,
+                work_order_id=602,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 5, 6),
+                entry_status='submitted',
+                entry_type='owner_daily',
+                created_by_user_id=86,
+                submitted_at=datetime(2026, 5, 7, 8, 20),
+                extra_payload={
+                    'total_electricity_kwh': 1200,
+                    'hydraulic_oil_daily': 2,
+                    'contract_no': 'HT-001',
+                },
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = realtime_service.build_fill_detail_ledger(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    rows = {item['row_id']: item for item in payload['items']}
+    operator_metrics = {(item['label'], item['value'], item['unit']) for item in rows['entry-701']['metrics']}
+    owner_metrics = {(item['label'], item['value'], item['unit']) for item in rows['entry-702']['metrics']}
+    assert ('规格', '6×1600', '') in operator_metrics
+    assert ('速度', 720.0, 'mm/min') in operator_metrics
+    assert ('皮料段', 12.0, 'kg') in operator_metrics
+    assert ('全厂用电', 1200.0, 'kWh') in owner_metrics
+    assert ('液压油日用', 2.0, '桶') in owner_metrics
+    assert ('合同号', 'HT-001', '') in owner_metrics
+    assert payload['summary']['energy_kwh'] == 1200.0
+
+
+def test_fill_detail_meta_covers_direct_owner_role_fields() -> None:
+    expected = {
+        'daily_shearing_output': ('当日剪切产量', '吨'),
+        'recovery_weight': ('回收重量', '块'),
+        'roller_grinding_count': ('磨辊子数量', '个'),
+        'overhaul_energy_kwh': ('大修用电', 'kWh'),
+    }
+
+    for key, meta in expected.items():
+        assert realtime_service.FILL_DETAIL_FIELD_META[key] == meta
+
+
 def test_build_live_aggregation_reports_formal_mobile_entries_missing_output_weight(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

@@ -924,7 +924,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg', 'required': False},
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
-            {'name': 'unit_output', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
+            {'name': 'output_weight', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
             {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³', 'role_write': ['energy_stat', 'shift_leader']},
         ],
         'shift_fields': [],

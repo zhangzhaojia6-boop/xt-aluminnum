@@ -34,6 +34,29 @@ test('validateEntryWeights rejects output plus scrap greater than input when scr
   )
 })
 
+test('validateEntryWeights rejects scrap greater than input even when output is not visible', () => {
+  const fields = [
+    { name: 'input_weight', label: '投入铝锭', type: 'number' },
+    { name: 'scrap_weight', label: '废料', type: 'number' },
+  ]
+  assert.equal(
+    validateEntryWeights({ input_weight: 2400, scrap_weight: 4000 }, fields),
+    '废料重量不能大于投入重量'
+  )
+})
+
+test('validateEntryWeights treats casting unit_output as output weight', () => {
+  const fields = [
+    { name: 'input_weight', label: '投入铝锭', type: 'number' },
+    { name: 'unit_output', label: '单机产量', type: 'number' },
+    { name: 'scrap_weight', label: '废料', type: 'number' },
+  ]
+  assert.equal(
+    validateEntryWeights({ input_weight: 100, unit_output: 96, scrap_weight: 8 }, fields),
+    '产出重量和废料重量合计不能大于投入重量'
+  )
+})
+
 test('validateEntryWeights accepts empty optional weights and valid material balance', () => {
   const fields = [
     { name: 'input_weight', label: '投入重量', type: 'number' },

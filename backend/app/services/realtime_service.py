@@ -19,6 +19,16 @@ from app.core.scope import (
     can_view_work_order_entries,
     resolve_work_order_entry_workshop_scope,
 )
+from app.core.workshop_templates import (
+    DEFAULT_WORKSHOP_TEMPLATES,
+    INVENTORY_OWNER_FIELDS,
+    OVERHAUL_OWNER_FIELDS,
+    QC_OWNER_FIELDS,
+    RECOVERY_OWNER_FIELDS,
+    SHIPMENT_OUTFLOW_OWNER_FIELDS,
+    UTILITY_OWNER_FIELDS,
+    resolve_workshop_type,
+)
 from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, ShiftAttendanceConfirmation
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Workshop
@@ -72,6 +82,70 @@ OWNER_DAILY_FIELD_META = {
     'new_plant_outbound_daily': ('新厂出库日合', '吨'),
     'consignment_weight': ('成品库寄存', '吨'),
 }
+STRUCTURED_EXTRA_PAYLOAD_KEYS = {'flow', 'locked_fields_snapshot'}
+DIRECT_OWNER_FIELD_GROUPS = (
+    QC_OWNER_FIELDS,
+    UTILITY_OWNER_FIELDS,
+    INVENTORY_OWNER_FIELDS,
+    SHIPMENT_OUTFLOW_OWNER_FIELDS,
+    RECOVERY_OWNER_FIELDS,
+    OVERHAUL_OWNER_FIELDS,
+)
+
+
+def _build_fill_detail_field_meta() -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
+    meta = dict(OWNER_DAILY_FIELD_META)
+    field_types: dict[str, str] = {}
+    for key in OWNER_DAILY_FIELD_META:
+        field_types[key] = 'number'
+    for fields in DIRECT_OWNER_FIELD_GROUPS:
+        for field in fields:
+            name = str(field.get('name') or '').strip()
+            if not name:
+                continue
+            meta.setdefault(name, (str(field.get('label') or name), str(field.get('unit') or '')))
+            field_types.setdefault(name, str(field.get('type') or ''))
+    for template in DEFAULT_WORKSHOP_TEMPLATES.values():
+        for section_name in ('entry_fields', 'shift_fields', 'extra_fields', 'qc_fields', 'readonly_fields'):
+            for field in template.get(section_name, []):
+                name = str(field.get('name') or '').strip()
+                if not name:
+                    continue
+                label = str(field.get('label') or name)
+                unit = str(field.get('unit') or '')
+                meta.setdefault(name, (label, unit))
+                field_types.setdefault(name, str(field.get('type') or ''))
+    meta.setdefault('quality_issue', ('质量问题', ''))
+    return meta, field_types
+
+
+FILL_DETAIL_FIELD_META, FILL_DETAIL_FIELD_TYPES = _build_fill_detail_field_meta()
+
+
+def _workshop_field_context(workshop: Workshop | None) -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
+    meta = dict(FILL_DETAIL_FIELD_META)
+    field_types = dict(FILL_DETAIL_FIELD_TYPES)
+    if workshop is None:
+        return meta, field_types
+    try:
+        template_key = resolve_workshop_type(
+            workshop_type=getattr(workshop, 'workshop_type', None),
+            workshop_code=getattr(workshop, 'code', None),
+            workshop_name=getattr(workshop, 'name', None),
+        )
+    except Exception:
+        template_key = None
+    template = DEFAULT_WORKSHOP_TEMPLATES.get(template_key or '')
+    if not template:
+        return meta, field_types
+    for section_name in ('entry_fields', 'shift_fields', 'extra_fields', 'qc_fields', 'readonly_fields'):
+        for field in template.get(section_name, []):
+            name = str(field.get('name') or '').strip()
+            if not name:
+                continue
+            meta[name] = (str(field.get('label') or name), str(field.get('unit') or ''))
+            field_types[name] = str(field.get('type') or '')
+    return meta, field_types
 
 
 def _to_float(value: Decimal | float | int | None) -> float:
@@ -89,14 +163,65 @@ def _payload_float(value: Any) -> float | None:
         return None
 
 
-def _owner_daily_metrics(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _quality_issue_text(value: Any) -> str | None:
+    if not isinstance(value, Mapping):
+        return None
+    parts = [
+        value.get('issue_type'),
+        value.get('issue_note'),
+        value.get('photo_name'),
+    ]
+    text = ' '.join(str(item).strip() for item in parts if item not in (None, ''))
+    return text or None
+
+
+def _metric_display_value(key: str, value: Any, field_types: Mapping[str, str] | None = None) -> Any:
+    if value is None or value == '':
+        return None
+    if isinstance(value, Mapping) or isinstance(value, list):
+        return None
+    field_type = (field_types or FILL_DETAIL_FIELD_TYPES).get(key)
+    if field_type == 'number':
+        return _payload_float(value)
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return value
+    text = str(value).strip()
+    return text or None
+
+
+def _extra_payload_metrics(
+    payload: Mapping[str, Any],
+    *,
+    field_meta: Mapping[str, tuple[str, str]] | None = None,
+    field_types: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
     metrics = []
-    for key, (label, unit) in OWNER_DAILY_FIELD_META.items():
-        value = _payload_float(payload.get(key))
+    resolved_meta = field_meta or FILL_DETAIL_FIELD_META
+    for key, raw_value in payload.items():
+        if key in STRUCTURED_EXTRA_PAYLOAD_KEYS:
+            continue
+        if key == 'quality_issue':
+            value = _quality_issue_text(raw_value)
+        else:
+            value = _metric_display_value(key, raw_value, field_types)
         if value is None:
             continue
+        label, unit = resolved_meta.get(key, (key, ''))
         metrics.append({'key': key, 'label': label, 'value': value, 'unit': unit})
     return metrics
+
+
+def _metric_total(metrics: list[dict[str, Any]], keys: set[str]) -> float:
+    total = 0.0
+    for metric in metrics:
+        if str(metric.get('key') or '') not in keys:
+            continue
+        value = _payload_float(metric.get('value'))
+        if value is not None:
+            total += value
+    return total
 
 
 def _entry_weight_tons(item: dict, field_name: str) -> float:
@@ -912,10 +1037,14 @@ def _build_owner_daily_status(
         submitted_count += 1 if is_submitted else 0
         workshop = workshop_by_id.get(user.workshop_id)
         payload = dict(entry.extra_payload or {}) if entry else {}
-        metrics = _owner_daily_metrics(payload) if is_submitted else []
+        field_meta, field_types = _workshop_field_context(workshop)
+        metrics = _extra_payload_metrics(payload, field_meta=field_meta, field_types=field_types) if is_submitted else []
         for metric in metrics:
             key = str(metric['key'])
-            totals[key] = totals.get(key, 0.0) + float(metric['value'])
+            value = _payload_float(metric.get('value'))
+            if value is None:
+                continue
+            totals[key] = totals.get(key, 0.0) + value
         items.append(
             {
                 'user_id': user.id,
@@ -938,12 +1067,11 @@ def _build_owner_daily_status(
         'totals': [
             {
                 'key': key,
-                'label': OWNER_DAILY_FIELD_META[key][0],
+                'label': FILL_DETAIL_FIELD_META.get(key, (key, ''))[0],
                 'value': round(value, 4),
-                'unit': OWNER_DAILY_FIELD_META[key][1],
+                'unit': FILL_DETAIL_FIELD_META.get(key, (key, ''))[1],
             }
             for key, value in totals.items()
-            if key in OWNER_DAILY_FIELD_META
         ],
         'items': items,
     }
@@ -1305,7 +1433,8 @@ def build_fill_detail_ledger(
         input_weight = _entry_weight_kg_to_tons(entry, 'input_weight')
         output_weight = _entry_weight_kg_to_tons(entry, 'output_weight')
         scrap_weight = _entry_weight_kg_to_tons(entry, 'scrap_weight')
-        metrics = _owner_daily_metrics(entry.extra_payload or {}) if source_type == 'owner_daily' else []
+        field_meta, field_types = _workshop_field_context(workshop)
+        metrics = _extra_payload_metrics(entry.extra_payload or {}, field_meta=field_meta, field_types=field_types)
         row = {
             'row_id': f'entry-{entry.id}',
             'source_type': source_type,
@@ -1423,6 +1552,10 @@ def build_fill_detail_ledger(
             output_total += _to_float(item.get('output_weight'))
         energy_total += _to_float(item.get('energy_kwh'))
         gas_total += _to_float(item.get('gas_m3'))
+        if item.get('energy_kwh') is None:
+            energy_total += _metric_total(item.get('metrics') or [], {'total_electricity_kwh'})
+        if item.get('gas_m3') is None:
+            gas_total += _metric_total(item.get('metrics') or [], {'total_gas_m3'})
 
     return {
         'business_date': business_date.isoformat(),

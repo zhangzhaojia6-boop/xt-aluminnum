@@ -107,3 +107,11 @@ test('unified entry form keeps scanned per-coil fields readonly', () => {
   assert.match(unifiedEntrySource, /locked_fields_token/)
   assert.match(unifiedEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)
 })
+
+test('unified entry form maps casting output and spec fields into canonical payload', () => {
+  assert.match(unifiedEntrySource, /values\.output_weight \?\? values\.unit_output/)
+  assert.match(unifiedEntrySource, /input_spec: values\.input_spec \|\| values\.ingot_spec \|\| null/)
+  assert.match(unifiedEntrySource, /appendTemplateExtraFields\(extra, values\)/)
+  assert.match(unifiedEntrySource, /material_state: values\.material_state \|\| null/)
+  assert.match(unifiedEntrySource, /spool_weight: values\.spool_weight/)
+})

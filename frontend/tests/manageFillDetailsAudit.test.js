@@ -117,6 +117,7 @@ test('fill ledger rows expose person, post, submit time and content', () => {
       status: 'submitted',
       metrics: [
         { key: 'total_electricity_kwh', label: '全厂用电', value: 1200, unit: 'kWh' },
+        { key: 'contract_no', label: '合同号', value: 'HT-001', unit: '' },
       ],
     },
     {
@@ -139,6 +140,7 @@ test('fill ledger rows expose person, post, submit time and content', () => {
   assert.equal(rows[0].responsibleText, '张三')
   assert.equal(rows[0].submittedText, '05-30 08:12')
   assert.match(rows[0].contentText, /全厂用电 1200kWh/)
+  assert.match(rows[0].contentText, /合同号 HT-001/)
   assert.match(rows[1].contentText, /产量 9.5 吨/)
 })
 

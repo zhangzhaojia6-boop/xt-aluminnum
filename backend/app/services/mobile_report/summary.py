@@ -560,11 +560,33 @@ def _required_positive_weight(payload: dict, key: str, detail: str) -> Decimal:
     return number
 
 
+COIL_EXTRA_PAYLOAD_KEYS = (
+    'ingot_spec',
+    'furnace_no',
+    'cast_speed',
+    'skin_weight',
+    'paper_furnace',
+    'static_furnace',
+    'trim_weight',
+    'tray_weight',
+    'quality_note',
+    'quality_issue_type',
+    'quality_issue_card_no',
+    'quality_issue_desc',
+    'quality_issue_photo_path',
+    'process_stage',
+    'pass_count',
+)
+
+
 def _validate_coil_entry_weights(payload: dict) -> None:
     input_weight = _required_positive_weight(payload, 'input_weight', 'input_weight_required')
     # output_weight 改为可选
+    if payload.get('output_weight') in (None, '') and payload.get('unit_output') not in (None, ''):
+        payload['output_weight'] = payload.get('unit_output')
     output_weight_raw = payload.get('output_weight')
-    if output_weight_raw is not None:
+    output_weight = None
+    if output_weight_raw not in (None, ''):
         try:
             output_weight = Decimal(str(output_weight_raw))
             if not output_weight.is_finite() or output_weight <= 0:
@@ -575,6 +597,18 @@ def _validate_coil_entry_weights(payload: dict) -> None:
             #     raise HTTPException(status_code=422, detail='output_weight_exceeds_input')
         except (InvalidOperation, ValueError) as exc:
             raise HTTPException(status_code=422, detail='output_weight_invalid') from exc
+    scrap_weight_raw = payload.get('scrap_weight')
+    if scrap_weight_raw not in (None, ''):
+        try:
+            scrap_weight = Decimal(str(scrap_weight_raw))
+        except (InvalidOperation, ValueError) as exc:
+            raise HTTPException(status_code=422, detail='scrap_weight_invalid') from exc
+        if not scrap_weight.is_finite() or scrap_weight < 0:
+            raise HTTPException(status_code=422, detail='scrap_weight_invalid')
+        if scrap_weight > input_weight:
+            raise HTTPException(status_code=422, detail='scrap_weight_exceeds_input')
+        if output_weight is not None and output_weight <= input_weight and output_weight + scrap_weight > input_weight:
+            raise HTTPException(status_code=422, detail='output_plus_scrap_exceeds_input')
 
 
 def create_coil_entry(
@@ -622,7 +656,9 @@ def create_coil_entry(
         output_weight=payload.get('output_weight'),
         input_spec=payload.get('input_spec'),
         output_spec=payload.get('output_spec'),
+        material_state=payload.get('material_state'),
         scrap_weight=payload.get('scrap_weight'),
+        spool_weight=payload.get('spool_weight'),
         operator_notes=payload.get('operator_notes'),
         extra_payload=extra_payload,
         entry_type='mobile_coil',
@@ -815,6 +851,9 @@ def _flow_context_from_external_snapshot(db: Session, payload: dict) -> dict:
 
 def _build_coil_flow_extra_payload(db: Session, payload: dict, *, locked_fields_snapshot: dict | None = None) -> dict:
     extra_payload = dict(payload.get('extra_payload') or {})
+    for key in COIL_EXTRA_PAYLOAD_KEYS:
+        if key not in extra_payload and payload.get(key) not in (None, ''):
+            extra_payload[key] = payload.get(key)
     if 'flow' in extra_payload:
         extra_payload['flow'] = _normalize_flow_payload(extra_payload.get('flow'))
     if locked_fields_snapshot:

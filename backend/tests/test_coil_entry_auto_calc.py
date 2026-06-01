@@ -1,5 +1,7 @@
 from datetime import date, time
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -74,6 +76,104 @@ def test_coil_entry_auto_calculates_scrap_weight(tmp_path):
         assert entry.entry_status == 'submitted'
         assert float(entry.scrap_weight) == 40.0
         assert float(entry.yield_rate) == round(950 / 1000, 4)
+    finally:
+        db.close()
+
+
+def test_coil_entry_rejects_scrap_weight_above_input_weight(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='ZR3', name='铸轧三', workshop_type='casting')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        mobile_user = User(
+            id=7,
+            username='casting-operator',
+            password_hash='x',
+            name='铸三主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        db.add_all([workshop, shift, mobile_user])
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            create_coil_entry(
+                db,
+                payload={
+                    'tracking_card_no': 'ZR3-BAD-SCRAP',
+                    'business_date': date(2026, 5, 31),
+                    'shift_id': shift.id,
+                    'input_weight': 2400,
+                    'scrap_weight': 4000,
+                },
+                current_user=mobile_user,
+            )
+
+        assert exc.value.status_code == 422
+        assert exc.value.detail == 'scrap_weight_exceeds_input'
+        assert db.query(WorkOrderEntry).count() == 0
+    finally:
+        db.close()
+
+
+def test_coil_entry_maps_legacy_unit_output_to_output_weight(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='ZR3', name='铸轧三', workshop_type='casting')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        mobile_user = User(
+            id=7,
+            username='casting-operator',
+            password_hash='x',
+            name='铸三主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        db.add_all([workshop, shift, mobile_user])
+        db.commit()
+
+        result = create_coil_entry(
+            db,
+            payload={
+                'tracking_card_no': 'ZR3-UNIT-OUTPUT',
+                'business_date': date(2026, 5, 31),
+                'shift_id': shift.id,
+                'input_weight': 4800,
+                'unit_output': 4600,
+                'scrap_weight': 200,
+            },
+            current_user=mobile_user,
+        )
+
+        entry = db.get(WorkOrderEntry, result['id'])
+        assert float(entry.output_weight) == 4600.0
+        assert result['output_weight'] == 4600.0
     finally:
         db.close()
 

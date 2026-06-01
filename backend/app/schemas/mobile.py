@@ -217,7 +217,12 @@ class MobileCoilEntryPayload(BaseModel):
     off_machine_time: time | None = None
     input_weight: float | None = Field(default=None, ge=0)
     output_weight: float | None = Field(default=None, ge=0)
+    unit_output: float | None = Field(default=None, ge=0)
+    material_state: str | None = Field(default=None, max_length=64)
     scrap_weight: float | None = Field(default=None, ge=0)
+    spool_weight: float | None = Field(default=None, ge=0)
+    trim_weight: float | None = Field(default=None, ge=0)
+    tray_weight: float | None = Field(default=None, ge=0)
     operator_name: str | None = Field(default=None, max_length=64)
     operator_notes: str | None = Field(default=None, max_length=1000)
     extra_payload: dict[str, Any] | None = None

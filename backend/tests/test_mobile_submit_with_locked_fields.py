@@ -249,6 +249,46 @@ def test_mobile_coil_entry_accepts_missing_output_weight(tmp_path) -> None:
         assert entry.output_weight is None
 
 
+def test_mobile_coil_entry_maps_unit_output_alias(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    _seed_reference_data(session_factory)
+    client = _client_with_db(session_factory)
+    try:
+        response = client.post(
+            '/api/v1/mobile/coil-entry',
+            json={
+                'tracking_card_no': 'TRACK-UNIT-OUTPUT',
+                'alloy_grade': '1060',
+                'input_spec': '1.2×1200',
+                'input_weight': 1000,
+                'unit_output': 960,
+                'material_state': 'H24',
+                'spool_weight': 10,
+                'extra_payload': {
+                    'ingot_spec': '6×1600',
+                    'cast_speed': 720,
+                    'skin_weight': 12,
+                    'trim_weight': 4,
+                },
+                'business_date': '2026-05-03',
+                'shift_id': 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    with session_factory() as db:
+        entry = db.query(WorkOrderEntry).one()
+        assert entry.output_weight == 960
+        assert entry.material_state == 'H24'
+        assert entry.spool_weight == 10
+        assert entry.extra_payload['ingot_spec'] == '6×1600'
+        assert entry.extra_payload['cast_speed'] == 720
+        assert entry.extra_payload['skin_weight'] == 12
+        assert entry.extra_payload['trim_weight'] == 4
+
+
 def test_mobile_coil_entry_accepts_output_weight_above_input_weight(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     _seed_reference_data(session_factory)
