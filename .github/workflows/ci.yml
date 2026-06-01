@@ -102,6 +102,8 @@ jobs:
         run: npm run e2e:smoke
         working-directory: frontend
         timeout-minutes: 5
+        env:
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
       - name: Capture compose logs
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
