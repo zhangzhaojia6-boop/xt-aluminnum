@@ -11,6 +11,7 @@ from app.database import Base
 from app.models.mes import (
     CoilFlowEvent,
     MesCoilSnapshot,
+    MesDailyWipSnapshot,
     MesMaterialRecord,
     MesReferenceItem,
     MesStockRecord,
@@ -97,7 +98,7 @@ def test_sync_coil_snapshots_updates_cursor_and_stats(monkeypatch):
     )
 
     monkeypatch.setattr('app.services.mes_sync_service._ensure_cursor', lambda _db, *, cursor_key: cursor)
-    monkeypatch.setattr('app.services.mes_sync_service._upsert_snapshot', lambda _db, *, snapshot, synced_at: (True, False))
+    monkeypatch.setattr('app.services.mes_sync_service._upsert_snapshot', lambda _db, *, snapshot, synced_at, **_kwargs: (True, False))
     monkeypatch.setattr(
         'app.services.mes_sync_service.get_mes_adapter',
         lambda: SimpleNamespace(list_coil_snapshots=lambda **kwargs: ([snapshot], 'cursor-2')),
@@ -182,6 +183,41 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
     assert entity.last_seen_from_mes_at == datetime(2026, 5, 2, 8, 35, tzinfo=UTC)
 
 
+def test_upsert_snapshot_business_date_uses_event_time_production_day_boundary():
+    db = _FakeDB()
+    snapshot = CoilSnapshot(
+        coil_id='coil-boundary',
+        tracking_card_no='BN-BOUNDARY',
+        status='running',
+        event_time=datetime(2026, 6, 1, 15, 30, tzinfo=UTC),
+        metadata={'Product': {'Id': 'boundary'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
+    )
+
+    mes_sync_service._upsert_snapshot(db, snapshot=snapshot, synced_at=datetime(2026, 6, 1, 15, 31, tzinfo=UTC))
+
+    entity = next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot')
+    assert entity.business_date == date(2026, 6, 2)
+    assert entity.source_payload['business_date'] == '2026-06-02'
+
+
+def test_upsert_snapshot_business_date_prefers_event_time_over_updated_at():
+    db = _FakeDB()
+    snapshot = CoilSnapshot(
+        coil_id='coil-event-priority',
+        tracking_card_no='BN-EVENT',
+        status='running',
+        event_time=datetime(2026, 6, 1, 15, 29, tzinfo=UTC),
+        updated_at=datetime(2026, 6, 2, 1, 0, tzinfo=UTC),
+        metadata={'Product': {'Id': 'event-priority'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
+    )
+
+    mes_sync_service._upsert_snapshot(db, snapshot=snapshot, synced_at=datetime(2026, 6, 2, 1, 1, tzinfo=UTC))
+
+    entity = next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot')
+    assert entity.business_date == date(2026, 6, 1)
+    assert entity.updated_from_mes_at == datetime(2026, 6, 2, 1, 0, tzinfo=UTC)
+
+
 def test_upsert_snapshot_uses_fallback_key_without_product_id():
     db = _FakeDB()
     snapshot = CoilSnapshot(
@@ -239,7 +275,7 @@ def test_sync_machine_lines_maps_device_slots_to_stable_line_codes(monkeypatch):
 
 def test_sync_coil_list_deduplicates_projected_ids_before_commit(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mes-sync-dedup.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__])
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__, MesDailyWipSnapshot.__table__])
     Session = sessionmaker(bind=engine, autoflush=False, future=True)
     snapshot = CoilSnapshot(
         coil_id='vendor-row',
@@ -278,6 +314,137 @@ def test_sync_coil_list_deduplicates_projected_ids_before_commit(tmp_path) -> No
     assert stats_two.fetched_count == 1
     assert row_count == 1
     assert entity.coil_id == 'fallback:26RA03629:26-s-3-065-1'
+
+
+def test_refresh_daily_wip_snapshots_groups_current_coils_by_business_date(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-daily-wip-refresh.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    with Session() as db:
+        db.add_all([
+            MesCoilSnapshot(
+                coil_id='MES:WIP-1',
+                tracking_card_no='WIP-1',
+                business_date=date(2026, 6, 1),
+                current_workshop='冷轧车间',
+                current_process='轧制',
+                material_weight=2500,
+                feeding_weight=7.5,
+            ),
+            MesCoilSnapshot(
+                coil_id='MES:WIP-2',
+                tracking_card_no='WIP-2',
+                business_date=date(2026, 6, 1),
+                current_workshop='冷轧车间',
+                current_process='轧制',
+                material_weight=3500,
+                feeding_weight=8.5,
+            ),
+            MesCoilSnapshot(
+                coil_id='MES:OLD-WIP',
+                tracking_card_no='OLD-WIP',
+                business_date=date(2026, 5, 31),
+                current_workshop='冷轧车间',
+                current_process='轧制',
+                material_weight=99000,
+                feeding_weight=99,
+            ),
+            MesCoilSnapshot(
+                coil_id='MES:STOCK',
+                tracking_card_no='STOCK',
+                business_date=date(2026, 6, 1),
+                current_workshop='冷轧车间',
+                current_process='入库',
+                status_name='已入库',
+                material_weight=9000,
+                feeding_weight=9,
+            ),
+        ])
+        db.commit()
+
+        count = mes_sync_service.refresh_daily_wip_snapshots_from_coils(
+            db,
+            business_date=date(2026, 6, 1),
+            snapshot_at=datetime(2026, 6, 1, 15, 30, tzinfo=UTC),
+        )
+        db.commit()
+        rows = db.scalars(select(MesDailyWipSnapshot)).all()
+
+    assert count == 1
+    assert len(rows) == 1
+    assert rows[0].business_date == date(2026, 6, 1)
+    assert rows[0].workshop_name == '冷轧车间'
+    assert rows[0].process_name == '轧制'
+    assert rows[0].coil_count == 2
+    assert float(rows[0].material_weight_tons) == 6.0
+    assert float(rows[0].feeding_weight_tons) == 16.0
+
+
+def test_sync_coil_list_refreshes_previous_daily_wip_date_when_coil_moves(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-daily-wip-move.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__, MesDailyWipSnapshot.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    with Session() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES:move-1',
+                tracking_card_no='MOVE-1',
+                business_date=date(2026, 5, 31),
+                current_workshop='冷轧车间',
+                current_process='轧制',
+                material_weight=1000,
+                feeding_weight=1,
+                updated_from_mes_at=datetime(2026, 5, 31, 7, 0, tzinfo=UTC),
+            )
+        )
+        db.add(
+            MesDailyWipSnapshot(
+                business_date=date(2026, 5, 31),
+                workshop_name='冷轧车间',
+                process_name='轧制',
+                coil_count=1,
+                material_weight_tons=1,
+                feeding_weight_tons=1,
+                source='mes_coil_snapshot',
+            )
+        )
+        db.commit()
+
+        mes_sync_service._sync_coil_list(
+            db,
+            cursor_key='mes_follow_cards',
+            rows=[
+                CoilSnapshot(
+                    coil_id='vendor-move',
+                    tracking_card_no='MOVE-1',
+                    status='生产中',
+                    event_time=datetime(2026, 6, 1, 15, 30, tzinfo=UTC),
+                    updated_at=datetime(2026, 6, 1, 15, 31, tzinfo=UTC),
+                    metadata={
+                        'Product': {'Id': 'move-1'},
+                        'CurrentWorkShop': '冷轧车间',
+                        'CurrentProcess': '轧制',
+                        'MaterialWeight': '2500',
+                        'FeedingWeight': '3',
+                    },
+                )
+            ],
+            synced_at=datetime(2026, 6, 1, 15, 32, tzinfo=UTC),
+        )
+        db.commit()
+
+        old_rows = db.scalars(
+            select(MesDailyWipSnapshot).where(MesDailyWipSnapshot.business_date == date(2026, 5, 31))
+        ).all()
+        new_row = db.scalar(
+            select(MesDailyWipSnapshot).where(MesDailyWipSnapshot.business_date == date(2026, 6, 2))
+        )
+
+    assert old_rows == []
+    assert new_row is not None
+    assert new_row.coil_count == 1
+    assert float(new_row.material_weight_tons) == 2.5
+    assert float(new_row.feeding_weight_tons) == 3.0
 
 
 def test_upsert_snapshot_writes_flow_events_idempotently_for_process_changes():

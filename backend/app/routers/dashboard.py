@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.business_time import last_completed_production_business_date
 from app.core.permissions import assert_manager_dashboard_access, get_current_manager_user
 from app.core.rate_limit import enforce_request_rate_limit
 from app.core.scope import build_scope_summary
@@ -23,6 +24,10 @@ _SENSITIVE_KEY_PARTS = ('api_key', 'apikey', 'password', 'secret', 'token', 'cre
 _SECRET_ASSIGNMENT_RE = re.compile(
     r'((?:[A-Z0-9_]*(?:API_KEY|APIKEY|PASSWORD|SECRET|TOKEN|CREDENTIAL)[A-Z0-9_]*)\s*[=:：]\s*)([^；;,\s]+)'
 )
+
+
+def _target_or_last_completed(target_date: date | None) -> date:
+    return target_date or last_completed_production_business_date()
 
 
 def _is_sensitive_key(key: object) -> bool:
@@ -73,7 +78,7 @@ def factory_director_dashboard(
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
-    return report_service.build_factory_dashboard(db, target_date=target_date or date.today())
+    return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/workshop-director', response_model=WorkshopDashboardResponse, response_model_exclude_none=True)
@@ -93,7 +98,7 @@ def workshop_director_dashboard(
         selected_workshop_id = summary.workshop_id if summary.workshop_id is not None else selected_workshop_id
     return report_service.build_workshop_dashboard(
         db,
-        target_date=target_date or date.today(),
+        target_date=_target_or_last_completed(target_date),
         workshop_id=selected_workshop_id,
     )
 
@@ -107,7 +112,7 @@ def statistics_dashboard(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_statistics_dashboard(db, target_date=target_date or date.today())
+    return report_service.build_statistics_dashboard(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/delivery-status', response_model=DeliveryStatusOut, response_model_exclude_none=True)
@@ -119,7 +124,7 @@ def delivery_status(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_delivery_status(db, target_date=target_date or date.today())
+    return report_service.build_delivery_status(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/external-readiness')
@@ -140,7 +145,7 @@ def factory_dashboard_alias(
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
-    return report_service.build_factory_dashboard(db, target_date=target_date or date.today())
+    return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/workshop', response_model=WorkshopDashboardResponse, response_model_exclude_none=True)
@@ -160,7 +165,7 @@ def workshop_dashboard_alias(
         selected_workshop_id = summary.workshop_id if summary.workshop_id is not None else selected_workshop_id
     return report_service.build_workshop_dashboard(
         db,
-        target_date=target_date or date.today(),
+        target_date=_target_or_last_completed(target_date),
         workshop_id=selected_workshop_id,
     )
 
@@ -174,7 +179,7 @@ def cumulative_dashboard(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_cumulative(db, target_date=target_date or date.today())
+    return report_service.build_cumulative(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/comparison')
@@ -186,7 +191,7 @@ def comparison_dashboard(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
-    return report_service.build_comparison(db, target_date=target_date or date.today())
+    return report_service.build_comparison(db, target_date=_target_or_last_completed(target_date))
 
 
 @router.get('/timeseries')
@@ -202,7 +207,7 @@ def timeseries_dashboard(
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
     safe_days = min(max(int(days or 30), 1), 366)
-    effective_end = end_date or target_date or date.today()
+    effective_end = end_date or target_date or _target_or_last_completed(None)
     effective_start = start_date or (effective_end - timedelta(days=safe_days - 1))
     return report_service.build_timeseries(db, start_date=effective_start, end_date=effective_end)
 
@@ -216,4 +221,4 @@ def daily_production_overview(
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     from app.services.report import daily_overview_builder
-    return daily_overview_builder.build_daily_production_overview(db, target_date=target_date or date.today())
+    return daily_overview_builder.build_daily_production_overview(db, target_date=_target_or_last_completed(target_date))

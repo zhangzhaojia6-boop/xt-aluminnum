@@ -27,6 +27,13 @@ function totalMinutes({ hour, minute }) {
   return hour * 60 + minute
 }
 
+function formatUtcDate(anchor) {
+  const yyyy = anchor.getUTCFullYear()
+  const mm = String(anchor.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(anchor.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 export function inferShift(now = new Date()) {
   const wall = nowInShanghai(now)
   const minutes = totalMinutes(wall)
@@ -45,10 +52,14 @@ export function inferBusinessDate(now = new Date()) {
   if (minutes >= BUSINESS_DAY_ANCHOR_MINUTES) {
     anchor.setUTCDate(anchor.getUTCDate() + 1)
   }
-  const yyyy = anchor.getUTCFullYear()
-  const mm = String(anchor.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(anchor.getUTCDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
+  return formatUtcDate(anchor)
+}
+
+export function inferLastCompletedBusinessDate(now = new Date()) {
+  const activeBusinessDate = inferBusinessDate(now)
+  const anchor = new Date(`${activeBusinessDate}T00:00:00Z`)
+  anchor.setUTCDate(anchor.getUTCDate() - 1)
+  return formatUtcDate(anchor)
 }
 
 export function describeInferredShift(now = new Date()) {

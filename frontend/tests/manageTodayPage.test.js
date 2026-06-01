@@ -70,7 +70,7 @@ test('TodayPage muted-state estimated_margin emits hint 估算未就绪', () => 
 test('TodayPage owns the daily report settlement section', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /data-testid="daily-report-section"/)
-  for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '算法能耗', '电工填报', '算法成品率', '内勤对照', '外部 MES 当前在制']) {
+  for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '算法能耗', '电工填报', '算法成品率', '内勤对照', '外部 MES 当日快照参考']) {
     assert.match(src, new RegExp(label), `missing daily report label ${label}`)
   }
 })

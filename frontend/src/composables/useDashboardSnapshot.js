@@ -4,6 +4,7 @@ import { fetchFactoryDashboard } from '../api/dashboard.js'
 import { fetchDailyProduction } from '../api/dashboard.js'
 import { fetchFactoryCommandOverview } from '../api/factory-command.js'
 import { requestErrorMessage } from '../utils/reportStatus.js'
+import { inferLastCompletedBusinessDate } from '../utils/shiftClock.js'
 
 const FRESHNESS_MAP = { fresh: 'green', stale: 'yellow', missing: 'red' }
 function normalizeFreshness(raw) {
@@ -18,8 +19,7 @@ export function createDashboardSnapshot({
   fetchFactoryCommandImpl = fetchFactoryCommandOverview,
   now = new Date()
 } = {}) {
-  const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
-  const targetDate = ref(yesterday)
+  const targetDate = ref(inferLastCompletedBusinessDate(now))
   const data = ref({})
   const loading = ref(false)
   const lastError = ref('')

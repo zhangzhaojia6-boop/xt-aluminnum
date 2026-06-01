@@ -1,5 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings
+from app.core.business_time import (
+    last_completed_production_business_date,
+    production_business_window,
+    resolve_production_business_date,
+)
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary, can_view_work_order_entries
 from app.database import Base
@@ -221,6 +227,64 @@ def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backf
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 0)) == date(2026, 5, 30)
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 1)) == date(2026, 5, 30)
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 31)
+
+
+def test_production_business_day_window_uses_2330_anchor() -> None:
+    assert resolve_production_business_date(datetime(2026, 6, 1, 23, 29, 59)) == date(2026, 6, 1)
+    assert resolve_production_business_date(datetime(2026, 6, 1, 23, 30, 0)) == date(2026, 6, 2)
+
+    start_at, end_at = production_business_window(date(2026, 6, 1))
+
+    assert start_at == datetime(2026, 5, 31, 23, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
+    assert end_at == datetime(2026, 6, 1, 23, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
+
+
+def test_last_completed_production_business_date_changes_at_2330() -> None:
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 8, 0)) == date(2026, 5, 31)
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 23, 29, 59)) == date(2026, 5, 31)
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 23, 30, 0)) == date(2026, 6, 1)
+
+
+def test_backend_shift_boundaries_are_left_closed_right_open() -> None:
+    from app.services.mobile_report import shift_context
+
+    shift_c = SimpleNamespace(
+        id=3,
+        code='C',
+        name='大夜',
+        start_time=time(23, 30),
+        end_time=time(7, 30),
+        business_day_offset=-1,
+        is_cross_day=True,
+        sort_order=1,
+    )
+    shift_a = SimpleNamespace(
+        id=1,
+        code='A',
+        name='长白班',
+        start_time=time(7, 30),
+        end_time=time(15, 30),
+        business_day_offset=0,
+        is_cross_day=False,
+        sort_order=2,
+    )
+    shift_b = SimpleNamespace(
+        id=2,
+        code='B',
+        name='小夜',
+        start_time=time(15, 30),
+        end_time=time(23, 30),
+        business_day_offset=0,
+        is_cross_day=False,
+        sort_order=3,
+    )
+    candidates = [(date(2026, 6, 1), shift_c), (date(2026, 6, 1), shift_a), (date(2026, 6, 1), shift_b)]
+    tz = ZoneInfo('Asia/Shanghai')
+
+    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 7, 29, tzinfo=tz))[1].code == 'C'
+    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 7, 30, tzinfo=tz))[1].code == 'A'
+    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 15, 30, tzinfo=tz))[1].code == 'B'
+    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 23, 30, tzinfo=tz)) is None
 
 
 def test_get_current_shift_owner_daily_uses_backfill_business_date_without_shift(monkeypatch) -> None:

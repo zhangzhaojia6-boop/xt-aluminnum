@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Workshop
-from app.models.mes import MesCoilSnapshot
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
 from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
@@ -128,6 +128,31 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
 
 
 def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
+    snapshot_rows = (
+        db.query(
+            MesDailyWipSnapshot.workshop_name,
+            func.sum(MesDailyWipSnapshot.coil_count),
+            func.sum(MesDailyWipSnapshot.material_weight_tons),
+            func.sum(MesDailyWipSnapshot.feeding_weight_tons),
+        )
+        .filter(MesDailyWipSnapshot.business_date == target_date)
+        .group_by(MesDailyWipSnapshot.workshop_name)
+        .all()
+    )
+    if snapshot_rows:
+        result = []
+        for workshop, count, weight, feeding_weight in snapshot_rows:
+            result.append({
+                'workshop': workshop,
+                'coil_count': int(count or 0),
+                'total_weight': _round2(_to_float(weight)),
+                'feeding_weight': _round2(_to_float(feeding_weight)),
+                'source_basis': 'mes_daily_wip_snapshot',
+                'source_label': '外部 MES 当日快照参考',
+            })
+        result.sort(key=lambda x: -(x['total_weight'] or 0))
+        return result
+
     def present(column):
         return and_(column.isnot(None), column != '')
 
@@ -145,8 +170,10 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
             workshop_label,
             func.count(MesCoilSnapshot.id),
             func.sum(MesCoilSnapshot.material_weight),
+            func.sum(MesCoilSnapshot.feeding_weight),
         )
         .filter(
+            MesCoilSnapshot.business_date == target_date,
             MesCoilSnapshot.delivery_date.is_(None),
             MesCoilSnapshot.allocation_date.is_(None),
             not_finished_stock,
@@ -156,12 +183,15 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
         .all()
     )
     result = []
-    for workshop, count, weight in rows:
+    for workshop, count, weight, feeding_weight in rows:
         w = _to_float(weight) / 1000
         result.append({
             'workshop': workshop,
             'coil_count': count or 0,
             'total_weight': _round2(w),
+            'feeding_weight': _round2(_to_float(feeding_weight)),
+            'source_basis': 'mes_coil_snapshot_business_date',
+            'source_label': '外部 MES 当日快照参考',
         })
     result.sort(key=lambda x: -(x['total_weight'] or 0))
     return result

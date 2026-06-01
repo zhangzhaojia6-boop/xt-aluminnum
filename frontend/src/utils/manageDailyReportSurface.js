@@ -158,11 +158,15 @@ export function buildDailyWorkshopRows(rows = []) {
 export function buildDailyWipRows(rows = []) {
   return (rows || [])
     .filter((row) => !isRemovedWorkshop(row))
-    .map((row, index) => ({
-      key: row.workshop ?? index,
-      title: row.workshop || '--',
-      weightText: formatMetric(row.total_weight, '吨'),
-      countText: `${toNumber(row.coil_count) ?? 0} 卷`,
-      sourceLabel: '外部 MES 当前在制',
-    }))
+    .map((row, index) => {
+      const feedingText = formatMetric(row.feeding_weight, '吨')
+      return {
+        key: row.workshop ?? index,
+        title: row.workshop || '--',
+        weightText: formatMetric(row.total_weight, '吨'),
+        feedingText: feedingText === MISSING_DAILY_VALUE ? '投料 —' : `投料 ${feedingText}`,
+        countText: `${toNumber(row.coil_count) ?? 0} 卷`,
+        sourceLabel: row.source_label || '外部 MES 当日快照参考',
+      }
+    })
 }

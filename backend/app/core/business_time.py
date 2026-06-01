@@ -26,6 +26,17 @@ def resolve_production_business_date(now: datetime | None = None) -> date:
     return current_local.date()
 
 
+def production_business_window(business_date: date) -> tuple[datetime, datetime]:
+    timezone = ZoneInfo(settings.DEFAULT_TIMEZONE)
+    end_at = datetime.combine(business_date, PRODUCTION_BUSINESS_DAY_START, tzinfo=timezone)
+    start_at = end_at - timedelta(days=1)
+    return start_at, end_at
+
+
+def last_completed_production_business_date(now: datetime | None = None) -> date:
+    return resolve_production_business_date(now) - timedelta(days=1)
+
+
 def resolve_owner_daily_business_date(now: datetime | None = None) -> date:
     current_local = local_now(now)
     if current_local.time() < OWNER_DAILY_CUTOFF:

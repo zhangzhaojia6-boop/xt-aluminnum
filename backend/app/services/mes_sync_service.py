@@ -7,7 +7,7 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-from sqlalchemy import text
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from app.core.business_time import resolve_production_business_date
 from app.models.mes import (
     CoilFlowEvent,
     MesCoilSnapshot,
+    MesDailyWipSnapshot,
     MesMachineLineSnapshot,
     MesMaterialRecord,
     MesReferenceItem,
@@ -139,6 +140,87 @@ def _kg_to_tons(value: Any) -> float | None:
     return round(number / 1000, 6)
 
 
+def _wip_workshop_label():
+    return func.coalesce(
+        func.nullif(MesCoilSnapshot.current_workshop, ''),
+        func.nullif(MesCoilSnapshot.workshop_code, ''),
+        func.nullif(MesCoilSnapshot.next_process, ''),
+    )
+
+
+def _wip_process_label():
+    return func.coalesce(
+        func.nullif(MesCoilSnapshot.current_process, ''),
+        func.nullif(MesCoilSnapshot.next_process, ''),
+        '',
+    )
+
+
+def _wip_filter_for_business_date(business_date):
+    def present(column):
+        return and_(column.isnot(None), column != '')
+
+    not_finished_stock = and_(
+        MesCoilSnapshot.in_stock_date.is_(None),
+        or_(MesCoilSnapshot.status_name.is_(None), MesCoilSnapshot.status_name != '已入库'),
+    )
+    return (
+        MesCoilSnapshot.business_date == business_date,
+        MesCoilSnapshot.delivery_date.is_(None),
+        MesCoilSnapshot.allocation_date.is_(None),
+        not_finished_stock,
+        or_(present(MesCoilSnapshot.current_process), present(MesCoilSnapshot.next_process)),
+    )
+
+
+def refresh_daily_wip_snapshots_from_coils(db: Session, *, business_date, snapshot_at: datetime | None = None) -> int:
+    db.flush()
+    workshop_label = _wip_workshop_label()
+    process_label = _wip_process_label()
+    rows = (
+        db.query(
+            workshop_label,
+            process_label,
+            func.count(MesCoilSnapshot.id),
+            func.sum(MesCoilSnapshot.material_weight),
+            func.sum(MesCoilSnapshot.feeding_weight),
+        )
+        .filter(*_wip_filter_for_business_date(business_date))
+        .group_by(workshop_label, process_label)
+        .all()
+    )
+    db.query(MesDailyWipSnapshot).filter(
+        MesDailyWipSnapshot.business_date == business_date,
+        MesDailyWipSnapshot.source == 'mes_coil_snapshot',
+    ).delete(synchronize_session=False)
+
+    snapshot_time = snapshot_at or _utcnow()
+    for workshop, process, count, material_weight, feeding_weight in rows:
+        if not workshop:
+            continue
+        db.add(
+            MesDailyWipSnapshot(
+                business_date=business_date,
+                workshop_name=str(workshop),
+                process_name=str(process or ''),
+                coil_count=int(count or 0),
+                material_weight_tons=_kg_to_tons(material_weight),
+                feeding_weight_tons=_to_float(feeding_weight),
+                snapshot_at=snapshot_time,
+                source='mes_coil_snapshot',
+                source_payload={'basis': 'mes_coil_snapshots', 'business_date': business_date.isoformat()},
+            )
+        )
+    return sum(1 for workshop, *_rest in rows if workshop)
+
+
+def _refresh_affected_daily_wip_snapshots(db: Session, *, business_dates: set[Any], snapshot_at: datetime) -> None:
+    if not business_dates or not hasattr(db, 'get_bind'):
+        return
+    for item in sorted(business_dates):
+        refresh_daily_wip_snapshots_from_coils(db, business_date=item, snapshot_at=snapshot_at)
+
+
 def _record_event_time(record: MesSourceRecord, *keys: str) -> datetime | None:
     if record.event_time is not None:
         return record.event_time
@@ -151,6 +233,15 @@ def _record_event_time(record: MesSourceRecord, *keys: str) -> datetime | None:
 
 def _record_business_date(record: MesSourceRecord, *keys: str) -> Any:
     event_time = _record_event_time(record, *keys)
+    return resolve_production_business_date(event_time) if event_time is not None else None
+
+
+def _snapshot_business_event_time(snapshot: CoilSnapshot) -> datetime | None:
+    return snapshot.event_time or snapshot.updated_at
+
+
+def _snapshot_business_date(snapshot: CoilSnapshot) -> Any:
+    event_time = _snapshot_business_event_time(snapshot)
     return resolve_production_business_date(event_time) if event_time is not None else None
 
 
@@ -407,7 +498,7 @@ def _ensure_cursor(db: Session, *, cursor_key: str) -> MesSyncCursor:
 
 
 def _serialize_snapshot(snapshot: CoilSnapshot) -> dict[str, Any]:
-    business_date = (snapshot.updated_at or snapshot.event_time).date().isoformat() if (snapshot.updated_at or snapshot.event_time) else None
+    business_date = _snapshot_business_date(snapshot)
     projection = _projection_fields(snapshot, snapshot.updated_at or snapshot.event_time or _utcnow())
     return {
         'coil_id': projection['coil_id'],
@@ -420,7 +511,7 @@ def _serialize_snapshot(snapshot: CoilSnapshot) -> dict[str, Any]:
         'machine_code': snapshot.machine_code,
         'shift_code': snapshot.shift_code,
         'status': snapshot.status,
-        'business_date': business_date,
+        'business_date': business_date.isoformat() if business_date else None,
         'event_time': snapshot.event_time.isoformat() if snapshot.event_time else None,
         'updated_at': snapshot.updated_at.isoformat() if snapshot.updated_at else None,
         'projection': {
@@ -437,13 +528,21 @@ def _window_started_at(now: datetime, *, cursor: MesSyncCursor) -> datetime:
     return now - timedelta(minutes=max(settings.MES_SYNC_WINDOW_MINUTES, 1))
 
 
-def _upsert_snapshot(db: Session, *, snapshot: CoilSnapshot, synced_at: datetime) -> tuple[bool, bool]:
+def _upsert_snapshot(
+    db: Session,
+    *,
+    snapshot: CoilSnapshot,
+    synced_at: datetime,
+    affected_business_dates: set[Any] | None = None,
+) -> tuple[bool, bool]:
     projection = _projection_fields(snapshot, synced_at)
     coil_id = projection['coil_id']
     _lock_snapshot_key(db, coil_id=coil_id)
     existing = _query_first(db.query(MesCoilSnapshot).filter(MesCoilSnapshot.coil_id == coil_id))
     payload = _serialize_snapshot(snapshot)
-    business_date = (snapshot.updated_at or snapshot.event_time).date() if (snapshot.updated_at or snapshot.event_time) else None
+    business_date = _snapshot_business_date(snapshot)
+    if affected_business_dates is not None and business_date is not None:
+        affected_business_dates.add(business_date)
     if existing is None:
         entity = MesCoilSnapshot(
             coil_id=coil_id,
@@ -466,6 +565,10 @@ def _upsert_snapshot(db: Session, *, snapshot: CoilSnapshot, synced_at: datetime
         db.add(entity)
         db.flush()
         return True, False
+
+    previous_business_date = getattr(existing, 'business_date', None)
+    if affected_business_dates is not None and previous_business_date is not None:
+        affected_business_dates.add(previous_business_date)
 
     incoming_updated_at = _as_utc(snapshot.updated_at or snapshot.event_time)
     existing_updated_at = _as_utc(existing.updated_from_mes_at)
@@ -529,8 +632,14 @@ def sync_coil_snapshots(
         upserted_count = 0
         replayed_count = 0
         last_event_at = cursor.last_event_at
+        affected_business_dates: set[Any] = set()
         for item in snapshots:
-            changed, replayed = _upsert_snapshot(db, snapshot=item, synced_at=synced_at)
+            changed, replayed = _upsert_snapshot(
+                db,
+                snapshot=item,
+                synced_at=synced_at,
+                affected_business_dates=affected_business_dates,
+            )
             if changed:
                 upserted_count += 1
             if replayed:
@@ -543,6 +652,7 @@ def sync_coil_snapshots(
         cursor.window_started_at = window_started_at
         cursor.last_event_at = last_event_at
         cursor.last_synced_at = synced_at
+        _refresh_affected_daily_wip_snapshots(db, business_dates=affected_business_dates, snapshot_at=synced_at)
 
         lag_seconds = None
         if last_event_at is not None:
@@ -615,12 +725,19 @@ def sync_mes_devices(db: Session, *, now: datetime | None = None) -> MesSyncStat
 def _sync_coil_list(db: Session, *, cursor_key: str, rows: list[CoilSnapshot], synced_at: datetime) -> MesSyncStats:
     upserted_count = 0
     replayed_count = 0
+    affected_business_dates: set[Any] = set()
     for row in _dedupe_snapshots_by_projected_id(rows):
-        changed, replayed = _upsert_snapshot(db, snapshot=row, synced_at=synced_at)
+        changed, replayed = _upsert_snapshot(
+            db,
+            snapshot=row,
+            synced_at=synced_at,
+            affected_business_dates=affected_business_dates,
+        )
         if changed:
             upserted_count += 1
         if replayed:
             replayed_count += 1
+    _refresh_affected_daily_wip_snapshots(db, business_dates=affected_business_dates, snapshot_at=synced_at)
     return _stats(
         cursor_key=cursor_key,
         fetched_count=len(rows),

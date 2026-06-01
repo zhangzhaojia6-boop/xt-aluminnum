@@ -244,6 +244,29 @@ class MesWipTotalSnapshot(Base):
     )
 
 
+class MesDailyWipSnapshot(Base):
+    __tablename__ = 'mes_daily_wip_snapshots'
+    __table_args__ = (
+        UniqueConstraint('business_date', 'workshop_name', 'process_name', 'source', name='uq_mes_daily_wip_snapshot_scope'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    workshop_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    process_name: Mapped[str] = mapped_column(String(128), nullable=False, default='', index=True)
+    coil_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    material_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    feeding_weight_tons: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    snapshot_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, default='mes_coil_snapshot', index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class CoilFlowEvent(Base):
     __tablename__ = 'coil_flow_events'
 

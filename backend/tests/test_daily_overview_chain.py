@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.mes import MesCoilSnapshot
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
 from app.services import report_service
 from app.services.report import daily_overview_builder
 from app.services.report import dashboard_builder
@@ -99,9 +99,9 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
     }) == 7.2
 
 
-def test_wip_distribution_uses_mes_current_state_not_target_date(tmp_path) -> None:
+def test_wip_distribution_uses_target_business_date_and_feeding_weight_reference(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__])
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__])
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
     db.add_all([
         MesCoilSnapshot(
@@ -111,6 +111,16 @@ def test_wip_distribution_uses_mes_current_state_not_target_date(tmp_path) -> No
             current_workshop='冷轧车间',
             current_process='轧制',
             material_weight=2500.0,
+            feeding_weight=4.5,
+        ),
+        MesCoilSnapshot(
+            coil_id='MES:TODAY-WIP',
+            tracking_card_no='TODAY-WIP',
+            business_date=date(2026, 5, 29),
+            current_workshop='冷轧车间',
+            current_process='轧制',
+            material_weight=5000.0,
+            feeding_weight=7.5,
         ),
         MesCoilSnapshot(
             coil_id='MES:STOCK',
@@ -119,14 +129,64 @@ def test_wip_distribution_uses_mes_current_state_not_target_date(tmp_path) -> No
             current_workshop='冷轧车间',
             current_process='入库',
             status_name='已入库',
-            material_weight=5000.0,
+            material_weight=9000.0,
+            feeding_weight=9.0,
         ),
     ])
     db.commit()
 
     payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
 
-    assert payload == [{'workshop': '冷轧车间', 'coil_count': 1, 'total_weight': 2.5}]
+    assert payload == [
+        {
+            'workshop': '冷轧车间',
+            'coil_count': 1,
+            'total_weight': 5.0,
+            'feeding_weight': 7.5,
+            'source_basis': 'mes_coil_snapshot_business_date',
+            'source_label': '外部 MES 当日快照参考',
+        }
+    ]
+
+
+def test_wip_distribution_prefers_daily_wip_snapshot_read_model(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-frozen-wip.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesDailyWipSnapshot(
+            business_date=date(2026, 5, 29),
+            workshop_name='冷轧车间',
+            process_name='轧制',
+            coil_count=4,
+            material_weight_tons=12.5,
+            feeding_weight_tons=18.2,
+            source='mes_coil_snapshot',
+        ),
+        MesCoilSnapshot(
+            coil_id='MES:LIVE-WIP',
+            tracking_card_no='LIVE-WIP',
+            business_date=date(2026, 5, 29),
+            current_workshop='冷轧车间',
+            current_process='轧制',
+            material_weight=999000.0,
+            feeding_weight=999.0,
+        ),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
+
+    assert payload == [
+        {
+            'workshop': '冷轧车间',
+            'coil_count': 4,
+            'total_weight': 12.5,
+            'feeding_weight': 18.2,
+            'source_basis': 'mes_daily_wip_snapshot',
+            'source_label': '外部 MES 当日快照参考',
+        }
+    ]
 
 
 def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:

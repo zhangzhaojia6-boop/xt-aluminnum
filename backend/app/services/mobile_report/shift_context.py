@@ -95,7 +95,7 @@ def _machine_shift_candidates(
 def _pick_shift_by_time(candidates: list[tuple[date, ShiftConfig]], now: datetime) -> tuple[date, ShiftConfig] | None:
     for business_date, shift in candidates:
         start_dt, end_dt = _shift_window_for_date(business_date, shift)
-        if start_dt <= now <= end_dt:
+        if start_dt <= now < end_dt:
             return business_date, shift
     return None
 

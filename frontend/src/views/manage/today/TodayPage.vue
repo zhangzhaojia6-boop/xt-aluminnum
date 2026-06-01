@@ -91,14 +91,14 @@
 
         <article class="xt-today__panel xt-today__panel--wip">
           <header class="xt-today__panel-head">
-            <h3>外部 MES 当前在制</h3>
+            <h3>外部 MES 当日快照参考</h3>
             <span>{{ wipRows.length }} 个位置</span>
           </header>
           <div v-if="wipRows.length" class="xt-today__wip-grid">
             <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
               <span>{{ row.title }}</span>
               <b>{{ row.weightText }}</b>
-              <small>{{ row.countText }} · {{ row.sourceLabel }}</small>
+              <small>{{ row.countText }} · {{ row.feedingText }} · {{ row.sourceLabel }}</small>
             </div>
           </div>
           <div v-else class="xt-today__empty">暂无在制料数据</div>

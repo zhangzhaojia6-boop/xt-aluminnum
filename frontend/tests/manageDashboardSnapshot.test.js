@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-test('useDashboardSnapshot defaults target_date to yesterday in YYYY-MM-DD', async () => {
+test('useDashboardSnapshot defaults target_date to last completed production business date', async () => {
   const fakeFetch = async (params) => {
     fakeFetch.lastParams = params
     return { target_date: params.target_date, leader_metrics: { total_output_weight: 10 } }
@@ -11,6 +11,17 @@ test('useDashboardSnapshot defaults target_date to yesterday in YYYY-MM-DD', asy
   await snap.load()
   assert.equal(fakeFetch.lastParams.target_date, '2026-05-22')
   assert.equal(snap.leaderMetrics.value.total_output_weight, 10)
+})
+
+test('useDashboardSnapshot default changes to same-day production report after 23:30', async () => {
+  const fakeFetch = async (params) => {
+    fakeFetch.lastParams = params
+    return { target_date: params.target_date }
+  }
+  const mod = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-23T15:30:00Z') })
+  await snap.load()
+  assert.equal(fakeFetch.lastParams.target_date, '2026-05-23')
 })
 
 test('useDashboardSnapshot stepDate(-1) goes one day back and reloads', async () => {

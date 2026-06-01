@@ -35,7 +35,7 @@ def test_alembic_sqlite_current_after_upgrade(tmp_path) -> None:
 
     current = _run_alembic('current', database_url)
     assert current.returncode == 0, current.stderr
-    assert '0034_mes_mvc_extended_sources' in current.stdout
+    assert '0035_mes_daily_wip_snapshots' in current.stdout
 
 
 def test_seed_production_script_is_available() -> None:
