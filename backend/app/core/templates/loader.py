@@ -77,6 +77,46 @@ def _load_default_template_definition(base_type: str) -> dict[str, Any]:
         'readonly_fields': _normalize_definition_section(template.get('readonly_fields'), section_name='readonly_fields'),
     }
 
+_REQUIRED_ENTRY_FIELDS_BY_BASE_TYPE = {
+    'casting': ('output_weight',),
+}
+
+def _ensure_required_entry_fields(definition: dict[str, Any], base_type: str) -> dict[str, Any]:
+    required_names = _REQUIRED_ENTRY_FIELDS_BY_BASE_TYPE.get(base_type)
+    if not required_names:
+        return definition
+
+    default_fields = _normalize_definition_section(
+        DEFAULT_WORKSHOP_TEMPLATES[base_type].get('entry_fields'),
+        section_name='entry_fields',
+    )
+    default_by_name = {field['name']: field for field in default_fields}
+    default_order = [field['name'] for field in default_fields]
+    entry_fields = [dict(field) for field in definition.get('entry_fields', [])]
+    existing_names = {field.get('name') for field in entry_fields}
+
+    for field_name in required_names:
+        if field_name in existing_names or field_name not in default_by_name:
+            continue
+        insertion_index = len(entry_fields)
+        found_predecessor = False
+        for predecessor in reversed(default_order[:default_order.index(field_name)]):
+            for index, field in enumerate(entry_fields):
+                if field.get('name') == predecessor:
+                    insertion_index = index + 1
+                    found_predecessor = True
+                    break
+            if found_predecessor:
+                break
+        entry_fields.insert(insertion_index, dict(default_by_name[field_name]))
+        existing_names.add(field_name)
+
+    if entry_fields == definition.get('entry_fields', []):
+        return definition
+    repaired = dict(definition)
+    repaired['entry_fields'] = entry_fields
+    return repaired
+
 def get_workshop_template_definition(
     template_key: str,
     *,
@@ -113,6 +153,7 @@ def get_workshop_template_definition(
             )
 
     definition = _load_template_definition_from_config(config) if config is not None else _load_default_template_definition(base_type)
+    definition = _ensure_required_entry_fields(definition, base_type)
     return {
         'template_key': canonical_key,
         'workshop_type': base_type,
@@ -128,7 +169,7 @@ def normalize_template_definition_payload(
     db: Session | None = None,
 ) -> dict[str, Any]:
     definition = get_workshop_template_definition(template_key, db=db)
-    return {
+    normalized = {
         'template_key': definition['template_key'],
         'workshop_type': definition['workshop_type'],
         'display_name': str(payload.get('display_name') or definition['display_name']).strip() or definition['display_name'],
@@ -140,3 +181,4 @@ def normalize_template_definition_payload(
         'qc_fields': _normalize_definition_section(payload.get('qc_fields'), section_name='qc_fields'),
         'readonly_fields': _normalize_definition_section(payload.get('readonly_fields'), section_name='readonly_fields'),
     }
+    return _ensure_required_entry_fields(normalized, definition['workshop_type'])

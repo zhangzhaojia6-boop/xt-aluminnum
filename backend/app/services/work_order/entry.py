@@ -314,9 +314,12 @@ def _recalculate_readonly_derived_fields(
             if name == 'yield_rate':
                 entity.yield_rate = _calculate_yield_rate(entity)
                 continue
+            raw_extra_payload = getattr(entity, 'extra_payload', None)
+            extra_payload = raw_extra_payload if isinstance(raw_extra_payload, dict) else {}
             computed = _safe_decimal_compute(
                 compute,
                 context={
+                    **extra_payload,
                     'input_weight': _to_float(entity.verified_input_weight) or _to_float(entity.input_weight),
                     'output_weight': _to_float(entity.verified_output_weight) or _to_float(entity.output_weight),
                     'spool_weight': _to_float(entity.spool_weight),
@@ -354,13 +357,15 @@ def _safe_decimal_compute(expression: str, *, context: dict[str, Any]) -> float 
             return None
         return round((float(output_weight) / float(input_weight)) * 100, 4)
 
-    if expression == 'input_weight - output_weight - spool_weight':
+    if re.fullmatch(r'input_weight\s*-\s*output_weight(?:\s*-\s*[A-Za-z_][A-Za-z0-9_]*)*', expression):
         output_weight = context.get('output_weight')
         input_weight = context.get('input_weight')
-        spool_weight = context.get('spool_weight') or 0
         if output_weight is None or input_weight is None:
             return None
-        return round(float(input_weight) - float(output_weight) - float(spool_weight), 4)
+        result = float(input_weight) - float(output_weight)
+        for term in expression.split('-')[2:]:
+            result -= float(context.get(term.strip()) or 0)
+        return round(result, 4)
 
     if expression == 'finished_inventory_weight - consignment_weight':
         finished_inventory_weight = context.get('finished_inventory_weight')

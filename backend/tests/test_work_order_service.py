@@ -96,6 +96,41 @@ def test_previous_stage_output_contains_only_allowed_snapshot_fields() -> None:
     }
 
 
+def test_readonly_formula_uses_hot_roll_trim_weight_from_extra_payload(monkeypatch) -> None:
+    entity = SimpleNamespace(
+        input_weight=9430,
+        output_weight=9220,
+        verified_input_weight=None,
+        verified_output_weight=None,
+        spool_weight=None,
+        scrap_weight=None,
+        yield_rate=None,
+        extra_payload={'trim_weight': 80},
+    )
+
+    monkeypatch.setattr(
+        'app.services.work_order_service.get_workshop_template',
+        lambda *_args, **_kwargs: {
+            'readonly_fields': [
+                {
+                    'name': 'scrap_weight',
+                    'target': 'entry',
+                    'compute': 'input_weight - output_weight - trim_weight',
+                },
+            ],
+        },
+    )
+
+    work_order_service._recalculate_readonly_derived_fields(
+        SimpleNamespace(),
+        entity,
+        template_key='hot_roll',
+        user_role='shift_leader',
+    )
+
+    assert entity.scrap_weight == 130
+
+
 class _DummyWorkOrderDB:
     def __init__(self):
         self.added = []

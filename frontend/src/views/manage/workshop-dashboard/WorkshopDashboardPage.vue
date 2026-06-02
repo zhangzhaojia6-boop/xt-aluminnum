@@ -46,6 +46,7 @@
                 <th>机列</th>
                 <th>班次</th>
                 <th>责任人</th>
+                <th>填报时间</th>
                 <th>随行卡</th>
                 <th>内容</th>
                 <th>状态</th>
@@ -53,16 +54,17 @@
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="6">加载中...</td>
+                <td colspan="7">加载中...</td>
               </tr>
               <tr v-else-if="machineRows.length === 0">
-                <td colspan="6">暂无机列填报</td>
+                <td colspan="7">暂无机列填报</td>
               </tr>
               <template v-else>
                 <tr v-for="row in machineRows" :key="row.rowId">
                   <td><strong>{{ row.machineName }}</strong></td>
                   <td>{{ row.shiftName }}</td>
                   <td>{{ row.responsibleText }}</td>
+                  <td>{{ row.submittedText }}</td>
                   <td>{{ row.tracking_card_no || '-' }}</td>
                   <td>{{ row.contentText }}</td>
                   <td><span class="workshop-board__status">{{ row.statusLabel }}</span></td>
@@ -502,7 +504,7 @@ load()
 .workshop-board table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 820px;
+  min-width: 920px;
 }
 
 .workshop-board th,

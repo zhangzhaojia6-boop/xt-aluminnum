@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.workshop_templates import get_workshop_template, resolve_workshop_type
+from app.core.workshop_templates import get_workshop_template, get_workshop_template_definition, resolve_workshop_type
 from app.services.work_order_service import split_entry_form_payload
 
 
@@ -83,6 +83,69 @@ def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
     assert [field['name'] for field in template['readonly_fields']] == [
         'scrap_weight',
         'yield_rate',
+    ]
+
+
+class _TemplateConfigQuery:
+    def __init__(self, config, *, miss_first: bool = False):
+        self.config = config
+        self.miss_first = miss_first
+        self.calls = 0
+
+    def filter(self, *_args, **_kwargs):
+        return self
+
+    def first(self):
+        self.calls += 1
+        if self.miss_first and self.calls == 1:
+            return None
+        return self.config
+
+
+class _TemplateConfigDB:
+    def __init__(self, config, *, miss_first: bool = False):
+        self.query_obj = _TemplateConfigQuery(config, miss_first=miss_first)
+
+    def query(self, _model):
+        return self.query_obj
+
+
+def test_casting_config_cannot_drop_machine_output_field() -> None:
+    stale_config = type(
+        'TemplateConfig',
+        (),
+        {
+            'template_key': 'casting',
+            'display_name': '铸造车间',
+            'tempo': 'slow',
+            'supports_ocr': True,
+            'entry_fields': [
+                {'name': 'alloy_grade', 'label': '合金', 'type': 'text', 'required': True},
+                {'name': 'ingot_spec', 'label': '规格', 'type': 'text', 'required': True},
+                {'name': 'cast_speed', 'label': '速度', 'type': 'number', 'unit': 'mm/min'},
+                {'name': 'input_weight', 'label': '投入铝锭', 'type': 'number', 'unit': 'kg'},
+                {'name': 'scrap_weight', 'label': '废料', 'type': 'number', 'unit': 'kg'},
+                {'name': 'skin_weight', 'label': '皮料段', 'type': 'number', 'unit': 'kg'},
+                {'name': 'quality_issue_type', 'label': '质量类型', 'type': 'text'},
+            ],
+            'extra_fields': [],
+            'qc_fields': [],
+            'readonly_fields': [{'name': 'yield_rate', 'label': '成品率', 'compute': 'output_weight / input_weight * 100'}],
+        },
+    )()
+
+    template = get_workshop_template_definition('ZR3', db=_TemplateConfigDB(stale_config, miss_first=True))
+    names = [field['name'] for field in template['entry_fields']]
+
+    assert names == [
+        'alloy_grade',
+        'ingot_spec',
+        'cast_speed',
+        'input_weight',
+        'scrap_weight',
+        'skin_weight',
+        'output_weight',
+        'quality_issue_type',
     ]
 
 

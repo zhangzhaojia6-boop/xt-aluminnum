@@ -265,3 +265,11 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)
   assert.match(dashboardSrc, /fetchMesMaterialRecords\(scopedParams/)
 })
+
+test('WorkshopDashboardPage shows machine fill submit time', () => {
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(dashboardSrc, /<th>填报时间<\/th>/)
+  assert.match(dashboardSrc, /row\.submittedText/)
+  assert.match(dashboardSrc, /colspan="7"/)
+})
