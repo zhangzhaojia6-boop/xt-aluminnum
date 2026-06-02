@@ -48,9 +48,10 @@
 
         <ul class="xt-shifts__sub">
           <li class="xt-shifts__sub-item">
-            <span class="xt-shifts__sub-label">填报车间</span>
+            <span class="xt-shifts__sub-label">已填/应填</span>
             <span class="xt-shifts__sub-value">
               <b>{{ s.reported_workshops }}</b>/{{ s.expected_workshops }}
+              <small v-if="pendingWorkshops(s) > 0">待填 {{ pendingWorkshops(s) }}</small>
             </span>
           </li>
           <li class="xt-shifts__sub-item">
@@ -126,6 +127,10 @@ function sharePct(s) {
   const total = Number(props.payload?.total_output || 0)
   if (total <= 0) return 0
   return Math.round((Number(s.total_output || 0) / total) * 100)
+}
+
+function pendingWorkshops(s) {
+  return Math.max(Number(s.expected_workshops || 0) - Number(s.reported_workshops || 0), 0)
 }
 </script>
 

@@ -102,13 +102,22 @@ def get_workshop_template_definition(
             )
             .first()
         )
+        if config is None and base_type != canonical_key:
+            config = (
+                db.query(WorkshopTemplateConfig)
+                .filter(
+                    WorkshopTemplateConfig.template_key == base_type,
+                    WorkshopTemplateConfig.is_active.is_(True),
+                )
+                .first()
+            )
 
     definition = _load_template_definition_from_config(config) if config is not None else _load_default_template_definition(base_type)
     return {
         'template_key': canonical_key,
         'workshop_type': base_type,
-        'source_template_key': canonical_key if config is not None else base_type,
-        'has_override': config is not None,
+        'source_template_key': config.template_key if config is not None else base_type,
+        'has_override': config is not None and config.template_key == canonical_key,
         **definition,
     }
 

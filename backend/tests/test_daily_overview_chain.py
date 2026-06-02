@@ -8,7 +8,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.attendance import AttendanceSchedule
+from app.models.master import Employee, Workshop
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
+from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.shift import ShiftConfig
 from app.services import report_service
 from app.services.report import daily_overview_builder
 from app.services.report import dashboard_builder
@@ -321,6 +325,11 @@ def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> Non
         def query(self, *args):
             if args and args[0] is daily_overview_builder.ShiftConfig:
                 return FakeQuery([shift_a, shift_b])
+            if args and args[0] is daily_overview_builder.Workshop:
+                return FakeQuery([
+                    SimpleNamespace(id=10, code='LZ', name='冷轧车间', is_active=True),
+                    SimpleNamespace(id=11, code='JZ', name='精整车间', is_active=True),
+                ])
             return FakeQuery([
                 SimpleNamespace(workshop_id=10, shift_config_id=1),
                 SimpleNamespace(workshop_id=11, shift_config_id=1),
@@ -346,3 +355,57 @@ def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> Non
     assert by_code['A']['reported_workshops'] == 2
     assert by_code['A']['expected_workshops'] == 2
     assert by_code['B']['reported_workshops'] == 1
+
+
+def test_shift_breakdown_excludes_factory_special_workshop_from_expected_total(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-shift-breakdown.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            Employee.__table__,
+            ShiftConfig.__table__,
+            AttendanceSchedule.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+        ],
+    )
+    session_factory = sessionmaker(bind=engine, future=True)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='ZR2', name='铸二车间', workshop_type='casting', sort_order=1, is_active=True),
+                Workshop(id=2, code='FACTORY', name='全厂', workshop_type=None, sort_order=99, is_active=True),
+                Employee(id=1, employee_no='E001', name='甲', workshop_id=1, is_active=True),
+                Employee(id=2, employee_no='E002', name='乙', workshop_id=2, is_active=True),
+                ShiftConfig(id=1, code='A', name='长白班', shift_type='day', start_time=time(7, 30), end_time=time(15, 30), is_cross_day=False, sort_order=1, is_active=True),
+                WorkOrder(id=1, tracking_card_no='TC-001', process_route_code='CAST'),
+            ]
+        )
+        db.flush()
+        db.add_all(
+            [
+                AttendanceSchedule(employee_id=1, business_date=date(2026, 6, 1), shift_config_id=1, workshop_id=1, source='manual', is_rest_day=False),
+                AttendanceSchedule(employee_id=2, business_date=date(2026, 6, 1), shift_config_id=1, workshop_id=2, source='manual', is_rest_day=False),
+                WorkOrderEntry(
+                    id=1,
+                    work_order_id=1,
+                    workshop_id=1,
+                    shift_id=1,
+                    business_date=date(2026, 6, 1),
+                    output_weight=1200,
+                    energy_kwh=12,
+                    entry_status='submitted',
+                    entry_type='mobile_coil',
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = daily_overview_builder._build_shift_breakdown(db, date(2026, 6, 1))
+
+    by_code = {item['shift_code']: item for item in payload['shifts']}
+    assert by_code['A']['shift_name'] == '长白班'
+    assert by_code['A']['reported_workshops'] == 1
+    assert by_code['A']['expected_workshops'] == 1

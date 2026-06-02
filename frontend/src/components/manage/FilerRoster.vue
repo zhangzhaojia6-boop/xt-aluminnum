@@ -34,13 +34,13 @@ const progressOption = computed(() => {
   const s = stats.value
   return {
     grid: { left: 0, right: 0, top: 4, bottom: 4 },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    tooltip: { show: false },
     xAxis: { type: 'value', show: false, max: Math.max(s.total, 1) },
     yAxis: { type: 'category', show: false, data: ['进度'] },
     series: [
-      { name: '已报', type: 'bar', stack: 't', data: [s.reported], itemStyle: { color: okC, borderRadius: [4, 0, 0, 4] } },
-      { name: '异常/迟', type: 'bar', stack: 't', data: [s.abnormal], itemStyle: { color: warnC } },
-      { name: '未报', type: 'bar', stack: 't', data: [s.unreported], itemStyle: { color: dangerC, borderRadius: [0, 4, 4, 0] } }
+      { name: '已报', type: 'bar', stack: 't', silent: true, data: [s.reported], itemStyle: { color: okC, borderRadius: [4, 0, 0, 4] } },
+      { name: '异常/迟', type: 'bar', stack: 't', silent: true, data: [s.abnormal], itemStyle: { color: warnC } },
+      { name: '未报', type: 'bar', stack: 't', silent: true, data: [s.unreported], itemStyle: { color: dangerC, borderRadius: [0, 4, 4, 0] } }
     ]
   }
 })
@@ -69,6 +69,10 @@ function machineSummary(r) {
         <span class="xt-tag tone-danger">未报 {{ stats.unreported }}</span>
       </div>
     </header>
+    <div class="xt-filer-roster__rules" v-if="hasData">
+      <span>缺报：应填班次还没有正式记录</span>
+      <span>不适用：该车间或机列不在本班应填范围</span>
+    </div>
 
     <div class="xt-filer-roster__progress" v-if="hasData">
       <VChart class="xt-filer-roster__progress-chart" :option="progressOption" :theme="chartTheme" autoresize />
@@ -116,6 +120,14 @@ function machineSummary(r) {
 .xt-filer-roster__title-text { font-size: var(--xt-text-base); font-weight: 850; color: var(--xt-text); }
 .xt-filer-roster__total { font-size: var(--xt-text-xs); color: var(--xt-text-muted); font-weight: 700; }
 .xt-filer-roster__legend { display: flex; gap: var(--xt-space-2); flex-wrap: wrap; }
+.xt-filer-roster__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xt-space-2);
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 700;
+}
 .xt-tag { font-size: var(--xt-text-xs); font-weight: 800; padding: 2px var(--xt-space-2); border-radius: var(--xt-radius-pill); border: 1px solid; }
 .xt-tag.tone-success { color: var(--xt-success); border-color: var(--xt-success-border); background: var(--xt-success-light); }
 .xt-tag.tone-warning { color: var(--xt-warning); border-color: var(--xt-warning-border); background: var(--xt-warning-light); }

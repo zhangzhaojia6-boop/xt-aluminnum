@@ -599,6 +599,56 @@ def test_entry_fields_uses_workshop_template_override_for_machine_operator(tmp_p
     assert first_fields[2]['label'] == '测试投入'
 
 
+def test_entry_fields_uses_base_template_config_when_workshop_has_no_override(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields-base-template.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])
+    session_factory = sessionmaker(bind=engine, future=True)
+
+    with session_factory() as db:
+        db.add(Workshop(id=2, code='ZR2', name='铸二车间', workshop_type='casting', sort_order=1, is_active=True))
+        db.add(
+            WorkshopTemplateConfig(
+                template_key='casting',
+                display_name='铸造基础模板',
+                tempo='slow',
+                supports_ocr=False,
+                entry_fields=[
+                    {'name': 'alloy_grade', 'label': '基础合金', 'type': 'text', 'required': True, 'enabled': True},
+                    {'name': 'input_weight', 'label': '基础投料', 'type': 'number', 'unit': 'kg', 'required': True, 'enabled': True},
+                    {'name': 'output_weight', 'label': '基础产出', 'type': 'number', 'unit': 'kg', 'required': True, 'enabled': True},
+                ],
+                extra_fields=[],
+                qc_fields=[],
+                readonly_fields=[],
+                is_active=True,
+            )
+        )
+        db.commit()
+
+        current_user = User(
+            id=21,
+            username='machine-21',
+            password_hash='x',
+            name='铸二车间 1#机',
+            role='machine_operator',
+            workshop_id=2,
+            is_mobile_user=True,
+            is_active=True,
+        )
+        payload = entry_fields(db=db, current_user=current_user)
+
+    first_fields = payload['groups'][0]['fields']
+    assert payload['workshop_type'] == 'casting'
+    assert [field['name'] for field in first_fields] == [
+        'tracking_card_no',
+        'alloy_grade',
+        'input_weight',
+        'output_weight',
+    ]
+    assert first_fields[1]['label'] == '基础合金'
+    assert first_fields[2]['label'] == '基础投料'
+
+
 def test_get_current_shift_shows_config_hint_when_no_shift(monkeypatch) -> None:
     current_user = User(
         id=19,

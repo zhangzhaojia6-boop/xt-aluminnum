@@ -21,10 +21,19 @@ from app.services.report._utils import _to_float
 DEFAULT_ELECTRICITY_PRICE = 0.65
 DEFAULT_GAS_PRICE = 3.60
 SHIFT_ORDER = ('C', 'A', 'B')
+SHIFT_LABELS = {'C': '大夜', 'A': '长白班', 'B': '小夜'}
+SHIFT_WINDOWS = {'C': '23:30-07:30', 'A': '07:30-15:30', 'B': '15:30-23:30'}
+PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES = {'FACTORY'}
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
     return {w.id: w.name for w in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()}
+
+
+def _is_production_shift_workshop(workshop: Workshop) -> bool:
+    code = str(getattr(workshop, 'code', '') or '').strip().upper()
+    name = str(getattr(workshop, 'name', '') or '').strip()
+    return code not in PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES and name != '全厂'
 
 
 def _round2(v: float | None) -> float | None:
@@ -476,6 +485,11 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
         item.id: item
         for item in db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     }
+    production_workshop_ids = {
+        int(item.id)
+        for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+        if _is_production_shift_workshop(item)
+    }
 
     def canonical_shift_code(meta: ShiftConfig | None) -> str | None:
         code = str(getattr(meta, 'code', '') or '').strip().upper()
@@ -488,6 +502,19 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
             return 'C'
         return None
 
+    def shift_meta_rank(meta: ShiftConfig | None, code: str) -> tuple[int, int]:
+        meta_code = str(getattr(meta, 'code', '') or '').strip().upper()
+        return (0 if meta_code == code else 1, int(getattr(meta, 'sort_order', 0) or 0))
+
+    canonical_meta: dict[str, ShiftConfig] = {}
+    for meta in shift_meta.values():
+        bucket = canonical_shift_code(meta)
+        if bucket is None:
+            continue
+        current = canonical_meta.get(bucket)
+        if current is None or shift_meta_rank(meta, bucket) < shift_meta_rank(current, bucket):
+            canonical_meta[bucket] = meta
+
     expected_workshops_by_shift: dict[str, set[int]] = {code: set() for code in SHIFT_ORDER}
     schedule_rows = (
         db.query(AttendanceSchedule.workshop_id, AttendanceSchedule.shift_config_id)
@@ -497,19 +524,23 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
             AttendanceSchedule.workshop_id.is_not(None),
             AttendanceSchedule.shift_config_id.is_not(None),
             Workshop.is_active.is_(True),
+            Workshop.code.notin_(tuple(PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES)),
         )
         .distinct()
         .all()
     )
     for row in schedule_rows:
         bucket = canonical_shift_code(shift_meta.get(int(row.shift_config_id)))
-        if bucket is None or row.workshop_id is None:
+        if bucket is None or row.workshop_id is None or int(row.workshop_id) not in production_workshop_ids:
             continue
         expected_workshops_by_shift[bucket].add(int(row.workshop_id))
 
     grouped: dict[str, dict[str, Any]] = {}
     for row in latest_rows:
         if row.shift_id is None:
+            continue
+        workshop_id = getattr(row, 'workshop_id', None)
+        if workshop_id is not None and int(workshop_id) not in production_workshop_ids:
             continue
         meta = shift_meta.get(int(row.shift_id))
         bucket = canonical_shift_code(meta)
@@ -528,7 +559,6 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
         payload['total_output'] += round((_to_float(getattr(row, 'output_weight', None)) / 1000), 2)
         payload['total_energy'] += round(_to_float(getattr(row, 'energy_kwh', None)), 1)
         payload['entry_count'] += 1
-        workshop_id = getattr(row, 'workshop_id', None)
         if workshop_id is not None:
             payload['workshop_ids'].add(int(workshop_id))
 
@@ -537,7 +567,7 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
     grand_energy = 0.0
     for code in SHIFT_ORDER:
         bucket = grouped.get(code) or {}
-        meta = bucket.get('meta')
+        meta = bucket.get('meta') or canonical_meta.get(code)
         total_output = round(float(bucket.get('total_output') or 0.0), 2)
         total_energy = round(float(bucket.get('total_energy') or 0.0), 1)
         entry_count = int(bucket.get('entry_count') or 0)
@@ -551,8 +581,8 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
             shift_window = f"{meta.start_time.strftime('%H:%M')}-{meta.end_time.strftime('%H:%M')}"
         shifts.append({
             'shift_code': code,
-            'shift_name': meta.name if meta is not None else code,
-            'shift_window': shift_window,
+            'shift_name': SHIFT_LABELS.get(code, meta.name if meta is not None else code),
+            'shift_window': shift_window or SHIFT_WINDOWS.get(code, ''),
             'shift_count': entry_count,
             'total_output': total_output,
             'reported_workshops': workshop_count,
