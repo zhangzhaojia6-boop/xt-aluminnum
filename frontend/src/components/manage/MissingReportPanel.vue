@@ -177,8 +177,10 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report--compact {
-  gap: 3px;
-  padding: 6px 8px;
+  grid-template-columns: minmax(140px, 1fr) auto;
+  align-items: start;
+  gap: 4px 8px;
+  padding: 5px 7px;
   border-radius: var(--xt-radius-md, 12px);
 }
 
@@ -200,13 +202,19 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
   font-size: 10px;
 }
 
+.xt-missing-report--compact .xt-missing-report__stats {
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 .xt-missing-report--compact .xt-missing-report__table {
-  max-height: 72px;
+  grid-column: 1 / -1;
+  max-height: 54px;
 }
 
 .xt-missing-report--compact th,
 .xt-missing-report--compact td {
-  padding: 3px 5px;
+  padding: 2px 5px;
   font-size: 10px;
 }
 

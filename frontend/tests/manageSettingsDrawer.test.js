@@ -137,7 +137,8 @@ test('ManageShell wires the settings drawer gear', () => {
 
   assert.match(src, /import\s+SettingsDrawer\s+from ['"]\.\.\/components\/manage\/SettingsDrawer\.vue['"]/)
   assert.match(src, /import\s+\{[^}]*Setting[^}]*\}\s+from ['"]@element-plus\/icons-vue['"]/)
-  assert.match(src, /aria-label=["']设置["']/)
+  assert.match(src, /v-if=["']!isMobileViewport["'][^>]*aria-label=["']设置["']/)
   assert.match(src, /settingsDrawerOpen\s*=\s*ref\(false\)/)
-  assert.match(src, /<SettingsDrawer\s+v-model:open=["']settingsDrawerOpen["']\s*\/>/)
+  assert.match(src, /<SettingsDrawer\s+v-if=["']!isMobileViewport["']\s+v-model:open=["']settingsDrawerOpen["']\s*\/>/)
+  assert.match(src, /if\s*\(\s*isMobileViewport\.value\s*\)\s*settingsDrawerOpen\.value\s*=\s*false/)
 })

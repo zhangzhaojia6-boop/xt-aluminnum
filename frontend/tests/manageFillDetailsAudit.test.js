@@ -283,7 +283,8 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
 
   assert.match(src, /compact/)
   assert.match(src, /xt-missing-report--compact/)
-  assert.match(src, /max-height:\s*72px/)
+  assert.match(src, /grid-template-columns:\s*minmax\(140px,\s*1fr\)\s*auto/)
+  assert.match(src, /max-height:\s*54px/)
 })
 
 test('WorkshopDashboardPage shows machine fill submit time', () => {

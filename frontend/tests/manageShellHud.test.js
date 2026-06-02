@@ -42,8 +42,9 @@ test('ManageShell brand lands on the owner today tab', () => {
 })
 
 test('ManageShell wires the settings drawer trigger', () => {
-  assert.match(src, /SettingsDrawer v-model:open="settingsDrawerOpen"/)
-  assert.match(src, /aria-label="设置" @click="settingsDrawerOpen = true"/)
+  assert.match(src, /SettingsDrawer v-if="!isMobileViewport" v-model:open="settingsDrawerOpen"/)
+  assert.match(src, /v-if="!isMobileViewport" class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true"/)
+  assert.match(src, /if \(isMobileViewport\.value\) settingsDrawerOpen\.value = false/)
 })
 
 test('ManageShell adapts sidebar state to viewport width', () => {

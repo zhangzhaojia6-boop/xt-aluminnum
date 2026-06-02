@@ -62,7 +62,7 @@
           <kbd>Ctrl K</kbd>
         </button>
         <div class="xt-manage__topbar-right">
-          <button class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true">
+          <button v-if="!isMobileViewport" class="xt-manage__settings-trigger" type="button" aria-label="设置" @click="settingsDrawerOpen = true">
             <el-icon><Setting /></el-icon>
           </button>
           <button class="xt-manage__assistant-trigger" type="button" @click="openAssistantFromTopbar">
@@ -150,7 +150,7 @@
       :initial-prompt="assistantInitialPrompt"
       @prompt-consumed="assistantInitialPrompt = ''"
     />
-    <SettingsDrawer v-model:open="settingsDrawerOpen" />
+    <SettingsDrawer v-if="!isMobileViewport" v-model:open="settingsDrawerOpen" />
   </div>
 </template>
 
@@ -235,6 +235,7 @@ function syncSidebarViewport() {
   isAutoRail.value = width <= SIDEBAR_RAIL_BREAKPOINT && width > SIDEBAR_MOBILE_BREAKPOINT
   isCompactTopbar.value = width <= TOPBAR_COMPACT_BREAKPOINT
   if (!isMobileViewport.value) drawerOpen.value = false
+  if (isMobileViewport.value) settingsDrawerOpen.value = false
 }
 
 function logout() {

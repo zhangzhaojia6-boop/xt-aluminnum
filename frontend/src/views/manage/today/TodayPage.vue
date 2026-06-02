@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
@@ -182,6 +182,7 @@ import { fetchTimeseries } from '../../../api/dashboard.js'
 import { fetchLiveAggregation } from '../../../api/realtime.js'
 import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
+import { isCompactClient } from '../../../router/guardRules.js'
 import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 import {
   buildDailyComparisonCards,
@@ -199,6 +200,11 @@ const userList = ref([])
 const rosterOpen = ref(false)
 const liveAggregation = ref({})
 const liveLoading = ref(false)
+const compactClient = ref(isCompactClient())
+
+function syncCompactClient() {
+  compactClient.value = isCompactClient()
+}
 
 async function loadTrend(targetDate) {
   try {
@@ -320,11 +326,14 @@ const quickLinks = computed(() => {
   const links = [
     { label: '实时', path: '/manage/live' },
     { label: '日报', path: '/manage/today?section=daily-report' },
+  ]
+  if (compactClient.value) return links
+  links.push(
     { label: '生产', path: '/manage/production' },
     { label: '填报明细', path: '/manage/fill-details' },
     { label: '异常', path: '/manage/alerts' },
     { label: '能耗', path: '/manage/energy' },
-  ]
+  )
   if (auth.adminSurface) {
     links.push(
       { label: '主数据', path: '/manage/master' },
@@ -334,6 +343,14 @@ const quickLinks = computed(() => {
     )
   }
   return links
+})
+
+onMounted(() => {
+  syncCompactClient()
+  window.addEventListener('resize', syncCompactClient, { passive: true })
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncCompactClient)
 })
 </script>
 

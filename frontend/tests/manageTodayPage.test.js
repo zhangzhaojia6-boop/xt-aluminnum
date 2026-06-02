@@ -39,6 +39,15 @@ test('TodayPage exposes core page entrances including admin settings', () => {
   assert.equal(/\/manage\/reports/.test(src), false)
 })
 
+test('TodayPage trims quick entrances on compact management clients', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /import\s+\{\s*isCompactClient\s*\}\s+from ['"]\.\.\/\.\.\/\.\.\/router\/guardRules\.js['"]/)
+  assert.match(src, /const compactClient = ref\(isCompactClient\(\)\)/)
+  assert.match(src, /if\s*\(\s*compactClient\.value\s*\)\s*return links/)
+  assert.match(src, /window\.addEventListener\(['"]resize['"],\s*syncCompactClient/)
+  assert.match(src, /window\.removeEventListener\(['"]resize['"],\s*syncCompactClient/)
+})
+
 test('TodayPage 数字卡 not bound to click handlers', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   // KpiBar usage in template should not have @click
