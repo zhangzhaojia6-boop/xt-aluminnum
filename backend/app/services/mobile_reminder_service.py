@@ -23,7 +23,7 @@ LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 READY_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 READY_OWNER_DAILY_STATUSES = {'submitted', 'verified', 'approved'}
 OPEN_REMINDER_STATUSES = {'pending', 'sent', 'acknowledged'}
-MOBILE_ROLE_NAMES = {'machine_operator', 'energy_stat', 'mobile_user'}
+MOBILE_ROLE_NAMES = {'machine_operator', 'energy_stat'}
 OWNER_DAILY_ENTRY_TYPE = 'owner_daily'
 OWNER_DAILY_ROLE_LABELS = {
     'consumable_stat': '内勤',
@@ -174,7 +174,7 @@ def _leader_map_for_rows(db: Session, *, expected_rows: list) -> tuple[dict[tupl
         query = query.filter(User.workshop_id.in_(workshop_ids))
     if team_ids:
         query = query.filter(or_(User.team_id.in_(team_ids), User.team_id.is_(None)))
-    query = query.filter(or_(User.is_mobile_user.is_(True), User.role.in_(tuple(MOBILE_ROLE_NAMES))))
+    query = query.filter(User.role.in_(tuple(MOBILE_ROLE_NAMES)))
     users = query.order_by(User.id.asc()).all()
 
     leader_map: dict[tuple[int, int | None], int] = {}

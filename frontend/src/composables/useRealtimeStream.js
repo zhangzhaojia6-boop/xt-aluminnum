@@ -85,11 +85,13 @@ export function useRealtimeStream(scopeSource, options = {}) {
 
   let abortController = null
   let reconnectTimer = null
+  let connectTimer = null
   let reconnectDelay = 1000
   let lastEventId = ''
   let disposed = false
 
   const enabled = computed(() => options.enabled !== false)
+  const connectionTimeoutMs = Number(options.connectionTimeoutMs ?? 8000)
 
   function clearReconnectTimer() {
     if (!reconnectTimer) return
@@ -97,7 +99,14 @@ export function useRealtimeStream(scopeSource, options = {}) {
     reconnectTimer = null
   }
 
+  function clearConnectTimer() {
+    if (!connectTimer) return
+    window.clearTimeout(connectTimer)
+    connectTimer = null
+  }
+
   function cleanupStream() {
+    clearConnectTimer()
     if (!abortController) return
     abortController.abort()
     abortController = null
@@ -152,6 +161,13 @@ export function useRealtimeStream(scopeSource, options = {}) {
     })
 
     status.value = 'connecting'
+    if (connectionTimeoutMs > 0) {
+      connectTimer = window.setTimeout(() => {
+        if (abortController === controller && status.value === 'connecting') {
+          controller.abort()
+        }
+      }, connectionTimeoutMs)
+    }
 
     try {
       const response = await fetch(request.url, {
@@ -169,6 +185,7 @@ export function useRealtimeStream(scopeSource, options = {}) {
         throw new Error('实时流不可用')
       }
 
+      clearConnectTimer()
       status.value = 'open'
       reconnectDelay = 1000
 
@@ -200,6 +217,7 @@ export function useRealtimeStream(scopeSource, options = {}) {
         options.onError(error)
       }
     } finally {
+      clearConnectTimer()
       if (abortController === controller) {
         abortController = null
         if (!disposed && enabled.value && authStore.token) {

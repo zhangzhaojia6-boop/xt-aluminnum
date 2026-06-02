@@ -121,5 +121,5 @@ def _build_admin_modules(*, target_date: date) -> list[CommandModuleOut]:
         _module(module_id='06', title='数据接入与字段映射中心', surface='admin', status_summary=['导入、映射、错误解释统一管理。']),
         _module(module_id='12', title='系统运维与观测', surface='admin', status_summary=[f'{target_date.isoformat()} 探针与实时运营合并展示。']),
         _module(module_id='13', title='权限与治理中心', surface='admin', status_summary=['角色矩阵、数据范围和账号分布统一治理。']),
-        _module(module_id='14', title='主数据与模板中心', surface='admin', status_summary=['字段模板、车间主数据、录入口径统一维护。']),
+        _module(module_id='14', title='主数据中心', surface='admin', status_summary=['车间、班组、机台和录入口径统一维护。']),
     ]

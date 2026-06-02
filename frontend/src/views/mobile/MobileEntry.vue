@@ -170,8 +170,6 @@ import ReminderList from './ReminderList.vue'
 usePerformance('MobileEntry')
 
 const ROLE_COLOR_MAP = {
-  shift_leader: 'var(--m-role-operator)',
-  mobile_user: 'var(--m-role-operator)',
   machine_operator: 'var(--m-role-operator)',
   energy_stat: 'var(--m-role-energy)',
   consumable_stat: 'var(--m-role-consumable)',

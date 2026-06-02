@@ -31,7 +31,6 @@ const AiWorkstation = () => import('../views/ai/AiWorkstation.vue')
 const Workshop = () => import('../views/master/Workshop.vue')
 const AliasMapping = () => import('../views/master/AliasMapping.vue')
 const UserManagement = () => import('../views/master/UserManagement.vue')
-const WorkshopTemplateConfig = () => import('../views/master/WorkshopTemplateConfig.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboardPage = () => import('../views/manage/live/LiveDashboardPage.vue')
 const EnergyCenter = () => import('../views/energy/EnergyCenter.vue')
@@ -132,7 +131,7 @@ const rawRoutes = [
       { path: 'reports', name: 'review-report-center', component: ReportList, meta: { ...reviewMeta, title: '日报与交付中心', centerNo: '08', canonical: '/manage/reports' } },
       { path: 'reports/detail/:id', name: 'report-detail', redirect: { name: 'manage-today' }, meta: { ...reviewMeta, title: '日报详情', canonical: '/manage/today' } },
       { path: 'ingestion', name: 'admin-ingestion-center', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '数据导入已停用', centerNo: '06', canonical: '/manage/admin/settings' } },
-      { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据与模板中心', centerNo: '14', canonical: '/manage/master' } },
+      { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据中心', centerNo: '14', canonical: '/manage/master' } },
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
       { path: 'imports', name: 'manage-imports', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '导入历史已停用', canonical: '/manage/admin/settings' } },
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
@@ -146,7 +145,7 @@ const rawRoutes = [
       { path: 'admin/settings', name: 'admin-ops-reliability', component: SystemSettingsPage, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },
       { path: 'admin/governance', name: 'admin-governance-center', component: GovernanceCenter, meta: { ...adminMeta, title: '权限与治理中心', centerNo: '13', canonical: '/manage/admin/governance' } },
-      { path: 'admin/templates', name: 'admin-template-center', component: WorkshopTemplateConfig, meta: { ...adminMeta, title: '模板中心', centerNo: '14', canonical: '/manage/admin/templates' } },
+      { path: 'admin/templates', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/rules', name: 'admin-rule-config-center', component: RuleConfigCenter, meta: { ...adminMeta, title: '规则配置', centerNo: '14', canonical: '/manage/admin/rules' } },
       { path: 'admin/ops', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/master', redirect: { name: 'admin-master-workshop' } },
@@ -164,7 +163,7 @@ const rawRoutes = [
   { path: '/review/ingestion', name: 'review-ingestion-center', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/ops', name: 'review-ops-reliability', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/governance', name: 'review-governance-center', redirect: preserveRouteState('/manage/admin/governance') },
-  { path: '/review/templates', name: 'review-template-center', redirect: preserveRouteState('/manage/admin/templates') },
+  { path: '/review/templates', name: 'review-template-center', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/review/cost-accounting', redirect: preserveRouteState('/manage/today') },
   { path: '/review/cost', redirect: preserveRouteState('/manage/today') },
   { path: '/review/roadmap', redirect: preserveRouteState('/manage/today') },
@@ -178,8 +177,8 @@ const rawRoutes = [
   { path: '/admin/ingestion', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/master', redirect: preserveRouteState('/manage/master') },
   { path: '/admin/master/workshop', redirect: preserveRouteState('/manage/master') },
-  { path: '/admin/master/templates', redirect: preserveRouteState('/manage/admin/templates') },
-  { path: '/admin/templates', redirect: preserveRouteState('/manage/admin/templates') },
+  { path: '/admin/master/templates', redirect: preserveRouteState('/manage/admin/settings') },
+  { path: '/admin/templates', redirect: preserveRouteState('/manage/admin/settings') },
   { path: '/admin/rules', redirect: preserveRouteState('/manage/admin/rules') },
   { path: '/admin/users', redirect: preserveRouteState('/manage/admin/users') },
   { path: '/admin/governance', redirect: preserveRouteState('/manage/admin/governance') },
@@ -227,9 +226,9 @@ const rawRoutes = [
   { path: '/master/users', name: 'master-users', redirect: '/manage/admin/users' },
   { path: '/master/shift-config', name: 'master-shift-config', redirect: '/manage/master' },
   { path: '/master/alias', name: 'master-alias', redirect: '/manage/alias' },
-  { path: '/master/yield-rate-map', name: 'master-yield-rate-map', redirect: '/manage/admin/templates' },
-  { path: '/master/workshop-template', name: 'master-workshop-template', redirect: '/manage/admin/templates' },
-  { path: '/master/workshop-templates', redirect: '/manage/admin/templates' },
+  { path: '/master/yield-rate-map', name: 'master-yield-rate-map', redirect: '/manage/admin/rules' },
+  { path: '/master/workshop-template', name: 'master-workshop-template', redirect: '/manage/admin/settings' },
+  { path: '/master/workshop-templates', redirect: '/manage/admin/settings' },
   { path: '/master/rules', redirect: '/manage/admin/rules' },
   { path: '/', redirect: '/manage/today' },
   { path: '/:pathMatch(.*)*', redirect: '/manage/today' }

@@ -350,7 +350,7 @@ def test_shift_breakdown_counts_distinct_workshops_not_coils(monkeypatch) -> Non
     payload = daily_overview_builder._build_shift_breakdown(FakeDB(), date(2026, 5, 29))
 
     by_code = {item['shift_code']: item for item in payload['shifts']}
-    assert [item['shift_code'] for item in payload['shifts']] == ['C', 'A', 'B']
+    assert [item['shift_code'] for item in payload['shifts']] == ['A', 'B', 'C']
     assert by_code['A']['shift_count'] == 3
     assert by_code['A']['reported_workshops'] == 2
     assert by_code['A']['expected_workshops'] == 2

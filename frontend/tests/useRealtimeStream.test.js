@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { buildRealtimeStreamRequest, parseSseChunk } from '../src/composables/useRealtimeStream.js'
+
+function source(rel) {
+  return readFileSync(new URL(rel, import.meta.url), 'utf8')
+}
 
 test('buildRealtimeStreamRequest keeps token out of the URL and uses Authorization header', () => {
   global.window = {
@@ -41,4 +46,20 @@ test('parseSseChunk emits complete events and keeps partial frames buffered', ()
     data: '{"tracking_card_no":"RA260001"}'
   })
   assert.equal(secondPass.buffer, '')
+})
+
+test('useRealtimeStream aborts a stuck connecting stream so the page can fall back', () => {
+  const src = source('../src/composables/useRealtimeStream.js')
+
+  assert.match(src, /connectionTimeoutMs/)
+  assert.match(src, /status\.value === 'connecting'/)
+  assert.match(src, /controller\.abort\(\)/)
+})
+
+test('LiveDashboardPage polls snapshots when the realtime stream is not open', () => {
+  const src = source('../src/views/manage/live/LiveDashboardPage.vue')
+
+  assert.match(src, /SNAPSHOT_POLL_MS/)
+  assert.match(src, /streamStatus\.value !== 'open'/)
+  assert.match(src, /快照刷新中/)
 })

@@ -5,7 +5,6 @@ export const SETTINGS_GROUPS = [
       { title: '主数据', path: '/manage/master', access: 'admin' },
       { title: '别名映射', path: '/manage/alias', access: 'admin' },
       { title: '系统设置', path: '/manage/admin/settings', access: 'admin' },
-      { title: '模板', path: '/manage/admin/templates', access: 'admin' },
       { title: '规则', path: '/manage/admin/rules', access: 'admin' }
     ]
   },

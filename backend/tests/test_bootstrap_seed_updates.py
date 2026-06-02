@@ -70,8 +70,24 @@ def test_seed_shift_configs_updates_existing_shift_name_and_times() -> None:
     assert str(existing.end_time) == '15:30:00'
     assert existing.is_cross_day is False
     assert existing.business_day_offset == 0
-    assert existing.sort_order == 2
+    assert existing.sort_order == 1
     assert existing.is_active is True
+
+
+def test_seed_shift_configs_disables_legacy_duplicate_shift_codes() -> None:
+    legacy_day = SimpleNamespace(code='DAY', name='白班', is_active=True)
+    legacy_mid = SimpleNamespace(code='MID', name='中班', is_active=True)
+    legacy_night = SimpleNamespace(code='NIGHT', name='夜班', is_active=True)
+    db = _FakeDB({ShiftConfig: [legacy_day, legacy_mid, legacy_night]})
+
+    seed_shift_configs(db)
+
+    assert legacy_day.is_active is False
+    assert legacy_day.name == '长白班'
+    assert legacy_mid.is_active is False
+    assert legacy_mid.name == '小夜班'
+    assert legacy_night.is_active is False
+    assert legacy_night.name == '大夜班'
 
 
 def test_seed_field_mapping_templates_updates_existing_template_text() -> None:

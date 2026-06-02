@@ -19,30 +19,25 @@ from app.models.system import User
 
 
 MOBILE_ROLES = {
-    "team_leader",
-    "deputy_leader",
-    "mobile_user",
-    "shift_leader",
-    "qc",
+    "machine_operator",
     "energy_stat",
-    "maintenance_lead",
-    "contracts",
-    "inventory_keeper",
-    "utility_manager",
+    "consumable_stat",
+    "quality_owner",
+    "planning_owner",
+    "energy_chief",
+    "storage_owner",
+    "shipment_outflow_owner",
+    "recovery_owner",
+    "overhaul_owner",
 }
 
 FACTORY_WIDE_MOBILE_ROLES = {
     "admin",
-    "manager",
-    "factory_director",
-    "factory_manager",
-    "senior_manager",
-    "stat",
-    "statistician",
+    "workshop_director",
 }
 
-OWNER_WORKSHOP_BINDING_ROLES = {"contracts", "inventory_keeper", "utility_manager"}
-FACTORY_OWNER_BINDING_USERNAMES = {"FACTORY-CT", "FACTORY-IK", "FACTORY-UM"}
+OWNER_WORKSHOP_BINDING_ROLES = {"storage_owner", "planning_owner", "energy_chief"}
+FACTORY_OWNER_BINDING_USERNAMES = {"CPK-FS", "CPK-PL", "CPK-EC"}
 
 
 def _mobile_user_requires_workshop(user: Any) -> bool:
@@ -333,16 +328,22 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
     mobile_users = (
         db.query(User)
         .filter(User.is_active.is_(True))
-        .filter((User.is_mobile_user.is_(True)) | (User.role.in_(tuple(MOBILE_ROLES))))
+        .filter(User.role.in_(tuple(MOBILE_ROLES)))
         .all()
     )
+    mobile_users = [
+        user
+        for user in mobile_users
+        if str(getattr(user, "role", "") or "").strip().lower() in MOBILE_ROLES
+        and getattr(user, "is_active", True)
+    ]
     if not mobile_users:
         issues.append(
             _issue(
                 level="hard",
                 code="NO_MOBILE_USER",
                 message="未找到可用于现场填报的启用账号。",
-                suggestion="请至少配置一个启用中的移动填报账号（班长/机台账号）。",
+                suggestion="请至少配置一个启用中的移动填报账号（机台主操/电工/内勤）。",
             )
         )
     else:

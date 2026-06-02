@@ -26,7 +26,7 @@ def test_extract_fields_uses_numeric_regex_for_template_fields(monkeypatch) -> N
     monkeypatch.setattr('app.services.ocr_service.preprocess_image', lambda _image_bytes: object())
     monkeypatch.setattr(
         'app.services.ocr_service.get_workshop_template',
-        lambda workshop_type, user_role=None: {
+        lambda workshop_type, user_role=None, db=None: {
             'entry_fields': [
                 {'name': 'input_weight', 'label': '投入铝锭重量', 'type': 'number'},
                 {'name': 'output_weight', 'label': '铸锭产出重量', 'type': 'number'},

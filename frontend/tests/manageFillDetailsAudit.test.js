@@ -152,11 +152,13 @@ test('fill ledger search matches responsible person, machine and tracking card',
   const rows = buildFillLedgerRows([
     { row_id: 'a', source_type: 'owner_daily', responsible_name: '张三', machine_name: '内勤岗' },
     { row_id: 'b', source_type: 'work_order_entry', responsible_name: '李四', machine_name: '1#退火炉', tracking_card_no: 'TX-001' },
+    { row_id: 'c', source_type: 'mes_projection', responsible_name: '外部 MES', machine_name: 'MES 机列' },
   ])
 
   assert.deepEqual(filterFillLedgerRows(rows, { keyword: '张三' }).map((row) => row.rowId), ['a'])
   assert.deepEqual(filterFillLedgerRows(rows, { keyword: 'TX-001' }).map((row) => row.rowId), ['b'])
   assert.deepEqual(filterFillLedgerRows(rows, { sourceType: 'owner_daily' }).map((row) => row.rowId), ['a'])
+  assert.deepEqual(rows.map((row) => row.rowId), ['a', 'b'])
 })
 
 test('issue queues surface pending assignment, missing owner roles, energy gaps and MES gaps', () => {
@@ -214,6 +216,8 @@ test('FillDetailsPage is wired to the three audit data sources', () => {
   assert.match(src, /data-testid="data-audit-ticker"/)
   assert.match(src, /data-testid="source-chain-panel"/)
   assert.match(src, /data-testid="issue-queue-panel"/)
+  assert.doesNotMatch(src, /外部 MES/)
+  assert.doesNotMatch(src, /value:\s*'mes_projection'/)
 })
 
 test('missing report rows are precise to machine shift and owner role', () => {

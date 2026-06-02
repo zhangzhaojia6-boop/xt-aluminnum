@@ -159,10 +159,8 @@ def preprocess_image(image_bytes: bytes) -> np.ndarray:
 
 
 def _collect_template_fields(workshop_template_type: str, *, db: Session | None = None) -> list[dict[str, Any]]:
-    if db is None:
-        template = get_workshop_template(workshop_template_type, user_role='shift_leader')
-    else:
-        template = get_workshop_template(workshop_template_type, user_role='shift_leader', db=db)
+    _ = db
+    template = get_workshop_template(workshop_template_type, user_role='machine_operator', db=None)
     if template.get('supports_ocr') is False:
         raise _http_error(status.HTTP_400_BAD_REQUEST, 'workshop template does not support OCR')
     return [

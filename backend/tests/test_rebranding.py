@@ -13,9 +13,9 @@ def _repo_root():
 def test_bootstrap_defaults_use_xintai_branding_and_chinese_shift_labels() -> None:
     assert bootstrap.DEFAULT_SYSTEM_CONFIGS[0] == ('system_name', '河南鑫泰铝业生产管理系统', '系统显示名称')
     assert bootstrap.DEFAULT_SHIFT_CONFIGS == [
-        ('C', '大夜', 'night', bootstrap.time(23, 30), bootstrap.time(7, 30), True, -1, 1),
-        ('A', '长白班', 'day', bootstrap.time(7, 30), bootstrap.time(15, 30), False, 0, 2),
-        ('B', '小夜', 'evening', bootstrap.time(15, 30), bootstrap.time(23, 30), False, 0, 3),
+        ('A', '长白班', 'day', bootstrap.time(7, 30), bootstrap.time(15, 30), False, 0, 1),
+        ('B', '小夜班', 'evening', bootstrap.time(15, 30), bootstrap.time(23, 30), False, 0, 2),
+        ('C', '大夜班', 'night', bootstrap.time(23, 30), bootstrap.time(7, 30), True, 0, 3),
     ]
 
     template_names = {item['template_code']: item['template_name'] for item in bootstrap.DEFAULT_FIELD_MAPPING_TEMPLATES}

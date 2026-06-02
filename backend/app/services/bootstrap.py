@@ -17,10 +17,12 @@ DEFAULT_SYSTEM_CONFIGS = [
 ]
 
 DEFAULT_SHIFT_CONFIGS = [
-    ('C', '大夜', 'night', time(23, 30), time(7, 30), True, -1, 1),
-    ('A', '长白班', 'day', time(7, 30), time(15, 30), False, 0, 2),
-    ('B', '小夜', 'evening', time(15, 30), time(23, 30), False, 0, 3),
+    ('A', '长白班', 'day', time(7, 30), time(15, 30), False, 0, 1),
+    ('B', '小夜班', 'evening', time(15, 30), time(23, 30), False, 0, 2),
+    ('C', '大夜班', 'night', time(23, 30), time(7, 30), True, 0, 3),
 ]
+
+LEGACY_SHIFT_CONFIG_CODES = {'DAY', 'MID', 'NIGHT'}
 
 DEFAULT_FIELD_MAPPING_TEMPLATES = [
     {
@@ -152,6 +154,16 @@ def seed_system_configs(db: Session) -> None:
 
 def seed_shift_configs(db: Session) -> None:
     existing = {item.code: item for item in db.query(ShiftConfig).all()}
+    for code in LEGACY_SHIFT_CONFIG_CODES:
+        item = existing.get(code)
+        if item is not None:
+            item.is_active = False
+            if code == 'DAY':
+                item.name = '长白班'
+            elif code == 'MID':
+                item.name = '小夜班'
+            elif code == 'NIGHT':
+                item.name = '大夜班'
     for code, name, shift_type, start_time, end_time, is_cross_day, offset, sort_order in DEFAULT_SHIFT_CONFIGS:
         item = existing.get(code)
         if item is None:

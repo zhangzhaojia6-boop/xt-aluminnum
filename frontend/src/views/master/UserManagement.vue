@@ -228,22 +228,17 @@ const route = useRoute()
 
 const roleOptions = [
   { value: 'admin', label: '系统管理员' },
-  { value: 'factory_director', label: '厂长' },
-  { value: 'senior_manager', label: '高级管理' },
-  { value: 'manager', label: '车间管理者' },
   { value: 'workshop_director', label: '车间主任' },
-  { value: 'energy_stat', label: '电工' },
   { value: 'machine_operator', label: '主操' },
+  { value: 'energy_stat', label: '车间电工' },
   { value: 'consumable_stat', label: '生产内勤' },
-  { value: 'quality_owner', label: '质检内勤 owner' },
-  { value: 'planning_owner', label: '计划内勤 owner' },
-  { value: 'energy_chief', label: '总电工 owner' },
-  { value: 'storage_owner', label: '成品库 owner' },
-  { value: 'shipment_outflow_owner', label: '园区剪切 owner' },
-  { value: 'recovery_owner', label: '回收 owner' },
-  { value: 'overhaul_owner', label: '大修 owner' },
-  { value: 'statistician', label: '观察角色（旧总统计兼容）' },
-  { value: 'reviewer', label: '观察角色（旧审核兼容）' }
+  { value: 'quality_owner', label: '全厂质检内勤' },
+  { value: 'planning_owner', label: '全厂计划内勤' },
+  { value: 'energy_chief', label: '全厂总电工' },
+  { value: 'storage_owner', label: '成品库内勤' },
+  { value: 'shipment_outflow_owner', label: '园区剪切内勤' },
+  { value: 'recovery_owner', label: '回收内勤' },
+  { value: 'overhaul_owner', label: '大修内勤' }
 ]
 
 const loading = ref(false)

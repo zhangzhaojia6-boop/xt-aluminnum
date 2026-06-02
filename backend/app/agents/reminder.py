@@ -15,7 +15,6 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.agents.base import AgentAction, AgentDecision, BaseAgent
@@ -30,7 +29,7 @@ from app.core.business_time import local_now, resolve_owner_daily_business_date,
 from app.services.mobile_reminder_service import _owner_daily_candidates, _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
-MOBILE_ROLE_NAMES = {"machine_operator", "energy_stat", "mobile_user"}
+MOBILE_ROLE_NAMES = {"machine_operator", "energy_stat"}
 
 
 def _resolve_notify_identity(user: User) -> tuple[str, str]:
@@ -90,7 +89,7 @@ class ReminderAgent(BaseAgent):
         base_query = db.query(User).filter(
             User.is_active.is_(True),
             User.workshop_id == workshop_id,
-            or_(User.is_mobile_user.is_(True), User.role.in_(tuple(MOBILE_ROLE_NAMES))),
+            User.role.in_(tuple(MOBILE_ROLE_NAMES)),
         )
         if team_id is not None:
             leader = (

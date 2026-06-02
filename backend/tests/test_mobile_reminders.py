@@ -82,11 +82,11 @@ def test_auto_confirmed_shift_does_not_generate_reminder() -> None:
     assert candidates == []
 
 
-def test_owner_daily_missing_is_not_late_before_nine(tmp_path) -> None:
+def test_owner_daily_missing_is_not_late_before_ten(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'owner-daily-reminder.db'}", future=True)
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
-    db.add(ShiftConfig(id=1, code='C', name='大夜', shift_type='night', start_time=time(23, 30), end_time=time(7, 30), is_cross_day=True, business_day_offset=-1, sort_order=1))
+    db.add(ShiftConfig(id=1, code='C', name='大夜', shift_type='night', start_time=time(23, 30), end_time=time(7, 30), is_cross_day=True, business_day_offset=0, sort_order=3))
     db.add(User(id=10, username='electrician', password_hash='x', name='总电工', role='energy_chief', workshop_id=1, is_mobile_user=True, is_active=True))
     db.commit()
 
@@ -94,17 +94,17 @@ def test_owner_daily_missing_is_not_late_before_nine(tmp_path) -> None:
         db,
         business_date=date(2026, 5, 29),
         scope_summary=SimpleNamespace(is_admin=True, data_scope_type='all', workshop_id=None, team_id=None),
-        now=datetime(2026, 5, 30, 8, 30, tzinfo=LOCAL_TZ),
+        now=datetime(2026, 5, 30, 9, 30, tzinfo=LOCAL_TZ),
     )
 
     assert candidates[0]['reminder_type'] == 'daily_unreported'
 
 
-def test_owner_daily_missing_is_late_after_nine(tmp_path) -> None:
+def test_owner_daily_missing_is_late_after_ten(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'owner-daily-late-reminder.db'}", future=True)
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
-    db.add(ShiftConfig(id=1, code='C', name='大夜', shift_type='night', start_time=time(23, 30), end_time=time(7, 30), is_cross_day=True, business_day_offset=-1, sort_order=1))
+    db.add(ShiftConfig(id=1, code='C', name='大夜', shift_type='night', start_time=time(23, 30), end_time=time(7, 30), is_cross_day=True, business_day_offset=0, sort_order=3))
     db.add(User(id=10, username='electrician', password_hash='x', name='总电工', role='energy_chief', workshop_id=1, is_mobile_user=True, is_active=True))
     db.commit()
 
@@ -112,7 +112,7 @@ def test_owner_daily_missing_is_late_after_nine(tmp_path) -> None:
         db,
         business_date=date(2026, 5, 29),
         scope_summary=SimpleNamespace(is_admin=True, data_scope_type='all', workshop_id=None, team_id=None),
-        now=datetime(2026, 5, 30, 9, 1, tzinfo=LOCAL_TZ),
+        now=datetime(2026, 5, 30, 10, 1, tzinfo=LOCAL_TZ),
     )
 
     assert candidates[0]['reminder_type'] == 'daily_late_report'

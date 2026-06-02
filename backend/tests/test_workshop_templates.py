@@ -34,7 +34,7 @@ def test_resolve_workshop_type_infers_real_factory_workshops(
 
 
 def test_cold_roll_template_matches_paper_report_fields() -> None:
-    template = get_workshop_template('cold_roll', user_role='shift_leader')
+    template = get_workshop_template('cold_roll', user_role='machine_operator')
 
     assert template['display_name'] == '冷轧车间'
     assert template['tempo'] == 'fast'
@@ -67,7 +67,7 @@ def test_cold_roll_template_matches_paper_report_fields() -> None:
 
 
 def test_hot_roll_template_supports_ocr_and_uses_real_fields() -> None:
-    template = get_workshop_template('hot_roll', user_role='shift_leader')
+    template = get_workshop_template('hot_roll', user_role='machine_operator')
 
     assert template['display_name'] == '热轧车间'
     assert template['tempo'] == 'fast'
@@ -145,20 +145,19 @@ def test_casting_config_cannot_drop_machine_output_field() -> None:
         'scrap_weight',
         'skin_weight',
         'output_weight',
-        'quality_issue_type',
     ]
 
 
-def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_it_to_contracts() -> None:
-    shift_leader_template = get_workshop_template('finishing', user_role='shift_leader')
+def test_finishing_template_hides_contract_field_from_machine_operator_and_exposes_it_to_contracts() -> None:
+    machine_operator_template = get_workshop_template('finishing', user_role='machine_operator')
     contracts_template = get_workshop_template('finishing', user_role='contracts')
 
-    shift_leader_extra_names = [field['name'] for field in shift_leader_template['extra_fields']]
-    shift_leader_shift_names = [field['name'] for field in shift_leader_template['shift_fields']]
+    machine_operator_extra_names = [field['name'] for field in machine_operator_template['extra_fields']]
+    machine_operator_shift_names = [field['name'] for field in machine_operator_template['shift_fields']]
     contracts_extra_names = [field['name'] for field in contracts_template['extra_fields']]
-    shift_leader_entry_names = [field['name'] for field in shift_leader_template['entry_fields']]
+    machine_operator_entry_names = [field['name'] for field in machine_operator_template['entry_fields']]
 
-    assert shift_leader_entry_names == [
+    assert machine_operator_entry_names == [
         'tracking_card_no',
         'input_spec',
         'alloy_grade',
@@ -166,15 +165,15 @@ def test_finishing_template_hides_contract_field_from_shift_leader_and_exposes_i
         'input_weight',
         'output_weight',
     ]
-    assert shift_leader_shift_names == []
-    assert shift_leader_extra_names == []
-    assert 'customer_name' not in shift_leader_extra_names
+    assert machine_operator_shift_names == []
+    assert machine_operator_extra_names == []
+    assert 'customer_name' not in machine_operator_extra_names
     assert contracts_extra_names == ['contract_no', 'customer_name', 'contract_weight']
     assert contracts_template['extra_fields'][0]['editable'] is True
 
 
 def test_casting_template_is_slow_and_includes_actual_extra_fields() -> None:
-    template = get_workshop_template('casting', user_role='shift_leader')
+    template = get_workshop_template('casting', user_role='machine_operator')
 
     assert template['display_name'] == '铸造车间'
     assert template['tempo'] == 'slow'
@@ -189,7 +188,6 @@ def test_casting_template_is_slow_and_includes_actual_extra_fields() -> None:
         'paper_furnace',
         'static_furnace',
         'output_weight',
-        'gas_consumption',
     ]
     assert next(field for field in template['entry_fields'] if field['name'] == 'output_weight')['label'] == '单机产量'
     assert [field['name'] for field in template['shift_fields']] == []
@@ -197,12 +195,12 @@ def test_casting_template_is_slow_and_includes_actual_extra_fields() -> None:
 
 
 def test_phase1_templates_split_owner_fields_for_energy_qc_and_contract_roles() -> None:
-    shift_leader_template = get_workshop_template('hot_roll', user_role='shift_leader')
+    machine_operator_template = get_workshop_template('hot_roll', user_role='machine_operator')
     energy_template = get_workshop_template('hot_roll', user_role='energy_stat')
     qc_template = get_workshop_template('hot_roll', user_role='qc')
     contracts_template = get_workshop_template('hot_roll', user_role='contracts')
 
-    assert 'energy_kwh' not in [field['name'] for field in shift_leader_template['extra_fields']]
+    assert 'energy_kwh' not in [field['name'] for field in machine_operator_template['extra_fields']]
     assert [field['name'] for field in energy_template['extra_fields']] == ['energy_kwh', 'gas_m3', 'energy_note']
     assert [field['name'] for field in qc_template['qc_fields']] == ['plant_wide_yield_rate']
     assert [field['name'] for field in contracts_template['extra_fields']] == [

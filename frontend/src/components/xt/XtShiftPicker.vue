@@ -28,9 +28,9 @@ const props = defineProps({
   shifts: {
     type: Array,
     default: () => [
-      { label: '大夜', value: 'C' },
       { label: '长白班', value: 'A' },
-      { label: '小夜', value: 'B' }
+      { label: '小夜班', value: 'B' },
+      { label: '大夜班', value: 'C' }
     ]
   },
   disabled: {

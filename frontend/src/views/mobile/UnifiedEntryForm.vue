@@ -135,10 +135,10 @@
       </section>
 
       <section v-if="showQualityModule" class="ue-group" data-testid="quality-module">
-        <h3 class="ue-group__title">质量问题（可选）</h3>
+        <h3 class="ue-group__title">填报问题</h3>
         <div class="ue-fields">
           <div class="ue-field">
-            <label class="ue-field__label">本卷有质量问题</label>
+            <label class="ue-field__label">有填报问题</label>
             <el-switch v-model="quality.has_issue" />
           </div>
           <template v-if="quality.has_issue">
@@ -258,16 +258,15 @@ const identityMeta = computed(() => {
 const roleLabel = computed(() => {
   const labels = {
     machine_operator: '主操',
-    energy_stat: '电工',
-    consumable_stat: '内勤',
-    shift_leader: '已取消班长',
-    quality_owner: '全公司质检',
-    planning_owner: '全公司合同',
-    energy_chief: '能耗矩阵',
-    storage_owner: '储备四件',
-    shipment_outflow_owner: '园区剪切',
-    recovery_owner: '回收产量',
-    overhaul_owner: '大修能耗',
+    energy_stat: '车间电工',
+    consumable_stat: '生产内勤',
+    quality_owner: '全厂质检内勤',
+    planning_owner: '全厂计划内勤',
+    energy_chief: '全厂总电工',
+    storage_owner: '成品库内勤',
+    shipment_outflow_owner: '园区剪切内勤',
+    recovery_owner: '回收内勤',
+    overhaul_owner: '大修内勤',
   }
   return labels[auth.role] || auth.displayName
 })
@@ -311,6 +310,13 @@ const COIL_DIRECT_FIELDS = new Set([
   'spool_weight',
   'operator_name',
   'operator_notes',
+])
+const QUALITY_TEMPLATE_FIELDS = new Set([
+  'quality_note',
+  'quality_issue_type',
+  'quality_issue_card_no',
+  'quality_issue_desc',
+  'quality_issue_photo_path',
 ])
 const submitButtonText = computed(() => {
   if (mode.value === 'per_coil') return '录入本卷'
@@ -365,7 +371,7 @@ function hasPayloadValue(value) {
 
 function appendTemplateExtraFields(extra, values) {
   for (const [key, value] of Object.entries(values)) {
-    if (COIL_DIRECT_FIELDS.has(key) || !hasPayloadValue(value)) continue
+    if (COIL_DIRECT_FIELDS.has(key) || QUALITY_TEMPLATE_FIELDS.has(key) || !hasPayloadValue(value)) continue
     extra[key] = value
   }
 }

@@ -194,7 +194,7 @@ def _filter_template_payload_values(
         return _normalize_extra_payload_flow(values) if target == 'extra' else values
     if target == 'extra':
         values = _normalize_extra_payload_flow(values)
-    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    template = get_workshop_template(template_key, user_role=user_role, db=None)
     visible_fields = [
         *template['entry_fields'],
         *template.get('shift_fields', []),
@@ -223,7 +223,7 @@ def _normalize_template_section_payload(
         values = _normalize_extra_payload_flow(values)
     if template_key is None:
         return values
-    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    template = get_workshop_template(template_key, user_role=user_role, db=None)
     editable_fields = [
         *template['entry_fields'],
         *template.get('shift_fields', []),
@@ -246,7 +246,7 @@ def _readonly_fields_by_target(
 ) -> dict[str, set[str]]:
     if not template_key:
         return {}
-    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    template = get_workshop_template(template_key, user_role=user_role, db=None)
     readonly_names: dict[str, set[str]] = {
         'entry': set(),
         'shift': set(),
@@ -301,7 +301,7 @@ def _recalculate_readonly_derived_fields(
 ) -> None:
     if not template_key:
         return
-    template = get_workshop_template(template_key, user_role=user_role, db=db)
+    template = get_workshop_template(template_key, user_role=user_role, db=None)
     for field in template.get('readonly_fields', []):
         name = field.get('name')
         compute = field.get('compute')

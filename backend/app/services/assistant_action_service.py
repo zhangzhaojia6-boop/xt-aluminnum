@@ -181,7 +181,7 @@ def _promote_draft_entry(*, db: Session, payload: dict[str, Any]) -> list[AgentD
     entry.entry_status = 'submitted'
     entry.submitted_at = datetime.now(timezone.utc)
     locked_fields = set(entry.locked_fields or [])
-    locked_fields.update(get_fields_to_lock('work_order_entries', 'shift_leader'))
+    locked_fields.update(get_fields_to_lock('work_order_entries', 'machine_operator'))
     entry.locked_fields = sorted(locked_fields)
     extra_payload = dict(entry.extra_payload or {})
     extra_payload['pending_assignment_action'] = {

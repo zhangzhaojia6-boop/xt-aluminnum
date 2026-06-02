@@ -1,6 +1,6 @@
 """Step 5 — owner-agent flow smoke tests.
 
-Each of the 8 Layer-2 owner-agent modules has a fixed-schema entry helper
+Each Layer-2 owner-agent module has a fixed-schema entry helper
 (see docs/truth-source-three-layer-schema.md §3.1-3.8). This file exercises
 each helper end-to-end against an in-memory SQLite DB to confirm:
   - the upsert/append helper actually writes to its target table
@@ -35,12 +35,12 @@ from app.models.production import (
 from app.models.quality import QualityIssueLog, QualityYieldDaily
 from app.models.reconciliation import DataReconciliationItem
 from app.services.owner_agents import (
+    consumable_stat,
     energy_chief,
     overhaul,
     planning,
     quality,
     recovery,
-    shift_leader,
     shipment_outflow,
     storage,
 )
@@ -133,8 +133,8 @@ def test_energy_chief_writes_three_targets(db: Session):
     assert float(item.diff_value) == pytest.approx(0.5)
 
 
-def test_shift_leader_consumable_lock(db: Session):
-    log = shift_leader.upsert_consumable_log(
+def test_consumable_stat_consumable_lock(db: Session):
+    log = consumable_stat.upsert_consumable_log(
         db,
         workshop_id=1,
         business_date=date(2026, 5, 27),
@@ -151,7 +151,7 @@ def test_shift_leader_consumable_lock(db: Session):
         'liquefied_gas_per_ton': 12.3,
     }
 
-    log2 = shift_leader.upsert_consumable_log(
+    log2 = consumable_stat.upsert_consumable_log(
         db,
         workshop_id=1,
         business_date=date(2026, 5, 27),
@@ -162,9 +162,9 @@ def test_shift_leader_consumable_lock(db: Session):
     assert log2.payload == {'electricity_daily': 13000.0}
 
 
-def test_shift_leader_attendance_payload(db: Session):
+def test_consumable_stat_attendance_payload(db: Session):
     shift_report_id = _seed_shift_report(db)
-    row = shift_leader.write_attendance(
+    row = consumable_stat.write_attendance(
         db,
         shift_report_id=shift_report_id,
         attendance_payload={'machine_lines': [{'code': 'ZR2-1', 'count': 4}]},

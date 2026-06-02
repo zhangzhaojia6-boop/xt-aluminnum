@@ -39,7 +39,7 @@ def test_operational_role_only_sees_own_workshop_entries() -> None:
             {'id': 1, 'workshop_id': 1, 'input_weight': 10},
             {'id': 2, 'workshop_id': 2, 'input_weight': 20},
         ],
-        current_user=_user(role='shift_leader', workshop_id=1),
+        current_user=_user(role='machine_operator', workshop_id=1),
     )
 
     assert [item['id'] for item in visible] == [1]

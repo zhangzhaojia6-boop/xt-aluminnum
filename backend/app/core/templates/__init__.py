@@ -927,7 +927,7 @@ DEFAULT_WORKSHOP_TEMPLATES = {
             {'name': 'paper_furnace', 'label': '格纸炉', 'type': 'number', 'unit': 'kg'},
             {'name': 'static_furnace', 'label': '静置炉', 'type': 'number', 'unit': '°C'},
             {'name': 'output_weight', 'label': '单机产量', 'type': 'number', 'unit': 'kg'},
-            {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³', 'role_write': ['energy_stat', 'shift_leader']},
+            {'name': 'gas_consumption', 'label': '当班耗气', 'type': 'number', 'unit': 'm³', 'role_write': ['energy_stat']},
         ],
         'shift_fields': [],
         'extra_fields': [

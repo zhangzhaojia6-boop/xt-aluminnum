@@ -64,7 +64,7 @@ def test_inspect_pilot_config_passes_with_minimum_valid_setup() -> None:
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -108,7 +108,7 @@ def test_inspect_pilot_config_detects_uncovered_schedule_workshop() -> None:
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -118,7 +118,7 @@ def test_inspect_pilot_config_detects_uncovered_schedule_workshop() -> None:
         name="李四",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=2,
         team_id=None,
     )
@@ -154,7 +154,7 @@ def test_inspect_pilot_config_allows_warning_only_gate() -> None:
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -192,7 +192,7 @@ def test_inspect_pilot_config_warns_when_no_equipment_user_bindings() -> None:
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -237,7 +237,7 @@ def test_inspect_pilot_config_errors_when_equipment_binding_points_to_missing_us
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -282,7 +282,7 @@ def test_inspect_pilot_config_warns_when_no_schedule_data_exists() -> None:
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -322,7 +322,7 @@ def test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts()
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -376,7 +376,7 @@ def test_inspect_pilot_config_does_not_hard_block_factory_wide_mobile_accounts()
     hard_codes = {item["code"] for item in result["hard_issues"]}
     warning_codes = {item["code"] for item in result["warning_issues"]}
     assert "MOBILE_USER_WORKSHOP_MISSING" not in hard_codes
-    assert "MOBILE_USER_WORKSHOP_OPTIONAL" in warning_codes
+    assert "MOBILE_USER_WORKSHOP_OPTIONAL" not in warning_codes
 
 
 def test_inspect_pilot_config_hard_blocks_owner_roles_without_workshop() -> None:
@@ -388,38 +388,38 @@ def test_inspect_pilot_config_hard_blocks_owner_roles_without_workshop() -> None
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
     owner_roles = [
         SimpleNamespace(
             id=8,
-            username="FACTORY-CT",
+            username="CPK-PL",
             name="计划科",
             is_active=True,
             is_mobile_user=True,
-            role="contracts",
+            role="planning_owner",
             workshop_id=None,
             team_id=None,
         ),
         SimpleNamespace(
             id=9,
-            username="FACTORY-IK",
+            username="CPK-FS",
             name="成品库负责人",
             is_active=True,
             is_mobile_user=True,
-            role="inventory_keeper",
+            role="storage_owner",
             workshop_id=None,
             team_id=None,
         ),
         SimpleNamespace(
             id=10,
-            username="FACTORY-UM",
+            username="CPK-EC",
             name="水电气负责人",
             is_active=True,
             is_mobile_user=True,
-            role="utility_manager",
+            role="energy_chief",
             workshop_id=None,
             team_id=None,
         ),
@@ -452,9 +452,9 @@ def test_inspect_pilot_config_hard_blocks_owner_roles_without_workshop() -> None
 
     assert result["hard_gate_passed"] is False
     missing = next(item for item in result["hard_issues"] if item["code"] == "MOBILE_USER_WORKSHOP_MISSING")
-    assert "FACTORY-CT(计划科)" in missing["sample"]
-    assert "FACTORY-IK(成品库负责人)" in missing["sample"]
-    assert "FACTORY-UM(水电气负责人)" in missing["sample"]
+    assert "CPK-PL(计划科)" in missing["sample"]
+    assert "CPK-FS(成品库负责人)" in missing["sample"]
+    assert "CPK-EC(水电气负责人)" in missing["sample"]
     assert "check_owner_account_bindings.py --json" in missing["suggestion"]
 
 
@@ -473,11 +473,11 @@ def test_owner_workshop_binding_plan_targets_unscoped_factory_owner_accounts() -
     )
     bound_owner = SimpleNamespace(
         id=2,
-        username="CPK-A-INV",
+        username="CPK-A-FS",
         name="成品库白班",
         is_active=True,
         is_mobile_user=True,
-        role="inventory_keeper",
+        role="storage_owner",
         workshop_id=11,
         team_id=None,
         data_scope_type="self_workshop",
@@ -485,33 +485,33 @@ def test_owner_workshop_binding_plan_targets_unscoped_factory_owner_accounts() -
     factory_owners = [
         SimpleNamespace(
             id=3,
-            username="FACTORY-CT",
-            name="计划科",
-            is_active=True,
-            is_mobile_user=True,
-            role="contracts",
+                username="CPK-PL",
+                name="计划科",
+                is_active=True,
+                is_mobile_user=True,
+                role="planning_owner",
             workshop_id=None,
             team_id=None,
             data_scope_type="factory",
         ),
         SimpleNamespace(
             id=4,
-            username="FACTORY-IK",
-            name="成品库负责人",
-            is_active=True,
-            is_mobile_user=True,
-            role="inventory_keeper",
+                username="CPK-FS",
+                name="成品库负责人",
+                is_active=True,
+                is_mobile_user=True,
+                role="storage_owner",
             workshop_id=None,
             team_id=None,
             data_scope_type="factory",
         ),
         SimpleNamespace(
             id=5,
-            username="FACTORY-UM",
-            name="水电气负责人",
-            is_active=True,
-            is_mobile_user=True,
-            role="utility_manager",
+                username="CPK-EC",
+                name="水电气负责人",
+                is_active=True,
+                is_mobile_user=True,
+                role="energy_chief",
             workshop_id=None,
             team_id=None,
             data_scope_type="factory",
@@ -523,7 +523,7 @@ def test_owner_workshop_binding_plan_targets_unscoped_factory_owner_accounts() -
         name="未知计划账号",
         is_active=True,
         is_mobile_user=True,
-        role="contracts",
+        role="planning_owner",
         workshop_id=None,
         team_id=None,
         data_scope_type="factory",
@@ -535,7 +535,7 @@ def test_owner_workshop_binding_plan_targets_unscoped_factory_owner_accounts() -
     assert result["target_workshop"] == {"id": 11, "code": "CPK", "name": "成品库"}
     assert result["needs_repair"] is True
     assert result["can_apply"] is True
-    assert [item["username"] for item in result["repairs"]] == ["FACTORY-CT", "FACTORY-IK", "FACTORY-UM"]
+    assert [item["username"] for item in result["repairs"]] == ["CPK-PL", "CPK-FS", "CPK-EC"]
     assert {item["target_workshop_code"] for item in result["repairs"]} == {"CPK"}
     assert unknown_owner.workshop_id is None
 
@@ -555,11 +555,11 @@ def test_apply_owner_workshop_binding_plan_only_updates_repair_candidates() -> N
     )
     owner = SimpleNamespace(
         id=3,
-        username="FACTORY-CT",
+        username="CPK-PL",
         name="计划科",
         is_active=True,
         is_mobile_user=True,
-        role="contracts",
+        role="planning_owner",
         workshop_id=None,
         team_id=None,
         data_scope_type="factory",
@@ -609,7 +609,7 @@ def test_inspect_pilot_config_errors_when_schedule_exists_but_target_date_is_emp
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -654,7 +654,7 @@ def test_inspect_pilot_config_accepts_inactive_same_workshop_machine_binding() -
         name="1#机",
         is_active=False,
         is_mobile_user=True,
-        role="shift_leader",
+        role="machine_operator",
         workshop_id=1,
         team_id=None,
     )
@@ -664,7 +664,7 @@ def test_inspect_pilot_config_accepts_inactive_same_workshop_machine_binding() -
         name="张三",
         is_active=True,
         is_mobile_user=True,
-        role="team_leader",
+        role="energy_stat",
         workshop_id=1,
         team_id=None,
     )

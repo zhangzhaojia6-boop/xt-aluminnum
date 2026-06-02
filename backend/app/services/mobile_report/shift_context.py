@@ -224,7 +224,7 @@ def _build_current_shift_fallback(
     }
 
 def _resolve_entry_mode(role: str) -> str:
-    if role in ('shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'):
+    if role == 'machine_operator':
         return 'coil_entry'
     if role in OWNER_DAILY_ROLES or role in ('utility_manager', 'inventory_keeper', 'contracts'):
         return 'owner_daily_entry'
@@ -232,7 +232,7 @@ def _resolve_entry_mode(role: str) -> str:
         return 'auxiliary_shift_entry'
     return 'coil_entry'
 
-SHIFT_REPORT_OWNERSHIP_ROLES = {'shift_leader', 'mobile_user', 'team_leader', 'deputy_leader'}
+SHIFT_REPORT_OWNERSHIP_ROLES: set[str] = set()
 
 def _uses_shift_report_ownership(current_user: User) -> bool:
     return (current_user.role or '').strip() in SHIFT_REPORT_OWNERSHIP_ROLES

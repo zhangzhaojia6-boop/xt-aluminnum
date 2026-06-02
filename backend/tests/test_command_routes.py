@@ -78,7 +78,7 @@ def test_admin_module_overview_endpoints_return_reference_view_models() -> None:
     cases = [
         ('/api/v1/admin/ops-overview', '12', '系统运维与观测'),
         ('/api/v1/admin/governance-overview', '13', '权限与治理中心'),
-        ('/api/v1/admin/master-overview', '14', '主数据与模板中心'),
+        ('/api/v1/admin/master-overview', '14', '主数据中心'),
     ]
 
     for path, module_id, title in cases:

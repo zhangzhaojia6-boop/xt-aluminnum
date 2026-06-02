@@ -256,7 +256,7 @@ def create_machine_with_account(
         password_hash=get_password_hash(pin),
         pin_code=pin,
         name=f"{workshop.name} {equipment.name}",
-        role="shift_leader",
+        role="machine_operator",
         workshop_id=workshop.id,
         team_id=None,
         data_scope_type="self_workshop",

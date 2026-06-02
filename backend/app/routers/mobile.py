@@ -322,7 +322,6 @@ def save_owner_daily(
 
 ROLE_FIELD_MAPPING = {
     'machine_operator': {'sections': ['entry'], 'label': '产量数据'},
-    'shift_leader': {'sections': ['entry', 'shift', 'extra', 'qc'], 'label': '班次汇总'},
     'energy_stat': {'extra_filter': 'energy_stat', 'label': '能耗数据'},
     'consumable_stat': {'extra_filter': 'consumable_stat', 'label': '辅材数据'},
     'quality_owner': {'direct_fields': QC_OWNER_FIELDS, 'label': '全公司质检'},
@@ -334,12 +333,20 @@ ROLE_FIELD_MAPPING = {
     'overhaul_owner': {'direct_fields': OVERHAUL_OWNER_FIELDS, 'label': '大修磨辊子+能耗'},
 }
 
+QUALITY_ENTRY_FIELD_NAMES = {
+    'quality_note',
+    'quality_issue_type',
+    'quality_issue_card_no',
+    'quality_issue_desc',
+    'quality_issue_photo_path',
+}
+
 
 def _filter_fields_by_role(fields: list[dict], role: str) -> list[dict]:
     result = []
     for f in fields:
         role_write = f.get('role_write', [])
-        if not role_write or role in role_write or role in ('admin', 'shift_leader'):
+        if not role_write or role in role_write or role == 'admin':
             result.append(f)
     return result
 
@@ -350,7 +357,7 @@ def _tracking_card_field() -> dict:
         'label': '随行卡号',
         'type': 'text',
         'required': True,
-        'role_write': ['machine_operator', 'shift_leader', 'mobile_user', 'team_leader'],
+        'role_write': ['machine_operator'],
     }
 
 
@@ -383,8 +390,20 @@ def entry_fields(
             ws_type = 'casting'
 
     role = current_user.role or ''
-    template = get_workshop_template_definition(ws_code or ws_type, db=db)
-    mapping = ROLE_FIELD_MAPPING.get(role, ROLE_FIELD_MAPPING.get('shift_leader', {}))
+    template = get_workshop_template_definition(ws_code or ws_type, db=None)
+    mapping = ROLE_FIELD_MAPPING.get(role)
+    if mapping is None:
+        return {
+            'groups': [],
+            'readonly_fields': [],
+            'mode': 'unknown',
+            'submit_target': 'none',
+            'identity_field': None,
+            'workshop_type': ws_type,
+            'role': role,
+            'role_label': '未配置角色',
+            'error': '当前角色未配置固定填报模板',
+        }
 
     groups = []
     is_per_coil = role == 'machine_operator'
@@ -411,6 +430,7 @@ def entry_fields(
         sections = mapping.get('sections', ['entry'])
         if 'entry' in sections:
             ef = _filter_fields_by_role(template.get('entry_fields', []), role)
+            ef = [field for field in ef if field.get('name') not in QUALITY_ENTRY_FIELD_NAMES]
             if is_per_coil:
                 ef = _with_tracking_card_field(ef)
             if ef:

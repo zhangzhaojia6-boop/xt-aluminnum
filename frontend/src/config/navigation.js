@@ -92,12 +92,12 @@ export const centerNavigation = [
   {
     id: 'master',
     no: '14',
-    title: '主数据与模板中心',
+    title: '主数据中心',
     zone: 'admin',
     path: '/manage/master',
     routeName: 'admin-master-workshop',
     icon: '主',
-    summary: '车间、班组、员工、机台、模板'
+    summary: '车间、班组、员工、机台'
   }
 ]
 
@@ -142,8 +142,7 @@ const routeMetaByName = {
 
   'admin-overview': { center: 'ops', group: '兼容入口', order: 100, icon: 'Cpu', legacy: true, roles: ['admin'], keepAlive: false },
   'admin-ingestion-center': { group: '兼容入口', order: 202, icon: 'Connection', legacy: true, roles: ['admin'], keepAlive: false },
-  'admin-template-center': { center: 'master', group: '数据与模板', order: 3, icon: 'SetUp', legacy: false, roles: ['admin'], keepAlive: true },
-  'admin-master-workshop': { center: 'master', group: '数据与模板', order: 4, icon: 'OfficeBuilding', legacy: false, roles: ['admin'], keepAlive: true },
+  'admin-master-workshop': { center: 'master', group: '主数据', order: 4, icon: 'OfficeBuilding', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-ops-reliability': { center: 'ops', group: '运行保障', order: 5, icon: 'Cpu', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-governance-center': { center: 'governance', group: '权限治理', order: 6, icon: 'UserFilled', legacy: false, roles: ['admin'], keepAlive: true },
   'admin-users': { center: 'governance', group: '权限治理', order: 7, icon: 'User', legacy: false, roles: ['admin'], keepAlive: true },
@@ -176,8 +175,7 @@ const commandMetaByName = {
   'review-reconciliation-center': { shortLabel: '核对', commandGroup: '工厂', secondaryGroup: '质量' },
   'factory-ai-assistant': { shortLabel: 'AI 助手', commandGroup: 'AI 助手', secondaryGroup: '站内' },
   'review-brain-center': { shortLabel: 'AI 助手', commandGroup: '兼容入口', secondaryGroup: '站内' },
-  'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '模板' },
-  'admin-template-center': { shortLabel: '模板', commandGroup: '管理', secondaryGroup: '模板' },
+  'admin-master-workshop': { shortLabel: '主数据', commandGroup: '管理', secondaryGroup: '主数据' },
   'admin-ops-reliability': { shortLabel: '设置', commandGroup: '管理', secondaryGroup: '系统' },
   'admin-governance-center': { shortLabel: '治理', commandGroup: '管理', secondaryGroup: '权限' },
   'admin-users': { shortLabel: '用户', commandGroup: '管理', secondaryGroup: '权限' },
@@ -221,7 +219,6 @@ const adminNavigation = [
     label: '管理端',
     items: [
       { routeName: 'admin-master-workshop', label: '主数据', access: 'admin' },
-      { routeName: 'admin-template-center', label: '模板中心', access: 'admin' },
       { routeName: 'admin-users', label: '用户管理', access: 'admin' },
       { routeName: 'admin-governance-center', label: '权限治理', access: 'admin' },
       { routeName: 'admin-ops-reliability', label: '系统设置', access: 'admin' }

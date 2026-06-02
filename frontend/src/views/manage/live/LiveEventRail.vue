@@ -34,9 +34,14 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  connectionText: {
+    type: String,
+    default: '',
+  },
 })
 
 const connectionText = computed(() => {
+  if (props.connectionText) return props.connectionText
   if (props.streamStatus === 'open') return '实时连接正常'
   if (props.streamStatus === 'connecting') return '正在连接'
   if (props.streamStatus === 'reconnecting') return '正在重连'

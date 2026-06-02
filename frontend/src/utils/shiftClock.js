@@ -1,11 +1,11 @@
 const SHIFT_WINDOWS = [
-  { code: 'C', name: '大夜', startMinutes: 0, endMinutes: 7 * 60 + 30 },
   { code: 'A', name: '长白班', startMinutes: 7 * 60 + 30, endMinutes: 15 * 60 + 30 },
-  { code: 'B', name: '小夜', startMinutes: 15 * 60 + 30, endMinutes: 23 * 60 + 30 },
-  { code: 'C', name: '大夜', startMinutes: 23 * 60 + 30, endMinutes: 24 * 60 }
+  { code: 'B', name: '小夜班', startMinutes: 15 * 60 + 30, endMinutes: 23 * 60 + 30 },
+  { code: 'C', name: '大夜班', startMinutes: 23 * 60 + 30, endMinutes: 24 * 60 },
+  { code: 'C', name: '大夜班', startMinutes: 0, endMinutes: 7 * 60 + 30 }
 ]
 
-const BUSINESS_DAY_ANCHOR_MINUTES = 23 * 60 + 30
+const BUSINESS_DAY_ANCHOR_MINUTES = 7 * 60 + 30
 
 function nowInShanghai(now = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -49,8 +49,8 @@ export function inferBusinessDate(now = new Date()) {
   const wall = nowInShanghai(now)
   const minutes = totalMinutes(wall)
   const anchor = new Date(Date.UTC(wall.year, wall.month - 1, wall.day))
-  if (minutes >= BUSINESS_DAY_ANCHOR_MINUTES) {
-    anchor.setUTCDate(anchor.getUTCDate() + 1)
+  if (minutes < BUSINESS_DAY_ANCHOR_MINUTES) {
+    anchor.setUTCDate(anchor.getUTCDate() - 1)
   }
   return formatUtcDate(anchor)
 }

@@ -28,7 +28,7 @@ def build_session(tmp_path):
         [
             ShiftConfig(
                 code='A',
-                name='白班',
+                name='长白班',
                 shift_type='day',
                 start_time=time(8, 0),
                 end_time=time(16, 0),
@@ -38,7 +38,7 @@ def build_session(tmp_path):
             ),
             ShiftConfig(
                 code='B',
-                name='小夜',
+                name='小夜班',
                 shift_type='swing',
                 start_time=time(16, 0),
                 end_time=time(0, 0),
@@ -49,7 +49,7 @@ def build_session(tmp_path):
             ),
             ShiftConfig(
                 code='C',
-                name='大夜',
+                name='大夜班',
                 shift_type='night',
                 start_time=time(0, 0),
                 end_time=time(8, 0),
@@ -152,7 +152,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         ]
         assert len(teams) == 69
         assert [(item.code, item.name) for item in teams if item.code.startswith('ZR2-')] == [
-            ('ZR2-A', '白班组'),
+            ('ZR2-A', '长白班组'),
             ('ZR2-B', '小夜班组'),
             ('ZR2-C', '大夜班组'),
         ]
@@ -378,7 +378,7 @@ def test_seed_real_master_data_updates_existing_records_idempotently_and_deactiv
         assert refreshed_equipment.operational_status == 'running'
         assert refreshed_equipment.shift_mode == 'three'
         assert refreshed_equipment.is_active is True
-        assert refreshed_team.name == '白班组'
+        assert refreshed_team.name == '长白班组'
         assert refreshed_team.sort_order == 1
         assert refreshed_team.is_active is True
         assert legacy_workshop.is_active is False

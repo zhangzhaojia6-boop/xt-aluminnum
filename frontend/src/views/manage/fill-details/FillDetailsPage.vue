@@ -191,8 +191,7 @@ const sourceOptions = [
   { value: 'machine_energy', label: '机台能耗' },
   { value: 'work_order_entry', label: '机台填报' },
   { value: 'owner_daily', label: '每日一录' },
-  { value: 'mobile_shift_report', label: '班次汇总' },
-  { value: 'mes_projection', label: '外部 MES' }
+  { value: 'mobile_shift_report', label: '班次汇总' }
 ]
 
 const ledgerRows = computed(() => buildFillLedgerRows(rows.value))

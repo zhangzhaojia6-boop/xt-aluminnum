@@ -1,4 +1,4 @@
-"""TDD: shift_leader owner-agent (§3.2) — consumable + attendance."""
+"""TDD: consumable_stat owner-agent — consumable + attendance."""
 from __future__ import annotations
 
 from datetime import date, time
@@ -13,7 +13,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport
 from app.models.shift import ShiftConfig
-from app.services.owner_agents import shift_leader as sl_agent
+from app.services.owner_agents import consumable_stat as cs_agent
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def db_with_workshop(tmp_path):
 def test_upsert_consumable_log_validates_and_strips_unknown(db_with_workshop):
     s, ws_id = db_with_workshop
     bd = date(2026, 5, 24)
-    sl_agent.upsert_consumable_log(
+    cs_agent.upsert_consumable_log(
         s, workshop_id=ws_id, business_date=bd,
         payload={
             'electricity_daily': 1000.0,
@@ -59,7 +59,7 @@ def test_upsert_consumable_log_validates_and_strips_unknown(db_with_workshop):
 def test_upsert_consumable_log_rejects_unknown_field(db_with_workshop):
     s, ws_id = db_with_workshop
     with pytest.raises(ValidationError):
-        sl_agent.upsert_consumable_log(
+        cs_agent.upsert_consumable_log(
             s, workshop_id=ws_id, business_date=date(2026, 5, 24),
             payload={'unknown_field': 1.0},
         )
@@ -68,12 +68,12 @@ def test_upsert_consumable_log_rejects_unknown_field(db_with_workshop):
 def test_upsert_consumable_log_replaces_payload_on_second_call(db_with_workshop):
     s, ws_id = db_with_workshop
     bd = date(2026, 5, 24)
-    sl_agent.upsert_consumable_log(
+    cs_agent.upsert_consumable_log(
         s, workshop_id=ws_id, business_date=bd,
         payload={'electricity_daily': 1.0, 'electricity_monthly': 30.0},
     )
     s.commit()
-    sl_agent.upsert_consumable_log(
+    cs_agent.upsert_consumable_log(
         s, workshop_id=ws_id, business_date=bd,
         payload={'electricity_daily': 2.0},
     )
@@ -100,7 +100,7 @@ def test_write_attendance_sets_payload_and_count(db_with_workshop):
     s.commit()
 
     payload = {'machine_lines': {'ZR2-1': 4, 'ZR2-2': 3}, 'quench': 2, 'department': {'qc': 1}}
-    sl_agent.write_attendance(
+    cs_agent.write_attendance(
         s, shift_report_id=rpt.id,
         attendance_payload=payload, attendance_count=10,
     )

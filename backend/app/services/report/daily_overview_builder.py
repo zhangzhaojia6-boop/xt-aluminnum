@@ -21,9 +21,9 @@ from app.services.report._utils import _to_float
 
 DEFAULT_ELECTRICITY_PRICE = 0.65
 DEFAULT_GAS_PRICE = 3.60
-SHIFT_ORDER = ('C', 'A', 'B')
-SHIFT_LABELS = {'C': '大夜', 'A': '长白班', 'B': '小夜'}
-SHIFT_WINDOWS = {'C': '23:30-07:30', 'A': '07:30-15:30', 'B': '15:30-23:30'}
+SHIFT_ORDER = ('A', 'B', 'C')
+SHIFT_LABELS = {'A': '长白班', 'B': '小夜班', 'C': '大夜班'}
+SHIFT_WINDOWS = {'A': '07:30-15:30', 'B': '15:30-23:30', 'C': '23:30-07:30'}
 PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES = {'FACTORY'}
 
 

@@ -18,5 +18,6 @@ def get_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkshopTemplateOut:
-    payload = get_workshop_template(workshop_type, user_role=current_user.role, db=db)
+    _ = db
+    payload = get_workshop_template(workshop_type, user_role=current_user.role, db=None)
     return WorkshopTemplateOut(**payload)

@@ -6,7 +6,6 @@
 
 - `Workshop.vue`：`/manage/master`
 - `UserManagement.vue`：`/manage/admin/users`
-- `WorkshopTemplateConfig.vue`：`/manage/admin/templates`
 - `RuleConfigCenter.vue`：`/manage/admin/rules`
 - `QRCodePrint.vue`：`/manage/admin/qr-print`
 - `AliasMapping.vue`：`/manage/alias`

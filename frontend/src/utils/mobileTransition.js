@@ -1,12 +1,12 @@
 const ROLE_ALIASES = {
-  team_leader: 'shift_leader',
-  deputy_leader: 'shift_leader',
-  mobile_user: 'shift_leader'
+  team_leader: 'machine_operator',
+  deputy_leader: 'machine_operator',
+  mobile_user: 'machine_operator',
+  shift_leader: 'machine_operator'
 }
 
 const ROLE_BUCKET_META = {
   machine_operator: { title: '录产量', subtitle: '按卷记录投入、产出重量' },
-  shift_leader: { title: '录产量', subtitle: '记录本班次生产数据' },
   energy_stat: { title: '填能耗', subtitle: '记录本班用电、用气' },
   quality_owner: { title: '全公司质检', subtitle: '日/月成品率 + 废料分类' },
   planning_owner: { title: '全公司合同', subtitle: '合同进度 + 排产偏差 + 牌号×规格' },
@@ -38,11 +38,11 @@ export function resolveTransitionRoleBucket({ role, isMachineBound }) {
   const normalizedRole = normalizeRole(role)
   if (OWNER_ROLE_BUCKETS.has(normalizedRole)) return normalizedRole
   if (normalizedRole === 'energy_stat') return 'energy_stat'
-  return 'shift_leader'
+  return 'machine_operator'
 }
 
 export function describeTransitionRoleBucket(roleBucket) {
-  return ROLE_BUCKET_META[roleBucket] || ROLE_BUCKET_META.shift_leader
+  return ROLE_BUCKET_META[roleBucket] || ROLE_BUCKET_META.machine_operator
 }
 
 const OWNER_BUCKET_CTA = {

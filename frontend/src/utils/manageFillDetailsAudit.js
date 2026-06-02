@@ -212,6 +212,7 @@ function contentText(row = {}) {
 export function buildFillLedgerRows(rows = []) {
   return (rows || [])
     .filter((row) => !isRemovedWorkshop(row))
+    .filter((row) => (row.source_type || row.sourceType) !== 'mes_projection')
     .map((row, index) => {
       const isOwnerDaily = row.source_type === 'owner_daily'
       const normalized = {

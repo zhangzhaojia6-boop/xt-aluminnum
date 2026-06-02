@@ -42,11 +42,11 @@ def _default_write_roles(section_name: str, field_name: str, target: str) -> lis
         return []
     if target == 'qc':
         return ['qc']
-    return ['shift_leader']
+    return ['machine_operator']
 
 def _default_read_roles(section_name: str, target: str, field_name: str) -> list[str]:
     if section_name == 'shift_fields':
-        return ['shift_leader', 'admin', 'manager']
+        return ['machine_operator', 'admin', 'manager']
     if target in {'extra', 'qc'}:
         return [READ_ALL]
     if target in {'work_order', 'entry'}:

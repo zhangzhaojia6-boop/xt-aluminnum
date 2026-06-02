@@ -251,6 +251,40 @@ def test_build_fill_detail_ledger_includes_machine_energy_without_double_countin
     assert payload['items'][0]['responsible_name'] == '电工张'
 
 
+def test_build_fill_detail_ledger_excludes_mes_projection_rows(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=1, code='A', name='长白班', shift_type='day', start_time=time(7, 30), end_time=time(15, 30), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            MesCoilSnapshot(
+                id=1201,
+                coil_id='mes-coil-1',
+                tracking_card_no='MES-001',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='A',
+                status='synced',
+                business_date=date(2026, 5, 6),
+                source_payload={'output_weight': 9600},
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = realtime_service.build_fill_detail_ledger(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['summary']['source_counts'].get('mes_projection') is None
+    assert payload['summary']['entry_count'] == 0
+    assert payload['items'] == []
+
+
 def test_build_fill_detail_ledger_exposes_template_extra_payload_metrics(tmp_path) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

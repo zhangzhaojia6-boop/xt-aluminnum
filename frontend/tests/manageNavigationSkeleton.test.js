@@ -20,7 +20,6 @@ const adminAuth = {
 const adminPaths = [
   '/manage/master',
   '/manage/admin/users',
-  '/manage/admin/templates',
   '/manage/admin/rules'
 ]
 
@@ -82,4 +81,5 @@ test('admin skeleton exposes system settings in top-level navigation', () => {
 
   assert.equal(items.some((item) => item.path === '/manage/admin/settings'), true)
   assert.equal(items.some((item) => item.title === '系统设置'), true)
+  assert.equal(items.some((item) => item.path === '/manage/admin/templates'), false)
 })

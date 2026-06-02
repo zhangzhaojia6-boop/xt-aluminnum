@@ -25,12 +25,12 @@ test('useDashboardSnapshot exposes yesterdayShiftBreakdown', () => {
   assert.match(src, /yesterday_shift_breakdown/)
 })
 
-test('YesterdayShiftPanel renders three shifts in C/A/B order', () => {
+test('YesterdayShiftPanel renders three shifts in A/B/C order', () => {
   const src = source('../src/components/manage/YesterdayShiftPanel.vue')
-  assert.match(src, /SHIFT_ORDER\s*=\s*\['C',\s*'A',\s*'B'\]/)
-  assert.match(src, /大夜/)
+  assert.match(src, /SHIFT_ORDER\s*=\s*\['A',\s*'B',\s*'C'\]/)
+  assert.match(src, /大夜班/)
   assert.match(src, /长白班/)
-  assert.match(src, /小夜/)
+  assert.match(src, /小夜班/)
 })
 
 test('YesterdayShiftPanel has dark HUD aesthetic (gradient bg, white headline)', () => {

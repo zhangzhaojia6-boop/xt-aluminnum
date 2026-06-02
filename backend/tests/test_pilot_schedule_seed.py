@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import date, time
 
@@ -38,10 +38,10 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
         db.flush()
 
         teams = [
-            Team(code='ZR2-A', name='白班组', workshop_id=workshops[0].id, sort_order=1, is_active=True),
+            Team(code='ZR2-A', name='长白班组', workshop_id=workshops[0].id, sort_order=1, is_active=True),
             Team(code='ZR2-B', name='小夜班组', workshop_id=workshops[0].id, sort_order=2, is_active=True),
             Team(code='ZR2-C', name='大夜班组', workshop_id=workshops[0].id, sort_order=3, is_active=True),
-            Team(code='CPK-A', name='白班组', workshop_id=workshops[1].id, sort_order=1, is_active=True),
+            Team(code='CPK-A', name='长白班组', workshop_id=workshops[1].id, sort_order=1, is_active=True),
             Team(code='CPK-B', name='小夜班组', workshop_id=workshops[1].id, sort_order=2, is_active=True),
             Team(code='CPK-C', name='大夜班组', workshop_id=workshops[1].id, sort_order=3, is_active=True),
         ]
@@ -50,7 +50,7 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
         shifts = [
             ShiftConfig(
                 code='A',
-                name='白班',
+                name='长白班',
                 shift_type='day',
                 start_time=time(8, 0),
                 end_time=time(16, 0),
@@ -60,7 +60,7 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
             ),
             ShiftConfig(
                 code='B',
-                name='小夜',
+                name='小夜班',
                 shift_type='swing',
                 start_time=time(16, 0),
                 end_time=time(0, 0),
@@ -71,7 +71,7 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
             ),
             ShiftConfig(
                 code='C',
-                name='大夜',
+                name='大夜班',
                 shift_type='night',
                 start_time=time(0, 0),
                 end_time=time(8, 0),
@@ -112,8 +112,6 @@ def test_seed_default_pilot_schedule_creates_phase1_owner_grid_for_each_shift_te
         assert shift_by_employee['PILOT-CPK-C-UTILITY'] == 'C'
     finally:
         db.close()
-
-
 def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_duplicate_employees(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
@@ -122,7 +120,7 @@ def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_
         db.flush()
         db.add_all(
             [
-                Team(code='ZR2-A', name='白班组', workshop_id=workshop.id, sort_order=1, is_active=True),
+                Team(code='ZR2-A', name='长白班组', workshop_id=workshop.id, sort_order=1, is_active=True),
                 Team(code='ZR2-B', name='小夜班组', workshop_id=workshop.id, sort_order=2, is_active=True),
                 Team(code='ZR2-C', name='大夜班组', workshop_id=workshop.id, sort_order=3, is_active=True),
             ]
@@ -131,7 +129,7 @@ def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_
             [
                 ShiftConfig(
                     code='A',
-                    name='白班',
+                    name='长白班',
                     shift_type='day',
                     start_time=time(8, 0),
                     end_time=time(16, 0),
@@ -141,7 +139,7 @@ def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_
                 ),
                 ShiftConfig(
                     code='B',
-                    name='小夜',
+                    name='小夜班',
                     shift_type='swing',
                     start_time=time(16, 0),
                     end_time=time(0, 0),
@@ -152,7 +150,7 @@ def test_seed_default_pilot_schedule_rolls_forward_to_new_business_date_without_
                 ),
                 ShiftConfig(
                     code='C',
-                    name='大夜',
+                    name='大夜班',
                     shift_type='night',
                     start_time=time(0, 0),
                     end_time=time(8, 0),

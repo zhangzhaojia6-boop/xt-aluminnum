@@ -196,8 +196,8 @@ def test_upsert_snapshot_business_date_uses_event_time_production_day_boundary()
     mes_sync_service._upsert_snapshot(db, snapshot=snapshot, synced_at=datetime(2026, 6, 1, 15, 31, tzinfo=UTC))
 
     entity = next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot')
-    assert entity.business_date == date(2026, 6, 2)
-    assert entity.source_payload['business_date'] == '2026-06-02'
+    assert entity.business_date == date(2026, 6, 1)
+    assert entity.source_payload['business_date'] == '2026-06-01'
 
 
 def test_upsert_snapshot_business_date_prefers_event_time_over_updated_at():
@@ -437,7 +437,7 @@ def test_sync_coil_list_refreshes_previous_daily_wip_date_when_coil_moves(tmp_pa
             select(MesDailyWipSnapshot).where(MesDailyWipSnapshot.business_date == date(2026, 5, 31))
         ).all()
         new_row = db.scalar(
-            select(MesDailyWipSnapshot).where(MesDailyWipSnapshot.business_date == date(2026, 6, 2))
+            select(MesDailyWipSnapshot).where(MesDailyWipSnapshot.business_date == date(2026, 6, 1))
         )
 
     assert old_rows == []
@@ -786,11 +786,11 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
     assert 'Password' not in process.source_payload
     assert stock.contract_no == 'HT-2601'
     assert float(stock.net_weight_tons) == 11.8
-    assert stock.business_date == date(2026, 6, 2)
+    assert stock.business_date == date(2026, 6, 1)
     assert material.workshop_name == '铸三车间'
     assert float(material.weight_tons) == 10.338
     assert float(yield_record.contract_total_weight_tons) == 42.5
-    assert yield_record.business_date == date(2026, 6, 2)
+    assert yield_record.business_date == date(2026, 6, 1)
     assert reference.source_type == 'device'
     assert 'Password' not in reference.source_payload
     assert wip.workshop_name == '2050车间'

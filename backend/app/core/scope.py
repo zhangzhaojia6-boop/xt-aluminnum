@@ -9,10 +9,8 @@ VALID_SCOPE_TYPES = {'self_team', 'self_workshop', 'assigned', 'all'}
 # truth-source-three-layer-schema.md §2.1 final role matrix
 MOBILE_ROLES = {
     'machine_operator',
-    'shift_leader',
-    'team_leader',
-    'deputy_leader',
     'energy_stat',
+    'consumable_stat',
     'quality_owner',
     'planning_owner',
     'energy_chief',
@@ -27,8 +25,7 @@ WORKSHOP_MANAGER_ROLES = {'workshop_director'}
 WORK_ORDER_GLOBAL_ENTRY_ROLES = {'admin', 'statistician', 'stat', 'manager', 'factory_director', 'senior_manager'}
 WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'planning_owner'}
 WORK_ORDER_LOCAL_ENTRY_ROLES = {
-    'shift_leader',
-    'team_leader',
+    'machine_operator',
     'energy_stat',
     'quality_owner',
     'planning_owner',

@@ -28,7 +28,7 @@ def test_navigation_declares_current_manage_surfaces_without_removed_centers() -
         ("no: '11'", "title: 'AI 助手'", "path: '/manage/ai-assistant'", "routeName: 'factory-ai-assistant'"),
         ("no: '12'", "title: '系统设置'", "path: '/manage/admin/settings'", "routeName: 'admin-ops-reliability'"),
         ("no: '13'", "title: '权限与治理中心'", "path: '/manage/admin/governance'", "routeName: 'admin-governance-center'"),
-        ("no: '14'", "title: '主数据与模板中心'", "path: '/manage/master'", "routeName: 'admin-master-workshop'"),
+        ("no: '14'", "title: '主数据中心'", "path: '/manage/master'", "routeName: 'admin-master-workshop'"),
     ]
     for tokens in required:
         for token in tokens:

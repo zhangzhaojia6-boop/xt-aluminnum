@@ -237,13 +237,13 @@ def test_live_active_business_date_endpoint_calls_service(monkeypatch) -> None:
     app.dependency_overrides.clear()
 
 
-def test_live_active_business_date_passes_workshop_scope_for_shift_leader(monkeypatch) -> None:
+def test_live_active_business_date_passes_workshop_scope_for_workshop_director(monkeypatch) -> None:
     current_user = User(
         id=42,
-        username='lz2050-leader',
+        username='lz2050-director',
         password_hash='x',
-        name='Cold Roll Leader',
-        role='shift_leader',
+        name='Cold Roll Director',
+        role='workshop_director',
         workshop_id=5,
         data_scope_type='self_workshop',
         is_active=True,

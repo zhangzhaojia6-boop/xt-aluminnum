@@ -1373,9 +1373,7 @@ def build_fill_detail_ledger(
     safe_limit = min(max(int(limit or 800), 1), 2000)
     items: list[dict[str, Any]] = []
 
-    workshop_name_by_id = {item.id: item.name for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()}
     machine_name_by_id = {item.id: item.name for item in db.query(Equipment).filter(Equipment.is_active.is_(True)).all()}
-    shift_name_by_id = {item.id: item.name for item in db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()}
 
     energy_user = aliased(User)
     energy_rows_query = (
@@ -1506,29 +1504,6 @@ def build_fill_detail_ledger(
         }
         items.append(_append_search_text(row))
 
-    for mes_item in _load_mes_snapshot_rows(db, business_date=business_date, workshop_id=scoped_workshop_id):
-        source_type = 'mes_projection'
-        row = {
-            'row_id': f"mes-{mes_item.get('id')}",
-            'source_type': source_type,
-            'source_label': _fill_source_label(source_type),
-            'entry_id': mes_item.get('id'),
-            'tracking_card_no': mes_item.get('tracking_card_no'),
-            'business_date': business_date.isoformat(),
-            'workshop_id': mes_item.get('workshop_id'),
-            'workshop_name': workshop_name_by_id.get(mes_item.get('workshop_id')),
-            'machine_id': mes_item.get('machine_id'),
-            'machine_name': machine_name_by_id.get(mes_item.get('machine_id')) or mes_item.get('machine_code') or '未匹配机列',
-            'shift_id': mes_item.get('shift_id'),
-            'shift_name': shift_name_by_id.get(mes_item.get('shift_id')),
-            'status': mes_item.get('entry_status'),
-            'entry_type': source_type,
-            'input_weight': round(_entry_weight_tons(mes_item, 'input_weight'), 3) if mes_item.get('input_weight') is not None else None,
-            'output_weight': round(_entry_weight_tons(mes_item, 'output_weight'), 3) if mes_item.get('output_weight') is not None else None,
-            'scrap_weight': round(_entry_weight_tons(mes_item, 'scrap_weight'), 3) if mes_item.get('scrap_weight') is not None else None,
-        }
-        items.append(_append_search_text(row))
-
     needle = str(search or '').strip().lower()
     if needle:
         items = [item for item in items if needle in str(item.get('search_text') or '').lower()]
@@ -1548,7 +1523,7 @@ def build_fill_detail_ledger(
         owner_key = item.get('responsible_user_id') or item.get('responsible_username') or item.get('responsible_name')
         if owner_key:
             owner_keys.add(str(owner_key))
-        if item.get('source_type') in {'work_order_entry', 'mes_projection', 'local_shift_data'}:
+        if item.get('source_type') in {'work_order_entry', 'local_shift_data'}:
             output_total += _to_float(item.get('output_weight'))
         energy_total += _to_float(item.get('energy_kwh'))
         gas_total += _to_float(item.get('gas_m3'))

@@ -46,7 +46,7 @@ def test_create_machine_with_account_creates_bound_user_pin_and_qr(tmp_path) -> 
 
         assert user.username == 'ZR2-3'
         assert user.name == '铸二车间 3#机'
-        assert user.role == 'shift_leader'
+        assert user.role == 'machine_operator'
         assert user.workshop_id == workshop.id
         assert user.team_id is None
         assert user.is_mobile_user is True

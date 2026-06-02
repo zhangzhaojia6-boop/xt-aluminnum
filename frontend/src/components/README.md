@@ -45,7 +45,7 @@
 | XtDateRangePicker | Date range with 8 preset shortcuts | — |
 | XtNumericInput | Numeric input with unit suffix | 04-entry |
 | XtUnitSelect | Unit dropdown (ton/kg/m/pcs) | 04-entry |
-| XtShiftPicker | Shift selector (C/A/B) | 04-entry |
+| XtShiftPicker | Shift selector (A/B/C) | 04-entry |
 | XtFilter | Filter controls | — |
 | XtSearch | Search input | — |
 | XtExport | Export button | — |

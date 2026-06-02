@@ -64,8 +64,8 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 .xt-missing-report {
   position: relative;
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--xt-danger, #ff5d73) 24%, var(--xt-border-ink, rgba(125, 211, 252, 0.2)));
   border-radius: var(--xt-radius-xl, 18px);
   background:
@@ -107,14 +107,14 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report__head h2 {
-  margin: 4px 0 0;
-  font-size: 18px;
+  margin: 2px 0 0;
+  font-size: 16px;
 }
 
 .xt-missing-report__head strong {
   color: var(--xt-danger, #ff5d73);
   font-family: var(--xt-font-display, inherit);
-  font-size: 32px;
+  font-size: 24px;
 }
 
 .xt-missing-report__stats {
@@ -124,7 +124,7 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report__stats b {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -134,17 +134,19 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 
 .xt-missing-report__table {
   overflow-x: auto;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .xt-missing-report table {
   width: 100%;
-  min-width: 620px;
+  min-width: 560px;
   border-collapse: collapse;
 }
 
 .xt-missing-report th,
 .xt-missing-report td {
-  padding: 10px 8px;
+  padding: 7px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   text-align: left;
   white-space: nowrap;
@@ -157,7 +159,7 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 
 .xt-missing-report td {
   color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .xt-missing-report td span {

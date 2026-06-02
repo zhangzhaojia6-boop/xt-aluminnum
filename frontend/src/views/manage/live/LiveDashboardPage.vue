@@ -12,7 +12,7 @@
           <i></i>
           {{ connectionLabel }}
         </span>
-        <span class="live-dashboard-page__chip">LAST {{ lastEventLabel || '--:--:--' }}</span>
+        <span class="live-dashboard-page__chip">LAST {{ lastUpdateLabel || '--:--:--' }}</span>
         <el-date-picker v-model="targetDate" type="date" value-format="YYYY-MM-DD" @change="loadDashboardSurface" />
         <button class="live-dashboard-page__refresh" type="button" @click="loadDashboardSurface">刷新</button>
       </div>
@@ -22,7 +22,7 @@
 
     <main class="live-dashboard-page__grid">
       <LiveMachineMatrix :matrix="machineMatrix" :loading="loading" @select="openMachine" />
-      <LiveEventRail :events="eventItems" :stream-status="streamStatus" :last-event-at="lastEventLabel" />
+      <LiveEventRail :events="eventItems" :stream-status="streamStatus" :connection-text="connectionLabel" :last-event-at="lastUpdateLabel" />
     </main>
 
     <LiveMetricCompareCard :items="compareItems" />
@@ -41,7 +41,7 @@
 
 <script setup>
 import dayjs from 'dayjs'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLiveFillDetails } from '../../../api/realtime'
 import { useRealtimeStream } from '../../../composables/useRealtimeStream'
@@ -72,6 +72,9 @@ const detailRows = ref([])
 const detailLoading = ref(false)
 const detailError = ref('')
 const latestRealtimeEvent = ref(null)
+const lastSnapshotAt = ref('')
+let snapshotPollTimer = null
+const SNAPSHOT_POLL_MS = 30000
 
 const streamScope = computed(() => {
   if (authStore.isAdmin || authStore.isManager || authStore.role === 'statistician' || authStore.role === 'stat') {
@@ -96,12 +99,14 @@ const eventItems = computed(() => buildLiveEventItems({
 
 const connectionTone = computed(() => {
   if (streamStatus.value === 'open') return 'success'
+  if (lastSnapshotAt.value) return 'warning'
   if (streamStatus.value === 'connecting' || streamStatus.value === 'reconnecting') return 'warning'
   return 'danger'
 })
 
 const connectionLabel = computed(() => {
   if (streamStatus.value === 'open') return '实时连接正常'
+  if (lastSnapshotAt.value) return '快照刷新中'
   if (streamStatus.value === 'connecting') return '正在连接'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   return '连接待核'
@@ -112,6 +117,8 @@ const lastEventLabel = computed(() => {
   if (latestRealtimeEvent.value?.time) return dayjs(latestRealtimeEvent.value.time).format('HH:mm:ss')
   return ''
 })
+const lastSnapshotLabel = computed(() => lastSnapshotAt.value ? dayjs(lastSnapshotAt.value).format('HH:mm:ss') : '')
+const lastUpdateLabel = computed(() => lastEventLabel.value || lastSnapshotLabel.value)
 
 const dataStates = computed(() => [
   { label: '加载', value: loading.value ? '进行中' : '完成', tone: loading.value ? 'warning' : 'success' },
@@ -133,16 +140,18 @@ async function initializeActiveBusinessDate() {
   }
 }
 
-async function loadDashboardSurface() {
-  loading.value = true
+async function loadDashboardSurface(options = {}) {
+  const silent = options.silent === true
+  if (!silent) loading.value = true
   loadError.value = ''
   try {
     const liveData = await fetchLiveAggregation({ business_date: targetDate.value })
     aggregation.value = liveData || {}
+    lastSnapshotAt.value = new Date().toISOString()
   } catch (error) {
     loadError.value = error?.message || '接口失败'
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 
   try {
@@ -158,6 +167,21 @@ function handleRealtimeEvent(type, payload = {}) {
   if (shouldReloadForRealtimeEvent({ type, payload, targetDate: targetDate.value })) {
     void loadDashboardSurface()
   }
+}
+
+function startSnapshotPolling() {
+  if (snapshotPollTimer) return
+  snapshotPollTimer = window.setInterval(() => {
+    if (streamStatus.value !== 'open') {
+      void loadDashboardSurface({ silent: true })
+    }
+  }, SNAPSHOT_POLL_MS)
+}
+
+function stopSnapshotPolling() {
+  if (!snapshotPollTimer) return
+  window.clearInterval(snapshotPollTimer)
+  snapshotPollTimer = null
 }
 
 async function openMachine(machine) {
@@ -188,6 +212,11 @@ async function openMachine(machine) {
 onMounted(async () => {
   await initializeActiveBusinessDate()
   await loadDashboardSurface()
+  startSnapshotPolling()
+})
+
+onUnmounted(() => {
+  stopSnapshotPolling()
 })
 </script>
 

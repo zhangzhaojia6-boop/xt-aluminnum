@@ -76,7 +76,6 @@ import {
   Lock,
   Printer,
   Setting,
-  Tickets,
   User
 } from '@element-plus/icons-vue'
 
@@ -86,8 +85,7 @@ const settingGroups = [
     items: [
       { title: '主数据', path: '/manage/master', tag: '已就绪', icon: Files, tone: 'ready' },
       { title: '别名映射', path: '/manage/alias', tag: '实时同步', icon: Connection, tone: 'ready' },
-      { title: '规则配置', path: '/manage/admin/rules', tag: '规则引擎', icon: Setting, tone: 'warning' },
-      { title: '模板中心', path: '/manage/admin/templates', tag: '工业报表', icon: Tickets, tone: 'neutral' }
+      { title: '规则配置', path: '/manage/admin/rules', tag: '规则引擎', icon: Setting, tone: 'warning' }
     ]
   },
   {
@@ -108,7 +106,7 @@ const settingGroups = [
 
 const settingLinks = settingGroups.flatMap((group) => group.items)
 const statusItems = [
-  { label: '核心模块', value: `${settingLinks.length}/8` },
+  { label: '核心模块', value: `${settingLinks.length}/7` },
   { label: '配置通道', value: 'ACTIVE' },
   { label: '入口状态', value: 'ONLINE' }
 ]

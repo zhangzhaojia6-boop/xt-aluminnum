@@ -42,7 +42,7 @@ export function runHotRollingShiftDaily(scenario, priceSnapshot) {
     ],
     processRows: shifts,
     explanation: [
-      '热轧按大夜/长白班/小夜逐班归集，日总吨耗=日总成本/日产量。',
+      '热轧按长白班/小夜班/大夜班逐班归集，日总吨耗=日总成本/日产量。',
       '示例口径支持：2026-04-15 产量 410.93 吨，总成本 136085.37 元，吨耗 331.16 元/吨。'
     ]
   }

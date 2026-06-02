@@ -328,7 +328,6 @@ const quickLinks = computed(() => {
     links.push(
       { label: '主数据', path: '/manage/master' },
       { label: '用户', path: '/manage/admin/users' },
-      { label: '模板', path: '/manage/admin/templates' },
       { label: '规则', path: '/manage/admin/rules' },
       { label: '设置', path: '/manage/admin/settings' },
     )

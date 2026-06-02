@@ -8,6 +8,15 @@ from app.core.field_permissions import READ_ALL, check_field_write, get_readable
 from app.models.master import WorkshopTemplateConfig
 
 
+QUALITY_ENTRY_FIELD_NAMES = {
+    'quality_note',
+    'quality_issue_type',
+    'quality_issue_card_no',
+    'quality_issue_desc',
+    'quality_issue_photo_path',
+}
+
+
 def _normalize_definition_field(field: dict[str, Any], *, section_name: str) -> dict[str, Any]:
     normalized = deepcopy(field)
     normalized['name'] = str(normalized.get('name') or '').strip()
@@ -26,6 +35,7 @@ def _normalize_definition_section(fields: list[dict[str, Any]] | None, *, sectio
         _normalize_definition_field(field, section_name=section_name)
         for field in (fields or [])
         if str(field.get('name') or '').strip()
+        and not (section_name == 'entry_fields' and str(field.get('name') or '').strip() in QUALITY_ENTRY_FIELD_NAMES)
     ]
 
 def _split_supplemental_sections(fields: list[dict[str, Any]] | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

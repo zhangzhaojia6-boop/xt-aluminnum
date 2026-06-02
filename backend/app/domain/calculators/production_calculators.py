@@ -22,7 +22,7 @@ def scrap_rate(fei_liao_liang_ton: float, tou_liao_liang_ton: float) -> float:
 
 
 def shift_output(ban_ci_chan_liang_ton: Iterable[float | int | None]) -> float:
-    """班次产量口径：大夜、长白班、小夜等班次产量求和；来源见 docs/domain/xintai-real-fields.md「生产」小节。"""
+    """班次产量口径：长白班、小夜班、大夜班产量求和；来源见 docs/domain/xintai-real-fields.md「生产」小节。"""
     return _sum_values(ban_ci_chan_liang_ton)
 
 

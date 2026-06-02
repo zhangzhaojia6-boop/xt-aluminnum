@@ -219,9 +219,11 @@ test('XtShiftPicker renders shift options with v-model', () => {
 
 test('XtShiftPicker has default three shifts', () => {
   const src = source('../src/components/xt/XtShiftPicker.vue')
-  assert.match(src, /大夜/)
+  assert.match(src, /大夜班/)
   assert.match(src, /长白班/)
-  assert.match(src, /小夜/)
+  assert.match(src, /小夜班/)
+  assert.ok(src.indexOf('长白班') < src.indexOf('小夜班'))
+  assert.ok(src.indexOf('小夜班') < src.indexOf('大夜班'))
 })
 
 test('XtShiftPicker supports disabled state', () => {

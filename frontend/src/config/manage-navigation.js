@@ -57,7 +57,6 @@ const NAV_GROUPS = [
     items: [
       { title: '主数据', shortLabel: '主数', path: '/manage/master', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
-      { title: '模板中心', shortLabel: '模板', path: '/manage/admin/templates', icon: DataLine, access: 'admin', commandGroup: '系统' },
       { title: '规则配置', shortLabel: '规则', path: '/manage/admin/rules', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统' }
     ]

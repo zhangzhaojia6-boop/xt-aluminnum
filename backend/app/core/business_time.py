@@ -6,8 +6,9 @@ from zoneinfo import ZoneInfo
 from app.config import settings
 
 
-PRODUCTION_BUSINESS_DAY_START = time(23, 30)
-OWNER_DAILY_CUTOFF = time(9, 0)
+PRODUCTION_BUSINESS_DAY_START = time(7, 30)
+OWNER_DAILY_BUSINESS_DAY_START = time(10, 0)
+OWNER_DAILY_CUTOFF = OWNER_DAILY_BUSINESS_DAY_START
 
 
 def local_now(now: datetime | None = None) -> datetime:
@@ -21,15 +22,15 @@ def local_now(now: datetime | None = None) -> datetime:
 
 def resolve_production_business_date(now: datetime | None = None) -> date:
     current_local = local_now(now)
-    if current_local.time() >= PRODUCTION_BUSINESS_DAY_START:
-        return current_local.date() + timedelta(days=1)
+    if current_local.time() < PRODUCTION_BUSINESS_DAY_START:
+        return current_local.date() - timedelta(days=1)
     return current_local.date()
 
 
 def production_business_window(business_date: date) -> tuple[datetime, datetime]:
     timezone = ZoneInfo(settings.DEFAULT_TIMEZONE)
-    end_at = datetime.combine(business_date, PRODUCTION_BUSINESS_DAY_START, tzinfo=timezone)
-    start_at = end_at - timedelta(days=1)
+    start_at = datetime.combine(business_date, PRODUCTION_BUSINESS_DAY_START, tzinfo=timezone)
+    end_at = start_at + timedelta(days=1)
     return start_at, end_at
 
 
@@ -39,6 +40,6 @@ def last_completed_production_business_date(now: datetime | None = None) -> date
 
 def resolve_owner_daily_business_date(now: datetime | None = None) -> date:
     current_local = local_now(now)
-    if current_local.time() < OWNER_DAILY_CUTOFF:
+    if current_local.time() < OWNER_DAILY_BUSINESS_DAY_START:
         return current_local.date() - timedelta(days=1)
-    return resolve_production_business_date(current_local)
+    return current_local.date()

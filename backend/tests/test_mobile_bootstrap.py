@@ -39,10 +39,10 @@ def test_mobile_bootstrap_endpoint(monkeypatch) -> None:
     def fake_get_user() -> User:
         return User(
             id=18,
-            username='leader',
+            username='operator',
             password_hash='x',
-            name='Leader',
-            role='team_leader',
+            name='Operator',
+            role='machine_operator',
             workshop_id=1,
             team_id=10,
             is_active=True,
@@ -60,7 +60,7 @@ def test_mobile_bootstrap_endpoint(monkeypatch) -> None:
             'user_has_dingtalk_binding': False,
             'current_identity_source': 'dev_fallback',
             'current_scope_summary': {
-                'role': 'team_leader',
+                    'role': 'machine_operator',
                 'data_scope_type': 'self_team',
                 'workshop_id': 1,
                 'team_id': 10,
@@ -202,7 +202,7 @@ def test_settings_reject_conflicting_mobile_bootstrap_contracts(overrides: dict,
         settings.validate_runtime_settings()
 
 
-@pytest.mark.parametrize('role', ['shift_leader', 'energy_stat'])
+@pytest.mark.parametrize('role', ['machine_operator', 'energy_stat'])
 def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) -> None:
     user = User(
         id=28,
@@ -221,28 +221,24 @@ def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) 
 
 
 def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backfill() -> None:
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 29)) == date(2026, 5, 29)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 7, 30)) == date(2026, 5, 29)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 8, 59)) == date(2026, 5, 29)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 0)) == date(2026, 5, 30)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 1)) == date(2026, 5, 30)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 31)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 59)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 10, 0)) == date(2026, 5, 30)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 30)
 
 
-def test_production_business_day_window_uses_2330_anchor() -> None:
-    assert resolve_production_business_date(datetime(2026, 6, 1, 23, 29, 59)) == date(2026, 6, 1)
-    assert resolve_production_business_date(datetime(2026, 6, 1, 23, 30, 0)) == date(2026, 6, 2)
+def test_production_business_day_window_uses_0730_start_anchor() -> None:
+    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 29, 59)) == date(2026, 5, 31)
+    assert resolve_production_business_date(datetime(2026, 6, 1, 7, 30, 0)) == date(2026, 6, 1)
 
     start_at, end_at = production_business_window(date(2026, 6, 1))
 
-    assert start_at == datetime(2026, 5, 31, 23, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
-    assert end_at == datetime(2026, 6, 1, 23, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
+    assert start_at == datetime(2026, 6, 1, 7, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
+    assert end_at == datetime(2026, 6, 2, 7, 30, tzinfo=ZoneInfo('Asia/Shanghai'))
 
 
-def test_last_completed_production_business_date_changes_at_2330() -> None:
-    assert last_completed_production_business_date(datetime(2026, 6, 1, 8, 0)) == date(2026, 5, 31)
-    assert last_completed_production_business_date(datetime(2026, 6, 1, 23, 29, 59)) == date(2026, 5, 31)
-    assert last_completed_production_business_date(datetime(2026, 6, 1, 23, 30, 0)) == date(2026, 6, 1)
+def test_last_completed_production_business_date_changes_at_0730() -> None:
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 29, 59)) == date(2026, 5, 30)
+    assert last_completed_production_business_date(datetime(2026, 6, 1, 7, 30, 0)) == date(2026, 5, 31)
 
 
 def test_backend_shift_boundaries_are_left_closed_right_open() -> None:
@@ -254,9 +250,9 @@ def test_backend_shift_boundaries_are_left_closed_right_open() -> None:
         name='大夜',
         start_time=time(23, 30),
         end_time=time(7, 30),
-        business_day_offset=-1,
+        business_day_offset=0,
         is_cross_day=True,
-        sort_order=1,
+        sort_order=3,
     )
     shift_a = SimpleNamespace(
         id=1,
@@ -266,7 +262,7 @@ def test_backend_shift_boundaries_are_left_closed_right_open() -> None:
         end_time=time(15, 30),
         business_day_offset=0,
         is_cross_day=False,
-        sort_order=2,
+        sort_order=1,
     )
     shift_b = SimpleNamespace(
         id=2,
@@ -276,15 +272,20 @@ def test_backend_shift_boundaries_are_left_closed_right_open() -> None:
         end_time=time(23, 30),
         business_day_offset=0,
         is_cross_day=False,
-        sort_order=3,
+        sort_order=2,
     )
-    candidates = [(date(2026, 6, 1), shift_c), (date(2026, 6, 1), shift_a), (date(2026, 6, 1), shift_b)]
+    candidates = [
+        (date(2026, 5, 31), shift_c),
+        (date(2026, 6, 1), shift_a),
+        (date(2026, 6, 1), shift_b),
+        (date(2026, 6, 1), shift_c),
+    ]
     tz = ZoneInfo('Asia/Shanghai')
 
     assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 7, 29, tzinfo=tz))[1].code == 'C'
     assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 7, 30, tzinfo=tz))[1].code == 'A'
     assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 15, 30, tzinfo=tz))[1].code == 'B'
-    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 23, 30, tzinfo=tz)) is None
+    assert shift_context._pick_shift_by_time(candidates, datetime(2026, 6, 1, 23, 30, tzinfo=tz))[1].code == 'C'
 
 
 def test_get_current_shift_owner_daily_uses_backfill_business_date_without_shift(monkeypatch) -> None:
@@ -548,10 +549,11 @@ def test_entry_fields_returns_tracking_card_for_machine_operator() -> None:
     assert first_fields[0]['name'] == 'tracking_card_no'
     assert first_fields[0]['label'] == '随行卡号'
     assert first_fields[0]['required'] is True
+    assert all(not field['name'].startswith('quality_') for field in first_fields)
     assert all(field['name'] != 'batch_no' or field['label'] == '批号' for field in first_fields)
 
 
-def test_entry_fields_uses_workshop_template_override_for_machine_operator(tmp_path) -> None:
+def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])
     session_factory = sessionmaker(bind=engine, future=True)
@@ -593,13 +595,19 @@ def test_entry_fields_uses_workshop_template_override_for_machine_operator(tmp_p
     assert [field['name'] for field in first_fields] == [
         'tracking_card_no',
         'alloy_grade',
+        'ingot_spec',
+        'cast_speed',
         'input_weight',
+        'scrap_weight',
+        'skin_weight',
+        'paper_furnace',
+        'static_furnace',
         'output_weight',
     ]
-    assert first_fields[2]['label'] == '测试投入'
+    assert first_fields[4]['label'] == '投入铝锭'
 
 
-def test_entry_fields_uses_base_template_config_when_workshop_has_no_override(tmp_path) -> None:
+def test_entry_fields_ignores_base_template_config_when_workshop_has_no_override(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields-base-template.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])
     session_factory = sessionmaker(bind=engine, future=True)
@@ -642,11 +650,17 @@ def test_entry_fields_uses_base_template_config_when_workshop_has_no_override(tm
     assert [field['name'] for field in first_fields] == [
         'tracking_card_no',
         'alloy_grade',
+        'ingot_spec',
+        'cast_speed',
         'input_weight',
+        'scrap_weight',
+        'skin_weight',
+        'paper_furnace',
+        'static_furnace',
         'output_weight',
     ]
-    assert first_fields[1]['label'] == '基础合金'
-    assert first_fields[2]['label'] == '基础投料'
+    assert first_fields[1]['label'] == '合金'
+    assert first_fields[4]['label'] == '投入铝锭'
 
 
 def test_get_current_shift_shows_config_hint_when_no_shift(monkeypatch) -> None:

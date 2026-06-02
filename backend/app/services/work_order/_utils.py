@@ -60,7 +60,7 @@ FLOW_PAYLOAD_FIELDS = {
 ENTRY_LOCKED_STATUSES = {'submitted', 'approved'}
 
 ENTRY_METADATA_ROLE_ALLOWLIST = {
-    'shift_leader', 'contracts', 'inventory_keeper', 'utility_manager', 'energy_stat',
+    'machine_operator', 'contracts', 'inventory_keeper', 'utility_manager', 'energy_stat',
     'planning_owner', 'storage_owner', 'energy_chief', 'shipment_outflow_owner',
     'recovery_owner', 'overhaul_owner', 'quality_owner',
 }

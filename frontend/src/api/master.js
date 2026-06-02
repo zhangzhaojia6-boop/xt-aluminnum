@@ -185,16 +185,6 @@ export async function deleteAliasMapping(id) {
   return data
 }
 
-export async function fetchWorkshopTemplateConfig(templateKey) {
-  const { data } = await api.get(`/master/workshop-templates/${templateKey}`)
-  return data
-}
-
-export async function updateWorkshopTemplateConfig(templateKey, payload) {
-  const { data } = await api.put(`/master/workshop-templates/${templateKey}`, payload)
-  return data
-}
-
 export async function fetchRuleConfigs(params = {}) {
   const { data } = await api.get('/rule-configs', { params })
   return Array.isArray(data) ? data : []

@@ -1,9 +1,8 @@
-"""§3.2 班长 (shift_leader) owner-agent.
+"""生产内勤 (consumable_stat) owner-agent.
 
 Writes:
-- ``daily_consumable_logs.payload`` — validated through ``ConsumablePayload`` (G2 lock)
-- ``mobile_shift_reports.attendance_payload`` — jsonb (G3) keeping
-  ``attendance_count`` in sync as the legacy scalar
+- ``daily_consumable_logs.payload`` — validated through ``ConsumablePayload``
+- ``mobile_shift_reports.attendance_payload`` — keeps attendance details aligned
 """
 from __future__ import annotations
 

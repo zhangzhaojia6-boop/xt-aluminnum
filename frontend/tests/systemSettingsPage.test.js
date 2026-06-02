@@ -9,7 +9,6 @@ test('SystemSettingsPage keeps the current settings entry routes', () => {
     '/manage/master',
     '/manage/alias',
     '/manage/admin/users',
-    '/manage/admin/templates',
     '/manage/admin/rules',
     '/manage/admin/governance',
     '/manage/admin/qr-print',
@@ -17,6 +16,8 @@ test('SystemSettingsPage keeps the current settings entry routes', () => {
   ]) {
     assert.match(src, new RegExp(path.replaceAll('/', '\\/')))
   }
+  assert.doesNotMatch(src, /\/manage\/admin\/templates/)
+  assert.doesNotMatch(src, /模板中心/)
 })
 
 test('SystemSettingsPage keeps the settings hub test id and grouped structure', () => {

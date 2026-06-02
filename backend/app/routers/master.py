@@ -32,8 +32,7 @@ from app.schemas.master import (
     WorkshopOut,
     WorkshopUpdate,
 )
-from app.schemas.templates import WorkshopTemplateConfigOut, WorkshopTemplateConfigUpsert
-from app.services import equipment_service, master_service, workshop_template_service
+from app.services import equipment_service, master_service
 from app.services.audit_service import log_action
 from app.services.real_master_data import REPORTING_MACHINE_CODE_SET, build_process_business_hierarchy
 from app.services.yield_rate_deprecation_map_service import build_yield_rate_deprecation_map
@@ -215,32 +214,27 @@ def delete_alias(
     return {'success': True, 'data': None, 'message': '删除成功', 'total': None}
 
 
-@router.get('/workshop-templates/{template_key}', response_model=WorkshopTemplateConfigOut, name='workshop-template-detail')
+@router.get('/workshop-templates/{template_key}', name='workshop-template-detail')
 def get_workshop_template_detail(
     template_key: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> WorkshopTemplateConfigOut:
+) -> dict:
     _require_admin(current_user)
-    payload = workshop_template_service.get_workshop_template_definition(template_key, db=db)
-    return WorkshopTemplateConfigOut(**payload)
+    _ = (template_key, db)
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail='模板中心已停用，填报端使用固定模板')
 
 
-@router.put('/workshop-templates/{template_key}', response_model=WorkshopTemplateConfigOut, name='workshop-template-upsert')
+@router.put('/workshop-templates/{template_key}', name='workshop-template-upsert')
 def upsert_workshop_template(
     template_key: str,
-    payload: WorkshopTemplateConfigUpsert,
+    payload: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> WorkshopTemplateConfigOut:
+) -> dict:
     _require_admin(current_user)
-    workshop_template_service.upsert_workshop_template_config(
-        db,
-        template_key=template_key,
-        payload=payload.model_dump(),
-    )
-    result = workshop_template_service.get_workshop_template_definition(template_key, db=db)
-    return WorkshopTemplateConfigOut(**result)
+    _ = (template_key, payload, db)
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail='模板中心已停用，填报端使用固定模板')
 
 
 @router.get('/teams', response_model=PaginatedResponse[TeamOut])
