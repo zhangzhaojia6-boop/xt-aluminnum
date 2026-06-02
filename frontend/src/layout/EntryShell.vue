@@ -451,4 +451,21 @@ function isActive(path) {
     border-left: 0;
   }
 }
+
+@media (min-width: 900px) {
+  .xt-entry {
+    max-width: 980px;
+  }
+
+  .xt-entry::before,
+  .xt-entry::after,
+  .xt-entry__tabbar {
+    width: min(100%, 980px);
+  }
+
+  .xt-entry__content {
+    padding-right: var(--xt-space-6);
+    padding-left: var(--xt-space-6);
+  }
+}
 </style>

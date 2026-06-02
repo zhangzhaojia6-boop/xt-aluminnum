@@ -29,7 +29,16 @@
       <section v-for="(group, gi) in groups" :key="gi" class="ue-group">
         <h3 class="ue-group__title">{{ group.label }}</h3>
         <div class="ue-fields">
-          <div v-for="field in group.fields" :key="field.name" class="ue-field" :data-testid="`field-${field.name}`">
+          <div
+            v-for="field in group.fields"
+            :key="field.name"
+            class="ue-field"
+            :class="{
+              'ue-field--wide': isWideField(field),
+              'ue-field--spec': field.type === 'spec'
+            }"
+            :data-testid="`field-${field.name}`"
+          >
             <label class="ue-field__label">
               <span v-if="field.required" class="mobile-required">*</span>
               {{ field.label }}
@@ -381,6 +390,10 @@ function resolveFieldOptions(field) {
   return dynamicOptionsMap[field.options_source] || []
 }
 
+function isWideField(field) {
+  return field.type === 'textarea' || field.type === 'spec'
+}
+
 async function loadDynamicOptions(fields) {
   const sources = new Set()
   for (const f of fields) {
@@ -705,6 +718,8 @@ onMounted(loadData)
 .unified-entry {
   min-height: 100vh;
   min-height: 100dvh;
+  max-width: 920px;
+  margin: 0 auto;
   background: transparent;
   color: var(--xt-text);
   padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
@@ -831,6 +846,8 @@ onMounted(loadData)
 }
 
 .ue-fields {
+  display: grid;
+  grid-template-columns: 1fr;
   background:
     linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76)),
     radial-gradient(circle at 10% 0%, rgba(0, 242, 255, 0.08), transparent 42%);
@@ -843,6 +860,7 @@ onMounted(loadData)
 .ue-field {
   padding: 12px 0;
   border-bottom: 1px solid rgba(0, 242, 255, 0.1);
+  min-width: 0;
 }
 
 .ue-field:last-child { border-bottom: none; }
@@ -944,7 +962,16 @@ onMounted(loadData)
 }
 
 .ue-actions {
-  padding: 16px;
+  position: sticky;
+  bottom: calc(var(--xt-tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 9;
+  margin: 16px;
+  padding: 10px;
+  border: 1px solid rgba(0, 242, 255, 0.16);
+  border-radius: var(--xt-radius-xl);
+  background: linear-gradient(180deg, rgba(5, 15, 28, 0.92), rgba(3, 10, 20, 0.96));
+  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
 }
 
 .ue-submit {
@@ -1061,5 +1088,26 @@ onMounted(loadData)
 @keyframes ueSubmitSweep {
   0%, 48% { transform: translateX(-110%); }
   100% { transform: translateX(110%); }
+}
+
+@media (min-width: 760px) {
+  .ue-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 18px;
+    padding: 8px 18px;
+  }
+
+  .ue-field {
+    padding: 14px 0;
+  }
+
+  .ue-field--wide,
+  .ue-field--spec {
+    grid-column: 1 / -1;
+  }
+
+  .ue-actions {
+    bottom: 18px;
+  }
 }
 </style>
