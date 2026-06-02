@@ -28,21 +28,30 @@ async function expectManageChrome(page) {
   await expectNoHorizontalOverflow(page)
 }
 
-test('manage shell keeps the production surface readable across desktop tablet and mobile override', async ({ page }) => {
+test('manage shell keeps the production surface readable on desktop widths', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1024 })
   await page.goto('/manage/production')
   await expectManageChrome(page)
   await expect(page.getByTestId('manage-production')).toBeVisible()
+})
 
-  await page.setViewportSize({ width: 900, height: 1180 })
-  await page.goto('/manage/production?desktop=1')
-  await expectManageChrome(page)
-  await expect(page.getByTestId('manage-production')).toBeVisible()
-
+test('compact management clients only keep live and yesterday report routes', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 })
-  await page.goto('/manage/production?desktop=1')
+
+  await page.goto('/manage/live')
   await expectManageChrome(page)
-  await expect(page.getByTestId('manage-production')).toBeVisible()
+  await expect(page.getByTestId('manage-live')).toBeVisible()
+
+  await page.goto('/manage/today')
+  await expectManageChrome(page)
+  await expect(page.getByTestId('manage-today')).toBeVisible()
+
+  for (const path of ['/manage/production', '/manage/daily-report', '/manage/fill-details', '/manage/admin/settings']) {
+    await page.goto(`${path}?desktop=1`)
+    await expectManageChrome(page)
+    await expect(page).toHaveURL(/\/manage\/today/)
+    await expect(page.getByTestId('manage-today')).toBeVisible()
+  }
 })
 
 test('manage shell keeps current core centers readable on tablet and mobile widths', async ({ page }) => {
@@ -53,14 +62,12 @@ test('manage shell keeps current core centers readable on tablet and mobile widt
     { path: '/manage/admin/settings', testId: 'system-settings-page' }
   ]
 
-  for (const width of [1100, 430]) {
-    await page.setViewportSize({ width, height: width === 1100 ? 900 : 932 })
+  await page.setViewportSize({ width: 1100, height: 900 })
 
-    for (const center of centers) {
-      await page.goto(width <= 900 ? `${center.path}?desktop=1` : center.path)
-      await expectManageChrome(page)
-      await expect(page.getByTestId(center.testId)).toBeVisible()
-    }
+  for (const center of centers) {
+    await page.goto(center.path)
+    await expectManageChrome(page)
+    await expect(page.getByTestId(center.testId)).toBeVisible()
   }
 })
 

@@ -18,6 +18,8 @@ const WORKSHOP_DIRECTOR_GROUPS = [
   }
 ]
 
+const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today'])
+
 const NAV_GROUPS = [
   {
     label: '生产实时',
@@ -70,12 +72,12 @@ function canAccess(auth, access) {
   return true
 }
 
-export function manageNavGroups(auth) {
+export function manageNavGroups(auth, options = {}) {
   if (auth?.isWorkshopDirector) return WORKSHOP_DIRECTOR_GROUPS
   return NAV_GROUPS
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccess(auth, item.access))
+      items: group.items.filter((item) => canAccess(auth, item.access) && (!options.compact || COMPACT_REVIEW_PATHS.has(item.path)))
     }))
     .filter((group) => group.items.length > 0)
 }

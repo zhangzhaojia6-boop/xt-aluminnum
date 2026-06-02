@@ -96,15 +96,75 @@ test('resolveGuardDecision keeps workshop directors inside own dashboard', () =>
   )
 })
 
-test('resolveGuardDecision sends compact fill-capable users to entry unless desktop is requested', () => {
+test('resolveGuardDecision keeps compact review users on the mobile management allowlist', () => {
   const compactAuth = auth({ canAccessFillSurface: true, canAccessReviewSurface: true })
-  assert.deepEqual(
-    resolveGuardDecision({ to: route(), auth: compactAuth, compactClient: true }),
-    { name: 'mobile-entry' }
+
+  assert.equal(
+    resolveGuardDecision({ to: route({ name: 'manage-live' }), auth: compactAuth, compactClient: true }),
+    true
   )
   assert.equal(
-    resolveGuardDecision({ to: route({ query: { desktop: '1' } }), auth: compactAuth, compactClient: true }),
+    resolveGuardDecision({ to: route({ name: 'manage-today' }), auth: compactAuth, compactClient: true }),
     true
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-production' }), auth: compactAuth, compactClient: true }),
+    { name: 'manage-today' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-daily-report' }), auth: compactAuth, compactClient: true }),
+    { name: 'manage-today' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'admin-ops-reliability', meta: { requiresAuth: true, zone: 'manage', access: 'admin' } }), auth: auth({ adminSurface: true, canAccessFillSurface: true }), compactClient: true }),
+    { name: 'manage-today' }
+  )
+})
+
+test('resolveGuardDecision keeps compact workshop directors inside the workshop dashboard', () => {
+  const directorAuth = auth({
+    isWorkshopDirector: true,
+    canAccessFillSurface: true,
+    canAccessWorkshopDashboard: true,
+  })
+
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-live' }), auth: directorAuth, compactClient: true }),
+    { name: 'manage-workshop-dashboard' }
+  )
+  assert.equal(
+    resolveGuardDecision({
+      to: route({ name: 'manage-workshop-dashboard', meta: { requiresAuth: true, zone: 'manage', access: 'workshop_dashboard' } }),
+      auth: directorAuth,
+      compactClient: true,
+    }),
+    true
+  )
+})
+
+test('resolveGuardDecision sends compact fill-only users to entry', () => {
+  const compactAuth = auth({ canAccessFillSurface: true, canAccessReviewSurface: true })
+  const fillOnlyAuth = auth({
+    isFillOnlyRole: true,
+    canAccessFillSurface: true,
+    canAccessReviewSurface: false,
+  })
+
+  assert.deepEqual(
+    resolveGuardDecision({ to: route(), auth: fillOnlyAuth, compactClient: true }),
+    { name: 'mobile-entry' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: route({
+        name: 'admin-ops-reliability',
+        query: { desktop: '1' },
+        meta: { requiresAuth: true, zone: 'manage', access: 'admin' },
+      }),
+      auth: compactAuth,
+      compactClient: true,
+    }),
+    { name: 'manage-today' }
   )
 })
 

@@ -42,6 +42,8 @@ function adminLanding(authStore) {
 }
 
 function defaultLanding(authStore, compactClient) {
+  if (compactClient && authStore.isWorkshopDirector && authStore.canAccessWorkshopDashboard) return { name: 'manage-workshop-dashboard' }
+  if (compactClient && (authStore.canAccessReviewSurface || authStore.adminSurface)) return { name: 'manage-today' }
   if (compactClient && authStore.canAccessFillSurface) return { name: 'mobile-entry' }
   if (authStore.canAccessFillSurface && !authStore.canAccessReviewSurface) return { name: 'mobile-entry' }
   if (authStore.defaultSurface === 'admin') return adminLanding(authStore)
@@ -56,7 +58,21 @@ function prefersMobileSurface(authStore, to, compactClient) {
   if (!compactClient || !authStore.canAccessFillSurface) return false
   if (to.meta.zone === 'entry' || to.name === 'login') return false
   if (typeof to.query?.desktop === 'string' && to.query.desktop === '1') return false
+  if (authStore.canAccessReviewSurface || authStore.adminSurface) return false
   return to.meta.zone === 'manage' || to.meta.zone === 'review' || to.meta.zone === 'desktop'
+}
+
+const COMPACT_MANAGE_ROUTE_NAMES = new Set(['manage-live', 'manage-today'])
+
+function resolveCompactManageDecision(authStore, to, access, compactClient) {
+  if (!compactClient || to.meta.zone !== 'manage') return null
+  if (authStore.isWorkshopDirector) {
+    return access === 'workshop_dashboard' ? true : { name: 'manage-workshop-dashboard' }
+  }
+  if (authStore.canAccessReviewSurface || authStore.adminSurface) {
+    return COMPACT_MANAGE_ROUTE_NAMES.has(to.name) ? true : { name: 'manage-today' }
+  }
+  return null
 }
 
 export function resolveGuardDecision({
@@ -90,6 +106,11 @@ export function resolveGuardDecision({
 
   if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
     return { name: 'mobile-entry' }
+  }
+
+  const compactManageDecision = resolveCompactManageDecision(auth, to, access, compactClient)
+  if (compactManageDecision !== null) {
+    return compactManageDecision
   }
 
   if (prefersMobileSurface(auth, to, compactClient)) {

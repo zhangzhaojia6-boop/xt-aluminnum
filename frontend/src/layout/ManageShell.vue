@@ -190,7 +190,7 @@ const keyword = ref('')
 
 const userName = computed(() => auth.displayName || auth.user?.name || auth.user?.username || '用户')
 const userInitial = computed(() => userName.value.slice(0, 1).toUpperCase())
-const navGroups = computed(() => manageNavGroups(auth))
+const navGroups = computed(() => manageNavGroups(auth, { compact: isMobileViewport.value }))
 const collapsed = computed(() => !isMobileViewport.value && (userCollapsed.value || isAutoRail.value))
 const drawerSize = computed(() => (isMobileViewport.value ? 'min(312px, 88vw)' : '300px'))
 const navMode = computed(() => {

@@ -55,6 +55,14 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
   assert.equal(paths.includes('/manage/reports'), false)
 })
 
+test('compact management navigation only exposes live and yesterday report for review users', () => {
+  const groups = manageNavGroups(reviewAuth, { compact: true })
+  const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+
+  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today'])
+})
+
 test('workshop director skeleton only exposes own workshop dashboard', () => {
   const groups = manageNavGroups({
     ...reviewAuth,

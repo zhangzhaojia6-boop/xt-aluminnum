@@ -1,5 +1,5 @@
 <template>
-  <section class="live-dashboard-page">
+  <section class="live-dashboard-page" data-testid="manage-live">
     <header class="live-dashboard-page__header">
       <div class="live-dashboard-page__title">
         <span class="live-dashboard-page__eyebrow">鑫泰铝业 数据中枢 / 生产实时</span>
