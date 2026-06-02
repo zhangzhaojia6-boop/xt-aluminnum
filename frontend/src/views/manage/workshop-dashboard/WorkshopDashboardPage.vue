@@ -207,7 +207,7 @@ const exceptionRows = computed(() => {
   return [
     { key: 'pending', label: '待归属机列', value: Number(pending.value?.summary?.entry_count || live.value.overall_progress?.pending_assignment?.entry_count || 0), tone: 'warning' },
     { key: 'missing-output', label: '填报但没产量', value: Number(missingOutput.entry_count || 0), tone: 'warning' },
-    { key: 'mes-unmatched', label: 'MES 未匹配机列', value: Number(mes.unresolved_machine_count || 0) + Number(mes.upstream_machine_code_missing_count || 0), tone: 'danger' },
+    { key: 'mes-unmatched', label: 'MES 未匹配机列', value: Number(mes.unresolved_machine_count || 0), tone: 'danger' },
     { key: 'energy', label: '能耗缺失', value: energyRows.value.length ? 0 : 1, tone: energyRows.value.length ? 'success' : 'warning' },
   ]
 })

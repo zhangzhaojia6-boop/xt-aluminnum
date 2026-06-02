@@ -269,7 +269,7 @@ export function buildIssueQueues({ dailyOverview = {}, liveAggregation = {} } = 
   const energy = dailyOverview.energy || {}
   const energyMissing = hasEnergyData(energy) ? 0 : 1
   const mes = liveAggregation.mes_machine_binding || {}
-  const mesUnmatched = Number(mes.unresolved_machine_count || 0) + Number(mes.upstream_machine_code_missing_count || 0)
+  const mesUnmatched = Number(mes.unresolved_machine_count || 0)
 
   return [
     {

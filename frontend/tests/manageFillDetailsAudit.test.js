@@ -186,8 +186,11 @@ test('issue queues surface pending assignment, missing owner roles, energy gaps 
     ['pending-assignment', 2],
     ['missing-owner', 1],
     ['missing-energy', 1],
-    ['mes-unmatched', 4],
+    ['mes-unmatched', 3],
   ])
+
+  const mesQueue = queues.find((item) => item.key === 'mes-unmatched')
+  assert.deepEqual(mesQueue.items, ['未解析 3 条', '上游缺机列码 1 条'])
 })
 
 test('issue queues keep pending assignment tone when backend uses fallback count field', () => {
@@ -268,6 +271,10 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   assert.match(dashboardSrc, /data-testid="workshop-dashboard-filter"/)
   assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)
   assert.match(dashboardSrc, /fetchMesMaterialRecords\(scopedParams/)
+  assert.doesNotMatch(
+    dashboardSrc,
+    /unresolved_machine_count\s*\|\|\s*0\)\s*\+\s*Number\(mes\.upstream_machine_code_missing_count/,
+  )
 })
 
 test('WorkshopDashboardPage shows machine fill submit time', () => {
