@@ -106,7 +106,7 @@
             <span>{{ current.workshop_name || bootstrap.workshop_name || '-' }}</span>
           </div>
           <div class="mobile-entry-stage__identity-shift">
-            <span>{{ current.shift_name || current.shift_code || '-' }}</span>
+            <span>{{ currentShiftLabel }}</span>
             <span>{{ current.business_date || '-' }}</span>
           </div>
         </div>
@@ -158,7 +158,7 @@ import { useAuthStore } from '../../stores/auth.js'
 import { usePullRefresh } from '../../composables/usePullRefresh.js'
 import { usePerformance } from '../../composables/usePerformance.js'
 import XtSkeleton from '../../components/xt/XtSkeleton.vue'
-import { formatScopeLabel, formatStatusLabel } from '../../utils/display.js'
+import { formatScopeLabel, formatShiftLabel, formatStatusLabel } from '../../utils/display.js'
 import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
@@ -213,6 +213,7 @@ const pageTitle = computed(() => roleBucketMeta.value.title)
 const pageSubtitle = computed(() => roleBucketMeta.value.subtitle)
 const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || auth.role] || 'var(--m-role-operator)')
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
+const currentShiftLabel = computed(() => formatShiftLabel(current.value?.shift_name || current.value?.shift_code, '-'))
 const inferredShift = ref(describeInferredShift())
 const shiftClockTimer = ref(null)
 const shiftMismatch = computed(() => {

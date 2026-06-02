@@ -1,3 +1,5 @@
+import { formatShiftLabel } from './display.js'
+
 function safeArray(value) {
   return Array.isArray(value) ? value : []
 }
@@ -16,7 +18,7 @@ export function buildMissingReportRows(payload = {}) {
           key: `machine-${workshop.workshop_id}-${machine.machine_id}-${shift.shift_id}`,
           workshopName: workshop.workshop_name || '-',
           machineName: machine.machine_name || '-',
-          shiftName: shift.shift_name || '-',
+          shiftName: formatShiftLabel(shift.shift_name),
           roleLabel: '主操',
           ownerName: '-',
           statusText: shift.status_text || '缺报',

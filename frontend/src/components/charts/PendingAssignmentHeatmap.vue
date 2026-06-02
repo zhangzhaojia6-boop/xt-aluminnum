@@ -5,6 +5,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { HeatmapChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { formatShiftLabel } from '../../utils/display.js'
 
 use([CanvasRenderer, HeatmapChart, GridComponent, TooltipComponent, VisualMapComponent])
 
@@ -18,7 +19,7 @@ const matrix = computed(() => {
   const cells = new Map()
   for (const row of props.rows) {
     const ws = row.workshop_name || '未知'
-    const sh = row.shift_name || '未知'
+    const sh = formatShiftLabel(row.shift_name, '未知')
     if (!wsNames.includes(ws)) wsNames.push(ws)
     if (!shiftNames.includes(sh)) shiftNames.push(sh)
     cells.set(`${ws}::${sh}`, (cells.get(`${ws}::${sh}`) || 0) + (row.entry_count || row.count || 1))

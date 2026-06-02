@@ -233,6 +233,7 @@ import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
 import { inferOwnerDailyBusinessDate } from '../../utils/shiftClock.js'
+import { formatShiftLabel } from '../../utils/display.js'
 
 const auth = useAuthStore()
 
@@ -258,7 +259,7 @@ const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
-const shiftName = computed(() => shiftContext.value?.shift_name || '')
+const shiftName = computed(() => formatShiftLabel(shiftContext.value?.shift_name || shiftContext.value?.shift_code, ''))
 const businessDate = computed(() => shiftContext.value?.business_date || '')
 const identityMeta = computed(() => {
   if (mode.value === 'owner_daily') return `${workshopName.value} · ${businessDate.value}`

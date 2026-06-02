@@ -1,3 +1,5 @@
+import { formatShiftLabel } from './display.js'
+
 export const MISSING_AUDIT_VALUE = '暂无可信数据'
 
 const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
@@ -222,7 +224,7 @@ export function buildFillLedgerRows(rows = []) {
         sourceLabel: row.source_label || row.source_type || '-',
         workshopName: row.workshop_name || '-',
         machineName: isOwnerDaily ? (row.machine_name || '内勤岗') : (row.machine_name || '-'),
-        shiftName: row.shift_name || (isOwnerDaily ? '每日一录' : '-'),
+        shiftName: isOwnerDaily ? '每日一录' : formatShiftLabel(row.shift_name),
         responsibleText: row.responsible_name || row.responsible_username || '-',
         responsibleUsername: row.responsible_username || '',
         submittedText: formatDateTime(row.submitted_at || row.updated_at),

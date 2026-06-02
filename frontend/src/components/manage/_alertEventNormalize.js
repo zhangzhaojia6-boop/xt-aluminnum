@@ -1,7 +1,8 @@
 import {
   formatExceptionTypeLabel,
   formatQualityIssueTypeLabel,
-  formatReconciliationTypeLabel
+  formatReconciliationTypeLabel,
+  formatShiftLabel
 } from '../../utils/display.js'
 
 const FD_ROUTE = '/manage/alerts?surface=anomaly'
@@ -33,7 +34,7 @@ function fallbackId(domain, row, idx, primary = 'id') {
 function productionSummary(row) {
   if (row.summary) return row.summary
   const exception = row.exception_type ? formatExceptionTypeLabel(row.exception_type) : ''
-  const shift = row.shift_name || row.shift_label
+  const shift = formatShiftLabel(row.shift_name || row.shift_label, '')
   const head = joinNonEmpty([row.workshop_name, shift, exception])
   const note = row.note ? String(row.note).trim() : ''
   if (head && note) return `${head}：${note}`
@@ -44,7 +45,7 @@ function reportingSummary(row) {
   if (row.summary) return row.summary
   const reason = row.returned_reason ? String(row.returned_reason).trim() : ''
   const exception = row.exception_type ? formatExceptionTypeLabel(row.exception_type) : ''
-  const shift = row.shift_name || row.shift_label
+  const shift = formatShiftLabel(row.shift_name || row.shift_label, '')
   const head = joinNonEmpty([row.workshop_name, shift])
   if (reason) return head ? `${head}：${reason}` : reason
   if (exception) return joinNonEmpty([head, exception])

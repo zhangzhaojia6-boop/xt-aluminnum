@@ -92,7 +92,7 @@
           <div class="mobile-history-main">
             <div>
               <div class="history-log__title mobile-history-title">
-                {{ item.business_date }} / {{ item.shift_name || item.shift_code || '-' }}
+                {{ item.business_date }} / {{ formatShiftLabel(item.shift_name || item.shift_code, '-') }}
               </div>
               <div class="history-log__meta mobile-history-meta">
                 {{ historyActorMeta(item) }}
@@ -137,7 +137,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchMobileHistory } from '../../api/mobile'
-import { formatNumber, formatStatusLabel } from '../../utils/display'
+import { formatNumber, formatShiftLabel, formatStatusLabel } from '../../utils/display'
 import { useAuthStore } from '../../stores/auth'
 import { resolveTransitionRoleBucket } from '../../utils/mobileTransition'
 import { inferBusinessDate } from '../../utils/shiftClock'

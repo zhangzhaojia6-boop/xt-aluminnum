@@ -69,7 +69,7 @@ test('normalizeFactoryDirector returned_items use returned_reason as summary', (
     }
   }
   const out = normalizeFactoryDirector(payload, DATE)
-  assert.equal(out[0].summary, '二车间 大夜：数据缺失需补录')
+  assert.equal(out[0].summary, '二车间 大夜班：数据缺失需补录')
   assert.equal(out[0].domain, 'reporting')
 })
 

@@ -1,3 +1,5 @@
+import { formatShiftLabel } from './display.js'
+
 function numberValue(value) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
@@ -63,7 +65,7 @@ export function buildOutputDistribution(workshops = [], limit = 5) {
       const input = numberValue(machine.day_total?.input)
       const shifts = (machine.shifts || [])
         .filter((shift) => numberValue(shift.total_output) > 0)
-        .map((shift) => String(shift.shift_name || '').trim())
+        .map((shift) => formatShiftLabel(shift.shift_name, ''))
         .filter(Boolean)
 
       return {
@@ -105,7 +107,7 @@ export function buildUnboundFillSummary(workshops = [], limit = 3) {
       const input = numberValue(machine.day_total?.input ?? machine.dayTotal?.input)
       const shiftNames = (machine.shifts || [])
         .filter((shift) => numberValue(shift.total_output ?? shift.totalOutput) > 0)
-        .map((shift) => String(shift.shift_name || shift.shiftName || '').trim())
+        .map((shift) => formatShiftLabel(shift.shift_name || shift.shiftName, ''))
         .filter(Boolean)
 
       rows.push({
@@ -188,7 +190,7 @@ export function buildShiftOutputRhythm(workshops = []) {
       shifts.forEach((shift) => {
         const output = numberValue(shift.total_output)
         if (output <= 0) return
-        const shiftName = String(shift.shift_name || '').trim() || '未命名班次'
+        const shiftName = formatShiftLabel(shift.shift_name, '未命名班次')
         if (!shiftsByName.has(shiftName)) {
           shiftsByName.set(shiftName, {
             shiftName,
@@ -376,7 +378,7 @@ export function buildPendingAssignmentSummary(aggregation = {}, limit = 3) {
     output: numberValue(rawSummary.output),
     rows: rows.slice(0, safeLimit).map((row) => ({
       workshopName: row.workshop_name || row.workshopName || '--',
-      shiftName: row.shift_name || row.shiftName || '未标记班次',
+      shiftName: formatShiftLabel(row.shift_name || row.shiftName, '未标记班次'),
       entryCount: numberValue(row.entry_count ?? row.entryCount),
       draftEntryCount: numberValue(row.draft_entry_count ?? row.draftEntryCount),
       formalEntryCount: numberValue(row.formal_entry_count ?? row.formalEntryCount),
@@ -406,7 +408,7 @@ export function buildMissingOutputWeightSummary(aggregation = {}, limit = 3) {
       trackingCardNo: item.tracking_card_no || item.trackingCardNo || '--',
       workshopName: item.workshop_name || item.workshopName || '未标记车间',
       machineName: item.machine_name || item.machineName || '未标记机列',
-      shiftName: item.shift_name || item.shiftName || '未标记班次',
+      shiftName: formatShiftLabel(item.shift_name || item.shiftName, '未标记班次'),
       inputWeight: numberValue(item.input_weight ?? item.inputWeight),
       scrapWeight: numberValue(item.scrap_weight ?? item.scrapWeight),
       entryStatus: item.entry_status || item.entryStatus || '',

@@ -5,6 +5,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
+import { formatShiftLabel } from '../../utils/display.js'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
@@ -16,7 +17,7 @@ const props = defineProps({
 const PALETTE = ['#1f6feb', '#2da44e', '#bf8700', '#cf222e', '#8250df', '#0969da']
 
 const option = computed(() => {
-  const shiftLabels = props.shifts.map((s) => s.shift_name || s.name || `班次${s.id}`)
+  const shiftLabels = props.shifts.map((s) => formatShiftLabel(s.shift_name || s.name, `班次${s.id}`))
   const series = props.workshops.map((ws, idx) => ({
     name: ws.workshop_name,
     type: 'line',

@@ -161,6 +161,25 @@ const REMINDER_TYPE_LABELS = {
   late_report: '迟报提醒'
 }
 
+const SHIFT_LABELS = {
+  A: '长白班',
+  DAY: '长白班',
+  '白班': '长白班',
+  '长白': '长白班',
+  '长白班': '长白班',
+  B: '小夜班',
+  EVENING: '小夜班',
+  MID: '小夜班',
+  '中班': '小夜班',
+  '小夜': '小夜班',
+  '小夜班': '小夜班',
+  C: '大夜班',
+  NIGHT: '大夜班',
+  '夜班': '大夜班',
+  '大夜': '大夜班',
+  '大夜班': '大夜班'
+}
+
 function formatByMap(value, mapping) {
   if (value === null || value === undefined || value === '') return '-'
   return mapping[value] || value
@@ -216,6 +235,13 @@ export function formatSourceTypeLabel(value) {
 
 export function formatReminderTypeLabel(value) {
   return formatByMap(value, REMINDER_TYPE_LABELS)
+}
+
+export function formatShiftLabel(value, fallback = '-') {
+  if (value === null || value === undefined || value === '') return fallback
+  const text = String(value).trim()
+  if (!text) return fallback
+  return SHIFT_LABELS[text] || SHIFT_LABELS[text.toUpperCase()] || text
 }
 
 export function formatBooleanLabel(value) {

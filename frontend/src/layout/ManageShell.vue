@@ -11,7 +11,7 @@
     data-testid="manage-shell"
   >
     <aside class="xt-manage__sidebar">
-      <RouterLink class="xt-manage__brand" to="/manage/today" aria-label="鑫泰铝业数据中枢">
+      <RouterLink class="xt-manage__brand" :to="navTo(manageHomePath)" aria-label="鑫泰铝业数据中枢">
         <XtLogo :variant="collapsed ? 'icon' : 'full'" />
         <span v-if="!collapsed || isAutoRail" class="xt-manage__brand-text">数据中枢</span>
       </RouterLink>
@@ -97,7 +97,7 @@
 
     <el-drawer v-model="drawerOpen" direction="ltr" :size="drawerSize" :with-header="false" class="xt-manage__drawer">
       <div class="xt-manage__drawer-head">
-        <RouterLink class="xt-manage__drawer-brand" to="/manage/today" aria-label="鑫泰铝业数据中枢" @click="drawerOpen = false">
+        <RouterLink class="xt-manage__drawer-brand" :to="navTo(manageHomePath)" aria-label="鑫泰铝业数据中枢" @click="drawerOpen = false">
           <XtLogo variant="icon" />
           <span>数据中枢</span>
         </RouterLink>
@@ -190,6 +190,7 @@ const keyword = ref('')
 
 const userName = computed(() => auth.displayName || auth.user?.name || auth.user?.username || '用户')
 const userInitial = computed(() => userName.value.slice(0, 1).toUpperCase())
+const manageHomePath = computed(() => auth.isWorkshopDirector ? '/manage/workshop-dashboard' : '/manage/today')
 const navGroups = computed(() => manageNavGroups(auth, { compact: isMobileViewport.value }))
 const collapsed = computed(() => !isMobileViewport.value && (userCollapsed.value || isAutoRail.value))
 const drawerSize = computed(() => (isMobileViewport.value ? 'min(312px, 88vw)' : '300px'))

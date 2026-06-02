@@ -48,7 +48,7 @@
         </div>
         <div class="attendance-radar__readout mobile-overview-item">
           <span>班次</span>
-          <strong>{{ currentShift.shift_name || currentShift.shift_code || '-' }}</strong>
+          <strong>{{ currentShiftLabel }}</strong>
         </div>
         <div class="attendance-radar__readout mobile-overview-item">
           <span>车间</span>
@@ -121,7 +121,7 @@
           <div>
             <span class="attendance-radar__eyebrow">PERSONNEL TRACE</span>
             <strong>{{ selectedMachineName || '机台' }}</strong>
-            <span>{{ currentShift.shift_name || currentShift.shift_code || '-' }}</span>
+            <span>{{ currentShiftLabel }}</span>
             <span>{{ currentShift.business_date }}</span>
           </div>
           <el-tag :type="locked ? 'success' : 'warning'" effect="light" class="attendance-radar__tag">
@@ -243,6 +243,7 @@ import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRet
 import { fetchEquipment } from '../../api/master'
 import { fetchCurrentShift } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
+import { formatShiftLabel } from '../../utils/display'
 
 const { enqueuePendingRequest } = useRetryQueue()
 
@@ -277,6 +278,7 @@ const anomalyCount = computed(() => {
 const selectedMachineName = computed(() => {
   return equipmentOptions.value.find((item) => item.id === machineId.value)?.name || currentShift.value.attendance_machine_name || ''
 })
+const currentShiftLabel = computed(() => formatShiftLabel(currentShift.value?.shift_name || currentShift.value?.shift_code, '-'))
 const attendanceStatusLabel = computed(() => {
   if (locked.value) return '已确认'
   if (Number(currentShift.value?.attendance_exception_count || 0) > 0) return '存在异常'

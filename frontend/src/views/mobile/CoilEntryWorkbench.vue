@@ -206,6 +206,7 @@ import { buildFlowPayload, resolveFlowFieldState } from '../../utils/coilFlowFie
 import { DEFAULT_ALLOY_GRADES, loadCoilEntryStartup } from '../../utils/coilEntryStartup.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
+import { formatShiftLabel } from '../../utils/display.js'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -224,7 +225,7 @@ const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
 const workshopName = computed(() => currentShift.value?.workshop_name || bootstrap.value?.workshop_name || '-')
-const shiftName = computed(() => currentShift.value?.shift_name || currentShift.value?.shift_code || '-')
+const shiftName = computed(() => formatShiftLabel(currentShift.value?.shift_name || currentShift.value?.shift_code, '-'))
 const businessDate = computed(() => currentShift.value?.business_date || '-')
 
 const totalInput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.input_weight) || 0), 0))

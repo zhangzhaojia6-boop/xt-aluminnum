@@ -249,7 +249,7 @@ test('missing report rows are precise to machine shift and owner role', () => {
   })
 
   assert.deepEqual(rows.map((row) => [row.workshopName, row.machineName, row.shiftName, row.roleLabel, row.statusText]), [
-    ['铸轧三', '9#机', '大夜', '主操', '缺报'],
+    ['铸轧三', '9#机', '大夜班', '主操', '缺报'],
     ['成品库', '每日一录', '每日一录', '总电工', '缺报'],
   ])
   assert.deepEqual(summarizeMissingReportRows(rows), {

@@ -17,7 +17,7 @@
           <span class="ocr-vision__eyebrow">SHIFT SIGNAL</span>
           <strong>当前班次</strong>
         </div>
-        <span class="ocr-vision__chip">{{ currentShift.shift_name || currentShift.shift_code || '待载入' }}</span>
+        <span class="ocr-vision__chip">{{ currentShiftLabel }}</span>
       </header>
       <div v-if="loading" class="ocr-vision__state mobile-placeholder">
         <span class="ocr-vision__orbit" aria-hidden="true"></span>
@@ -154,6 +154,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
 import { extractOcrFields, fetchCurrentShift, fetchWorkshopTemplate } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
+import { formatShiftLabel } from '../../utils/display'
 
 const STORAGE_PREFIX = 'aluminum-ocr-submission:'
 
@@ -170,6 +171,7 @@ const template = ref(null)
 const extractResult = ref(null)
 const currentShift = ref({})
 let submitCooldownTimer = null
+const currentShiftLabel = computed(() => formatShiftLabel(currentShift.value.shift_name || currentShift.value.shift_code, '待载入'))
 
 const extractedFieldItems = computed(() => {
   if (!template.value || !extractResult.value?.fields) return []
@@ -185,7 +187,7 @@ const extractedFieldItems = computed(() => {
 })
 const shiftReadouts = computed(() => [
   { label: '业务日期', value: currentShift.value.business_date || '-' },
-  { label: '班次', value: currentShift.value.shift_name || currentShift.value.shift_code || '-' },
+  { label: '班次', value: formatShiftLabel(currentShift.value.shift_name || currentShift.value.shift_code, '-') },
   { label: '车间', value: template.value?.display_name || currentShift.value.workshop_name || '-' },
   { label: '节奏', value: template.value?.tempo === 'slow' ? '慢工序' : '快工序' }
 ])

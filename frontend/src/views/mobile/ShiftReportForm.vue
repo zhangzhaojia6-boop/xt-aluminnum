@@ -73,7 +73,7 @@
             <template #header>当前任务</template>
           <div class="mobile-overview-grid">
             <div class="mobile-overview-item"><span>业务日期</span><strong>{{ report.business_date || '-' }}</strong></div>
-            <div class="mobile-overview-item"><span>班次</span><strong>{{ report.shift_name || '-' }}</strong></div>
+            <div class="mobile-overview-item"><span>班次</span><strong>{{ formatShiftLabel(report.shift_name || report.shift_code, '-') }}</strong></div>
             <div class="mobile-overview-item"><span>车间</span><strong>{{ report.workshop_name || '-' }}</strong></div>
             <div class="mobile-overview-item"><span>班组</span><strong>{{ report.team_name || '-' }}</strong></div>
             <div class="mobile-overview-item"><span>负责人</span><strong>{{ report.leader_name || auth.displayName }}</strong></div>
@@ -387,7 +387,7 @@ import { useLocalDraft } from '../../composables/useLocalDraft'
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
 import { useSubmitCooldown } from '../../composables/useSubmitCooldown'
 import { useAuthStore } from '../../stores/auth'
-import { formatNumber, formatStatusLabel } from '../../utils/display'
+import { formatNumber, formatShiftLabel, formatStatusLabel } from '../../utils/display'
 import { requestErrorMessage } from '../../utils/reportStatus'
 import { shiftReportStatusTagType as statusTagType, isMeaningfulLocalDraft } from '../../utils/shiftReportHelpers'
 import { isWithinSubmitCooldown } from '../../utils/submitGuard'

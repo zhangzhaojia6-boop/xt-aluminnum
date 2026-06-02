@@ -233,7 +233,7 @@ test('buildPendingAssignmentSummary exposes draft coils missing machine ownershi
   assert.equal(summary.output, 120.46)
   assert.equal(summary.rows.length, 2)
   assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
-  assert.equal(summary.rows[0].shiftName, '大夜')
+  assert.equal(summary.rows[0].shiftName, '大夜班')
   assert.equal(summary.rows[0].entryCount, 9)
   assert.equal(summary.tone, 'warning')
 })
@@ -270,7 +270,7 @@ test('buildMissingOutputWeightSummary exposes submitted coils missing output wei
   assert.equal(summary.items[0].trackingCardNo, 'S-2-062-1')
   assert.equal(summary.items[0].workshopName, '铸三车间')
   assert.equal(summary.items[0].machineName, '2#机')
-  assert.equal(summary.items[0].shiftName, '小夜')
+  assert.equal(summary.items[0].shiftName, '小夜班')
 })
 
 test('buildWorkshopFillIntakeRows ranks draft pressure and keeps missing-only workshops', () => {
@@ -385,7 +385,7 @@ test('buildOutputDistribution ranks live machine output and marks unbound lines'
   assert.equal(rows[0].machineName, '未绑定机列 / 大夜')
   assert.equal(rows[0].bindingLabel, '未绑定')
   assert.equal(rows[0].share, 100)
-  assert.equal(rows[0].shiftLabel, '大夜')
+  assert.equal(rows[0].shiftLabel, '大夜班')
   assert.equal(rows[1].output, 37250)
   assert.equal(rows[1].share, 50.26)
 })
@@ -422,7 +422,7 @@ test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
   ])
 
   assert.equal(rows.length, 2)
-  assert.equal(rows[0].shiftName, '大夜')
+  assert.equal(rows[0].shiftName, '大夜班')
   assert.equal(rows[0].output, 111360)
   assert.equal(rows[0].input, 117000)
   assert.equal(rows[0].machineCount, 2)
@@ -481,7 +481,7 @@ test('buildUnboundFillSummary totals direct entries that still need machine owne
   assert.equal(summary.output, 120460)
   assert.equal(summary.input, 126800)
   assert.equal(summary.rows[0].workshopName, '2050冷轧车间')
-  assert.equal(summary.rows[0].shiftLabel, '大夜')
+  assert.equal(summary.rows[0].shiftLabel, '大夜班')
   assert.equal(summary.rows[0].output, 74110)
 })
 

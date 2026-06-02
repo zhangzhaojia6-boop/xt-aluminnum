@@ -37,7 +37,9 @@ test('ManageShell keeps 数据中枢 brand text', () => {
 })
 
 test('ManageShell brand lands on the owner today tab', () => {
-  assert.match(src, /class="xt-manage__brand" to="\/manage\/today"/)
+  assert.match(scriptBody, /const manageHomePath = computed\(\(\) => auth\.isWorkshopDirector \? '\/manage\/workshop-dashboard' : '\/manage\/today'\)/)
+  assert.match(src, /class="xt-manage__brand" :to="navTo\(manageHomePath\)"/)
+  assert.match(src, /class="xt-manage__drawer-brand" :to="navTo\(manageHomePath\)"/)
   assert.doesNotMatch(src, /class="xt-manage__brand" to="\/manage\/overview"/)
 })
 
@@ -75,7 +77,7 @@ test('ManageShell keeps adaptive navigation usable in icon and mobile modes', ()
   assert.match(src, /'xt-manage--compact-topbar': isCompactTopbar/)
   assert.match(src, /:size="drawerSize"/)
   assert.match(src, /class="xt-manage__drawer-head"/)
-  assert.match(src, /class="xt-manage__drawer-brand" to="\/manage\/today"/)
+  assert.match(src, /class="xt-manage__drawer-brand" :to="navTo\(manageHomePath\)"/)
   assert.match(src, /aria-label="关闭导航" @click="drawerOpen = false"/)
   assert.match(src, /:aria-label="item\.title"/)
   assert.match(src, /:aria-current="isActive\(item\.path\) \? 'page' : undefined"/)

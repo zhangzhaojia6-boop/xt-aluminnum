@@ -136,7 +136,8 @@ test('deleted route paths stay absent', () => {
 })
 
 test('legacy route callers use the owner skeleton tabs', () => {
-  assert.match(manageShellSrc, /class="xt-manage__brand"\s+to=["']\/manage\/today["']/, 'manage shell brand should open today tab')
+  assert.match(manageShellSrc, /const\s+manageHomePath\s*=\s*computed\(\(\)\s*=>\s*auth\.isWorkshopDirector\s*\?\s*['"]\/manage\/workshop-dashboard['"]\s*:\s*['"]\/manage\/today['"]\)/, 'manage shell brand should send workshop directors to their dashboard and reviewers to today')
+  assert.match(manageShellSrc, /class="xt-manage__brand"\s+:to="navTo\(manageHomePath\)"/, 'manage shell brand should use the role-aware home path')
   assert.match(manageShellSrc, /key:\s*route\.path\s*\|\|\s*['"]\/manage\/today['"]/, 'manage shell assistant fallback should use today tab')
   assert.doesNotMatch(manageShellSrc, /\/manage\/overview/, 'manage shell should not call old overview path')
   assert.match(loginSrc, /if\s*\(\s*auth\.adminSurface\s*\)\s*return\s+['"]\/admin['"]/, 'login landing should preserve admin entry')
