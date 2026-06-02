@@ -14,6 +14,14 @@ test('ParticleField respects prefers-reduced-motion', () => {
   assert.match(src, /prefers-reduced-motion/, 'must branch on reduced-motion')
 })
 
+test('ParticleField skips three on compact mobile clients', () => {
+  const src = fs.readFileSync(file, 'utf8')
+  assert.match(src, /COMPACT_QUERY\s*=\s*['"]\(max-width:\s*900px\)['"]/, 'must define compact viewport guard')
+  assert.match(src, /matchMedia\(COMPACT_QUERY\)\.matches/, 'must skip animation on compact screens')
+  assert.match(src, /MicroMessenger\|wxwork\|DingTalk\|iPhone\|iPad\|Android\|Mobile/, 'must skip animation for mobile runtimes')
+  assert.match(src, /compactMql\?\.removeEventListener/, 'must remove compact listener on unmount')
+})
+
 test('ParticleField disposes resources on unmount', () => {
   const src = fs.readFileSync(file, 'utf8')
   assert.match(src, /onBeforeUnmount/)
@@ -38,4 +46,9 @@ test('vite.config.js code-splits three into its own chunk', () => {
   const viteCfg = fs.readFileSync(path.resolve('vite.config.js'), 'utf8')
   assert.match(viteCfg, /\/three\//, 'manualChunks must match /three/')
   assert.match(viteCfg, /vendor-three/, 'three chunk name must be vendor-three')
+})
+
+test('vite.config.js keeps vendor-three out of offline precache', () => {
+  const viteCfg = fs.readFileSync(path.resolve('vite.config.js'), 'utf8')
+  assert.match(viteCfg, /globIgnores\s*:\s*\[[^\]]*vendor-three-\*\.js/, 'decorative three chunk must not be precached')
 })

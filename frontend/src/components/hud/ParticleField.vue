@@ -19,12 +19,17 @@ let geometry = null
 let material = null
 let rafId = 0
 let mql = null
+let compactMql = null
 let disposed = false
 
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+const COMPACT_QUERY = '(max-width: 900px)'
 
 function shouldAnimate() {
-  return typeof window !== 'undefined' && !window.matchMedia(MOTION_QUERY).matches
+  if (typeof window === 'undefined') return false
+  if (window.matchMedia(MOTION_QUERY).matches) return false
+  if (window.matchMedia(COMPACT_QUERY).matches) return false
+  return !/MicroMessenger|wxwork|DingTalk|iPhone|iPad|Android|Mobile/i.test(window.navigator?.userAgent || '')
 }
 
 async function initThree() {
@@ -120,7 +125,9 @@ function stopAndDispose() {
 onMounted(() => {
   if (typeof window === 'undefined') return
   mql = window.matchMedia(MOTION_QUERY)
+  compactMql = window.matchMedia(COMPACT_QUERY)
   mql.addEventListener?.('change', handleMotionChange)
+  compactMql.addEventListener?.('change', handleMotionChange)
   window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', handleVisibility)
   initThree()
@@ -129,6 +136,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true
   mql?.removeEventListener?.('change', handleMotionChange)
+  compactMql?.removeEventListener?.('change', handleMotionChange)
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', handleResize)
     document.removeEventListener('visibilitychange', handleVisibility)

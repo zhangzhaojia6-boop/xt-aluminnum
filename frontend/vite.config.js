@@ -49,6 +49,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        globIgnores: ['**/vendor-three-*.js'],
         navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/healthz$/, /^\/readyz$/],
         runtimeCaching: [
           {
