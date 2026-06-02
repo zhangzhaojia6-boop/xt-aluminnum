@@ -135,6 +135,7 @@
         title="昨日报表缺报明细"
         :rows="missingRows"
         :loading="liveLoading"
+        compact
       />
     </section>
 

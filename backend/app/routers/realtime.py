@@ -151,6 +151,10 @@ def stream_realtime(
     return StreamingResponse(
         _event_stream(request, workshop_scope=workshop_scope, cursor=cursor, permit=permit),
         media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        },
     )
 
 

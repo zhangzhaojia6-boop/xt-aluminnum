@@ -1,5 +1,9 @@
 <template>
-  <section class="xt-missing-report" data-testid="missing-report-panel">
+  <section
+    class="xt-missing-report"
+    :class="{ 'xt-missing-report--compact': compact }"
+    data-testid="missing-report-panel"
+  >
     <header class="xt-missing-report__head">
       <div>
         <span>缺报追踪</span>
@@ -55,6 +59,7 @@ const props = defineProps({
   title: { type: String, default: '缺报明细' },
   rows: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
 })
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
@@ -169,6 +174,38 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
   background: color-mix(in srgb, var(--xt-danger, #ff5d73) 16%, transparent);
   color: var(--xt-danger, #ff5d73);
   font-weight: 800;
+}
+
+.xt-missing-report--compact {
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.xt-missing-report--compact .xt-missing-report__head h2 {
+  font-size: 14px;
+}
+
+.xt-missing-report--compact .xt-missing-report__head strong {
+  font-size: 20px;
+}
+
+.xt-missing-report--compact .xt-missing-report__stats b {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.xt-missing-report--compact .xt-missing-report__table {
+  max-height: 132px;
+}
+
+.xt-missing-report--compact th,
+.xt-missing-report--compact td {
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.xt-missing-report--compact td span {
+  padding: 3px 7px;
 }
 
 @keyframes xtMissingSweep {

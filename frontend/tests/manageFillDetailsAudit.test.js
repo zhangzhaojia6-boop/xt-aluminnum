@@ -265,6 +265,7 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 
   assert.match(todaySrc, /MissingReportPanel/)
+  assert.match(todaySrc, /compact/)
   assert.match(todaySrc, /fetchLiveAggregation/)
   assert.match(todaySrc, /buildMissingReportRows/)
   assert.match(dashboardSrc, /MissingReportPanel/)
@@ -275,6 +276,14 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
     dashboardSrc,
     /unresolved_machine_count\s*\|\|\s*0\)\s*\+\s*Number\(mes\.upstream_machine_code_missing_count/,
   )
+})
+
+test('MissingReportPanel has compact density for yesterday report surface', () => {
+  const src = source('../src/components/manage/MissingReportPanel.vue')
+
+  assert.match(src, /compact/)
+  assert.match(src, /xt-missing-report--compact/)
+  assert.match(src, /max-height:\s*132px/)
 })
 
 test('WorkshopDashboardPage shows machine fill submit time', () => {

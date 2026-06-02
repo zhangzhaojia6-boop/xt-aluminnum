@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.auth import create_access_token
 from app.core.deps import get_db
+from app.core.rate_limit import reset_rate_limits
 from app.main import app
 from app.models.system import User
 from app.routers import realtime
@@ -37,6 +38,43 @@ def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('live-fill-details') == '/api/v1/aggregation/live/fill-details'
     assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
     assert app.url_path_for('live-missing-output-resolve', entry_id=7) == '/api/v1/aggregation/live/missing-output/7'
+
+
+def test_realtime_stream_response_headers_disable_proxy_buffering(monkeypatch) -> None:
+    reset_rate_limits()
+    current_user = User(
+        id=707,
+        username='live-admin',
+        password_hash='x',
+        name='Live Admin',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    async def fake_event_stream(*_args, **_kwargs):
+        yield 'retry: 1000\n\n'
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime._event_stream', fake_event_stream)
+
+    try:
+        token = create_access_token(subject=str(current_user.id))
+        with TestClient(app).stream(
+            'GET',
+            '/api/v1/realtime/stream',
+            headers={'Authorization': f'Bearer {token}'},
+        ) as response:
+            assert response.status_code == 200
+            assert 'text/event-stream' in response.headers['content-type']
+            assert response.headers['x-accel-buffering'] == 'no'
+            assert response.headers['cache-control'] == 'no-cache'
+    finally:
+        app.dependency_overrides.clear()
+        reset_rate_limits()
 
 
 def test_realtime_stream_filters_events_by_scope(monkeypatch) -> None:

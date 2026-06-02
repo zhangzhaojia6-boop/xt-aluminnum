@@ -5,12 +5,19 @@ def test_nginx_https_config_and_docs_are_present() -> None:
     nginx_conf = (REPO_ROOT / 'nginx' / 'nginx.conf').read_text(encoding='utf-8')
     compose_prod = (REPO_ROOT / 'docker-compose.prod.yml').read_text(encoding='utf-8')
     ssl_docs = (REPO_ROOT / 'docs' / 'ssl-setup.md').read_text(encoding='utf-8')
+    deploy_production = (REPO_ROOT / 'backend' / 'scripts' / 'deploy_production.py').read_text(encoding='utf-8')
 
     assert 'listen 443 ssl http2;' in nginx_conf
     assert 'ssl_certificate /etc/nginx/ssl/cert.pem;' in nginx_conf
     assert 'ssl_certificate_key /etc/nginx/ssl/key.pem;' in nginx_conf
     assert 'Strict-Transport-Security "max-age=63072000"' in nginx_conf
     assert 'return 301 https://$host$request_uri;' in nginx_conf
+    assert 'location = /api/v1/realtime/stream' in nginx_conf
+    assert 'proxy_buffering off;' in nginx_conf
+    assert 'proxy_read_timeout 1h;' in nginx_conf
+    assert 'X-Accel-Buffering "no"' in nginx_conf
+    assert 'location = /api/v1/realtime/stream' in deploy_production
+    assert 'proxy_buffering off;' in deploy_production
 
     assert './ssl:/etc/nginx/ssl:ro' in compose_prod
     assert '"443:443"' in compose_prod
