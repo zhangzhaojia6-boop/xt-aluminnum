@@ -276,7 +276,7 @@ test('admin mobile entry shows the manual-first mobile entry', async ({ page }) 
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/(?:entry|manage\/admin(?:\/settings)?)$/)
+  await expect(page).toHaveURL(/\/(?:entry|manage\/today|manage\/admin(?:\/settings)?)$/)
 
   if (!page.url().endsWith('/entry')) {
     const currentShiftResponse = page.waitForResponse((response) =>
@@ -316,7 +316,7 @@ for (const width of responsiveWidths) {
     await expect(entryShell).toBeVisible()
     await expect(page.getByTestId('mobile-entry')).toBeVisible()
     await expect(page.getByRole('heading', { name: '录产量' })).toBeVisible()
-    await expect(page.getByText('记录本班次生产数据')).toBeVisible()
+    await expect(page.getByText('按卷记录投入、产出重量')).toBeVisible()
     await expect(page.getByRole('button', { name: '开始填报' })).toBeVisible()
     await expect(entryShell.getByRole('link', { name: /草稿/ })).toBeVisible()
     await expect(entryShell.getByText('管理端')).toHaveCount(0)

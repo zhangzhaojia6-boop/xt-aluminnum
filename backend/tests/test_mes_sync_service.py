@@ -418,6 +418,28 @@ def test_refresh_daily_wip_snapshots_groups_current_coils_by_business_date(tmp_p
     assert float(rows[0].feeding_weight_tons) == 16.0
 
 
+def test_mes_snapshot_business_date_uses_production_0730_anchor() -> None:
+    before_anchor = CoilSnapshot(
+        coil_id='MES:BEFORE',
+        tracking_card_no='BEFORE',
+        event_time=datetime(2026, 6, 1, 23, 29, tzinfo=UTC),
+    )
+    at_anchor = CoilSnapshot(
+        coil_id='MES:ANCHOR',
+        tracking_card_no='ANCHOR',
+        event_time=datetime(2026, 6, 1, 23, 30, tzinfo=UTC),
+    )
+    from_updated_at = CoilSnapshot(
+        coil_id='MES:UPDATED',
+        tracking_card_no='UPDATED',
+        updated_at=datetime(2026, 6, 2, 0, 10, tzinfo=UTC),
+    )
+
+    assert mes_sync_service._snapshot_business_date(before_anchor) == date(2026, 6, 1)
+    assert mes_sync_service._snapshot_business_date(at_anchor) == date(2026, 6, 2)
+    assert mes_sync_service._snapshot_business_date(from_updated_at) == date(2026, 6, 2)
+
+
 def test_sync_coil_list_refreshes_previous_daily_wip_date_when_coil_moves(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mes-daily-wip-move.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__, MesDailyWipSnapshot.__table__])
