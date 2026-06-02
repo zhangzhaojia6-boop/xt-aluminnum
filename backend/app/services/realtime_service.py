@@ -1887,11 +1887,24 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
     return entries, 'work_order_runtime'
 
 
-def _build_mes_machine_binding_summary(*, mes_rows: list[dict], entries: list[dict], pending_assignment: dict | None) -> dict:
-    mes_row_count = len(mes_rows)
-    mes_rows_with_machine = len([item for item in mes_rows if item.get('machine_id') is not None])
+def _build_mes_machine_binding_summary(
+    *,
+    mes_rows: list[dict],
+    entries: list[dict],
+    pending_assignment: dict | None,
+    business_date: date | None = None,
+) -> dict:
+    target_business_date = business_date.isoformat() if business_date is not None else None
+    summary_mes_rows = [
+        item
+        for item in mes_rows
+        if target_business_date is None
+        or str(item.get('source_business_date') or item.get('business_date') or '') == target_business_date
+    ]
+    mes_row_count = len(summary_mes_rows)
+    mes_rows_with_machine = len([item for item in summary_mes_rows if item.get('machine_id') is not None])
     source_counts: dict[str, int] = defaultdict(int)
-    for item in mes_rows:
+    for item in summary_mes_rows:
         source_counts[str(item.get('machine_binding_source') or 'unresolved')] += 1
 
     fill_entries = [item for item in entries if item.get('entry_type') != 'mes_projection']
@@ -1915,7 +1928,7 @@ def _build_mes_machine_binding_summary(*, mes_rows: list[dict], entries: list[di
         'direct_machine_code_count': int(source_counts.get('direct_machine_code', 0)),
         'route_inferred_machine_count': int(source_counts.get('route_inferred', 0)),
         'unresolved_machine_count': int(source_counts.get('unresolved', 0)),
-        'upstream_machine_code_missing_count': len([item for item in mes_rows if item.get('upstream_machine_code_missing')]),
+        'upstream_machine_code_missing_count': len([item for item in summary_mes_rows if item.get('upstream_machine_code_missing')]),
         'fill_entry_count': len(fill_entries),
         'fill_entries_with_mes_match': fill_entries_with_mes_match,
         'fill_entries_bound_to_machine': fill_entries_bound_to_machine,
@@ -2095,6 +2108,7 @@ def _load_mes_snapshot_rows(
                 'machine_id': resolved_machine_id,
                 'shift_id': resolved_shift_id,
                 'business_date': business_date.isoformat(),
+                'source_business_date': snapshot_date.isoformat() if snapshot_date else None,
                 'input_weight': _to_float(source_payload.get('input_weight') or metadata.get('input_weight')),
                 'output_weight': _to_float(source_payload.get('output_weight') or metadata.get('output_weight')),
                 'scrap_weight': _to_float(source_payload.get('scrap_weight') or metadata.get('scrap_weight')),
@@ -2285,6 +2299,7 @@ def build_live_aggregation(
         mes_rows=mes_rows,
         entries=entries,
         pending_assignment=(payload.get('overall_progress') or {}).get('pending_assignment') or {},
+        business_date=business_date,
     )
     payload['mes_sync_status'] = mes_sync_service.latest_sync_status(db)
     payload['owner_daily_status'] = _build_owner_daily_status(

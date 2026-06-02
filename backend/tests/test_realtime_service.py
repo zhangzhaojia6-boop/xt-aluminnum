@@ -952,7 +952,7 @@ def test_build_live_aggregation_exposes_mes_machine_binding_status(tmp_path, mon
                 next_workshop='2050车间',
                 next_process='冷轧',
                 status='synced',
-                business_date=None,
+                business_date=date(2026, 5, 6),
             ),
             MesCoilSnapshot(
                 id=712,
@@ -963,7 +963,7 @@ def test_build_live_aggregation_exposes_mes_machine_binding_status(tmp_path, mon
                 shift_code='N',
                 next_process='纵剪',
                 status='synced',
-                business_date=None,
+                business_date=date(2026, 5, 6),
             ),
         ]
     )
@@ -1034,6 +1034,47 @@ def test_mes_machine_binding_summary_uses_strict_runtime_match() -> None:
     assert summary['fill_entries_with_mes_match'] == 1
     assert summary['fill_entries_bound_to_machine'] == 1
     assert summary['fill_entries_pending_machine'] == 0
+
+
+def test_mes_machine_binding_summary_counts_only_target_business_date() -> None:
+    summary = realtime_service._build_mes_machine_binding_summary(
+        mes_rows=[
+            {
+                'id': 801,
+                'tracking_card_no': 'RA260602801',
+                'business_date': '2026-06-02',
+                'source_business_date': '2026-06-02',
+                'machine_id': 11,
+                'machine_binding_source': 'route_inferred',
+                'upstream_machine_code_missing': True,
+            },
+            {
+                'id': 802,
+                'tracking_card_no': 'RA260601802',
+                'business_date': '2026-06-02',
+                'source_business_date': '2026-06-01',
+                'machine_id': None,
+                'machine_binding_source': 'unresolved',
+                'upstream_machine_code_missing': True,
+            },
+        ],
+        entries=[
+            {
+                'tracking_card_no': 'RA260601802',
+                'entry_type': 'mobile_coil',
+                'machine_id': 12,
+                'mes_match_count': 1,
+            }
+        ],
+        pending_assignment={},
+        business_date=date(2026, 6, 2),
+    )
+
+    assert summary['mes_row_count'] == 1
+    assert summary['route_inferred_machine_count'] == 1
+    assert summary['unresolved_machine_count'] == 0
+    assert summary['upstream_machine_code_missing_count'] == 1
+    assert summary['fill_entries_with_mes_match'] == 1
 
 
 def test_build_live_aggregation_pairs_cards_with_operator_separator_variants(tmp_path, monkeypatch) -> None:
