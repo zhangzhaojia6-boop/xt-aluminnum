@@ -805,6 +805,44 @@ def test_build_live_aggregation_keeps_ambiguous_mes_route_unassigned(tmp_path, m
     assert pending['rows'][0]['missing_machine_count'] == 1
 
 
+def test_build_live_aggregation_does_not_count_mes_projection_as_pending_assignment(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=4, code='JZ', name='精整车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=21, code='JZ-ZJ1', name='纵剪1#', workshop_id=4, equipment_type='slitter', is_active=True),
+            Equipment(id=22, code='JZ-ZJ2', name='纵剪2#', workshop_id=4, equipment_type='slitter', is_active=True),
+            MesCoilSnapshot(
+                id=709,
+                coil_id='MES-709',
+                tracking_card_no='RA260506709',
+                workshop_code='JZ',
+                machine_code=None,
+                shift_code=None,
+                next_process='纵剪',
+                status='synced',
+                business_date=date(2026, 5, 6),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['data_source'] == 'mes_projection'
+    assert 'pending_assignment' not in payload['overall_progress']
+    assert payload['mes_machine_binding']['unresolved_machine_count'] == 1
+
+
 def test_build_live_aggregation_exposes_current_and_active_business_date_context(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

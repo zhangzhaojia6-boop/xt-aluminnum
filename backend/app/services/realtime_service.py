@@ -426,7 +426,7 @@ def _build_pending_assignment_summary(*, entries: list[dict], workshops, shifts)
     pending_entries = [
         item
         for item in entries
-        if item.get('entry_type') != OWNER_DAILY_ENTRY_TYPE
+        if item.get('entry_type') not in {OWNER_DAILY_ENTRY_TYPE, 'mes_projection'}
         and (item.get('machine_id') is None or item.get('shift_id') is None)
     ]
     entry_count = len(pending_entries)
