@@ -39,6 +39,8 @@ test('/manage/live uses the phase 2 Stitch component surface', () => {
   assert.match(livePageSource, /fetchLiveCellDetail/)
   assert.match(livePageSource, /fetchLiveFillDetails/)
   assert.match(livePageSource, /useRealtimeStream/)
+  assert.match(livePageSource, /connectionTimeoutMs:\s*15000/)
+  assert.match(livePageSource, /快照可用 · 实时重连/)
 })
 
 test('realtime stream heartbeats do not reload the whole live page', () => {

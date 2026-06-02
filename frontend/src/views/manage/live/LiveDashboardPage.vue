@@ -83,8 +83,9 @@ const streamScope = computed(() => {
   return authStore.user?.workshop_id ? String(authStore.user.workshop_id) : 'all'
 })
 
-const { status: streamStatus, lastEventAt } = useRealtimeStream(streamScope, {
+const { status: streamStatus, lastEventAt, reconnectCount } = useRealtimeStream(streamScope, {
   enabled: true,
+  connectionTimeoutMs: 15000,
   onEvent: handleRealtimeEvent,
 })
 
@@ -96,17 +97,26 @@ const eventItems = computed(() => buildLiveEventItems({
   loadError: loadError.value,
   aggregation: aggregation.value,
 }))
+const hasSnapshotPayload = computed(() => Boolean(
+  lastSnapshotAt.value
+  || aggregation.value?.business_date
+  || (Array.isArray(aggregation.value?.workshops) && aggregation.value.workshops.length)
+))
 
 const connectionTone = computed(() => {
   if (streamStatus.value === 'open') return 'success'
-  if (lastSnapshotAt.value) return 'warning'
+  if (hasSnapshotPayload.value) return 'warning'
   if (streamStatus.value === 'connecting' || streamStatus.value === 'reconnecting') return 'warning'
   return 'danger'
 })
 
 const connectionLabel = computed(() => {
   if (streamStatus.value === 'open') return '实时连接正常'
-  if (lastSnapshotAt.value) return '快照刷新中'
+  if (hasSnapshotPayload.value) {
+    return streamStatus.value === 'reconnecting' || reconnectCount.value > 0
+      ? '快照可用 · 实时重连'
+      : '快照刷新中'
+  }
   if (streamStatus.value === 'connecting') return '正在连接'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   return '连接待核'
