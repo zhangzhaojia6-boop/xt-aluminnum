@@ -116,6 +116,8 @@ def _normalized_workshop_names(workshop_names: set[str] | None) -> set[str]:
 
 def _apply_workshop_names(query: Any, model: type, workshop_names: set[str] | None) -> Any:
     names = _normalized_workshop_names(workshop_names)
+    if workshop_names is not None and not names:
+        return query.filter(model.id == -1)
     if not names:
         return query
     if hasattr(model, 'workshop_name'):
@@ -128,7 +130,13 @@ def resolve_scope_workshop_names(db: Session, scope: ScopeSummary) -> set[str] |
         return None
     if scope.workshop_id is None:
         return set()
-    workshop = db.get(Workshop, scope.workshop_id)
+    return resolve_workshop_id_names(db, scope.workshop_id)
+
+
+def resolve_workshop_id_names(db: Session, workshop_id: int | None) -> set[str]:
+    if workshop_id is None:
+        return set()
+    workshop = db.get(Workshop, workshop_id)
     if workshop is None:
         return set()
     names = {workshop.name}

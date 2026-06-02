@@ -980,6 +980,44 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
         equipment.is_active = True
 
 
+def seed_workshop_director_users(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
+    for workshop in workshops_by_code.values():
+        if not workshop.is_active:
+            continue
+        username = f'{workshop.code}-DIR'.upper()
+        user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
+        if user is None:
+            user = User(
+                username=username,
+                password_hash=get_password_hash(secrets.token_urlsafe(24)),
+                name=f'{workshop.name}车间主任',
+                role='workshop_director',
+                workshop_id=workshop.id,
+                team_id=None,
+                data_scope_type='self_workshop',
+                assigned_shift_ids=[],
+                is_mobile_user=False,
+                is_reviewer=True,
+                is_manager=True,
+                is_active=True,
+            )
+            db.add(user)
+            continue
+
+        user.name = f'{workshop.name}车间主任'
+        user.role = 'workshop_director'
+        user.workshop_id = workshop.id
+        user.team_id = None
+        user.data_scope_type = 'self_workshop'
+        user.assigned_shift_ids = []
+        user.is_mobile_user = False
+        user.is_reviewer = True
+        user.is_manager = True
+        user.is_active = True
+        if not user.password_hash:
+            user.password_hash = get_password_hash(secrets.token_urlsafe(24))
+
+
 def seed_mes_master_aliases(db: Session) -> None:
     existing = {
         (item.entity_type, item.alias_code, item.source_type): item
@@ -1116,5 +1154,6 @@ def seed_real_master_data(db: Session) -> None:
     seed_owner_role_qrs(db, workshops_by_code)
     rehome_legacy_online_role_qrs(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
+    seed_workshop_director_users(db, workshops_by_code)
 
     db.commit()

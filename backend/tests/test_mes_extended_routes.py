@@ -95,7 +95,7 @@ def test_mes_extended_workshop_process_route_passes_filters(monkeypatch):
     seen = {}
 
     def fake_records(_db, *, business_date=None, search=None, limit=100, offset=0, workshop_names=None):
-        seen.update({'business_date': business_date, 'search': search, 'limit': limit, 'offset': offset})
+        seen.update({'business_date': business_date, 'search': search, 'limit': limit, 'offset': offset, 'workshop_names': workshop_names})
         return [
             {
                 'source_id': 'process-1',
@@ -115,15 +115,43 @@ def test_mes_extended_workshop_process_route_passes_filters(monkeypatch):
         ]
 
     monkeypatch.setattr('app.routers.mes.mes_extended_service.list_workshop_process_records', fake_records)
+    monkeypatch.setattr('app.routers.mes.mes_extended_service.resolve_workshop_id_names', lambda _db, workshop_id: {'新厂在线车间'} if workshop_id == 20 else set())
 
     response = TestClient(app).get(
         '/api/v1/mes/extended/workshop-process-records',
-        params={'business_date': '2026-05-31', 'search': '26RA', 'limit': 20, 'offset': 10},
+        params={'business_date': '2026-05-31', 'workshop_id': 20, 'search': '26RA', 'limit': 20, 'offset': 10},
     )
 
     assert response.status_code == 200
     assert response.json()[0]['source_id'] == 'process-1'
-    assert seen == {'business_date': date(2026, 5, 31), 'search': '26RA', 'limit': 20, 'offset': 10}
+    assert seen == {
+        'business_date': date(2026, 5, 31),
+        'search': '26RA',
+        'limit': 20,
+        'offset': 10,
+        'workshop_names': {'新厂在线车间'},
+    }
+
+
+def test_mes_extended_workshop_process_route_denies_cross_workshop(monkeypatch):
+    app.dependency_overrides[get_db] = _dummy_db
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=9,
+        role='workshop_director',
+        is_admin=False,
+        is_manager=True,
+        is_reviewer=True,
+        workshop_id=20,
+        data_scope_type='self_workshop',
+    )
+    monkeypatch.setattr('app.routers.mes.mes_extended_service.list_workshop_process_records', lambda *_args, **_kwargs: [])
+
+    response = TestClient(app).get(
+        '/api/v1/mes/extended/workshop-process-records',
+        params={'business_date': '2026-05-31', 'workshop_id': 21},
+    )
+
+    assert response.status_code == 403
 
 
 def test_mes_extended_reference_items_route_passes_filters(monkeypatch):

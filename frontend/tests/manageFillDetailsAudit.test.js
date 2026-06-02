@@ -10,6 +10,10 @@ import {
   filterFillLedgerRows,
   MISSING_AUDIT_VALUE,
 } from '../src/utils/manageFillDetailsAudit.js'
+import {
+  buildMissingReportRows,
+  summarizeMissingReportRows,
+} from '../src/utils/missingReportRows.js'
 
 function source(rel) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8')
@@ -204,7 +208,60 @@ test('FillDetailsPage is wired to the three audit data sources', () => {
   assert.match(src, /fetchDailyProduction/)
   assert.match(src, /fetchLiveAggregation/)
   assert.match(src, /fetchLiveFillDetails/)
+  assert.match(src, /fetchWorkshops/)
+  assert.match(src, /data-testid="fill-details-workshop-filter"/)
+  assert.match(src, /workshop_id:\s*selectedWorkshopId\.value/)
   assert.match(src, /data-testid="data-audit-ticker"/)
   assert.match(src, /data-testid="source-chain-panel"/)
   assert.match(src, /data-testid="issue-queue-panel"/)
+})
+
+test('missing report rows are precise to machine shift and owner role', () => {
+  const rows = buildMissingReportRows({
+    workshops: [
+      {
+        workshop_id: 1,
+        workshop_name: '铸轧三',
+        machines: [
+          {
+            machine_id: 9,
+            machine_name: '9#机',
+            shifts: [
+              { shift_id: 1, shift_name: '大夜', submission_status: 'not_started', status_text: '缺报', is_applicable: true },
+              { shift_id: 2, shift_name: '长白班', submission_status: 'all_submitted', status_text: '已填', is_applicable: true },
+            ],
+          },
+        ],
+      },
+    ],
+    owner_daily_status: {
+      items: [
+        { user_id: 30, workshop_name: '成品库', role_label: '总电工', person_name: '王电工', status: 'not_started' },
+      ],
+    },
+  })
+
+  assert.deepEqual(rows.map((row) => [row.workshopName, row.machineName, row.shiftName, row.roleLabel, row.statusText]), [
+    ['铸轧三', '9#机', '大夜', '主操', '缺报'],
+    ['成品库', '每日一录', '每日一录', '总电工', '缺报'],
+  ])
+  assert.deepEqual(summarizeMissingReportRows(rows), {
+    total: 2,
+    workshopCount: 2,
+    shiftCount: 2,
+    roleCount: 2,
+  })
+})
+
+test('TodayPage and WorkshopDashboardPage mount precise missing report panels', () => {
+  const todaySrc = source('../src/views/manage/today/TodayPage.vue')
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(todaySrc, /MissingReportPanel/)
+  assert.match(todaySrc, /fetchLiveAggregation/)
+  assert.match(todaySrc, /buildMissingReportRows/)
+  assert.match(dashboardSrc, /MissingReportPanel/)
+  assert.match(dashboardSrc, /data-testid="workshop-dashboard-filter"/)
+  assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)
+  assert.match(dashboardSrc, /fetchMesMaterialRecords\(scopedParams/)
 })

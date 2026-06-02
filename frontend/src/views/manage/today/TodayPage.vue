@@ -130,6 +130,12 @@
         </table>
         <div v-else class="xt-today__empty">暂无车间过站数据</div>
       </article>
+
+      <MissingReportPanel
+        title="昨日报表缺报明细"
+        :rows="missingRows"
+        :loading="liveLoading"
+      />
     </section>
 
     <div class="xt-today__row">
@@ -168,11 +174,14 @@ import OutputTrendLine from '../../../components/manage/OutputTrendLine.vue'
 import FilerRoster from '../../../components/manage/FilerRoster.vue'
 import SummaryHero from '../../../components/manage/SummaryHero.vue'
 import YesterdayShiftPanel from '../../../components/manage/YesterdayShiftPanel.vue'
+import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
 import { fetchTimeseries } from '../../../api/dashboard.js'
+import { fetchLiveAggregation } from '../../../api/realtime.js'
 import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
+import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 import {
   buildDailyComparisonCards,
   buildDailySettlementCards,
@@ -187,6 +196,8 @@ snapshot.load()
 const trendSeries = ref([])
 const userList = ref([])
 const rosterOpen = ref(false)
+const liveAggregation = ref({})
+const liveLoading = ref(false)
 
 async function loadTrend(targetDate) {
   try {
@@ -207,9 +218,22 @@ async function loadUsers() {
   }
 }
 
+async function loadLiveAggregation(targetDate) {
+  liveLoading.value = true
+  try {
+    liveAggregation.value = await fetchLiveAggregation({ business_date: targetDate })
+  } catch (_e) {
+    liveAggregation.value = {}
+  } finally {
+    liveLoading.value = false
+  }
+}
+
 loadTrend(snapshot.targetDate.value)
 loadUsers()
+loadLiveAggregation(snapshot.targetDate.value)
 watch(snapshot.targetDate, (next) => loadTrend(next))
+watch(snapshot.targetDate, (next) => loadLiveAggregation(next))
 
 const reportingStatus = computed(() => snapshot.data.value.workshop_reporting_status || [])
 const rosterRows = computed(() => buildFilerRoster(reportingStatus.value, userList.value))
@@ -260,6 +284,7 @@ const settlementCards = computed(() => buildDailySettlementCards(dailyOverview.v
 const comparisonCards = computed(() => buildDailyComparisonCards(dailyOverview.value))
 const workshopRows = computed(() => buildDailyWorkshopRows(dailyOverview.value.workshop_output || []))
 const wipRows = computed(() => buildDailyWipRows(dailyOverview.value.wip_distribution || []))
+const missingRows = computed(() => buildMissingReportRows(liveAggregation.value))
 const dailySectionLabels = ['全厂入库产量', '过站下机参考', '合同吨数']
 
 const kpiItems = computed(() => {

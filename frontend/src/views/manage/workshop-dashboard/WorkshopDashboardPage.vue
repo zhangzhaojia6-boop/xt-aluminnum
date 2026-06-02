@@ -13,6 +13,12 @@
         @refresh="load"
         @pick="pickDate"
       />
+      <div v-if="canChooseWorkshop" class="workshop-board__filter" data-testid="workshop-dashboard-filter">
+        <span>车间</span>
+        <select v-model.number="selectedWorkshopId" aria-label="筛选车间">
+          <option v-for="workshop in workshops" :key="workshop.id" :value="workshop.id">{{ workshop.name }}</option>
+        </select>
+      </div>
       <div class="workshop-board__signal" :class="`is-${freshness}`">
         <i></i>
         <span>{{ loading ? '同步中' : '链路在线' }}</span>
@@ -123,6 +129,12 @@
             <strong>{{ row.value }}</strong>
           </article>
         </section>
+
+        <MissingReportPanel
+          title="缺报明细"
+          :rows="missingRows"
+          :loading="loading"
+        />
       </aside>
     </main>
   </section>
@@ -133,12 +145,15 @@ import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
+import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { fetchWorkshopDashboard } from '../../../api/dashboard.js'
 import { fetchLiveAggregation, fetchLiveFillDetails, fetchPendingAssignmentEntries } from '../../../api/realtime.js'
 import { fetchMesMaterialRecords, fetchMesWorkshopProcessRecords } from '../../../api/mes.js'
+import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { buildFillLedgerRows } from '../../../utils/manageFillDetailsAudit.js'
+import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 
 const auth = useAuthStore()
 const targetDate = ref(inferBusinessDate())
@@ -150,11 +165,16 @@ const detailRows = ref([])
 const pending = ref({})
 const mesProcessRows = ref([])
 const mesMaterialRows = ref([])
+const workshops = ref([])
+const workshopsLoaded = ref(false)
+const selectedWorkshopId = ref(null)
 
-const workshopId = computed(() => auth.user?.workshop_id || null)
+const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
+const workshopId = computed(() => canChooseWorkshop.value ? selectedWorkshopId.value : (auth.user?.workshop_id || null))
+const selectedWorkshop = computed(() => workshops.value.find((item) => Number(item.id) === Number(workshopId.value)) || null)
 const workshopTitle = computed(() => {
   const liveWorkshop = (live.value.workshops || [])[0]
-  return liveWorkshop?.workshop_name || liveWorkshop?.name || dashboard.value.workshop_name || '各车间看板'
+  return selectedWorkshop.value?.name || liveWorkshop?.workshop_name || liveWorkshop?.name || dashboard.value.workshop_name || '各车间看板'
 })
 const ledgerRows = computed(() => buildFillLedgerRows(detailRows.value))
 const machineRows = computed(() => ledgerRows.value.filter((row) => ['work_order_entry', 'mobile_shift_report'].includes(row.sourceType)).slice(0, 12))
@@ -178,6 +198,7 @@ const mesRows = computed(() => {
   return [...projectionRows, ...processRows].slice(0, 8)
 })
 const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index) => ({ ...row, key: row.source_id || `wip-${index}` })))
+const missingRows = computed(() => buildMissingReportRows(live.value))
 const exceptionRows = computed(() => {
   const mes = live.value.mes_machine_binding || {}
   const missingOutput = live.value.quality?.missing_output_weight || live.value.overall_progress?.missing_output_weight || {}
@@ -199,6 +220,24 @@ function scopedParams(extra = {}) {
   return workshopId.value ? { ...extra, workshop_id: workshopId.value } : extra
 }
 
+async function loadWorkshops() {
+  if (workshopsLoaded.value) return
+  if (!canChooseWorkshop.value) {
+    workshopsLoaded.value = true
+    return
+  }
+  try {
+    workshops.value = await fetchWorkshops({ limit: 300 })
+    if (canChooseWorkshop.value && !selectedWorkshopId.value && workshops.value.length) {
+      selectedWorkshopId.value = workshops.value[0].id
+    }
+  } catch {
+    workshops.value = []
+  } finally {
+    workshopsLoaded.value = true
+  }
+}
+
 function formatNumber(value, digits = 2) {
   const num = Number(value)
   if (!Number.isFinite(num)) return '-'
@@ -216,13 +255,24 @@ async function load() {
   loading.value = true
   freshness.value = 'yellow'
   try {
+    await loadWorkshops()
+    if (canChooseWorkshop.value && !workshopId.value) {
+      dashboard.value = {}
+      live.value = {}
+      detailRows.value = []
+      pending.value = {}
+      mesProcessRows.value = []
+      mesMaterialRows.value = []
+      freshness.value = 'yellow'
+      return
+    }
     const [dashboardResult, liveResult, detailResult, pendingResult, processResult, materialResult] = await Promise.allSettled([
       fetchWorkshopDashboard(scopedParams({ target_date: targetDate.value })),
       fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
       fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 1200 })),
       fetchPendingAssignmentEntries(scopedParams({ business_date: targetDate.value })),
-      fetchMesWorkshopProcessRecords({ business_date: targetDate.value, limit: 80 }),
-      fetchMesMaterialRecords({ business_date: targetDate.value, limit: 80 }),
+      fetchMesWorkshopProcessRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
+      fetchMesMaterialRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
     ])
     dashboard.value = dashboardResult.status === 'fulfilled' ? dashboardResult.value || {} : {}
     live.value = liveResult.status === 'fulfilled' ? liveResult.value || {} : {}
@@ -247,6 +297,7 @@ function pickDate(value) {
 }
 
 watch(targetDate, load)
+watch(selectedWorkshopId, load)
 load()
 </script>
 
@@ -297,13 +348,42 @@ load()
 
 .workshop-board__hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 16px;
   align-items: center;
   padding: 18px;
   border: 1px solid rgba(0, 242, 255, 0.18);
   border-radius: 18px;
   background: linear-gradient(90deg, rgba(5, 22, 43, 0.9), rgba(8, 43, 74, 0.62));
+}
+
+.workshop-board__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 242, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(4, 21, 41, 0.72);
+}
+
+.workshop-board__filter span {
+  color: rgba(185, 223, 235, 0.72);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workshop-board__filter select {
+  min-width: 168px;
+  border: 0;
+  background: transparent;
+  color: rgba(225, 253, 255, 0.96);
+  font-weight: 800;
+  outline: none;
+}
+
+.workshop-board__filter option {
+  color: #06101f;
 }
 
 .workshop-board__eyebrow,

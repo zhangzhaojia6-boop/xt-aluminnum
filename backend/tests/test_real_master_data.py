@@ -621,6 +621,63 @@ def test_seed_real_master_data_includes_zr3_operator_reporting_machines(tmp_path
         db.close()
 
 
+def test_seed_real_master_data_creates_active_workshop_directors(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        seed_real_master_data(db)
+
+        active_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-P')).scalar_one()
+        retired_workshop = db.execute(select(Workshop).where(Workshop.code == 'LZ3')).scalar_one()
+        director = db.execute(select(User).where(User.username == 'ZXTF-P-DIR')).scalar_one()
+        retired_director = db.execute(select(User).where(User.username == 'LZ3-DIR')).scalar_one_or_none()
+
+        assert director.role == 'workshop_director'
+        assert director.workshop_id == active_workshop.id
+        assert director.data_scope_type == 'self_workshop'
+        assert director.is_reviewer is True
+        assert director.is_manager is True
+        assert director.is_mobile_user is False
+        assert director.is_active is True
+        assert retired_workshop.is_active is False
+        assert retired_director is None
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_preserves_existing_director_password(tmp_path) -> None:
+    from app.core.auth import get_password_hash
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(code='ZXTF-P', name='旧园区在线', sort_order=10, is_active=True)
+        db.add(workshop)
+        db.flush()
+        password_hash = get_password_hash('Keep#2026')
+        db.add(
+            User(
+                username='ZXTF-P-DIR',
+                password_hash=password_hash,
+                name='旧主任',
+                role='manager',
+                workshop_id=workshop.id,
+                is_active=True,
+            )
+        )
+        db.commit()
+
+        seed_real_master_data(db)
+
+        director = db.execute(select(User).where(User.username == 'ZXTF-P-DIR')).scalar_one()
+        assert director.password_hash == password_hash
+        assert director.role == 'workshop_director'
+        assert director.data_scope_type == 'self_workshop'
+    finally:
+        db.close()
+
+
 def test_seed_real_master_data_aliases_1650_1850_hwb(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 

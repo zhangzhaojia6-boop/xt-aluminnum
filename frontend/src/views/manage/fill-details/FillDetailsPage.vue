@@ -69,6 +69,16 @@
             <option value="">全部来源</option>
             <option v-for="item in sourceOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
+          <select
+            v-if="canChooseWorkshop"
+            v-model.number="selectedWorkshopId"
+            class="xt-fill-details__select"
+            aria-label="筛选车间"
+            data-testid="fill-details-workshop-filter"
+          >
+            <option :value="0">全部车间</option>
+            <option v-for="workshop in workshops" :key="workshop.id" :value="workshop.id">{{ workshop.name }}</option>
+          </select>
         </div>
 
         <div class="xt-fill-details__cards">
@@ -150,6 +160,8 @@ import dayjs from 'dayjs'
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import { fetchDailyProduction } from '../../../api/dashboard.js'
 import { fetchLiveAggregation, fetchLiveFillDetails } from '../../../api/realtime.js'
+import { fetchWorkshops } from '../../../api/master.js'
+import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import {
   buildAuditTickerItems,
@@ -161,15 +173,19 @@ import {
 } from '../../../utils/manageFillDetailsAudit.js'
 
 const targetDate = ref(inferBusinessDate())
+const auth = useAuthStore()
 const loading = ref(false)
 const errorText = ref('')
 const freshness = ref('yellow')
 const keyword = ref('')
 const sourceType = ref('')
+const selectedWorkshopId = ref(0)
 const rows = ref([])
 const summary = ref({})
 const dailyOverview = ref({})
 const liveAggregation = ref({})
+const workshops = ref([])
+const workshopsLoaded = ref(false)
 
 const sourceOptions = [
   { value: 'machine_energy', label: '机台能耗' },
@@ -198,6 +214,7 @@ const hasLedgerEnergy = computed(() => ledgerRows.value.some((row) => {
   return (row.metrics || []).some((item) => /electric|energy|用电|能耗/i.test(`${item?.key || ''} ${item?.label || ''}`) && item?.value != null)
 }))
 const hasLedgerGas = computed(() => ledgerRows.value.some((row) => row.gas_m3 !== null && row.gas_m3 !== undefined))
+const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
 
 const kpis = computed(() => [
   { key: 'entry', label: '明细', value: summary.value.entry_count ?? ledgerRows.value.length, unit: '条' },
@@ -217,14 +234,30 @@ function formatNumber(value, digits = 2) {
   })
 }
 
+function scopedParams(extra = {}) {
+  return selectedWorkshopId.value ? { ...extra, workshop_id: selectedWorkshopId.value } : extra
+}
+
+async function loadWorkshops() {
+  if (workshopsLoaded.value || !canChooseWorkshop.value) return
+  try {
+    workshops.value = await fetchWorkshops({ limit: 300 })
+  } catch {
+    workshops.value = []
+  } finally {
+    workshopsLoaded.value = true
+  }
+}
+
 async function load() {
   loading.value = true
   errorText.value = ''
   try {
+    await loadWorkshops()
     const [detailResult, dailyResult, liveResult] = await Promise.allSettled([
-      fetchLiveFillDetails({ business_date: targetDate.value, limit: 2000 }),
+      fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 2000 })),
       fetchDailyProduction({ target_date: targetDate.value }),
-      fetchLiveAggregation({ business_date: targetDate.value }),
+      fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
     ])
 
     if (detailResult.status === 'fulfilled') {
@@ -262,6 +295,7 @@ function pickDate(dateValue) {
 }
 
 watch(targetDate, load)
+watch(selectedWorkshopId, load)
 load()
 </script>
 

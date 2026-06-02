@@ -29,6 +29,22 @@ def _ensure_mes_access(user: User) -> ScopeSummary:
     return scope
 
 
+def _resolve_mes_workshop_names(db: Session, scope: ScopeSummary, workshop_id: int | None) -> set[str] | None:
+    if workshop_id is None:
+        return mes_extended_service.resolve_scope_workshop_names(db, scope)
+    if scope.is_admin or scope.data_scope_type == 'all':
+        names = mes_extended_service.resolve_workshop_id_names(db, workshop_id)
+        if not names:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='车间不存在')
+        return names
+    if scope.workshop_id is not None and int(scope.workshop_id) == int(workshop_id):
+        names = mes_extended_service.resolve_scope_workshop_names(db, scope)
+        if not names:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='车间不存在')
+        return names
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='MES workshop scope denied')
+
+
 @router.post('/import', response_model=MesImportResponse)
 def import_mes_export(
     file: UploadFile = File(...),
@@ -101,6 +117,7 @@ def extended_summary(
 @router.get('/extended/workshop-process-records', response_model=list[MesWorkshopProcessRecordOut])
 def workshop_process_records(
     business_date: date | None = None,
+    workshop_id: int | None = None,
     search: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -114,13 +131,14 @@ def workshop_process_records(
         search=search,
         limit=limit,
         offset=offset,
-        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
     )
 
 
 @router.get('/extended/stock-records', response_model=list[MesStockRecordOut])
 def stock_records(
     business_date: date | None = None,
+    workshop_id: int | None = None,
     search: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -134,13 +152,14 @@ def stock_records(
         search=search,
         limit=limit,
         offset=offset,
-        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
     )
 
 
 @router.get('/extended/material-records', response_model=list[MesMaterialRecordOut])
 def material_records(
     business_date: date | None = None,
+    workshop_id: int | None = None,
     search: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -154,13 +173,14 @@ def material_records(
         search=search,
         limit=limit,
         offset=offset,
-        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
     )
 
 
 @router.get('/extended/yield-records', response_model=list[MesYieldRecordOut])
 def yield_records(
     business_date: date | None = None,
+    workshop_id: int | None = None,
     search: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -174,7 +194,7 @@ def yield_records(
         search=search,
         limit=limit,
         offset=offset,
-        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
     )
 
 

@@ -659,8 +659,9 @@ def build_workshop_dashboard(
         attendance_rows = attendance_rows.filter(AttendanceResult.workshop_id == workshop_id)
     attendance_data = attendance_rows.first()
     energy_totals = energy_service.workshop_energy_summary(db, business_date=target_date, workshop_id=workshop_id)
-    workshop_code_map = {item.id: item.code for item in db.query(Workshop).all()}
-    workshop_code = workshop_code_map.get(workshop_id)
+    workshop_map = {item.id: item for item in db.query(Workshop).all()}
+    workshop = workshop_map.get(workshop_id)
+    workshop_code = workshop.code if workshop else None
     reconciliation_open = int(
         db.query(func.count(DataReconciliationItem.id))
         .filter(
@@ -683,6 +684,8 @@ def build_workshop_dashboard(
     return {
         'target_date': target_date.isoformat(),
         'workshop_id': workshop_id,
+        'workshop_code': workshop_code,
+        'workshop_name': workshop.name if workshop else None,
         'total_output': total_output,
         'process_output': process_output,
         'pass_count_total': pass_count_total,
