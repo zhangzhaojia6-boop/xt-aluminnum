@@ -42,6 +42,14 @@ test('ParticleField uses dynamic import for three to keep it out of main bundle'
   assert.equal(staticImportMatch, null, 'three must not be statically imported')
 })
 
+test('ParticleField delays decorative three boot until after login paint', () => {
+  const src = fs.readFileSync(file, 'utf8')
+  assert.match(src, /DECORATIVE_BOOT_DELAY_MS\s*=\s*1600/, 'decorative animation must wait after initial page paint')
+  assert.match(src, /setTimeout\(\s*\(\)\s*=>\s*\{[\s\S]*initThree\(\)[\s\S]*\},\s*DECORATIVE_BOOT_DELAY_MS\s*\)/, 'three boot must be scheduled through the delay')
+  assert.match(src, /clearTimeout\(initTimer\)/, 'scheduled boot must be cancellable')
+  assert.match(src, /onBeforeUnmount\(\(\)\s*=>\s*\{[\s\S]*cancelScheduledInit\(\)/, 'unmount must cancel pending boot')
+})
+
 test('vite.config.js code-splits three into its own chunk', () => {
   const viteCfg = fs.readFileSync(path.resolve('vite.config.js'), 'utf8')
   assert.match(viteCfg, /\/three\//, 'manualChunks must match /three/')

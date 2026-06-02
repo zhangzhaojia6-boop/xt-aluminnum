@@ -21,9 +21,11 @@ let rafId = 0
 let mql = null
 let compactMql = null
 let disposed = false
+let initTimer = 0
 
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 const COMPACT_QUERY = '(max-width: 900px)'
+const DECORATIVE_BOOT_DELAY_MS = 1600
 
 function shouldAnimate() {
   if (typeof window === 'undefined') return false
@@ -70,6 +72,20 @@ async function initThree() {
   loop()
 }
 
+function cancelScheduledInit() {
+  if (!initTimer) return
+  clearTimeout(initTimer)
+  initTimer = 0
+}
+
+function scheduleInitThree() {
+  if (disposed || renderer || initTimer || !shouldAnimate()) return
+  initTimer = setTimeout(() => {
+    initTimer = 0
+    initThree()
+  }, DECORATIVE_BOOT_DELAY_MS)
+}
+
 function loop() {
   if (disposed || !renderer) return
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
@@ -95,9 +111,12 @@ function handleResize() {
 
 function handleMotionChange() {
   if (shouldAnimate() && !renderer) {
-    initThree()
+    scheduleInitThree()
   } else if (!shouldAnimate() && renderer) {
+    cancelScheduledInit()
     stopAndDispose()
+  } else if (!shouldAnimate()) {
+    cancelScheduledInit()
   }
 }
 
@@ -130,11 +149,12 @@ onMounted(() => {
   compactMql.addEventListener?.('change', handleMotionChange)
   window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', handleVisibility)
-  initThree()
+  scheduleInitThree()
 })
 
 onBeforeUnmount(() => {
   disposed = true
+  cancelScheduledInit()
   mql?.removeEventListener?.('change', handleMotionChange)
   compactMql?.removeEventListener?.('change', handleMotionChange)
   if (typeof window !== 'undefined') {
