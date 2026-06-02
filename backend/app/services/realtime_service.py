@@ -1589,6 +1589,7 @@ def build_pending_assignment_detail(
         .outerjoin(ShiftConfig, ShiftConfig.id == WorkOrderEntry.shift_id)
         .filter(
             WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type != OWNER_DAILY_ENTRY_TYPE,
             or_(WorkOrderEntry.machine_id.is_(None), WorkOrderEntry.shift_id.is_(None)),
         )
     )

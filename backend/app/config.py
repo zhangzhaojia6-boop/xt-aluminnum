@@ -60,7 +60,7 @@ def _parse_json_object(value: str | None, *, setting_name: str) -> dict[str, str
 
 class Settings(BaseSettings):
     APP_NAME: str = '鑫泰铝业'
-    APP_VERSION: str = '0.4.0'
+    APP_VERSION: str = '0.4.1'
     API_V1_PREFIX: str = '/api/v1'
     APP_ENV: str = 'development'
 

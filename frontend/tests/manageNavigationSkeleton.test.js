@@ -33,7 +33,7 @@ test('owner skeleton exposes current top-level labels', () => {
 test('owner skeleton keeps one stable entry per core surface', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 4, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 5, 1])
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
@@ -44,6 +44,7 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
     '/manage/live',
     '/manage/today',
     '/manage/production',
+    '/manage/workshop-dashboard',
     '/manage/fill-details',
     '/manage/energy',
     '/manage/alerts',
@@ -53,6 +54,17 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
   assert.equal(paths.includes('/manage/ops-center'), false)
   assert.equal(paths.includes('/manage/settings-center'), false)
   assert.equal(paths.includes('/manage/reports'), false)
+})
+
+test('workshop director skeleton only exposes own workshop dashboard', () => {
+  const groups = manageNavGroups({
+    ...reviewAuth,
+    isWorkshopDirector: true,
+    canAccessWorkshopDashboard: true,
+  })
+
+  assert.deepEqual(groups.map((group) => group.label), ['本车间'])
+  assert.deepEqual(groups.flatMap((group) => group.items.map((item) => item.path)), ['/manage/workshop-dashboard'])
 })
 
 test('admin core configuration paths are exposed in top-level navigation for admin auth', () => {

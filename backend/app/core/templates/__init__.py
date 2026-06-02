@@ -74,6 +74,8 @@ WORKSHOP_TYPE_BY_WORKSHOP_CODE: dict[str, str | None] = {
     'HS': 'recycling',
     'CPK': 'inventory',
     'ZXTF': 'annealing',
+    'ZXTF-N': 'annealing',
+    'ZXTF-P': 'annealing',
 }
 
 WORKSHOP_TYPE_ALIASES = {

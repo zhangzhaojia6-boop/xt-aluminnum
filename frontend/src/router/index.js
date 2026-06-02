@@ -46,6 +46,7 @@ const TodayPage = () => import('../views/manage/today/TodayPage.vue')
 const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
+const WorkshopDashboardPage = () => import('../views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 const SystemSettingsPage = () => import('../views/manage/admin/SystemSettingsPage.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
@@ -114,6 +115,7 @@ const rawRoutes = [
     children: [
       { path: '', redirect: '/manage/today' },
       { path: 'live', name: 'manage-live', component: LiveDashboardPage, meta: { ...reviewMeta, title: '生产实时', canonical: '/manage/live' } },
+      { path: 'workshop-dashboard', name: 'manage-workshop-dashboard', component: WorkshopDashboardPage, meta: { ...reviewMeta, access: 'workshop_dashboard', title: '各车间看板', canonical: '/manage/workshop-dashboard' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
       { path: 'daily-report', name: 'manage-daily-report', redirect: preserveRouteState('/manage/today', { section: 'daily-report' }), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/today' } },
@@ -154,7 +156,7 @@ const rawRoutes = [
   { path: '/review', redirect: preserveRouteState('/manage/today') },
   { path: '/review/overview', redirect: preserveRouteState('/manage/today') },
   { path: '/review/factory', redirect: preserveRouteState('/manage/production') },
-  { path: '/review/workshop', redirect: preserveRouteState('/manage/production') },
+  { path: '/review/workshop', redirect: preserveRouteState('/manage/workshop-dashboard') },
   { path: '/review/tasks', redirect: preserveRouteState('/manage/alerts') },
   { path: '/review/reports', redirect: preserveRouteState('/manage/reports') },
   { path: '/review/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
@@ -191,7 +193,7 @@ const rawRoutes = [
   { path: '/mobile/history', redirect: (to) => ({ path: '/entry/history', query: to.query, hash: to.hash }) },
   { path: '/worker', redirect: (to) => ({ name: 'mobile-entry', query: to.query, hash: to.hash }) },
   { path: '/factory', redirect: '/manage/production' },
-  { path: '/workshop', redirect: '/manage/production' },
+  { path: '/workshop', redirect: '/manage/workshop-dashboard' },
   { path: '/ingestion/mapping', redirect: '/manage/admin/settings' },
   { path: '/reports/delivery', redirect: '/manage/reports' },
   { path: '/alerts/quality', redirect: preserveRouteState('/manage/alerts', { surface: 'quality' }) },
@@ -202,7 +204,7 @@ const rawRoutes = [
   { path: '/dashboard', redirect: '/manage/today' },
   { path: '/dashboard/executive', redirect: '/manage/today' },
   { path: '/dashboard/factory', redirect: '/manage/production' },
-  { path: '/dashboard/workshop', redirect: '/manage/production' },
+  { path: '/dashboard/workshop', redirect: '/manage/workshop-dashboard' },
   { path: '/dashboard/statistics', redirect: '/manage/today' },
   { path: '/imports/files', name: 'file-import', redirect: preserveRouteState('/manage/admin/settings'), meta: { ...adminMeta, title: '文件上传已停用' } },
   { path: '/imports/history', redirect: '/manage/admin/settings' },

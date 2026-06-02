@@ -23,6 +23,7 @@ MOBILE_ROLES = {
 }
 REVIEWER_ROLES = {'statistician', 'workshop_director', 'reviewer', 'stat'}
 MANAGER_ROLES = {'factory_director', 'senior_manager', 'manager'}
+WORKSHOP_MANAGER_ROLES = {'workshop_director'}
 WORK_ORDER_GLOBAL_ENTRY_ROLES = {'admin', 'statistician', 'stat', 'manager', 'factory_director', 'senior_manager'}
 WORK_ORDER_GLOBAL_HEADER_ROLES = WORK_ORDER_GLOBAL_ENTRY_ROLES | {'planning_owner'}
 WORK_ORDER_LOCAL_ENTRY_ROLES = {
@@ -60,6 +61,8 @@ def build_scope_summary(user: User) -> ScopeSummary:
         data_scope_type = 'self_team'
     if role == 'admin':
         data_scope_type = 'all'
+    elif role in WORKSHOP_MANAGER_ROLES:
+        data_scope_type = 'self_workshop'
     elif role in MANAGER_ROLES and data_scope_type == 'self_team':
         data_scope_type = 'self_workshop' if getattr(user, 'workshop_id', None) else 'all'
     elif role in REVIEWER_ROLES and data_scope_type == 'self_team' and getattr(user, 'team_id', None) is None:
@@ -76,7 +79,12 @@ def build_scope_summary(user: User) -> ScopeSummary:
 
     is_mobile_user = bool(getattr(user, 'is_mobile_user', False)) or role in MOBILE_ROLES
     is_reviewer = bool(getattr(user, 'is_reviewer', False)) or role in REVIEWER_ROLES or role == 'admin'
-    is_manager = bool(getattr(user, 'is_manager', False)) or role in MANAGER_ROLES or role == 'admin'
+    is_manager = (
+        bool(getattr(user, 'is_manager', False))
+        or role in MANAGER_ROLES
+        or role in WORKSHOP_MANAGER_ROLES
+        or role == 'admin'
+    )
 
     return ScopeSummary(
         user_id=getattr(user, 'id', None),

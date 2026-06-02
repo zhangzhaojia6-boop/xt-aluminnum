@@ -28,13 +28,14 @@ function readStoredJson(key) {
 
 function normalizeUser(user) {
   if (user == null) return null
+  const role = String(user.role || '')
   return {
     ...user,
     assigned_shift_ids: user.assigned_shift_ids || [],
     data_scope_type: user.data_scope_type || 'self_team',
     is_mobile_user: Boolean(user.is_mobile_user),
-    is_reviewer: Boolean(user.is_reviewer),
-    is_manager: Boolean(user.is_manager),
+    is_reviewer: Boolean(user.is_reviewer) || role === 'workshop_director',
+    is_manager: Boolean(user.is_manager) || role === 'workshop_director',
     admin_surface: Boolean(user.admin_surface)
   }
 }
@@ -64,6 +65,7 @@ export const useAuthStore = defineStore('auth', {
     dataScopeType: (state) => state.user?.data_scope_type || 'self_team',
     displayName: (state) => state.user?.name || state.user?.username || '系统用户',
     isAdmin: (state) => state.user?.role === 'admin',
+    isWorkshopDirector: (state) => state.user?.role === 'workshop_director',
     isMachineBound: (state) => Boolean(state.machineContext?.machine_id),
     boundMachineId: (state) => state.machineContext?.machine_id || null,
     isMobileUser() {
@@ -118,13 +120,13 @@ export const useAuthStore = defineStore('auth', {
       return this.canAccessReviewSurface
     },
     canAccessFactoryDashboard() {
-      return this.canAccessReviewSurface
+      return this.canAccessReviewSurface && !this.isWorkshopDirector
     },
     canAccessWorkshopDashboard() {
       return this.canAccessReviewSurface
     },
     canAccessStatisticsDashboard() {
-      return this.canAccessReviewSurface
+      return this.canAccessReviewSurface && !this.isWorkshopDirector
     },
     canAccessManagerDashboard() {
       return this.canAccessReviewSurface

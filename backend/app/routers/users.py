@@ -34,6 +34,8 @@ def _require_admin(current_user: User) -> None:
 def _resolve_scope_type(*, role: str, workshop_id: int | None, team_id: int | None, is_reviewer: bool, is_manager: bool) -> str:
     if role == 'admin':
         return 'all'
+    if role == 'workshop_director':
+        return 'self_workshop'
     if team_id is not None:
         return 'self_team'
     if workshop_id is not None:
@@ -81,6 +83,14 @@ def _ensure_workshop_and_team(db: Session, *, workshop_id: int | None, team_id: 
     if workshop is not None and team is not None and team.workshop_id != workshop.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='班组不属于所选车间')
     return workshop, team
+
+
+def _normalize_role_flags(*, role: str, workshop_id: int | None, is_reviewer: bool, is_manager: bool) -> tuple[bool, bool]:
+    if role == 'workshop_director':
+        if workshop_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='车间主任必须绑定所属车间')
+        return True, True
+    return is_reviewer, is_manager
 
 
 def _ensure_unique_username(db: Session, username: str, *, exclude_user_id: int | None = None) -> None:
@@ -458,6 +468,12 @@ def create_user(
     _require_admin(current_user)
     _ensure_unique_username(db, payload.username)
     workshop, team = _ensure_workshop_and_team(db, workshop_id=payload.workshop_id, team_id=payload.team_id)
+    is_reviewer, is_manager = _normalize_role_flags(
+        role=payload.role,
+        workshop_id=payload.workshop_id,
+        is_reviewer=payload.is_reviewer,
+        is_manager=payload.is_manager,
+    )
 
     item = User(
         username=payload.username,
@@ -471,12 +487,12 @@ def create_user(
             role=payload.role,
             workshop_id=payload.workshop_id,
             team_id=payload.team_id,
-            is_reviewer=payload.is_reviewer,
-            is_manager=payload.is_manager,
+            is_reviewer=is_reviewer,
+            is_manager=is_manager,
         ),
         is_mobile_user=payload.is_mobile_user,
-        is_reviewer=payload.is_reviewer,
-        is_manager=payload.is_manager,
+        is_reviewer=is_reviewer,
+        is_manager=is_manager,
         is_active=True,
     )
     db.add(item)
@@ -538,6 +554,15 @@ def update_user(
     workshop_id = data.get('workshop_id', item.workshop_id)
     team_id = data.get('team_id', item.team_id)
     workshop, team = _ensure_workshop_and_team(db, workshop_id=workshop_id, team_id=team_id)
+    target_role = data.get('role', item.role)
+    target_is_reviewer = data.get('is_reviewer', item.is_reviewer)
+    target_is_manager = data.get('is_manager', item.is_manager)
+    normalized_reviewer, normalized_manager = _normalize_role_flags(
+        role=target_role,
+        workshop_id=workshop_id,
+        is_reviewer=target_is_reviewer,
+        is_manager=target_is_manager,
+    )
 
     old_value = _serialize_user_item(db, item, workshop_name=None, team_name=None)
     if 'username' in data:
@@ -556,10 +581,8 @@ def update_user(
         item.team_id = data['team_id']
     if 'is_mobile_user' in data:
         item.is_mobile_user = data['is_mobile_user']
-    if 'is_reviewer' in data:
-        item.is_reviewer = data['is_reviewer']
-    if 'is_manager' in data:
-        item.is_manager = data['is_manager']
+    item.is_reviewer = normalized_reviewer
+    item.is_manager = normalized_manager
     if 'is_active' in data:
         item.is_active = data['is_active']
 

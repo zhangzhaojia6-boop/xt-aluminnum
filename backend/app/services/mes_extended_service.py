@@ -16,6 +16,8 @@ from app.models.mes import (
     MesWorkshopProcessRecord,
     MesYieldRecord,
 )
+from app.models.master import Workshop
+from app.core.scope import ScopeSummary
 
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
@@ -99,13 +101,54 @@ def _bounded_offset(value: int | None) -> int:
     return max(0, offset)
 
 
-def _source_summary(db: Session, source_def: dict[str, Any]) -> dict[str, Any]:
+ONLINE_ANNEAL_MES_WORKSHOP_NAMES = {
+    'ZXTF': {'新厂在线车间', '园区在线车间', '在线车间', '在线退火分厂'},
+    'ZXTF-N': {'新厂在线车间', '在线车间'},
+    'ZXTF-P': {'园区在线车间'},
+    'ZXTF_NEW': {'新厂在线车间', '在线车间'},
+    'ZXTF_PARK': {'园区在线车间'},
+}
+
+
+def _normalized_workshop_names(workshop_names: set[str] | None) -> set[str]:
+    return {str(item or '').strip() for item in (workshop_names or set()) if str(item or '').strip()}
+
+
+def _apply_workshop_names(query: Any, model: type, workshop_names: set[str] | None) -> Any:
+    names = _normalized_workshop_names(workshop_names)
+    if not names:
+        return query
+    if hasattr(model, 'workshop_name'):
+        return query.filter(model.workshop_name.in_(names))
+    return query.filter(model.id == -1)
+
+
+def resolve_scope_workshop_names(db: Session, scope: ScopeSummary) -> set[str] | None:
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return None
+    if scope.workshop_id is None:
+        return set()
+    workshop = db.get(Workshop, scope.workshop_id)
+    if workshop is None:
+        return set()
+    names = {workshop.name}
+    code = str(workshop.code or '').strip().upper()
+    names.update(ONLINE_ANNEAL_MES_WORKSHOP_NAMES.get(code, set()))
+    return names
+
+
+def _source_summary(db: Session, source_def: dict[str, Any], *, workshop_names: set[str] | None = None) -> dict[str, Any]:
     model = source_def['model']
     try:
-        row_count = int(db.query(func.count(model.id)).scalar() or 0)
+        base_query = _apply_workshop_names(db.query(model), model, workshop_names)
+        row_count = int(base_query.with_entities(func.count(model.id)).scalar() or 0)
         business_date_field = source_def['business_date_field']
-        latest_business_date = db.query(func.max(business_date_field)).scalar() if business_date_field is not None else None
-        latest_seen_at = db.query(func.max(source_def['seen_field'])).scalar()
+        latest_business_date = (
+            base_query.with_entities(func.max(business_date_field)).scalar()
+            if business_date_field is not None
+            else None
+        )
+        latest_seen_at = base_query.with_entities(func.max(source_def['seen_field'])).scalar()
     except (OperationalError, ProgrammingError):
         return {
             'key': source_def['key'],
@@ -125,8 +168,8 @@ def _source_summary(db: Session, source_def: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_summary(db: Session) -> dict[str, Any]:
-    return {'sources': [_source_summary(db, source_def) for source_def in _SOURCE_DEFS]}
+def build_summary(db: Session, *, workshop_names: set[str] | None = None) -> dict[str, Any]:
+    return {'sources': [_source_summary(db, source_def, workshop_names=workshop_names) for source_def in _SOURCE_DEFS]}
 
 
 def _apply_filters(query: Any, model: type, *, business_date: date | None, search: str | None, fields: tuple[str, ...]) -> Any:
@@ -151,10 +194,12 @@ def _list_rows(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     try:
         query = db.query(model)
         query = _apply_filters(query, model, business_date=business_date, search=search, fields=search_fields)
+        query = _apply_workshop_names(query, model, workshop_names)
         rows = (
             query.order_by(order_field.desc(), model.id.desc())
             .offset(_bounded_offset(offset))
@@ -185,6 +230,7 @@ def list_workshop_process_records(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     return _list_rows(
         db,
@@ -210,6 +256,7 @@ def list_workshop_process_records(
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=workshop_names,
     )
 
 
@@ -220,6 +267,7 @@ def list_stock_records(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     return _list_rows(
         db,
@@ -242,6 +290,7 @@ def list_stock_records(
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=workshop_names,
     )
 
 
@@ -252,6 +301,7 @@ def list_material_records(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     return _list_rows(
         db,
@@ -276,6 +326,7 @@ def list_material_records(
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=workshop_names,
     )
 
 
@@ -286,6 +337,7 @@ def list_yield_records(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     return _list_rows(
         db,
@@ -309,6 +361,7 @@ def list_yield_records(
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=workshop_names,
     )
 
 
@@ -318,6 +371,7 @@ def list_wip_total_snapshots(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     return _list_rows(
         db,
@@ -336,6 +390,7 @@ def list_wip_total_snapshots(
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=workshop_names,
     )
 
 
@@ -346,9 +401,11 @@ def list_reference_items(
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
+    workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     try:
         query = db.query(MesReferenceItem)
+        query = _apply_workshop_names(query, MesReferenceItem, workshop_names)
         normalized_type = str(source_type or '').strip()
         if normalized_type:
             query = query.filter(MesReferenceItem.source_type == normalized_type)

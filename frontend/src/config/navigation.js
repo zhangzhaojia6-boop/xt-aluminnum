@@ -30,6 +30,16 @@ export const centerNavigation = [
     summary: '今日班次、待填任务、已提交'
   },
   {
+    id: 'workshop',
+    no: '04',
+    title: '各车间看板',
+    zone: 'review',
+    path: '/manage/workshop-dashboard',
+    routeName: 'manage-workshop-dashboard',
+    icon: '车',
+    summary: '本车间产量、填报、外部 MES、在制料与异常'
+  },
+  {
     id: 'factory',
     no: '05',
     title: '工厂作业看板',
@@ -119,6 +129,7 @@ const routeMetaByName = {
   'entry-drafts': { center: 'entry', group: '录入端', order: 7, icon: 'DocumentCopy', legacy: false, roles: ['entry'], keepAlive: true },
 
   'manage-live': { center: 'live', group: '三页骨架', order: 1, icon: 'TrendCharts', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-workshop-dashboard': { center: 'workshop', group: '生产', order: 2, icon: 'Monitor', legacy: false, roles: ['review'], keepAlive: true },
   'manage-today': { center: 'overview', group: '三页骨架', order: 2, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
   'manage-production': { center: 'factory', group: '三页骨架', order: 3, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
   'manage-fill-details': { center: 'factory', group: '生产', order: 4, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
@@ -156,6 +167,7 @@ const routeMetaByName = {
 
 const commandMetaByName = {
   'manage-live': { shortLabel: '实时', commandGroup: '生产实时', secondaryGroup: '全局' },
+  'manage-workshop-dashboard': { shortLabel: '车间看板', commandGroup: '生产', secondaryGroup: '本车间' },
   'manage-today': { shortLabel: '昨日日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
   'manage-fill-details': { shortLabel: '明细', commandGroup: '生产', secondaryGroup: '填报' },
@@ -195,6 +207,7 @@ const reviewNavigation = [
     label: '三页骨架',
     items: [
       { routeName: 'manage-live', label: '生产实时', access: 'review' },
+      { routeName: 'manage-workshop-dashboard', label: '各车间看板', access: 'review' },
       { routeName: 'manage-today', label: '昨日日报', access: 'review' },
       { routeName: 'manage-production', label: '生产', access: 'review' },
       { routeName: 'manage-fill-details', label: '填报明细', access: 'review' }

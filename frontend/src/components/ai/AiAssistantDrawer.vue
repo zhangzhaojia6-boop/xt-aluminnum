@@ -180,13 +180,65 @@ async function send() {
 
 <style scoped>
 .ai-assistant {
+  --ai-drawer-accent: #00f2ff;
+  --ai-drawer-line: rgba(0, 242, 255, 0.18);
+  --ai-drawer-panel: rgba(6, 29, 51, 0.82);
+  --ai-drawer-panel-strong: rgba(2, 12, 25, 0.94);
+  --ai-drawer-muted: rgba(185, 223, 235, 0.68);
+  position: relative;
   min-height: 100%;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
-  background: linear-gradient(180deg, #fff, var(--xt-bg-panel-soft));
-  color: var(--xt-text);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(0, 242, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 88% 16%, rgba(0, 118, 255, 0.18), transparent 32%),
+    linear-gradient(145deg, #06101f 0%, #071b31 46%, #020b15 100%);
+  color: rgba(225, 253, 255, 0.94);
+}
+
+:global(.ai-assistant-drawer.el-drawer) {
+  border-left: 1px solid rgba(0, 242, 255, 0.22);
+  background: #020b15;
+  box-shadow: -28px 0 72px rgba(0, 18, 42, 0.5);
+}
+
+:global(.ai-assistant-drawer .el-drawer__body) {
+  padding: 0;
+  background: #020b15;
+}
+
+.ai-assistant::before,
+.ai-assistant::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+}
+
+.ai-assistant::before {
+  opacity: 0.2;
+  background:
+    linear-gradient(rgba(0, 242, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.ai-assistant::after {
+  background: linear-gradient(110deg, transparent 8%, rgba(0, 242, 255, 0.11), transparent 58%);
+  transform: translateX(-120%);
+  animation: aiDrawerSweep 7.5s linear infinite;
+}
+
+.ai-assistant__head,
+.ai-assistant__context,
+.ai-assistant__tabs,
+.ai-assistant__composer,
+.ai-assistant__conversation {
+  position: relative;
+  z-index: 1;
 }
 
 .ai-assistant__head,
@@ -200,6 +252,11 @@ async function send() {
 .ai-assistant__head {
   justify-content: space-between;
   gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--ai-drawer-line);
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(8, 43, 74, 0.78), rgba(2, 12, 25, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .ai-assistant__head div {
@@ -210,17 +267,20 @@ async function send() {
 .ai-assistant__head span,
 .ai-assistant__context span,
 .ai-assistant__context em {
-  color: var(--xt-text-muted);
+  color: var(--ai-drawer-muted);
   font-size: 12px;
   font-style: normal;
   font-weight: 850;
+  letter-spacing: 0.08em;
 }
 
 .ai-assistant__head strong {
-  color: var(--xt-text);
-  font-size: 20px;
+  color: rgba(225, 253, 255, 0.98);
+  font-family: var(--xt-font-number);
+  font-size: 22px;
   line-height: 1.2;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 22px rgba(0, 242, 255, 0.2);
 }
 
 .ai-assistant__head button {
@@ -229,9 +289,9 @@ async function send() {
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 8px;
-  background: var(--xt-bg-panel-soft);
-  color: var(--xt-text-secondary);
+  border-radius: 10px;
+  background: rgba(0, 242, 255, 0.08);
+  color: rgba(185, 223, 235, 0.86);
   cursor: pointer;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
@@ -245,8 +305,8 @@ async function send() {
 
 @media (hover: hover) {
   .ai-assistant__head button:hover {
-    background: #fff;
-    color: var(--xt-text);
+    background: rgba(0, 242, 255, 0.16);
+    color: #e1fdff;
   }
 }
 
@@ -255,17 +315,18 @@ async function send() {
   flex-direction: column;
   gap: 4px;
   padding: 10px;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--ai-drawer-line);
+  border-radius: 12px;
+  background: var(--ai-drawer-panel);
   box-shadow:
-    inset 0 0 0 1px rgba(43, 93, 178, 0.1),
-    0 8px 24px rgba(25, 62, 118, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 32px rgba(0, 18, 42, 0.24);
 }
 
 .ai-assistant__context strong {
   max-width: 100%;
   overflow: hidden;
-  color: var(--xt-primary);
+  color: #74f5ff;
   font-size: 13px;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -273,15 +334,17 @@ async function send() {
 }
 
 .ai-assistant__context.is-lagging {
-  background: rgba(255, 247, 237, 0.94);
+  border-color: rgba(255, 171, 0, 0.34);
+  background: rgba(68, 42, 8, 0.62);
 }
 
 .ai-assistant__tabs {
   gap: 6px;
   padding: 5px;
-  border-radius: 8px;
-  background: var(--xt-bg-panel-soft);
-  box-shadow: inset 0 0 0 1px rgba(43, 93, 178, 0.1);
+  border: 1px solid var(--ai-drawer-line);
+  border-radius: 12px;
+  background: rgba(1, 16, 31, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.05);
 }
 
 .ai-assistant__tabs button {
@@ -293,9 +356,9 @@ async function send() {
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 9px;
   background: transparent;
-  color: var(--xt-text-secondary);
+  color: rgba(185, 223, 235, 0.76);
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
@@ -310,9 +373,9 @@ async function send() {
 }
 
 .ai-assistant__tabs button.is-active {
-  background: #fff;
-  color: var(--xt-primary);
-  box-shadow: 0 4px 16px rgba(25, 62, 118, 0.08);
+  background: linear-gradient(180deg, rgba(0, 242, 255, 0.18), rgba(0, 118, 255, 0.08));
+  color: #e1fdff;
+  box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.24), 0 0 22px rgba(0, 242, 255, 0.12);
 }
 
 .ai-assistant__conversation {
@@ -329,13 +392,14 @@ async function send() {
   gap: 8px;
   overflow-y: auto;
   padding: 10px;
-  border-radius: 8px;
+  border: 1px solid var(--ai-drawer-line);
+  border-radius: 12px;
   background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.026) 1px, transparent 1px),
-    linear-gradient(rgba(15, 23, 42, 0.02) 1px, transparent 1px),
-    #fff;
+    linear-gradient(90deg, rgba(0, 242, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+    rgba(2, 12, 25, 0.78);
   background-size: 30px 30px;
-  box-shadow: inset 0 0 0 1px rgba(43, 93, 178, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.04);
 }
 
 .ai-assistant__message {
@@ -344,13 +408,16 @@ async function send() {
   gap: 4px;
   justify-self: start;
   padding: 9px 10px;
-  border-radius: 8px;
-  background: var(--xt-bg-panel-soft);
+  border: 1px solid rgba(0, 242, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(7, 29, 51, 0.86);
+  color: rgba(225, 253, 255, 0.9);
 }
 
 .ai-assistant__message.is-user {
   justify-self: end;
-  background: var(--xt-primary);
+  border-color: rgba(0, 242, 255, 0.3);
+  background: linear-gradient(180deg, rgba(0, 118, 255, 0.86), rgba(0, 64, 128, 0.9));
   color: #fff;
 }
 
@@ -370,7 +437,7 @@ async function send() {
 .ai-assistant__state {
   align-self: center;
   justify-self: center;
-  color: var(--xt-text-muted);
+  color: var(--ai-drawer-muted);
   font-size: 13px;
 }
 
@@ -378,11 +445,12 @@ async function send() {
   align-items: flex-end;
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--ai-drawer-line);
+  border-radius: 12px;
+  background: var(--ai-drawer-panel-strong);
   box-shadow:
-    inset 0 0 0 1px rgba(43, 93, 178, 0.1),
-    0 8px 22px rgba(25, 62, 118, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 32px rgba(0, 18, 42, 0.24);
 }
 
 .ai-assistant__composer textarea {
@@ -392,11 +460,29 @@ async function send() {
   resize: vertical;
   border: 0;
   background: transparent;
-  color: var(--xt-text);
+  color: rgba(225, 253, 255, 0.94);
   font: inherit;
   font-size: 13px;
   line-height: 1.55;
   outline: none;
+}
+
+.ai-assistant__composer textarea::placeholder {
+  color: rgba(185, 223, 235, 0.48);
+}
+
+.ai-assistant__composer :deep(.el-button--primary) {
+  border: 0;
+  background: linear-gradient(135deg, #00f2ff, #0b63f6);
+  color: #00192f;
+  font-weight: 900;
+  box-shadow: 0 0 22px rgba(0, 242, 255, 0.22);
+}
+
+@keyframes aiDrawerSweep {
+  to {
+    transform: translateX(120%);
+  }
 }
 
 @media (max-width: 520px) {

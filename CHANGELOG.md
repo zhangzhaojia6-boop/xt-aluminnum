@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.1] - 2026-06-02
+
+### Added
+- 新增车间主任管理口径与“各车间看板”，支持机列填报、电工填报、外部 MES 明细、在制料和异常事务按车间聚合展示。
+- 新增在线退火拆分口径：保留原在线退火二维码入口，同时新增新厂在线退火、园区在线退火的内勤与电工角色入口。
+
+### Changed
+- 车间主任登录管理端后仅进入并查看自己车间的看板，不能访问其他管理端页面。
+- 冷轧产量口径区分开坯、中退、成品：开坯和中退只统计道次/过工序下机量，不计入车间总产量。
+- 外部 MES 扩展数据、在制料、工艺记录按用户车间权限过滤后再进入管理端展示。
+
+### Fixed
+- 修复车间主任被登录页误判为“非管理员不能进入管理端”的问题。
+- 修复已停用的虚拟角色二维码账号仍可能扫码换取 token 的安全问题。
+- 修复在线退火拆分后能耗、产量映射仍混用旧车间的问题。
+
 ## [0.2.0.0] - 2026-05-25
 
 ### Added

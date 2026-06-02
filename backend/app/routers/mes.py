@@ -91,8 +91,11 @@ def extended_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MesExtendedSummaryOut:
-    _ensure_mes_access(current_user)
-    return mes_extended_service.build_summary(db)
+    scope = _ensure_mes_access(current_user)
+    return mes_extended_service.build_summary(
+        db,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+    )
 
 
 @router.get('/extended/workshop-process-records', response_model=list[MesWorkshopProcessRecordOut])
@@ -104,13 +107,14 @@ def workshop_process_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesWorkshopProcessRecordOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_workshop_process_records(
         db,
         business_date=business_date,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )
 
 
@@ -123,13 +127,14 @@ def stock_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesStockRecordOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_stock_records(
         db,
         business_date=business_date,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )
 
 
@@ -142,13 +147,14 @@ def material_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesMaterialRecordOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_material_records(
         db,
         business_date=business_date,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )
 
 
@@ -161,13 +167,14 @@ def yield_records(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesYieldRecordOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_yield_records(
         db,
         business_date=business_date,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )
 
 
@@ -179,12 +186,13 @@ def wip_total_snapshots(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesWipTotalSnapshotOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_wip_total_snapshots(
         db,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )
 
 
@@ -197,11 +205,12 @@ def reference_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MesReferenceItemOut]:
-    _ensure_mes_access(current_user)
+    scope = _ensure_mes_access(current_user)
     return mes_extended_service.list_reference_items(
         db,
         source_type=source_type,
         search=search,
         limit=limit,
         offset=offset,
+        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
     )

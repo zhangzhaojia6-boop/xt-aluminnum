@@ -256,7 +256,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     description='鑫泰铝业生产管理接口',
-    version='0.4.0',
+    version='0.4.1',
     lifespan=lifespan,
 )
 

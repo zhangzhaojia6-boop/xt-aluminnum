@@ -111,6 +111,12 @@ def assert_manager_access(current_user: User) -> ScopeSummary:
 
 def assert_manager_dashboard_access(current_user: User, *, workshop_id: int | None = None) -> ScopeSummary:
     summary = assert_manager_access(current_user)
+    if summary.role == 'workshop_director':
+        if summary.workshop_id is None:
+            raise _forbidden('Dashboard scope denied')
+        if workshop_id is not None and int(workshop_id) != int(summary.workshop_id):
+            raise _forbidden('Dashboard scope denied')
+        return summary
     if summary.is_admin or workshop_id is None or summary.data_scope_type == 'all':
         return summary
     if not _matches_scope(summary, workshop_id=workshop_id, team_id=None):

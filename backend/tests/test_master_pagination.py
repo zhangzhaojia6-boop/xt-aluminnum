@@ -182,6 +182,8 @@ def test_process_business_map_route_returns_factory_workshop_machine_roles() -> 
     units = {item['unit_code']: item for item in payload['units']}
     assert units['rolling_branch']['unit_name'] == '轧制分厂'
     assert units['rolling_branch']['workshops'][0]['machines'][0]['process_business']
-    assert units['online_annealing']['workshops'][0]['area_status'] == 'needs_mes_line_split'
+    online_statuses = {item['workshop_code']: item['area_status'] for item in units['online_annealing']['workshops']}
+    assert online_statuses['ZXTF-N'] == 'confirmed'
+    assert online_statuses['ZXTF-P'] == 'confirmed'
 
     app.dependency_overrides.clear()

@@ -192,13 +192,14 @@ def test_daily_production_mapping_preview_suggests_readonly_candidates_for_unres
     db = _session()
     finishing = _workshop('JZ', '精整车间')
     second_finishing = _workshop('JZ2', '二分厂精整车间')
-    annealing = _workshop('ZXTF', '在线退火车间')
-    db.add_all([finishing, second_finishing, annealing])
+    new_annealing = _workshop('ZXTF-N', '新厂在线退火')
+    park_annealing = _workshop('ZXTF-P', '园区在线退火')
+    db.add_all([finishing, second_finishing, new_annealing, park_annealing])
     db.flush()
     db.add_all([
         _equipment('JZ-ZJ1', '纵剪1#', finishing),
         _equipment('JZ2-LJ-OP', '精整二车间 拉矫 主操', second_finishing),
-        _equipment('ZXTF-1-OP', '在线退火车间 1# 主操', annealing),
+        _equipment('ZXTF-1-OP', '新厂在线退火 1# 主操', new_annealing),
     ])
     _seed_batch(
         db,
@@ -228,7 +229,7 @@ def test_daily_production_mapping_preview_suggests_readonly_candidates_for_unres
 
     north_line = rows[('在线退火待确认', '未知北线')]
     assert north_line.status == 'unresolved_workshop'
-    assert [item.code for item in north_line.candidate_workshops] == ['ZXTF']
+    assert [item.code for item in north_line.candidate_workshops] == ['ZXTF-N', 'ZXTF-P']
     assert north_line.candidate_equipment == []
 
 
@@ -247,7 +248,8 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
             ('JZ', '精整车间'),
             ('LJ', '拉矫车间'),
             ('JQ', '园区剪切车间'),
-            ('ZXTF', '在线退火车间'),
+            ('ZXTF-N', '新厂在线退火'),
+            ('ZXTF-P', '园区在线退火'),
         ]
     }
     db.add_all(workshops.values())
@@ -266,9 +268,9 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
         _equipment('JQ-LJ', '拉矫', workshops['LJ']),
         _equipment('JQ-TH', '退火炉', workshops['LJ']),
         _equipment('LJ-DFC', '大分切', workshops['LJ']),
-        _equipment('ZXTF-1', '新厂北', workshops['ZXTF']),
-        _equipment('ZXTF-2', '新厂南', workshops['ZXTF']),
-        _equipment('ZXTF-3', '园区北', workshops['ZXTF']),
+        _equipment('ZXTF-1', '新厂北', workshops['ZXTF-N']),
+        _equipment('ZXTF-2', '新厂南', workshops['ZXTF-N']),
+        _equipment('ZXTF-3', '园区北', workshops['ZXTF-P']),
     ])
     batch = _seed_batch(
         db,
@@ -313,6 +315,9 @@ def test_daily_production_mapping_preview_resolves_real_5_5_labels():
     assert rows[('拉矫', '产量')].workshop_code == 'LJ'
     assert rows[('拉矫', '产量')].equipment_id is None
     assert rows[('退火炉', '拉矫')].workshop_code == 'LJ'
+    assert rows[('在线退火', '新厂南线')].workshop_code == 'ZXTF-N'
     assert rows[('在线退火', '新厂南线')].equipment_code == 'ZXTF-2'
+    assert rows[('在线退火', '新厂北线')].workshop_code == 'ZXTF-N'
     assert rows[('在线退火', '新厂北线')].equipment_code == 'ZXTF-1'
+    assert rows[('在线退火', '园区北线')].workshop_code == 'ZXTF-P'
     assert rows[('在线退火', '园区北线')].equipment_code == 'ZXTF-3'

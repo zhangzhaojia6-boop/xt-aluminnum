@@ -148,7 +148,7 @@
             <el-option v-for="option in roleOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="所属车间">
+          <el-form-item label="所属车间" :required="form.role === 'workshop_director'">
           <el-select v-model="form.workshop_id" clearable style="width: 100%" @change="handleWorkshopChange">
             <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
           </el-select>
@@ -231,7 +231,7 @@ const roleOptions = [
   { value: 'factory_director', label: '厂长' },
   { value: 'senior_manager', label: '高级管理' },
   { value: 'manager', label: '车间管理者' },
-  { value: 'workshop_director', label: '车间观察者' },
+  { value: 'workshop_director', label: '车间主任' },
   { value: 'energy_stat', label: '电工' },
   { value: 'machine_operator', label: '主操' },
   { value: 'consumable_stat', label: '生产内勤' },
@@ -445,6 +445,7 @@ function openResetPassword(row) {
 }
 
 function buildSavePayload() {
+  const isWorkshopDirector = form.role === 'workshop_director'
   const payload = {
     username: form.username.trim(),
     name: form.name.trim(),
@@ -453,8 +454,8 @@ function buildSavePayload() {
     team_id: form.team_id || null,
     bound_machine_id: form.bound_machine_id ?? null,
     is_mobile_user: form.is_mobile_user,
-    is_reviewer: form.is_reviewer,
-    is_manager: form.is_manager
+    is_reviewer: isWorkshopDirector ? true : form.is_reviewer,
+    is_manager: isWorkshopDirector ? true : form.is_manager
   }
   if (editingId.value) {
     payload.is_active = form.is_active
@@ -492,6 +493,10 @@ async function save() {
   }
   if (!editingId.value && !form.password.trim()) {
     ElMessage.warning('新增用户时必须填写密码')
+    return
+  }
+  if (form.role === 'workshop_director' && !form.workshop_id) {
+    ElMessage.warning('车间主任必须选择所属车间')
     return
   }
   saving.value = true

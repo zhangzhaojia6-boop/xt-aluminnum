@@ -52,7 +52,9 @@ WORKSHOPS = [
     {'code': 'CT', 'name': '彩涂', 'sort_order': 17, 'is_active': False},
     {'code': 'HS', 'name': '回收车间', 'sort_order': 18},
     {'code': 'CPK', 'name': '成品库', 'sort_order': 19},
-    {'code': 'ZXTF', 'name': '在线退火分厂', 'sort_order': 200},
+    {'code': 'ZXTF-N', 'name': '新厂在线退火', 'sort_order': 200},
+    {'code': 'ZXTF-P', 'name': '园区在线退火', 'sort_order': 201},
+    {'code': 'ZXTF', 'name': '在线退火分厂', 'sort_order': 202, 'is_active': False},
     {'code': 'CH', 'name': '淬火车间', 'sort_order': 220},
 ]
 
@@ -229,9 +231,11 @@ EQUIPMENT_BY_WORKSHOP = {
         {'code': 'CH-JQ', 'name': '锯切机', 'machine_type': 'sawing', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'CH-LS', 'name': '拉伸机', 'machine_type': 'straightener', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
-    'ZXTF': [
+    'ZXTF-N': [
         {'code': 'ZXTF-1', 'name': '新厂北', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'ZXTF-2', 'name': '新厂南', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+    ],
+    'ZXTF-P': [
         {'code': 'ZXTF-3', 'name': '园区北', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'ZXTF-4', 'name': '园区南', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
@@ -303,9 +307,9 @@ ROLE_QR_SUFFIX_MAP = {
 }
 REPORTING_ROLE_QR_CODES = (
     'ZD-EN', 'ZR2-EN', 'ZR3-EN', 'RZ-EN', 'LZ2050-EN', 'LZ1850-EN', 'LZ1650-EN',
-    'JZ-EN', 'JQ-EN', 'LJ-EN', 'ZXTF-EN', 'CH-EN',
+    'JZ-EN', 'JQ-EN', 'LJ-EN', 'ZXTF-EN', 'ZXTF-P-EN', 'CH-EN',
     'ZD-CS', 'ZR2-CS', 'ZR3-CS', 'RZ-CS', 'LZ2050-CS', 'LZ1850-CS', 'LZ1650-CS',
-    'JZ-CS', 'JQ-CS', 'LJ-CS', 'ZXTF-CS', 'CH-CS',
+    'JZ-CS', 'JQ-CS', 'LJ-CS', 'ZXTF-CS', 'ZXTF-P-CS', 'CH-CS',
     'CPK-QM', 'CPK-PL', 'CPK-EC', 'CPK-FS', 'JQ-PSH', 'HS-RC', 'CPK-OH',
 )
 REPORTING_ROLE_QR_CODE_SET = set(REPORTING_ROLE_QR_CODES)
@@ -362,8 +366,10 @@ MES_WORKSHOP_ALIASES = [
     ('ZR2', '铸轧二'),
     ('ZR3', '铸轧三'),
     ('ZD', '铸锭分厂'),
-    ('ZXTF', '新厂在线车间'),
-    ('ZXTF', '园区在线车间'),
+    ('ZXTF-N', '新厂在线车间'),
+    ('ZXTF-N', '新厂在线退火'),
+    ('ZXTF-P', '园区在线车间'),
+    ('ZXTF-P', '园区在线退火'),
     ('ZXTF', '在线退火'),
     ('ZXTF', '在线退火车间'),
     ('ZXTF', '在线退火分厂'),
@@ -378,7 +384,7 @@ PROCESS_BUSINESS_UNITS = [
     {'unit_code': 'quenching_branch', 'unit_name': '淬火车间', 'workshop_codes': ['CH']},
     {'unit_code': 'coating_branch', 'unit_name': '彩涂', 'workshop_codes': ['CT']},
     {'unit_code': 'warehouse_logistics', 'unit_name': '成品库与发运', 'workshop_codes': ['CPK']},
-    {'unit_code': 'online_annealing', 'unit_name': '在线退火分厂', 'workshop_codes': ['ZXTF']},
+    {'unit_code': 'online_annealing', 'unit_name': '在线退火', 'workshop_codes': ['ZXTF-N', 'ZXTF-P']},
 ]
 
 WORKSHOP_PROCESS_BUSINESS = {
@@ -462,10 +468,20 @@ WORKSHOP_PROCESS_BUSINESS = {
         'process_tags': ['成品库', '入库', '发货', '库存'],
         'area_status': 'confirmed',
     },
+    'ZXTF-N': {
+        'process_business': '新厂在线退火',
+        'process_tags': ['新厂在线', '在线退火'],
+        'area_status': 'confirmed',
+    },
+    'ZXTF-P': {
+        'process_business': '园区在线退火',
+        'process_tags': ['园区在线', '在线退火'],
+        'area_status': 'confirmed',
+    },
     'ZXTF': {
         'process_business': '在线退火',
-        'process_tags': ['新厂在线', '园区在线', '在线退火'],
-        'area_status': 'needs_mes_line_split',
+        'process_tags': ['在线退火'],
+        'area_status': 'inactive',
     },
     'ZR5': {
         'process_business': '铸轧',
@@ -594,7 +610,6 @@ def build_process_business_hierarchy() -> dict:
         'status': 'workshop_machine_process_business_map',
         'units': units,
         'open_items': [
-            '新厂在线车间和园区在线车间当前映射到ZXTF，仍需MES设备/南北线字段拆分',
             'JZ2二分厂精整当前只有1#到8#机列，具体横剪/纵剪/拉矫职责需要现场确认',
         ],
     }
@@ -994,7 +1009,7 @@ def seed_mes_master_aliases(db: Session) -> None:
 _PRODUCTION_WORKSHOP_CODES = [
     'ZD', 'ZR2', 'ZR3', 'RZ',
     'LZ2050', 'LZ1850', 'LZ1650',
-    'JZ', 'JQ', 'LJ', 'ZXTF', 'CH',
+    'JZ', 'JQ', 'LJ', 'ZXTF-P', 'CH',
 ]
 OWNER_QR_SPECS = [
     *[('EN', '电工', ws) for ws in _PRODUCTION_WORKSHOP_CODES],
@@ -1007,6 +1022,41 @@ OWNER_QR_SPECS = [
     ('RC', '回收', 'HS'),
     ('OH', '大修', 'CPK'),
 ]
+LEGACY_ONLINE_ROLE_QR_SPECS = [
+    ('ZXTF-EN', '电工', 'ZXTF-N'),
+    ('ZXTF-CS', '内勤', 'ZXTF-N'),
+]
+
+
+def _upsert_virtual_role_qr(
+    db: Session,
+    *,
+    equipment_code: str,
+    label: str,
+    host: Workshop,
+) -> None:
+    existing = db.execute(select(Equipment).where(Equipment.code == equipment_code)).scalar_one_or_none()
+    if existing is not None:
+        existing.equipment_type = 'virtual_role_qr'
+        existing.workshop_id = host.id
+        existing.qr_code = f'XT-{equipment_code}'
+        existing.is_active = True
+        existing.operational_status = 'running'
+        if not existing.name:
+            existing.name = f'{host.name}{label}'
+        return
+    db.add(
+        Equipment(
+            code=equipment_code,
+            name=f'{host.name}{label}',
+            workshop_id=host.id,
+            equipment_type='virtual_role_qr',
+            operational_status='running',
+            qr_code=f'XT-{equipment_code}',
+            sort_order=9991,
+            is_active=True,
+        )
+    )
 
 
 def seed_owner_role_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
@@ -1015,31 +1065,41 @@ def seed_owner_role_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> 
         if host is None:
             continue
         equipment_code = f'{host.code}-{suffix}'
-        existing = db.execute(
-            select(Equipment).where(Equipment.code == equipment_code)
-        ).scalar_one_or_none()
-        if existing is not None:
-            existing.equipment_type = 'virtual_role_qr'
-            existing.workshop_id = host.id
-            existing.qr_code = f'XT-{equipment_code}'
-            existing.is_active = True
-            existing.operational_status = 'running'
-            if not existing.name:
-                existing.name = f'{host.name}{label}'
+        _upsert_virtual_role_qr(db, equipment_code=equipment_code, label=label, host=host)
+    for equipment_code, label, host_code in LEGACY_ONLINE_ROLE_QR_SPECS:
+        host = workshops_by_code.get(host_code)
+        if host is None:
             continue
-        db.add(
-            Equipment(
-                code=equipment_code,
-                name=f'{host.name}{label}',
-                workshop_id=host.id,
-                equipment_type='virtual_role_qr',
-                operational_status='running',
-                qr_code=f'XT-{equipment_code}',
-                sort_order=9991,
-                is_active=True,
-            )
-        )
+        _upsert_virtual_role_qr(db, equipment_code=equipment_code, label=label, host=host)
     db.flush()
+
+
+def rehome_legacy_online_role_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
+    target_by_prefix = {
+        'ZXTF-1-': workshops_by_code.get('ZXTF-N'),
+        'ZXTF-2-': workshops_by_code.get('ZXTF-N'),
+        'ZXTF-3-': workshops_by_code.get('ZXTF-P'),
+        'ZXTF-4-': workshops_by_code.get('ZXTF-P'),
+    }
+    default_target = workshops_by_code.get('ZXTF-N')
+    if default_target is None:
+        return
+    rows = db.execute(
+        select(Equipment).where(
+            Equipment.equipment_type == 'virtual_role_qr',
+            Equipment.code.like('ZXTF-%'),
+        )
+    ).scalars().all()
+    for item in rows:
+        code = str(item.code or '').upper()
+        if code.startswith(('ZXTF-N-', 'ZXTF-P-')):
+            continue
+        target = next((workshop for prefix, workshop in target_by_prefix.items() if code.startswith(prefix)), default_target)
+        if target is None:
+            continue
+        item.workshop_id = target.id
+        item.operational_status = 'running'
+        item.is_active = True
 
 
 def seed_real_master_data(db: Session) -> None:
@@ -1054,6 +1114,7 @@ def seed_real_master_data(db: Session) -> None:
     seed_mes_master_aliases(db)
     seed_special_owner_users(db, workshops_by_code)
     seed_owner_role_qrs(db, workshops_by_code)
+    rehome_legacy_online_role_qrs(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
 
     db.commit()

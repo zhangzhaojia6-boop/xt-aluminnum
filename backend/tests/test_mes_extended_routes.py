@@ -56,7 +56,7 @@ def test_mes_extended_summary_route(monkeypatch):
     app.dependency_overrides[get_current_user] = _manager_user
     monkeypatch.setattr(
         'app.routers.mes.mes_extended_service.build_summary',
-        lambda db: {
+        lambda db, **_kwargs: {
             'sources': [
                 {
                     'key': 'workshop_process_records',
@@ -82,7 +82,7 @@ def test_mes_extended_summary_route(monkeypatch):
 def test_mes_extended_routes_reject_mobile_user(monkeypatch):
     app.dependency_overrides[get_db] = _dummy_db
     app.dependency_overrides[get_current_user] = _mobile_user
-    monkeypatch.setattr('app.routers.mes.mes_extended_service.build_summary', lambda db: {'sources': []})
+    monkeypatch.setattr('app.routers.mes.mes_extended_service.build_summary', lambda db, **_kwargs: {'sources': []})
 
     response = TestClient(app).get('/api/v1/mes/extended/summary')
 
@@ -94,7 +94,7 @@ def test_mes_extended_workshop_process_route_passes_filters(monkeypatch):
     app.dependency_overrides[get_current_user] = _manager_user
     seen = {}
 
-    def fake_records(_db, *, business_date=None, search=None, limit=100, offset=0):
+    def fake_records(_db, *, business_date=None, search=None, limit=100, offset=0, workshop_names=None):
         seen.update({'business_date': business_date, 'search': search, 'limit': limit, 'offset': offset})
         return [
             {
@@ -131,7 +131,7 @@ def test_mes_extended_reference_items_route_passes_filters(monkeypatch):
     app.dependency_overrides[get_current_user] = _manager_user
     seen = {}
 
-    def fake_items(_db, *, source_type=None, search=None, limit=100, offset=0):
+    def fake_items(_db, *, source_type=None, search=None, limit=100, offset=0, workshop_names=None):
         seen.update({'source_type': source_type, 'search': search, 'limit': limit, 'offset': offset})
         return [
             {

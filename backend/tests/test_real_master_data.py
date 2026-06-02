@@ -95,6 +95,8 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'CT',
             'HS',
             'CPK',
+            'ZXTF-N',
+            'ZXTF-P',
             'ZXTF',
             'CH',
         ]
@@ -118,6 +120,8 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             '彩涂',
             '回收车间',
             '成品库',
+            '新厂在线退火',
+            '园区在线退火',
             '在线退火分厂',
             '淬火车间',
         ]
@@ -142,9 +146,11 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
             'recycling',
             'inventory',
             'annealing',
+            'annealing',
+            'annealing',
             'finishing',
         ]
-        assert len(teams) == 63
+        assert len(teams) == 69
         assert [(item.code, item.name) for item in teams if item.code.startswith('ZR2-')] == [
             ('ZR2-A', '白班组'),
             ('ZR2-B', '小夜班组'),
@@ -218,12 +224,35 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         assert ec.role == 'energy_chief'
         assert fs.role == 'storage_owner'
 
+        zxtf_new = next(item for item in workshops if item.code == 'ZXTF-N')
+        zxtf_park = next(item for item in workshops if item.code == 'ZXTF-P')
+        legacy_online_en = db.execute(select(User).where(User.username == 'ZXTF-EN')).scalar_one()
+        legacy_online_cs = db.execute(select(User).where(User.username == 'ZXTF-CS')).scalar_one()
+        park_online_en = db.execute(select(User).where(User.username == 'ZXTF-P-EN')).scalar_one()
+        park_online_cs = db.execute(select(User).where(User.username == 'ZXTF-P-CS')).scalar_one()
+        assert legacy_online_en.role == 'energy_stat'
+        assert legacy_online_en.workshop_id == zxtf_new.id
+        assert legacy_online_cs.role == 'consumable_stat'
+        assert legacy_online_cs.workshop_id == zxtf_new.id
+        assert park_online_en.role == 'energy_stat'
+        assert park_online_en.workshop_id == zxtf_park.id
+        assert park_online_cs.role == 'consumable_stat'
+        assert park_online_cs.workshop_id == zxtf_park.id
+        assert db.execute(select(Equipment).where(Equipment.code == 'ZXTF-N-EN')).scalar_one_or_none() is None
+
         zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-') and item.equipment_type != 'virtual_role_qr']
         assert [(item.code, item.name, item.equipment_type, item.qr_code) for item in zxtf_equipment] == [
             ('ZXTF-1', '新厂北', 'annealing_line', 'XT-ZXTF-1'),
             ('ZXTF-2', '新厂南', 'annealing_line', 'XT-ZXTF-2'),
             ('ZXTF-3', '园区北', 'annealing_line', 'XT-ZXTF-3'),
             ('ZXTF-4', '园区南', 'annealing_line', 'XT-ZXTF-4'),
+        ]
+        workshops_by_id = {item.id: item for item in workshops}
+        assert [(item.code, workshops_by_id[item.workshop_id].code) for item in zxtf_equipment] == [
+            ('ZXTF-1', 'ZXTF-N'),
+            ('ZXTF-2', 'ZXTF-N'),
+            ('ZXTF-3', 'ZXTF-P'),
+            ('ZXTF-4', 'ZXTF-P'),
         ]
     finally:
         db.close()
@@ -268,13 +297,18 @@ def test_seed_real_master_data_preserves_existing_qr_codes_and_seeds_mes_aliases
         assert ('workshop', 'RZ', '热轧', '热轧', 'mes_mvc') in aliases
         assert ('workshop', 'LJ', '拉矫车间', '拉矫车间', 'mes_mvc') in aliases
         assert ('workshop', 'JQ', '园区精整', '园区精整', 'mes_mvc') in aliases
-        assert ('workshop', 'ZXTF', '新厂在线车间', '新厂在线车间', 'mes_mvc') in aliases
-        assert ('workshop', 'ZXTF', '园区在线车间', '园区在线车间', 'mes_mvc') in aliases
+        assert ('workshop', 'ZXTF-N', '新厂在线车间', '新厂在线车间', 'mes_mvc') in aliases
+        assert ('workshop', 'ZXTF-P', '园区在线车间', '园区在线车间', 'mes_mvc') in aliases
 
-        zxtf = db.execute(select(Workshop).where(Workshop.code == 'ZXTF')).scalar_one()
-        zxtf_lines = db.execute(select(Equipment).where(Equipment.workshop_id == zxtf.id).order_by(Equipment.code.asc())).scalars().all()
-        assert zxtf.name == '在线退火分厂'
-        assert zxtf.workshop_type == 'annealing'
+        zxtf_new = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-N')).scalar_one()
+        zxtf_park = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-P')).scalar_one()
+        legacy_zxtf = db.execute(select(Workshop).where(Workshop.code == 'ZXTF')).scalar_one()
+        zxtf_lines = db.execute(
+            select(Equipment).where(Equipment.workshop_id.in_([zxtf_new.id, zxtf_park.id])).order_by(Equipment.code.asc())
+        ).scalars().all()
+        assert zxtf_new.name == '新厂在线退火'
+        assert zxtf_park.name == '园区在线退火'
+        assert legacy_zxtf.is_active is False
         assert [(item.code, item.qr_code, item.operational_status) for item in zxtf_lines if item.equipment_type != 'virtual_role_qr'] == [
             ('ZXTF-1', 'XT-ZXTF-1', 'running'),
             ('ZXTF-2', 'XT-ZXTF-2', 'running'),
@@ -352,7 +386,7 @@ def test_seed_real_master_data_updates_existing_records_idempotently_and_deactiv
         assert placeholder_equipment.is_active is False
         assert placeholder_team.is_active is False
 
-        assert len(db.execute(select(Workshop)).scalars().all()) == 23
+        assert len(db.execute(select(Workshop)).scalars().all()) == 25
         assert len(db.execute(select(Team).where(Team.code == 'ZR2-A')).scalars().all()) == 1
         assert len(db.execute(select(Equipment).where(Equipment.code == 'ZR2-1')).scalars().all()) == 1
     finally:
@@ -456,7 +490,7 @@ def test_seed_real_master_data_reactivates_role_qr_and_binds_role_accounts(tmp_p
         db.close()
 
 
-def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop(tmp_path) -> None:
+def test_seed_real_master_data_rehomes_legacy_zxtf_role_qr_after_online_split(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 
     db = build_session(tmp_path)
@@ -481,14 +515,17 @@ def test_seed_real_master_data_reuses_role_qr_for_existing_noncanonical_workshop
         seed_real_master_data(db)
 
         refreshed_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF')).scalar_one()
+        new_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-N')).scalar_one()
         operator_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZXTF-1-OP')).scalar_one()
         operator_user = db.execute(select(User).where(User.username == 'ZXTF-1-OP')).scalar_one()
 
-        assert refreshed_workshop.is_active is True
+        assert refreshed_workshop.is_active is False
+        assert new_workshop.is_active is True
         assert operator_qr.is_active is True
+        assert operator_qr.workshop_id == new_workshop.id
         assert operator_qr.bound_user_id == operator_user.id
         assert operator_user.role == 'machine_operator'
-        assert operator_user.workshop_id == refreshed_workshop.id
+        assert operator_user.workshop_id == new_workshop.id
         assert operator_user.is_mobile_user is True
     finally:
         db.close()
@@ -646,11 +683,13 @@ def test_process_business_hierarchy_covers_factory_workshop_machine_roles() -> N
     finishing_workshops = {item['workshop_code']: item for item in units['finishing_branch']['workshops']}
     assert {item['process_business'] for item in finishing_workshops['JZ']['machines']} >= {'19辊精整', '新19辊精整', '纵剪'}
 
-    online = units['online_annealing']['workshops'][0]
-    assert online['workshop_code'] == 'ZXTF'
-    assert online['area_status'] == 'needs_mes_line_split'
-    assert online['mes_aliases'] == ['新厂在线车间', '园区在线车间', '在线退火', '在线退火车间', '在线退火分厂']
-    assert {item['process_business'] for item in online['machines']} == {'在线退火'}
+    online_workshops = {item['workshop_code']: item for item in units['online_annealing']['workshops']}
+    assert online_workshops['ZXTF-N']['area_status'] == 'confirmed'
+    assert online_workshops['ZXTF-P']['area_status'] == 'confirmed'
+    assert online_workshops['ZXTF-N']['mes_aliases'] == ['新厂在线车间', '新厂在线退火']
+    assert online_workshops['ZXTF-P']['mes_aliases'] == ['园区在线车间', '园区在线退火']
+    assert [item['machine_code'] for item in online_workshops['ZXTF-N']['machines']] == ['ZXTF-1', 'ZXTF-2']
+    assert [item['machine_code'] for item in online_workshops['ZXTF-P']['machines']] == ['ZXTF-3', 'ZXTF-4']
 
     missing_machine_roles = [
         machine['machine_code']

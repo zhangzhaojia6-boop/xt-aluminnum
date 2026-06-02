@@ -50,7 +50,7 @@ const ROLE_LABELS = {
   factory_director: '厂长',
   senior_manager: '高级管理',
   manager: '车间管理者',
-  workshop_director: '车间观察者',
+  workshop_director: '车间主任',
   statistician: '观察角色（兼容旧总统计）',
   reviewer: '观察/处置角色（兼容旧审核）',
   team_leader: '已取消班长',

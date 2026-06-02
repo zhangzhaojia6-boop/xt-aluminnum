@@ -49,6 +49,7 @@ def seed_pending_assignment_entry(
     shift_id: int | None,
     machine_id: int | None,
     output_weight: float = 96_000.0,
+    entry_type: str = 'mobile_coil',
 ) -> None:
     db.add(
         WorkOrder(
@@ -70,10 +71,41 @@ def seed_pending_assignment_entry(
             output_weight=output_weight,
             scrap_weight=4_000.0,
             entry_status='draft',
-            entry_type='mobile_coil',
+            entry_type=entry_type,
             created_by_user_id=9,
         )
     )
+
+
+def test_build_pending_assignment_detail_ignores_owner_daily_rows(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            User(id=9, username='owner-a', password_hash='x', name='内勤甲', role='consumable_stat', is_active=True),
+        ]
+    )
+    seed_pending_assignment_entry(
+        db,
+        entry_id=121,
+        tracking_card_no='OWNER-121',
+        workshop_id=2,
+        shift_id=None,
+        machine_id=None,
+        entry_type='owner_daily',
+    )
+    db.commit()
+
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['total'] == 0
+    assert payload['summary']['entry_count'] == 0
 
 
 def test_resolve_live_business_date_prefers_latest_recent_upload_business_day(tmp_path) -> None:

@@ -56,7 +56,7 @@ test('resolveGuardDecision blocks non-admin users from admin access', () => {
   )
 })
 
-test('resolveGuardDecision lands factory or workshop dashboard users on production', () => {
+test('resolveGuardDecision lands factory users on production and workshop users on workshop dashboard', () => {
   const loginRoute = route({
     name: 'login',
     fullPath: '/login',
@@ -75,7 +75,24 @@ test('resolveGuardDecision lands factory or workshop dashboard users on producti
       to: loginRoute,
       auth: auth({ canAccessReviewSurface: false, canAccessWorkshopDashboard: true }),
     }),
-    { name: 'manage-production' }
+    { name: 'manage-workshop-dashboard' }
+  )
+})
+
+test('resolveGuardDecision keeps workshop directors inside own dashboard', () => {
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: route(),
+      auth: auth({ isWorkshopDirector: true }),
+    }),
+    { name: 'manage-workshop-dashboard' }
+  )
+  assert.equal(
+    resolveGuardDecision({
+      to: route({ name: 'manage-workshop-dashboard', meta: { requiresAuth: true, zone: 'manage', access: 'workshop_dashboard' } }),
+      auth: auth({ isWorkshopDirector: true, canAccessWorkshopDashboard: true }),
+    }),
+    true
   )
 })
 

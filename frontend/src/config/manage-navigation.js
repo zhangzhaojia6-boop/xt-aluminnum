@@ -2,10 +2,21 @@ import {
   Bell,
   DataLine,
   Histogram,
+  Monitor,
   Setting,
   Sunny,
   TrendCharts
 } from '@element-plus/icons-vue'
+
+const WORKSHOP_DIRECTOR_GROUPS = [
+  {
+    label: '本车间',
+    commandGroup: '本车间',
+    items: [
+      { title: '各车间看板', shortLabel: '车间看板', path: '/manage/workshop-dashboard', icon: Monitor, access: 'workshop_dashboard', commandGroup: '本车间' }
+    ]
+  }
+]
 
 const NAV_GROUPS = [
   {
@@ -27,6 +38,7 @@ const NAV_GROUPS = [
     commandGroup: '生产',
     items: [
       { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
+      { title: '各车间看板', shortLabel: '车间看板', path: '/manage/workshop-dashboard', icon: Monitor, access: 'workshop_dashboard', commandGroup: '生产' },
       { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产' },
       { title: '能耗', shortLabel: '能耗', path: '/manage/energy', icon: DataLine, access: 'review', commandGroup: '生产' },
       { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产' }
@@ -53,12 +65,14 @@ const NAV_GROUPS = [
 ]
 
 function canAccess(auth, access) {
+  if (access === 'workshop_dashboard') return Boolean(auth?.canAccessWorkshopDashboard || auth?.canAccessReviewSurface)
   if (access === 'review') return Boolean(auth?.canAccessReviewSurface || auth?.reviewSurface)
   if (access === 'admin') return Boolean(auth?.adminSurface || auth?.isAdmin)
   return true
 }
 
 export function manageNavGroups(auth) {
+  if (auth?.isWorkshopDirector) return WORKSHOP_DIRECTOR_GROUPS
   return NAV_GROUPS
     .map((group) => ({
       ...group,

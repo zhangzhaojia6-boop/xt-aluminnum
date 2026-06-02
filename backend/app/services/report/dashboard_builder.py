@@ -33,11 +33,13 @@ from app.services import mobile_report_service
 from app.services import mobile_reminder_service
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.services.yield_matrix_delivery_target_service import resolve_yield_matrix_delivery_targets
+from app.services.production_output_scope import counts_as_workshop_output
 from app.services.production_service import (
     build_workshop_attendance_summary,
     build_workshop_output_summary,
     mark_shift_data_published,
 )
+from app.services.report._utils import _to_float
 
 
 def build_delivery_status(db: Session, *, target_date: date) -> dict:
@@ -106,8 +108,17 @@ def _mobile_coil_output_totals_by_date(
         rows = daily_overview_builder._query_latest_mobile_coil_rows(db, start_date, end_date)
     except SQLAlchemyError:
         return {}
+    workshop_by_id = {
+        item.id: item
+        for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+    }
     for row in rows:
         if workshop_id and row.workshop_id != workshop_id:
+            continue
+        workshop = workshop_by_id.get(row.workshop_id)
+        if workshop is None:
+            continue
+        if not counts_as_workshop_output(workshop_type=workshop.workshop_type, extra_payload=row.extra_payload):
             continue
         totals[row.business_date] = totals.get(row.business_date, 0.0) + (_to_float(row.output_weight) / 1000)
     return {business_date: round(total, 2) for business_date, total in totals.items()}
@@ -594,7 +605,24 @@ def build_workshop_dashboard(
         base_query = base_query.filter(ShiftProductionData.workshop_id == workshop_id)
 
     items = base_query.order_by(ShiftProductionData.id.desc()).limit(100).all()
-    total_output = sum(_shift_weight_tons(item, 'output_weight') for item in items)
+    output_scope = daily_overview_builder._mobile_coil_output_scope_by_workshop(db, target_date, target_date)
+    scoped_output_payloads = (
+        [output_scope.get(workshop_id, {})]
+        if workshop_id is not None
+        else list(output_scope.values())
+    )
+    total_output = round(sum(_to_float(item.get('output')) for item in scoped_output_payloads), 2)
+    process_output = round(sum(_to_float(item.get('process_output')) for item in scoped_output_payloads), 2)
+    pass_count_total = int(sum(int(item.get('pass_count_total') or 0) for item in scoped_output_payloads))
+    process_stage_outputs: dict[str, float] = {}
+    for payload in scoped_output_payloads:
+        for stage, value in (payload.get('process_stage_outputs') or {}).items():
+            process_stage_outputs[stage] = round(process_stage_outputs.get(stage, 0.0) + _to_float(value), 2)
+    legacy_shift_output = round(sum(_shift_weight_tons(item, 'output_weight') for item in items), 2)
+    if total_output == 0 and legacy_shift_output > 0:
+        total_output = legacy_shift_output
+        if process_output == 0:
+            process_output = legacy_shift_output
     confirmed = len([item for item in items if item.data_status == 'confirmed'])
     reviewed = len([item for item in items if item.data_status == 'reviewed'])
     pending = len([item for item in items if item.data_status == 'pending'])
@@ -656,6 +684,9 @@ def build_workshop_dashboard(
         'target_date': target_date.isoformat(),
         'workshop_id': workshop_id,
         'total_output': total_output,
+        'process_output': process_output,
+        'pass_count_total': pass_count_total,
+        'process_stage_outputs': process_stage_outputs,
         'month_to_date_output': _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id),
         'history_digest': history_digest,
         'shift_count': len(items),

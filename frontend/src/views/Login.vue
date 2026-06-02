@@ -187,7 +187,9 @@ function isDingTalkRuntime() {
 }
 
 function resolveDefaultLandingPath() {
-  return auth.adminSurface ? '/admin' : '/login'
+  if (auth.adminSurface) return '/admin'
+  if (auth.isWorkshopDirector) return '/manage/workshop-dashboard'
+  return auth.reviewSurface ? '/manage/today' : '/login'
 }
 
 function resolveRedirectPath() {
@@ -224,9 +226,9 @@ async function submit() {
   loginError.value = ''
   try {
     await auth.login({ username: form.username, password: form.password })
-    if (!auth.adminSurface) {
+    if (!auth.canAccessDesktop) {
       auth.logout()
-      loginError.value = '仅管理员可登录管理端'
+      loginError.value = '当前账号不能进入管理端'
       ElMessage.error(loginError.value)
       return
     }

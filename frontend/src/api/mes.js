@@ -18,3 +18,23 @@ export async function fetchMesSyncRuns(params = {}) {
   const { data } = await api.get('/mes/sync-runs', { params })
   return data
 }
+
+export async function fetchMesExtendedSummary(params = {}) {
+  const { data } = await api.get('/mes/extended/summary', { params })
+  return data
+}
+
+export async function fetchMesWorkshopProcessRecords(params = {}) {
+  const { data } = await api.get('/mes/extended/workshop-process-records', { params })
+  return data
+}
+
+export async function fetchMesMaterialRecords(params = {}) {
+  const { data } = await api.get('/mes/extended/material-records', { params })
+  return data
+}
+
+export async function fetchMesWipTotalSnapshots(params = {}) {
+  const { data } = await api.get('/mes/extended/wip-total-snapshots', { params })
+  return data
+}

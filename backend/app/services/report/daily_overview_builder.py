@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.orm import Session
 
 from app.models.attendance import AttendanceSchedule
@@ -15,6 +15,7 @@ from app.models.shift import ShiftConfig
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
+from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
 
 
@@ -42,6 +43,53 @@ def _round2(v: float | None) -> float | None:
     return round(v, 2)
 
 
+def _mobile_coil_output_scope_by_workshop(db: Session, start: date, end: date) -> dict[int, dict[str, Any]]:
+    workshop_by_id = {
+        item.id: item
+        for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+    }
+    result: dict[int, dict[str, Any]] = {}
+    for row in _query_latest_mobile_coil_rows(db, start, end):
+        if row.workshop_id is None:
+            continue
+        workshop = workshop_by_id.get(row.workshop_id)
+        if workshop is None:
+            continue
+        wid = int(row.workshop_id)
+        bucket = result.setdefault(
+            wid,
+            {
+                'input': 0.0,
+                'output': 0.0,
+                'process_output': 0.0,
+                'pass_count_total': 0,
+                'process_stage_outputs': {},
+            },
+        )
+        input_weight = _to_float(row.input_weight) / 1000
+        output_weight = _to_float(row.output_weight) / 1000
+        bucket['process_output'] += output_weight
+        bucket['pass_count_total'] += pass_count(row.extra_payload)
+        if str(workshop.workshop_type or '').strip() == 'cold_roll':
+            stage = normalize_process_stage(row.extra_payload)
+            stage_key = stage or 'unmarked'
+            stage_outputs = bucket['process_stage_outputs']
+            stage_outputs[stage_key] = stage_outputs.get(stage_key, 0.0) + output_weight
+        if counts_as_workshop_output(workshop_type=workshop.workshop_type, extra_payload=row.extra_payload):
+            bucket['input'] += input_weight
+            bucket['output'] += output_weight
+
+    for bucket in result.values():
+        bucket['input'] = _round2(bucket['input']) or 0.0
+        bucket['output'] = _round2(bucket['output']) or 0.0
+        bucket['process_output'] = _round2(bucket['process_output']) or 0.0
+        bucket['process_stage_outputs'] = {
+            key: _round2(value) or 0.0
+            for key, value in bucket['process_stage_outputs'].items()
+        }
+    return result
+
+
 def _fmt_delta_label(delta: float | None, *, suffix: str = '') -> str | None:
     if delta is None:
         return None
@@ -59,72 +107,39 @@ def _delta(today: float | None, yesterday: float | None) -> float | None:
 
 
 def _query_output_by_workshop(db: Session, start: date, end: date) -> dict[int, float]:
-    rows = (
-        db.query(
-            WorkOrderEntry.workshop_id,
-            func.sum(WorkOrderEntry.output_weight),
-        )
-        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
-        .filter(
-            WorkOrderEntry.business_date >= start,
-            WorkOrderEntry.business_date <= end,
-            WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
-            WorkOrderEntry.entry_type == 'mobile_coil',
-            Workshop.is_active.is_(True),
-        )
-        .group_by(WorkOrderEntry.workshop_id)
-        .all()
-    )
-    result: dict[int, float] = {}
-    for wid, total in rows:
-        if wid is None:
-            continue
-        result[wid] = _to_float(total) / 1000
-    return result
+    return {
+        workshop_id: payload['output']
+        for workshop_id, payload in _mobile_coil_output_scope_by_workshop(db, start, end).items()
+    }
 
 
 def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict[int, dict]:
-    rows = (
-        db.query(
-            WorkOrderEntry.workshop_id,
-            func.sum(WorkOrderEntry.input_weight),
-            func.sum(WorkOrderEntry.output_weight),
-        )
-        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
-        .filter(
-            WorkOrderEntry.business_date >= start,
-            WorkOrderEntry.business_date <= end,
-            WorkOrderEntry.entry_status.in_(('submitted', 'verified', 'approved')),
-            WorkOrderEntry.entry_type == 'mobile_coil',
-            Workshop.is_active.is_(True),
-        )
-        .group_by(WorkOrderEntry.workshop_id)
-        .all()
-    )
-    result: dict[int, dict] = {}
-    for wid, inp, out in rows:
-        if wid is None:
-            continue
-        result[wid] = {
-            'input': _to_float(inp) / 1000,
-            'output': _to_float(out) / 1000,
+    return {
+        workshop_id: {
+            'input': payload['input'],
+            'output': payload['output'],
         }
-    return result
+        for workshop_id, payload in _mobile_coil_output_scope_by_workshop(db, start, end).items()
+    }
 
 
 def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str]) -> list[dict]:
-    today = _query_output_by_workshop(db, target_date, target_date)
-    yesterday = _query_output_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
     month_start = target_date.replace(day=1)
-    monthly = _query_output_by_workshop(db, month_start, target_date)
+    today_scope = _mobile_coil_output_scope_by_workshop(db, target_date, target_date)
+    yesterday_scope = _mobile_coil_output_scope_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
+    monthly_scope = _mobile_coil_output_scope_by_workshop(db, month_start, target_date)
+    today = {wid: payload['output'] for wid, payload in today_scope.items()}
+    yesterday = {wid: payload['output'] for wid, payload in yesterday_scope.items()}
+    monthly = {wid: payload['output'] for wid, payload in monthly_scope.items()}
 
     rows = []
-    all_ids = (set(today) | set(monthly)) & set(ws_map)
+    all_ids = (set(today_scope) | set(monthly_scope)) & set(ws_map)
     for wid in sorted(all_ids, key=lambda w: -(today.get(w, 0))):
         name = ws_map.get(wid, f'车间{wid}')
         d = _round2(today.get(wid, 0))
         m = _round2(monthly.get(wid, 0))
         yd = _round2(yesterday.get(wid, 0))
+        today_payload = today_scope.get(wid, {})
         rows.append({
             'workshop_id': wid,
             'workshop': name,
@@ -132,6 +147,9 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
             'monthly_output': m,
             'yesterday_output': yd,
             'delta': _delta(d, yd),
+            'process_output': today_payload.get('process_output'),
+            'pass_count_total': today_payload.get('pass_count_total', 0),
+            'process_stage_outputs': today_payload.get('process_stage_outputs', {}),
         })
     return rows
 
@@ -367,7 +385,16 @@ def _entry_sort_key(row: WorkOrderEntry) -> tuple:
     )
 
 
+def _has_work_order_entry_table(db: Session) -> bool:
+    try:
+        return inspect(db.get_bind()).has_table(WorkOrderEntry.__tablename__)
+    except Exception:
+        return True
+
+
 def _query_latest_mobile_coil_rows(db: Session, start: date, end: date) -> list[WorkOrderEntry]:
+    if not _has_work_order_entry_table(db):
+        return []
     rows = (
         db.query(WorkOrderEntry)
         .filter(

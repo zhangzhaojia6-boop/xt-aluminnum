@@ -85,6 +85,30 @@ def test_daily_energy_dry_run_maps_real_monthly_wide_tables(tmp_path: Path) -> N
     assert {'铸五制水房', '合计', '回收'} <= skipped_labels
 
 
+def test_daily_energy_parser_maps_online_annealing_split_labels(tmp_path: Path) -> None:
+    from app.services.daily_energy_report_service import parse_workshop_electricity_workbook
+
+    electricity = tmp_path / 'online-energy.xlsx'
+    frame = pd.DataFrame(
+        [
+            ['各车间能耗统计表（26年5月）', '', ''],
+            ['车间/日期', '5日', '6日'],
+            ['北线', 1200, 0],
+            ['园区北线', 800, 0],
+        ]
+    )
+    with pd.ExcelWriter(electricity, engine='openpyxl') as writer:
+        frame.to_excel(writer, index=False, header=False, sheet_name='用量')
+
+    rows = parse_workshop_electricity_workbook(electricity, report_date=date(2026, 5, 5))
+    rows_by_label = {row.source_label: row for row in rows}
+
+    assert rows_by_label['北线'].status == 'success'
+    assert rows_by_label['北线'].workshop_code == 'ZXTF-N'
+    assert rows_by_label['园区北线'].status == 'success'
+    assert rows_by_label['园区北线'].workshop_code == 'ZXTF-P'
+
+
 def test_daily_energy_gas_parser_does_not_treat_year_26_as_day_26(tmp_path: Path) -> None:
     module = _load_script_module()
     gas = tmp_path / 'workshop-gas-day26.xlsx'
@@ -159,7 +183,7 @@ def test_stage_and_promote_daily_energy_batch_writes_summary_records(tmp_path: P
         assert rows['RZ']['gas_value'] == 344.0
         assert rows['JZ']['electricity_value'] == 11640.0
         assert rows['JZ']['gas_value'] == 2661.0
-        assert rows['ZXTF']['gas_value'] == 7455.0
+        assert rows['ZXTF-N']['gas_value'] == 7455.0
 
         duplicate = module.promote_daily_energy_batch(
             db,

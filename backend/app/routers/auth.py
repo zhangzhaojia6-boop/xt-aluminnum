@@ -170,6 +170,8 @@ def qr_login(
             db.add(user)
             db.commit()
             db.refresh(user)
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail='账号已停用')
         user.last_login = datetime.now(timezone.utc)
         db.commit()
         db.refresh(user)

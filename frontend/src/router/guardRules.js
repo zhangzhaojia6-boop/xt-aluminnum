@@ -27,9 +27,10 @@ function configLanding(authStore) {
 }
 
 function reviewLanding(authStore) {
+  if (authStore.isWorkshopDirector) return { name: 'manage-workshop-dashboard' }
   if (authStore.canAccessReviewSurface) return { name: 'manage-today' }
   if (authStore.canAccessFactoryDashboard) return { name: 'manage-production' }
-  if (authStore.canAccessWorkshopDashboard) return { name: 'manage-production' }
+  if (authStore.canAccessWorkshopDashboard) return { name: 'manage-workshop-dashboard' }
   const config = configLanding(authStore)
   if (config.name !== 'login') return config
   return { name: 'login' }
@@ -97,6 +98,9 @@ export function resolveGuardDecision({
 
   if (to.meta.zone === 'entry' && !auth.canAccessFillSurface) {
     return auth.canAccessReviewSurface ? reviewLanding(auth) : { name: 'login' }
+  }
+  if (auth.isWorkshopDirector && to.meta.zone === 'manage' && access !== 'workshop_dashboard' && access !== 'admin') {
+    return { name: 'manage-workshop-dashboard' }
   }
   if ((to.meta.zone === 'review' || to.meta.zone === 'manage') && access !== 'admin' && !auth.canAccessReviewSurface) {
     return auth.canAccessFillSurface ? { name: 'mobile-entry' } : { name: 'login' }

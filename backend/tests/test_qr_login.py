@@ -9,7 +9,8 @@ from app.core.auth import get_password_hash, verify_password
 from app.core.deps import get_db
 from app.database import Base
 from app.main import app
-from app.models.master import Equipment, Workshop, WorkshopTemplateConfig
+from app.models.master import Equipment, MasterCodeAlias, Team, Workshop, WorkshopTemplateConfig
+from app.models.shift import ShiftConfig
 from app.models.system import AuditLog, User
 
 
@@ -20,8 +21,11 @@ def build_sessionmaker(tmp_path):
         tables=[
             Workshop.__table__,
             WorkshopTemplateConfig.__table__,
+            Team.__table__,
+            ShiftConfig.__table__,
             User.__table__,
             Equipment.__table__,
+            MasterCodeAlias.__table__,
             AuditLog.__table__,
         ],
     )
@@ -105,6 +109,7 @@ def _seed_role_qr(
     qr_code: str,
     workshop: bool = True,
     existing_user: bool = False,
+    existing_user_active: bool = True,
     workshop_code: str = 'LW',
     workshop_name: str = '冷轧车间',
 ) -> int | None:
@@ -124,7 +129,7 @@ def _seed_role_qr(
                 name='冷轧电工',
                 role='energy_stat',
                 workshop_id=workshop_id,
-                is_active=True,
+                is_active=existing_user_active,
                 is_mobile_user=True,
             )
             db.add(user)
@@ -297,6 +302,23 @@ def test_qr_login_virtual_role_reuses_existing_user(tmp_path) -> None:
         assert db.query(User).filter(User.username == 'LW-EN').count() == 1
 
 
+def test_qr_login_virtual_role_rejects_disabled_existing_user(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    _seed_role_qr(
+        session_factory,
+        code='LW-EN',
+        qr_code='XT-LW-EN',
+        existing_user=True,
+        existing_user_active=False,
+    )
+    _override_db(session_factory)
+
+    response = TestClient(app).post('/api/v1/auth/qr-login', json={'qr_code': 'XT-LW-EN'})
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == '账号已停用'
+
+
 def test_qr_login_virtual_role_rejects_missing_workshop(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     _seed_role_qr(session_factory, code='LW-HY', qr_code='XT-LW-HY', workshop=False)
@@ -379,6 +401,40 @@ def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
         assert 'titanium_wire_per_ton' not in all_field_names
     else:
         assert fields_payload['identity_field'] is None
+
+
+@pytest.mark.parametrize(
+    ('qr_code', 'username', 'expected_role', 'expected_workshop_code'),
+    [
+        ('XT-ZXTF-EN', 'ZXTF-EN', 'energy_stat', 'ZXTF-N'),
+        ('XT-ZXTF-CS', 'ZXTF-CS', 'consumable_stat', 'ZXTF-N'),
+        ('XT-ZXTF-P-EN', 'ZXTF-P-EN', 'energy_stat', 'ZXTF-P'),
+    ],
+)
+def test_real_online_annealing_role_qrs_survive_split(
+    tmp_path,
+    *,
+    qr_code: str,
+    username: str,
+    expected_role: str,
+    expected_workshop_code: str,
+) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    session_factory = build_sessionmaker(tmp_path)
+    with session_factory() as db:
+        seed_real_master_data(db)
+        expected_workshop = db.query(Workshop).filter(Workshop.code == expected_workshop_code).one()
+        expected_workshop_id = expected_workshop.id
+    _override_db(session_factory)
+
+    response = TestClient(app).post('/api/v1/auth/qr-login', json={'qr_code': qr_code})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['user']['username'] == username
+    assert payload['user']['role'] == expected_role
+    assert payload['user']['workshop_id'] == expected_workshop_id
 
 
 def test_qr_role_login_can_fetch_current_shift_with_testclient(tmp_path, monkeypatch) -> None:

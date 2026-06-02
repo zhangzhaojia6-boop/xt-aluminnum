@@ -8,21 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.production import WorkOrderEntry
 from app.models.master import Equipment, Workshop
 from app.models.shift import ShiftConfig
-
-
-def _row_pass_count(extra: dict | None) -> int:
-    if not isinstance(extra, dict):
-        return 0
-    raw = extra.get('pass_count')
-    if raw in (None, ''):
-        return 0
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        return 0
-    if value <= 0:
-        return 0
-    return int(value)
+from app.services.production_output_scope import pass_count
 
 
 def build_shift_pass_count(
@@ -44,7 +30,7 @@ def build_shift_pass_count(
 
     buckets: dict[tuple[int, int | None, int | None], dict[str, Any]] = {}
     for entry in query.all():
-        passes = _row_pass_count(entry.extra_payload)
+        passes = pass_count(entry.extra_payload)
         if passes <= 0:
             continue
         key = (entry.workshop_id, entry.machine_id, entry.shift_id)
@@ -107,7 +93,7 @@ def build_monthly_pass_count(
 
     buckets: dict[tuple[int, int | None], dict[str, Any]] = {}
     for entry in query.all():
-        passes = _row_pass_count(entry.extra_payload)
+        passes = pass_count(entry.extra_payload)
         if passes <= 0:
             continue
         key = (entry.workshop_id, entry.machine_id)
