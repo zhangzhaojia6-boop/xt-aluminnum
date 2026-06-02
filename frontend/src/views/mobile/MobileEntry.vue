@@ -226,7 +226,7 @@ const shiftHint = computed(() => {
   if (shiftMismatch.value && current.value?.shift_name) {
     return `当前时段属于 ${wall.code} ${wall.name}（${wall.businessDate}），页面将自动刷新最新任务。`
   }
-  return `按 23:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
+  return `按 07:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
 })
 const currentFacts = computed(() => [
   { label: '日期', value: current.value?.business_date || '-' },
