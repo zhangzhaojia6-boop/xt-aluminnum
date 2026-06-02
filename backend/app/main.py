@@ -213,8 +213,9 @@ async def lifespan(_: FastAPI):
                     aluminum_price_fetcher_agent.logger.exception('Aluminum price fetch failed')
 
         def _run_executive_daily_snapshot():
-            from datetime import date as _date, timedelta as _td
-            target = _date.today() - _td(days=1)
+            from app.core.business_time import last_completed_production_business_date
+
+            target = last_completed_production_business_date()
             with session_factory() as session:
                 try:
                     cost_aggregator_agent.execute(db=session, target_date=target)
@@ -239,8 +240,8 @@ async def lifespan(_: FastAPI):
         scheduler.add_job(
             _run_executive_daily_snapshot,
             'cron',
-            hour=0,
-            minute=45,
+            hour=8,
+            minute=20,
             id='executive_daily_snapshot',
             replace_existing=True,
             coalesce=True,

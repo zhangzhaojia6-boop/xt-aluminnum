@@ -1,3 +1,5 @@
+import re
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.core import scheduler as scheduler_module
@@ -35,6 +37,8 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'data_archive',
     }
     assert scheduler.jobs['daily_report']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_report']['kwargs']['hour'] == 8
+    assert scheduler.jobs['daily_report']['kwargs']['minute'] == 0
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_business']['trigger'] == 'interval'
@@ -51,6 +55,16 @@ def test_setup_scheduler_is_idempotent() -> None:
     setup_scheduler(scheduler)
 
     assert len(scheduler.jobs) == first_count
+
+
+def test_executive_snapshot_runs_after_business_day_closes() -> None:
+    source = Path('backend/app/main.py').read_text(encoding='utf-8')
+
+    assert 'last_completed_production_business_date()' in source
+    assert re.search(
+        r'scheduler\.add_job\(\s*_run_executive_daily_snapshot,[\s\S]*hour=8,[\s\S]*minute=20,[\s\S]*id=\'executive_daily_snapshot\'',
+        source,
+    )
 
 
 def _reset_leader_state() -> None:
