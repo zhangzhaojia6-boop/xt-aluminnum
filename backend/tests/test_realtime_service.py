@@ -1077,6 +1077,66 @@ def test_mes_machine_binding_summary_counts_only_target_business_date() -> None:
     assert summary['fill_entries_with_mes_match'] == 1
 
 
+def test_build_live_aggregation_excludes_cross_date_mes_helper_rows_from_summary(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='A', name='长白班', shift_type='day', start_time=time(7, 30), end_time=time(15, 30), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050轧机', workshop_id=2, equipment_type='cold_mill', is_active=True),
+            WorkOrder(id=801, tracking_card_no='RA260602801', process_route_code='cold-roll', overall_status='created'),
+            WorkOrderEntry(
+                id=801,
+                work_order_id=801,
+                workshop_id=2,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 6, 2),
+                input_weight=10_000.0,
+                output_weight=9_700.0,
+                scrap_weight=300.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+            ),
+            MesCoilSnapshot(
+                id=801,
+                coil_id='MES-801-old',
+                tracking_card_no='RA260602801',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='A',
+                status='synced',
+                business_date=date(2026, 6, 1),
+            ),
+            MesCoilSnapshot(
+                id=802,
+                coil_id='MES-802-current',
+                tracking_card_no='RA260602802',
+                workshop_code='LZ2050',
+                machine_code='LZ2050-1',
+                shift_code='A',
+                status='synced',
+                business_date=date(2026, 6, 2),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 6, 2),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['mes_machine_binding']['mes_row_count'] == 1
+    assert payload['mes_machine_binding']['direct_machine_code_count'] == 1
+    assert payload['mes_machine_binding']['fill_entries_with_mes_match'] == 1
+
+
 def test_build_live_aggregation_pairs_cards_with_operator_separator_variants(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

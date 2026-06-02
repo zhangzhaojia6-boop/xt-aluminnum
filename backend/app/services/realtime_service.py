@@ -2077,10 +2077,17 @@ def _load_mes_snapshot_rows(
         for item in (tracking_card_nos or set())
         for card_key in _tracking_card_keys(item)
     }
+    def resolve_snapshot_date(item: MesCoilSnapshot) -> date | None:
+        if item.business_date is not None:
+            return item.business_date
+        if item.event_time is not None:
+            return resolve_production_business_date(item.event_time)
+        return None
+
     query = db.query(MesCoilSnapshot)
     snapshots = []
     for item in query.all():
-        snapshot_date = item.business_date or (item.event_time.date() if item.event_time else None)
+        snapshot_date = resolve_snapshot_date(item)
         snapshot_tracking_keys = _mes_snapshot_tracking_keys(item)
         if snapshot_date != business_date and not (snapshot_tracking_keys & requested_tracking_cards):
             continue
@@ -2091,6 +2098,7 @@ def _load_mes_snapshot_rows(
 
     payload: list[dict] = []
     for item in snapshots:
+        source_business_date = resolve_snapshot_date(item)
         source_payload = dict(item.source_payload or {})
         metadata = dict(source_payload.get('metadata') or {})
         tracking_card_no = str(item.tracking_card_no or '').strip().upper()
@@ -2108,7 +2116,7 @@ def _load_mes_snapshot_rows(
                 'machine_id': resolved_machine_id,
                 'shift_id': resolved_shift_id,
                 'business_date': business_date.isoformat(),
-                'source_business_date': snapshot_date.isoformat() if snapshot_date else None,
+                'source_business_date': source_business_date.isoformat() if source_business_date else None,
                 'input_weight': _to_float(source_payload.get('input_weight') or metadata.get('input_weight')),
                 'output_weight': _to_float(source_payload.get('output_weight') or metadata.get('output_weight')),
                 'scrap_weight': _to_float(source_payload.get('scrap_weight') or metadata.get('scrap_weight')),
