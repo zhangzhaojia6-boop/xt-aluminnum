@@ -54,6 +54,25 @@ def infer_shift(clock_dt: datetime, shifts: list[ShiftConfig]) -> ShiftMatch:
 
     candidate_dates = [clock_dt.date() - timedelta(days=1), clock_dt.date(), clock_dt.date() + timedelta(days=1)]
 
+    raw_best: tuple[ShiftConfig, date, float] | None = None
+    for shift in shifts:
+        for candidate_date in candidate_dates:
+            window_start, window_end = build_shift_window(shift, candidate_date, 0, 0)
+            if window_start <= clock_dt < window_end:
+                distance = _distance_to_shift_start(clock_dt, shift, candidate_date)
+                if raw_best is None or distance < raw_best[2]:
+                    raw_best = (shift, candidate_date, distance)
+
+    if raw_best is not None:
+        shift, business_date, distance = raw_best
+        confidence = max(0.2, min(1.0, 1 - (distance / (8 * 3600))))
+        return ShiftMatch(
+            shift_config_id=shift.id,
+            business_date=business_date,
+            auto_shift_config_id=shift.id,
+            confidence=confidence,
+        )
+
     best: tuple[ShiftConfig, date, float] | None = None
     for shift in shifts:
         for candidate_date in candidate_dates:

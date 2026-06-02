@@ -285,6 +285,58 @@ def test_build_fill_detail_ledger_excludes_mes_projection_rows(tmp_path) -> None
     assert payload['items'] == []
 
 
+def test_build_fill_detail_ledger_excludes_mes_projection_work_order_entries(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=1, code='A', name='长白班', shift_type='day', start_time=time(7, 30), end_time=time(15, 30), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            User(id=85, username='operator', password_hash='x', name='主操王', role='machine_operator'),
+            WorkOrder(id=601, tracking_card_no='TRACK-FILL-1', process_route_code='mobile', overall_status='created'),
+            WorkOrder(id=602, tracking_card_no='TRACK-MES-1', process_route_code='mes', overall_status='created'),
+            WorkOrderEntry(
+                id=701,
+                work_order_id=601,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=1,
+                business_date=date(2026, 5, 6),
+                output_weight=9600.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+                submitted_at=datetime(2026, 5, 6, 9, 10),
+            ),
+            WorkOrderEntry(
+                id=702,
+                work_order_id=602,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=1,
+                business_date=date(2026, 5, 6),
+                output_weight=12000.0,
+                entry_status='submitted',
+                entry_type='mes_projection',
+                created_by_user_id=85,
+                submitted_at=datetime(2026, 5, 6, 9, 11),
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = realtime_service.build_fill_detail_ledger(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['summary']['source_counts'] == {'work_order_entry': 1}
+    assert payload['summary']['output'] == 9.6
+    assert [item['tracking_card_no'] for item in payload['items']] == ['TRACK-FILL-1']
+
+
 def test_build_fill_detail_ledger_exposes_template_extra_payload_metrics(tmp_path) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

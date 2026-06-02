@@ -1422,7 +1422,10 @@ def build_fill_detail_ledger(
         .outerjoin(Equipment, Equipment.id == WorkOrderEntry.machine_id)
         .outerjoin(ShiftConfig, ShiftConfig.id == WorkOrderEntry.shift_id)
         .outerjoin(creator_user, creator_user.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
-        .filter(WorkOrderEntry.business_date == business_date)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type != 'mes_projection',
+        )
     )
     if scoped_workshop_id is not None:
         entry_rows_query = entry_rows_query.filter(WorkOrderEntry.workshop_id == scoped_workshop_id)

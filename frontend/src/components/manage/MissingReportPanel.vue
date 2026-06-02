@@ -177,35 +177,41 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report--compact {
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--xt-radius-lg, 14px);
 }
 
 .xt-missing-report--compact .xt-missing-report__head h2 {
-  font-size: 14px;
+  margin-top: 0;
+  font-size: 13px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head strong {
-  font-size: 20px;
+  font-size: 18px;
+}
+
+.xt-missing-report--compact .xt-missing-report__head span {
+  font-size: 10px;
 }
 
 .xt-missing-report--compact .xt-missing-report__stats b {
-  padding: 3px 7px;
-  font-size: 11px;
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .xt-missing-report--compact .xt-missing-report__table {
-  max-height: 132px;
+  max-height: 96px;
 }
 
 .xt-missing-report--compact th,
 .xt-missing-report--compact td {
-  padding: 5px 7px;
-  font-size: 11px;
+  padding: 4px 6px;
+  font-size: 10px;
 }
 
 .xt-missing-report--compact td span {
-  padding: 3px 7px;
+  padding: 2px 6px;
 }
 
 @keyframes xtMissingSweep {

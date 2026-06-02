@@ -218,6 +218,44 @@ def test_upsert_snapshot_business_date_prefers_event_time_over_updated_at():
     assert entity.updated_from_mes_at == datetime(2026, 6, 2, 1, 0, tzinfo=UTC)
 
 
+def test_upsert_snapshot_business_date_switches_at_0730_shanghai_time():
+    before_boundary_db = _FakeDB()
+    before_boundary = CoilSnapshot(
+        coil_id='coil-before-boundary',
+        tracking_card_no='BN-BEFORE-BOUNDARY',
+        status='running',
+        event_time=datetime(2026, 6, 1, 23, 29, tzinfo=UTC),
+        metadata={'Product': {'Id': 'before-boundary'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
+    )
+
+    mes_sync_service._upsert_snapshot(
+        before_boundary_db,
+        snapshot=before_boundary,
+        synced_at=datetime(2026, 6, 1, 23, 31, tzinfo=UTC),
+    )
+
+    before_entity = next(item for item in before_boundary_db.added if item.__class__.__name__ == 'MesCoilSnapshot')
+    assert before_entity.business_date == date(2026, 6, 1)
+
+    at_boundary_db = _FakeDB()
+    at_boundary = CoilSnapshot(
+        coil_id='coil-at-boundary',
+        tracking_card_no='BN-AT-BOUNDARY',
+        status='running',
+        event_time=datetime(2026, 6, 1, 23, 30, tzinfo=UTC),
+        metadata={'Product': {'Id': 'at-boundary'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
+    )
+
+    mes_sync_service._upsert_snapshot(
+        at_boundary_db,
+        snapshot=at_boundary,
+        synced_at=datetime(2026, 6, 1, 23, 31, tzinfo=UTC),
+    )
+
+    at_entity = next(item for item in at_boundary_db.added if item.__class__.__name__ == 'MesCoilSnapshot')
+    assert at_entity.business_date == date(2026, 6, 2)
+
+
 def test_upsert_snapshot_uses_fallback_key_without_product_id():
     db = _FakeDB()
     snapshot = CoilSnapshot(
