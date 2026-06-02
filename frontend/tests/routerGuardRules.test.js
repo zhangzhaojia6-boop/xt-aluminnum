@@ -140,6 +140,34 @@ test('resolveGuardDecision keeps compact workshop directors inside the workshop 
     }),
     true
   )
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: route({
+        name: 'admin-ops-reliability',
+        query: { desktop: '1' },
+        meta: { requiresAuth: true, zone: 'manage', access: 'admin' },
+      }),
+      auth: auth({
+        isWorkshopDirector: true,
+        adminSurface: true,
+        canAccessWorkshopDashboard: true,
+      }),
+      compactClient: true,
+    }),
+    { name: 'manage-workshop-dashboard' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: route({
+        name: 'manage-today',
+        query: { desktop: '1' },
+        meta: { requiresAuth: true, zone: 'manage', access: 'review' },
+      }),
+      auth: directorAuth,
+      compactClient: true,
+    }),
+    { name: 'manage-workshop-dashboard' }
+  )
 })
 
 test('resolveGuardDecision sends compact fill-only users to entry', () => {
