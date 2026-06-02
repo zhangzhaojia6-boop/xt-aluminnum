@@ -170,6 +170,7 @@ const mesMaterialRows = ref([])
 const workshops = ref([])
 const workshopsLoaded = ref(false)
 const selectedWorkshopId = ref(null)
+const suppressWorkshopSelectionWatch = ref(false)
 
 const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
 const workshopId = computed(() => canChooseWorkshop.value ? selectedWorkshopId.value : (auth.user?.workshop_id || null))
@@ -231,6 +232,7 @@ async function loadWorkshops() {
   try {
     workshops.value = await fetchWorkshops({ limit: 300 })
     if (canChooseWorkshop.value && !selectedWorkshopId.value && workshops.value.length) {
+      suppressWorkshopSelectionWatch.value = true
       selectedWorkshopId.value = workshops.value[0].id
     }
   } catch {
@@ -299,7 +301,13 @@ function pickDate(value) {
 }
 
 watch(targetDate, load)
-watch(selectedWorkshopId, load)
+watch(selectedWorkshopId, () => {
+  if (suppressWorkshopSelectionWatch.value) {
+    suppressWorkshopSelectionWatch.value = false
+    return
+  }
+  load()
+})
 load()
 </script>
 

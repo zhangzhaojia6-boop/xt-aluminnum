@@ -63,7 +63,7 @@ import {
 
 const authStore = useAuthStore()
 const targetDate = ref(inferBusinessDate())
-const loading = ref(false)
+const loading = ref(true)
 const loadError = ref('')
 const aggregation = ref({})
 const fillDetails = ref({ items: [] })
@@ -118,6 +118,7 @@ const connectionLabel = computed(() => {
       ? '快照可用 · 实时重连'
       : '快照刷新中'
   }
+  if (loading.value) return '快照加载中'
   if (streamStatus.value === 'connecting') return '正在连接'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   return '连接待核'

@@ -16,7 +16,19 @@
       <b>{{ summary.shiftCount }} 班次</b>
       <b>{{ summary.roleCount }} 岗位</b>
     </div>
-    <div class="xt-missing-report__table">
+    <div v-if="compact" class="xt-missing-report__chips" aria-label="缺报明细">
+      <span v-if="loading" class="xt-missing-report__chip is-muted">加载中...</span>
+      <span v-else-if="rows.length === 0" class="xt-missing-report__chip is-muted">暂无缺报</span>
+      <template v-else>
+        <span v-for="row in compactRows" :key="row.key" class="xt-missing-report__chip">
+          <b>{{ row.workshopName }}</b>
+          <em>{{ row.machineName }}</em>
+          <i>{{ row.shiftName }} · {{ row.roleLabel }}</i>
+          <small>{{ row.ownerName }} · {{ row.statusText }}</small>
+        </span>
+      </template>
+    </div>
+    <div v-else class="xt-missing-report__table">
       <table>
         <thead>
           <tr>
@@ -63,6 +75,7 @@ const props = defineProps({
 })
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
+const compactRows = computed(() => props.rows.slice(0, 6))
 </script>
 
 <style scoped>
@@ -92,7 +105,8 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 
 .xt-missing-report__head,
 .xt-missing-report__stats,
-.xt-missing-report__table {
+.xt-missing-report__table,
+.xt-missing-report__chips {
   position: relative;
   z-index: 1;
 }
@@ -177,62 +191,102 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report--compact {
-  grid-template-columns: minmax(120px, 1fr) auto;
-  align-items: start;
-  gap: 2px 6px;
-  padding: 4px 6px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
   border-radius: var(--xt-radius-md, 12px);
+}
+
+.xt-missing-report--compact .xt-missing-report__head {
+  gap: 6px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head h2 {
   margin-top: 0;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .xt-missing-report--compact .xt-missing-report__head strong {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head span {
-  font-size: 10px;
+  display: none;
 }
 
 .xt-missing-report--compact .xt-missing-report__stats b {
-  padding: 1px 5px;
+  padding: 2px 6px;
   font-size: 10px;
 }
 
 .xt-missing-report--compact .xt-missing-report__stats {
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
+  flex-wrap: nowrap;
 }
 
-.xt-missing-report--compact .xt-missing-report__stats b:nth-child(n+3) {
+.xt-missing-report__chips {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.xt-missing-report__chips::-webkit-scrollbar {
   display: none;
 }
 
-.xt-missing-report--compact .xt-missing-report__table {
-  grid-column: 1 / -1;
-  max-height: 38px;
+.xt-missing-report__chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  max-width: 360px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 93, 115, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 93, 115, 0.08);
+  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.xt-missing-report--compact table {
-  min-width: 420px;
+.xt-missing-report__chip b,
+.xt-missing-report__chip em,
+.xt-missing-report__chip i,
+.xt-missing-report__chip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.xt-missing-report--compact th,
-.xt-missing-report--compact td {
-  padding: 1px 5px;
-  font-size: 10px;
+.xt-missing-report__chip b {
+  color: var(--xt-danger, #ff5d73);
+  font-weight: 900;
 }
 
-.xt-missing-report--compact th:nth-child(5),
-.xt-missing-report--compact td:nth-child(5) {
-  display: none;
+.xt-missing-report__chip em,
+.xt-missing-report__chip i,
+.xt-missing-report__chip small {
+  font-style: normal;
 }
 
-.xt-missing-report--compact td span {
-  padding: 2px 6px;
+.xt-missing-report__chip.is-muted {
+  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 62%, transparent);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 760px) {
+  .xt-missing-report--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .xt-missing-report--compact .xt-missing-report__stats {
+    overflow-x: auto;
+  }
 }
 
 @keyframes xtMissingSweep {

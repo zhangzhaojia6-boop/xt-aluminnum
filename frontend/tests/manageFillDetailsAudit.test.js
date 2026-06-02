@@ -283,8 +283,17 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
 
   assert.match(src, /compact/)
   assert.match(src, /xt-missing-report--compact/)
-  assert.match(src, /grid-template-columns:\s*minmax\(120px,\s*1fr\)\s*auto/)
-  assert.match(src, /max-height:\s*38px/)
+  assert.match(src, /xt-missing-report__chips/)
+  assert.match(src, /props\.rows\.slice\(0,\s*6\)/)
+  assert.match(src, /grid-template-columns:\s*auto auto minmax\(0,\s*1fr\)/)
+})
+
+test('WorkshopDashboardPage avoids a duplicate API load after selecting the default workshop', () => {
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(dashboardSrc, /const suppressWorkshopSelectionWatch = ref\(false\)/)
+  assert.match(dashboardSrc, /suppressWorkshopSelectionWatch\.value = true[\s\S]*selectedWorkshopId\.value = workshops\.value\[0\]\.id/)
+  assert.match(dashboardSrc, /watch\(selectedWorkshopId, \(\) => \{[\s\S]*if \(suppressWorkshopSelectionWatch\.value\)/)
 })
 
 test('WorkshopDashboardPage shows machine fill submit time', () => {
