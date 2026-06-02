@@ -2,14 +2,16 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ref } from 'vue'
 import dayjs from 'dayjs'
+import { inferBusinessDate } from '../utils/shiftClock'
 
 export function useDateRange(defaultRange = null) {
   const route = useRoute()
   const router = useRouter()
 
+  const activeBusinessDay = dayjs(inferBusinessDate())
   const fallback = defaultRange || [
-    dayjs().startOf('month').format('YYYY-MM-DD'),
-    dayjs().format('YYYY-MM-DD')
+    activeBusinessDay.startOf('month').format('YYYY-MM-DD'),
+    activeBusinessDay.format('YYYY-MM-DD')
   ]
 
   const dateRange = ref([
@@ -32,7 +34,7 @@ export function useDateRange(defaultRange = null) {
   }
 
   function setPreset(preset) {
-    const today = dayjs()
+    const today = dayjs(inferBusinessDate())
     const presets = {
       today: [today, today],
       yesterday: [today.subtract(1, 'day'), today.subtract(1, 'day')],

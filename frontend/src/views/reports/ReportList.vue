@@ -122,19 +122,20 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { fetchReports } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const items = ref([])
+const defaultBusinessDate = inferBusinessDate()
 
 const filters = reactive({
-  start_date: dayjs().format('YYYY-MM-DD'),
-  end_date: dayjs().format('YYYY-MM-DD'),
+  start_date: defaultBusinessDate,
+  end_date: defaultBusinessDate,
   report_type: '',
   status: ''
 })

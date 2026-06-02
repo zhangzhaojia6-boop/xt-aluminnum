@@ -213,7 +213,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import dayjs from 'dayjs'
 import { useAuthStore } from '../../stores/auth.js'
 import {
   fetchCurrentShift,
@@ -233,6 +232,7 @@ import { validateEntryWeights } from '../../utils/entryWeightValidation.js'
 import { requestErrorMessage } from '../../utils/reportStatus.js'
 import { useScanLookup } from '../../composables/useScanLookup.js'
 import { warnIfMachineMismatch } from '../../composables/useMachineMismatch.js'
+import { inferOwnerDailyBusinessDate } from '../../utils/shiftClock.js'
 
 const auth = useAuthStore()
 
@@ -566,7 +566,7 @@ function buildMobileReportPayload(sc) {
 
 function buildOwnerDailyPayload(sc) {
   return {
-    business_date: sc.business_date || dayjs().format('YYYY-MM-DD'),
+    business_date: sc.business_date || inferOwnerDailyBusinessDate(),
     data: normalizedFormValues(),
   }
 }

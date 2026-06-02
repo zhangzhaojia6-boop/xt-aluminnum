@@ -46,6 +46,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLiveFillDetails } from '../../../api/realtime'
 import { useRealtimeStream } from '../../../composables/useRealtimeStream'
 import { useAuthStore } from '../../../stores/auth'
+import { inferBusinessDate } from '../../../utils/shiftClock'
 import LiveDataStatePanel from './LiveDataStatePanel.vue'
 import LiveEventRail from './LiveEventRail.vue'
 import LiveMachineDrawer from './LiveMachineDrawer.vue'
@@ -61,7 +62,7 @@ import {
 } from '../../../utils/liveDashboardPhase2'
 
 const authStore = useAuthStore()
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const targetDate = ref(inferBusinessDate())
 const loading = ref(false)
 const loadError = ref('')
 const aggregation = ref({})
@@ -146,7 +147,7 @@ async function initializeActiveBusinessDate() {
       targetDate.value = activeDate
     }
   } catch {
-    targetDate.value = targetDate.value || dayjs().format('YYYY-MM-DD')
+    targetDate.value = targetDate.value || inferBusinessDate()
   }
 }
 

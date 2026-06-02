@@ -776,6 +776,7 @@ import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLi
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
+import { inferBusinessDate } from '../../utils/shiftClock'
 import {
   numberValue, formatWeight, formatPercent, yieldToneClass,
   submissionSymbol, formatAttendance, formatEntryStatus, formatEntryType
@@ -802,7 +803,7 @@ import { buildManagementOverview, marginTone } from '../../utils/managementOverv
 const authStore = useAuthStore()
 const route = useRoute()
 
-const targetDate = ref(dayjs().format('YYYY-MM-DD'))
+const targetDate = ref(inferBusinessDate())
 const autoActiveDateMode = ref(true)
 const loading = ref(false)
 const drawerVisible = ref(false)

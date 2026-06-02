@@ -73,19 +73,19 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceExceptions, resolveAttendanceException } from '../../api/attendance'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatExceptionTypeLabel, formatStatusLabel } from '../../utils/display'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const router = useRouter()
 const items = ref([])
 
 const filters = reactive({
-  businessDate: dayjs().format('YYYY-MM-DD'),
+  businessDate: inferBusinessDate(),
   exceptionType: ''
 })
 

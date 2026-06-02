@@ -99,13 +99,13 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import dayjs from 'dayjs'
 
 import { fetchEnergySummary } from '../../api/energy'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const filters = reactive({
-  business_date: dayjs().format('YYYY-MM-DD')
+  business_date: inferBusinessDate()
 })
 const rows = ref([])
 

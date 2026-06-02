@@ -159,11 +159,12 @@ import {
   fetchDailyConsumableLog,
   upsertDailyConsumableLog,
 } from '../../api/consumables.js'
+import { inferOwnerDailyBusinessDate } from '../../utils/shiftClock.js'
 
 const workshops = ref([])
 const loadingWorkshops = ref(false)
 const selectedWorkshopId = ref(null)
-const businessDate = ref(formatToday())
+const businessDate = ref(inferOwnerDailyBusinessDate())
 const formValues = reactive({})
 const note = ref('')
 const saving = ref(false)
@@ -185,13 +186,6 @@ const saveStatusLabel = computed(() => {
   if (lastSavedAt.value) return '已保存'
   return '待保存'
 })
-
-function formatToday() {
-  const d = new Date()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
-}
 
 function isNumericField(field) {
   return field.type === 'number' || field.unit

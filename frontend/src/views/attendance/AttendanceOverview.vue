@@ -97,17 +97,17 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 import { fetchAttendanceResults, processAttendance } from '../../api/attendance'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
 import { formatStatusLabel } from '../../utils/display'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const router = useRouter()
 const processing = ref(false)
-const businessDate = ref(dayjs().format('YYYY-MM-DD'))
+const businessDate = ref(inferBusinessDate())
 const items = ref([])
 const summary = ref({ total: 0, normal: 0, abnormal: 0, pending_review: 0 })
 

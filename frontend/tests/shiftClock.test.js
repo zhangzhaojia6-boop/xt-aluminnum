@@ -1,7 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { inferShift, inferBusinessDate, inferLastCompletedBusinessDate, isShiftMismatch } from '../src/utils/shiftClock.js'
+import {
+  inferShift,
+  inferBusinessDate,
+  inferOwnerDailyBusinessDate,
+  inferLastCompletedBusinessDate,
+  isShiftMismatch
+} from '../src/utils/shiftClock.js'
 
 function shanghaiInstant(year, month, day, hour, minute) {
   const utc = Date.UTC(year, month - 1, day, hour - 8, minute)
@@ -55,6 +61,13 @@ test('shiftClock: business date starts at the 07:30 anchor', () => {
 test('shiftClock: business date for 02:30 dawn = active business day', () => {
   const dawn = shanghaiInstant(2026, 5, 27, 2, 30)
   assert.equal(inferBusinessDate(dawn), '2026-05-26')
+})
+
+test('shiftClock: owner daily business date starts at the 10:00 anchor', () => {
+  const before = shanghaiInstant(2026, 5, 26, 9, 59)
+  assert.equal(inferOwnerDailyBusinessDate(before), '2026-05-25')
+  const after = shanghaiInstant(2026, 5, 26, 10, 0)
+  assert.equal(inferOwnerDailyBusinessDate(after), '2026-05-26')
 })
 
 test('shiftClock: last completed business date changes at 07:30', () => {

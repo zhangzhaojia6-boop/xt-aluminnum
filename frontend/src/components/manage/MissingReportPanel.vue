@@ -177,10 +177,10 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
 }
 
 .xt-missing-report--compact {
-  grid-template-columns: minmax(140px, 1fr) auto;
+  grid-template-columns: minmax(120px, 1fr) auto;
   align-items: start;
-  gap: 4px 8px;
-  padding: 5px 7px;
+  gap: 2px 6px;
+  padding: 4px 6px;
   border-radius: var(--xt-radius-md, 12px);
 }
 
@@ -207,15 +207,28 @@ const summary = computed(() => summarizeMissingReportRows(props.rows))
   gap: 4px;
 }
 
+.xt-missing-report--compact .xt-missing-report__stats b:nth-child(n+3) {
+  display: none;
+}
+
 .xt-missing-report--compact .xt-missing-report__table {
   grid-column: 1 / -1;
-  max-height: 54px;
+  max-height: 38px;
+}
+
+.xt-missing-report--compact table {
+  min-width: 420px;
 }
 
 .xt-missing-report--compact th,
 .xt-missing-report--compact td {
-  padding: 2px 5px;
+  padding: 1px 5px;
   font-size: 10px;
+}
+
+.xt-missing-report--compact th:nth-child(5),
+.xt-missing-report--compact td:nth-child(5) {
+  display: none;
 }
 
 .xt-missing-report--compact td span {

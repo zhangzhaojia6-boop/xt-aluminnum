@@ -6,6 +6,7 @@ const SHIFT_WINDOWS = [
 ]
 
 const BUSINESS_DAY_ANCHOR_MINUTES = 7 * 60 + 30
+const OWNER_DAILY_ANCHOR_MINUTES = 10 * 60
 
 function nowInShanghai(now = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -46,10 +47,18 @@ export function inferShift(now = new Date()) {
 }
 
 export function inferBusinessDate(now = new Date()) {
+  return inferBusinessDateAtAnchor(BUSINESS_DAY_ANCHOR_MINUTES, now)
+}
+
+export function inferOwnerDailyBusinessDate(now = new Date()) {
+  return inferBusinessDateAtAnchor(OWNER_DAILY_ANCHOR_MINUTES, now)
+}
+
+function inferBusinessDateAtAnchor(anchorMinutes, now = new Date()) {
   const wall = nowInShanghai(now)
   const minutes = totalMinutes(wall)
   const anchor = new Date(Date.UTC(wall.year, wall.month - 1, wall.day))
-  if (minutes < BUSINESS_DAY_ANCHOR_MINUTES) {
+  if (minutes < anchorMinutes) {
     anchor.setUTCDate(anchor.getUTCDate() - 1)
   }
   return formatUtcDate(anchor)

@@ -78,6 +78,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
+import { inferBusinessDate } from '../../utils/shiftClock'
 
 const props = defineProps({
   modelValue: { type: String, required: true },
@@ -115,7 +116,7 @@ const cells = computed(() => {
   const first = dayjs(`${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}-01`)
   const startWeekday = first.day()
   const start = first.subtract(startWeekday, 'day')
-  const todayIso = dayjs().format('YYYY-MM-DD')
+  const todayIso = inferBusinessDate()
   const list = []
   for (let i = 0; i < 42; i += 1) {
     const d = start.add(i, 'day')
@@ -127,7 +128,7 @@ const cells = computed(() => {
       outOfMonth: d.month() !== viewMonth.value,
       isToday: iso === todayIso,
       isSelected: iso === props.modelValue,
-      isFuture: d.isAfter(dayjs(), 'day')
+      isFuture: d.isAfter(dayjs(todayIso), 'day')
     })
   }
   return list
@@ -140,7 +141,7 @@ function pick(iso) {
 }
 
 function pickQuick(deltaDays) {
-  const d = dayjs().add(deltaDays, 'day').format('YYYY-MM-DD')
+  const d = dayjs(inferBusinessDate()).add(deltaDays, 'day').format('YYYY-MM-DD')
   pick(d)
 }
 
