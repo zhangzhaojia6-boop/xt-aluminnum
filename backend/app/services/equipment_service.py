@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_password_hash
 from app.models.master import Equipment, Workshop
+from app.models.shift import ShiftConfig
 from app.models.system import User
 
 VIRTUAL_EQUIPMENT_TYPES = {"virtual_role_qr", "virtual_workshop_qr"}
@@ -53,13 +54,27 @@ def _normalize_shift_mode(value: str | None) -> str:
     return mode
 
 
-def _normalize_assigned_shift_ids(shift_mode: str, assigned_shift_ids: list[int] | None) -> list[int]:
+def _default_shift_ids(db: Session, shift_mode: str) -> list[int]:
+    target_codes = ("A", "B", "C") if shift_mode == "three" else ("A", "B")
+    shifts = (
+        db.query(ShiftConfig)
+        .filter(ShiftConfig.code.in_(target_codes), ShiftConfig.is_active.is_(True))
+        .order_by(ShiftConfig.sort_order.asc(), ShiftConfig.id.asc())
+        .all()
+    )
+    ids_by_code = {str(item.code).strip().upper(): int(item.id) for item in shifts}
+    return [ids_by_code[code] for code in target_codes if code in ids_by_code]
+
+
+def _normalize_assigned_shift_ids(
+    db: Session,
+    shift_mode: str,
+    assigned_shift_ids: list[int] | None,
+) -> list[int]:
     if assigned_shift_ids:
         normalized = sorted({int(item) for item in assigned_shift_ids})
-    elif shift_mode == "three":
-        normalized = [1, 2, 3]
     else:
-        normalized = [1, 2]
+        normalized = _default_shift_ids(db, shift_mode)
 
     expected = 3 if shift_mode == "three" else 2
     if len(normalized) != expected:
@@ -229,7 +244,7 @@ def create_machine_with_account(
     qr_code = _normalize_qr_code(equipment_code)
     shift_mode_value = _normalize_shift_mode(shift_mode)
     operational_status_value = _normalize_operational_status(operational_status)
-    assigned_shift_value = _normalize_assigned_shift_ids(shift_mode_value, assigned_shift_ids)
+    assigned_shift_value = _normalize_assigned_shift_ids(db, shift_mode_value, assigned_shift_ids)
     custom_fields_value = _normalize_custom_fields(custom_fields)
 
     _ensure_unique_machine_identity(db, equipment_code=equipment_code, username=username, qr_code=qr_code)
@@ -430,7 +445,7 @@ def update_machine(
         equipment.custom_fields = _normalize_custom_fields(payload["custom_fields"])
     if "shift_mode" in payload or "assigned_shift_ids" in payload:
         shift_mode = _normalize_shift_mode(payload.get("shift_mode", equipment.shift_mode))
-        assigned_shift_ids = _normalize_assigned_shift_ids(shift_mode, payload.get("assigned_shift_ids"))
+        assigned_shift_ids = _normalize_assigned_shift_ids(db, shift_mode, payload.get("assigned_shift_ids"))
         equipment.shift_mode = shift_mode
         equipment.assigned_shift_ids = assigned_shift_ids
         if equipment.bound_user_id is not None:

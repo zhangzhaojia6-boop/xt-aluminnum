@@ -146,7 +146,7 @@ EQUIPMENT_BY_WORKSHOP = {
             'name': '六面铣',
             'machine_type': 'milling',
             'shift_mode': 'two',
-            'assigned_shift_ids': [1, 2],
+            'assigned_shift_codes': ['A', 'B'],
             'operational_status': 'running',
         },
         {
@@ -154,7 +154,7 @@ EQUIPMENT_BY_WORKSHOP = {
             'name': '双面铣2台',
             'machine_type': 'milling',
             'shift_mode': 'two',
-            'assigned_shift_ids': [1, 2],
+            'assigned_shift_codes': ['A', 'B'],
             'operational_status': 'running',
         },
         {
@@ -176,7 +176,7 @@ EQUIPMENT_BY_WORKSHOP = {
             'name': '锯床',
             'machine_type': 'sawing',
             'shift_mode': 'two',
-            'assigned_shift_ids': [1, 2],
+            'assigned_shift_codes': ['A', 'B'],
             'operational_status': 'running',
         },
     ],
@@ -712,9 +712,35 @@ def seed_real_teams(db: Session, workshops_by_code: dict[str, Workshop]) -> None
             item.is_active = is_active
 
 
-def _equipment_payload(payload: dict, workshop_id: int) -> dict:
+def _default_shift_ids(shift_mode: str, shift_ids_by_code: dict[str, int]) -> list[int]:
+    codes = ('A', 'B', 'C') if shift_mode == 'three' else ('A', 'B')
+    return [shift_ids_by_code[code] for code in codes if code in shift_ids_by_code]
+
+
+def _resolve_assigned_shift_ids(
+    payload: dict,
+    *,
+    shift_mode: str,
+    shift_ids_by_code: dict[str, int],
+) -> list[int]:
+    explicit_ids = payload.get('assigned_shift_ids')
+    if explicit_ids:
+        return [int(item) for item in explicit_ids]
+
+    explicit_codes = payload.get('assigned_shift_codes')
+    if explicit_codes:
+        return [shift_ids_by_code[str(code).strip().upper()] for code in explicit_codes]
+
+    return _default_shift_ids(shift_mode, shift_ids_by_code)
+
+
+def _equipment_payload(payload: dict, workshop_id: int, shift_ids_by_code: dict[str, int]) -> dict:
     shift_mode = payload.get('shift_mode', 'three')
-    assigned_shift_ids = payload.get('assigned_shift_ids')
+    assigned_shift_ids = _resolve_assigned_shift_ids(
+        payload,
+        shift_mode=shift_mode,
+        shift_ids_by_code=shift_ids_by_code,
+    )
     return {
         'code': payload['code'],
         'name': payload['name'],
@@ -734,10 +760,6 @@ def _keep_existing_qr_code(current: str | None, generated: str) -> str:
     return str(current or '').strip() or generated
 
 
-def _default_shift_ids(shift_mode: str) -> list[int]:
-    return [1, 2, 3] if shift_mode == 'three' else [1, 2]
-
-
 def _team_shift_code(team_code: str | None) -> str | None:
     if not team_code:
         return None
@@ -747,12 +769,18 @@ def _team_shift_code(team_code: str | None) -> str | None:
     return parts[-1].strip().upper() or None
 
 
-def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, workshop: Workshop) -> None:
+def _ensure_machine_account_binding(
+    db: Session,
+    *,
+    equipment: Equipment,
+    workshop: Workshop,
+    shift_ids_by_code: dict[str, int],
+) -> None:
     shift_mode = (equipment.shift_mode or 'three').strip().lower()
     if shift_mode not in {'two', 'three'}:
         shift_mode = 'three'
     equipment.shift_mode = shift_mode
-    equipment.assigned_shift_ids = list(equipment.assigned_shift_ids or _default_shift_ids(shift_mode))
+    equipment.assigned_shift_ids = list(equipment.assigned_shift_ids or _default_shift_ids(shift_mode, shift_ids_by_code))
     equipment.qr_code = _keep_existing_qr_code(equipment.qr_code, f"XT-{equipment.code}")
 
     user: User | None = db.get(User, equipment.bound_user_id) if equipment.bound_user_id else None
@@ -788,12 +816,16 @@ def _ensure_machine_account_binding(db: Session, *, equipment: Equipment, worksh
 
 def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
     existing = {item.code: item for item in db.execute(select(Equipment)).scalars().all()}
+    shift_ids_by_code = {
+        str(item.code).strip().upper(): int(item.id)
+        for item in db.execute(select(ShiftConfig).where(ShiftConfig.is_active.is_(True))).scalars().all()
+    }
 
     for workshop_code, equipment_rows in EQUIPMENT_BY_WORKSHOP.items():
         workshop = workshops_by_code[workshop_code]
         workshop_id = workshop.id
         for sort_order, payload in enumerate(equipment_rows, start=1):
-            normalized = _equipment_payload({**payload, 'sort_order': sort_order}, workshop_id)
+            normalized = _equipment_payload({**payload, 'sort_order': sort_order}, workshop_id, shift_ids_by_code)
             normalized['is_active'] = bool(workshop.is_active) and bool(normalized['is_active'])
             item = existing.get(payload['code'])
             if item is None:
@@ -815,7 +847,7 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
 
         for payload in equipment_rows:
             item = existing[payload['code']]
-            _ensure_machine_account_binding(db, equipment=item, workshop=workshop)
+            _ensure_machine_account_binding(db, equipment=item, workshop=workshop, shift_ids_by_code=shift_ids_by_code)
 
 
 def _owner_templates_for_workshop(workshop_code: str) -> list[tuple[str, str, str]]:
@@ -1141,6 +1173,9 @@ def rehome_legacy_online_role_qrs(db: Session, workshops_by_code: dict[str, Work
 
 
 def seed_real_master_data(db: Session) -> None:
+    from app.services.bootstrap import seed_shift_configs
+
+    seed_shift_configs(db)
     _deactivate_placeholder_rows(db, Workshop)
     _deactivate_placeholder_rows(db, Team)
     _deactivate_placeholder_rows(db, Equipment)

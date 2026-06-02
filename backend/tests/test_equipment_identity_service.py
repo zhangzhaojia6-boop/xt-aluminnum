@@ -1,17 +1,57 @@
+from datetime import time
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.auth import verify_password
 from app.database import Base
 from app.models.master import Equipment, Workshop
+from app.models.shift import ShiftConfig
 from app.models.system import AuditLog, User
 from app.services.equipment_service import create_machine_with_account, reset_machine_pin, toggle_machine_status
 
 
 def build_session(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'equipment-identity.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[Workshop.__table__, User.__table__, Equipment.__table__, AuditLog.__table__])
-    return sessionmaker(bind=engine, future=True)()
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, User.__table__, Equipment.__table__, AuditLog.__table__, ShiftConfig.__table__],
+    )
+    db = sessionmaker(bind=engine, future=True)()
+    db.add_all(
+        [
+            ShiftConfig(
+                code='A',
+                name='长白班',
+                shift_type='day',
+                start_time=time(7, 30),
+                end_time=time(15, 30),
+                sort_order=1,
+                is_active=True,
+            ),
+            ShiftConfig(
+                code='B',
+                name='小夜班',
+                shift_type='evening',
+                start_time=time(15, 30),
+                end_time=time(23, 30),
+                sort_order=2,
+                is_active=True,
+            ),
+            ShiftConfig(
+                code='C',
+                name='大夜班',
+                shift_type='night',
+                start_time=time(23, 30),
+                end_time=time(7, 30),
+                is_cross_day=True,
+                sort_order=3,
+                is_active=True,
+            ),
+        ]
+    )
+    db.commit()
+    return db
 
 
 def test_create_machine_with_account_creates_bound_user_pin_and_qr(tmp_path) -> None:
