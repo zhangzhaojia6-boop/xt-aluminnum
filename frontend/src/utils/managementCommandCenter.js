@@ -1,4 +1,4 @@
-import { formatShiftLabel } from './display.js'
+import { compareShiftLabels, formatShiftLabel } from './display.js'
 
 function numberValue(value) {
   const numeric = Number(value)
@@ -67,6 +67,7 @@ export function buildOutputDistribution(workshops = [], limit = 5) {
         .filter((shift) => numberValue(shift.total_output) > 0)
         .map((shift) => formatShiftLabel(shift.shift_name, ''))
         .filter(Boolean)
+        .sort(compareShiftLabels)
 
       return {
         workshopName: workshop.workshop_name || '--',
@@ -109,6 +110,7 @@ export function buildUnboundFillSummary(workshops = [], limit = 3) {
         .filter((shift) => numberValue(shift.total_output ?? shift.totalOutput) > 0)
         .map((shift) => formatShiftLabel(shift.shift_name || shift.shiftName, ''))
         .filter(Boolean)
+        .sort(compareShiftLabels)
 
       rows.push({
         workshopName,
@@ -212,7 +214,11 @@ export function buildShiftOutputRhythm(workshops = []) {
     })
   })
 
-  const rows = [...shiftsByName.values()].sort((left, right) => right.output - left.output)
+  const rows = [...shiftsByName.values()].sort((left, right) => {
+    const orderDiff = compareShiftLabels(left.shiftName, right.shiftName)
+    if (orderDiff !== 0) return orderDiff
+    return right.output - left.output
+  })
   const totalOutput = rows.reduce((sum, row) => sum + row.output, 0)
   return rows.map((row) => ({
     shiftName: row.shiftName,

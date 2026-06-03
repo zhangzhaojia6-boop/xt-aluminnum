@@ -289,11 +289,38 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
   assert.match(src, /compact/)
   assert.match(src, /xt-missing-report--compact/)
   assert.match(src, /xt-missing-report__chips/)
-  assert.match(src, /props\.rows\.slice\(0,\s*2\)/)
+  assert.match(src, /props\.rows\.slice\(0,\s*1\)/)
   assert.match(src, /compactOverflowCount/)
   assert.match(src, /xt-missing-report__more/)
   assert.match(src, /compactRoleStats/)
   assert.match(src, /grid-template-columns:\s*auto minmax\(0,\s*1fr\)/)
+})
+
+test('missing report rows use canonical shift order before owner daily rows', () => {
+  const rows = buildMissingReportRows({
+    workshops: [
+      {
+        workshop_id: 2,
+        workshop_name: '冷轧',
+        machines: [
+          {
+            machine_id: 8,
+            machine_name: '8#机',
+            shifts: [
+              { shift_id: 3, shift_name: '大夜', submission_status: 'not_started', is_applicable: true },
+              { shift_id: 1, shift_name: '白班', submission_status: 'not_started', is_applicable: true },
+              { shift_id: 2, shift_name: '小夜', submission_status: 'not_started', is_applicable: true },
+            ],
+          },
+        ],
+      },
+    ],
+    owner_daily_status: {
+      items: [{ user_id: 9, role_label: '生产内勤', person_name: '内勤', status: 'not_started' }],
+    },
+  })
+
+  assert.deepEqual(rows.map((row) => row.shiftName), ['长白班', '小夜班', '大夜班', '每日一录'])
 })
 
 test('WorkshopDashboardPage avoids a duplicate API load after selecting the default workshop', () => {

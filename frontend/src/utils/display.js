@@ -163,22 +163,27 @@ const REMINDER_TYPE_LABELS = {
 
 const SHIFT_LABELS = {
   A: '长白班',
+  D: '长白班',
   DAY: '长白班',
   '白班': '长白班',
   '长白': '长白班',
   '长白班': '长白班',
   B: '小夜班',
+  E: '小夜班',
   EVENING: '小夜班',
   MID: '小夜班',
   '中班': '小夜班',
   '小夜': '小夜班',
   '小夜班': '小夜班',
   C: '大夜班',
+  N: '大夜班',
   NIGHT: '大夜班',
   '夜班': '大夜班',
   '大夜': '大夜班',
   '大夜班': '大夜班'
 }
+
+const SHIFT_ORDER = ['长白班', '小夜班', '大夜班']
 
 function formatByMap(value, mapping) {
   if (value === null || value === undefined || value === '') return '-'
@@ -242,6 +247,18 @@ export function formatShiftLabel(value, fallback = '-') {
   const text = String(value).trim()
   if (!text) return fallback
   return SHIFT_LABELS[text] || SHIFT_LABELS[text.toUpperCase()] || text
+}
+
+export function shiftOrderIndex(value) {
+  const label = formatShiftLabel(value, '')
+  const index = SHIFT_ORDER.indexOf(label)
+  return index === -1 ? SHIFT_ORDER.length : index
+}
+
+export function compareShiftLabels(left, right) {
+  const orderDiff = shiftOrderIndex(left) - shiftOrderIndex(right)
+  if (orderDiff !== 0) return orderDiff
+  return formatShiftLabel(left, '').localeCompare(formatShiftLabel(right, ''), 'zh-Hans-CN')
 }
 
 export function formatBooleanLabel(value) {

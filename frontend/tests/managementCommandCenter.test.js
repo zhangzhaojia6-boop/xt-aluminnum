@@ -422,14 +422,14 @@ test('buildShiftOutputRhythm groups live output by shift rhythm', () => {
   ])
 
   assert.equal(rows.length, 2)
-  assert.equal(rows[0].shiftName, '大夜班')
-  assert.equal(rows[0].output, 111360)
-  assert.equal(rows[0].input, 117000)
-  assert.equal(rows[0].machineCount, 2)
-  assert.equal(rows[0].share, 92.45)
-  assert.equal(rows[1].shiftName, '长白班')
-  assert.equal(rows[1].machineCount, 1)
-  assert.equal(rows[1].share, 7.55)
+  assert.equal(rows[0].shiftName, '长白班')
+  assert.equal(rows[0].output, 9100)
+  assert.equal(rows[0].input, 9800)
+  assert.equal(rows[0].machineCount, 1)
+  assert.equal(rows[0].share, 7.55)
+  assert.equal(rows[1].shiftName, '大夜班')
+  assert.equal(rows[1].machineCount, 2)
+  assert.equal(rows[1].share, 92.45)
 })
 
 test('buildUnboundFillSummary totals direct entries that still need machine ownership', () => {

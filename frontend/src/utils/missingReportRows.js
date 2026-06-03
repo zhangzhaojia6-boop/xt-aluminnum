@@ -1,4 +1,4 @@
-import { formatShiftLabel } from './display.js'
+import { compareShiftLabels, formatShiftLabel } from './display.js'
 
 function safeArray(value) {
   return Array.isArray(value) ? value : []
@@ -38,6 +38,15 @@ export function buildMissingReportRows(payload = {}) {
       statusText: item.status === 'late' ? '迟报' : '缺报',
     }))
 
+  machineRows.sort((left, right) => {
+    const workshopDiff = left.workshopName.localeCompare(right.workshopName, 'zh-Hans-CN')
+    if (workshopDiff !== 0) return workshopDiff
+    const shiftDiff = compareShiftLabels(left.shiftName, right.shiftName)
+    if (shiftDiff !== 0) return shiftDiff
+    return left.machineName.localeCompare(right.machineName, 'zh-Hans-CN')
+  })
+
+  ownerRows.sort((left, right) => left.roleLabel.localeCompare(right.roleLabel, 'zh-Hans-CN'))
   return [...machineRows, ...ownerRows]
 }
 

@@ -5,7 +5,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { formatShiftLabel } from '../../utils/display.js'
+import { compareShiftLabels, formatShiftLabel } from '../../utils/display.js'
 
 use([CanvasRenderer, LineChart, GridComponent, TooltipComponent, LegendComponent])
 
@@ -17,7 +17,10 @@ const props = defineProps({
 const PALETTE = ['#1f6feb', '#2da44e', '#bf8700', '#cf222e', '#8250df', '#0969da']
 
 const option = computed(() => {
-  const shiftLabels = props.shifts.map((s) => formatShiftLabel(s.shift_name || s.name, `班次${s.id}`))
+  const orderedShifts = [...props.shifts].sort((left, right) =>
+    compareShiftLabels(left.shift_name || left.name || left.code, right.shift_name || right.name || right.code)
+  )
+  const shiftLabels = orderedShifts.map((s) => formatShiftLabel(s.shift_name || s.name || s.code, `班次${s.id}`))
   const series = props.workshops.map((ws, idx) => ({
     name: ws.workshop_name,
     type: 'line',
@@ -26,7 +29,7 @@ const option = computed(() => {
     symbolSize: 6,
     lineStyle: { width: 2 },
     itemStyle: { color: PALETTE[idx % PALETTE.length] },
-    data: props.shifts.map((shift) => {
+    data: orderedShifts.map((shift) => {
       const cell = (ws.shift_totals || []).find((t) => t.shift_id === shift.id)
       return cell ? Number((cell.output || cell.total_output || 0).toFixed(1)) : 0
     }),

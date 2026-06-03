@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { formatNumber, formatShiftLabel } from '../src/utils/display.js'
+import { compareShiftLabels, formatNumber, formatShiftLabel, shiftOrderIndex } from '../src/utils/display.js'
 
 test('formatNumber hides trailing decimal zeros on management and entry values', () => {
   assert.equal(formatNumber(12), '12')
@@ -13,12 +13,22 @@ test('formatNumber hides trailing decimal zeros on management and entry values',
 
 test('formatShiftLabel normalizes historical shift names for display', () => {
   assert.equal(formatShiftLabel('A'), '长白班')
+  assert.equal(formatShiftLabel('D'), '长白班')
   assert.equal(formatShiftLabel('白班'), '长白班')
   assert.equal(formatShiftLabel('B'), '小夜班')
+  assert.equal(formatShiftLabel('E'), '小夜班')
   assert.equal(formatShiftLabel('中班'), '小夜班')
   assert.equal(formatShiftLabel('C'), '大夜班')
+  assert.equal(formatShiftLabel('N'), '大夜班')
   assert.equal(formatShiftLabel('夜班'), '大夜班')
   assert.equal(formatShiftLabel('大夜'), '大夜班')
+})
+
+test('shift display order starts at 07:30 production day', () => {
+  assert.equal(shiftOrderIndex('长白班'), 0)
+  assert.equal(shiftOrderIndex('小夜'), 1)
+  assert.equal(shiftOrderIndex('大夜'), 2)
+  assert.deepEqual(['大夜', '长白班', '小夜班'].sort(compareShiftLabels), ['长白班', '小夜班', '大夜'])
 })
 
 test('management energy and legacy live surfaces use canonical shift labels', () => {

@@ -5,7 +5,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { HeatmapChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { formatShiftLabel } from '../../utils/display.js'
+import { compareShiftLabels, formatShiftLabel } from '../../utils/display.js'
 
 use([CanvasRenderer, HeatmapChart, GridComponent, TooltipComponent, VisualMapComponent])
 
@@ -24,6 +24,7 @@ const matrix = computed(() => {
     if (!shiftNames.includes(sh)) shiftNames.push(sh)
     cells.set(`${ws}::${sh}`, (cells.get(`${ws}::${sh}`) || 0) + (row.entry_count || row.count || 1))
   }
+  shiftNames.sort(compareShiftLabels)
   const data = []
   wsNames.forEach((ws, y) => {
     shiftNames.forEach((sh, x) => {

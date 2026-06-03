@@ -171,6 +171,30 @@ test('machine matrix hides removed workshops and separates pending ownership', (
   assert.equal(matrix.pendingMachines[0].machineName, '未绑定机列 / 大夜')
 })
 
+test('machine matrix orders shifts by production day rhythm', () => {
+  const matrix = buildLiveMachineMatrix([
+    {
+      workshop_name: '冷轧',
+      machines: [
+        {
+          machine_id: 21,
+          machine_name: '1#机',
+          shifts: [
+            { shift_name: '大夜', submission_status: 'all_submitted', is_applicable: true },
+            { shift_name: '小夜', submission_status: 'all_submitted', is_applicable: true },
+            { shift_name: '白班', submission_status: 'all_submitted', is_applicable: true },
+          ],
+        },
+      ],
+    },
+  ])
+
+  assert.deepEqual(
+    matrix.workshops[0].machines[0].shifts.map((shift) => shift.shiftName),
+    ['长白班', '小夜班', '大夜班'],
+  )
+})
+
 test('metric comparison keeps algorithm values primary and filled values visible', () => {
   const items = buildLiveMetricCompareItems({
     factory_total: {

@@ -1,4 +1,4 @@
-import { formatNumber, formatShiftLabel } from './display.js'
+import { compareShiftLabels, formatNumber, formatShiftLabel } from './display.js'
 
 const MISSING_TEXT = '暂无可信数据'
 const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
@@ -164,15 +164,17 @@ function normalizeMachine(workshop, machine) {
     scrap: numberValue(dayTotal.scrap),
     yieldRate: dayTotal.yield_rate ?? dayTotal.yieldRate ?? null,
     tone: resolveMachineTone(machine),
-    shifts: (machine.shifts || []).map((shift) => ({
-      shiftId: shift.shift_id ?? shift.shiftId,
-      shiftName: formatShiftLabel(shift.shift_name || shift.shiftName, '--'),
-      status: shift.submission_status || shift.status || 'not_started',
-      statusText: shift.status_text || shift.statusText || (shift.submission_status === 'all_submitted' ? '已填' : (shift.submission_status === 'in_progress' ? '进行中' : '缺报')),
-      submittedCount: numberValue(shift.submitted_count ?? shift.submittedCount),
-      output: numberValue(shift.total_output ?? shift.totalOutput),
-      isApplicable: shift.is_applicable !== false,
-    })),
+    shifts: (machine.shifts || [])
+      .map((shift) => ({
+        shiftId: shift.shift_id ?? shift.shiftId,
+        shiftName: formatShiftLabel(shift.shift_name || shift.shiftName, '--'),
+        status: shift.submission_status || shift.status || 'not_started',
+        statusText: shift.status_text || shift.statusText || (shift.submission_status === 'all_submitted' ? '已填' : (shift.submission_status === 'in_progress' ? '进行中' : '缺报')),
+        submittedCount: numberValue(shift.submitted_count ?? shift.submittedCount),
+        output: numberValue(shift.total_output ?? shift.totalOutput),
+        isApplicable: shift.is_applicable !== false,
+      }))
+      .sort((left, right) => compareShiftLabels(left.shiftName, right.shiftName)),
   }
 }
 

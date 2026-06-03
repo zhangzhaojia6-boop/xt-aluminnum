@@ -85,7 +85,7 @@ const props = defineProps({
 })
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
-const compactRows = computed(() => props.rows.slice(0, 2))
+const compactRows = computed(() => props.rows.slice(0, 1))
 const compactOverflowCount = computed(() => Math.max(0, props.rows.length - compactRows.value.length))
 const compactRoleStats = computed(() => [
   { label: '主操', count: summary.value.roleBuckets?.operator || 0 },
