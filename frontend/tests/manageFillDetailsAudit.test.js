@@ -289,7 +289,7 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
   assert.match(src, /compact/)
   assert.match(src, /xt-missing-report--compact/)
   assert.match(src, /xt-missing-report__chips/)
-  assert.match(src, /props\.rows\.slice\(0,\s*3\)/)
+  assert.match(src, /props\.rows\.slice\(0,\s*2\)/)
   assert.match(src, /compactRoleStats/)
   assert.match(src, /grid-template-columns:\s*auto auto minmax\(0,\s*1fr\)/)
 })

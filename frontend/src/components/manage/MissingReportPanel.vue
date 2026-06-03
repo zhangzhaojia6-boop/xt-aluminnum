@@ -83,7 +83,7 @@ const props = defineProps({
 })
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
-const compactRows = computed(() => props.rows.slice(0, 3))
+const compactRows = computed(() => props.rows.slice(0, 2))
 const compactRoleStats = computed(() => [
   { label: '主操', count: summary.value.roleBuckets?.operator || 0 },
   { label: '电工', count: summary.value.roleBuckets?.electrician || 0 },
@@ -218,24 +218,24 @@ const compactRoleStats = computed(() => [
 .xt-missing-report--compact {
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
-  padding: 5px 7px;
-  border-radius: var(--xt-radius-md, 12px);
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--xt-radius-sm, 10px);
 }
 
 .xt-missing-report--compact .xt-missing-report__head {
-  gap: 6px;
+  gap: 4px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head h2 {
   margin-top: 0;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .xt-missing-report--compact .xt-missing-report__head strong {
   font-family: var(--xt-font-mono, ui-monospace, monospace);
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head span {
@@ -243,8 +243,8 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report--compact .xt-missing-report__stats b {
-  padding: 2px 5px;
-  font-size: 10px;
+  padding: 1px 5px;
+  font-size: 9px;
 }
 
 .xt-missing-report--compact .xt-missing-report__stats {
@@ -269,14 +269,14 @@ const compactRoleStats = computed(() => [
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
-  max-width: 300px;
-  padding: 4px 7px;
+  gap: 5px;
+  max-width: 260px;
+  padding: 3px 6px;
   border: 1px solid rgba(255, 93, 115, 0.22);
   border-radius: 999px;
   background: rgba(255, 93, 115, 0.08);
   color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 

@@ -86,7 +86,7 @@ const streamScope = computed(() => {
 
 const { status: streamStatus, lastEventAt, reconnectCount } = useRealtimeStream(streamScope, {
   enabled: true,
-  connectionTimeoutMs: 15000,
+  connectionTimeoutMs: 5000,
   onEvent: handleRealtimeEvent,
 })
 
@@ -119,7 +119,7 @@ const connectionLabel = computed(() => {
       : '快照刷新中'
   }
   if (loading.value) return '快照加载中'
-  if (streamStatus.value === 'connecting') return '正在接入 · 快照兜底'
+  if (streamStatus.value === 'connecting') return '接口核验中 · 快照兜底'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   return '连接待核'
 })
