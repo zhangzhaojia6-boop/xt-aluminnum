@@ -1047,6 +1047,14 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     })
   })
 
+  await page.route('**/api/v1/mes/extended/workshop-process-records**', async (route) => {
+    await fulfillJson(route, [])
+  })
+
+  await page.route('**/api/v1/mes/extended/material-records**', async (route) => {
+    await fulfillJson(route, [])
+  })
+
   if (!session.skipLogin) {
     await loginThroughMockedPassword(page, {
       token,

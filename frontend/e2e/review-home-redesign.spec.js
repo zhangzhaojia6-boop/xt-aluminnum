@@ -1,5 +1,19 @@
 import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+import { loginThroughMockedPassword } from './helpers/mock-login'
+
+const workshopDirectorUser = {
+  id: 8,
+  username: 'workshop-director',
+  name: '车间主任',
+  role: 'workshop_director',
+  workshop_id: 1,
+  is_mobile_user: true,
+  is_reviewer: true,
+  is_manager: true,
+  data_scope_type: 'self_workshop',
+  assigned_shift_ids: []
+}
 
 test.beforeEach(async ({ page }) => {
   await setupReviewSessionAndMocks(page)
@@ -51,6 +65,44 @@ test('compact management clients only keep live and yesterday report routes', as
     await expectManageChrome(page)
     await expect(page).toHaveURL(/\/manage\/today/)
     await expect(page.getByTestId('manage-today')).toBeVisible()
+  }
+})
+
+test('compact workshop director clients only keep own workshop dashboard route', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 })
+  await page.unroute('**/api/v1/auth/me')
+  await page.unroute('**/api/v1/auth/login')
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(workshopDirectorUser)
+    })
+  })
+  await loginThroughMockedPassword(page, {
+    token: 'playwright-workshop-director-token',
+    user: workshopDirectorUser
+  })
+
+  await expectManageChrome(page)
+  await expect(page).toHaveURL(/\/manage\/workshop-dashboard/)
+  await expect(page.getByTestId('workshop-dashboard-page')).toBeVisible()
+  await expect(page.getByTestId('workshop-dashboard-filter')).toHaveCount(0)
+  await page.waitForLoadState('networkidle')
+
+  await page.locator('.xt-manage__hamburger').click()
+  const drawerNav = page.locator('.xt-manage__drawer-nav')
+  await expect(drawerNav).toBeVisible()
+  const drawerItems = drawerNav.locator('a.xt-manage__nav-item')
+  await expect(drawerItems).toHaveCount(1)
+  await expect(drawerItems.first()).toContainText('车间看板')
+  await page.keyboard.press('Escape')
+
+  for (const path of ['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/admin/settings']) {
+    await page.goto(`${path}?desktop=1`)
+    await expectManageChrome(page)
+    await expect(page).toHaveURL(/\/manage\/workshop-dashboard/)
+    await expect(page.getByTestId('workshop-dashboard-page')).toBeVisible()
   }
 })
 
