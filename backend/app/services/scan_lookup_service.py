@@ -48,11 +48,17 @@ def _spec_display(row: MesCoilSnapshot) -> str | None:
     return '×'.join(parts) if parts else None
 
 
-def _coil_payload(db: Session, row: MesCoilSnapshot, *, source: str) -> dict:
+def _coil_payload(
+    db: Session,
+    row: MesCoilSnapshot,
+    *,
+    source: str,
+    tracking_card_no_override: str | None = None,
+) -> dict:
     spec_display = _spec_display(row)
     header_fields = _compact(
         {
-            'tracking_card_no': row.tracking_card_no,
+            'tracking_card_no': tracking_card_no_override or row.tracking_card_no,
             'batch_no': row.batch_no,
             'material_code': row.material_code,
             'alloy_grade': row.alloy_grade,
@@ -297,6 +303,14 @@ def flow_context_for_identifier(db: Session, *, identifier: str) -> dict[str, An
     return payload
 
 
+def _material_code_as_scanned_card(row: MesCoilSnapshot, scanned_value: str) -> str | None:
+    lookup_key = tracking_card_lookup_key(scanned_value)
+    material_key = tracking_card_lookup_key(row.material_code or '')
+    if lookup_key and material_key and lookup_key == material_key:
+        return str(scanned_value or '').strip()
+    return None
+
+
 def lookup_qr(db: Session, *, qr: str) -> dict:
     value = str(qr or '').strip()
     if not value:
@@ -313,7 +327,12 @@ def lookup_qr(db: Session, *, qr: str) -> dict:
 
         row = _latest_identifier_snapshot(db, value)
         if row is not None:
-            return _coil_payload(db, row, source='coil_identifier')
+            return _coil_payload(
+                db,
+                row,
+                source='coil_identifier',
+                tracking_card_no_override=_material_code_as_scanned_card(row, value),
+            )
 
     equipment = db.query(Equipment).filter(Equipment.qr_code == value).order_by(Equipment.id.asc()).first()
     if equipment is not None:

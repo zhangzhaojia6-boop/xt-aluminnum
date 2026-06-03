@@ -186,8 +186,9 @@ def test_scan_lookup_hits_material_code_when_tracking_card_differs(tmp_path) -> 
         payload = scan_lookup_service.lookup_qr(db, qr='R3-9216-2')
 
     assert payload['source'] == 'coil_identifier'
-    assert payload['header_fields']['tracking_card_no'] == '26RA03782'
+    assert payload['header_fields']['tracking_card_no'] == 'R3-9216-2'
     assert payload['header_fields']['material_code'] == 'R3-9216-2'
+    assert payload['header_fields']['batch_no'] == '26RA03782'
     assert payload['header_fields']['current_workshop'] == '2050车间'
     assert payload['header_fields']['current_process'] == '冷轧'
     assert payload['header_fields']['next_process'] == '北线退火'
