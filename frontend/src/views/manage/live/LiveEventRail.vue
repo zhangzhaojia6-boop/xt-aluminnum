@@ -43,7 +43,7 @@ const props = defineProps({
 const connectionText = computed(() => {
   if (props.connectionText) return props.connectionText
   if (props.streamStatus === 'open') return '实时连接正常'
-  if (props.streamStatus === 'connecting') return '正在连接'
+  if (props.streamStatus === 'connecting') return '正在接入 · 快照兜底'
   if (props.streamStatus === 'reconnecting') return '正在重连'
   return '连接待核'
 })

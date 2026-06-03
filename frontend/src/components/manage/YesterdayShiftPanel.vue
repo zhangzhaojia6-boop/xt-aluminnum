@@ -80,6 +80,7 @@
 <script setup>
 import { computed } from 'vue'
 import dayjs from 'dayjs'
+import { formatShiftLabel } from '../../utils/display'
 
 const props = defineProps({
   payload: { type: Object, default: () => ({ shifts: [], total_output: 0 }) }
@@ -96,7 +97,13 @@ const shifts = computed(() => {
   const incoming = Array.isArray(props.payload?.shifts) ? props.payload.shifts : []
   const byCode = {}
   for (const it of incoming) byCode[it.shift_code] = it
-  return SHIFT_ORDER.map((code) => ({ ...SHIFT_FALLBACK[code], ...(byCode[code] || {}) }))
+  return SHIFT_ORDER.map((code) => {
+    const row = { ...SHIFT_FALLBACK[code], ...(byCode[code] || {}) }
+    return {
+      ...row,
+      shift_name: formatShiftLabel(row.shift_name || row.shift_code, SHIFT_FALLBACK[code].shift_name)
+    }
+  })
 })
 
 const leaderIdx = computed(() => {

@@ -496,7 +496,9 @@
         <el-table-column prop="source_label" label="来源" width="110" />
         <el-table-column prop="workshop_name" label="车间" min-width="130" show-overflow-tooltip />
         <el-table-column prop="machine_name" label="机列/岗位" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="shift_name" label="班次" width="100" />
+        <el-table-column label="班次" width="100">
+          <template #default="{ row }">{{ formatShiftLabel(row.shift_name, '-') }}</template>
+        </el-table-column>
         <el-table-column label="责任人" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">{{ row.responsible_name || row.responsible_username || '—' }}</template>
         </el-table-column>
@@ -553,7 +555,7 @@
                     :key="`head-${workshop.workshop_id}-${shift.shift_id}`"
                     class="live-board__head-cell"
                   >
-                    {{ shift.shift_name }}
+                    {{ formatShiftLabel(shift.shift_name, '-') }}
                   </div>
                   <div class="live-board__head-cell live-board__head-cell--total">日合计</div>
                 </div>
@@ -730,7 +732,7 @@
       <div class="live-drawer__meta" v-if="activeCell">
         <span>{{ activeCell.workshop_name }}</span>
         <span>{{ activeCell.machine_name }}</span>
-        <span>{{ activeCell.shift_name }}</span>
+        <span>{{ formatShiftLabel(activeCell.shift_name, '-') }}</span>
         <span>{{ targetDate }}</span>
       </div>
 
@@ -776,6 +778,7 @@ import { fetchLiveActiveDate, fetchLiveAggregation, fetchLiveCellDetail, fetchLi
 import ReferencePageFrame from '../../components/reference/ReferencePageFrame.vue'
 import { useRealtimeStream } from '../../composables/useRealtimeStream'
 import { useAuthStore } from '../../stores/auth'
+import { formatShiftLabel } from '../../utils/display'
 import { inferBusinessDate } from '../../utils/shiftClock'
 import {
   numberValue, formatWeight, formatPercent, yieldToneClass,
@@ -1178,7 +1181,7 @@ const connectionTone = computed(() => {
 
 const connectionLabel = computed(() => {
   if (streamStatus.value === 'open') return '实时连接正常'
-  if (streamStatus.value === 'connecting') return '正在建立连接'
+  if (streamStatus.value === 'connecting') return '正在接入 · 快照兜底'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   if (streamStatus.value === 'closed') return '连接已关闭'
   return '连接异常'
@@ -1186,7 +1189,7 @@ const connectionLabel = computed(() => {
 
 const drawerTitle = computed(() => {
   if (!activeCell.value) return '批次详情'
-  return `${activeCell.value.machine_name} ${activeCell.value.shift_name} 批次详情`
+  return `${activeCell.value.machine_name} ${formatShiftLabel(activeCell.value.shift_name, '-')} 批次详情`
 })
 
 function boardGridStyle(workshop) {
@@ -1555,7 +1558,7 @@ async function openDrawer(workshop, machine, shift) {
     machine_id: machine.machine_id,
     machine_name: machine.machine_name,
     shift_id: shift.shift_id,
-    shift_name: shift.shift_name
+    shift_name: formatShiftLabel(shift.shift_name, '-')
   })
 }
 

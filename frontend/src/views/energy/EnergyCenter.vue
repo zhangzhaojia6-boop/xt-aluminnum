@@ -50,7 +50,7 @@
           <el-table-column prop="workshop_code" label="车间" width="120" />
           <el-table-column prop="shift_code" label="班次" width="120">
             <template #default="{ row }">
-              <span class="energy-center__shift">{{ row.shift_code || '-' }}</span>
+              <span class="energy-center__shift">{{ formatShiftLabel(row.shift_code, '-') }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="electricity_value" label="电耗" width="120" align="right">
@@ -80,7 +80,7 @@
         <article v-for="row in rows" :key="`${row.business_date}-${row.workshop_code}-${row.shift_code}`">
           <div class="energy-center__mobile-title">
             <span>{{ row.workshop_code || '-' }}</span>
-            <em>{{ row.shift_code || '-' }}</em>
+            <em>{{ formatShiftLabel(row.shift_code, '-') }}</em>
           </div>
           <div class="energy-center__mobile-grid">
             <span>业务日期</span><strong>{{ row.business_date || '-' }}</strong>
@@ -102,6 +102,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 
 import { fetchEnergySummary } from '../../api/energy'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
+import { formatShiftLabel } from '../../utils/display'
 import { inferBusinessDate } from '../../utils/shiftClock'
 
 const filters = reactive({

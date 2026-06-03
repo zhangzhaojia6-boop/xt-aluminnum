@@ -41,7 +41,18 @@ test('/manage/live uses the phase 2 Stitch component surface', () => {
   assert.match(livePageSource, /useRealtimeStream/)
   assert.match(livePageSource, /connectionTimeoutMs:\s*15000/)
   assert.match(livePageSource, /快照可用 · 实时重连/)
+  assert.match(livePageSource, /正在接入 · 快照兜底/)
   assert.match(livePageSource, /if \(loading\.value\) return '快照加载中'/)
+})
+
+test('/manage/live event rail mirrors the snapshot fallback connection wording', () => {
+  const eventRailSource = readFileSync(
+    new URL('../src/views/manage/live/LiveEventRail.vue', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(eventRailSource, /正在接入 · 快照兜底/)
+  assert.doesNotMatch(eventRailSource, /正在连接/)
 })
 
 test('realtime stream heartbeats do not reload the whole live page', () => {

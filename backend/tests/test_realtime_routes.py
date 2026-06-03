@@ -77,6 +77,52 @@ def test_realtime_stream_response_headers_disable_proxy_buffering(monkeypatch) -
         reset_rate_limits()
 
 
+def test_realtime_stream_allows_multiple_dashboard_tabs(monkeypatch) -> None:
+    reset_rate_limits()
+    current_user = User(
+        id=708,
+        username='multi-tab-admin',
+        password_hash='x',
+        name='Multi Tab Admin',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+    captured = {}
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    async def fake_event_stream(*_args, **_kwargs):
+        yield 'retry: 1000\n\n'
+
+    class DummyPermit:
+        def release(self):
+            captured['released'] = True
+
+    def fake_acquire(request, user, *, scope, limit):
+        captured['scope'] = scope
+        captured['limit'] = limit
+        return DummyPermit()
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime._event_stream', fake_event_stream)
+    monkeypatch.setattr('app.routers.realtime.acquire_connection_rate_limit', fake_acquire)
+
+    try:
+        token = create_access_token(subject=str(current_user.id))
+        with TestClient(app).stream(
+            'GET',
+            '/api/v1/realtime/stream',
+            headers={'Authorization': f'Bearer {token}'},
+        ) as response:
+            assert response.status_code == 200
+            assert captured == {'scope': 'realtime_stream', 'limit': 6}
+    finally:
+        app.dependency_overrides.clear()
+        reset_rate_limits()
+
+
 def test_realtime_stream_filters_events_by_scope(monkeypatch) -> None:
     class DummyRequest:
         async def is_disconnected(self):

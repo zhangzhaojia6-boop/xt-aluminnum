@@ -142,7 +142,7 @@ def stream_realtime(
     current_user: User = Depends(get_realtime_user),
 ):
     workshop_scope = _resolve_stream_scope(scope=scope, current_user=current_user)
-    permit = acquire_connection_rate_limit(request, current_user, scope='realtime_stream', limit=2)
+    permit = acquire_connection_rate_limit(request, current_user, scope='realtime_stream', limit=6)
     try:
         cursor = int(last_event_id if last_event_id is not None else request.headers.get('last-event-id', '0') or 0)
     except ValueError:

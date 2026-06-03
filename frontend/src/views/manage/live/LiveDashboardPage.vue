@@ -119,7 +119,7 @@ const connectionLabel = computed(() => {
       : '快照刷新中'
   }
   if (loading.value) return '快照加载中'
-  if (streamStatus.value === 'connecting') return '正在连接'
+  if (streamStatus.value === 'connecting') return '正在接入 · 快照兜底'
   if (streamStatus.value === 'reconnecting') return '正在重连'
   return '连接待核'
 })
