@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { compareShiftLabels, formatNumber, formatShiftLabel, shiftOrderIndex } from '../src/utils/display.js'
+import { compareShiftLabels, formatNumber, formatRoleLabel, formatShiftLabel, shiftOrderIndex } from '../src/utils/display.js'
 
 test('formatNumber hides trailing decimal zeros on management and entry values', () => {
   assert.equal(formatNumber(12), '12')
@@ -38,4 +38,12 @@ test('management energy and legacy live surfaces use canonical shift labels', ()
   assert.match(energySource, /formatShiftLabel\(row\.shift_code, '-'\)/)
   assert.match(legacyLiveSource, /formatShiftLabel\(shift\.shift_name, '-'\)/)
   assert.match(legacyLiveSource, /formatShiftLabel\(activeCell\.shift_name, '-'\)/)
+})
+
+test('role labels do not mark active business roles as disabled', () => {
+  assert.equal(formatRoleLabel('factory_director'), '厂长')
+  assert.equal(formatRoleLabel('manager'), '车间管理')
+  assert.equal(formatRoleLabel('qc'), '质检内勤')
+  assert.equal(formatRoleLabel('utility_manager'), '全厂总电工(兼容)')
+  assert.equal(formatRoleLabel('shift_leader'), '已取消班长(移动端)')
 })

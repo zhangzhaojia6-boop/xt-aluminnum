@@ -80,6 +80,57 @@ def test_coil_entry_auto_calculates_scrap_weight(tmp_path):
         db.close()
 
 
+def test_coil_entry_auto_scrap_uses_trim_and_tray_weight(tmp_path):
+    db = build_session(tmp_path)
+    try:
+        workshop = Workshop(id=1, code='ZR3', name='铸轧三', workshop_type='casting')
+        shift = ShiftConfig(
+            id=1,
+            code='A',
+            name='白班',
+            shift_type='day',
+            start_time=time(8, 0),
+            end_time=time(16, 0),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        mobile_user = User(
+            id=7,
+            username='casting-operator',
+            password_hash='x',
+            name='铸三主操',
+            role='machine_operator',
+            workshop_id=workshop.id,
+            data_scope_type='self_workshop',
+            is_mobile_user=True,
+            is_active=True,
+        )
+        db.add_all([workshop, shift, mobile_user])
+        db.commit()
+
+        result = create_coil_entry(
+            db,
+            payload={
+                'tracking_card_no': 'ZR3-TRIM-TRAY',
+                'business_date': date(2026, 5, 31),
+                'shift_id': shift.id,
+                'input_weight': 4800,
+                'output_weight': 4600,
+                'trim_weight': 50,
+                'tray_weight': 30,
+            },
+            current_user=mobile_user,
+        )
+
+        entry = db.get(WorkOrderEntry, result['id'])
+        assert float(entry.scrap_weight) == 120.0
+        assert entry.extra_payload['trim_weight'] == 50
+        assert entry.extra_payload['tray_weight'] == 30
+    finally:
+        db.close()
+
+
 def test_coil_entry_rejects_scrap_weight_above_input_weight(tmp_path):
     db = build_session(tmp_path)
     try:

@@ -1371,6 +1371,7 @@ def build_fill_detail_ledger(
 ) -> dict:
     scoped_workshop_id = _resolve_workshop_filter(current_user=current_user, workshop_id=workshop_id)
     safe_limit = min(max(int(limit or 800), 1), 2000)
+    needle = str(search or '').strip().lower()
     items: list[dict[str, Any]] = []
 
     machine_name_by_id = {item.id: item.name for item in db.query(Equipment).filter(Equipment.is_active.is_(True)).all()}
@@ -1387,7 +1388,10 @@ def build_fill_detail_ledger(
     if scoped_workshop_id is not None:
         energy_rows_query = energy_rows_query.filter(MobileShiftReport.workshop_id == scoped_workshop_id)
     machine_energy_report_ids: set[int] = set()
-    for energy, report, workshop, shift, user in energy_rows_query.order_by(MachineEnergyRecord.id.desc()).all():
+    energy_rows_query = energy_rows_query.order_by(MachineEnergyRecord.id.desc())
+    if not needle:
+        energy_rows_query = energy_rows_query.limit(safe_limit)
+    for energy, report, workshop, shift, user in energy_rows_query.all():
         machine_energy_report_ids.add(int(report.id))
         source_type = 'machine_energy'
         row = {
@@ -1429,7 +1433,10 @@ def build_fill_detail_ledger(
     )
     if scoped_workshop_id is not None:
         entry_rows_query = entry_rows_query.filter(WorkOrderEntry.workshop_id == scoped_workshop_id)
-    for entry, work_order, workshop, machine, shift, user in entry_rows_query.order_by(WorkOrderEntry.updated_at.desc(), WorkOrderEntry.id.desc()).all():
+    entry_rows_query = entry_rows_query.order_by(WorkOrderEntry.updated_at.desc(), WorkOrderEntry.id.desc())
+    if not needle:
+        entry_rows_query = entry_rows_query.limit(safe_limit)
+    for entry, work_order, workshop, machine, shift, user in entry_rows_query.all():
         source_type = 'owner_daily' if entry.entry_type == OWNER_DAILY_ENTRY_TYPE else 'work_order_entry'
         input_weight = _entry_weight_kg_to_tons(entry, 'input_weight')
         output_weight = _entry_weight_kg_to_tons(entry, 'output_weight')
@@ -1478,7 +1485,10 @@ def build_fill_detail_ledger(
     )
     if scoped_workshop_id is not None:
         report_rows_query = report_rows_query.filter(MobileShiftReport.workshop_id == scoped_workshop_id)
-    for report, workshop, shift, owner, submitter in report_rows_query.order_by(MobileShiftReport.updated_at.desc(), MobileShiftReport.id.desc()).all():
+    report_rows_query = report_rows_query.order_by(MobileShiftReport.updated_at.desc(), MobileShiftReport.id.desc())
+    if not needle:
+        report_rows_query = report_rows_query.limit(safe_limit)
+    for report, workshop, shift, owner, submitter in report_rows_query.all():
         source_type = 'mobile_shift_report'
         report_has_machine_energy = int(report.id) in machine_energy_report_ids
         row = {
@@ -1507,7 +1517,6 @@ def build_fill_detail_ledger(
         }
         items.append(_append_search_text(row))
 
-    needle = str(search or '').strip().lower()
     if needle:
         items = [item for item in items if needle in str(item.get('search_text') or '').lower()]
 

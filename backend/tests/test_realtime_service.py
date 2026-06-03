@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from types import SimpleNamespace
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
@@ -335,6 +335,58 @@ def test_build_fill_detail_ledger_excludes_mes_projection_work_order_entries(tmp
     assert payload['summary']['source_counts'] == {'work_order_entry': 1}
     assert payload['summary']['output'] == 9.6
     assert [item['tracking_card_no'] for item in payload['items']] == ['TRACK-FILL-1']
+
+
+def test_build_fill_detail_ledger_limits_entry_query_before_loading(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            ShiftConfig(id=1, code='A', name='长白班', shift_type='day', start_time=time(7, 30), end_time=time(15, 30), is_active=True),
+            Equipment(id=11, code='LZ2050-1', name='2050# 主操', workshop_id=2, is_active=True),
+            User(id=85, username='operator', password_hash='x', name='主操王', role='machine_operator'),
+        ]
+    )
+    for index in range(5):
+        db.add(WorkOrder(id=700 + index, tracking_card_no=f'TRACK-LIMIT-{index}', process_route_code='mobile', overall_status='created'))
+        db.add(
+            WorkOrderEntry(
+                id=800 + index,
+                work_order_id=700 + index,
+                workshop_id=2,
+                machine_id=11,
+                shift_id=1,
+                business_date=date(2026, 5, 6),
+                output_weight=1000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_by_user_id=85,
+                submitted_at=datetime(2026, 5, 6, 9, index),
+            )
+        )
+    db.commit()
+
+    statements: list[str] = []
+    bind = db.get_bind()
+
+    def record_sql(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    event.listen(bind, 'before_cursor_execute', record_sql)
+    try:
+        payload = realtime_service.build_fill_detail_ledger(
+            db,
+            business_date=date(2026, 5, 6),
+            workshop_id=None,
+            current_user=admin_user(),
+            limit=2,
+        )
+    finally:
+        event.remove(bind, 'before_cursor_execute', record_sql)
+
+    entry_selects = [statement.lower() for statement in statements if 'work_order_entries' in statement.lower()]
+    assert payload['summary']['source_counts'] == {'work_order_entry': 2}
+    assert any('limit' in statement for statement in entry_selects)
 
 
 def test_build_fill_detail_ledger_exposes_template_extra_payload_metrics(tmp_path) -> None:

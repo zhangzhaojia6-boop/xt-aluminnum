@@ -318,6 +318,8 @@ const COIL_DIRECT_FIELDS = new Set([
   'scrap_weight',
   'material_state',
   'spool_weight',
+  'trim_weight',
+  'tray_weight',
   'operator_name',
   'operator_notes',
 ])
@@ -532,6 +534,8 @@ function buildCoilEntryPayload(sc) {
     scrap_weight: values.scrap_weight,
     material_state: values.material_state || null,
     spool_weight: values.spool_weight,
+    trim_weight: values.trim_weight,
+    tray_weight: values.tray_weight,
     operator_name: values.operator_name || auth.displayName || '',
     operator_notes: values.operator_notes || '',
     business_date: sc.business_date,

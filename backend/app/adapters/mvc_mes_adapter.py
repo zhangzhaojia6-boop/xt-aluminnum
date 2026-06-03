@@ -97,6 +97,18 @@ _WORKSHOP_NAMES = {
     '铣床车间',
 }
 
+_TRACKING_CARD_KEYS = (
+    'CardNo',
+    'FollowCardNo',
+    'FollowCardNumber',
+    'TrackingCardNo',
+    'TrackingCardNumber',
+    'FlowCardNo',
+    'FlowCardNumber',
+    'CirculationCardNo',
+    'CirculationCardNumber',
+)
+
 
 def _to_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
@@ -199,6 +211,14 @@ def _coil_key(row: Mapping[str, Any]) -> str:
     batch_no = _text(row.get('BatchNumber') or row.get('BatchNo') or row.get('CardNo')) or 'unknown'
     material_code = _text(row.get('MaterialCode')) or 'unknown'
     return f'fallback:{batch_no}:{material_code}'
+
+
+def _tracking_card_no(row: Mapping[str, Any]) -> str:
+    for key in _TRACKING_CARD_KEYS:
+        value = _text(row.get(key))
+        if value:
+            return value
+    return _text(row.get('BatchNumber') or row.get('BatchNo') or row.get('MaterialCode')) or ''
 
 
 def _safe_metadata(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -376,7 +396,7 @@ class MvcMesAdapter(MesAdapter):
         return [
             MesStockItem(
                 coil_key=_coil_key(row),
-                tracking_card_no=_text(row.get('BatchNumber') or row.get('CardNo') or row.get('BatchNo')) or '',
+                tracking_card_no=_tracking_card_no(row),
                 weight=_float(row.get('Weight') or row.get('NetWeight') or row.get('GrossWeight')),
                 destination=_text(row.get('Destination') or row.get('StockName') or row.get('StatusName')),
                 metadata=dict(row),
@@ -453,7 +473,7 @@ class MvcMesAdapter(MesAdapter):
         event_time = _coil_event_time(row)
         return CoilSnapshot(
             coil_id=_coil_key(row),
-            tracking_card_no=_text(row.get('BatchNumber') or row.get('CardNo') or row.get('BatchNo')) or '',
+            tracking_card_no=_tracking_card_no(row),
             qr_code=_text(row.get('QrCode') or row.get('QRCode')),
             batch_no=_text(row.get('BatchNumber') or row.get('BatchNo')),
             contract_no=_text(row.get('ContractNo') or row.get('ContractNumber') or row.get('ContractCode')),

@@ -114,4 +114,6 @@ test('unified entry form maps casting output and spec fields into canonical payl
   assert.match(unifiedEntrySource, /appendTemplateExtraFields\(extra, values\)/)
   assert.match(unifiedEntrySource, /material_state: values\.material_state \|\| null/)
   assert.match(unifiedEntrySource, /spool_weight: values\.spool_weight/)
+  assert.match(unifiedEntrySource, /trim_weight: values\.trim_weight/)
+  assert.match(unifiedEntrySource, /tray_weight: values\.tray_weight/)
 })

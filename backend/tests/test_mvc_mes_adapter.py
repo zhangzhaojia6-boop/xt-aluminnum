@@ -146,6 +146,23 @@ def test_mvc_mes_adapter_matches_tracking_card_separator_variants():
     assert card_info.alloy_grade == '3003'
 
 
+def test_mvc_mes_adapter_prefers_real_card_no_over_batch_number():
+    rows = [
+        {
+            'BatchNumber': '26RA04597',
+            'CardNo': 'S-2-085-2',
+            'MaterialCode': '26-s-2-085-2',
+            'Product': {'Id': 9101},
+        }
+    ]
+
+    items = _logged_in_adapter(rows, []).list_dispatch(limit=10)
+
+    assert items[0].tracking_card_no == 'S-2-085-2'
+    assert items[0].batch_no == '26RA04597'
+    assert items[0].metadata['MaterialCode'] == '26-s-2-085-2'
+
+
 def test_mvc_mes_adapter_relogs_when_table_request_returns_login_page():
     calls = []
     login_page = '<input name="__RequestVerificationToken" type="hidden" value="token-2" />'
