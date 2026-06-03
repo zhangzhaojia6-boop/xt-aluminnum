@@ -5,11 +5,14 @@ import { readFileSync } from 'node:fs'
 const src = readFileSync(new URL('../src/views/mobile/OCRCapture.vue', import.meta.url), 'utf8')
 const apiSrc = readFileSync(new URL('../src/api/mobile.js', import.meta.url), 'utf8')
 
-test('OCRCapture keeps the real OCR and template data path', () => {
+test('OCRCapture keeps the real OCR and fixed entry-fields data path', () => {
   assert.match(src, /fetchCurrentShift/)
-  assert.match(src, /fetchWorkshopTemplate/)
+  assert.match(src, /fetchEntryFields/)
+  assert.doesNotMatch(src, /fetchWorkshopTemplate/)
   assert.match(src, /extractOcrFields/)
   assert.match(src, /enqueuePendingRequest/)
+  assert.match(apiSrc, /api\.get\(\s*['"]\/mobile\/entry-fields['"]/)
+  assert.doesNotMatch(apiSrc, /\/templates\/\$\{templateKey\}/)
   assert.match(apiSrc, /api\.post\(\s*['"]\/ocr\/extract['"]/)
   assert.match(apiSrc, /formData\.append\(['"]workshop_type['"]/)
   assert.match(apiSrc, /formData\.append\(['"]file['"]/)
@@ -35,9 +38,9 @@ test('OCRCapture does not treat numeric zero as an unrecognized field', () => {
 })
 
 test('OCRCapture exposes all production OCR states in the UI', () => {
-  assert.match(src, /正在加载车间模板/)
-  assert.match(src, /当前班次未识别到车间模板/)
-  assert.match(src, /当前车间模板未开启拍照识别/)
+  assert.match(src, /正在加载固定字段/)
+  assert.match(src, /当前班次未识别到车间字段/)
+  assert.match(src, /当前车间未开启拍照识别/)
   assert.match(src, /template\?\.supports_ocr/)
   assert.match(src, /statusLabel/)
   assert.match(src, /shiftReadouts/)

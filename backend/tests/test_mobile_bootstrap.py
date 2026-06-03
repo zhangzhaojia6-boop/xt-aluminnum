@@ -545,6 +545,9 @@ def test_entry_fields_returns_tracking_card_for_machine_operator() -> None:
     assert payload['mode'] == 'per_coil'
     assert payload['submit_target'] == 'coil_entry'
     assert payload['identity_field'] == 'tracking_card_no'
+    assert payload['display_name'] == '铸造车间'
+    assert payload['tempo'] == 'slow'
+    assert payload['supports_ocr'] is True
     first_fields = payload['groups'][0]['fields']
     assert first_fields[0]['name'] == 'tracking_card_no'
     assert first_fields[0]['label'] == '随行卡号'
@@ -592,6 +595,9 @@ def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tm
         payload = entry_fields(db=db, current_user=current_user)
 
     first_fields = payload['groups'][0]['fields']
+    assert payload['display_name'] == '铸造车间'
+    assert payload['tempo'] == 'slow'
+    assert payload['supports_ocr'] is True
     assert [field['name'] for field in first_fields] == [
         'tracking_card_no',
         'alloy_grade',

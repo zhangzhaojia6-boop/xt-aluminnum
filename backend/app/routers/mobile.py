@@ -375,7 +375,13 @@ def entry_fields(
 ) -> dict:
     workshop = db.get(Workshop, current_user.workshop_id) if current_user.workshop_id else None
     if workshop is None:
-        return {'groups': [], 'mode': 'unknown', 'error': '未绑定车间'}
+        return {
+            'groups': [],
+            'readonly_fields': [],
+            'mode': 'unknown',
+            'supports_ocr': False,
+            'error': '未绑定车间',
+        }
 
     ws_code = workshop.code.upper()
     ws_type = WORKSHOP_TYPE_BY_WORKSHOP_CODE.get(ws_code)
@@ -400,6 +406,9 @@ def entry_fields(
             'submit_target': 'none',
             'identity_field': None,
             'workshop_type': ws_type,
+            'display_name': template.get('display_name') or workshop.name,
+            'tempo': template.get('tempo') or 'fast',
+            'supports_ocr': False,
             'role': role,
             'role_label': '未配置角色',
             'error': '当前角色未配置固定填报模板',
@@ -458,6 +467,9 @@ def entry_fields(
         'submit_target': 'coil_entry' if is_per_coil else 'owner_daily' if is_owner_daily else 'shift_report',
         'identity_field': 'tracking_card_no' if is_per_coil else None,
         'workshop_type': ws_type,
+        'display_name': template.get('display_name') or workshop.name,
+        'tempo': template.get('tempo') or 'fast',
+        'supports_ocr': bool(template.get('supports_ocr', False)),
         'role': role,
         'role_label': mapping.get('label', '填报'),
     }

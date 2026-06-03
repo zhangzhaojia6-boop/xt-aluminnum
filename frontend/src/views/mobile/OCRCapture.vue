@@ -21,15 +21,15 @@
       </header>
       <div v-if="loading" class="ocr-vision__state mobile-placeholder">
         <span class="ocr-vision__orbit" aria-hidden="true"></span>
-        <strong>正在加载车间模板...</strong>
+        <strong>正在加载固定字段...</strong>
       </div>
       <div v-else-if="!currentShift.workshop_type" class="ocr-vision__state mobile-placeholder">
         <span class="ocr-vision__orbit is-muted" aria-hidden="true"></span>
-        <strong>当前班次未识别到车间模板。</strong>
+        <strong>当前班次未识别到车间字段。</strong>
       </div>
       <div v-else-if="!template?.supports_ocr" class="ocr-vision__state mobile-placeholder">
         <span class="ocr-vision__orbit is-warning" aria-hidden="true"></span>
-        <strong>当前车间模板未开启拍照识别。</strong>
+        <strong>当前车间未开启拍照识别。</strong>
       </div>
       <div v-else class="ocr-vision__readouts mobile-overview-grid">
         <div
@@ -152,7 +152,7 @@ import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 
 import { isRetryableNetworkError, useRetryQueue } from '../../composables/useRetryQueue'
-import { extractOcrFields, fetchCurrentShift, fetchWorkshopTemplate } from '../../api/mobile'
+import { extractOcrFields, fetchCurrentShift, fetchEntryFields } from '../../api/mobile'
 import { SUBMIT_COOLDOWN_MS, isWithinSubmitCooldown } from '../../utils/submitGuard'
 import { formatShiftLabel } from '../../utils/display'
 
@@ -250,6 +250,18 @@ function displayFieldValue(value) {
   return hasDisplayValue(value) ? value : '未识别'
 }
 
+function buildOcrFieldSurface(payload = {}, shiftPayload = {}) {
+  const groups = Array.isArray(payload.groups) ? payload.groups : []
+  const fields = groups.flatMap((group) => Array.isArray(group.fields) ? group.fields : [])
+  return {
+    supports_ocr: payload.supports_ocr === true,
+    entry_fields: fields,
+    extra_fields: [],
+    display_name: payload.display_name || shiftPayload.workshop_name || '',
+    tempo: payload.tempo || 'fast'
+  }
+}
+
 function clearSubmitCooldownTimer() {
   if (submitCooldownTimer) {
     clearTimeout(submitCooldownTimer)
@@ -339,12 +351,12 @@ async function load() {
   try {
     const shiftPayload = await fetchCurrentShift()
     currentShift.value = shiftPayload
-    const templateKey = shiftPayload?.workshop_code || shiftPayload?.workshop_type
-    if (!templateKey) {
+    if (!shiftPayload?.workshop_type) {
       template.value = null
       return
     }
-    template.value = await fetchWorkshopTemplate(templateKey)
+    const entryFieldsPayload = await fetchEntryFields()
+    template.value = buildOcrFieldSurface(entryFieldsPayload, shiftPayload)
   } finally {
     loading.value = false
   }

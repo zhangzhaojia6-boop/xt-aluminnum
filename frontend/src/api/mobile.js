@@ -33,11 +33,6 @@ export async function fetchEntryFields() {
   return data
 }
 
-export async function fetchWorkshopTemplate(templateKey) {
-  const { data } = await api.get(`/templates/${templateKey}`)
-  return data
-}
-
 export async function fetchFieldOptions(source) {
   const normalizedSource = String(source || '').trim().replace(/_/g, '-')
   if (!normalizedSource) return []
