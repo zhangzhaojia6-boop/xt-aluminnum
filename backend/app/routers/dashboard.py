@@ -61,6 +61,8 @@ def _ensure_reviewer_or_manager(current_user: User):
 
 def _ensure_global_dashboard_scope(current_user: User):
     summary = _ensure_reviewer_or_manager(current_user)
+    if summary.role == 'workshop_director':
+        raise HTTPException(status_code=403, detail='Global dashboard requires manager or global review scope')
     if summary.is_admin or summary.is_manager:
         return summary
     if summary.data_scope_type == 'all':
@@ -78,6 +80,7 @@ def factory_director_dashboard(
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
     return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
 
 
@@ -145,6 +148,7 @@ def factory_dashboard_alias(
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
     return report_service.build_factory_dashboard(db, target_date=_target_or_last_completed(target_date))
 
 
@@ -220,5 +224,6 @@ def daily_production_overview(
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
     from app.services.report import daily_overview_builder
     return daily_overview_builder.build_daily_production_overview(db, target_date=_target_or_last_completed(target_date))

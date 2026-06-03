@@ -789,6 +789,45 @@ def test_workshop_dashboard_rejects_reviewer_as_main_review_entry(monkeypatch) -
     app.dependency_overrides.clear()
 
 
+def test_global_dashboard_routes_reject_workshop_director(monkeypatch) -> None:
+    def fake_get_db():
+        yield DummyDB()
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=11,
+            role='workshop_director',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=True,
+            workshop_id=14,
+            data_scope_type='self_workshop',
+        )
+
+    def fail_dashboard(*_args, **_kwargs):
+        raise AssertionError('workshop director should not reach global dashboard service')
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_manager_user] = fake_get_user
+    monkeypatch.setattr('app.routers.dashboard.report_service.build_factory_dashboard', fail_dashboard)
+    monkeypatch.setattr(
+        'app.services.report.daily_overview_builder.build_daily_production_overview',
+        fail_dashboard,
+    )
+
+    client = TestClient(app)
+
+    for route in (
+        '/api/v1/dashboard/factory-director',
+        '/api/v1/dashboard/factory',
+        '/api/v1/dashboard/daily-production',
+    ):
+        response = client.get(route, params={'target_date': '2026-04-10'})
+        assert response.status_code == 403
+
+    app.dependency_overrides.clear()
+
+
 def test_external_readiness_dashboard_route_exposes_hard_issues(monkeypatch) -> None:
     def fake_get_user():
         return SimpleNamespace(
