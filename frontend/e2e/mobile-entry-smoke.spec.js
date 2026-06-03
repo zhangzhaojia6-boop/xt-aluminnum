@@ -247,6 +247,7 @@ async function setupUnifiedPerCoilEntrySession(page) {
     expect(body.input_weight).toBe(100)
     expect(body.output_weight).toBe(96)
     expect(body.data).toBeUndefined()
+    expect(body.extra_payload?.quality_issue).toBeUndefined()
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -338,6 +339,28 @@ test('fill-only operator lands on entry and cannot see review or admin navigatio
   await expect(entryShell.getByText('管理端')).toHaveCount(0)
   await expect(entryShell.getByText('审阅端')).toHaveCount(0)
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
+})
+
+test('machine entry keeps quality detail fields collapsed until issue is enabled', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setupUnifiedPerCoilEntrySession(page)
+
+  await page.goto('/entry/fill')
+
+  const qualityModule = page.getByTestId('quality-module')
+  await expect(qualityModule).toBeVisible()
+  await expect(qualityModule.getByText('有填报问题')).toBeVisible()
+  await expect(qualityModule.getByText('问题类型')).toHaveCount(0)
+  await expect(qualityModule.getByText('问题描述')).toHaveCount(0)
+  await expect(qualityModule.getByText('现场照片')).toHaveCount(0)
+
+  await qualityModule.locator('.el-switch').click()
+
+  await expect(qualityModule.getByText('问题类型')).toBeVisible()
+  await expect(qualityModule.getByText('问题描述')).toBeVisible()
+  await expect(qualityModule.getByText('现场照片')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await expectContainerInsideViewport(page, page.getByTestId('unified-entry'))
 })
 
 test('entry history loads all-day records instead of only the current shift', async ({ page }) => {
