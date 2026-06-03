@@ -717,13 +717,43 @@ onMounted(loadData)
 
 <style scoped>
 .unified-entry {
+  --ue-surface: rgba(6, 24, 42, 0.9);
+  --ue-surface-strong: rgba(8, 34, 58, 0.96);
+  --ue-border: rgba(0, 197, 255, 0.22);
+  --ue-border-soft: rgba(0, 197, 255, 0.12);
+  --ue-glow: rgba(0, 197, 255, 0.18);
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   min-height: 100dvh;
   max-width: 920px;
   margin: 0 auto;
-  background: transparent;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(0, 197, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 96% 18%, rgba(34, 92, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(3, 19, 33, 0.96), rgba(2, 10, 20, 0.98));
   color: var(--xt-text);
   padding-bottom: calc(var(--xt-tabbar-height, 64px) + 128px + env(safe-area-inset-bottom, 0px));
+}
+
+.unified-entry::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(0, 197, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 197, 255, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent 76%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent 76%);
+  opacity: 0.74;
+  z-index: 0;
+}
+
+.unified-entry > * {
+  position: relative;
+  z-index: 1;
 }
 
 .ue-identity {
@@ -733,25 +763,44 @@ onMounted(loadData)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  overflow: hidden;
+  min-height: 72px;
+  padding: 16px 18px;
   background:
-    linear-gradient(135deg, rgba(0, 242, 255, 0.14), rgba(4, 16, 31, 0.92)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent);
-  border-bottom: 1px solid rgba(0, 242, 255, 0.18);
+    radial-gradient(circle at 22% 0%, color-mix(in srgb, var(--role-color), transparent 68%), transparent 46%),
+    linear-gradient(135deg, rgba(0, 197, 255, 0.18), rgba(4, 18, 34, 0.96)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent);
+  border-bottom: 1px solid var(--ue-border);
   border-left: 3px solid var(--role-color);
   color: var(--xt-text-inverse);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(14px);
+}
+
+.ue-identity::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--role-color), transparent);
+  animation: ueHeaderPulse 3.8s ease-in-out infinite;
+}
+
+.ue-identity__main {
+  position: relative;
+  z-index: 1;
 }
 
 .ue-identity__main strong {
   display: block;
-  font-size: 20px;
+  font-size: clamp(22px, 6vw, 30px);
   font-weight: 850;
   line-height: 1.18;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.04em;
   color: var(--xt-text);
-  text-shadow: 0 0 20px rgba(0, 242, 255, 0.18);
+  text-shadow: 0 0 22px var(--ue-glow);
 }
 
 .ue-identity__main span {
@@ -763,11 +812,11 @@ onMounted(loadData)
 .ue-loading, .ue-error {
   margin: 16px;
   padding: 32px 16px;
-  border: 1px solid rgba(0, 242, 255, 0.14);
+  border: 1px solid var(--ue-border-soft);
   border-radius: var(--xt-radius-xl);
   background:
-    linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76)),
-    radial-gradient(circle at 10% 0%, rgba(0, 242, 255, 0.08), transparent 42%);
+    linear-gradient(145deg, var(--ue-surface), rgba(4, 13, 26, 0.82)),
+    radial-gradient(circle at 10% 0%, rgba(0, 197, 255, 0.1), transparent 42%);
   text-align: center;
   color: var(--xt-text-secondary);
   font-size: 15px;
@@ -779,7 +828,15 @@ onMounted(loadData)
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 16px 16px 0;
+  gap: 12px;
+  margin: 14px 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--ue-border-soft);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(6, 31, 54, 0.82), rgba(3, 14, 27, 0.88)),
+    radial-gradient(circle at 12% 0%, rgba(0, 197, 255, 0.12), transparent 50%);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
 }
 
 .ue-coil-seq {
@@ -800,13 +857,13 @@ onMounted(loadData)
   display: grid;
   gap: 4px;
   margin: 16px 16px 0;
-  padding: 14px 16px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--role-color), transparent 68%);
-  border-radius: var(--xt-radius-xl);
+  border-radius: 18px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--role-color), transparent 86%), rgba(5, 14, 28, 0.78)),
-    radial-gradient(circle at 12% 0%, rgba(0, 242, 255, 0.1), transparent 48%);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+    linear-gradient(135deg, color-mix(in srgb, var(--role-color), transparent 84%), rgba(5, 14, 28, 0.88)),
+    radial-gradient(circle at 12% 0%, rgba(0, 197, 255, 0.12), transparent 48%);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
 }
 
 .ue-person-header strong {
@@ -821,18 +878,33 @@ onMounted(loadData)
 }
 
 .ue-scan-row {
-  padding: 12px 16px 0;
+  padding: 12px 16px 2px;
 }
 
 .ue-scan-btn {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   min-height: 44px;
-  border: 1px solid var(--xt-primary);
-  border-radius: 10px;
-  background: rgba(0, 242, 255, 0.08);
+  border: 1px solid rgba(0, 197, 255, 0.42);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(0, 197, 255, 0.14), rgba(4, 31, 55, 0.88)),
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.1), transparent 44%);
   color: var(--xt-primary);
   font-size: 15px;
   font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.24);
+  transition: transform 0.12s, border-color 0.16s, box-shadow 0.16s;
+}
+
+.ue-scan-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.22), transparent 62%);
+  transform: translateX(-120%);
+  animation: ueScanSweep 5.2s ease-in-out infinite;
 }
 
 .ue-scan-btn:active {
@@ -840,33 +912,45 @@ onMounted(loadData)
 }
 
 .ue-group {
-  margin: 12px 16px 0;
+  margin: 14px 16px 0;
 }
 
 .ue-group__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 850;
+  letter-spacing: 0.08em;
   color: var(--xt-text-secondary);
-  margin: 0 0 8px;
+  margin: 0 0 9px;
   text-transform: uppercase;
+}
+
+.ue-group__title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--xt-primary);
+  box-shadow: 0 0 16px var(--ue-glow);
 }
 
 .ue-fields {
   display: grid;
   grid-template-columns: 1fr;
   background:
-    linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76)),
-    radial-gradient(circle at 10% 0%, rgba(0, 242, 255, 0.08), transparent 42%);
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: var(--xt-radius-xl);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  padding: 4px 16px;
+    linear-gradient(145deg, var(--ue-surface-strong), rgba(4, 13, 26, 0.84)),
+    radial-gradient(circle at 12% 0%, rgba(0, 197, 255, 0.1), transparent 44%);
+  border: 1px solid var(--ue-border-soft);
+  border-radius: 20px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  padding: 6px 16px;
 }
 
 .ue-field {
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(0, 242, 255, 0.1);
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(0, 197, 255, 0.11);
   min-width: 0;
 }
 
@@ -877,9 +961,9 @@ onMounted(loadData)
   align-items: baseline;
   gap: 6px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 760;
   color: var(--xt-text);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .mobile-required {
@@ -887,31 +971,37 @@ onMounted(loadData)
 }
 
 .ue-field__unit {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--xt-text-muted);
+  padding: 1px 7px;
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 197, 255, 0.08);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--xt-text-secondary);
 }
 
 .ue-input {
   display: block;
   width: 100%;
   min-height: 48px;
-  padding: 8px 12px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: 8px;
+  padding: 9px 13px;
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  border-radius: 14px;
   font-size: 16px;
   font-family: inherit;
-  background: rgba(2, 9, 18, 0.68);
+  background:
+    linear-gradient(180deg, rgba(4, 17, 32, 0.88), rgba(2, 9, 18, 0.78));
   color: var(--xt-text);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   box-sizing: border-box;
   -webkit-appearance: none;
 }
 
 .ue-input:focus {
   border-color: var(--xt-primary);
-  box-shadow: var(--app-focus-ring), inset 0 -1px 0 rgba(0, 242, 255, 0.5);
+  background: linear-gradient(180deg, rgba(5, 26, 45, 0.96), rgba(3, 13, 25, 0.9));
+  box-shadow: var(--app-focus-ring), inset 0 -1px 0 rgba(0, 197, 255, 0.55), 0 0 24px rgba(0, 197, 255, 0.11);
 }
 
 .ue-input--number {
@@ -946,11 +1036,11 @@ onMounted(loadData)
 .ue-readonly-item {
   flex: 1;
   min-width: 100px;
-  background: rgba(3, 12, 24, 0.62);
-  border: 1px solid rgba(0, 242, 255, 0.12);
-  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(4, 20, 36, 0.86), rgba(2, 10, 20, 0.78));
+  border: 1px solid var(--ue-border-soft);
+  border-radius: 14px;
   padding: 12px;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .ue-readonly-item__label {
@@ -974,10 +1064,12 @@ onMounted(loadData)
   z-index: 9;
   margin: 16px;
   padding: 10px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  border-radius: var(--xt-radius-xl);
-  background: linear-gradient(180deg, rgba(5, 15, 28, 0.92), rgba(3, 10, 20, 0.96));
-  box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ue-border);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(6, 24, 42, 0.94), rgba(3, 10, 20, 0.98)),
+    radial-gradient(circle at 50% 0%, rgba(0, 197, 255, 0.14), transparent 54%);
+  box-shadow: 0 -16px 38px rgba(0, 0, 0, 0.34), 0 0 34px rgba(0, 197, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px);
 }
 
@@ -986,15 +1078,17 @@ onMounted(loadData)
   overflow: hidden;
   display: block;
   width: 100%;
-  min-height: 48px;
+  min-height: 52px;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #00f2ff, #74f5ff);
-  color: #001d22;
+  border-radius: 15px;
+  background:
+    linear-gradient(135deg, #00c5ff, #66f2ff 54%, #d8fbff);
+  color: #001826;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: 0.05em;
   cursor: pointer;
-  box-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+  box-shadow: 0 0 30px rgba(0, 197, 255, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: transform 0.1s, box-shadow 0.15s;
 }
 
@@ -1015,9 +1109,9 @@ onMounted(loadData)
   width: 100%;
   min-height: 44px;
   margin-top: 8px;
-  border: 1.5px solid var(--xt-primary);
-  border-radius: 10px;
-  background: rgba(0, 242, 255, 0.06);
+  border: 1.5px solid rgba(0, 197, 255, 0.45);
+  border-radius: 14px;
+  background: rgba(0, 197, 255, 0.07);
   color: var(--xt-primary);
   font-size: 14px;
   font-weight: 600;
@@ -1029,8 +1123,9 @@ onMounted(loadData)
 
 .unified-entry :deep(.el-select__wrapper) {
   min-height: 48px;
-  border: 1px solid rgba(0, 242, 255, 0.16);
-  background: rgba(2, 9, 18, 0.68);
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(4, 17, 32, 0.88), rgba(2, 9, 18, 0.78));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
@@ -1054,7 +1149,7 @@ onMounted(loadData)
 }
 
 .ue-spec-fixed {
-  background: rgba(0, 242, 255, 0.07);
+  background: rgba(0, 197, 255, 0.08);
   border-color: transparent;
   color: var(--xt-text-secondary);
   font-weight: 700;
@@ -1063,10 +1158,12 @@ onMounted(loadData)
 }
 
 .ue-history {
-  background: linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76));
-  border: 1px solid rgba(0, 242, 255, 0.14);
-  border-radius: var(--xt-radius-xl);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  background:
+    linear-gradient(145deg, var(--ue-surface), rgba(4, 13, 26, 0.82)),
+    radial-gradient(circle at 8% 0%, rgba(0, 197, 255, 0.08), transparent 42%);
+  border: 1px solid var(--ue-border-soft);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
   overflow: hidden;
 }
 
@@ -1075,7 +1172,7 @@ onMounted(loadData)
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-bottom: 1px solid rgba(0, 242, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 197, 255, 0.1);
   font-size: 14px;
 }
 
@@ -1095,6 +1192,16 @@ onMounted(loadData)
 @keyframes ueSubmitSweep {
   0%, 48% { transform: translateX(-110%); }
   100% { transform: translateX(110%); }
+}
+
+@keyframes ueScanSweep {
+  0%, 62% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes ueHeaderPulse {
+  0%, 100% { opacity: 0.25; transform: translateX(-12%); }
+  50% { opacity: 0.95; transform: translateX(12%); }
 }
 
 @media (min-width: 760px) {
@@ -1139,6 +1246,11 @@ onMounted(loadData)
 
 @media (prefers-reduced-motion: reduce) {
   .ue-submit::after {
+    animation: none;
+  }
+
+  .ue-scan-btn::after,
+  .ue-identity::after {
     animation: none;
   }
 

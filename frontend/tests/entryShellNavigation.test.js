@@ -32,6 +32,10 @@ test('mobile entry and unified form keep real controls while adopting industrial
   assert.match(mobileEntrySrc, /@keyframes mobileEntryButtonSweep/)
   assert.match(unifiedEntrySrc, /fetchEntryFields/)
   assert.match(unifiedEntrySrc, /Array\.isArray\(coils\)\s*\?\s*coils\s*:\s*\[\]/)
+  assert.match(unifiedEntrySrc, /--ue-surface:/)
+  assert.match(unifiedEntrySrc, /\.ue-group__title::before/)
+  assert.match(unifiedEntrySrc, /@keyframes ueScanSweep/)
+  assert.match(unifiedEntrySrc, /@keyframes ueHeaderPulse/)
   assert.match(unifiedEntrySrc, /@keyframes ueSubmitSweep/)
 })
 

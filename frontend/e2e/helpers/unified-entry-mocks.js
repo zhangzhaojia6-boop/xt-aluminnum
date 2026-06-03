@@ -1,6 +1,19 @@
 import { expect } from '@playwright/test'
 
-import { loginThroughMockedPassword } from './mock-login'
+import { clearAuthStorage } from './mock-login'
+
+async function seedStoredSession(page, token, user, machineContext) {
+  await page.addInitScript(({ token, user, machineContext }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    if (machineContext) {
+      localStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+      sessionStorage.setItem('aluminum_bypass_machine', JSON.stringify(machineContext))
+    }
+  }, { token, user, machineContext })
+}
 
 export async function setupUnifiedPerCoilEntrySession(page, options = {}) {
   const trackingCard = options.trackingCard || 'TC-001'
@@ -146,5 +159,6 @@ export async function setupUnifiedPerCoilEntrySession(page, options = {}) {
     })
   })
 
-  await loginThroughMockedPassword(page, { token, user, machineContext })
+  await clearAuthStorage(page)
+  await seedStoredSession(page, token, user, machineContext)
 }
