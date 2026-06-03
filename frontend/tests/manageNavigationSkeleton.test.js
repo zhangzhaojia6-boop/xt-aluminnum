@@ -63,6 +63,14 @@ test('compact management navigation only exposes live and yesterday report for r
   assert.deepEqual(paths, ['/manage/live', '/manage/today'])
 })
 
+test('compact management navigation keeps admin users on the same two safe pages', () => {
+  const groups = manageNavGroups(adminAuth, { compact: true })
+  const paths = groups.flatMap((group) => group.items.map((item) => item.path))
+
+  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today'])
+})
+
 test('workshop director skeleton only exposes own workshop dashboard', () => {
   const groups = manageNavGroups({
     ...reviewAuth,
