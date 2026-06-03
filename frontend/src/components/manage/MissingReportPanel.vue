@@ -31,8 +31,10 @@
         <span v-for="row in compactRows" :key="row.key" class="xt-missing-report__chip">
           <b>{{ row.workshopName }}</b>
           <em>{{ row.machineName }}</em>
-          <i>{{ row.shiftName }} · {{ row.roleLabel }}</i>
-          <small>{{ row.ownerName }} · {{ row.statusText }}</small>
+          <i>{{ row.shiftName }}</i>
+        </span>
+        <span v-if="compactOverflowCount > 0" class="xt-missing-report__chip xt-missing-report__more">
+          还有 {{ compactOverflowCount }} 条
         </span>
       </template>
     </div>
@@ -84,6 +86,7 @@ const props = defineProps({
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
 const compactRows = computed(() => props.rows.slice(0, 2))
+const compactOverflowCount = computed(() => Math.max(0, props.rows.length - compactRows.value.length))
 const compactRoleStats = computed(() => [
   { label: '主操', count: summary.value.roleBuckets?.operator || 0 },
   { label: '电工', count: summary.value.roleBuckets?.electrician || 0 },
@@ -216,10 +219,10 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report--compact {
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 5px 8px;
+  padding: 3px 6px;
   border-radius: var(--xt-radius-sm, 10px);
 }
 
@@ -251,6 +254,13 @@ const compactRoleStats = computed(() => [
   justify-content: flex-start;
   gap: 4px;
   flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.xt-missing-report--compact .xt-missing-report__stats::-webkit-scrollbar {
+  display: none;
 }
 
 .xt-missing-report__chips {
@@ -269,14 +279,14 @@ const compactRoleStats = computed(() => [
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 5px;
-  max-width: 260px;
-  padding: 3px 6px;
+  gap: 4px;
+  max-width: 180px;
+  padding: 2px 6px;
   border: 1px solid rgba(255, 93, 115, 0.22);
   border-radius: 999px;
   background: rgba(255, 93, 115, 0.08);
   color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 84%, transparent);
-  font-size: 10px;
+  font-size: 9px;
   white-space: nowrap;
 }
 
@@ -294,9 +304,13 @@ const compactRoleStats = computed(() => [
 }
 
 .xt-missing-report__chip em,
-.xt-missing-report__chip i,
-.xt-missing-report__chip small {
+.xt-missing-report__chip i {
   font-style: normal;
+}
+
+.xt-missing-report__more {
+  color: var(--xt-danger, #ff5d73);
+  font-weight: 900;
 }
 
 .xt-missing-report__chip.is-muted {

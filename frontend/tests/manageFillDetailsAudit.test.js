@@ -290,8 +290,10 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
   assert.match(src, /xt-missing-report--compact/)
   assert.match(src, /xt-missing-report__chips/)
   assert.match(src, /props\.rows\.slice\(0,\s*2\)/)
+  assert.match(src, /compactOverflowCount/)
+  assert.match(src, /xt-missing-report__more/)
   assert.match(src, /compactRoleStats/)
-  assert.match(src, /grid-template-columns:\s*auto auto minmax\(0,\s*1fr\)/)
+  assert.match(src, /grid-template-columns:\s*auto minmax\(0,\s*1fr\)/)
 })
 
 test('WorkshopDashboardPage avoids a duplicate API load after selecting the default workshop', () => {
