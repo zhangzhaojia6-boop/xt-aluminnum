@@ -34,10 +34,10 @@ function normalizeRole(role) {
 }
 
 export function resolveTransitionRoleBucket({ role, isMachineBound }) {
-  if (isMachineBound) return 'machine_operator'
   const normalizedRole = normalizeRole(role)
   if (OWNER_ROLE_BUCKETS.has(normalizedRole)) return normalizedRole
   if (normalizedRole === 'energy_stat') return 'energy_stat'
+  if (isMachineBound) return 'machine_operator'
   return 'machine_operator'
 }
 
