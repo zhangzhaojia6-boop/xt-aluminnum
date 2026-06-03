@@ -44,6 +44,10 @@ test('unified entry form keeps backend fields while adding responsive field layo
   assert.match(unifiedEntrySrc, /@media \(min-width: 760px\)[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(unifiedEntrySrc, /\.ue-field--wide,[\s\S]*\.ue-field--spec\s*\{[\s\S]*grid-column:\s*1 \/ -1/)
   assert.match(unifiedEntrySrc, /\.ue-actions\s*\{[\s\S]*position:\s*sticky/)
+  assert.match(unifiedEntrySrc, /data-testid="unified-entry-submit"/)
+  assert.match(unifiedEntrySrc, /padding-bottom:\s*calc\(var\(--xt-tabbar-height,\s*64px\) \+ 128px \+ env\(safe-area-inset-bottom,\s*0px\)\)/)
+  assert.match(unifiedEntrySrc, /@media \(max-width: 480px\)/)
+  assert.match(unifiedEntrySrc, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(unifiedEntrySrc, /v-if="quality\.has_issue"/)
 })
 

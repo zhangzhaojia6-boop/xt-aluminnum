@@ -184,7 +184,7 @@
       </section>
 
       <div class="ue-actions">
-        <button class="ue-submit" :disabled="submitting" @click="handleSubmit">
+        <button class="ue-submit" data-testid="unified-entry-submit" :disabled="submitting" @click="handleSubmit">
           {{ submitting ? '提交中…' : submitButtonText }}
         </button>
         <button
@@ -723,7 +723,7 @@ onMounted(loadData)
   margin: 0 auto;
   background: transparent;
   color: var(--xt-text);
-  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--xt-tabbar-height, 64px) + 128px + env(safe-area-inset-bottom, 0px));
 }
 
 .ue-identity {
@@ -761,7 +761,13 @@ onMounted(loadData)
 }
 
 .ue-loading, .ue-error {
-  padding: 48px 16px;
+  margin: 16px;
+  padding: 32px 16px;
+  border: 1px solid rgba(0, 242, 255, 0.14);
+  border-radius: var(--xt-radius-xl);
+  background:
+    linear-gradient(145deg, rgba(10, 29, 52, 0.86), rgba(4, 13, 26, 0.76)),
+    radial-gradient(circle at 10% 0%, rgba(0, 242, 255, 0.08), transparent 42%);
   text-align: center;
   color: var(--xt-text-secondary);
   font-size: 15px;
@@ -1109,6 +1115,38 @@ onMounted(loadData)
 
   .ue-actions {
     bottom: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ue-identity {
+    padding: 12px 14px;
+  }
+
+  .ue-fields {
+    padding: 2px 12px;
+  }
+
+  .ue-field {
+    padding: 10px 0;
+  }
+
+  .ue-actions {
+    margin: 12px;
+    bottom: calc(var(--xt-tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ue-submit::after {
+    animation: none;
+  }
+
+  .ue-input,
+  .ue-scan-btn,
+  .ue-submit,
+  .ue-split-btn {
+    transition: none;
   }
 }
 </style>
