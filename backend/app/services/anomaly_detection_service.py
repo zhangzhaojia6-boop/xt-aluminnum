@@ -9,14 +9,12 @@ from datetime import date, timedelta
 from typing import Any, Iterable
 
 from sqlalchemy.orm import Session
+from app.core.report_statuses import READY_REPORT_STATUSES
 
 from app.core.anomaly_types import ANOMALY_TYPE_DICT, anomaly_meta
 from app.models.attendance import AttendanceSchedule
 from app.models.production import MobileShiftReport, ShiftProductionData
 from app.models.shift import ShiftConfig
-
-READY_REPORT_STATUSES = {"submitted", "approved", "auto_confirmed"}
-
 
 def _to_float(value: Any) -> float | None:
     """将数值安全转换为浮点数。"""

@@ -9,6 +9,10 @@ from app.config import settings
 from app.core.event_bus import event_bus
 from app.core.field_permissions import normalize_role
 from app.core.workflow_events import attach_workflow_event, build_workflow_event
+from app.core.report_statuses import (
+    AUTO_CONFIRMED_REPORT_STATUS,
+    READY_REPORT_STATUSES as BASE_READY_REPORT_STATUSES,
+)
 from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.attendance import AttendanceSchedule
 from app.models.imports import ImportBatch
@@ -41,7 +45,7 @@ from app.services.production_service import (
 
 VALID_REPORT_TYPES = ('production', 'attendance', 'exception')
 
-CANONICAL_REPORT_SCOPE = 'auto_confirmed'
+CANONICAL_REPORT_SCOPE = AUTO_CONFIRMED_REPORT_STATUS
 
 VALID_SCOPES = (CANONICAL_REPORT_SCOPE, 'confirmed_only', 'include_reviewed')
 
@@ -55,7 +59,7 @@ REQUIRED_IMPORT_TYPES = (
     'mes_export',
 )
 
-READY_REPORT_STATUSES = {'approved', CANONICAL_REPORT_SCOPE}
+READY_REPORT_STATUSES = BASE_READY_REPORT_STATUSES | {CANONICAL_REPORT_SCOPE}
 
 def _safe_latest_mes_sync_status(db: Session) -> dict[str, Any]:
     try:

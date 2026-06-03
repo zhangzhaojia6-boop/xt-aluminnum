@@ -693,6 +693,26 @@ def test_sync_projection_step_reraises_database_errors():
         )
 
 
+def test_sync_projection_step_marks_not_implemented_as_skipped():
+    db = _FakeDB()
+
+    def unsupported_runner(_db, *, now):
+        _ = now
+        raise NotImplementedError('not implemented for this adapter')
+
+    stats = mes_sync_service._sync_projection_step(
+        db,
+        cursor_key='mes_reference_items',
+        synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
+        runner=unsupported_runner,
+    )
+
+    assert stats.status == 'skipped'
+    assert stats.fetched_count == 0
+    assert stats.upserted_count == 0
+    assert stats.error_message == 'not implemented: not implemented for this adapter'
+
+
 def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive_payloads(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path / 'mes-extended-sync.db'}", future=True)
     Base.metadata.create_all(

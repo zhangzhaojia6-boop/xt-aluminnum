@@ -4,9 +4,8 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.report_statuses import AUTO_CONFIRMED_REPORT_STATUSES
 from app.models.base import json_object_type
-
-AUTO_CONFIRMED_REPORT_STATUSES = {'approved', 'auto_confirmed'}
 
 
 class ShiftProductionData(Base):

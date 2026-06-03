@@ -20,6 +20,12 @@ from app.core.business_time import (
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
+from app.core.report_statuses import (
+    AUTO_CONFIRMED_REPORT_STATUS,
+    APPROVED_REPORT_STATUS,
+    READY_REPORT_STATUSES,
+    SUBMITTED_REPORT_STATUS,
+)
 from app.models.attendance import AttendanceSchedule
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Team, Workshop
@@ -38,11 +44,8 @@ from app.services.equipment_service import get_bound_machine_for_user
 from app.services.pilot_observability_service import log_pilot_event
 
 
-AUTO_CONFIRMED_REPORT_STATUS = 'auto_confirmed'
-
-APPROVED_REPORT_STATUSES = {'approved', AUTO_CONFIRMED_REPORT_STATUS}
-
-SUBMITTED_STATUSES = {'submitted', *APPROVED_REPORT_STATUSES}
+APPROVED_REPORT_STATUSES = {APPROVED_REPORT_STATUS, AUTO_CONFIRMED_REPORT_STATUS}
+SUBMITTED_STATUSES = READY_REPORT_STATUSES | {SUBMITTED_REPORT_STATUS}
 
 LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
 

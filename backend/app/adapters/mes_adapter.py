@@ -119,47 +119,47 @@ class MesAdapter(ABC):
         raise NotImplementedError
 
     def list_crafts(self) -> list[MesCraft]:
-        return []
+        raise NotImplementedError('MesAdapter.list_crafts is not implemented for this adapter')
 
     def list_devices(self) -> list[MesDevice]:
-        return []
+        raise NotImplementedError('MesAdapter.list_devices is not implemented for this adapter')
 
     def list_follow_cards(self, *, limit: int = 200) -> list[CoilSnapshot]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_follow_cards is not implemented for this adapter')
 
     def list_dispatch(self, *, limit: int = 200) -> list[CoilSnapshot]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_dispatch is not implemented for this adapter')
 
     def list_wip_totals(self) -> list[MesWipTotal]:
-        return []
+        raise NotImplementedError('MesAdapter.list_wip_totals is not implemented for this adapter')
 
     def list_stock(self, *, limit: int = 200) -> list[MesStockItem]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_stock is not implemented for this adapter')
 
     def list_workshop_process_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_workshop_process_records is not implemented for this adapter')
 
     def list_stock_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_stock_records is not implemented for this adapter')
 
     def list_material_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_material_records is not implemented for this adapter')
 
     def list_yield_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
-        return []
+        raise NotImplementedError('MesAdapter.list_yield_records is not implemented for this adapter')
 
     def list_reference_items(self) -> list[MesSourceRecord]:
-        return []
+        raise NotImplementedError('MesAdapter.list_reference_items is not implemented for this adapter')
 
     def list_machine_line_sources(self) -> list[MesMachineLineSource]:
-        return []
+        raise NotImplementedError('MesAdapter.list_machine_line_sources is not implemented for this adapter')
 
 
 class NullMesAdapter(MesAdapter):

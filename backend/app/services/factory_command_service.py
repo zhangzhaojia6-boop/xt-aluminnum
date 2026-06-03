@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.business_time import resolve_production_business_date
 from app.core.scope import ScopeSummary
+from app.core.report_statuses import READY_REPORT_STATUSES
 from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import (
     CoilFlowEvent,
@@ -28,7 +29,7 @@ DEFAULT_COIL_LIST_LIMIT = 100
 MAX_COIL_LIST_LIMIT = 500
 LOCAL_SHIFT_STATUSES = {'confirmed', 'submitted'}
 LOCAL_PENDING_SHIFT_SOURCES = {'mobile_coil_agg'}
-LOCAL_MOBILE_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
+LOCAL_MOBILE_REPORT_STATUSES = READY_REPORT_STATUSES
 LOCAL_WEIGHT_KG_SOURCES = {'mobile_coil_agg'}
 
 

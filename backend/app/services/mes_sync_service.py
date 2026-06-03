@@ -1054,6 +1054,14 @@ def _sync_projection_step(
 ) -> MesSyncStats:
     try:
         return runner(db, now=synced_at)
+    except NotImplementedError as exc:
+        return _stats(
+            cursor_key=cursor_key,
+            fetched_count=0,
+            synced_at=synced_at,
+            status='skipped',
+            error_message=f'not implemented: {exc}',
+        )
     except SQLAlchemyError:
         raise
     except Exception as exc:  # noqa: BLE001

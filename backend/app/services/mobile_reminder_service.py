@@ -11,6 +11,7 @@ from app.config import settings
 from app.core.business_time import OWNER_DAILY_CUTOFF, resolve_owner_daily_business_date, resolve_production_business_date
 from app.core.permissions import assert_scope_access
 from app.core.scope import build_scope_summary
+from app.core.report_statuses import READY_REPORT_STATUSES
 from app.models.attendance import AttendanceSchedule
 from app.models.production import MobileReminderRecord, MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
@@ -20,7 +21,6 @@ from app.services.audit_service import record_audit
 from app.services.real_master_data import OWNER_DAILY_ROLES
 
 LOCAL_TZ = ZoneInfo(settings.DEFAULT_TIMEZONE)
-READY_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed'}
 READY_OWNER_DAILY_STATUSES = {'submitted', 'verified', 'approved'}
 OPEN_REMINDER_STATUSES = {'pending', 'sent', 'acknowledged'}
 MOBILE_ROLE_NAMES = {'machine_operator', 'energy_stat'}
