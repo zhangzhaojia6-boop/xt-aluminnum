@@ -948,6 +948,55 @@ def test_build_live_aggregation_exposes_current_and_active_business_date_context
     }
 
 
+def test_live_business_date_context_keeps_active_date_in_workshop_scope(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=2, code='LZ2050', name='2050冷轧车间', sort_order=1, is_active=True),
+            Workshop(id=4, code='JZ', name='精整车间', sort_order=2, is_active=True),
+            ShiftConfig(id=3, code='C', name='大夜班', shift_type='night', start_time=time(23, 30), end_time=time(7, 30), is_active=True),
+            WorkOrder(id=720, tracking_card_no='RA260507720', process_route_code='cold-roll', overall_status='created'),
+            WorkOrder(id=721, tracking_card_no='RA260506721', process_route_code='finishing', overall_status='created'),
+            WorkOrderEntry(
+                id=720,
+                work_order_id=720,
+                workshop_id=2,
+                shift_id=3,
+                business_date=date(2026, 5, 7),
+                output_weight=9700.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_at=datetime(2026, 5, 7, 8, 0),
+            ),
+            WorkOrderEntry(
+                id=721,
+                work_order_id=721,
+                workshop_id=4,
+                shift_id=3,
+                business_date=date(2026, 5, 6),
+                output_weight=12000.0,
+                entry_status='submitted',
+                entry_type='mobile_coil',
+                created_at=datetime(2026, 5, 7, 8, 30),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_local_now', lambda: datetime(2026, 5, 7, 9, 30))
+
+    context = realtime_service._build_live_business_date_context(
+        db,
+        requested_date=date(2026, 5, 7),
+        workshop_id=2,
+    )
+
+    assert context['current_business_date'] == '2026-05-07'
+    assert context['active_business_date'] == '2026-05-07'
+    assert context['latest_fill_business_date'] == '2026-05-07'
+    assert context['active_date_entry_count'] == 1
+    assert context['is_showing_active_business_date'] is True
+
+
 def test_build_live_aggregation_exposes_mes_machine_binding_status(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

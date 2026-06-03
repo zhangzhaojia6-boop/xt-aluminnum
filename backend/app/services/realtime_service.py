@@ -367,7 +367,7 @@ def _latest_live_fill_business_date(db: Session, *, today: date, workshop_id: in
 def _build_live_business_date_context(db: Session, *, requested_date: date, workshop_id: int | None) -> dict:
     resolved_now = _local_now()
     current_date = resolve_production_business_date(resolved_now)
-    active_payload = resolve_live_business_date(db, today=current_date, now=resolved_now)
+    active_payload = resolve_live_business_date(db, today=current_date, now=resolved_now, workshop_id=workshop_id)
     active_date = _parse_business_date(active_payload.get('business_date'))
     latest_fill_date = _latest_live_fill_business_date(db, today=current_date, workshop_id=workshop_id)
 
