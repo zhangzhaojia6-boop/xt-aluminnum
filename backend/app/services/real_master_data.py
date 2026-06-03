@@ -1079,7 +1079,7 @@ def seed_mes_master_aliases(db: Session) -> None:
 _PRODUCTION_WORKSHOP_CODES = [
     'ZD', 'ZR2', 'ZR3', 'RZ',
     'LZ2050', 'LZ1850', 'LZ1650',
-    'JZ', 'JQ', 'LJ', 'ZXTF-P', 'CH',
+    'JZ', 'JQ', 'LJ', 'ZXTF-N', 'ZXTF-P', 'CH',
 ]
 OWNER_QR_SPECS = [
     *[('EN', '电工', ws) for ws in _PRODUCTION_WORKSHOP_CODES],

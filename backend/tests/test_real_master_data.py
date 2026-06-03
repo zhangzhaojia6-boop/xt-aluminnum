@@ -228,17 +228,26 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         zxtf_park = next(item for item in workshops if item.code == 'ZXTF-P')
         legacy_online_en = db.execute(select(User).where(User.username == 'ZXTF-EN')).scalar_one()
         legacy_online_cs = db.execute(select(User).where(User.username == 'ZXTF-CS')).scalar_one()
+        new_online_en = db.execute(select(User).where(User.username == 'ZXTF-N-EN')).scalar_one()
+        new_online_cs = db.execute(select(User).where(User.username == 'ZXTF-N-CS')).scalar_one()
         park_online_en = db.execute(select(User).where(User.username == 'ZXTF-P-EN')).scalar_one()
         park_online_cs = db.execute(select(User).where(User.username == 'ZXTF-P-CS')).scalar_one()
         assert legacy_online_en.role == 'energy_stat'
         assert legacy_online_en.workshop_id == zxtf_new.id
         assert legacy_online_cs.role == 'consumable_stat'
         assert legacy_online_cs.workshop_id == zxtf_new.id
+        assert new_online_en.role == 'energy_stat'
+        assert new_online_en.workshop_id == zxtf_new.id
+        assert new_online_cs.role == 'consumable_stat'
+        assert new_online_cs.workshop_id == zxtf_new.id
         assert park_online_en.role == 'energy_stat'
         assert park_online_en.workshop_id == zxtf_park.id
         assert park_online_cs.role == 'consumable_stat'
         assert park_online_cs.workshop_id == zxtf_park.id
-        assert db.execute(select(Equipment).where(Equipment.code == 'ZXTF-N-EN')).scalar_one_or_none() is None
+        new_online_en_qr = db.execute(select(Equipment).where(Equipment.code == 'ZXTF-N-EN')).scalar_one()
+        new_online_cs_qr = db.execute(select(Equipment).where(Equipment.code == 'ZXTF-N-CS')).scalar_one()
+        assert new_online_en_qr.workshop_id == zxtf_new.id
+        assert new_online_cs_qr.workshop_id == zxtf_new.id
 
         zxtf_equipment = [item for item in equipment if item.code.startswith('ZXTF-') and item.equipment_type != 'virtual_role_qr']
         assert [(item.code, item.name, item.equipment_type, item.qr_code) for item in zxtf_equipment] == [
@@ -527,6 +536,39 @@ def test_seed_real_master_data_rehomes_legacy_zxtf_role_qr_after_online_split(tm
         assert operator_user.role == 'machine_operator'
         assert operator_user.workshop_id == new_workshop.id
         assert operator_user.is_mobile_user is True
+    finally:
+        db.close()
+
+
+def test_seed_real_master_data_creates_split_online_owner_qrs_and_keeps_legacy_codes(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        seed_real_master_data(db)
+
+        workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all()}
+        expected = {
+            'ZXTF-EN': ('ZXTF-N', 'energy_stat'),
+            'ZXTF-CS': ('ZXTF-N', 'consumable_stat'),
+            'ZXTF-N-EN': ('ZXTF-N', 'energy_stat'),
+            'ZXTF-N-CS': ('ZXTF-N', 'consumable_stat'),
+            'ZXTF-P-EN': ('ZXTF-P', 'energy_stat'),
+            'ZXTF-P-CS': ('ZXTF-P', 'consumable_stat'),
+        }
+
+        for equipment_code, (workshop_code, role) in expected.items():
+            equipment = db.execute(select(Equipment).where(Equipment.qr_code == f'XT-{equipment_code}')).scalar_one()
+            user = db.execute(select(User).where(User.username == equipment_code)).scalar_one()
+
+            assert equipment.is_active is True
+            assert equipment.equipment_type == 'virtual_role_qr'
+            assert equipment.workshop_id == workshops[workshop_code].id
+            assert equipment.bound_user_id == user.id
+            assert user.role == role
+            assert user.workshop_id == workshops[workshop_code].id
+            assert user.is_mobile_user is True
+            assert user.is_active is True
     finally:
         db.close()
 
