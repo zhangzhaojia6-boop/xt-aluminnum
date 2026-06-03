@@ -46,6 +46,7 @@ test('business date defaults: owner daily pages use the 10:00 owner anchor', () 
 test('missing report compact mode stays small on yesterday report', () => {
   const source = readSource('src/components/manage/MissingReportPanel.vue')
   assert.match(source, /xt-missing-report__chips/)
-  assert.match(source, /props\.rows\.slice\(0,\s*6\)/)
+  assert.match(source, /props\.rows\.slice\(0,\s*3\)/)
+  assert.match(source, /compactRoleStats/)
   assert.match(source, /scrollbar-width:\s*none/)
 })

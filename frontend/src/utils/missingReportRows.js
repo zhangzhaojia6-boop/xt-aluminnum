@@ -45,15 +45,29 @@ export function summarizeMissingReportRows(rows = []) {
   const workshops = new Set()
   const shifts = new Set()
   const roles = new Set()
+  const roleBuckets = {
+    operator: 0,
+    electrician: 0,
+    owner: 0,
+  }
   for (const row of rows) {
     if (row.workshopName && row.workshopName !== '-') workshops.add(row.workshopName)
     if (row.shiftName && row.shiftName !== '-') shifts.add(row.shiftName)
     if (row.roleLabel && row.roleLabel !== '-') roles.add(row.roleLabel)
+    const roleLabel = String(row.roleLabel || '')
+    if (roleLabel.includes('电工') || roleLabel.includes('能源') || roleLabel.includes('能耗')) {
+      roleBuckets.electrician += 1
+    } else if (row.shiftName === '每日一录' || row.machineName === '每日一录' || roleLabel.includes('内勤')) {
+      roleBuckets.owner += 1
+    } else {
+      roleBuckets.operator += 1
+    }
   }
   return {
     total: rows.length,
     workshopCount: workshops.size,
     shiftCount: shifts.size,
     roleCount: roles.size,
+    roleBuckets,
   }
 }

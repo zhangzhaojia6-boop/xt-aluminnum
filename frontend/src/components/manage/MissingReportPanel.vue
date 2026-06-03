@@ -9,12 +9,20 @@
         <span>缺报追踪</span>
         <h2>{{ title }}</h2>
       </div>
-      <strong>{{ summary.total }}</strong>
+      <strong>
+        {{ summary.total }}
+        <small v-if="compact">待补录</small>
+      </strong>
     </header>
     <div class="xt-missing-report__stats">
-      <b>{{ summary.workshopCount }} 车间</b>
-      <b>{{ summary.shiftCount }} 班次</b>
-      <b>{{ summary.roleCount }} 岗位</b>
+      <template v-if="compact">
+        <b v-for="item in compactRoleStats" :key="item.label">{{ item.label }} {{ item.count }}</b>
+      </template>
+      <template v-else>
+        <b>{{ summary.workshopCount }} 车间</b>
+        <b>{{ summary.shiftCount }} 班次</b>
+        <b>{{ summary.roleCount }} 岗位</b>
+      </template>
     </div>
     <div v-if="compact" class="xt-missing-report__chips" aria-label="缺报明细">
       <span v-if="loading" class="xt-missing-report__chip is-muted">加载中...</span>
@@ -75,7 +83,12 @@ const props = defineProps({
 })
 
 const summary = computed(() => summarizeMissingReportRows(props.rows))
-const compactRows = computed(() => props.rows.slice(0, 6))
+const compactRows = computed(() => props.rows.slice(0, 3))
+const compactRoleStats = computed(() => [
+  { label: '主操', count: summary.value.roleBuckets?.operator || 0 },
+  { label: '电工', count: summary.value.roleBuckets?.electrician || 0 },
+  { label: '内勤', count: summary.value.roleBuckets?.owner || 0 },
+])
 </script>
 
 <style scoped>
@@ -131,9 +144,21 @@ const compactRows = computed(() => props.rows.slice(0, 6))
 }
 
 .xt-missing-report__head strong {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
   color: var(--xt-danger, #ff5d73);
   font-family: var(--xt-font-display, inherit);
   font-size: 24px;
+  line-height: 1;
+}
+
+.xt-missing-report__head strong small {
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--xt-text-inverse, #e5f7ff) 58%, transparent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .xt-missing-report__stats {
@@ -193,8 +218,8 @@ const compactRows = computed(() => props.rows.slice(0, 6))
 .xt-missing-report--compact {
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 5px;
+  padding: 5px 7px;
   border-radius: var(--xt-radius-md, 12px);
 }
 
@@ -209,7 +234,8 @@ const compactRows = computed(() => props.rows.slice(0, 6))
 }
 
 .xt-missing-report--compact .xt-missing-report__head strong {
-  font-size: 18px;
+  font-family: var(--xt-font-mono, ui-monospace, monospace);
+  font-size: 17px;
 }
 
 .xt-missing-report--compact .xt-missing-report__head span {
@@ -217,7 +243,7 @@ const compactRows = computed(() => props.rows.slice(0, 6))
 }
 
 .xt-missing-report--compact .xt-missing-report__stats b {
-  padding: 2px 6px;
+  padding: 2px 5px;
   font-size: 10px;
 }
 
@@ -244,8 +270,8 @@ const compactRows = computed(() => props.rows.slice(0, 6))
   flex: 0 0 auto;
   align-items: center;
   gap: 6px;
-  max-width: 360px;
-  padding: 5px 8px;
+  max-width: 300px;
+  padding: 4px 7px;
   border: 1px solid rgba(255, 93, 115, 0.22);
   border-radius: 999px;
   background: rgba(255, 93, 115, 0.08);

@@ -257,6 +257,11 @@ test('missing report rows are precise to machine shift and owner role', () => {
     workshopCount: 2,
     shiftCount: 2,
     roleCount: 2,
+    roleBuckets: {
+      operator: 1,
+      electrician: 1,
+      owner: 0,
+    },
   })
 })
 
@@ -284,7 +289,8 @@ test('MissingReportPanel has compact density for yesterday report surface', () =
   assert.match(src, /compact/)
   assert.match(src, /xt-missing-report--compact/)
   assert.match(src, /xt-missing-report__chips/)
-  assert.match(src, /props\.rows\.slice\(0,\s*6\)/)
+  assert.match(src, /props\.rows\.slice\(0,\s*3\)/)
+  assert.match(src, /compactRoleStats/)
   assert.match(src, /grid-template-columns:\s*auto auto minmax\(0,\s*1fr\)/)
 })
 
