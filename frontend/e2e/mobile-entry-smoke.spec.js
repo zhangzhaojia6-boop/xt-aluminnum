@@ -340,6 +340,69 @@ test('fill-only operator lands on entry and cannot see review or admin navigatio
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
 })
 
+test('entry history loads all-day records instead of only the current shift', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await setupFillOnlyEntrySession(page)
+  const historyRequests = []
+
+  await page.route('**/api/v1/mobile/report/history**', async (route) => {
+    const url = new URL(route.request().url())
+    historyRequests.push(Object.fromEntries(url.searchParams.entries()))
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 101,
+            source_type: 'shift_report',
+            business_date: '2026-05-30',
+            shift_id: 1,
+            shift_name: '大夜班',
+            workshop_name: '退火一车间',
+            team_name: '大夜班',
+            output_weight: 8.6,
+            report_status: 'submitted',
+            created_by_name: '张师傅',
+            last_saved_at: '2026-05-30 07:40'
+          },
+          {
+            id: 202,
+            source_type: 'mobile_coil',
+            role_bucket: 'machine_operator',
+            business_date: '2026-05-30',
+            shift_id: 2,
+            shift_name: '长白班',
+            workshop_name: '退火一车间',
+            machine_name: '2050# 主操',
+            tracking_card_no: 'TX-20260530-001',
+            input_weight: 9.8,
+            output_weight: 9.4,
+            scrap_weight: 0.4,
+            report_status: 'submitted',
+            created_by_name: '李师傅',
+            last_saved_at: '2026-05-30 12:10'
+          }
+        ]
+      })
+    })
+  })
+
+  await page.goto('/entry/history')
+
+  await expect(page.getByTestId('entry-history-page')).toBeVisible()
+  const records = page.getByTestId('entry-history-record')
+  await expect(records).toHaveCount(2)
+  await expect(records.nth(0)).toContainText('大夜班')
+  await expect(records.nth(1)).toContainText('长白班')
+  await expect(records.nth(1)).toContainText('主操逐卷')
+  await expect(records.nth(1)).toContainText('TX-20260530-001')
+  await expect.poll(() => historyRequests[0]?.all_day).toBe('true')
+  expect(historyRequests[0]).not.toHaveProperty('shift_id')
+  await expectNoHorizontalOverflow(page)
+  await expectContainerInsideViewport(page, page.getByTestId('entry-shell'))
+})
+
 test('unified per-coil entry submits top-level payload without false required failure', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await setupUnifiedPerCoilEntrySession(page)
