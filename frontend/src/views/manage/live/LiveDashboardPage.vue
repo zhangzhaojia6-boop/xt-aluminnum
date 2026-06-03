@@ -156,8 +156,14 @@ async function loadDashboardSurface(options = {}) {
   const silent = options.silent === true
   if (!silent) loading.value = true
   loadError.value = ''
+  const businessDate = targetDate.value
+  const livePromise = fetchLiveAggregation({ business_date: businessDate })
+  const detailPromise = fetchLiveFillDetails({ business_date: businessDate, limit: 200 })
+    .then((details) => ({ ok: true, details }))
+    .catch(() => ({ ok: false }))
+
   try {
-    const liveData = await fetchLiveAggregation({ business_date: targetDate.value })
+    const liveData = await livePromise
     aggregation.value = liveData || {}
     lastSnapshotAt.value = new Date().toISOString()
   } catch (error) {
@@ -166,12 +172,8 @@ async function loadDashboardSurface(options = {}) {
     if (!silent) loading.value = false
   }
 
-  try {
-    const details = await fetchLiveFillDetails({ business_date: targetDate.value, limit: 200 })
-    fillDetails.value = details || { items: [] }
-  } catch {
-    fillDetails.value = { items: [] }
-  }
+  const detailResult = await detailPromise
+  fillDetails.value = detailResult.ok ? (detailResult.details || { items: [] }) : { items: [] }
 }
 
 function handleRealtimeEvent(type, payload = {}) {

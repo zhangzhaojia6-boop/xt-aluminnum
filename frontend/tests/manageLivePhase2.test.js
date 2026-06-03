@@ -55,6 +55,18 @@ test('/manage/live event rail mirrors the snapshot fallback connection wording',
   assert.doesNotMatch(eventRailSource, /正在连接/)
 })
 
+test('/manage/live starts secondary fill details while loading the primary snapshot', () => {
+  const liveStartIndex = livePageSource.indexOf('const livePromise = fetchLiveAggregation')
+  const detailStartIndex = livePageSource.indexOf('const detailPromise = fetchLiveFillDetails')
+  const liveAwaitIndex = livePageSource.indexOf('const liveData = await livePromise')
+
+  assert.notEqual(liveStartIndex, -1)
+  assert.notEqual(detailStartIndex, -1)
+  assert.notEqual(liveAwaitIndex, -1)
+  assert.ok(liveStartIndex < detailStartIndex)
+  assert.ok(detailStartIndex < liveAwaitIndex)
+})
+
 test('realtime stream heartbeats do not reload the whole live page', () => {
   assert.equal(
     shouldReloadForRealtimeEvent({ type: 'heartbeat', payload: {}, targetDate: '2026-05-30' }),
