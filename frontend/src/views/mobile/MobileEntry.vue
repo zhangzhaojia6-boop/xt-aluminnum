@@ -163,7 +163,7 @@ import {
   buildMobileTransitionMapping,
   describeTransitionRoleBucket
 } from '../../utils/mobileTransition.js'
-import { describeInferredShift, isShiftMismatch } from '../../utils/shiftClock.js'
+import { describeInferredShift, inferOwnerDailyBusinessDate, isShiftMismatch } from '../../utils/shiftClock.js'
 import ReminderList from './ReminderList.vue'
 
 // Performance monitoring
@@ -208,20 +208,42 @@ const transitionMapping = computed(() => buildMobileTransitionMapping({
   isMachineBound: isMachineBound.value,
   reportStatus: current.value?.report_status,
 }))
+const OWNER_DAILY_BUCKETS = new Set([
+  'quality_owner',
+  'planning_owner',
+  'energy_chief',
+  'storage_owner',
+  'consumable_stat',
+  'shipment_outflow_owner',
+  'recovery_owner',
+  'overhaul_owner',
+])
+const isOwnerDailyEntry = computed(() => OWNER_DAILY_BUCKETS.has(transitionMapping.value.role_bucket))
 const roleBucketMeta = computed(() => describeTransitionRoleBucket(transitionMapping.value.role_bucket))
 const pageTitle = computed(() => roleBucketMeta.value.title)
 const pageSubtitle = computed(() => roleBucketMeta.value.subtitle)
 const roleColor = computed(() => ROLE_COLOR_MAP[bootstrap.value?.user_role || auth.role] || 'var(--m-role-operator)')
 const showReminderPanel = computed(() => Boolean(current.value?.can_submit || (current.value?.active_reminders || []).length))
-const currentShiftLabel = computed(() => formatShiftLabel(current.value?.shift_name || current.value?.shift_code, '-'))
+const currentShiftLabel = computed(() => (
+  isOwnerDailyEntry.value
+    ? '每日一录'
+    : formatShiftLabel(current.value?.shift_name || current.value?.shift_code, '-')
+))
 const inferredShift = ref(describeInferredShift())
 const shiftClockTimer = ref(null)
 const shiftMismatch = computed(() => {
+  if (isOwnerDailyEntry.value) {
+    const ownerBusinessDate = inferOwnerDailyBusinessDate()
+    return Boolean(current.value?.business_date && current.value.business_date !== ownerBusinessDate)
+  }
   const wall = inferredShift.value
   if (current.value?.business_date && wall?.businessDate && current.value.business_date !== wall.businessDate) return true
   return isShiftMismatch(current.value?.shift_code)
 })
 const shiftHint = computed(() => {
+  if (isOwnerDailyEntry.value) {
+    return `按 10:00 起算，当前归属 ${inferOwnerDailyBusinessDate()}，每日一录。`
+  }
   const wall = inferredShift.value
   if (!wall) return ''
   if (shiftMismatch.value && current.value?.shift_name) {
