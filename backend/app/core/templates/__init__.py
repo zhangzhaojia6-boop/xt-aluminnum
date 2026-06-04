@@ -146,6 +146,28 @@ def _consumable_field(name: str, label: str, unit: str = 'kg') -> dict:
     }
 
 
+def _packaging_consumable_fields() -> list[dict]:
+    return [
+        _consumable_field('d40_per_ton', 'D40吨耗'),
+        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
+        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
+        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
+        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+        _consumable_field('hydraulic_oil_daily', '液压油日用', '桶'),
+    ]
+
+
+def _packaging_final_output_fields() -> list[dict]:
+    return [
+        *_packaging_consumable_fields(),
+        _consumable_field('packaging_inbound_output_tons', '包装入库产量', '吨'),
+    ]
+
+
+def _annealing_consumable_fields() -> list[dict]:
+    return _packaging_consumable_fields()
+
+
 CONSUMABLE_OWNER_FIELDS = {
     'casting': [
         _consumable_field('liquefied_gas_per_ton', '液化气吨耗'),
@@ -175,34 +197,16 @@ CONSUMABLE_OWNER_FIELDS = {
         _consumable_field('gear_oil_daily', '齿轮油日用', '桶'),
     ],
     'finishing': [
-        _consumable_field('d40_per_ton', 'D40吨耗'),
-        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
-        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
-        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
-        _consumable_field('hydraulic_oil_daily', '液压油日用', '桶'),
+        *_packaging_final_output_fields(),
     ],
     'shearing': [
-        _consumable_field('d40_per_ton', 'D40吨耗'),
-        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
-        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
-        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
-        _consumable_field('hydraulic_oil_daily', '液压油日用', '桶'),
+        *_packaging_final_output_fields(),
     ],
     'straightening': [
-        _consumable_field('d40_per_ton', 'D40吨耗'),
-        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
-        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
-        _consumable_field('hydraulic_oil_daily', '液压油日用', '桶'),
+        *_packaging_final_output_fields(),
     ],
     'annealing': [
-        _consumable_field('diatomite_per_ton', '硅藻土吨耗'),
-        _consumable_field('white_earth_per_ton', '白土吨耗'),
-        _consumable_field('filter_cloth_daily', '滤布日用', '米'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
-        _consumable_field('hydraulic_oil_daily', '液压油日用', '桶'),
+        *_annealing_consumable_fields(),
     ],
     'coating': [
         _consumable_field('paint_per_ton', '油漆吨耗'),
@@ -235,23 +239,16 @@ MACHINE_OPERATOR_CONSUMABLE_FIELDS: dict[str, list[dict]] = {
         _consumable_field('regen_oil_in', '再生油回'),
     ],
     'finishing': [
-        _consumable_field('rolling_oil_per_ton', '轧制油吨耗'),
-        _consumable_field('d40_per_ton', 'D40吨耗'),
-        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
-        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
-        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+        *_packaging_final_output_fields(),
     ],
     'shearing': [
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+        *_packaging_final_output_fields(),
+    ],
+    'straightening': [
+        *_packaging_final_output_fields(),
     ],
     'annealing': [
-        _consumable_field('rolling_oil_per_ton', '轧制油吨耗'),
-        _consumable_field('d40_per_ton', 'D40吨耗'),
-        _consumable_field('steel_plate_per_ton', '钢板吨耗'),
-        _consumable_field('steel_strip_per_ton', '钢带吨耗'),
-        _consumable_field('steel_buckle_per_ton', '钢带扣吨耗'),
-        _consumable_field('high_temp_tape_daily', '高温胶带日用', '卷'),
+        *_annealing_consumable_fields(),
     ],
     'coating': [
         _consumable_field('paint_per_ton', '油漆吨耗'),

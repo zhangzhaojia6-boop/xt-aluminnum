@@ -56,6 +56,33 @@ def test_upsert_consumable_log_validates_and_strips_unknown(db_with_workshop):
     assert row.workshop_type == 'casting'
 
 
+def test_upsert_consumable_log_accepts_packaging_inbound_output(db_with_workshop):
+    s, ws_id = db_with_workshop
+    bd = date(2026, 6, 4)
+    cs_agent.upsert_consumable_log(
+        s,
+        workshop_id=ws_id,
+        business_date=bd,
+        payload={
+            'd40_per_ton': 0.2,
+            'steel_plate_per_ton': 0.3,
+            'packaging_inbound_output_tons': 18.5,
+        },
+        workshop_type='finishing',
+    )
+    s.commit()
+
+    row = s.query(DailyConsumableLog).filter(
+        DailyConsumableLog.workshop_id == ws_id,
+        DailyConsumableLog.business_date == bd,
+    ).one()
+    assert row.payload == {
+        'd40_per_ton': 0.2,
+        'steel_plate_per_ton': 0.3,
+        'packaging_inbound_output_tons': 18.5,
+    }
+
+
 def test_upsert_consumable_log_rejects_unknown_field(db_with_workshop):
     s, ws_id = db_with_workshop
     with pytest.raises(ValidationError):

@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.attendance import AttendanceException, AttendanceResult
+from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ProductionException, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.reconciliation import DataReconciliationItem
@@ -149,6 +150,7 @@ def test_yesterday_shift_breakdown_uses_storage_inbound_as_factory_output(tmp_pa
             Workshop.__table__,
             ShiftConfig.__table__,
             MobileShiftReport.__table__,
+            DailyConsumableLog.__table__,
             ShiftProductionData.__table__,
             ProductionException.__table__,
             WorkOrder.__table__,

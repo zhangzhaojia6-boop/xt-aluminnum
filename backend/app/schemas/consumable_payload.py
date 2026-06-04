@@ -33,6 +33,21 @@ class ConsumablePayload(BaseModel):
     iron_per_ton: float | None = None
     copper_per_ton: float | None = None
 
+    hot_roll_emulsion_per_ton: float | None = None
+    rolling_oil_per_ton: float | None = None
+    filter_agent_per_ton: float | None = None
+    diatomite_per_ton: float | None = None
+    white_earth_per_ton: float | None = None
+    filter_cloth_daily: float | None = None
+    high_temp_tape_daily: float | None = None
+    regen_oil_out: float | None = None
+    regen_oil_in: float | None = None
+    d40_per_ton: float | None = None
+    steel_plate_per_ton: float | None = None
+    steel_buckle_per_ton: float | None = None
+    paint_per_ton: float | None = None
+    packaging_inbound_output_tons: float | None = None
+
     hydraulic_oil_daily: float | None = None
     hydraulic_oil_monthly: float | None = None
     hydraulic_oil_target: float | None = None

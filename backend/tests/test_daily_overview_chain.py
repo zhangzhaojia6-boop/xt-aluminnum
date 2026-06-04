@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.attendance import AttendanceSchedule
+from app.models.consumable import DailyConsumableLog
 from app.models.master import Employee, Workshop
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
 from app.models.production import WorkOrder, WorkOrderEntry
@@ -101,6 +102,53 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
         'storage_inbound_weight': 7.2,
         'park_inbound_daily': 12.5,
     }) == 7.2
+
+
+def test_plant_output_prefers_packaging_inbound_from_final_packaging_workshops(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-packaging-output.db'}", future=True)
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        Workshop(id=1, code='JZ', name='精整车间', workshop_type='finishing', is_active=True),
+        Workshop(id=2, code='LJ', name='拉矫车间', workshop_type='straightening', is_active=True),
+        Workshop(id=3, code='JQ', name='园区剪切车间', workshop_type='shearing', is_active=True),
+        Workshop(id=4, code='ZXTF-N', name='新厂在线退火', workshop_type='annealing', is_active=True),
+    ])
+    db.add_all([
+        DailyConsumableLog(
+            workshop_id=1,
+            workshop_type='finishing',
+            business_date=date(2026, 6, 4),
+            payload={'packaging_inbound_output_tons': 10.5},
+        ),
+        DailyConsumableLog(
+            workshop_id=2,
+            workshop_type='straightening',
+            business_date=date(2026, 6, 4),
+            payload={'packaging_inbound_output_tons': 6.0},
+        ),
+        DailyConsumableLog(
+            workshop_id=3,
+            workshop_type='shearing',
+            business_date=date(2026, 6, 4),
+            payload={'packaging_inbound_output_tons': 2.0},
+        ),
+        DailyConsumableLog(
+            workshop_id=4,
+            workshop_type='annealing',
+            business_date=date(2026, 6, 4),
+            payload={'packaging_inbound_output_tons': 99.0},
+        ),
+    ])
+    db.commit()
+
+    totals = daily_overview_builder._query_plant_output_totals_by_date(
+        db,
+        date(2026, 6, 4),
+        date(2026, 6, 4),
+    )
+
+    assert totals == {date(2026, 6, 4): 18.5}
 
 
 def test_wip_distribution_uses_target_business_date_and_feeding_weight_reference(tmp_path) -> None:

@@ -57,8 +57,41 @@ class ConsumablePayload(BaseModel):
 
     casting_per_ton: Optional[CastingPerTonGroup] = None
 
+    hot_roll_emulsion_per_ton: Optional[float] = None
+    rolling_oil_per_ton: Optional[float] = None
+    filter_agent_per_ton: Optional[float] = None
+    diatomite_per_ton: Optional[float] = None
+    white_earth_per_ton: Optional[float] = None
+    filter_cloth_daily: Optional[float] = None
+    high_temp_tape_daily: Optional[float] = None
+    regen_oil_out: Optional[float] = None
+    regen_oil_in: Optional[float] = None
+    d40_per_ton: Optional[float] = None
+    steel_plate_per_ton: Optional[float] = None
+    steel_buckle_per_ton: Optional[float] = None
+    paint_per_ton: Optional[float] = None
+    packaging_inbound_output_tons: Optional[float] = None
+
     hydraulic_oil: _CompareGroup = Field(default_factory=_CompareGroup)
     gear_oil: _CompareGroup = Field(default_factory=_CompareGroup)
+
+
+CONSUMABLE_DIRECT_FLOAT_FIELDS: tuple[str, ...] = (
+    'hot_roll_emulsion_per_ton',
+    'rolling_oil_per_ton',
+    'filter_agent_per_ton',
+    'diatomite_per_ton',
+    'white_earth_per_ton',
+    'filter_cloth_daily',
+    'high_temp_tape_daily',
+    'regen_oil_out',
+    'regen_oil_in',
+    'd40_per_ton',
+    'steel_plate_per_ton',
+    'steel_buckle_per_ton',
+    'paint_per_ton',
+    'packaging_inbound_output_tons',
+)
 
 
 CONSUMABLE_PAYLOAD_FIELDS_FLAT: tuple[str, ...] = (
@@ -85,6 +118,7 @@ CONSUMABLE_PAYLOAD_FIELDS_FLAT: tuple[str, ...] = (
     'gear_oil_monthly',
     'gear_oil_target',
     'gear_oil_compare',
+    *CONSUMABLE_DIRECT_FLOAT_FIELDS,
 )
 
 
@@ -112,6 +146,10 @@ def flatten_payload(payload: ConsumablePayload) -> dict:
             value = getattr(payload.casting_per_ton, field)
             if value is not None:
                 out[field] = value
+    for field in CONSUMABLE_DIRECT_FLOAT_FIELDS:
+        value = getattr(payload, field)
+        if value is not None:
+            out[field] = value
     return out
 
 
@@ -130,6 +168,7 @@ def parse_payload(raw: dict | None) -> ConsumablePayload:
         'gear_oil': {},
     }
     casting: dict = {}
+    direct_fields: dict = {}
     for key, value in raw.items():
         matched_group = False
         for prefix in ('electricity', 'gas', 'hydraulic_oil', 'gear_oil'):
@@ -144,7 +183,11 @@ def parse_payload(raw: dict | None) -> ConsumablePayload:
             continue
         if key in CastingPerTonGroup.model_fields:
             casting[key] = value
+            continue
+        if key in CONSUMABLE_DIRECT_FLOAT_FIELDS:
+            direct_fields[key] = value
     payload_dict: dict = {k: v for k, v in grouped.items() if v}
     if casting:
         payload_dict['casting_per_ton'] = casting
+    payload_dict.update(direct_fields)
     return ConsumablePayload.model_validate(payload_dict)

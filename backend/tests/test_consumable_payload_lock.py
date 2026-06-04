@@ -19,7 +19,8 @@ def test_flat_fields_match_truth_source_5_24():
     assert 'liquefied_gas_per_ton' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
     assert 'hydraulic_oil_target' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
     assert 'gear_oil_monthly' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
-    assert len(CONSUMABLE_PAYLOAD_FIELDS_FLAT) == 23
+    assert 'packaging_inbound_output_tons' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
+    assert len(CONSUMABLE_PAYLOAD_FIELDS_FLAT) == 37
 
 
 def test_unknown_field_rejected():
@@ -34,6 +35,8 @@ def test_round_trip_flat_parse_then_flatten():
         'gas_daily': 800,
         'gas_compare': '↓',
         'liquefied_gas_per_ton': 12.3,
+        'd40_per_ton': 0.2,
+        'packaging_inbound_output_tons': 18.5,
         'hydraulic_oil_target': 1.0,
         'gear_oil_monthly': 30.0,
     }
@@ -47,6 +50,8 @@ def test_round_trip_flat_parse_then_flatten():
     assert flat['electricity_daily'] == 12345.6
     assert flat['gas_compare'] == '↓'
     assert flat['liquefied_gas_per_ton'] == 12.3
+    assert flat['d40_per_ton'] == 0.2
+    assert flat['packaging_inbound_output_tons'] == 18.5
     assert flat['hydraulic_oil_target'] == 1.0
     assert flat['gear_oil_monthly'] == 30.0
 
