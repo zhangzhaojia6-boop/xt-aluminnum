@@ -51,3 +51,9 @@ test('YesterdayShiftPanel shows reported_workshops / expected_workshops ratio', 
   assert.match(src, /reported_workshops/)
   assert.match(src, /expected_workshops/)
 })
+
+test('YesterdayShiftPanel uses throughput total for shift share', () => {
+  const src = source('../src/components/manage/YesterdayShiftPanel.vue')
+  assert.match(src, /shiftShareTotal/)
+  assert.match(src, /total_throughput/)
+})

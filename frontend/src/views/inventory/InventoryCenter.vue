@@ -116,6 +116,7 @@ import XtDataTable from '../../components/xt/XtDataTable.vue'
 import XtErrorPanel from '../../components/xt/XtErrorPanel.vue'
 import XtSkeleton from '../../components/xt/XtSkeleton.vue'
 import XtEmpty from '../../components/xt/XtEmpty.vue'
+import { downloadBlob } from '../../utils/downloadBlob.js'
 
 const dateRange = ref([])
 const warehouseFilter = ref('')
@@ -211,12 +212,18 @@ async function load() {
   }
 }
 
-function onExport() {
-  const params = new URLSearchParams({
-    date_from: dateRange.value?.[0] || '',
-    date_to: dateRange.value?.[1] || ''
-  })
-  window.open(`/api/v1/inventory/export?${params}`, '_blank')
+async function onExport() {
+  try {
+    const params = {
+      date_from: dateRange.value?.[0],
+      date_to: dateRange.value?.[1],
+      warehouse_id: warehouseFilter.value || undefined
+    }
+    const { data } = await api.get('/inventory/export', { params, responseType: 'blob' })
+    downloadBlob(data, 'inventory_summary.csv')
+  } catch (e) {
+    error.value = e?.response?.data?.detail || '导出失败'
+  }
 }
 
 onMounted(load)

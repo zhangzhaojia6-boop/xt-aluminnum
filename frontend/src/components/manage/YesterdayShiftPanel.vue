@@ -11,6 +11,11 @@
           <span class="xt-shifts__total-value">{{ fmt(payload.total_output, 2) }}</span>
           <span class="xt-shifts__total-unit">吨</span>
         </div>
+        <div class="xt-shifts__total xt-shifts__total--secondary" v-if="showThroughputTotal">
+          <span class="xt-shifts__total-label">{{ payload.shift_output_basis_label || '过站下机参考' }}</span>
+          <span class="xt-shifts__total-value">{{ fmt(payload.total_throughput, 2) }}</span>
+          <span class="xt-shifts__total-unit">吨</span>
+        </div>
         <div class="xt-shifts__total xt-shifts__total--secondary" v-if="payload.energy_per_ton != null">
           <span class="xt-shifts__total-label">吨能耗</span>
           <span class="xt-shifts__total-value">{{ fmt(payload.energy_per_ton, 1) }}</span>
@@ -39,7 +44,7 @@
           <span class="xt-shifts__metric-value">{{ s.shift_count === 0 ? '—' : fmt(s.total_output, 2) }}</span>
           <span class="xt-shifts__metric-unit">吨</span>
         </div>
-        <div class="xt-shifts__share" v-if="payload.total_output > 0 && s.total_output > 0">
+        <div class="xt-shifts__share" v-if="shiftShareTotal > 0 && s.total_output > 0">
           <span class="xt-shifts__share-bar">
             <span class="xt-shifts__share-fill" :style="{ width: sharePct(s) + '%' }" />
           </span>
@@ -116,6 +121,9 @@ const leaderIdx = computed(() => {
   return best
 })
 
+const shiftShareTotal = computed(() => Number(props.payload?.total_throughput || props.payload?.total_output || 0))
+const showThroughputTotal = computed(() => Number(props.payload?.total_throughput || 0) > 0)
+
 const dateLabel = computed(() => {
   const d = props.payload?.business_date
   if (!d) return ''
@@ -131,7 +139,7 @@ const fmt = (v, digits = 2) =>
     })
 
 function sharePct(s) {
-  const total = Number(props.payload?.total_output || 0)
+  const total = shiftShareTotal.value
   if (total <= 0) return 0
   return Math.round((Number(s.total_output || 0) / total) * 100)
 }

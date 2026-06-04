@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.master import Workshop
-from app.models.production import ProductionException, ShiftProductionData
+from app.models.production import MobileShiftReport, ProductionException, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.reconciliation import DataReconciliationItem
 from app.models.shift import ShiftConfig
 from app.services import report_service
@@ -139,6 +139,80 @@ def build_history_session(tmp_path):
     db.refresh(workshop)
     db.refresh(shift)
     return db, workshop, shift
+
+
+def test_yesterday_shift_breakdown_uses_storage_inbound_as_factory_output(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'factory-output-basis.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            ShiftConfig.__table__,
+            MobileShiftReport.__table__,
+            ShiftProductionData.__table__,
+            ProductionException.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, future=True)()
+    target_date = date(2026, 6, 2)
+    try:
+        casting = Workshop(code='ZR2', name='铸轧二', workshop_type='casting', is_active=True)
+        storage = Workshop(code='CK', name='成品库', workshop_type='factory_special', is_active=True)
+        shift = ShiftConfig(
+            code='A',
+            name='长白班',
+            shift_type='day',
+            start_time=time(7, 30),
+            end_time=time(15, 30),
+            is_cross_day=False,
+            sort_order=1,
+            is_active=True,
+        )
+        db.add_all([casting, storage, shift])
+        db.commit()
+        db.refresh(casting)
+        db.refresh(storage)
+        db.refresh(shift)
+
+        db.add(
+            ShiftProductionData(
+                business_date=target_date,
+                shift_config_id=shift.id,
+                workshop_id=casting.id,
+                output_weight=100,
+                data_source='manual',
+                data_status='confirmed',
+            )
+        )
+        work_order = WorkOrder(tracking_card_no='OWNER-DAILY-20260602', process_route_code='owner_daily')
+        db.add(work_order)
+        db.commit()
+        db.refresh(work_order)
+        db.add(
+            WorkOrderEntry(
+                work_order_id=work_order.id,
+                workshop_id=storage.id,
+                business_date=target_date,
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={'storage_inbound_weight': 42},
+            )
+        )
+        db.commit()
+
+        payload = report_service._build_yesterday_shift_breakdown(db, target_date=target_date)
+
+        assert payload['output_basis'] == 'storage_inbound_output'
+        assert payload['output_basis_label'] == '全厂入库产量'
+        assert payload['total_output'] == 42
+        assert payload['total_throughput'] == 100
+        assert payload['shift_output_basis'] == 'mobile_coil_process_output'
+        assert payload['shift_output_basis_label'] == '过站下机参考'
+        assert payload['shifts'][0]['total_output'] == 100
+    finally:
+        db.close()
 
 
 def test_build_delivery_status_no_longer_requires_import_batches(monkeypatch) -> None:
@@ -592,6 +666,7 @@ def test_build_factory_dashboard_uses_runtime_output_for_management_today(monkey
     monkeypatch.setattr('app.services.report_service._build_canonical_workshop_output_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 5, 6))
 
@@ -681,6 +756,7 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     monkeypatch.setattr('app.services.report_service._build_canonical_workshop_output_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 4, 17))
 
@@ -834,6 +910,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
     monkeypatch.setattr('app.services.report_service._build_canonical_workshop_output_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service.build_workshop_attendance_summary', lambda *_args, **_kwargs: [])
     monkeypatch.setattr('app.services.report_service._build_workshop_reporting_status', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service._build_yesterday_shift_breakdown', lambda *_args, **_kwargs: {'shifts': []})
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 4, 17))
 

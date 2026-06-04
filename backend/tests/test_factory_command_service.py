@@ -11,6 +11,7 @@ from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.mes import (
     CoilFlowEvent,
     MesCoilSnapshot,
+    MesDailyWipSnapshot,
     MesMachineLineSnapshot,
     MesStockRecord,
     MesWipTotalSnapshot,
@@ -58,6 +59,7 @@ class _FakeDB:
         stock_records=None,
         yield_records=None,
         wip_snapshots=None,
+        daily_wip_snapshots=None,
     ):
         self.coils = coils or []
         self.lines = lines or []
@@ -70,6 +72,7 @@ class _FakeDB:
         self.stock_records = stock_records or []
         self.yield_records = yield_records or []
         self.wip_snapshots = wip_snapshots or []
+        self.daily_wip_snapshots = daily_wip_snapshots or []
 
     def query(self, model):
         if model is MesCoilSnapshot:
@@ -94,6 +97,8 @@ class _FakeDB:
             return _Query(self.yield_records)
         if model is MesWipTotalSnapshot:
             return _Query(self.wip_snapshots)
+        if model is MesDailyWipSnapshot:
+            return _Query(self.daily_wip_snapshots)
         if model is MasterCodeAlias.alias_code:
             return _Query([])
         raise AssertionError(model)
@@ -424,6 +429,67 @@ def test_factory_overview_uses_mes_extended_tables_when_local_rows_absent(monkey
             'total_output_tons': 7.1,
             'yield_rate': 88.75,
         },
+    ]
+
+
+def test_factory_overview_uses_daily_wip_snapshot_when_only_wip_exists(monkeypatch):
+    db = _FakeDB(
+        daily_wip_snapshots=[
+            SimpleNamespace(
+                id=1,
+                business_date=date(2026, 5, 2),
+                workshop_name='冷轧',
+                process_name='轧制',
+                coil_count=3,
+                material_weight_tons=12.5,
+                feeding_weight_tons=18.2,
+                snapshot_at=datetime(2026, 5, 2, 23, 58, tzinfo=UTC),
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'success',
+            'source': 'mes_projection',
+            'lag_seconds': 60,
+            'last_synced_at': '2026-05-02T23:59:00+00:00',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=date(2026, 5, 2))
+    workshops = factory_command_service.list_workshops(db, now=date(2026, 5, 2))
+
+    assert overview['source'] == 'mes_extended'
+    assert overview['wip_tons'] == 12.5
+    assert overview['workshop_summary'] == [
+        {
+            'workshop_name': '冷轧',
+            'row_count': 3,
+            'total_input_tons': 18.2,
+            'total_output_tons': 12.5,
+            'yield_rate': None,
+        }
+    ]
+    assert workshops == [
+        {
+            'workshop_name': '冷轧',
+            'active_coil_count': 3,
+            'active_tons': 12.5,
+            'stalled_count': 0,
+            'freshness': {
+                'status': 'fresh',
+                'lag_seconds': 60,
+                'last_synced_at': '2026-05-02T23:59:00+00:00',
+                'last_event_at': None,
+                'source': 'mes_extended',
+                'configured': True,
+                'migration_ready': True,
+                'action_required': 'none',
+                'risk_tone': 'normal',
+            },
+        }
     ]
 
 

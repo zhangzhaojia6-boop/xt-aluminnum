@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.2] - 2026-06-04
+
+### Changed
+- 全厂昨日班次总览的全厂总产量口径改为成品库入库产量，班次与车间产量保留为过站下机参考。
+- 管理端合同与库存导出改为带登录令牌的接口下载，避免浏览器新窗口导出时丢失登录状态。
+
+### Fixed
+- 修复本地端到端登录测试可能复用旧预览服务，导致误报登录不可用的问题。
+- 修复云端工厂调度概览只存在每日在制料快照时仍回退到本地班次数据的问题。
+- 修复后端测试在 `backend` 目录运行时读取项目路径不一致的问题。
+
 ## [0.4.1] - 2026-06-02
 
 ### Added

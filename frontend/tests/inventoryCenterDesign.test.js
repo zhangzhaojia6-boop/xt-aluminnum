@@ -12,7 +12,10 @@ test('InventoryCenter keeps the real inventory data and export paths', () => {
   assert.match(src, /date_to:\s*dateRange\.value\?\.\[1\]/)
   assert.match(src, /warehouse_id:\s*warehouseFilter\.value\s*\|\|\s*undefined/)
   assert.match(src, /data\.warehouses\s*\|\|\s*warehouses\.value/)
-  assert.match(src, /window\.open\(`\/api\/v1\/inventory\/export\?\$\{params\}`,\s*['_"]_blank['_"]\)/)
+  assert.match(src, /api\.get\(['"]\/inventory\/export['"]/)
+  assert.match(src, /responseType:\s*['"]blob['"]/)
+  assert.match(src, /downloadBlob\(data,\s*['"]inventory_summary\.csv['"]\)/)
+  assert.doesNotMatch(src, /window\.open\(`\/api\/v1\/inventory\/export/)
 })
 
 test('InventoryCenter keeps all KPI fields and ton units visible', () => {

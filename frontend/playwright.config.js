@@ -39,6 +39,7 @@ loadLocalEnvFallbacks()
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:4173'
 const backendURL = process.env.PLAYWRIGHT_BACKEND_URL || 'http://localhost:8000'
 const reuseServers = process.env.PLAYWRIGHT_REUSE_SERVERS === '1'
+  && process.env.PLAYWRIGHT_TRUST_EXISTING_SERVERS === '1'
 const skipWebServers = process.env.PLAYWRIGHT_SKIP_WEB_SERVER === '1'
 
 export default defineConfig({

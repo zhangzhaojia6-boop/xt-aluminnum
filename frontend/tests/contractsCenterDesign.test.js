@@ -11,7 +11,10 @@ test('ContractsCenter keeps the real contracts data and export paths', () => {
   assert.match(src, /date_from:\s*dateRange\.value\?\.\[0\]/)
   assert.match(src, /date_to:\s*dateRange\.value\?\.\[1\]/)
   assert.match(src, /status:\s*statusFilter\.value\s*\|\|\s*undefined/)
-  assert.match(src, /window\.open\(`\/api\/v1\/contracts\/export\?\$\{params\}`,\s*['_"]_blank['_"]\)/)
+  assert.match(src, /api\.get\(['"]\/contracts\/export['"]/)
+  assert.match(src, /responseType:\s*['"]blob['"]/)
+  assert.match(src, /downloadBlob\(data,\s*['"]contracts_summary\.csv['"]\)/)
+  assert.doesNotMatch(src, /window\.open\(`\/api\/v1\/contracts\/export/)
 })
 
 test('ContractsCenter keeps all KPI fields and ton units visible', () => {

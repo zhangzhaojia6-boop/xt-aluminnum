@@ -15,6 +15,7 @@ from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import (
     CoilFlowEvent,
     MesCoilSnapshot,
+    MesDailyWipSnapshot,
     MesMachineLineSnapshot,
     MesStockRecord,
     MesWipTotalSnapshot,
@@ -656,6 +657,7 @@ def _latest_mes_extended_business_date(db: Session, *, fallback: date, scope: Sc
     dates: list[date] = []
     for model, workshop_field in (
         (MesWorkshopProcessRecord, 'workshop_name'),
+        (MesDailyWipSnapshot, 'workshop_name'),
         (MesStockRecord, None),
         (MesYieldRecord, None),
     ):
@@ -670,6 +672,13 @@ def _latest_mes_extended_business_date(db: Session, *, fallback: date, scope: Sc
 
 def _mes_extended_rows_for_date(rows: Iterable[Any], target_date: date) -> list[Any]:
     return [row for row in rows if _same_business_date(getattr(row, 'business_date', None), target_date)]
+
+
+def _daily_wip_rows_for_date(db: Session, *, target_date: date, scope: ScopeSummary | None = None) -> list[Any]:
+    return _mes_extended_rows_for_date(
+        _scoped_mes_extended_rows(db, MesDailyWipSnapshot, scope=scope, workshop_field='workshop_name'),
+        target_date,
+    )
 
 
 def _latest_wip_snapshots(rows: Iterable[Any]) -> list[Any]:
@@ -708,17 +717,19 @@ def _build_overview_from_mes_extended(
         _scoped_mes_extended_rows(db, MesYieldRecord, scope=scope, workshop_field=None),
         target_date,
     )
+    daily_wip_rows = _daily_wip_rows_for_date(db, target_date=target_date, scope=scope)
     wip_rows = _latest_wip_snapshots(
         _scoped_mes_extended_rows(db, MesWipTotalSnapshot, scope=scope, workshop_field='workshop_name')
     )
-    if not (process_rows or stock_rows or yield_rows or wip_rows):
+    if not (process_rows or stock_rows or yield_rows or daily_wip_rows or wip_rows):
         return None
 
     total_input = sum(_number(getattr(row, 'input_weight_tons', None)) for row in process_rows)
     total_output = sum(_number(getattr(row, 'output_weight_tons', None)) for row in process_rows)
     today_output = sum(_number(getattr(row, 'net_weight_tons', None)) for row in today_stock_rows)
     stock_total = sum(_number(getattr(row, 'net_weight_tons', None)) for row in stock_rows)
-    wip_total = sum(_number(getattr(row, 'doing_weight_tons', None)) for row in wip_rows)
+    daily_wip_total = sum(_number(getattr(row, 'material_weight_tons', None)) for row in daily_wip_rows)
+    wip_total = daily_wip_total if daily_wip_rows else sum(_number(getattr(row, 'doing_weight_tons', None)) for row in wip_rows)
     if wip_total <= 0 and total_input > 0:
         wip_total = max(total_input - total_output, 0.0)
 
@@ -738,6 +749,20 @@ def _build_overview_from_mes_extended(
                 'yield_rate': round(workshop_output / workshop_input * 100, 2) if workshop_input else None,
             }
         )
+    if not workshop_summary and daily_wip_rows:
+        wip_grouped: dict[str, list[Any]] = defaultdict(list)
+        for row in daily_wip_rows:
+            wip_grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+        for workshop_name, rows in wip_grouped.items():
+            workshop_summary.append(
+                {
+                    'workshop_name': workshop_name,
+                    'row_count': sum(int(_number(getattr(row, 'coil_count', None))) for row in rows),
+                    'total_input_tons': round(sum(_number(getattr(row, 'feeding_weight_tons', None)) for row in rows), 4),
+                    'total_output_tons': round(sum(_number(getattr(row, 'material_weight_tons', None)) for row in rows), 4),
+                    'yield_rate': None,
+                }
+            )
     yield_rate = round(total_output / total_input * 100, 2) if total_input else None
     if yield_rate is None and yield_rows:
         rates = [_number(getattr(row, 'yield_rate', None)) for row in yield_rows]
@@ -1179,9 +1204,26 @@ def _list_workshops_from_mes_extended(
         _scoped_mes_extended_rows(db, MesWorkshopProcessRecord, scope=scope, workshop_field='workshop_name'),
         target_date,
     )
-    if not rows:
-        return []
     response_freshness = _mes_extended_freshness(freshness)
+    if not rows:
+        daily_wip_rows = _daily_wip_rows_for_date(db, target_date=target_date, scope=scope)
+        grouped_wip: dict[str, list[Any]] = defaultdict(list)
+        for row in daily_wip_rows:
+            grouped_wip[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+        return sorted(
+            [
+                {
+                    'workshop_name': workshop_name,
+                    'active_coil_count': sum(int(_number(getattr(row, 'coil_count', None))) for row in workshop_rows),
+                    'active_tons': round(sum(_number(getattr(row, 'material_weight_tons', None)) for row in workshop_rows), 4),
+                    'stalled_count': 0,
+                    'freshness': response_freshness,
+                }
+                for workshop_name, workshop_rows in grouped_wip.items()
+            ],
+            key=lambda item: item['active_tons'],
+            reverse=True,
+        )
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in rows:
         grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)

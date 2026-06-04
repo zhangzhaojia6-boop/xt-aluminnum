@@ -1,9 +1,9 @@
 import re
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from app.core import scheduler as scheduler_module
 from app.core.scheduler import release_scheduler_leader, setup_scheduler, try_acquire_scheduler_leader
+from tests.path_helpers import BACKEND_ROOT
 
 
 class FakeScheduler:
@@ -58,7 +58,7 @@ def test_setup_scheduler_is_idempotent() -> None:
 
 
 def test_executive_snapshot_runs_after_business_day_closes() -> None:
-    source = Path('backend/app/main.py').read_text(encoding='utf-8')
+    source = (BACKEND_ROOT / 'app' / 'main.py').read_text(encoding='utf-8')
 
     assert 'last_completed_production_business_date()' in source
     assert re.search(

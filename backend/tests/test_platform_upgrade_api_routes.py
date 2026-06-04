@@ -93,6 +93,13 @@ def test_export_route_returns_attachment() -> None:
     assert exported.headers['content-disposition'].startswith('attachment;')
 
 
+def test_export_route_requires_login() -> None:
+    client = TestClient(app)
+    exported = client.post('/api/v1/export/overview', json={'format': 'csv'})
+
+    assert exported.status_code in {401, 403}
+
+
 def test_notification_routes_read_flow() -> None:
     _override_user()
 

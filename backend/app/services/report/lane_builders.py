@@ -70,16 +70,12 @@ def _build_production_lane(db: Session, *, target_date: date, workshop_id: int |
 _SHIFT_LABEL_MAP = {'A': '长白班', 'B': '小夜班', 'C': '大夜班'}
 _SHIFT_DISPLAY_ORDER = ['A', 'B', 'C']
 
-# 铸轧分厂 = 上游铸造工序（铸锭/铸二/铸三/铸五/铸六）。
-# 全厂日产量按"铸轧分厂出料"算，避免下游车间过工序量重复计入。
-_PLANT_OUTPUT_WORKSHOP_CODES = {'ZD', 'ZR2', 'ZR3', 'ZR5', 'ZR6'}
-
 
 def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
     """三班分解：返回 target_date 当天的长白班、小夜班、大夜班产量、能耗、异常拆分。
     07:30 是日循环节点，业务日范围为当天 07:30 到次日 07:30。
 
-    全厂日产量口径：按"铸轧分厂出料"（上游铸造工序）求和，避免下游过工序量重复计入。
+    全厂总产量口径：按成品库入库产量；三班明细保留过站下机量作参考。
     """
     rows = (
         db.query(ShiftProductionData)
@@ -95,10 +91,6 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
     shift_by_id = {s.id: s for s in shifts}
 
     workshops = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
-    workshop_code_by_id = {w.id: w.code for w in workshops}
-    plant_output_workshop_ids = {
-        w.id for w in workshops if w.code in _PLANT_OUTPUT_WORKSHOP_CODES
-    }
 
     grouped: dict[str, list[ShiftProductionData]] = {code: [] for code in _SHIFT_DISPLAY_ORDER}
     for row in rows:
@@ -119,21 +111,17 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
         .all()
     )
 
+    plant_output = daily_overview_builder._query_plant_output_totals_by_date(db, target_date, target_date).get(target_date, 0.0)
     breakdown = []
-    grand_output = 0.0
     grand_throughput = 0.0
     grand_energy_kwh = 0.0
     for code in _SHIFT_DISPLAY_ORDER:
         items = grouped[code]
-        plant_items = [it for it in items if it.workshop_id in plant_output_workshop_ids]
-        total_output = round(
-            sum(_shift_weight_tons(it, 'output_weight') for it in plant_items), 2
-        )
         total_throughput = round(
             sum(_shift_weight_tons(it, 'output_weight') for it in items), 2
         )
         total_energy = round(sum(float(it.electricity_kwh or 0) for it in items), 1)
-        energy_per_ton = round(total_energy / total_output, 1) if total_output > 0 and total_energy > 0 else None
+        energy_per_ton = round(total_energy / total_throughput, 1) if total_throughput > 0 and total_energy > 0 else None
         reported_workshops = len({it.workshop_id for it in items})
         ex_count = 0
         for sid, sc in shift_by_id.items():
@@ -149,7 +137,7 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
                     if cfg_match
                     else None
                 ),
-                'total_output': total_output,
+                'total_output': total_throughput,
                 'total_throughput': total_throughput,
                 'total_energy_kwh': total_energy,
                 'energy_per_ton': energy_per_ton,
@@ -159,17 +147,18 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
                 'exception_count': ex_count,
             }
         )
-        grand_output += total_output
         grand_throughput += total_throughput
         grand_energy_kwh += total_energy
 
-    grand_energy_per_ton = round(grand_energy_kwh / grand_output, 1) if grand_output > 0 and grand_energy_kwh > 0 else None
+    grand_energy_per_ton = round(grand_energy_kwh / plant_output, 1) if plant_output > 0 and grand_energy_kwh > 0 else None
     return {
         'business_date': target_date.isoformat(),
-        'total_output': round(grand_output, 2),
+        'total_output': round(plant_output, 2),
         'total_throughput': round(grand_throughput, 2),
-        'output_basis': 'casting_plant',
-        'output_basis_label': '铸轧分厂日产量',
+        'output_basis': 'storage_inbound_output',
+        'output_basis_label': '全厂入库产量',
+        'shift_output_basis': 'mobile_coil_process_output',
+        'shift_output_basis_label': '过站下机参考',
         'total_energy_kwh': round(grand_energy_kwh, 1),
         'energy_per_ton': grand_energy_per_ton,
         'shifts': breakdown,
