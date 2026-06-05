@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     MES_MVC_USERNAME: str | None = None
     MES_MVC_PASSWORD: str | None = None
     MES_MVC_TIMEOUT_SECONDS: float = 8.0
+    MES_SQLSERVER_HOST: str | None = None
+    MES_SQLSERVER_PORT: int = 1433
+    MES_SQLSERVER_DATABASE: str | None = None
+    MES_SQLSERVER_USERNAME: str | None = None
+    MES_SQLSERVER_PASSWORD: str | None = None
+    MES_SQLSERVER_TIMEOUT_SECONDS: float = 8.0
+    MES_SQLSERVER_ENCRYPT: bool = False
     MES_SYNC_LIMIT: int = 200
     MES_SYNC_WINDOW_MINUTES: int = 10
     MES_SYNC_POLL_MINUTES: int = 1
@@ -241,6 +248,12 @@ class Settings(BaseSettings):
         if self.MES_MVC_TIMEOUT_SECONDS <= 0:
             issues.append('MES_MVC_TIMEOUT_SECONDS must be greater than 0')
 
+        if self.MES_SQLSERVER_PORT <= 0:
+            issues.append('MES_SQLSERVER_PORT must be greater than 0')
+
+        if self.MES_SQLSERVER_TIMEOUT_SECONDS <= 0:
+            issues.append('MES_SQLSERVER_TIMEOUT_SECONDS must be greater than 0')
+
         if self.MES_SYNC_LIMIT <= 0:
             issues.append('MES_SYNC_LIMIT must be greater than 0')
 
@@ -359,8 +372,8 @@ class Settings(BaseSettings):
             issues.append('MOBILE_DATA_ENTRY_MODE must be one of manual_only, scan_assisted, or mes_assisted')
 
         mes_adapter_name = (self.MES_ADAPTER or 'null').strip().lower()
-        if mes_adapter_name not in {'null', 'rest_api', 'mvc', 'xintai', 'xintai_api'}:
-            issues.append('MES_ADAPTER must be null, rest_api, mvc, xintai, or xintai_api')
+        if mes_adapter_name not in {'null', 'rest_api', 'mvc', 'xintai', 'xintai_api', 'sqlserver'}:
+            issues.append('MES_ADAPTER must be null, rest_api, mvc, xintai, xintai_api, or sqlserver')
 
         if mobile_data_entry_mode == 'manual_only' and self.MOBILE_SCAN_ASSIST_ENABLED:
             issues.append('manual_only cannot enable MOBILE_SCAN_ASSIST_ENABLED')
@@ -369,7 +382,7 @@ class Settings(BaseSettings):
             issues.append('manual_only cannot enable MOBILE_MES_DISPLAY_ENABLED')
 
         if mobile_data_entry_mode == 'mes_assisted' and mes_adapter_name == 'null':
-            issues.append('mes_assisted requires MES_ADAPTER=rest_api or mvc')
+            issues.append('mes_assisted requires MES_ADAPTER=rest_api, mvc, xintai, or sqlserver')
 
         if mes_adapter_name == 'rest_api':
             missing_mes_fields = [
@@ -408,6 +421,20 @@ class Settings(BaseSettings):
             ]
             if missing_mes_mvc_fields:
                 issues.append(f"MES_ADAPTER=mvc is missing {', '.join(missing_mes_mvc_fields)}")
+
+        if mes_adapter_name == 'sqlserver':
+            missing_mes_sqlserver_fields = [
+                field_name
+                for field_name, field_value in (
+                    ('MES_SQLSERVER_HOST', self.MES_SQLSERVER_HOST),
+                    ('MES_SQLSERVER_DATABASE', self.MES_SQLSERVER_DATABASE),
+                    ('MES_SQLSERVER_USERNAME', self.MES_SQLSERVER_USERNAME),
+                    ('MES_SQLSERVER_PASSWORD', self.MES_SQLSERVER_PASSWORD),
+                )
+                if _is_blank(field_value)
+            ]
+            if missing_mes_sqlserver_fields:
+                issues.append(f"MES_ADAPTER=sqlserver is missing {', '.join(missing_mes_sqlserver_fields)}")
 
         if not issues:
             return

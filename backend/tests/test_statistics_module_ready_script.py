@@ -282,14 +282,14 @@ def test_inspect_statistics_module_ready_reports_mes_when_not_configured() -> No
     mes_issue = next(item for item in payload['hard_issues'] if item['code'] == 'MES_UNCONFIGURED')
     assert mes_issue['required_env'] == [
         'MES_ADAPTER',
-        'MES_API_BASE',
-        'MES_MVC_BASE_URL',
-        'MES_MVC_USERNAME',
-        'MES_MVC_PASSWORD',
+        'MES_SQLSERVER_HOST',
+        'MES_SQLSERVER_DATABASE',
+        'MES_SQLSERVER_USERNAME',
+        'MES_SQLSERVER_PASSWORD',
     ]
 
 
-def test_external_env_template_defaults_to_mvc_without_leaking_existing_secret_values() -> None:
+def test_external_env_template_defaults_to_sqlserver_without_leaking_existing_secret_values() -> None:
     module = _load_script_module()
 
     template = module.build_external_env_template(
@@ -302,10 +302,11 @@ def test_external_env_template_defaults_to_mvc_without_leaking_existing_secret_v
     )
 
     for token in [
-        'MES_ADAPTER=mvc',
-        'MES_MVC_BASE_URL=',
-        'MES_MVC_USERNAME=',
-        'MES_MVC_PASSWORD=',
+        'MES_ADAPTER=sqlserver',
+        'MES_SQLSERVER_HOST=',
+        'MES_SQLSERVER_DATABASE=',
+        'MES_SQLSERVER_USERNAME=',
+        'MES_SQLSERVER_PASSWORD=',
         'WORKFLOW_ENABLED=true',
         'AUTO_PUBLISH_ENABLED=true',
         'AUTO_PUSH_ENABLED=true',
@@ -321,6 +322,11 @@ def test_external_env_template_defaults_to_mvc_without_leaking_existing_secret_v
         'APP_CONNECTION_PUSH_MODE=enabled',
         'APP_CONNECTION_API_BASE=',
         'APP_CONNECTION_API_KEY=',
+        '# 如果现场仍需短期对照 MVC',
+        '# MES_ADAPTER=mvc',
+        '# MES_MVC_BASE_URL=',
+        '# MES_MVC_USERNAME=',
+        '# MES_MVC_PASSWORD=',
         '# 如果现场使用 REST MES',
         '# MES_ADAPTER=rest_api',
         '# MES_API_BASE=',
@@ -341,6 +347,18 @@ def test_external_env_template_can_target_rest_api_mes() -> None:
     assert 'MES_API_BASE=' in template
     assert 'MES_API_KEY=' in template
     assert 'MES_MVC_BASE_URL=' not in template
+
+
+def test_external_env_template_can_target_mvc_mes() -> None:
+    module = _load_script_module()
+
+    template = module.build_external_env_template(runtime_settings=_build_settings(MES_ADAPTER='mvc'))
+
+    assert 'MES_ADAPTER=mvc' in template
+    assert 'MES_MVC_BASE_URL=' in template
+    assert 'MES_MVC_USERNAME=' in template
+    assert 'MES_MVC_PASSWORD=' in template
+    assert 'MES_SQLSERVER_HOST=' not in template
 
 
 def test_inspect_statistics_module_ready_does_not_probe_live_aggregation_by_default() -> None:

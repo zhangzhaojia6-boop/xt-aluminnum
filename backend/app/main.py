@@ -58,6 +58,18 @@ def create_mes_adapter() -> MesAdapter:
             password=str(settings.MES_MVC_PASSWORD or ''),
             timeout_seconds=settings.MES_MVC_TIMEOUT_SECONDS,
         )
+    if adapter_name == 'sqlserver':
+        from app.adapters.sqlserver_mes_adapter import SqlServerMesAdapter
+
+        return SqlServerMesAdapter(
+            host=str(settings.MES_SQLSERVER_HOST or '').strip(),
+            port=settings.MES_SQLSERVER_PORT,
+            database=str(settings.MES_SQLSERVER_DATABASE or '').strip(),
+            username=str(settings.MES_SQLSERVER_USERNAME or '').strip(),
+            password=str(settings.MES_SQLSERVER_PASSWORD or ''),
+            timeout_seconds=settings.MES_SQLSERVER_TIMEOUT_SECONDS,
+            encrypt=settings.MES_SQLSERVER_ENCRYPT,
+        )
     raise RuntimeError(f'Unsupported MES_ADAPTER: {settings.MES_ADAPTER}')
 
 

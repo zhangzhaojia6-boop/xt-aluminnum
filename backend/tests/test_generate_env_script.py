@@ -33,6 +33,8 @@ def test_build_env_content_for_quick_trial_production() -> None:
     assert 'CORS_ORIGINS=https://trial.example.com' in content
     assert 'DINGTALK_ENABLED=false' in content
     assert 'MOBILE_DATA_ENTRY_MODE=manual_only' in content
+    assert 'MES_SQLSERVER_HOST=' in content
+    assert 'MES_SQLSERVER_PASSWORD=' in content
     assert 'MES_MVC_BASE_URL=' in content
     assert 'WECOM_APP_ENABLED=false' in content
     assert 'AUTO_PUBLISH_ENABLED=true' in content

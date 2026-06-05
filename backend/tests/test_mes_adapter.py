@@ -4,6 +4,7 @@ import pytest
 
 from app.adapters.mes_adapter import NullMesAdapter, get_mes_adapter, set_mes_adapter
 from app.adapters.mvc_mes_adapter import MvcMesAdapter
+from app.adapters.sqlserver_mes_adapter import SqlServerMesAdapter
 from app.adapters.xintai_mes_adapter import XintaiMesAdapter
 from app.main import create_mes_adapter
 
@@ -58,6 +59,19 @@ def test_create_mes_adapter_returns_xintai_adapter(monkeypatch) -> None:
     adapter = create_mes_adapter()
 
     assert isinstance(adapter, XintaiMesAdapter)
+
+
+def test_create_mes_adapter_returns_sqlserver_adapter(monkeypatch) -> None:
+    monkeypatch.setattr('app.main.settings.MES_ADAPTER', 'sqlserver', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_SQLSERVER_HOST', 'sqlserver.example.com', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_SQLSERVER_PORT', 1433, raising=False)
+    monkeypatch.setattr('app.main.settings.MES_SQLSERVER_DATABASE', 'mes', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_SQLSERVER_USERNAME', 'readonly', raising=False)
+    monkeypatch.setattr('app.main.settings.MES_SQLSERVER_PASSWORD', 'secret', raising=False)
+
+    adapter = create_mes_adapter()
+
+    assert isinstance(adapter, SqlServerMesAdapter)
 
 
 def test_create_mes_adapter_rejects_unknown_adapter(monkeypatch) -> None:

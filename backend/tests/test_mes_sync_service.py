@@ -183,6 +183,50 @@ def test_upsert_snapshot_projects_mvc_fields_and_prefers_mes_product_id():
     assert entity.last_seen_from_mes_at == datetime(2026, 5, 2, 8, 35, tzinfo=UTC)
 
 
+def test_upsert_snapshot_uses_top_level_sqlserver_id_and_upgrades_legacy_fallback(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-coil-upgrade.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, CoilFlowEvent.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    synced_at = datetime(2026, 6, 1, 8, 35, tzinfo=UTC)
+
+    with Session() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='fallback:26RA04734:R2-7283-1',
+                tracking_card_no='R2-7283-1',
+                mes_product_id='997a7b88-50da-4495-a654-da1c0c827dbc',
+                current_process='剪切',
+            )
+        )
+        db.commit()
+
+        changed, replayed = mes_sync_service._upsert_snapshot(
+            db,
+            snapshot=CoilSnapshot(
+                coil_id='MES:997a7b88-50da-4495-a654-da1c0c827dbc',
+                tracking_card_no='R2-7283-1',
+                batch_no='26RA04734',
+                process_code='包装',
+                metadata={
+                    'Id': '997a7b88-50da-4495-a654-da1c0c827dbc',
+                    'MaterialCode': 'R2-7283-1',
+                    'CurrentProcess': '包装',
+                },
+            ),
+            synced_at=synced_at,
+        )
+        db.commit()
+
+        rows = db.scalars(select(MesCoilSnapshot)).all()
+
+    assert changed is True
+    assert replayed is False
+    assert len(rows) == 1
+    assert rows[0].coil_id == 'MES:997a7b88-50da-4495-a654-da1c0c827dbc'
+    assert rows[0].mes_product_id == '997a7b88-50da-4495-a654-da1c0c827dbc'
+    assert rows[0].current_process == '包装'
+
+
 def test_upsert_snapshot_business_date_uses_event_time_production_day_boundary():
     db = _FakeDB()
     snapshot = CoilSnapshot(
@@ -876,6 +920,44 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
     assert wip.workshop_name == '2050车间'
     assert wip.process_name == '冷轧'
     assert float(wip.doing_weight_tons) == 430.0
+
+
+def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-wip-duplicate.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesWipTotalSnapshot.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    synced_at = datetime(2026, 6, 1, 8, 35, tzinfo=UTC)
+
+    class Adapter:
+        def list_wip_totals(self):
+            return [
+                MesWipTotal(
+                    workshop_name='1450车间',
+                    doing_count=4,
+                    doing_weight=26.5,
+                    metadata={'ProcessName': '剪切'},
+                ),
+                MesWipTotal(
+                    workshop_name='1450车间',
+                    doing_count=2,
+                    doing_weight=10.5,
+                    metadata={'ProcessName': '包装'},
+                ),
+            ]
+
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
+
+    with Session() as db:
+        stats = mes_sync_service.sync_mes_wip_total(db, now=synced_at)
+        db.commit()
+        rows = db.scalars(select(MesWipTotalSnapshot)).all()
+
+    assert stats.fetched_count == 2
+    assert stats.upserted_count == 1
+    assert len(rows) == 1
+    assert rows[0].source_id == '1450车间:total'
+    assert rows[0].doing_count == 6
+    assert float(rows[0].doing_weight_tons) == 37.0
 
 
 def test_sync_reference_items_falls_back_when_mes_returns_zero_uuid_ids(tmp_path, monkeypatch):

@@ -15,6 +15,7 @@ from app.adapters import get_mes_adapter
 from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource, MesSourceRecord, MesWipTotal
 from app.config import settings
 from app.core.business_time import resolve_production_business_date
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.mes import (
     CoilFlowEvent,
     MesCoilSnapshot,
@@ -32,7 +33,18 @@ from app.models.mes import (
 
 
 SYNC_CURSOR_KEY = 'coil_snapshots'
-DEFAULT_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
+SQLSERVER_MES_REQUIRED_ENV = [
+    'MES_ADAPTER',
+    'MES_SQLSERVER_HOST',
+    'MES_SQLSERVER_PORT',
+    'MES_SQLSERVER_DATABASE',
+    'MES_SQLSERVER_USERNAME',
+    'MES_SQLSERVER_PASSWORD',
+]
+MVC_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
+REST_API_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_TRACKING_CARD_INFO_PATH', 'MES_API_COIL_SNAPSHOTS_PATH']
+XINTAI_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_KEY']
+DEFAULT_MES_REQUIRED_ENV = SQLSERVER_MES_REQUIRED_ENV
 
 
 @dataclass(slots=True)
@@ -116,21 +128,19 @@ def _to_mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-_SENSITIVE_PAYLOAD_KEYS = {
-    'Password',
-    'NewPassword',
-    'NewPasswordConfirm',
-    'OldPassword',
-    'Mobile',
-    'CustomerMobile',
-    'Address',
-    'CustomerAddress',
-    'Email',
-}
-
-
 def _safe_payload(metadata: Mapping[str, Any]) -> dict[str, Any]:
-    return {str(key): value for key, value in metadata.items() if str(key) not in _SENSITIVE_PAYLOAD_KEYS}
+    return filter_sensitive_mapping(metadata)
+
+
+def required_env_for_adapter(adapter_name: str | None = None) -> list[str]:
+    normalized = (adapter_name if adapter_name is not None else settings.MES_ADAPTER or 'null').strip().lower()
+    if normalized == 'mvc':
+        return list(MVC_MES_REQUIRED_ENV)
+    if normalized == 'rest_api':
+        return list(REST_API_MES_REQUIRED_ENV)
+    if normalized in {'xintai', 'xintai_api'}:
+        return list(XINTAI_MES_REQUIRED_ENV)
+    return list(SQLSERVER_MES_REQUIRED_ENV)
 
 
 def _kg_to_tons(value: Any) -> float | None:
@@ -290,7 +300,13 @@ def _source_id(record: MesSourceRecord, *keys: str) -> str:
 
 def _mes_product_id(snapshot: CoilSnapshot) -> str | None:
     product = _to_mapping(snapshot.metadata.get('Product'))
-    return _to_text(product.get('Id') or snapshot.metadata.get('ProductId') or snapshot.metadata.get('ProductID'))
+    return _to_text(
+        product.get('Id')
+        or snapshot.metadata.get('ProductId')
+        or snapshot.metadata.get('ProductID')
+        or snapshot.metadata.get('Id')
+        or snapshot.metadata.get('ID')
+    )
 
 
 def _projected_coil_id(snapshot: CoilSnapshot) -> str:
@@ -443,7 +459,7 @@ def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
         'error_message': None,
         'last_error': None,
         'action_required': 'none' if configured else 'configure_mes',
-        'required_env': [] if configured else list(DEFAULT_MES_REQUIRED_ENV),
+        'required_env': [] if configured else required_env_for_adapter(),
     }
 
 
@@ -539,6 +555,10 @@ def _upsert_snapshot(
     coil_id = projection['coil_id']
     _lock_snapshot_key(db, coil_id=coil_id)
     existing = _query_first(db.query(MesCoilSnapshot).filter(MesCoilSnapshot.coil_id == coil_id))
+    if existing is None and projection.get('mes_product_id'):
+        existing = _query_first(db.query(MesCoilSnapshot).filter(MesCoilSnapshot.mes_product_id == projection['mes_product_id']))
+        if existing is not None:
+            existing.coil_id = coil_id
     payload = _serialize_snapshot(snapshot)
     business_date = _snapshot_business_date(snapshot)
     if affected_business_dates is not None and business_date is not None:
@@ -680,7 +700,7 @@ def sync_coil_snapshots(
     except Exception as exc:  # noqa: BLE001
         run_log.finished_at = _utcnow()
         run_log.status = 'failed'
-        run_log.error_message = str(exc)
+        run_log.error_message = redact_secret_text(str(exc))
         raise
 
 
@@ -784,7 +804,7 @@ def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> di
 
 def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
     payload = _safe_payload(record.metadata)
-    in_stock_date = _record_event_time(record, 'InStockDate', 'StrInStockDate')
+    in_stock_date = _record_event_time(record, 'InStockDate', 'StrInStockDate', 'OperateDate', 'CreateDate', 'AllocationDate')
     net_kg = _to_float(_metadata_value(payload, 'NetWeight', 'InStockNetWeight'))
     gross_kg = _to_float(_metadata_value(payload, 'GrossWeight'))
     return {
@@ -988,10 +1008,22 @@ def sync_mes_dispatch(db: Session, *, now: datetime | None = None) -> MesSyncSta
     return _sync_coil_list(db, cursor_key='mes_dispatch', rows=rows, synced_at=synced_at)
 
 
+def _merge_wip_payload(existing_payload: Any, incoming_payload: Any) -> dict[str, Any]:
+    if isinstance(existing_payload, Mapping) and isinstance(existing_payload.get('merged_items'), list):
+        return {'merged_items': [*existing_payload['merged_items'], incoming_payload]}
+    return {'merged_items': [existing_payload, incoming_payload]}
+
+
+def _merge_wip_fields(target: dict[str, Any], incoming: dict[str, Any]) -> None:
+    target['doing_count'] = int(target.get('doing_count') or 0) + int(incoming.get('doing_count') or 0)
+    target['doing_weight_tons'] = round(float(target.get('doing_weight_tons') or 0) + float(incoming.get('doing_weight_tons') or 0), 6)
+    target['source_payload'] = _merge_wip_payload(target.get('source_payload'), incoming.get('source_payload'))
+
+
 def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_wip_totals()
-    upserted_count = 0
+    merged_fields: dict[str, dict[str, Any]] = {}
     for row in rows:
         process_totals = _to_mapping(row.metadata.get('process_totals'))
         if process_totals:
@@ -1005,8 +1037,10 @@ def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncSt
                     'snapshot_at': synced_at,
                     'source_payload': _safe_payload(row.metadata),
                 }
-                if _upsert_by_source_id(db, model=MesWipTotalSnapshot, source_id=source_id, fields=fields):
-                    upserted_count += 1
+                if source_id in merged_fields:
+                    _merge_wip_fields(merged_fields[source_id], fields)
+                else:
+                    merged_fields[source_id] = fields
             continue
         source_id = f'{row.workshop_name}:total'
         fields = {
@@ -1017,6 +1051,12 @@ def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncSt
             'snapshot_at': synced_at,
             'source_payload': _safe_payload(row.metadata),
         }
+        if source_id in merged_fields:
+            _merge_wip_fields(merged_fields[source_id], fields)
+        else:
+            merged_fields[source_id] = fields
+    upserted_count = 0
+    for source_id, fields in merged_fields.items():
         if _upsert_by_source_id(db, model=MesWipTotalSnapshot, source_id=source_id, fields=fields):
             upserted_count += 1
     return _stats(cursor_key='mes_wip_total', fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
@@ -1060,7 +1100,7 @@ def _sync_projection_step(
             fetched_count=0,
             synced_at=synced_at,
             status='skipped',
-            error_message=f'not implemented: {exc}',
+            error_message=redact_secret_text(f'not implemented: {exc}'),
         )
     except SQLAlchemyError:
         raise
@@ -1070,7 +1110,7 @@ def _sync_projection_step(
             fetched_count=0,
             synced_at=synced_at,
             status='failed',
-            error_message=str(exc),
+            error_message=redact_secret_text(str(exc)),
         )
 
 
@@ -1208,7 +1248,7 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
     last_run_status = latest_run.status if latest_run else 'idle'
     status = 'failed' if last_run_status == 'failed' else _status_from_lag(lag_seconds)
     action_required = 'check_vendor' if status == 'failed' else 'none'
-    error_message = latest_run.error_message if latest_run else None
+    error_message = redact_secret_text(latest_run.error_message) if latest_run and latest_run.error_message else None
     return {
         'cursor_key': cursor_key,
         'cursor_value': cursor.cursor_value if cursor else None,
@@ -1261,7 +1301,7 @@ def recent_sync_runs(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, limit: i
             'replayed_count': row.replayed_count,
             'duration_seconds': _duration_seconds(row.started_at, row.finished_at),
             'lag_seconds': _to_float(row.lag_seconds),
-            'error_message': row.error_message,
+            'error_message': redact_secret_text(row.error_message) if row.error_message else None,
         }
         for row in rows
     ]

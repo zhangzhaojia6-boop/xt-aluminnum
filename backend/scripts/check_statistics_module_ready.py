@@ -53,9 +53,15 @@ _MISSING_INPUT_CATALOG: dict[str, dict[str, Any]] = {
     'MES_UNCONFIGURED': {
         'purpose': '外部 MES 数据源',
         'location': '服务器 backend/.env',
-        'missing_fields': ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
+        'missing_fields': [
+            'MES_ADAPTER',
+            'MES_SQLSERVER_HOST',
+            'MES_SQLSERVER_DATABASE',
+            'MES_SQLSERVER_USERNAME',
+            'MES_SQLSERVER_PASSWORD',
+        ],
         'impact': '外部 MES 投影不可用，实时流转与机列绑定只能依赖本地填报。',
-        'suggested_value': 'MES_ADAPTER=mvc；其余字段填现场 MES 地址和账号密钥。',
+        'suggested_value': 'MES_ADAPTER=sqlserver；其余字段填现场 SQL Server 只读连接配置。',
     },
     'MES_REST_CONFIG_MISSING': {
         'purpose': '外部 MES REST 数据源',
@@ -70,6 +76,19 @@ _MISSING_INPUT_CATALOG: dict[str, dict[str, Any]] = {
         'missing_fields': ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD'],
         'impact': '外部 MES MVC 同步不可用。',
         'suggested_value': 'MES_ADAPTER=mvc；MES_MVC_BASE_URL=<现场提供>；MES_MVC_USERNAME=<现场提供>；MES_MVC_PASSWORD=<现场提供>。',
+    },
+    'MES_SQLSERVER_CONFIG_MISSING': {
+        'purpose': '外部 MES SQL Server 数据源',
+        'location': '服务器 backend/.env',
+        'missing_fields': [
+            'MES_ADAPTER',
+            'MES_SQLSERVER_HOST',
+            'MES_SQLSERVER_DATABASE',
+            'MES_SQLSERVER_USERNAME',
+            'MES_SQLSERVER_PASSWORD',
+        ],
+        'impact': '外部 MES SQL Server 同步不可用。',
+        'suggested_value': 'MES_ADAPTER=sqlserver；MES_SQLSERVER_HOST=<现场提供>；MES_SQLSERVER_DATABASE=<现场提供>；MES_SQLSERVER_USERNAME=<只读账号>；MES_SQLSERVER_PASSWORD=<现场提供>。',
     },
     'WORKFLOW_DISABLED': {
         'purpose': '自动日报 workflow',
@@ -428,15 +447,34 @@ def build_external_env_template(*, runtime_settings: Settings | None = None) -> 
                 'MES_API_KEY=',
             ]
         )
-    else:
+    elif mes_adapter == 'mvc':
         lines.extend(
             [
                 'MES_ADAPTER=mvc',
                 'MES_MVC_BASE_URL=',
                 'MES_MVC_USERNAME=',
                 'MES_MVC_PASSWORD=',
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                'MES_ADAPTER=sqlserver',
+                'MES_SQLSERVER_HOST=',
+                'MES_SQLSERVER_PORT=1433',
+                'MES_SQLSERVER_DATABASE=',
+                'MES_SQLSERVER_USERNAME=',
+                'MES_SQLSERVER_PASSWORD=',
+                'MES_SQLSERVER_TIMEOUT_SECONDS=8',
+                'MES_SQLSERVER_ENCRYPT=false',
                 '',
-                '# 如果现场使用 REST MES，改用下面三项替换上面的 MVC 配置：',
+                '# 如果现场仍需短期对照 MVC，改用下面四项替换上面的 SQL Server 配置：',
+                '# MES_ADAPTER=mvc',
+                '# MES_MVC_BASE_URL=',
+                '# MES_MVC_USERNAME=',
+                '# MES_MVC_PASSWORD=',
+                '',
+                '# 如果现场使用 REST MES，改用下面三项替换上面的 SQL Server 配置：',
                 '# MES_ADAPTER=rest_api',
                 '# MES_API_BASE=',
                 '# MES_API_KEY=',
@@ -541,13 +579,13 @@ def inspect_statistics_module_ready(
                 level='hard',
                 code='MES_UNCONFIGURED',
                 message='MES_ADAPTER=null，外部 MES 数据源未启用。',
-                suggestion='将 MES_ADAPTER 设为 rest_api 或 mvc，并补齐对应连接配置。',
+                suggestion='将 MES_ADAPTER 设为 sqlserver，并补齐 SQL Server 只读连接配置。',
                 required_env=[
                     'MES_ADAPTER',
-                    'MES_API_BASE',
-                    'MES_MVC_BASE_URL',
-                    'MES_MVC_USERNAME',
-                    'MES_MVC_PASSWORD',
+                    'MES_SQLSERVER_HOST',
+                    'MES_SQLSERVER_DATABASE',
+                    'MES_SQLSERVER_USERNAME',
+                    'MES_SQLSERVER_PASSWORD',
                 ],
             )
         )
@@ -586,13 +624,36 @@ def inspect_statistics_module_ready(
             )
         else:
             mes_ready = True
+    elif mes_adapter == 'sqlserver':
+        missing_sqlserver_fields = [
+            field_name
+            for field_name, field_value in (
+                ('MES_SQLSERVER_HOST', runtime.MES_SQLSERVER_HOST),
+                ('MES_SQLSERVER_DATABASE', runtime.MES_SQLSERVER_DATABASE),
+                ('MES_SQLSERVER_USERNAME', runtime.MES_SQLSERVER_USERNAME),
+                ('MES_SQLSERVER_PASSWORD', runtime.MES_SQLSERVER_PASSWORD),
+            )
+            if _is_blank(field_value)
+        ]
+        if missing_sqlserver_fields:
+            issues.append(
+                _issue(
+                    level='hard',
+                    code='MES_SQLSERVER_CONFIG_MISSING',
+                    message=f"MES_ADAPTER=sqlserver，但 {', '.join(missing_sqlserver_fields)} 缺失。",
+                    suggestion='补齐 MES_SQLSERVER_HOST / MES_SQLSERVER_DATABASE / MES_SQLSERVER_USERNAME / MES_SQLSERVER_PASSWORD。',
+                    required_env=['MES_ADAPTER', *missing_sqlserver_fields],
+                )
+            )
+        else:
+            mes_ready = True
     else:
         issues.append(
             _issue(
                 level='hard',
                 code='MES_ADAPTER_INVALID',
                 message=f'MES_ADAPTER={runtime.MES_ADAPTER} 不受支持。',
-                suggestion='将 MES_ADAPTER 设为 null、rest_api 或 mvc。',
+                suggestion='将 MES_ADAPTER 设为 null、rest_api、mvc 或 sqlserver。',
                 required_env=['MES_ADAPTER'],
             )
         )

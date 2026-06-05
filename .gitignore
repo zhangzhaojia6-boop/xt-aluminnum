@@ -18,6 +18,7 @@ backend/.pytest-cache-2/
 backend/pytest-cache-files-*/
 backend/.pytest-run-*/
 backend/.codex-preview.db
+backend/.codex-shadow/
 backend/local-dev.db
 backend/test_migration_chain.db
 backend/.codegraph/
@@ -51,6 +52,8 @@ ssl/
 .worktrees/
 .gstack/
 .context/
+.understand-anything/intermediate/
+.understand-anything/tmp/
 底层/
 frontend/二维码/
 backend/二维码/
