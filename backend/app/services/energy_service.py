@@ -5,10 +5,10 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import UploadFile
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.models.energy import EnergyImportRecord
+from app.models.energy import EnergyImportRecord, MachineEnergyRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
@@ -222,6 +222,38 @@ def _resolve_shift_id(db: Session) -> dict[str, int]:
     return {item.code: item.id for item in db.query(ShiftConfig).all()}
 
 
+def _load_machine_energy_totals(db: Session, report_ids: list[int]) -> dict[int, dict[str, float | int | None]]:
+    if not report_ids:
+        return {}
+    rows = (
+        db.query(
+            MachineEnergyRecord.shift_report_id,
+            func.sum(MachineEnergyRecord.energy_kwh).label('energy_kwh'),
+            func.sum(MachineEnergyRecord.gas_m3).label('gas_m3'),
+            func.count(MachineEnergyRecord.id).label('row_count'),
+        )
+        .filter(MachineEnergyRecord.shift_report_id.in_(report_ids))
+        .group_by(MachineEnergyRecord.shift_report_id)
+        .all()
+    )
+    return {
+        row.shift_report_id: {
+            'energy_kwh': _to_float(row.energy_kwh),
+            'gas_m3': _to_float(row.gas_m3),
+            'row_count': int(row.row_count or 0),
+        }
+        for row in rows
+    }
+
+
+def _prefer_machine_detail_total(report_value, detail_value) -> float:
+    report_num = _to_float(report_value)
+    detail_num = _to_float(detail_value)
+    if detail_num is not None and detail_num > 0 and (report_num is None or report_num == 0):
+        return detail_num
+    return report_num or 0.0
+
+
 def _load_owner_only_energy_rows(
     db: Session,
     *,
@@ -324,8 +356,11 @@ def _load_mobile_shift_energy_rows(
     if shift_config_id is not None:
         query = query.filter(MobileShiftReport.shift_config_id == shift_config_id)
 
+    report_rows = query.all()
+    machine_totals = _load_machine_energy_totals(db, [report.id for report, _workshop, _shift in report_rows])
+
     grouped: dict[tuple[int, int], dict] = {}
-    for report, workshop, shift in query.all():
+    for report, workshop, shift in report_rows:
         key = (report.workshop_id, report.shift_config_id)
         bucket = grouped.setdefault(
             key,
@@ -344,8 +379,9 @@ def _load_mobile_shift_energy_rows(
                 'source': 'mobile_shift_report',
             },
         )
-        electricity_value = _to_float(report.electricity_daily) or 0.0
-        gas_value = _to_float(report.gas_daily) or 0.0
+        detail_totals = machine_totals.get(report.id) or {}
+        electricity_value = _prefer_machine_detail_total(report.electricity_daily, detail_totals.get('energy_kwh'))
+        gas_value = _prefer_machine_detail_total(report.gas_daily, detail_totals.get('gas_m3'))
         bucket['electricity_value'] += electricity_value
         bucket['gas_value'] += gas_value
         bucket['total_energy'] += electricity_value + gas_value

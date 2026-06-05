@@ -11,7 +11,7 @@ from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
-from app.models.energy import EnergyImportRecord
+from app.models.energy import EnergyImportRecord, MachineEnergyRecord
 from app.services.contract_canonical_service import build_contract_projection
 from app.services.energy_service import get_energy_summary, summarize_energy_for_date, workshop_energy_summary
 
@@ -27,6 +27,7 @@ def build_session(tmp_path):
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             MobileShiftReport.__table__,
+            MachineEnergyRecord.__table__,
             ShiftProductionData.__table__,
             EnergyImportRecord.__table__,
         ],
@@ -375,6 +376,57 @@ def test_summarize_energy_for_date_prefers_mobile_shift_energy(tmp_path) -> None
         assert payload['owner_totals']['total_energy'] == 1250.0
         assert payload['mobile_totals']['row_count'] == 1
         assert any(row.get('source') == 'mobile_shift_report' for row in payload['rows'])
+    finally:
+        db.close()
+
+
+def test_summarize_energy_for_date_uses_machine_energy_records_when_report_total_is_zero(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add(
+            MobileShiftReport(
+                id=62,
+                business_date=date(2026, 4, 17),
+                shift_config_id=1,
+                workshop_id=11,
+                team_id=None,
+                leader_user_id=8,
+                leader_name='电工',
+                report_status='submitted',
+                electricity_daily=0.0,
+                gas_daily=0.0,
+            )
+        )
+        db.add_all(
+            [
+                MachineEnergyRecord(
+                    shift_report_id=62,
+                    machine_id=None,
+                    machine_code='CPK-1',
+                    machine_name='成品库1号线',
+                    energy_kwh=120.0,
+                    gas_m3=8.0,
+                ),
+                MachineEnergyRecord(
+                    shift_report_id=62,
+                    machine_id=None,
+                    machine_code='CPK-2',
+                    machine_name='成品库2号线',
+                    energy_kwh=80.0,
+                    gas_m3=7.0,
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'mobile_shift_report'
+        assert payload['electricity_value'] == 200.0
+        assert payload['gas_value'] == 15.0
+        assert payload['total_energy'] == 215.0
+        assert payload['mobile_totals']['row_count'] == 1
     finally:
         db.close()
 
