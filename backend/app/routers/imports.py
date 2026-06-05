@@ -6,13 +6,8 @@ from app.models.imports import ImportBatch
 from app.models.system import User
 from app.schemas.common import PaginatedResponse
 from app.schemas.imports import (
-    DailyProductionMappingPreviewOut,
     ImportBatchOut,
     ImportUploadResponse,
-)
-from app.services.daily_production_mapping_service import (
-    build_daily_production_mapping_preview,
-    serialize_daily_production_mapping_preview,
 )
 
 router = APIRouter(tags=['imports'])
@@ -43,15 +38,14 @@ def import_history(
     return {'items': items, 'total': total, 'skip': skip, 'limit': limit}
 
 
-@router.get('/daily-production/mapping-preview', response_model=DailyProductionMappingPreviewOut)
+@router.get('/daily-production/mapping-preview')
 def daily_production_mapping_preview(
     batch_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    _ = current_user
-    preview = build_daily_production_mapping_preview(db, batch_id=batch_id)
-    return serialize_daily_production_mapping_preview(preview)
+    _ = batch_id, db, current_user
+    raise HTTPException(status_code=410, detail='每日产量导入映射预览已停用，请使用移动端每日填报。')
 
 
 @router.get('/history/{batch_id}', response_model=ImportBatchOut)

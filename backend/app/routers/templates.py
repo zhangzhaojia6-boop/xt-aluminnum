@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.core.workshop_templates import get_workshop_template
 from app.models.system import User
-from app.schemas.templates import WorkshopTemplateOut
 
 
 router = APIRouter(tags=['templates'])
 
 
-@router.get('/templates/{workshop_type}', response_model=WorkshopTemplateOut, name='template-detail')
+@router.get('/templates/{workshop_type}', name='template-detail')
 def get_template(
     workshop_type: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> WorkshopTemplateOut:
-    _ = db
-    payload = get_workshop_template(workshop_type, user_role=current_user.role, db=None)
-    return WorkshopTemplateOut(**payload)
+) -> dict:
+    _ = workshop_type, db, current_user
+    raise HTTPException(status_code=status.HTTP_410_GONE, detail='模板中心已停用，填报端使用固定模板')

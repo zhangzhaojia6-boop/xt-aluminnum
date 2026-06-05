@@ -131,7 +131,7 @@ def test_workshop_template_override_keeps_energy_fields_owner_only(tmp_path) -> 
     assert [field['name'] for field in energy_payload['extra_fields']] == ['energy_kwh', 'gas_m3']
 
 
-def test_admin_workshop_template_upsert_is_retired_and_public_endpoint_uses_fixed_template(tmp_path) -> None:
+def test_admin_workshop_template_upsert_and_public_endpoint_are_retired(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     with session_factory() as db:
         db.add(Workshop(code='JZ', name='精整车间', workshop_type='finishing', sort_order=1, is_active=True))
@@ -190,17 +190,5 @@ def test_admin_workshop_template_upsert_is_retired_and_public_endpoint_uses_fixe
     finally:
         app.dependency_overrides.clear()
 
-    assert template_response.status_code == 200
-    payload = template_response.json()
-    assert payload['display_name'] == '精整车间'
-    assert [field['name'] for field in payload['entry_fields']] == [
-        'tracking_card_no',
-        'input_spec',
-        'alloy_grade',
-        'material_state',
-        'input_weight',
-        'output_weight',
-    ]
-    assert [field['name'] for field in payload['shift_fields']] == []
-    assert 'edge_protector' not in [field['name'] for field in payload['extra_fields']]
-    assert [field['name'] for field in payload['readonly_fields']] == ['scrap_weight', 'yield_rate']
+    assert template_response.status_code == 410
+    assert template_response.json()['detail'] == '模板中心已停用，填报端使用固定模板'
