@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.database import get_sessionmaker
 
 
@@ -8,8 +10,18 @@ def _run_sync_group(runner) -> dict[str, object]:
 
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
-        result = runner(mes_sync_service, session)
-        session.commit()
+        try:
+            result = runner(mes_sync_service, session)
+            session.commit()
+        except SQLAlchemyError:
+            session.rollback()
+            raise
+        except mes_sync_service.MesSyncVendorError:
+            session.commit()
+            raise
+        except Exception:
+            session.rollback()
+            raise
     return result
 
 

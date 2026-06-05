@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
+import time
 from typing import Any, Mapping
 
 from sqlalchemy import and_, func, or_, text
@@ -45,6 +46,10 @@ MVC_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', '
 REST_API_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_TRACKING_CARD_INFO_PATH', 'MES_API_COIL_SNAPSHOTS_PATH']
 XINTAI_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_KEY']
 DEFAULT_MES_REQUIRED_ENV = SQLSERVER_MES_REQUIRED_ENV
+
+
+class MesSyncVendorError(RuntimeError):
+    """External MES fetch failed after retries; keep the failed run visible."""
 
 
 @dataclass(slots=True)
@@ -439,6 +444,42 @@ def _adapter_configured() -> bool:
     return (settings.MES_ADAPTER or 'null').strip().lower() != 'null'
 
 
+def _current_adapter_name() -> str:
+    return (settings.MES_ADAPTER or 'null').strip().lower()
+
+
+def stale_threshold_seconds() -> float:
+    return float(max(settings.MES_SYNC_POLL_MINUTES, 1) * 300)
+
+
+def _retry_limit() -> int:
+    return max(int(settings.MES_SYNC_RETRY_LIMIT or 0), 0)
+
+
+def _retry_backoff_seconds(attempt_index: int) -> float:
+    return max(float(settings.MES_SYNC_BACKOFF_SECONDS or 0.0), 0.0) * max(attempt_index, 1)
+
+
+def _sleep_before_retry(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
+
+
+def _run_with_adapter_retries(operation):
+    attempts = 0
+    retry_limit = _retry_limit()
+    while True:
+        attempts += 1
+        try:
+            return operation(), attempts
+        except (NotImplementedError, SQLAlchemyError):
+            raise
+        except Exception:
+            if attempts > retry_limit:
+                raise
+            _sleep_before_retry(_retry_backoff_seconds(attempts))
+
+
 def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
     return {
         'cursor_key': cursor_key,
@@ -446,7 +487,10 @@ def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
         'configured': configured,
         'migration_ready': True,
         'status': 'idle' if configured else 'unconfigured',
+        'adapter': _current_adapter_name(),
         'source': 'mes_projection' if configured else 'local_entry',
+        'stale_threshold_seconds': stale_threshold_seconds(),
+        'retry_limit': _retry_limit(),
         'lag_seconds': None,
         'last_synced_at': None,
         'last_event_at': None,
@@ -479,7 +523,7 @@ def _projection_migration_missing_status(*, cursor_key: str) -> dict[str, Any]:
 def _status_from_lag(lag_seconds: float | None) -> str:
     if lag_seconds is None:
         return 'idle'
-    if lag_seconds > 300:
+    if lag_seconds > stale_threshold_seconds():
         return 'stale'
     return 'fresh'
 
@@ -644,64 +688,78 @@ def sync_coil_snapshots(
 
     adapter = get_mes_adapter()
     try:
-        snapshots, next_cursor = adapter.list_coil_snapshots(
-            cursor=cursor.cursor_value,
-            updated_after=window_started_at,
-            limit=settings.MES_SYNC_LIMIT,
-        )
-        upserted_count = 0
-        replayed_count = 0
-        last_event_at = cursor.last_event_at
-        affected_business_dates: set[Any] = set()
-        for item in snapshots:
-            changed, replayed = _upsert_snapshot(
-                db,
-                snapshot=item,
-                synced_at=synced_at,
-                affected_business_dates=affected_business_dates,
+        (snapshots, next_cursor), attempt_count = _run_with_adapter_retries(
+            lambda: adapter.list_coil_snapshots(
+                cursor=cursor.cursor_value,
+                updated_after=window_started_at,
+                limit=settings.MES_SYNC_LIMIT,
             )
-            if changed:
-                upserted_count += 1
-            if replayed:
-                replayed_count += 1
-            event_at = _as_utc(item.updated_at or item.event_time)
-            if event_at and (last_event_at is None or event_at > _as_utc(last_event_at)):
-                last_event_at = event_at
-
-        cursor.cursor_value = next_cursor
-        cursor.window_started_at = window_started_at
-        cursor.last_event_at = last_event_at
-        cursor.last_synced_at = synced_at
-        _refresh_affected_daily_wip_snapshots(db, business_dates=affected_business_dates, snapshot_at=synced_at)
-
-        lag_seconds = None
-        if last_event_at is not None:
-            normalized_last_event = last_event_at if last_event_at.tzinfo else last_event_at.replace(tzinfo=timezone.utc)
-            lag_seconds = max((synced_at - normalized_last_event).total_seconds(), 0.0)
-
-        run_log.finished_at = _utcnow()
-        run_log.status = 'success'
-        run_log.fetched_count = len(snapshots)
-        run_log.upserted_count = upserted_count
-        run_log.replayed_count = replayed_count
-        run_log.next_cursor = next_cursor
-        run_log.lag_seconds = lag_seconds
-        return MesSyncStats(
-            cursor_key=cursor_key,
-            fetched_count=len(snapshots),
-            upserted_count=upserted_count,
-            replayed_count=replayed_count,
-            next_cursor=next_cursor,
-            lag_seconds=lag_seconds,
-            last_event_at=last_event_at,
-            last_synced_at=synced_at,
-            status='success',
         )
     except Exception as exc:  # noqa: BLE001
         run_log.finished_at = _utcnow()
         run_log.status = 'failed'
         run_log.error_message = redact_secret_text(str(exc))
-        raise
+        metadata = run_log.metadata_json if isinstance(run_log.metadata_json, dict) else {}
+        run_log.metadata_json = {
+            **metadata,
+            'attempt_count': metadata.get('attempt_count', _retry_limit() + 1),
+            'retry_limit': _retry_limit(),
+        }
+        raise MesSyncVendorError(run_log.error_message) from exc
+
+    run_log.metadata_json = {
+        **(run_log.metadata_json or {}),
+        'attempt_count': attempt_count,
+        'retry_limit': _retry_limit(),
+    }
+    upserted_count = 0
+    replayed_count = 0
+    last_event_at = cursor.last_event_at
+    affected_business_dates: set[Any] = set()
+    for item in snapshots:
+        changed, replayed = _upsert_snapshot(
+            db,
+            snapshot=item,
+            synced_at=synced_at,
+            affected_business_dates=affected_business_dates,
+        )
+        if changed:
+            upserted_count += 1
+        if replayed:
+            replayed_count += 1
+        event_at = _as_utc(item.updated_at or item.event_time)
+        if event_at and (last_event_at is None or event_at > _as_utc(last_event_at)):
+            last_event_at = event_at
+
+    cursor.cursor_value = next_cursor
+    cursor.window_started_at = window_started_at
+    cursor.last_event_at = last_event_at
+    cursor.last_synced_at = synced_at
+    _refresh_affected_daily_wip_snapshots(db, business_dates=affected_business_dates, snapshot_at=synced_at)
+
+    lag_seconds = None
+    if last_event_at is not None:
+        normalized_last_event = last_event_at if last_event_at.tzinfo else last_event_at.replace(tzinfo=timezone.utc)
+        lag_seconds = max((synced_at - normalized_last_event).total_seconds(), 0.0)
+
+    run_log.finished_at = _utcnow()
+    run_log.status = 'success'
+    run_log.fetched_count = len(snapshots)
+    run_log.upserted_count = upserted_count
+    run_log.replayed_count = replayed_count
+    run_log.next_cursor = next_cursor
+    run_log.lag_seconds = lag_seconds
+    return MesSyncStats(
+        cursor_key=cursor_key,
+        fetched_count=len(snapshots),
+        upserted_count=upserted_count,
+        replayed_count=replayed_count,
+        next_cursor=next_cursor,
+        lag_seconds=lag_seconds,
+        last_event_at=last_event_at,
+        last_synced_at=synced_at,
+        status='success',
+    )
 
 
 def _stats(
@@ -1093,7 +1151,8 @@ def _sync_projection_step(
     runner,
 ) -> MesSyncStats:
     try:
-        return runner(db, now=synced_at)
+        stats, _attempt_count = _run_with_adapter_retries(lambda: runner(db, now=synced_at))
+        return stats
     except NotImplementedError as exc:
         return _stats(
             cursor_key=cursor_key,
@@ -1247,7 +1306,12 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
 
     last_run_status = latest_run.status if latest_run else 'idle'
     status = 'failed' if last_run_status == 'failed' else _status_from_lag(lag_seconds)
-    action_required = 'check_vendor' if status == 'failed' else 'none'
+    if status == 'failed':
+        action_required = 'check_vendor'
+    elif status == 'stale':
+        action_required = 'check_sync_lag'
+    else:
+        action_required = 'none'
     error_message = redact_secret_text(latest_run.error_message) if latest_run and latest_run.error_message else None
     return {
         'cursor_key': cursor_key,
@@ -1255,7 +1319,10 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
         'configured': True,
         'migration_ready': True,
         'status': status,
+        'adapter': _current_adapter_name(),
         'source': 'mes_projection',
+        'stale_threshold_seconds': stale_threshold_seconds(),
+        'retry_limit': _retry_limit(),
         'last_event_at': cursor.last_event_at.isoformat() if cursor and cursor.last_event_at else None,
         'last_synced_at': cursor.last_synced_at.isoformat() if cursor and cursor.last_synced_at else None,
         'lag_seconds': lag_seconds,

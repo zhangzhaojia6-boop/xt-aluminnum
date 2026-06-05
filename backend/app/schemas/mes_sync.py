@@ -34,7 +34,10 @@ class MesSyncStatusOut(BaseModel):
     next_cursor: str | None = None
     configured: bool = False
     migration_ready: bool = True
+    adapter: str = 'null'
     source: str = 'local_entry'
+    stale_threshold_seconds: float | None = None
+    retry_limit: int = 0
     status: str = 'idle'
     last_run_status: str = 'idle'
     action_required: str = 'none'

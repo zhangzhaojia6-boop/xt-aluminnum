@@ -620,6 +620,64 @@ def test_sync_coil_snapshots_marks_run_failed_without_deleting_projection(monkey
     assert db.deleted == []
 
 
+def test_sync_coil_snapshots_retries_transient_adapter_failures(monkeypatch):
+    db = _FakeDB()
+    cursor = SimpleNamespace(cursor_key='coil_snapshots', cursor_value='cursor-1', last_event_at=None, last_synced_at=None, window_started_at=None)
+    db.cursor = cursor
+    snapshot = CoilSnapshot(
+        coil_id='coil-retry',
+        tracking_card_no='RA260099',
+        updated_at=datetime(2026, 4, 11, 2, 0, tzinfo=UTC),
+    )
+    calls = {'count': 0}
+
+    def flaky(**kwargs):
+        calls['count'] += 1
+        if calls['count'] == 1:
+            raise RuntimeError('temporary MES timeout')
+        return [snapshot], 'cursor-2'
+
+    monkeypatch.setattr('app.services.mes_sync_service._ensure_cursor', lambda _db, *, cursor_key: cursor)
+    monkeypatch.setattr('app.services.mes_sync_service._upsert_snapshot', lambda _db, *, snapshot, synced_at, **_kwargs: (True, False))
+    monkeypatch.setattr('app.services.mes_sync_service._sleep_before_retry', lambda _seconds: None)
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_RETRY_LIMIT', 1)
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_BACKOFF_SECONDS', 0)
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: SimpleNamespace(list_coil_snapshots=flaky))
+
+    payload = mes_sync_service.sync_coil_snapshots(db, now=datetime(2026, 4, 11, 2, 5, tzinfo=UTC))
+
+    run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
+    assert payload.status == 'success'
+    assert payload.fetched_count == 1
+    assert calls['count'] == 2
+    assert run_log.status == 'success'
+    assert run_log.metadata_json['attempt_count'] == 2
+
+
+def test_sync_coil_snapshots_does_not_mark_internal_write_error_as_vendor_failure(monkeypatch):
+    db = _FakeDB()
+    cursor = SimpleNamespace(cursor_key='coil_snapshots', cursor_value='cursor-1', last_event_at=None, last_synced_at=None, window_started_at=None)
+    db.cursor = cursor
+    snapshot = CoilSnapshot(
+        coil_id='coil-write-error',
+        tracking_card_no='RA260100',
+        updated_at=datetime(2026, 4, 11, 2, 0, tzinfo=UTC),
+    )
+
+    def write_failure(*_args, **_kwargs):
+        raise RuntimeError('local upsert failed')
+
+    monkeypatch.setattr('app.services.mes_sync_service._ensure_cursor', lambda _db, *, cursor_key: cursor)
+    monkeypatch.setattr('app.services.mes_sync_service._upsert_snapshot', write_failure)
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: SimpleNamespace(list_coil_snapshots=lambda **_kwargs: ([snapshot], 'cursor-2')))
+
+    with pytest.raises(RuntimeError, match='local upsert failed'):
+        mes_sync_service.sync_coil_snapshots(db, now=datetime(2026, 4, 11, 2, 5, tzinfo=UTC))
+
+    run_log = next(item for item in db.added if item.__class__.__name__ == 'MesSyncRunLog')
+    assert run_log.status == 'running'
+
+
 def test_sync_mes_projection_keeps_successful_sources_when_one_source_fails(monkeypatch):
     db = _FakeDB()
     snapshot = CoilSnapshot(
@@ -755,6 +813,42 @@ def test_sync_projection_step_marks_not_implemented_as_skipped():
     assert stats.fetched_count == 0
     assert stats.upserted_count == 0
     assert stats.error_message == 'not implemented: not implemented for this adapter'
+
+
+def test_sync_projection_step_retries_transient_adapter_failures(monkeypatch):
+    db = _FakeDB()
+    calls = {'count': 0}
+
+    def flaky_runner(_db, *, now):
+        calls['count'] += 1
+        if calls['count'] == 1:
+            raise RuntimeError('temporary projection timeout')
+        return mes_sync_service.MesSyncStats(
+            cursor_key='mes_dispatch',
+            fetched_count=1,
+            upserted_count=1,
+            replayed_count=0,
+            next_cursor=None,
+            lag_seconds=0,
+            last_event_at=now,
+            last_synced_at=now,
+            status='success',
+        )
+
+    monkeypatch.setattr('app.services.mes_sync_service._sleep_before_retry', lambda _seconds: None)
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_RETRY_LIMIT', 1)
+    monkeypatch.setattr('app.services.mes_sync_service.settings.MES_SYNC_BACKOFF_SECONDS', 0)
+
+    stats = mes_sync_service._sync_projection_step(
+        db,
+        cursor_key='mes_dispatch',
+        synced_at=datetime(2026, 5, 2, 8, 35, tzinfo=UTC),
+        runner=flaky_runner,
+    )
+
+    assert stats.status == 'success'
+    assert stats.upserted_count == 1
+    assert calls['count'] == 2
 
 
 def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive_payloads(tmp_path, monkeypatch):
