@@ -45,4 +45,5 @@ export async function loginThroughMockedPassword(page, {
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
   await page.waitForURL(/\/(entry|manage|admin|team-lead)(?:\/|$)/, { timeout: 10000 })
+  await page.waitForLoadState('domcontentloaded')
 }

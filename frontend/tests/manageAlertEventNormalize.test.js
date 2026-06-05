@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildAlertWorkQueues,
   normalizeFactoryDirector,
   normalizeQuality,
   normalizeReconciliation,
@@ -146,4 +147,38 @@ test('mergeAndSort sorts by occurredAt desc, ties broken by domain asc', () => {
     [{ id: 'c', domain: 'reconciliation', occurredAt: '2026-05-19T11:00:00' }]
   ])
   assert.deepEqual(out.map((e) => e.id), ['c', 'b', 'a'])
+})
+
+test('buildAlertWorkQueues groups events into actionable management queues', () => {
+  const queues = buildAlertWorkQueues([
+    { id: 'a', domain: 'reporting', summary: '热轧 长白班 缺报', status: 'open' },
+    { id: 'b', domain: 'production', summary: '能耗暂无可信数据', status: 'open' },
+    { id: 'c', domain: 'production', summary: 'MES 未匹配机列 18 条', status: 'open' },
+    { id: 'd', domain: 'quality', summary: '抽检异常', status: 'open' },
+    { id: 'e', domain: 'reconciliation', summary: '算法与填报差异', status: 'resolved' },
+  ])
+
+  assert.deepEqual(queues.map((queue) => [queue.key, queue.count]), [
+    ['reporting', 1],
+    ['energy', 1],
+    ['mes', 1],
+    ['quality', 1],
+    ['reconciliation', 1],
+    ['production', 0],
+  ])
+  assert.equal(queues.find((queue) => queue.key === 'reconciliation')?.openCount, 0)
+})
+
+test('buildAlertWorkQueues keeps known quality and reconciliation domains before keyword matching', () => {
+  const queues = buildAlertWorkQueues([
+    { id: 'q-energy', domain: 'quality', summary: '当日未导入能耗数据', status: 'open' },
+    { id: 'r-mes', domain: 'reconciliation', summary: '生产与 MES 核对差异', status: 'open' },
+    { id: 'p-energy', domain: 'production', summary: '总电耗暂无可信数据', status: 'open' },
+    { id: 'p-mes', domain: 'production', summary: 'MES 未匹配机列 18 条', status: 'open' },
+  ])
+
+  assert.equal(queues.find((queue) => queue.key === 'quality')?.count, 1)
+  assert.equal(queues.find((queue) => queue.key === 'reconciliation')?.count, 1)
+  assert.equal(queues.find((queue) => queue.key === 'energy')?.count, 1)
+  assert.equal(queues.find((queue) => queue.key === 'mes')?.count, 1)
 })

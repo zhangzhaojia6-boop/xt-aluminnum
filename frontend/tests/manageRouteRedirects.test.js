@@ -109,6 +109,7 @@ test('quality detail remains a preserved component route', () => {
 
 test('surface redirects preserve alert surface query', () => {
   for (const [path, surface] of [
+    ['anomalies', 'anomaly'],
     ['reconciliation', 'reconciliation'],
     ['quality', 'quality'],
     ['factory/exceptions', 'anomaly']
@@ -127,6 +128,13 @@ test('surface redirects preserve alert surface query', () => {
   assert.match(src, /path:\s*['"]\/review\/reconciliation['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]reconciliation['"]\s*\}\)/)
   assert.match(src, /path:\s*['"]\/quality\/center['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]quality['"]\s*\}\)/)
   assert.match(src, /path:\s*['"]\/reconciliation\/center['"],\s*redirect:\s*preserveRouteState\(['"]\/manage\/alerts['"],\s*\{\s*surface:\s*['"]reconciliation['"]\s*\}\)/)
+})
+
+test('legacy workshop manage path redirects to current workshop dashboard', () => {
+  const line = routeLine('workshop')
+
+  assert.ok(line, "route 'workshop' should exist under /manage")
+  assert.match(line, /redirect:\s*preserveRouteState\(['"]\/manage\/workshop-dashboard['"]\)/)
 })
 
 test('deleted route paths stay absent', () => {

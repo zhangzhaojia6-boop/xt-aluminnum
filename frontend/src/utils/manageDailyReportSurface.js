@@ -35,8 +35,18 @@ function formatPlainMetric(value, digits = 2) {
 function isEnergyAvailable(energy = {}) {
   if (energy.data_available === false) return false
   return toNumber(energy.total_electricity) !== null
+    || toNumber(energy.total_energy) !== null
+    || toNumber(energy.algorithm_total_energy) !== null
     || toNumber(energy.total_gas) !== null
     || toNumber(energy.energy_per_ton) !== null
+}
+
+function pickEnergyValue(energy = {}, keys = []) {
+  for (const key of keys) {
+    const value = toNumber(energy[key])
+    if (value !== null) return value
+  }
+  return null
 }
 
 function sumWorkshopOutput(rows = []) {
@@ -107,15 +117,17 @@ export function buildDailyComparisonCards(overview = {}) {
   const energy = overview.energy || {}
   const yieldRates = overview.yield_rates || {}
   const hasEnergy = isEnergyAvailable(energy)
+  const algorithmElectricity = pickEnergyValue(energy, ['total_electricity', 'algorithm_total_energy'])
+  const ownerElectricity = pickEnergyValue(energy, ['owner_electricity', 'owner_total_electricity', 'electricity_value'])
 
   return [
     {
       key: 'energy',
       title: '算法能耗',
       primaryLabel: '算法',
-      primaryValue: hasEnergy ? formatMetric(energy.total_electricity, '度') : MISSING_DAILY_VALUE,
+      primaryValue: hasEnergy && algorithmElectricity !== null ? formatMetric(algorithmElectricity, '度') : MISSING_DAILY_VALUE,
       compareLabel: '电工填报',
-      compareValue: formatMetric(energy.owner_electricity, '度'),
+      compareValue: formatMetric(ownerElectricity, '度'),
       tone: hasEnergy ? 'warning' : 'muted',
     },
     {

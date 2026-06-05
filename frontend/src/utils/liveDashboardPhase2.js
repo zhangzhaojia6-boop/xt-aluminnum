@@ -45,6 +45,10 @@ function resolveFactoryTotal(aggregation = {}) {
   return aggregation.factory_total || aggregation.factoryTotal || {}
 }
 
+function isEnergyUsable(energy = {}) {
+  return energy.data_available !== false && energy.dataAvailable !== false
+}
+
 export function buildLiveTickerItems(aggregation = {}) {
   const factoryTotal = resolveFactoryTotal(aggregation)
   const energy = resolveEnergySummary(aggregation)
@@ -67,18 +71,22 @@ export function buildLiveTickerItems(aggregation = {}) {
     'throughProcessOutput',
     'output',
   ])
-  const algorithmEnergy = pickValue(energy, [
-    'algorithm_total_energy',
-    'algorithmTotalEnergy',
-    'total_energy',
-    'totalEnergy',
-  ])
-  const algorithmPerTon = pickValue(energy, [
-    'algorithm_energy_per_ton',
-    'algorithmEnergyPerTon',
-    'energy_per_ton',
-    'energyPerTon',
-  ])
+  const algorithmEnergy = isEnergyUsable(energy)
+    ? pickValue(energy, [
+      'algorithm_total_energy',
+      'algorithmTotalEnergy',
+      'total_electricity',
+      'totalElectricity',
+    ])
+    : null
+  const algorithmPerTon = isEnergyUsable(energy)
+    ? pickValue(energy, [
+      'algorithm_energy_per_ton',
+      'algorithmEnergyPerTon',
+      'energy_per_ton',
+      'energyPerTon',
+    ])
+    : null
 
   return [
     {
@@ -233,24 +241,30 @@ export function buildLiveMetricCompareItems(aggregation = {}) {
     'filled_storage_finished_weight',
     'filledStorageFinishedWeight',
   ])
-  const algorithmEnergy = pickValue(energy, [
-    'algorithm_total_energy',
-    'algorithmTotalEnergy',
-    'total_energy',
-    'totalEnergy',
-  ])
-  const filledEnergy = resolveOwnerValue(energy, [
-    'owner_total_electricity',
-    'ownerTotalElectricity',
-    'electricity_value',
-    'electricityValue',
-  ])
-  const algorithmPerTon = pickValue(energy, [
-    'algorithm_energy_per_ton',
-    'algorithmEnergyPerTon',
-    'energy_per_ton',
-    'energyPerTon',
-  ])
+  const algorithmEnergy = isEnergyUsable(energy)
+    ? pickValue(energy, [
+      'algorithm_total_energy',
+      'algorithmTotalEnergy',
+      'total_electricity',
+      'totalElectricity',
+    ])
+    : null
+  const filledEnergy = isEnergyUsable(energy)
+    ? resolveOwnerValue(energy, [
+      'owner_total_electricity',
+      'ownerTotalElectricity',
+      'electricity_value',
+      'electricityValue',
+    ])
+    : null
+  const algorithmPerTon = isEnergyUsable(energy)
+    ? pickValue(energy, [
+      'algorithm_energy_per_ton',
+      'algorithmEnergyPerTon',
+      'energy_per_ton',
+      'energyPerTon',
+    ])
+    : null
 
   return [
     {
@@ -296,7 +310,7 @@ export function buildLiveEventItems({ streamStatus = 'idle', loadError = '', agg
   if (numberValue(progress.missing_cell_count ?? progress.missingCellCount) > 0) {
     events.push({ title: '未填报', tone: 'danger', text: `${numberValue(progress.missing_cell_count ?? progress.missingCellCount)} 个班次` })
   }
-  if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_energy', 'totalEnergy']))) {
+  if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_energy', 'totalEnergy', 'total_electricity', 'totalElectricity']))) {
     events.push({ title: '无能耗可信数据', tone: 'warning', text: '能耗不显示假 0' })
   }
   if (numberValue(missingOutput.entry_count ?? missingOutput.entryCount) > 0) {
@@ -304,6 +318,22 @@ export function buildLiveEventItems({ streamStatus = 'idle', loadError = '', agg
   }
 
   return events.slice(0, 8)
+}
+
+export function buildLivePriorityItems(events = []) {
+  const toneRank = { danger: 0, warning: 1, primary: 2, success: 3, muted: 4 }
+  return (events || [])
+    .map((event, index) => ({
+      ...event,
+      sourceIndex: index,
+      sortRank: toneRank[event.tone] ?? 5,
+    }))
+    .sort((left, right) => (left.sortRank - right.sortRank) || (left.sourceIndex - right.sourceIndex))
+    .slice(0, 3)
+    .map((event, index) => ({
+      ...event,
+      rank: index + 1,
+    }))
 }
 
 export function shouldReloadForRealtimeEvent({ type = '', payload = {}, targetDate = '' } = {}) {

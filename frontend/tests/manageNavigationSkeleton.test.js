@@ -26,7 +26,7 @@ const adminPaths = [
 test('owner skeleton exposes current top-level labels', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报', '生产', '考勤'])
+  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表', '生产分析', '人员考勤'])
 })
 
 test('owner skeleton keeps one stable entry per core surface', () => {
@@ -59,7 +59,7 @@ test('compact management navigation only exposes live and yesterday report for r
   const groups = manageNavGroups(reviewAuth, { compact: true })
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报'])
+  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表'])
   assert.deepEqual(paths, ['/manage/live', '/manage/today'])
 })
 
@@ -67,7 +67,7 @@ test('compact management navigation keeps admin users on the same two safe pages
   const groups = manageNavGroups(adminAuth, { compact: true })
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(groups.map((group) => group.label), ['生产实时', '昨日日报'])
+  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表'])
   assert.deepEqual(paths, ['/manage/live', '/manage/today'])
 })
 
@@ -98,4 +98,15 @@ test('admin skeleton exposes system settings in top-level navigation', () => {
   assert.equal(items.some((item) => item.path === '/manage/admin/settings'), true)
   assert.equal(items.some((item) => item.title === '系统设置'), true)
   assert.equal(items.some((item) => item.path === '/manage/admin/templates'), false)
+})
+
+test('management command labels do not duplicate group and item names', () => {
+  const groups = manageNavGroups(adminAuth)
+  const searchTexts = groups.flatMap((group) =>
+    group.items.map((item) => `${item.shortLabel || item.title}${group.label}`)
+  )
+
+  assert.equal(searchTexts.some((text) => text.includes('生产生产')), false)
+  assert.equal(searchTexts.some((text) => text.includes('实时实时')), false)
+  assert.equal(searchTexts.some((text) => text.includes('考勤考勤')), false)
 })

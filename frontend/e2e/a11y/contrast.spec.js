@@ -5,14 +5,13 @@ import { clearAuthStorage } from '../helpers/mock-login'
 import { setupReviewSessionAndMocks } from '../helpers/review-mocks'
 
 const authPages = [
-  { name: 'executive dashboard', path: '/manage/executive', scope: 'main', heading: '鑫泰铝业 数据中枢' },
-  { name: 'factory dashboard', path: '/dashboard/factory', scope: 'main', testId: 'factory-dashboard' },
-  { name: 'workshop dashboard', path: '/dashboard/workshop', scope: 'main', testId: 'workshop-dashboard' },
-  { name: 'ingestion center', path: '/manage/ingestion', scope: 'main', heading: '数据接入与字段映射中心' },
-  { name: 'review center', path: '/manage/entry-center?desktop=1', scope: '[data-testid="review-task-center"]', testId: 'review-task-center', mocks: setupReviewCenterMocks },
+  { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '昨日总览' },
+  { name: 'production dashboard', path: '/manage/production', scope: 'main', testId: 'manage-production' },
+  { name: 'workshop dashboard', path: '/manage/workshop-dashboard', scope: 'main', testId: 'workshop-dashboard' },
+  { name: 'system settings center', path: '/manage/admin/settings', scope: 'main', heading: '系统设置' },
   { name: 'reports center', path: '/manage/reports', scope: 'main', heading: '日报与交付中心', mocks: setupReportsMocks },
-  { name: 'quality center', path: '/manage/quality', scope: 'main', heading: '质量与告警中心', mocks: setupQualityMocks },
-  { name: 'reconciliation center', path: '/manage/reconciliation', scope: 'main', heading: '差异核对中心', mocks: setupReconciliationMocks },
+  { name: 'quality alerts', path: '/manage/alerts?surface=quality', scope: 'main', heading: '异常', mocks: setupQualityMocks },
+  { name: 'reconciliation alerts', path: '/manage/alerts?surface=reconciliation', scope: 'main', heading: '异常', mocks: setupReconciliationMocks },
   { name: 'master center', path: '/manage/master', scope: 'main', heading: '车间主数据' },
   { name: 'mobile entry', path: '/entry', scope: '.mobile-shell', testId: 'mobile-entry' },
   {
@@ -37,10 +36,23 @@ function formatColorViolations(violations) {
 }
 
 async function expectNoColorContrastViolations(page, scope, name) {
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2aa', 'wcag21aa'])
-    .include(scope)
-    .analyze()
+  let results
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      results = await new AxeBuilder({ page })
+        .withTags(['wcag2aa', 'wcag21aa'])
+        .include(scope)
+        .analyze()
+      break
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (attempt === 0 && message.includes('Execution context was destroyed')) {
+        await page.waitForLoadState('domcontentloaded')
+        continue
+      }
+      throw error
+    }
+  }
 
   const colorContrastViolations = results.violations.filter((violation) => violation.id === 'color-contrast')
   expect(
@@ -54,7 +66,7 @@ async function expectPageReady(page, target) {
     await expect(page.getByTestId(target.testId)).toBeVisible()
     return
   }
-  await expect(page.getByRole('heading', { name: target.heading })).toBeVisible()
+  await expect(page.getByRole('heading', { name: target.heading, exact: true })).toBeVisible()
 }
 
 async function setupReportsMocks(page) {

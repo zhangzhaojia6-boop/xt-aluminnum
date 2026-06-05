@@ -20,6 +20,23 @@
 
     <LiveMarketTicker :items="tickerItems" />
 
+    <section class="live-dashboard-page__priority" aria-label="今日优先处理">
+      <header>
+        <span>今日优先处理</span>
+        <strong>{{ priorityItems.length ? '先处理这 3 件事' : '暂无紧急事项' }}</strong>
+      </header>
+      <div v-if="priorityItems.length" class="live-dashboard-page__priority-list">
+        <article v-for="item in priorityItems" :key="`${item.rank}-${item.title}-${item.text}`" :class="`is-${item.tone}`">
+          <b>{{ item.rank }}</b>
+          <div>
+            <span>{{ item.title }}</span>
+            <strong>{{ item.text }}</strong>
+          </div>
+        </article>
+      </div>
+      <p v-else>实时连接与核心口径当前未发现高优先级异常。</p>
+    </section>
+
     <main class="live-dashboard-page__grid">
       <LiveMachineMatrix :matrix="machineMatrix" :loading="loading" @select="openMachine" />
       <LiveEventRail :events="eventItems" :stream-status="streamStatus" :connection-text="connectionLabel" :last-event-at="lastUpdateLabel" />
@@ -57,6 +74,7 @@ import {
   buildLiveEventItems,
   buildLiveMachineMatrix,
   buildLiveMetricCompareItems,
+  buildLivePriorityItems,
   buildLiveTickerItems,
   shouldReloadForRealtimeEvent,
 } from '../../../utils/liveDashboardPhase2'
@@ -98,6 +116,7 @@ const eventItems = computed(() => buildLiveEventItems({
   loadError: loadError.value,
   aggregation: aggregation.value,
 }))
+const priorityItems = computed(() => buildLivePriorityItems(eventItems.value))
 const hasSnapshotPayload = computed(() => Boolean(
   lastSnapshotAt.value
   || aggregation.value?.business_date
@@ -283,12 +302,127 @@ onUnmounted(() => {
 }
 
 .live-dashboard-page__header,
+.live-dashboard-page__priority,
 .live-dashboard-page__grid,
 .live-market-ticker,
 .live-metric-compare,
 .live-data-state-panel {
   position: relative;
   z-index: 1;
+}
+
+.live-dashboard-page__priority {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  border: 1px solid rgba(255, 171, 0, 0.26);
+  border-radius: 18px;
+  padding: 14px;
+  background:
+    linear-gradient(105deg, rgba(255, 171, 0, 0.14), transparent 42%),
+    rgba(3, 16, 31, 0.84);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.live-dashboard-page__priority::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(255, 171, 0, 0.14), transparent);
+  transform: translateX(-120%);
+  animation: liveButtonScan 4.8s ease-in-out infinite;
+}
+
+.live-dashboard-page__priority header,
+.live-dashboard-page__priority-list,
+.live-dashboard-page__priority p {
+  position: relative;
+  z-index: 1;
+}
+
+.live-dashboard-page__priority header {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.live-dashboard-page__priority header span {
+  color: rgba(255, 212, 128, 0.78);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.live-dashboard-page__priority header strong {
+  color: rgba(255, 242, 210, 0.94);
+  font-family: var(--xt-font-display, "Hanken Grotesk", sans-serif);
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+
+.live-dashboard-page__priority-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.live-dashboard-page__priority-list article {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 78px;
+  border: 1px solid rgba(255, 171, 0, 0.18);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(2, 16, 31, 0.78);
+}
+
+.live-dashboard-page__priority-list article.is-danger {
+  border-color: rgba(255, 93, 77, 0.42);
+}
+
+.live-dashboard-page__priority-list b {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 171, 0, 0.16);
+  color: #ffd480;
+  font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
+}
+
+.live-dashboard-page__priority-list article.is-danger b {
+  background: rgba(255, 93, 77, 0.18);
+  color: #ff8b7f;
+}
+
+.live-dashboard-page__priority-list span,
+.live-dashboard-page__priority-list strong {
+  display: block;
+}
+
+.live-dashboard-page__priority-list span {
+  color: rgba(185, 223, 235, 0.62);
+  font-size: 12px;
+}
+
+.live-dashboard-page__priority-list strong {
+  margin-top: 4px;
+  color: rgba(225, 253, 255, 0.9);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.live-dashboard-page__priority p {
+  margin: 0;
+  align-self: center;
+  color: rgba(185, 223, 235, 0.72);
 }
 
 .live-dashboard-page__header {
@@ -459,7 +593,12 @@ onUnmounted(() => {
 
 @media (max-width: 1180px) {
   .live-dashboard-page__grid,
+  .live-dashboard-page__priority,
   .live-dashboard-page__header {
+    grid-template-columns: 1fr;
+  }
+
+  .live-dashboard-page__priority-list {
     grid-template-columns: 1fr;
   }
 
@@ -481,6 +620,7 @@ onUnmounted(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .live-dashboard-page::after,
+  .live-dashboard-page__priority::before,
   .live-dashboard-page__eyebrow::before,
   .live-dashboard-page__connection i {
     animation: none;

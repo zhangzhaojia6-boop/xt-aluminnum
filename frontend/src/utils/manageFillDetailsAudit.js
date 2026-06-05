@@ -49,7 +49,16 @@ function hasEnergyData(energy = {}) {
   if (energy.data_available === false) return false
   return toNumber(energy.total_electricity) !== null
     || toNumber(energy.total_energy) !== null
+    || toNumber(energy.algorithm_total_energy) !== null
     || toNumber(energy.energy_per_ton) !== null
+}
+
+function pickEnergyValue(energy = {}, keys = []) {
+  for (const key of keys) {
+    const value = toNumber(energy[key])
+    if (value !== null) return value
+  }
+  return null
 }
 
 function mesSyncText(status = {}) {
@@ -70,8 +79,11 @@ export function buildAuditTickerItems({ dailyOverview = {}, liveAggregation = {}
   const energy = dailyOverview.energy || {}
   const contracts = dailyOverview.contracts || {}
   const processThroughput = sumWorkshopOutput(dailyOverview.workshop_output || [])
-  const algorithmEnergy = hasEnergyData(energy) ? formatMetric(energy.total_electricity, '度') : MISSING_AUDIT_VALUE
-  const ownerEnergy = formatMetric(energy.owner_electricity, '度')
+  const algorithmEnergyValue = pickEnergyValue(energy, ['total_electricity', 'algorithm_total_energy'])
+  const ownerEnergyValue = pickEnergyValue(energy, ['owner_electricity', 'owner_total_electricity', 'electricity_value'])
+  const energyUsable = energy.data_available !== false
+  const algorithmEnergy = energyUsable && algorithmEnergyValue !== null ? formatMetric(algorithmEnergyValue, '度') : MISSING_AUDIT_VALUE
+  const ownerEnergy = energyUsable ? formatMetric(ownerEnergyValue, '度') : MISSING_AUDIT_VALUE
 
   return [
     {
@@ -119,7 +131,10 @@ export function buildSourceChainCards(dailyOverview = {}) {
   const contracts = dailyOverview.contracts || {}
   const yieldRates = dailyOverview.yield_rates || {}
   const processThroughput = sumWorkshopOutput(dailyOverview.workshop_output || [])
-  const algorithmEnergy = hasEnergyData(energy) ? formatMetric(energy.total_electricity, '度') : MISSING_AUDIT_VALUE
+  const algorithmEnergyValue = pickEnergyValue(energy, ['total_electricity', 'algorithm_total_energy'])
+  const ownerEnergyValue = pickEnergyValue(energy, ['owner_electricity', 'owner_total_electricity', 'electricity_value'])
+  const energyUsable = energy.data_available !== false
+  const algorithmEnergy = energyUsable && algorithmEnergyValue !== null ? formatMetric(algorithmEnergyValue, '度') : MISSING_AUDIT_VALUE
 
   return [
     {
@@ -137,7 +152,7 @@ export function buildSourceChainCards(dailyOverview = {}) {
       primaryLabel: '算法总用电',
       primaryValue: algorithmEnergy,
       compareLabel: '电工填报',
-      compareValue: formatMetric(energy.owner_electricity, '度'),
+      compareValue: energyUsable ? formatMetric(ownerEnergyValue, '度') : MISSING_AUDIT_VALUE,
       tone: toneByMissing(algorithmEnergy, 'warning'),
     },
     {
@@ -209,6 +224,35 @@ function contentText(row = {}) {
     }
   }
   return parts.length ? parts.join('；') : '-'
+}
+
+export function isEnergyLedgerRow(row = {}) {
+  if (row.sourceType === 'machine_energy') return true
+  if (row.energy_kwh !== null && row.energy_kwh !== undefined) return true
+  if (row.gas_m3 !== null && row.gas_m3 !== undefined) return true
+  return (row.metrics || []).some((item) =>
+    /electric|energy|用电|能耗|天然气|gas/i.test(`${item?.key || ''} ${item?.label || ''}`)
+    && item?.value !== null
+    && item?.value !== undefined
+    && item?.value !== ''
+  )
+}
+
+export function isMachineProductionLedgerRow(row = {}) {
+  if (!['work_order_entry', 'mobile_shift_report'].includes(row.sourceType)) return false
+  if (isEnergyLedgerRow(row) && row.output_weight == null && row.input_weight == null && row.scrap_weight == null) {
+    return false
+  }
+  return true
+}
+
+export function explainWorkshopDataEmptyState({ loading = false, hasWorkshop = true, kind = 'mes', syncStatus = {} } = {}) {
+  if (loading) return '加载中...'
+  if (!hasWorkshop) return kind === 'wip' ? '请选择车间后查看在制料明细' : '请选择车间后查看外部 MES 明细'
+  const state = String(syncStatus.status || syncStatus.sync_status || '').toLowerCase()
+  if (state.includes('fail') || state.includes('error')) return '外部 MES 同步异常，请先查看系统设置中的同步状态'
+  if (kind === 'wip') return '当前车间暂无当日在制料快照'
+  return '当前车间暂无 MES 明细，可能是该车间无当日过站或机列尚未匹配'
 }
 
 export function buildFillLedgerRows(rows = []) {

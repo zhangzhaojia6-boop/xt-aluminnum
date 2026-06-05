@@ -12,7 +12,14 @@ test('DomainFilterChips renders 5 chips: 全部 + 4 domains', () => {
 test('DomainFilterChips toggles all by clearing modelValue', () => {
   assert.match(SRC, /modelValue/)
   assert.match(SRC, /update:modelValue/)
+  assert.match(SRC, /domain-change/)
   assert.match(SRC, /toggleAll|selectAll|clearDomains/)
+})
+
+test('DomainFilterChips keeps a local selected state for consecutive chip clicks', () => {
+  assert.match(SRC, /selectedDomains = ref\(\[\]\)/)
+  assert.match(SRC, /selectedDomains\.value = Array\.isArray\(value\) \? \[\.\.\.value\] : \[\]/)
+  assert.match(SRC, /const current = selectedDomains\.value/)
 })
 
 test('DomainFilterChips count comes from props.counts', () => {

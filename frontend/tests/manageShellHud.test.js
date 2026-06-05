@@ -75,7 +75,8 @@ test('ManageShell hides manual collapse control when viewport owns nav mode', ()
 test('ManageShell keeps adaptive navigation usable in icon and mobile modes', () => {
   assert.match(scriptBody, /ChatDotRound,\s*Close,\s*Expand,\s*Fold,\s*Menu,\s*Search,\s*Setting/)
   assert.match(src, /'xt-manage--compact-topbar': isCompactTopbar/)
-  assert.match(src, /:size="drawerSize"/)
+  assert.match(src, /class="xt-manage__drawer-overlay"/)
+  assert.match(src, /:style="\{ width: drawerSize \}"/)
   assert.match(src, /class="xt-manage__drawer-head"/)
   assert.match(src, /class="xt-manage__drawer-brand" :to="navTo\(manageHomePath\)"/)
   assert.match(src, /aria-label="关闭导航" @click="drawerOpen = false"/)
@@ -93,8 +94,13 @@ test('ManageShell keeps adaptive navigation usable in icon and mobile modes', ()
   assert.match(src, /\.xt-manage__search-trigger span/)
   assert.match(src, /env\(safe-area-inset-bottom\)/)
   assert.match(src, /scrollbar-width:\s*thin/)
-  assert.match(src, /:deep\(\.xt-manage__drawer \.el-drawer__body\)/)
+  assert.match(src, /\.xt-manage__drawer-overlay/)
   assert.match(src, /display:\s*flex;\s*flex-direction:\s*column;/)
+})
+
+test('ManageShell mobile drawer shows full page titles instead of compact labels', () => {
+  assert.match(src, /<nav class="xt-manage__drawer-nav" aria-label="移动端管理导航">/)
+  assert.match(src, /<span>\{\{ item\.title \}\}<\/span>/)
 })
 
 test('ManageShell preserves desktop override while navigating inside mobile drawer', () => {
@@ -102,6 +108,17 @@ test('ManageShell preserves desktop override while navigating inside mobile draw
   assert.match(scriptBody, /isMobileViewport\.value && route\.query\.desktop === ['"]1['"]/)
   assert.match(scriptBody, /return \{ path, query: \{ desktop: ['"]1['"] \} \}/)
   assert.match(src, /:to="navTo\(item\.path\)"/)
+})
+
+test('ManageShell closes transient overlays when route changes', () => {
+  assert.match(scriptBody, /import \{ computed, onBeforeUnmount, onMounted, ref, watch \} from ['"]vue['"]/)
+  assert.match(src, /<component :is="Component" :key="route\.path" \/>/)
+  assert.match(scriptBody, /watch\(\(\) => route\.path/)
+  assert.match(scriptBody, /searchOpen\.value = false/)
+  assert.match(scriptBody, /drawerOpen\.value = false/)
+  assert.match(scriptBody, /settingsDrawerOpen\.value = false/)
+  assert.match(scriptBody, /assistantOpen\.value = false/)
+  assert.match(scriptBody, /keyword\.value = ''/)
 })
 
 test('ManageShell supplies dark industrial tokens to nested management pages', () => {

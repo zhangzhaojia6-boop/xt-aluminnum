@@ -1,22 +1,34 @@
-﻿import { expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { setupReviewSessionAndMocks } from './helpers/review-mocks'
+
+async function seedStoredSession(page, token, user) {
+  await page.addInitScript(({ token, user }) => {
+    localStorage.setItem('aluminum_bypass_token', token)
+    localStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    sessionStorage.setItem('aluminum_bypass_token', token)
+    sessionStorage.setItem('aluminum_bypass_user', JSON.stringify(user))
+    localStorage.removeItem('aluminum_bypass_machine')
+    sessionStorage.removeItem('aluminum_bypass_machine')
+  }, { token, user })
+}
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.includes('fill-only')) {
-    await setupReviewSessionAndMocks(page, {
-      token: 'playwright-fill-token',
-      user: {
-        id: 2,
-        username: 'operator',
-        name: 'Playwright Operator',
-        role: 'operator',
-        is_mobile_user: true,
-        is_reviewer: false,
-        is_manager: false,
-        data_scope_type: 'self_team',
-        assigned_shift_ids: []
-      }
-    })
+    const token = 'playwright-fill-token'
+    const user = {
+      id: 2,
+      username: 'operator',
+      name: 'Playwright Operator',
+      role: 'operator',
+      is_mobile_user: true,
+      is_reviewer: false,
+      is_manager: false,
+      data_scope_type: 'self_team',
+      assigned_shift_ids: []
+    }
+
+    await setupReviewSessionAndMocks(page, { token, user, skipLogin: true })
+    await seedStoredSession(page, token, user)
     return
   }
 
@@ -24,39 +36,27 @@ test.beforeEach(async ({ page }, testInfo) => {
 })
 
 test('factory route renders the production board smoke surface', async ({ page }) => {
-  await page.goto('/manage/factory')
-
-  const factoryBoard = page.getByTestId('factory-dashboard')
+  await page.goto('/manage/production')
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(factoryBoard.getByRole('heading', { name: '工厂作业看板' })).toBeVisible()
-  await expect(factoryBoard.getByRole('heading', { name: '鑫泰铝业 数据中枢' })).toBeVisible()
-  await expect(factoryBoard.getByTestId('review-home-hero')).toBeVisible()
-  await expect(factoryBoard.getByTestId('review-assistant-dock')).toBeVisible()
-  const detailToggle = factoryBoard.getByRole('button', { name: /展开运行详情|收起运行详情/ })
-  await expect(detailToggle).toBeVisible()
-  if ((await detailToggle.textContent())?.includes('展开')) await detailToggle.click()
-  await expect(factoryBoard.getByText('今日产量').first()).toBeVisible()
-  await expect(factoryBoard.getByText('单吨能耗').first()).toBeVisible()
-  await expect(factoryBoard.getByTestId('delivery-ready-card')).toBeVisible()
-  await expect(factoryBoard.getByText('未就绪')).toBeVisible()
-
-  await expect(factoryBoard.getByText('今日上报状态')).toBeVisible()
-  await expect(factoryBoard.getByRole('columnheader', { name: '车间' })).toBeVisible()
-  await expect(factoryBoard.getByText('挤压车间').first()).toBeVisible()
-  await expect(factoryBoard.getByTestId('delivery-missing-steps')).toBeVisible()
-  await expect(factoryBoard.getByText('MES 已正式联通')).toHaveCount(0)
+  await expect(page.getByTestId('manage-production')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '生产', exact: true })).toBeVisible()
+  await expect(page.getByText('车间产量排名')).toBeVisible()
+  await expect(page.getByText('生产摘要')).toBeVisible()
+  await expect(page.getByTestId('manage-production-table')).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '车间' })).toBeVisible()
+  await expect(page.getByText('MES 已正式联通')).toHaveCount(0)
 })
 
 test('reports route renders the delivery center smoke surface', async ({ page }) => {
   await page.goto('/manage/reports')
 
-  const reportsCenter = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '日报与交付中心' }) })
-  const deliveryTable = reportsCenter.locator('.el-table')
+  const reportsCenter = page.getByTestId('report-delivery-page')
+  const deliveryTable = page.getByTestId('report-delivery-table')
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(reportsCenter.getByRole('heading', { name: '日报与交付中心' })).toBeVisible()
-  await expect(reportsCenter.getByText('日报筛选')).toBeVisible()
+  await expect(page.getByTestId('report-delivery-filters')).toBeVisible()
   await expect(reportsCenter.getByText('交付清单')).toBeVisible()
   await expect(deliveryTable).toBeVisible()
   await expect(deliveryTable.getByRole('columnheader', { name: '报告类型' })).toBeVisible()
@@ -66,32 +66,25 @@ test('reports route renders the delivery center smoke surface', async ({ page })
   await expect(reportsCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
-test('quality route renders the quality alerts smoke surface', async ({ page }) => {
+test('quality route renders the merged alerts smoke surface', async ({ page }) => {
   await page.goto('/manage/quality')
 
-  const qualityCenter = page.locator('.reference-page').filter({ has: page.getByRole('heading', { name: '质量与告警中心' }) })
-  const alertTable = qualityCenter.locator('.el-table')
-
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(qualityCenter.getByRole('heading', { name: '质量与告警中心' })).toBeVisible()
-  await expect(qualityCenter.getByText('告警筛选')).toBeVisible()
-  await expect(qualityCenter.getByText('告警清单')).toBeVisible()
-  await expect(alertTable).toBeVisible()
-  await expect(alertTable.getByRole('columnheader', { name: '问题级别' })).toBeVisible()
-  await expect(alertTable.getByRole('columnheader', { name: '处理状态' })).toBeVisible()
-  await expect(qualityCenter.getByRole('button', { name: '运行质量检查' })).toBeVisible()
-  await expect(qualityCenter.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
-  await expect(qualityCenter.getByRole('button', { name: '补录产量' })).toHaveCount(0)
+  await expect(page).toHaveURL(/\/manage\/alerts.*(surface|domain)=quality/)
+  await expect(page.getByTestId('manage-alerts')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '异常', exact: true })).toBeVisible()
+  await expect(page.getByTestId('manage-alerts-filters')).toBeVisible()
+  await expect(page.getByTestId('manage-alert-work-queues')).toBeVisible()
+  await expect(page.getByRole('button', { name: '提交生产数据' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
-test('cost route renders the factory cost benefit smoke surface', async ({ page }) => {
+test('cost route redirects to yesterday report instead of retired cost center', async ({ page }) => {
   await page.goto('/manage/factory/cost')
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '经营效益' })).toBeVisible()
-  await expect(page.getByText('经营估算')).toBeVisible()
-  await expect(page.getByText('毛差估算')).toBeVisible()
-  await expect(page.getByText('待补口径')).toBeVisible()
+  await expect(page).toHaveURL(/\/manage\/today$/)
+  await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
   await expect(page.getByText('成本核算与效益中心')).toHaveCount(0)
 })
 
@@ -129,7 +122,7 @@ test('fill-only operator cannot access review quality', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/(entry|login)$/)
   await expect(page.getByTestId('manage-shell')).toHaveCount(0)
-  await expect(page.locator('.reference-page').filter({ hasText: '质量与告警中心' })).toHaveCount(0)
+  await expect(page.getByTestId('manage-alerts')).toHaveCount(0)
 })
 
 test('fill-only operator cannot access review cost', async ({ page }) => {
@@ -153,26 +146,24 @@ test('fill-only operator cannot access review brain', async ({ page }) => {
   }
 })
 
-test('ops reliability center route renders live dashboard surface', async ({ page }) => {
-  await page.goto('/manage/factory')
+test('ops reliability center route renders system settings surface', async ({ page }) => {
+  await page.goto('/manage/production')
   await expect(page.getByTestId('manage-shell')).toBeVisible()
 
   await page.goto('/manage/admin/settings')
 
   await expect(page).toHaveURL(/\/manage\/admin\/settings$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByTestId('live-dashboard')).toBeVisible()
-  await expect(page.getByText('工厂实时态势', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('今日产量').first()).toBeVisible()
+  await expect(page.getByTestId('system-settings-page')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '系统设置' })).toBeVisible()
 })
 
-test('review roadmap legacy path redirects to review overview', async ({ page }) => {
+test('review roadmap legacy path redirects to yesterday report', async ({ page }) => {
   await page.goto('/review/roadmap')
 
-  await expect(page).toHaveURL(/\/manage\/overview$/)
+  await expect(page).toHaveURL(/\/manage\/today$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: '工厂指挥导航' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
 })
 
 test('review navigation does not expose roadmap as a formal center', async ({ page }) => {
@@ -181,6 +172,6 @@ test('review navigation does not expose roadmap as a formal center', async ({ pa
   const reviewAside = page.getByTestId('manage-shell').locator('.xt-manage__sidebar')
   const roadmapItem = reviewAside.locator('.xt-manage__nav-item', { hasText: '路线图' })
 
-  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '工厂状态' })).toBeVisible()
+  await expect(reviewAside.locator('.xt-manage__nav-group-label', { hasText: '昨日报表' })).toBeVisible()
   await expect(roadmapItem).toHaveCount(0)
 })

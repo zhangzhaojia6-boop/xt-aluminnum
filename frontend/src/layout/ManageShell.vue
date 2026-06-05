@@ -88,45 +88,49 @@
         <div class="xt-manage__container">
           <RouterView v-slot="{ Component }">
             <Transition name="xt-fade" mode="out-in">
-              <component :is="Component" />
+              <component :is="Component" :key="route.path" />
             </Transition>
           </RouterView>
         </div>
       </main>
     </div>
 
-    <el-drawer v-model="drawerOpen" direction="ltr" :size="drawerSize" :with-header="false" class="xt-manage__drawer">
-      <div class="xt-manage__drawer-head">
-        <RouterLink class="xt-manage__drawer-brand" :to="navTo(manageHomePath)" aria-label="鑫泰铝业数据中枢" @click="drawerOpen = false">
-          <XtLogo variant="icon" />
-          <span>数据中枢</span>
-        </RouterLink>
-        <button class="xt-manage__drawer-close" type="button" aria-label="关闭导航" @click="drawerOpen = false">
-          <el-icon><Close /></el-icon>
-        </button>
+    <Transition name="xt-drawer">
+      <div v-if="drawerOpen" class="xt-manage__drawer-overlay" @click.self="drawerOpen = false">
+        <aside class="xt-manage__drawer" role="dialog" aria-modal="true" aria-label="管理端移动导航" :style="{ width: drawerSize }">
+          <div class="xt-manage__drawer-head">
+            <RouterLink class="xt-manage__drawer-brand" :to="navTo(manageHomePath)" aria-label="鑫泰铝业数据中枢" @click="closeDrawerAfterNavigation">
+              <XtLogo variant="icon" />
+              <span>数据中枢</span>
+            </RouterLink>
+            <button class="xt-manage__drawer-close" type="button" aria-label="关闭导航" @click="drawerOpen = false">
+              <el-icon><Close /></el-icon>
+            </button>
+          </div>
+          <nav class="xt-manage__drawer-nav" aria-label="移动端管理导航">
+            <template v-for="group in navGroups" :key="group.label">
+              <div class="xt-manage__nav-group-label">{{ group.label }}</div>
+              <RouterLink
+                v-for="item in group.items"
+                :key="item.path"
+                :to="navTo(item.path)"
+                class="xt-manage__nav-item"
+                :class="{ 'is-active': isActive(item.path) }"
+                :aria-label="item.title"
+                :aria-current="isActive(item.path) ? 'page' : undefined"
+                @click="closeDrawerAfterNavigation"
+              >
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span class="xt-manage__nav-label">
+                  <span>{{ item.title }}</span>
+                  <small v-if="item.secondaryGroup">{{ item.secondaryGroup }}</small>
+                </span>
+              </RouterLink>
+            </template>
+          </nav>
+        </aside>
       </div>
-      <nav class="xt-manage__drawer-nav" aria-label="移动端管理导航">
-        <template v-for="group in navGroups" :key="group.label">
-          <div class="xt-manage__nav-group-label">{{ group.label }}</div>
-          <RouterLink
-            v-for="item in group.items"
-            :key="item.path"
-            :to="navTo(item.path)"
-            class="xt-manage__nav-item"
-            :class="{ 'is-active': isActive(item.path) }"
-            :aria-label="item.title"
-            :aria-current="isActive(item.path) ? 'page' : undefined"
-            @click="drawerOpen = false"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span class="xt-manage__nav-label">
-              <span>{{ item.shortLabel || item.title }}</span>
-              <small v-if="item.secondaryGroup">{{ item.secondaryGroup }}</small>
-            </span>
-          </RouterLink>
-        </template>
-      </nav>
-    </el-drawer>
+    </Transition>
 
     <el-dialog v-model="searchOpen" title="搜索" width="520px" class="xt-search-overlay">
       <el-input v-model="keyword" placeholder="搜索功能" :prefix-icon="Search" />
@@ -136,7 +140,7 @@
           :key="item.path"
           :to="navTo(item.path)"
           class="xt-manage__search-item"
-          @click="searchOpen = false"
+          @click="closeSearchAfterNavigation"
         >
           <span>{{ item.shortLabel || item.title }}</span>
           <small>{{ item.group }}</small>
@@ -155,7 +159,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { ChatDotRound, Close, Expand, Fold, Menu, Search, Setting } from '@element-plus/icons-vue'
 
@@ -270,6 +274,26 @@ function openAssistantFromTopbar() {
   assistantInitialPrompt.value = ''
   assistantOpen.value = true
 }
+
+function closeDrawerAfterNavigation() {
+  window.setTimeout(() => {
+    drawerOpen.value = false
+  }, 0)
+}
+
+function closeSearchAfterNavigation() {
+  window.setTimeout(() => {
+    searchOpen.value = false
+  }, 0)
+}
+
+watch(() => route.path, () => {
+  drawerOpen.value = false
+  searchOpen.value = false
+  settingsDrawerOpen.value = false
+  assistantOpen.value = false
+  keyword.value = ''
+})
 
 onMounted(() => {
   syncSidebarViewport()
@@ -775,6 +799,37 @@ onBeforeUnmount(() => {
 
 .xt-manage__search-item small {
   color: var(--manage-muted);
+}
+
+.xt-manage__drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 242, 255, 0.16), transparent 34%),
+    rgba(1, 8, 18, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.xt-manage__drawer {
+  height: 100%;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--manage-line-strong);
+  box-shadow: 20px 0 54px rgba(0, 12, 30, 0.48);
+}
+
+.xt-drawer-enter-active,
+.xt-drawer-leave-active {
+  transition: opacity var(--xt-motion-normal) var(--xt-ease);
+}
+
+.xt-drawer-enter-from,
+.xt-drawer-leave-to {
+  opacity: 0;
 }
 
 :deep(.xt-manage__drawer) {

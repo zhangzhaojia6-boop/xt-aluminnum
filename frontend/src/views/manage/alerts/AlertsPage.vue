@@ -33,8 +33,41 @@
       <DomainFilterChips
         :model-value="timeline.domains.value"
         :counts="timeline.domainCounts.value"
-        @update:model-value="onDomainsChange"
+        @domain-change="onDomainsChange"
       />
+    </section>
+
+    <section class="xt-alerts__queues" data-testid="manage-alert-work-queues">
+      <header class="xt-alerts__queue-head">
+        <div>
+          <span class="xt-alerts__eyebrow">ACTION QUEUE</span>
+          <h2>异常处理队列</h2>
+        </div>
+        <p>{{ workQueueSummary }}</p>
+      </header>
+      <div class="xt-alerts__queue-grid">
+        <article
+          v-for="queue in workQueues"
+          :key="queue.key"
+          class="xt-alerts__queue"
+          :class="`tone-${queue.tone}`"
+        >
+          <header>
+            <span>{{ queue.title }}</span>
+            <strong>{{ queue.count }}</strong>
+          </header>
+          <div v-if="queue.items.length" class="xt-alerts__queue-items">
+            <RouterLink
+              v-for="item in queue.items"
+              :key="item.id"
+              :to="item.route"
+            >
+              {{ item.text }}
+            </RouterLink>
+          </div>
+          <p v-else>当前无待处理</p>
+        </article>
+      </div>
     </section>
 
     <section class="xt-alerts__timeline-shell">
@@ -60,16 +93,18 @@
 
 <script setup>
 import { computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import DomainFilterChips from '../../../components/manage/DomainFilterChips.vue'
 import EventTimeline from '../../../components/manage/EventTimeline.vue'
+import { buildAlertWorkQueues } from '../../../components/manage/_alertEventNormalize.js'
 import { useAlertsTimeline } from '../../../composables/useAlertsTimeline.js'
 
 const route = useRoute()
 const router = useRouter()
 const timeline = useAlertsTimeline()
+let domainRouteSync = Promise.resolve()
 
 const SURFACE_TO_DOMAIN = { anomaly: 'production', quality: 'quality', reconciliation: 'reconciliation' }
 
@@ -87,7 +122,9 @@ function syncRouteFromDomains(domains) {
   delete next.surface
   if (domains.length === 0) delete next.domain
   else next.domain = domains.join(',')
-  router.replace({ query: next })
+  domainRouteSync = domainRouteSync
+    .catch(() => {})
+    .then(() => router.replace({ query: next }))
 }
 
 function onDomainsChange(next) {
@@ -98,6 +135,12 @@ function onDomainsChange(next) {
 const openCount = computed(
   () => timeline.filteredEvents.value.filter((e) => e.status === 'open').length
 )
+const workQueues = computed(() => buildAlertWorkQueues(timeline.filteredEvents.value))
+const workQueueSummary = computed(() => {
+  const total = workQueues.value.reduce((sum, item) => sum + item.count, 0)
+  const open = workQueues.value.reduce((sum, item) => sum + item.openCount, 0)
+  return open > 0 ? `${open} 件未结 / ${total} 件异常` : `${total} 件异常已纳入队列`
+})
 const alertStats = computed(() => {
   const total = timeline.filteredEvents.value.length
   return [
@@ -153,6 +196,7 @@ watch(() => route.query, () => {
 .xt-alerts__hero,
 .xt-alerts__stat,
 .xt-alerts__filters,
+.xt-alerts__queues,
 .xt-alerts__timeline-shell {
   position: relative;
   overflow: hidden;
@@ -166,6 +210,7 @@ watch(() => route.query, () => {
 
 .xt-alerts__hero::after,
 .xt-alerts__stat::after,
+.xt-alerts__queues::after,
 .xt-alerts__timeline-shell::after {
   position: absolute;
   inset: 0;
@@ -188,6 +233,8 @@ watch(() => route.query, () => {
 
 .xt-alerts__title-block,
 .xt-alerts__date-dock,
+.xt-alerts__queue-head,
+.xt-alerts__queue-grid,
 .xt-alerts__timeline-head,
 .xt-alerts__stat > * {
   position: relative;
@@ -303,6 +350,96 @@ watch(() => route.query, () => {
   border-radius: var(--xt-radius-xl);
 }
 
+.xt-alerts__queues {
+  display: grid;
+  gap: var(--xt-space-4);
+  padding: var(--xt-space-5);
+  border-radius: var(--xt-radius-2xl);
+}
+
+.xt-alerts__queue-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--xt-space-4);
+  flex-wrap: wrap;
+}
+
+.xt-alerts__queue-head p {
+  margin: 0;
+  color: color-mix(in srgb, var(--xt-text-inverse) 64%, transparent);
+  font-size: var(--xt-text-sm);
+  font-weight: 800;
+}
+
+.xt-alerts__queue-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--xt-space-3);
+}
+
+.xt-alerts__queue {
+  display: grid;
+  gap: var(--xt-space-3);
+  min-height: 148px;
+  padding: var(--xt-space-4);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
+  border-radius: var(--xt-radius-xl);
+  background: color-mix(in srgb, var(--xt-bg-ink) 64%, transparent);
+}
+
+.xt-alerts__queue header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
+}
+
+.xt-alerts__queue header span {
+  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  font-size: var(--xt-text-sm);
+  font-weight: 900;
+}
+
+.xt-alerts__queue header strong {
+  color: var(--xt-primary);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
+  line-height: 1;
+}
+
+.xt-alerts__queue.tone-danger header strong {
+  color: color-mix(in srgb, var(--xt-danger) 76%, var(--xt-text-inverse));
+}
+
+.xt-alerts__queue.tone-warning header strong {
+  color: color-mix(in srgb, var(--xt-warning) 76%, var(--xt-text-inverse));
+}
+
+.xt-alerts__queue-items {
+  display: grid;
+  gap: var(--xt-space-2);
+}
+
+.xt-alerts__queue-items a {
+  overflow: hidden;
+  padding: var(--xt-space-2);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 12%, var(--xt-border));
+  border-radius: var(--xt-radius-md);
+  color: color-mix(in srgb, var(--xt-text-inverse) 82%, var(--xt-primary));
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-alerts__queue p {
+  margin: 0;
+  color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
+  font-size: var(--xt-text-xs);
+}
+
 .xt-alerts__filters :deep(.xt-domain-chip) {
   height: 34px;
   border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
@@ -312,7 +449,7 @@ watch(() => route.query, () => {
 
 .xt-alerts__filters :deep(.xt-domain-chip.is-active) {
   background: color-mix(in srgb, var(--xt-primary) 24%, var(--xt-bg-ink-panel));
-  color: var(--xt-primary);
+  color: var(--xt-text-inverse);
   box-shadow: inset 0 0 var(--xt-space-4) color-mix(in srgb, var(--xt-primary) 12%, transparent);
 }
 
@@ -405,6 +542,10 @@ watch(() => route.query, () => {
   .xt-alerts__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .xt-alerts__queue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -429,6 +570,10 @@ watch(() => route.query, () => {
   }
 
   .xt-alerts__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .xt-alerts__queue-grid {
     grid-template-columns: 1fr;
   }
 }

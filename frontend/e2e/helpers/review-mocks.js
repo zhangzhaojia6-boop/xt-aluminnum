@@ -25,6 +25,9 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
   await page.route('**/api/v1/auth/me', async (route) => {
     await fulfillJson(route, user)
   })
+  await page.route('**/api/v1/user/preferences', async (route) => {
+    await fulfillJson(route, { theme: 'default' })
+  })
 
   const runtimeTrace = {
     source_lanes: [

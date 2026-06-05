@@ -22,44 +22,44 @@ const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today'])
 
 const NAV_GROUPS = [
   {
-    label: '生产实时',
-    commandGroup: '生产实时',
+    label: '实时调度',
+    commandGroup: '实时调度',
     items: [
-      { title: '生产实时', shortLabel: '实时', path: '/manage/live', icon: TrendCharts, access: 'review', commandGroup: '生产实时' }
+      { title: '实时调度墙', shortLabel: '调度', path: '/manage/live', icon: TrendCharts, access: 'review', commandGroup: '实时调度' }
     ]
   },
   {
-    label: '昨日日报',
-    commandGroup: '昨日日报',
+    label: '昨日报表',
+    commandGroup: '昨日报表',
     items: [
-      { title: '昨日日报', shortLabel: '昨日日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日日报' }
+      { title: '昨日报表', shortLabel: '日报', path: '/manage/today', icon: Sunny, access: 'review', commandGroup: '昨日报表' }
     ]
   },
   {
-    label: '生产',
-    commandGroup: '生产',
+    label: '生产分析',
+    commandGroup: '生产分析',
     items: [
-      { title: '生产', shortLabel: '生产', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产' },
-      { title: '各车间看板', shortLabel: '车间看板', path: '/manage/workshop-dashboard', icon: Monitor, access: 'workshop_dashboard', commandGroup: '生产' },
-      { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产' },
-      { title: '能耗', shortLabel: '能耗', path: '/manage/energy', icon: DataLine, access: 'review', commandGroup: '生产' },
-      { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产' }
+      { title: '生产分析', shortLabel: '作业', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产分析' },
+      { title: '各车间看板', shortLabel: '车间', path: '/manage/workshop-dashboard', icon: Monitor, access: 'workshop_dashboard', commandGroup: '生产分析' },
+      { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产分析' },
+      { title: '能耗中心', shortLabel: '能耗', path: '/manage/energy', icon: DataLine, access: 'review', commandGroup: '生产分析' },
+      { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产分析' }
     ]
   },
   {
-    label: '考勤',
-    commandGroup: '考勤',
+    label: '人员考勤',
+    commandGroup: '人员考勤',
     items: [
-      { title: '考勤', shortLabel: '考勤', path: '/manage/attendance', icon: Sunny, access: 'review', commandGroup: '考勤' }
+      { title: '人员考勤', shortLabel: '人员', path: '/manage/attendance', icon: Sunny, access: 'review', commandGroup: '人员考勤' }
     ]
   },
   {
     label: '系统',
     commandGroup: '系统',
     items: [
-      { title: '主数据', shortLabel: '主数', path: '/manage/master', icon: Histogram, access: 'admin', commandGroup: '系统' },
-      { title: '用户管理', shortLabel: '用户', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
-      { title: '规则配置', shortLabel: '规则', path: '/manage/admin/rules', icon: Histogram, access: 'admin', commandGroup: '系统' },
+      { title: '基础资料', shortLabel: '资料', path: '/manage/master', icon: Histogram, access: 'admin', commandGroup: '系统' },
+      { title: '账号权限', shortLabel: '账号', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
+      { title: '业务规则', shortLabel: '规则', path: '/manage/admin/rules', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统' }
     ]
   }

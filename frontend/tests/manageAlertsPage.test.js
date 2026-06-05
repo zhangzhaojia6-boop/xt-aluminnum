@@ -44,3 +44,10 @@ test('AlertsPage uses computed openCount filtering by status open', () => {
   assert.match(SRC, /openCount/)
   assert.match(SRC, /status === 'open'|=== 'open'/)
 })
+
+test('AlertsPage exposes actionable work queues before the timeline', () => {
+  assert.match(SRC, /buildAlertWorkQueues/)
+  assert.match(SRC, /异常处理队列/)
+  assert.match(SRC, /workQueues/)
+  assert.match(SRC, /xt-alerts__queue-grid/)
+})

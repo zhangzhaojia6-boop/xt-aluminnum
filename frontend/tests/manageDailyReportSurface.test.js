@@ -93,6 +93,46 @@ test('daily comparison cards show algorithm values first and owner filled values
   assert.equal(cards[0].compareValue, '1,180 度')
 })
 
+test('daily comparison cards accept electricity aliases shared with live and energy pages', () => {
+  const cards = buildDailyComparisonCards({
+    energy: {
+      total_electricity: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards[0].primaryValue, '17,430 度')
+  assert.equal(cards[0].compareValue, '17,020 度')
+})
+
+test('daily comparison cards do not display comprehensive total_energy as electricity', () => {
+  const cards = buildDailyComparisonCards({
+    energy: {
+      total_energy: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards[0].primaryValue, MISSING_DAILY_VALUE)
+  assert.equal(cards[0].compareValue, '17,020 度')
+})
+
+test('daily comparison cards treat algorithm_total_energy as available energy data', () => {
+  const cards = buildDailyComparisonCards({
+    energy: {
+      algorithm_total_energy: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards[0].primaryValue, '17,430 度')
+  assert.equal(cards[0].compareValue, '17,020 度')
+  assert.equal(cards[0].tone, 'warning')
+})
+
 test('daily workshop rows filter cancelled workshops and keep throughput wording', () => {
   const rows = buildDailyWorkshopRows([
     { workshop: '退火一车间', daily_output: 12, monthly_output: 90 },

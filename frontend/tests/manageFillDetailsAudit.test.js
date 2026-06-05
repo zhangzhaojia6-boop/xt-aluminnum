@@ -7,7 +7,10 @@ import {
   buildFillLedgerRows,
   buildIssueQueues,
   buildSourceChainCards,
+  explainWorkshopDataEmptyState,
   filterFillLedgerRows,
+  isEnergyLedgerRow,
+  isMachineProductionLedgerRow,
   MISSING_AUDIT_VALUE,
 } from '../src/utils/manageFillDetailsAudit.js'
 import {
@@ -91,6 +94,54 @@ test('audit ticker never renders fake zero when energy is unavailable', () => {
   assert.equal(items.find((item) => item.key === 'owner-energy')?.value, MISSING_AUDIT_VALUE)
 })
 
+test('audit ticker accepts electricity aliases shared with live and energy pages', () => {
+  const items = buildAuditTickerItems({
+    dailyOverview: {
+      ...dailyOverview,
+      energy: {
+        total_electricity: 17430,
+        owner_total_electricity: 17020,
+        data_available: true,
+      },
+    },
+  })
+
+  assert.equal(items.find((item) => item.key === 'algorithm-energy')?.value, '17,430 度')
+  assert.equal(items.find((item) => item.key === 'owner-energy')?.value, '17,020 度')
+})
+
+test('audit ticker does not display comprehensive total_energy as electricity', () => {
+  const items = buildAuditTickerItems({
+    dailyOverview: {
+      ...dailyOverview,
+      energy: {
+        total_energy: 17430,
+        owner_total_electricity: 17020,
+        data_available: true,
+      },
+    },
+  })
+
+  assert.equal(items.find((item) => item.key === 'algorithm-energy')?.value, MISSING_AUDIT_VALUE)
+  assert.equal(items.find((item) => item.key === 'owner-energy')?.value, '17,020 度')
+})
+
+test('audit ticker treats algorithm_total_energy as available energy data', () => {
+  const items = buildAuditTickerItems({
+    dailyOverview: {
+      ...dailyOverview,
+      energy: {
+        algorithm_total_energy: 17430,
+        owner_total_electricity: 17020,
+        data_available: true,
+      },
+    },
+  })
+
+  assert.equal(items.find((item) => item.key === 'algorithm-energy')?.value, '17,430 度')
+  assert.equal(items.find((item) => item.key === 'owner-energy')?.value, '17,020 度')
+})
+
 test('source chain cards keep algorithm values primary and filled values secondary', () => {
   const cards = buildSourceChainCards(dailyOverview)
 
@@ -105,6 +156,48 @@ test('source chain cards keep algorithm values primary and filled values seconda
   )
   assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, '1,200 度')
   assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '1,180 度')
+})
+
+test('source chain cards accept electricity aliases shared with live and energy pages', () => {
+  const cards = buildSourceChainCards({
+    ...dailyOverview,
+    energy: {
+      total_electricity: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, '17,430 度')
+  assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '17,020 度')
+})
+
+test('source chain cards do not display comprehensive total_energy as electricity', () => {
+  const cards = buildSourceChainCards({
+    ...dailyOverview,
+    energy: {
+      total_energy: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, MISSING_AUDIT_VALUE)
+  assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '17,020 度')
+})
+
+test('source chain cards treat algorithm_total_energy as available energy data', () => {
+  const cards = buildSourceChainCards({
+    ...dailyOverview,
+    energy: {
+      algorithm_total_energy: 17430,
+      owner_total_electricity: 17020,
+      data_available: true,
+    },
+  })
+
+  assert.equal(cards.find((item) => item.key === 'energy')?.primaryValue, '17,430 度')
+  assert.equal(cards.find((item) => item.key === 'energy')?.compareValue, '17,020 度')
 })
 
 test('fill ledger rows expose person, post, submit time and content', () => {
@@ -159,6 +252,30 @@ test('fill ledger search matches responsible person, machine and tracking card',
   assert.deepEqual(filterFillLedgerRows(rows, { keyword: 'TX-001' }).map((row) => row.rowId), ['b'])
   assert.deepEqual(filterFillLedgerRows(rows, { sourceType: 'owner_daily' }).map((row) => row.rowId), ['a'])
   assert.deepEqual(rows.map((row) => row.rowId), ['a', 'b'])
+})
+
+test('workshop dashboard separates machine production rows from electrician energy rows', () => {
+  const rows = buildFillLedgerRows([
+    { row_id: 'machine', source_type: 'work_order_entry', machine_name: '1#机', output_weight: 9.5 },
+    { row_id: 'electric', source_type: 'mobile_shift_report', machine_name: '电工岗', energy_kwh: 1200 },
+    { row_id: 'energy', source_type: 'machine_energy', machine_name: '总电工', gas_m3: 300 },
+  ])
+
+  assert.deepEqual(rows.filter(isMachineProductionLedgerRow).map((row) => row.rowId), ['machine'])
+  assert.deepEqual(rows.filter(isEnergyLedgerRow).map((row) => row.rowId), ['electric', 'energy'])
+})
+
+test('workshop empty states explain whether data is loading, unselected, sync failed or absent', () => {
+  assert.equal(explainWorkshopDataEmptyState({ loading: true, kind: 'mes' }), '加载中...')
+  assert.equal(explainWorkshopDataEmptyState({ hasWorkshop: false, kind: 'mes' }), '请选择车间后查看外部 MES 明细')
+  assert.equal(
+    explainWorkshopDataEmptyState({ hasWorkshop: true, kind: 'mes', syncStatus: { status: 'failed' } }),
+    '外部 MES 同步异常，请先查看系统设置中的同步状态',
+  )
+  assert.equal(
+    explainWorkshopDataEmptyState({ hasWorkshop: true, kind: 'wip', syncStatus: { status: 'fresh' } }),
+    '当前车间暂无当日在制料快照',
+  )
 })
 
 test('issue queues surface pending assignment, missing owner roles, energy gaps and MES gaps', () => {
@@ -277,6 +394,9 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   assert.match(dashboardSrc, /data-testid="workshop-dashboard-filter"/)
   assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)
   assert.match(dashboardSrc, /fetchMesMaterialRecords\(scopedParams/)
+  assert.match(dashboardSrc, /explainWorkshopDataEmptyState/)
+  assert.match(dashboardSrc, /isMachineProductionLedgerRow/)
+  assert.match(dashboardSrc, /isEnergyLedgerRow/)
   assert.doesNotMatch(
     dashboardSrc,
     /unresolved_machine_count\s*\|\|\s*0\)\s*\+\s*Number\(mes\.upstream_machine_code_missing_count/,

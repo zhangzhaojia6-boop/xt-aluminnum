@@ -121,6 +121,25 @@ test('resolveGuardDecision keeps compact review users on the mobile management a
   )
 })
 
+test('resolveGuardDecision honors desktop override for compact admins', () => {
+  assert.equal(
+    resolveGuardDecision({
+      to: route({
+        name: 'admin-ops-reliability',
+        query: { desktop: '1' },
+        meta: { requiresAuth: true, zone: 'manage', access: 'admin' },
+      }),
+      auth: auth({
+        adminSurface: true,
+        canAccessFillSurface: true,
+        canAccessReviewSurface: true,
+      }),
+      compactClient: true,
+    }),
+    true
+  )
+})
+
 test('resolveGuardDecision keeps compact workshop directors inside the workshop dashboard', () => {
   const directorAuth = auth({
     isWorkshopDirector: true,
@@ -154,7 +173,7 @@ test('resolveGuardDecision keeps compact workshop directors inside the workshop 
       }),
       compactClient: true,
     }),
-    { name: 'manage-workshop-dashboard' }
+    true
   )
   assert.deepEqual(
     resolveGuardDecision({

@@ -39,12 +39,11 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
     ])
   })
 
-  test('today key event 对账 → /manage/alerts?domain=reconciliation, chip active, list filtered', async ({ page }) => {
-    await page.goto('/manage/today')
-    await page.getByRole('link', { name: /对账未结/ }).click()
+  test('reconciliation route activates chip and filters the list', async ({ page }) => {
+    await page.goto('/manage/alerts?domain=reconciliation')
     await expect(page).toHaveURL(/\/manage\/alerts\?domain=reconciliation/)
     await expect(page.locator('.xt-domain-chip', { hasText: /对账/ })).toHaveClass(/is-active/)
-    await expect(page.getByText(/生产与 MES 核对/)).toBeVisible()
+    await expect(page.locator('.xt-event-card', { hasText: /生产与 MES 核对/ })).toBeVisible()
     await expect(page.getByText('抽检不合格')).toHaveCount(0)
   })
 
@@ -57,22 +56,41 @@ test.describe('manage alerts timeline (Phase C-1)', () => {
 
   test('multi-select chips filter the list', async ({ page }) => {
     await page.goto('/manage/alerts')
-    await page.getByRole('button', { name: /生产 \d/ }).click()
-    await page.getByRole('button', { name: /对账 \d/ }).click()
+    await expect(page).toHaveURL(/\/manage\/alerts$/)
+    const domainGroup = page.getByRole('group', { name: '异常域过滤' })
+    const productionChip = domainGroup.getByRole('button', { name: /生产 \d/ })
+
+    await productionChip.click()
+    await expect(page).toHaveURL(/domain=production/)
+    await expect(productionChip).toHaveClass(/is-active/)
+
+    const reconciliationChip = domainGroup.getByRole('button', { name: /对账 \d/ })
+    await expect(reconciliationChip).toBeVisible()
+    await reconciliationChip.click()
+    await expect(reconciliationChip).toHaveClass(/is-active/)
+    await expect(page).toHaveURL(/domain=production,reconciliation|domain=reconciliation,production/)
     await expect(page.getByText('抽检不合格')).toHaveCount(0)
-    await expect(page.getByText(/挤压车间 早班 迟报/)).toBeVisible()
-    await expect(page.getByText(/生产与 MES 核对/)).toBeVisible()
+    await expect(page.locator('.xt-event-card', { hasText: /挤压车间 早班 迟报/ })).toBeVisible()
+    await expect(page.locator('.xt-event-card', { hasText: /生产与 MES 核对/ })).toBeVisible()
   })
 
   test('quality 500 → fallback card injected', async ({ page }) => {
     await mockQualityFailure(page)
     await page.goto('/manage/alerts')
-    await expect(page.getByText('加载失败，点击查看老页')).toBeVisible()
+    await expect(page.locator('.xt-event-card', { hasText: '加载失败，点击查看异常页' })).toBeVisible()
   })
 
-  test('production card click navigates to legacy surface', async ({ page }) => {
+  test('production card click keeps the anomaly alert surface', async ({ page }) => {
     await page.goto('/manage/alerts')
-    await page.getByText(/挤压车间 早班 迟报/).click()
-    await expect(page).toHaveURL(/\/manage\/alerts\/legacy\?surface=anomaly/)
+    await page.locator('.xt-event-card', { hasText: /挤压车间 早班 迟报/ }).click()
+    await expect(page).toHaveURL(/\/manage\/alerts\?surface=anomaly/)
+  })
+
+  test('legacy anomalies path lands on production alerts instead of the yesterday report', async ({ page }) => {
+    await page.goto('/manage/anomalies')
+    await expect(page).toHaveURL(/\/manage\/alerts\?domain=production/)
+    await expect(page.getByTestId('manage-alerts')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '异常', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '昨日总览' })).toHaveCount(0)
   })
 })

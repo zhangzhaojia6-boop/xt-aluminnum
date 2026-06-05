@@ -1,5 +1,5 @@
 <template>
-  <section class="workshop-board" data-testid="workshop-dashboard-page">
+  <section class="workshop-board" data-testid="workshop-dashboard">
     <header class="workshop-board__hero">
       <div>
         <span class="workshop-board__eyebrow">WORKSHOP COMMAND</span>
@@ -103,7 +103,7 @@
               <span>{{ row.flow }}</span>
             </div>
           </article>
-          <p v-if="!loading && mesRows.length === 0" class="workshop-board__empty">暂无 MES 明细</p>
+          <p v-if="mesRows.length === 0" class="workshop-board__empty">{{ mesEmptyText }}</p>
         </section>
 
         <section class="workshop-board__panel">
@@ -118,7 +118,7 @@
             </div>
             <b>{{ formatNumber(row.weight_tons, 2) }} 吨</b>
           </article>
-          <p v-if="!loading && wipRows.length === 0" class="workshop-board__empty">暂无在制料</p>
+          <p v-if="wipRows.length === 0" class="workshop-board__empty">{{ wipEmptyText }}</p>
         </section>
 
         <section class="workshop-board__panel">
@@ -154,7 +154,12 @@ import { fetchMesMaterialRecords, fetchMesWorkshopProcessRecords } from '../../.
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
-import { buildFillLedgerRows } from '../../../utils/manageFillDetailsAudit.js'
+import {
+  buildFillLedgerRows,
+  explainWorkshopDataEmptyState,
+  isEnergyLedgerRow,
+  isMachineProductionLedgerRow,
+} from '../../../utils/manageFillDetailsAudit.js'
 import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 
 const auth = useAuthStore()
@@ -180,8 +185,9 @@ const workshopTitle = computed(() => {
   return selectedWorkshop.value?.name || liveWorkshop?.workshop_name || liveWorkshop?.name || dashboard.value.workshop_name || '各车间看板'
 })
 const ledgerRows = computed(() => buildFillLedgerRows(detailRows.value))
-const machineRows = computed(() => ledgerRows.value.filter((row) => ['work_order_entry', 'mobile_shift_report'].includes(row.sourceType)).slice(0, 12))
-const energyRows = computed(() => ledgerRows.value.filter((row) => row.sourceType === 'machine_energy' || row.energy_kwh != null || row.gas_m3 != null).slice(0, 4))
+const machineRows = computed(() => ledgerRows.value.filter(isMachineProductionLedgerRow).slice(0, 12))
+const energyRows = computed(() => ledgerRows.value.filter(isEnergyLedgerRow).slice(0, 4))
+const mesSyncStatus = computed(() => live.value.mes_sync_status || live.value.mesSyncStatus || {})
 const mesRows = computed(() => {
   const projectionRows = ledgerRows.value
     .filter((row) => row.sourceType === 'mes_projection')
@@ -201,6 +207,19 @@ const mesRows = computed(() => {
   return [...projectionRows, ...processRows].slice(0, 8)
 })
 const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index) => ({ ...row, key: row.source_id || `wip-${index}` })))
+const hasWorkshop = computed(() => Boolean(workshopId.value))
+const mesEmptyText = computed(() => explainWorkshopDataEmptyState({
+  loading: loading.value,
+  hasWorkshop: hasWorkshop.value,
+  kind: 'mes',
+  syncStatus: mesSyncStatus.value,
+}))
+const wipEmptyText = computed(() => explainWorkshopDataEmptyState({
+  loading: loading.value,
+  hasWorkshop: hasWorkshop.value,
+  kind: 'wip',
+  syncStatus: mesSyncStatus.value,
+}))
 const missingRows = computed(() => buildMissingReportRows(live.value))
 const exceptionRows = computed(() => {
   const mes = live.value.mes_machine_binding || {}

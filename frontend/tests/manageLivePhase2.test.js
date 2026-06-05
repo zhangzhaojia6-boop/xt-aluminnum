@@ -6,6 +6,7 @@ import {
   buildLiveEventItems,
   buildLiveMachineMatrix,
   buildLiveMetricCompareItems,
+  buildLivePriorityItems,
   buildLiveTickerItems,
   formatTrustedMetric,
   shouldReloadForRealtimeEvent,
@@ -122,6 +123,41 @@ test('ticker exposes the first-screen factory signals without fake zeros', () =>
   assert.equal(items[2].value.includes('0 kWh'), false)
 })
 
+test('ticker accepts daily energy aliases from the energy center summary', () => {
+  const items = buildLiveTickerItems({
+    energy_summary: {
+      total_electricity: 17430,
+      energy_per_ton: 64.2,
+    },
+  })
+
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '17,430 kWh')
+  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '64.2 kWh/吨')
+})
+
+test('ticker does not display comprehensive total_energy as electricity', () => {
+  const items = buildLiveTickerItems({
+    energy_summary: {
+      total_energy: 17430,
+    },
+  })
+
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '暂无可信数据')
+})
+
+test('ticker honors unavailable energy flag instead of showing fake zero', () => {
+  const items = buildLiveTickerItems({
+    energy_summary: {
+      data_available: false,
+      total_electricity: 0,
+      energy_per_ton: 0,
+    },
+  })
+
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '暂无可信数据')
+  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '暂无可信数据')
+})
+
 test('ticker marks missing freshness and counts as unknown rather than healthy', () => {
   const items = buildLiveTickerItems({})
 
@@ -217,6 +253,47 @@ test('metric comparison keeps algorithm values primary and filled values visible
   assert.equal(items[1].compareValue, '8,700 kWh')
 })
 
+test('metric comparison accepts electrician fill aliases without saying missing', () => {
+  const items = buildLiveMetricCompareItems({
+    energy_summary: {
+      total_electricity: 17430,
+      owner_total_electricity: 17020,
+      energy_per_ton: 64.2,
+    },
+  })
+
+  assert.equal(items[1].primaryValue, '17,430 kWh')
+  assert.equal(items[1].compareValue, '17,020 kWh')
+  assert.equal(items[2].primaryValue, '64.2 kWh/吨')
+})
+
+test('metric comparison does not display total_energy as total electricity', () => {
+  const items = buildLiveMetricCompareItems({
+    energy_summary: {
+      total_energy: 17430,
+      owner_total_electricity: 17020,
+    },
+  })
+
+  assert.equal(items[1].primaryValue, '暂无可信数据')
+  assert.equal(items[1].compareValue, '17,020 kWh')
+})
+
+test('metric comparison honors unavailable energy flag instead of showing fake zero', () => {
+  const items = buildLiveMetricCompareItems({
+    energy_summary: {
+      data_available: false,
+      total_electricity: 0,
+      energy_per_ton: 0,
+      owner_total_electricity: 0,
+    },
+  })
+
+  assert.equal(items[1].primaryValue, '暂无可信数据')
+  assert.equal(items[1].compareValue, '暂无可信数据')
+  assert.equal(items[2].primaryValue, '暂无可信数据')
+})
+
 test('event rail and trusted metric formatting expose empty, error and disconnected states', () => {
   assert.equal(formatTrustedMetric(null, 'kWh'), '暂无可信数据')
   assert.equal(formatTrustedMetric(undefined, '吨'), '暂无可信数据')
@@ -239,4 +316,17 @@ test('event rail and trusted metric formatting expose empty, error and disconnec
   assert.equal(events.some((event) => event.title === '未填报'), true)
   assert.equal(events.some((event) => event.title === '无能耗可信数据'), true)
   assert.equal(events.some((event) => event.title === '待补产出重量'), true)
+})
+
+test('live priority items expose only the three most urgent actions', () => {
+  const items = buildLivePriorityItems([
+    { title: '实时连接断开', tone: 'warning', text: '正在重连' },
+    { title: '接口失败', tone: 'danger', text: '接口失败' },
+    { title: '未填报', tone: 'danger', text: '141 个班次' },
+    { title: '无能耗可信数据', tone: 'warning', text: '能耗不显示假 0' },
+  ])
+
+  assert.equal(items.length, 3)
+  assert.deepEqual(items.map((item) => item.rank), [1, 2, 3])
+  assert.deepEqual(items.map((item) => item.title), ['接口失败', '未填报', '实时连接断开'])
 })

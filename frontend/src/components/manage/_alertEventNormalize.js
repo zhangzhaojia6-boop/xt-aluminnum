@@ -133,3 +133,46 @@ export function mergeAndSort(eventsArrays) {
     return a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0
   })
 }
+
+function queueKeyForEvent(event = {}) {
+  const text = `${event.summary || ''} ${event.domain || ''}`
+  if (event.domain === 'reporting') return 'reporting'
+  if (event.domain === 'quality') return 'quality'
+  if (event.domain === 'reconciliation') return 'reconciliation'
+  if (/缺报|催报|补录|退回|上报/.test(text)) return 'reporting'
+  if (/能耗|用电|电耗|电工|天然气/.test(text)) return 'energy'
+  if (/MES|机列|待归属|未匹配|外部/.test(text)) return 'mes'
+  return 'production'
+}
+
+const ALERT_WORK_QUEUE_DEFS = [
+  { key: 'reporting', title: '缺报补录', tone: 'danger', route: FD_ROUTE },
+  { key: 'energy', title: '能耗核对', tone: 'warning', route: FD_ROUTE },
+  { key: 'mes', title: 'MES 匹配', tone: 'warning', route: FD_ROUTE },
+  { key: 'quality', title: '质量异常', tone: 'primary', route: Q_ROUTE },
+  { key: 'reconciliation', title: '差异核对', tone: 'primary', route: R_ROUTE },
+  { key: 'production', title: '生产异常', tone: 'warning', route: FD_ROUTE },
+]
+
+export function buildAlertWorkQueues(events = []) {
+  const buckets = Object.fromEntries(ALERT_WORK_QUEUE_DEFS.map((item) => [item.key, []]))
+  safeArray(events).forEach((event) => {
+    const key = queueKeyForEvent(event)
+    buckets[key].push(event)
+  })
+
+  return ALERT_WORK_QUEUE_DEFS.map((item) => {
+    const rows = buckets[item.key] || []
+    return {
+      ...item,
+      count: rows.length,
+      openCount: rows.filter((event) => event.status === 'open').length,
+      items: rows.slice(0, 3).map((event) => ({
+        id: event.id,
+        text: event.summary || '待处理异常',
+        route: event.detailRoute || item.route,
+        status: event.status || 'open',
+      })),
+    }
+  })
+}

@@ -347,7 +347,7 @@ onMounted(async () => {
 .login-card__head span {
   font-size: 12px;
   letter-spacing: 0;
-  color: var(--xt-hud-text-muted, var(--app-muted));
+  color: var(--xt-text-secondary);
 }
 
 .login-stage__headline h2 {

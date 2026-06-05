@@ -114,6 +114,7 @@ const rawRoutes = [
     children: [
       { path: '', redirect: '/manage/today' },
       { path: 'live', name: 'manage-live', component: LiveDashboardPage, meta: { ...reviewMeta, title: '生产实时', canonical: '/manage/live' } },
+      { path: 'workshop', redirect: preserveRouteState('/manage/workshop-dashboard') },
       { path: 'workshop-dashboard', name: 'manage-workshop-dashboard', component: WorkshopDashboardPage, meta: { ...reviewMeta, access: 'workshop_dashboard', title: '各车间看板', canonical: '/manage/workshop-dashboard' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
@@ -122,6 +123,7 @@ const rawRoutes = [
       { path: 'energy', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心', canonical: '/manage/energy' } },
       { path: 'attendance', name: 'attendance-overview', component: AttendanceOverview, meta: { ...reviewMeta, title: '考勤总览', canonical: '/manage/attendance' } },
       { path: 'alerts', name: 'manage-alerts', component: AlertsPage, meta: { ...reviewMeta, title: '异常', canonical: '/manage/alerts' } },
+      { path: 'anomalies', redirect: preserveRouteState('/manage/alerts', { surface: 'anomaly' }), meta: { ...reviewMeta, title: '异常处理', canonical: '/manage/alerts' } },
       { path: 'factory/destinations', name: 'factory-command-destinations', component: DestinationScreen, meta: { ...reviewMeta, title: '库存去向', centerNo: '05', canonical: '/manage/factory/destinations' } },
       { path: 'factory/exceptions', name: 'factory-command-exceptions', redirect: preserveRouteState('/manage/alerts', { surface: 'anomaly' }), meta: { ...reviewMeta, title: '异常地图', centerNo: '09', canonical: '/manage/alerts' } },
       { path: 'reconciliation', name: 'review-reconciliation-center', redirect: preserveRouteState('/manage/alerts', { surface: 'reconciliation' }), meta: { ...reviewMeta, title: '差异核对中心', centerNo: '09', canonical: '/manage/alerts' } },

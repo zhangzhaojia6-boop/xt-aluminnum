@@ -64,8 +64,13 @@ function prefersMobileSurface(authStore, to, compactClient) {
 
 const COMPACT_MANAGE_ROUTE_NAMES = new Set(['manage-live', 'manage-today'])
 
+function prefersDesktopOverride(to) {
+  return typeof to.query?.desktop === 'string' && to.query.desktop === '1'
+}
+
 function resolveCompactManageDecision(authStore, to, access, compactClient) {
   if (!compactClient || to.meta.zone !== 'manage') return null
+  if (prefersDesktopOverride(to)) return null
   if (authStore.isWorkshopDirector) {
     return access === 'workshop_dashboard' ? true : { name: 'manage-workshop-dashboard' }
   }

@@ -34,6 +34,31 @@ test('EnergyCenter keeps all management table fields visible', () => {
   }
 })
 
+test('EnergyCenter keeps electricity and comprehensive energy separated', () => {
+  assert.match(
+    src,
+    /<el-table-column prop="electricity_value" label="电耗"[\s\S]*?formatCell\(row\.electricity_value\)[\s\S]*?<\/el-table-column>/,
+    'electricity column should render electricity_value only'
+  )
+  assert.match(
+    src,
+    /<el-table-column prop="total_energy" label="总能耗"[\s\S]*?formatCell\(row\.total_energy\)[\s\S]*?<\/el-table-column>/,
+    'comprehensive energy column should render total_energy only'
+  )
+  assert.match(
+    src,
+    /\{ key: 'electricity', label: '电耗', value: formatStat\(sumBy\('electricity_value'\)\), unit: 'kWh'/,
+    'electricity statistic should sum electricity_value'
+  )
+  assert.match(
+    src,
+    /\{ key: 'total', label: '总能耗', value: formatStat\(sumBy\('total_energy'\)\), unit: 'kgce'/,
+    'comprehensive energy statistic should sum total_energy'
+  )
+  assert.doesNotMatch(src, /label:\s*'电耗'[\s\S]{0,120}sumBy\('total_energy'\)/)
+  assert.doesNotMatch(src, /label:\s*'总能耗'[\s\S]{0,120}sumBy\('electricity_value'\)/)
+})
+
 test('EnergyCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /data-testid="energy-center-page"/)
   assert.match(src, /data-testid="energy-center-stats"/)
