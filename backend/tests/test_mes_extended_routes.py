@@ -154,6 +154,42 @@ def test_mes_extended_workshop_process_route_denies_cross_workshop(monkeypatch):
     assert response.status_code == 403
 
 
+def test_mes_extended_wip_total_route_passes_business_date(monkeypatch):
+    app.dependency_overrides[get_db] = _dummy_db
+    app.dependency_overrides[get_current_user] = _manager_user
+    seen = {}
+
+    def fake_wip(_db, *, business_date=None, search=None, limit=100, offset=0, workshop_names=None):
+        seen.update({'business_date': business_date, 'search': search, 'limit': limit, 'offset': offset, 'workshop_names': workshop_names})
+        return [
+            {
+                'source_id': 'wip-1',
+                'workshop_name': '在线退火分厂',
+                'process_name': '退火',
+                'doing_count': 3,
+                'doing_weight_tons': 12.5,
+                'snapshot_at': datetime(2026, 5, 31, 15, 35, tzinfo=UTC),
+            }
+        ]
+
+    monkeypatch.setattr('app.routers.mes.mes_extended_service.list_wip_total_snapshots', fake_wip)
+
+    response = TestClient(app).get(
+        '/api/v1/mes/extended/wip-total-snapshots',
+        params={'business_date': '2026-05-31', 'search': '退火', 'limit': 20, 'offset': 10},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]['source_id'] == 'wip-1'
+    assert seen == {
+        'business_date': date(2026, 5, 31),
+        'search': '退火',
+        'limit': 20,
+        'offset': 10,
+        'workshop_names': None,
+    }
+
+
 def test_mes_extended_reference_items_route_passes_filters(monkeypatch):
     app.dependency_overrides[get_db] = _dummy_db
     app.dependency_overrides[get_current_user] = _manager_user
@@ -272,8 +308,16 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
                     process_name='退火',
                     doing_count=3,
                     doing_weight_tons=12.5,
-                    snapshot_at=datetime(2026, 6, 1, 1, 35, tzinfo=UTC),
+                    snapshot_at=datetime(2026, 5, 31, 15, 35, tzinfo=UTC),
                     source_payload={'Password': 'secret'},
+                ),
+                MesWipTotalSnapshot(
+                    source_id='wip-old',
+                    workshop_name='在线退火分厂',
+                    process_name='退火',
+                    doing_count=9,
+                    doing_weight_tons=99.0,
+                    snapshot_at=datetime(2026, 5, 30, 23, 0, tzinfo=UTC),
                 ),
             ]
         )
@@ -291,13 +335,13 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
         material_rows = mes_extended_service.list_material_records(db, business_date=date(2026, 5, 31), search='AL-1')
         yield_rows = mes_extended_service.list_yield_records(db, business_date=date(2026, 5, 31), search='26RA')
         reference_rows = mes_extended_service.list_reference_items(db, source_type='customer', search='华东')
-        wip_rows = mes_extended_service.list_wip_total_snapshots(db, search='退火')
+        wip_rows = mes_extended_service.list_wip_total_snapshots(db, business_date=date(2026, 5, 31), search='退火')
 
     summary_by_key = {item['key']: item for item in summary['sources']}
     assert summary_by_key['workshop_process_records']['row_count'] == 2
     assert summary_by_key['workshop_process_records']['latest_business_date'] == date(2026, 5, 31)
     assert summary_by_key['stock_records']['row_count'] == 1
-    assert summary_by_key['wip_total_snapshots']['row_count'] == 1
+    assert summary_by_key['wip_total_snapshots']['row_count'] == 2
     assert records == [
         {
             'source_id': 'process-1',
@@ -324,5 +368,7 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
     assert 'source_payload' not in yield_rows[0]
     assert reference_rows[0]['source_id'] == 'customer-1'
     assert 'source_payload' not in reference_rows[0]
+    assert len(wip_rows) == 1
     assert wip_rows[0]['workshop_name'] == '在线退火分厂'
+    assert wip_rows[0]['source_id'] == 'wip-1'
     assert 'source_payload' not in wip_rows[0]

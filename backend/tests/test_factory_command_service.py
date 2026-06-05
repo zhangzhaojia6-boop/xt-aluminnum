@@ -246,6 +246,34 @@ def test_factory_overview_falls_back_to_local_shift_data_when_projection_empty(m
     ]
 
 
+def test_factory_overview_respects_explicit_target_date_when_local_latest_is_older(monkeypatch):
+    db = _FakeDB(
+        workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],
+        shift_rows=[
+            _shift_data(business_date=date(2026, 5, 1), input_weight=12.0, output_weight=10.0),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'unconfigured',
+            'configured': False,
+            'migration_ready': True,
+            'source': 'local_entry',
+            'lag_seconds': None,
+            'action_required': 'configure_mes',
+        },
+    )
+
+    overview = factory_command_service.build_overview(db, now=date(2026, 5, 2))
+
+    assert overview['business_date'] == '2026-05-02'
+    assert overview['total_output_tons'] == 0.0
+    assert overview['previous_day']['business_date'] == '2026-05-01'
+    assert overview['previous_day']['total_output_tons'] == 10.0
+
+
 def test_factory_overview_includes_pending_mobile_coil_aggregates(monkeypatch):
     db = _FakeDB(
         workshops=[SimpleNamespace(id=1, name='冷轧', code='LZ')],

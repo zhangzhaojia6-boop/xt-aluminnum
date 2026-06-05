@@ -623,6 +623,10 @@ def _business_date(now: Any = None) -> date:
     return resolve_production_business_date(datetime.now(timezone.utc))
 
 
+def _is_explicit_business_date(value: Any) -> bool:
+    return isinstance(value, date) and not isinstance(value, datetime)
+
+
 def _same_business_date(value: Any, target: date) -> bool:
     if isinstance(value, datetime):
         return resolve_production_business_date(value) == target
@@ -772,6 +776,7 @@ def _build_overview_from_mes_extended(
     missing_data = ['cost_inputs']
     response_freshness = _mes_extended_freshness(freshness)
     return {
+        'business_date': target_date.isoformat(),
         'source': response_freshness['source'],
         'freshness': response_freshness,
         'wip_tons': round(wip_total, 4),
@@ -913,6 +918,7 @@ def _overview_from_live_aggregation(
         )
     progress = payload.get('overall_progress') or {}
     return {
+        'business_date': str(payload.get('business_date') or ''),
         'source': response_freshness['source'],
         'freshness': response_freshness,
         'wip_tons': round(max(total_input - total_output, 0.0), 4),
@@ -1046,6 +1052,7 @@ def _build_overview_from_shift_data(
             }
         )
     return {
+        'business_date': target_date.isoformat(),
         'source': 'local_shift_data',
         'freshness': _local_freshness(freshness),
         'wip_tons': round(wip_tons, 4),
@@ -1088,13 +1095,16 @@ def _build_previous_day_summary(
 def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, current_user: Any | None = None) -> dict[str, Any]:
     freshness = build_freshness(db, now=now)
     today = _business_date(now)
+    explicit_target_date = _is_explicit_business_date(now)
     previous_day = _build_previous_day_summary(db, today=today, scope=scope)
     live_payload = _live_aggregation_for_factory_command(db, current_user=current_user, now=now)
     if live_payload is not None:
         result = _overview_from_live_aggregation(live_payload, freshness=freshness)
+        if not result.get('business_date'):
+            result['business_date'] = today.isoformat()
         result['previous_day'] = previous_day
         return result
-    target_date = _latest_local_business_date(db, fallback=today, scope=scope)
+    target_date = today if explicit_target_date else _latest_local_business_date(db, fallback=today, scope=scope)
     if _should_use_local_shift_data(db, freshness):
         result = _build_overview_from_shift_data(
             db,
@@ -1103,7 +1113,7 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
             scope=scope,
         )
         if not _has_local_overview_rows(result):
-            extended_target_date = _latest_mes_extended_business_date(db, fallback=today, scope=scope)
+            extended_target_date = target_date if explicit_target_date else _latest_mes_extended_business_date(db, fallback=today, scope=scope)
             extended_result = _build_overview_from_mes_extended(
                 db,
                 freshness=freshness,
@@ -1138,7 +1148,7 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
     local_output_tons = local_overview['total_output_tons'] if has_local_rows else 0.0
     response_freshness = _mixed_freshness(freshness) if has_local_rows else freshness
     if not has_local_rows:
-        extended_target_date = _latest_mes_extended_business_date(db, fallback=current_date, scope=scope)
+        extended_target_date = target_date if explicit_target_date else _latest_mes_extended_business_date(db, fallback=current_date, scope=scope)
         extended_overview = _build_overview_from_mes_extended(
             db,
             freshness=freshness,
@@ -1150,6 +1160,7 @@ def build_overview(db: Session, *, now=None, scope: ScopeSummary | None = None, 
         if extended_overview is not None:
             return extended_overview
     return {
+        'business_date': target_date.isoformat(),
         'source': response_freshness.get('source') or 'mes_projection',
         'freshness': response_freshness,
         'wip_tons': round(sum(_weight(row) for row in wip_rows), 4),

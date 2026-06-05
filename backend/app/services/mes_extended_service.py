@@ -8,6 +8,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import production_business_window
+from app.core.scope import ScopeSummary
 from app.models.mes import (
     MesMaterialRecord,
     MesReferenceItem,
@@ -17,7 +19,6 @@ from app.models.mes import (
     MesYieldRecord,
 )
 from app.models.master import Workshop
-from app.core.scope import ScopeSummary
 
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
@@ -376,30 +377,45 @@ def list_yield_records(
 def list_wip_total_snapshots(
     db: Session,
     *,
+    business_date: date | None = None,
     search: str | None = None,
     limit: int | None = DEFAULT_LIMIT,
     offset: int | None = 0,
     workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    return _list_rows(
-        db,
-        MesWipTotalSnapshot,
-        fields=(
-            'source_id',
-            'workshop_name',
-            'process_name',
-            'doing_count',
-            'doing_weight_tons',
-            'snapshot_at',
-        ),
-        search_fields=('source_id', 'workshop_name', 'process_name'),
-        order_field=MesWipTotalSnapshot.snapshot_at,
-        business_date=None,
-        search=search,
-        limit=limit,
-        offset=offset,
-        workshop_names=workshop_names,
+    fields = (
+        'source_id',
+        'workshop_name',
+        'process_name',
+        'doing_count',
+        'doing_weight_tons',
+        'snapshot_at',
     )
+    try:
+        query = db.query(MesWipTotalSnapshot)
+        if business_date is not None:
+            start_at, end_at = production_business_window(business_date)
+            query = query.filter(
+                MesWipTotalSnapshot.snapshot_at >= start_at,
+                MesWipTotalSnapshot.snapshot_at < end_at,
+            )
+        query = _apply_filters(
+            query,
+            MesWipTotalSnapshot,
+            business_date=None,
+            search=search,
+            fields=('source_id', 'workshop_name', 'process_name'),
+        )
+        query = _apply_workshop_names(query, MesWipTotalSnapshot, workshop_names)
+        rows = (
+            query.order_by(MesWipTotalSnapshot.snapshot_at.desc(), MesWipTotalSnapshot.id.desc())
+            .offset(_bounded_offset(offset))
+            .limit(_bounded_limit(limit))
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return []
+    return [_serialize(row, fields) for row in rows]
 
 
 def list_reference_items(

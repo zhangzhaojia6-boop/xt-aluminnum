@@ -25,6 +25,7 @@ class FactoryEstimateOut(BaseModel):
 
 
 class FactoryOverviewOut(BaseModel):
+    business_date: str | None = None
     source: str = 'mes_projection'
     freshness: FactoryCommandFreshnessOut
     wip_tons: float = 0.0
