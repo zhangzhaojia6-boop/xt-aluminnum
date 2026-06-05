@@ -1,0 +1,9 @@
+{
+  "lastAnalyzedAt": "2026-06-05T07:07:25.631714+00:00",
+  "gitCommitHash": "f4e95c8c863a60e0a7718fca77a5d0c1db2a711a",
+  "version": "1.0.0-deterministic-fallback",
+  "analyzedFiles": 1267,
+  "generator": "deterministic-fallback",
+  "officialUnderstandCoreAvailable": true,
+  "dependencyStatus": "@understand-anything/core installed from local Understand-Anything source and verified with scan/batch/extract smoke scripts"
+}

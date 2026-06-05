@@ -1,0 +1,38 @@
+# .understandignore - patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore.
+
+node_modules/
+.git/
+dist/
+build/
+coverage/
+__pycache__/
+.pytest_cache/
+.tmp-pytest/
+.understand-anything/tmp/
+
+# Local secrets and runtime artifacts
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+backend/.env.*.local
+backend/.codex-shadow/
+backend/*.db
+local-dev.db
+
+# Heavy generated artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/tmp/
+uploads/
+backups/
+*.log
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.zip
