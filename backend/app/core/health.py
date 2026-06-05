@@ -130,9 +130,11 @@ def build_readiness_payload() -> tuple[bool, dict]:
             details['mes_sync'] = _sanitize_mes_sync_status(mes_sync_status)
             sync_status = mes_sync_status.get('status')
             lag_seconds = mes_sync_status.get('lag_seconds')
-            if sync_status in {'migration_missing', 'failed', 'stale'}:
+            if sync_status in {'migration_missing', 'failed'}:
                 ready = False
                 checks['mes_sync'] = sync_status
+            elif sync_status == 'stale':
+                checks['mes_sync'] = 'stale'
             elif sync_status == 'unconfigured':
                 checks['mes_sync'] = 'unconfigured'
             elif lag_seconds is None:

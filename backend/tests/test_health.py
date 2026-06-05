@@ -131,7 +131,7 @@ def test_build_readiness_payload_includes_mes_sync_details_when_mes_adapter_enab
     assert payload["details"]["mes_sync"]["lag_seconds"] == 120.0
 
 
-def test_build_readiness_payload_blocks_stale_mes_sync(monkeypatch):
+def test_build_readiness_payload_warns_on_stale_mes_sync(monkeypatch):
     monkeypatch.setattr("app.core.health._check_database", lambda: None)
     monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
     monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
@@ -151,8 +151,8 @@ def test_build_readiness_payload_blocks_stale_mes_sync(monkeypatch):
 
     ready, payload = health_service.build_readiness_payload()
 
-    assert ready is False
-    assert payload["status"] == "not_ready"
+    assert ready is True
+    assert payload["status"] == "ready"
     assert payload["checks"]["mes_sync"] == "stale"
     assert payload["details"]["mes_sync"]["action_required"] == "check_sync_lag"
 
