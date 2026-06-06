@@ -79,6 +79,30 @@ test('resolveGuardDecision lands factory users on production and workshop users 
   )
 })
 
+test('resolveGuardDecision lands compact admin-only users on admin surface after login', () => {
+  const loginRoute = route({
+    name: 'login',
+    fullPath: '/login',
+    meta: { requiresAuth: false, zone: 'public', access: 'public' },
+  })
+
+  const adminOnlyAuth = auth({
+    adminSurface: true,
+    canAccessReviewSurface: false,
+    canAccessReviewDesk: false,
+    defaultSurface: 'admin',
+  })
+
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: loginRoute,
+      auth: adminOnlyAuth,
+      compactClient: true,
+    }),
+    { name: 'admin-ops-reliability' }
+  )
+})
+
 test('resolveGuardDecision keeps workshop directors inside own dashboard', () => {
   assert.deepEqual(
     resolveGuardDecision({
@@ -98,6 +122,19 @@ test('resolveGuardDecision keeps workshop directors inside own dashboard', () =>
 
 test('resolveGuardDecision keeps compact review users on the mobile management allowlist', () => {
   const compactAuth = auth({ canAccessFillSurface: true, canAccessReviewSurface: true })
+  const adminOnlyAuth = auth({
+    adminSurface: true,
+    canAccessReviewSurface: false,
+    canAccessReviewDesk: false,
+    defaultSurface: 'admin',
+  })
+  const adminEntryAuth = auth({
+    adminSurface: true,
+    canAccessFillSurface: true,
+    canAccessReviewSurface: false,
+    canAccessReviewDesk: false,
+    defaultSurface: 'admin',
+  })
 
   assert.equal(
     resolveGuardDecision({ to: route({ name: 'manage-live' }), auth: compactAuth, compactClient: true }),
@@ -107,13 +144,45 @@ test('resolveGuardDecision keeps compact review users on the mobile management a
     resolveGuardDecision({ to: route({ name: 'manage-today' }), auth: compactAuth, compactClient: true }),
     true
   )
-  assert.deepEqual(
+  assert.equal(
     resolveGuardDecision({ to: route({ name: 'manage-production' }), auth: compactAuth, compactClient: true }),
-    { name: 'manage-today' }
+    true
+  )
+  assert.equal(
+    resolveGuardDecision({ to: route({ name: 'manage-fill-details' }), auth: compactAuth, compactClient: true }),
+    true
+  )
+  assert.equal(
+    resolveGuardDecision({ to: route({ name: 'energy-center' }), auth: compactAuth, compactClient: true }),
+    true
   )
   assert.deepEqual(
     resolveGuardDecision({ to: route({ name: 'manage-daily-report' }), auth: compactAuth, compactClient: true }),
     { name: 'manage-today' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-production' }), auth: adminOnlyAuth, compactClient: true }),
+    { name: 'login' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-fill-details' }), auth: adminOnlyAuth, compactClient: true }),
+    { name: 'login' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'energy-center' }), auth: adminOnlyAuth, compactClient: true }),
+    { name: 'login' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-production' }), auth: adminEntryAuth, compactClient: true }),
+    { name: 'mobile-entry' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'manage-fill-details' }), auth: adminEntryAuth, compactClient: true }),
+    { name: 'mobile-entry' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({ to: route({ name: 'energy-center' }), auth: adminEntryAuth, compactClient: true }),
+    { name: 'mobile-entry' }
   )
   assert.deepEqual(
     resolveGuardDecision({ to: route({ name: 'admin-ops-reliability', meta: { requiresAuth: true, zone: 'manage', access: 'admin' } }), auth: auth({ adminSurface: true, canAccessFillSurface: true }), compactClient: true }),

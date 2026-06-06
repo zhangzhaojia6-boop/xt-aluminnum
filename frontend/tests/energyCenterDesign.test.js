@@ -1,17 +1,33 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import path from 'node:path'
 
-const pagePath = path.resolve('src/views/energy/EnergyCenter.vue')
-const apiPath = path.resolve('src/api/energy.js')
+const pagePath = new URL('../src/views/energy/EnergyCenter.vue', import.meta.url)
+const apiPath = new URL('../src/api/energy.js', import.meta.url)
+const surfacePath = new URL('../src/utils/stitchManageSurface.js', import.meta.url)
 const src = fs.readFileSync(pagePath, 'utf8')
 const apiSrc = fs.readFileSync(apiPath, 'utf8')
+const surfaceSrc = fs.readFileSync(surfacePath, 'utf8')
 
 test('EnergyCenter keeps the real energy summary data path', () => {
   assert.match(src, /fetchEnergySummary/)
   assert.match(src, /business_date:\s*filters\.business_date/)
   assert.match(apiSrc, /api\.get\(['"]\/energy\/summary['"]/)
+  assert.match(apiSrc, /skipAuthLogout:\s*true/)
+  assert.match(apiSrc, /skipErrorToast:\s*true/)
+})
+
+test('EnergyCenter consumes the Stitch energy surface without changing the API contract', () => {
+  assert.match(src, /buildEnergyStitchSurface/)
+  assert.match(src, /stitchSurface\s*=\s*computed\(\(\)\s*=>\s*buildEnergyStitchSurface/)
+  assert.match(src, /kpiItems:\s*rawEnergyStats\.value/)
+  assert.match(src, /detailRows:\s*rows\.value/)
+  assert.match(src, /statusBar\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.statusBar/)
+  assert.match(src, /data-testid="energy-center-status-bar"/)
+  assert.match(src, /statusBar\.syncStatus/)
+  assert.match(src, /statusBar\.rowCount/)
+  assert.match(src, /data-testid="stitch-bottom-status"/)
+  assert.match(src, /bottomStatusItems\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.bottomStatus/)
 })
 
 test('EnergyCenter keeps all management table fields visible', () => {
@@ -66,9 +82,38 @@ test('EnergyCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /data-testid="energy-center-mobile-list"/)
   assert.match(src, /ENERGY COMMAND/)
   assert.match(src, /--energy-cyan:\s*#00f2ff/)
+  assert.match(src, /energy-center__flow-card--endpoint/)
+  assert.match(src, /energy-center__flow-card--result/)
+  assert.match(src, /energy-center__flow-card--critical/)
+  assert.match(src, /energy-center__flow-icon--meter/)
+  assert.match(src, /energy-center__flow-icon--flame/)
+  assert.match(src, /energy-center__flow-icon--converter/)
   assert.match(src, /energyCenterSweep/)
   assert.match(src, /energyCenterPulse/)
   assert.match(src, /@media \(max-width: 720px\)/)
+})
+
+test('EnergyCenter matches the target dashboard granularity instead of plain cards', () => {
+  assert.match(src, /label:\s*'产量'[\s\S]{0,140}sumBy\('output_weight'\)/)
+  assert.match(src, /label:\s*'单吨峰值'[\s\S]{0,140}maxBy\('energy_per_ton'\)/)
+  assert.match(src, /updatedAt\.value/)
+  assert.match(src, /statusBar\.updatedAt/)
+  assert.match(src, /页面刷新/)
+  assert.match(src, /ENERGY WATCH/)
+  assert.match(src, /能耗关注/)
+  assert.match(surfaceSrc, /gas-top/)
+  assert.match(surfaceSrc, /water-top/)
+  assert.match(surfaceSrc, /output-top/)
+  assert.match(src, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/)
+})
+
+test('EnergyCenter reloads when the selected business date changes and explains permission failures', () => {
+  assert.match(src, /import\s+\{\s*computed,\s*onMounted,\s*reactive,\s*ref,\s*watch\s*\}\s+from\s+'vue'/)
+  assert.match(src, /watch\(\(\)\s*=>\s*filters\.business_date/)
+  assert.match(src, /void\s+load\(\)/)
+  assert.match(src, /resolveEnergyErrorText/)
+  assert.match(src, /无权限查看能耗数据/)
+  assert.match(src, /请先登录后查看能耗数据/)
 })
 
 test('EnergyCenter does not add forbidden product wording', () => {

@@ -13,6 +13,7 @@ const loginSrc = readFileSync(new URL('../src/views/Login.vue', import.meta.url)
 const guardRulesSrc = readFileSync(new URL('../src/router/guardRules.js', import.meta.url), 'utf8')
 const appShellSrc = readFileSync(new URL('../src/layout/AppShell.vue', import.meta.url), 'utf8')
 const navigationSrc = readFileSync(new URL('../src/config/navigation.js', import.meta.url), 'utf8')
+const manageNavigationSrc = readFileSync(new URL('../src/config/manage-navigation.js', import.meta.url), 'utf8')
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -28,6 +29,16 @@ test('core top-level manage routes are wired', () => {
   for (const path of ['live', 'today', 'production']) {
     assert.ok(routeLine(path), `route '${path}' should exist`)
   }
+})
+
+test('compact management navigation keeps production and fill details entries', () => {
+  const compactPathsLine = manageNavigationSrc
+    .split(/\r?\n/)
+    .find((line) => line.includes('COMPACT_REVIEW_PATHS'))
+  assert.match(compactPathsLine, /\/manage\/live/)
+  assert.match(compactPathsLine, /\/manage\/today/)
+  assert.match(compactPathsLine, /\/manage\/production/)
+  assert.match(compactPathsLine, /\/manage\/fill-details/)
 })
 
 test('live route is the realtime command surface', () => {

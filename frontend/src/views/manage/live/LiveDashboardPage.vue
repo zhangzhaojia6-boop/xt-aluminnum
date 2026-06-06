@@ -45,6 +45,19 @@
     <LiveMetricCompareCard :items="compareItems" />
     <LiveDataStatePanel :states="dataStates" />
 
+    <footer class="live-dashboard-page__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
+      <span
+        v-for="item in bottomStatusItems"
+        :key="item.key"
+        class="live-dashboard-page__status-pill"
+        :class="`tone-${item.tone}`"
+      >
+        <i aria-hidden="true" />
+        <b>{{ item.label }}</b>
+        <strong>{{ item.value }}</strong>
+      </span>
+    </footer>
+
     <LiveMachineDrawer
       :open="drawerOpen"
       :machine="activeMachine"
@@ -70,12 +83,8 @@ import LiveMachineDrawer from './LiveMachineDrawer.vue'
 import LiveMachineMatrix from './LiveMachineMatrix.vue'
 import LiveMarketTicker from './LiveMarketTicker.vue'
 import LiveMetricCompareCard from './LiveMetricCompareCard.vue'
+import { buildLiveStitchSurface } from '../../../utils/stitchManageSurface'
 import {
-  buildLiveEventItems,
-  buildLiveMachineMatrix,
-  buildLiveMetricCompareItems,
-  buildLivePriorityItems,
-  buildLiveTickerItems,
   shouldReloadForRealtimeEvent,
 } from '../../../utils/liveDashboardPhase2'
 
@@ -108,15 +117,18 @@ const { status: streamStatus, lastEventAt, reconnectCount } = useRealtimeStream(
   onEvent: handleRealtimeEvent,
 })
 
-const tickerItems = computed(() => buildLiveTickerItems(aggregation.value))
-const machineMatrix = computed(() => buildLiveMachineMatrix(aggregation.value.workshops || []))
-const compareItems = computed(() => buildLiveMetricCompareItems(aggregation.value))
-const eventItems = computed(() => buildLiveEventItems({
+const stitchSurface = computed(() => buildLiveStitchSurface({
+  targetDate: targetDate.value,
   streamStatus: streamStatus.value,
   loadError: loadError.value,
   aggregation: aggregation.value,
 }))
-const priorityItems = computed(() => buildLivePriorityItems(eventItems.value))
+const tickerItems = computed(() => stitchSurface.value.marketTicker)
+const machineMatrix = computed(() => stitchSurface.value.machineMatrix)
+const compareItems = computed(() => stitchSurface.value.realtimeKpiStrip)
+const eventItems = computed(() => stitchSurface.value.eventRail)
+const priorityItems = computed(() => stitchSurface.value.priorityItems)
+const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const hasSnapshotPayload = computed(() => Boolean(
   lastSnapshotAt.value
   || aggregation.value?.business_date
@@ -469,9 +481,10 @@ onUnmounted(() => {
 .live-dashboard-page__header h1 {
   margin: 6px 0 0;
   font-family: var(--xt-font-display, "Hanken Grotesk", sans-serif);
-  font-size: clamp(30px, 4vw, 56px);
+  font-size: clamp(28px, 3vw, 44px);
   line-height: 0.96;
   letter-spacing: -0.05em;
+  white-space: nowrap;
   text-shadow: 0 0 26px rgba(0, 242, 255, 0.22);
 }
 
@@ -576,6 +589,57 @@ onUnmounted(() => {
   align-items: stretch;
 }
 
+.live-dashboard-page__bottom-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(0, 242, 255, 0.2);
+  border-radius: 16px;
+  padding: 12px;
+  background:
+    linear-gradient(90deg, rgba(0, 242, 255, 0.1), transparent 46%),
+    rgba(1, 16, 31, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.live-dashboard-page__status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid rgba(0, 242, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(3, 16, 31, 0.72);
+  color: rgba(225, 253, 255, 0.72);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.live-dashboard-page__status-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+  box-shadow: 0 0 14px currentcolor;
+}
+
+.live-dashboard-page__status-pill b {
+  color: rgba(185, 223, 235, 0.66);
+}
+
+.live-dashboard-page__status-pill strong {
+  color: rgba(225, 253, 255, 0.94);
+  font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
+}
+
+.live-dashboard-page__status-pill.tone-success { color: #00f2ff; }
+.live-dashboard-page__status-pill.tone-warning { color: #ffab00; }
+.live-dashboard-page__status-pill.tone-danger { color: #ff5d4d; }
+
 @keyframes livePageScan {
   0% { transform: translateX(-52%); }
   100% { transform: translateX(52%); }
@@ -615,6 +679,10 @@ onUnmounted(() => {
 
   .live-dashboard-page__header {
     padding: 13px;
+  }
+
+  .live-dashboard-page__header h1 {
+    white-space: normal;
   }
 }
 

@@ -152,6 +152,19 @@
 
     <WorkshopBarChart :rows="snapshot.productionLane.value" />
 
+    <footer class="xt-today__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
+      <span
+        v-for="item in bottomStatusItems"
+        :key="item.key"
+        class="xt-today__status-pill"
+        :class="`tone-${item.tone}`"
+      >
+        <i aria-hidden="true" />
+        <b>{{ item.label }}</b>
+        <strong>{{ item.value }}</strong>
+      </span>
+    </footer>
+
     <Transition name="xt-roster-slide">
       <FilerRoster
         v-if="rosterOpen"
@@ -183,13 +196,7 @@ import { fetchLiveAggregation } from '../../../api/realtime.js'
 import { fetchUsersPage } from '../../../api/users.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { isCompactClient } from '../../../router/guardRules.js'
-import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
-import {
-  buildDailyComparisonCards,
-  buildDailySettlementCards,
-  buildDailyWorkshopRows,
-  buildDailyWipRows,
-} from '../../../utils/manageDailyReportSurface.js'
+import { buildTodayStitchSurface } from '../../../utils/stitchManageSurface.js'
 
 const auth = useAuthStore()
 const snapshot = useDashboardSnapshot()
@@ -200,6 +207,7 @@ const userList = ref([])
 const rosterOpen = ref(false)
 const liveAggregation = ref({})
 const liveLoading = ref(false)
+const liveLoadError = ref('')
 const compactClient = ref(isCompactClient())
 
 function syncCompactClient() {
@@ -227,10 +235,12 @@ async function loadUsers() {
 
 async function loadLiveAggregation(targetDate) {
   liveLoading.value = true
+  liveLoadError.value = ''
   try {
     liveAggregation.value = await fetchLiveAggregation({ business_date: targetDate })
-  } catch (_e) {
+  } catch (err) {
     liveAggregation.value = {}
+    liveLoadError.value = err?.message || '实时聚合加载失败'
   } finally {
     liveLoading.value = false
   }
@@ -286,12 +296,23 @@ const mtdSpark = computed(() => {
   })
 })
 
-const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
-const settlementCards = computed(() => buildDailySettlementCards(dailyOverview.value))
-const comparisonCards = computed(() => buildDailyComparisonCards(dailyOverview.value))
-const workshopRows = computed(() => buildDailyWorkshopRows(dailyOverview.value.workshop_output || []))
-const wipRows = computed(() => buildDailyWipRows(dailyOverview.value.wip_distribution || []))
-const missingRows = computed(() => buildMissingReportRows(liveAggregation.value))
+const stitchSurface = computed(() => buildTodayStitchSurface({
+  snapshotData: snapshot.data.value,
+  targetDate: snapshot.targetDate.value,
+  liveAggregation: liveAggregation.value,
+  runtimeState: {
+    snapshotLoading: snapshot.loading.value,
+    snapshotError: snapshot.lastError.value,
+    liveLoading: liveLoading.value,
+    liveError: liveLoadError.value,
+  },
+}))
+const settlementCards = computed(() => stitchSurface.value.kpiStrip)
+const comparisonCards = computed(() => stitchSurface.value.comparisonRail)
+const workshopRows = computed(() => stitchSurface.value.workshopTable)
+const wipRows = computed(() => stitchSurface.value.wipDistribution)
+const missingRows = computed(() => stitchSurface.value.missingReportRows)
+const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailySectionLabels = ['全厂入库产量', '过站下机参考', '合同吨数']
 
 const kpiItems = computed(() => {
@@ -813,6 +834,68 @@ onBeforeUnmount(() => {
 
 .xt-today__row-cost {
   align-self: stretch;
+}
+
+.xt-today__bottom-status {
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+  flex-wrap: wrap;
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-xl);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--xt-primary) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--xt-bg-ink-panel) 82%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 7%, transparent);
+}
+
+.xt-today__status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 16%, var(--xt-border-ink));
+  border-radius: var(--xt-radius-pill);
+  background: color-mix(in srgb, var(--xt-bg-ink) 64%, transparent);
+  color: color-mix(in srgb, var(--xt-text-inverse) 68%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-today__status-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
+}
+
+.xt-today__status-pill b {
+  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  font-weight: 850;
+}
+
+.xt-today__status-pill strong {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-today__status-pill.tone-success i {
+  background: var(--xt-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-success) 18%, transparent), 0 0 16px var(--xt-success);
+}
+
+.xt-today__status-pill.tone-warning i {
+  background: var(--xt-warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-warning) 18%, transparent), 0 0 16px var(--xt-warning);
+}
+
+.xt-today__status-pill.tone-danger i {
+  background: var(--xt-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-danger) 18%, transparent), 0 0 16px var(--xt-danger);
 }
 
 .xt-roster-slide-enter-active,

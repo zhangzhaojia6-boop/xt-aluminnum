@@ -43,8 +43,8 @@ function adminLanding(authStore) {
 
 function defaultLanding(authStore, compactClient) {
   if (compactClient && authStore.isWorkshopDirector && authStore.canAccessWorkshopDashboard) return { name: 'manage-workshop-dashboard' }
-  if (compactClient && (authStore.canAccessReviewSurface || authStore.adminSurface)) return { name: 'manage-today' }
-  if (compactClient && authStore.canAccessFillSurface) return { name: 'mobile-entry' }
+  if (compactClient && authStore.canAccessReviewSurface) return { name: 'manage-today' }
+  if (compactClient && authStore.canAccessFillSurface && !authStore.adminSurface) return { name: 'mobile-entry' }
   if (authStore.canAccessFillSurface && !authStore.canAccessReviewSurface) return { name: 'mobile-entry' }
   if (authStore.defaultSurface === 'admin') return adminLanding(authStore)
   if (authStore.defaultSurface === 'review') return reviewLanding(authStore)
@@ -62,7 +62,7 @@ function prefersMobileSurface(authStore, to, compactClient) {
   return to.meta.zone === 'manage' || to.meta.zone === 'review' || to.meta.zone === 'desktop'
 }
 
-const COMPACT_MANAGE_ROUTE_NAMES = new Set(['manage-live', 'manage-today'])
+const COMPACT_MANAGE_ROUTE_NAMES = new Set(['manage-live', 'manage-today', 'manage-production', 'manage-fill-details', 'energy-center'])
 
 function prefersDesktopOverride(to) {
   return typeof to.query?.desktop === 'string' && to.query.desktop === '1'
@@ -74,7 +74,7 @@ function resolveCompactManageDecision(authStore, to, access, compactClient) {
   if (authStore.isWorkshopDirector) {
     return access === 'workshop_dashboard' ? true : { name: 'manage-workshop-dashboard' }
   }
-  if (authStore.canAccessReviewSurface || authStore.adminSurface) {
+  if (authStore.canAccessReviewSurface) {
     return COMPACT_MANAGE_ROUTE_NAMES.has(to.name) ? true : { name: 'manage-today' }
   }
   return null

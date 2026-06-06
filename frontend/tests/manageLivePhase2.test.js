@@ -68,6 +68,11 @@ test('/manage/live starts secondary fill details while loading the primary snaps
   assert.ok(detailStartIndex < liveAwaitIndex)
 })
 
+test('/manage/live keeps the dispatch wall title readable at dashboard width', () => {
+  assert.match(livePageSource, /font-size:\s*clamp\(28px,\s*3vw,\s*44px\)/)
+  assert.match(livePageSource, /white-space:\s*nowrap/)
+})
+
 test('realtime stream heartbeats do not reload the whole live page', () => {
   assert.equal(
     shouldReloadForRealtimeEvent({ type: 'heartbeat', payload: {}, targetDate: '2026-05-30' }),

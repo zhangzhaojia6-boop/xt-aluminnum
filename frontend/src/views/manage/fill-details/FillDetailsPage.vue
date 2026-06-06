@@ -15,7 +15,7 @@
       />
       <div class="xt-fill-details__hero-status" aria-hidden="true">
         <span></span>
-        <strong>{{ filteredRows.length }}</strong>
+        <strong>{{ stitchSurface.statusBar.filteredCount }}</strong>
         <small>当前筛选</small>
       </div>
     </header>
@@ -150,6 +150,19 @@
         <p v-for="line in item.items" :key="line">{{ line }}</p>
       </article>
     </section>
+
+    <footer class="xt-fill-details__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
+      <span
+        v-for="item in bottomStatusItems"
+        :key="item.key"
+        class="xt-fill-details__status-pill"
+        :class="`tone-${item.tone}`"
+      >
+        <i></i>
+        <b>{{ item.label }}</b>
+        <strong>{{ item.value }}</strong>
+      </span>
+    </footer>
   </section>
 </template>
 
@@ -163,6 +176,7 @@ import { fetchLiveAggregation, fetchLiveFillDetails } from '../../../api/realtim
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
+import { buildFillDetailsStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildAuditTickerItems,
   buildFillLedgerRows,
@@ -194,35 +208,55 @@ const sourceOptions = [
   { value: 'mobile_shift_report', label: '班次汇总' }
 ]
 
-const ledgerRows = computed(() => buildFillLedgerRows(rows.value))
-const auditTickerItems = computed(() => buildAuditTickerItems({
+const rawLedgerRows = computed(() => buildFillLedgerRows(rows.value))
+const rawAuditTickerItems = computed(() => buildAuditTickerItems({
   dailyOverview: dailyOverview.value,
   liveAggregation: liveAggregation.value,
 }))
-const sourceChainCards = computed(() => buildSourceChainCards(dailyOverview.value))
-const issueQueues = computed(() => buildIssueQueues({
+const rawSourceChainCards = computed(() => buildSourceChainCards(dailyOverview.value))
+const rawIssueQueues = computed(() => buildIssueQueues({
   dailyOverview: dailyOverview.value,
   liveAggregation: liveAggregation.value,
 }))
-const filteredRows = computed(() => filterFillLedgerRows(ledgerRows.value, {
+const rawFilteredRows = computed(() => filterFillLedgerRows(rawLedgerRows.value, {
   keyword: keyword.value,
   sourceType: sourceType.value,
 }))
-const hasLedgerEnergy = computed(() => ledgerRows.value.some((row) => {
+const hasLedgerEnergy = computed(() => rawLedgerRows.value.some((row) => {
   if (row.energy_kwh !== null && row.energy_kwh !== undefined) return true
   return (row.metrics || []).some((item) => /electric|energy|用电|能耗/i.test(`${item?.key || ''} ${item?.label || ''}`) && item?.value != null)
 }))
-const hasLedgerGas = computed(() => ledgerRows.value.some((row) => row.gas_m3 !== null && row.gas_m3 !== undefined))
+const hasLedgerGas = computed(() => rawLedgerRows.value.some((row) => row.gas_m3 !== null && row.gas_m3 !== undefined))
 const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
 
-const kpis = computed(() => [
-  { key: 'entry', label: '明细', value: summary.value.entry_count ?? ledgerRows.value.length, unit: '条' },
+const rawKpis = computed(() => [
+  { key: 'entry', label: '明细', value: summary.value.entry_count ?? rawLedgerRows.value.length, unit: '条' },
   { key: 'machine', label: '机列', value: summary.value.machine_count ?? 0, unit: '台' },
   { key: 'owner', label: '责任人', value: summary.value.owner_count ?? 0, unit: '人' },
   { key: 'output', label: '产量', value: formatNumber(summary.value.output, 2), unit: '吨' },
   { key: 'energy', label: '用电', value: hasLedgerEnergy.value ? formatNumber(summary.value.energy_kwh, 1) : MISSING_AUDIT_VALUE, unit: hasLedgerEnergy.value ? 'kWh' : '' },
   { key: 'gas', label: '天然气', value: hasLedgerGas.value ? formatNumber(summary.value.gas_m3, 1) : MISSING_AUDIT_VALUE, unit: hasLedgerGas.value ? 'm³' : '' }
 ])
+
+const stitchSurface = computed(() => buildFillDetailsStitchSurface({
+  targetDate: targetDate.value,
+  kpiItems: rawKpis.value,
+  auditTicker: rawAuditTickerItems.value,
+  sourceChain: rawSourceChainCards.value,
+  issueQueues: rawIssueQueues.value,
+  ledgerRows: rawLedgerRows.value,
+  filteredRows: rawFilteredRows.value,
+  runtimeState: {
+    loading: loading.value,
+    errorText: errorText.value,
+  },
+}))
+const auditTickerItems = computed(() => stitchSurface.value.auditTicker)
+const sourceChainCards = computed(() => stitchSurface.value.sourceChain)
+const issueQueues = computed(() => stitchSurface.value.issueQueues)
+const filteredRows = computed(() => stitchSurface.value.filteredRows)
+const kpis = computed(() => stitchSurface.value.kpiStrip)
+const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 
 function formatNumber(value, digits = 2) {
   const num = Number(value)
@@ -717,6 +751,56 @@ load()
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--xt-space-2);
 }
+
+.xt-fill-details__bottom-status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
+  border-radius: var(--xt-radius-lg);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--xt-primary-light) 10%, transparent), transparent),
+    color-mix(in srgb, var(--xt-bg-ink) 58%, var(--xt-bg-panel));
+}
+
+.xt-fill-details__status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+  min-height: 34px;
+  padding: 0 var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 14%, transparent);
+  border-radius: var(--xt-radius-pill);
+  color: color-mix(in srgb, var(--xt-text-inverse) 74%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-fill-details__status-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--xt-radius-pill);
+  background: currentColor;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.xt-fill-details__status-pill b {
+  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+}
+
+.xt-fill-details__status-pill strong {
+  color: var(--xt-text-inverse);
+  font-family: var(--xt-font-number);
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-fill-details__status-pill.tone-success { color: var(--xt-success); }
+.xt-fill-details__status-pill.tone-warning { color: var(--xt-warning); }
+.xt-fill-details__status-pill.tone-danger { color: var(--xt-danger); }
 
 .xt-fill-details__issue {
   display: grid;

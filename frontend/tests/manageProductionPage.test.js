@@ -12,6 +12,13 @@ test('ProductionPage uses single-API useDashboardSnapshot composable', () => {
   assert.match(SRC, /useDashboardSnapshot/)
 })
 
+test('ProductionPage consumes the Stitch production surface before rendering', () => {
+  assert.match(SRC, /buildProductionStitchSurface/)
+  assert.match(SRC, /data-testid="stitch-bottom-status"/)
+  assert.match(SRC, /kpiItems\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.kpiStrip/)
+  assert.match(SRC, /rankedRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.workshopRanking/)
+})
+
 test('ProductionPage imports DateSwitcher and KpiBar (no duplication)', () => {
   assert.match(SRC, /DateSwitcher/)
   assert.match(SRC, /KpiBar/)
@@ -75,5 +82,5 @@ test('ProductionPage shows empty placeholder when production_lane is empty', () 
 })
 
 test('ProductionPage shows the same factory command source basis as today page', () => {
-  assert.match(SRC, /<FactorySourceStrip[\s\S]*:overview="snapshot\.factoryCommandOverview\.value"/)
+  assert.match(SRC, /<FactorySourceStrip[\s\S]*:overview="stitchSurface\.sourceOverview"/)
 })

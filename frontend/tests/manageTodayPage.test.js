@@ -86,11 +86,12 @@ test('TodayPage owns the daily report settlement section', () => {
 
 test('TodayPage binds daily report blocks to the daily overview payload', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /dailyOverview/)
-  assert.match(src, /buildDailySettlementCards/)
-  assert.match(src, /buildDailyComparisonCards/)
-  assert.match(src, /buildDailyWorkshopRows/)
-  assert.match(src, /buildDailyWipRows/)
+  assert.match(src, /buildTodayStitchSurface/)
+  assert.match(src, /snapshotData:\s*snapshot\.data\.value/)
+  assert.match(src, /settlementCards\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.kpiStrip/)
+  assert.match(src, /comparisonCards\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.comparisonRail/)
+  assert.match(src, /workshopRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.workshopTable/)
+  assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
 })
 
 test('TodayPage shows factory command source basis without changing business fields', () => {

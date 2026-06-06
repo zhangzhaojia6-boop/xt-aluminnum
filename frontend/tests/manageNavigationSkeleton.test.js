@@ -55,20 +55,20 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
   assert.equal(paths.includes('/manage/reports'), false)
 })
 
-test('compact management navigation only exposes live and yesterday report for review users', () => {
+test('compact management navigation exposes the same review pages as the compact route guard', () => {
   const groups = manageNavGroups(reviewAuth, { compact: true })
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表'])
-  assert.deepEqual(paths, ['/manage/live', '/manage/today'])
+  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表', '生产分析'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
 })
 
-test('compact management navigation keeps admin users on the same two safe pages', () => {
+test('compact management navigation keeps admin users on the same review pages as compact review users', () => {
   const groups = manageNavGroups(adminAuth, { compact: true })
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
-  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表'])
-  assert.deepEqual(paths, ['/manage/live', '/manage/today'])
+  assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表', '生产分析'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
 })
 
 test('workshop director skeleton only exposes own workshop dashboard', () => {

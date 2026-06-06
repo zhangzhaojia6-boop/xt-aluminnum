@@ -17,7 +17,7 @@
 
     <KpiBar :items="kpiItems" />
 
-    <FactorySourceStrip :overview="snapshot.factoryCommandOverview.value" />
+    <FactorySourceStrip :overview="stitchSurface.sourceOverview" />
 
     <div v-if="snapshot.lastError.value" class="xt-production__error">{{ snapshot.lastError.value }}</div>
 
@@ -98,6 +98,19 @@
         </section>
       </aside>
     </div>
+
+    <footer class="xt-production__status-bar" data-testid="stitch-bottom-status">
+      <div
+        v-for="item in bottomStatusItems"
+        :key="item.key"
+        class="xt-production__status-item"
+        :class="item.tone ? `tone-${item.tone}` : ''"
+      >
+        <span aria-hidden="true"></span>
+        <small>{{ item.label }}</small>
+        <strong>{{ item.value }}</strong>
+      </div>
+    </footer>
   </section>
 </template>
 
@@ -108,6 +121,7 @@ import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
 import FactorySourceStrip from '../../../components/manage/FactorySourceStrip.vue'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
+import { buildProductionStitchSurface } from '../../../utils/stitchManageSurface.js'
 
 const snapshot = useDashboardSnapshot()
 snapshot.load()
@@ -120,7 +134,7 @@ const fmt = (v, digits = 2) =>
       maximumFractionDigits: digits,
     })
 
-const kpiItems = computed(() => {
+const rawKpiItems = computed(() => {
   const lm = snapshot.leaderMetrics.value
   const trend = snapshot.trend.value
   const me = snapshot.managementEstimate.value
@@ -149,7 +163,7 @@ const kpiItems = computed(() => {
   ]
 })
 
-const rankedRows = computed(() => {
+const rawRankedRows = computed(() => {
   const rows = snapshot.productionLane.value || []
   return [...rows]
     .sort((a, b) => Number(b.total_output || 0) - Number(a.total_output || 0))
@@ -177,23 +191,43 @@ const rankedRows = computed(() => {
     })
 })
 
-const leadingRow = computed(() => rankedRows.value[0] || null)
+const rawLeadingRow = computed(() => rawRankedRows.value[0] || null)
 
-const leadingWorkshopText = computed(() => {
-  const row = leadingRow.value
+const rawLeadingWorkshopText = computed(() => {
+  const row = rawLeadingRow.value
   return row ? `${row.name} ${fmt(row.totalOutput, 2)} 吨` : '暂无车间数据'
 })
 
-const productionBrief = computed(() => {
+const rawProductionBrief = computed(() => {
   const lm = snapshot.leaderMetrics.value
   const me = snapshot.managementEstimate.value
   return [
-    { key: 'workshops', label: '参与车间', value: `${rankedRows.value.length} 个` },
-    { key: 'leader', label: '当前最高', value: leadingWorkshopText.value },
+    { key: 'workshops', label: '参与车间', value: `${rawRankedRows.value.length} 个` },
+    { key: 'leader', label: '当前最高', value: rawLeadingWorkshopText.value },
     { key: 'gap', label: '合同缺口', value: me.remaining_weight == null ? '—' : `${Number(me.remaining_weight).toFixed(0)} 吨` },
     { key: 'energy', label: '日吨能耗', value: lm.energy_per_ton == null ? '—' : `${fmt(lm.energy_per_ton, 1)} kWh/吨` }
   ]
 })
+
+const stitchSurface = computed(() => buildProductionStitchSurface({
+  snapshotData: snapshot.data.value,
+  targetDate: snapshot.targetDate.value,
+  kpiItems: rawKpiItems.value,
+  rankedRows: rawRankedRows.value,
+  productionBrief: rawProductionBrief.value,
+  leadingWorkshopText: rawLeadingWorkshopText.value,
+  sourceOverview: snapshot.factoryCommandOverview.value,
+  runtimeState: {
+    snapshotLoading: snapshot.loading.value,
+    snapshotError: snapshot.lastError.value,
+  },
+}))
+
+const kpiItems = computed(() => stitchSurface.value.kpiStrip)
+const rankedRows = computed(() => stitchSurface.value.workshopRanking)
+const productionBrief = computed(() => stitchSurface.value.productionBrief)
+const leadingWorkshopText = computed(() => stitchSurface.value.signal.text)
+const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 </script>
 
 <style scoped>
@@ -219,7 +253,8 @@ const productionBrief = computed(() => {
 .xt-production__hero,
 .xt-production__ranking,
 .xt-production__insight,
-.xt-production__signal {
+.xt-production__signal,
+.xt-production__status-bar {
   position: relative;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
@@ -533,6 +568,58 @@ const productionBrief = computed(() => {
   text-align: center;
 }
 
+.xt-production__status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-3) var(--xt-space-4);
+}
+
+.xt-production__status-item {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+  min-width: 0;
+  color: color-mix(in srgb, var(--xt-text-inverse) 72%, transparent);
+  font-size: var(--xt-text-sm);
+}
+
+.xt-production__status-item > span {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: var(--xt-radius-pill);
+  background: var(--xt-primary);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 55%, transparent);
+}
+
+.xt-production__status-item small {
+  color: color-mix(in srgb, var(--xt-text-inverse) 46%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.xt-production__status-item strong {
+  color: var(--xt-text-inverse);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.xt-production__status-item.tone-success > span {
+  background: var(--xt-success);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-success) 55%, transparent);
+}
+
+.xt-production__status-item.tone-warning > span,
+.xt-production__status-item.tone-danger > span {
+  background: var(--xt-warning);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-warning) 55%, transparent);
+}
+
 .xt-production__signal-icon {
   color: var(--xt-primary);
   font-size: 48px;
@@ -576,8 +663,14 @@ const productionBrief = computed(() => {
 
   .xt-production__ranking,
   .xt-production__insight,
-  .xt-production__signal {
+  .xt-production__signal,
+  .xt-production__status-bar {
     padding: var(--xt-space-3);
+  }
+
+  .xt-production__status-bar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .xt-production__table {

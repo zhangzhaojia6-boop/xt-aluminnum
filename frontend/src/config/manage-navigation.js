@@ -18,7 +18,7 @@ const WORKSHOP_DIRECTOR_GROUPS = [
   }
 ]
 
-const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today'])
+const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
 
 const NAV_GROUPS = [
   {
