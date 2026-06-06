@@ -88,8 +88,10 @@ test('EnergyCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /energy-center__flow-icon--meter/)
   assert.match(src, /energy-center__flow-icon--flame/)
   assert.match(src, /energy-center__flow-icon--converter/)
-  assert.match(src, /energyCenterSweep/)
-  assert.match(src, /energyCenterPulse/)
+  assert.doesNotMatch(src, /energyCenterSweep/)
+  assert.doesNotMatch(src, /energyCenterPulse/)
+  assert.doesNotMatch(src, /animation:\s*[^;]*infinite/)
+  assert.doesNotMatch(src, /backdrop-filter|filter:\s*blur/i)
   assert.match(src, /@media \(max-width: 720px\)/)
 })
 

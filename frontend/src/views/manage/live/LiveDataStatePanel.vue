@@ -46,9 +46,8 @@ defineProps({
   height: 6px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 12px currentcolor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 18%, transparent);
   content: "";
-  animation: liveStatePulse 1.6s ease-in-out infinite;
 }
 
 .live-data-state-panel b {
@@ -68,14 +67,4 @@ defineProps({
 .live-data-state-panel .is-success { color: #00f2ff; }
 .live-data-state-panel .is-muted { color: #7aa2bd; }
 
-@keyframes liveStatePulse {
-  0%, 100% { opacity: 0.52; }
-  50% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .live-data-state-panel span::before {
-    animation: none;
-  }
-}
 </style>

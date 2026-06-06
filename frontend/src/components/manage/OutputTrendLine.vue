@@ -120,7 +120,7 @@ const option = computed(() => {
     color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 38%, transparent);
   overflow: hidden;
 }
 

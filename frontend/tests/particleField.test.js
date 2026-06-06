@@ -9,54 +9,19 @@ test('ParticleField source exists', () => {
   assert.ok(fs.existsSync(file), 'src/components/hud/ParticleField.vue must exist')
 })
 
-test('ParticleField respects prefers-reduced-motion', () => {
+test('ParticleField is a static industrial backdrop without decorative WebGL', () => {
   const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /prefers-reduced-motion/, 'must branch on reduced-motion')
+  assert.doesNotMatch(src, /from\s+['"]three['"]/, 'three must not be statically imported')
+  assert.doesNotMatch(src, /import\(\s*['"]three['"]\s*\)/, 'three must not be dynamically imported')
+  assert.doesNotMatch(src, /requestAnimationFrame|cancelAnimationFrame/, 'decorative RAF loops are forbidden')
+  assert.doesNotMatch(src, /WebGLRenderer|BufferGeometry|PointsMaterial|PerspectiveCamera|new THREE/, 'decorative WebGL code is forbidden')
+  assert.doesNotMatch(src, /<canvas/, 'static backdrop must not allocate a canvas')
+  assert.match(src, /data-testid="hud-particles-fallback"/, 'must keep the testable static fallback layer')
 })
 
-test('ParticleField skips three on compact mobile clients', () => {
+test('ParticleField keeps motion-safe static texture only', () => {
   const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /COMPACT_QUERY\s*=\s*['"]\(max-width:\s*900px\)['"]/, 'must define compact viewport guard')
-  assert.match(src, /matchMedia\(COMPACT_QUERY\)\.matches/, 'must skip animation on compact screens')
-  assert.match(src, /MicroMessenger\|wxwork\|DingTalk\|iPhone\|iPad\|Android\|Mobile/, 'must skip animation for mobile runtimes')
-  assert.match(src, /compactMql\?\.removeEventListener/, 'must remove compact listener on unmount')
-})
-
-test('ParticleField disposes resources on unmount', () => {
-  const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /onBeforeUnmount/)
-  assert.match(src, /\.dispose\(\)/)
-  assert.match(src, /cancelAnimationFrame/)
-})
-
-test('ParticleField listens to resize and visibilitychange', () => {
-  const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /'resize'/)
-  assert.match(src, /'visibilitychange'/)
-})
-
-test('ParticleField uses dynamic import for three to keep it out of main bundle', () => {
-  const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /await\s+import\(\s*['"]three['"]\s*\)/, 'three must be dynamic-imported')
-  const staticImportMatch = src.match(/^import\s+.*\bfrom\s+['"]three['"]/m)
-  assert.equal(staticImportMatch, null, 'three must not be statically imported')
-})
-
-test('ParticleField delays decorative three boot until after login paint', () => {
-  const src = fs.readFileSync(file, 'utf8')
-  assert.match(src, /DECORATIVE_BOOT_DELAY_MS\s*=\s*1600/, 'decorative animation must wait after initial page paint')
-  assert.match(src, /setTimeout\(\s*\(\)\s*=>\s*\{[\s\S]*initThree\(\)[\s\S]*\},\s*DECORATIVE_BOOT_DELAY_MS\s*\)/, 'three boot must be scheduled through the delay')
-  assert.match(src, /clearTimeout\(initTimer\)/, 'scheduled boot must be cancellable')
-  assert.match(src, /onBeforeUnmount\(\(\)\s*=>\s*\{[\s\S]*cancelScheduledInit\(\)/, 'unmount must cancel pending boot')
-})
-
-test('vite.config.js code-splits three into its own chunk', () => {
-  const viteCfg = fs.readFileSync(path.resolve('vite.config.js'), 'utf8')
-  assert.match(viteCfg, /\/three\//, 'manualChunks must match /three/')
-  assert.match(viteCfg, /vendor-three/, 'three chunk name must be vendor-three')
-})
-
-test('vite.config.js keeps vendor-three out of offline precache', () => {
-  const viteCfg = fs.readFileSync(path.resolve('vite.config.js'), 'utf8')
-  assert.match(viteCfg, /globIgnores\s*:\s*\[[^\]]*vendor-three-\*\.js/, 'decorative three chunk must not be precached')
+  assert.match(src, /prefers-reduced-motion/, 'must still have an explicit reduced-motion branch')
+  assert.doesNotMatch(src, /animation:\s*[^;]*infinite/, 'static backdrop must not use infinite animation')
+  assert.doesNotMatch(src, /filter:\s*blur|backdrop-filter/, 'static backdrop must not use blur filters')
 })

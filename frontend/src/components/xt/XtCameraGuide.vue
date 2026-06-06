@@ -41,7 +41,6 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide
   justify-content: center;
   padding: 24px;
   background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
 }
 
 .xt-camera-guide__content {
@@ -50,7 +49,7 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide
   padding: 32px;
   background: var(--xt-bg-panel);
   border: 1px solid var(--xt-primary-border);
-  box-shadow: 0 0 40px rgba(11, 99, 246, 0.3);
+  box-shadow: 0 12px 28px rgba(0, 12, 28, 0.28);
 }
 
 .xt-camera-guide__icon {
@@ -58,7 +57,6 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide
   height: 64px;
   margin: 0 auto 20px;
   color: var(--xt-primary);
-  filter: drop-shadow(0 0 10px rgba(11, 99, 246, 0.5));
 }
 
 .xt-camera-guide__frame {
@@ -67,7 +65,7 @@ if (typeof localStorage !== 'undefined' && localStorage.getItem('xt-camera-guide
   margin: 0 auto 24px;
   border: 1px solid var(--xt-primary-border);
   border-radius: var(--xt-radius-lg);
-  box-shadow: 0 0 24px rgba(11, 99, 246, 0.25) inset;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-primary) 18%, transparent);
 }
 
 .xt-camera-guide__actions .el-button {

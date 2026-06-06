@@ -147,11 +147,11 @@ function close() {
   border: 0;
   color: var(--xt-text);
   font-size: var(--xt-text-lg);
-  outline: none;
 }
 
 .xt-search__input:focus-visible {
-  box-shadow: none;
+  outline: 2px solid var(--xt-primary);
+  outline-offset: 2px;
 }
 
 .xt-search__kbd {
@@ -183,6 +183,11 @@ function close() {
 
 .xt-search__item.is-active {
   background: var(--xt-primary-light);
+}
+
+.xt-search__item:focus-visible {
+  outline: 2px solid var(--xt-primary);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) {

@@ -61,7 +61,7 @@ defineProps({ items: { type: Array, default: () => [] } })
     color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 36px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+    0 10px 24px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
   overflow: hidden;
 }
 
@@ -83,7 +83,6 @@ defineProps({ items: { type: Array, default: () => [] } })
   height: 104px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--xt-primary) 16%, transparent);
-  filter: blur(8px);
 }
 
 .xt-kpi-bar__card.is-muted {
@@ -145,7 +144,6 @@ defineProps({ items: { type: Array, default: () => [] } })
 
 .xt-kpi-bar__value span {
   color: var(--xt-text-inverse);
-  text-shadow: 0 0 20px color-mix(in srgb, var(--xt-primary) 34%, transparent);
 }
 
 .xt-kpi-bar__value small {

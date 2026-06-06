@@ -418,7 +418,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: var(--manage-accent-soft);
   color: #74f5ff;
-  box-shadow: 0 0 18px rgba(0, 242, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(116, 245, 255, 0.08);
   font-size: var(--xt-text-xs);
   font-weight: 700;
   white-space: nowrap;
@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 0 24px rgba(0, 242, 255, 0.1);
+    0 6px 18px rgba(0, 18, 42, 0.18);
 }
 
 .xt-manage__nav-item.is-active::before {
@@ -674,7 +674,6 @@ onBeforeUnmount(() => {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.72), transparent);
   content: "";
-  animation: xtManageEnergyLine 5s linear infinite;
 }
 
 .xt-manage__hamburger {
@@ -738,7 +737,7 @@ onBeforeUnmount(() => {
     linear-gradient(180deg, rgba(0, 242, 255, 0.18), rgba(0, 104, 153, 0.18)),
     rgba(1, 16, 31, 0.82);
   color: #e1fdff;
-  box-shadow: 0 0 22px rgba(0, 242, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(116, 245, 255, 0.08);
   font-size: var(--xt-text-sm);
   font-weight: 850;
 }
@@ -809,7 +808,6 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at 0% 0%, rgba(0, 242, 255, 0.16), transparent 34%),
     rgba(1, 8, 18, 0.7);
-  backdrop-filter: blur(10px);
 }
 
 .xt-manage__drawer {
@@ -819,7 +817,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--manage-line-strong);
-  box-shadow: 20px 0 54px rgba(0, 12, 30, 0.48);
+  box-shadow: 12px 0 28px rgba(0, 12, 30, 0.34);
 }
 
 .xt-drawer-enter-active,
@@ -942,12 +940,6 @@ onBeforeUnmount(() => {
 
 :deep(.xt-search-overlay .el-input__inner) {
   color: var(--manage-text, rgba(225, 253, 255, 0.92));
-}
-
-@keyframes xtManageEnergyLine {
-  0% { transform: translateX(-40%); opacity: 0.34; }
-  50% { opacity: 1; }
-  100% { transform: translateX(40%); opacity: 0.34; }
 }
 
 @media (max-width: 1180px) {

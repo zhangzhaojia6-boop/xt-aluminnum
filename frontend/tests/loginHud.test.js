@@ -19,8 +19,11 @@ test('Login.vue imports useHudTheme from composables', () => {
   assert.match(scriptBody, /from ['"]\.\.\/composables\/useHudTheme\.js['"]/)
 })
 
-test('Login.vue lazy-loads the particle backdrop via defineAsyncComponent', () => {
-  assert.match(scriptBody, /defineAsyncComponent\(\s*\(\s*\)\s*=>\s*import\(\s*['"]\.\.\/components\/hud\/ParticleField\.vue['"]\s*\)\s*\)/)
+test('Login.vue uses the static HUD backdrop without async decorative WebGL', () => {
+  assert.match(scriptBody, /import\s+ParticleField\s+from ['"]\.\.\/components\/hud\/ParticleField\.vue['"]/)
+  assert.match(scriptBody, /const LoginHudBackdrop = ParticleField/)
+  assert.doesNotMatch(scriptBody, /defineAsyncComponent/)
+  assert.doesNotMatch(scriptBody, /import\(\s*['"]\.\.\/components\/hud\/ParticleField\.vue['"]\s*\)/)
 })
 
 test('Login.vue mounts LoginHudBackdrop at the top of login-page', () => {

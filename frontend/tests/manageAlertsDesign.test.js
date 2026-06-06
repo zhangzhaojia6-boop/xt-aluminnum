@@ -25,8 +25,10 @@ test('AlertsPage applies industrial blue command surface without hard-coded hex'
   assert.match(SRC, /data-testid="manage-alerts-filters"/)
   assert.match(SRC, /ALERT COMMAND/)
   assert.match(SRC, /EXCEPTION MATRIX/)
-  assert.match(SRC, /xtAlertsSweep/)
-  assert.match(SRC, /xtAlertsPulse/)
+  assert.doesNotMatch(SRC, /xtAlertsSweep/)
+  assert.doesNotMatch(SRC, /xtAlertsPulse/)
+  assert.doesNotMatch(SRC, /animation:\s*[^;]*infinite/)
+  assert.doesNotMatch(SRC, /backdrop-filter|filter:\s*blur/i)
   const style = SRC.split('<style')[1] || ''
   assert.equal(/#[0-9a-fA-F]{3,6}/.test(style), false)
   assert.match(style, /var\(--xt-primary\)/)

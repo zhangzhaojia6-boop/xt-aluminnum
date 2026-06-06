@@ -124,11 +124,12 @@ const connectionText = computed(() => {
 
 .live-event-rail__list article::after {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.1), transparent);
-  transform: translateX(-110%);
+  top: 0;
+  right: 12px;
+  left: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.16), transparent);
   content: "";
-  animation: liveEventSweep 4.2s linear infinite;
 }
 
 .live-event-rail__list article.is-warning {
@@ -166,14 +167,4 @@ const connectionText = computed(() => {
   color: rgba(185, 223, 235, 0.68);
 }
 
-@keyframes liveEventSweep {
-  0% { transform: translateX(-110%); }
-  54%, 100% { transform: translateX(110%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .live-event-rail__list article::after {
-    animation: none;
-  }
-}
 </style>

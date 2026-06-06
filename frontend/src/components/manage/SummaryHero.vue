@@ -80,7 +80,7 @@ const formattedDate = computed(() => {
     linear-gradient(135deg, color-mix(in srgb, var(--xt-bg-ink-panel) 90%, var(--xt-bg-panel)), var(--xt-bg-ink));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 44px color-mix(in srgb, var(--xt-bg-ink) 58%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 42%, transparent);
   overflow: hidden;
 }
 
@@ -102,7 +102,7 @@ const formattedDate = computed(() => {
   align-self: stretch;
   border-radius: var(--xt-radius-pill);
   background: linear-gradient(180deg, var(--xt-primary), var(--xt-success));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--xt-primary) 52%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-text-inverse) 16%, transparent);
 }
 
 .xt-summary-hero__body {
@@ -134,7 +134,6 @@ const formattedDate = computed(() => {
   border-radius: var(--xt-radius-pill);
   background: color-mix(in srgb, var(--xt-primary) 20%, transparent);
   color: var(--xt-text-inverse);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 28%, transparent);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;

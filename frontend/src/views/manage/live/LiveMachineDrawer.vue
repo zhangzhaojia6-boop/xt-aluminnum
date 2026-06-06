@@ -127,7 +127,6 @@ defineEmits(['close'])
   font-family: var(--xt-font-display, "Hanken Grotesk", sans-serif);
   font-size: 24px;
   line-height: 1;
-  text-shadow: 0 0 16px rgba(0, 242, 255, 0.24);
 }
 
 .live-machine-drawer__stats em {

@@ -165,7 +165,7 @@ defineEmits(['select'])
   height: 6px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 10px currentcolor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 16%, transparent);
   content: "";
 }
 
@@ -203,7 +203,6 @@ defineEmits(['select'])
   color: #74f5ff;
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
-  text-shadow: 0 0 12px rgba(0, 242, 255, 0.24);
 }
 
 .live-machine-workshop__grid {
@@ -242,7 +241,7 @@ defineEmits(['select'])
 .live-machine-matrix__pending button:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 171, 0, 0.54);
-  box-shadow: 0 0 22px rgba(255, 171, 0, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 29, 68, 0.16);
 }
 
 .live-machine-matrix__pending b,
@@ -266,7 +265,6 @@ defineEmits(['select'])
   height: 128px;
   border-radius: 10px;
   background: linear-gradient(90deg, rgba(0, 242, 255, 0.06), rgba(0, 242, 255, 0.18), rgba(0, 242, 255, 0.06));
-  animation: liveMatrixPulse 1.2s ease-in-out infinite;
 }
 
 .live-machine-matrix__empty {
@@ -274,11 +272,6 @@ defineEmits(['select'])
   min-height: 220px;
   place-items: center;
   color: rgba(185, 223, 235, 0.7);
-}
-
-@keyframes liveMatrixPulse {
-  0%, 100% { opacity: 0.48; }
-  50% { opacity: 1; }
 }
 
 @media (max-width: 720px) {
@@ -296,8 +289,5 @@ defineEmits(['select'])
     transition: none;
   }
 
-  .live-machine-matrix__skeleton i {
-    animation: none;
-  }
 }
 </style>

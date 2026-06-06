@@ -63,7 +63,6 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
   width: 3px;
   background: currentcolor;
   opacity: 0.8;
-  box-shadow: 0 0 18px currentcolor;
   content: "";
 }
 
@@ -82,7 +81,7 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
 .live-machine-card:hover {
   transform: translateY(-2px);
   border-color: rgba(0, 242, 255, 0.52);
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 18px rgba(0, 29, 68, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .live-machine-card__status,
@@ -108,8 +107,7 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
   height: 7px;
   border-radius: 50%;
   background: currentcolor;
-  box-shadow: 0 0 12px currentcolor;
-  animation: liveMachineLed 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentcolor 18%, transparent);
 }
 
 .live-machine-card strong {
@@ -145,7 +143,6 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
   color: #e1fdff;
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
-  text-shadow: 0 0 12px rgba(0, 242, 255, 0.22);
 }
 
 .live-machine-card__shifts {
@@ -185,18 +182,9 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
   color: #7aa2bd;
 }
 
-@keyframes liveMachineLed {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .live-machine-card {
     transition: none;
-  }
-
-  .live-machine-card__status i {
-    animation: none;
   }
 }
 </style>

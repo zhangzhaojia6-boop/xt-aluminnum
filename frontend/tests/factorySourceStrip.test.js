@@ -40,14 +40,15 @@ test('buildFactorySourceStrip does not invent zero values when source fields are
   assert.equal(strip.items[3].value, '—')
 })
 
-test('FactorySourceStrip keeps Stitch cyber-industrial structure without changing data props', () => {
+test('FactorySourceStrip keeps Stitch industrial structure without changing data props', () => {
   const src = source('../src/components/manage/FactorySourceStrip.vue')
 
   assert.match(src, /data-testid="factory-source-strip"/)
   assert.match(src, /xt-source-strip__scan/)
   assert.match(src, /xt-source-strip__rail/)
-  assert.match(src, /backdrop-filter/)
-  assert.match(src, /xt-source-strip-reveal/)
+  assert.doesNotMatch(src, /backdrop-filter/)
+  assert.doesNotMatch(src, /xt-source-strip-reveal/)
+  assert.doesNotMatch(src, /animation:\s*[^;{}]*infinite/)
   assert.match(src, /buildFactorySourceStrip\(props\.overview\)/)
 })
 

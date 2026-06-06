@@ -367,7 +367,7 @@ load()
     color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 42%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 34%, transparent);
 }
 
 .xt-fill-details__hero::before,
@@ -387,11 +387,11 @@ load()
 .xt-fill-details__hero::after,
 .xt-fill-details__ledger-panel::after {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent);
-  opacity: 0.36;
-  transform: translateX(-120%);
-  animation: xtFillScan 8s linear infinite;
+  top: 0;
+  right: var(--xt-space-4);
+  left: var(--xt-space-4);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent);
   content: "";
   pointer-events: none;
 }
@@ -419,7 +419,6 @@ load()
   font-size: clamp(var(--xt-text-2xl), 3vw, 42px);
   font-weight: 900;
   letter-spacing: -0.04em;
-  text-shadow: 0 0 24px color-mix(in srgb, var(--xt-primary) 38%, transparent);
 }
 
 .xt-fill-details__hero-status {
@@ -438,7 +437,7 @@ load()
   height: 8px;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 18%, transparent);
 }
 
 .xt-fill-details__hero-status strong {
@@ -494,7 +493,6 @@ load()
   font-size: var(--xt-text-lg);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 20px color-mix(in srgb, var(--xt-primary) 28%, transparent);
 }
 
 .xt-fill-details__audit-card.tone-warning,
@@ -785,7 +783,7 @@ load()
   height: 7px;
   border-radius: var(--xt-radius-pill);
   background: currentColor;
-  box-shadow: 0 0 14px currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .xt-fill-details__status-pill b {
@@ -842,11 +840,6 @@ load()
 .xt-fill-details__empty {
   text-align: center;
   color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
-}
-
-@keyframes xtFillScan {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
 }
 
 @media (max-width: 1120px) {
@@ -930,11 +923,6 @@ load()
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-fill-details__hero::after,
-  .xt-fill-details__ledger-panel::after {
-    animation: none;
-  }
-
   .xt-fill-details__table tbody tr {
     transition: none;
   }

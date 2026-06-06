@@ -166,7 +166,7 @@ const option = computed(() => {
     color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
   overflow: hidden;
 }
 
@@ -210,7 +210,6 @@ const option = computed(() => {
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 18px color-mix(in srgb, var(--xt-warning) 28%, transparent);
 }
 
 .xt-cost-panel__cost-unit {

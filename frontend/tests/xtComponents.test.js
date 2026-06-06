@@ -156,7 +156,10 @@ test('XtSectionCard exposes collapsed state and toggle method', () => {
 test('XtSectionCard renders toolbar slot and toggle button', () => {
   const src = source('../src/components/xt/XtSectionCard.vue')
   assert.match(src, /slot name="toolbar"/)
-  assert.match(src, /aria-label="Toggle section"/)
+  assert.match(src, /type="button"/)
+  assert.match(src, /:aria-expanded="!collapsed"/)
+  assert.match(src, /:aria-label="collapsed \? '展开区块' : '收起区块'"/)
+  assert.match(src, /@click\.stop="toggle"/)
 })
 
 // --- XtDrawer ---

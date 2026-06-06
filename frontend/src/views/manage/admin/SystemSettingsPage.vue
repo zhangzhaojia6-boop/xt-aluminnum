@@ -156,8 +156,7 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
     rgba(4, 18, 32, 0.66);
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.05),
-    0 22px 56px rgba(0, 12, 28, 0.24);
-  backdrop-filter: blur(12px);
+    0 12px 28px rgba(0, 12, 28, 0.18);
 }
 
 .xt-system-settings__main {
@@ -184,10 +183,11 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
 .xt-system-settings__header::after,
 .xt-system-settings__linkage::after {
   position: absolute;
-  inset: 0;
+  right: var(--xt-space-4);
+  bottom: 0;
+  left: var(--xt-space-4);
+  height: 1px;
   background: linear-gradient(180deg, transparent, rgba(0, 242, 255, 0.1), transparent);
-  transform: translateY(-100%);
-  animation: xtSettingsScan 7s linear infinite;
   content: "";
   pointer-events: none;
 }
@@ -206,7 +206,6 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
   font-size: clamp(32px, 4vw, 52px);
   font-weight: 900;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 24px rgba(0, 242, 255, 0.18);
 }
 
 .xt-system-settings__header strong {
@@ -327,7 +326,7 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
     color: rgba(225, 253, 255, 1);
     box-shadow:
       inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 28px rgba(0, 242, 255, 0.13);
+      0 8px 18px rgba(0, 12, 28, 0.18);
     transform: translateY(-2px);
   }
 
@@ -336,7 +335,7 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
   }
 
   .xt-system-settings__card:hover .xt-system-settings__icon {
-    box-shadow: 0 0 20px rgba(0, 242, 255, 0.26);
+    box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.28);
   }
 }
 
@@ -381,8 +380,8 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
     radial-gradient(circle, rgba(4, 14, 26, 0.92) 54%, transparent 56%),
     conic-gradient(rgba(0, 242, 255, 0.98) 0 333deg, rgba(0, 242, 255, 0.11) 333deg 360deg);
   box-shadow:
-    0 0 24px rgba(0, 242, 255, 0.18),
-    inset 0 0 24px rgba(0, 242, 255, 0.08);
+    0 8px 18px rgba(0, 12, 28, 0.16),
+    inset 0 0 0 1px rgba(0, 242, 255, 0.16);
 }
 
 .xt-system-settings__ring b {
@@ -455,12 +454,6 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
   content: "";
 }
 
-@keyframes xtSettingsScan {
-  0% { transform: translateY(-100%); opacity: 0; }
-  28% { opacity: 0.74; }
-  100% { transform: translateY(100%); opacity: 0; }
-}
-
 @media (max-width: 1180px) {
   .xt-system-settings__layout {
     grid-template-columns: 1fr;
@@ -503,11 +496,6 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-system-settings__header::after,
-  .xt-system-settings__linkage::after {
-    animation: none;
-  }
-
   .xt-system-settings__card,
   .xt-system-settings__scan,
   .xt-system-settings__icon {

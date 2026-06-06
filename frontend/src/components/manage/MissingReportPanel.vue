@@ -111,12 +111,11 @@ const compactRoleStats = computed(() => [
 
 .xt-missing-report::before {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
+  height: 2px;
   pointer-events: none;
   content: '';
-  background: linear-gradient(90deg, transparent, rgba(255, 93, 115, 0.12), transparent);
-  transform: translateX(-100%);
-  animation: xtMissingSweep 7s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 93, 115, 0.28), transparent);
 }
 
 .xt-missing-report__head,
@@ -329,9 +328,4 @@ const compactRoleStats = computed(() => [
   }
 }
 
-@keyframes xtMissingSweep {
-  0% { transform: translateX(-100%); }
-  55% { transform: translateX(100%); }
-  100% { transform: translateX(100%); }
-}
 </style>

@@ -104,11 +104,12 @@ defineProps({
 
 .live-metric-compare__grid article::before {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent, rgba(0, 242, 255, 0.11), transparent);
-  transform: translateX(-115%);
+  top: 0;
+  right: 12px;
+  left: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.16), transparent);
   content: "";
-  animation: liveCompareSweep 5.4s linear infinite;
 }
 
 .live-metric-compare__grid article > span,
@@ -133,7 +134,6 @@ defineProps({
   font-size: clamp(24px, 2.5vw, 34px);
   line-height: 1;
   letter-spacing: -0.05em;
-  text-shadow: 0 0 18px rgba(0, 242, 255, 0.24);
 }
 
 .live-metric-compare__grid div {
@@ -168,20 +168,9 @@ defineProps({
   color: #e1fdff;
 }
 
-@keyframes liveCompareSweep {
-  0% { transform: translateX(-115%); }
-  50%, 100% { transform: translateX(115%); }
-}
-
 @media (max-width: 1180px) {
   .live-metric-compare__grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .live-metric-compare__grid article::before {
-    animation: none;
   }
 }
 </style>

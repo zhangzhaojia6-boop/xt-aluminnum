@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
 
 .xt-date-switcher__label.is-open {
   border-color: var(--xt-primary);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-primary) 28%, transparent);
 }
 
 .xt-date-switcher__caret {
@@ -234,7 +234,7 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  box-shadow: 0 0 12px currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .xt-date-switcher__dot.is-green { background: var(--xt-color-success); color: var(--xt-color-success); }
@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
     color-mix(in srgb, var(--xt-bg-ink-panel) 94%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 24px 60px color-mix(in srgb, var(--xt-bg-ink) 70%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 56%, transparent);
 }
 
 .xt-cal-pop__head {
@@ -351,7 +351,7 @@ onBeforeUnmount(() => {
   border-color: var(--xt-primary);
   background: color-mix(in srgb, var(--xt-primary) 82%, var(--xt-bg-ink-panel));
   color: var(--xt-text-inverse);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 30%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-text-inverse) 18%, transparent);
 }
 
 .xt-cal-pop__cell.is-future {

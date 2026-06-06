@@ -303,8 +303,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   overflow: hidden;
   border: 1px solid var(--energy-line);
   background: linear-gradient(180deg, rgba(38, 42, 49, 0.54), var(--energy-panel));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 20px 54px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .energy-center__hero::after,
@@ -312,12 +311,13 @@ watch(() => filters.business_date, (value, oldValue) => {
 .energy-center__flow article::after,
 .energy-center__stat::after {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 18px;
+  left: 18px;
+  height: 1px;
   pointer-events: none;
   content: '';
-  background: linear-gradient(115deg, transparent 0%, rgba(0, 242, 255, 0.14) 42%, transparent 62%);
-  transform: translateX(-120%);
-  animation: energyCenterSweep 7s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.16), transparent);
 }
 
 .energy-center__hero {
@@ -351,7 +351,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   content: '';
   border-radius: 999px;
   background: var(--energy-cyan);
-  box-shadow: 0 0 18px var(--energy-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 242, 255, 0.18);
 }
 
 .energy-center h1,
@@ -366,7 +366,6 @@ watch(() => filters.business_date, (value, oldValue) => {
   margin-top: 12px;
   font-size: clamp(34px, 5vw, 58px);
   line-height: 1;
-  text-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
 }
 
 .energy-center__subtitle {
@@ -425,7 +424,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   height: 9px;
   border-radius: 999px;
   background: currentColor;
-  box-shadow: 0 0 16px currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .energy-center__status-dot--success {
@@ -466,7 +465,7 @@ watch(() => filters.business_date, (value, oldValue) => {
 .energy-center__refresh:hover {
   border-color: var(--energy-cyan);
   background: rgba(0, 242, 255, 0.2);
-  box-shadow: 0 0 24px rgba(0, 242, 255, 0.22);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .energy-center__stats {
@@ -498,8 +497,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   height: 9px;
   border-radius: 999px;
   background: currentColor;
-  box-shadow: 0 0 16px currentColor;
-  animation: energyCenterPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .energy-center__stat strong {
@@ -511,7 +509,6 @@ watch(() => filters.business_date, (value, oldValue) => {
   font-family: 'Hanken Grotesk', 'Inter', sans-serif;
   font-size: clamp(24px, 3vw, 38px);
   line-height: 1;
-  text-shadow: 0 0 22px rgba(0, 242, 255, 0.34);
 }
 
 .energy-center__stat small {
@@ -573,7 +570,6 @@ watch(() => filters.business_date, (value, oldValue) => {
   font-size: 22px;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 0 18px rgba(0, 242, 255, 0.64);
   transform: translateY(-50%);
 }
 
@@ -602,7 +598,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   background:
     linear-gradient(135deg, rgba(0, 242, 255, 0.12), rgba(0, 96, 255, 0.18)),
     radial-gradient(circle at 50% 50%, rgba(0, 242, 255, 0.5), transparent 52%);
-  box-shadow: inset 0 0 18px rgba(0, 242, 255, 0.18), 0 0 24px rgba(0, 242, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 242, 255, 0.16);
 }
 
 .energy-center__flow-icon::before,
@@ -690,7 +686,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   background:
     linear-gradient(135deg, rgba(255, 176, 32, 0.12), rgba(0, 96, 255, 0.12)),
     radial-gradient(circle at 50% 50%, rgba(255, 176, 32, 0.48), transparent 52%);
-  box-shadow: inset 0 0 18px rgba(255, 176, 32, 0.16), 0 0 24px rgba(255, 176, 32, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 176, 32, 0.16);
 }
 
 .energy-center__flow-card--result,
@@ -704,7 +700,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   background:
     radial-gradient(circle at 74% 12%, rgba(62, 255, 197, 0.18), transparent 36%),
     linear-gradient(180deg, rgba(12, 56, 72, 0.72), rgba(9, 23, 38, 0.9));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 34px rgba(62, 255, 197, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .energy-center__flow-card--critical {
@@ -712,7 +708,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   background:
     radial-gradient(circle at 74% 12%, rgba(255, 176, 32, 0.18), transparent 36%),
     linear-gradient(180deg, rgba(72, 46, 12, 0.66), rgba(18, 20, 30, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 34px rgba(255, 176, 32, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .energy-center__flow-card--endpoint .energy-center__flow-stage {
@@ -736,7 +732,7 @@ watch(() => filters.business_date, (value, oldValue) => {
   background:
     linear-gradient(135deg, rgba(114, 245, 173, 0.14), rgba(0, 242, 255, 0.18)),
     radial-gradient(circle at 50% 50%, rgba(114, 245, 173, 0.48), transparent 52%);
-  box-shadow: inset 0 0 20px rgba(114, 245, 173, 0.2), 0 0 28px rgba(114, 245, 173, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(114, 245, 173, 0.2);
 }
 
 .energy-center__flow-card--endpoint strong {
@@ -865,7 +861,6 @@ watch(() => filters.business_date, (value, oldValue) => {
 
 .energy-center__per-ton {
   color: var(--energy-cyan);
-  text-shadow: 0 0 16px rgba(0, 242, 255, 0.26);
 }
 
 .energy-center__event-rail {
@@ -987,30 +982,6 @@ watch(() => filters.business_date, (value, oldValue) => {
 .energy-center__mobile-grid strong {
   color: #eafcff;
   text-align: right;
-}
-
-@keyframes energyCenterSweep {
-  0%,
-  70% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(120%);
-  }
-}
-
-@keyframes energyCenterPulse {
-  0%,
-  100% {
-    opacity: 0.56;
-    transform: scale(0.88);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.18);
-  }
 }
 
 @media (max-width: 1080px) {

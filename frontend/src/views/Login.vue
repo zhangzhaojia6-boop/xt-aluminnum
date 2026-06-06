@@ -110,16 +110,17 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import ParticleField from '../components/hud/ParticleField.vue'
 import { XtFactoryMap, XtLogo } from '../components/xt'
 import { useAuthStore } from '../stores/auth.js'
 import { useHudTheme } from '../composables/useHudTheme.js'
 
 useHudTheme({ force: true })
-const LoginHudBackdrop = defineAsyncComponent(() => import('../components/hud/ParticleField.vue'))
+const LoginHudBackdrop = ParticleField
 
 const router = useRouter()
 const route = useRoute()

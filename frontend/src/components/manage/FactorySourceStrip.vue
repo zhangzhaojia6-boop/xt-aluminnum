@@ -51,12 +51,10 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 7%, transparent), transparent),
     color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
-  backdrop-filter: blur(8px);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 36px color-mix(in srgb, var(--xt-bg-ink) 48%, transparent);
+    0 10px 24px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
   overflow: hidden;
-  animation: xt-source-strip-reveal 0.7s var(--xt-ease) both;
 }
 
 .xt-source-strip::before,
@@ -80,7 +78,6 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   height: 120px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--xt-primary) 14%, transparent);
-  filter: blur(10px);
 }
 
 .xt-source-strip__scan {
@@ -89,9 +86,8 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   z-index: 1;
   width: 112px;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 15%, transparent), transparent);
-  opacity: 0;
-  transform: translateX(-35%);
-  animation: xt-source-strip-scan 4.2s var(--xt-ease) infinite;
+  opacity: 0.32;
+  transform: translateX(24%);
   pointer-events: none;
 }
 
@@ -156,7 +152,7 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   flex: 0 0 auto;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--xt-primary) 72%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-primary) 18%, transparent);
 }
 
 .xt-source-strip__pulse::after {
@@ -164,23 +160,22 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   inset: -8px;
   border: 1px solid color-mix(in srgb, var(--xt-primary) 36%, transparent);
   border-radius: inherit;
-  animation: xt-source-strip-pulse 1.8s var(--xt-ease) infinite;
   content: "";
 }
 
 .xt-source-strip.tone-success .xt-source-strip__pulse {
   background: var(--xt-success);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--xt-success) 72%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-success) 18%, transparent);
 }
 
 .xt-source-strip.tone-warning .xt-source-strip__pulse {
   background: var(--xt-warning);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--xt-warning) 68%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-warning) 18%, transparent);
 }
 
 .xt-source-strip.tone-danger .xt-source-strip__pulse {
   background: var(--xt-danger);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--xt-danger) 68%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--xt-danger) 18%, transparent);
 }
 
 .xt-source-strip__items {
@@ -201,19 +196,6 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
     linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 5%, transparent), transparent),
     color-mix(in srgb, var(--xt-bg-ink-panel) 76%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 5%, transparent);
-  animation: xt-source-strip-reveal 0.72s var(--xt-ease) both;
-}
-
-.xt-source-strip__items li:nth-child(2) {
-  animation-delay: 0.06s;
-}
-
-.xt-source-strip__items li:nth-child(3) {
-  animation-delay: 0.12s;
-}
-
-.xt-source-strip__items li:nth-child(4) {
-  animation-delay: 0.18s;
 }
 
 .xt-source-strip__readout {
@@ -230,7 +212,6 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   font-weight: 950;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
-  text-shadow: 0 0 18px color-mix(in srgb, var(--xt-primary) 30%, transparent);
 }
 
 .xt-source-strip__items small {
@@ -238,42 +219,6 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
   color: color-mix(in srgb, var(--xt-text-inverse) 48%, transparent);
   font-size: var(--xt-text-xs);
   font-weight: 800;
-}
-
-@keyframes xt-source-strip-scan {
-  0% {
-    opacity: 0;
-    transform: translateX(-35%);
-  }
-  44% {
-    opacity: 0.42;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(115%);
-  }
-}
-
-@keyframes xt-source-strip-pulse {
-  0% {
-    opacity: 0.72;
-    transform: scale(0.72);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.48);
-  }
-}
-
-@keyframes xt-source-strip-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 860px) {
@@ -297,11 +242,8 @@ const strip = computed(() => buildFactorySourceStrip(props.overview))
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-source-strip,
-  .xt-source-strip__scan,
-  .xt-source-strip__pulse::after,
-  .xt-source-strip__items li {
-    animation: none;
+  .xt-source-strip__scan {
+    transition: none;
   }
 }
 </style>

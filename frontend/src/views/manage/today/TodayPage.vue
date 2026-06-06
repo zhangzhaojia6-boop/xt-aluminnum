@@ -429,18 +429,19 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--xt-primary) 14%, transparent), transparent 42%),
     linear-gradient(180deg, color-mix(in srgb, var(--xt-bg-ink-panel) 92%, transparent), var(--xt-bg-ink));
-  box-shadow: 0 22px 58px color-mix(in srgb, var(--xt-bg-ink) 72%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 56%, transparent);
   overflow: hidden;
 }
 
 .xt-today__header::before {
   content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: var(--xt-space-4);
+  left: var(--xt-space-4);
+  height: 1px;
   pointer-events: none;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 22%, transparent), transparent);
-  transform: translateX(-100%);
-  animation: xt-today-sweep 5.8s var(--xt-ease) infinite;
 }
 
 .xt-today__title-wrap {
@@ -457,7 +458,6 @@ onBeforeUnmount(() => {
   font-size: clamp(var(--xt-text-2xl), 4vw, var(--xt-text-3xl));
   font-weight: 900;
   letter-spacing: -0.04em;
-  text-shadow: 0 0 24px color-mix(in srgb, var(--xt-primary) 42%, transparent);
 }
 
 .xt-today__quick-nav {
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
   color: var(--xt-text-inverse);
   border-color: color-mix(in srgb, var(--xt-primary) 58%, var(--xt-border-ink));
   background: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-bg-ink-panel));
-  box-shadow: 0 0 22px color-mix(in srgb, var(--xt-primary) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-primary) 22%, transparent);
 }
 
 .xt-today__quick-link:active {
@@ -512,7 +512,7 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at 8% 4%, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent 34%),
     linear-gradient(160deg, color-mix(in srgb, var(--xt-bg-ink-panel) 88%, transparent), color-mix(in srgb, var(--xt-bg-ink) 96%, transparent));
-  box-shadow: 0 18px 44px color-mix(in srgb, var(--xt-bg-ink) 62%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 52%, transparent);
   overflow: hidden;
 }
 
@@ -522,12 +522,9 @@ onBeforeUnmount(() => {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent),
     linear-gradient(color-mix(in srgb, var(--xt-text-inverse) 4%, transparent) 50%, transparent 50%);
   background-size: auto, 100% 4px;
-  opacity: 0.5;
-  transform: translateX(-100%);
-  animation: xt-today-sweep 6.4s var(--xt-ease) infinite;
+  opacity: 0.32;
 }
 
 .xt-today__daily-head,
@@ -885,17 +882,17 @@ onBeforeUnmount(() => {
 
 .xt-today__status-pill.tone-success i {
   background: var(--xt-success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-success) 18%, transparent), 0 0 16px var(--xt-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-success) 18%, transparent);
 }
 
 .xt-today__status-pill.tone-warning i {
   background: var(--xt-warning);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-warning) 18%, transparent), 0 0 16px var(--xt-warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-warning) 18%, transparent);
 }
 
 .xt-today__status-pill.tone-danger i {
   background: var(--xt-danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-danger) 18%, transparent), 0 0 16px var(--xt-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-danger) 18%, transparent);
 }
 
 .xt-roster-slide-enter-active,
@@ -907,20 +904,6 @@ onBeforeUnmount(() => {
 .xt-roster-slide-leave-to {
   opacity: 0;
   transform: translateY(-8px);
-}
-
-@keyframes xt-today-sweep {
-  0% {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-  18% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(100%);
-  }
 }
 
 @media (max-width: 960px) {
@@ -952,11 +935,6 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-today__header::before,
-  .xt-today__daily::before {
-    animation: none;
-  }
-
   .xt-today__quick-link,
   .xt-today__filer-badge,
   .xt-today__table tbody tr {

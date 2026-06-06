@@ -7,8 +7,15 @@
       </div>
       <div class="xt-section-card__toolbar">
         <slot name="toolbar" />
-        <button v-if="toggleable" class="xt-section-card__toggle" aria-label="Toggle section">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <button
+          v-if="toggleable"
+          class="xt-section-card__toggle"
+          type="button"
+          :aria-expanded="!collapsed"
+          :aria-label="collapsed ? '展开区块' : '收起区块'"
+          @click.stop="toggle"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
         </button>

@@ -264,7 +264,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
     color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 18px 40px color-mix(in srgb, var(--xt-bg-ink) 42%, transparent);
+    0 12px 28px color-mix(in srgb, var(--xt-bg-ink) 34%, transparent);
 }
 
 .xt-production__hero::before,
@@ -284,12 +284,11 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 .xt-production__ranking::after,
 .xt-production__insight::after {
   position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent);
-  opacity: 0.42;
-  transform: translateX(-120%);
-  animation: xtProductionSweep 7s linear infinite;
+  top: 0;
+  right: var(--xt-space-4);
+  left: var(--xt-space-4);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent);
   content: "";
   pointer-events: none;
 }
@@ -322,7 +321,6 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   font-size: clamp(var(--xt-text-2xl), 3vw, 42px);
   font-weight: 900;
   letter-spacing: -0.04em;
-  text-shadow: 0 0 24px color-mix(in srgb, var(--xt-primary) 38%, transparent);
 }
 
 .xt-production__eyebrow {
@@ -500,7 +498,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--xt-primary), color-mix(in srgb, var(--xt-primary) 46%, var(--xt-text-inverse)));
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 45%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xt-text-inverse) 18%, transparent);
 }
 
 .xt-production__aside {
@@ -543,7 +541,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   height: 8px;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 18%, transparent);
 }
 
 .xt-production__brief-list small {
@@ -593,7 +591,7 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   flex: 0 0 auto;
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-primary) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 18%, transparent);
 }
 
 .xt-production__status-item small {
@@ -611,20 +609,19 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 
 .xt-production__status-item.tone-success > span {
   background: var(--xt-success);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-success) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-success) 18%, transparent);
 }
 
 .xt-production__status-item.tone-warning > span,
 .xt-production__status-item.tone-danger > span {
   background: var(--xt-warning);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--xt-warning) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-warning) 18%, transparent);
 }
 
 .xt-production__signal-icon {
   color: var(--xt-primary);
   font-size: 48px;
   line-height: 1;
-  text-shadow: 0 0 24px color-mix(in srgb, var(--xt-primary) 44%, transparent);
 }
 
 .xt-production__signal strong {
@@ -637,11 +634,6 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
   color: color-mix(in srgb, var(--xt-text-inverse) 52%, transparent);
   font-size: var(--xt-text-xs);
   font-weight: 850;
-}
-
-@keyframes xtProductionSweep {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
 }
 
 @media (max-width: 1080px) {
@@ -712,12 +704,6 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .xt-production__hero::after,
-  .xt-production__ranking::after,
-  .xt-production__insight::after {
-    animation: none;
-  }
-
   .xt-production__table tbody tr {
     transition: none;
   }

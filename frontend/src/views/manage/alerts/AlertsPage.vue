@@ -205,7 +205,6 @@ watch(() => route.query, () => {
     linear-gradient(180deg, color-mix(in srgb, var(--xt-primary) 8%, transparent), transparent),
     color-mix(in srgb, var(--xt-bg-ink-panel) 88%, var(--xt-bg-panel));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent);
-  backdrop-filter: blur(14px);
 }
 
 .xt-alerts__hero::after,
@@ -213,12 +212,13 @@ watch(() => route.query, () => {
 .xt-alerts__queues::after,
 .xt-alerts__timeline-shell::after {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: var(--xt-space-4);
+  left: var(--xt-space-4);
+  height: 1px;
   pointer-events: none;
   content: '';
-  background: linear-gradient(115deg, transparent, color-mix(in srgb, var(--xt-primary) 14%, transparent), transparent);
-  transform: translateX(-120%);
-  animation: xtAlertsSweep 7s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--xt-primary) 16%, transparent), transparent);
 }
 
 .xt-alerts__hero {
@@ -257,7 +257,7 @@ watch(() => route.query, () => {
   content: '';
   border-radius: var(--xt-radius-pill);
   background: var(--xt-primary);
-  box-shadow: 0 0 var(--xt-space-4) var(--xt-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xt-primary) 20%, transparent);
 }
 
 .xt-alerts h1,
@@ -273,7 +273,6 @@ watch(() => route.query, () => {
   font-size: clamp(var(--xt-text-3xl), 5vw, calc(var(--xt-text-3xl) * 1.8));
   font-weight: 950;
   line-height: 1;
-  text-shadow: 0 0 var(--xt-space-8) color-mix(in srgb, var(--xt-primary) 26%, transparent);
 }
 
 .xt-alerts h2 {
@@ -316,8 +315,7 @@ watch(() => route.query, () => {
   height: var(--xt-space-2);
   border-radius: var(--xt-radius-pill);
   background: currentColor;
-  box-shadow: 0 0 var(--xt-space-4) currentColor;
-  animation: xtAlertsPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .xt-alerts__stat strong {
@@ -327,7 +325,6 @@ watch(() => route.query, () => {
   font-family: var(--xt-font-number);
   font-size: clamp(var(--xt-text-3xl), 4vw, calc(var(--xt-text-3xl) * 1.45));
   line-height: 1;
-  text-shadow: 0 0 var(--xt-space-6) color-mix(in srgb, var(--xt-primary) 34%, transparent);
 }
 
 .xt-alerts__stat--alert strong,
@@ -512,30 +509,6 @@ watch(() => route.query, () => {
 
 .xt-alerts__timeline-shell :deep(.xt-event-card__summary) {
   color: color-mix(in srgb, var(--xt-text-inverse) 82%, var(--xt-primary));
-}
-
-@keyframes xtAlertsSweep {
-  0%,
-  70% {
-    transform: translateX(-120%);
-  }
-
-  100% {
-    transform: translateX(120%);
-  }
-}
-
-@keyframes xtAlertsPulse {
-  0%,
-  100% {
-    opacity: 0.56;
-    transform: scale(0.88);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.18);
-  }
 }
 
 @media (max-width: 1080px) {
