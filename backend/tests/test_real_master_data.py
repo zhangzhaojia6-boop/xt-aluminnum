@@ -328,6 +328,40 @@ def test_seed_real_master_data_preserves_existing_qr_codes_and_seeds_mes_aliases
         db.close()
 
 
+def test_seed_real_master_data_preserves_disabled_mes_aliases(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        db.add(
+            MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code='ZXTF',
+                alias_code='在线退火分厂',
+                alias_name='在线退火分厂',
+                source_type='mes_mvc',
+                is_active=False,
+            )
+        )
+        db.commit()
+
+        seed_real_master_data(db)
+        seed_real_master_data(db)
+
+        alias = db.execute(
+            select(MasterCodeAlias).where(
+                MasterCodeAlias.entity_type == 'workshop',
+                MasterCodeAlias.alias_code == '在线退火分厂',
+                MasterCodeAlias.source_type == 'mes_mvc',
+            )
+        ).scalar_one()
+        assert alias.canonical_code == 'ZXTF'
+        assert alias.alias_name == '在线退火分厂'
+        assert alias.is_active is False
+    finally:
+        db.close()
+
+
 def test_seed_real_master_data_updates_existing_records_idempotently_and_deactivates_placeholders(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 

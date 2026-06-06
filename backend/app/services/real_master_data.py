@@ -1073,7 +1073,6 @@ def seed_mes_master_aliases(db: Session) -> None:
 
         item.canonical_code = canonical_code
         item.alias_name = alias_text
-        item.is_active = True
 
 
 _PRODUCTION_WORKSHOP_CODES = [
