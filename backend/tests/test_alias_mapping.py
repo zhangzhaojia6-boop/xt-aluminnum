@@ -1,10 +1,15 @@
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.deps import get_current_user, get_db
+from app.database import Base
 from app.main import app
-from app.models.system import User
+from app.models.master import MasterCodeAlias, Team, Workshop
+from app.models.system import AuditLog, User
+from app.services import master_service
 
 
 class DummyDB:
@@ -87,3 +92,30 @@ def test_alias_crud_endpoints(monkeypatch) -> None:
     assert delete.status_code == 200
 
     app.dependency_overrides.clear()
+
+
+def test_delete_alias_soft_deactivates_instead_of_physical_delete(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'alias-soft-delete.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, Team.__table__, User.__table__, MasterCodeAlias.__table__, AuditLog.__table__],
+    )
+    db = sessionmaker(bind=engine, future=True, expire_on_commit=False)()
+    alias = MasterCodeAlias(
+        entity_type='workshop',
+        canonical_code='OLD',
+        alias_code='旧车间',
+        alias_name='旧车间',
+        source_type='mes_mvc',
+        is_active=True,
+    )
+    db.add(alias)
+    db.commit()
+
+    master_service.delete_alias(db, alias_id=alias.id, operator=None)
+
+    saved_alias = db.get(MasterCodeAlias, alias.id)
+    assert saved_alias is not None
+    assert saved_alias.is_active is False
+    audit_log = db.query(AuditLog).filter(AuditLog.record_id == alias.id).one()
+    assert audit_log.action == 'deactivate_alias'

@@ -87,7 +87,7 @@
           <el-table-column label="操作" width="160">
             <template #default="{ row }">
               <el-button text type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button text type="danger" @click="remove(row)">删除</el-button>
+              <el-button text type="danger" :disabled="!row.is_active" @click="remove(row)">停用</el-button>
             </template>
           </el-table-column>
         </ReferenceDataTable>
@@ -122,7 +122,7 @@
           </dl>
           <footer>
             <el-button text type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button text type="danger" @click="remove(row)">删除</el-button>
+            <el-button text type="danger" :disabled="!row.is_active" @click="remove(row)">停用</el-button>
           </footer>
         </article>
       </div>
@@ -258,11 +258,11 @@ async function save() {
 }
 
 async function remove(row) {
-  await ElMessageBox.confirm(`确认删除映射“${row.alias_code || row.alias_name || row.canonical_code}”吗？`, '提示', {
+  await ElMessageBox.confirm(`确认停用映射“${row.alias_code || row.alias_name || row.canonical_code}”吗？`, '提示', {
     type: 'warning'
   })
   await deleteAliasMapping(row.id)
-  ElMessage.success('删除成功')
+  ElMessage.success('停用成功')
   await load()
 }
 

@@ -99,16 +99,21 @@ def delete_alias(
     alias = db.get(MasterCodeAlias, alias_id)
     if not alias:
         raise ValueError('alias not found')
-    db.delete(alias)
-    db.commit()
+    alias.is_active = False
+    db.flush()
     record_audit(
         db,
         user=operator,
-        action='delete_alias',
+        action='deactivate_alias',
         module='master',
         entity_type='master_code_aliases',
         entity_id=alias.id,
-        detail={'entity_type': alias.entity_type, 'canonical_code': alias.canonical_code, 'alias_code': alias.alias_code},
+        detail={
+            'entity_type': alias.entity_type,
+            'canonical_code': alias.canonical_code,
+            'alias_code': alias.alias_code,
+            'is_active': alias.is_active,
+        },
     )
 
 
