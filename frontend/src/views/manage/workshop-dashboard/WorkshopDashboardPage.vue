@@ -353,8 +353,12 @@ load()
   position: relative;
   display: grid;
   gap: 16px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 18px;
-  overflow: hidden;
+  overflow: clip;
   border: 1px solid rgba(0, 242, 255, 0.16);
   border-radius: 24px;
   background:
@@ -391,6 +395,7 @@ load()
 .workshop-board__grid {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .workshop-board__hero {
@@ -402,6 +407,10 @@ load()
   border: 1px solid rgba(0, 242, 255, 0.18);
   border-radius: 18px;
   background: linear-gradient(90deg, rgba(5, 22, 43, 0.9), rgba(8, 43, 74, 0.62));
+}
+
+.workshop-board__hero > div {
+  min-width: 0;
 }
 
 .workshop-board__filter {
@@ -454,6 +463,8 @@ load()
 .workshop-board h1 {
   font-size: clamp(28px, 3vw, 42px);
   letter-spacing: -0.04em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .workshop-board__signal {
@@ -490,6 +501,8 @@ load()
 
 .workshop-board__kpi,
 .workshop-board__panel {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(0, 242, 255, 0.18);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(9, 34, 61, 0.9), rgba(5, 18, 35, 0.82));
@@ -499,6 +512,7 @@ load()
 
 .workshop-board__kpi {
   padding: 16px;
+  overflow: hidden;
 }
 
 .workshop-board__kpi strong {
@@ -507,6 +521,8 @@ load()
   color: #e1fdff;
   font-family: var(--xt-font-display);
   font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
   text-shadow: 0 0 24px rgba(0, 242, 255, 0.26);
 }
 
@@ -528,6 +544,7 @@ load()
 .workshop-board__side {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .workshop-board__panel-head {
@@ -538,12 +555,19 @@ load()
   margin-bottom: 12px;
 }
 
+.workshop-board__panel-head > * {
+  min-width: 0;
+}
+
 .workshop-board__panel-head h2 {
   font-size: 18px;
+  overflow-wrap: anywhere;
 }
 
 .workshop-board__table {
   overflow: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .workshop-board table {
@@ -588,6 +612,7 @@ load()
   gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid rgba(0, 242, 255, 0.1);
+  min-width: 0;
 }
 
 .workshop-board__mini-row div,
@@ -595,6 +620,13 @@ load()
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.workshop-board__mini-row strong,
+.workshop-board__mes-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workshop-board__mini-row span,
@@ -608,8 +640,13 @@ load()
 
 .workshop-board__mini-row b,
 .workshop-board__exception strong {
+  min-width: 0;
+  max-width: 45%;
+  flex-shrink: 0;
   color: #e1fdff;
   font-family: var(--xt-font-display);
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .workshop-board__mes-row {
@@ -647,9 +684,10 @@ load()
   .workshop-board {
     gap: 10px;
     min-height: 100dvh;
-    margin: calc(var(--xt-space-4, 16px) * -1);
+    margin: 0;
     padding: 10px;
     border-radius: 0;
+    overflow-x: hidden;
   }
 
   .workshop-board::before {
@@ -669,20 +707,24 @@ load()
   }
 
   .workshop-board h1 {
-    font-size: 24px;
+    font-size: clamp(22px, 7vw, 28px);
     letter-spacing: -0.03em;
   }
 
   .workshop-board__signal,
   .workshop-board__filter {
     width: 100%;
+    min-width: 0;
     justify-content: space-between;
     border-radius: 14px;
   }
 
   .workshop-board__filter select {
     min-width: 0;
+    max-width: 100%;
     flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .workshop-board__kpis {
@@ -698,7 +740,7 @@ load()
 
   .workshop-board__kpi strong {
     margin-top: 8px;
-    font-size: 26px;
+    font-size: clamp(20px, 7vw, 26px);
   }
 
   .workshop-board__grid,
@@ -717,6 +759,7 @@ load()
   .workshop-board__panel {
     padding: 12px;
     border-radius: 16px;
+    overflow: hidden;
   }
 
   .workshop-board__panel-head {
@@ -728,7 +771,7 @@ load()
   }
 
   .workshop-board table {
-    min-width: 760px;
+    min-width: 680px;
   }
 
   .workshop-board th,
@@ -739,6 +782,7 @@ load()
   .workshop-board__mini-row,
   .workshop-board__mes-row,
   .workshop-board__exception {
+    gap: 8px;
     padding: 8px 0;
   }
 }

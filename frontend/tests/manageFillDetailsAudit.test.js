@@ -465,3 +465,13 @@ test('WorkshopDashboardPage shows machine fill submit time', () => {
   assert.match(dashboardSrc, /row\.submittedText/)
   assert.match(dashboardSrc, /colspan="7"/)
 })
+
+test('WorkshopDashboardPage protects compact director view from text overflow', () => {
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(dashboardSrc, /\.workshop-board\s*\{[\s\S]*max-width:\s*100%/)
+  assert.match(dashboardSrc, /\.workshop-board h1\s*\{[\s\S]*overflow-wrap:\s*anywhere/)
+  assert.match(dashboardSrc, /\.workshop-board__table\s*\{[\s\S]*-webkit-overflow-scrolling:\s*touch/)
+  assert.match(dashboardSrc, /@media \(max-width:\s*760px\)[\s\S]*overflow-x:\s*hidden/)
+  assert.match(dashboardSrc, /\.workshop-board__mini-row b,[\s\S]*max-width:\s*45%/)
+})

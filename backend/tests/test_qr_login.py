@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.auth import get_password_hash, verify_password
+from app.core.auth import get_password_hash
 from app.core.deps import get_db
 from app.database import Base
 from app.main import app
@@ -59,7 +59,7 @@ def _seed_machine(session_factory, *, status: str = 'running', bound: bool = Tru
                 password_hash=get_password_hash('384756'),
                 pin_code='384756',
                 name='铸二车间 3#机',
-                role='shift_leader',
+                role='machine_operator',
                 workshop_id=workshop.id,
                 data_scope_type='self_workshop',
                 is_mobile_user=True,
@@ -244,39 +244,19 @@ def test_qr_login_virtual_workshop_redirects_to_workshop(tmp_path) -> None:
     assert 'access_token' not in payload
 
 
-def test_qr_login_virtual_role_creates_mobile_operator_user(tmp_path) -> None:
+def test_qr_login_retired_operator_role_qr_is_rejected(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     _seed_role_qr(session_factory, code='LW-OP', qr_code='XT-LW-OP')
     _override_db(session_factory)
 
     response = TestClient(app).post('/api/v1/auth/qr-login', json={'qr_code': 'XT-LW-OP'})
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload['access_token']
-    assert payload['token_type'] == 'bearer'
-    assert payload['user']['username'] == 'LW-OP'
-    assert payload['user']['role'] == 'machine_operator'
-    assert payload['user']['workshop_id'] == 1
-    assert payload['user']['is_mobile_user'] is True
-    assert payload['machine_info'] == {
-        'machine_id': 1,
-        'machine_code': 'LW-OP',
-        'machine_name': 'LW-OP 角色码',
-        'workshop_id': 1,
-        'workshop_name': '冷轧车间',
-        'qr_code': 'XT-LW-OP',
-    }
+    assert response.status_code == 400
+    assert response.json()['detail'] == '无效角色码'
 
     with session_factory() as db:
-        user = db.query(User).filter(User.username == 'LW-OP').one()
-        assert user.role == 'machine_operator'
-        assert user.is_mobile_user is True
-        assert verify_password('xt123456', user.password_hash) is False
-        assert user.pin_code is None
-        audit = db.query(AuditLog).filter(AuditLog.action == 'qr_login').one()
-        assert audit.user_id == user.id
-        assert audit.table_name == 'equipment'
+        assert db.query(User).filter(User.username == 'LW-OP').count() == 0
+        assert db.query(AuditLog).filter(AuditLog.action == 'qr_login').count() == 0
 
 
 def test_qr_login_virtual_role_creates_workshop_director_user(tmp_path) -> None:
@@ -369,10 +349,10 @@ def test_qr_login_virtual_role_rejects_invalid_role_suffix(tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    ('code', 'qr_code', 'expected_role', 'expected_mode', 'expected_submit_target'),
+    ('code', 'qr_code', 'expected_role', 'expected_mode', 'expected_submit_target', 'seed_kind'),
     [
-        ('ZR2-EN', 'XT-ZR2-EN', 'energy_stat', 'per_shift', 'shift_report'),
-        ('ZR2-1-OP', 'XT-ZR2-1-OP', 'machine_operator', 'per_coil', 'coil_entry'),
+        ('ZR2-EN', 'XT-ZR2-EN', 'energy_stat', 'per_shift', 'shift_report', 'role_qr'),
+        ('ZR2-3', 'XT-ZR2-3', 'machine_operator', 'per_coil', 'coil_entry', 'machine_qr'),
     ],
 )
 def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
@@ -383,15 +363,19 @@ def test_qr_role_login_can_fetch_mobile_entry_fields_with_testclient(
     expected_role: str,
     expected_mode: str,
     expected_submit_target: str,
+    seed_kind: str,
 ) -> None:
     session_factory = build_sessionmaker(tmp_path)
-    _seed_role_qr(
-        session_factory,
-        code=code,
-        qr_code=qr_code,
-        workshop_code='ZR2',
-        workshop_name='铸二车间',
-    )
+    if seed_kind == 'machine_qr':
+        _seed_machine(session_factory, status='running', bound=True)
+    else:
+        _seed_role_qr(
+            session_factory,
+            code=code,
+            qr_code=qr_code,
+            workshop_code='ZR2',
+            workshop_name='铸二车间',
+        )
     _override_db(session_factory)
 
     client = TestClient(app)

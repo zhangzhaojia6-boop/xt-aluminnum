@@ -476,7 +476,7 @@ def test_seed_real_master_data_keeps_existing_machine_account_binding_and_pin(tm
         db.close()
 
 
-def test_seed_real_master_data_reactivates_role_qr_and_binds_role_accounts(tmp_path) -> None:
+def test_seed_real_master_data_retires_operator_role_qr_but_keeps_energy_role_qr(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 
     db = build_session(tmp_path)
@@ -513,21 +513,19 @@ def test_seed_real_master_data_reactivates_role_qr_and_binds_role_accounts(tmp_p
 
         operator_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZR2-1-OP')).scalar_one()
         electrician_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZR2-EN')).scalar_one()
-        operator_user = db.execute(select(User).where(User.username == 'ZR2-1-OP')).scalar_one()
+        operator_user = db.execute(select(User).where(User.username == 'ZR2-1-OP')).scalar_one_or_none()
         electrician_user = db.execute(select(User).where(User.username == 'ZR2-EN')).scalar_one()
 
-        assert operator_qr.is_active is True
+        assert operator_qr.is_active is False
+        assert operator_qr.operational_status == 'stopped'
+        assert operator_qr.bound_user_id is None
+        assert operator_user is None
         assert electrician_qr.is_active is True
-        assert operator_qr.bound_user_id == operator_user.id
         assert electrician_qr.bound_user_id == electrician_user.id
 
-        assert operator_user.role == 'machine_operator'
         assert electrician_user.role == 'energy_stat'
-        assert operator_user.workshop_id == operator_qr.workshop_id
         assert electrician_user.workshop_id == electrician_qr.workshop_id
-        assert operator_user.is_mobile_user is True
         assert electrician_user.is_mobile_user is True
-        assert operator_user.is_active is True
         assert electrician_user.is_active is True
     finally:
         db.close()
@@ -560,16 +558,15 @@ def test_seed_real_master_data_rehomes_legacy_zxtf_role_qr_after_online_split(tm
         refreshed_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF')).scalar_one()
         new_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-N')).scalar_one()
         operator_qr = db.execute(select(Equipment).where(Equipment.qr_code == 'XT-ZXTF-1-OP')).scalar_one()
-        operator_user = db.execute(select(User).where(User.username == 'ZXTF-1-OP')).scalar_one()
+        operator_user = db.execute(select(User).where(User.username == 'ZXTF-1-OP')).scalar_one_or_none()
 
         assert refreshed_workshop.is_active is False
         assert new_workshop.is_active is True
-        assert operator_qr.is_active is True
+        assert operator_qr.is_active is False
+        assert operator_qr.operational_status == 'stopped'
         assert operator_qr.workshop_id == new_workshop.id
-        assert operator_qr.bound_user_id == operator_user.id
-        assert operator_user.role == 'machine_operator'
-        assert operator_user.workshop_id == new_workshop.id
-        assert operator_user.is_mobile_user is True
+        assert operator_qr.bound_user_id is None
+        assert operator_user is None
     finally:
         db.close()
 

@@ -293,7 +293,6 @@ REPORTING_MACHINE_WORKSHOP_CODES = {
 }
 VIRTUAL_QR_EQUIPMENT_TYPES = {'virtual_role_qr', 'virtual_workshop_qr'}
 ROLE_QR_SUFFIX_MAP = {
-    'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
     'CS': ('consumable_stat', '内勤'),
     'DIR': ('workshop_director', '车间主任'),
@@ -306,6 +305,7 @@ ROLE_QR_SUFFIX_MAP = {
     'RC': ('recovery_owner', '回收'),
     'OH': ('overhaul_owner', '大修'),
 }
+RETIRED_ROLE_QR_SUFFIXES = {'BZ', 'OP'}
 
 
 def role_qr_user_flags(system_role: str) -> dict[str, bool]:
@@ -968,11 +968,12 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
 
         qr_suffix = (equipment.code or '').rsplit('-', 1)[-1].upper()
 
-        # BZ (班长) role QRs are deprecated. Mark equipment and user as inactive.
-        # Historical context: commit 5e66f6c added BZ QRs, later removed from
-        # OWNER_QR_SPECS but DB records persist. This prevents resurrection on startup.
-        if qr_suffix == 'BZ':
+        # BZ (班长) and OP (old virtual 主操) role QRs are retired. 主操填报
+        # now uses the real machine QR, so these virtual users must not resurrect.
+        if qr_suffix in RETIRED_ROLE_QR_SUFFIXES:
             equipment.is_active = False
+            equipment.operational_status = 'stopped'
+            equipment.bound_user_id = None
             username = equipment.code.upper()
             user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
             if user is not None:
