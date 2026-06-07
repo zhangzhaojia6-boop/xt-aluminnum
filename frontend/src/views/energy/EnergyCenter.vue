@@ -1,5 +1,10 @@
 <template>
-  <section class="page-stack energy-center" data-testid="energy-center-page">
+  <section
+    class="page-stack energy-center"
+    data-testid="energy-center-page"
+    :data-stitch-project-id="stitchSurface.stitch.projectId"
+    :data-stitch-screen-id="stitchSurface.stitch.screenId"
+  >
     <header class="energy-center__hero">
       <div class="energy-center__hero-copy">
         <span class="energy-center__eyebrow">ENERGY COMMAND</span>
@@ -13,12 +18,12 @@
           <small>{{ statusBar.businessDate || '-' }} / {{ statusBar.rowCount }} 条</small>
           <small>页面刷新 {{ statusBar.updatedAt || '-' }}</small>
         </div>
-        <el-date-picker
+        <input
           v-model="filters.business_date"
           class="energy-center__date"
           type="date"
-          value-format="YYYY-MM-DD"
-          :clearable="false"
+          aria-label="业务日期"
+          @input="handleBusinessDateChange"
         />
         <el-button class="energy-center__refresh" @click="load">刷新</el-button>
       </div>
@@ -163,7 +168,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import { fetchEnergySummary } from '../../api/energy'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
@@ -255,13 +260,15 @@ async function load() {
   }
 }
 
-onMounted(load)
-
-watch(() => filters.business_date, (value, oldValue) => {
-  if (value && value !== oldValue) {
+function handleBusinessDateChange(event) {
+  const value = event?.target?.value || filters.business_date
+  if (value) {
+    filters.business_date = value
     void load()
   }
-})
+}
+
+onMounted(load)
 </script>
 
 <style scoped>
@@ -441,16 +448,29 @@ watch(() => filters.business_date, (value, oldValue) => {
 
 .energy-center__date {
   width: 178px;
-}
-
-.energy-center :deep(.energy-center__date .el-input__wrapper) {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 242, 255, 0.22);
+  border-radius: 4px;
   background: rgba(10, 14, 20, 0.74);
-  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.22) inset;
+  color: #dfe2eb;
+  color-scheme: dark;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.12) inset;
 }
 
-.energy-center :deep(.energy-center__date .el-input__inner),
-.energy-center :deep(.energy-center__date .el-input__prefix) {
-  color: #dfe2eb;
+.energy-center__date:focus-visible {
+  border-color: var(--energy-cyan);
+  box-shadow:
+    0 0 0 1px rgba(0, 242, 255, 0.28) inset,
+    0 0 0 3px rgba(0, 242, 255, 0.12);
+}
+
+.energy-center__date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1) sepia(1) saturate(3) hue-rotate(132deg);
 }
 
 .energy-center__refresh {

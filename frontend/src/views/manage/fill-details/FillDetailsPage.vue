@@ -1,5 +1,10 @@
 <template>
-  <section class="xt-fill-details" data-testid="manage-fill-details">
+  <section
+    class="xt-fill-details"
+    data-testid="manage-fill-details"
+    :data-stitch-project-id="stitchSurface.stitch.projectId"
+    :data-stitch-screen-id="stitchSurface.stitch.screenId"
+  >
     <header class="xt-fill-details__hero">
       <div class="xt-fill-details__hero-copy">
         <span class="xt-fill-details__eyebrow">数据链路</span>

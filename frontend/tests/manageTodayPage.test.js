@@ -17,14 +17,15 @@ test('TodayPage composes the active overview pieces', () => {
   assert.match(src, /KpiBar/)
   assert.match(src, /WorkshopBarChart/)
   assert.match(src, /CostLine/)
-  assert.match(src, /SummaryHero/)
-  assert.match(src, /FactorySourceStrip/)
+  assert.match(src, /IndustrialProcessIcon/)
+  assert.match(src, /MissingReportPanel/)
   assert.match(src, /useDashboardSnapshot/)
 })
 
-test('TodayPage h1 is the static yesterday overview title (date label lives in DateSwitcher)', () => {
+test('TodayPage h1 is the Stitch factory overview title with date context nearby', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<h1>昨日总览<\/h1>/)
+  assert.match(src, /<h1>工厂总览<\/h1>/)
+  assert.match(src, /统计周期：\{\{\s*businessDateLabel\s*\}\}/)
   assert.equal(/pageTitle/.test(src), false)
 })
 
@@ -54,10 +55,14 @@ test('TodayPage 数字卡 not bound to click handlers', () => {
   assert.equal(/<KpiBar[^>]*@click/.test(src), false)
 })
 
-test('TodayPage uses --xt-* tokens, no hex in style block', () => {
+test('TodayPage uses the Stitch industrial blue wall without expensive effects', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   const styleBlock = src.split('<style')[1] || ''
-  assert.equal(/#[0-9a-fA-F]{3,6}/.test(styleBlock), false)
+  assert.match(styleBlock, /#03111d/)
+  assert.match(styleBlock, /#061d2e/)
+  assert.match(styleBlock, /xt-today__command-wall/)
+  assert.doesNotMatch(styleBlock, /animation:\s*[^;{}]*infinite/)
+  assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
 })
 
 test('TodayPage keeps exception as an entrance without proactive prompts', () => {
@@ -78,8 +83,8 @@ test('TodayPage muted-state estimated_margin emits hint 估算未就绪', () => 
 
 test('TodayPage owns the daily report settlement section', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /data-testid="daily-report-section"/)
-  for (const label of ['全厂入库产量', '过站下机参考', '合同吨数', '算法能耗', '电工填报', '算法成品率', '内勤对照', '外部 MES 当日快照参考']) {
+  assert.match(src, /data-testid="today-command-wall"/)
+  for (const label of ['生产流转总览', '算法主口径', '填报数据作对照', '车间产量概览', '过站下机参考', '在制料分布']) {
     assert.match(src, new RegExp(label), `missing daily report label ${label}`)
   }
 })
@@ -94,7 +99,10 @@ test('TodayPage binds daily report blocks to the daily overview payload', () => 
   assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
 })
 
-test('TodayPage shows factory command source basis without changing business fields', () => {
+test('TodayPage keeps factory command data basis in the Stitch wall', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<FactorySourceStrip[\s\S]*:overview="snapshot\.factoryCommandOverview\.value"/)
+  assert.match(src, /dailyOverview\s*=\s*computed\(\(\)\s*=>\s*snapshot\.data\.value\.daily_overview/)
+  assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
+  assert.match(src, /productionFlowStages\s*=\s*computed/)
+  assert.match(src, /shiftTiles\s*=\s*computed/)
 })

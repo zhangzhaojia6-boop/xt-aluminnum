@@ -49,7 +49,7 @@ test.describe('ManageShell layout', () => {
     await expect(page).toHaveURL(/\/manage\/today/)
     await expect(page.getByTestId('manage-shell')).toHaveAttribute('data-nav-mode', 'drawer')
     await expect(page.getByTestId('manage-today')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
 
     await page.locator('.xt-manage__hamburger').click()
     const drawer = page.locator('.xt-manage__drawer')

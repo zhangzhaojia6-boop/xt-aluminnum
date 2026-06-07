@@ -5,7 +5,9 @@
       'xt-manage--collapsed': collapsed,
       'xt-manage--auto-rail': isAutoRail,
       'xt-manage--mobile': isMobileViewport,
-      'xt-manage--compact-topbar': isCompactTopbar
+      'xt-manage--compact-topbar': isCompactTopbar,
+      'xt-manage--today-wall': isTodayWall,
+      'xt-manage--dashboard-wall': isDashboardWall
     }"
     :data-nav-mode="navMode"
     data-testid="manage-shell"
@@ -180,6 +182,7 @@ const auth = useAuthStore()
 const SIDEBAR_RAIL_BREAKPOINT = 1180
 const SIDEBAR_MOBILE_BREAKPOINT = 900
 const TOPBAR_COMPACT_BREAKPOINT = 640
+const DASHBOARD_WALL_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
 const userCollapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const isAutoRail = ref(false)
 const isMobileViewport = ref(false)
@@ -197,6 +200,8 @@ const userInitial = computed(() => userName.value.slice(0, 1).toUpperCase())
 const manageHomePath = computed(() => auth.isWorkshopDirector ? '/manage/workshop-dashboard' : '/manage/today')
 const navGroups = computed(() => manageNavGroups(auth, { compact: isMobileViewport.value }))
 const collapsed = computed(() => !isMobileViewport.value && (userCollapsed.value || isAutoRail.value))
+const isTodayWall = computed(() => route.path === '/manage/today')
+const isDashboardWall = computed(() => DASHBOARD_WALL_PATHS.has(route.path))
 const drawerSize = computed(() => (isMobileViewport.value ? 'min(312px, 88vw)' : '300px'))
 const navMode = computed(() => {
   if (isMobileViewport.value) return 'drawer'
@@ -777,6 +782,19 @@ onBeforeUnmount(() => {
 .xt-manage__container {
   max-width: var(--xt-content-max);
   margin: 0 auto;
+}
+
+@media (min-width: 901px) {
+  .xt-manage--dashboard-wall .xt-manage__content,
+  .xt-manage--today-wall .xt-manage__content {
+    padding: 0;
+  }
+
+  .xt-manage--dashboard-wall .xt-manage__container,
+  .xt-manage--today-wall .xt-manage__container {
+    max-width: none;
+    margin: 0;
+  }
 }
 
 .xt-manage__search-list {

@@ -6,17 +6,18 @@ function source(rel) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8')
 }
 
-test('TodayPage mounts YesterdayShiftPanel before SummaryHero', () => {
+test('TodayPage renders yesterday shift data inside the Stitch event rail', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /<YesterdayShiftPanel/)
-  const idxPanel = src.indexOf('<YesterdayShiftPanel')
-  const idxHero = src.indexOf('<SummaryHero')
-  assert.ok(idxPanel > 0 && idxHero > 0 && idxPanel < idxHero, 'panel must appear before SummaryHero')
+  assert.match(src, /data-testid="today-event-rail"/)
+  assert.match(src, /三班填报/)
+  assert.match(src, /v-for="shift in shiftTiles"/)
+  assert.match(src, /snapshot\.yesterdayShiftBreakdown\.value/)
 })
 
-test('TodayPage imports YesterdayShiftPanel component', () => {
+test('TodayPage no longer mounts the legacy standalone shift panel', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
-  assert.match(src, /import\s+YesterdayShiftPanel/)
+  assert.doesNotMatch(src, /import\s+YesterdayShiftPanel/)
+  assert.doesNotMatch(src, /<YesterdayShiftPanel/)
 })
 
 test('useDashboardSnapshot exposes yesterdayShiftBreakdown', () => {

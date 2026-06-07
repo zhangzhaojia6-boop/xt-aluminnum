@@ -250,11 +250,9 @@ test.describe('manage energy center Stitch surface', () => {
     })
     await expect.poll(() => requests.length).toBeGreaterThanOrEqual(1)
 
-    const dateInput = page.locator('.energy-center__date input').first()
+    const dateInput = page.locator('.energy-center__date').first()
     await expect(dateInput).toBeVisible()
-    await dateInput.click()
     await dateInput.fill('2026-06-04')
-    await dateInput.press('Enter')
 
     await expect.poll(() => requests.at(-1)).toBe('2026-06-04')
     await expect(page.getByTestId('energy-center-status-bar')).toContainText('2026-06-04')

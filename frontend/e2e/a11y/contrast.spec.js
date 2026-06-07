@@ -5,7 +5,7 @@ import { clearAuthStorage } from '../helpers/mock-login'
 import { setupReviewSessionAndMocks } from '../helpers/review-mocks'
 
 const authPages = [
-  { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '昨日总览' },
+  { name: 'yesterday dashboard', path: '/manage/today', scope: 'main', heading: '工厂总览' },
   { name: 'production dashboard', path: '/manage/production', scope: 'main', testId: 'manage-production' },
   { name: 'workshop dashboard', path: '/manage/workshop-dashboard', scope: 'main', testId: 'workshop-dashboard' },
   { name: 'system settings center', path: '/manage/admin/settings', scope: 'main', heading: '系统设置' },

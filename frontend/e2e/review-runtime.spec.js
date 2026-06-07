@@ -84,7 +84,7 @@ test('cost route redirects to yesterday report instead of retired cost center', 
 
   await expect(page.getByTestId('manage-shell')).toBeVisible()
   await expect(page).toHaveURL(/\/manage\/today$/)
-  await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
   await expect(page.getByText('成本核算与效益中心')).toHaveCount(0)
 })
 
@@ -163,7 +163,7 @@ test('review roadmap legacy path redirects to yesterday report', async ({ page }
 
   await expect(page).toHaveURL(/\/manage\/today$/)
   await expect(page.getByTestId('manage-shell')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
 })
 
 test('review navigation does not expose roadmap as a formal center', async ({ page }) => {

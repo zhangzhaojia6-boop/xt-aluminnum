@@ -7,6 +7,15 @@ const AUTH_STORAGE_KEYS = [
   'xt_refresh_token'
 ]
 
+function isSettledWorkbenchPath(url) {
+  const path = url.pathname
+  return path === '/entry'
+    || path.startsWith('/entry/')
+    || path.startsWith('/manage/')
+    || path.startsWith('/admin/')
+    || path.startsWith('/team-lead/')
+}
+
 export async function clearAuthStorage(page) {
   await page.goto('/', { waitUntil: 'commit' })
   await page.evaluate((keys) => {
@@ -44,6 +53,6 @@ export async function loginThroughMockedPassword(page, {
   await page.getByTestId('login-username').fill(loginUsername)
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
-  await page.waitForURL(/\/(entry|manage|admin|team-lead)(?:\/|$)/, { timeout: 10000 })
+  await page.waitForURL(isSettledWorkbenchPath, { timeout: 10000 })
   await page.waitForLoadState('domcontentloaded')
 }

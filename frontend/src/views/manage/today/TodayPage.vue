@@ -1,8 +1,29 @@
 <template>
-  <section class="xt-today" data-testid="manage-today">
-    <header class="xt-today__header">
-      <div class="xt-today__title-wrap">
-        <h1>昨日总览</h1>
+  <section
+    class="xt-today"
+    data-testid="manage-today"
+    :data-stitch-project-id="stitchSurface.stitch.projectId"
+    :data-stitch-screen-id="stitchSurface.stitch.screenId"
+  >
+    <header class="xt-today__topbar">
+      <div class="xt-today__identity">
+        <span>鑫泰铝业 数据中枢</span>
+        <h1>工厂总览</h1>
+        <p>统计周期：{{ businessDateLabel }}</p>
+      </div>
+
+      <nav class="xt-today__quick-nav" aria-label="核心入口">
+        <RouterLink
+          v-for="link in quickLinks"
+          :key="link.path"
+          class="xt-today__quick-link"
+          :to="link.path"
+        >
+          {{ link.label }}
+        </RouterLink>
+      </nav>
+
+      <div class="xt-today__top-actions">
         <button
           v-if="reportingStatus.length"
           type="button"
@@ -18,139 +39,171 @@
           </span>
           <span class="xt-today__filer-chev" :class="{ 'is-open': rosterOpen }" aria-hidden="true">›</span>
         </button>
+        <DateSwitcher
+          :model-value="snapshot.targetDate.value"
+          :loading="snapshot.loading.value"
+          :freshness="snapshot.freshnessStatus.value"
+          @step="snapshot.stepDate"
+          @refresh="snapshot.load"
+          @pick="onDatePick"
+        />
       </div>
-      <DateSwitcher
-        :model-value="snapshot.targetDate.value"
-        :loading="snapshot.loading.value"
-        :freshness="snapshot.freshnessStatus.value"
-        @step="snapshot.stepDate"
-        @refresh="snapshot.load"
-        @pick="onDatePick"
-      />
     </header>
-
-    <nav class="xt-today__quick-nav" aria-label="核心入口">
-      <RouterLink
-        v-for="link in quickLinks"
-        :key="link.path"
-        class="xt-today__quick-link"
-        :to="link.path"
-      >
-        {{ link.label }}
-      </RouterLink>
-    </nav>
-
-    <YesterdayShiftPanel :payload="snapshot.yesterdayShiftBreakdown.value" />
-
-    <SummaryHero
-      :text="summaryText"
-      :date="snapshot.targetDate.value"
-      :metrics="snapshot.leaderMetrics.value"
-    />
 
     <KpiBar :items="kpiItems" />
 
-    <FactorySourceStrip :overview="snapshot.factoryCommandOverview.value" />
-
-    <section id="daily-report" class="xt-today__daily" data-testid="daily-report-section">
-      <header class="xt-today__daily-head">
-        <div>
-          <span class="xt-today__daily-eyebrow">昨日日报</span>
-          <h2>昨日日报结算</h2>
-        </div>
-        <div class="xt-today__daily-tags" aria-label="日报核心口径">
-          <span v-for="label in dailySectionLabels" :key="label">{{ label }}</span>
-        </div>
-      </header>
-
-      <div class="xt-today__daily-grid">
-        <article class="xt-today__panel xt-today__panel--compare">
+    <section
+      id="daily-report"
+      class="xt-today__command-wall"
+      data-testid="today-command-wall"
+    >
+      <div class="xt-today__command-main">
+        <article class="xt-today__panel xt-today__flow" data-testid="today-production-flow">
           <header class="xt-today__panel-head">
-            <h3>算法与填报对照</h3>
-            <span>算法能耗 · 电工填报 · 算法成品率 · 内勤对照</span>
+            <h2>生产流转总览</h2>
+            <span>算法主口径 · 填报数据作对照</span>
           </header>
-          <div class="xt-today__compare-grid">
-            <div
-              v-for="item in comparisonCards"
-              :key="item.key"
-              class="xt-today__compare-card"
-              :class="`tone-${item.tone}`"
+
+          <ol class="xt-today__flow-steps">
+            <li
+              v-for="stage in productionFlowStages"
+              :key="stage.key"
+              class="xt-today__flow-step"
+              :class="`stage-${stage.key}`"
             >
-              <div class="xt-today__compare-title">{{ item.title }}</div>
-              <div class="xt-today__compare-row">
-                <span>{{ item.primaryLabel }}</span>
-                <b>{{ item.primaryValue }}</b>
+              <IndustrialProcessIcon class="xt-today__flow-icon" :stage="stage.key" />
+              <div class="xt-today__flow-title">{{ stage.label }}</div>
+              <div class="xt-today__flow-metric">
+                <span>{{ stage.primaryLabel }}</span>
+                <b>{{ stage.primaryValue }}</b>
               </div>
-              <div class="xt-today__compare-row is-muted">
-                <span>{{ item.compareLabel }}</span>
-                <b>{{ item.compareValue }}</b>
+              <div class="xt-today__flow-metric is-muted">
+                <span>{{ stage.secondaryLabel }}</span>
+                <b>{{ stage.secondaryValue }}</b>
               </div>
-            </div>
-          </div>
+              <ul v-if="stage.subItems.length" class="xt-today__flow-sub">
+                <li v-for="sub in stage.subItems" :key="sub.label">
+                  <span>{{ sub.label }}</span>
+                  <b>{{ sub.value }}</b>
+                </li>
+              </ul>
+            </li>
+          </ol>
         </article>
 
-        <article class="xt-today__panel xt-today__panel--wip">
-          <header class="xt-today__panel-head">
-            <h3>外部 MES 当日快照参考</h3>
-            <span>{{ wipRows.length }} 个位置</span>
-          </header>
-          <div v-if="wipRows.length" class="xt-today__wip-grid">
-            <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
-              <span>{{ row.title }}</span>
-              <b>{{ row.weightText }}</b>
-              <small>{{ row.countText }} · {{ row.feedingText }} · {{ row.sourceLabel }}</small>
+        <div class="xt-today__lower-grid">
+          <article class="xt-today__panel xt-today__workshop">
+            <header class="xt-today__panel-head">
+              <h2>车间产量概览</h2>
+              <span>过站下机参考，不计入全厂最终产量</span>
+            </header>
+            <table v-if="workshopRows.length" class="xt-today__table">
+              <thead>
+                <tr>
+                  <th>车间 / 工序</th>
+                  <th class="is-num">日产</th>
+                  <th class="is-num">月累计</th>
+                  <th class="is-num">比昨日</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in workshopRows" :key="row.key">
+                  <td>{{ row.workshop }}</td>
+                  <td class="is-num">{{ row.dailyOutputText }}</td>
+                  <td class="is-num">{{ row.monthlyOutputText }}</td>
+                  <td class="is-num">{{ row.deltaText }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="xt-today__empty">暂无车间过站数据</div>
+          </article>
+
+          <article class="xt-today__panel xt-today__wip">
+            <header class="xt-today__panel-head">
+              <h2>在制料分布</h2>
+              <span>{{ wipRows.length }} 个位置</span>
+            </header>
+            <div v-if="wipRows.length" class="xt-today__wip-grid">
+              <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
+                <span>{{ row.title }}</span>
+                <b>{{ row.weightText }}</b>
+                <small>{{ row.countText }} · {{ row.feedingText }}</small>
+              </div>
             </div>
-          </div>
-          <div v-else class="xt-today__empty">暂无在制料数据</div>
-        </article>
+            <div v-else class="xt-today__empty">暂无在制料数据</div>
+          </article>
+        </div>
+
+        <div class="xt-today__metric-grid">
+          <article
+            v-for="item in comparisonCards"
+            :key="item.key"
+            class="xt-today__compare-card"
+            :class="`tone-${item.tone}`"
+          >
+            <span>{{ item.title }}</span>
+            <strong>{{ item.primaryValue }}</strong>
+            <small>{{ item.compareLabel }}：{{ item.compareValue }}</small>
+          </article>
+          <article
+            v-for="item in highlightMetrics"
+            :key="item.key"
+            class="xt-today__compare-card"
+            :class="`tone-${item.tone}`"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.subText }}</small>
+          </article>
+        </div>
       </div>
 
-      <article class="xt-today__panel">
-        <header class="xt-today__panel-head">
-          <h3>车间过站下机参考</h3>
-          <span>不计入全厂最终产量</span>
+      <aside class="xt-today__event-rail" data-testid="today-event-rail">
+        <header class="xt-today__rail-head">
+          <h2>异常 / 催报 / 告警 / AI 摘要</h2>
+          <span>{{ eventRailItems.length }} 条</span>
         </header>
-        <table v-if="workshopRows.length" class="xt-today__table">
-          <thead>
-            <tr>
-              <th>车间</th>
-              <th class="is-num">过站下机</th>
-              <th class="is-num">比昨日</th>
-              <th class="is-num">月累计</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in workshopRows" :key="row.key">
-              <td>{{ row.workshop }}</td>
-              <td class="is-num">{{ row.dailyOutputText }}</td>
-              <td class="is-num">{{ row.deltaText }}</td>
-              <td class="is-num">{{ row.monthlyOutputText }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="xt-today__empty">暂无车间过站数据</div>
-      </article>
 
-      <MissingReportPanel
-        title="昨日报表缺报明细"
-        :rows="missingRows"
-        :loading="liveLoading"
-        compact
-      />
-    </section>
+        <section class="xt-today__shift-card">
+          <header class="xt-today__panel-head">
+            <h3>三班填报</h3>
+            <span>长白班-小夜班-大夜班</span>
+          </header>
+          <div class="xt-today__shift-list">
+            <div
+              v-for="shift in shiftTiles"
+              :key="shift.key"
+              class="xt-today__shift-row"
+            >
+              <span>{{ shift.name }}</span>
+              <b>{{ shift.reported }}</b>
+              <small>{{ shift.timeRange }}</small>
+            </div>
+          </div>
+        </section>
 
-    <div class="xt-today__row">
-      <OutputTrendLine :series="trendSeries" :days="14" class="xt-today__row-trend" />
-        <CostLine
-          :estimate="snapshot.managementEstimate.value"
-          :series="trendSeries"
-          :days="14"
-          cost-label="昨日估算成本"
-          class="xt-today__row-cost"
+        <article
+          v-for="item in eventRailItems"
+          :key="item.key"
+          class="xt-today__event-card"
+          :class="`tone-${item.tone}`"
+        >
+          <div class="xt-today__event-top">
+            <span>{{ item.label }}</span>
+            <time>{{ item.time }}</time>
+          </div>
+          <strong>{{ item.title }}</strong>
+          <p>{{ item.body }}</p>
+        </article>
+
+        <MissingReportPanel
+          title="缺报明细"
+          :rows="missingRows"
+          :loading="liveLoading"
+          compact
         />
-    </div>
-
-    <WorkshopBarChart :rows="snapshot.productionLane.value" />
+      </aside>
+    </section>
 
     <footer class="xt-today__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
       <span
@@ -165,6 +218,21 @@
       </span>
     </footer>
 
+    <section class="xt-today__below-fold">
+      <div class="xt-today__row">
+        <OutputTrendLine :series="trendSeries" :days="14" class="xt-today__row-trend" />
+        <CostLine
+          :estimate="snapshot.managementEstimate.value"
+          :series="trendSeries"
+          :days="14"
+          cost-label="昨日估算成本"
+          class="xt-today__row-cost"
+        />
+      </div>
+
+      <WorkshopBarChart :rows="snapshot.productionLane.value" />
+    </section>
+
     <Transition name="xt-roster-slide">
       <FilerRoster
         v-if="rosterOpen"
@@ -178,16 +246,15 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import KpiBar from '../../../components/manage/KpiBar.vue'
-import FactorySourceStrip from '../../../components/manage/FactorySourceStrip.vue'
 import WorkshopBarChart from '../../../components/manage/WorkshopBarChart.vue'
 import CostLine from '../../../components/manage/CostLine.vue'
 import OutputTrendLine from '../../../components/manage/OutputTrendLine.vue'
 import FilerRoster from '../../../components/manage/FilerRoster.vue'
-import SummaryHero from '../../../components/manage/SummaryHero.vue'
-import YesterdayShiftPanel from '../../../components/manage/YesterdayShiftPanel.vue'
+import IndustrialProcessIcon from '../../../components/manage/IndustrialProcessIcon.vue'
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { rosterStats, buildFilerRoster } from '../../../components/manage/_filerRoster.js'
 import { useDashboardSnapshot } from '../../../composables/useDashboardSnapshot.js'
@@ -287,14 +354,6 @@ const energyPerTonSpark = computed(() => {
     return tons > 0 && kwh != null ? kwh / tons : null
   })
 })
-const mtdSpark = computed(() => {
-  const tail = trendSeries.value.slice(-7)
-  let cum = 0
-  return tail.map((r) => {
-    cum += Number(r.output_weight ?? r.output ?? 0) / 1000
-    return cum
-  })
-})
 
 const stitchSurface = computed(() => buildTodayStitchSurface({
   snapshotData: snapshot.data.value,
@@ -313,36 +372,185 @@ const workshopRows = computed(() => stitchSurface.value.workshopTable)
 const wipRows = computed(() => stitchSurface.value.wipDistribution)
 const missingRows = computed(() => stitchSurface.value.missingReportRows)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
-const dailySectionLabels = ['全厂入库产量', '过站下机参考', '合同吨数']
+const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})
+const businessDateLabel = computed(() => {
+  const d = dayjs(snapshot.targetDate.value)
+  if (!d.isValid()) return snapshot.targetDate.value || '未选择'
+  return `${d.month() + 1}月${d.date()}日生产经营数据`
+})
 
 const kpiItems = computed(() => {
+  return settlementCards.value.map((item) => ({
+    ...item,
+    spark: item.key === 'plant-output' ? outputTonsSpark.value : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
+    sparkTone: item.key === 'energy-per-ton' ? 'warning' : 'primary',
+  }))
+})
+
+const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
+const highlightMetrics = computed(() => {
   const me = snapshot.managementEstimate.value
   return [
-    ...settlementCards.value.map((item) => ({
-      ...item,
-      spark: item.key === 'plant-output' ? outputTonsSpark.value : (item.key === 'energy-per-ton' ? energyPerTonSpark.value : null),
-      sparkTone: item.key === 'energy-per-ton' ? 'warning' : 'primary',
-    })),
     {
       key: 'mtd',
       label: '月累计成品',
-      value: fmt(snapshot.monthArchive.value.total_output, 0),
-      unit: '吨',
-      spark: mtdSpark.value,
-      sparkTone: 'success'
+      value: `${fmt(snapshot.monthArchive.value.total_output, 0)} 吨`,
+      subText: '成品入库累计',
+      tone: 'primary',
     },
     {
       key: 'margin',
       label: '估算毛利',
-      value: me.estimate_ready && me.estimated_margin != null ? fmt(Number(me.estimated_margin) / 10000, 1) : '—',
-      unit: '万元',
-      status: me.estimate_ready ? null : 'muted',
-      hint: me.estimate_ready ? null : '估算未就绪'
-    }
+      value: me.estimate_ready && me.estimated_margin != null ? `${fmt(Number(me.estimated_margin) / 10000, 1)} 万元` : '—',
+      subText: me.estimate_ready ? '按当前成本口径' : '估算未就绪',
+      tone: me.estimate_ready ? 'success' : 'muted',
+    },
   ]
 })
 
-const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
+function toFinite(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function sumField(rows, field) {
+  return rows.reduce((sum, row) => sum + (toFinite(row?.[field]) || 0), 0)
+}
+
+function rowsByName(matchers) {
+  return workshopRows.value.filter((row) => {
+    const name = String(row.workshop || '')
+    return matchers.some((matcher) => name.includes(matcher))
+  })
+}
+
+function buildWorkshopStage(key, label, matchers) {
+  const rows = rowsByName(matchers)
+  const daily = rows.length ? sumField(rows, 'daily_output') : null
+  const monthly = rows.length ? sumField(rows, 'monthly_output') : null
+  return {
+    key,
+    label,
+    primaryLabel: '今日产出',
+    primaryValue: daily == null ? '—' : `${fmt(daily, 0)} 吨`,
+    secondaryLabel: '月累计',
+    secondaryValue: monthly == null ? '—' : `${fmt(monthly, 0)} 吨`,
+    subItems: rows.slice(0, 3).map((row) => ({
+      label: row.workshop,
+      value: row.dailyOutputText,
+    })),
+  }
+}
+
+const productionFlowStages = computed(() => {
+  const plantOutput = dailyOverview.value.plant_output || {}
+  return [
+    buildWorkshopStage('casting', '铸锭', ['铸锭', '熔铸', '铸造']),
+    buildWorkshopStage('cast-roll', '铸轧', ['铸轧']),
+    buildWorkshopStage('hot-roll', '热轧', ['热轧']),
+    buildWorkshopStage('cold-roll', '冷轧（轧机）', ['冷轧', '1650', '1850', '2050']),
+    buildWorkshopStage('finish', '退火 / 拉矫 / 精整', ['退火', '拉矫', '精整', '剪切', '包装']),
+    {
+      key: 'warehouse',
+      label: '成品入库',
+      primaryLabel: '今日入库',
+      primaryValue: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
+      secondaryLabel: '月累计入库',
+      secondaryValue: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
+      subItems: [],
+    },
+  ]
+})
+
+const shiftTiles = computed(() => {
+  const raw = snapshot.yesterdayShiftBreakdown.value?.shifts || []
+  const order = [
+    { name: '长白班', timeRange: '07:30-15:30' },
+    { name: '小夜班', timeRange: '15:30-23:30' },
+    { name: '大夜班', timeRange: '23:30-07:30' },
+  ]
+  return order.map((slot, index) => {
+    const shift = raw.find((item) => String(item.shift_name || item.name || '').includes(slot.name))
+    const reported = shift?.reported_count ?? shift?.confirmed_count ?? shift?.submitted_count ?? null
+    const expected = shift?.expected_count ?? shift?.total_count ?? shift?.required_count ?? null
+    return {
+      key: shift?.shift_id ?? slot.name ?? index,
+      name: shift?.shift_name || shift?.name || slot.name,
+      timeRange: shift?.time_range || shift?.timeRange || shift?.range || slot.timeRange,
+      reported: expected ? `${reported ?? 0}/${expected}` : (reported == null ? '—' : `${reported}`),
+    }
+  })
+})
+
+const eventRailItems = computed(() => {
+  const items = []
+  const nowText = snapshot.lastRefreshAt.value
+    ? dayjs(snapshot.lastRefreshAt.value).format('HH:mm')
+    : '--:--'
+
+  if (snapshot.lastError.value || liveLoadError.value) {
+    items.push({
+      key: 'load-error',
+      label: '告警',
+      title: '数据同步需核查',
+      body: snapshot.lastError.value || liveLoadError.value,
+      tone: 'danger',
+      time: nowText,
+    })
+  }
+  if (rosterCounts.value.unreported > 0) {
+    items.push({
+      key: 'reminder',
+      label: '催报',
+      title: `仍有 ${rosterCounts.value.unreported} 个车间未完成`,
+      body: `已填 ${rosterCounts.value.reported}/${rosterCounts.value.total}，请优先确认缺报人员。`,
+      tone: 'warning',
+      time: nowText,
+    })
+  }
+  if (missingRows.value.length) {
+    items.push({
+      key: 'missing',
+      label: '异常',
+      title: '存在缺报明细',
+      body: `当前缺报队列 ${missingRows.value.length} 条，已在下方明细压缩展示。`,
+      tone: 'danger',
+      time: nowText,
+    })
+  }
+  if (comparisonCards.value.length) {
+    const energy = comparisonCards.value[0]
+    items.push({
+      key: 'energy-compare',
+      label: '对照',
+      title: energy.title || '算法与填报对照',
+      body: `${energy.primaryLabel} ${energy.primaryValue}，${energy.compareLabel} ${energy.compareValue}`,
+      tone: energy.tone || 'primary',
+      time: nowText,
+    })
+  }
+  if (summaryText.value) {
+    items.push({
+      key: 'ai-summary',
+      label: 'AI 摘要',
+      title: '日报摘要',
+      body: summaryText.value,
+      tone: 'primary',
+      time: nowText,
+    })
+  }
+  if (!items.length) {
+    items.push({
+      key: 'ok',
+      label: '正常',
+      title: '暂无阻塞项',
+      body: '当前日报、填报和看板链路未发现前端阻塞。',
+      tone: 'success',
+      time: nowText,
+    })
+  }
+  return items.slice(0, 5)
+})
 const quickLinks = computed(() => {
   const links = [
     { label: '实时', path: '/manage/live' },
@@ -939,6 +1147,565 @@ onBeforeUnmount(() => {
   .xt-today__filer-badge,
   .xt-today__table tbody tr {
     transition: none;
+  }
+}
+
+.xt-today {
+  gap: 8px;
+  padding: 10px 14px 14px;
+  background:
+    radial-gradient(circle at 24% 0%, color-mix(in srgb, var(--xt-primary) 18%, transparent), transparent 28%),
+    radial-gradient(circle at 76% 8%, color-mix(in srgb, var(--xt-info) 12%, transparent), transparent 30%),
+    linear-gradient(180deg, #03111d 0%, #061d2e 48%, #041423 100%);
+}
+
+.xt-today__topbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(340px, 1.45fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 12px;
+  border: 1px solid rgba(52, 143, 224, 0.28);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(9, 41, 67, 0.96), rgba(5, 26, 45, 0.9)),
+    rgba(5, 22, 38, 0.96);
+  box-shadow: inset 0 1px 0 rgba(157, 211, 255, 0.08), 0 12px 28px rgba(0, 8, 16, 0.34);
+}
+
+.xt-today__identity {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.xt-today__identity span {
+  display: none;
+  color: rgba(121, 194, 255, 0.78);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.xt-today__identity h1 {
+  margin: 0;
+  color: #f3f8ff;
+  font-family: var(--xt-font-display);
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.xt-today__identity p {
+  margin: 0;
+  color: rgba(226, 240, 255, 0.58);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.xt-today__top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.xt-today__quick-nav {
+  justify-content: center;
+  min-width: 0;
+  padding: 6px;
+  border-color: rgba(48, 137, 218, 0.22);
+  border-radius: 12px;
+  background: rgba(2, 19, 34, 0.68);
+}
+
+.xt-today__quick-link {
+  padding: 7px 10px;
+  border-color: rgba(68, 154, 231, 0.22);
+  border-radius: 999px;
+  background: rgba(6, 28, 48, 0.78);
+  color: rgba(225, 241, 255, 0.64);
+  font-size: 12px;
+}
+
+.xt-today__quick-link:hover,
+.xt-today__quick-link.router-link-active {
+  border-color: rgba(55, 151, 243, 0.72);
+  background: rgba(18, 93, 153, 0.32);
+}
+
+.xt-today__filer-badge {
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.xt-today__command-wall {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 310px);
+  gap: 10px;
+  min-height: 630px;
+  min-width: 0;
+}
+
+.xt-today__command-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.xt-today__panel,
+.xt-today__event-rail,
+.xt-today__bottom-status {
+  border: 1px solid rgba(70, 157, 238, 0.24);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(18, 57, 88, 0.66), rgba(5, 24, 42, 0.92)),
+    rgba(4, 21, 37, 0.94);
+  box-shadow: inset 0 1px 0 rgba(189, 225, 255, 0.08), 0 10px 24px rgba(0, 8, 16, 0.28);
+}
+
+.xt-today__panel {
+  gap: 10px;
+  padding: 12px;
+}
+
+.xt-today__panel-head {
+  align-items: center;
+  min-height: 24px;
+}
+
+.xt-today__panel-head h2,
+.xt-today__rail-head h2 {
+  margin: 0;
+  color: #f3f8ff;
+  font-family: var(--xt-font-display);
+  font-size: 15px;
+  font-weight: 930;
+  letter-spacing: -0.015em;
+}
+
+.xt-today__panel-head h3 {
+  margin: 0;
+  color: #f3f8ff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.xt-today__panel-head span,
+.xt-today__rail-head span {
+  color: rgba(225, 241, 255, 0.54);
+  font-size: 11px;
+  font-weight: 780;
+}
+
+.xt-today__flow {
+  min-height: 198px;
+}
+
+.xt-today__flow-steps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xt-today__flow-step {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  min-height: 148px;
+  padding: 8px;
+  border: 1px solid rgba(70, 157, 238, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(160deg, rgba(17, 73, 116, 0.52), rgba(4, 20, 35, 0.9)),
+    rgba(4, 20, 35, 0.88);
+  overflow: hidden;
+}
+
+.xt-today__flow-step:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  top: 35px;
+  right: -13px;
+  z-index: 3;
+  color: rgba(36, 149, 255, 0.9);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.xt-today__flow-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 108px;
+  height: 70px;
+  margin: -2px auto 2px;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(ellipse at 50% 92%, rgba(35, 151, 255, 0.24), transparent 62%);
+  box-shadow: none;
+}
+
+.xt-today__flow-title {
+  color: rgba(244, 249, 255, 0.92);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.xt-today__flow-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  color: rgba(225, 241, 255, 0.58);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.xt-today__flow-metric b {
+  color: #f7fbff;
+  font-family: var(--xt-font-number);
+  font-size: 13px;
+  font-weight: 930;
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-today__flow-metric.is-muted b {
+  color: rgba(216, 234, 255, 0.7);
+}
+
+.xt-today__flow-sub {
+  display: grid;
+  gap: 3px;
+  margin: 1px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xt-today__flow-sub li {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  color: rgba(216, 234, 255, 0.55);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.xt-today__flow-sub b {
+  color: rgba(244, 249, 255, 0.82);
+  font-family: var(--xt-font-number);
+  font-weight: 900;
+}
+
+.xt-today__lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.2fr);
+  gap: 10px;
+}
+
+.xt-today__workshop,
+.xt-today__wip {
+  min-height: 190px;
+}
+
+.xt-today__table {
+  font-size: 12px;
+}
+
+.xt-today__table th,
+.xt-today__table td {
+  padding: 6px 8px;
+  border-color: rgba(74, 159, 235, 0.16);
+}
+
+.xt-today__table th {
+  background: rgba(24, 78, 120, 0.32);
+  color: rgba(224, 240, 255, 0.58);
+}
+
+.xt-today__table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.xt-today__wip-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.xt-today__wip-card {
+  min-height: 58px;
+  padding: 9px;
+  border-color: rgba(58, 164, 221, 0.22);
+  background:
+    radial-gradient(circle at 100% 100%, rgba(20, 183, 191, 0.16), transparent 58%),
+    rgba(3, 24, 42, 0.78);
+}
+
+.xt-today__wip-card span {
+  color: rgba(224, 240, 255, 0.64);
+}
+
+.xt-today__wip-card b {
+  color: #9bd8ff;
+  font-size: 18px;
+}
+
+.xt-today__metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.xt-today__compare-card {
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid rgba(68, 154, 231, 0.22);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 92% 80%, rgba(38, 141, 255, 0.2), transparent 52%),
+    rgba(4, 22, 38, 0.88);
+}
+
+.xt-today__compare-card span {
+  color: rgba(224, 240, 255, 0.62);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.xt-today__compare-card strong {
+  display: block;
+  margin-top: 5px;
+  color: #f7fbff;
+  font-family: var(--xt-font-number);
+  font-size: 20px;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+.xt-today__compare-card small {
+  display: block;
+  margin-top: 3px;
+  color: rgba(224, 240, 255, 0.52);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.xt-today__compare-card.tone-warning {
+  border-color: rgba(236, 166, 55, 0.42);
+}
+
+.xt-today__compare-card.tone-success {
+  border-color: rgba(61, 220, 132, 0.34);
+}
+
+.xt-today__event-rail {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.xt-today__rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.xt-today__shift-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(70, 157, 238, 0.2);
+  border-radius: 10px;
+  background: rgba(3, 22, 39, 0.78);
+}
+
+.xt-today__shift-list {
+  display: grid;
+  gap: 6px;
+}
+
+.xt-today__shift-row {
+  display: grid;
+  grid-template-columns: minmax(54px, 0.9fr) auto;
+  gap: 4px 8px;
+  align-items: baseline;
+  padding: 7px 8px;
+  border: 1px solid rgba(70, 157, 238, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 35, 57, 0.74);
+}
+
+.xt-today__shift-row span {
+  color: rgba(244, 249, 255, 0.86);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.xt-today__shift-row b {
+  color: #65c7ff;
+  font-family: var(--xt-font-number);
+  font-size: 13px;
+  font-weight: 930;
+}
+
+.xt-today__shift-row small {
+  grid-column: 1 / -1;
+  color: rgba(224, 240, 255, 0.48);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.xt-today__event-card {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid rgba(70, 157, 238, 0.18);
+  border-radius: 10px;
+  background: rgba(5, 24, 42, 0.86);
+}
+
+.xt-today__event-card.tone-danger {
+  border-color: rgba(255, 91, 91, 0.42);
+}
+
+.xt-today__event-card.tone-warning {
+  border-color: rgba(236, 166, 55, 0.44);
+}
+
+.xt-today__event-card.tone-success {
+  border-color: rgba(61, 220, 132, 0.34);
+}
+
+.xt-today__event-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.xt-today__event-top span {
+  color: #69c8ff;
+  font-size: 12px;
+  font-weight: 920;
+}
+
+.xt-today__event-top time {
+  color: rgba(224, 240, 255, 0.48);
+  font-family: var(--xt-font-number);
+  font-size: 11px;
+}
+
+.xt-today__event-card strong {
+  color: rgba(244, 249, 255, 0.9);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.xt-today__event-card p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: rgba(224, 240, 255, 0.62);
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.xt-today__event-rail :deep(.xt-missing-report) {
+  min-height: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(5, 24, 42, 0.86);
+}
+
+.xt-today__event-rail :deep(.xt-missing-report__body) {
+  max-height: 112px;
+  overflow: auto;
+}
+
+.xt-today__bottom-status {
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(17, 80, 127, 0.5), rgba(4, 22, 38, 0.94)),
+    rgba(4, 22, 38, 0.94);
+}
+
+.xt-today__status-pill {
+  flex: 1 1 170px;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  background: rgba(3, 17, 30, 0.52);
+}
+
+.xt-today__below-fold {
+  display: grid;
+  gap: 10px;
+  margin-top: 58px;
+}
+
+@media (max-width: 1360px) {
+  .xt-today__command-wall {
+    grid-template-columns: 1fr;
+  }
+
+  .xt-today__event-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xt-today__rail-head,
+  .xt-today__event-rail :deep(.xt-missing-report) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1120px) {
+  .xt-today__topbar,
+  .xt-today__lower-grid,
+  .xt-today__metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .xt-today__flow-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .xt-today {
+    padding: 8px;
+  }
+
+  .xt-today__top-actions,
+  .xt-today__quick-nav {
+    justify-content: flex-start;
+  }
+
+  .xt-today__flow-steps,
+  .xt-today__event-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .xt-today__flow-step:not(:last-child)::after {
+    display: none;
   }
 }
 </style>

@@ -1,5 +1,10 @@
 <template>
-  <section class="live-dashboard-page" data-testid="manage-live">
+  <section
+    class="live-dashboard-page"
+    data-testid="manage-live"
+    :data-stitch-project-id="stitchSurface.stitch.projectId"
+    :data-stitch-screen-id="stitchSurface.stitch.screenId"
+  >
     <header class="live-dashboard-page__header">
       <div class="live-dashboard-page__title">
         <span class="live-dashboard-page__eyebrow">鑫泰铝业 数据中枢 / 生产实时</span>

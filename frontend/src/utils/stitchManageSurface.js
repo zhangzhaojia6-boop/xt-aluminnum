@@ -16,27 +16,27 @@ import {
 export const STITCH_MANAGE_SCREENS = {
   today: {
     projectId: '3839293853809482256',
-    screenId: '162868d2ec9f4f02ae5d3dbbfaf2e74c',
+    screenId: 'd9646f7499664e2b988ff67670cc6214',
     route: '/manage/today',
   },
   live: {
     projectId: '3839293853809482256',
-    screenId: '04f5db03e6624a7aac56af4e3271fb2b',
+    screenId: '707c0acd1b3e4873a38973141ee5ff89',
     route: '/manage/live',
   },
   production: {
     projectId: '3839293853809482256',
-    screenId: 'fea077f7bef2419aad5fe5ea4742e256',
+    screenId: '3a7288d183ed48609f2f851097ded0cb',
     route: '/manage/production',
   },
   fillDetails: {
     projectId: '3839293853809482256',
-    screenId: '137daa7c5f0e485485f8148c2eaa0409',
+    screenId: '23626a62189043148d752492349fbcab',
     route: '/manage/fill-details',
   },
   energy: {
     projectId: '3839293853809482256',
-    screenId: '143a8c8cc5cc4b11958807927ddcbe64',
+    screenId: '425e659eeb834f648f18039a38868034',
     route: '/manage/energy',
   },
 }

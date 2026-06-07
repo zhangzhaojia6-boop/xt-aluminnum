@@ -110,8 +110,11 @@ test('EnergyCenter matches the target dashboard granularity instead of plain car
 })
 
 test('EnergyCenter reloads when the selected business date changes and explains permission failures', () => {
-  assert.match(src, /import\s+\{\s*computed,\s*onMounted,\s*reactive,\s*ref,\s*watch\s*\}\s+from\s+'vue'/)
-  assert.match(src, /watch\(\(\)\s*=>\s*filters\.business_date/)
+  assert.match(src, /import\s+\{\s*computed,\s*onMounted,\s*reactive,\s*ref\s*\}\s+from\s+'vue'/)
+  assert.match(src, /type="date"/)
+  assert.match(src, /@input="handleBusinessDateChange"/)
+  assert.match(src, /function handleBusinessDateChange\(event\)/)
+  assert.match(src, /event\?\.target\?\.value/)
   assert.match(src, /void\s+load\(\)/)
   assert.match(src, /resolveEnergyErrorText/)
   assert.match(src, /无权限查看能耗数据/)

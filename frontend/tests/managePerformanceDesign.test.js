@@ -25,6 +25,7 @@ const CRITICAL_MANAGE_SURFACES = [
   'components/manage/DateSwitcher.vue',
   'components/manage/FactorySourceStrip.vue',
   'components/manage/KpiBar.vue',
+  'components/manage/IndustrialProcessIcon.vue',
   'components/manage/MissingReportPanel.vue',
   'components/manage/SummaryHero.vue',
   'components/manage/OutputTrendLine.vue',
@@ -56,11 +57,26 @@ test('critical management surfaces avoid blur filters and oversized glow shadows
 
 test('critical management surfaces keep industrial structure after light-effect reduction', () => {
   const shell = read('layout/ManageShell.vue')
+  const today = read('views/manage/today/TodayPage.vue')
+  const stitch = read('utils/stitchManageSurface.js')
   const strip = read('components/manage/FactorySourceStrip.vue')
   const kpi = read('components/manage/KpiBar.vue')
   const missing = read('components/manage/MissingReportPanel.vue')
 
   assert.match(shell, /data-testid="manage-shell"/)
+  assert.match(shell, /xt-manage--today-wall/)
+  assert.match(shell, /xt-manage--dashboard-wall/)
+  assert.match(shell, /DASHBOARD_WALL_PATHS/)
+  assert.match(today, /data-testid="today-command-wall"/)
+  assert.match(today, /data-testid="today-production-flow"/)
+  assert.match(today, /data-testid="today-event-rail"/)
+  assert.match(today, /:data-stitch-screen-id="stitchSurface\.stitch\.screenId"/)
+  assert.match(today, /IndustrialProcessIcon/)
+  assert.match(stitch, /d9646f7499664e2b988ff67670cc6214/)
+  assert.match(stitch, /707c0acd1b3e4873a38973141ee5ff89/)
+  assert.match(stitch, /3a7288d183ed48609f2f851097ded0cb/)
+  assert.match(stitch, /23626a62189043148d752492349fbcab/)
+  assert.match(stitch, /425e659eeb834f648f18039a38868034/)
   assert.match(strip, /data-testid="factory-source-strip"/)
   assert.match(strip, /xt-source-strip__rail/)
   assert.match(kpi, /data-testid="manage-kpi-bar"/)

@@ -31,18 +31,21 @@ test('KpiBar applies status and tone modifier classes', () => {
   assert.match(src, /\.tone-negative/)
 })
 
-test('KpiBar uses --xt-* tokens, not hardcoded colors/spacing', () => {
+test('KpiBar uses the Stitch industrial blue card surface without heavy effects', () => {
   const src = source('../src/components/manage/KpiBar.vue')
-  assert.match(src, /var\(--xt-bg-panel\)/)
-  assert.match(src, /var\(--xt-border\)/)
-  assert.match(src, /var\(--xt-text\)/)
   const styleBlock = src.split('<style')[1] || ''
-  assert.equal(/#[0-9a-fA-F]{3,6}/.test(styleBlock), false, 'no hex colors allowed')
+  assert.match(styleBlock, /rgba\(70,\s*157,\s*238,\s*0\.26\)/)
+  assert.match(styleBlock, /linear-gradient\(180deg,\s*rgba\(18,\s*57,\s*88,\s*0\.68\)/)
+  assert.match(styleBlock, /var\(--xt-font-number\)/)
+  assert.doesNotMatch(styleBlock, /animation:\s*[^;{}]*infinite/)
+  assert.doesNotMatch(styleBlock, /backdrop-filter|filter:\s*blur/i)
 })
 
-test('KpiBar lays out 5 columns on desktop with mobile breakpoint', () => {
+test('KpiBar lays out dashboard-width KPI cards with mobile breakpoints', () => {
   const src = source('../src/components/manage/KpiBar.vue')
-  assert.match(src, /grid-template-columns:\s*repeat\(5,\s*1fr\)/)
-  assert.match(src, /@media\s*\(max-width:\s*720px\)/)
+  assert.match(src, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/)
+  assert.match(src, /@media\s*\(max-width:\s*1180px\)/)
   assert.match(src, /grid-template-columns:\s*repeat\(3,\s*1fr\)/)
+  assert.match(src, /@media\s*\(max-width:\s*720px\)/)
+  assert.match(src, /grid-template-columns:\s*repeat\(2,\s*1fr\)/)
 })

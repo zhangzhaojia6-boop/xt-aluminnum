@@ -17,7 +17,7 @@ test.describe('owner three-tab skeleton', () => {
     await page.goto('/manage/today')
 
     await expect(page.getByTestId('manage-today')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '昨日总览' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '工厂总览' })).toBeVisible()
     await expect(page.locator('.xt-manage__sidebar .xt-manage__nav-group-label')).toHaveText([
       '实时调度',
       '昨日报表',

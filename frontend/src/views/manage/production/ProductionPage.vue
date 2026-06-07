@@ -1,5 +1,10 @@
 <template>
-  <section class="xt-production" data-testid="manage-production">
+  <section
+    class="xt-production"
+    data-testid="manage-production"
+    :data-stitch-project-id="stitchSurface.stitch.projectId"
+    :data-stitch-screen-id="stitchSurface.stitch.screenId"
+  >
     <header class="xt-production__hero">
       <div class="xt-production__hero-copy">
         <span class="xt-production__eyebrow">生产驾驶舱</span>

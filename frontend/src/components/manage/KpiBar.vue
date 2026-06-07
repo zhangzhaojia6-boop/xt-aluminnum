@@ -7,24 +7,29 @@
       :class="[item.status ? `is-${item.status}` : '', item.tone ? `tone-${item.tone}` : '']"
       data-testid="kpi-card"
     >
-      <div class="xt-kpi-bar__top">
-        <div class="xt-kpi-bar__label">{{ item.label }}</div>
-        <span v-if="item.deltaText" class="xt-kpi-bar__delta" :class="item.deltaTone ? `tone-${item.deltaTone}` : ''">
-          {{ item.deltaText }}
-        </span>
+      <span class="xt-kpi-bar__icon" :class="`metric-${item.key}`" aria-hidden="true">
+        <i />
+      </span>
+      <div class="xt-kpi-bar__content">
+        <div class="xt-kpi-bar__top">
+          <div class="xt-kpi-bar__label">{{ item.label }}</div>
+          <span v-if="item.deltaText" class="xt-kpi-bar__delta" :class="item.deltaTone ? `tone-${item.deltaTone}` : ''">
+            {{ item.deltaText }}
+          </span>
+        </div>
+        <div class="xt-kpi-bar__value">
+          <span>{{ item.value }}</span>
+          <small v-if="item.unit">{{ item.unit }}</small>
+        </div>
+        <Sparkline
+          v-if="item.spark && item.spark.length > 1"
+          class="xt-kpi-bar__spark"
+          :points="item.spark"
+          :tone="item.sparkTone || 'primary'"
+        />
+        <div v-else-if="item.hint" class="xt-kpi-bar__hint">{{ item.hint }}</div>
+        <div v-else class="xt-kpi-bar__hint xt-kpi-bar__hint--placeholder">&nbsp;</div>
       </div>
-      <div class="xt-kpi-bar__value">
-        <span>{{ item.value }}</span>
-        <small v-if="item.unit">{{ item.unit }}</small>
-      </div>
-      <Sparkline
-        v-if="item.spark && item.spark.length > 1"
-        class="xt-kpi-bar__spark"
-        :points="item.spark"
-        :tone="item.sparkTone || 'primary'"
-      />
-      <div v-else-if="item.hint" class="xt-kpi-bar__hint">{{ item.hint }}</div>
-      <div v-else class="xt-kpi-bar__hint xt-kpi-bar__hint--placeholder">&nbsp;</div>
     </li>
   </ul>
 </template>
@@ -37,31 +42,38 @@ defineProps({ items: { type: Array, default: () => [] } })
 <style scoped>
 .xt-kpi-bar {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--xt-space-3);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1180px) {
   .xt-kpi-bar { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .xt-kpi-bar { grid-template-columns: repeat(2, 1fr); }
 }
 
 .xt-kpi-bar__card {
   position: relative;
   display: grid;
-  gap: var(--xt-space-1);
-  min-height: 132px;
-  padding: var(--xt-space-3);
-  border: 1px solid color-mix(in srgb, var(--xt-primary) 20%, var(--xt-border));
-  border-radius: var(--xt-radius-xl);
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+  min-height: 98px;
+  padding: 11px 12px;
+  border: 1px solid rgba(70, 157, 238, 0.26);
+  border-radius: 12px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--xt-text-inverse) 7%, transparent), transparent),
-    color-mix(in srgb, var(--xt-bg-ink-panel) 86%, var(--xt-bg-panel));
+    radial-gradient(circle at 92% 86%, rgba(35, 130, 235, 0.2), transparent 46%),
+    linear-gradient(180deg, rgba(18, 57, 88, 0.68), rgba(5, 24, 42, 0.94)),
+    rgba(4, 21, 37, 0.94);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--xt-text-inverse) 8%, transparent),
-    0 10px 24px color-mix(in srgb, var(--xt-bg-ink) 36%, transparent);
+    inset 0 1px 0 rgba(189, 225, 255, 0.08),
+    0 10px 24px rgba(0, 8, 16, 0.28);
   overflow: hidden;
 }
 
@@ -70,7 +82,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--xt-primary), transparent);
+  background: linear-gradient(90deg, transparent, rgba(52, 154, 255, 0.8), transparent);
   opacity: 0.8;
 }
 
@@ -82,7 +94,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   width: 104px;
   height: 104px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--xt-primary) 16%, transparent);
+  background: rgba(33, 137, 255, 0.14);
 }
 
 .xt-kpi-bar__card.is-muted {
@@ -93,14 +105,146 @@ defineProps({ items: { type: Array, default: () => [] } })
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--xt-space-2);
 }
 
+.xt-kpi-bar__content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.xt-kpi-bar__icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(67, 158, 255, 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(40, 142, 255, 0.34), rgba(5, 31, 55, 0.9)),
+    rgba(6, 34, 58, 0.92);
+}
+
+.xt-kpi-bar__icon i,
+.xt-kpi-bar__icon::before,
+.xt-kpi-bar__icon::after {
+  content: '';
+  position: absolute;
+  display: block;
+}
+
+.xt-kpi-bar__icon i {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(109, 193, 255, 0.9);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(69, 164, 255, 0.72), rgba(7, 63, 112, 0.82));
+}
+
+.xt-kpi-bar__icon.metric-plant-output i {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  clip-path: polygon(50% 0, 92% 22%, 92% 72%, 50% 100%, 8% 72%, 8% 22%);
+}
+
+.xt-kpi-bar__icon.metric-plant-output::before {
+  width: 2px;
+  height: 20px;
+  background: rgba(209, 238, 255, 0.62);
+  transform: rotate(30deg);
+}
+
+.xt-kpi-bar__icon.metric-process-throughput i {
+  width: 28px;
+  height: 24px;
+  border-radius: 999px;
+}
+
+.xt-kpi-bar__icon.metric-process-throughput::before,
+.xt-kpi-bar__icon.metric-process-throughput::after {
+  width: 22px;
+  height: 6px;
+  border: 2px solid rgba(109, 193, 255, 0.72);
+  border-radius: 999px;
+}
+
+.xt-kpi-bar__icon.metric-process-throughput::before {
+  transform: translateY(-10px);
+}
+
+.xt-kpi-bar__icon.metric-process-throughput::after {
+  transform: translateY(10px);
+}
+
+.xt-kpi-bar__icon.metric-process-throughput i,
+.xt-kpi-bar__icon.metric-energy-per-ton i {
+  border-radius: 999px;
+}
+
+.xt-kpi-bar__icon.metric-yield-rate i {
+  border-radius: 50%;
+}
+
+.xt-kpi-bar__icon.metric-yield-rate::before {
+  width: 14px;
+  height: 8px;
+  border-right: 2px solid rgba(150, 239, 172, 0.9);
+  border-bottom: 2px solid rgba(150, 239, 172, 0.9);
+  transform: rotate(45deg);
+}
+
+.xt-kpi-bar__icon.metric-energy-cost i,
+.xt-kpi-bar__icon.metric-contract-tonnage i {
+  width: 20px;
+  height: 26px;
+  border-radius: 4px;
+}
+
+.xt-kpi-bar__icon.metric-contract-tonnage::before,
+.xt-kpi-bar__icon.metric-contract-tonnage::after {
+  left: 16px;
+  width: 16px;
+  height: 2px;
+  background: rgba(209, 238, 255, 0.68);
+}
+
+.xt-kpi-bar__icon.metric-contract-tonnage::before {
+  top: 19px;
+}
+
+.xt-kpi-bar__icon.metric-contract-tonnage::after {
+  top: 26px;
+}
+
+.xt-kpi-bar__icon.metric-energy-cost {
+  border-color: rgba(246, 174, 57, 0.44);
+  background:
+    linear-gradient(145deg, rgba(246, 174, 57, 0.24), rgba(5, 31, 55, 0.9)),
+    rgba(6, 34, 58, 0.92);
+}
+
+.xt-kpi-bar__icon.metric-energy-cost::before {
+  content: '¥';
+  color: rgba(255, 202, 93, 0.94);
+  font-family: var(--xt-font-number);
+  font-size: 24px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.xt-kpi-bar__icon.metric-energy-cost i {
+  display: none;
+}
+
 .xt-kpi-bar__label {
-  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
-  font-size: var(--xt-text-xs);
+  color: rgba(226, 240, 255, 0.68);
+  font-size: 12px;
   font-weight: 850;
   letter-spacing: 0.04em;
 }
@@ -136,7 +280,8 @@ defineProps({ items: { type: Array, default: () => [] } })
   gap: var(--xt-space-1);
   color: var(--xt-text);
   font-family: var(--xt-font-number);
-  font-size: var(--xt-text-2xl);
+  margin-top: 5px;
+  font-size: clamp(21px, 2vw, 28px);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -165,7 +310,7 @@ defineProps({ items: { type: Array, default: () => [] } })
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 32px;
+  height: 24px;
   margin-top: 2px;
 }
 
@@ -189,6 +334,12 @@ defineProps({ items: { type: Array, default: () => [] } })
   .xt-kpi-bar__card {
     min-height: 120px;
     padding: var(--xt-space-2);
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .xt-kpi-bar__icon {
+    width: 36px;
+    height: 36px;
   }
 
   .xt-kpi-bar__value {

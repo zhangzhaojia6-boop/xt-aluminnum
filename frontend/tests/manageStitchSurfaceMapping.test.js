@@ -18,27 +18,27 @@ function source(rel) {
 test('Stitch screen records pin the generated design evidence for ready manage pages', () => {
   assert.deepEqual(STITCH_MANAGE_SCREENS.today, {
     projectId: '3839293853809482256',
-    screenId: '162868d2ec9f4f02ae5d3dbbfaf2e74c',
+    screenId: 'd9646f7499664e2b988ff67670cc6214',
     route: '/manage/today',
   })
   assert.deepEqual(STITCH_MANAGE_SCREENS.live, {
     projectId: '3839293853809482256',
-    screenId: '04f5db03e6624a7aac56af4e3271fb2b',
+    screenId: '707c0acd1b3e4873a38973141ee5ff89',
     route: '/manage/live',
   })
   assert.deepEqual(STITCH_MANAGE_SCREENS.production, {
     projectId: '3839293853809482256',
-    screenId: 'fea077f7bef2419aad5fe5ea4742e256',
+    screenId: '3a7288d183ed48609f2f851097ded0cb',
     route: '/manage/production',
   })
   assert.deepEqual(STITCH_MANAGE_SCREENS.fillDetails, {
     projectId: '3839293853809482256',
-    screenId: '137daa7c5f0e485485f8148c2eaa0409',
+    screenId: '23626a62189043148d752492349fbcab',
     route: '/manage/fill-details',
   })
   assert.deepEqual(STITCH_MANAGE_SCREENS.energy, {
     projectId: '3839293853809482256',
-    screenId: '143a8c8cc5cc4b11958807927ddcbe64',
+    screenId: '425e659eeb834f648f18039a38868034',
     route: '/manage/energy',
   })
 })
@@ -94,7 +94,7 @@ test('today Stitch surface keeps the industrial slots wired to existing daily-re
     },
   })
 
-  assert.equal(surface.stitch.screenId, '162868d2ec9f4f02ae5d3dbbfaf2e74c')
+  assert.equal(surface.stitch.screenId, 'd9646f7499664e2b988ff67670cc6214')
   assert.deepEqual(surface.slotOrder, [
     'statusBar',
     'kpiStrip',
@@ -202,7 +202,7 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
     },
   })
 
-  assert.equal(surface.stitch.screenId, '04f5db03e6624a7aac56af4e3271fb2b')
+  assert.equal(surface.stitch.screenId, '707c0acd1b3e4873a38973141ee5ff89')
   assert.deepEqual(surface.slotOrder, [
     'statusBar',
     'realtimeKpiStrip',
@@ -267,7 +267,7 @@ test('production Stitch surface preserves existing KPI, ranking and source objec
     sourceOverview,
   })
 
-  assert.equal(surface.stitch.screenId, 'fea077f7bef2419aad5fe5ea4742e256')
+  assert.equal(surface.stitch.screenId, '3a7288d183ed48609f2f851097ded0cb')
   assert.deepEqual(surface.slotOrder, [
     'statusBar',
     'kpiStrip',
@@ -321,7 +321,7 @@ test('fill details Stitch surface preserves audit ticker, ledger rows and issue 
     runtimeState: { loading: false, errorText: '' },
   })
 
-  assert.equal(surface.stitch.screenId, '137daa7c5f0e485485f8148c2eaa0409')
+  assert.equal(surface.stitch.screenId, '23626a62189043148d752492349fbcab')
   assert.deepEqual(surface.slotOrder, [
     'statusBar',
     'kpiStrip',
@@ -407,7 +407,7 @@ test('energy Stitch surface preserves energy KPIs, detail rows and source status
     runtimeState: { loading: false, errorText: '', updatedAt: '08:30:00' },
   })
 
-  assert.equal(surface.stitch.screenId, '143a8c8cc5cc4b11958807927ddcbe64')
+  assert.equal(surface.stitch.screenId, '425e659eeb834f648f18039a38868034')
   assert.deepEqual(surface.slotOrder, [
     'statusBar',
     'kpiStrip',
@@ -489,6 +489,11 @@ test('today, live, production, fill details and energy pages consume the Stitch 
   assert.match(productionSource, /buildProductionStitchSurface/)
   assert.match(fillDetailsSource, /buildFillDetailsStitchSurface/)
   assert.match(energySource, /buildEnergyStitchSurface/)
+
+  for (const pageSource of [todaySource, liveSource, productionSource, fillDetailsSource, energySource]) {
+    assert.match(pageSource, /:data-stitch-project-id="stitchSurface\.stitch\.projectId"/)
+    assert.match(pageSource, /:data-stitch-screen-id="stitchSurface\.stitch\.screenId"/)
+  }
 })
 
 test('first-batch pages render the Stitch bottom status slot from real surface data', () => {
