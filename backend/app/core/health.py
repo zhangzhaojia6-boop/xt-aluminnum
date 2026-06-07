@@ -131,7 +131,6 @@ def build_readiness_payload() -> tuple[bool, dict]:
             sync_status = mes_sync_status.get('status')
             lag_seconds = mes_sync_status.get('lag_seconds')
             if sync_status in {'migration_missing', 'failed'}:
-                ready = False
                 checks['mes_sync'] = sync_status
             elif sync_status == 'stale':
                 checks['mes_sync'] = 'stale'
@@ -144,7 +143,6 @@ def build_readiness_payload() -> tuple[bool, dict]:
             else:
                 checks['mes_sync'] = 'stale'
         except Exception as exc:  # noqa: BLE001
-            ready = False
             checks['mes_sync'] = f'error:{exc.__class__.__name__}'
             details['mes_sync'] = {
                 'configured': True,

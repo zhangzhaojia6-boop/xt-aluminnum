@@ -8,6 +8,7 @@ from fastapi import UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.models.consumable import DailyConsumableLog
 from app.models.energy import EnergyImportRecord, MachineEnergyRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
@@ -21,6 +22,10 @@ from app.utils.date_utils import parse_date
 
 
 VALID_ENERGY_TYPES = {'electricity', 'gas', 'water', 'other'}
+FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
+PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
+SUBMITTED_ENTRY_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
+SUBMITTED_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
 
 
 @dataclass(slots=True)
@@ -68,6 +73,70 @@ def _sum_shift_output_tons(
     if shift_config_id is not None:
         query = query.filter(ShiftProductionData.shift_config_id == shift_config_id)
     return sum(_shift_weight_tons(item, 'output_weight') for item in query.all())
+
+
+def _payload_number(payload: dict, field_name: str) -> float | None:
+    value = _to_float(payload.get(field_name))
+    return value if value is not None else None
+
+
+def _owner_storage_inbound_tons(payload: dict) -> float:
+    direct_value = _payload_number(payload, 'storage_inbound_weight')
+    if direct_value is not None:
+        return direct_value
+    total = 0.0
+    has_component = False
+    for field_name in ('park_inbound_daily', 'new_plant_inbound_daily', 'park_to_storage_inbound_weight'):
+        value = _payload_number(payload, field_name)
+        if value is None:
+            continue
+        total += value
+        has_component = True
+    return total if has_component else 0.0
+
+
+def _factory_final_output_tons(db: Session, *, business_date: date) -> float:
+    total = 0.0
+    rows = (
+        db.query(DailyConsumableLog.payload)
+        .join(Workshop, Workshop.id == DailyConsumableLog.workshop_id)
+        .filter(
+            DailyConsumableLog.business_date == business_date,
+            Workshop.code.in_(tuple(FINAL_PACKAGING_WORKSHOP_CODES)),
+            Workshop.is_active.is_(True),
+        )
+        .all()
+    )
+    for (payload,) in rows:
+        value = _payload_number(dict(payload or {}), PACKAGING_INBOUND_OUTPUT_FIELD)
+        if value is not None and value > 0:
+            total += value
+    if total > 0:
+        return total
+
+    owner_rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_ENTRY_STATUSES)),
+        )
+        .all()
+    )
+    owner_total = sum(_owner_storage_inbound_tons(dict(row.extra_payload or {})) for row in owner_rows)
+    if owner_total > 0:
+        return owner_total
+
+    storage_finished = (
+        db.query(func.sum(MobileShiftReport.storage_finished))
+        .filter(
+            MobileShiftReport.business_date == business_date,
+            MobileShiftReport.storage_finished.isnot(None),
+            MobileShiftReport.report_status.in_(tuple(SUBMITTED_REPORT_STATUSES)),
+        )
+        .scalar()
+    )
+    return _to_float(storage_finished) or 0.0
 
 
 def _normalize_mapped_data(mapped: dict) -> dict:
@@ -509,7 +578,10 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in primary_rows)
     water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows)
     total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows)
-    total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in primary_rows)
+    row_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in primary_rows)
+    factory_final_output = _factory_final_output_tons(db, business_date=business_date)
+    total_output = factory_final_output if factory_final_output > 0 else row_total_output
+    output_basis = 'factory_final_packaging_inbound' if factory_final_output > 0 else 'energy_rows'
     energy_per_ton = total_energy / total_output if total_output else None
     owner_electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in owner_rows)
     owner_gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in owner_rows)
@@ -535,6 +607,7 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
         'water_value': water_value,
         'total_energy': total_energy,
         'total_output_weight': total_output,
+        'output_basis': output_basis,
         'energy_per_ton': energy_per_ton,
         'primary_source': primary_source,
         'system_totals': {

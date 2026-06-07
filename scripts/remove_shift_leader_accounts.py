@@ -7,13 +7,26 @@
 
 解决：将所有 {车间}-BZ 的设备和对应的 shift_leader 账号设为 inactive。
 """
+import os
+import sys
+
 import psycopg2
 
-DB_URL = 'postgresql://bypass_user:xt_bypass_2026@8.140.218.13:5432/aluminum_bypass'
+DB_URL_ENV_NAMES = ('DATABASE_URL', 'PRODUCTION_DATABASE_URL')
+
+
+def _database_url() -> str:
+    for name in DB_URL_ENV_NAMES:
+        value = os.getenv(name)
+        if value:
+            return value
+    joined = ' 或 '.join(DB_URL_ENV_NAMES)
+    print(f"缺少数据库连接，请先设置 {joined}。", file=sys.stderr)
+    raise SystemExit(2)
 
 
 def main() -> None:
-    conn = psycopg2.connect(DB_URL)
+    conn = psycopg2.connect(_database_url())
     cur = conn.cursor()
 
     # 查找所有 BZ 设备

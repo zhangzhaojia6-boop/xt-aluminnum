@@ -20,6 +20,7 @@ class MobileCurrentShiftOut(BaseModel):
     machine_name: str | None = None
     is_machine_bound: bool = False
     machine_custom_fields: list[dict] = Field(default_factory=list)
+    workshop_machines: list[dict[str, Any]] = Field(default_factory=list)
     team_id: int | None = None
     team_name: str | None = None
     leader_name: str

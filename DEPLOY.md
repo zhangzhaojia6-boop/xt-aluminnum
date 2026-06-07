@@ -7,39 +7,33 @@
 ### 生产部署流程
 
 ```bash
-# 1. SSH 到云端
+# 1. 使用 SSH key 登录云端
 ssh root@8.140.218.13
 
-# 2. 拉取最新代码
+# 2. 进入仓库
 cd /srv/aluminum-bypass
-git pull
 
-# 3. 重启后端服务
-systemctl restart aluminum-bypass
+# 3. 执行宿主机 systemd 部署脚本
+./scripts/deploy_systemd_host.sh --pull http://8.140.218.13
 
-# 4. 重新构建前端（如有前端改动）
-cd frontend
-npm run build
-nginx -s reload
-
-# 5. 验证服务
+# 4. 验证服务
 curl http://localhost/readyz
+curl http://localhost/api/v1/healthz
 ```
 
-### 自动化部署脚本
+### 部署脚本
 
-使用 `scripts/deploy_remote.sh`：
+首选脚本：
 
 ```bash
-./scripts/deploy_remote.sh
+./scripts/deploy_systemd_host.sh --pull http://8.140.218.13
 ```
 
-该脚本会自动：
-1. SSH 到云端
-2. 拉取代码
-3. 重启后端
-4. 重建前端
-5. 验证服务状态
+这个脚本必须在云端 `/srv/aluminum-bypass` 内执行，会自动拉取代码、备份、迁移、重启服务、构建前端并验证 `/readyz`。
+
+备用脚本 `scripts/deploy_remote.sh` 也是云端脚本，不是本地远程登录脚本。
+
+仓库不再保留含明文密码的部署脚本；远程登录统一使用 SSH key 或云厂商密钥管理。
 
 ## 本地开发
 
@@ -76,6 +70,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 2. **生产 PostgreSQL 只监听 localhost**，外网无法访问
 3. **不要提交 `.env` 文件到 Git**
 4. **生产凭据保存在云端 `/srv/aluminum-bypass/backend/.env`**
+5. **运维脚本需要密码时从环境变量读取**，例如 `PROD_DB_PASSWORD` 或 `ADMIN_NEW_PASSWORD`
 
 ## 清理临时文件
 

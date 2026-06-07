@@ -20,13 +20,16 @@ import qrcode
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '二维码'
 PROD_HOST = 'root@8.140.218.13'
-DB_PASS = 'xt_bypass_2026'
 PROD_HOST_URL = 'https://xtmijd.com'  # 现场扫码后端 base
 
 
 def remote_json(sql: str) -> list[dict]:
+    db_password = os.environ.get('PROD_DB_PASSWORD')
+    if not db_password:
+        print('缺少 PROD_DB_PASSWORD，无法从生产库拉取二维码数据。', file=sys.stderr)
+        raise SystemExit(2)
     cmd = (
-        f"PGPASSWORD={DB_PASS} psql -h 127.0.0.1 -U bypass_user -d aluminum_bypass "
+        f"PGPASSWORD={shlex.quote(db_password)} psql -h 127.0.0.1 -U bypass_user -d aluminum_bypass "
         f"-tAc {shlex.quote(sql)}"
     )
     out = subprocess.run(

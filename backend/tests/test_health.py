@@ -26,6 +26,20 @@ def test_healthz(monkeypatch):
     assert resp.json()["checks"]["app"] == "ok"
 
 
+def test_api_v1_healthz_matches_liveness(monkeypatch):
+    client = TestClient(app)
+
+    monkeypatch.setattr(
+        "app.main.health_service.build_liveness_payload",
+        lambda: {"status": "ok", "service": "aluminum-bypass", "checks": {"app": "ok"}},
+    )
+
+    resp = client.get("/api/v1/healthz")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert resp.json()["checks"]["app"] == "ok"
+
+
 def test_readyz_ok(monkeypatch):
     client = TestClient(app)
 
@@ -171,7 +185,7 @@ def test_build_readiness_payload_reports_mes_unconfigured_as_ready(monkeypatch):
     assert payload["details"]["mes_sync"]["action_required"] == "configure_mes"
 
 
-def test_build_readiness_payload_reports_mes_projection_migration_missing(monkeypatch):
+def test_build_readiness_payload_reports_mes_projection_migration_missing_without_blocking_app_ready(monkeypatch):
     monkeypatch.setattr("app.core.health._check_database", lambda: None)
     monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
     monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
@@ -190,7 +204,8 @@ def test_build_readiness_payload_reports_mes_projection_migration_missing(monkey
 
     ready, payload = health_service.build_readiness_payload()
 
-    assert ready is False
+    assert ready is True
+    assert payload["status"] == "ready"
     assert payload["checks"]["mes_sync"] == "migration_missing"
     assert payload["details"]["mes_sync"]["action_required"] == "run_migration"
 
@@ -216,7 +231,8 @@ def test_build_readiness_payload_redacts_failed_mes_sync_error(monkeypatch):
 
     ready, payload = health_service.build_readiness_payload()
 
-    assert ready is False
+    assert ready is True
+    assert payload["status"] == "ready"
     assert payload["checks"]["mes_sync"] == "failed"
     assert payload["details"]["mes_sync"]["status"] == "failed"
     assert payload["details"]["mes_sync"]["error_message"] == "redacted"
@@ -225,7 +241,7 @@ def test_build_readiness_payload_redacts_failed_mes_sync_error(monkeypatch):
     assert "vendor-token" not in repr(payload["details"]["mes_sync"])
 
 
-def test_build_readiness_payload_marks_mes_exception_not_ready_and_sanitizes_details(monkeypatch):
+def test_build_readiness_payload_marks_mes_exception_as_external_health_and_sanitizes_details(monkeypatch):
     class FakeDB:
         def close(self):
             return None
@@ -243,7 +259,8 @@ def test_build_readiness_payload_marks_mes_exception_not_ready_and_sanitizes_det
 
     ready, payload = health_service.build_readiness_payload()
 
-    assert ready is False
+    assert ready is True
+    assert payload["status"] == "ready"
     assert payload["checks"]["mes_sync"] == "error:RuntimeError"
     assert payload["details"]["mes_sync"]["status"] == "failed"
     assert payload["details"]["mes_sync"]["error"] == "RuntimeError"

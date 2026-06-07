@@ -10,6 +10,7 @@ Reports a green/red table; non-zero exit if any QR fails to resolve.
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -20,15 +21,16 @@ import requests
 
 BASE = 'http://8.140.218.13:8000/api/v1'
 SSH = ['ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=8', 'root@8.140.218.13']
-DB_PASS = 'xt_bypass_2026'
-PSQL = (
-    f"PGPASSWORD={DB_PASS} psql -h 127.0.0.1 -U bypass_user -d aluminum_bypass -tAc "
-)
 
 
 def remote_json(sql: str):
+    db_password = os.environ.get('PROD_DB_PASSWORD')
+    if not db_password:
+        print('缺少 PROD_DB_PASSWORD，无法执行生产二维码烟测。', file=sys.stderr)
+        raise SystemExit(2)
+    psql = f"PGPASSWORD={shlex.quote(db_password)} psql -h 127.0.0.1 -U bypass_user -d aluminum_bypass -tAc "
     out = subprocess.run(
-        SSH + [PSQL + shlex.quote(sql)],
+        SSH + [psql + shlex.quote(sql)],
         check=True, capture_output=True, text=True, encoding='utf-8',
     )
     text = out.stdout.strip()

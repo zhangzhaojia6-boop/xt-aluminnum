@@ -69,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
     isMachineBound: (state) => Boolean(state.machineContext?.machine_id),
     boundMachineId: (state) => state.machineContext?.machine_id || null,
     isMobileUser() {
-      return this.isAdmin || Boolean(this.user?.is_mobile_user)
+      return Boolean(this.user?.is_mobile_user)
     },
     isReviewer() {
       return this.isAdmin || Boolean(this.user?.is_reviewer)

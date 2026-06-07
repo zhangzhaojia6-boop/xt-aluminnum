@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
@@ -26,6 +27,7 @@ def build_session(tmp_path):
             User.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            DailyConsumableLog.__table__,
             MobileShiftReport.__table__,
             MachineEnergyRecord.__table__,
             ShiftProductionData.__table__,
@@ -376,6 +378,64 @@ def test_summarize_energy_for_date_prefers_mobile_shift_energy(tmp_path) -> None
         assert payload['owner_totals']['total_energy'] == 1250.0
         assert payload['mobile_totals']['row_count'] == 1
         assert any(row.get('source') == 'mobile_shift_report' for row in payload['rows'])
+    finally:
+        db.close()
+
+
+def test_summarize_energy_for_date_uses_final_packaging_output_for_factory_energy_denominator(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add_all(
+            [
+                Workshop(id=12, code='JZ', name='精整车间', workshop_type='finishing', sort_order=2, is_active=True),
+                Workshop(id=13, code='LJ', name='拉矫车间', workshop_type='leveling', sort_order=3, is_active=True),
+                Workshop(id=14, code='JQ', name='园区剪切车间', workshop_type='cutting', sort_order=4, is_active=True),
+                DailyConsumableLog(
+                    id=71,
+                    workshop_id=12,
+                    workshop_type='finishing',
+                    business_date=date(2026, 4, 17),
+                    payload={'packaging_inbound_output_tons': 60.0},
+                ),
+                DailyConsumableLog(
+                    id=72,
+                    workshop_id=13,
+                    workshop_type='leveling',
+                    business_date=date(2026, 4, 17),
+                    payload={'packaging_inbound_output_tons': 40.0},
+                ),
+                DailyConsumableLog(
+                    id=73,
+                    workshop_id=14,
+                    workshop_type='cutting',
+                    business_date=date(2026, 4, 17),
+                    payload={'packaging_inbound_output_tons': 20.0},
+                ),
+                MobileShiftReport(
+                    id=63,
+                    business_date=date(2026, 4, 17),
+                    shift_config_id=1,
+                    workshop_id=11,
+                    team_id=None,
+                    leader_user_id=8,
+                    leader_name='电工',
+                    report_status='submitted',
+                    electricity_daily=1000.0,
+                    gas_daily=200.0,
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'mobile_shift_report'
+        assert payload['total_energy'] == 1200.0
+        assert payload['total_output_weight'] == 120.0
+        assert payload['output_basis'] == 'factory_final_packaging_inbound'
+        assert payload['energy_per_ton'] == 10.0
+        assert payload['owner_totals']['total_output_weight'] == 250.0
     finally:
         db.close()
 

@@ -133,6 +133,49 @@
         </div>
       </section>
 
+      <section v-if="showMachineEnergyDetails" class="ue-group ue-group--machine-energy" data-testid="machine-energy-details">
+        <h3 class="ue-group__title">机列能耗明细</h3>
+        <div class="ue-machine-energy-list">
+          <div
+            v-for="(rec, idx) in form.machine_energy_records"
+            :key="rec.machine_id || rec.machine_code || idx"
+            class="ue-machine-energy-row"
+          >
+            <div class="ue-machine-energy-name">{{ rec.machine_name || rec.machine_code || `机列${idx + 1}` }}</div>
+            <div class="ue-machine-energy-fields">
+              <label class="ue-machine-energy-field">
+                <span>电耗</span>
+                <input
+                  v-model.number="rec.energy_kwh"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  class="ue-input ue-input--number"
+                  aria-label="机列电耗"
+                  placeholder="kWh"
+                />
+              </label>
+              <label class="ue-machine-energy-field">
+                <span>气耗</span>
+                <input
+                  v-model.number="rec.gas_m3"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  class="ue-input ue-input--number"
+                  aria-label="机列气耗"
+                  placeholder="m³"
+                />
+              </label>
+            </div>
+          </div>
+          <div class="ue-machine-energy-total">
+            <span>合计电耗：{{ machineEnergyTotalKwh }}</span>
+            <span>合计气耗：{{ machineEnergyTotalGas }}</span>
+          </div>
+        </div>
+      </section>
+
       <section v-if="visibleReadonlyFields.length" class="ue-group ue-group--readonly">
         <h3 class="ue-group__title">自动计算</h3>
         <div class="ue-readonly-row">
@@ -261,6 +304,9 @@ const shiftContext = ref(null)
 const workshopName = computed(() => shiftContext.value?.workshop_name || '')
 const shiftName = computed(() => formatShiftLabel(shiftContext.value?.shift_name || shiftContext.value?.shift_code, ''))
 const businessDate = computed(() => shiftContext.value?.business_date || '')
+const workshopMachines = computed(() =>
+  Array.isArray(shiftContext.value?.workshop_machines) ? shiftContext.value.workshop_machines : []
+)
 const identityMeta = computed(() => {
   if (mode.value === 'owner_daily') return `${workshopName.value} · ${businessDate.value}`
   return `${workshopName.value} · ${shiftName.value} · ${businessDate.value}`
@@ -335,6 +381,14 @@ const submitButtonText = computed(() => {
   if (mode.value === 'owner_daily') return `提交 ${businessDate.value || '每日一录'}`
   return '提交'
 })
+const showMachineEnergyDetails = computed(() =>
+  auth.role === 'energy_stat'
+  && mode.value === 'per_shift'
+  && Array.isArray(form.machine_energy_records)
+  && form.machine_energy_records.length > 0
+)
+const machineEnergyTotalKwh = computed(() => formatMachineEnergyTotal('energy_kwh'))
+const machineEnergyTotalGas = computed(() => formatMachineEnergyTotal('gas_m3'))
 const historyTitle = computed(() => {
   if (mode.value === 'per_coil') return `本班已录 (${history.value.length}卷)`
   if (mode.value === 'owner_daily') return `${businessDate.value || '本日'} 已录`
@@ -491,6 +545,60 @@ function normalizedFormValues() {
   return values
 }
 
+function currentMachineEnergyRows() {
+  return Array.isArray(form.machine_energy_records) ? form.machine_energy_records : []
+}
+
+function normalizeMachineEnergyRecords() {
+  return currentMachineEnergyRows()
+    .map((record) => ({
+      machine_id: record.machine_id ?? null,
+      machine_code: record.machine_code || '',
+      machine_name: record.machine_name || '',
+      energy_kwh: normalizeNumberValue(record.energy_kwh),
+      gas_m3: normalizeNumberValue(record.gas_m3),
+    }))
+    .filter((record) => record.energy_kwh !== null || record.gas_m3 !== null)
+}
+
+function formatMachineEnergyTotal(fieldName) {
+  const values = currentMachineEnergyRows()
+    .map((record) => normalizeNumberValue(record[fieldName]))
+    .filter((value) => value !== null)
+  if (!values.length) return '-'
+  const total = values.reduce((sum, value) => sum + value, 0)
+  return total.toFixed(2)
+}
+
+function syncMachineEnergyRows(savedRecords = []) {
+  if (auth.role !== 'energy_stat' || mode.value !== 'per_shift') return
+  const records = Array.isArray(savedRecords) ? savedRecords : []
+  const savedById = new Map()
+  const savedByCode = new Map()
+  for (const record of records) {
+    if (record?.machine_id !== null && record?.machine_id !== undefined) {
+      savedById.set(String(record.machine_id), record)
+    }
+    if (record?.machine_code) {
+      savedByCode.set(String(record.machine_code), record)
+    }
+  }
+  if (workshopMachines.value.length) {
+    form.machine_energy_records = workshopMachines.value.map((machine) => {
+      const saved = savedById.get(String(machine.machine_id)) || savedByCode.get(String(machine.machine_code)) || {}
+      return {
+        machine_id: machine.machine_id,
+        machine_code: machine.machine_code,
+        machine_name: machine.machine_name,
+        energy_kwh: saved.energy_kwh ?? null,
+        gas_m3: saved.gas_m3 ?? null,
+      }
+    })
+    return
+  }
+  form.machine_energy_records = records.map((record) => ({ ...record }))
+}
+
 function validateVisibleRequiredFields() {
   for (const group of groups.value) {
     for (const field of group.fields) {
@@ -550,6 +658,7 @@ function buildMobileReportPayload(sc) {
   const values = normalizedFormValues()
   const electricityDaily = values.electricity_daily ?? values.energy_kwh
   const gasDaily = values.gas_daily ?? values.gas_m3
+  const machineEnergyRecords = normalizeMachineEnergyRecords()
   return {
     business_date: sc.business_date,
     shift_id: sc.shift_id,
@@ -563,6 +672,7 @@ function buildMobileReportPayload(sc) {
     contract_received: normalizeNumberValue(values.contract_received),
     electricity_daily: normalizeNumberValue(electricityDaily),
     gas_daily: normalizeNumberValue(gasDaily),
+    machine_energy_records: machineEnergyRecords,
     has_exception: Boolean(values.has_exception),
     exception_type: values.exception_type || null,
     note: values.operator_notes || values.energy_note || values.note || null,
@@ -641,6 +751,7 @@ async function loadData() {
     const allFields = groups.value.flatMap(g => g.fields)
     loadDynamicOptions(allFields)
 
+    let savedMachineEnergyRecords = []
     if (shift.report_id && mode.value === 'per_shift') {
       try {
         const report = await fetchMobileReport(shift.business_date, shift.shift_id)
@@ -649,8 +760,19 @@ async function loadData() {
             if (k in form && v != null) form[k] = v
           }
         }
+        const energyFieldPairs = [
+          ['electricity_daily', report?.electricity_daily],
+          ['energy_kwh', report?.electricity_daily],
+          ['gas_daily', report?.gas_daily],
+          ['gas_m3', report?.gas_daily],
+        ]
+        for (const [key, value] of energyFieldPairs) {
+          if (key in form && value != null) form[key] = value
+        }
+        savedMachineEnergyRecords = report?.machine_energy_records || []
       } catch { /* first time, no report yet */ }
     }
+    syncMachineEnergyRows(savedMachineEnergyRecords)
 
     if (mode.value === 'owner_daily') {
       try {
@@ -1062,6 +1184,65 @@ onMounted(loadData)
   letter-spacing: -0.012em;
 }
 
+.ue-machine-energy-list {
+  display: grid;
+  gap: 10px;
+  background:
+    linear-gradient(145deg, rgba(4, 20, 36, 0.9), rgba(2, 10, 20, 0.82)),
+    radial-gradient(circle at 8% 0%, rgba(24, 220, 180, 0.12), transparent 44%);
+  border: 1px solid rgba(24, 220, 180, 0.2);
+  border-radius: 20px;
+  padding: 12px;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.ue-machine-energy-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.7fr) minmax(0, 1.3fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(0, 197, 255, 0.13);
+  border-radius: 16px;
+  background: rgba(4, 16, 30, 0.72);
+}
+
+.ue-machine-energy-name {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 850;
+  color: var(--xt-text);
+}
+
+.ue-machine-energy-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ue-machine-energy-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--xt-text-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.ue-machine-energy-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid rgba(24, 220, 180, 0.2);
+  border-radius: 14px;
+  background: rgba(24, 220, 180, 0.08);
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-weight: 850;
+}
+
 .ue-actions {
   position: sticky;
   bottom: calc(var(--xt-tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 8px);
@@ -1240,6 +1421,10 @@ onMounted(loadData)
 
   .ue-field {
     padding: 10px 0;
+  }
+
+  .ue-machine-energy-row {
+    grid-template-columns: 1fr;
   }
 
   .ue-actions {

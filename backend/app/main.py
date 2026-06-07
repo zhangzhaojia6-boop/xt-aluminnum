@@ -340,6 +340,11 @@ def healthz() -> dict:
     return health_service.build_liveness_payload()
 
 
+@app.get(f'{settings.API_V1_PREFIX}/healthz')
+def api_healthz() -> dict:
+    return health_service.build_liveness_payload()
+
+
 @app.get('/readyz')
 def readyz() -> JSONResponse:
     ready, payload = health_service.build_readiness_payload()

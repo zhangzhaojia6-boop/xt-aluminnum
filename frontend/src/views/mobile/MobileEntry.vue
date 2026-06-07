@@ -82,6 +82,7 @@
         <p>{{ loadError }}</p>
         <div class="mobile-entry-stage__action-row">
           <el-button type="primary" plain class="mobile-inline-action" :loading="loading" @click="load">重试加载</el-button>
+          <el-button v-if="auth.adminSurface" plain class="mobile-inline-action" @click="goManage">进入管理端</el-button>
           <el-button plain class="mobile-inline-action" @click="goLogin">改用账号登录</el-button>
         </div>
       </div>
@@ -344,6 +345,9 @@ function parseErrorMessage(error, fallback) {
     return detail.message || detail.msg || fallback
   }
   if (typeof detail === 'string' && detail.trim()) {
+    if (detail.trim() === 'Mobile access denied') {
+      return '当前账号是管理端账号，请进入管理端查看数据。'
+    }
     return detail.trim()
   }
   return error?.message || fallback
@@ -463,6 +467,10 @@ function goReport() {
 
 function goLogin() {
   router.push({ name: 'login', query: { redirect: '/entry' } })
+}
+
+function goManage() {
+  router.push({ name: 'admin-ops-reliability' })
 }
 
 function goReportHistory() {

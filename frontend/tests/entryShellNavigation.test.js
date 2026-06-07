@@ -7,6 +7,7 @@ const mobileEntrySrc = readFileSync(new URL('../src/views/mobile/MobileEntry.vue
 const unifiedEntrySrc = readFileSync(new URL('../src/views/mobile/UnifiedEntryForm.vue', import.meta.url), 'utf8')
 const attendanceSrc = readFileSync(new URL('../src/views/mobile/AttendanceConfirm.vue', import.meta.url), 'utf8')
 const consumableSrc = readFileSync(new URL('../src/views/mobile/ConsumableEntry.vue', import.meta.url), 'utf8')
+const authStoreSrc = readFileSync(new URL('../src/stores/auth.js', import.meta.url), 'utf8')
 
 test('EntryShell bottom navigation points operators to active fill and all-day history pages', () => {
   assert.match(src, /path: '\/entry\/fill', label: '录入'/)
@@ -53,6 +54,24 @@ test('unified entry form keeps backend fields while adding responsive field layo
   assert.match(unifiedEntrySrc, /@media \(max-width: 480px\)/)
   assert.match(unifiedEntrySrc, /@media \(prefers-reduced-motion: reduce\)/)
   assert.match(unifiedEntrySrc, /v-if="quality\.has_issue"/)
+})
+
+test('unified energy entry submits machine energy detail records', () => {
+  assert.match(unifiedEntrySrc, /data-testid="machine-energy-details"/)
+  assert.match(unifiedEntrySrc, /workshop_machines/)
+  assert.match(unifiedEntrySrc, /function syncMachineEnergyRows\(savedRecords = \[\]\)/)
+  assert.match(unifiedEntrySrc, /function normalizeMachineEnergyRecords\(\)/)
+  assert.match(unifiedEntrySrc, /machine_energy_records:\s*machineEnergyRecords/)
+  assert.match(unifiedEntrySrc, /report\?\.machine_energy_records \|\| \[\]/)
+})
+
+test('desktop admin accounts are not treated as mobile fill users', () => {
+  assert.match(authStoreSrc, /isMobileUser\(\)\s*\{[\s\S]*return Boolean\(this\.user\?\.is_mobile_user\)/)
+  assert.doesNotMatch(authStoreSrc, /return this\.isAdmin \|\| Boolean\(this\.user\?\.is_mobile_user\)/)
+  assert.match(mobileEntrySrc, /Mobile access denied/)
+  assert.match(mobileEntrySrc, /当前账号是管理端账号，请进入管理端查看数据。/)
+  assert.match(mobileEntrySrc, /function goManage\(\)/)
+  assert.match(mobileEntrySrc, /进入管理端/)
 })
 
 test('EntryShell lets desktop fill pages use the responsive form width without changing mobile routes', () => {

@@ -20,6 +20,7 @@ from app.main import app
 from app.models.master import Workshop, WorkshopTemplateConfig
 from app.models.system import User
 from app.routers.mobile import entry_fields
+from app.schemas.mobile import MobileCurrentShiftOut
 from app.services.mobile_report_service import (
     ShiftContext,
     get_current_shift,
@@ -85,6 +86,28 @@ def test_mobile_bootstrap_endpoint(monkeypatch) -> None:
     assert response.json()['current_scope_summary']['team_id'] == 10
 
     app.dependency_overrides.clear()
+
+
+def test_current_shift_schema_keeps_workshop_machines_for_energy_entry() -> None:
+    payload = MobileCurrentShiftOut(
+        business_date=date(2026, 6, 7),
+        shift_id=1,
+        shift_code='A',
+        shift_name='长白班',
+        workshop_id=2,
+        workshop_code='ZR2',
+        workshop_name='铸二车间',
+        workshop_type='casting',
+        leader_name='电工',
+        can_submit=True,
+        workshop_machines=[
+            {'machine_id': 12, 'machine_code': 'ZR2-3', 'machine_name': '3#机'},
+        ],
+    )
+
+    assert payload.model_dump()['workshop_machines'] == [
+        {'machine_id': 12, 'machine_code': 'ZR2-3', 'machine_name': '3#机'},
+    ]
 
 
 def test_get_mobile_bootstrap_includes_manual_first_contract(monkeypatch) -> None:
