@@ -707,7 +707,9 @@ def test_seed_real_master_data_creates_active_workshop_directors(tmp_path) -> No
         active_workshop = db.execute(select(Workshop).where(Workshop.code == 'ZXTF-P')).scalar_one()
         retired_workshop = db.execute(select(Workshop).where(Workshop.code == 'LZ3')).scalar_one()
         director = db.execute(select(User).where(User.username == 'ZXTF-P-DIR')).scalar_one()
+        director_qr = db.execute(select(Equipment).where(Equipment.code == 'ZXTF-P-DIR')).scalar_one()
         retired_director = db.execute(select(User).where(User.username == 'LZ3-DIR')).scalar_one_or_none()
+        retired_director_qr = db.execute(select(Equipment).where(Equipment.code == 'LZ3-DIR')).scalar_one_or_none()
 
         assert director.role == 'workshop_director'
         assert director.workshop_id == active_workshop.id
@@ -716,8 +718,14 @@ def test_seed_real_master_data_creates_active_workshop_directors(tmp_path) -> No
         assert director.is_manager is True
         assert director.is_mobile_user is False
         assert director.is_active is True
+        assert director_qr.equipment_type == 'virtual_role_qr'
+        assert director_qr.qr_code == 'XT-ZXTF-P-DIR'
+        assert director_qr.workshop_id == active_workshop.id
+        assert director_qr.bound_user_id == director.id
+        assert director_qr.is_active is True
         assert retired_workshop.is_active is False
         assert retired_director is None
+        assert retired_director_qr is None
     finally:
         db.close()
 

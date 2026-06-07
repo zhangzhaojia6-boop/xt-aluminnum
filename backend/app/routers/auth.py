@@ -14,7 +14,7 @@ from app.schemas.auth import LoginRequest, LoginResponse, QrLoginRequest, QrLogi
 from app.services.audit_service import log_action
 from app.services.bootstrap import apply_admin_account_contract
 from app.services.equipment_service import build_machine_info
-from app.services.real_master_data import ROLE_QR_SUFFIX_MAP
+from app.services.real_master_data import ROLE_QR_SUFFIX_MAP, role_qr_user_flags
 
 router = APIRouter(tags=['auth'])
 
@@ -156,6 +156,7 @@ def qr_login(
             raise HTTPException(status_code=400, detail='无效角色码')
         system_role, role_label = mapping
         username = equipment.code.upper()
+        flags = role_qr_user_flags(system_role)
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             user = User(
@@ -165,11 +166,21 @@ def qr_login(
                 role=system_role,
                 workshop_id=workshop.id,
                 is_active=True,
-                is_mobile_user=True,
+                data_scope_type='self_workshop',
+                **flags,
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            user.name = equipment.name or f'{workshop.name}{role_label}'
+            user.role = system_role
+            user.workshop_id = workshop.id
+            user.team_id = None
+            user.data_scope_type = 'self_workshop'
+            user.is_mobile_user = flags['is_mobile_user']
+            user.is_reviewer = flags['is_reviewer']
+            user.is_manager = flags['is_manager']
         if not user.is_active:
             raise HTTPException(status_code=403, detail='账号已停用')
         user.last_login = datetime.now(timezone.utc)

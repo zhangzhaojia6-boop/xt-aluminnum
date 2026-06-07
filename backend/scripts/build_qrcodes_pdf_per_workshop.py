@@ -80,6 +80,7 @@ def main() -> None:
     workshop_dirs = [d for d in QR_DIR.iterdir() if d.is_dir() and not d.name.startswith('_')]
     energy_dir = QR_DIR / '_电工'
     cs_dir = QR_DIR / '_内勤'
+    director_dir = QR_DIR / '_车间主任'
 
     built = []
     for ws_dir in sorted(workshop_dirs):
@@ -88,8 +89,9 @@ def main() -> None:
         machine_pngs = sorted(ws_dir.glob('机列_*.png'))
         energy_pngs = sorted(energy_dir.glob(f'电工_{ws_code}-*.png')) if energy_dir.exists() else []
         cs_pngs = sorted(cs_dir.glob(f'内勤_{ws_code}-*.png')) if cs_dir.exists() else []
+        director_pngs = sorted(director_dir.glob(f'主任_{ws_code}-*.png')) if director_dir.exists() else []
 
-        if not (machine_pngs or energy_pngs or cs_pngs):
+        if not (machine_pngs or energy_pngs or cs_pngs or director_pngs):
             continue
 
         out_pdf = ws_dir / f'二维码-{ws_name}.pdf'
@@ -99,9 +101,10 @@ def main() -> None:
         render_section(c, ws_name, '机列', machine_pngs)
         render_section(c, ws_name, '电工', energy_pngs)
         render_section(c, ws_name, '内勤', cs_pngs)
+        render_section(c, ws_name, '车间主任', director_pngs)
 
         c.save()
-        total = len(machine_pngs) + len(energy_pngs) + len(cs_pngs)
+        total = len(machine_pngs) + len(energy_pngs) + len(cs_pngs) + len(director_pngs)
         built.append((ws_name, total, out_pdf))
 
     factory_dir = QR_DIR / '_全厂'

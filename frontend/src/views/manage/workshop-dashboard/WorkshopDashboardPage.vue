@@ -33,7 +33,7 @@
       </article>
     </div>
 
-    <main class="workshop-board__grid">
+    <main class="workshop-board__grid" data-testid="workshop-dashboard-page">
       <section class="workshop-board__panel workshop-board__panel--ledger">
         <header class="workshop-board__panel-head">
           <h2>机列填报明细</h2>
@@ -133,9 +133,10 @@
         </section>
 
         <MissingReportPanel
-          title="缺报明细"
+          title="本车间缺报"
           :rows="missingRows"
           :loading="loading"
+          :compact="compactMissingPanel"
         />
       </aside>
     </main>
@@ -143,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
@@ -176,6 +177,8 @@ const workshops = ref([])
 const workshopsLoaded = ref(false)
 const selectedWorkshopId = ref(null)
 const suppressWorkshopSelectionWatch = ref(false)
+const compactMissingPanel = ref(false)
+let compactMediaQuery = null
 
 const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
 const workshopId = computed(() => canChooseWorkshop.value ? selectedWorkshopId.value : (auth.user?.workshop_id || null))
@@ -318,6 +321,21 @@ function stepDate(delta) {
 function pickDate(value) {
   targetDate.value = value
 }
+
+function syncCompactMissingPanel() {
+  compactMissingPanel.value = Boolean(compactMediaQuery?.matches)
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+  compactMediaQuery = window.matchMedia('(max-width: 760px)')
+  syncCompactMissingPanel()
+  compactMediaQuery.addEventListener?.('change', syncCompactMissingPanel)
+})
+
+onUnmounted(() => {
+  compactMediaQuery?.removeEventListener?.('change', syncCompactMissingPanel)
+})
 
 watch(targetDate, load)
 watch(selectedWorkshopId, () => {
@@ -622,6 +640,122 @@ load()
   .workshop-board__grid,
   .workshop-board__kpis {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .workshop-board {
+    gap: 10px;
+    min-height: 100dvh;
+    margin: calc(var(--xt-space-4, 16px) * -1);
+    padding: 10px;
+    border-radius: 0;
+  }
+
+  .workshop-board::before {
+    opacity: 0.18;
+    background-size: 26px 26px;
+  }
+
+  .workshop-board::after {
+    display: none;
+  }
+
+  .workshop-board__hero {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .workshop-board h1 {
+    font-size: 24px;
+    letter-spacing: -0.03em;
+  }
+
+  .workshop-board__signal,
+  .workshop-board__filter {
+    width: 100%;
+    justify-content: space-between;
+    border-radius: 14px;
+  }
+
+  .workshop-board__filter select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .workshop-board__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workshop-board__kpi {
+    min-height: 104px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .workshop-board__kpi strong {
+    margin-top: 8px;
+    font-size: 26px;
+  }
+
+  .workshop-board__grid,
+  .workshop-board__side {
+    gap: 10px;
+  }
+
+  .workshop-board__side {
+    order: -1;
+  }
+
+  .workshop-board__side .xt-missing-report {
+    order: -1;
+  }
+
+  .workshop-board__panel {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .workshop-board__panel-head {
+    margin-bottom: 8px;
+  }
+
+  .workshop-board__panel-head h2 {
+    font-size: 16px;
+  }
+
+  .workshop-board table {
+    min-width: 760px;
+  }
+
+  .workshop-board th,
+  .workshop-board td {
+    padding: 9px 8px;
+  }
+
+  .workshop-board__mini-row,
+  .workshop-board__mes-row,
+  .workshop-board__exception {
+    padding: 8px 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .workshop-board__kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .workshop-board__kpi strong {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workshop-board::after {
+    display: none;
   }
 }
 </style>

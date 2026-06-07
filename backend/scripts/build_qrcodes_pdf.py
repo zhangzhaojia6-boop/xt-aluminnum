@@ -24,6 +24,7 @@ SECTIONS = [
     ('机列扫码', sorted(p for p in QR_DIR.glob('*/机列_*.png'))),
     ('电工码',   sorted((QR_DIR / '_电工').glob('电工_*.png'))),
     ('内勤码',   sorted((QR_DIR / '_内勤').glob('内勤_*.png'))),
+    ('车间主任码', sorted((QR_DIR / '_车间主任').glob('主任_*.png'))),
     ('全厂码',   sorted((QR_DIR / '_全厂').glob('全厂_*.png'))),
 ]
 

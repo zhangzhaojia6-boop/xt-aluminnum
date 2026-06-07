@@ -54,11 +54,21 @@
 
         <el-alert
           v-if="qrLoginPending"
-          title="正在识别机台"
+          title="正在识别扫码入口"
           type="info"
           show-icon
           :closable="false"
           class="panel"
+        />
+
+        <el-alert
+          v-if="workshopNotice"
+          :title="workshopNotice"
+          type="info"
+          show-icon
+          :closable="false"
+          class="panel"
+          data-testid="login-workshop-notice"
         />
 
         <el-alert
@@ -130,6 +140,7 @@ const loading = ref(false)
 const qrLoginPending = ref(false)
 const dingtalkLoginPending = ref(false)
 const loginError = ref('')
+const workshopNotice = ref('')
 
 const form = reactive({
   username: '',
@@ -220,11 +231,17 @@ function resolveLoginError(error) {
   return '登录失败，请稍后再试'
 }
 
+function setWorkshopNotice(workshopNameOrCode) {
+  const value = String(workshopNameOrCode || '').trim()
+  workshopNotice.value = value ? `车间：${value}，请用该车间的角色账号登录` : ''
+}
+
 async function submit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
   loginError.value = ''
+  workshopNotice.value = ''
   try {
     await auth.login({ username: form.username, password: form.password })
     if (!auth.canAccessDesktop) {
@@ -265,10 +282,15 @@ async function tryQrLogin() {
   if (!qrCode) return
 
   qrLoginPending.value = true
+  workshopNotice.value = ''
   try {
-    await auth.qrLogin(qrCode)
+    const result = await auth.qrLogin(qrCode)
+    if (result?.type === 'workshop_redirect') {
+      setWorkshopNotice(result.workshop_name || result.workshop_code)
+      return
+    }
     ElMessage.success('扫码登录成功')
-    await router.replace({ name: 'mobile-entry' })
+    await router.replace(auth.isWorkshopDirector ? { name: 'manage-workshop-dashboard' } : { name: 'mobile-entry' })
   } catch {
     // error toast is handled by axios interceptor
   } finally {
@@ -284,6 +306,9 @@ onMounted(async () => {
   const dingtalkLoggedIn = await tryDingtalkLogin()
   if (dingtalkLoggedIn) return
   await tryQrLogin()
+  if (!resolveQueryValue('machine')) {
+    setWorkshopNotice(resolveQueryValue('workshop'))
+  }
 })
 </script>
 

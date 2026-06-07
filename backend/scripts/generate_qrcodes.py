@@ -98,6 +98,18 @@ def main() -> None:
     )
     print(f'  {len(cs_qrs)} 内勤码')
 
+    print('Pulling 车间主任 board QRs (virtual_role_qr -DIR)...')
+    director_qrs = remote_json(
+        "SELECT json_agg(t) FROM ("
+        "SELECT e.code, e.name, e.qr_code, w.code AS ws_code, w.name AS ws_name "
+        "FROM equipment e LEFT JOIN workshops w ON e.workshop_id=w.id "
+        "WHERE e.is_active=true AND e.equipment_type='virtual_role_qr' "
+        "  AND e.code LIKE '%-DIR' "
+        "ORDER BY w.sort_order, e.code"
+        ") t;"
+    )
+    print(f'  {len(director_qrs)} 主任看板码')
+
     print('Pulling 全厂级 role QRs (FACTORY-*)...')
     factory_qrs = remote_json(
         "SELECT json_agg(t) FROM ("
@@ -178,6 +190,21 @@ def main() -> None:
         })
     sections.append({'group': '车间内勤（辅材填报）', 'kind': '内勤', 'cards': cards})
 
+    # 车间主任 board QRs (auto-login as workshop_director for the workshop).
+    cards = []
+    for q in director_qrs:
+        url = f"{PROD_HOST_URL}/login?machine={quote(q['qr_code'])}"
+        fname = f"主任_{safe(q['code'])}.png"
+        target = OUT / '_车间主任' / fname
+        render_qr(url, target, [q['name'], q['code']])
+        cards.append({
+            'title': q['name'] or f"{q['ws_name']} 车间主任",
+            'subtitle': f"主任看板 · {q['ws_code']} · {q['code']}",
+            'url': url,
+            'rel': str(target.relative_to(OUT)).replace('\\', '/'),
+        })
+    sections.append({'group': '车间主任（本车间看板）', 'kind': '主任', 'cards': cards})
+
     # Index HTML.
     index = ['<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">']
     index.append('<title>鑫泰铝业 数据中枢 二维码总册</title>')
@@ -192,7 +219,8 @@ def main() -> None:
                  '</style></head><body>')
     index.append(f'<h1>鑫泰铝业 数据中枢 · 扫码入口总册</h1>')
     index.append(f'<p style="color:#737a87;font-size:13px;margin:0 0 16px">'
-                 f'机列 {len(equipment)} · 电工 {len(energy_qrs)} · 内勤 {len(cs_qrs)} · 全厂 {len(factory_qrs)}</p>')
+                 f'机列 {len(equipment)} · 电工 {len(energy_qrs)} · 内勤 {len(cs_qrs)} · '
+                 f'主任 {len(director_qrs)} · 全厂 {len(factory_qrs)}</p>')
     for sec in sections:
         index.append(f'<h2>{sec["group"]} · {sec["kind"]} ({len(sec["cards"])})</h2>')
         index.append('<div class="grid">')

@@ -296,6 +296,7 @@ ROLE_QR_SUFFIX_MAP = {
     'OP': ('machine_operator', '主操'),
     'EN': ('energy_stat', '电工'),
     'CS': ('consumable_stat', '内勤'),
+    'DIR': ('workshop_director', '车间主任'),
     # G14: owner role QRs
     'QM': ('quality_owner', '质检内勤'),
     'PL': ('planning_owner', '计划内勤'),
@@ -305,6 +306,20 @@ ROLE_QR_SUFFIX_MAP = {
     'RC': ('recovery_owner', '回收'),
     'OH': ('overhaul_owner', '大修'),
 }
+
+
+def role_qr_user_flags(system_role: str) -> dict[str, bool]:
+    if system_role == 'workshop_director':
+        return {
+            'is_mobile_user': False,
+            'is_reviewer': True,
+            'is_manager': True,
+        }
+    return {
+        'is_mobile_user': True,
+        'is_reviewer': False,
+        'is_manager': False,
+    }
 REPORTING_ROLE_QR_CODES = (
     'ZD-EN', 'ZR2-EN', 'ZR3-EN', 'RZ-EN', 'LZ2050-EN', 'LZ1850-EN', 'LZ1650-EN',
     'JZ-EN', 'JQ-EN', 'LJ-EN', 'ZXTF-EN', 'ZXTF-P-EN', 'CH-EN',
@@ -975,6 +990,7 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
 
         system_role, role_label = mapping
         username = equipment.code.upper()
+        flags = role_qr_user_flags(system_role)
         user = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
         if user is None:
             user = User(
@@ -986,9 +1002,7 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
                 team_id=None,
                 data_scope_type='self_workshop',
                 assigned_shift_ids=[],
-                is_mobile_user=True,
-                is_reviewer=False,
-                is_manager=False,
+                **flags,
                 is_active=True,
             )
             db.add(user)
@@ -1000,9 +1014,9 @@ def seed_virtual_role_qr_accounts(db: Session) -> None:
             user.team_id = None
             user.data_scope_type = 'self_workshop'
             user.assigned_shift_ids = list(user.assigned_shift_ids or [])
-            user.is_mobile_user = True
-            user.is_reviewer = False
-            user.is_manager = False
+            user.is_mobile_user = flags['is_mobile_user']
+            user.is_reviewer = flags['is_reviewer']
+            user.is_manager = flags['is_manager']
             user.is_active = True
             if not user.password_hash:
                 user.password_hash = get_password_hash(secrets.token_urlsafe(24))
@@ -1048,6 +1062,19 @@ def seed_workshop_director_users(db: Session, workshops_by_code: dict[str, Works
         user.is_active = True
         if not user.password_hash:
             user.password_hash = get_password_hash(secrets.token_urlsafe(24))
+
+
+def seed_workshop_director_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
+    for workshop in workshops_by_code.values():
+        if not workshop.is_active:
+            continue
+        _upsert_virtual_role_qr(
+            db,
+            equipment_code=f'{workshop.code}-DIR',
+            label='车间主任看板',
+            host=workshop,
+        )
+    db.flush()
 
 
 def seed_mes_master_aliases(db: Session) -> None:
@@ -1186,6 +1213,7 @@ def seed_real_master_data(db: Session) -> None:
     seed_mes_master_aliases(db)
     seed_special_owner_users(db, workshops_by_code)
     seed_owner_role_qrs(db, workshops_by_code)
+    seed_workshop_director_qrs(db, workshops_by_code)
     rehome_legacy_online_role_qrs(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
     seed_workshop_director_users(db, workshops_by_code)

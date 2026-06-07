@@ -279,6 +279,33 @@ def test_qr_login_virtual_role_creates_mobile_operator_user(tmp_path) -> None:
         assert audit.table_name == 'equipment'
 
 
+def test_qr_login_virtual_role_creates_workshop_director_user(tmp_path) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    _seed_role_qr(session_factory, code='LW-DIR', qr_code='XT-LW-DIR')
+    _override_db(session_factory)
+
+    response = TestClient(app).post('/api/v1/auth/qr-login', json={'qr_code': 'XT-LW-DIR'})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['access_token']
+    assert payload['user']['username'] == 'LW-DIR'
+    assert payload['user']['role'] == 'workshop_director'
+    assert payload['user']['workshop_id'] == 1
+    assert payload['user']['is_mobile_user'] is False
+    assert payload['user']['is_reviewer'] is True
+    assert payload['user']['is_manager'] is True
+    assert payload['machine_info'] is None
+
+    with session_factory() as db:
+        user = db.query(User).filter(User.username == 'LW-DIR').one()
+        assert user.data_scope_type == 'self_workshop'
+        assert user.is_reviewer is True
+        assert user.is_manager is True
+        audit = db.query(AuditLog).filter(AuditLog.action == 'qr_login').one()
+        assert audit.user_id == user.id
+
+
 def test_qr_login_virtual_role_reuses_existing_user(tmp_path) -> None:
     session_factory = build_sessionmaker(tmp_path)
     existing_user_id = _seed_role_qr(

@@ -76,14 +76,20 @@ const groupedEquipment = computed(() => {
 const hasPrintableQr = computed(() => printableEquipment.value.length > 0)
 const qrSummary = computed(() => {
   const workshopQrCount = printableEquipment.value.filter((eq) => eq.equipment_type === 'virtual_workshop_qr').length
-  const machineQrCount = printableEquipment.value.length - workshopQrCount
+  const directorQrCount = printableEquipment.value.filter(isDirectorQr).length
+  const machineQrCount = printableEquipment.value.length - workshopQrCount - directorQrCount
   return [
     { label: '可打印二维码', value: printableEquipment.value.length, tone: 'primary' },
     { label: '车间分组', value: groupedEquipment.value.length, tone: 'success' },
     { label: '机台二维码', value: machineQrCount, tone: 'info' },
+    { label: '主任看板码', value: directorQrCount, tone: 'success' },
     { label: '车间二维码', value: workshopQrCount, tone: 'warning' }
   ]
 })
+
+function isDirectorQr(eq) {
+  return eq.equipment_type === 'virtual_role_qr' && String(eq.code || '').toUpperCase().endsWith('-DIR')
+}
 
 function buildLoginUrl(eq) {
   if (eq.equipment_type === 'virtual_workshop_qr') {
