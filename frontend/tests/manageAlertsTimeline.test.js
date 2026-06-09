@@ -20,15 +20,34 @@ function makeFakes({ fdOk = true, qOk = true, rOk = true } = {}) {
     fetchReconciliationItems: async () => {
       if (!rOk) throw new Error('r boom')
       return [{ id: 'rc1', occurred_at: '2026-05-19T09:50:00', summary: '过磅' }]
-    }
+    },
+    fetchMesFillGaps: async () => ({
+      items: [
+        {
+          status: 'missing_local_entry',
+          workshop_name: '精整车间',
+          mes_machine_name: '精整1#线',
+          shift_name: '小夜班',
+          tracking_card_no: 'TX-001',
+          process_name: '包装',
+          mes_end_time: '2026-05-19T16:20:00',
+        },
+        {
+          status: 'matched',
+          workshop_name: '精整车间',
+          mes_machine_name: '精整2#线',
+        },
+      ],
+    }),
   }
 }
 
-test('load aggregates events from three endpoints, sorted desc', async () => {
+test('load aggregates events from four endpoints, sorted desc', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20T08:00:00') })
   await t.load()
-  assert.equal(t.events.value.length, 4)
-  assert.equal(t.events.value[0].domain, 'quality')
+  assert.equal(t.events.value.length, 5)
+  assert.equal(t.events.value[0].domain, 'mes')
+  assert.equal(t.events.value.some((event) => event.id === 'mes-fill-gap:TX-001'), true)
   assert.equal(t.events.value[t.events.value.length - 1].domain, 'reporting')
 })
 
@@ -39,6 +58,7 @@ test('domainCounts reflects full unfiltered totals', async () => {
   assert.equal(t.domainCounts.value.reporting, 1)
   assert.equal(t.domainCounts.value.quality, 1)
   assert.equal(t.domainCounts.value.reconciliation, 1)
+  assert.equal(t.domainCounts.value.mes, 1)
 })
 
 test('filteredEvents respects domains[]', async () => {
@@ -53,7 +73,19 @@ test('empty domains[] means all', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20') })
   await t.load()
   t.domains.value = []
-  assert.equal(t.filteredEvents.value.length, 4)
+  assert.equal(t.filteredEvents.value.length, 5)
+})
+
+test('MES fill gaps appear as concrete alert events with workshop machine shift and card', async () => {
+  const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20T08:00:00') })
+  await t.load()
+
+  const event = t.events.value.find((item) => item.id === 'mes-fill-gap:TX-001')
+  assert.equal(event.domain, 'mes')
+  assert.equal(event.summary, 'MES有工序本地未填：精整车间 · 精整1#线 · 小夜班')
+  assert.match(event.detail, /TX-001/)
+  assert.match(event.detail, /包装/)
+  assert.equal(event.status, 'open')
 })
 
 test('freshnessStatus green when all 3 succeed', async () => {

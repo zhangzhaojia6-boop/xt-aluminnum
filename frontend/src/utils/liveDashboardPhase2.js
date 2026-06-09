@@ -1,6 +1,6 @@
 import { compareShiftLabels, formatNumber, formatShiftLabel } from './display.js'
 
-const MISSING_TEXT = '暂无可信数据'
+const MISSING_TEXT = '待同步'
 const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
 
 function isPresent(value) {
@@ -311,7 +311,7 @@ export function buildLiveEventItems({ streamStatus = 'idle', loadError = '', agg
     events.push({ title: '未填报', tone: 'danger', text: `${numberValue(progress.missing_cell_count ?? progress.missingCellCount)} 个班次` })
   }
   if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_energy', 'totalEnergy', 'total_electricity', 'totalElectricity']))) {
-    events.push({ title: '无能耗可信数据', tone: 'warning', text: '能耗不显示假 0' })
+    events.push({ title: '能耗待同步', tone: 'warning', text: '等待电工或算法能耗明细' })
   }
   if (numberValue(missingOutput.entry_count ?? missingOutput.entryCount) > 0) {
     events.push({ title: '待补产出重量', tone: 'warning', text: `${numberValue(missingOutput.entry_count ?? missingOutput.entryCount)} 条` })

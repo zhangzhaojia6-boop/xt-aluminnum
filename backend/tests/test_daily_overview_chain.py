@@ -90,7 +90,7 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
     assert payload['plant_cost']['basis_weight'] == 18.5
     assert payload['plant_cost']['cost_per_ton'] == round(2.08 * 10000 / 18.5, 0)
     assert payload['shift_breakdown']['output_basis_label'] == '工序下机量'
-    assert payload['header_kpis'][0]['label'] == '全厂入库产量'
+    assert payload['header_kpis'][0]['label'] == '全厂日产量'
 
 
 def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
@@ -244,7 +244,12 @@ def test_wip_distribution_prefers_daily_wip_snapshot_read_model(tmp_path) -> Non
 def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
-        '_query_plant_output_totals_by_date',
+        '_query_mes_packaging_output_by_date',
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_finished_inbound_totals_by_date',
         lambda *_args, **_kwargs: {
             date(2026, 5, 28): 0.8,
             date(2026, 5, 29): 2.0,
@@ -265,7 +270,9 @@ def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
     assert payload['yesterday_output'] == 0.8
     assert payload['monthly_output'] == 2.8
     assert payload['basis'] == 'storage_inbound_output'
-    assert payload['basis_label'] == '全厂入库产量'
+    assert payload['basis_label'] == '入库成品量'
+    assert payload['finished_inbound_output'] == 2.0
+    assert payload['finished_inbound_monthly_output'] == 2.8
 
 
 def test_daily_overview_contracts_use_weight_projection(monkeypatch) -> None:

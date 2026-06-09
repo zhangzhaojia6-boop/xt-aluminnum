@@ -203,6 +203,8 @@ defineEmits(['select'])
   color: #74f5ff;
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, opacity 160ms ease;
 }
 
 .live-machine-workshop__grid {
@@ -250,6 +252,11 @@ defineEmits(['select'])
   font-style: normal;
 }
 
+.live-machine-matrix__pending em {
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
 .live-machine-matrix__pending span {
   color: rgba(185, 223, 235, 0.62);
   font-size: 12px;
@@ -289,5 +296,9 @@ defineEmits(['select'])
     transition: none;
   }
 
+  .live-machine-workshop__head span,
+  .live-machine-matrix__pending em {
+    transition: none;
+  }
 }
 </style>

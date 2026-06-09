@@ -764,6 +764,35 @@ def test_live_missing_report_export_returns_xlsx(monkeypatch) -> None:
     def fake_get_db():
         yield DummyDB(current_user)
 
+    def fake_live(db, *, business_date, workshop_id, current_user):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        return {
+            'business_date': '2026-05-06',
+            'workshops': [
+                {
+                    'workshop_id': 2,
+                    'workshop_name': '2050冷轧车间',
+                    'machines': [
+                        {
+                            'machine_id': 5,
+                            'machine_name': '1#轧机',
+                            'shifts': [
+                                {
+                                    'shift_id': 1,
+                                    'shift_name': '长白班',
+                                    'submission_status': 'not_started',
+                                    'status_text': '缺报',
+                                    'is_applicable': True,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            'owner_daily_status': {'items': []},
+        }
+
     def fake_detail(db, *, business_date, workshop_id, current_user):
         assert business_date == date(2026, 5, 6)
         assert workshop_id == 2
@@ -791,6 +820,7 @@ def test_live_missing_report_export_returns_xlsx(monkeypatch) -> None:
         return b'xlsx-bytes'
 
     app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.build_live_aggregation', fake_live)
     monkeypatch.setattr('app.routers.realtime.realtime_service.build_pending_assignment_detail', fake_detail)
     monkeypatch.setattr('app.routers.realtime.mes_fill_gap_service.build_mes_fill_gaps', fake_gaps)
     monkeypatch.setattr('app.routers.realtime.missing_report_export_service.build_missing_report_workbook', fake_workbook)
@@ -806,7 +836,8 @@ def test_live_missing_report_export_returns_xlsx(monkeypatch) -> None:
     assert response.content == b'xlsx-bytes'
     assert response.headers['content-type'].startswith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     assert response.headers['content-disposition'] == 'attachment; filename=missing-report-2026-05-06.xlsx'
-    assert captured['payload']['items'][0]['tracking_card_no'] == 'RA260506001'
+    assert captured['payload']['pending_assignment']['items'][0]['tracking_card_no'] == 'RA260506001'
+    assert captured['payload']['live_aggregation']['workshops'][0]['machines'][0]['shifts'][0]['status_text'] == '缺报'
     assert captured['payload']['mes_fill_gaps']['summary']['status_counts']['weight_mismatch'] == 1
 
     app.dependency_overrides.clear()

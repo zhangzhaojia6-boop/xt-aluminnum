@@ -106,7 +106,7 @@ const router = useRouter()
 const timeline = useAlertsTimeline()
 let domainRouteSync = Promise.resolve()
 
-const SURFACE_TO_DOMAIN = { anomaly: 'production', quality: 'quality', reconciliation: 'reconciliation' }
+const SURFACE_TO_DOMAIN = { anomaly: 'production', quality: 'quality', reconciliation: 'reconciliation', mes: 'mes' }
 
 function readDomainsFromRoute() {
   const surface = route.query.surface

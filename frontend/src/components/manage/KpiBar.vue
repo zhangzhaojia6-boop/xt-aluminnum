@@ -160,6 +160,21 @@ defineProps({ items: { type: Array, default: () => [] } })
   transform: rotate(30deg);
 }
 
+.xt-kpi-bar__icon.metric-finished-inbound i {
+  width: 26px;
+  height: 18px;
+  border-radius: 3px 3px 7px 7px;
+  clip-path: polygon(0 38%, 50% 0, 100% 38%, 100% 100%, 0 100%);
+}
+
+.xt-kpi-bar__icon.metric-finished-inbound::before {
+  width: 16px;
+  height: 9px;
+  border: 2px solid rgba(209, 238, 255, 0.64);
+  border-top: 0;
+  transform: translateY(8px);
+}
+
 .xt-kpi-bar__icon.metric-process-throughput i {
   width: 28px;
   height: 24px;

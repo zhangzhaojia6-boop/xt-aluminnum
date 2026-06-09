@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import {
   normalizeFactoryDirector,
+  normalizeMesFillGaps,
   normalizeQuality,
   normalizeReconciliation,
   mergeAndSort
@@ -10,7 +11,8 @@ import {
 const FALLBACK_ROUTE = {
   production: '/manage/alerts?surface=anomaly',
   quality: '/manage/alerts?surface=quality',
-  reconciliation: '/manage/alerts?surface=reconciliation'
+  reconciliation: '/manage/alerts?surface=reconciliation',
+  mes: '/manage/fill-details'
 }
 
 async function defaultFetchFD(params) {
@@ -25,11 +27,16 @@ async function defaultFetchR(params) {
   const { fetchReconciliationItems } = await import('../api/reconciliation.js')
   return fetchReconciliationItems(params)
 }
+async function defaultFetchM(params) {
+  const { fetchMesFillGaps } = await import('../api/realtime.js')
+  return fetchMesFillGaps(params)
+}
 
 export function createAlertsTimeline({
   fetchFactoryDashboard: fdImpl = defaultFetchFD,
   fetchQualityIssues: qImpl = defaultFetchQ,
   fetchReconciliationItems: rImpl = defaultFetchR,
+  fetchMesFillGaps: mImpl = defaultFetchM,
   now = new Date()
 } = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
@@ -38,7 +45,7 @@ export function createAlertsTimeline({
   const events = ref([])
   const loading = ref(false)
   const lastError = ref('')
-  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false })
+  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false })
   let token = 0
   let inflight = Promise.resolve()
 
@@ -60,14 +67,15 @@ export function createAlertsTimeline({
     inflight = (async () => {
       const date = targetDate.value
       try {
-        const [fd, q, r] = await Promise.allSettled([
+        const [fd, q, r, m] = await Promise.allSettled([
           fdImpl({ target_date: date }),
           qImpl({ target_date: date }),
-          rImpl({ target_date: date, status: 'open' })
+          rImpl({ target_date: date, status: 'open' }),
+          mImpl({ business_date: date })
         ])
         if (my !== token) return
         const buckets = []
-        const fail = { factoryDirector: false, quality: false, reconciliation: false }
+        const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false }
         if (fd.status === 'fulfilled') {
           buckets.push(normalizeFactoryDirector(fd.value, date))
         } else {
@@ -86,9 +94,15 @@ export function createAlertsTimeline({
           fail.reconciliation = true
           buckets.push([fallbackCard('reconciliation')])
         }
+        if (m.status === 'fulfilled') {
+          buckets.push(normalizeMesFillGaps(m.value, date))
+        } else {
+          fail.mes = true
+          buckets.push([fallbackCard('mes')])
+        }
         endpointFailed.value = fail
         events.value = mergeAndSort(buckets)
-        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0)
+        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0) + (fail.mes ? 1 : 0)
         lastError.value = fails >= 2 ? '部分数据加载失败，已切换占位卡' : ''
       } finally {
         if (my === token) loading.value = false
@@ -109,7 +123,7 @@ export function createAlertsTimeline({
   }
 
   const domainCounts = computed(() => {
-    const counts = { production: 0, reporting: 0, quality: 0, reconciliation: 0 }
+    const counts = { production: 0, reporting: 0, quality: 0, reconciliation: 0, mes: 0 }
     for (const e of events.value) {
       if (e.isFallback) continue
       if (counts[e.domain] != null) counts[e.domain] += 1
@@ -124,7 +138,7 @@ export function createAlertsTimeline({
 
   const freshnessStatus = computed(() => {
     const f = endpointFailed.value
-    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0)
+    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0) + (f.mes ? 1 : 0)
     if (fails === 0) return 'green'
     if (fails >= 3) return 'red'
     return 'yellow'

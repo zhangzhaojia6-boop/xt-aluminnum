@@ -50,7 +50,7 @@ const NAV_GROUPS = [
     label: '人员考勤',
     commandGroup: '人员考勤',
     items: [
-      { title: '人员考勤', shortLabel: '人员', path: '/manage/attendance', icon: Sunny, access: 'review', commandGroup: '人员考勤' }
+      { title: '考勤预留', shortLabel: '考勤', path: '/manage/attendance', icon: Sunny, access: 'review', commandGroup: '人员考勤' }
     ]
   },
   {

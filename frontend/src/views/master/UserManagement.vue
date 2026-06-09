@@ -145,7 +145,7 @@
         </el-form-item>
         <el-form-item label="角色" required>
           <el-select v-model="form.role" style="width: 100%">
-            <el-option v-for="option in roleOptions" :key="option.value" :label="option.label" :value="option.value" />
+            <el-option v-for="option in ACTIVE_ROLE_OPTIONS" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </el-form-item>
           <el-form-item label="所属车间" :required="form.role === 'workshop_director'">
@@ -226,7 +226,7 @@ import { formatDateTime, formatRoleLabel } from '../../utils/display.js'
 
 const route = useRoute()
 
-const roleOptions = [
+const ACTIVE_ROLE_OPTIONS = [
   { value: 'admin', label: '系统管理员' },
   { value: 'workshop_director', label: '车间主任' },
   { value: 'machine_operator', label: '主操' },

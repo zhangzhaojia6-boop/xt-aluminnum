@@ -356,6 +356,33 @@ test('FillDetailsPage is wired to the three audit data sources', () => {
   assert.doesNotMatch(src, /value:\s*'mes_projection'/)
 })
 
+test('management navigation keeps alerts available in compact mode', () => {
+  const src = source('../src/config/manage-navigation.js')
+
+  assert.match(src, /COMPACT_REVIEW_PATHS/)
+  assert.match(src, /'\/manage\/alerts'/)
+})
+
+test('energy page uses the shared management date switcher', () => {
+  const src = source('../src/views/energy/EnergyCenter.vue')
+
+  assert.match(src, /DateSwitcher/)
+  assert.match(src, /@step="handleBusinessDateStep"/)
+  assert.match(src, /@pick="handleBusinessDatePick"/)
+})
+
+test('user management creation roles only expose active business roles', () => {
+  const src = source('../src/views/master/UserManagement.vue')
+
+  assert.match(src, /ACTIVE_ROLE_OPTIONS/)
+  assert.doesNotMatch(src, /value:\s*'shift_leader'/)
+  assert.doesNotMatch(src, /value:\s*'team_leader'/)
+  assert.doesNotMatch(src, /value:\s*'mobile_user'/)
+  assert.doesNotMatch(src, /value:\s*'utility_manager'/)
+  assert.doesNotMatch(src, /value:\s*'inventory_keeper'/)
+  assert.doesNotMatch(src, /value:\s*'contracts'/)
+})
+
 test('missing report rows are precise to machine shift and owner role', () => {
   const rows = buildMissingReportRows({
     workshops: [

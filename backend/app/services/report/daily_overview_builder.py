@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models.attendance import AttendanceSchedule
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
@@ -27,6 +27,8 @@ SHIFT_LABELS = {'A': '长白班', 'B': '小夜班', 'C': '大夜班'}
 SHIFT_WINDOWS = {'A': '07:30-15:30', 'B': '15:30-23:30', 'C': '23:30-07:30'}
 PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES = {'FACTORY'}
 FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
+FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '精整车间', '拉矫', '拉矫车间', '园区精整', '园区剪切', '园区剪切车间', '剪切车间'}
+MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
 PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
 
 
@@ -428,6 +430,27 @@ def _payload_number(payload: dict, field_name: str) -> float | None:
     return _to_float(value)
 
 
+def _plain_text(value: Any) -> str:
+    return str(value or '').strip()
+
+
+def _mes_output_tons(row: MesWorkshopProcessRecord) -> float:
+    direct = _to_float(row.output_weight_tons)
+    if direct > 0:
+        return direct
+    return _to_float(row.output_weight_kg) / 1000
+
+
+def _is_mes_packaging_output(row: MesWorkshopProcessRecord) -> bool:
+    workshop_name = _plain_text(row.workshop_name)
+    process_name = _plain_text(row.process_name)
+    if not any(keyword in process_name for keyword in MES_PACKAGING_PROCESS_KEYWORDS):
+        return False
+    if workshop_name in FINAL_PACKAGING_MES_WORKSHOP_NAMES:
+        return True
+    return any(name and name in workshop_name for name in FINAL_PACKAGING_MES_WORKSHOP_NAMES)
+
+
 def _owner_storage_inbound_tons(payload: dict) -> float:
     direct_value = _payload_number(payload, 'storage_inbound_weight')
     if direct_value is not None:
@@ -504,7 +527,7 @@ def _query_shift_report_storage_finished_by_date(db: Session, start: date, end: 
     return {business_date: _to_float(total) for business_date, total in rows}
 
 
-def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+def _query_finished_inbound_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
     totals = _query_packaging_inbound_output_by_date(db, start, end)
     owner_totals = _query_owner_storage_inbound_by_date(db, start, end)
     for business_date, total in owner_totals.items():
@@ -515,20 +538,61 @@ def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> d
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
+def _query_mes_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = (
+        db.query(MesWorkshopProcessRecord)
+        .filter(
+            MesWorkshopProcessRecord.business_date >= start,
+            MesWorkshopProcessRecord.business_date <= end,
+        )
+        .all()
+    )
+    totals: dict[date, float] = {}
+    for row in rows:
+        if row.business_date is None or not _is_mes_packaging_output(row):
+            continue
+        output_tons = _mes_output_tons(row)
+        if output_tons <= 0:
+            continue
+        totals[row.business_date] = totals.get(row.business_date, 0.0) + output_tons
+    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+
+
+def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    totals = _query_mes_packaging_output_by_date(db, start, end)
+    inbound_totals = _query_finished_inbound_totals_by_date(db, start, end)
+    for business_date, total in inbound_totals.items():
+        totals.setdefault(business_date, total)
+    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+
+
 def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
-    totals_by_date = _query_plant_output_totals_by_date(db, month_start, target_date)
+    mes_totals_by_date = _query_mes_packaging_output_by_date(db, month_start, target_date)
+    inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
+    totals_by_date = dict(mes_totals_by_date)
+    for business_date, total in inbound_totals_by_date.items():
+        totals_by_date.setdefault(business_date, total)
     daily_output = totals_by_date.get(target_date, 0.0)
     yesterday_output = totals_by_date.get(target_date - timedelta(days=1), 0.0)
     monthly_output = sum(totals_by_date.values())
+    finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
+    finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
+    days_elapsed = max(1, target_date.day)
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
+    uses_mes_output = target_date in mes_totals_by_date
     return {
-        'basis': 'storage_inbound_output',
-        'basis_label': '全厂入库产量',
+        'basis': 'mes_packaging_output' if uses_mes_output else 'storage_inbound_output',
+        'basis_label': 'MES包装日产量' if uses_mes_output else '入库成品量',
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
         'monthly_output': _round2(monthly_output),
+        'monthly_average_output': _round2(monthly_output / days_elapsed),
+        'finished_inbound_output': _round2(finished_inbound_output),
+        'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
+        'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
+        'finished_inbound_basis_label': '入库成品量',
         'energy_per_ton': energy_per_ton,
     }
 
@@ -676,10 +740,10 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     plant_cost = _build_cost(plant_output['daily_output'] or 0, energy)
 
     header_kpis = [
-        {'key': 'plant_inbound_output', 'label': '全厂入库产量', 'value': plant_output['daily_output'], 'unit': '吨',
+        {'key': 'plant_daily_output', 'label': '全厂日产量', 'value': plant_output['daily_output'], 'unit': '吨',
          'delta': _delta(plant_output['daily_output'], plant_output['yesterday_output']),
          'delta_label': _fmt_delta_label(_delta(plant_output['daily_output'], plant_output['yesterday_output']))},
-        {'key': 'plant_inbound_monthly', 'label': '入库月累计', 'value': plant_output['monthly_output'], 'unit': '吨'},
+        {'key': 'plant_inbound_output', 'label': '入库成品量', 'value': plant_output.get('finished_inbound_output'), 'unit': '吨'},
         {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total), 'unit': '吨'},
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),

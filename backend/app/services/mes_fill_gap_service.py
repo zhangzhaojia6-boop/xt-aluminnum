@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from typing import Any
 
@@ -12,6 +12,10 @@ from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 
 WEIGHT_TOLERANCE_KG = 1.0
+SHIFT_WINDOWS = (
+    ('长白班', '07:30-15:30', time(7, 30), time(15, 30)),
+    ('小夜班', '15:30-23:30', time(15, 30), time(23, 30)),
+)
 
 
 def _plain_number(value: Any) -> float | None:
@@ -27,6 +31,16 @@ def _plain_number(value: Any) -> float | None:
 
 def _text(value: Any) -> str:
     return str(value or '').strip()
+
+
+def _shift_meta_for_end_time(value: Any) -> dict[str, str | None]:
+    if value is None:
+        return {'shift_name': None, 'shift_window': None, 'mes_end_time': None}
+    end_time = value.time()
+    for shift_name, shift_window, start, end in SHIFT_WINDOWS:
+        if start <= end_time < end:
+            return {'shift_name': shift_name, 'shift_window': shift_window, 'mes_end_time': value.isoformat()}
+    return {'shift_name': '大夜班', 'shift_window': '23:30-07:30', 'mes_end_time': value.isoformat()}
 
 
 def _snapshot_by_batch(db: Session) -> dict[str, MesCoilSnapshot]:
@@ -142,6 +156,7 @@ def build_mes_fill_gaps(
         local_entry = _pick_local_entry(entries.get(tracking_card_no or '', []), workshop_id=resolved_workshop_id)
         status = _status_for(process, snapshot, local_entry)
         local_machine_name = machine_names.get(local_entry.machine_id) if local_entry is not None and local_entry.machine_id is not None else None
+        shift_meta = _shift_meta_for_end_time(process.end_time)
 
         items.append(
             {
@@ -158,6 +173,7 @@ def build_mes_fill_gaps(
                 'local_output_weight': _plain_number(local_entry.output_weight) if local_entry is not None else None,
                 'mes_machine_name': process.device_name,
                 'local_machine_name': local_machine_name,
+                **shift_meta,
             }
         )
 

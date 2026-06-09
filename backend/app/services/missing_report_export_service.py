@@ -9,7 +9,19 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 
-DETAIL_HEADERS = [
+MISSING_REPORT_HEADERS = [
+    '序号',
+    '车间',
+    '机列/岗位',
+    '班次/频次',
+    '应填角色',
+    '责任人',
+    '登录账号',
+    '状态',
+    '缺报口径',
+]
+
+PENDING_ASSIGNMENT_HEADERS = [
     '序号',
     '车间',
     '班次',
@@ -33,16 +45,13 @@ DETAIL_HEADERS = [
 
 SUMMARY_HEADERS = [
     '车间',
-    '缺报条数',
-    '缺机列',
-    '缺班次',
-    'MES命中卷数',
-    '未命中MES',
-    '缺报人员',
-    '候选机列',
-    '投入吨',
-    '产出吨',
-    '废料吨',
+    '应填缺报',
+    '主操缺报',
+    '电工缺报',
+    '内勤缺报',
+    '迟报',
+    '待归属记录',
+    '涉及人员/岗位',
 ]
 
 MES_GAP_HEADERS = [
@@ -62,6 +71,31 @@ MES_GAP_HEADERS = [
 FIELD_LABELS = {
     'machine_id': '机列未填',
     'shift_id': '班次未填',
+}
+
+SHIFT_LABELS = {
+    'A': '长白班',
+    'D': '长白班',
+    '白班': '长白班',
+    '长白': '长白班',
+    '长白班': '长白班',
+    'B': '小夜班',
+    'E': '小夜班',
+    '中班': '小夜班',
+    '小夜': '小夜班',
+    '小夜班': '小夜班',
+    'C': '大夜班',
+    'N': '大夜班',
+    '夜班': '大夜班',
+    '大夜': '大夜班',
+    '大夜班': '大夜班',
+}
+
+SHIFT_ORDER = {
+    '长白班': 0,
+    '小夜班': 1,
+    '大夜班': 2,
+    '每日一录': 3,
 }
 
 MES_GAP_STATUS_LABELS = {
@@ -119,6 +153,117 @@ def _issue_type(item: dict[str, Any]) -> str:
     return '待补齐'
 
 
+def _shift_text(value: Any) -> str:
+    text = _text(value)
+    return SHIFT_LABELS.get(text, text)
+
+
+def _row_status_text(value: Any) -> str:
+    text = _text(value)
+    if text == 'late':
+        return '迟报'
+    if text in {'not_started', 'missing'}:
+        return '缺报'
+    return text
+
+
+def _missing_caliber(row: dict[str, Any]) -> str:
+    if row.get('source_type') == 'owner_daily':
+        return '每日一录未完成'
+    if row.get('source_type') == 'machine_shift':
+        return '机列班次未填'
+    return _text(row.get('missing_caliber'))
+
+
+def _role_bucket(row: dict[str, Any]) -> str:
+    role_label = str(row.get('role_label') or row.get('roleLabel') or '')
+    if '电工' in role_label or '能源' in role_label or '能耗' in role_label:
+        return 'electrician'
+    if row.get('source_type') == 'owner_daily' or '内勤' in role_label or row.get('machine_name') == '每日一录':
+        return 'owner'
+    return 'operator'
+
+
+def _is_missing_shift_cell(cell: dict[str, Any]) -> bool:
+    return cell.get('is_applicable') is not False and (
+        cell.get('submission_status') == 'not_started'
+        or cell.get('status_text') == '缺报'
+        or cell.get('statusText') == '缺报'
+    )
+
+
+def _normal_missing_row(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'workshop_name': _text(raw.get('workshop_name') or raw.get('workshopName')),
+        'machine_name': _text(raw.get('machine_name') or raw.get('machineName')),
+        'shift_name': _shift_text(raw.get('shift_name') or raw.get('shiftName')),
+        'role_label': _text(raw.get('role_label') or raw.get('roleLabel')),
+        'owner_name': _text(raw.get('owner_name') or raw.get('ownerName') or raw.get('person_name') or raw.get('personName')),
+        'username': _text(raw.get('username') or raw.get('created_by_username')),
+        'status_text': _row_status_text(raw.get('status_text') or raw.get('statusText') or raw.get('status')),
+        'source_type': _text(raw.get('source_type') or raw.get('sourceType')),
+        'missing_caliber': _text(raw.get('missing_caliber') or raw.get('missingCaliber')),
+    }
+
+
+def _build_live_missing_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    explicit_rows = payload.get('missing_report_rows')
+    if isinstance(explicit_rows, list):
+        return [_normal_missing_row(row) for row in explicit_rows if isinstance(row, dict)]
+
+    source = payload.get('live_aggregation') if isinstance(payload.get('live_aggregation'), dict) else payload
+    rows: list[dict[str, Any]] = []
+    for workshop in source.get('workshops') or []:
+        if not isinstance(workshop, dict):
+            continue
+        workshop_name = _text(workshop.get('workshop_name') or workshop.get('workshopName'))
+        for machine in workshop.get('machines') or []:
+            if not isinstance(machine, dict):
+                continue
+            machine_name = _text(machine.get('machine_name') or machine.get('machineName'))
+            for shift in machine.get('shifts') or []:
+                if not isinstance(shift, dict) or not _is_missing_shift_cell(shift):
+                    continue
+                rows.append(_normal_missing_row({
+                    'workshop_name': workshop_name,
+                    'machine_name': machine_name,
+                    'shift_name': shift.get('shift_name') or shift.get('shiftName'),
+                    'role_label': '主操',
+                    'status_text': shift.get('status_text') or shift.get('statusText') or '缺报',
+                    'source_type': 'machine_shift',
+                    'missing_caliber': '机列班次未填',
+                }))
+
+    owner_status = source.get('owner_daily_status') or {}
+    if isinstance(owner_status, dict):
+        for item in owner_status.get('items') or []:
+            if not isinstance(item, dict) or item.get('status') == 'submitted':
+                continue
+            rows.append(_normal_missing_row({
+                'workshop_name': item.get('workshop_name') or item.get('workshopName') or '全厂专项',
+                'machine_name': '每日一录',
+                'shift_name': '每日一录',
+                'role_label': item.get('role_label') or item.get('role') or '内勤岗',
+                'owner_name': item.get('person_name') or item.get('name'),
+                'username': item.get('username'),
+                'status_text': '迟报' if item.get('status') == 'late' else '缺报',
+                'source_type': 'owner_daily',
+                'missing_caliber': '每日一录未完成',
+            }))
+
+    return sorted(
+        rows,
+        key=lambda row: (
+            1 if row.get('source_type') == 'owner_daily' else 0,
+            _text(row.get('workshop_name')),
+            SHIFT_ORDER.get(_shift_text(row.get('shift_name')), 99),
+            _text(row.get('machine_name')),
+            _text(row.get('role_label')),
+            _text(row.get('owner_name')),
+        ),
+    )
+
+
 def _sort_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(
         items,
@@ -159,7 +304,26 @@ def _fit_columns(ws, max_width: int = 42) -> None:
         ws.column_dimensions[get_column_letter(column_cells[0].column)].width = width
 
 
-def _build_detail_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
+def _build_missing_report_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
+    rows = []
+    for index, item in enumerate(items, start=1):
+        rows.append(
+            [
+                index,
+                _text(item.get('workshop_name')),
+                _text(item.get('machine_name')),
+                _shift_text(item.get('shift_name')),
+                _text(item.get('role_label')),
+                _text(item.get('owner_name')),
+                _text(item.get('username')),
+                _text(item.get('status_text')),
+                _missing_caliber(item),
+            ]
+        )
+    return rows
+
+
+def _build_pending_assignment_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
     rows = []
     for index, item in enumerate(_sort_items(items), start=1):
         rows.append(
@@ -188,55 +352,59 @@ def _build_detail_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
     return rows
 
 
-def _build_summary_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
+def _build_summary_rows(missing_rows: list[dict[str, Any]], pending_items: list[dict[str, Any]]) -> list[list[Any]]:
     buckets: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        'count': 0,
-        'missing_machine': 0,
-        'missing_shift': 0,
-        'mes_hit': 0,
-        'mes_miss': 0,
+        'missing': 0,
+        'operator': 0,
+        'electrician': 0,
+        'owner': 0,
+        'late': 0,
+        'pending_assignment': 0,
         'people': set(),
-        'candidates': set(),
-        'input': 0.0,
-        'output': 0.0,
-        'scrap': 0.0,
     })
-    for item in items:
+    for row in missing_rows:
+        workshop = _text(row.get('workshop_name'), '未标记车间')
+        bucket = buckets[workshop]
+        bucket['missing'] += 1
+        bucket[_role_bucket(row)] += 1
+        if _text(row.get('status_text')) == '迟报':
+            bucket['late'] += 1
+        person = _text(row.get('owner_name'))
+        label = _text(row.get('role_label'))
+        if person != '-':
+            bucket['people'].add(person)
+        elif label != '-':
+            bucket['people'].add(label)
+
+    for item in pending_items:
         workshop = _text(item.get('workshop_name'), '未标记车间')
         bucket = buckets[workshop]
-        missing_fields = set(item.get('missing_fields') or [])
-        bucket['count'] += 1
-        bucket['missing_machine'] += 1 if 'machine_id' in missing_fields else 0
-        bucket['missing_shift'] += 1 if 'shift_id' in missing_fields else 0
-        if int(item.get('mes_match_count') or 0) > 0:
-            bucket['mes_hit'] += 1
-        else:
-            bucket['mes_miss'] += 1
+        bucket['pending_assignment'] += 1
         person = _person_text(item)
         if person != '-':
             bucket['people'].add(person)
-        for name in item.get('machine_candidate_names') or []:
-            if str(name).strip():
-                bucket['candidates'].add(str(name).strip())
-        bucket['input'] += _number(item.get('input_weight'))
-        bucket['output'] += _number(item.get('output_weight'))
-        bucket['scrap'] += _number(item.get('scrap_weight'))
 
-    rows = []
-    for workshop, bucket in sorted(buckets.items(), key=lambda pair: (-pair[1]['count'], pair[0])):
+    rows: list[list[Any]] = []
+    for workshop, bucket in sorted(
+        buckets.items(),
+        key=lambda pair: (
+            -pair[1]['operator'],
+            -pair[1]['electrician'],
+            -pair[1]['owner'],
+            -pair[1]['pending_assignment'],
+            pair[0],
+        ),
+    ):
         rows.append(
             [
                 workshop,
-                bucket['count'],
-                bucket['missing_machine'],
-                bucket['missing_shift'],
-                bucket['mes_hit'],
-                bucket['mes_miss'],
+                bucket['missing'],
+                bucket['operator'],
+                bucket['electrician'],
+                bucket['owner'],
+                bucket['late'],
+                bucket['pending_assignment'],
                 '、'.join(sorted(bucket['people'])) or '-',
-                '、'.join(sorted(bucket['candidates'])) or '-',
-                round(bucket['input'], 3),
-                round(bucket['output'], 3),
-                round(bucket['scrap'], 3),
             ]
         )
     return rows
@@ -281,34 +449,54 @@ def _append_mes_gap_sheet(workbook: Workbook, *, business_date: str, mes_fill_ga
 
 def build_missing_report_workbook(payload: dict[str, Any]) -> bytes:
     business_date = _text(payload.get('business_date'), '')
-    items = list(payload.get('items') or [])
-    summary = dict(payload.get('summary') or {})
+    pending_assignment = payload.get('pending_assignment') if isinstance(payload.get('pending_assignment'), dict) else payload
+    items = list(pending_assignment.get('items') or [])
+    summary = dict(pending_assignment.get('summary') or payload.get('summary') or {})
+    missing_rows = _build_live_missing_rows(payload)
 
     workbook = Workbook()
     detail = workbook.active
     detail.title = '缺报明细'
-    _append_title(detail, f'缺报明细 {business_date}', len(DETAIL_HEADERS))
+    _append_title(detail, f'缺报明细 {business_date}', len(MISSING_REPORT_HEADERS))
     detail.cell(row=2, column=1, value=(
+        f"应填缺报{len(missing_rows)}条；"
+        f"待归属{int(summary.get('entry_count') or len(items))}条；"
+        f"缺机列{int(summary.get('missing_machine_count') or 0)}条"
+    ))
+    detail.append([])
+    detail.append(MISSING_REPORT_HEADERS)
+    missing_detail_rows = _build_missing_report_rows(missing_rows)
+    if missing_detail_rows:
+        for row in missing_detail_rows:
+            detail.append(row)
+    else:
+        detail.append(['暂无应填缺报'] + [''] * (len(MISSING_REPORT_HEADERS) - 1))
+    _style_table(detail, 4, len(MISSING_REPORT_HEADERS))
+    _fit_columns(detail)
+
+    pending_sheet = workbook.create_sheet('待归属明细')
+    _append_title(pending_sheet, f'待归属明细 {business_date}', len(PENDING_ASSIGNMENT_HEADERS))
+    pending_sheet.cell(row=2, column=1, value=(
         f"共{int(summary.get('entry_count') or len(items))}条；"
         f"缺机列{int(summary.get('missing_machine_count') or 0)}条；"
         f"缺班次{int(summary.get('missing_shift_count') or 0)}条"
     ))
-    detail.append([])
-    detail.append(DETAIL_HEADERS)
-    detail_rows = _build_detail_rows(items)
-    if detail_rows:
-        for row in detail_rows:
-            detail.append(row)
+    pending_sheet.append([])
+    pending_sheet.append(PENDING_ASSIGNMENT_HEADERS)
+    pending_rows = _build_pending_assignment_rows(items)
+    if pending_rows:
+        for row in pending_rows:
+            pending_sheet.append(row)
     else:
-        detail.append(['暂无缺报'] + [''] * (len(DETAIL_HEADERS) - 1))
-    _style_table(detail, 4, len(DETAIL_HEADERS))
-    _fit_columns(detail)
+        pending_sheet.append(['暂无待归属记录'] + [''] * (len(PENDING_ASSIGNMENT_HEADERS) - 1))
+    _style_table(pending_sheet, 4, len(PENDING_ASSIGNMENT_HEADERS))
+    _fit_columns(pending_sheet)
 
     summary_sheet = workbook.create_sheet('车间汇总')
     _append_title(summary_sheet, f'车间缺报汇总 {business_date}', len(SUMMARY_HEADERS))
     summary_sheet.append([])
     summary_sheet.append(SUMMARY_HEADERS)
-    summary_rows = _build_summary_rows(items)
+    summary_rows = _build_summary_rows(missing_rows, items)
     if summary_rows:
         for row in summary_rows:
             summary_sheet.append(row)

@@ -1,10 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import path from 'node:path'
 
-const pagePath = path.resolve('src/views/attendance/AttendanceOverview.vue')
-const apiPath = path.resolve('src/api/attendance.js')
+const pagePath = new URL('../src/views/attendance/AttendanceOverview.vue', import.meta.url)
+const apiPath = new URL('../src/api/attendance.js', import.meta.url)
 const src = fs.readFileSync(pagePath, 'utf8')
 const apiSrc = fs.readFileSync(apiPath, 'utf8')
 
@@ -52,7 +51,9 @@ test('AttendanceOverview uses the industrial blue responsive surface', () => {
   assert.match(src, /data-testid="attendance-overview-stats"/)
   assert.match(src, /data-testid="attendance-overview-table"/)
   assert.match(src, /data-testid="attendance-overview-mobile-list"/)
-  assert.match(src, /ATTENDANCE COMMAND/)
+  assert.match(src, /DINGTALK ATTENDANCE/)
+  assert.match(src, /考勤预留/)
+  assert.match(src, /后续接入钉钉打卡后启用/)
   assert.match(src, /--attendance-cyan:\s*#00f2ff/)
   assert.match(src, /attendanceCommandSweep/)
   assert.match(src, /attendanceCommandPulse/)

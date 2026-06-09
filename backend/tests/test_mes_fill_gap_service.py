@@ -129,6 +129,9 @@ def test_mes_fill_gap_marks_missing_local_entry(tmp_path) -> None:
     assert payload['items'][0]['status'] == 'missing_local_entry'
     assert payload['items'][0]['tracking_card_no'] == 'TRACK-MISSING'
     assert payload['items'][0]['local_entry_id'] is None
+    assert payload['items'][0]['shift_name'] == '长白班'
+    assert payload['items'][0]['shift_window'] == '07:30-15:30'
+    assert payload['items'][0]['mes_end_time'] == '2026-05-06T11:30:00'
 
 
 def test_mes_fill_gap_marks_unmapped_mes_batch(tmp_path) -> None:

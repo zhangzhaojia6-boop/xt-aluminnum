@@ -66,11 +66,19 @@ export function buildDailySettlementCards(overview = {}) {
   return [
     {
       key: 'plant-output',
-      label: '全厂入库产量',
+      label: '全厂日产量',
       value: formatPlainMetric(plantOutput.daily_output),
       unit: '吨',
       deltaText: plantOutput.yesterday_output == null ? null : `比昨日 ${formatPlainMetric((toNumber(plantOutput.daily_output) || 0) - (toNumber(plantOutput.yesterday_output) || 0))} 吨`,
       tone: 'success',
+    },
+    {
+      key: 'finished-inbound',
+      label: '入库成品量',
+      value: formatPlainMetric(plantOutput.finished_inbound_output),
+      unit: plantOutput.finished_inbound_output == null ? '' : '吨',
+      tone: plantOutput.finished_inbound_output == null ? 'muted' : 'success',
+      status: plantOutput.finished_inbound_output == null ? 'muted' : null,
     },
     {
       key: 'process-throughput',
@@ -101,14 +109,6 @@ export function buildDailySettlementCards(overview = {}) {
       value: formatPlainMetric(yieldRates.daily),
       unit: yieldRates.daily == null ? '' : '%',
       tone: 'primary',
-    },
-    {
-      key: 'energy-cost',
-      label: '能耗成本',
-      value: hasEnergy ? formatPlainMetric(energy.total_cost) : MISSING_DAILY_VALUE,
-      unit: hasEnergy && energy.total_cost != null ? '万元' : '',
-      tone: hasEnergy ? 'warning' : 'muted',
-      status: hasEnergy ? null : 'muted',
     },
   ]
 }

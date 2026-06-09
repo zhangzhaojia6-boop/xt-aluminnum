@@ -123,8 +123,8 @@ test('ticker exposes the first-screen factory signals without fake zeros', () =>
   ])
   assert.equal(items[0].value, '126.42 吨')
   assert.equal(items[1].value, '211.8 吨')
-  assert.equal(items[2].value, '暂无可信数据')
-  assert.equal(items[3].value, '暂无可信数据')
+  assert.equal(items[2].value, '待同步')
+  assert.equal(items[3].value, '待同步')
   assert.equal(items[2].value.includes('0 kWh'), false)
 })
 
@@ -147,7 +147,7 @@ test('ticker does not display comprehensive total_energy as electricity', () => 
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '暂无可信数据')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
 })
 
 test('ticker honors unavailable energy flag instead of showing fake zero', () => {
@@ -159,8 +159,8 @@ test('ticker honors unavailable energy flag instead of showing fake zero', () =>
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '暂无可信数据')
-  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '暂无可信数据')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
+  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '待同步')
 })
 
 test('ticker marks missing freshness and counts as unknown rather than healthy', () => {
@@ -280,7 +280,7 @@ test('metric comparison does not display total_energy as total electricity', () 
     },
   })
 
-  assert.equal(items[1].primaryValue, '暂无可信数据')
+  assert.equal(items[1].primaryValue, '待同步')
   assert.equal(items[1].compareValue, '17,020 kWh')
 })
 
@@ -294,14 +294,14 @@ test('metric comparison honors unavailable energy flag instead of showing fake z
     },
   })
 
-  assert.equal(items[1].primaryValue, '暂无可信数据')
-  assert.equal(items[1].compareValue, '暂无可信数据')
-  assert.equal(items[2].primaryValue, '暂无可信数据')
+  assert.equal(items[1].primaryValue, '待同步')
+  assert.equal(items[1].compareValue, '待同步')
+  assert.equal(items[2].primaryValue, '待同步')
 })
 
 test('event rail and trusted metric formatting expose empty, error and disconnected states', () => {
-  assert.equal(formatTrustedMetric(null, 'kWh'), '暂无可信数据')
-  assert.equal(formatTrustedMetric(undefined, '吨'), '暂无可信数据')
+  assert.equal(formatTrustedMetric(null, 'kWh'), '待同步')
+  assert.equal(formatTrustedMetric(undefined, '吨'), '待同步')
   assert.equal(formatTrustedMetric(0, 'kWh'), '0 kWh')
 
   const events = buildLiveEventItems({
@@ -319,7 +319,7 @@ test('event rail and trusted metric formatting expose empty, error and disconnec
   assert.equal(events.some((event) => event.title === '实时连接断开'), true)
   assert.equal(events.some((event) => event.title === '接口失败'), true)
   assert.equal(events.some((event) => event.title === '未填报'), true)
-  assert.equal(events.some((event) => event.title === '无能耗可信数据'), true)
+  assert.equal(events.some((event) => event.title === '能耗待同步'), true)
   assert.equal(events.some((event) => event.title === '待补产出重量'), true)
 })
 
@@ -328,7 +328,7 @@ test('live priority items expose only the three most urgent actions', () => {
     { title: '实时连接断开', tone: 'warning', text: '正在重连' },
     { title: '接口失败', tone: 'danger', text: '接口失败' },
     { title: '未填报', tone: 'danger', text: '141 个班次' },
-    { title: '无能耗可信数据', tone: 'warning', text: '能耗不显示假 0' },
+    { title: '能耗待同步', tone: 'warning', text: '等待电工或算法能耗明细' },
   ])
 
   assert.equal(items.length, 3)

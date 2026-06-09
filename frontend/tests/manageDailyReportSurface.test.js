@@ -13,6 +13,7 @@ test('daily settlement cards keep plant inbound output separate from process thr
   const cards = buildDailySettlementCards({
     plant_output: {
       daily_output: 81.25,
+      finished_inbound_output: 73.6,
       monthly_output: 1234.5,
       energy_per_ton: 456.7
     },
@@ -26,13 +27,14 @@ test('daily settlement cards keep plant inbound output separate from process thr
   })
 
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.25')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '73.6')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'contract-tonnage')?.unit, '吨')
 })
 
 test('daily values hide trailing zero decimals but keep useful precision', () => {
   const cards = buildDailySettlementCards({
-    plant_output: { daily_output: 81.2, energy_per_ton: 456 },
+    plant_output: { daily_output: 81.2, finished_inbound_output: 80, energy_per_ton: 456 },
     workshop_output: [
       { workshop: '退火一车间', daily_output: 40 },
       { workshop: '包装车间', daily_output: 50 },
@@ -43,6 +45,7 @@ test('daily values hide trailing zero decimals but keep useful precision', () =>
   })
 
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.2')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '80')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'contract-tonnage')?.value, '12')
   assert.equal(cards.find((item) => item.key === 'yield-rate')?.value, '95')
@@ -57,7 +60,7 @@ test('daily settlement cards never show fake zero for missing energy', () => {
   })
 
   assert.equal(cards.find((item) => item.key === 'energy-per-ton')?.value, MISSING_DAILY_VALUE)
-  assert.equal(cards.find((item) => item.key === 'energy-cost')?.value, MISSING_DAILY_VALUE)
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, MISSING_DAILY_VALUE)
 })
 
 test('daily settlement cards do not fake process throughput when workshop rows are absent', () => {

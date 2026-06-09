@@ -52,12 +52,13 @@ test('normalizeFactoryDirector composes summary from workshop+shift+exception_ty
   const payload = {
     exception_lane: {
       recent_items: [
-        { report_id: 'p1', workshop_name: '一车间', shift_name: '早班', exception_type: 'output_anomaly' }
+        { report_id: 'p1', workshop_name: '一车间', shift_name: '早班', exception_type: 'output_anomaly', note: '产量为 0' }
       ]
     }
   }
   const out = normalizeFactoryDirector(payload, DATE)
   assert.match(out[0].summary, /一车间 早班/)
+  assert.match(out[0].detail, /产量为 0/)
   assert.equal(out[0].id, 'production:p1')
 })
 
@@ -80,6 +81,8 @@ test('normalizeQuality uses issue_desc when summary missing (real backend shape)
   ]
   const out = normalizeQuality(items, DATE)
   assert.equal(out[0].summary, '当日未导入能耗数据')
+  assert.match(out[0].detail, /completeness/)
+  assert.match(out[0].detail, /energy/)
   assert.equal(out[0].id, 'quality:6')
   assert.equal(out[0].occurredAt, '2026-05-19T11:00:00')
 })
@@ -99,6 +102,7 @@ test('normalizeReconciliation composes summary from source_a/source_b values', (
   assert.match(out[0].summary, /production_kg/)
   assert.match(out[0].summary, /12345/)
   assert.match(out[0].summary, /12100/)
+  assert.match(out[0].detail, /production_kg/)
 })
 
 test('normalizeFactoryDirector handles null exception_lane safely', () => {

@@ -8,6 +8,7 @@ import {
 const FD_ROUTE = '/manage/alerts?surface=anomaly'
 const Q_ROUTE = '/manage/alerts?surface=quality'
 const R_ROUTE = '/manage/alerts?surface=reconciliation'
+const MES_ROUTE = '/manage/fill-details'
 
 function safeArray(v) {
   return Array.isArray(v) ? v : []
@@ -77,6 +78,72 @@ function reconciliationSummary(row) {
   return joinNonEmpty([type, dim, diff], '：') || '对账差异'
 }
 
+function productionDetail(row) {
+  return joinNonEmpty([
+    row.note,
+    row.exception_desc,
+    row.machine_name,
+    row.tracking_card_no,
+    row.reporter_name,
+  ], ' · ')
+}
+
+function reportingDetail(row) {
+  return joinNonEmpty([
+    row.returned_reason,
+    row.note,
+    row.machine_name,
+    row.tracking_card_no,
+    row.created_by_user_name,
+  ], ' · ')
+}
+
+function qualityDetail(row) {
+  return joinNonEmpty([
+    row.issue_type,
+    row.dimension_key,
+    row.field_name,
+    row.status,
+  ], ' · ')
+}
+
+function reconciliationDetail(row) {
+  return joinNonEmpty([
+    row.reconciliation_type,
+    row.dimension_key,
+    row.source_a_name,
+    row.source_b_name,
+    row.source_a_value != null || row.source_b_value != null ? `${row.source_a_value ?? '-'} / ${row.source_b_value ?? '-'}` : '',
+  ], ' · ')
+}
+
+function mesGapLabel(status) {
+  if (status === 'missing_local_entry') return 'MES有工序本地未填'
+  if (status === 'mes_batch_unmapped') return 'MES批号未映射随行卡'
+  if (status === 'local_entry_unassigned') return '本地填报未归属机列'
+  if (status === 'weight_mismatch') return 'MES与本地重量不一致'
+  return 'MES填报链路待核'
+}
+
+function mesGapSummary(row) {
+  return `${mesGapLabel(row.status)}：${joinNonEmpty([
+    row.workshop_name,
+    row.mes_machine_name || row.local_machine_name,
+    row.shift_name,
+  ], ' · ')}`
+}
+
+function mesGapDetail(row) {
+  return joinNonEmpty([
+    row.tracking_card_no,
+    row.batch_no,
+    row.process_name,
+    row.shift_window,
+    row.mes_output_weight != null ? `MES ${row.mes_output_weight} kg` : '',
+    row.local_output_weight != null ? `本地 ${row.local_output_weight} kg` : '',
+  ], ' · ')
+}
+
 export function normalizeFactoryDirector(payload, targetDate) {
   const lane = payload && payload.exception_lane
   if (!lane) return []
@@ -87,6 +154,7 @@ export function normalizeFactoryDirector(payload, targetDate) {
       domain: 'production',
       occurredAt: fallbackOccurredAt(row, targetDate),
       summary: productionSummary(row),
+      detail: productionDetail(row),
       detailRoute: FD_ROUTE,
       status: fallbackStatus(row)
     })
@@ -97,6 +165,7 @@ export function normalizeFactoryDirector(payload, targetDate) {
       domain: 'reporting',
       occurredAt: fallbackOccurredAt(row, targetDate),
       summary: reportingSummary(row),
+      detail: reportingDetail(row),
       detailRoute: FD_ROUTE,
       status: fallbackStatus(row)
     })
@@ -110,6 +179,7 @@ export function normalizeQuality(items, targetDate) {
     domain: 'quality',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: qualitySummary(row),
+    detail: qualityDetail(row),
     detailRoute: Q_ROUTE,
     status: fallbackStatus(row)
   }))
@@ -121,9 +191,24 @@ export function normalizeReconciliation(items, targetDate) {
     domain: 'reconciliation',
     occurredAt: fallbackOccurredAt(row, targetDate),
     summary: reconciliationSummary(row),
+    detail: reconciliationDetail(row),
     detailRoute: R_ROUTE,
     status: fallbackStatus(row)
   }))
+}
+
+export function normalizeMesFillGaps(payload, targetDate) {
+  return safeArray(payload?.items || payload)
+    .filter((row) => row?.status && row.status !== 'matched')
+    .map((row, idx) => ({
+      id: `mes-fill-gap:${row.tracking_card_no || row.batch_no || row.local_entry_id || idx}`,
+      domain: 'mes',
+      occurredAt: row.mes_end_time || fallbackOccurredAt(row, targetDate),
+      summary: mesGapSummary(row),
+      detail: mesGapDetail(row),
+      detailRoute: MES_ROUTE,
+      status: 'open'
+    }))
 }
 
 export function mergeAndSort(eventsArrays) {
@@ -170,6 +255,7 @@ export function buildAlertWorkQueues(events = []) {
       items: rows.slice(0, 3).map((event) => ({
         id: event.id,
         text: event.summary || '待处理异常',
+        detail: event.detail || '',
         route: event.detailRoute || item.route,
         status: event.status || 'open',
       })),

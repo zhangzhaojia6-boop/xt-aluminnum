@@ -2,8 +2,9 @@
   <section class="page-stack attendance-command" data-testid="attendance-overview-page">
     <header class="attendance-command__hero">
       <div>
-        <span class="attendance-command__eyebrow">ATTENDANCE COMMAND</span>
-        <h1>考勤总览</h1>
+        <span class="attendance-command__eyebrow">DINGTALK ATTENDANCE</span>
+        <h1>考勤预留</h1>
+        <p class="attendance-command__subtitle">后续接入钉钉打卡后启用；当前页面仅保留结果核查入口。</p>
       </div>
       <div class="attendance-command__actions">
         <el-date-picker
@@ -258,6 +259,16 @@ onMounted(load)
   font-size: clamp(34px, 5vw, 58px);
   line-height: 1;
   text-shadow: 0 0 28px rgba(0, 242, 255, 0.22);
+}
+
+.attendance-command__subtitle {
+  position: relative;
+  z-index: 1;
+  max-width: 34em;
+  margin: 10px 0 0;
+  color: var(--attendance-muted);
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .attendance-command h2 {

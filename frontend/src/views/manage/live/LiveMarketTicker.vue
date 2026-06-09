@@ -93,6 +93,8 @@ defineProps({
   font-size: clamp(24px, 2vw, 32px);
   line-height: 1;
   letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, opacity 160ms ease;
 }
 
 .live-market-ticker__item em {
@@ -121,6 +123,12 @@ defineProps({
 @media (max-width: 720px) {
   .live-market-ticker {
     grid-template-columns: repeat(2, minmax(136px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-market-ticker__item strong {
+    transition: none;
   }
 }
 

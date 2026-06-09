@@ -134,6 +134,8 @@ defineProps({
   font-size: clamp(24px, 2.5vw, 34px);
   line-height: 1;
   letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, opacity 160ms ease;
 }
 
 .live-metric-compare__grid div {
@@ -171,6 +173,12 @@ defineProps({
 @media (max-width: 1180px) {
   .live-metric-compare__grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-metric-compare__grid article > strong {
+    transition: none;
   }
 }
 </style>

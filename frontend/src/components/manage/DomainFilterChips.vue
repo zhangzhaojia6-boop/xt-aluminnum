@@ -24,7 +24,8 @@ const DOMAIN_DEFS = [
   { key: 'production', label: '生产' },
   { key: 'quality', label: '质检' },
   { key: 'reconciliation', label: '对账' },
-  { key: 'reporting', label: '填报' }
+  { key: 'reporting', label: '填报' },
+  { key: 'mes', label: 'MES' }
 ]
 
 const props = defineProps({

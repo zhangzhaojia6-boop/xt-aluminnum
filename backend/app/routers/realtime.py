@@ -319,13 +319,27 @@ def live_missing_report_export(
 ) -> Response:
     enforce_request_rate_limit(request, current_user, scope='aggregation_missing_report_export', limit=20, window_seconds=60)
     resolved_workshop_id = _resolve_live_manage_workshop_scope(current_user=current_user, workshop_id=workshop_id)
-    payload = realtime_service.build_pending_assignment_detail(
+    live_payload = realtime_service.build_live_aggregation(
         db,
         business_date=business_date,
         workshop_id=resolved_workshop_id,
         current_user=current_user,
     )
-    payload = dict(payload)
+    pending_assignment = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=business_date,
+        workshop_id=resolved_workshop_id,
+        current_user=current_user,
+    )
+    payload = {
+        'business_date': business_date.isoformat(),
+        'workshop_id': resolved_workshop_id,
+        'live_aggregation': live_payload,
+        'pending_assignment': pending_assignment,
+        # Keep old keys for callers/tests that build workbooks directly.
+        'summary': pending_assignment.get('summary') or {},
+        'items': pending_assignment.get('items') or [],
+    }
     payload['mes_fill_gaps'] = mes_fill_gap_service.build_mes_fill_gaps(
         db,
         business_date=business_date,

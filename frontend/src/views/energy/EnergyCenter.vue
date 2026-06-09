@@ -18,14 +18,14 @@
           <small>{{ statusBar.businessDate || '-' }} / {{ statusBar.rowCount }} 条</small>
           <small>页面刷新 {{ statusBar.updatedAt || '-' }}</small>
         </div>
-        <input
-          v-model="filters.business_date"
-          class="energy-center__date"
-          type="date"
-          aria-label="业务日期"
-          @input="handleBusinessDateChange"
+        <DateSwitcher
+          :model-value="filters.business_date"
+          :loading="loading"
+          :freshness="energyFreshness"
+          @step="handleBusinessDateStep"
+          @refresh="load"
+          @pick="handleBusinessDatePick"
         />
-        <el-button class="energy-center__refresh" @click="load">刷新</el-button>
       </div>
     </header>
 
@@ -169,8 +169,10 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import dayjs from 'dayjs'
 
 import { fetchEnergySummary } from '../../api/energy'
+import DateSwitcher from '../../components/manage/DateSwitcher.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import { formatShiftLabel } from '../../utils/display'
 import { inferBusinessDate } from '../../utils/shiftClock'
@@ -207,6 +209,12 @@ const energyStats = computed(() => stitchSurface.value.kpiStrip)
 const energyRows = computed(() => stitchSurface.value.detailRows)
 const eventRailItems = computed(() => stitchSurface.value.eventRail)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
+const energyFreshness = computed(() => {
+  const tone = statusBar.value.tone
+  if (tone === 'success') return 'green'
+  if (tone === 'danger') return 'red'
+  return 'yellow'
+})
 
 function toNumber(value) {
   const number = Number(value)
@@ -260,12 +268,18 @@ async function load() {
   }
 }
 
-function handleBusinessDateChange(event) {
-  const value = event?.target?.value || filters.business_date
-  if (value) {
-    filters.business_date = value
-    void load()
-  }
+function setBusinessDate(value) {
+  if (!value || value === filters.business_date) return
+  filters.business_date = value
+  void load()
+}
+
+function handleBusinessDateStep(deltaDays) {
+  setBusinessDate(dayjs(filters.business_date).add(deltaDays, 'day').format('YYYY-MM-DD'))
+}
+
+function handleBusinessDatePick(value) {
+  setBusinessDate(value)
 }
 
 onMounted(load)
@@ -444,48 +458,6 @@ onMounted(load)
 
 .energy-center__status-dot--danger {
   color: #ff7777;
-}
-
-.energy-center__date {
-  width: 178px;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid rgba(0, 242, 255, 0.22);
-  border-radius: 4px;
-  background: rgba(10, 14, 20, 0.74);
-  color: #dfe2eb;
-  color-scheme: dark;
-  font: inherit;
-  font-size: 13px;
-  outline: none;
-  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.12) inset;
-}
-
-.energy-center__date:focus-visible {
-  border-color: var(--energy-cyan);
-  box-shadow:
-    0 0 0 1px rgba(0, 242, 255, 0.28) inset,
-    0 0 0 3px rgba(0, 242, 255, 0.12);
-}
-
-.energy-center__date::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  filter: invert(1) sepia(1) saturate(3) hue-rotate(132deg);
-}
-
-.energy-center__refresh {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(0, 242, 255, 0.46);
-  background: rgba(0, 242, 255, 0.12);
-  color: var(--energy-cyan);
-  font-weight: 700;
-}
-
-.energy-center__refresh:hover {
-  border-color: var(--energy-cyan);
-  background: rgba(0, 242, 255, 0.2);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .energy-center__stats {
@@ -1038,8 +1010,14 @@ onMounted(load)
     align-items: stretch;
   }
 
-  .energy-center__date {
+  .energy-center__actions :deep(.xt-date-switcher) {
     width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .energy-center__actions :deep(.xt-date-switcher__label) {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 
   .energy-center__stats {

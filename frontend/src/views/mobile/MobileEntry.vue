@@ -1,5 +1,9 @@
 <template>
-  <div class="mobile-shell mobile-shell--entry" data-testid="mobile-entry">
+  <div
+    class="mobile-shell mobile-shell--entry"
+    :class="{ 'mobile-shell--large-type': largeTypeMode }"
+    data-testid="mobile-entry"
+  >
     <!-- Pull to refresh indicator -->
     <div 
       class="mobile-pull-indicator" 
@@ -16,6 +20,9 @@
           <h1>{{ pageTitle }}</h1>
           <p>{{ pageSubtitle }}</p>
         </div>
+        <button class="mobile-entry-stage__mode-toggle" type="button" @click="toggleLargeTypeMode">
+          {{ largeTypeMode ? '标准模式' : '大字模式' }}
+        </button>
       </div>
 
       <el-alert
@@ -199,6 +206,7 @@ const loadError = ref('')
 const bootstrap = ref({})
 const current = ref({})
 const hasCurrentShift = computed(() => Boolean(current.value?.shift_id))
+const largeTypeMode = ref(readLargeTypeMode())
 
 // Pull refresh setup
 const { pullDistance, refreshing } = usePullRefresh(load)
@@ -469,6 +477,20 @@ function goLogin() {
   router.push({ name: 'login', query: { redirect: '/entry' } })
 }
 
+function readLargeTypeMode() {
+  const queryValue = route.query.view || route.query.screen || route.query.large
+  if (['large', 'big', '1', 'true'].includes(String(queryValue || '').toLowerCase())) return true
+  if (typeof window === 'undefined') return false
+  return window.localStorage?.getItem('xt-mobile-large-type') === '1'
+}
+
+function toggleLargeTypeMode() {
+  largeTypeMode.value = !largeTypeMode.value
+  if (typeof window !== 'undefined') {
+    window.localStorage?.setItem('xt-mobile-large-type', largeTypeMode.value ? '1' : '0')
+  }
+}
+
 function goManage() {
   router.push({ name: 'admin-ops-reliability' })
 }
@@ -568,6 +590,19 @@ onUnmounted(() => {
   line-height: 1.22;
   color: var(--xt-text);
   text-shadow: 0 0 22px rgba(0, 242, 255, 0.2);
+}
+
+.mobile-entry-stage__mode-toggle {
+  position: relative;
+  z-index: 1;
+  min-height: 38px;
+  border: 1px solid rgba(0, 242, 255, 0.28);
+  border-radius: var(--xt-radius-pill);
+  padding: 0 12px;
+  background: rgba(3, 12, 24, 0.54);
+  color: rgba(225, 253, 255, 0.9);
+  font-size: var(--xt-text-sm);
+  font-weight: 900;
 }
 
 .mobile-entry-stage__top p {
@@ -771,6 +806,65 @@ onUnmounted(() => {
   min-height: 48px;
   border-radius: var(--xt-radius-lg);
   font-size: var(--xt-text-lg);
+}
+
+.mobile-shell--large-type .mobile-entry-stage {
+  min-height: min(720px, calc(100dvh - 24px));
+}
+
+.mobile-shell--large-type .mobile-entry-stage__top h1 {
+  font-size: clamp(32px, 9vw, 54px);
+  line-height: 1.08;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__top p {
+  font-size: clamp(18px, 4.5vw, 26px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__identity {
+  align-items: stretch;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__identity-main strong {
+  font-size: clamp(28px, 7vw, 44px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__identity-main span,
+.mobile-shell--large-type .mobile-entry-stage__identity-shift span {
+  font-size: clamp(16px, 4vw, 22px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__identity-shift span:first-child {
+  font-size: clamp(24px, 6vw, 36px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__machine strong,
+.mobile-shell--large-type .mobile-entry-stage__fact strong,
+.mobile-shell--large-type .mobile-entry-stage__status strong {
+  font-size: clamp(24px, 6.5vw, 38px);
+  line-height: 1.08;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__fact span,
+.mobile-shell--large-type .mobile-entry-stage__machine span,
+.mobile-shell--large-type .mobile-entry-stage__status span {
+  font-size: clamp(15px, 4vw, 21px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__facts {
+  grid-template-columns: 1fr;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__cta {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__cta .el-button,
+.mobile-shell--large-type .mobile-entry-stage__quick-grid .el-button {
+  width: 100%;
+  min-height: 68px;
+  font-size: clamp(20px, 5.5vw, 30px);
 }
 
 @keyframes mobileEntrySweep {

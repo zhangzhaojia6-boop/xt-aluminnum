@@ -389,21 +389,21 @@ const kpiItems = computed(() => {
 
 const summaryText = computed(() => snapshot.leaderSummary.value.summary_text || '')
 const highlightMetrics = computed(() => {
-  const me = snapshot.managementEstimate.value
+  const plantOutput = dailyOverview.value.plant_output || {}
   return [
     {
-      key: 'mtd',
-      label: '月累计成品',
-      value: `${fmt(snapshot.monthArchive.value.total_output, 0)} 吨`,
-      subText: '成品入库累计',
+      key: 'daily-output-month',
+      label: '日产月累计',
+      value: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
+      subText: plantOutput.monthly_average_output == null ? '月均 —' : `月均 ${fmt(plantOutput.monthly_average_output, 1)} 吨`,
       tone: 'primary',
     },
     {
-      key: 'margin',
-      label: '估算毛利',
-      value: me.estimate_ready && me.estimated_margin != null ? `${fmt(Number(me.estimated_margin) / 10000, 1)} 万元` : '—',
-      subText: me.estimate_ready ? '按当前成本口径' : '估算未就绪',
-      tone: me.estimate_ready ? 'success' : 'muted',
+      key: 'finished-inbound-month',
+      label: '入库月累计',
+      value: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
+      subText: plantOutput.finished_inbound_monthly_average == null ? '月均 —' : `月均 ${fmt(plantOutput.finished_inbound_monthly_average, 1)} 吨`,
+      tone: plantOutput.finished_inbound_monthly_output == null ? 'muted' : 'success',
     },
   ]
 })
@@ -454,10 +454,15 @@ const productionFlowStages = computed(() => {
       key: 'warehouse',
       label: '成品入库',
       primaryLabel: '今日入库',
-      primaryValue: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
+      primaryValue: plantOutput.finished_inbound_output == null ? '—' : `${fmt(plantOutput.finished_inbound_output, 0)} 吨`,
       secondaryLabel: '月累计入库',
-      secondaryValue: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
-      subItems: [],
+      secondaryValue: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
+      subItems: [
+        {
+          label: '日产量',
+          value: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
+        },
+      ],
     },
   ]
 })
@@ -526,6 +531,20 @@ const eventRailItems = computed(() => {
       title: energy.title || '算法与填报对照',
       body: `${energy.primaryLabel} ${energy.primaryValue}，${energy.compareLabel} ${energy.compareValue}`,
       tone: energy.tone || 'primary',
+      time: nowText,
+    })
+  }
+  const me = snapshot.managementEstimate.value
+  const marginText = me.estimate_ready && me.estimated_margin != null
+    ? `${fmt(Number(me.estimated_margin) / 10000, 1)} 万元`
+    : '估算未就绪'
+  if (me.estimate_ready && me.estimated_margin != null) {
+    items.push({
+      key: 'margin-estimate',
+      label: '核算',
+      title: '估算毛利',
+      body: marginText,
+      tone: 'success',
       time: nowText,
     })
   }

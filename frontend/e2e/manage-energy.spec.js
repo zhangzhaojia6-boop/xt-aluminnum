@@ -107,6 +107,29 @@ async function expectEnergyTableFits(page) {
   expect(lastHeaderBox.x + lastHeaderBox.width).toBeLessThanOrEqual(tableBox.x + tableBox.width + 1)
 }
 
+function previousDate(iso) {
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
+}
+
+async function statusBusinessDate(page) {
+  const statusText = await page.getByTestId('energy-center-status-bar').innerText()
+  const match = statusText.match(/\d{4}-\d{2}-\d{2}/)
+  expect(match).not.toBeNull()
+  return match[0]
+}
+
+async function stableRequestCount(page, requests) {
+  await expect.poll(async () => {
+    const count = requests.length
+    await page.waitForTimeout(160)
+    return requests.length === count ? count : -1
+  }).not.toBe(-1)
+  return requests.length
+}
+
 async function openEnergyCenter(page, { scenario, viewport, requests = [] }) {
   await page.setViewportSize(viewport)
   await setupReviewSessionAndMocks(page)
@@ -250,12 +273,18 @@ test.describe('manage energy center Stitch surface', () => {
     })
     await expect.poll(() => requests.length).toBeGreaterThanOrEqual(1)
 
-    const dateInput = page.locator('.energy-center__date').first()
-    await expect(dateInput).toBeVisible()
-    await dateInput.fill('2026-06-04')
+    const previousButton = page.getByTestId('manage-date-switcher').locator('button[aria-label="前一天"]')
+    await expect(previousButton).toBeEnabled()
+    await stableRequestCount(page, requests)
 
-    await expect.poll(() => requests.at(-1)).toBe('2026-06-04')
-    await expect(page.getByTestId('energy-center-status-bar')).toContainText('2026-06-04')
+    const initialBusinessDate = await statusBusinessDate(page)
+    const initialRequestCount = requests.length
+    const expectedDate = previousDate(initialBusinessDate)
+    await previousButton.click()
+
+    await expect.poll(() => requests.length).toBeGreaterThan(initialRequestCount)
+    await expect.poll(() => requests.at(-1)).toBe(expectedDate)
+    await expect(page.getByTestId('energy-center-status-bar')).toContainText(expectedDate)
     await expectNoHorizontalOverflow(page)
   })
 })

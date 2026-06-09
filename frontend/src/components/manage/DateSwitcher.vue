@@ -5,7 +5,7 @@
       type="button"
       class="xt-date-switcher__btn"
       :disabled="loading"
-      @click="emit('step', -1)"
+      @click="step(-1)"
       aria-label="前一天"
     >‹</button>
     <button
@@ -22,7 +22,7 @@
       type="button"
       class="xt-date-switcher__btn"
       :disabled="loading"
-      @click="emit('step', 1)"
+      @click="step(1)"
       aria-label="后一天"
     >›</button>
     <button
@@ -138,6 +138,10 @@ function pick(iso) {
   if (!iso) return
   emit('pick', iso)
   open.value = false
+}
+
+function step(days) {
+  emit('step', days)
 }
 
 function pickQuick(deltaDays) {

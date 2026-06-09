@@ -7,7 +7,10 @@
   >
     <span class="xt-event-card__time">{{ timeLabel }}</span>
     <span class="xt-event-card__pill" :class="`pill-${event.domain}`">{{ domainLabel }}</span>
-    <span class="xt-event-card__summary">{{ event.summary }}</span>
+    <span class="xt-event-card__summary">
+      <b>{{ event.summary }}</b>
+      <small v-if="detailText">{{ detailText }}</small>
+    </span>
     <span class="xt-event-card__arrow" aria-hidden="true">→</span>
   </button>
 </template>
@@ -19,8 +22,9 @@ import dayjs from 'dayjs'
 const props = defineProps({ event: { type: Object, required: true } })
 const emit = defineEmits(['open'])
 
-const DOMAIN_LABELS = { production: '生产', quality: '质检', reconciliation: '对账', reporting: '填报' }
+const DOMAIN_LABELS = { production: '生产', quality: '质检', reconciliation: '对账', reporting: '填报', energy: '能耗', mes: 'MES' }
 const domainLabel = computed(() => DOMAIN_LABELS[props.event.domain] || props.event.domain)
+const detailText = computed(() => String(props.event.detail || '').trim())
 const timeLabel = computed(() => {
   if (!props.event.occurredAt) return '--:--'
   return dayjs(props.event.occurredAt).format('HH:mm')
@@ -63,11 +67,29 @@ const timeLabel = computed(() => {
 .xt-event-card__summary {
   color: var(--xt-text);
   font-size: var(--xt-text-sm);
-  white-space: nowrap;
+  overflow: hidden;
+}
+.xt-event-card__summary b,
+.xt-event-card__summary small {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xt-event-card__summary b {
+  color: var(--xt-text);
+  font-size: var(--xt-text-sm);
+  font-weight: 850;
+}
+.xt-event-card__summary small {
+  margin-top: 2px;
+  color: var(--xt-text-muted);
+  font-size: var(--xt-text-xs);
+  font-weight: 650;
 }
 .xt-event-card__arrow { color: var(--xt-text-muted); font-size: var(--xt-text-md); }
+.pill-energy,
+.pill-mes { color: var(--xt-color-warning); background: color-mix(in srgb, var(--xt-color-warning) 12%, transparent); }
 @media (max-width: 720px) {
   .xt-event-card { grid-template-columns: 50px 56px 1fr 24px; min-height: 64px; }
 }

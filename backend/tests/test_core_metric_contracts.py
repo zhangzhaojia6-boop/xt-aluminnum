@@ -39,13 +39,15 @@ def test_energy_contract_keeps_machine_detail_as_authoritative_source() -> None:
     assert contract['aggregation_rule'] == 'sum_machine_detail_first'
 
 
-def test_factory_output_contract_matches_packaging_inbound_basis() -> None:
+def test_factory_output_contract_matches_mes_packaging_basis() -> None:
     contract = CORE_METRIC_CONTRACTS['factory_total_output_tons']
 
-    assert contract['primary_source'] == f'daily_consumable_logs.payload.{daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD}'
-    assert contract['fallback_source'] == 'owner_daily.storage_inbound_weight then mobile_shift_reports.storage_finished'
-    assert contract['aggregation_rule'] == 'sum_final_packaging_inbound_only'
+    assert contract['primary_source'] == 'mes_workshop_process_records.output_weight_tons'
+    assert f'daily_consumable_logs.payload.{daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD}' in contract['fallback_source']
+    assert contract['business_date_basis'] == 'production_business_date'
+    assert contract['aggregation_rule'] == 'sum_mes_final_packaging_output_first'
     assert set(contract['final_workshop_codes']) == daily_overview_builder.FINAL_PACKAGING_WORKSHOP_CODES
+    assert set(contract['final_mes_workshop_names']) == daily_overview_builder.FINAL_PACKAGING_MES_WORKSHOP_NAMES
 
 
 def test_yield_contract_matches_formal_yield_map() -> None:
