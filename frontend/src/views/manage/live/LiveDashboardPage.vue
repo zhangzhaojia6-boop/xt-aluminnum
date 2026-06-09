@@ -90,6 +90,7 @@ import LiveMarketTicker from './LiveMarketTicker.vue'
 import LiveMetricCompareCard from './LiveMetricCompareCard.vue'
 import { buildLiveStitchSurface } from '../../../utils/stitchManageSurface'
 import {
+  mergeRealtimeEventPatch,
   shouldReloadForRealtimeEvent,
 } from '../../../utils/liveDashboardPhase2'
 
@@ -214,8 +215,12 @@ async function loadDashboardSurface(options = {}) {
 
 function handleRealtimeEvent(type, payload = {}) {
   latestRealtimeEvent.value = { type, payload, time: new Date().toISOString() }
+  const patchedAggregation = mergeRealtimeEventPatch(aggregation.value, { payload, targetDate: targetDate.value })
+  if (patchedAggregation) {
+    aggregation.value = patchedAggregation
+  }
   if (shouldReloadForRealtimeEvent({ type, payload, targetDate: targetDate.value })) {
-    void loadDashboardSurface()
+    void loadDashboardSurface({ silent: streamStatus.value === 'open' })
   }
 }
 

@@ -75,7 +75,7 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
     """三班分解：返回 target_date 当天的长白班、小夜班、大夜班产量、能耗、异常拆分。
     07:30 是日循环节点，业务日范围为当天 07:30 到次日 07:30。
 
-    全厂总产量口径：按成品库入库产量；三班明细保留过站下机量作参考。
+    全厂总产量口径：按 MES 包装工序产量；三班明细保留过站下机量作参考。
     """
     rows = (
         db.query(ShiftProductionData)
@@ -155,8 +155,8 @@ def _build_yesterday_shift_breakdown(db: Session, *, target_date: date) -> dict:
         'business_date': target_date.isoformat(),
         'total_output': round(plant_output, 2),
         'total_throughput': round(grand_throughput, 2),
-        'output_basis': 'storage_inbound_output',
-        'output_basis_label': '全厂入库产量',
+        'output_basis': 'mes_packaging_output',
+        'output_basis_label': '包装产量',
         'shift_output_basis': 'mobile_coil_process_output',
         'shift_output_basis_label': '过站下机参考',
         'total_energy_kwh': round(grand_energy_kwh, 1),

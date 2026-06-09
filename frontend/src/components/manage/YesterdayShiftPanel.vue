@@ -7,7 +7,7 @@
       </div>
       <div class="xt-shifts__totals">
         <div class="xt-shifts__total">
-          <span class="xt-shifts__total-label">{{ payload.output_basis_label || '全厂日产量' }}</span>
+          <span class="xt-shifts__total-label">{{ payload.output_basis_label || '包装产量' }}</span>
           <span class="xt-shifts__total-value">{{ fmt(payload.total_output, 2) }}</span>
           <span class="xt-shifts__total-unit">吨</span>
         </div>

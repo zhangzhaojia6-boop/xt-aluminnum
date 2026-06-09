@@ -5,9 +5,10 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
-from app.models.mes import MesCoilSnapshot
+from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -28,9 +29,11 @@ def build_realtime_session(tmp_path):
             ShiftProductionData.__table__,
             MobileShiftReport.__table__,
             MachineEnergyRecord.__table__,
+            DailyConsumableLog.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
             MesCoilSnapshot.__table__,
+            MesWorkshopProcessRecord.__table__,
         ],
     )
     return sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -2255,3 +2258,30 @@ def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() ->
     assert updated['workshops'][0]['workshop_total']['yield_rate'] == 95.8
     assert updated['workshops'][0]['workshop_total']['yield_rate_source'] == 'yield_matrix_lane'
     assert updated['yield_matrix_lane']['quality_status'] == 'ready'
+
+
+def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatch) -> None:
+    business_date = date(2026, 6, 9)
+    monkeypatch.setattr(
+        realtime_service.daily_overview_builder,
+        '_query_mes_packaging_output_by_date',
+        lambda _db, _start, _end: {business_date: 42.5},
+    )
+    monkeypatch.setattr(
+        realtime_service.daily_overview_builder,
+        '_query_finished_inbound_totals_by_date',
+        lambda _db, _start, _end: {business_date: 39.25},
+    )
+
+    payload = realtime_service._inject_factory_packaging_output(
+        {'factory_total': {'output': 99.0}},
+        None,
+        business_date=business_date,
+        scoped_workshop_id=None,
+    )
+
+    assert payload['factory_total']['packaging_output'] == 42.5
+    assert payload['factory_total']['daily_output'] == 42.5
+    assert payload['factory_total']['factory_total_output'] == 42.5
+    assert payload['factory_total']['finished_inbound_output'] == 39.25
+    assert payload['factory_total']['business_day_start'] == '07:30'

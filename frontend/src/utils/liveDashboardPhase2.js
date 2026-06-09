@@ -21,17 +21,16 @@ function pickValue(source = {}, keys = []) {
 }
 
 export function formatTrustedMetric(value, unit = '', digits = 2) {
-  if (!isPresent(value)) return MISSING_TEXT
-  const text = formatNumber(value, digits)
+  const text = formatNumber(isPresent(value) ? value : 0, digits)
   return unit ? `${text} ${unit}` : text
 }
 
 function formatCount(value) {
-  return isPresent(value) ? String(Number(value)) : MISSING_TEXT
+  return isPresent(value) ? String(Number(value)) : '0'
 }
 
 function formatLag(seconds) {
-  if (!isPresent(seconds)) return MISSING_TEXT
+  if (!isPresent(seconds)) return '0s'
   const lag = Number(seconds)
   if (lag < 60) return `${lag.toFixed(0)}s`
   return `${(lag / 60).toFixed(1)}m`
@@ -58,12 +57,23 @@ export function buildLiveTickerItems(aggregation = {}) {
   const attentionCellCount = progress.attention_cell_count ?? progress.attentionCellCount
   const syncLagSeconds = sync.lag_seconds ?? sync.lagSeconds
 
-  const storageFinishedWeight = pickValue(factoryTotal, [
+  const packagingOutput = pickValue(factoryTotal, [
+    'packaging_output',
+    'packagingOutput',
+    'daily_output',
+    'dailyOutput',
+    'factory_total_output',
+    'factoryTotalOutput',
+  ])
+  const finishedInboundOutput = pickValue(factoryTotal, [
+    'finished_inbound_output',
+    'finishedInboundOutput',
+    'owner_storage_finished_weight',
+    'ownerStorageFinishedWeight',
     'storage_finished_weight',
     'storageFinishedWeight',
     'finished_storage_weight',
     'finishedStorageWeight',
-    'warehouse_finished_weight',
   ])
   const throughProcessOutput = pickValue(factoryTotal, [
     'process_output',
@@ -90,10 +100,16 @@ export function buildLiveTickerItems(aggregation = {}) {
 
   return [
     {
-      label: '成品入库',
-      value: formatTrustedMetric(storageFinishedWeight, '吨'),
-      tone: isPresent(storageFinishedWeight) ? 'success' : 'muted',
-      source: '最终产量',
+      label: '包装产量',
+      value: formatTrustedMetric(packagingOutput, '吨'),
+      tone: isPresent(packagingOutput) ? 'success' : 'muted',
+      source: 'MES包装',
+    },
+    {
+      label: '全厂入库产量',
+      value: formatTrustedMetric(finishedInboundOutput, '吨'),
+      tone: isPresent(finishedInboundOutput) ? 'success' : 'muted',
+      source: '内勤入库',
     },
     {
       label: '过站下机',
@@ -230,12 +246,16 @@ export function buildLiveMetricCompareItems(aggregation = {}) {
   const energy = resolveEnergySummary(aggregation)
 
   const algorithmOutput = pickValue(factoryTotal, [
-    'storage_finished_weight',
-    'storageFinishedWeight',
-    'finished_storage_weight',
-    'finishedStorageWeight',
+    'packaging_output',
+    'packagingOutput',
+    'daily_output',
+    'dailyOutput',
+    'factory_total_output',
+    'factoryTotalOutput',
   ])
   const filledOutput = pickValue(factoryTotal, [
+    'finished_inbound_output',
+    'finishedInboundOutput',
     'owner_storage_finished_weight',
     'ownerStorageFinishedWeight',
     'filled_storage_finished_weight',
@@ -269,9 +289,9 @@ export function buildLiveMetricCompareItems(aggregation = {}) {
   return [
     {
       label: '全厂总产量',
-      primaryLabel: '算法',
+      primaryLabel: 'MES包装',
       primaryValue: formatTrustedMetric(algorithmOutput, '吨'),
-      compareLabel: '填报',
+      compareLabel: '全厂入库',
       compareValue: formatTrustedMetric(filledOutput, '吨'),
       tone: isPresent(algorithmOutput) ? 'success' : 'muted',
     },
@@ -310,7 +330,7 @@ export function buildLiveEventItems({ streamStatus = 'idle', loadError = '', agg
   if (numberValue(progress.missing_cell_count ?? progress.missingCellCount) > 0) {
     events.push({ title: '未填报', tone: 'danger', text: `${numberValue(progress.missing_cell_count ?? progress.missingCellCount)} 个班次` })
   }
-  if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_energy', 'totalEnergy', 'total_electricity', 'totalElectricity']))) {
+  if (!isPresent(pickValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_electricity', 'totalElectricity']))) {
     events.push({ title: '能耗待同步', tone: 'warning', text: '等待电工或算法能耗明细' })
   }
   if (numberValue(missingOutput.entry_count ?? missingOutput.entryCount) > 0) {
@@ -336,8 +356,40 @@ export function buildLivePriorityItems(events = []) {
     }))
 }
 
+function eventDateMatches(payload = {}, targetDate = '') {
+  const eventDate = payload.business_date || payload.businessDate
+  const eventDates = payload.business_dates || payload.businessDates || []
+  if (Array.isArray(eventDates) && eventDates.length) {
+    return !targetDate || eventDates.includes(targetDate)
+  }
+  return !eventDate || !targetDate || eventDate === targetDate
+}
+
+export function mergeRealtimeEventPatch(currentAggregation = {}, { payload = {}, targetDate = '' } = {}) {
+  if (!eventDateMatches(payload, targetDate)) return null
+  const aggregationPatch = payload.aggregation || payload.snapshot || {}
+  const patch = { ...aggregationPatch }
+  for (const key of ['factory_total', 'energy_summary', 'overall_progress', 'mes_sync_status', 'data_quality']) {
+    if (payload[key]) {
+      patch[key] = {
+        ...(currentAggregation[key] || {}),
+        ...payload[key],
+      }
+    }
+  }
+  if (Array.isArray(payload.workshops)) {
+    patch.workshops = payload.workshops
+  }
+  const businessDate = payload.business_date || payload.businessDate
+  if (businessDate) patch.business_date = businessDate
+  if (!Object.keys(patch).length) return null
+  return {
+    ...currentAggregation,
+    ...patch,
+  }
+}
+
 export function shouldReloadForRealtimeEvent({ type = '', payload = {}, targetDate = '' } = {}) {
   if (type === 'heartbeat' || type === 'ping') return false
-  const eventDate = payload.business_date || payload.businessDate
-  return !eventDate || !targetDate || eventDate === targetDate
+  return eventDateMatches(payload, targetDate)
 }

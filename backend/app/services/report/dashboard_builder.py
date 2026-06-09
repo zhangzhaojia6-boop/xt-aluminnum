@@ -329,7 +329,7 @@ def _build_factory_boss_summary(
         focus_items.append(blocker_digest)
     focus_text = '；'.join(focus_items) if focus_items else '建议关注未闭环班次与单吨能耗波动。'
     return (
-        f"{target_date.month}月{target_date.day}日，全厂入库产量 {total_output:.2f} 吨，"
+        f"{target_date.month}月{target_date.day}日，包装产量 {total_output:.2f} 吨，"
         f"月累计 {monthly_output:.2f} 吨，上报率 {reporting_rate_text}。"
         f"今日能耗 {total_energy:.2f}，单吨电耗 {energy_text}。"
         f"移动填报异常 {exception_total} 个，建议关注：{focus_text}"
@@ -513,7 +513,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         'target_date': target_date.isoformat(),
         'today_total_output': total_output,
         'process_total_output': _to_float(production_report.get('process_output_weight')),
-        'total_output_basis': 'storage_inbound_output',
+        'total_output_basis': 'mes_packaging_output',
         'month_to_date_output': month_output,
         'history_digest': history_digest,
         'total_energy': energy_summary['total_energy'],

@@ -40,6 +40,7 @@ from app.services import attendance_confirm_service
 from app.services import master_service
 from app.services import mes_sync_service
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
+from app.services.report import daily_overview_builder
 from app.services.real_master_data import (
     OWNER_DAILY_ROLES,
     REPORTING_MACHINE_CODE_SET,
@@ -1317,6 +1318,42 @@ def _inject_mtd_into_payload(payload: dict, mtd: dict) -> dict:
     return payload
 
 
+def _inject_factory_packaging_output(
+    payload: dict,
+    db: Session,
+    *,
+    business_date: date,
+    scoped_workshop_id: int | None,
+) -> dict:
+    factory_total = payload.setdefault('factory_total', {})
+    if scoped_workshop_id is not None:
+        packaging_output = 0.0
+        finished_inbound_output = 0.0
+    else:
+        packaging_output = daily_overview_builder._query_mes_packaging_output_by_date(
+            db,
+            business_date,
+            business_date,
+        ).get(business_date, 0.0)
+        finished_inbound_output = daily_overview_builder._query_finished_inbound_totals_by_date(
+            db,
+            business_date,
+            business_date,
+        ).get(business_date, 0.0)
+
+    factory_total.update({
+        'packaging_output': round(packaging_output, 2),
+        'daily_output': round(packaging_output, 2),
+        'factory_total_output': round(packaging_output, 2),
+        'finished_inbound_output': round(finished_inbound_output, 2),
+        'owner_storage_finished_weight': round(finished_inbound_output, 2),
+        'business_day_start': '07:30',
+        'daily_output_source': 'mes_workshop_process_records',
+        'finished_inbound_source': 'daily_consumable_logs.payload.packaging_inbound_output_tons',
+    })
+    return payload
+
+
 def _iso_datetime(value) -> str | None:
     if value is None:
         return None
@@ -2310,6 +2347,12 @@ def build_live_aggregation(
         workshop_id=scoped_workshop_id,
     )
     payload = _inject_mtd_into_payload(payload, mtd_totals)
+    payload = _inject_factory_packaging_output(
+        payload,
+        db,
+        business_date=business_date,
+        scoped_workshop_id=scoped_workshop_id,
+    )
     payload['business_date_context'] = _build_live_business_date_context(
         db,
         requested_date=business_date,

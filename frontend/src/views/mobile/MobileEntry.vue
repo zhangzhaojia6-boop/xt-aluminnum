@@ -131,6 +131,19 @@
           </article>
         </div>
 
+        <section v-if="largeTypeMode" class="mobile-entry-stage__screen-summary" data-testid="mobile-screen-summary">
+          <header>
+            <span>现场屏幕</span>
+            <strong>{{ screenSummaryTitle }}</strong>
+          </header>
+          <div>
+            <article v-for="item in screenSummaryItems" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </article>
+          </div>
+        </section>
+
         <div class="mobile-entry-stage__cta">
           <el-button type="primary" size="large" data-testid="mobile-go-report" @click="goReport">
             开始填报
@@ -265,6 +278,37 @@ const currentFacts = computed(() => [
   { label: isMachineBound.value ? '机台' : '班组', value: isMachineBound.value ? (current.value?.machine_name || bootstrap.value?.machine_name || '-') : (current.value?.team_name || '-') },
   { label: '状态', value: formatStatusLabel(current.value?.report_status) }
 ])
+const screenRoleBucket = computed(() => {
+  if (auth.role === 'energy_stat' || transitionMapping.value.role_bucket === 'energy_stat') return 'energy'
+  if (isOwnerDailyEntry.value) return 'owner'
+  return 'operator'
+})
+const screenSummaryTitle = computed(() => {
+  if (screenRoleBucket.value === 'energy') return '电工能耗填报'
+  if (screenRoleBucket.value === 'owner') return '内勤每日填报'
+  return '主操机列填报'
+})
+const screenSummaryItems = computed(() => {
+  if (screenRoleBucket.value === 'energy') {
+    return [
+      { label: '归属日', value: current.value?.business_date || '-' },
+      { label: '填报口径', value: '07:30循环' },
+      { label: '当前状态', value: formatStatusLabel(current.value?.report_status) },
+    ]
+  }
+  if (screenRoleBucket.value === 'owner') {
+    return [
+      { label: '归属日', value: current.value?.business_date || '-' },
+      { label: '填报口径', value: '10:00循环' },
+      { label: '录入方式', value: '每日一录' },
+    ]
+  }
+  return [
+    { label: '当前班次', value: currentShiftLabel.value },
+    { label: '机列', value: current.value?.machine_name || bootstrap.value?.machine_name || '-' },
+    { label: '历史', value: '整日可查' },
+  ]
+})
 const showDebugBootstrap = computed(() => (
   auth.isLoggedIn &&
   isDev &&
@@ -743,6 +787,67 @@ onUnmounted(() => {
   text-shadow: 0 0 16px rgba(0, 242, 255, 0.14);
 }
 
+.mobile-entry-stage__screen-summary {
+  display: grid;
+  gap: 10px;
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(0, 242, 255, 0.18);
+  border-radius: var(--xt-radius-xl);
+  background:
+    linear-gradient(135deg, rgba(0, 197, 255, 0.1), rgba(3, 12, 24, 0.72)),
+    radial-gradient(circle at 12% 0%, rgba(0, 242, 255, 0.12), transparent 46%);
+}
+
+.mobile-entry-stage__screen-summary header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-entry-stage__screen-summary header span {
+  color: var(--app-muted);
+  font-size: var(--xt-text-sm);
+  font-weight: 800;
+}
+
+.mobile-entry-stage__screen-summary header strong {
+  color: var(--app-text);
+  font-size: var(--xt-text-lg);
+  font-weight: 950;
+}
+
+.mobile-entry-stage__screen-summary > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-entry-stage__screen-summary article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(0, 242, 255, 0.12);
+  border-radius: var(--xt-radius-lg);
+  background: rgba(3, 12, 24, 0.56);
+}
+
+.mobile-entry-stage__screen-summary article span {
+  color: var(--app-muted);
+  font-size: var(--xt-text-sm);
+  font-weight: 800;
+}
+
+.mobile-entry-stage__screen-summary article strong {
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: var(--xt-text-lg);
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobile-entry-stage__cta {
   display: flex;
   align-items: center;
@@ -853,6 +958,20 @@ onUnmounted(() => {
 
 .mobile-shell--large-type .mobile-entry-stage__facts {
   grid-template-columns: 1fr;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__screen-summary > div {
+  grid-template-columns: 1fr;
+}
+
+.mobile-shell--large-type .mobile-entry-stage__screen-summary header strong,
+.mobile-shell--large-type .mobile-entry-stage__screen-summary article strong {
+  font-size: clamp(22px, 5.6vw, 34px);
+}
+
+.mobile-shell--large-type .mobile-entry-stage__screen-summary header span,
+.mobile-shell--large-type .mobile-entry-stage__screen-summary article span {
+  font-size: clamp(15px, 4vw, 21px);
 }
 
 .mobile-shell--large-type .mobile-entry-stage__cta {

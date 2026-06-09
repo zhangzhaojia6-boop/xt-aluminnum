@@ -15,6 +15,7 @@ from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
+from app.core.event_bus import event_bus
 from app.services import import_service
 from app.services import master_service
 from app.services.audit_service import record_audit
@@ -169,6 +170,7 @@ def import_energy_data(
     raw_rows = df.to_dict(orient='records')
     success = 0
     failed = 0
+    affected_business_dates: set[date] = set()
     canonical_fields = {
         'business_date',
         'workshop_code',
@@ -231,6 +233,7 @@ def import_energy_data(
                 raw_payload=cleaned,
             )
             db.add(record)
+            affected_business_dates.add(business_date)
             row.status = 'success'
             row.error_msg = None
             success += 1
@@ -260,6 +263,14 @@ def import_energy_data(
         entity_id=batch.id,
         detail={'batch_no': batch.batch_no, 'success': success, 'failed': failed},
     )
+    business_dates = sorted(item.isoformat() for item in affected_business_dates)
+    event_bus.publish('energy_changed', {
+        'business_date': business_dates[0] if len(business_dates) == 1 else None,
+        'business_dates': business_dates,
+        'source': 'energy_import',
+        'success_rows': success,
+        'failed_rows': failed,
+    })
 
     return EnergyImportResult(
         batch_id=batch.id,

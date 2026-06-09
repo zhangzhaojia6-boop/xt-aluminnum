@@ -504,7 +504,7 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
         'scope': canonical_scope,
         'canonical_scope': canonical_scope,
         'total_output_weight': total_output,
-        'total_output_basis': 'storage_inbound_output',
+        'total_output_basis': 'mes_packaging_output',
         'process_output_weight': process_output,
         'process_output_basis': 'mobile_coil_process_output',
         'shift_count': len(items),

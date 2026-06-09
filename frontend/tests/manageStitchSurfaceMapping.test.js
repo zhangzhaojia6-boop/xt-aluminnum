@@ -172,7 +172,8 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
     loadError: '',
     aggregation: {
       factory_total: {
-        storage_finished_weight: 126.42,
+        packaging_output: 126.42,
+        finished_inbound_output: 120.5,
         process_output: 211.8,
       },
       energy_summary: {
@@ -214,10 +215,11 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
     'bottomStatus',
   ])
   assert.equal(surface.businessDate, '2026-06-05')
-  assert.equal(surface.marketTicker.find((item) => item.label === '成品入库')?.value, '126.42 吨')
+  assert.equal(surface.marketTicker.find((item) => item.label === '包装产量')?.value, '126.42 吨')
+  assert.equal(surface.marketTicker.find((item) => item.label === '全厂入库产量')?.value, '120.5 吨')
   assert.equal(surface.marketTicker.find((item) => item.label === '总电耗')?.value, '17,430 kWh')
   assert.equal(surface.machineMatrix.machineCount, 1)
-  assert.equal(surface.realtimeKpiStrip[0].primaryLabel, '算法')
+  assert.equal(surface.realtimeKpiStrip[0].primaryLabel, 'MES包装')
   assert.ok(surface.eventRail.find((item) => item.title === '实时连接断开'))
   assert.equal(surface.bottomStatus.find((item) => item.key === 'stream')?.value, '连接断开')
   assert.equal(surface.bottomStatus.find((item) => item.key === 'stream')?.tone, 'danger')

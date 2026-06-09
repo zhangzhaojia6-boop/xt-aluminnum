@@ -13,6 +13,7 @@ from app.agents.validator import validator_agent
 from app.agents.base import AgentAction, AgentDecision
 from app.config import settings
 from app.core.permissions import assert_mobile_report_access, assert_mobile_user_access, assert_scope_access
+from app.core.event_bus import event_bus
 from app.core.scope import build_scope_summary, scope_to_dict
 from app.core.workshop_templates import resolve_workshop_type
 from app.models.attendance import AttendanceSchedule
@@ -888,6 +889,28 @@ def save_or_submit_report(
     )
     db.commit()
     db.refresh(report)
+    event_bus.publish(
+        'entry_submitted' if submit else 'entry_saved',
+        {
+            'business_date': business_date.isoformat(),
+            'workshop_id': workshop.id,
+            'shift_id': shift.id,
+            'report_id': report.id,
+            'role': current_user.role,
+            'affects': ['missing_report', 'live_dashboard'],
+        },
+    )
+    if machine_energy_records:
+        event_bus.publish(
+            'energy_changed',
+            {
+                'business_date': business_date.isoformat(),
+                'workshop_id': workshop.id,
+                'shift_id': shift.id,
+                'report_id': report.id,
+                'source': 'mobile_energy',
+            },
+        )
     return _serialize_mobile_report(
         db,
         report,

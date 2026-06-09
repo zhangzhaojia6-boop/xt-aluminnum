@@ -5,6 +5,19 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.database import get_sessionmaker
 
 
+def _publish_sync_event(result: dict[str, object]) -> None:
+    try:
+        from app.core.event_bus import event_bus
+
+        event_bus.publish('mes_sync_completed', {
+            'business_date': None,
+            'source': 'mes_projection',
+            'result': result,
+        })
+    except Exception:
+        return
+
+
 def _run_sync_group(runner) -> dict[str, object]:
     from app.services import mes_sync_service
 
@@ -22,6 +35,7 @@ def _run_sync_group(runner) -> dict[str, object]:
         except Exception:
             session.rollback()
             raise
+    _publish_sync_event(result)
     return result
 
 

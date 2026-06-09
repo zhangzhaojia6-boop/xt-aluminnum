@@ -158,7 +158,7 @@ export function createDashboardSnapshot({
           ...dailyBreakdown,
           total_output: plantOutput.daily_output ?? dailyBreakdown.total_output,
           output_basis: plantOutput.basis || dailyBreakdown.output_basis,
-          output_basis_label: plantOutput.basis_label || dailyBreakdown.output_basis_label || '全厂成品产量'
+          output_basis_label: plantOutput.basis_label || dailyBreakdown.output_basis_label || '包装产量'
         }
       }
       const breakdown = data.value.yesterday_shift_breakdown || { shifts: [] }
@@ -167,7 +167,7 @@ export function createDashboardSnapshot({
         ...breakdown,
         total_output: plantOutput.daily_output,
         output_basis: plantOutput.basis || breakdown.output_basis,
-        output_basis_label: plantOutput.basis_label || breakdown.output_basis_label || '全厂成品入库产量'
+        output_basis_label: plantOutput.basis_label || breakdown.output_basis_label || '包装产量'
       }
     }),
     exceptionLane: computed(() => data.value.exception_lane || {}),

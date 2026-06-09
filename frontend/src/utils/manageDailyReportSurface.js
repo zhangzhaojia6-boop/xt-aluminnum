@@ -66,7 +66,7 @@ export function buildDailySettlementCards(overview = {}) {
   return [
     {
       key: 'plant-output',
-      label: '全厂日产量',
+      label: '包装产量',
       value: formatPlainMetric(plantOutput.daily_output),
       unit: '吨',
       deltaText: plantOutput.yesterday_output == null ? null : `比昨日 ${formatPlainMetric((toNumber(plantOutput.daily_output) || 0) - (toNumber(plantOutput.yesterday_output) || 0))} 吨`,
@@ -74,7 +74,7 @@ export function buildDailySettlementCards(overview = {}) {
     },
     {
       key: 'finished-inbound',
-      label: '入库成品量',
+      label: '全厂入库产量',
       value: formatPlainMetric(plantOutput.finished_inbound_output),
       unit: plantOutput.finished_inbound_output == null ? '' : '吨',
       tone: plantOutput.finished_inbound_output == null ? 'muted' : 'success',

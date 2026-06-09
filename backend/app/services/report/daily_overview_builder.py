@@ -559,40 +559,39 @@ def _query_mes_packaging_output_by_date(db: Session, start: date, end: date) -> 
 
 
 def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    totals = _query_mes_packaging_output_by_date(db, start, end)
-    inbound_totals = _query_finished_inbound_totals_by_date(db, start, end)
-    for business_date, total in inbound_totals.items():
-        totals.setdefault(business_date, total)
-    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+    return _query_mes_packaging_output_by_date(db, start, end)
 
 
 def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
     mes_totals_by_date = _query_mes_packaging_output_by_date(db, month_start, target_date)
     inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
-    totals_by_date = dict(mes_totals_by_date)
-    for business_date, total in inbound_totals_by_date.items():
-        totals_by_date.setdefault(business_date, total)
-    daily_output = totals_by_date.get(target_date, 0.0)
-    yesterday_output = totals_by_date.get(target_date - timedelta(days=1), 0.0)
-    monthly_output = sum(totals_by_date.values())
+    daily_output = mes_totals_by_date.get(target_date, 0.0)
+    yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
+    monthly_output = sum(mes_totals_by_date.values())
     finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
     finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
     days_elapsed = max(1, target_date.day)
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
-    uses_mes_output = target_date in mes_totals_by_date
     return {
-        'basis': 'mes_packaging_output' if uses_mes_output else 'storage_inbound_output',
-        'basis_label': 'MES包装日产量' if uses_mes_output else '入库成品量',
+        'basis': 'mes_packaging_output',
+        'basis_label': '包装产量',
+        'business_day_start': '07:30',
+        'daily_output_source': 'mes_workshop_process_records',
+        'finished_inbound_source': 'daily_consumable_logs.payload.packaging_inbound_output_tons',
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
         'monthly_output': _round2(monthly_output),
         'monthly_average_output': _round2(monthly_output / days_elapsed),
+        'packaging_output': _round2(daily_output),
+        'packaging_monthly_output': _round2(monthly_output),
+        'packaging_monthly_average': _round2(monthly_output / days_elapsed),
+        'packaging_basis_label': '包装产量',
         'finished_inbound_output': _round2(finished_inbound_output),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
-        'finished_inbound_basis_label': '入库成品量',
+        'finished_inbound_basis_label': '全厂入库产量',
         'energy_per_ton': energy_per_ton,
     }
 
@@ -740,10 +739,10 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
     plant_cost = _build_cost(plant_output['daily_output'] or 0, energy)
 
     header_kpis = [
-        {'key': 'plant_daily_output', 'label': '全厂日产量', 'value': plant_output['daily_output'], 'unit': '吨',
+        {'key': 'plant_daily_output', 'label': '包装产量', 'value': plant_output['daily_output'], 'unit': '吨',
          'delta': _delta(plant_output['daily_output'], plant_output['yesterday_output']),
          'delta_label': _fmt_delta_label(_delta(plant_output['daily_output'], plant_output['yesterday_output']))},
-        {'key': 'plant_inbound_output', 'label': '入库成品量', 'value': plant_output.get('finished_inbound_output'), 'unit': '吨'},
+        {'key': 'plant_inbound_output', 'label': '全厂入库产量', 'value': plant_output.get('finished_inbound_output'), 'unit': '吨'},
         {'key': 'wip_total', 'label': '在制料总计', 'value': _round2(wip_total), 'unit': '吨'},
         {'key': 'daily_yield', 'label': '日成品率', 'value': yield_rates.get('daily'), 'unit': '%',
          'delta': yield_rates.get('daily_delta'),

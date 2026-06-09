@@ -63,3 +63,18 @@ def test_mes_sync_task_rolls_back_unknown_errors(monkeypatch) -> None:
 
     assert session.commits == 0
     assert session.rollbacks == 1
+
+
+def test_mes_sync_task_publishes_realtime_event_after_commit(monkeypatch) -> None:
+    session = _FakeSession()
+    published = []
+    monkeypatch.setattr(mes_sync_tasks, 'get_sessionmaker', lambda: lambda: session)
+    monkeypatch.setattr(mes_sync_tasks, '_publish_sync_event', lambda result: published.append(result))
+
+    result = mes_sync_tasks._run_sync_group(
+        lambda _service, _session: {'projection': [{'cursor_key': 'mes_workshop_process_records', 'status': 'success'}]}
+    )
+
+    assert session.commits == 1
+    assert session.rollbacks == 0
+    assert published == [result]

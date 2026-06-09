@@ -160,6 +160,19 @@
           <label>料态</label>
           <el-input v-model="form.material_state" :disabled="isLockedField('material_state')" />
         </div>
+        <section v-if="mesReferenceRows.length" class="mobile-field mobile-field-wide coil-mes-reference" data-testid="mes-assisted-reference">
+          <header>
+            <strong>MES 参考值</strong>
+            <span>人工填报值可改</span>
+          </header>
+          <div class="coil-mes-reference__grid">
+            <article v-for="row in mesReferenceRows" :key="row.key">
+              <span>{{ row.label }}</span>
+              <b>MES {{ row.reference }}</b>
+              <em>人工填报值 {{ row.manual }}</em>
+            </article>
+          </div>
+        </section>
         <section class="mobile-field mobile-field-wide coil-flow">
           <header>
             <strong>流转确认</strong>
@@ -233,6 +246,7 @@ const flowLoading = ref(false)
 const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
 const lockedFieldsSnapshot = ref({})
 const lockedFieldsToken = ref('')
+const mesReferenceFields = ref([])
 const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
@@ -285,11 +299,46 @@ const MES_ASSISTED_SCAN_FIELDS = [
   'off_machine_time',
   'material_state',
 ]
+const MES_REFERENCE_LABELS = {
+  tracking_card_no: '随行卡号',
+  alloy_grade: '合金',
+  input_spec: '来料规格',
+  output_spec: '成品规格',
+  input_weight: '投入重量',
+  output_weight: '产出重量',
+  on_machine_time: '上机时间',
+  off_machine_time: '下机时间',
+  material_state: '料态',
+}
 const suggestedScrap = computed(() => {
   const inp = Number(form.value.input_weight) || 0
   const out = Number(form.value.output_weight) || 0
   return inp > 0 && out > 0 ? (inp - out).toFixed(1) : ''
 })
+const mesReferenceRows = computed(() => mesReferenceFields.value.map((item) => ({
+  ...item,
+  manual: formatReferenceValue(form.value[item.key]) || '未填',
+})))
+
+function formatReferenceValue(value) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+function buildMesReferenceFields(fields = {}) {
+  return MES_ASSISTED_SCAN_FIELDS
+    .map((key) => {
+      const rawValue = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
+      const reference = formatReferenceValue(rawValue)
+      if (!reference) return null
+      return {
+        key,
+        label: MES_REFERENCE_LABELS[key] || key,
+        reference,
+      }
+    })
+    .filter(Boolean)
+}
 
 function splitSpec(value) {
   const parts = String(value || '').split(/[×xX*]/).map(p => p.trim())
@@ -346,6 +395,7 @@ function isLockedField(name) {
 
 function applyScanLookupResult(result) {
   const fields = result?.header_fields || {}
+  mesReferenceFields.value = buildMesReferenceFields(fields)
   for (const key of MES_ASSISTED_SCAN_FIELDS) {
     const value = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
     if (value !== undefined && value !== null && key in form.value) {
@@ -452,6 +502,7 @@ async function submitCoil() {
     form.value = emptyForm()
     lockedFieldsSnapshot.value = {}
     lockedFieldsToken.value = ''
+    mesReferenceFields.value = []
     showEntryDialog.value = false
     await loadCoils()
   } catch (e) {
@@ -659,9 +710,83 @@ onMounted(loadData)
   letter-spacing: 0;
 }
 
+.coil-mes-reference {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(0, 197, 255, 0.22);
+  border-radius: var(--xt-radius-lg);
+  padding: 12px;
+  background:
+    linear-gradient(135deg, rgba(0, 197, 255, 0.1), rgba(3, 15, 28, 0.9)),
+    radial-gradient(circle at 10% 0%, rgba(0, 197, 255, 0.12), transparent 44%);
+}
+
+.coil-mes-reference header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.coil-mes-reference header strong {
+  color: var(--xt-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.coil-mes-reference header span {
+  color: var(--xt-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coil-mes-reference__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.coil-mes-reference__grid article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(133, 223, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(2, 13, 25, 0.66);
+}
+
+.coil-mes-reference__grid span,
+.coil-mes-reference__grid b,
+.coil-mes-reference__grid em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coil-mes-reference__grid span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+}
+
+.coil-mes-reference__grid b {
+  color: var(--xt-text);
+  font-size: 13px;
+}
+
+.coil-mes-reference__grid em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+}
+
 @media (max-width: 400px) {
   .coil-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coil-mes-reference__grid {
+    grid-template-columns: 1fr;
   }
 }
 

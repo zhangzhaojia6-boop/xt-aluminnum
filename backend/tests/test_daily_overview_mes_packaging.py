@@ -74,7 +74,7 @@ def test_mes_packaging_output_is_grouped_by_business_date(tmp_path) -> None:
     assert totals == {BUSINESS_DATE: 26.83}
 
 
-def test_plant_output_uses_mes_daily_output_and_keeps_finished_inbound_separate(tmp_path) -> None:
+def test_plant_output_uses_mes_packaging_as_main_and_keeps_inbound_separate(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -110,12 +110,42 @@ def test_plant_output_uses_mes_daily_output_and_keeps_finished_inbound_separate(
         plant = daily_overview_builder._build_plant_output(db, BUSINESS_DATE, {'total_electricity': 3650})
 
     assert plant['basis'] == 'mes_packaging_output'
-    assert plant['basis_label'] == 'MES包装日产量'
+    assert plant['basis_label'] == '包装产量'
+    assert plant['business_day_start'] == '07:30'
     assert plant['daily_output'] == 36.5
+    assert plant['packaging_output'] == 36.5
     assert plant['yesterday_output'] == 22.25
     assert plant['monthly_output'] == 58.75
+    assert plant['packaging_monthly_output'] == 58.75
     assert plant['monthly_average_output'] == round(58.75 / 9, 2)
     assert plant['finished_inbound_output'] == 18.75
+    assert plant['finished_inbound_basis_label'] == '全厂入库产量'
     assert plant['finished_inbound_monthly_output'] == 18.75
     assert plant['finished_inbound_monthly_average'] == round(18.75 / 9, 2)
     assert plant['energy_per_ton'] == 100.0
+
+
+def test_plant_output_does_not_fallback_to_manual_inbound_when_mes_missing(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='JZ', name='精整车间', is_active=True),
+                DailyConsumableLog(
+                    workshop_id=1,
+                    workshop_type='finishing',
+                    business_date=BUSINESS_DATE,
+                    payload={daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        plant = daily_overview_builder._build_plant_output(db, BUSINESS_DATE, {'total_electricity': 3650})
+
+    assert plant['basis'] == 'mes_packaging_output'
+    assert plant['daily_output'] == 0.0
+    assert plant['packaging_output'] == 0.0
+    assert plant['finished_inbound_output'] == 18.75
+    assert plant['energy_per_ton'] is None

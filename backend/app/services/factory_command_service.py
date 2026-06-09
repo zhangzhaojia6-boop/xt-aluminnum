@@ -837,11 +837,20 @@ def _live_source_freshness(freshness: Mapping[str, Any], source: str | None) -> 
 def _live_fill_entry_count(payload: Mapping[str, Any] | None) -> int:
     if not payload:
         return 0
-    if payload.get('data_source') == 'mes_projection':
-        return 0
     progress = payload.get('overall_progress') or {}
     pending_assignment = progress.get('pending_assignment') or {}
     return int(progress.get('total_entry_count') or 0) + int(pending_assignment.get('entry_count') or 0)
+
+
+def _live_payload_source(payload: Mapping[str, Any]) -> str:
+    source = str(payload.get('data_source') or 'work_order_runtime')
+    if source == 'mes_projection':
+        progress = payload.get('overall_progress') or {}
+        pending_assignment = progress.get('pending_assignment') or {}
+        fill_count = int(progress.get('total_entry_count') or 0) + int(pending_assignment.get('entry_count') or 0)
+        if fill_count > 0:
+            return 'mixed'
+    return source
 
 
 def _live_aggregation_for_factory_command(
@@ -893,7 +902,7 @@ def _overview_from_live_aggregation(
     *,
     freshness: Mapping[str, Any],
 ) -> dict[str, Any]:
-    source = str(payload.get('data_source') or 'work_order_runtime')
+    source = _live_payload_source(payload)
     response_freshness = _live_source_freshness(freshness, source)
     factory_total = payload.get('factory_total') or {}
     total_input = _number(factory_total.get('input'))
@@ -939,7 +948,7 @@ def _workshops_from_live_aggregation(
     *,
     freshness: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    source = str(payload.get('data_source') or 'work_order_runtime')
+    source = _live_payload_source(payload)
     response_freshness = _live_source_freshness(freshness, source)
     items = []
     for workshop in payload.get('workshops') or []:
@@ -966,7 +975,7 @@ def _machine_lines_from_live_aggregation(
     *,
     freshness: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    source = str(payload.get('data_source') or 'work_order_runtime')
+    source = _live_payload_source(payload)
     response_freshness = _live_source_freshness(freshness, source)
     equipment_by_id = _equipment_map(db)
     items = []

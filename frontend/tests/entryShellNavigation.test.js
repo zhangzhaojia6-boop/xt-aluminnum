@@ -28,6 +28,10 @@ test('EntryShell applies the cyber industrial mobile visual shell without changi
 
 test('mobile entry and unified form keep real controls while adopting industrial motion', () => {
   assert.match(mobileEntrySrc, /data-testid="mobile-go-report"/)
+  assert.match(mobileEntrySrc, /data-testid="mobile-screen-summary"/)
+  assert.match(mobileEntrySrc, /主操机列填报/)
+  assert.match(mobileEntrySrc, /电工能耗填报/)
+  assert.match(mobileEntrySrc, /内勤每日填报/)
   assert.match(mobileEntrySrc, /07:30 起算/)
   assert.doesNotMatch(mobileEntrySrc, /23:30 起算/)
   assert.match(mobileEntrySrc, /@keyframes mobileEntryButtonSweep/)

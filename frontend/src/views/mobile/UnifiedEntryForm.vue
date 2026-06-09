@@ -26,6 +26,20 @@
         </button>
       </div>
 
+      <section v-if="mesReferenceRows.length" class="ue-mes-reference" data-testid="mes-assisted-reference">
+        <header>
+          <strong>MES 参考值</strong>
+          <span>人工填报值可改</span>
+        </header>
+        <div class="ue-mes-reference__grid">
+          <article v-for="row in mesReferenceRows" :key="row.key">
+            <span>{{ row.label }}</span>
+            <b>MES {{ row.reference }}</b>
+            <em>人工填报值 {{ row.manual }}</em>
+          </article>
+        </div>
+      </section>
+
       <section v-for="(group, gi) in groups" :key="gi" class="ue-group">
         <h3 class="ue-group__title">{{ group.label }}</h3>
         <div class="ue-fields">
@@ -287,6 +301,7 @@ const form = reactive({})
 const specParts = reactive({})
 const lockedFieldsSnapshot = ref({})
 const lockedFieldsToken = ref('')
+const mesReferenceFields = ref([])
 const groups = ref([])
 const readonlyFields = ref([])
 const visibleReadonlyFields = computed(() =>
@@ -380,6 +395,17 @@ const MES_ASSISTED_SCAN_FIELDS = [
   'off_machine_time',
   'material_state',
 ]
+const MES_REFERENCE_LABELS = {
+  tracking_card_no: '随行卡号',
+  alloy_grade: '合金',
+  input_spec: '来料规格',
+  output_spec: '成品规格',
+  input_weight: '投入重量',
+  output_weight: '产出重量',
+  on_machine_time: '上机时间',
+  off_machine_time: '下机时间',
+  material_state: '料态',
+}
 const QUALITY_TEMPLATE_FIELDS = new Set([
   'quality_note',
   'quality_issue_type',
@@ -405,6 +431,30 @@ const historyTitle = computed(() => {
   if (mode.value === 'owner_daily') return `${businessDate.value || '本日'} 已录`
   return `本班已录 (${history.value.length})`
 })
+const mesReferenceRows = computed(() => mesReferenceFields.value.map((item) => ({
+  ...item,
+  manual: formatReferenceValue(form[item.key]) || '未填',
+})))
+
+function formatReferenceValue(value) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+function buildMesReferenceFields(fields = {}) {
+  return MES_ASSISTED_SCAN_FIELDS
+    .map((key) => {
+      const rawValue = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
+      const reference = formatReferenceValue(rawValue)
+      if (!reference) return null
+      return {
+        key,
+        label: MES_REFERENCE_LABELS[key] || key,
+        reference,
+      }
+    })
+    .filter(Boolean)
+}
 
 function resetQuality() {
   quality.has_issue = false
@@ -498,6 +548,7 @@ function isLockedField(name) {
 
 function applyScanLookupResult(result) {
   const fields = result?.header_fields || {}
+  mesReferenceFields.value = buildMesReferenceFields(fields)
   for (const key of MES_ASSISTED_SCAN_FIELDS) {
     const value = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
     if (value !== undefined && value !== null && key in form) {
@@ -811,6 +862,7 @@ async function handleSubmit() {
       }
       lockedFieldsSnapshot.value = {}
       lockedFieldsToken.value = ''
+      mesReferenceFields.value = []
       resetQuality()
     } else if (submitTarget.value === 'owner_daily') {
       const saved = await saveOwnerDailyEntry(buildOwnerDailyPayload(sc), { skipErrorToast: true })
@@ -1026,6 +1078,76 @@ onMounted(loadData)
 
 .ue-scan-btn:active {
   transform: scale(0.98);
+}
+
+.ue-mes-reference {
+  margin: 12px 16px 0;
+  padding: 14px;
+  border: 1px solid rgba(0, 197, 255, 0.24);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(0, 197, 255, 0.1), rgba(3, 15, 28, 0.9)),
+    radial-gradient(circle at 10% 0%, rgba(0, 197, 255, 0.12), transparent 44%);
+}
+
+.ue-mes-reference header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ue-mes-reference header strong {
+  color: var(--xt-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ue-mes-reference header span {
+  color: var(--xt-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ue-mes-reference__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ue-mes-reference__grid article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(133, 223, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(2, 13, 25, 0.66);
+}
+
+.ue-mes-reference__grid span,
+.ue-mes-reference__grid b,
+.ue-mes-reference__grid em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ue-mes-reference__grid span {
+  color: var(--xt-text-muted);
+  font-size: 12px;
+}
+
+.ue-mes-reference__grid b {
+  color: var(--xt-text);
+  font-size: 13px;
+}
+
+.ue-mes-reference__grid em {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .ue-group {
@@ -1415,6 +1537,10 @@ onMounted(loadData)
   }
 
   .ue-machine-energy-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ue-mes-reference__grid {
     grid-template-columns: 1fr;
   }
 

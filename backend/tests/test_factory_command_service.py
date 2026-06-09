@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
+from app.models.consumable import DailyConsumableLog
 from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
 from app.models.mes import (
     CoilFlowEvent,
@@ -170,7 +171,11 @@ def _factory_realtime_session(tmp_path):
             ShiftProductionData.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            DailyConsumableLog.__table__,
+            MobileShiftReport.__table__,
             MesCoilSnapshot.__table__,
+            MesMachineLineSnapshot.__table__,
+            MesWorkshopProcessRecord.__table__,
         ],
     )
     return sessionmaker(bind=engine, autoflush=False, future=True)()

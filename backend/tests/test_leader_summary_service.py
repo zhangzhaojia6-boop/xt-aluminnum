@@ -65,6 +65,7 @@ def test_build_best_effort_leader_summary_returns_deterministic_fallback_when_ll
 
     assert payload['summary_source'] == 'deterministic'
     assert '今日产量 180.50 吨' in payload['summary_text']
+    assert '按包装产量作为最终产量口径' in payload['summary_text']
     assert '发货 8.00 吨' in payload['summary_text']
     assert '入库面积 2000.00 ㎡' in payload['summary_text']
     assert payload['metrics']['yield_rate'] == 94.4

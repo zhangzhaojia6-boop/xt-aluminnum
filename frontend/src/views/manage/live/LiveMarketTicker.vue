@@ -7,13 +7,15 @@
       :class="`is-${item.tone}`"
     >
       <span>{{ item.label }}</span>
-      <strong data-xt-numeric>{{ item.value }}</strong>
+      <strong data-xt-numeric><AnimatedMetricValue :value="item.value" /></strong>
       <em>{{ item.source }}</em>
     </article>
   </section>
 </template>
 
 <script setup>
+import AnimatedMetricValue from './AnimatedMetricValue.vue'
+
 defineProps({
   items: {
     type: Array,
@@ -25,7 +27,7 @@ defineProps({
 <style scoped>
 .live-market-ticker {
   display: grid;
-  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  grid-template-columns: repeat(8, minmax(132px, 1fr));
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 2px;

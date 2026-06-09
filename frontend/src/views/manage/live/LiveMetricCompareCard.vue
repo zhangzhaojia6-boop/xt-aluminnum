@@ -10,10 +10,10 @@
     <div class="live-metric-compare__grid">
       <article v-for="item in items" :key="item.label" :class="`is-${item.tone}`">
         <span>{{ item.label }}</span>
-        <strong data-xt-numeric>{{ item.primaryValue }}</strong>
+        <strong data-xt-numeric><AnimatedMetricValue :value="item.primaryValue" /></strong>
         <div>
           <b>{{ item.primaryLabel }}</b>
-          <em>{{ item.compareLabel }} {{ item.compareValue }}</em>
+          <em>{{ item.compareLabel }} <AnimatedMetricValue :value="item.compareValue" /></em>
         </div>
       </article>
     </div>
@@ -21,6 +21,8 @@
 </template>
 
 <script setup>
+import AnimatedMetricValue from './AnimatedMetricValue.vue'
+
 defineProps({
   items: {
     type: Array,

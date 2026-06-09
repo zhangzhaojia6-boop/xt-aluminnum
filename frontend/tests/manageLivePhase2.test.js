@@ -10,10 +10,13 @@ import {
   buildLiveTickerItems,
   formatTrustedMetric,
   shouldReloadForRealtimeEvent,
+  mergeRealtimeEventPatch,
 } from '../src/utils/liveDashboardPhase2.js'
 
 const livePageUrl = new URL('../src/views/manage/live/LiveDashboardPage.vue', import.meta.url)
 const livePageSource = existsSync(livePageUrl) ? readFileSync(livePageUrl, 'utf8') : ''
+const animatedMetricUrl = new URL('../src/views/manage/live/AnimatedMetricValue.vue', import.meta.url)
+const animatedMetricSource = existsSync(animatedMetricUrl) ? readFileSync(animatedMetricUrl, 'utf8') : ''
 
 const componentNames = [
   'LiveMarketTicker',
@@ -73,6 +76,14 @@ test('/manage/live keeps the dispatch wall title readable at dashboard width', (
   assert.match(livePageSource, /white-space:\s*nowrap/)
 })
 
+test('/manage/live uses one-second numeric rolling without heavy decorative loops', () => {
+  assert.ok(animatedMetricSource, 'AnimatedMetricValue.vue should exist')
+  assert.match(animatedMetricSource, /const durationMs = 1000/)
+  assert.match(animatedMetricSource, /prefers-reduced-motion:\s*reduce/)
+  assert.doesNotMatch(animatedMetricSource, /@keyframes/)
+  assert.doesNotMatch(animatedMetricSource, /infinite/)
+})
+
 test('realtime stream heartbeats do not reload the whole live page', () => {
   assert.equal(
     shouldReloadForRealtimeEvent({ type: 'heartbeat', payload: {}, targetDate: '2026-05-30' }),
@@ -96,10 +107,11 @@ test('realtime stream heartbeats do not reload the whole live page', () => {
   )
 })
 
-test('ticker exposes the first-screen factory signals without fake zeros', () => {
+test('ticker exposes the first-screen factory signals with zero fallback', () => {
   const items = buildLiveTickerItems({
     factory_total: {
-      storage_finished_weight: 126.42,
+      packaging_output: 126.42,
+      finished_inbound_output: 120.5,
       output: 211.8,
     },
     energy_summary: {},
@@ -113,7 +125,8 @@ test('ticker exposes the first-screen factory signals without fake zeros', () =>
   })
 
   assert.deepEqual(items.map((item) => item.label), [
-    '成品入库',
+    '包装产量',
+    '全厂入库产量',
     '过站下机',
     '总电耗',
     '吨电耗',
@@ -122,10 +135,10 @@ test('ticker exposes the first-screen factory signals without fake zeros', () =>
     '外部 MES',
   ])
   assert.equal(items[0].value, '126.42 吨')
-  assert.equal(items[1].value, '211.8 吨')
-  assert.equal(items[2].value, '待同步')
-  assert.equal(items[3].value, '待同步')
-  assert.equal(items[2].value.includes('0 kWh'), false)
+  assert.equal(items[1].value, '120.5 吨')
+  assert.equal(items[2].value, '211.8 吨')
+  assert.equal(items[3].value, '0 kWh')
+  assert.equal(items[4].value, '0 kWh/吨')
 })
 
 test('ticker accepts daily energy aliases from the energy center summary', () => {
@@ -147,10 +160,10 @@ test('ticker does not display comprehensive total_energy as electricity', () => 
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '0 kWh')
 })
 
-test('ticker honors unavailable energy flag instead of showing fake zero', () => {
+test('ticker honors unavailable energy flag with zero value and muted tone', () => {
   const items = buildLiveTickerItems({
     energy_summary: {
       data_available: false,
@@ -159,8 +172,9 @@ test('ticker honors unavailable energy flag instead of showing fake zero', () =>
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
-  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '待同步')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '0 kWh')
+  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '0 kWh/吨')
+  assert.equal(items.find((item) => item.label === '总电耗')?.tone, 'muted')
 })
 
 test('ticker marks missing freshness and counts as unknown rather than healthy', () => {
@@ -239,8 +253,8 @@ test('machine matrix orders shifts by production day rhythm', () => {
 test('metric comparison keeps algorithm values primary and filled values visible', () => {
   const items = buildLiveMetricCompareItems({
     factory_total: {
-      storage_finished_weight: 126.4,
-      owner_storage_finished_weight: 120.8,
+      packaging_output: 126.4,
+      finished_inbound_output: 120.8,
     },
     energy_summary: {
       algorithm_total_energy: 8840,
@@ -250,9 +264,9 @@ test('metric comparison keeps algorithm values primary and filled values visible
   })
 
   assert.equal(items[0].label, '全厂总产量')
-  assert.equal(items[0].primaryLabel, '算法')
+  assert.equal(items[0].primaryLabel, 'MES包装')
   assert.equal(items[0].primaryValue, '126.4 吨')
-  assert.equal(items[0].compareLabel, '填报')
+  assert.equal(items[0].compareLabel, '全厂入库')
   assert.equal(items[0].compareValue, '120.8 吨')
   assert.equal(items[1].primaryValue, '8,840 kWh')
   assert.equal(items[1].compareValue, '8,700 kWh')
@@ -280,7 +294,7 @@ test('metric comparison does not display total_energy as total electricity', () 
     },
   })
 
-  assert.equal(items[1].primaryValue, '待同步')
+  assert.equal(items[1].primaryValue, '0 kWh')
   assert.equal(items[1].compareValue, '17,020 kWh')
 })
 
@@ -294,14 +308,14 @@ test('metric comparison honors unavailable energy flag instead of showing fake z
     },
   })
 
-  assert.equal(items[1].primaryValue, '待同步')
-  assert.equal(items[1].compareValue, '待同步')
-  assert.equal(items[2].primaryValue, '待同步')
+  assert.equal(items[1].primaryValue, '0 kWh')
+  assert.equal(items[1].compareValue, '0 kWh')
+  assert.equal(items[2].primaryValue, '0 kWh/吨')
 })
 
 test('event rail and trusted metric formatting expose empty, error and disconnected states', () => {
-  assert.equal(formatTrustedMetric(null, 'kWh'), '待同步')
-  assert.equal(formatTrustedMetric(undefined, '吨'), '待同步')
+  assert.equal(formatTrustedMetric(null, 'kWh'), '0 kWh')
+  assert.equal(formatTrustedMetric(undefined, '吨'), '0 吨')
   assert.equal(formatTrustedMetric(0, 'kWh'), '0 kWh')
 
   const events = buildLiveEventItems({
@@ -321,6 +335,23 @@ test('event rail and trusted metric formatting expose empty, error and disconnec
   assert.equal(events.some((event) => event.title === '未填报'), true)
   assert.equal(events.some((event) => event.title === '能耗待同步'), true)
   assert.equal(events.some((event) => event.title === '待补产出重量'), true)
+})
+
+test('realtime event payload can patch live aggregation without visible full-page reload', () => {
+  const patched = mergeRealtimeEventPatch(
+    { factory_total: { packaging_output: 10 }, energy_summary: { total_electricity: 80 } },
+    {
+      targetDate: '2026-06-09',
+      payload: {
+        business_date: '2026-06-09',
+        factory_total: { packaging_output: 12.5 },
+        energy_summary: { total_electricity: 96 },
+      },
+    },
+  )
+
+  assert.equal(patched.factory_total.packaging_output, 12.5)
+  assert.equal(patched.energy_summary.total_electricity, 96)
 })
 
 test('live priority items expose only the three most urgent actions', () => {

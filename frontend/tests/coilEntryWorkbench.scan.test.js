@@ -100,6 +100,9 @@ test('coil entry workbench applies scanned fields without locking them', () => {
   assert.match(coilEntrySource, /lockedFieldsToken/)
   assert.doesNotMatch(coilEntrySource, /applyLockedSnapshot\(result\?\.lock_keys/)
   assert.match(coilEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)
+  assert.match(coilEntrySource, /MES 参考值/)
+  assert.match(coilEntrySource, /人工填报值可改/)
+  assert.match(coilEntrySource, /mesReferenceRows/)
   assert.match(coilEntrySource, /on_machine_time: form\.value\.on_machine_time/)
   assert.match(coilEntrySource, /off_machine_time: form\.value\.off_machine_time/)
   assert.match(coilEntrySource, /material_state: form\.value\.material_state/)
@@ -120,6 +123,9 @@ test('unified entry form keeps scanned per-coil fields editable', () => {
   assert.match(unifiedEntrySource, /locked_fields_snapshot/)
   assert.match(unifiedEntrySource, /locked_fields_token/)
   assert.match(unifiedEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)
+  assert.match(unifiedEntrySource, /MES 参考值/)
+  assert.match(unifiedEntrySource, /人工填报值可改/)
+  assert.match(unifiedEntrySource, /mesReferenceRows/)
 })
 
 test('unified entry form maps casting output and spec fields into canonical payload', () => {

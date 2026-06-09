@@ -65,8 +65,8 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
             'daily_output': 18.5,
             'yesterday_output': 17.2,
             'monthly_output': 220.0,
-            'basis': 'storage_inbound_output',
-            'basis_label': '全厂入库产量',
+            'basis': 'mes_packaging_output',
+            'basis_label': '包装产量',
             'energy_per_ton': 172.97,
         },
     )
@@ -86,11 +86,11 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
     payload = daily_overview_builder.build_daily_production_overview(None, target_date=date(2026, 5, 29))
 
     assert payload['plant_output']['daily_output'] == 18.5
-    assert payload['plant_output']['basis_label'] == '全厂入库产量'
+    assert payload['plant_output']['basis_label'] == '包装产量'
     assert payload['plant_cost']['basis_weight'] == 18.5
     assert payload['plant_cost']['cost_per_ton'] == round(2.08 * 10000 / 18.5, 0)
     assert payload['shift_breakdown']['output_basis_label'] == '工序下机量'
-    assert payload['header_kpis'][0]['label'] == '全厂日产量'
+    assert payload['header_kpis'][0]['label'] == '包装产量'
 
 
 def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
@@ -104,7 +104,7 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
     }) == 7.2
 
 
-def test_plant_output_prefers_packaging_inbound_from_final_packaging_workshops(tmp_path) -> None:
+def test_finished_inbound_output_prefers_packaging_inbound_from_final_packaging_workshops(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-packaging-output.db'}", future=True)
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -142,7 +142,7 @@ def test_plant_output_prefers_packaging_inbound_from_final_packaging_workshops(t
     ])
     db.commit()
 
-    totals = daily_overview_builder._query_plant_output_totals_by_date(
+    totals = daily_overview_builder._query_finished_inbound_totals_by_date(
         db,
         date(2026, 6, 4),
         date(2026, 6, 4),
@@ -241,7 +241,7 @@ def test_wip_distribution_prefers_daily_wip_snapshot_read_model(tmp_path) -> Non
     ]
 
 
-def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
+def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_mes_packaging_output_by_date',
@@ -266,11 +266,11 @@ def test_build_plant_output_uses_storage_inbound_totals(monkeypatch) -> None:
 
     payload = daily_overview_builder._build_plant_output(None, date(2026, 5, 29), energy)
 
-    assert payload['daily_output'] == 2.0
-    assert payload['yesterday_output'] == 0.8
-    assert payload['monthly_output'] == 2.8
-    assert payload['basis'] == 'storage_inbound_output'
-    assert payload['basis_label'] == '入库成品量'
+    assert payload['daily_output'] == 0.0
+    assert payload['yesterday_output'] == 0.0
+    assert payload['monthly_output'] == 0
+    assert payload['basis'] == 'mes_packaging_output'
+    assert payload['basis_label'] == '包装产量'
     assert payload['finished_inbound_output'] == 2.0
     assert payload['finished_inbound_monthly_output'] == 2.8
 
@@ -323,7 +323,7 @@ def test_build_energy_returns_none_when_no_real_energy_rows(monkeypatch) -> None
     assert payload['total_cost'] is None
 
 
-def test_build_timeseries_uses_storage_inbound_plant_output(monkeypatch) -> None:
+def test_build_timeseries_uses_mes_packaging_plant_output(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_plant_output_totals_by_date',
@@ -346,7 +346,7 @@ def test_build_timeseries_uses_storage_inbound_plant_output(monkeypatch) -> None
     ]
 
 
-def test_factory_dashboard_runtime_output_prefers_storage_inbound_totals(monkeypatch) -> None:
+def test_factory_dashboard_runtime_output_uses_mes_packaging_totals(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_plant_output_totals_by_date',

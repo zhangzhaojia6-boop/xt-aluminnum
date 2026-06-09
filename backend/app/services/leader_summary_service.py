@@ -73,7 +73,7 @@ def build_leader_summary_metrics(*, report_date: date, report_data: dict[str, An
 def build_deterministic_leader_summary(*, metrics: dict[str, Any]) -> str:
     missing: list[str] = []
     if _to_float(metrics.get('total_output_weight')) <= 0:
-        missing.append('全厂最终入库产量缺失或为 0')
+        missing.append('包装产量缺失或为 0')
     if not metrics.get('energy_available'):
         missing.append('能耗数据缺失，无法计算吨能耗')
     if _to_float(metrics.get('yield_rate')) <= 0:
@@ -87,7 +87,7 @@ def build_deterministic_leader_summary(*, metrics: dict[str, Any]) -> str:
 
     return (
         f"一、生产总量：{metrics['report_date']} 今日产量 {metrics['total_output_weight']:.2f} 吨，"
-        f"按全厂入库产量作为最终产量口径。\n\n"
+        f"按包装产量作为最终产量口径，全厂入库产量保留作对照。\n\n"
         f"二、质量与成品率：全厂成品率 {metrics['yield_rate']:.2f}%，以算法计算结果为主口径。\n\n"
         f"三、合同与交付：合同量 {metrics['contract_weight']:.2f} 吨，"
         f"发货 {metrics['shipment_weight']:.2f} 吨。\n\n"

@@ -10,6 +10,7 @@ from app.database import Base
 from app.models.attendance import AttendanceException, AttendanceResult
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
+from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ProductionException, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.reconciliation import DataReconciliationItem
 from app.models.shift import ShiftConfig
@@ -142,7 +143,7 @@ def build_history_session(tmp_path):
     return db, workshop, shift
 
 
-def test_yesterday_shift_breakdown_uses_storage_inbound_as_factory_output(tmp_path) -> None:
+def test_yesterday_shift_breakdown_uses_mes_packaging_as_factory_output(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'factory-output-basis.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -155,6 +156,7 @@ def test_yesterday_shift_breakdown_uses_storage_inbound_as_factory_output(tmp_pa
             ProductionException.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            MesWorkshopProcessRecord.__table__,
         ],
     )
     db = sessionmaker(bind=engine, future=True)()
@@ -202,13 +204,23 @@ def test_yesterday_shift_breakdown_uses_storage_inbound_as_factory_output(tmp_pa
                 extra_payload={'storage_inbound_weight': 42},
             )
         )
+        db.add(
+            MesWorkshopProcessRecord(
+                source_id='MES-PACKAGING-20260602',
+                source_path='sqlserver:workshop_process',
+                workshop_name='精整车间',
+                process_name='包装入库',
+                output_weight_tons=56,
+                business_date=target_date,
+            )
+        )
         db.commit()
 
         payload = report_service._build_yesterday_shift_breakdown(db, target_date=target_date)
 
-        assert payload['output_basis'] == 'storage_inbound_output'
-        assert payload['output_basis_label'] == '全厂入库产量'
-        assert payload['total_output'] == 42
+        assert payload['output_basis'] == 'mes_packaging_output'
+        assert payload['output_basis_label'] == '包装产量'
+        assert payload['total_output'] == 56
         assert payload['total_throughput'] == 100
         assert payload['shift_output_basis'] == 'mobile_coil_process_output'
         assert payload['shift_output_basis_label'] == '过站下机参考'
@@ -318,7 +330,7 @@ def test_generate_production_report_converts_mobile_coil_aggregates_to_tons(monk
     payload = report_service._generate_production_report(ProductionReportDB(), report_date=date(2026, 5, 6), scope='auto_confirmed')
 
     assert payload['total_output_weight'] == 18.5
-    assert payload['total_output_basis'] == 'storage_inbound_output'
+    assert payload['total_output_basis'] == 'mes_packaging_output'
     assert payload['process_output_weight'] == 74.11
     assert payload['qualified_weight'] == 72.5
     assert payload['scrap_weight'] == 1.5
