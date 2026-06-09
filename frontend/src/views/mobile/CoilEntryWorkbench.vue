@@ -133,20 +133,32 @@
         <div class="mobile-field">
           <label>成品规格</label>
           <div class="mobile-spec-row">
-            <el-input :model-value="outputSpecParts[0]" inputmode="decimal" placeholder="厚" @update:model-value="updateOutputSpec(0, $event)" />
+            <el-input :model-value="outputSpecParts[0]" :disabled="isLockedField('output_spec')" inputmode="decimal" placeholder="厚" @update:model-value="updateOutputSpec(0, $event)" />
             <span class="mobile-spec-sep">×</span>
-            <el-input :model-value="outputSpecParts[1]" inputmode="decimal" placeholder="宽" @update:model-value="updateOutputSpec(1, $event)" />
+            <el-input :model-value="outputSpecParts[1]" :disabled="isLockedField('output_spec')" inputmode="decimal" placeholder="宽" @update:model-value="updateOutputSpec(1, $event)" />
             <span class="mobile-spec-sep">×</span>
-            <el-input :model-value="outputSpecParts[2]" inputmode="decimal" placeholder="长" @update:model-value="updateOutputSpec(2, $event)" />
+            <el-input :model-value="outputSpecParts[2]" :disabled="isLockedField('output_spec')" inputmode="decimal" placeholder="长" @update:model-value="updateOutputSpec(2, $event)" />
           </div>
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 投入重量 kg</label>
-          <el-input v-model.number="form.input_weight" type="number" inputmode="decimal" />
+          <el-input v-model.number="form.input_weight" :disabled="isLockedField('input_weight')" type="number" inputmode="decimal" />
         </div>
         <div class="mobile-field">
           <label><span class="mobile-required">*</span> 产出重量 kg</label>
-          <el-input v-model.number="form.output_weight" type="number" inputmode="decimal" />
+          <el-input v-model.number="form.output_weight" :disabled="isLockedField('output_weight')" type="number" inputmode="decimal" />
+        </div>
+        <div class="mobile-field">
+          <label>上机时间</label>
+          <el-input v-model="form.on_machine_time" :disabled="isLockedField('on_machine_time')" type="time" />
+        </div>
+        <div class="mobile-field">
+          <label>下机时间</label>
+          <el-input v-model="form.off_machine_time" :disabled="isLockedField('off_machine_time')" type="time" />
+        </div>
+        <div class="mobile-field">
+          <label>料态</label>
+          <el-input v-model="form.material_state" :disabled="isLockedField('material_state')" />
         </div>
         <section class="mobile-field mobile-field-wide coil-flow">
           <header>
@@ -253,12 +265,26 @@ const emptyForm = () => ({
   alloy_grade: '',
   input_spec: '',
   output_spec: '',
+  on_machine_time: '',
+  off_machine_time: '',
   input_weight: null,
   output_weight: null,
+  material_state: '',
   operator_notes: '',
   flow: emptyFlow(),
 })
 const form = ref(emptyForm())
+const MES_ASSISTED_SCAN_FIELDS = [
+  'tracking_card_no',
+  'alloy_grade',
+  'input_spec',
+  'output_spec',
+  'input_weight',
+  'output_weight',
+  'on_machine_time',
+  'off_machine_time',
+  'material_state',
+]
 const suggestedScrap = computed(() => {
   const inp = Number(form.value.input_weight) || 0
   const out = Number(form.value.output_weight) || 0
@@ -314,32 +340,18 @@ function applyFlowSuggestion(flow) {
   }
 }
 
-function currentLockValue(key) {
-  if (key in form.value) return form.value[key]
-  if (key in form.value.flow) return form.value.flow[key]
-  return undefined
-}
-
 function isLockedField(name) {
   return Object.prototype.hasOwnProperty.call(lockedFieldsSnapshot.value, name)
 }
 
-function applyLockedSnapshot(lockKeys = []) {
-  const snapshot = {}
-  for (const key of lockKeys) {
-    const value = currentLockValue(key)
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      snapshot[key] = value
-    }
-  }
-  lockedFieldsSnapshot.value = snapshot
-}
-
 function applyScanLookupResult(result) {
   const fields = result?.header_fields || {}
-  if (fields.tracking_card_no) form.value.tracking_card_no = fields.tracking_card_no
-  if (fields.alloy_grade) form.value.alloy_grade = fields.alloy_grade
-  if (fields.input_spec || fields.spec_display) form.value.input_spec = fields.input_spec || fields.spec_display
+  for (const key of MES_ASSISTED_SCAN_FIELDS) {
+    const value = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
+    if (value !== undefined && value !== null && key in form.value) {
+      form.value[key] = value
+    }
+  }
   if (fields.current_workshop || fields.current_process || fields.next_workshop || fields.next_process) {
     form.value.flow = {
       ...form.value.flow,
@@ -351,8 +363,8 @@ function applyScanLookupResult(result) {
       flow_confirmed_at: new Date().toISOString(),
     }
   }
-  applyLockedSnapshot(result?.lock_keys || [])
-  lockedFieldsToken.value = result?.lock_token || ''
+  lockedFieldsSnapshot.value = {}
+  lockedFieldsToken.value = ''
   showEntryDialog.value = true
 }
 
@@ -423,6 +435,9 @@ async function submitCoil() {
   try {
     const payload = {
       ...form.value,
+      on_machine_time: form.value.on_machine_time,
+      off_machine_time: form.value.off_machine_time,
+      material_state: form.value.material_state,
       scrap_weight: Number(suggestedScrap.value) || 0,
       operator_name: operatorName.value,
       business_date: currentShift.value?.business_date,

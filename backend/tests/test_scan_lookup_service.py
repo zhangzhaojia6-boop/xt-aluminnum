@@ -8,14 +8,16 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Equipment, Workshop
-from app.models.mes import MesCoilSnapshot
+from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.services import scan_lookup_service
-from app.services.locked_fields_service import verify_locked_fields_token
 
 
 def _session_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'scan-lookup.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[Workshop.__table__, Equipment.__table__, MesCoilSnapshot.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, Equipment.__table__, MesCoilSnapshot.__table__, MesWorkshopProcessRecord.__table__],
+    )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
@@ -71,13 +73,59 @@ def test_scan_lookup_hits_mes_coil_qr_first(tmp_path) -> None:
     assert payload['header_fields']['next_workshop'] == '退火车间'
     assert payload['header_fields']['next_process'] == '退火'
     assert payload['header_fields']['material_weight'] == 1580.0
-    assert payload['lock_keys'] == ['tracking_card_no', 'alloy_grade', 'input_spec']
-    locked_fields = verify_locked_fields_token(payload['lock_token'])
-    assert locked_fields == {
-        'tracking_card_no': 'TRACK-QR-1',
-        'alloy_grade': '6061',
-        'input_spec': '1.2×1200',
-    }
+    assert payload['lock_keys'] == []
+    assert payload['lock_token'] is None
+
+
+def test_scan_lookup_enriches_header_fields_from_latest_mes_process(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesCoilSnapshot(
+                coil_id='MES-PROC-QR-1',
+                tracking_card_no='TRACK-PROC-1',
+                qr_code='QR-PROC-1',
+                batch_no='BATCH-PROC-1',
+                alloy_grade='6061',
+                material_state='H24',
+                spec_display='1.2×1200',
+            )
+        )
+        db.add(
+            MesWorkshopProcessRecord(
+                source_id='PROC-LOOKUP-1',
+                source_path='mvc',
+                batch_no='BATCH-PROC-1',
+                workshop_name='冷轧车间',
+                process_name='精轧',
+                device_name='2#轧机',
+                input_weight_kg=1000,
+                output_weight_kg=960,
+                end_time=datetime(2026, 5, 3, 8, 20, tzinfo=timezone.utc),
+                source_payload={
+                    'BeginSpecification': '1.0×1200',
+                    'EndSpecification': '0.8×1200',
+                    'BeginDatetime': '2026-05-03T07:40:00+00:00',
+                    'EndDatetime': '2026-05-03T08:20:00+00:00',
+                },
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = scan_lookup_service.lookup_qr(db, qr='QR-PROC-1')
+
+    assert payload['source'] == 'coil_snapshot'
+    assert payload['header_fields']['tracking_card_no'] == 'TRACK-PROC-1'
+    assert payload['header_fields']['input_spec'] == '1.0×1200'
+    assert payload['header_fields']['output_spec'] == '0.8×1200'
+    assert payload['header_fields']['input_weight'] == 1000.0
+    assert payload['header_fields']['output_weight'] == 960.0
+    assert payload['header_fields']['on_machine_time'] == '15:40'
+    assert payload['header_fields']['off_machine_time'] == '16:20'
+    assert payload['header_fields']['material_state'] == 'H24'
+    assert payload['lock_keys'] == []
+    assert payload['lock_token'] is None
 
 
 def test_scan_lookup_uses_latest_mes_coil_qr_snapshot(tmp_path) -> None:
@@ -113,12 +161,8 @@ def test_scan_lookup_uses_latest_mes_coil_qr_snapshot(tmp_path) -> None:
     assert payload['source'] == 'coil_snapshot'
     assert payload['header_fields']['batch_no'] == 'NEW'
     assert payload['header_fields']['alloy_grade'] == '5052'
-    locked_fields = verify_locked_fields_token(payload['lock_token'])
-    assert locked_fields == {
-        'tracking_card_no': 'TRACK-QR-SAME',
-        'alloy_grade': '5052',
-        'input_spec': '2.0×1200',
-    }
+    assert payload['lock_keys'] == []
+    assert payload['lock_token'] is None
 
 
 def test_scan_lookup_hits_tracking_card_latest_snapshot_when_qr_misses(tmp_path) -> None:
@@ -154,12 +198,8 @@ def test_scan_lookup_hits_tracking_card_latest_snapshot_when_qr_misses(tmp_path)
     assert payload['source'] == 'tracking_card'
     assert payload['header_fields']['batch_no'] == 'SECOND'
     assert payload['header_fields']['alloy_grade'] == '5052'
-    locked_fields = verify_locked_fields_token(payload['lock_token'])
-    assert locked_fields == {
-        'tracking_card_no': 'TRACK-SAME',
-        'alloy_grade': '5052',
-        'input_spec': '2.0×1200',
-    }
+    assert payload['lock_keys'] == []
+    assert payload['lock_token'] is None
 
 
 def test_scan_lookup_hits_material_code_when_tracking_card_differs(tmp_path) -> None:
@@ -219,11 +259,7 @@ def test_scan_lookup_matches_tracking_card_separator_variants(tmp_path) -> None:
     assert payload['source'] == 'tracking_card'
     assert payload['header_fields']['tracking_card_no'] == 'S-2-054-1'
     assert payload['header_fields']['batch_no'] == 'BATCH-VARIANT'
-    assert locked_snapshot == {
-        'tracking_card_no': 'S-2-054-1',
-        'alloy_grade': '3003',
-        'input_spec': '1.0×1200',
-    }
+    assert locked_snapshot == {}
 
 
 def test_submission_locked_snapshot_uses_latest_mes_snapshot(tmp_path) -> None:
@@ -255,11 +291,7 @@ def test_submission_locked_snapshot_uses_latest_mes_snapshot(tmp_path) -> None:
             tracking_card_no='TRACK-LOCK-SAME',
         )
 
-    assert snapshot == {
-        'tracking_card_no': 'TRACK-LOCK-SAME',
-        'alloy_grade': '7075',
-        'input_spec': '2.0×1200',
-    }
+    assert snapshot == {}
 
 
 def test_scan_lookup_hits_equipment_qr(tmp_path) -> None:

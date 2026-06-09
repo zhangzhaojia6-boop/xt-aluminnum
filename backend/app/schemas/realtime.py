@@ -146,6 +146,35 @@ class LivePendingAssignmentOut(BaseModel):
     items: list[LivePendingAssignmentItemOut] = Field(default_factory=list)
 
 
+class LiveMesFillGapSummaryOut(BaseModel):
+    total: int = 0
+    status_counts: dict = Field(default_factory=dict)
+
+
+class LiveMesFillGapItemOut(BaseModel):
+    status: str
+    workshop_id: int | None = None
+    workshop_name: str | None = None
+    process_name: str | None = None
+    batch_no: str | None = None
+    tracking_card_no: str | None = None
+    local_entry_id: int | None = None
+    mes_input_weight: float | None = None
+    mes_output_weight: float | None = None
+    local_input_weight: float | None = None
+    local_output_weight: float | None = None
+    mes_machine_name: str | None = None
+    local_machine_name: str | None = None
+
+
+class LiveMesFillGapOut(BaseModel):
+    business_date: str
+    workshop_id: int | None = None
+    total: int = 0
+    summary: LiveMesFillGapSummaryOut = Field(default_factory=LiveMesFillGapSummaryOut)
+    items: list[LiveMesFillGapItemOut] = Field(default_factory=list)
+
+
 class LiveFillDetailSummaryOut(BaseModel):
     entry_count: int = 0
     machine_count: int = 0

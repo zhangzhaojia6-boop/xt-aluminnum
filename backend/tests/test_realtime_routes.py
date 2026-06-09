@@ -37,6 +37,8 @@ def test_realtime_routes_are_registered() -> None:
     assert app.url_path_for('live-aggregation-detail') == '/api/v1/aggregation/live/detail'
     assert app.url_path_for('live-fill-details') == '/api/v1/aggregation/live/fill-details'
     assert app.url_path_for('live-pending-assignment') == '/api/v1/aggregation/live/pending-assignment'
+    assert app.url_path_for('live-mes-fill-gaps') == '/api/v1/aggregation/live/mes-fill-gaps'
+    assert app.url_path_for('live-missing-report-export') == '/api/v1/aggregation/live/missing-report-export'
     assert app.url_path_for('live-missing-output-resolve', entry_id=7) == '/api/v1/aggregation/live/missing-output/7'
 
 
@@ -615,6 +617,197 @@ def test_live_pending_assignment_endpoint_passes_workshop_scope(monkeypatch) -> 
 
     assert response.status_code == 200
     assert response.json()['workshop_id'] == 2
+
+    app.dependency_overrides.clear()
+
+
+def test_live_mes_fill_gaps_endpoint_calls_service(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_gaps(db, *, business_date, workshop_id):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 1,
+            'summary': {'total': 1, 'status_counts': {'weight_mismatch': 1}},
+            'items': [
+                {
+                    'status': 'weight_mismatch',
+                    'workshop_id': 2,
+                    'workshop_name': '2050冷轧车间',
+                    'process_name': '冷轧',
+                    'batch_no': 'BATCH-1',
+                    'tracking_card_no': 'TRACK-1',
+                    'local_entry_id': 101,
+                    'mes_output_weight': 960.0,
+                    'local_output_weight': 958.0,
+                    'mes_machine_name': '1#轧机',
+                    'local_machine_name': '1#轧机',
+                }
+            ],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.mes_fill_gap_service.build_mes_fill_gaps', fake_gaps)
+
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/mes-fill-gaps',
+        params={'business_date': '2026-05-06', 'workshop_id': 2},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['summary']['status_counts']['weight_mismatch'] == 1
+    assert response.json()['items'][0]['status'] == 'weight_mismatch'
+
+    app.dependency_overrides.clear()
+
+
+def test_live_mes_fill_gaps_forces_workshop_director_scope(monkeypatch) -> None:
+    current_user = User(
+        id=8,
+        username='workshop-director',
+        password_hash='x',
+        name='Workshop Director',
+        role='workshop_director',
+        workshop_id=5,
+        data_scope_type='self_workshop',
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    captured = {}
+
+    def fake_gaps(db, *, business_date, workshop_id):
+        captured['workshop_id'] = workshop_id
+        return {
+            'business_date': business_date.isoformat(),
+            'workshop_id': workshop_id,
+            'total': 0,
+            'summary': {'total': 0, 'status_counts': {}},
+            'items': [],
+        }
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.mes_fill_gap_service.build_mes_fill_gaps', fake_gaps)
+
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/mes-fill-gaps',
+        params={'business_date': '2026-05-06', 'workshop_id': 2},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert captured['workshop_id'] == 5
+
+    app.dependency_overrides.clear()
+
+
+def test_live_mes_fill_gaps_rejects_plain_mobile_operator(monkeypatch) -> None:
+    current_user = User(
+        id=9,
+        username='operator',
+        password_hash='x',
+        name='Operator',
+        role='machine_operator',
+        workshop_id=5,
+        data_scope_type='self_workshop',
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    app.dependency_overrides[get_db] = fake_get_db
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/mes-fill-gaps',
+        params={'business_date': '2026-05-06'},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 403
+
+    app.dependency_overrides.clear()
+
+
+def test_live_missing_report_export_returns_xlsx(monkeypatch) -> None:
+    current_user = User(
+        id=7,
+        username='chief-stat',
+        password_hash='x',
+        name='Chief Stat',
+        role='statistician',
+        data_scope_type='all',
+        is_active=True,
+    )
+    captured = {}
+
+    def fake_get_db():
+        yield DummyDB(current_user)
+
+    def fake_detail(db, *, business_date, workshop_id, current_user):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 1,
+            'summary': {'entry_count': 1, 'missing_machine_count': 1, 'missing_shift_count': 0},
+            'items': [{'tracking_card_no': 'RA260506001', 'workshop_name': '2050冷轧车间'}],
+        }
+
+    def fake_gaps(db, *, business_date, workshop_id):
+        assert business_date == date(2026, 5, 6)
+        assert workshop_id == 2
+        return {
+            'business_date': '2026-05-06',
+            'workshop_id': 2,
+            'total': 1,
+            'summary': {'total': 1, 'status_counts': {'weight_mismatch': 1}},
+            'items': [{'status': 'weight_mismatch', 'tracking_card_no': 'RA260506001'}],
+        }
+
+    def fake_workbook(payload):
+        captured['payload'] = payload
+        return b'xlsx-bytes'
+
+    app.dependency_overrides[get_db] = fake_get_db
+    monkeypatch.setattr('app.routers.realtime.realtime_service.build_pending_assignment_detail', fake_detail)
+    monkeypatch.setattr('app.routers.realtime.mes_fill_gap_service.build_mes_fill_gaps', fake_gaps)
+    monkeypatch.setattr('app.routers.realtime.missing_report_export_service.build_missing_report_workbook', fake_workbook)
+
+    token = create_access_token(subject=str(current_user.id))
+    response = TestClient(app).get(
+        '/api/v1/aggregation/live/missing-report-export',
+        params={'business_date': '2026-05-06', 'workshop_id': 2},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b'xlsx-bytes'
+    assert response.headers['content-type'].startswith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    assert response.headers['content-disposition'] == 'attachment; filename=missing-report-2026-05-06.xlsx'
+    assert captured['payload']['items'][0]['tracking_card_no'] == 'RA260506001'
+    assert captured['payload']['mes_fill_gaps']['summary']['status_counts']['weight_mismatch'] == 1
 
     app.dependency_overrides.clear()
 

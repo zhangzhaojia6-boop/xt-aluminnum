@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('mobile coil entry scans a coil qr and submits locked header fields', async ({ page }) => {
+test('mobile coil entry scans a coil qr and submits editable header fields', async ({ page }) => {
   let submitPayload = null
 
   await page.addInitScript(() => {
@@ -76,6 +76,10 @@ test('mobile coil entry scans a coil qr and submits locked header fields', async
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
   })
 
+  await page.route('**/api/v1/mobile/coil-flow-suggestion?**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+  })
+
   await page.route('**/api/v1/mobile/scan-lookup?**', async (route) => {
     expect(route.request().url()).toContain('qr=QR-SCAN-1')
     await route.fulfill({
@@ -92,8 +96,8 @@ test('mobile coil entry scans a coil qr and submits locked header fields', async
           next_workshop: '退火车间',
           next_process: '退火'
         },
-        lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec'],
-        lock_token: 'signed-lock-token'
+        lock_keys: [],
+        lock_token: null
       })
     })
   })
@@ -122,17 +126,17 @@ test('mobile coil entry scans a coil qr and submits locked header fields', async
 
   await page.getByRole('button', { name: '扫码带出' }).click()
   await expect(page.locator('input[placeholder="手工输入或扫码"]')).toHaveValue('TRACK-SCAN-1')
+  await page.locator('input[placeholder="手工输入或扫码"]').fill('TRACK-SCAN-EDITED')
   await page.locator('input[type="number"]').nth(0).fill('1000')
   await page.locator('input[type="number"]').nth(1).fill('960')
   await page.getByRole('button', { name: '提交这卷' }).click()
 
-  await expect.poll(() => submitPayload?.locked_fields_snapshot?.tracking_card_no).toBe('TRACK-SCAN-1')
-  expect(submitPayload.locked_fields_token).toBe('signed-lock-token')
-  expect(submitPayload.locked_fields_snapshot.alloy_grade).toBe('6061')
-  expect(submitPayload.locked_fields_snapshot.input_spec).toBe('1.2×1200')
+  await expect.poll(() => submitPayload?.tracking_card_no).toBe('TRACK-SCAN-EDITED')
+  expect(submitPayload.locked_fields_token).toBe('')
+  expect(submitPayload.locked_fields_snapshot).toEqual({})
 })
 
-test('unified per-coil entry scans and submits only locked submission fields', async ({ page }) => {
+test('unified per-coil entry scans and submits editable submission fields', async ({ page }) => {
   let submitPayload = null
 
   await page.addInitScript(() => {
@@ -224,8 +228,8 @@ test('unified per-coil entry scans and submits only locked submission fields', a
           current_process: '冷轧',
           next_process: '退火'
         },
-        lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec'],
-        lock_token: 'unified-lock-token'
+        lock_keys: [],
+        lock_token: null
       })
     })
   })
@@ -254,16 +258,12 @@ test('unified per-coil entry scans and submits only locked submission fields', a
 
   await page.getByRole('button', { name: '扫码带出' }).click()
   await expect(page.locator('[data-testid="field-tracking_card_no"] input')).toHaveValue('TRACK-UNIFIED-1')
+  await page.locator('[data-testid="field-tracking_card_no"] input').fill('TRACK-UNIFIED-EDITED')
   await page.locator('[data-testid="field-input_weight"] input').fill('1000')
   await page.locator('[data-testid="field-output_weight"] input').fill('960')
   await page.getByRole('button', { name: '录入本卷' }).click()
 
-  await expect.poll(() => submitPayload?.locked_fields_snapshot?.tracking_card_no).toBe('TRACK-UNIFIED-1')
-  expect(submitPayload.locked_fields_token).toBe('unified-lock-token')
-  expect(submitPayload.locked_fields_snapshot).toEqual({
-    tracking_card_no: 'TRACK-UNIFIED-1',
-    alloy_grade: '6061',
-    input_spec: '1.2×1200'
-  })
-  expect(submitPayload.locked_fields_snapshot.current_process).toBeUndefined()
+  await expect.poll(() => submitPayload?.tracking_card_no).toBe('TRACK-UNIFIED-EDITED')
+  expect(submitPayload.locked_fields_token).toBe('')
+  expect(submitPayload.locked_fields_snapshot).toEqual({})
 })

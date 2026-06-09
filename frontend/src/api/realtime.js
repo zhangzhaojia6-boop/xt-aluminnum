@@ -25,6 +25,16 @@ export async function fetchPendingAssignmentEntries(params = {}) {
   return data
 }
 
+export async function fetchMesFillGaps(params = {}) {
+  const { data } = await api.get('/aggregation/live/mes-fill-gaps', { params })
+  return data
+}
+
+export async function exportMissingReportExcel(params = {}) {
+  const { data } = await api.get('/aggregation/live/missing-report-export', { params, responseType: 'blob' })
+  return data
+}
+
 export async function resolveMissingOutputWeight(entryId, payload = {}) {
   const { data } = await api.patch(`/aggregation/live/missing-output/${entryId}`, payload, { skipErrorToast: true })
   return data

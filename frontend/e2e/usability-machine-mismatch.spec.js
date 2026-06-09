@@ -112,8 +112,8 @@ test('扫码命中机列与登录机列一致 — 静默放行，不出现机列
     {
       source: 'coil_snapshot',
       header_fields: baseHeaderFields,
-      lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec'],
-      lock_token: 'lock-1',
+      lock_keys: [],
+      lock_token: null,
       machine_line_id: BOUND_MACHINE_A.machine_id,
       machine_line_code: BOUND_MACHINE_A.machine_code,
       machine_line_name: BOUND_MACHINE_A.machine_name,
@@ -136,8 +136,8 @@ test('扫码命中机列与登录机列错配 — 警告浮现，但 form 仍可
     {
       source: 'coil_snapshot',
       header_fields: baseHeaderFields,
-      lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec'],
-      lock_token: 'lock-mis',
+      lock_keys: [],
+      lock_token: null,
       machine_line_id: 99,
       machine_line_code: 'LZ2050-7',
       machine_line_name: '2050冷轧7号',
@@ -161,8 +161,8 @@ test('扫码命中多候选 unresolved — 不出警告，正常带出字段', a
     {
       source: 'coil_snapshot',
       header_fields: baseHeaderFields,
-      lock_keys: ['tracking_card_no', 'alloy_grade', 'input_spec'],
-      lock_token: 'lock-unresolved',
+      lock_keys: [],
+      lock_token: null,
       machine_line_id: null,
       machine_line_code: null,
       machine_line_name: null,

@@ -19,6 +19,16 @@
           <option v-for="workshop in workshops" :key="workshop.id" :value="workshop.id">{{ workshop.name }}</option>
         </select>
       </div>
+      <button
+        class="workshop-board__export"
+        type="button"
+        :disabled="exportingMissingReport || (canChooseWorkshop && !workshopId)"
+        data-testid="workshop-dashboard-missing-export"
+        @click="downloadMissingReport"
+      >
+        <el-icon><Download /></el-icon>
+        <span>{{ exportingMissingReport ? '导出中' : '导出缺报' }}</span>
+      </button>
       <div class="workshop-board__signal" :class="`is-${freshness}`">
         <i></i>
         <span>{{ loading ? '同步中' : '链路在线' }}</span>
@@ -106,6 +116,21 @@
           <p v-if="mesRows.length === 0" class="workshop-board__empty">{{ mesEmptyText }}</p>
         </section>
 
+        <section class="workshop-board__panel" data-testid="workshop-dashboard-mes-gap-panel">
+          <header class="workshop-board__panel-head">
+            <h2>MES 对照异常</h2>
+            <span>{{ mesGapRows.length }} 条</span>
+          </header>
+          <article v-for="row in mesGapRows" :key="rowKey(row)" class="workshop-board__mes-gap-row">
+            <div>
+              <strong>{{ mesGapStatusText(row.status) }}</strong>
+              <span>{{ row.process_name || '-' }} · {{ row.tracking_card_no || row.batch_no || '-' }}</span>
+            </div>
+            <b>{{ mesGapWeightText(row) }}</b>
+          </article>
+          <p v-if="!loading && mesGapRows.length === 0" class="workshop-board__empty">暂无 MES 对照异常</p>
+        </section>
+
         <section class="workshop-board__panel">
           <header class="workshop-board__panel-head">
             <h2>在制料明细</h2>
@@ -146,15 +171,18 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { fetchWorkshopDashboard } from '../../../api/dashboard.js'
-import { fetchLiveAggregation, fetchLiveFillDetails, fetchPendingAssignmentEntries } from '../../../api/realtime.js'
+import { exportMissingReportExcel, fetchLiveAggregation, fetchLiveFillDetails, fetchMesFillGaps, fetchPendingAssignmentEntries } from '../../../api/realtime.js'
 import { fetchMesMaterialRecords, fetchMesWorkshopProcessRecords } from '../../../api/mes.js'
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
+import { downloadBlob } from '../../../utils/downloadBlob.js'
 import {
   buildFillLedgerRows,
   explainWorkshopDataEmptyState,
@@ -171,6 +199,7 @@ const dashboard = ref({})
 const live = ref({})
 const detailRows = ref([])
 const pending = ref({})
+const mesGapData = ref({})
 const mesProcessRows = ref([])
 const mesMaterialRows = ref([])
 const workshops = ref([])
@@ -178,7 +207,15 @@ const workshopsLoaded = ref(false)
 const selectedWorkshopId = ref(null)
 const suppressWorkshopSelectionWatch = ref(false)
 const compactMissingPanel = ref(false)
+const exportingMissingReport = ref(false)
 let compactMediaQuery = null
+
+const MES_GAP_STATUS_LABELS = {
+  missing_local_entry: 'MES有工序本地未填',
+  mes_batch_unmapped: '批号未映射',
+  local_entry_unassigned: '本地未归机列',
+  weight_mismatch: '重量不一致',
+}
 
 const canChooseWorkshop = computed(() => auth.isAdmin || (auth.hasGlobalReviewScope && !auth.isWorkshopDirector))
 const workshopId = computed(() => canChooseWorkshop.value ? selectedWorkshopId.value : (auth.user?.workshop_id || null))
@@ -208,6 +245,10 @@ const mesRows = computed(() => {
     unmatched: !row.device_name,
   }))
   return [...projectionRows, ...processRows].slice(0, 8)
+})
+const mesGapRows = computed(() => {
+  const items = Array.isArray(mesGapData.value?.items) ? mesGapData.value.items : []
+  return items.filter((row) => row.status && row.status !== 'matched').slice(0, 5)
 })
 const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index) => ({ ...row, key: row.source_id || `wip-${index}` })))
 const hasWorkshop = computed(() => Boolean(workshopId.value))
@@ -277,6 +318,20 @@ function energyText(row) {
   return parts.join(' / ') || row.contentText || '-'
 }
 
+function mesGapStatusText(status) {
+  return MES_GAP_STATUS_LABELS[status] || status || '-'
+}
+
+function mesGapWeightText(row) {
+  const mes = formatNumber(row?.mes_output_weight, 1)
+  const local = formatNumber(row?.local_output_weight, 1)
+  return `${mes} / ${local} kg`
+}
+
+function rowKey(row) {
+  return `${row.status || 'gap'}-${row.local_entry_id || row.tracking_card_no || row.batch_no || 'unknown'}`
+}
+
 async function load() {
   loading.value = true
   freshness.value = 'yellow'
@@ -287,16 +342,18 @@ async function load() {
       live.value = {}
       detailRows.value = []
       pending.value = {}
+      mesGapData.value = {}
       mesProcessRows.value = []
       mesMaterialRows.value = []
       freshness.value = 'yellow'
       return
     }
-    const [dashboardResult, liveResult, detailResult, pendingResult, processResult, materialResult] = await Promise.allSettled([
+    const [dashboardResult, liveResult, detailResult, pendingResult, mesGapResult, processResult, materialResult] = await Promise.allSettled([
       fetchWorkshopDashboard(scopedParams({ target_date: targetDate.value })),
       fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
       fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 1200 })),
       fetchPendingAssignmentEntries(scopedParams({ business_date: targetDate.value })),
+      fetchMesFillGaps(scopedParams({ business_date: targetDate.value })),
       fetchMesWorkshopProcessRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
       fetchMesMaterialRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
     ])
@@ -304,10 +361,12 @@ async function load() {
     live.value = liveResult.status === 'fulfilled' ? liveResult.value || {} : {}
     detailRows.value = detailResult.status === 'fulfilled' ? detailResult.value?.items || [] : []
     pending.value = pendingResult.status === 'fulfilled' ? pendingResult.value || {} : {}
+    mesGapData.value = mesGapResult.status === 'fulfilled' ? mesGapResult.value || {} : {}
     mesProcessRows.value = processResult.status === 'fulfilled' ? processResult.value || [] : []
     mesMaterialRows.value = materialResult.status === 'fulfilled' ? materialResult.value || [] : []
-    freshness.value = [dashboardResult, liveResult, detailResult].some((item) => item.status === 'rejected') ? 'yellow' : 'green'
+    freshness.value = [dashboardResult, liveResult, detailResult, mesGapResult].some((item) => item.status === 'rejected') ? 'yellow' : 'green'
   } catch {
+    mesGapData.value = {}
     freshness.value = 'red'
   } finally {
     loading.value = false
@@ -320,6 +379,23 @@ function stepDate(delta) {
 
 function pickDate(value) {
   targetDate.value = value
+}
+
+function safeFilenameText(value) {
+  return String(value || '').replace(/[\\/:*?"<>|]/g, '-')
+}
+
+async function downloadMissingReport() {
+  exportingMissingReport.value = true
+  try {
+    const data = await exportMissingReportExcel(scopedParams({ business_date: targetDate.value }))
+    downloadBlob(data, `缺报明细-${safeFilenameText(workshopTitle.value)}-${targetDate.value}.xlsx`)
+    ElMessage.success('缺报Excel已导出')
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '缺报Excel导出失败')
+  } finally {
+    exportingMissingReport.value = false
+  }
 }
 
 function syncCompactMissingPanel() {
@@ -400,7 +476,7 @@ load()
 
 .workshop-board__hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   gap: 16px;
   align-items: center;
   padding: 18px;
@@ -476,6 +552,27 @@ load()
   border-radius: 999px;
   background: rgba(0, 242, 255, 0.08);
   font-weight: 800;
+}
+
+.workshop-board__export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(0, 242, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(0, 242, 255, 0.1);
+  color: rgba(225, 253, 255, 0.96);
+  cursor: pointer;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.workshop-board__export:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .workshop-board__signal i,
@@ -605,6 +702,7 @@ load()
 
 .workshop-board__mini-row,
 .workshop-board__mes-row,
+.workshop-board__mes-gap-row,
 .workshop-board__exception {
   display: flex;
   align-items: center;
@@ -616,21 +714,24 @@ load()
 }
 
 .workshop-board__mini-row div,
-.workshop-board__mes-row div {
+.workshop-board__mes-row div,
+.workshop-board__mes-gap-row div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
 .workshop-board__mini-row strong,
-.workshop-board__mes-row strong {
+.workshop-board__mes-row strong,
+.workshop-board__mes-gap-row strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workshop-board__mini-row span,
-.workshop-board__mes-row span {
+.workshop-board__mes-row span,
+.workshop-board__mes-gap-row span {
   overflow: hidden;
   color: rgba(185, 223, 235, 0.68);
   font-size: 12px;
@@ -639,6 +740,7 @@ load()
 }
 
 .workshop-board__mini-row b,
+.workshop-board__mes-gap-row b,
 .workshop-board__exception strong {
   min-width: 0;
   max-width: 45%;
@@ -651,6 +753,10 @@ load()
 
 .workshop-board__mes-row {
   justify-content: flex-start;
+}
+
+.workshop-board__mes-gap-row b {
+  color: #ffd27a;
 }
 
 .workshop-board__exception.tone-danger strong {
@@ -712,6 +818,7 @@ load()
   }
 
   .workshop-board__signal,
+  .workshop-board__export,
   .workshop-board__filter {
     width: 100%;
     min-width: 0;
@@ -779,9 +886,10 @@ load()
     padding: 9px 8px;
   }
 
-  .workshop-board__mini-row,
-  .workshop-board__mes-row,
-  .workshop-board__exception {
+      .workshop-board__mini-row,
+      .workshop-board__mes-row,
+      .workshop-board__mes-gap-row,
+      .workshop-board__exception {
     gap: 8px;
     padding: 8px 0;
   }

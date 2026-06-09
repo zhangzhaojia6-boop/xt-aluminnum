@@ -69,7 +69,7 @@ test('scan lookup composable runs browser barcode detector path', async () => {
   api.get = async (path, config) => {
     assert.equal(path, '/mobile/scan-lookup')
     assert.equal(config.params.qr, 'QR-BROWSER-1')
-    return { data: { source: 'coil_snapshot', header_fields: { tracking_card_no: 'TRACK-BROWSER-1' }, lock_keys: [], lock_token: 'token' } }
+    return { data: { source: 'coil_snapshot', header_fields: { tracking_card_no: 'TRACK-BROWSER-1' }, lock_keys: [], lock_token: null } }
   }
 
   try {
@@ -88,21 +88,35 @@ test('scan lookup composable runs browser barcode detector path', async () => {
   }
 })
 
-test('coil entry workbench applies scanned fields and locked snapshot', () => {
+test('coil entry workbench applies scanned fields without locking them', () => {
   assert.match(coilEntrySource, /scanLookup/)
   assert.match(coilEntrySource, /扫码带出/)
+  assert.match(coilEntrySource, /MES_ASSISTED_SCAN_FIELDS/)
+  for (const field of ['tracking_card_no', 'alloy_grade', 'input_spec', 'output_spec', 'input_weight', 'output_weight', 'on_machine_time', 'off_machine_time', 'material_state']) {
+    assert.match(coilEntrySource, new RegExp(`['"]${field}['"]`))
+  }
+  assert.match(coilEntrySource, /for \(const key of MES_ASSISTED_SCAN_FIELDS\)/)
   assert.match(coilEntrySource, /lockedFieldsSnapshot/)
   assert.match(coilEntrySource, /lockedFieldsToken/)
-  assert.match(coilEntrySource, /:disabled="isLockedField\('tracking_card_no'\)"/)
+  assert.doesNotMatch(coilEntrySource, /applyLockedSnapshot\(result\?\.lock_keys/)
+  assert.match(coilEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)
+  assert.match(coilEntrySource, /on_machine_time: form\.value\.on_machine_time/)
+  assert.match(coilEntrySource, /off_machine_time: form\.value\.off_machine_time/)
+  assert.match(coilEntrySource, /material_state: form\.value\.material_state/)
   assert.match(coilEntrySource, /locked_fields_snapshot/)
   assert.match(coilEntrySource, /locked_fields_token/)
 })
 
-test('unified entry form keeps scanned per-coil fields readonly', () => {
+test('unified entry form keeps scanned per-coil fields editable', () => {
   assert.match(unifiedEntrySource, /scanLookup/)
+  assert.match(unifiedEntrySource, /MES_ASSISTED_SCAN_FIELDS/)
+  for (const field of ['tracking_card_no', 'alloy_grade', 'input_spec', 'output_spec', 'input_weight', 'output_weight', 'on_machine_time', 'off_machine_time', 'material_state']) {
+    assert.match(unifiedEntrySource, new RegExp(`['"]${field}['"]`))
+  }
+  assert.match(unifiedEntrySource, /for \(const key of MES_ASSISTED_SCAN_FIELDS\)/)
   assert.match(unifiedEntrySource, /lockedFieldsSnapshot/)
   assert.match(unifiedEntrySource, /lockedFieldsToken/)
-  assert.match(unifiedEntrySource, /isLockedField\(field\.name\)/)
+  assert.doesNotMatch(unifiedEntrySource, /applyLockedSnapshot\(result\?\.lock_keys/)
   assert.match(unifiedEntrySource, /locked_fields_snapshot/)
   assert.match(unifiedEntrySource, /locked_fields_token/)
   assert.match(unifiedEntrySource, /lockedFieldsSnapshot\.value = \{\}\s+lockedFieldsToken\.value = ''/)

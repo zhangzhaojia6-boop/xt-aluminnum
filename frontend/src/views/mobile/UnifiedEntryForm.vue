@@ -369,6 +369,17 @@ const COIL_DIRECT_FIELDS = new Set([
   'operator_name',
   'operator_notes',
 ])
+const MES_ASSISTED_SCAN_FIELDS = [
+  'tracking_card_no',
+  'alloy_grade',
+  'input_spec',
+  'output_spec',
+  'input_weight',
+  'output_weight',
+  'on_machine_time',
+  'off_machine_time',
+  'material_state',
+]
 const QUALITY_TEMPLATE_FIELDS = new Set([
   'quality_note',
   'quality_issue_type',
@@ -471,7 +482,7 @@ function computeReadonly(rf) {
 function syncSpec(field) {
   const p0 = specParts[field.name + '_0'] || ''
   const p1 = specParts[field.name + '_1'] || ''
-  // If field has spec_suffix, only include p0 and p1 in form value (for locked field validation)
+  // If field has spec_suffix, only include p0 and p1 in the submitted form value.
   // The suffix is display-only and should not be part of the submitted value
   if (field.spec_suffix) {
     form[field.name] = [p0, p1].filter(Boolean).join('×')
@@ -485,30 +496,10 @@ function isLockedField(name) {
   return Object.prototype.hasOwnProperty.call(lockedFieldsSnapshot.value, name)
 }
 
-function currentLockValue(key) {
-  if (key in form) return form[key]
-  return undefined
-}
-
-function applyLockedSnapshot(lockKeys = []) {
-  const snapshot = {}
-  for (const key of lockKeys) {
-    const value = currentLockValue(key)
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      snapshot[key] = value
-    }
-  }
-  lockedFieldsSnapshot.value = snapshot
-}
-
 function applyScanLookupResult(result) {
   const fields = result?.header_fields || {}
-  const mapped = {
-    tracking_card_no: fields.tracking_card_no,
-    alloy_grade: fields.alloy_grade,
-    input_spec: fields.input_spec || fields.spec_display,
-  }
-  for (const [key, value] of Object.entries(mapped)) {
+  for (const key of MES_ASSISTED_SCAN_FIELDS) {
+    const value = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
     if (value !== undefined && value !== null && key in form) {
       form[key] = value
     }
@@ -518,8 +509,8 @@ function applyScanLookupResult(result) {
       if (f.type === 'spec') initSpecParts(f.name, form[f.name], f.spec_suffix)
     }
   }
-  applyLockedSnapshot(result?.lock_keys || [])
-  lockedFieldsToken.value = result?.lock_token || ''
+  lockedFieldsSnapshot.value = {}
+  lockedFieldsToken.value = ''
 }
 
 async function handleScanLookup(qr) {

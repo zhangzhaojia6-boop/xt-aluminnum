@@ -18,6 +18,16 @@
         @refresh="load"
         @pick="pickDate"
       />
+      <button
+        class="xt-fill-details__export"
+        type="button"
+        :disabled="exportingMissingReport"
+        data-testid="fill-details-missing-export"
+        @click="downloadMissingReport"
+      >
+        <el-icon><Download /></el-icon>
+        <span>{{ exportingMissingReport ? '导出中' : '导出缺报' }}</span>
+      </button>
       <div class="xt-fill-details__hero-status" aria-hidden="true">
         <span></span>
         <strong>{{ stitchSurface.statusBar.filteredCount }}</strong>
@@ -156,6 +166,22 @@
       </article>
     </section>
 
+    <section class="xt-fill-details__mes-gap" data-testid="fill-details-mes-gap-panel">
+      <header class="xt-fill-details__panel-head">
+        <h2>MES 对照异常</h2>
+        <span>{{ mesGapRows.length }} 条</span>
+      </header>
+      <div v-if="mesGapRows.length" class="xt-fill-details__mes-gap-grid">
+        <article v-for="row in mesGapRows" :key="rowKey(row)" class="xt-fill-details__mes-gap-row">
+          <strong>{{ mesGapStatusText(row.status) }}</strong>
+          <span>{{ row.workshop_name || '-' }} · {{ row.process_name || '-' }}</span>
+          <b>{{ row.tracking_card_no || row.batch_no || '-' }}</b>
+          <small>{{ mesGapWeightText(row) }}</small>
+        </article>
+      </div>
+      <p v-else class="xt-fill-details__empty">暂无 MES 对照异常</p>
+    </section>
+
     <footer class="xt-fill-details__bottom-status" data-testid="stitch-bottom-status" aria-label="系统状态">
       <span
         v-for="item in bottomStatusItems"
@@ -174,13 +200,16 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
+import { Download } from '@element-plus/icons-vue'
 
 import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import { fetchDailyProduction } from '../../../api/dashboard.js'
-import { fetchLiveAggregation, fetchLiveFillDetails } from '../../../api/realtime.js'
+import { exportMissingReportExcel, fetchLiveAggregation, fetchLiveFillDetails, fetchMesFillGaps } from '../../../api/realtime.js'
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
+import { downloadBlob } from '../../../utils/downloadBlob.js'
 import { buildFillDetailsStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildAuditTickerItems,
@@ -203,8 +232,17 @@ const rows = ref([])
 const summary = ref({})
 const dailyOverview = ref({})
 const liveAggregation = ref({})
+const mesGapData = ref({})
 const workshops = ref([])
 const workshopsLoaded = ref(false)
+const exportingMissingReport = ref(false)
+
+const MES_GAP_STATUS_LABELS = {
+  missing_local_entry: 'MES有工序本地未填',
+  mes_batch_unmapped: '批号未映射',
+  local_entry_unassigned: '本地未归机列',
+  weight_mismatch: '重量不一致',
+}
 
 const sourceOptions = [
   { value: 'machine_energy', label: '机台能耗' },
@@ -262,6 +300,10 @@ const issueQueues = computed(() => stitchSurface.value.issueQueues)
 const filteredRows = computed(() => stitchSurface.value.filteredRows)
 const kpis = computed(() => stitchSurface.value.kpiStrip)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
+const mesGapRows = computed(() => {
+  const items = Array.isArray(mesGapData.value?.items) ? mesGapData.value.items : []
+  return items.filter((row) => row.status && row.status !== 'matched').slice(0, 6)
+})
 
 function formatNumber(value, digits = 2) {
   const num = Number(value)
@@ -274,6 +316,20 @@ function formatNumber(value, digits = 2) {
 
 function scopedParams(extra = {}) {
   return selectedWorkshopId.value ? { ...extra, workshop_id: selectedWorkshopId.value } : extra
+}
+
+function mesGapStatusText(status) {
+  return MES_GAP_STATUS_LABELS[status] || status || '-'
+}
+
+function mesGapWeightText(row) {
+  const mes = formatNumber(row?.mes_output_weight, 1)
+  const local = formatNumber(row?.local_output_weight, 1)
+  return `MES ${mes} kg / 本地 ${local} kg`
+}
+
+function rowKey(row) {
+  return `${row.status || 'gap'}-${row.local_entry_id || row.tracking_card_no || row.batch_no || 'unknown'}`
 }
 
 async function loadWorkshops() {
@@ -292,10 +348,11 @@ async function load() {
   errorText.value = ''
   try {
     await loadWorkshops()
-    const [detailResult, dailyResult, liveResult] = await Promise.allSettled([
+    const [detailResult, dailyResult, liveResult, mesGapResult] = await Promise.allSettled([
       fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 2000 })),
       fetchDailyProduction({ target_date: targetDate.value }),
       fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
+      fetchMesFillGaps(scopedParams({ business_date: targetDate.value })),
     ])
 
     if (detailResult.status === 'fulfilled') {
@@ -309,14 +366,16 @@ async function load() {
 
     dailyOverview.value = dailyResult.status === 'fulfilled' ? dailyResult.value || {} : {}
     liveAggregation.value = liveResult.status === 'fulfilled' ? liveResult.value || {} : {}
+    mesGapData.value = mesGapResult.status === 'fulfilled' ? mesGapResult.value || {} : {}
     freshness.value = detailResult.status === 'rejected'
       ? 'red'
-      : (dailyResult.status === 'rejected' || liveResult.status === 'rejected' ? 'yellow' : 'green')
+      : (dailyResult.status === 'rejected' || liveResult.status === 'rejected' || mesGapResult.status === 'rejected' ? 'yellow' : 'green')
   } catch (error) {
     rows.value = []
     summary.value = {}
     dailyOverview.value = {}
     liveAggregation.value = {}
+    mesGapData.value = {}
     freshness.value = 'red'
     errorText.value = error?.response?.data?.detail || error?.message || '加载填报明细失败'
   } finally {
@@ -330,6 +389,19 @@ function stepDate(delta) {
 
 function pickDate(dateValue) {
   targetDate.value = dateValue
+}
+
+async function downloadMissingReport() {
+  exportingMissingReport.value = true
+  try {
+    const data = await exportMissingReportExcel(scopedParams({ business_date: targetDate.value }))
+    downloadBlob(data, `缺报明细-${targetDate.value}.xlsx`)
+    ElMessage.success('缺报Excel已导出')
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '缺报Excel导出失败')
+  } finally {
+    exportingMissingReport.value = false
+  }
 }
 
 watch(targetDate, load)
@@ -362,7 +434,8 @@ load()
 .xt-fill-details__audit-card,
 .xt-fill-details__source-card,
 .xt-fill-details__ledger-panel,
-.xt-fill-details__issue {
+.xt-fill-details__issue,
+.xt-fill-details__mes-gap {
   position: relative;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--xt-primary) 18%, var(--xt-border));
@@ -379,7 +452,8 @@ load()
 .xt-fill-details__audit-card::before,
 .xt-fill-details__source-card::before,
 .xt-fill-details__ledger-panel::before,
-.xt-fill-details__issue::before {
+.xt-fill-details__issue::before,
+.xt-fill-details__mes-gap::before {
   position: absolute;
   inset: 0;
   background:
@@ -403,7 +477,7 @@ load()
 
 .xt-fill-details__hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: var(--xt-space-4);
   min-height: 132px;
@@ -412,6 +486,7 @@ load()
 
 .xt-fill-details__hero-copy,
 .xt-fill-details__hero :deep(.xt-date-switcher),
+.xt-fill-details__export,
 .xt-fill-details__hero-status {
   position: relative;
   z-index: 1;
@@ -424,6 +499,28 @@ load()
   font-size: clamp(var(--xt-text-2xl), 3vw, 42px);
   font-weight: 900;
   letter-spacing: -0.04em;
+}
+
+.xt-fill-details__export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 32%, var(--xt-border));
+  border-radius: var(--xt-radius-lg);
+  background: color-mix(in srgb, var(--xt-primary) 16%, var(--xt-bg-ink));
+  color: var(--xt-text-inverse);
+  cursor: pointer;
+  font-size: var(--xt-text-sm);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.xt-fill-details__export:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .xt-fill-details__hero-status {
@@ -755,6 +852,47 @@ load()
   gap: var(--xt-space-2);
 }
 
+.xt-fill-details__mes-gap {
+  display: grid;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-4);
+}
+
+.xt-fill-details__mes-gap-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--xt-space-2);
+}
+
+.xt-fill-details__mes-gap-row {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--xt-space-3);
+  border: 1px solid color-mix(in srgb, var(--xt-warning) 28%, var(--xt-border));
+  border-radius: var(--xt-radius-lg);
+  background: color-mix(in srgb, var(--xt-warning) 8%, transparent);
+}
+
+.xt-fill-details__mes-gap-row strong,
+.xt-fill-details__mes-gap-row b {
+  color: var(--xt-text-inverse);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.xt-fill-details__mes-gap-row span,
+.xt-fill-details__mes-gap-row small {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .xt-fill-details__bottom-status {
   position: relative;
   z-index: 1;
@@ -861,6 +999,7 @@ load()
   }
 
   .xt-fill-details__audit-ticker,
+  .xt-fill-details__mes-gap-grid,
   .xt-fill-details__issues {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -880,6 +1019,7 @@ load()
 
 @media (max-width: 620px) {
   .xt-fill-details__audit-ticker,
+  .xt-fill-details__mes-gap-grid,
   .xt-fill-details__issues,
   .xt-fill-details__cards {
     grid-template-columns: 1fr;

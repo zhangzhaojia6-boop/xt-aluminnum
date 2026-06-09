@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3] - 2026-06-09
+
+### Added
+- 填报明细与车间看板新增 MES 对照异常视图，方便查看 MES 有工序但本地未填、批号未映射、重量不一致等问题。
+- 新增缺报明细 Excel 导出，管理端和车间看板都可以按业务日期导出缺报核查表。
+- 手机端扫码填报可带出 MES 中的规格、重量、上下机时间和料态字段，减少重复录入。
+
+### Changed
+- 扫码/MES 带出的字段全部保持可编辑，不再锁定，也不会因用户修正带出值而拒绝提交。
+
 ## [0.4.2] - 2026-06-04
 
 ### Changed

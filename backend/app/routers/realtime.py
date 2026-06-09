@@ -6,7 +6,7 @@ import time
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -21,11 +21,12 @@ from app.schemas.realtime import (
     LiveAggregationOut,
     LiveCellDetailOut,
     LiveFillDetailOut,
+    LiveMesFillGapOut,
     LiveMissingOutputWeightResolveOut,
     LiveMissingOutputWeightResolveRequest,
     LivePendingAssignmentOut,
 )
-from app.services import realtime_service
+from app.services import mes_fill_gap_service, missing_report_export_service, realtime_service
 from app.services import pass_count_service
 
 
@@ -75,6 +76,18 @@ def _event_matches_scope(event: dict, *, workshop_scope: int | None) -> bool:
     if workshop_id is None:
         workshop_id = event.get('payload', {}).get('workshop_id')
     return int(workshop_id or 0) == workshop_scope
+
+
+def _resolve_live_manage_workshop_scope(*, current_user: User, workshop_id: int | None) -> int | None:
+    summary = build_scope_summary(current_user)
+    if not (summary.is_admin or summary.is_reviewer or summary.is_manager):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Realtime scope denied')
+    scoped_workshop_id = resolve_work_order_entry_workshop_scope(summary)
+    if scoped_workshop_id is not None:
+        return scoped_workshop_id
+    if workshop_id is None:
+        return _resolve_stream_scope(scope='all', current_user=current_user)
+    return _resolve_stream_scope(scope=str(workshop_id), current_user=current_user)
 
 
 def _format_sse_event(event: dict) -> str:
@@ -276,6 +289,55 @@ def live_pending_assignment(
         current_user=current_user,
     )
     return LivePendingAssignmentOut(**payload)
+
+
+@router.get('/aggregation/live/mes-fill-gaps', response_model=LiveMesFillGapOut, name='live-mes-fill-gaps')
+def live_mes_fill_gaps(
+    request: Request,
+    business_date: date,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> LiveMesFillGapOut:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_mes_fill_gaps', limit=60, window_seconds=60)
+    resolved_workshop_id = _resolve_live_manage_workshop_scope(current_user=current_user, workshop_id=workshop_id)
+    payload = mes_fill_gap_service.build_mes_fill_gaps(
+        db,
+        business_date=business_date,
+        workshop_id=resolved_workshop_id,
+    )
+    return LiveMesFillGapOut(**payload)
+
+
+@router.get('/aggregation/live/missing-report-export', name='live-missing-report-export')
+def live_missing_report_export(
+    request: Request,
+    business_date: date,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_realtime_user),
+) -> Response:
+    enforce_request_rate_limit(request, current_user, scope='aggregation_missing_report_export', limit=20, window_seconds=60)
+    resolved_workshop_id = _resolve_live_manage_workshop_scope(current_user=current_user, workshop_id=workshop_id)
+    payload = realtime_service.build_pending_assignment_detail(
+        db,
+        business_date=business_date,
+        workshop_id=resolved_workshop_id,
+        current_user=current_user,
+    )
+    payload = dict(payload)
+    payload['mes_fill_gaps'] = mes_fill_gap_service.build_mes_fill_gaps(
+        db,
+        business_date=business_date,
+        workshop_id=resolved_workshop_id,
+    )
+    content = missing_report_export_service.build_missing_report_workbook(payload)
+    filename = f'missing-report-{business_date.isoformat()}.xlsx'
+    return Response(
+        content=content,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
 
 
 @router.get('/aggregation/pass-count/shift', name='pass-count-by-shift')

@@ -9,12 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.models.master import Equipment
 from app.models.mes import MesCoilSnapshot
-from app.services import master_service
-from app.services.locked_fields_service import sign_locked_fields
+from app.services import master_service, mes_assisted_fill_service
 from app.services.realtime_service import _infer_mes_machine_id_from_route
 from app.utils.tracking_cards import tracking_card_lookup_key, tracking_card_sql_lookup_key
-
-SUBMISSION_LOCK_KEYS = ('tracking_card_no', 'alloy_grade', 'input_spec')
 
 
 class ScanLookupNotFound(RuntimeError):
@@ -74,14 +71,17 @@ def _coil_payload(
             'material_weight': row.material_weight,
         }
     )
-    lock_keys = [key for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')]
-    locked_snapshot = _submission_locked_snapshot(header_fields)
+    assist_identifier = row.qr_code or row.tracking_card_no
+    assisted_fields = dict(mes_assisted_fill_service.build_assisted_fill(db, identifier=assist_identifier)['fields'])
+    if tracking_card_no_override:
+        assisted_fields.pop('tracking_card_no', None)
+    header_fields.update(assisted_fields)
     binding = _resolve_machine_binding_for_snapshot(db, row)
     return {
         'source': source,
         'header_fields': header_fields,
-        'lock_keys': lock_keys,
-        'lock_token': sign_locked_fields(locked_snapshot) if locked_snapshot else None,
+        'lock_keys': [],
+        'lock_token': None,
         'machine_line_id': binding['machine_line_id'],
         'machine_line_code': binding['machine_line_code'],
         'machine_line_name': binding['machine_line_name'],
@@ -103,10 +103,6 @@ def _machine_payload(row: Equipment) -> dict:
         'lock_keys': [],
         'lock_token': None,
     }
-
-
-def _submission_locked_snapshot(header_fields: dict[str, Any]) -> dict[str, Any]:
-    return {key: header_fields[key] for key in SUBMISSION_LOCK_KEYS if header_fields.get(key) not in (None, '')}
 
 
 def _has_coil_snapshot_table(db: Session) -> bool:
@@ -257,15 +253,7 @@ def _latest_qr_snapshot(db: Session, qr_code: str) -> MesCoilSnapshot | None:
 
 
 def submission_locked_snapshot_for_tracking_card(db: Session, *, tracking_card_no: str) -> dict[str, Any]:
-    value = str(tracking_card_no or '').strip()
-    if not value:
-        return {}
-    if not _has_coil_snapshot_table(db):
-        raise ScanLookupUnavailable('mes_coil_snapshots_missing')
-    row = _latest_tracking_card_snapshot(db, value)
-    if row is None:
-        return {}
-    return _submission_locked_snapshot(_coil_payload(db, row, source='tracking_card')['header_fields'])
+    return {}
 
 
 def flow_context_for_identifier(db: Session, *, identifier: str) -> dict[str, Any]:
