@@ -449,7 +449,7 @@ def _current_adapter_name() -> str:
 
 
 def stale_threshold_seconds() -> float:
-    return float(max(settings.MES_SYNC_POLL_MINUTES, 1) * 300)
+    return float(max(settings.MES_SYNC_POLL_SECONDS, 30) * 10)
 
 
 def _retry_limit() -> int:

@@ -181,36 +181,40 @@ async function initializeActiveBusinessDate() {
   try {
     const payload = await fetchLiveActiveDate()
     const activeDate = payload?.active_business_date || payload?.business_date || payload?.date
-    if (activeDate) {
-      targetDate.value = activeDate
-    }
+    return activeDate || ''
   } catch {
-    targetDate.value = targetDate.value || inferBusinessDate()
+    return ''
   }
+}
+
+async function refreshFillDetails(businessDate = targetDate.value) {
+  const details = await fetchLiveFillDetails({ business_date: businessDate, limit: 200 })
+  if (businessDate !== targetDate.value) return
+  fillDetails.value = details || { items: [] }
 }
 
 async function loadDashboardSurface(options = {}) {
   const silent = options.silent === true
+  const includeDetails = options.includeDetails !== false
   if (!silent) loading.value = true
   loadError.value = ''
   const businessDate = targetDate.value
-  const livePromise = fetchLiveAggregation({ business_date: businessDate })
-  const detailPromise = fetchLiveFillDetails({ business_date: businessDate, limit: 200 })
-    .then((details) => ({ ok: true, details }))
-    .catch(() => ({ ok: false }))
 
   try {
-    const liveData = await livePromise
+    const liveData = await fetchLiveAggregation({ business_date: businessDate })
+    if (businessDate !== targetDate.value) return
     aggregation.value = liveData || {}
     lastSnapshotAt.value = new Date().toISOString()
+    if (includeDetails) {
+      void refreshFillDetails(businessDate).catch(() => {
+        if (businessDate === targetDate.value) fillDetails.value = { items: [] }
+      })
+    }
   } catch (error) {
     loadError.value = error?.message || '接口失败'
   } finally {
     if (!silent) loading.value = false
   }
-
-  const detailResult = await detailPromise
-  fillDetails.value = detailResult.ok ? (detailResult.details || { items: [] }) : { items: [] }
 }
 
 function handleRealtimeEvent(type, payload = {}) {
@@ -220,7 +224,8 @@ function handleRealtimeEvent(type, payload = {}) {
     aggregation.value = patchedAggregation
   }
   if (shouldReloadForRealtimeEvent({ type, payload, targetDate: targetDate.value })) {
-    void loadDashboardSurface({ silent: streamStatus.value === 'open' })
+    const streamOpen = streamStatus.value === 'open'
+    void loadDashboardSurface({ silent: streamOpen, includeDetails: !streamOpen })
   }
 }
 
@@ -228,7 +233,7 @@ function startSnapshotPolling() {
   if (snapshotPollTimer) return
   snapshotPollTimer = window.setInterval(() => {
     if (streamStatus.value !== 'open') {
-      void loadDashboardSurface({ silent: true })
+      void loadDashboardSurface({ silent: true, includeDetails: false })
     }
   }, SNAPSHOT_POLL_MS)
 }
@@ -264,9 +269,14 @@ async function openMachine(machine) {
   }
 }
 
-onMounted(async () => {
-  await initializeActiveBusinessDate()
-  await loadDashboardSurface()
+onMounted(() => {
+  void loadDashboardSurface()
+  void initializeActiveBusinessDate().then((activeDate) => {
+    if (activeDate && activeDate !== targetDate.value) {
+      targetDate.value = activeDate
+      void loadDashboardSurface()
+    }
+  })
   startSnapshotPolling()
 })
 

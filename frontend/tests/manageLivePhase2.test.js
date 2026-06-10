@@ -17,6 +17,8 @@ const livePageUrl = new URL('../src/views/manage/live/LiveDashboardPage.vue', im
 const livePageSource = existsSync(livePageUrl) ? readFileSync(livePageUrl, 'utf8') : ''
 const animatedMetricUrl = new URL('../src/views/manage/live/AnimatedMetricValue.vue', import.meta.url)
 const animatedMetricSource = existsSync(animatedMetricUrl) ? readFileSync(animatedMetricUrl, 'utf8') : ''
+const marketTickerUrl = new URL('../src/views/manage/live/LiveMarketTicker.vue', import.meta.url)
+const marketTickerSource = existsSync(marketTickerUrl) ? readFileSync(marketTickerUrl, 'utf8') : ''
 
 const componentNames = [
   'LiveMarketTicker',
@@ -59,16 +61,18 @@ test('/manage/live event rail mirrors the snapshot fallback connection wording',
   assert.doesNotMatch(eventRailSource, /正在连接/)
 })
 
-test('/manage/live starts secondary fill details while loading the primary snapshot', () => {
-  const liveStartIndex = livePageSource.indexOf('const livePromise = fetchLiveAggregation')
-  const detailStartIndex = livePageSource.indexOf('const detailPromise = fetchLiveFillDetails')
-  const liveAwaitIndex = livePageSource.indexOf('const liveData = await livePromise')
+test('/manage/live publishes the primary snapshot before secondary fill details settle', () => {
+  const liveAwaitIndex = livePageSource.indexOf('const liveData = await fetchLiveAggregation')
+  const publishIndex = livePageSource.indexOf('aggregation.value = liveData')
+  const detailRefreshIndex = livePageSource.indexOf('void refreshFillDetails')
 
-  assert.notEqual(liveStartIndex, -1)
-  assert.notEqual(detailStartIndex, -1)
   assert.notEqual(liveAwaitIndex, -1)
-  assert.ok(liveStartIndex < detailStartIndex)
-  assert.ok(detailStartIndex < liveAwaitIndex)
+  assert.notEqual(publishIndex, -1)
+  assert.notEqual(detailRefreshIndex, -1)
+  assert.ok(liveAwaitIndex < publishIndex)
+  assert.ok(publishIndex < detailRefreshIndex)
+  assert.match(livePageSource, /includeDetails:\s*false/)
+  assert.match(livePageSource, /void loadDashboardSurface\(\)/)
 })
 
 test('/manage/live keeps the dispatch wall title readable at dashboard width', () => {
@@ -82,6 +86,15 @@ test('/manage/live uses one-second numeric rolling without heavy decorative loop
   assert.match(animatedMetricSource, /prefers-reduced-motion:\s*reduce/)
   assert.doesNotMatch(animatedMetricSource, /@keyframes/)
   assert.doesNotMatch(animatedMetricSource, /infinite/)
+})
+
+test('/manage/live top ticker uses large readable cards without heavy loops', () => {
+  assert.ok(marketTickerSource, 'LiveMarketTicker.vue should exist')
+  assert.match(marketTickerSource, /aria-live="polite"/)
+  assert.match(marketTickerSource, /来源 \{\{ item\.source \}\}/)
+  assert.match(marketTickerSource, /font-size:\s*clamp\(32px,\s*3\.2vw,\s*52px\)/)
+  assert.doesNotMatch(marketTickerSource, /@keyframes/)
+  assert.doesNotMatch(marketTickerSource, /infinite/)
 })
 
 test('realtime stream heartbeats do not reload the whole live page', () => {
@@ -125,8 +138,8 @@ test('ticker exposes the first-screen factory signals with zero fallback', () =>
   })
 
   assert.deepEqual(items.map((item) => item.label), [
-    '包装产量',
-    '全厂入库产量',
+    'MES包装产量',
+    '内勤入库填报',
     '过站下机',
     '总电耗',
     '吨电耗',
@@ -136,6 +149,8 @@ test('ticker exposes the first-screen factory signals with zero fallback', () =>
   ])
   assert.equal(items[0].value, '126.42 吨')
   assert.equal(items[1].value, '120.5 吨')
+  assert.equal(items[0].source, 'MES包装')
+  assert.equal(items[1].source, '内勤入库')
   assert.equal(items[2].value, '211.8 吨')
   assert.equal(items[3].value, '0 kWh')
   assert.equal(items[4].value, '0 kWh/吨')

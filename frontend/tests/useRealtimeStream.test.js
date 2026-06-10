@@ -61,6 +61,7 @@ test('LiveDashboardPage polls snapshots when the realtime stream is not open', (
 
   assert.match(src, /SNAPSHOT_POLL_MS/)
   assert.match(src, /streamStatus\.value !== 'open'/)
+  assert.match(src, /includeDetails:\s*false/)
   assert.match(src, /快照刷新中/)
   assert.match(src, /快照可用 · 实时重连/)
 })

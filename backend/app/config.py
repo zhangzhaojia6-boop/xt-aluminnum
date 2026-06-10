@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     MES_SQLSERVER_ENCRYPT: bool = False
     MES_SYNC_LIMIT: int = 200
     MES_SYNC_WINDOW_MINUTES: int = 10
+    MES_SYNC_POLL_SECONDS: int = 30
+    MES_REALTIME_SYNC_POLL_SECONDS: int = 30
     MES_SYNC_POLL_MINUTES: int = 1
     MES_REALTIME_SYNC_POLL_MINUTES: int = 5
     MES_BUSINESS_SYNC_POLL_MINUTES: int = 10
@@ -259,6 +261,12 @@ class Settings(BaseSettings):
 
         if self.MES_SYNC_WINDOW_MINUTES <= 0:
             issues.append('MES_SYNC_WINDOW_MINUTES must be greater than 0')
+
+        if self.MES_SYNC_POLL_SECONDS <= 0:
+            issues.append('MES_SYNC_POLL_SECONDS must be greater than 0')
+
+        if self.MES_REALTIME_SYNC_POLL_SECONDS <= 0:
+            issues.append('MES_REALTIME_SYNC_POLL_SECONDS must be greater than 0')
 
         if self.MES_SYNC_POLL_MINUTES <= 0:
             issues.append('MES_SYNC_POLL_MINUTES must be greater than 0')

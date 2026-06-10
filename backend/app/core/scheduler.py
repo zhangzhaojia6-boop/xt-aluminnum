@@ -102,14 +102,14 @@ def setup_scheduler(target_scheduler=None):
             sync_mes_coil_snapshots,
             'interval',
             job_id='mes_sync_core',
-            minutes=settings.MES_SYNC_POLL_MINUTES,
+            seconds=settings.MES_SYNC_POLL_SECONDS,
         )
         _add_job_once(
             active_scheduler,
             sync_mes_realtime_projection,
             'interval',
             job_id='mes_sync_realtime',
-            minutes=settings.MES_REALTIME_SYNC_POLL_MINUTES,
+            seconds=settings.MES_REALTIME_SYNC_POLL_SECONDS,
         )
         _add_job_once(
             active_scheduler,

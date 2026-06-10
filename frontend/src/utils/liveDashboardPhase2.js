@@ -100,13 +100,13 @@ export function buildLiveTickerItems(aggregation = {}) {
 
   return [
     {
-      label: '包装产量',
+      label: 'MES包装产量',
       value: formatTrustedMetric(packagingOutput, '吨'),
       tone: isPresent(packagingOutput) ? 'success' : 'muted',
       source: 'MES包装',
     },
     {
-      label: '全厂入库产量',
+      label: '内勤入库填报',
       value: formatTrustedMetric(finishedInboundOutput, '吨'),
       tone: isPresent(finishedInboundOutput) ? 'success' : 'muted',
       source: '内勤入库',

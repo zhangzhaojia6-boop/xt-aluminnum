@@ -40,9 +40,13 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['daily_report']['kwargs']['hour'] == 8
     assert scheduler.jobs['daily_report']['kwargs']['minute'] == 0
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_core']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_realtime']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_business']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_business']['kwargs']['minutes'] == 10
     assert scheduler.jobs['mes_sync_reference']['trigger'] == 'interval'
+    assert scheduler.jobs['mes_sync_reference']['kwargs']['minutes'] == 360
     assert scheduler.jobs['fill_reminder']['trigger'] == 'cron'
     assert scheduler.jobs['data_archive']['trigger'] == 'cron'
 

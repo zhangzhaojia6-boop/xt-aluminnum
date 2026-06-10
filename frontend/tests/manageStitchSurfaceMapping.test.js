@@ -215,8 +215,8 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
     'bottomStatus',
   ])
   assert.equal(surface.businessDate, '2026-06-05')
-  assert.equal(surface.marketTicker.find((item) => item.label === '包装产量')?.value, '126.42 吨')
-  assert.equal(surface.marketTicker.find((item) => item.label === '全厂入库产量')?.value, '120.5 吨')
+  assert.equal(surface.marketTicker.find((item) => item.label === 'MES包装产量')?.value, '126.42 吨')
+  assert.equal(surface.marketTicker.find((item) => item.label === '内勤入库填报')?.value, '120.5 吨')
   assert.equal(surface.marketTicker.find((item) => item.label === '总电耗')?.value, '17,430 kWh')
   assert.equal(surface.machineMatrix.machineCount, 1)
   assert.equal(surface.realtimeKpiStrip[0].primaryLabel, 'MES包装')
