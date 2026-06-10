@@ -452,15 +452,19 @@ const productionFlowStages = computed(() => {
     buildWorkshopStage('finish', '退火 / 拉矫 / 精整', ['退火', '拉矫', '精整', '剪切', '包装']),
     {
       key: 'warehouse',
-      label: '全厂入库产量',
-      primaryLabel: '全厂入库',
-      primaryValue: plantOutput.finished_inbound_output == null ? '—' : `${fmt(plantOutput.finished_inbound_output, 0)} 吨`,
-      secondaryLabel: '月累计入库',
-      secondaryValue: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
+      label: '包装 / 入库对照',
+      primaryLabel: 'MES包装',
+      primaryValue: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
+      secondaryLabel: '内勤填报',
+      secondaryValue: plantOutput.finished_inbound_output == null ? '—' : `${fmt(plantOutput.finished_inbound_output, 0)} 吨`,
       subItems: [
         {
-          label: '包装产量',
-          value: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
+          label: 'MES月累计',
+          value: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
+        },
+        {
+          label: '填报月累计',
+          value: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
         },
       ],
     },

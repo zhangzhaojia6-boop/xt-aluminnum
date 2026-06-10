@@ -25,6 +25,7 @@ function source(rel) {
 const dailyOverview = {
   plant_output: {
     daily_output: 81.25,
+    finished_inbound_output: 73.6,
     monthly_output: 1200,
     energy_per_ton: 456.7,
   },
@@ -57,7 +58,10 @@ test('audit ticker uses plant inbound output and ton contract values', () => {
     },
   })
 
+  assert.equal(items.find((item) => item.key === 'plant-output')?.label, 'MES包装产量')
   assert.equal(items.find((item) => item.key === 'plant-output')?.value, '81.25 吨')
+  assert.equal(items.find((item) => item.key === 'finished-inbound')?.label, '内勤入库填报')
+  assert.equal(items.find((item) => item.key === 'finished-inbound')?.value, '73.6 吨')
   assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '90 吨')
   assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.5 吨')
   assert.equal(items.find((item) => item.key === 'mes-sync')?.value, '同步恢复中')
@@ -67,13 +71,14 @@ test('audit ticker hides trailing zero decimals without losing non-zero decimals
   const items = buildAuditTickerItems({
     dailyOverview: {
       ...dailyOverview,
-      plant_output: { daily_output: 81 },
+      plant_output: { daily_output: 81, finished_inbound_output: 73 },
       contracts: { daily_new: 12.5, unit: '吨' },
       workshop_output: [{ workshop: '退火一车间', daily_output: 40 }],
     },
   })
 
   assert.equal(items.find((item) => item.key === 'plant-output')?.value, '81 吨')
+  assert.equal(items.find((item) => item.key === 'finished-inbound')?.value, '73 吨')
   assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '40 吨')
   assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.5 吨')
 })
@@ -148,7 +153,8 @@ test('source chain cards keep algorithm values primary and filled values seconda
   assert.deepEqual(
     cards.map((item) => [item.key, item.primaryLabel, item.compareLabel]),
     [
-      ['output', '入库产量', '过站下机参考'],
+      ['output', 'MES包装', '内勤入库填报'],
+      ['process', '车间合计', '最终口径'],
       ['energy', '算法总用电', '电工填报'],
       ['yield', '算法成品率', '内勤填报'],
       ['contract', '当天接合同', '总余合同量'],

@@ -88,9 +88,15 @@ export function buildAuditTickerItems({ dailyOverview = {}, liveAggregation = {}
   return [
     {
       key: 'plant-output',
-      label: '全厂入库产量',
+      label: 'MES包装产量',
       value: formatMetric(plantOutput.daily_output, '吨'),
       tone: toneByMissing(formatMetric(plantOutput.daily_output, '吨'), 'success'),
+    },
+    {
+      key: 'finished-inbound',
+      label: '内勤入库填报',
+      value: formatMetric(plantOutput.finished_inbound_output, '吨'),
+      tone: toneByMissing(formatMetric(plantOutput.finished_inbound_output, '吨'), 'success'),
     },
     {
       key: 'process-throughput',
@@ -139,12 +145,21 @@ export function buildSourceChainCards(dailyOverview = {}) {
   return [
     {
       key: 'output',
-      title: '全厂最终产量',
-      primaryLabel: '入库产量',
+      title: '包装产量对照',
+      primaryLabel: 'MES包装',
       primaryValue: formatMetric(plantOutput.daily_output, '吨'),
-      compareLabel: '过站下机参考',
-      compareValue: formatMetric(processThroughput, '吨'),
+      compareLabel: '内勤入库填报',
+      compareValue: formatMetric(plantOutput.finished_inbound_output, '吨'),
       tone: 'success',
+    },
+    {
+      key: 'process',
+      title: '过站下机参考',
+      primaryLabel: '车间合计',
+      primaryValue: formatMetric(processThroughput, '吨'),
+      compareLabel: '最终口径',
+      compareValue: plantOutput.basis_label || 'MES包装产量',
+      tone: 'primary',
     },
     {
       key: 'energy',

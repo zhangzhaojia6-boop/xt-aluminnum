@@ -27,7 +27,9 @@ test('daily settlement cards keep plant inbound output separate from process thr
   })
 
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.25')
+  assert.equal(cards.find((item) => item.key === 'plant-output')?.label, 'MES包装产量')
   assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '73.6')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.label, '内勤入库填报')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'contract-tonnage')?.unit, '吨')
 })
