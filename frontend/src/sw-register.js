@@ -2,11 +2,8 @@ import { registerSW } from 'virtual:pwa-register'
 
 export function installSW() {
   if ('serviceWorker' in navigator) {
-    let refreshing = false
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return
-      refreshing = true
-      window.location.reload()
+      console.log('SW controller changed; keeping current dashboard session alive')
     })
 
     const updateSW = registerSW({
