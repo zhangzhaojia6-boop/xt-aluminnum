@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Equipment, Workshop
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -29,6 +29,7 @@ def _session_factory(tmp_path):
             WorkOrderEntry.__table__,
             MobileShiftReport.__table__,
             DailyConsumableLog.__table__,
+            MesStockRecord.__table__,
             MesWorkshopProcessRecord.__table__,
         ],
     )
@@ -74,19 +75,73 @@ def test_mes_packaging_output_is_grouped_by_business_date(tmp_path) -> None:
     assert totals == {BUSINESS_DATE: 26.83}
 
 
-def test_plant_output_uses_mes_packaging_as_main_and_keeps_inbound_separate(tmp_path) -> None:
+def test_mes_packaging_output_prefers_mes_stock_in_records_over_process_packaging(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
             [
                 Workshop(id=1, code='JZ', name='精整车间', is_active=True),
+                MesStockRecord(
+                    source_id='stock-in-today',
+                    source_path='sqlserver',
+                    net_weight_tons=341.707,
+                    status_name='1',
+                    business_date=BUSINESS_DATE,
+                    source_payload={
+                        'FromDepartment': '精整',
+                        'ToDepartment': '成品库',
+                        'Status': 1,
+                    },
+                ),
                 MesWorkshopProcessRecord(
                     source_id='pkg-today',
                     source_path='sqlserver',
                     workshop_name='精整',
                     process_name='包装',
-                    output_weight_tons=36.5,
+                    output_weight_tons=44.23,
                     business_date=BUSINESS_DATE,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id='pkg-yesterday',
+                    source_path='sqlserver',
+                    workshop_name='精整',
+                    process_name='包装',
+                    output_weight_tons=22.25,
+                    business_date=date(2026, 6, 8),
+                ),
+                DailyConsumableLog(
+                    workshop_id=1,
+                    workshop_type='finishing',
+                    business_date=BUSINESS_DATE,
+                    payload={daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        totals = daily_overview_builder._query_mes_packaging_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+
+    assert totals == {BUSINESS_DATE: 341.71}
+
+
+def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separate(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='JZ', name='精整车间', is_active=True),
+                MesStockRecord(
+                    source_id='stock-in-today',
+                    source_path='sqlserver',
+                    net_weight_tons=36.5,
+                    status_name='1',
+                    business_date=BUSINESS_DATE,
+                    source_payload={
+                        'FromDepartment': '精整',
+                        'ToDepartment': '成品库',
+                        'Status': 1,
+                    },
                 ),
                 MesWorkshopProcessRecord(
                     source_id='pkg-yesterday',
@@ -112,6 +167,7 @@ def test_plant_output_uses_mes_packaging_as_main_and_keeps_inbound_separate(tmp_
     assert plant['basis'] == 'mes_packaging_output'
     assert plant['basis_label'] == '包装产量'
     assert plant['business_day_start'] == '07:30'
+    assert plant['daily_output_source'] == 'mes_stock_records'
     assert plant['daily_output'] == 36.5
     assert plant['packaging_output'] == 36.5
     assert plant['yesterday_output'] == 22.25

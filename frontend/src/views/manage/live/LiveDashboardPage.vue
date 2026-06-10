@@ -119,7 +119,7 @@ const streamScope = computed(() => {
 
 const { status: streamStatus, lastEventAt, reconnectCount } = useRealtimeStream(streamScope, {
   enabled: true,
-  connectionTimeoutMs: 5000,
+  connectionTimeoutMs: 10000,
   onEvent: handleRealtimeEvent,
 })
 

@@ -42,10 +42,11 @@ def test_energy_contract_keeps_machine_detail_as_authoritative_source() -> None:
 def test_factory_output_contract_matches_mes_packaging_basis() -> None:
     contract = CORE_METRIC_CONTRACTS['factory_total_output_tons']
 
-    assert contract['primary_source'] == 'mes_workshop_process_records.output_weight_tons'
-    assert f'daily_consumable_logs.payload.{daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD}' in contract['fallback_source']
+    assert contract['primary_source'] == 'mes_stock_records.net_weight_tons'
+    assert 'mes_workshop_process_records.output_weight_tons' in contract['fallback_source']
+    assert daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD not in contract['fallback_source']
     assert contract['business_date_basis'] == 'production_business_date'
-    assert contract['aggregation_rule'] == 'sum_mes_final_packaging_output_first'
+    assert contract['aggregation_rule'] == 'sum_mes_stock_in_to_finished_goods_first'
     assert set(contract['final_workshop_codes']) == daily_overview_builder.FINAL_PACKAGING_WORKSHOP_CODES
     assert set(contract['final_mes_workshop_names']) == daily_overview_builder.FINAL_PACKAGING_MES_WORKSHOP_NAMES
 

@@ -45,7 +45,7 @@ test('/manage/live uses the phase 2 Stitch component surface', () => {
   assert.match(livePageSource, /fetchLiveCellDetail/)
   assert.match(livePageSource, /fetchLiveFillDetails/)
   assert.match(livePageSource, /useRealtimeStream/)
-  assert.match(livePageSource, /connectionTimeoutMs:\s*5000/)
+  assert.match(livePageSource, /connectionTimeoutMs:\s*10000/)
   assert.match(livePageSource, /快照可用 · 实时重连/)
   assert.match(livePageSource, /接口核验中 · 快照兜底/)
   assert.match(livePageSource, /if \(loading\.value\) return '快照加载中'/)

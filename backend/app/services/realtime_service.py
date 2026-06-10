@@ -1329,12 +1329,15 @@ def _inject_factory_packaging_output(
     if scoped_workshop_id is not None:
         packaging_output = 0.0
         finished_inbound_output = 0.0
+        daily_output_source = 'scoped_workshop'
     else:
-        packaging_output = daily_overview_builder._query_mes_packaging_output_by_date(
+        packaging_by_date, sources_by_date = daily_overview_builder._query_mes_packaging_output_with_source_by_date(
             db,
             business_date,
             business_date,
-        ).get(business_date, 0.0)
+        )
+        packaging_output = packaging_by_date.get(business_date, 0.0)
+        daily_output_source = sources_by_date.get(business_date, 'mes_stock_records')
         finished_inbound_output = daily_overview_builder._query_finished_inbound_totals_by_date(
             db,
             business_date,
@@ -1348,8 +1351,8 @@ def _inject_factory_packaging_output(
         'finished_inbound_output': round(finished_inbound_output, 2),
         'owner_storage_finished_weight': round(finished_inbound_output, 2),
         'business_day_start': '07:30',
-        'daily_output_source': 'mes_workshop_process_records',
-        'finished_inbound_source': 'daily_consumable_logs.payload.packaging_inbound_output_tons',
+        'daily_output_source': daily_output_source,
+        'finished_inbound_source': 'owner_daily_storage_or_consumable_fill',
     })
     return payload
 

@@ -2264,8 +2264,8 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     business_date = date(2026, 6, 9)
     monkeypatch.setattr(
         realtime_service.daily_overview_builder,
-        '_query_mes_packaging_output_by_date',
-        lambda _db, _start, _end: {business_date: 42.5},
+        '_query_mes_packaging_output_with_source_by_date',
+        lambda _db, _start, _end: ({business_date: 42.5}, {business_date: 'mes_stock_records'}),
     )
     monkeypatch.setattr(
         realtime_service.daily_overview_builder,
@@ -2285,3 +2285,4 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     assert payload['factory_total']['factory_total_output'] == 42.5
     assert payload['factory_total']['finished_inbound_output'] == 39.25
     assert payload['factory_total']['business_day_start'] == '07:30'
+    assert payload['factory_total']['daily_output_source'] == 'mes_stock_records'
