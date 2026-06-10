@@ -7,13 +7,14 @@ from app.database import Base
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport, WorkOrder, WorkOrderEntry
+from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.report import daily_overview_builder
 
 
 BUSINESS_DATE = date(2026, 6, 9)
+PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
 
 
 def _session_factory(tmp_path):
@@ -27,7 +28,6 @@ def _session_factory(tmp_path):
             ShiftConfig.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
-            MobileShiftReport.__table__,
             DailyConsumableLog.__table__,
             MesStockRecord.__table__,
             MesWorkshopProcessRecord.__table__,
@@ -113,7 +113,7 @@ def test_mes_packaging_output_prefers_mes_stock_in_records_over_process_packagin
                     workshop_id=1,
                     workshop_type='finishing',
                     business_date=BUSINESS_DATE,
-                    payload={daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                    payload={PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
                 ),
             ]
         )
@@ -131,6 +131,17 @@ def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separat
         db.add_all(
             [
                 Workshop(id=1, code='JZ', name='精整车间', is_active=True),
+                Workshop(id=2, code='CPK', name='成品库', is_active=True),
+                User(
+                    id=7,
+                    username='CPK-FS',
+                    password_hash='x',
+                    name='成品库内勤',
+                    role='storage_owner',
+                    workshop_id=2,
+                    is_mobile_user=True,
+                    is_active=True,
+                ),
                 MesStockRecord(
                     source_id='stock-in-today',
                     source_path='sqlserver',
@@ -155,7 +166,29 @@ def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separat
                     workshop_id=1,
                     workshop_type='finishing',
                     business_date=BUSINESS_DATE,
-                    payload={daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                    payload={PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                ),
+                WorkOrder(
+                    id=100,
+                    tracking_card_no='OWNER-storage_owner-7-2026-06-09',
+                    process_route_code='owner_daily',
+                    overall_status='created',
+                    created_by=7,
+                ),
+                WorkOrderEntry(
+                    work_order_id=100,
+                    workshop_id=2,
+                    machine_id=None,
+                    shift_id=None,
+                    business_date=BUSINESS_DATE,
+                    entry_type='owner_daily',
+                    entry_status='submitted',
+                    created_by=7,
+                    created_by_user_id=7,
+                    extra_payload={
+                        'park_inbound_daily': 12.5,
+                        'new_plant_inbound_daily': 14.75,
+                    },
                 ),
             ]
         )
@@ -174,14 +207,15 @@ def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separat
     assert plant['monthly_output'] == 58.75
     assert plant['packaging_monthly_output'] == 58.75
     assert plant['monthly_average_output'] == round(58.75 / 9, 2)
-    assert plant['finished_inbound_output'] == 18.75
+    assert plant['finished_inbound_source'] == 'storage_owner_daily_entry'
+    assert plant['finished_inbound_output'] == 27.25
     assert plant['finished_inbound_basis_label'] == '全厂入库产量'
-    assert plant['finished_inbound_monthly_output'] == 18.75
-    assert plant['finished_inbound_monthly_average'] == round(18.75 / 9, 2)
+    assert plant['finished_inbound_monthly_output'] == 27.25
+    assert plant['finished_inbound_monthly_average'] == round(27.25 / 9, 2)
     assert plant['energy_per_ton'] == 100.0
 
 
-def test_plant_output_does_not_fallback_to_manual_inbound_when_mes_missing(tmp_path) -> None:
+def test_plant_output_does_not_use_consumable_packaging_as_storage_owner_inbound(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -191,7 +225,7 @@ def test_plant_output_does_not_fallback_to_manual_inbound_when_mes_missing(tmp_p
                     workshop_id=1,
                     workshop_type='finishing',
                     business_date=BUSINESS_DATE,
-                    payload={daily_overview_builder.PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
+                    payload={PACKAGING_INBOUND_OUTPUT_FIELD: 18.75},
                 ),
             ]
         )
@@ -203,5 +237,5 @@ def test_plant_output_does_not_fallback_to_manual_inbound_when_mes_missing(tmp_p
     assert plant['basis'] == 'mes_packaging_output'
     assert plant['daily_output'] == 0.0
     assert plant['packaging_output'] == 0.0
-    assert plant['finished_inbound_output'] == 18.75
+    assert plant['finished_inbound_output'] == 0.0
     assert plant['energy_per_ton'] is None

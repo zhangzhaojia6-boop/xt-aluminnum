@@ -14,6 +14,7 @@ from app.models.master import Employee, Workshop
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services import report_service
 from app.services.report import daily_overview_builder
 from app.services.report import dashboard_builder
@@ -104,7 +105,7 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
     }) == 7.2
 
 
-def test_finished_inbound_output_prefers_packaging_inbound_from_final_packaging_workshops(tmp_path) -> None:
+def test_finished_inbound_output_uses_storage_owner_daily_entry_only(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-packaging-output.db'}", future=True)
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -113,6 +114,8 @@ def test_finished_inbound_output_prefers_packaging_inbound_from_final_packaging_
         Workshop(id=2, code='LJ', name='拉矫车间', workshop_type='straightening', is_active=True),
         Workshop(id=3, code='JQ', name='园区剪切车间', workshop_type='shearing', is_active=True),
         Workshop(id=4, code='ZXTF-N', name='新厂在线退火', workshop_type='annealing', is_active=True),
+        Workshop(id=5, code='CPK', name='成品库', workshop_type='inventory', is_active=True),
+        User(id=7, username='CPK-FS', password_hash='x', name='成品库内勤', role='storage_owner', workshop_id=5, is_mobile_user=True),
     ])
     db.add_all([
         DailyConsumableLog(
@@ -139,6 +142,19 @@ def test_finished_inbound_output_prefers_packaging_inbound_from_final_packaging_
             business_date=date(2026, 6, 4),
             payload={'packaging_inbound_output_tons': 99.0},
         ),
+        WorkOrder(id=100, tracking_card_no='OWNER-storage_owner-7-2026-06-04', process_route_code='owner_daily', created_by=7),
+        WorkOrderEntry(
+            work_order_id=100,
+            workshop_id=5,
+            machine_id=None,
+            shift_id=None,
+            business_date=date(2026, 6, 4),
+            entry_type='owner_daily',
+            entry_status='submitted',
+            created_by=7,
+            created_by_user_id=7,
+            extra_payload={'park_inbound_daily': 20.0, 'new_plant_inbound_daily': 11.25},
+        ),
     ])
     db.commit()
 
@@ -148,7 +164,7 @@ def test_finished_inbound_output_prefers_packaging_inbound_from_final_packaging_
         date(2026, 6, 4),
     )
 
-    assert totals == {date(2026, 6, 4): 18.5}
+    assert totals == {date(2026, 6, 4): 31.25}
 
 
 def test_wip_distribution_uses_target_business_date_and_feeding_weight_reference(tmp_path) -> None:

@@ -8,11 +8,11 @@ from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.orm import Session
 
 from app.models.attendance import AttendanceSchedule
-from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport, WorkOrderEntry
+from app.models.production import WorkOrderEntry
 from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services.mobile_report._utils import SUBMITTED_STATUSES
 from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
@@ -30,7 +30,7 @@ FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
 FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '精整车间', '拉矫', '拉矫车间', '园区精整', '园区剪切', '园区剪切车间', '剪切车间'}
 MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
 MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
-PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
+STORAGE_OWNER_ROLE = 'storage_owner'
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
@@ -507,12 +507,15 @@ def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) ->
     rows = (
         db.query(WorkOrderEntry)
         .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .join(User, User.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
         .filter(
             WorkOrderEntry.business_date >= start,
             WorkOrderEntry.business_date <= end,
             WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
             WorkOrderEntry.entry_type == 'owner_daily',
             WorkOrderEntry.machine_id.is_(None),
+            User.role == STORAGE_OWNER_ROLE,
+            or_(Workshop.code == 'CPK', Workshop.name == '成品库'),
         )
         .all()
     )
@@ -525,53 +528,8 @@ def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) ->
     return totals
 
 
-def _query_packaging_inbound_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    rows = (
-        db.query(DailyConsumableLog.business_date, DailyConsumableLog.payload)
-        .join(Workshop, Workshop.id == DailyConsumableLog.workshop_id)
-        .filter(
-            DailyConsumableLog.business_date >= start,
-            DailyConsumableLog.business_date <= end,
-            Workshop.code.in_(tuple(FINAL_PACKAGING_WORKSHOP_CODES)),
-            Workshop.is_active.is_(True),
-        )
-        .all()
-    )
-    totals: dict[date, float] = {}
-    for business_date, payload in rows:
-        inbound_tons = _payload_number(dict(payload or {}), PACKAGING_INBOUND_OUTPUT_FIELD)
-        if inbound_tons is None or inbound_tons <= 0:
-            continue
-        totals[business_date] = totals.get(business_date, 0.0) + inbound_tons
-    return totals
-
-
-def _query_shift_report_storage_finished_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    rows = (
-        db.query(
-            MobileShiftReport.business_date,
-            func.sum(MobileShiftReport.storage_finished),
-        )
-        .filter(
-            MobileShiftReport.business_date >= start,
-            MobileShiftReport.business_date <= end,
-            MobileShiftReport.report_status.in_(tuple(SUBMITTED_STATUSES)),
-            MobileShiftReport.storage_finished.is_not(None),
-        )
-        .group_by(MobileShiftReport.business_date)
-        .all()
-    )
-    return {business_date: _to_float(total) for business_date, total in rows}
-
-
 def _query_finished_inbound_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    totals = _query_packaging_inbound_output_by_date(db, start, end)
-    owner_totals = _query_owner_storage_inbound_by_date(db, start, end)
-    for business_date, total in owner_totals.items():
-        totals.setdefault(business_date, total)
-    fallback_totals = _query_shift_report_storage_finished_by_date(db, start, end)
-    for business_date, total in fallback_totals.items():
-        totals.setdefault(business_date, total)
+    totals = _query_owner_storage_inbound_by_date(db, start, end)
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
@@ -658,7 +616,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'basis_label': '包装产量',
         'business_day_start': '07:30',
         'daily_output_source': mes_sources_by_date.get(target_date, 'mes_stock_records'),
-        'finished_inbound_source': 'owner_daily_storage_or_consumable_fill',
+        'finished_inbound_source': 'storage_owner_daily_entry',
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
         'monthly_output': _round2(monthly_output),

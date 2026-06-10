@@ -1352,7 +1352,7 @@ def _inject_factory_packaging_output(
         'owner_storage_finished_weight': round(finished_inbound_output, 2),
         'business_day_start': '07:30',
         'daily_output_source': daily_output_source,
-        'finished_inbound_source': 'owner_daily_storage_or_consumable_fill',
+        'finished_inbound_source': 'storage_owner_daily_entry',
     })
     return payload
 
