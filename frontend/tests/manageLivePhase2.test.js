@@ -103,6 +103,10 @@ test('realtime stream heartbeats do not reload the whole live page', () => {
     false,
   )
   assert.equal(
+    shouldReloadForRealtimeEvent({ type: 'message', payload: {}, targetDate: '2026-05-30' }),
+    false,
+  )
+  assert.equal(
     shouldReloadForRealtimeEvent({
       type: 'entry_submitted',
       payload: { business_date: '2026-05-29' },
@@ -118,6 +122,14 @@ test('realtime stream heartbeats do not reload the whole live page', () => {
     }),
     true,
   )
+})
+
+test('/manage/live coalesces realtime snapshot reloads to avoid request storms', () => {
+  assert.match(livePageSource, /let\s+dashboardLoadPromise\s*=\s*null/)
+  assert.match(livePageSource, /if\s*\(dashboardLoadPromise\)\s*return\s+dashboardLoadPromise/)
+  assert.match(livePageSource, /function\s+scheduleRealtimeSnapshotReload/)
+  assert.match(livePageSource, /REALTIME_RELOAD_DEBOUNCE_MS\s*=\s*5000/)
+  assert.doesNotMatch(livePageSource, /void\s+loadDashboardSurface\(\{\s*silent:\s*streamOpen,\s*includeDetails:\s*!streamOpen\s*\}\)/)
 })
 
 test('ticker exposes the first-screen factory signals with zero fallback', () => {

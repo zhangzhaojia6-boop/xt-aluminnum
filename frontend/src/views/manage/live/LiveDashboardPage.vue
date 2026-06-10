@@ -108,7 +108,10 @@ const detailError = ref('')
 const latestRealtimeEvent = ref(null)
 const lastSnapshotAt = ref('')
 let snapshotPollTimer = null
+let realtimeReloadTimer = null
+let dashboardLoadPromise = null
 const SNAPSHOT_POLL_MS = 30000
+const REALTIME_RELOAD_DEBOUNCE_MS = 5000
 
 const streamScope = computed(() => {
   if (authStore.isAdmin || authStore.isManager || authStore.role === 'statistician' || authStore.role === 'stat') {
@@ -194,27 +197,40 @@ async function refreshFillDetails(businessDate = targetDate.value) {
 }
 
 async function loadDashboardSurface(options = {}) {
+  if (dashboardLoadPromise) return dashboardLoadPromise
   const silent = options.silent === true
   const includeDetails = options.includeDetails !== false
-  if (!silent) loading.value = true
-  loadError.value = ''
-  const businessDate = targetDate.value
+  dashboardLoadPromise = (async () => {
+    if (!silent) loading.value = true
+    loadError.value = ''
+    const businessDate = targetDate.value
 
-  try {
-    const liveData = await fetchLiveAggregation({ business_date: businessDate })
-    if (businessDate !== targetDate.value) return
-    aggregation.value = liveData || {}
-    lastSnapshotAt.value = new Date().toISOString()
-    if (includeDetails) {
-      void refreshFillDetails(businessDate).catch(() => {
-        if (businessDate === targetDate.value) fillDetails.value = { items: [] }
-      })
+    try {
+      const liveData = await fetchLiveAggregation({ business_date: businessDate })
+      if (businessDate !== targetDate.value) return
+      aggregation.value = liveData || {}
+      lastSnapshotAt.value = new Date().toISOString()
+      if (includeDetails) {
+        void refreshFillDetails(businessDate).catch(() => {
+          if (businessDate === targetDate.value) fillDetails.value = { items: [] }
+        })
+      }
+    } catch (error) {
+      loadError.value = error?.message || '接口失败'
+    } finally {
+      if (!silent) loading.value = false
+      dashboardLoadPromise = null
     }
-  } catch (error) {
-    loadError.value = error?.message || '接口失败'
-  } finally {
-    if (!silent) loading.value = false
-  }
+  })()
+  return dashboardLoadPromise
+}
+
+function scheduleRealtimeSnapshotReload(options = {}) {
+  if (realtimeReloadTimer) return
+  realtimeReloadTimer = window.setTimeout(() => {
+    realtimeReloadTimer = null
+    void loadDashboardSurface(options)
+  }, REALTIME_RELOAD_DEBOUNCE_MS)
 }
 
 function handleRealtimeEvent(type, payload = {}) {
@@ -225,7 +241,8 @@ function handleRealtimeEvent(type, payload = {}) {
   }
   if (shouldReloadForRealtimeEvent({ type, payload, targetDate: targetDate.value })) {
     const streamOpen = streamStatus.value === 'open'
-    void loadDashboardSurface({ silent: streamOpen, includeDetails: !streamOpen })
+    if (streamOpen && patchedAggregation) return
+    scheduleRealtimeSnapshotReload({ silent: streamOpen, includeDetails: !streamOpen })
   }
 }
 
@@ -282,6 +299,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopSnapshotPolling()
+  if (realtimeReloadTimer) {
+    window.clearTimeout(realtimeReloadTimer)
+    realtimeReloadTimer = null
+  }
 })
 </script>
 

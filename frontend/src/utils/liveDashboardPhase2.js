@@ -391,5 +391,12 @@ export function mergeRealtimeEventPatch(currentAggregation = {}, { payload = {},
 
 export function shouldReloadForRealtimeEvent({ type = '', payload = {}, targetDate = '' } = {}) {
   if (type === 'heartbeat' || type === 'ping') return false
+  const hasEventDate = Boolean(
+    payload?.business_date
+    || payload?.businessDate
+    || (Array.isArray(payload?.business_dates) && payload.business_dates.length)
+    || (Array.isArray(payload?.businessDates) && payload.businessDates.length)
+  )
+  if (!hasEventDate) return false
   return eventDateMatches(payload, targetDate)
 }
