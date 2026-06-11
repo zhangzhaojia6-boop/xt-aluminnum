@@ -12,6 +12,11 @@ test('mobile api exposes scan lookup endpoint', () => {
   assert.match(mobileApiSource, /\/mobile\/scan-lookup/)
 })
 
+test('mobile api exposes MES pending supplement endpoint', () => {
+  assert.match(mobileApiSource, /fetchMesPendingSupplements/)
+  assert.match(mobileApiSource, /\/mobile\/mes-pending-supplements/)
+})
+
 test('scan lookup composable supports dingtalk and browser scanners', () => {
   assert.match(scanLookupSource, /useScanLookup/)
   assert.match(scanLookupSource, /dd\.biz\.util\.scan/)
@@ -108,6 +113,26 @@ test('coil entry workbench applies scanned fields without locking them', () => {
   assert.match(coilEntrySource, /material_state: form\.value\.material_state/)
   assert.match(coilEntrySource, /locked_fields_snapshot/)
   assert.match(coilEntrySource, /locked_fields_token/)
+})
+
+test('coil entry workbench lets operators pick MES pending supplements', () => {
+  assert.match(coilEntrySource, /fetchMesPendingSupplements/)
+  assert.match(coilEntrySource, /MES 待补录/)
+  assert.match(coilEntrySource, /当前机台暂无 MES 待补录卷材/)
+  assert.match(coilEntrySource, /data-testid="mes-pending-supplements"/)
+  assert.match(coilEntrySource, /data-testid="mes-pending-card"/)
+  assert.match(coilEntrySource, /applyMesPendingItem/)
+  assert.match(coilEntrySource, /buildMesPendingHeaderFields/)
+  assert.match(coilEntrySource, /mes_reference/)
+  assert.match(coilEntrySource, /process_record_id: item\.mes_process_record_id/)
+  assert.match(coilEntrySource, /source_id: item\.mes_source_id/)
+  assert.match(coilEntrySource, /人工值仍可修改/)
+  assert.match(coilEntrySource, /business_day_start \|\| '09:30'/)
+  assert.match(coilEntrySource, /const flowPayload = buildFlowPayload\(form\.value\.flow\)/)
+  assert.match(coilEntrySource, /\.\.\.\(form\.value\.extra_payload \|\| \{\}\)/)
+  assert.match(coilEntrySource, /\.\.\.\(flowPayload\.extra_payload \|\| \{\}\)/)
+  assert.match(coilEntrySource, /extra_payload: Object\.keys\(extraPayload\)\.length \? extraPayload : null/)
+  assert.doesNotMatch(coilEntrySource, /fetchMesPendingSupplements\(\{[^)]*business_date/)
 })
 
 test('unified entry form keeps scanned per-coil fields editable', () => {

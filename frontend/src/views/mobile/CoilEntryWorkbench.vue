@@ -20,6 +20,52 @@
       />
     </div>
 
+    <section class="coil-mes-pending panel" data-testid="mes-pending-supplements">
+      <header class="coil-mes-pending__head">
+        <div>
+          <span>MES 待补录</span>
+          <strong>{{ mesPendingTitle }}</strong>
+          <small v-if="mesPendingDateText">{{ mesPendingDateText }}</small>
+        </div>
+        <el-button size="small" text :loading="mesPendingLoading" @click="loadMesPendingSupplements">
+          刷新
+        </el-button>
+      </header>
+
+      <div v-if="mesPendingLoading && !mesPendingItems.length" class="coil-mes-pending__state">
+        正在同步 MES 下机记录…
+      </div>
+      <div v-else-if="mesPendingError" class="coil-mes-pending__state coil-mes-pending__state--warn">
+        {{ mesPendingError }}
+      </div>
+      <div v-else-if="!mesPendingItems.length" class="coil-mes-pending__state">
+        当前机台暂无 MES 待补录卷材。
+      </div>
+      <div v-else class="coil-mes-pending__list">
+        <article
+          v-for="item in mesPendingItems"
+          :key="item.mes_process_record_id || item.mes_source_id"
+          class="coil-mes-card"
+          data-testid="mes-pending-card"
+        >
+          <div class="coil-mes-card__main">
+            <strong>{{ pendingTrackingText(item) }}</strong>
+            <span>{{ pendingMetaText(item) }}</span>
+          </div>
+          <div class="coil-mes-card__metrics">
+            <span>下机 {{ formatKgAsTon(item.output_weight_kg) }}</span>
+            <span>{{ formatEndTime(item.end_time) }}</span>
+          </div>
+          <button class="coil-mes-card__action" type="button" @click="applyMesPendingItem(item)">
+            补录
+          </button>
+        </article>
+      </div>
+      <footer class="coil-mes-pending__foot">
+        MES 已有字段会自动带入，人工值仍可修改。
+      </footer>
+    </section>
+
     <div class="coil-summary">
       <article class="coil-summary__item">
         <span>已录</span>
@@ -223,7 +269,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-import { fetchCurrentShift, fetchFieldOptions, fetchMobileBootstrap } from '../../api/mobile.js'
+import { fetchCurrentShift, fetchFieldOptions, fetchMesPendingSupplements, fetchMobileBootstrap } from '../../api/mobile.js'
 import { useAuthStore } from '../../stores/auth.js'
 import { api } from '../../api/index.js'
 import { validateCoilEntryForm } from '../../utils/coilEntryValidation.js'
@@ -239,6 +285,9 @@ const auth = useAuthStore()
 const bootstrap = ref({})
 const currentShift = ref({})
 const coilList = ref([])
+const mesPending = ref(null)
+const mesPendingLoading = ref(false)
+const mesPendingError = ref('')
 const showEntryDialog = ref(false)
 const showSummaryDialog = ref(false)
 const submitting = ref(false)
@@ -253,6 +302,16 @@ const machineName = computed(() => currentShift.value?.machine_name || bootstrap
 const workshopName = computed(() => currentShift.value?.workshop_name || bootstrap.value?.workshop_name || '-')
 const shiftName = computed(() => formatShiftLabel(currentShift.value?.shift_name || currentShift.value?.shift_code, '-'))
 const businessDate = computed(() => currentShift.value?.business_date || '-')
+const mesPendingItems = computed(() => Array.isArray(mesPending.value?.items) ? mesPending.value.items : [])
+const mesPendingSummary = computed(() => mesPending.value?.summary || {})
+const mesPendingTitle = computed(() => {
+  if (!mesPending.value?.is_machine_bound) return '未绑定机台'
+  return `${mesPendingSummary.value.pending_count || 0} 卷待补`
+})
+const mesPendingDateText = computed(() => {
+  if (!mesPending.value?.business_date) return ''
+  return `${mesPending.value.business_date} · ${mesPending.value.business_day_start || '09:30'} 切日`
+})
 
 const totalInput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.input_weight) || 0), 0))
 const totalOutput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.output_weight) || 0), 0))
@@ -285,6 +344,7 @@ const emptyForm = () => ({
   output_weight: null,
   material_state: '',
   operator_notes: '',
+  extra_payload: {},
   flow: emptyFlow(),
 })
 const form = ref(emptyForm())
@@ -338,6 +398,39 @@ function buildMesReferenceFields(fields = {}) {
       }
     })
     .filter(Boolean)
+}
+
+function kgNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatKgAsTon(value) {
+  const number = kgNumber(value)
+  if (number === null) return '-'
+  const tons = number / 1000
+  return `${tons.toFixed(2).replace(/\.?0+$/, '')} 吨`
+}
+
+function formatEndTime(value) {
+  if (!value) return '未记录时间'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 16)
+  return parsed.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function pendingTrackingText(item) {
+  return item.tracking_card_no || item.batch_no || `MES工序 ${item.mes_process_record_id}`
+}
+
+function pendingMetaText(item) {
+  return [
+    item.output_spec || item.input_spec,
+    item.alloy_grade,
+    item.material_state,
+    item.customer_alias,
+    item.process_name,
+  ].filter(Boolean).join('｜') || 'MES 已入账，等待现场补录'
 }
 
 function splitSpec(value) {
@@ -418,6 +511,46 @@ function applyScanLookupResult(result) {
   showEntryDialog.value = true
 }
 
+function buildMesPendingHeaderFields(item) {
+  return {
+    tracking_card_no: item.tracking_card_no || item.batch_no || '',
+    alloy_grade: item.alloy_grade || '',
+    input_spec: item.input_spec || '',
+    output_spec: item.output_spec || '',
+    input_weight: item.input_weight_kg ?? null,
+    output_weight: item.output_weight_kg ?? null,
+    off_machine_time: item.end_time ? formatEndTime(item.end_time) : '',
+    material_state: item.material_state || '',
+  }
+}
+
+function applyMesPendingItem(item) {
+  const fields = buildMesPendingHeaderFields(item)
+  form.value = {
+    ...emptyForm(),
+    ...form.value,
+    ...fields,
+    extra_payload: {
+      ...(form.value.extra_payload || {}),
+      mes_reference: item.mes_reference || {
+        process_record_id: item.mes_process_record_id,
+        source_id: item.mes_source_id,
+        batch_no: item.batch_no,
+        tracking_card_no: item.tracking_card_no,
+        mes_machine_name: item.mes_machine_name,
+        resolved_machine_id: item.resolved_machine_id,
+        resolved_machine_name: item.resolved_machine_name,
+        machine_binding_source: item.machine_binding_source,
+      },
+    },
+  }
+  mesReferenceFields.value = buildMesReferenceFields(fields)
+  lockedFieldsSnapshot.value = {}
+  lockedFieldsToken.value = ''
+  showEntryDialog.value = true
+  ElMessage.success('已带入 MES 下机数据')
+}
+
 async function handleScanLookup(qr) {
   try {
     const result = qr ? await scanLookup(qr) : await scan()
@@ -457,9 +590,25 @@ async function loadData() {
     bootstrap.value = startup.bootstrap
     currentShift.value = startup.currentShift
     alloyGrades.value = startup.alloyGrades
-    await loadCoils()
+    await Promise.all([loadCoils(), loadMesPendingSupplements()])
   } catch (e) {
     ElMessage.error('加载失败')
+  }
+}
+
+async function loadMesPendingSupplements() {
+  if (mesPendingLoading.value) return
+  mesPendingLoading.value = true
+  mesPendingError.value = ''
+  try {
+    mesPending.value = await fetchMesPendingSupplements({
+      limit: 20,
+    })
+  } catch (e) {
+    mesPending.value = null
+    mesPendingError.value = e?.response?.data?.detail || 'MES 待补录列表加载失败'
+  } finally {
+    mesPendingLoading.value = false
   }
 }
 
@@ -483,6 +632,11 @@ async function submitCoil() {
   }
   submitting.value = true
   try {
+    const flowPayload = buildFlowPayload(form.value.flow)
+    const extraPayload = {
+      ...(form.value.extra_payload || {}),
+      ...(flowPayload.extra_payload || {}),
+    }
     const payload = {
       ...form.value,
       on_machine_time: form.value.on_machine_time,
@@ -494,7 +648,7 @@ async function submitCoil() {
       shift_id: currentShift.value?.shift_id,
       locked_fields_snapshot: lockedFieldsSnapshot.value,
       locked_fields_token: lockedFieldsToken.value,
-      ...buildFlowPayload(form.value.flow),
+      extra_payload: Object.keys(extraPayload).length ? extraPayload : null,
     }
     delete payload.flow
     await api.post('/mobile/coil-entry', payload)
@@ -504,7 +658,7 @@ async function submitCoil() {
     lockedFieldsToken.value = ''
     mesReferenceFields.value = []
     showEntryDialog.value = false
-    await loadCoils()
+    await Promise.all([loadCoils(), loadMesPendingSupplements()])
   } catch (e) {
     ElMessage.error(e?.response?.data?.detail || '提交失败')
   } finally {
@@ -577,6 +731,138 @@ onMounted(loadData)
   font-weight: 850;
   font-size: var(--xt-text-lg);
   white-space: nowrap;
+}
+
+.coil-mes-pending {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  background:
+    linear-gradient(135deg, rgba(0, 119, 255, 0.14), rgba(4, 16, 30, 0.92)),
+    radial-gradient(circle at 0% 0%, rgba(0, 197, 255, 0.14), transparent 48%);
+}
+
+.coil-mes-pending__head,
+.coil-mes-pending__foot,
+.coil-mes-card {
+  position: relative;
+  z-index: 1;
+}
+
+.coil-mes-pending__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coil-mes-pending__head div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.coil-mes-pending__head span,
+.coil-mes-pending__head small,
+.coil-mes-pending__foot {
+  color: rgba(171, 213, 235, 0.72);
+  font-size: var(--xt-text-xs);
+}
+
+.coil-mes-pending__head small {
+  color: rgba(133, 223, 255, 0.78);
+}
+
+.coil-mes-pending__head strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-display);
+  font-size: var(--xt-text-xl);
+  font-weight: 900;
+}
+
+.coil-mes-pending__state {
+  padding: 14px;
+  border: 1px dashed rgba(133, 223, 255, 0.2);
+  border-radius: var(--xt-radius-lg);
+  color: var(--xt-text-secondary);
+  background: rgba(2, 13, 25, 0.48);
+  text-align: center;
+}
+
+.coil-mes-pending__state--warn {
+  color: var(--xt-warning);
+}
+
+.coil-mes-pending__list {
+  display: grid;
+  gap: 8px;
+}
+
+.coil-mes-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(133, 223, 255, 0.16);
+  border-radius: var(--xt-radius-lg);
+  background: rgba(2, 13, 25, 0.68);
+}
+
+.coil-mes-card__main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.coil-mes-card__main strong,
+.coil-mes-card__main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coil-mes-card__main strong {
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-lg);
+  font-weight: 900;
+}
+
+.coil-mes-card__main span {
+  color: var(--xt-text-secondary);
+  font-size: var(--xt-text-xs);
+}
+
+.coil-mes-card__metrics {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coil-mes-card__metrics span {
+  padding: 4px 8px;
+  border: 1px solid rgba(0, 197, 255, 0.16);
+  border-radius: 999px;
+  color: rgba(211, 237, 249, 0.86);
+  background: rgba(0, 120, 255, 0.1);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-xs);
+}
+
+.coil-mes-card__action {
+  justify-self: end;
+  min-width: 68px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  color: #02101f;
+  background: linear-gradient(135deg, #64d7ff, #2f8cff);
+  box-shadow: 0 10px 24px rgba(47, 140, 255, 0.22);
+  font-weight: 900;
 }
 
 .coil-summary {
@@ -783,6 +1069,14 @@ onMounted(loadData)
 @media (max-width: 400px) {
   .coil-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coil-mes-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coil-mes-card__action {
+    justify-self: stretch;
   }
 
   .coil-mes-reference__grid {

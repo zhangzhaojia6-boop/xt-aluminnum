@@ -28,6 +28,11 @@ export async function fetchScanLookup(qr) {
   return data
 }
 
+export async function fetchMesPendingSupplements(params = {}) {
+  const { data } = await api.get('/mobile/mes-pending-supplements', { params })
+  return data
+}
+
 export async function fetchEntryFields() {
   const { data } = await api.get('/mobile/entry-fields')
   return data
