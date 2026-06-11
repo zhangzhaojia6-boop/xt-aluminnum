@@ -193,19 +193,72 @@ def test_supplement_readiness_summarizes_mes_mapping_and_window_delta(tmp_path) 
     assert payload['status'] == 'needs_mapping'
     assert payload['coverage']['sample_count'] == 3
     assert payload['coverage']['output_weight_rate'] == 0.6667
-    assert payload['coverage']['machine_match_rate'] == 0.6667
+    assert payload['coverage']['machine_match_rate'] == 1.0
+    assert payload['coverage']['machine_match_scope_count'] == 2
+    assert payload['coverage']['generic_terminal_count'] == 1
     assert payload['coverage']['snapshot_match_rate'] == 1.0
     assert payload['coverage']['cold_roll_sequence_rate'] == 1.0
-    assert payload['machine_binding']['unmatched_count'] == 1
+    assert payload['machine_binding']['unmatched_count'] == 0
     assert payload['material_categories']['cold_roll_pass'] == 1
     assert payload['material_categories']['hot_roll_process'] == 1
     assert payload['material_categories']['cast_roll_process'] == 1
     assert payload['window_comparison']['supplement_window_count'] == 3
     assert payload['window_comparison']['stored_business_date_count'] == 4
     assert payload['window_comparison']['delta_count'] == -1
-    assert payload['unmatched_devices'][0]['device_name'] == 'PC'
+    assert payload['unmatched_devices'] == []
     assert 'output_weight_coverage_below_80_percent' in payload['warnings']
-    assert 'machine_match_coverage_below_70_percent' in payload['warnings']
+    assert 'machine_match_coverage_below_70_percent' not in payload['warnings']
+
+
+def test_packaging_pc_terminal_does_not_block_machine_readiness(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(Workshop(id=1, code='JZ', name='精整', workshop_type='finishing', sort_order=1, is_active=True))
+        db.add_all(
+            [
+                MesWorkshopProcessRecord(
+                    id=201,
+                    source_id='PACK-201',
+                    source_path='sqlserver',
+                    batch_no='26PACK001',
+                    workshop_name='精整',
+                    process_name='包装',
+                    device_name='PC',
+                    output_weight_kg=3200,
+                    business_date=BUSINESS_DATE,
+                    end_time=datetime(2026, 6, 10, 10, 0),
+                ),
+                MesWorkshopProcessRecord(
+                    id=202,
+                    source_id='PACK-202',
+                    source_path='sqlserver',
+                    batch_no='26PACK002',
+                    workshop_name='园区精整',
+                    process_name='包装',
+                    device_name='PC',
+                    output_weight_kg=2800,
+                    business_date=BUSINESS_DATE,
+                    end_time=datetime(2026, 6, 10, 11, 0),
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = mes_supplement_readiness_service.build_supplement_readiness(
+            db,
+            business_date=BUSINESS_DATE,
+            limit=100,
+        )
+
+    assert payload['status'] == 'ready'
+    assert payload['coverage']['machine_match_rate'] == 1.0
+    assert payload['coverage']['machine_match_scope_count'] == 0
+    assert payload['coverage']['generic_terminal_count'] == 2
+    assert payload['coverage']['cold_roll_sequence_rate'] == 1.0
+    assert payload['machine_binding']['unmatched_count'] == 0
+    assert payload['unmatched_devices'] == []
+    assert 'machine_match_coverage_below_70_percent' not in payload['warnings']
+    assert 'cold_roll_sequence_coverage_below_80_percent' not in payload['warnings']
 
 
 def test_mes_supplement_readiness_route_is_management_only(tmp_path) -> None:

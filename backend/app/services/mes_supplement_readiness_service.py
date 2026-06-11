@@ -121,6 +121,8 @@ def build_supplement_readiness(
     has_device_name = 0
     has_output_weight = 0
     matched_machine = 0
+    machine_match_scope = 0
+    generic_terminal_count = 0
     high_confidence = 0
     medium_confidence = 0
     with_snapshot = 0
@@ -155,6 +157,10 @@ def build_supplement_readiness(
         )
         source = str(binding.get('source') or 'unresolved')
         binding_sources[source] = binding_sources.get(source, 0) + 1
+        if source == 'generic_mes_terminal':
+            generic_terminal_count += 1
+            continue
+        machine_match_scope += 1
         if binding.get('machine_id') is not None:
             matched_machine += 1
             if binding.get('confidence') == 'high':
@@ -174,8 +180,8 @@ def build_supplement_readiness(
             )
 
     output_rate = _rate(has_output_weight, total)
-    machine_rate = _rate(matched_machine, total)
-    sequence_rate = _rate(cold_roll_with_sequence, cold_roll_records)
+    machine_rate = 1.0 if machine_match_scope <= 0 else _rate(matched_machine, machine_match_scope)
+    sequence_rate = 1.0 if cold_roll_records <= 0 else _rate(cold_roll_with_sequence, cold_roll_records)
     stored_filter = MesWorkshopProcessRecord.business_date == resolved_date
     window_filter = _window_filter(resolved_date)
     supplement_count = _count_records(db, window_filter, workshop_names=workshop_names)
@@ -192,12 +198,14 @@ def build_supplement_readiness(
             'device_name_rate': _rate(has_device_name, total),
             'output_weight_rate': output_rate,
             'machine_match_rate': machine_rate,
+            'machine_match_scope_count': machine_match_scope,
+            'generic_terminal_count': generic_terminal_count,
             'snapshot_match_rate': _rate(with_snapshot, total),
             'cold_roll_sequence_rate': sequence_rate,
         },
         'machine_binding': {
             'matched_count': matched_machine,
-            'unmatched_count': max(total - matched_machine, 0),
+            'unmatched_count': max(machine_match_scope - matched_machine, 0),
             'high_confidence_count': high_confidence,
             'medium_confidence_count': medium_confidence,
             'source_counts': binding_sources,
