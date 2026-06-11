@@ -876,7 +876,7 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
                     event_time=datetime(2026, 6, 1, 15, 15, tzinfo=UTC),
                     metadata={
                         'Id': 101,
-                        'BatchNumber': '26RA04597',
+                        'PBatchNumber': '26RA04597',
                         'CustomerSimple': '河南富邦鑫泰',
                         'WorkShop': '园区在线车间',
                         'Process': '在线退火',

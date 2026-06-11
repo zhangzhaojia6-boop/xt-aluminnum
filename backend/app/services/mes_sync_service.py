@@ -42,6 +42,7 @@ SQLSERVER_MES_REQUIRED_ENV = [
     'MES_SQLSERVER_USERNAME',
     'MES_SQLSERVER_PASSWORD',
 ]
+BATCH_NUMBER_KEYS = ('PBatchNumber', 'BatchNumber', 'BatchNo', 'PBatchNo')
 MVC_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_MVC_BASE_URL', 'MES_MVC_USERNAME', 'MES_MVC_PASSWORD']
 REST_API_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_TRACKING_CARD_INFO_PATH', 'MES_API_COIL_SNAPSHOTS_PATH']
 XINTAI_MES_REQUIRED_ENV = ['MES_ADAPTER', 'MES_API_BASE', 'MES_API_KEY']
@@ -842,7 +843,7 @@ def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> di
     output_kg = _to_float(_metadata_value(payload, 'EndWeight', 'OutputWeight', 'CalcWeight'))
     return {
         'source_path': record.source_path,
-        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
         'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
         'workshop_name': _to_text(_metadata_value(payload, 'WorkShop', 'Workshop', 'WorkShopName')),
         'process_name': _to_text(_metadata_value(payload, 'Process', 'ProcessName', 'WorkShopProcess')),
@@ -867,7 +868,7 @@ def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any
     gross_kg = _to_float(_metadata_value(payload, 'GrossWeight'))
     return {
         'source_path': record.source_path,
-        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
         'contract_no': _to_text(_metadata_value(payload, 'ContractCode', 'ContractNo')),
         'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
         'net_weight_kg': net_kg,
@@ -909,7 +910,7 @@ def _yield_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any
     report_time = _record_event_time(record, 'InStockDate', 'StrInStockDate', 'OperateDate', 'StrOperateDate')
     return {
         'source_path': record.source_path,
-        'batch_no': _to_text(_metadata_value(payload, 'BatchNumber', 'BatchNo')),
+        'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
         'contract_no': _to_text(_metadata_value(payload, 'ContractCode', 'ContractNo')),
         'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
         'contract_total_weight_tons': _to_float(_metadata_value(payload, 'ContractTotalWeight', 'ContractNoticeDetailTotalWeight')),
