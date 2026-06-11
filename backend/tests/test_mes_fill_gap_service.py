@@ -134,6 +134,21 @@ def test_mes_fill_gap_marks_missing_local_entry(tmp_path) -> None:
     assert payload['items'][0]['mes_end_time'] == '2026-05-06T11:30:00'
 
 
+def test_mes_fill_gap_matches_split_batch_to_base_snapshot(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_master(db)
+        _add_snapshot(db, tracking_card_no='TRACK-SPLIT', batch_no='BATCH-SPLIT')
+        _add_process(db, source_id='PROC-SPLIT', batch_no='BATCH-SPLIT-2')
+        db.commit()
+
+    with session_factory() as db:
+        payload = mes_fill_gap_service.build_mes_fill_gaps(db, business_date=BUSINESS_DATE)
+
+    assert payload['items'][0]['status'] == 'missing_local_entry'
+    assert payload['items'][0]['tracking_card_no'] == 'TRACK-SPLIT'
+
+
 def test_mes_fill_gap_marks_unmapped_mes_batch(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:

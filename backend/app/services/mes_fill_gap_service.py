@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date, time
 from decimal import Decimal
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -33,6 +34,17 @@ def _text(value: Any) -> str:
     return str(value or '').strip()
 
 
+def _batch_lookup_keys(value: Any) -> list[str]:
+    text = _text(value).upper()
+    if not text:
+        return []
+    keys = [text]
+    base = re.sub(r'-\d+$', '', text)
+    if base and base != text:
+        keys.append(base)
+    return keys
+
+
 def _shift_meta_for_end_time(value: Any) -> dict[str, str | None]:
     if value is None:
         return {'shift_name': None, 'shift_window': None, 'mes_end_time': None}
@@ -47,9 +59,9 @@ def _snapshot_by_batch(db: Session) -> dict[str, MesCoilSnapshot]:
     rows = db.query(MesCoilSnapshot).order_by(MesCoilSnapshot.updated_from_mes_at.desc(), MesCoilSnapshot.id.desc()).all()
     payload: dict[str, MesCoilSnapshot] = {}
     for row in rows:
-        batch_no = _text(row.batch_no)
-        if batch_no and batch_no not in payload:
-            payload[batch_no] = row
+        for value in (row.batch_no, row.tracking_card_no, row.material_code):
+            for key in _batch_lookup_keys(value):
+                payload.setdefault(key, row)
     return payload
 
 
@@ -146,7 +158,7 @@ def build_mes_fill_gaps(
 
     items: list[dict[str, Any]] = []
     for process in process_rows:
-        snapshot = snapshots.get(_text(process.batch_no))
+        snapshot = next((snapshots.get(key) for key in _batch_lookup_keys(process.batch_no) if snapshots.get(key)), None)
         workshop = _resolve_workshop(process=process, snapshot=snapshot, workshop_by_name=workshop_by_name)
         resolved_workshop_id = workshop.id if workshop is not None else None
         if workshop_id is not None and resolved_workshop_id != workshop_id:
