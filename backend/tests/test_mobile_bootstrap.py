@@ -244,8 +244,8 @@ def test_phase1_specialized_roles_are_treated_as_mobile_field_owners(role: str) 
 
 
 def test_owner_daily_business_date_defaults_to_previous_day_during_morning_backfill() -> None:
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 59)) == date(2026, 5, 29)
-    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 10, 0)) == date(2026, 5, 30)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 29)) == date(2026, 5, 29)
+    assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 9, 30)) == date(2026, 5, 30)
     assert resolve_owner_daily_business_date(datetime(2026, 5, 30, 23, 30)) == date(2026, 5, 30)
 
 

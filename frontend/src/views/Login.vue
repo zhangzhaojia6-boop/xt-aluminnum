@@ -126,6 +126,7 @@ import { ElMessage } from 'element-plus'
 
 import ParticleField from '../components/hud/ParticleField.vue'
 import { XtFactoryMap, XtLogo } from '../components/xt'
+import { formatApiErrorMessage } from '../api/index.js'
 import { useAuthStore } from '../stores/auth.js'
 import { useHudTheme } from '../composables/useHudTheme.js'
 
@@ -224,11 +225,11 @@ function resolveRedirectPath() {
 }
 
 function resolveLoginError(error) {
-  if (!error?.response) return '登录服务连接失败'
+  if (!error?.response) return formatApiErrorMessage(error)
   if (error.response.status === 429) return '尝试次数过多，请稍后再试'
   if (error.response.status === 403) return '账号已停用'
   if (error.response.status === 400 || error.response.status === 401) return '账号或密码不正确'
-  return '登录失败，请稍后再试'
+  return formatApiErrorMessage(error)
 }
 
 function setWorkshopNotice(workshopNameOrCode) {

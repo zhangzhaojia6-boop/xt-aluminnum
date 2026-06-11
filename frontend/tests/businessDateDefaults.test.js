@@ -30,7 +30,7 @@ test('business date defaults: manage pages use the 07:30 production anchor', () 
   }
 })
 
-test('business date defaults: owner daily pages use the 10:00 owner anchor', () => {
+test('business date defaults: owner daily pages use the 09:30 owner anchor', () => {
   const files = [
     'src/views/mobile/ConsumableEntry.vue',
     'src/views/mobile/MobileEntry.vue',
@@ -50,7 +50,7 @@ test('mobile entry landing separates owner daily hint from production shift hint
   assert.match(source, /OWNER_DAILY_BUCKETS/)
   assert.match(source, /inferOwnerDailyBusinessDate/)
   assert.match(source, /每日一录/)
-  assert.match(source, /按 10:00 起算/)
+  assert.match(source, /按 09:30 起算/)
 })
 
 test('missing report compact mode stays small on yesterday report', () => {

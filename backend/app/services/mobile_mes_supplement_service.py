@@ -159,6 +159,7 @@ def _process_rows(db: Session, *, business_date: date) -> list[MesWorkshopProces
     return (
         db.query(MesWorkshopProcessRecord)
         .filter(
+            MesWorkshopProcessRecord.output_weight_kg.isnot(None),
             or_(
                 and_(MesWorkshopProcessRecord.end_time >= start, MesWorkshopProcessRecord.end_time < end),
                 and_(MesWorkshopProcessRecord.end_time.is_(None), MesWorkshopProcessRecord.business_date == business_date),
@@ -293,6 +294,7 @@ def _build_mes_reference(
         'machine_binding_source': binding['source'],
         'machine_binding_confidence': binding['confidence'],
         'mes_end_time': process.end_time.isoformat() if process.end_time else None,
+        'mes_last_seen_at': process.last_seen_from_mes_at.isoformat() if process.last_seen_from_mes_at else None,
         'material_reference': _build_material_reference(process, snapshot),
         'process_sequence': process_sequence,
     }
@@ -388,6 +390,7 @@ def build_pending_supplements(
                 'workshop_name': process.workshop_name,
                 'process_name': process.process_name,
                 'mes_machine_name': process.device_name,
+                'mes_worker_name': process.worker_name,
                 'resolved_machine_id': binding['machine_id'],
                 'resolved_machine_name': binding['machine_name'],
                 'machine_binding_source': binding['source'],
@@ -395,6 +398,7 @@ def build_pending_supplements(
                 'input_weight_kg': _plain(process.input_weight_kg),
                 'output_weight_kg': _plain(process.output_weight_kg),
                 'end_time': process.end_time.isoformat() if process.end_time else None,
+                'mes_last_seen_at': process.last_seen_from_mes_at.isoformat() if process.last_seen_from_mes_at else None,
                 'supplement_status': 'pending',
                 'risk_flags': _risk_flags(snapshot, binding),
                 'mes_reference': _build_mes_reference(

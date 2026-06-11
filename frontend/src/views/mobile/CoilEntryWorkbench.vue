@@ -55,8 +55,29 @@
           <div v-if="pendingBadges(item).length" class="coil-mes-card__badges">
             <span v-for="badge in pendingBadges(item)" :key="badge">{{ badge }}</span>
           </div>
+          <div class="coil-mes-card__route">
+            <span>{{ pendingProcessText(item) }}</span>
+            <strong>{{ pendingMachineText(item) }}</strong>
+          </div>
+          <div class="coil-mes-card__facts">
+            <span>
+              <em>上机</em>
+              <strong>{{ formatKgAsTon(item.input_weight_kg) }}</strong>
+            </span>
+            <span>
+              <em>下机</em>
+              <strong>{{ formatKgAsTon(item.output_weight_kg) }}</strong>
+            </span>
+            <span>
+              <em>规格</em>
+              <strong>{{ pendingSpecText(item) }}</strong>
+            </span>
+            <span>
+              <em>类型</em>
+              <strong>{{ pendingMaterialText(item) }}</strong>
+            </span>
+          </div>
           <div class="coil-mes-card__metrics">
-            <span>下机 {{ formatKgAsTon(item.output_weight_kg) }}</span>
             <span>{{ formatEndTime(item.end_time) }}</span>
           </div>
           <button class="coil-mes-card__action" type="button" @click="applyMesPendingItem(item)">
@@ -112,11 +133,12 @@
     </div>
 
     <div class="coil-actions">
+      <p class="coil-actions__hint">正常先点上方 MES 待补录卡片；找不到卷材时再走兜底。</p>
       <el-button v-if="canScan" size="large" plain :loading="scanning" class="xt-pressable" @click="handleScanLookup()">
-        扫码带出
+        找不到卷材？扫随行卡兜底
       </el-button>
-      <el-button type="primary" size="large" class="xt-pressable" @click="showEntryDialog = true">
-        录一卷
+      <el-button type="primary" size="large" class="xt-pressable" @click="openManualEntryDialog">
+        手工补录一卷
       </el-button>
       <el-button size="large" plain class="xt-pressable" @click="showSummaryDialog = true">
         本班汇总
@@ -153,12 +175,32 @@
 
     <el-dialog
       v-model="showEntryDialog"
-      title="录一卷"
+      :title="entryDialogTitle"
       :close-on-click-modal="false"
       width="92%"
       class="coil-dialog"
     >
       <div class="mobile-form-grid">
+        <section v-if="isMesPendingMode" class="mobile-field mobile-field-wide coil-entry-focus" data-testid="mes-entry-focus">
+          <div>
+            <span>MES 已带入</span>
+            <strong>{{ activeMesTitle }}</strong>
+          </div>
+          <p>核对机台和现场补录项即可；合金、规格、重量仍可修改。</p>
+        </section>
+        <section v-if="mesReferenceRows.length" class="mobile-field mobile-field-wide coil-mes-reference" data-testid="mes-assisted-reference">
+          <header>
+            <strong>MES 参考值</strong>
+            <span>人工填报值可改</span>
+          </header>
+          <div class="coil-mes-reference__grid">
+            <article v-for="row in mesReferenceRows" :key="row.key">
+              <span>{{ row.label }}</span>
+              <b>MES {{ row.reference }}</b>
+              <em>人工填报值 {{ row.manual }}</em>
+            </article>
+          </div>
+        </section>
         <div class="mobile-field mobile-field-wide">
           <label><span class="mobile-required">*</span> 卷号</label>
           <el-input v-model="form.tracking_card_no" :disabled="isLockedField('tracking_card_no')" placeholder="手工输入或扫码" @blur="loadFlowSuggestion" />
@@ -209,19 +251,6 @@
           <label>料态</label>
           <el-input v-model="form.material_state" :disabled="isLockedField('material_state')" />
         </div>
-        <section v-if="mesReferenceRows.length" class="mobile-field mobile-field-wide coil-mes-reference" data-testid="mes-assisted-reference">
-          <header>
-            <strong>MES 参考值</strong>
-            <span>人工填报值可改</span>
-          </header>
-          <div class="coil-mes-reference__grid">
-            <article v-for="row in mesReferenceRows" :key="row.key">
-              <span>{{ row.label }}</span>
-              <b>MES {{ row.reference }}</b>
-              <em>人工填报值 {{ row.manual }}</em>
-            </article>
-          </div>
-        </section>
         <section class="mobile-field mobile-field-wide coil-flow">
           <header>
             <strong>流转确认</strong>
@@ -254,6 +283,31 @@
             </label>
           </div>
         </section>
+        <section class="mobile-field mobile-field-wide coil-quality" data-testid="coil-quality-module">
+          <header>
+            <strong>填报问题</strong>
+            <label>
+              <span>有问题</span>
+              <el-switch v-model="quality.has_issue" />
+            </label>
+          </header>
+          <div v-if="quality.has_issue" class="coil-quality__fields">
+            <label>
+              <span>问题类型</span>
+              <el-select v-model="quality.issue_type" placeholder="选择类型">
+                <el-option label="外观" value="外观" />
+                <el-option label="尺寸" value="尺寸" />
+                <el-option label="性能" value="性能" />
+                <el-option label="包装" value="包装" />
+                <el-option label="其他" value="其他" />
+              </el-select>
+            </label>
+            <label>
+              <span>问题说明</span>
+              <el-input v-model="quality.issue_note" type="textarea" :rows="2" placeholder="简述现场问题" />
+            </label>
+          </div>
+        </section>
         <div class="mobile-field mobile-field-wide">
           <label>备注</label>
           <el-input v-model="form.operator_notes" type="textarea" :rows="2" placeholder="有异常情况写这里" />
@@ -268,7 +322,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -299,6 +353,7 @@ const operatorName = ref(localStorage.getItem('xt_operator_name') || '')
 const lockedFieldsSnapshot = ref({})
 const lockedFieldsToken = ref('')
 const mesReferenceFields = ref([])
+const activeMesPendingItem = ref(null)
 const { canScan, scanning, scan, scanLookup } = useScanLookup()
 
 const machineName = computed(() => currentShift.value?.machine_name || bootstrap.value?.machine_name || '-')
@@ -315,6 +370,9 @@ const mesPendingDateText = computed(() => {
   if (!mesPending.value?.business_date) return ''
   return `${mesPending.value.business_date} · ${mesPending.value.business_day_start || '09:30'} 切日`
 })
+const isMesPendingMode = computed(() => Boolean(activeMesPendingItem.value))
+const entryDialogTitle = computed(() => isMesPendingMode.value ? 'MES 待补录确认' : '手工补录一卷')
+const activeMesTitle = computed(() => activeMesPendingItem.value ? pendingTrackingText(activeMesPendingItem.value) : '')
 
 const totalInput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.input_weight) || 0), 0))
 const totalOutput = computed(() => coilList.value.reduce((sum, c) => sum + (Number(c.output_weight) || 0), 0))
@@ -351,6 +409,11 @@ const emptyForm = () => ({
   flow: emptyFlow(),
 })
 const form = ref(emptyForm())
+const quality = reactive({
+  has_issue: false,
+  issue_type: '',
+  issue_note: '',
+})
 const MES_ASSISTED_SCAN_FIELDS = [
   'tracking_card_no',
   'alloy_grade',
@@ -403,6 +466,35 @@ function buildMesReferenceFields(fields = {}) {
     .filter(Boolean)
 }
 
+function resetQuality() {
+  quality.has_issue = false
+  quality.issue_type = ''
+  quality.issue_note = ''
+}
+
+function buildQualityPayload() {
+  if (!quality.has_issue) return null
+  return {
+    has_issue: true,
+    issue_type: quality.issue_type || '',
+    issue_note: quality.issue_note || '',
+  }
+}
+
+function resetEntryContext() {
+  activeMesPendingItem.value = null
+  lockedFieldsSnapshot.value = {}
+  lockedFieldsToken.value = ''
+  mesReferenceFields.value = []
+  resetQuality()
+}
+
+function openManualEntryDialog() {
+  form.value = emptyForm()
+  resetEntryContext()
+  showEntryDialog.value = true
+}
+
 function kgNumber(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
@@ -437,9 +529,50 @@ function pendingMetaText(item) {
   ].filter(Boolean).join('｜') || 'MES 已入账，等待现场补录'
 }
 
+const MATERIAL_CATEGORY_TEXT = {
+  cold_roll_pass: '冷轧道次',
+  hot_roll_process: '热轧坯料',
+  cast_roll_process: '铸轧坯料',
+  billet_reference: '坯料参考',
+  casting_ingot_reference: '铸锭参考',
+  coil_process: 'MES工序',
+}
+
+function pendingMaterialText(item) {
+  return MATERIAL_CATEGORY_TEXT[item.material_category] || 'MES工序'
+}
+
+function pendingPassLabel(item) {
+  const sequence = item.process_sequence
+  if (typeof sequence === 'string') return sequence
+  return sequence?.pass_label || ''
+}
+
+function pendingProcessText(item) {
+  return [
+    item.workshop_name,
+    item.process_name,
+    pendingPassLabel(item),
+  ].filter(Boolean).join('｜') || 'MES工序记录'
+}
+
+function pendingMachineText(item) {
+  if (item.machine_match_status === 'unmatched') return '机台待确认'
+  if (item.machine_match_status === 'matched') return '机台已匹配'
+  if (item.risk_flags?.includes('machine_match_needs_confirmation')) return '机台待确认'
+  if (item.resolved_machine_name || item.mes_machine_name || item.machine_name) return '机台已匹配'
+  return '机台未匹配'
+}
+
+function pendingSpecText(item) {
+  if (item.input_spec && item.output_spec) return `${item.input_spec} → ${item.output_spec}`
+  return item.output_spec || item.input_spec || '-'
+}
+
 function pendingBadges(item) {
   const badges = []
-  if (item.process_sequence?.pass_label) badges.push(item.process_sequence.pass_label)
+  const passLabel = pendingPassLabel(item)
+  if (passLabel) badges.push(passLabel)
   if (item.material_category === 'cold_roll_pass') badges.push('冷轧道次')
   if (item.material_category === 'hot_roll_process') badges.push('热轧过程')
   if (item.material_category === 'cast_roll_process') badges.push('铸轧过程')
@@ -504,6 +637,8 @@ function isLockedField(name) {
 
 function applyScanLookupResult(result) {
   const fields = result?.header_fields || {}
+  activeMesPendingItem.value = null
+  resetQuality()
   mesReferenceFields.value = buildMesReferenceFields(fields)
   for (const key of MES_ASSISTED_SCAN_FIELDS) {
     const value = key === 'input_spec' ? (fields.input_spec || fields.spec_display) : fields[key]
@@ -542,21 +677,30 @@ function buildMesPendingHeaderFields(item) {
 
 function applyMesPendingItem(item) {
   const fields = buildMesPendingHeaderFields(item)
+  const baseForm = emptyForm()
+  activeMesPendingItem.value = item
+  resetQuality()
   form.value = {
-    ...emptyForm(),
-    ...form.value,
+    ...baseForm,
     ...fields,
     extra_payload: {
-      ...(form.value.extra_payload || {}),
+      ...(baseForm.extra_payload || {}),
       mes_reference: item.mes_reference || {
         process_record_id: item.mes_process_record_id,
         source_id: item.mes_source_id,
         batch_no: item.batch_no,
         tracking_card_no: item.tracking_card_no,
+        material_code: item.material_code,
         mes_machine_name: item.mes_machine_name,
+        mes_worker_name: item.mes_worker_name,
         resolved_machine_id: item.resolved_machine_id,
         resolved_machine_name: item.resolved_machine_name,
         machine_binding_source: item.machine_binding_source,
+        machine_binding_confidence: item.machine_binding_confidence,
+        mes_end_time: item.end_time,
+        mes_last_seen_at: item.mes_last_seen_at,
+        material_reference: item.material_reference,
+        process_sequence: item.process_sequence,
       },
     },
   }
@@ -649,9 +793,11 @@ async function submitCoil() {
   submitting.value = true
   try {
     const flowPayload = buildFlowPayload(form.value.flow)
+    const qualityPayload = buildQualityPayload()
     const extraPayload = {
       ...(form.value.extra_payload || {}),
       ...(flowPayload.extra_payload || {}),
+      ...(qualityPayload ? { quality_issue: qualityPayload } : {}),
     }
     const payload = {
       ...form.value,
@@ -670,9 +816,7 @@ async function submitCoil() {
     await api.post('/mobile/coil-entry', payload)
     ElMessage.success('提交成功')
     form.value = emptyForm()
-    lockedFieldsSnapshot.value = {}
-    lockedFieldsToken.value = ''
-    mesReferenceFields.value = []
+    resetEntryContext()
     showEntryDialog.value = false
     await Promise.all([loadCoils(), loadMesPendingSupplements()])
   } catch (e) {
@@ -850,6 +994,9 @@ onMounted(loadData)
 .coil-mes-card__main span {
   color: var(--xt-text-secondary);
   font-size: var(--xt-text-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .coil-mes-card__metrics {
@@ -857,6 +1004,78 @@ onMounted(loadData)
   grid-column: 1 / -1;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.coil-mes-card__route {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 0;
+  border-top: 1px solid rgba(133, 223, 255, 0.1);
+  border-bottom: 1px solid rgba(133, 223, 255, 0.1);
+}
+
+.coil-mes-card__route span,
+.coil-mes-card__route strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coil-mes-card__route span {
+  min-width: 0;
+  color: rgba(211, 237, 249, 0.9);
+  font-size: var(--xt-text-sm);
+  font-weight: 850;
+}
+
+.coil-mes-card__route strong {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid rgba(88, 255, 185, 0.2);
+  border-radius: 6px;
+  background: rgba(33, 211, 146, 0.1);
+  color: rgba(132, 255, 210, 0.94);
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
+.coil-mes-card__facts {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.coil-mes-card__facts span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(0, 197, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(4, 22, 40, 0.72);
+}
+
+.coil-mes-card__facts em {
+  color: rgba(185, 202, 203, 0.72);
+  font-size: var(--xt-text-xs);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.coil-mes-card__facts strong {
+  overflow: hidden;
+  color: rgba(225, 253, 255, 0.94);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-sm);
+  font-weight: 950;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: normal;
 }
 
 .coil-mes-card__badges {
@@ -888,13 +1107,12 @@ onMounted(loadData)
 
 .coil-mes-card__action {
   justify-self: end;
-  min-width: 68px;
-  min-height: 38px;
+  min-width: 78px;
+  min-height: 48px;
   border: 0;
-  border-radius: 999px;
-  color: #02101f;
-  background: linear-gradient(135deg, #64d7ff, #2f8cff);
-  box-shadow: 0 10px 24px rgba(47, 140, 255, 0.22);
+  border-radius: 8px;
+  color: #f8fbff;
+  background: #0052d9;
   font-weight: 900;
 }
 
@@ -989,10 +1207,32 @@ onMounted(loadData)
   z-index: 10;
   display: grid;
   gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(0, 197, 255, 0.18);
+  border-radius: var(--xt-radius-xl);
+  background:
+    linear-gradient(180deg, rgba(5, 19, 34, 0.94), rgba(2, 10, 20, 0.98)),
+    radial-gradient(circle at 50% 0%, rgba(0, 197, 255, 0.12), transparent 58%);
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+}
+
+.coil-actions__hint {
+  margin: 0;
+  color: rgba(171, 213, 235, 0.72);
+  font-size: var(--xt-text-xs);
+  line-height: 1.45;
+  text-align: center;
 }
 
 .coil-actions .el-button {
-  width: 100%;
+  box-sizing: border-box;
+  justify-self: center;
+  width: calc(100% - 2px);
   min-height: 52px;
   border-radius: var(--xt-radius-lg);
   font-size: var(--xt-text-lg);
@@ -1027,6 +1267,71 @@ onMounted(loadData)
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+}
+
+.coil-entry-focus,
+.coil-quality {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(133, 223, 255, 0.16);
+  border-radius: var(--xt-radius-lg);
+  padding: 12px;
+  background: rgba(2, 13, 25, 0.66);
+}
+
+.coil-entry-focus div,
+.coil-quality header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.coil-entry-focus span,
+.coil-entry-focus p,
+.coil-quality header span,
+.coil-quality__fields span {
+  color: var(--xt-text-secondary);
+  font-size: 12px;
+}
+
+.coil-entry-focus strong {
+  overflow: hidden;
+  color: var(--xt-text);
+  font-family: var(--xt-font-number);
+  font-size: 16px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coil-entry-focus p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.coil-quality header strong {
+  color: var(--xt-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.coil-quality header label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.coil-quality__fields {
+  display: grid;
+  gap: 10px;
+}
+
+.coil-quality__fields label {
+  display: grid;
+  gap: 6px;
 }
 
 .coil-mes-reference {

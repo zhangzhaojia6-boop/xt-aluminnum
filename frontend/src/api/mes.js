@@ -19,6 +19,11 @@ export async function fetchMesSyncRuns(params = {}) {
   return data
 }
 
+export async function fetchMesSupplementReadiness(params = {}) {
+  const { data } = await api.get('/mes/supplement-readiness', { params, skipErrorToast: true })
+  return data
+}
+
 export async function fetchMesExtendedSummary(params = {}) {
   const { data } = await api.get('/mes/extended/summary', { params })
   return data

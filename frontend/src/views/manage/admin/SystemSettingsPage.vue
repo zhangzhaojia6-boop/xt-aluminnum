@@ -57,6 +57,33 @@
             <strong>{{ item.value }}</strong>
           </div>
         </section>
+
+        <section class="xt-system-settings__mes" data-testid="system-settings-mes-readiness">
+          <header>
+            <span>MES 补录就绪</span>
+            <strong :class="`is-${mesReadinessTone}`">{{ mesReadinessLabel }}</strong>
+          </header>
+          <div v-if="mesReadinessLoading" class="xt-system-settings__mes-state">读取中</div>
+          <div v-else-if="mesReadinessError" class="xt-system-settings__mes-state is-warning">读取失败</div>
+          <div v-else class="xt-system-settings__mes-grid">
+            <article>
+              <span>机台匹配</span>
+              <b>{{ readinessRate('machine_match_rate') }}</b>
+            </article>
+            <article>
+              <span>下机重量</span>
+              <b>{{ readinessRate('output_weight_rate') }}</b>
+            </article>
+            <article>
+              <span>冷轧道次</span>
+              <b>{{ readinessRate('cold_roll_sequence_rate') }}</b>
+            </article>
+            <article>
+              <span>09:30窗口</span>
+              <b>{{ mesWindowCount }}</b>
+            </article>
+          </div>
+        </section>
       </aside>
     </div>
 
@@ -68,6 +95,7 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   ChatDotRound,
@@ -78,6 +106,8 @@ import {
   Setting,
   User
 } from '@element-plus/icons-vue'
+
+import { fetchMesSupplementReadiness } from '../../../api/mes.js'
 
 const settingGroups = [
   {
@@ -105,12 +135,59 @@ const settingGroups = [
 ]
 
 const settingLinks = settingGroups.flatMap((group) => group.items)
+const mesReadiness = ref(null)
+const mesReadinessLoading = ref(false)
+const mesReadinessError = ref('')
 const statusItems = [
   { label: '核心模块', value: `${settingLinks.length}/7` },
   { label: '配置通道', value: 'ACTIVE' },
   { label: '入口状态', value: 'ONLINE' }
 ]
 const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', 'QR_SERVICE', 'AI_ASSIST']
+
+const READINESS_LABELS = {
+  ready: '可试跑',
+  needs_mapping: '需补映射',
+  blocked: '阻塞',
+  no_data: '无数据'
+}
+
+const mesReadinessLabel = computed(() => {
+  if (mesReadinessLoading.value) return '读取中'
+  if (mesReadinessError.value) return '失败'
+  return READINESS_LABELS[mesReadiness.value?.status] || '待确认'
+})
+
+const mesReadinessTone = computed(() => {
+  if (mesReadinessError.value) return 'warning'
+  if (mesReadiness.value?.status === 'ready') return 'ready'
+  if (mesReadiness.value?.status === 'blocked' || mesReadiness.value?.status === 'no_data') return 'danger'
+  return 'warning'
+})
+
+const mesWindowCount = computed(() => {
+  const value = Number(mesReadiness.value?.window_comparison?.supplement_window_count ?? 0)
+  return Number.isFinite(value) ? String(value) : '0'
+})
+
+function readinessRate(key) {
+  const value = Number(mesReadiness.value?.coverage?.[key] ?? 0)
+  return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '0%'
+}
+
+async function loadMesReadiness() {
+  mesReadinessLoading.value = true
+  mesReadinessError.value = ''
+  try {
+    mesReadiness.value = await fetchMesSupplementReadiness({ limit: 100 })
+  } catch (error) {
+    mesReadinessError.value = error?.response?.data?.detail || error?.message || 'failed'
+  } finally {
+    mesReadinessLoading.value = false
+  }
+}
+
+onMounted(loadMesReadiness)
 </script>
 
 <style scoped>
@@ -149,7 +226,8 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
 .xt-system-settings__header,
 .xt-system-settings__card,
 .xt-system-settings__status,
-.xt-system-settings__gauge {
+.xt-system-settings__gauge,
+.xt-system-settings__mes {
   border: 1px solid rgba(0, 242, 255, 0.16);
   background:
     linear-gradient(180deg, rgba(18, 44, 70, 0.54), rgba(4, 14, 26, 0.72)),
@@ -413,6 +491,92 @@ const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', '
 .xt-system-settings__status strong {
   color: rgba(116, 245, 255, 0.92);
   font-family: var(--xt-font-mono);
+}
+
+.xt-system-settings__mes {
+  display: grid;
+  gap: var(--xt-space-3);
+  padding: var(--xt-space-4);
+  border-radius: 12px;
+}
+
+.xt-system-settings__mes header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-3);
+}
+
+.xt-system-settings__mes header span {
+  color: rgba(225, 253, 255, 0.9);
+  font-size: var(--xt-text-base);
+  font-weight: 900;
+}
+
+.xt-system-settings__mes header strong {
+  padding: 3px var(--xt-space-2);
+  border: 1px solid rgba(255, 171, 0, 0.32);
+  border-radius: 7px;
+  background: rgba(255, 171, 0, 0.1);
+  color: rgba(255, 214, 128, 0.92);
+  font-family: var(--xt-font-mono);
+  font-size: var(--xt-text-xs);
+}
+
+.xt-system-settings__mes header strong.is-ready {
+  border-color: rgba(66, 211, 146, 0.32);
+  background: rgba(66, 211, 146, 0.1);
+  color: rgba(137, 255, 205, 0.94);
+}
+
+.xt-system-settings__mes header strong.is-danger {
+  border-color: rgba(255, 92, 92, 0.32);
+  background: rgba(255, 92, 92, 0.1);
+  color: rgba(255, 168, 168, 0.94);
+}
+
+.xt-system-settings__mes-state {
+  min-height: 78px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(0, 242, 255, 0.2);
+  border-radius: 10px;
+  color: rgba(185, 202, 203, 0.76);
+  font-weight: 850;
+}
+
+.xt-system-settings__mes-state.is-warning {
+  border-color: rgba(255, 171, 0, 0.3);
+  color: rgba(255, 214, 128, 0.9);
+}
+
+.xt-system-settings__mes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xt-space-2);
+}
+
+.xt-system-settings__mes-grid article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(0, 242, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(3, 18, 34, 0.46);
+}
+
+.xt-system-settings__mes-grid span {
+  color: rgba(185, 202, 203, 0.72);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-system-settings__mes-grid b {
+  color: rgba(116, 245, 255, 0.96);
+  font-family: var(--xt-font-mono);
+  font-size: var(--xt-text-xl);
+  line-height: 1;
 }
 
 .xt-system-settings__linkage {

@@ -20,7 +20,11 @@ def test_flat_fields_match_truth_source_5_24():
     assert 'hydraulic_oil_target' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
     assert 'gear_oil_monthly' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
     assert 'packaging_inbound_output_tons' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
-    assert len(CONSUMABLE_PAYLOAD_FIELDS_FLAT) == 37
+    assert 'ingot_block_count' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
+    assert 'ingot_input_tons' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
+    assert 'ingot_output_tons' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
+    assert 'ingot_exception_note' in CONSUMABLE_PAYLOAD_FIELDS_FLAT
+    assert len(CONSUMABLE_PAYLOAD_FIELDS_FLAT) == 41
 
 
 def test_unknown_field_rejected():

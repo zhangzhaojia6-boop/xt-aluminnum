@@ -12,6 +12,23 @@ export const api = axios.create({
   timeout: 30000
 })
 
+export function formatApiErrorMessage(error) {
+  const status = error?.response?.status
+  const detail = error?.response?.data?.detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item?.msg || item).join('; ')
+  }
+  if (detail) return detail
+  if (error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''))) {
+    return '请求超时，服务器响应太慢，请稍后重试'
+  }
+  if (error?.code === 'ERR_NETWORK' || /network error|failed to fetch/i.test(String(error?.message || ''))) {
+    return '连接服务器失败，请检查网络、代理或稍后重试'
+  }
+  if (status >= 500) return '服务器暂时不可用，请稍后重试'
+  return error?.message || '请求失败，请稍后重试'
+}
+
 export function setupApiInterceptors(router, pinia) {
   api.interceptors.request.use((config) => {
     const authStore = useAuthStore(pinia)
@@ -27,12 +44,9 @@ export function setupApiInterceptors(router, pinia) {
     (error) => {
       const authStore = useAuthStore(pinia)
       const status = error?.response?.status
-      const detail = error?.response?.data?.detail
       const skipErrorToast = Boolean(error?.config?.skipErrorToast)
       const skipAuthLogout = Boolean(error?.config?.skipAuthLogout)
-      const message = Array.isArray(detail)
-        ? detail.map((item) => item?.msg || item).join('; ')
-        : detail || error?.message || '请求失败，请检查网络'
+      const message = formatApiErrorMessage(error)
 
       if (status === 401 && !skipAuthLogout) {
         authStore.logout()

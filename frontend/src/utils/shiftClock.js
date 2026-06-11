@@ -6,7 +6,7 @@ const SHIFT_WINDOWS = [
 ]
 
 const BUSINESS_DAY_ANCHOR_MINUTES = 7 * 60 + 30
-const OWNER_DAILY_ANCHOR_MINUTES = 10 * 60
+const OWNER_DAILY_ANCHOR_MINUTES = 9 * 60 + 30
 
 function nowInShanghai(now = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {

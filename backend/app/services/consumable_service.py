@@ -15,9 +15,60 @@ from app.models.system import User
 
 WORKSHOPS_WITH_CONSUMABLES = list(MACHINE_OPERATOR_CONSUMABLE_FIELDS.keys())
 
+INGOT_DAILY_FIELDS = [
+    {
+        'name': 'ingot_block_count',
+        'label': '铸锭块数',
+        'type': 'number',
+        'unit': '块',
+        'required': False,
+        'role_write': ['consumable_stat'],
+        'role_read': ['consumable_stat', 'admin', 'manager'],
+    },
+    {
+        'name': 'ingot_input_tons',
+        'label': '铸锭投料量',
+        'type': 'number',
+        'unit': '吨',
+        'required': False,
+        'role_write': ['consumable_stat'],
+        'role_read': ['consumable_stat', 'admin', 'manager'],
+    },
+    {
+        'name': 'ingot_output_tons',
+        'label': '铸锭下机量',
+        'type': 'number',
+        'unit': '吨',
+        'required': False,
+        'role_write': ['consumable_stat'],
+        'role_read': ['consumable_stat', 'admin', 'manager'],
+    },
+    {
+        'name': 'ingot_exception_note',
+        'label': '异常说明',
+        'type': 'text',
+        'required': False,
+        'role_write': ['consumable_stat'],
+        'role_read': ['consumable_stat', 'admin', 'manager'],
+    },
+]
+
 
 def get_consumable_fields(workshop_type: str) -> list[dict[str, Any]]:
     return MACHINE_OPERATOR_CONSUMABLE_FIELDS.get(workshop_type, [])
+
+
+def _is_ingot_workshop(workshop: Workshop) -> bool:
+    code = str(workshop.code or '').upper()
+    name = str(workshop.name or '')
+    return code == 'ZD' or '铸锭' in name
+
+
+def get_consumable_fields_for_workshop(workshop: Workshop, workshop_type: str) -> list[dict[str, Any]]:
+    fields = [dict(field) for field in get_consumable_fields(workshop_type)]
+    if _is_ingot_workshop(workshop):
+        fields.extend(dict(field) for field in INGOT_DAILY_FIELDS)
+    return fields
 
 
 def list_workshops_with_consumables(db: Session) -> list[dict[str, Any]]:
@@ -37,7 +88,7 @@ def list_workshops_with_consumables(db: Session) -> list[dict[str, Any]]:
             )
         except HTTPException:
             continue
-        fields = get_consumable_fields(ws_type)
+        fields = get_consumable_fields_for_workshop(ws, ws_type)
         if not fields:
             continue
         items.append({
@@ -69,7 +120,7 @@ def get_daily_log(
         workshop_code=workshop.code,
         workshop_name=workshop.name,
     )
-    fields = get_consumable_fields(workshop_type)
+    fields = get_consumable_fields_for_workshop(workshop, workshop_type)
     if not fields:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='workshop has no consumables')
 
@@ -111,7 +162,7 @@ def upsert_daily_log(
         workshop_code=workshop.code,
         workshop_name=workshop.name,
     )
-    fields = get_consumable_fields(workshop_type)
+    fields = get_consumable_fields_for_workshop(workshop, workshop_type)
     if not fields:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='workshop has no consumables')
 

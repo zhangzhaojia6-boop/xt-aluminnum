@@ -16,8 +16,8 @@ from app.schemas.mes_extended import (
     MesWorkshopProcessRecordOut,
     MesYieldRecordOut,
 )
-from app.schemas.mes_sync import MesSyncRunsOut, MesSyncStatusOut
-from app.services import mes_extended_service, mes_sync_service
+from app.schemas.mes_sync import MesSupplementReadinessOut, MesSyncRunsOut, MesSyncStatusOut
+from app.services import mes_extended_service, mes_supplement_readiness_service, mes_sync_service
 
 router = APIRouter(tags=['mes'])
 
@@ -103,6 +103,24 @@ def sync_runs(
         summary=payload.get('summary') or {},
         items=items,
     )
+
+
+@router.get('/supplement-readiness', response_model=MesSupplementReadinessOut)
+def supplement_readiness(
+    business_date: date | None = None,
+    workshop_id: int | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MesSupplementReadinessOut:
+    scope = _ensure_mes_access(current_user)
+    payload = mes_supplement_readiness_service.build_supplement_readiness(
+        db,
+        business_date=business_date,
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
+        limit=limit,
+    )
+    return MesSupplementReadinessOut(**payload)
 
 
 @router.get('/extended/summary', response_model=MesExtendedSummaryOut)

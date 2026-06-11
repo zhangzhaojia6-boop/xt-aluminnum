@@ -71,6 +71,10 @@ class ConsumablePayload(BaseModel):
     steel_buckle_per_ton: Optional[float] = None
     paint_per_ton: Optional[float] = None
     packaging_inbound_output_tons: Optional[float] = None
+    ingot_block_count: Optional[float] = None
+    ingot_input_tons: Optional[float] = None
+    ingot_output_tons: Optional[float] = None
+    ingot_exception_note: Optional[str] = None
 
     hydraulic_oil: _CompareGroup = Field(default_factory=_CompareGroup)
     gear_oil: _CompareGroup = Field(default_factory=_CompareGroup)
@@ -91,6 +95,10 @@ CONSUMABLE_DIRECT_FLOAT_FIELDS: tuple[str, ...] = (
     'steel_buckle_per_ton',
     'paint_per_ton',
     'packaging_inbound_output_tons',
+    'ingot_block_count',
+    'ingot_input_tons',
+    'ingot_output_tons',
+    'ingot_exception_note',
 )
 
 

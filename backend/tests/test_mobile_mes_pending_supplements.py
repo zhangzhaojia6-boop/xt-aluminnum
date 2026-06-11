@@ -112,11 +112,13 @@ def _seed_mes_pending_item(db) -> None:
             customer_alias='河南永晟',
             workshop_name='2050车间',
             process_name='冷轧',
+            worker_name='刘统帅',
             device_name='1650冷轧（WAN）',
             input_weight_kg=1000,
             output_weight_kg=960,
             business_date=BUSINESS_DATE,
             end_time=datetime(2026, 6, 10, 10, 0),
+            last_seen_from_mes_at=datetime(2026, 6, 10, 10, 5),
             source_payload={'BeginSpecification': '1.0×1200', 'EndSpecification': '0.96×1200'},
         )
     )
@@ -150,7 +152,13 @@ def test_mes_pending_supplements_returns_only_current_machine_items(tmp_path) ->
     assert payload['items'][0]['material_category'] == 'cold_roll_pass'
     assert payload['items'][0]['material_reference']['current_workshop'] == '2050车间'
     assert payload['items'][0]['process_sequence']['pass_label'] == '单道次'
+    assert payload['items'][0]['mes_worker_name'] == '刘统帅'
+    assert payload['items'][0]['mes_last_seen_at'] == '2026-06-10T10:05:00'
     assert payload['items'][0]['mes_reference']['process_record_id'] == 101
+    assert payload['items'][0]['mes_reference']['mes_worker_name'] == '刘统帅'
+    assert payload['items'][0]['mes_reference']['machine_binding_confidence'] == 'high'
+    assert payload['items'][0]['mes_reference']['mes_end_time'] == '2026-06-10T10:00:00'
+    assert payload['items'][0]['mes_reference']['mes_last_seen_at'] == '2026-06-10T10:05:00'
     assert payload['items'][0]['mes_reference']['material_reference']['material_code'] == 'MAT-26RA00001'
 
 
@@ -213,6 +221,76 @@ def test_mes_pending_supplements_handles_unbound_mobile_user(tmp_path) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload['is_machine_bound'] is False
+    assert payload['summary']['pending_count'] == 0
+    assert payload['items'] == []
+
+
+def test_mes_pending_supplements_uses_0930_window_for_entries(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_machine(db)
+        rows = [
+            ('PROC-BEFORE-START', datetime(2026, 6, 10, 9, 29)),
+            ('PROC-IN-WINDOW', datetime(2026, 6, 11, 9, 29)),
+            ('PROC-AFTER-END', datetime(2026, 6, 11, 9, 30)),
+        ]
+        for source_id, end_time in rows:
+            db.add(
+                MesWorkshopProcessRecord(
+                    source_id=source_id,
+                    source_path='sqlserver',
+                    batch_no=source_id,
+                    workshop_name='2050车间',
+                    process_name='冷轧',
+                    device_name='1650冷轧（WAN）',
+                    input_weight_kg=1000,
+                    output_weight_kg=960,
+                    business_date=BUSINESS_DATE,
+                    end_time=end_time,
+                )
+            )
+        db.commit()
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.get('/api/v1/mobile/mes-pending-supplements', params={'business_date': '2026-06-10'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    source_ids = [item['mes_source_id'] for item in payload['items']]
+    assert source_ids == ['PROC-IN-WINDOW']
+
+
+def test_mes_pending_supplements_skips_records_without_mes_output_weight(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_machine(db)
+        db.add(
+            MesWorkshopProcessRecord(
+                source_id='PROC-NO-OUTPUT',
+                source_path='sqlserver',
+                batch_no='PROC-NO-OUTPUT',
+                workshop_name='2050车间',
+                process_name='冷轧',
+                device_name='1650冷轧（WAN）',
+                input_weight_kg=1000,
+                output_weight_kg=None,
+                business_date=BUSINESS_DATE,
+                end_time=datetime(2026, 6, 10, 10, 0),
+            )
+        )
+        db.commit()
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.get('/api/v1/mobile/mes-pending-supplements', params={'business_date': '2026-06-10'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
     assert payload['summary']['pending_count'] == 0
     assert payload['items'] == []
 

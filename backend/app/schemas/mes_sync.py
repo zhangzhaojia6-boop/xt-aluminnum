@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -71,3 +71,15 @@ class MesSyncRunsOut(BaseModel):
     limit: int = 12
     summary: MesSyncRunSummaryOut = Field(default_factory=MesSyncRunSummaryOut)
     items: list[MesSyncRunOut] = Field(default_factory=list)
+
+
+class MesSupplementReadinessOut(BaseModel):
+    business_date: date
+    sample_limit: int = 100
+    status: str
+    coverage: dict = Field(default_factory=dict)
+    machine_binding: dict = Field(default_factory=dict)
+    material_categories: dict = Field(default_factory=dict)
+    window_comparison: dict = Field(default_factory=dict)
+    unmatched_devices: list[dict] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

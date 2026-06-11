@@ -312,6 +312,7 @@ class MobileMesPendingSupplementItemOut(BaseModel):
     workshop_name: str | None = None
     process_name: str | None = None
     mes_machine_name: str | None = None
+    mes_worker_name: str | None = None
     resolved_machine_id: int | None = None
     resolved_machine_name: str | None = None
     machine_binding_source: str | None = None
@@ -319,6 +320,7 @@ class MobileMesPendingSupplementItemOut(BaseModel):
     input_weight_kg: float | None = None
     output_weight_kg: float | None = None
     end_time: str | None = None
+    mes_last_seen_at: str | None = None
     supplement_status: str = 'pending'
     risk_flags: list[str] = Field(default_factory=list)
     mes_reference: dict[str, Any] = Field(default_factory=dict)

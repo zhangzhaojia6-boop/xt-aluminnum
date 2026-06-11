@@ -153,11 +153,22 @@ class LiveMesFillGapSummaryOut(BaseModel):
 
 class LiveMesFillGapItemOut(BaseModel):
     status: str
+    gap_cause: str | None = None
+    mes_process_record_id: int | None = None
+    mes_source_id: str | None = None
     workshop_id: int | None = None
     workshop_name: str | None = None
     process_name: str | None = None
     batch_no: str | None = None
     tracking_card_no: str | None = None
+    customer_alias: str | None = None
+    alloy_grade: str | None = None
+    material_code: str | None = None
+    material_state: str | None = None
+    material_category: str | None = None
+    input_spec: str | None = None
+    output_spec: str | None = None
+    process_sequence: dict | None = None
     local_entry_id: int | None = None
     mes_input_weight: float | None = None
     mes_output_weight: float | None = None

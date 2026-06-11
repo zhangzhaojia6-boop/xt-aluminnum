@@ -63,10 +63,10 @@ test('shiftClock: business date for 02:30 dawn = active business day', () => {
   assert.equal(inferBusinessDate(dawn), '2026-05-26')
 })
 
-test('shiftClock: owner daily business date starts at the 10:00 anchor', () => {
-  const before = shanghaiInstant(2026, 5, 26, 9, 59)
+test('shiftClock: owner daily business date starts at the 09:30 anchor', () => {
+  const before = shanghaiInstant(2026, 5, 26, 9, 29)
   assert.equal(inferOwnerDailyBusinessDate(before), '2026-05-25')
-  const after = shanghaiInstant(2026, 5, 26, 10, 0)
+  const after = shanghaiInstant(2026, 5, 26, 9, 30)
   assert.equal(inferOwnerDailyBusinessDate(after), '2026-05-26')
 })
 

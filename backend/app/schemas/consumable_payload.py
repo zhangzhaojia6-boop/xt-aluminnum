@@ -58,6 +58,11 @@ class ConsumablePayload(BaseModel):
     gear_oil_target: float | None = None
     gear_oil_compare: str | None = None
 
+    ingot_block_count: float | None = None
+    ingot_input_tons: float | None = None
+    ingot_output_tons: float | None = None
+    ingot_exception_note: str | None = None
+
 
 def validate_consumable_payload(raw: dict[str, Any]) -> dict[str, Any]:
     """Validate a raw payload dict against the field lock.

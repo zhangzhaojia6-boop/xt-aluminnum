@@ -20,6 +20,23 @@ test('api interceptor can keep login when optional request gets 401', () => {
   assert.match(src, /status === 401 && !skipAuthLogout/)
 })
 
+test('api interceptor translates network failures into clear Chinese messages', () => {
+  const src = source('../src/api/index.js')
+  assert.match(src, /formatApiErrorMessage/)
+  assert.match(src, /ERR_NETWORK/)
+  assert.match(src, /连接服务器失败，请检查网络、代理或稍后重试/)
+  assert.match(src, /ECONNABORTED/)
+  assert.match(src, /请求超时，服务器响应太慢，请稍后重试/)
+})
+
+test('login page reuses the clear api network error wording', () => {
+  const src = source('../src/views/Login.vue')
+  assert.match(src, /formatApiErrorMessage/)
+  assert.match(src, /if \(!error\?\.response\) return formatApiErrorMessage\(error\)/)
+  assert.match(src, /return formatApiErrorMessage\(error\)/)
+  assert.doesNotMatch(src, /Network Error/)
+})
+
 test('auth store syncs server theme preference into HUD local preference', () => {
   const src = source('../src/stores/auth.js')
   assert.match(src, /fetchUserPreferences/)

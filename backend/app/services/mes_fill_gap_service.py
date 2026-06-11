@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 import re
 from typing import Any
@@ -138,8 +138,31 @@ def _pick_local_entry(
     return next((entry for entry, _work_order in rows if entry.workshop_id == workshop_id), None)
 
 
+def _pick_local_entry_for_process(
+    entries: dict[str, list[tuple[WorkOrderEntry, WorkOrder]]],
+    *,
+    tracking_card_no: str | None,
+    process_batch_no: str | None,
+    workshop_id: int | None,
+) -> tuple[WorkOrderEntry | None, str | None]:
+    lookup_keys = []
+    if tracking_card_no:
+        lookup_keys.append(tracking_card_no)
+    lookup_keys.extend(_batch_lookup_keys(process_batch_no))
+
+    seen: set[str] = set()
+    for key in lookup_keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        entry = _pick_local_entry(entries.get(key, []), workshop_id=workshop_id)
+        if entry is not None:
+            return entry, key
+    return None, tracking_card_no
+
+
 def _status_for(process: MesWorkshopProcessRecord, snapshot: MesCoilSnapshot | None, entry: WorkOrderEntry | None) -> str:
-    if snapshot is None:
+    if snapshot is None and entry is None:
         return 'mes_batch_unmapped'
     if entry is None:
         return 'missing_local_entry'
@@ -150,6 +173,100 @@ def _status_for(process: MesWorkshopProcessRecord, snapshot: MesCoilSnapshot | N
     if mes_output is not None and local_output is not None and abs(mes_output - local_output) > WEIGHT_TOLERANCE_KG:
         return 'weight_mismatch'
     return 'matched'
+
+
+def _process_text(process: MesWorkshopProcessRecord) -> str:
+    return f'{process.workshop_name or ""} {process.process_name or ""}'
+
+
+def _is_cold_roll_process(process: MesWorkshopProcessRecord) -> bool:
+    return any(keyword in _process_text(process) for keyword in ('冷轧', '开坯', '中退'))
+
+
+def _material_category(process: MesWorkshopProcessRecord) -> str:
+    text = _process_text(process)
+    if _is_cold_roll_process(process):
+        return 'cold_roll_pass'
+    if '热轧' in text:
+        return 'hot_roll_process'
+    if '铸轧' in text:
+        return 'cast_roll_process'
+    if '铸锭' in text:
+        return 'casting_ingot_reference'
+    if '坯' in text:
+        return 'billet_reference'
+    return 'coil_process'
+
+
+def _process_sequence_key(process: MesWorkshopProcessRecord, snapshot: MesCoilSnapshot | None) -> str | None:
+    for value in (
+        snapshot.tracking_card_no if snapshot else None,
+        snapshot.batch_no if snapshot else None,
+        snapshot.material_code if snapshot else None,
+        process.batch_no,
+    ):
+        keys = _batch_lookup_keys(value)
+        if keys:
+            return keys[-1]
+    return None
+
+
+def _sequence_sort_key(row: MesWorkshopProcessRecord) -> tuple[Any, int]:
+    value = row.end_time
+    if value is None:
+        return datetime.min, row.id
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None)
+    return value, row.id
+
+
+def _build_process_sequence_map(
+    process_rows: list[MesWorkshopProcessRecord],
+    snapshots: dict[str, MesCoilSnapshot],
+) -> dict[int, dict[str, Any]]:
+    groups: dict[str, list[MesWorkshopProcessRecord]] = {}
+    for process in process_rows:
+        if not _is_cold_roll_process(process):
+            continue
+        snapshot = next((snapshots.get(key) for key in _batch_lookup_keys(process.batch_no) if snapshots.get(key)), None)
+        key = _process_sequence_key(process, snapshot)
+        if key:
+            groups.setdefault(key, []).append(process)
+
+    payload: dict[int, dict[str, Any]] = {}
+    for rows in groups.values():
+        ordered = sorted(rows, key=_sequence_sort_key)
+        total = len(ordered)
+        for index, row in enumerate(ordered, start=1):
+            payload[row.id] = {
+                'pass_index': index,
+                'pass_total': total,
+                'pass_label': f'第{index}道' if total > 1 else '单道次',
+                'sequence_source': 'mes_process_time',
+            }
+    return payload
+
+
+def _payload_text(payload: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = _text(payload.get(key))
+        if value:
+            return value
+    return None
+
+
+def _gap_cause(status: str, binding: dict[str, Any]) -> str:
+    if status == 'mes_batch_unmapped':
+        return 'MES批号没有匹配到卷材快照'
+    if status == 'missing_local_entry':
+        return 'MES已有下机记录，本地补录未完成'
+    if status == 'local_entry_unassigned':
+        return '本地补录缺少机列归属'
+    if status == 'weight_mismatch':
+        return 'MES下机重量与本地补录重量超过1kg'
+    if binding.get('confidence') in {'medium', 'low'}:
+        return 'MES机列匹配可信度偏低，需要人工确认'
+    return '已匹配'
 
 
 def build_mes_fill_gaps(
@@ -165,6 +282,7 @@ def build_mes_fill_gaps(
 
     process_query = db.query(MesWorkshopProcessRecord).filter(MesWorkshopProcessRecord.business_date == business_date)
     process_rows = process_query.order_by(MesWorkshopProcessRecord.end_time.asc(), MesWorkshopProcessRecord.id.asc()).all()
+    process_sequences = _build_process_sequence_map(process_rows, snapshots)
 
     items: list[dict[str, Any]] = []
     for process in process_rows:
@@ -186,25 +304,46 @@ def build_mes_fill_gaps(
             continue
 
         tracking_card_no = _text(snapshot.tracking_card_no) if snapshot is not None else None
-        local_entry = _pick_local_entry(entries.get(tracking_card_no or '', []), workshop_id=resolved_workshop_id)
+        local_entry, tracking_card_no = _pick_local_entry_for_process(
+            entries,
+            tracking_card_no=tracking_card_no,
+            process_batch_no=process.batch_no,
+            workshop_id=resolved_workshop_id,
+        )
         status = _status_for(process, snapshot, local_entry)
         local_machine_name = machine_names.get(local_entry.machine_id) if local_entry is not None and local_entry.machine_id is not None else None
         shift_meta = _shift_meta_for_end_time(process.end_time)
+        source_payload = dict(process.source_payload or {})
 
         items.append(
             {
                 'status': status,
+                'gap_cause': _gap_cause(status, mes_machine),
+                'mes_process_record_id': process.id,
+                'mes_source_id': process.source_id,
                 'workshop_id': resolved_workshop_id,
                 'workshop_name': workshop.name if workshop is not None else _text(process.workshop_name) or None,
                 'process_name': process.process_name,
                 'batch_no': process.batch_no,
                 'tracking_card_no': tracking_card_no,
+                'customer_alias': process.customer_alias or (snapshot.customer_alias if snapshot is not None else None),
+                'alloy_grade': snapshot.alloy_grade if snapshot is not None else None,
+                'material_code': snapshot.material_code if snapshot is not None else None,
+                'material_state': snapshot.material_state if snapshot is not None else None,
+                'material_category': _material_category(process),
+                'input_spec': _payload_text(source_payload, 'BeginSpecification', 'InputSpecification') or (
+                    snapshot.spec_display if snapshot is not None else None
+                ),
+                'output_spec': _payload_text(source_payload, 'EndSpecification', 'OutputSpecification'),
+                'process_sequence': process_sequences.get(process.id),
                 'local_entry_id': local_entry.id if local_entry is not None else None,
                 'mes_input_weight': _plain_number(process.input_weight_kg),
                 'mes_output_weight': _plain_number(process.output_weight_kg),
                 'local_input_weight': _plain_number(local_entry.input_weight) if local_entry is not None else None,
                 'local_output_weight': _plain_number(local_entry.output_weight) if local_entry is not None else None,
                 'mes_machine_name': process.device_name,
+                'mes_worker_name': process.worker_name,
+                'mes_last_seen_at': process.last_seen_from_mes_at.isoformat() if process.last_seen_from_mes_at else None,
                 'mes_resolved_machine_id': mes_machine['machine_id'],
                 'mes_resolved_machine_name': mes_machine['machine_name'],
                 'mes_machine_binding_source': mes_machine['source'],

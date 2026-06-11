@@ -83,6 +83,35 @@ def test_upsert_consumable_log_accepts_packaging_inbound_output(db_with_workshop
     }
 
 
+def test_upsert_consumable_log_accepts_ingot_daily_summary(db_with_workshop):
+    s, ws_id = db_with_workshop
+    bd = date(2026, 6, 10)
+    cs_agent.upsert_consumable_log(
+        s,
+        workshop_id=ws_id,
+        business_date=bd,
+        payload={
+            'ingot_block_count': 16,
+            'ingot_input_tons': 48.5,
+            'ingot_output_tons': 47.2,
+            'ingot_exception_note': '无异常',
+        },
+        workshop_type='casting',
+    )
+    s.commit()
+
+    row = s.query(DailyConsumableLog).filter(
+        DailyConsumableLog.workshop_id == ws_id,
+        DailyConsumableLog.business_date == bd,
+    ).one()
+    assert row.payload == {
+        'ingot_block_count': 16.0,
+        'ingot_input_tons': 48.5,
+        'ingot_output_tons': 47.2,
+        'ingot_exception_note': '无异常',
+    }
+
+
 def test_upsert_consumable_log_rejects_unknown_field(db_with_workshop):
     s, ws_id = db_with_workshop
     with pytest.raises(ValidationError):

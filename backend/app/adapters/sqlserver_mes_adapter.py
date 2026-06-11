@@ -48,7 +48,7 @@ _QUERY_BY_KEY = {
     ),
     'workshop_process_records': (
         'SELECT TOP ({limit}) * FROM MES_ProductProcessRecord '
-        'ORDER BY OperateDate DESC, CreateDate DESC'
+        'ORDER BY EndDatetime DESC, OperateDate DESC, CreateDate DESC'
     ),
     'stock_records': (
         'SELECT TOP ({limit}) * FROM WMS_InStockDetail '

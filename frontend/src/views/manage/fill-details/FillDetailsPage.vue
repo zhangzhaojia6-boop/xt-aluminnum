@@ -173,10 +173,23 @@
       </header>
       <div v-if="mesGapRows.length" class="xt-fill-details__mes-gap-grid">
         <article v-for="row in mesGapRows" :key="rowKey(row)" class="xt-fill-details__mes-gap-row">
-          <strong>{{ mesGapStatusText(row.status) }}</strong>
-          <span>{{ row.workshop_name || '-' }} · {{ row.process_name || '-' }}</span>
+          <header>
+            <strong>{{ mesGapStatusText(row.status) }}</strong>
+            <em>{{ mesGapSequenceText(row) }}</em>
+          </header>
           <b>{{ row.tracking_card_no || row.batch_no || '-' }}</b>
+          <span>{{ row.workshop_name || '-' }} · {{ row.process_name || '-' }}</span>
+          <div class="xt-fill-details__mes-gap-tags">
+            <i>{{ row.customer_alias || '客户未同步' }}</i>
+            <i>{{ row.alloy_grade || '合金未同步' }}</i>
+            <i>{{ row.material_state || '状态未同步' }}</i>
+          </div>
+          <small>{{ mesGapSpecText(row) }}</small>
           <small>{{ mesGapWeightText(row) }}</small>
+          <small>{{ mesGapMachineText(row) }}</small>
+          <small>{{ mesGapBindingText(row) }}</small>
+          <small>{{ mesGapOperatorText(row) }}</small>
+          <p>{{ mesGapCauseText(row) }}</p>
         </article>
       </div>
       <p v-else class="xt-fill-details__empty">暂无 MES 对照异常</p>
@@ -242,6 +255,15 @@ const MES_GAP_STATUS_LABELS = {
   mes_batch_unmapped: '批号未映射',
   local_entry_unassigned: '本地未归机列',
   weight_mismatch: '重量不一致',
+}
+
+const MATERIAL_CATEGORY_LABELS = {
+  cold_roll_pass: '冷轧道次',
+  hot_roll_process: '热轧工序',
+  cast_roll_process: '铸轧工序',
+  casting_ingot_reference: '铸锭参考',
+  billet_reference: '坯料参考',
+  coil_process: '卷材工序',
 }
 
 const sourceOptions = [
@@ -328,8 +350,43 @@ function mesGapWeightText(row) {
   return `MES ${mes} kg / 本地 ${local} kg`
 }
 
+function mesGapSequenceText(row) {
+  const sequence = row?.process_sequence
+  if (typeof sequence === 'string') return sequence
+  return sequence?.pass_label || MATERIAL_CATEGORY_LABELS[row?.material_category] || '工序'
+}
+
+function mesGapSpecText(row) {
+  const input = row?.input_spec || '-'
+  const output = row?.output_spec || '-'
+  return `规格 ${input} -> ${output}`
+}
+
+function mesGapMachineText(row) {
+  const mes = row?.mes_machine_name || '-'
+  const resolved = row?.mes_resolved_machine_name || '-'
+  const local = row?.local_machine_name || '-'
+  return `机列 MES:${mes} / 归属:${resolved} / 本地:${local}`
+}
+
+function mesGapBindingText(row) {
+  const source = row?.mes_machine_binding_source || '未同步'
+  const confidence = row?.mes_machine_binding_confidence || '未知'
+  return `匹配 ${source} / 可信度 ${confidence}`
+}
+
+function mesGapOperatorText(row) {
+  const worker = row?.mes_worker_name || '操作人未同步'
+  const seenAt = row?.mes_last_seen_at ? dayjs(row.mes_last_seen_at).format('MM-DD HH:mm') : '同步时间未知'
+  return `操作 ${worker} / 同步 ${seenAt}`
+}
+
+function mesGapCauseText(row) {
+  return row?.gap_cause || mesGapStatusText(row?.status)
+}
+
 function rowKey(row) {
-  return `${row.status || 'gap'}-${row.local_entry_id || row.tracking_card_no || row.batch_no || 'unknown'}`
+  return `${row.status || 'gap'}-${row.mes_process_record_id || row.local_entry_id || row.tracking_card_no || row.batch_no || 'unknown'}`
 }
 
 async function loadWorkshops() {
@@ -868,12 +925,19 @@ load()
 
 .xt-fill-details__mes-gap-row {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
   padding: var(--xt-space-3);
   border: 1px solid color-mix(in srgb, var(--xt-warning) 28%, var(--xt-border));
   border-radius: var(--xt-radius-lg);
   background: color-mix(in srgb, var(--xt-warning) 8%, transparent);
+}
+
+.xt-fill-details__mes-gap-row header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xt-space-2);
 }
 
 .xt-fill-details__mes-gap-row strong,
@@ -883,14 +947,51 @@ load()
   overflow-wrap: anywhere;
 }
 
+.xt-fill-details__mes-gap-row em {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--xt-primary) 28%, transparent);
+  border-radius: var(--xt-radius-pill);
+  color: color-mix(in srgb, var(--xt-primary) 78%, var(--xt-text-inverse));
+  font-size: var(--xt-text-xs);
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .xt-fill-details__mes-gap-row span,
 .xt-fill-details__mes-gap-row small {
-  overflow: hidden;
   color: color-mix(in srgb, var(--xt-text-inverse) 54%, transparent);
   font-size: var(--xt-text-xs);
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.xt-fill-details__mes-gap-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.xt-fill-details__mes-gap-tags i {
+  padding: 2px 7px;
+  border-radius: var(--xt-radius-pill);
+  background: color-mix(in srgb, var(--xt-primary-light) 8%, transparent);
+  color: color-mix(in srgb, var(--xt-text-inverse) 68%, transparent);
+  font-size: var(--xt-text-xs);
+  font-style: normal;
+  font-weight: 850;
+}
+
+.xt-fill-details__mes-gap-row p {
+  margin: 0;
+  padding: var(--xt-space-2);
+  border-radius: var(--xt-radius-md);
+  background: color-mix(in srgb, var(--xt-bg-ink) 32%, transparent);
+  color: color-mix(in srgb, var(--xt-warning) 82%, var(--xt-text-inverse));
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .xt-fill-details__bottom-status {

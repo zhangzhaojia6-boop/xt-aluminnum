@@ -264,7 +264,7 @@ const shiftMismatch = computed(() => {
 })
 const shiftHint = computed(() => {
   if (isOwnerDailyEntry.value) {
-    return `按 10:00 起算，当前归属 ${inferOwnerDailyBusinessDate()}，每日一录。`
+    return `按 09:30 起算，当前归属 ${inferOwnerDailyBusinessDate()}，每日一录。`
   }
   const wall = inferredShift.value
   if (!wall) return ''
@@ -299,7 +299,7 @@ const screenSummaryItems = computed(() => {
   if (screenRoleBucket.value === 'owner') {
     return [
       { label: '归属日', value: current.value?.business_date || '-' },
-      { label: '填报口径', value: '10:00循环' },
+      { label: '填报口径', value: '09:30循环' },
       { label: '录入方式', value: '每日一录' },
     ]
   }

@@ -216,6 +216,8 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'MES_Product' in _QUERY_BY_KEY['dispatch']
     assert 'MES_Product' in _QUERY_BY_KEY['card_lookup']
     assert 'MES_Product' in _QUERY_BY_KEY['wip_totals']
+    assert 'MES_ProductProcessRecord' in _QUERY_BY_KEY['workshop_process_records']
+    assert 'ORDER BY EndDatetime DESC' in _QUERY_BY_KEY['workshop_process_records']
     assert "CurrentWorkShop IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert "CurrentProcess IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert 'SUM(FeedingWeight)' in _QUERY_BY_KEY['wip_totals']
