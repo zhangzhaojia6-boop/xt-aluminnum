@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.services import mes_fill_gap_service
@@ -22,6 +22,7 @@ def _session_factory(tmp_path):
         tables=[
             Workshop.__table__,
             Equipment.__table__,
+            MasterCodeAlias.__table__,
             MesCoilSnapshot.__table__,
             MesWorkshopProcessRecord.__table__,
             WorkOrder.__table__,
@@ -36,8 +37,10 @@ def _seed_master(db) -> None:
         [
             Workshop(id=1, code='LZ2050', name='2050冷轧车间', workshop_type='cold_rolling', sort_order=1, is_active=True),
             Workshop(id=2, code='JZ', name='精整车间', workshop_type='finishing', sort_order=2, is_active=True),
+            Workshop(id=3, code='LZ1650', name='1650冷轧', workshop_type='cold_rolling', sort_order=3, is_active=True),
             Equipment(id=11, code='LZ2050-1', name='2050-1#轧机', workshop_id=1, equipment_type='cold_mill', is_active=True),
             Equipment(id=21, code='JZ-1', name='精整1#线', workshop_id=2, equipment_type='finishing', is_active=True),
+            Equipment(id=31, code='LZ1650-1', name='1650#', workshop_id=3, equipment_type='cold_mill', is_active=True),
         ]
     )
 
@@ -230,3 +233,29 @@ def test_mes_fill_gap_filters_to_workshop_scope(tmp_path) -> None:
     assert payload['total'] == 1
     assert payload['items'][0]['workshop_id'] == 2
     assert payload['items'][0]['workshop_name'] == '精整车间'
+
+
+def test_mes_fill_gap_resolves_mes_machine_name_with_network_suffix(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_master(db)
+        _add_snapshot(db, tracking_card_no='TRACK-1650', batch_no='BATCH-1650')
+        _add_process(
+            db,
+            source_id='PROC-1650',
+            batch_no='BATCH-1650-2',
+            workshop_name='2050冷轧车间',
+            process_name='冷轧',
+            device_name='1650冷轧（WAN）',
+        )
+        db.commit()
+
+    with session_factory() as db:
+        payload = mes_fill_gap_service.build_mes_fill_gaps(db, business_date=BUSINESS_DATE)
+
+    assert payload['items'][0]['workshop_id'] == 3
+    assert payload['items'][0]['workshop_name'] == '1650冷轧'
+    assert payload['items'][0]['mes_machine_name'] == '1650冷轧（WAN）'
+    assert payload['items'][0]['mes_resolved_machine_id'] == 31
+    assert payload['items'][0]['mes_resolved_machine_name'] == '1650#'
+    assert payload['items'][0]['mes_machine_binding_confidence'] == 'high'

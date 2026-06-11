@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.services import scan_lookup_service
 
@@ -16,7 +16,13 @@ def _session_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'scan-lookup.db'}", future=True)
     Base.metadata.create_all(
         engine,
-        tables=[Workshop.__table__, Equipment.__table__, MesCoilSnapshot.__table__, MesWorkshopProcessRecord.__table__],
+        tables=[
+            Workshop.__table__,
+            Equipment.__table__,
+            MasterCodeAlias.__table__,
+            MesCoilSnapshot.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
     )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 

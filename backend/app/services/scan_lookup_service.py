@@ -7,10 +7,9 @@ from typing import Any
 from sqlalchemy import inspect, or_
 from sqlalchemy.orm import Session
 
-from app.models.master import Equipment
+from app.models.master import Equipment, MasterCodeAlias
 from app.models.mes import MesCoilSnapshot
-from app.services import master_service, mes_assisted_fill_service
-from app.services.realtime_service import _infer_mes_machine_id_from_route
+from app.services import master_service, mes_assisted_fill_service, mes_machine_match_service
 from app.utils.tracking_cards import tracking_card_lookup_key, tracking_card_sql_lookup_key
 
 
@@ -169,21 +168,32 @@ def _resolve_machine_binding_for_snapshot(db: Session, row: MesCoilSnapshot) -> 
         return empty
 
     process_hint = row.current_process or row.process_code or row.next_process
-    inferred_id = _infer_mes_machine_id_from_route(
-        machines=machines_by_workshop.get(workshop.id, []),
-        process_hint=process_hint,
+    aliases = (
+        db.query(MasterCodeAlias)
+        .filter(
+            MasterCodeAlias.entity_type == 'equipment',
+            MasterCodeAlias.is_active.is_(True),
+        )
+        .all()
     )
-    if inferred_id is None:
+    binding = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=workshop_rows,
+        device_name=row.machine_code,
+        process_hint=process_hint,
+        preferred_workshop_id=workshop.id,
+        aliases=aliases,
+    )
+    if binding['machine_id'] is None:
         return empty
 
-    inferred = next((m for m in machines_by_workshop[workshop.id] if m.id == inferred_id), None)
+    inferred = next((m for m in workshop_rows if m.id == binding['machine_id']), None)
     if inferred is None:
         return empty
     return {
         'machine_line_id': inferred.id,
         'machine_line_code': inferred.code,
         'machine_line_name': inferred.name,
-        'machine_binding_source': 'route_inferred',
+        'machine_binding_source': binding['source'],
     }
 
 

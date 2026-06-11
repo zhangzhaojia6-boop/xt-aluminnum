@@ -8,9 +8,10 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, MasterCodeAlias, Workshop
 from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
+from app.services import mes_machine_match_service
 
 WEIGHT_TOLERANCE_KG = 1.0
 SHIFT_WINDOWS = (
@@ -73,8 +74,17 @@ def _workshop_maps(db: Session) -> tuple[dict[int, Workshop], dict[str, Workshop
     return by_id, by_name
 
 
-def _machine_name_map(db: Session) -> dict[int, str]:
-    return {row.id: row.name for row in db.query(Equipment).filter(Equipment.is_active.is_(True)).all()}
+def _machine_context(db: Session) -> tuple[dict[int, str], list[Equipment], list[MasterCodeAlias]]:
+    machines = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
+    aliases = (
+        db.query(MasterCodeAlias)
+        .filter(
+            MasterCodeAlias.entity_type == 'equipment',
+            MasterCodeAlias.is_active.is_(True),
+        )
+        .all()
+    )
+    return {row.id: row.name for row in machines}, machines, aliases
 
 
 def _entries_by_tracking_card(
@@ -148,8 +158,8 @@ def build_mes_fill_gaps(
     business_date: date,
     workshop_id: int | None = None,
 ) -> dict[str, Any]:
-    _workshops_by_id, workshop_by_name = _workshop_maps(db)
-    machine_names = _machine_name_map(db)
+    workshops_by_id, workshop_by_name = _workshop_maps(db)
+    machine_names, machines, equipment_aliases = _machine_context(db)
     snapshots = _snapshot_by_batch(db)
     entries = _entries_by_tracking_card(db, business_date=business_date, workshop_id=workshop_id)
 
@@ -161,6 +171,17 @@ def build_mes_fill_gaps(
         snapshot = next((snapshots.get(key) for key in _batch_lookup_keys(process.batch_no) if snapshots.get(key)), None)
         workshop = _resolve_workshop(process=process, snapshot=snapshot, workshop_by_name=workshop_by_name)
         resolved_workshop_id = workshop.id if workshop is not None else None
+        mes_machine = mes_machine_match_service.resolve_mes_machine_binding(
+            machines=machines,
+            device_name=process.device_name,
+            process_hint=process.process_name,
+            preferred_workshop_id=resolved_workshop_id,
+            aliases=equipment_aliases,
+        )
+        if mes_machine['workshop_id'] is not None and mes_machine['workshop_id'] != resolved_workshop_id:
+            resolved_workshop_id = mes_machine['workshop_id']
+            workshop = workshops_by_id.get(resolved_workshop_id)
+
         if workshop_id is not None and resolved_workshop_id != workshop_id:
             continue
 
@@ -184,6 +205,10 @@ def build_mes_fill_gaps(
                 'local_input_weight': _plain_number(local_entry.input_weight) if local_entry is not None else None,
                 'local_output_weight': _plain_number(local_entry.output_weight) if local_entry is not None else None,
                 'mes_machine_name': process.device_name,
+                'mes_resolved_machine_id': mes_machine['machine_id'],
+                'mes_resolved_machine_name': mes_machine['machine_name'],
+                'mes_machine_binding_source': mes_machine['source'],
+                'mes_machine_binding_confidence': mes_machine['confidence'],
                 'local_machine_name': local_machine_name,
                 **shift_meta,
             }

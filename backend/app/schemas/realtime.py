@@ -164,6 +164,10 @@ class LiveMesFillGapItemOut(BaseModel):
     local_input_weight: float | None = None
     local_output_weight: float | None = None
     mes_machine_name: str | None = None
+    mes_resolved_machine_id: int | None = None
+    mes_resolved_machine_name: str | None = None
+    mes_machine_binding_source: str | None = None
+    mes_machine_binding_confidence: str | None = None
     local_machine_name: str | None = None
     shift_name: str | None = None
     shift_window: str | None = None
