@@ -73,3 +73,22 @@ def test_keeps_generic_pc_terminal_unassigned() -> None:
 
     assert payload['machine_id'] is None
     assert payload['source'] == 'generic_mes_terminal'
+
+
+def test_resolves_straightener_device_without_cross_matching_number_only_machines() -> None:
+    machines = [
+        _machine(machine_id=11, code='ZR2-3', name='3#机', workshop_id=2, equipment_type='cast_roller'),
+        _machine(machine_id=12, code='JQ-3', name='3#', workshop_id=10, equipment_type='shear'),
+        _machine(machine_id=41, code='JQ-LJ', name='拉矫', workshop_id=25, equipment_type='straightener'),
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        device_name='拉矫3号机（WAN）',
+        process_hint='拉矫',
+        preferred_workshop_id=25,
+    )
+
+    assert payload['machine_id'] == 41
+    assert payload['machine_name'] == '拉矫'
+    assert payload['source'] == 'contained_machine_name'

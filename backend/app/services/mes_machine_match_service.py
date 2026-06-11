@@ -93,6 +93,10 @@ def _machine_forms(machine: Equipment) -> set[str]:
     return forms
 
 
+def _is_weak_machine_form(value: str) -> bool:
+    return bool(re.fullmatch(r'\d{1,2}(#|机|线)?', value))
+
+
 def _unique(candidates: Iterable[Equipment]) -> Equipment | None:
     rows: list[Equipment] = []
     seen: set[object] = set()
@@ -145,7 +149,7 @@ def _match_normalized_name(*, machines: list[Equipment], device_forms: set[str])
 def _match_contained_name(*, machines: list[Equipment], device_forms: set[str]) -> Equipment | None:
     candidates: list[Equipment] = []
     for machine in machines:
-        forms = _machine_forms(machine)
+        forms = {form for form in _machine_forms(machine) if not _is_weak_machine_form(form)}
         if any(
             (machine_form in device_form and len(machine_form) >= 2)
             or (device_form in machine_form and len(device_form) >= 3)
