@@ -52,6 +52,9 @@
             <strong>{{ pendingTrackingText(item) }}</strong>
             <span>{{ pendingMetaText(item) }}</span>
           </div>
+          <div v-if="pendingBadges(item).length" class="coil-mes-card__badges">
+            <span v-for="badge in pendingBadges(item)" :key="badge">{{ badge }}</span>
+          </div>
           <div class="coil-mes-card__metrics">
             <span>下机 {{ formatKgAsTon(item.output_weight_kg) }}</span>
             <span>{{ formatEndTime(item.end_time) }}</span>
@@ -428,9 +431,22 @@ function pendingMetaText(item) {
     item.output_spec || item.input_spec,
     item.alloy_grade,
     item.material_state,
+    item.material_code,
     item.customer_alias,
     item.process_name,
   ].filter(Boolean).join('｜') || 'MES 已入账，等待现场补录'
+}
+
+function pendingBadges(item) {
+  const badges = []
+  if (item.process_sequence?.pass_label) badges.push(item.process_sequence.pass_label)
+  if (item.material_category === 'cold_roll_pass') badges.push('冷轧道次')
+  if (item.material_category === 'hot_roll_process') badges.push('热轧过程')
+  if (item.material_category === 'cast_roll_process') badges.push('铸轧过程')
+  if (item.material_category === 'billet_reference') badges.push('坯料参考')
+  if (item.risk_flags?.includes('machine_match_needs_confirmation')) badges.push('需确认机台')
+  if (item.risk_flags?.includes('mes_batch_unmapped')) badges.push('未匹配随行卡')
+  return badges
 }
 
 function splitSpec(value) {
@@ -841,6 +857,23 @@ onMounted(loadData)
   grid-column: 1 / -1;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.coil-mes-card__badges {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.coil-mes-card__badges span {
+  padding: 3px 8px;
+  border: 1px solid rgba(93, 234, 255, 0.18);
+  border-radius: 999px;
+  color: #8feaff;
+  background: rgba(0, 197, 255, 0.1);
+  font-size: var(--xt-text-xs);
+  font-weight: 800;
 }
 
 .coil-mes-card__metrics span {

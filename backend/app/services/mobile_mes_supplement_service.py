@@ -81,6 +81,13 @@ def _snapshot_by_batch(db: Session, values: list[Any]) -> dict[str, MesCoilSnaps
     return payload
 
 
+def _snapshot_for_process(
+    process: MesWorkshopProcessRecord,
+    snapshots: dict[str, MesCoilSnapshot],
+) -> MesCoilSnapshot | None:
+    return next((snapshots.get(key) for key in _batch_lookup_keys(process.batch_no) if snapshots.get(key)), None)
+
+
 def _tracking_keys(*values: Any) -> set[str]:
     keys: set[str] = set()
     for value in values:
@@ -162,17 +169,132 @@ def _process_rows(db: Session, *, business_date: date) -> list[MesWorkshopProces
     )
 
 
-def _build_mes_reference(process: MesWorkshopProcessRecord, snapshot: MesCoilSnapshot | None, binding: dict[str, Any]) -> dict[str, Any]:
+def _process_text(process: MesWorkshopProcessRecord) -> str:
+    return f'{process.workshop_name or ""} {process.process_name or ""}'
+
+
+def _is_cold_roll_process(process: MesWorkshopProcessRecord) -> bool:
+    text = _process_text(process)
+    return any(keyword in text for keyword in ('冷轧', '开坯', '中退'))
+
+
+def _material_category(process: MesWorkshopProcessRecord) -> str:
+    text = _process_text(process)
+    if _is_cold_roll_process(process):
+        return 'cold_roll_pass'
+    if '热轧' in text:
+        return 'hot_roll_process'
+    if '铸轧' in text:
+        return 'cast_roll_process'
+    if '铸锭' in text:
+        return 'casting_ingot_reference'
+    if '坯' in text:
+        return 'billet_reference'
+    return 'coil_process'
+
+
+def _process_sequence_key(process: MesWorkshopProcessRecord, snapshot: MesCoilSnapshot | None) -> str | None:
+    for value in (
+        snapshot.tracking_card_no if snapshot else None,
+        snapshot.batch_no if snapshot else None,
+        snapshot.material_code if snapshot else None,
+        process.batch_no,
+    ):
+        keys = _batch_lookup_keys(value)
+        if keys:
+            return keys[-1]
+    return None
+
+
+def _sequence_sort_key(row: MesWorkshopProcessRecord) -> tuple[datetime, int]:
+    value = row.end_time
+    if value is None:
+        return datetime.min, row.id
+    if value.tzinfo is not None:
+        value = value.astimezone(LOCAL_TZ).replace(tzinfo=None)
+    return value, row.id
+
+
+def _build_process_sequence_map(
+    process_rows: list[MesWorkshopProcessRecord],
+    snapshots: dict[str, MesCoilSnapshot],
+) -> dict[int, dict[str, Any]]:
+    groups: dict[str, list[MesWorkshopProcessRecord]] = {}
+    for process in process_rows:
+        if not _is_cold_roll_process(process):
+            continue
+        key = _process_sequence_key(process, _snapshot_for_process(process, snapshots))
+        if not key:
+            continue
+        groups.setdefault(key, []).append(process)
+
+    payload: dict[int, dict[str, Any]] = {}
+    for rows in groups.values():
+        ordered = sorted(rows, key=_sequence_sort_key)
+        total = len(ordered)
+        for index, row in enumerate(ordered, start=1):
+            payload[row.id] = {
+                'pass_index': index,
+                'pass_total': total,
+                'pass_label': f'第{index}道' if total > 1 else '单道次',
+                'sequence_source': 'mes_process_time',
+            }
+    return payload
+
+
+def _build_material_reference(
+    process: MesWorkshopProcessRecord,
+    snapshot: MesCoilSnapshot | None,
+) -> dict[str, Any]:
+    if snapshot is None:
+        return {
+            'material_category': _material_category(process),
+            'batch_no': process.batch_no,
+        }
+    return {
+        'material_category': _material_category(process),
+        'material_code': snapshot.material_code,
+        'coil_id': snapshot.coil_id,
+        'batch_no': snapshot.batch_no or process.batch_no,
+        'current_workshop': snapshot.current_workshop,
+        'current_process': snapshot.current_process,
+        'next_workshop': snapshot.next_workshop,
+        'next_process': snapshot.next_process,
+        'process_route_text': snapshot.process_route_text,
+    }
+
+
+def _risk_flags(snapshot: MesCoilSnapshot | None, binding: dict[str, Any]) -> list[str]:
+    flags: list[str] = []
+    if snapshot is None:
+        flags.append('mes_batch_unmapped')
+    if binding.get('confidence') in {'medium', 'low'}:
+        flags.append('machine_match_needs_confirmation')
+    return flags
+
+
+def _build_mes_reference(
+    process: MesWorkshopProcessRecord,
+    snapshot: MesCoilSnapshot | None,
+    binding: dict[str, Any],
+    *,
+    process_sequence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         'process_record_id': process.id,
         'source_id': process.source_id,
         'batch_no': process.batch_no,
         'tracking_card_no': snapshot.tracking_card_no if snapshot else None,
+        'material_code': snapshot.material_code if snapshot else None,
         'mes_machine_name': process.device_name,
+        'mes_worker_name': process.worker_name,
         'resolved_machine_id': binding['machine_id'],
         'resolved_machine_name': binding['machine_name'],
         'machine_binding_source': binding['source'],
+        'machine_binding_confidence': binding['confidence'],
         'mes_end_time': process.end_time.isoformat() if process.end_time else None,
+        'material_reference': _build_material_reference(process, snapshot),
+        'process_sequence': process_sequence,
     }
 
 
@@ -209,6 +331,7 @@ def build_pending_supplements(
     )
     process_rows = _process_rows(db, business_date=resolved_business_date)
     snapshots = _snapshot_by_batch(db, [process.batch_no for process in process_rows])
+    process_sequences = _build_process_sequence_map(process_rows, snapshots)
     completed_process_ids, completed_source_ids, completed_tracking_output = _completed_refs(
         db,
         business_date=resolved_business_date,
@@ -220,7 +343,7 @@ def build_pending_supplements(
     matched_machine_count = 0
     unmatched_machine_count = 0
     for process in process_rows:
-        snapshot = next((snapshots.get(key) for key in _batch_lookup_keys(process.batch_no) if snapshots.get(key)), None)
+        snapshot = _snapshot_for_process(process, snapshots)
         binding = mes_machine_match_service.resolve_mes_machine_binding(
             machines=machines,
             aliases=aliases,
@@ -245,12 +368,18 @@ def build_pending_supplements(
             continue
 
         source_payload = dict(process.source_payload or {})
+        process_sequence = process_sequences.get(process.id)
+        material_reference = _build_material_reference(process, snapshot)
         items.append(
             {
                 'mes_process_record_id': process.id,
                 'mes_source_id': process.source_id,
                 'batch_no': process.batch_no,
                 'tracking_card_no': snapshot.tracking_card_no if snapshot else None,
+                'material_code': snapshot.material_code if snapshot else None,
+                'material_category': material_reference['material_category'],
+                'material_reference': material_reference,
+                'process_sequence': process_sequence,
                 'customer_alias': process.customer_alias or (snapshot.customer_alias if snapshot else None),
                 'alloy_grade': snapshot.alloy_grade if snapshot else None,
                 'input_spec': source_payload.get('BeginSpecification') or (snapshot.spec_display if snapshot else None),
@@ -267,8 +396,13 @@ def build_pending_supplements(
                 'output_weight_kg': _plain(process.output_weight_kg),
                 'end_time': process.end_time.isoformat() if process.end_time else None,
                 'supplement_status': 'pending',
-                'risk_flags': [] if snapshot is not None else ['mes_batch_unmapped'],
-                'mes_reference': _build_mes_reference(process, snapshot, binding),
+                'risk_flags': _risk_flags(snapshot, binding),
+                'mes_reference': _build_mes_reference(
+                    process,
+                    snapshot,
+                    binding,
+                    process_sequence=process_sequence,
+                ),
             }
         )
         if len(items) >= max(1, min(limit, 200)):

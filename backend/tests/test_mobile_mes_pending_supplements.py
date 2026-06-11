@@ -91,10 +91,16 @@ def _seed_mes_pending_item(db) -> None:
             tracking_card_no='26RA00001',
             qr_code='QR-TRACK-1',
             batch_no='26RA00001',
+            material_code='MAT-26RA00001',
             customer_alias='河南永晟',
             alloy_grade='5052',
             material_state='H24',
             spec_display='1.0×1200',
+            current_workshop='2050车间',
+            current_process='冷轧',
+            next_workshop='在线退火',
+            next_process='退火',
+            process_route_text='2050车间(冷轧) - 在线退火',
         )
     )
     db.add(
@@ -140,7 +146,12 @@ def test_mes_pending_supplements_returns_only_current_machine_items(tmp_path) ->
     assert payload['items'][0]['resolved_machine_id'] == 11
     assert payload['items'][0]['input_weight_kg'] == 1000.0
     assert payload['items'][0]['output_weight_kg'] == 960.0
+    assert payload['items'][0]['material_code'] == 'MAT-26RA00001'
+    assert payload['items'][0]['material_category'] == 'cold_roll_pass'
+    assert payload['items'][0]['material_reference']['current_workshop'] == '2050车间'
+    assert payload['items'][0]['process_sequence']['pass_label'] == '单道次'
     assert payload['items'][0]['mes_reference']['process_record_id'] == 101
+    assert payload['items'][0]['mes_reference']['material_reference']['material_code'] == 'MAT-26RA00001'
 
 
 def test_mes_pending_supplements_excludes_completed_local_entry(tmp_path) -> None:
@@ -204,3 +215,42 @@ def test_mes_pending_supplements_handles_unbound_mobile_user(tmp_path) -> None:
     assert payload['is_machine_bound'] is False
     assert payload['summary']['pending_count'] == 0
     assert payload['items'] == []
+
+
+def test_mes_pending_supplements_marks_cold_roll_pass_sequence(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        _seed_machine(db)
+        _seed_mes_pending_item(db)
+        db.add(
+            MesWorkshopProcessRecord(
+                id=100,
+                source_id='PROC-100',
+                source_path='sqlserver',
+                batch_no='26RA00001-1',
+                customer_alias='河南永晟',
+                workshop_name='2050车间',
+                process_name='冷轧',
+                device_name='1650冷轧（WAN）',
+                input_weight_kg=1100,
+                output_weight_kg=1000,
+                business_date=BUSINESS_DATE,
+                end_time=datetime(2026, 6, 10, 9, 30),
+                source_payload={'BeginSpecification': '1.2×1200', 'EndSpecification': '1.0×1200'},
+            )
+        )
+        db.commit()
+
+    client = _client_with_db(session_factory)
+    try:
+        response = client.get('/api/v1/mobile/mes-pending-supplements', params={'business_date': '2026-06-10'})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    sequence_by_id = {item['mes_process_record_id']: item['process_sequence'] for item in payload['items']}
+    assert sequence_by_id[100]['pass_label'] == '第1道'
+    assert sequence_by_id[101]['pass_label'] == '第2道'
+    assert sequence_by_id[101]['pass_total'] == 2
+    assert payload['items'][0]['material_category'] == 'cold_roll_pass'

@@ -300,6 +300,10 @@ class MobileMesPendingSupplementItemOut(BaseModel):
     mes_source_id: str
     batch_no: str | None = None
     tracking_card_no: str | None = None
+    material_code: str | None = None
+    material_category: str = 'coil_process'
+    material_reference: dict[str, Any] = Field(default_factory=dict)
+    process_sequence: dict[str, Any] | None = None
     customer_alias: str | None = None
     alloy_grade: str | None = None
     input_spec: str | None = None
