@@ -27,6 +27,7 @@ from app.schemas.mobile import (
     MobileCoilFlowSuggestionOut,
     MobileCoilEntryPayload,
     MobileCurrentShiftOut,
+    MobileMesPendingSupplementOut,
     MobilePhotoUploadResponse,
     MobileOwnerDailyOut,
     MobileOwnerDailyPayload,
@@ -38,7 +39,13 @@ from app.schemas.mobile import (
     MobileShiftReportHistoryItemOut,
     MobileShiftReportOut,
 )
-from app.services import factory_command_service, mobile_reminder_service, mobile_report_service, scan_lookup_service
+from app.services import (
+    factory_command_service,
+    mobile_mes_supplement_service,
+    mobile_reminder_service,
+    mobile_report_service,
+    scan_lookup_service,
+)
 from app.services.real_master_data import OWNER_DAILY_ROLES
 
 router = APIRouter(tags=['mobile'])
@@ -77,6 +84,22 @@ def scan_lookup(
     except scan_lookup_service.ScanLookupNotFound as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='qr_not_found') from exc
     return MobileScanLookupOut(**payload)
+
+
+@router.get('/mes-pending-supplements', response_model=MobileMesPendingSupplementOut, name='mobile-mes-pending-supplements')
+def mes_pending_supplements(
+    business_date: date | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_mobile_user),
+) -> MobileMesPendingSupplementOut:
+    payload = mobile_mes_supplement_service.build_pending_supplements(
+        db,
+        current_user=current_user,
+        business_date=business_date,
+        limit=limit,
+    )
+    return MobileMesPendingSupplementOut(**payload)
 
 
 @router.get('/report/{business_date}/{shift_id}', response_model=MobileShiftReportOut, name='mobile-report-detail')

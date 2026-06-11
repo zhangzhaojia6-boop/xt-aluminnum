@@ -293,3 +293,37 @@ class MobileScanLookupOut(BaseModel):
     machine_line_code: str | None = None
     machine_line_name: str | None = None
     machine_binding_source: str | None = None
+
+
+class MobileMesPendingSupplementItemOut(BaseModel):
+    mes_process_record_id: int
+    mes_source_id: str
+    batch_no: str | None = None
+    tracking_card_no: str | None = None
+    customer_alias: str | None = None
+    alloy_grade: str | None = None
+    input_spec: str | None = None
+    output_spec: str | None = None
+    material_state: str | None = None
+    workshop_name: str | None = None
+    process_name: str | None = None
+    mes_machine_name: str | None = None
+    resolved_machine_id: int | None = None
+    resolved_machine_name: str | None = None
+    machine_binding_source: str | None = None
+    machine_binding_confidence: str | None = None
+    input_weight_kg: float | None = None
+    output_weight_kg: float | None = None
+    end_time: str | None = None
+    supplement_status: str = 'pending'
+    risk_flags: list[str] = Field(default_factory=list)
+    mes_reference: dict[str, Any] = Field(default_factory=dict)
+
+
+class MobileMesPendingSupplementOut(BaseModel):
+    business_date: str
+    business_day_start: str = '09:30'
+    is_machine_bound: bool = False
+    machine: dict[str, Any] | None = None
+    summary: dict[str, Any] = Field(default_factory=dict)
+    items: list[MobileMesPendingSupplementItemOut] = Field(default_factory=list)
