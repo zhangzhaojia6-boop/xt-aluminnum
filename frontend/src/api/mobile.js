@@ -29,7 +29,11 @@ export async function fetchScanLookup(qr) {
 }
 
 export async function fetchMesPendingSupplements(params = {}) {
-  const { data } = await api.get('/mobile/mes-pending-supplements', { params })
+  const { data } = await api.get('/mobile/mes-pending-supplements', {
+    params,
+    skipAuthLogout: true,
+    skipErrorToast: true,
+  })
   return data
 }
 

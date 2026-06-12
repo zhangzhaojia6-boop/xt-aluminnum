@@ -49,7 +49,7 @@ test('manage shell keeps the production surface readable on desktop widths', asy
   await expect(page.getByTestId('manage-production')).toBeVisible()
 })
 
-test('compact management clients only keep live and yesterday report routes', async ({ page }) => {
+test('compact management clients keep core review routes with desktop override', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 932 })
 
   await page.goto('/manage/live')
@@ -60,12 +60,20 @@ test('compact management clients only keep live and yesterday report routes', as
   await expectManageChrome(page)
   await expect(page.getByTestId('manage-today')).toBeVisible()
 
-  for (const path of ['/manage/production', '/manage/daily-report', '/manage/fill-details', '/manage/admin/settings']) {
+  for (const [path, testId] of [
+    ['/manage/production', 'manage-production'],
+    ['/manage/fill-details', 'manage-fill-details']
+  ]) {
     await page.goto(`${path}?desktop=1`)
     await expectManageChrome(page)
-    await expect(page).toHaveURL(/\/manage\/today/)
-    await expect(page.getByTestId('manage-today')).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(path.replace('/', '\\/')))
+    await expect(page.getByTestId(testId)).toBeVisible()
   }
+
+  await page.goto('/manage/daily-report?desktop=1')
+  await expectManageChrome(page)
+  await expect(page).toHaveURL(/\/manage\/today/)
+  await expect(page.getByTestId('manage-today')).toBeVisible()
 })
 
 test('compact workshop director clients only keep own workshop dashboard route', async ({ page }) => {

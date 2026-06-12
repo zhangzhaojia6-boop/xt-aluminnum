@@ -90,14 +90,6 @@
                   <span class="energy-center__shift">{{ formatShiftLabel(row.shift_code, '-') }}</span>
                 </template>
               </el-table-column>
-              <el-table-column prop="source_label" label="数据来源" width="104">
-                <template #default="{ row }">
-                  <span class="energy-center__source">{{ formatEnergySourceLabel(row) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="source_updated_at" label="采集时间" width="112">
-                <template #default="{ row }">{{ formatSourceUpdatedAt(row.source_updated_at) }}</template>
-              </el-table-column>
               <el-table-column prop="electricity_value" label="电耗" width="76" align="right">
                 <template #default="{ row }">{{ formatCell(row.electricity_value) }}</template>
               </el-table-column>
@@ -118,6 +110,14 @@
                   <strong class="energy-center__per-ton">{{ formatCell(row.energy_per_ton) }}</strong>
                 </template>
               </el-table-column>
+              <el-table-column prop="source_label" label="数据来源" width="104">
+                <template #default="{ row }">
+                  <span class="energy-center__source">{{ formatEnergySourceLabel(row) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="source_updated_at" label="采集时间" width="112">
+                <template #default="{ row }">{{ formatSourceUpdatedAt(row.source_updated_at) }}</template>
+              </el-table-column>
             </ReferenceDataTable>
           </div>
 
@@ -132,14 +132,14 @@
               </div>
               <div class="energy-center__mobile-grid">
                 <span>业务日期</span><strong>{{ row.business_date || '-' }}</strong>
-                <span>数据来源</span><strong>{{ formatEnergySourceLabel(row) }}</strong>
-                <span>采集时间</span><strong>{{ formatSourceUpdatedAt(row.source_updated_at) }}</strong>
                 <span>电耗</span><strong>{{ formatCell(row.electricity_value) }}</strong>
                 <span>气耗</span><strong>{{ formatCell(row.gas_value) }}</strong>
                 <span>水耗</span><strong>{{ formatCell(row.water_value) }}</strong>
                 <span>总能耗</span><strong>{{ formatCell(row.total_energy) }}</strong>
                 <span>产量</span><strong>{{ formatCell(row.output_weight) }}</strong>
                 <span>单吨能耗</span><strong>{{ formatCell(row.energy_per_ton) }}</strong>
+                <span>数据来源</span><strong>{{ formatEnergySourceLabel(row) }}</strong>
+                <span>采集时间</span><strong>{{ formatSourceUpdatedAt(row.source_updated_at) }}</strong>
               </div>
             </article>
           </div>
