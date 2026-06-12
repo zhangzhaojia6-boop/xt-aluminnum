@@ -2,6 +2,7 @@
   <section
     class="live-dashboard-page"
     data-testid="manage-live"
+    data-visual-pass="stitch-image2-second-pass"
     :data-stitch-project-id="stitchSurface.stitch.projectId"
     :data-stitch-screen-id="stitchSurface.stitch.screenId"
   >
@@ -22,6 +23,12 @@
         <button class="live-dashboard-page__refresh" type="button" @click="loadDashboardSurface">刷新</button>
       </div>
     </header>
+
+    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">人工填报</span>
+      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    </div>
 
     <LiveMarketTicker :items="tickerItems" />
     <LiveProcessFlow :items="processFlowItems" />

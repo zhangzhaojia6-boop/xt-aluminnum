@@ -117,6 +117,8 @@ function isActive(path) {
   border-left: 1px solid var(--entry-line);
   box-shadow: 0 0 48px rgba(0, 242, 255, 0.08);
   overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .xt-entry::before {
@@ -178,6 +180,8 @@ function isActive(path) {
 .xt-entry__brand span {
   letter-spacing: 0.04em;
   text-shadow: 0 0 18px rgba(0, 242, 255, 0.2);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .xt-entry__shift {
@@ -193,6 +197,8 @@ function isActive(path) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .xt-entry__user {
@@ -204,6 +210,8 @@ function isActive(path) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .xt-entry__content {
@@ -238,10 +246,9 @@ function isActive(path) {
   position: absolute;
   top: -1px;
   left: 0;
-  width: 42%;
+  right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.9), transparent);
-  animation: xtEntryScan 4.8s linear infinite;
+  background: linear-gradient(90deg, transparent, rgba(0, 242, 255, 0.72), transparent);
 }
 
 .xt-entry__tab {
@@ -259,6 +266,7 @@ function isActive(path) {
   font-size: 11px;
   font-weight: 700;
   text-decoration: none;
+  touch-action: manipulation;
   transition:
     background-color var(--xt-motion-fast) var(--xt-ease),
     color var(--xt-motion-fast) var(--xt-ease),
@@ -430,19 +438,10 @@ function isActive(path) {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.28), transparent);
-  transform: translateX(-112%);
-  animation: xtEntryButtonSweep 4.8s ease-in-out infinite;
-}
-
-@keyframes xtEntryScan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(240%); }
-}
-
-@keyframes xtEntryButtonSweep {
-  0%, 52% { transform: translateX(-112%); }
-  100% { transform: translateX(112%); }
+  border-radius: inherit;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.16), transparent 42%);
+  opacity: 0.52;
+  pointer-events: none;
 }
 
 @media (max-width: 600px) {

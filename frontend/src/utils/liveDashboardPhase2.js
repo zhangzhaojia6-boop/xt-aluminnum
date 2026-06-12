@@ -1,7 +1,7 @@
 import { compareShiftLabels, formatNumber, formatShiftLabel } from './display.js'
+import { filterActiveWorkshopRows, normalizeWorkshopName } from './activeWorkshops.js'
 
 const MISSING_TEXT = '待同步'
-const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
 const PROCESS_FLOW_STAGES = [
   {
     key: 'casting',
@@ -186,16 +186,6 @@ export function buildLiveTickerItems(aggregation = {}) {
   ]
 }
 
-function isRemovedWorkshop(workshop = {}) {
-  const name = String(workshop.workshop_name || workshop.workshopName || '').trim()
-  const status = String(workshop.status || workshop.workshop_status || workshop.workshopStatus || '').toLowerCase()
-  return workshop.is_removed === true
-    || workshop.removed === true
-    || workshop.is_active === false
-    || status === 'removed'
-    || REMOVED_WORKSHOP_NAMES.has(name)
-}
-
 function isUnboundMachine(machine = {}) {
   const status = String(machine.machine_binding_status || machine.machineBindingStatus || '').toLowerCase()
   const name = String(machine.machine_name || machine.machineName || '')
@@ -216,7 +206,7 @@ function normalizeMachine(workshop, machine) {
   return {
     id: machine.machine_id ?? machine.machineId ?? machine.machine_name,
     workshopId: workshop.workshop_id ?? workshop.workshopId,
-    workshopName: workshop.workshop_name || workshop.workshopName || '--',
+    workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
     machineId: machine.machine_id ?? machine.machineId,
     machineName: machine.machine_name || machine.machineName || '--',
     output: numberValue(dayTotal.output),
@@ -242,9 +232,7 @@ export function buildLiveMachineMatrix(workshops = []) {
   const pendingMachines = []
   const normalizedWorkshops = []
 
-  ;(workshops || []).forEach((workshop) => {
-    if (isRemovedWorkshop(workshop)) return
-
+  filterActiveWorkshopRows(workshops).forEach((workshop) => {
     const machines = []
     ;(workshop.machines || []).forEach((machine) => {
       const normalized = normalizeMachine(workshop, machine)
@@ -258,7 +246,7 @@ export function buildLiveMachineMatrix(workshops = []) {
     if (machines.length) {
       normalizedWorkshops.push({
         workshopId: workshop.workshop_id ?? workshop.workshopId,
-        workshopName: workshop.workshop_name || workshop.workshopName || '--',
+        workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
         output: numberValue(workshop.workshop_total?.output ?? workshop.workshopTotal?.output),
         machines,
       })
@@ -333,14 +321,13 @@ function applyFactoryPackagingOutput(stageMap, aggregation = {}) {
 export function buildLiveProcessFlowItems(aggregation = {}) {
   const stageMap = new Map(PROCESS_FLOW_STAGES.map((stage) => [stage.key, buildFlowAccumulator(stage)]))
 
-  ;(aggregation.workshops || []).forEach((workshop) => {
-    if (isRemovedWorkshop(workshop)) return
+  filterActiveWorkshopRows(aggregation.workshops || []).forEach((workshop) => {
     const stage = resolveProcessStage(workshop)
     if (!stage) return
 
     const bucket = stageMap.get(stage.key)
     const machines = Array.isArray(workshop.machines) ? workshop.machines : []
-    bucket.workshopNames.add(workshop.workshop_name || workshop.workshopName || stage.stage)
+    bucket.workshopNames.add(normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || stage.stage))
 
     if (!machines.length) {
       const workshopTotal = workshopTotalOf(workshop)

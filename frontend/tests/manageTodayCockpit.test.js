@@ -26,6 +26,7 @@ test('buildFilerRoster joins workshop status with operators by workshop_id', () 
   ]
   const out = buildFilerRoster(status, USERS)
   assert.equal(out.length, 2)
+  assert.deepEqual(out.map((row) => row.workshopName), ['铸锭', '铸二'])
   assert.deepEqual(out[0].operators.map((o) => o.name), ['铸锭车间 1# 主操', '铸锭车间 2# 主操'])
   assert.equal(out[0].operatorCount, 2)
   assert.equal(out[0].reportStatus, 'submitted')
@@ -42,11 +43,10 @@ test('buildFilerRoster excludes non-operators and inactive users', () => {
   assert.ok(!out[0].operators.find((o) => o.name === 'inactive'))
 })
 
-test('buildFilerRoster handles missing operators (workshop with no 主操 配置)', () => {
+test('buildFilerRoster ignores workshops outside the active twelve-workshop surface', () => {
   const status = [{ workshop_id: 999, workshop_name: '新车间', report_status: 'unreported' }]
   const out = buildFilerRoster(status, USERS)
-  assert.equal(out[0].operators.length, 0)
-  assert.equal(out[0].operatorCount, 0)
+  assert.deepEqual(out, [])
 })
 
 test('rosterStats counts by tone', () => {
@@ -116,6 +116,7 @@ test('getMachinesFor returns inventory by workshop name', () => {
 
   const rz = getMachinesFor('热轧车间')
   assert.ok(rz.find((m) => m.id === '热轧机' && m.online))
+  assert.equal(getMachinesFor('冷轧三车间').length, 0)
   assert.equal(getMachinesFor('不存在车间').length, 0)
 })
 
@@ -128,6 +129,5 @@ test('buildFilerRoster attaches machines + onlineCount when workshop_name matche
   assert.equal(out[0].machineCount, 6)
   assert.equal(out[0].onlineCount, 5)
   assert.equal(out[0].machines.find((m) => m.id === '5#').online, false)
-  assert.equal(out[1].machineCount, 0)
-  assert.equal(out[1].onlineCount, 0)
+  assert.equal(out.length, 1)
 })

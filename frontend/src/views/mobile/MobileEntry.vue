@@ -3,6 +3,7 @@
     class="mobile-shell mobile-shell--entry"
     :class="{ 'mobile-shell--large-type': largeTypeMode }"
     data-testid="mobile-entry"
+    data-visual-pass="stitch-image2-second-pass-mobile"
   >
     <!-- Pull to refresh indicator -->
     <div 
@@ -567,6 +568,8 @@ onUnmounted(() => {
 <style scoped>
 .mobile-shell--entry {
   overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mobile-pull-indicator {
@@ -609,9 +612,8 @@ onUnmounted(() => {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(115deg, transparent 0 34%, rgba(0, 242, 255, 0.12) 48%, transparent 62% 100%);
-  opacity: 0.42;
+  opacity: 0.18;
   transform: translateX(-75%);
-  animation: mobileEntrySweep 6.8s ease-in-out infinite;
 }
 
 .mobile-entry-stage__top {
@@ -647,6 +649,7 @@ onUnmounted(() => {
   color: rgba(225, 253, 255, 0.9);
   font-size: var(--xt-text-sm);
   font-weight: 900;
+  touch-action: manipulation;
 }
 
 .mobile-entry-stage__top p {
@@ -688,7 +691,6 @@ onUnmounted(() => {
   border-radius: 50%;
   background: var(--xt-primary);
   box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.1), 0 0 18px rgba(0, 242, 255, 0.7);
-  animation: mobileEntryLed 1.9s ease-in-out infinite;
 }
 
 .mobile-entry-stage__identity-main {
@@ -752,6 +754,7 @@ onUnmounted(() => {
   border-radius: var(--xt-radius-lg);
   min-height: 48px;
   min-width: 122px;
+  touch-action: manipulation;
 }
 
 .mobile-entry-stage__machine {
@@ -863,6 +866,7 @@ onUnmounted(() => {
   border-radius: var(--xt-radius-lg);
   font-size: var(--xt-text-lg);
   font-weight: 900;
+  touch-action: manipulation;
 }
 
 .mobile-entry-stage__cta .el-button::after {
@@ -871,7 +875,7 @@ onUnmounted(() => {
   inset: 0;
   background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.32), transparent);
   transform: translateX(-110%);
-  animation: mobileEntryButtonSweep 4.2s ease-in-out infinite;
+  opacity: 0.16;
 }
 
 .mobile-entry-stage__status {
@@ -911,6 +915,7 @@ onUnmounted(() => {
   min-height: 48px;
   border-radius: var(--xt-radius-lg);
   font-size: var(--xt-text-lg);
+  touch-action: manipulation;
 }
 
 .mobile-shell--large-type .mobile-entry-stage {
@@ -984,21 +989,6 @@ onUnmounted(() => {
   width: 100%;
   min-height: 68px;
   font-size: clamp(20px, 5.5vw, 30px);
-}
-
-@keyframes mobileEntrySweep {
-  0%, 52% { transform: translateX(-82%); }
-  100% { transform: translateX(82%); }
-}
-
-@keyframes mobileEntryLed {
-  0%, 100% { opacity: 0.58; transform: scale(0.92); }
-  50% { opacity: 1; transform: scale(1.08); }
-}
-
-@keyframes mobileEntryButtonSweep {
-  0%, 48% { transform: translateX(-110%); }
-  100% { transform: translateX(110%); }
 }
 
 .mobile-entry-stage__action-row :deep(.el-button--primary.is-plain),

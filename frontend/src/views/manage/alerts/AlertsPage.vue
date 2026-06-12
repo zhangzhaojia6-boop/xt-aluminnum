@@ -1,5 +1,5 @@
 <template>
-  <section class="xt-alerts" data-testid="manage-alerts">
+  <section class="xt-alerts" data-testid="manage-alerts" data-visual-pass="stitch-image2-second-pass">
     <header class="xt-alerts__hero">
       <div class="xt-alerts__title-block">
         <span class="xt-alerts__eyebrow">ALERT COMMAND</span>
@@ -16,6 +16,12 @@
         />
       </div>
     </header>
+
+    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">人工填报</span>
+      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    </div>
 
     <section class="xt-alerts__stats" data-testid="manage-alerts-stats">
       <article

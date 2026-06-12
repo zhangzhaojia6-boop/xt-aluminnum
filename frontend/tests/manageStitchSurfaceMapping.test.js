@@ -57,12 +57,12 @@ test('today Stitch surface keeps the industrial slots wired to existing daily-re
         },
         yield_rates: { daily: 86.78, owner_daily: 83.69 },
         workshop_output: [
-          { workshop: '轧制分厂', daily_output: 82, monthly_output: 348 },
+          { workshop: '热轧', daily_output: 82, monthly_output: 348 },
           { workshop: '冷轧三车间', daily_output: 99, monthly_output: 99 },
         ],
         wip_distribution: [
           {
-            workshop: '退火分厂',
+            workshop: '园区在线',
             total_weight: 244,
             feeding_weight: 120.5,
             coil_count: 12,
@@ -108,7 +108,7 @@ test('today Stitch surface keeps the industrial slots wired to existing daily-re
   assert.equal(surface.kpiStrip.find((item) => item.key === 'plant-output')?.value, '343')
   assert.equal(surface.kpiStrip.find((item) => item.key === 'contract-tonnage')?.unit, '吨')
   assert.equal(surface.comparisonRail.find((item) => item.key === 'energy')?.primaryValue, '131,500 度')
-  assert.deepEqual(surface.workshopTable.map((row) => row.workshop), ['轧制分厂'])
+  assert.deepEqual(surface.workshopTable.map((row) => row.workshop), ['热轧'])
   assert.equal(surface.wipDistribution[0].feedingText, '投料 120.5 吨')
   assert.ok(surface.missingReportRows.length > 0)
   assert.equal(surface.bottomStatus.find((item) => item.key === 'system')?.value, '正常运行')
@@ -189,7 +189,7 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
       },
       workshops: [
         {
-          workshop_name: '在线退火分厂',
+          workshop_name: '园区在线',
           machines: [
             {
               machine_id: 21,

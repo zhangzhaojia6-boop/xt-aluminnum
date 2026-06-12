@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.2] - 2026-06-12
+
+### Changed
+- 管理端继续对齐 Stitch + image2 工业蓝视觉，核心页面明确展示 MES 数据、人工填报和系统计算的来源分层。
+- 管理端车间口径统一为十二个活跃车间，旧车间名称只作为别名归一化，不再进入核心概览。
+- 系统设置页补齐十二车间、别名映射、机列台账、PC 工艺映射和数据源状态入口。
+
+### Fixed
+- 修复手机填报页“有填报问题”开关可能被底部操作区遮挡，导致现场人员点不开质量问题字段的问题。
+
 ## [0.4.3.1] - 2026-06-12
 
 ### Changed

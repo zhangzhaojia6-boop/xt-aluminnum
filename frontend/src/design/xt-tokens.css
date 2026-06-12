@@ -11,6 +11,12 @@
   --xt-command-surface: oklch(97.4% 0.009 248);
   --xt-command-surface-strong: oklch(99.2% 0.004 248);
   --xt-command-surface-dark: oklch(22% 0.025 250);
+  --xt-command-blue-canvas: #04101f;
+  --xt-command-blue-panel: rgba(8, 28, 54, 0.86);
+  --xt-command-blue-line: rgba(94, 184, 255, 0.24);
+  --xt-command-blue-cyan: #5eb8ff;
+  --xt-command-blue-green: #4ecb8a;
+  --xt-command-blue-amber: #f0b84a;
 
   --xt-gray-50: #f8fafc;
   --xt-gray-100: #f1f5f9;

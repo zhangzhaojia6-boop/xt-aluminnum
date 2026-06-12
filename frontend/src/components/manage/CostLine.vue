@@ -71,7 +71,7 @@ const option = computed(() => {
         const row = shaped.value[p.dataIndex] || {}
         return `${row.date || ''}<br/>` +
           `<b>${row.energyPerTon ?? '—'}</b> kWh/吨<br/>` +
-          `产量 ${row.tons || 0} t · 用电 ${row.energy || 0} kWh`
+          `产量 ${row.tons || 0} 吨 · 用电 ${row.energy || 0} kWh`
       }
     },
     xAxis: {

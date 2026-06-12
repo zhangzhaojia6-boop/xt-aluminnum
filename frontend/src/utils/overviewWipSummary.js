@@ -1,6 +1,7 @@
 const SOURCE_LABELS = {
   mes_projection: 'MES 投影',
   mes_extended: 'MES 扩展数据',
+  mes_sqlserver: 'MES 数据库',
   local_shift_data: '本地填报',
   unavailable: '未接入',
 }
@@ -23,7 +24,7 @@ function toFiniteNumber(value) {
 function formatTonLabel(value) {
   const number = toFiniteNumber(value)
   if (number === null) return '--'
-  return `${Math.round(number * 100) / 100} t`
+  return `${Math.round(number * 100) / 100} 吨`
 }
 
 function sourceLabel(source, status) {

@@ -2,6 +2,7 @@
   <section
     class="xt-fill-details"
     data-testid="manage-fill-details"
+    data-visual-pass="stitch-image2-second-pass"
     :data-stitch-project-id="stitchSurface.stitch.projectId"
     :data-stitch-screen-id="stitchSurface.stitch.screenId"
   >
@@ -34,6 +35,12 @@
         <small>当前筛选</small>
       </div>
     </header>
+
+    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">人工填报</span>
+      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    </div>
 
     <div class="xt-fill-details__audit-ticker" data-testid="data-audit-ticker">
       <article

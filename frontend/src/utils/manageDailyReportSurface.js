@@ -1,6 +1,6 @@
-export const MISSING_DAILY_VALUE = '暂无可信数据'
+import { filterActiveWorkshopRows } from './activeWorkshops.js'
 
-const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
+export const MISSING_DAILY_VALUE = '暂无可信数据'
 
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -143,19 +143,8 @@ export function buildDailyComparisonCards(overview = {}) {
   ]
 }
 
-function isRemovedWorkshop(row = {}) {
-  const name = String(row.workshop || row.workshop_name || '').trim()
-  const status = String(row.status || row.workshop_status || '').toLowerCase()
-  return row.is_active === false
-    || row.is_removed === true
-    || row.removed === true
-    || status === 'removed'
-    || REMOVED_WORKSHOP_NAMES.has(name)
-}
-
 export function buildDailyWorkshopRows(rows = []) {
-  return (rows || [])
-    .filter((row) => !isRemovedWorkshop(row))
+  return filterActiveWorkshopRows(rows)
     .map((row, index) => ({
       ...row,
       key: row.workshop_id ?? row.workshop ?? index,
@@ -169,8 +158,7 @@ export function buildDailyWorkshopRows(rows = []) {
 }
 
 export function buildDailyWipRows(rows = []) {
-  return (rows || [])
-    .filter((row) => !isRemovedWorkshop(row))
+  return filterActiveWorkshopRows(rows)
     .map((row, index) => {
       const feedingText = formatMetric(row.feeding_weight, '吨')
       return {

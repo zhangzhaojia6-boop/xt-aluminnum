@@ -215,7 +215,7 @@ test('ticker marks missing freshness and counts as unknown rather than healthy',
 test('machine matrix hides removed workshops and separates pending ownership', () => {
   const matrix = buildLiveMachineMatrix([
     {
-      workshop_name: '在线退火分厂',
+      workshop_name: '园区在线',
       machines: [
         {
           machine_id: 21,
@@ -247,7 +247,7 @@ test('machine matrix hides removed workshops and separates pending ownership', (
   ])
 
   assert.equal(matrix.workshops.length, 1)
-  assert.equal(matrix.workshops[0].workshopName, '在线退火分厂')
+  assert.equal(matrix.workshops[0].workshopName, '园区在线')
   assert.equal(matrix.workshops[0].machines.length, 1)
   assert.equal(matrix.pendingMachines.length, 1)
   assert.equal(matrix.pendingMachines[0].machineName, '未绑定机列 / 大夜')
@@ -256,7 +256,7 @@ test('machine matrix hides removed workshops and separates pending ownership', (
 test('machine matrix orders shifts by production day rhythm', () => {
   const matrix = buildLiveMachineMatrix([
     {
-      workshop_name: '冷轧',
+      workshop_name: '冷轧2050',
       machines: [
         {
           machine_id: 21,

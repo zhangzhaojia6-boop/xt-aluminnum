@@ -1,8 +1,7 @@
 import { formatShiftLabel } from './display.js'
+import { filterActiveWorkshopRows } from './activeWorkshops.js'
 
 export const MISSING_AUDIT_VALUE = '暂无可信数据'
-
-const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
 
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -25,18 +24,8 @@ function formatMetric(value, unit = '', digits = 2) {
   return unit ? `${text} ${unit}` : text
 }
 
-function isRemovedWorkshop(row = {}) {
-  const name = String(row.workshop || row.workshop_name || row.workshopName || '').trim()
-  const status = String(row.status || row.workshop_status || '').toLowerCase()
-  return row.is_active === false
-    || row.is_removed === true
-    || row.removed === true
-    || status === 'removed'
-    || REMOVED_WORKSHOP_NAMES.has(name)
-}
-
 function activeWorkshopRows(rows = []) {
-  return (rows || []).filter((row) => !isRemovedWorkshop(row))
+  return filterActiveWorkshopRows(rows)
 }
 
 function sumWorkshopOutput(rows = []) {
@@ -271,8 +260,7 @@ export function explainWorkshopDataEmptyState({ loading = false, hasWorkshop = t
 }
 
 export function buildFillLedgerRows(rows = []) {
-  return (rows || [])
-    .filter((row) => !isRemovedWorkshop(row))
+  return activeWorkshopRows(rows)
     .filter((row) => (row.source_type || row.sourceType) !== 'mes_projection')
     .map((row, index) => {
       const isOwnerDaily = row.source_type === 'owner_daily'

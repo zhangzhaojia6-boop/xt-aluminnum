@@ -37,11 +37,13 @@ test('ShiftReportHistory keeps the all-day record contract visible in the UI', (
   assert.match(src, /historyToneClass\(item\)/)
 })
 
-test('ShiftReportHistory uses the industrial blue motion language', () => {
+test('ShiftReportHistory uses the stable industrial blue mobile surface', () => {
   assert.match(src, /#00f2ff/)
-  assert.match(src, /historyLogScan/)
-  assert.match(src, /historyLogCardIn/)
-  assert.match(src, /historyLogLed/)
+  assert.match(src, /data-visual-pass="stitch-image2-second-pass-mobile"/)
+  assert.doesNotMatch(src, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
+  assert.doesNotMatch(src, /historyLog(Scan|Orbit|Led)/)
+  assert.match(src, /overflow-wrap:\s*anywhere/)
+  assert.match(src, /touch-action:\s*manipulation/)
   assert.doesNotMatch(src, /#[a-fA-F0-9]{0,2}8b5cf6|purple|violet|lavender/i)
 })
 

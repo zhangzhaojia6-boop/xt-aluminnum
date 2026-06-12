@@ -18,8 +18,8 @@ test('daily settlement cards keep plant inbound output separate from process thr
       energy_per_ton: 456.7
     },
     workshop_output: [
-      { workshop: '退火一车间', daily_output: 40 },
-      { workshop: '包装车间', daily_output: 50 }
+      { workshop: '园区在线', daily_output: 40 },
+      { workshop: '精整', daily_output: 50 }
     ],
     contracts: { daily_new: 12.5, unit: '吨' },
     energy: { total_cost: 3.2 },
@@ -39,8 +39,8 @@ test('daily values hide trailing zero decimals but keep useful precision', () =>
   const cards = buildDailySettlementCards({
     plant_output: { daily_output: 81.2, finished_inbound_output: 80, energy_per_ton: 456 },
     workshop_output: [
-      { workshop: '退火一车间', daily_output: 40 },
-      { workshop: '包装车间', daily_output: 50 },
+      { workshop: '园区在线', daily_output: 40 },
+      { workshop: '精整', daily_output: 50 },
     ],
     contracts: { daily_new: 12, unit: '吨' },
     energy: { total_cost: 3.2 },
@@ -141,20 +141,20 @@ test('daily comparison cards treat algorithm_total_energy as available energy da
 
 test('daily workshop rows filter cancelled workshops and keep throughput wording', () => {
   const rows = buildDailyWorkshopRows([
-    { workshop: '退火一车间', daily_output: 12, monthly_output: 90 },
+    { workshop: '园区在线', daily_output: 12, monthly_output: 90 },
     { workshop: '冷轧三车间', daily_output: 99, monthly_output: 99 },
     { workshop: '二分厂精整车间', daily_output: 88, monthly_output: 88 },
     { workshop: '旧车间', daily_output: 77, monthly_output: 77, is_active: false }
   ])
 
-  assert.deepEqual(rows.map((row) => row.workshop), ['退火一车间'])
+  assert.deepEqual(rows.map((row) => row.workshop), ['园区在线'])
   assert.equal(rows[0].dailyOutputText, '12 吨')
 })
 
 test('daily wip rows show daily snapshot reference and feeding tons', () => {
   const rows = buildDailyWipRows([
     {
-      workshop: '退火一车间',
+      workshop: '园区在线',
       total_weight: 9.5,
       feeding_weight: 12.3,
       coil_count: 3,
@@ -166,7 +166,7 @@ test('daily wip rows show daily snapshot reference and feeding tons', () => {
   ])
 
   assert.equal(rows.length, 1)
-  assert.equal(rows[0].title, '退火一车间')
+  assert.equal(rows[0].title, '园区在线')
   assert.equal(rows[0].weightText, '9.5 吨')
   assert.equal(rows[0].feedingText, '投料 12.3 吨')
   assert.equal(rows[0].sourceLabel, '外部 MES 当日快照参考')

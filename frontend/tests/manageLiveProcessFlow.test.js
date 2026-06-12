@@ -18,7 +18,7 @@ test('buildLiveProcessFlowItems keeps a full process path without faking missing
     workshops: [
       {
         workshop_id: 1,
-        workshop_name: '铸轧车间',
+        workshop_name: '铸二',
         machines: [
           {
             machine_id: 11,

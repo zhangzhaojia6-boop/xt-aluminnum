@@ -10,8 +10,8 @@ test('buildOverviewWipSummary renders MES projection values and source state', (
     freshness: { status: 'fresh', lag_seconds: 42 },
   })
 
-  assert.equal(summary.wipTotalTonLabel, '12.35 t')
-  assert.equal(summary.dailyOutputTonLabel, '6 t')
+  assert.equal(summary.wipTotalTonLabel, '12.35 吨')
+  assert.equal(summary.dailyOutputTonLabel, '6 吨')
   assert.equal(summary.sourceLabel, 'MES 投影')
   assert.equal(summary.sourceTone, 'success')
 })
@@ -24,8 +24,8 @@ test('buildOverviewWipSummary marks local fallback data without sample tonnage',
     freshness: { status: 'fresh' },
   })
 
-  assert.equal(summary.wipTotalTonLabel, '3 t')
-  assert.equal(summary.dailyOutputTonLabel, '2 t')
+  assert.equal(summary.wipTotalTonLabel, '3 吨')
+  assert.equal(summary.dailyOutputTonLabel, '2 吨')
   assert.equal(summary.sourceLabel, '本地填报')
   assert.equal(summary.sourceTone, 'warning')
 })
@@ -38,9 +38,23 @@ test('buildOverviewWipSummary renders MES extended values as trusted external da
     freshness: { status: 'fresh', source: 'mes_extended' },
   })
 
-  assert.equal(summary.wipTotalTonLabel, '13.5 t')
-  assert.equal(summary.dailyOutputTonLabel, '6.2 t')
+  assert.equal(summary.wipTotalTonLabel, '13.5 吨')
+  assert.equal(summary.dailyOutputTonLabel, '6.2 吨')
   assert.equal(summary.sourceLabel, 'MES 扩展数据')
+  assert.equal(summary.sourceTone, 'success')
+})
+
+test('buildOverviewWipSummary renders SQL Server MES database as trusted primary data', () => {
+  const summary = buildOverviewWipSummary({
+    source: 'mes_sqlserver',
+    wip_tons: 18,
+    today_output_tons: 9,
+    freshness: { status: 'fresh', source: 'mes_sqlserver' },
+  })
+
+  assert.equal(summary.wipTotalTonLabel, '18 吨')
+  assert.equal(summary.dailyOutputTonLabel, '9 吨')
+  assert.equal(summary.sourceLabel, 'MES 数据库')
   assert.equal(summary.sourceTone, 'success')
 })
 

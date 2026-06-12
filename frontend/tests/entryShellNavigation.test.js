@@ -16,32 +16,40 @@ test('EntryShell bottom navigation points operators to active fill and all-day h
   assert.doesNotMatch(src, /path: '\/entry\/profile', label: '我的'/)
 })
 
-test('EntryShell applies the cyber industrial mobile visual shell without changing routes', () => {
+test('EntryShell applies the stable industrial mobile visual shell without changing routes', () => {
   assert.match(src, /--entry-cyan:\s*#00f2ff/)
   assert.match(src, /radial-gradient\(circle at 18% 0%/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-shell\)/)
-  assert.match(src, /@keyframes xtEntryScan/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-history-item\)/)
   assert.match(src, /\.xt-entry :deep\(\.mobile-attendance-card\)/)
-  assert.match(src, /@keyframes xtEntryButtonSweep/)
+  assert.doesNotMatch(src, /@keyframes xtEntryScan/)
+  assert.doesNotMatch(src, /@keyframes xtEntryButtonSweep/)
+  assert.match(src, /overflow-wrap:\s*anywhere/)
+  assert.match(src, /touch-action:\s*manipulation/)
 })
 
-test('mobile entry and unified form keep real controls while adopting industrial motion', () => {
+test('mobile entry and unified form keep real controls with a stable industrial surface', () => {
   assert.match(mobileEntrySrc, /data-testid="mobile-go-report"/)
   assert.match(mobileEntrySrc, /data-testid="mobile-screen-summary"/)
+  assert.match(mobileEntrySrc, /data-visual-pass="stitch-image2-second-pass-mobile"/)
   assert.match(mobileEntrySrc, /主操机列填报/)
   assert.match(mobileEntrySrc, /电工能耗填报/)
   assert.match(mobileEntrySrc, /内勤每日填报/)
   assert.match(mobileEntrySrc, /07:30 起算/)
   assert.doesNotMatch(mobileEntrySrc, /23:30 起算/)
-  assert.match(mobileEntrySrc, /@keyframes mobileEntryButtonSweep/)
+  assert.doesNotMatch(mobileEntrySrc, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
+  assert.doesNotMatch(mobileEntrySrc, /mobileEntry(Sweep|Led|ButtonSweep)/)
+  assert.match(mobileEntrySrc, /overflow-wrap:\s*anywhere/)
+  assert.match(mobileEntrySrc, /touch-action:\s*manipulation/)
+  assert.match(unifiedEntrySrc, /data-visual-pass="stitch-image2-second-pass-mobile"/)
   assert.match(unifiedEntrySrc, /fetchEntryFields/)
   assert.match(unifiedEntrySrc, /Array\.isArray\(coils\)\s*\?\s*coils\s*:\s*\[\]/)
   assert.match(unifiedEntrySrc, /--ue-surface:/)
   assert.match(unifiedEntrySrc, /\.ue-group__title::before/)
-  assert.match(unifiedEntrySrc, /@keyframes ueScanSweep/)
-  assert.match(unifiedEntrySrc, /@keyframes ueHeaderPulse/)
-  assert.match(unifiedEntrySrc, /@keyframes ueSubmitSweep/)
+  assert.doesNotMatch(unifiedEntrySrc, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
+  assert.doesNotMatch(unifiedEntrySrc, /ue(ScanSweep|HeaderPulse|SubmitSweep)/)
+  assert.match(unifiedEntrySrc, /overflow-wrap:\s*anywhere/)
+  assert.match(unifiedEntrySrc, /touch-action:\s*manipulation/)
 })
 
 test('unified entry form keeps backend fields while adding responsive field layout', () => {

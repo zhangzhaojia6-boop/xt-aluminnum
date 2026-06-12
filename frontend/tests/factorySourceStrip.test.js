@@ -28,6 +28,19 @@ test('buildFactorySourceStrip renders MES extended source and separates tonnage 
   ])
 })
 
+test('buildFactorySourceStrip labels SQL Server MES database as the primary external source', () => {
+  const strip = buildFactorySourceStrip({
+    source: 'mes_sqlserver',
+    freshness: { status: 'fresh', source: 'mes_sqlserver' },
+    today_output_tons: 12,
+  })
+
+  assert.equal(strip.sourceLabel, 'MES 数据库')
+  assert.equal(strip.tone, 'success')
+  assert.equal(strip.items[0].label, '入库产量')
+  assert.equal(strip.items[0].unit, '吨')
+})
+
 test('buildFactorySourceStrip does not invent zero values when source fields are missing', () => {
   const strip = buildFactorySourceStrip({
     source: 'mes_extended',

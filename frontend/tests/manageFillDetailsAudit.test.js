@@ -30,8 +30,8 @@ const dailyOverview = {
     energy_per_ton: 456.7,
   },
   workshop_output: [
-    { workshop: '退火一车间', daily_output: 40 },
-    { workshop: '包装车间', daily_output: 50 },
+    { workshop: '园区在线', daily_output: 40 },
+    { workshop: '精整', daily_output: 50 },
     { workshop: '冷轧三车间', daily_output: 99 },
   ],
   contracts: {
@@ -73,7 +73,7 @@ test('audit ticker hides trailing zero decimals without losing non-zero decimals
       ...dailyOverview,
       plant_output: { daily_output: 81, finished_inbound_output: 73 },
       contracts: { daily_new: 12.5, unit: '吨' },
-      workshop_output: [{ workshop: '退火一车间', daily_output: 40 }],
+      workshop_output: [{ workshop: '园区在线', daily_output: 40 }],
     },
   })
 
@@ -212,7 +212,7 @@ test('fill ledger rows expose person, post, submit time and content', () => {
       row_id: 'entry-1',
       source_type: 'owner_daily',
       source_label: '每日一录',
-      workshop_name: '成品库',
+      workshop_name: '精整',
       machine_name: '内勤岗',
       responsible_name: '张三',
       responsible_username: 'zhangsan',
@@ -227,7 +227,7 @@ test('fill ledger rows expose person, post, submit time and content', () => {
       row_id: 'entry-2',
       source_type: 'work_order_entry',
       source_label: '机台填报',
-      workshop_name: '退火一车间',
+      workshop_name: '园区在线',
       machine_name: '1#退火炉',
       shift_name: '大夜',
       responsible_name: '李四',
@@ -249,8 +249,8 @@ test('fill ledger rows expose person, post, submit time and content', () => {
 
 test('fill ledger search matches responsible person, machine and tracking card', () => {
   const rows = buildFillLedgerRows([
-    { row_id: 'a', source_type: 'owner_daily', responsible_name: '张三', machine_name: '内勤岗' },
-    { row_id: 'b', source_type: 'work_order_entry', responsible_name: '李四', machine_name: '1#退火炉', tracking_card_no: 'TX-001' },
+    { row_id: 'a', source_type: 'owner_daily', workshop_name: '精整', responsible_name: '张三', machine_name: '内勤岗' },
+    { row_id: 'b', source_type: 'work_order_entry', workshop_name: '园区在线', responsible_name: '李四', machine_name: '1#退火炉', tracking_card_no: 'TX-001' },
     { row_id: 'c', source_type: 'mes_projection', responsible_name: '外部 MES', machine_name: 'MES 机列' },
   ])
 
@@ -262,9 +262,9 @@ test('fill ledger search matches responsible person, machine and tracking card',
 
 test('workshop dashboard separates machine production rows from electrician energy rows', () => {
   const rows = buildFillLedgerRows([
-    { row_id: 'machine', source_type: 'work_order_entry', machine_name: '1#机', output_weight: 9.5 },
-    { row_id: 'electric', source_type: 'mobile_shift_report', machine_name: '电工岗', energy_kwh: 1200 },
-    { row_id: 'energy', source_type: 'machine_energy', machine_name: '总电工', gas_m3: 300 },
+    { row_id: 'machine', source_type: 'work_order_entry', workshop_name: '热轧', machine_name: '1#机', output_weight: 9.5 },
+    { row_id: 'electric', source_type: 'mobile_shift_report', workshop_name: '热轧', machine_name: '电工岗', energy_kwh: 1200 },
+    { row_id: 'energy', source_type: 'machine_energy', workshop_name: '热轧', machine_name: '总电工', gas_m3: 300 },
   ])
 
   assert.deepEqual(rows.filter(isMachineProductionLedgerRow).map((row) => row.rowId), ['machine'])

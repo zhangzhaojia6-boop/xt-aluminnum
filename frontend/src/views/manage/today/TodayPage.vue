@@ -2,6 +2,7 @@
   <section
     class="xt-today"
     data-testid="manage-today"
+    data-visual-pass="stitch-image2-second-pass"
     :data-stitch-project-id="stitchSurface.stitch.projectId"
     :data-stitch-screen-id="stitchSurface.stitch.screenId"
   >
@@ -51,6 +52,12 @@
     </header>
 
     <KpiBar :items="kpiItems" />
+
+    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">人工填报</span>
+      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    </div>
 
     <section
       id="daily-report"

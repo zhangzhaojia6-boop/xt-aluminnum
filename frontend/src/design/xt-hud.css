@@ -12,6 +12,8 @@
   --xt-hud-warning: #f0b84a;
   --xt-hud-danger: #ff6b78;
   --xt-hud-accent: #c88f3c;
+  --xt-hud-source-strip-bg: rgba(7, 24, 46, 0.72);
+  --xt-hud-source-strip-border: rgba(94, 184, 255, 0.24);
   --xt-hud-radius-lg: 8px;
   --xt-hud-radius-md: 8px;
   --xt-hud-font-mono: var(--xt-font-mono, "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
@@ -83,6 +85,32 @@
   font-family: var(--xt-hud-font-mono);
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
+}
+
+[data-xt-theme="hud"] .xt-second-pass-source-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--xt-hud-source-strip-border);
+  border-radius: var(--xt-hud-radius-lg);
+  background: var(--xt-hud-source-strip-bg);
+  color: var(--xt-hud-text);
+}
+
+[data-xt-theme="hud"] .xt-second-pass-source-strip__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(148, 196, 255, 0.18);
+  border-radius: var(--xt-hud-radius-md);
+  background: rgba(94, 184, 255, 0.08);
+  color: var(--xt-hud-text);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 [data-xt-theme="hud"] .login-page {

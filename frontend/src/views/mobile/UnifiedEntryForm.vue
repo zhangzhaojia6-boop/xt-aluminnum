@@ -1,5 +1,5 @@
 <template>
-  <div class="unified-entry" data-testid="unified-entry">
+  <div class="unified-entry" data-testid="unified-entry" data-visual-pass="stitch-image2-second-pass-mobile">
     <header class="ue-identity" :style="{ '--role-color': roleColor }">
       <div class="ue-identity__main">
         <strong>{{ roleLabel }}</strong>
@@ -902,6 +902,9 @@ onMounted(loadData)
     radial-gradient(circle at 96% 18%, rgba(34, 92, 255, 0.14), transparent 32%),
     linear-gradient(180deg, rgba(3, 19, 33, 0.96), rgba(2, 10, 20, 0.98));
   color: var(--xt-text);
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   padding-bottom: calc(var(--xt-tabbar-height, 64px) + 128px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -954,7 +957,7 @@ onMounted(loadData)
   bottom: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--role-color), transparent);
-  animation: ueHeaderPulse 3.8s ease-in-out infinite;
+  opacity: 0.72;
 }
 
 .ue-identity__main {
@@ -1063,6 +1066,7 @@ onMounted(loadData)
   color: var(--xt-primary);
   font-size: 15px;
   font-weight: 800;
+  touch-action: manipulation;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 14px 30px rgba(0, 0, 0, 0.24);
   transition: transform 0.12s, border-color 0.16s, box-shadow 0.16s;
 }
@@ -1073,7 +1077,7 @@ onMounted(loadData)
   inset: 0;
   background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.22), transparent 62%);
   transform: translateX(-120%);
-  animation: ueScanSweep 5.2s ease-in-out infinite;
+  opacity: 0.16;
 }
 
 .ue-scan-btn:active {
@@ -1386,6 +1390,7 @@ onMounted(loadData)
   font-weight: 900;
   letter-spacing: 0.05em;
   cursor: pointer;
+  touch-action: manipulation;
   box-shadow: 0 0 30px rgba(0, 197, 255, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: transform 0.1s, box-shadow 0.15s;
 }
@@ -1399,7 +1404,7 @@ onMounted(loadData)
   inset: 0;
   background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.32), transparent);
   transform: translateX(-110%);
-  animation: ueSubmitSweep 4.4s ease-in-out infinite;
+  opacity: 0.18;
 }
 
 .ue-split-btn {
@@ -1414,6 +1419,7 @@ onMounted(loadData)
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s;
 }
 
@@ -1487,21 +1493,6 @@ onMounted(loadData)
   color: var(--xt-text);
 }
 
-@keyframes ueSubmitSweep {
-  0%, 48% { transform: translateX(-110%); }
-  100% { transform: translateX(110%); }
-}
-
-@keyframes ueScanSweep {
-  0%, 62% { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
-}
-
-@keyframes ueHeaderPulse {
-  0%, 100% { opacity: 0.25; transform: translateX(-12%); }
-  50% { opacity: 0.95; transform: translateX(12%); }
-}
-
 @media (min-width: 760px) {
   .ue-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1545,8 +1536,8 @@ onMounted(loadData)
   }
 
   .ue-actions {
+    position: static;
     margin: 12px;
-    bottom: calc(var(--xt-tabbar-height, 64px) + env(safe-area-inset-bottom, 0px) + 6px);
   }
 }
 

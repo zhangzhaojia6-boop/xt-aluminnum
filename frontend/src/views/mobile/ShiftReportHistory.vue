@@ -1,5 +1,5 @@
 <template>
-  <div class="mobile-shell history-log" data-testid="entry-history-page">
+  <div class="mobile-shell history-log" data-testid="entry-history-page" data-visual-pass="stitch-image2-second-pass-mobile">
     <div class="history-log__hero mobile-top">
       <div class="history-log__hero-copy">
         <span class="history-log__eyebrow">ALL-DAY LOG</span>
@@ -287,6 +287,9 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .history-log::before {
@@ -341,7 +344,7 @@ onMounted(load)
 }
 
 .history-log__hero::after {
-  animation: historyLogScan 6s ease-in-out infinite;
+  opacity: 0.14;
 }
 
 .history-log__hero-copy {
@@ -451,6 +454,7 @@ onMounted(load)
   position: relative;
   min-height: 44px;
   overflow: hidden;
+  touch-action: manipulation;
 }
 
 .history-log__refresh::after,
@@ -508,7 +512,6 @@ onMounted(load)
     radial-gradient(circle, rgba(0, 242, 255, 0.2) 0 22%, transparent 23%),
     conic-gradient(from 120deg, rgba(0, 242, 255, 0.78), transparent 32%, rgba(255, 171, 0, 0.42), transparent 72%, rgba(0, 242, 255, 0.78));
   box-shadow: 0 0 38px rgba(0, 242, 255, 0.14);
-  animation: historyLogOrbit 5s linear infinite;
 }
 
 .history-log__empty strong,
@@ -566,7 +569,6 @@ onMounted(load)
   border-radius: 50%;
   background: #00f2ff;
   box-shadow: 0 0 0 4px rgba(0, 242, 255, 0.12), 0 0 18px rgba(0, 242, 255, 0.72);
-  animation: historyLogLed 1.8s ease-in-out infinite;
 }
 
 .history-log__status.is-warning i,
@@ -620,20 +622,6 @@ onMounted(load)
   transform: scale(0.97);
 }
 
-@keyframes historyLogScan {
-  0%, 62% {
-    opacity: 0;
-    transform: translateX(-72%);
-  }
-  76% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(72%);
-  }
-}
-
 @keyframes historyLogButtonSweep {
   0% {
     opacity: 0;
@@ -659,23 +647,6 @@ onMounted(load)
   }
 }
 
-@keyframes historyLogLed {
-  0%, 100% {
-    transform: scale(0.9);
-    opacity: 0.72;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-}
-
-@keyframes historyLogOrbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (max-width: 480px) {
   .header-actions {
     grid-template-columns: minmax(0, 1fr);
@@ -688,11 +659,7 @@ onMounted(load)
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .history-log__hero::after,
-  .history-log__empty-node,
-  .history-log__state-orbit,
-  .history-log__record,
-  .history-log__status i {
+  .history-log__record {
     animation: none;
   }
 }

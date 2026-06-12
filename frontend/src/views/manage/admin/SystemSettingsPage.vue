@@ -1,5 +1,5 @@
 <template>
-  <section class="xt-system-settings" data-testid="system-settings-page">
+  <section class="xt-system-settings" data-testid="system-settings-page" data-visual-pass="stitch-image2-second-pass">
     <div class="xt-system-settings__backdrop" aria-hidden="true"></div>
 
     <div class="xt-system-settings__layout">
@@ -9,8 +9,14 @@
             <span>系统配置</span>
             <h1>系统设置</h1>
           </div>
-          <strong>ENV: PRODUCTION_XT</strong>
+          <strong>生产环境</strong>
         </header>
+
+        <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+          <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+          <span class="xt-second-pass-source-strip__item">人工填报</span>
+          <span class="xt-second-pass-source-strip__item">算法数据</span>
+        </div>
 
         <nav class="xt-system-settings__groups" aria-label="系统设置入口">
           <section
@@ -129,9 +135,10 @@ const settingGroups = [
   {
     label: '配置',
     items: [
-      { title: '主数据', path: '/manage/master', tag: '已就绪', icon: Files, tone: 'ready' },
-      { title: '别名映射', path: '/manage/alias', tag: '实时同步', icon: Connection, tone: 'ready' },
-      { title: '终端绑定', path: '/manage/mes-terminal-bindings', tag: 'PC 机列', icon: Connection, tone: 'warning' },
+      { title: '十二车间', path: '/manage/master', tag: '主数据标准', icon: Files, tone: 'ready' },
+      { title: '别名映射', path: '/manage/alias', tag: '车间机列归一', icon: Connection, tone: 'ready' },
+      { title: '机列台账', path: '/manage/master', tag: '二维码与账号', icon: Files, tone: 'ready' },
+      { title: 'PC 工艺映射', path: '/manage/mes-terminal-bindings', tag: '终端绑定', icon: Connection, tone: 'warning' },
       { title: '规则配置', path: '/manage/admin/rules', tag: '规则引擎', icon: Setting, tone: 'warning' }
     ]
   },
@@ -157,10 +164,11 @@ const mesReadinessLoading = ref(false)
 const mesReadinessError = ref('')
 const statusItems = [
   { label: '核心模块', value: `${settingLinks.length}/${settingLinks.length}` },
-  { label: '配置通道', value: 'ACTIVE' },
-  { label: '入口状态', value: 'ONLINE' }
+  { label: '数据源状态', value: '已分层' },
+  { label: '配置通道', value: '已启用' },
+  { label: '入口状态', value: '在线' }
 ]
-const linkageItems = ['MASTER_DATA', 'ALIAS_SYNC', 'RULE_ENGINE', 'USER_RBAC', 'QR_SERVICE', 'AI_ASSIST']
+const linkageItems = ['主数据', '别名同步', '规则引擎', '用户权限', '二维码服务', 'AI 助手']
 
 const READINESS_LABELS = {
   ready: '可试跑',

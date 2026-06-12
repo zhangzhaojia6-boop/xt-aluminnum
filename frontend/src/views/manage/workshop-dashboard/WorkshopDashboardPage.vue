@@ -1,5 +1,5 @@
 <template>
-  <section class="workshop-board" data-testid="workshop-dashboard">
+  <section class="workshop-board" data-testid="workshop-dashboard" data-visual-pass="stitch-image2-second-pass">
     <header class="workshop-board__hero">
       <div>
         <span class="workshop-board__eyebrow">WORKSHOP COMMAND</span>
@@ -34,6 +34,12 @@
         <span>{{ loading ? '同步中' : '链路在线' }}</span>
       </div>
     </header>
+
+    <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
+      <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">人工填报</span>
+      <span class="xt-second-pass-source-strip__item">算法数据</span>
+    </div>
 
     <div class="workshop-board__kpis">
       <article v-for="item in kpis" :key="item.key" class="workshop-board__kpi" :class="`tone-${item.tone}`">
