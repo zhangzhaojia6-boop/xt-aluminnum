@@ -10,6 +10,7 @@ from app.models.imports import ImportBatch
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
+from app.schemas.energy import EnergySummaryOut
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import energy_service
@@ -99,5 +100,9 @@ def test_energy_summary_uses_mes_packaging_output_when_shift_output_is_empty(tmp
     assert summary['energy_per_ton'] == 10
     basis_row = next(row for row in summary['rows'] if row['source'] == 'mes_packaging_output_basis')
     assert basis_row['output_weight'] == 100
-    assert basis_row['total_energy'] is None
+    assert basis_row['electricity_value'] == 0
+    assert basis_row['gas_value'] == 0
+    assert basis_row['water_value'] == 0
+    assert basis_row['total_energy'] == 0
     assert basis_row['energy_per_ton'] == 10
+    assert EnergySummaryOut(**basis_row).source_label == 'MES包装产量'
