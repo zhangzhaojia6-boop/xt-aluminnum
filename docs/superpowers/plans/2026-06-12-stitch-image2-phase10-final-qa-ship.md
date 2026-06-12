@@ -33,16 +33,16 @@ npm run e2e:smoke
 1 passed
 ```
 
-后端原始全量命令：
+后端根目录全量命令：
 
 ```text
 python -m pytest -q
-failed during collection
+1301 passed, 3 skipped, 27 deselected
 ```
 
-失败原因不是业务测试失败，而是 pytest 扫描到了 `backend/pytest-cache-files-*` 临时缓存目录，Windows 返回拒绝访问。
+补充处理：根目录新增 `pytest.ini`，让根目录命令只收集 `backend/tests`，避免误扫 `backend/pytest-cache-files-*` 临时缓存目录。
 
-后端真实测试目录：
+后端真实测试目录复核：
 
 ```text
 python -m pytest -q backend/tests
@@ -68,7 +68,6 @@ python -m pytest -q backend/tests
 
 ## Residual Risks
 
-- 根目录 `python -m pytest -q` 会被历史临时缓存目录干扰，建议后续清理或把 `pytest-cache-files-*` 加入 pytest 忽略规则。
 - 前端构建仍包含较大的 UI/vendor 包，这是既有性能债，本阶段没有扩大该问题。
 
 ## Final Scores
