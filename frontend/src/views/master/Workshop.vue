@@ -2,7 +2,7 @@
   <div class="page-stack workshop-master" data-testid="admin-master-center" title="车间主数据">
     <section class="workshop-master__hero" aria-labelledby="workshop-master-title">
       <div class="workshop-master__title-block">
-        <span class="workshop-master__eyebrow">MASTER DATA GRID</span>
+        <span class="workshop-master__eyebrow">主数据总览</span>
         <h1 id="workshop-master-title">车间主数据</h1>
       </div>
 
@@ -30,7 +30,7 @@
         class="workshop-master__node"
         :class="{ 'is-muted': !workshop.active }"
       >
-        <span class="workshop-master__node-index">NODE {{ index + 1 }}</span>
+        <span class="workshop-master__node-index">节点 {{ index + 1 }}</span>
         <XtWorkshopGlyph :workshop-type="workshop.type" :active="workshop.active" compact />
         <div class="workshop-master__node-main">
           <span>{{ workshop.code }}</span>
@@ -46,7 +46,7 @@
     <section class="workshop-master__matrix" data-testid="workshop-master-matrix">
       <header class="workshop-master__matrix-head">
         <div>
-          <span>WORKSHOP MATRIX</span>
+          <span>车间清单</span>
           <strong>车间清单</strong>
         </div>
         <small>{{ pageState.total }} 条记录</small>

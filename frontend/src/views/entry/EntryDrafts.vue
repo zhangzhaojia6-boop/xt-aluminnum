@@ -2,7 +2,7 @@
   <div class="mobile-shell entry-drafts" data-testid="entry-drafts-page">
     <div class="entry-drafts__hero mobile-top">
       <div class="entry-drafts__hero-copy">
-        <span class="entry-drafts__eyebrow">DRAFT RECOVERY BAY</span>
+        <span class="entry-drafts__eyebrow">草稿恢复</span>
         <h1>草稿箱</h1>
         <p>本机暂存 · 恢复后继续提交</p>
       </div>
@@ -35,7 +35,7 @@
         >
           <div class="entry-drafts__card-head">
             <span class="entry-drafts__status"><i aria-hidden="true"></i>未提交</span>
-            <span class="entry-drafts__seq">DRAFT {{ draftSeq(index) }}</span>
+            <span class="entry-drafts__seq">草稿 {{ draftSeq(index) }}</span>
           </div>
           <div class="mobile-history-main">
             <div>

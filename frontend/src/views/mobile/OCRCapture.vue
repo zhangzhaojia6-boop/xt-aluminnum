@@ -2,7 +2,7 @@
   <div class="mobile-shell ocr-vision" data-testid="mobile-ocr-capture">
     <div class="ocr-vision__hero mobile-top">
       <div class="ocr-vision__hero-copy">
-        <span class="ocr-vision__eyebrow">OCR VISION</span>
+        <span class="ocr-vision__eyebrow">OCR 识别</span>
         <h1>拍照识别</h1>
       </div>
       <div class="ocr-vision__hero-status">
@@ -14,7 +14,7 @@
     <section class="ocr-vision__panel panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">SHIFT SIGNAL</span>
+          <span class="ocr-vision__eyebrow">班次状态</span>
           <strong>当前班次</strong>
         </div>
         <span class="ocr-vision__chip">{{ currentShiftLabel }}</span>
@@ -46,7 +46,7 @@
     <section class="ocr-vision__panel ocr-vision__capture panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">SCAN BAY</span>
+          <span class="ocr-vision__eyebrow">扫码采集</span>
           <strong>纸单拍照</strong>
         </div>
         <span class="ocr-vision__chip">{{ previewUrl ? '已取景' : '等待取景' }}</span>
@@ -101,7 +101,7 @@
     <section v-if="extractResult" class="ocr-vision__panel ocr-vision__result panel mobile-card">
       <header class="ocr-vision__panel-head">
         <div>
-          <span class="ocr-vision__eyebrow">RESULT MATRIX</span>
+          <span class="ocr-vision__eyebrow">识别结果</span>
           <strong>识别结果预览</strong>
         </div>
         <span class="ocr-vision__chip">{{ extractedFieldItems.length }} 项</span>
@@ -771,9 +771,9 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
 }
 
-.ocr-vision__confidence .is-good::before { content: 'GOOD'; }
-.ocr-vision__confidence .is-warn::before { content: 'WARN'; }
-.ocr-vision__confidence .is-danger::before { content: 'LOW'; }
+.ocr-vision__confidence .is-good::before { content: '良好'; }
+.ocr-vision__confidence .is-warn::before { content: '预警'; }
+.ocr-vision__confidence .is-danger::before { content: '偏低'; }
 
 .ocr-vision__result-grid {
   display: grid;

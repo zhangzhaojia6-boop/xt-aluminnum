@@ -2,7 +2,7 @@
   <div class="terminal-binding page-stack" data-testid="mes-terminal-binding-page">
     <section class="terminal-binding__hero">
       <div>
-        <span>MES TERMINAL LINK</span>
+        <span>MES 终端绑定</span>
         <h1>MES 终端绑定</h1>
       </div>
       <div class="terminal-binding__stats">
@@ -50,7 +50,7 @@
     <section class="terminal-binding__table-card">
       <header>
         <div>
-          <span>BINDING MATRIX</span>
+          <span>绑定清单</span>
           <strong>终端到机列</strong>
         </div>
         <small>PC 只有命中规则才归机列</small>

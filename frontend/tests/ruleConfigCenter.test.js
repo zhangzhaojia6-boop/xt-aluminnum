@@ -32,7 +32,7 @@ test('rule config view keeps edit-save contract while adding industrial matrix s
   const viewSource = readFileSync(new URL('../src/views/master/RuleConfigCenter.vue', import.meta.url), 'utf8')
 
   assert.match(viewSource, /class="page-stack rule-config-center"/)
-  assert.match(viewSource, /RULE GOVERNANCE MATRIX/)
+  assert.match(viewSource, /规则治理中心/)
   assert.match(viewSource, /id="rule-config-title">规则配置/)
   assert.match(viewSource, /const ruleStats = computed/)
   assert.match(viewSource, /const dirtyCount = computed/)
@@ -52,8 +52,8 @@ test('rule config visual layer matches the industrial blue command style', () =>
 
   assert.match(viewSource, /--rule-accent:\s*#00f2ff/)
   assert.match(viewSource, /rule-config-center__stat/)
-  assert.match(viewSource, /RULE MATRIX/)
-  assert.match(viewSource, /DEFAULT LAYER/)
+  assert.match(viewSource, /规则清单/)
+  assert.match(viewSource, /默认层/)
   assert.match(viewSource, /@keyframes rulePanelIn/)
   assert.match(viewSource, /@keyframes ruleEnergyLine/)
   assert.match(viewSource, /prefers-reduced-motion/)

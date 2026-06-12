@@ -2,7 +2,7 @@
   <section class="xt-alerts" data-testid="manage-alerts" data-visual-pass="stitch-image2-second-pass">
     <header class="xt-alerts__hero">
       <div class="xt-alerts__title-block">
-        <span class="xt-alerts__eyebrow">ALERT COMMAND</span>
+        <span class="xt-alerts__eyebrow">异常总览</span>
         <h1>异常</h1>
       </div>
       <div class="xt-alerts__date-dock">
@@ -79,7 +79,7 @@
     <section class="xt-alerts__timeline-shell">
       <div class="xt-alerts__timeline-head">
         <div>
-          <span class="xt-alerts__eyebrow">EXCEPTION MATRIX</span>
+          <span class="xt-alerts__eyebrow">异常清单</span>
           <h2>异常事件流</h2>
         </div>
         <div class="xt-alerts__timeline-meta">

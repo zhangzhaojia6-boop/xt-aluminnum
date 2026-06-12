@@ -32,7 +32,7 @@ test('Workshop master applies industrial blue master-data surface', () => {
   assert.match(source, /data-testid="workshop-master-nodes"/)
   assert.match(source, /data-testid="workshop-master-matrix"/)
   assert.match(source, /data-testid="workshop-master-mobile-list"/)
-  assert.match(source, /MASTER DATA GRID/)
+  assert.match(source, /主数据总览/)
   assert.match(source, /--workshop-cyan:\s*#00f2ff/)
   assert.match(source, /workshopMasterSweep/)
   assert.match(source, /workshopMasterLed/)

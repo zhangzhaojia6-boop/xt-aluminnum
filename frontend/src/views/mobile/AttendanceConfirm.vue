@@ -2,7 +2,7 @@
   <div class="mobile-shell attendance-radar" data-testid="attendance-confirm">
     <div class="attendance-radar__hero mobile-top">
       <div class="attendance-radar__hero-copy">
-        <span class="attendance-radar__eyebrow">ATTENDANCE RADAR</span>
+        <span class="attendance-radar__eyebrow">考勤确认</span>
         <h1>考勤确认</h1>
         <p>钉钉打卡 · 现场确认 · 人事复核</p>
       </div>
@@ -28,7 +28,7 @@
     <section class="attendance-radar__panel panel mobile-card">
       <header class="attendance-radar__panel-head">
         <div>
-          <span class="attendance-radar__eyebrow">SHIFT SIGNAL</span>
+          <span class="attendance-radar__eyebrow">班次状态</span>
           <strong>当前班次</strong>
         </div>
         <span class="attendance-radar__panel-chip">{{ currentShift.shift_id ? '在线' : '待载入' }}</span>
@@ -72,7 +72,7 @@
     <section v-if="currentShift.shift_id" class="attendance-radar__panel attendance-radar__panel--control panel mobile-card">
       <header class="attendance-radar__panel-head">
         <div>
-          <span class="attendance-radar__eyebrow">CONTROL BAY</span>
+          <span class="attendance-radar__eyebrow">确认控制</span>
           <strong>确认范围</strong>
         </div>
         <span class="attendance-radar__panel-chip">{{ selectedMachineName || '选择机台' }}</span>
@@ -119,7 +119,7 @@
       <header class="attendance-radar__panel-head">
         <div class="mobile-attendance-header">
           <div>
-            <span class="attendance-radar__eyebrow">PERSONNEL TRACE</span>
+            <span class="attendance-radar__eyebrow">人员记录</span>
             <strong>{{ selectedMachineName || '机台' }}</strong>
             <span>{{ currentShiftLabel }}</span>
             <span>{{ currentShift.business_date }}</span>
@@ -149,7 +149,7 @@
             <span class="attendance-radar__status" :class="attendanceToneClass(row)">
               <i aria-hidden="true"></i>{{ isAnomaly(row) ? '异常待核' : '打卡正常' }}
             </span>
-            <span class="attendance-radar__seq">LOG {{ attendanceSeq(index) }}</span>
+            <span class="attendance-radar__seq">记录 {{ attendanceSeq(index) }}</span>
           </div>
           <div class="mobile-attendance-card__top">
             <div>

@@ -2,7 +2,7 @@
   <section class="qr-print-page" data-testid="qr-print-page" aria-labelledby="qr-print-title">
     <header class="qr-print-hero">
       <div class="qr-print-hero__copy">
-        <span>MACHINE QR MATRIX</span>
+        <span>机台二维码清单</span>
         <h1 id="qr-print-title">QR 打印中心</h1>
       </div>
       <div class="qr-print-hero__actions">

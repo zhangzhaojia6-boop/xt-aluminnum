@@ -29,10 +29,10 @@ test('AttendanceConfirm keeps the mobile role flow and removes canceled foreman 
 test('AttendanceConfirm uses industrial blue motion without changing business fields', () => {
   for (const token of [
     'attendance-radar',
-    'ATTENDANCE RADAR',
-    'SHIFT SIGNAL',
-    'CONTROL BAY',
-    'PERSONNEL TRACE',
+    '考勤确认',
+    '班次状态',
+    '确认控制',
+    '人员记录',
     'attendanceStateTone',
     'anomalyCount',
     'attendanceSeq(index)',

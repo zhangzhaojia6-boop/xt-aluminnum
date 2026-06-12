@@ -2,7 +2,7 @@
   <section class="page-stack attendance-command" data-testid="attendance-overview-page">
     <header class="attendance-command__hero">
       <div>
-        <span class="attendance-command__eyebrow">DINGTALK ATTENDANCE</span>
+        <span class="attendance-command__eyebrow">考勤预留</span>
         <h1>考勤预留</h1>
         <p class="attendance-command__subtitle">后续接入钉钉打卡后启用；当前页面仅保留结果核查入口。</p>
       </div>
@@ -37,7 +37,7 @@
     <section class="attendance-command__matrix">
       <div class="attendance-command__matrix-head">
         <div>
-          <span class="attendance-command__eyebrow">ATTENDANCE MATRIX</span>
+          <span class="attendance-command__eyebrow">考勤清单</span>
           <h2>考勤结果明细</h2>
         </div>
         <div class="attendance-command__matrix-meta">

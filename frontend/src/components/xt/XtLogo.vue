@@ -14,7 +14,7 @@
     </svg>
     <span v-if="variant !== 'icon'" class="xt-logo__text">
       <span class="xt-logo__cn">鑫泰</span>
-      <span v-if="variant === 'full'" class="xt-logo__en">DATA HUB</span>
+      <span v-if="variant === 'full'" class="xt-logo__en">数据中枢</span>
     </span>
   </div>
 </template>

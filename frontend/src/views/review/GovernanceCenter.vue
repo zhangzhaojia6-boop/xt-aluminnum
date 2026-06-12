@@ -2,7 +2,7 @@
   <section class="page-stack governance-command" data-testid="review-governance-center">
     <header class="governance-command__hero">
       <div class="governance-command__hero-copy">
-        <span class="governance-command__eyebrow">ACCESS GOVERNANCE</span>
+        <span class="governance-command__eyebrow">权限治理</span>
         <h1>权限与治理中心</h1>
       </div>
       <el-button class="governance-command__refresh" :loading="loading" @click="load">刷新</el-button>
@@ -28,7 +28,7 @@
       <article class="governance-command__panel governance-command__panel--matrix">
         <div class="governance-command__panel-head">
           <div>
-            <span class="governance-command__eyebrow">CAPABILITY MATRIX</span>
+            <span class="governance-command__eyebrow">治理能力总览</span>
             <h2>能力矩阵</h2>
           </div>
           <span class="governance-command__panel-chip">{{ enabledPermissionCount }} / {{ permissionRows.length }} 可用</span>
@@ -64,7 +64,7 @@
       <article class="governance-command__panel governance-command__panel--roles">
         <div class="governance-command__panel-head">
           <div>
-            <span class="governance-command__eyebrow">ROLE DISTRIBUTION</span>
+            <span class="governance-command__eyebrow">角色分布</span>
             <h2>账号分布</h2>
           </div>
           <span class="governance-command__panel-chip">{{ roleDistribution.length }} 类</span>
@@ -119,10 +119,10 @@ const permissionRows = computed(() => [
 const enabledPermissionCount = computed(() => permissionRows.value.filter((row) => row.enabled).length)
 
 const statusCards = computed(() => [
-  { key: 'role', label: '当前角色', value: roleLabel.value, unit: 'ROLE', accent: 'cyan' },
-  { key: 'scope', label: '数据范围', value: scopeLabel.value, unit: 'SCOPE', accent: 'blue' },
-  { key: 'review', label: '审阅权限', value: auth.canAccessReviewSurface ? '开启' : '关闭', unit: 'REVIEW', accent: auth.canAccessReviewSurface ? 'cyan' : 'amber' },
-  { key: 'config', label: '配置权限', value: auth.canAccessDesktopConfig ? '开启' : '关闭', unit: 'CONFIG', accent: auth.canAccessDesktopConfig ? 'cyan' : 'amber' }
+  { key: 'role', label: '当前角色', value: roleLabel.value, unit: '角色', accent: 'cyan' },
+  { key: 'scope', label: '数据范围', value: scopeLabel.value, unit: '范围', accent: 'blue' },
+  { key: 'review', label: '审阅权限', value: auth.canAccessReviewSurface ? '开启' : '关闭', unit: '审阅', accent: auth.canAccessReviewSurface ? 'cyan' : 'amber' },
+  { key: 'config', label: '配置权限', value: auth.canAccessDesktopConfig ? '开启' : '关闭', unit: '配置', accent: auth.canAccessDesktopConfig ? 'cyan' : 'amber' }
 ])
 
 function buildRoleDistribution(items = []) {

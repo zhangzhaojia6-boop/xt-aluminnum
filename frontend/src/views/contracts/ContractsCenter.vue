@@ -2,7 +2,7 @@
   <section class="page-stack contracts-command" data-testid="contracts-center-page">
     <header class="contracts-command__hero">
       <div class="contracts-command__hero-copy">
-        <span class="contracts-command__eyebrow">ORDER CONTROL</span>
+        <span class="contracts-command__eyebrow">订单管控</span>
         <h1>合同与订单中心</h1>
       </div>
       <div class="contracts-command__actions" data-testid="contracts-center-filters">
@@ -44,7 +44,7 @@
     <section class="contracts-command__panel contracts-command__panel--chart">
       <div class="contracts-command__panel-head">
         <div>
-          <span class="contracts-command__eyebrow">FULFILLMENT FLOW</span>
+          <span class="contracts-command__eyebrow">履约流转</span>
           <h2>履约进度</h2>
         </div>
         <span class="contracts-command__panel-chip">{{ progressLabels.length }} 个节点</span>
@@ -65,7 +65,7 @@
     <section class="contracts-command__panel">
       <div class="contracts-command__panel-head">
         <div>
-          <span class="contracts-command__eyebrow">CONTRACT MATRIX</span>
+          <span class="contracts-command__eyebrow">合同清单</span>
           <h2>合同明细</h2>
         </div>
         <span class="contracts-command__panel-chip">{{ tableData.length }} 条</span>

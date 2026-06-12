@@ -2,7 +2,7 @@
   <div class="mobile-shell mobile-shell--entry consumable-hub" data-testid="consumable-entry">
     <section class="consumable-hub__hero panel">
       <div class="consumable-hub__hero-copy">
-        <span class="consumable-hub__eyebrow">CONSUMABLE BAY</span>
+        <span class="consumable-hub__eyebrow">辅材填报</span>
         <h1>辅材填报</h1>
         <p>每日一录 · 车间辅材</p>
       </div>
@@ -30,7 +30,7 @@
     <section class="consumable-hub__panel panel">
       <header class="consumable-hub__panel-head">
         <div>
-          <span class="consumable-hub__eyebrow">CONTROL BAY</span>
+          <span class="consumable-hub__eyebrow">填报控制</span>
           <strong>确认范围</strong>
         </div>
         <span class="consumable-hub__chip">{{ businessDate }}</span>
@@ -70,7 +70,7 @@
     <section v-if="selectedWorkshop" class="consumable-hub__panel consumable-hub__panel--active panel">
       <header class="consumable-hub__panel-head">
         <div>
-          <span class="consumable-hub__eyebrow">WORKSHOP SIGNAL</span>
+          <span class="consumable-hub__eyebrow">车间状态</span>
           <strong>{{ selectedWorkshopTitle }}</strong>
         </div>
         <span class="consumable-hub__status">
@@ -92,7 +92,7 @@
         >
           <div class="consumable-hub__field-top">
             <div>
-              <span>FIELD {{ consumableSeq(index) }}</span>
+              <span>字段 {{ consumableSeq(index) }}</span>
               <strong>{{ field.label }}</strong>
             </div>
             <em v-if="field.unit">{{ field.unit }}</em>

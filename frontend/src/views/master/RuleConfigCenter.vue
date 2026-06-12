@@ -2,7 +2,7 @@
   <section class="page-stack rule-config-center" data-testid="rule-config-page" aria-labelledby="rule-config-title">
     <header class="rule-config-center__hero">
       <div class="rule-config-center__title-block">
-        <span class="rule-config-center__eyebrow">RULE GOVERNANCE MATRIX</span>
+        <span class="rule-config-center__eyebrow">规则治理中心</span>
         <h1 id="rule-config-title">规则配置</h1>
       </div>
       <div class="rule-config-center__hero-actions">
@@ -26,7 +26,7 @@
     <section class="rule-config-center__layout">
       <aside class="rule-config-center__cabin" aria-label="规则作用域">
         <div class="rule-config-center__cabin-head">
-          <span>SCOPE NODE</span>
+          <span>适用范围</span>
           <strong>作用域</strong>
         </div>
         <el-select
@@ -66,7 +66,7 @@
       <section class="rule-surface">
         <div class="rule-surface__head">
           <div>
-            <span>RULE MATRIX</span>
+            <span>规则清单</span>
             <strong>规则矩阵</strong>
           </div>
           <div class="rule-surface__state">
@@ -174,17 +174,17 @@
 
     <section class="rule-config-center__rail" aria-label="规则链路状态">
       <div>
-        <span>DEFAULT LAYER</span>
+        <span>默认层</span>
         <strong>全厂默认</strong>
       </div>
       <i></i>
       <div>
-        <span>WORKSHOP LAYER</span>
+        <span>车间层</span>
         <strong>车间覆盖</strong>
       </div>
       <i></i>
       <div>
-        <span>VALIDATION LAYER</span>
+        <span>校验层</span>
         <strong>自动校验</strong>
       </div>
     </section>

@@ -30,9 +30,9 @@ test('ConsumableEntry uses industrial blue command styling without purple drift'
   for (const token of [
     'data-testid="consumable-entry"',
     'consumable-hub',
-    'CONSUMABLE BAY',
-    'CONTROL BAY',
-    'WORKSHOP SIGNAL',
+    '辅材填报',
+    '填报控制',
+    '车间状态',
     'consumableSeq(index)',
     'saveStatusLabel',
     '#00f2ff',

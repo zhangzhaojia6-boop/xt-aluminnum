@@ -62,7 +62,7 @@ test('ai workstation aligns to the cyber industrial visual system without changi
   const workstation = source('../src/views/ai/AiWorkstation.vue')
 
   assert.match(workstation, /data-testid="ai-workstation-page"/)
-  assert.match(workstation, /COMMAND AI/)
+  assert.match(workstation, /AI 工作台/)
   assert.match(workstation, /aiStats/)
   assert.match(workstation, /runtimeText/)
   assert.match(workstation, /事实约束 LLM/)

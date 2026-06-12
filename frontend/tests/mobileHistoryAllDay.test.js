@@ -30,8 +30,8 @@ test('ShiftReportHistory renders machine operator all-day coil entries', () => {
 test('ShiftReportHistory keeps the all-day record contract visible in the UI', () => {
   assert.match(src, /data-testid="entry-history-page"/)
   assert.match(src, /data-testid="entry-history-record"/)
-  assert.match(src, /ALL-DAY LOG/)
-  assert.match(src, /RECORD TIMELINE/)
+  assert.match(src, /整日记录/)
+  assert.match(src, /记录时间线/)
   assert.match(src, /visibleCountLabel/)
   assert.match(src, /historySeq\(index\)/)
   assert.match(src, /historyToneClass\(item\)/)

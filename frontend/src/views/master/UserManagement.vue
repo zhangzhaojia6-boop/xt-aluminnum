@@ -3,7 +3,7 @@
     <header class="admin-users-center__hero">
       <div class="admin-users-center__title-group">
         <div class="admin-users-center__title-copy">
-          <span class="admin-users-center__system">ACCESS CONTROL MATRIX</span>
+          <span class="admin-users-center__system">权限账号治理</span>
           <h1 id="admin-users-title">权限治理中心</h1>
         </div>
         <div class="admin-users-center__tags" aria-label="权限治理范围">
@@ -34,7 +34,7 @@
     <el-card class="panel admin-users-center__panel" shadow="never">
       <div class="admin-users-center__panel-head">
         <div>
-          <span>ACCOUNT MATRIX</span>
+          <span>账号清单</span>
           <h2>用户账号</h2>
         </div>
         <strong>{{ pageState.total || items.length }} 条</strong>

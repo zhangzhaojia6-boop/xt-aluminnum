@@ -54,7 +54,7 @@
     <section class="alias-router__matrix" data-testid="alias-matrix">
       <header class="alias-router__matrix-head">
         <div>
-          <span>DATA MATRIX</span>
+          <span>数据映射清单</span>
           <strong>映射链路</strong>
         </div>
         <small>{{ items.length }} 条记录</small>

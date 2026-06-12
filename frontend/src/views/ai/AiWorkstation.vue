@@ -16,7 +16,7 @@
         <div>
           <span class="ai-workstation__eyebrow">
             <i aria-hidden="true"></i>
-            COMMAND AI
+            AI 工作台
           </span>
           <h1>{{ store.currentConversation?.title || 'AI 工作台' }}</h1>
           <span>{{ statusText }} · 证据上下文</span>

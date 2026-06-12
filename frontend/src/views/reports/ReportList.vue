@@ -2,7 +2,7 @@
   <section class="page-stack report-delivery" data-testid="report-delivery-page">
     <header class="report-delivery__hero">
       <div class="report-delivery__hero-copy">
-        <span class="report-delivery__eyebrow">REPORT DELIVERY</span>
+        <span class="report-delivery__eyebrow">日报交付</span>
         <h1>日报与交付中心</h1>
       </div>
       <el-button class="report-delivery__refresh" @click="load">查询</el-button>
@@ -52,7 +52,7 @@
     <section class="report-delivery__matrix">
       <div class="report-delivery__matrix-head">
         <div>
-          <span class="report-delivery__eyebrow">DELIVERY MATRIX</span>
+          <span class="report-delivery__eyebrow">交付清单</span>
           <h2>交付清单</h2>
         </div>
         <div class="report-delivery__matrix-meta">

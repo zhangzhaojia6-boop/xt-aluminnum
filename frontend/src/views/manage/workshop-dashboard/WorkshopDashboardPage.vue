@@ -2,7 +2,7 @@
   <section class="workshop-board" data-testid="workshop-dashboard" data-visual-pass="stitch-image2-second-pass">
     <header class="workshop-board__hero">
       <div>
-        <span class="workshop-board__eyebrow">WORKSHOP COMMAND</span>
+        <span class="workshop-board__eyebrow">车间看板</span>
         <h1>{{ workshopTitle }}</h1>
       </div>
       <DateSwitcher

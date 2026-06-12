@@ -23,8 +23,8 @@ test('AlertsPage keeps existing timeline components and counts', () => {
 test('AlertsPage applies industrial blue command surface without hard-coded hex', () => {
   assert.match(SRC, /data-testid="manage-alerts-stats"/)
   assert.match(SRC, /data-testid="manage-alerts-filters"/)
-  assert.match(SRC, /ALERT COMMAND/)
-  assert.match(SRC, /EXCEPTION MATRIX/)
+  assert.match(SRC, /异常总览/)
+  assert.match(SRC, /异常清单/)
   assert.doesNotMatch(SRC, /xtAlertsSweep/)
   assert.doesNotMatch(SRC, /xtAlertsPulse/)
   assert.doesNotMatch(SRC, /animation:\s*[^;]*infinite/)

@@ -8,7 +8,7 @@
   >
     <header class="energy-center__hero">
       <div class="energy-center__hero-copy">
-        <span class="energy-center__eyebrow">ENERGY COMMAND</span>
+        <span class="energy-center__eyebrow">能耗总览</span>
         <h1>{{ statusBar.title }}</h1>
         <span class="energy-center__subtitle">{{ statusBar.subtitle }}</span>
       </div>
@@ -79,7 +79,7 @@
         <section class="energy-center__matrix">
           <div class="energy-center__matrix-head">
             <div>
-              <span class="energy-center__eyebrow">ENERGY MATRIX</span>
+              <span class="energy-center__eyebrow">能耗明细</span>
               <h2>能耗明细表</h2>
             </div>
             <div class="energy-center__matrix-meta">
@@ -156,7 +156,7 @@
       <aside class="energy-center__event-rail" data-testid="energy-event-rail">
         <div class="energy-center__matrix-head">
           <div>
-            <span class="energy-center__eyebrow">ENERGY WATCH</span>
+            <span class="energy-center__eyebrow">能耗监测</span>
             <h2>能耗关注</h2>
           </div>
         </div>

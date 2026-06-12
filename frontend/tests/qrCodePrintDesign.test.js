@@ -17,7 +17,7 @@ test('QRCodePrint keeps the real QR data and print operations', () => {
 
 test('QRCodePrint uses the industrial QR matrix while preserving scan-safe output', () => {
   assert.match(source, /data-testid="qr-print-page"/)
-  assert.match(source, /MACHINE QR MATRIX/)
+  assert.match(source, /机台二维码清单/)
   assert.match(source, /qrSummary/)
   assert.match(source, /qr-print-card__qr/)
   assert.match(source, /background:\s*#fff/)

@@ -2,7 +2,7 @@
   <section class="page-stack inventory-command" data-testid="inventory-center-page">
     <header class="inventory-command__hero">
       <div class="inventory-command__hero-copy">
-        <span class="inventory-command__eyebrow">STOCK CONTROL</span>
+        <span class="inventory-command__eyebrow">库存管控</span>
         <h1>库存出入中心</h1>
       </div>
       <div class="inventory-command__actions" data-testid="inventory-center-filters">
@@ -43,7 +43,7 @@
     <section class="inventory-command__panel inventory-command__panel--chart">
       <div class="inventory-command__panel-head">
         <div>
-          <span class="inventory-command__eyebrow">STOCK FLOW</span>
+          <span class="inventory-command__eyebrow">库存流转</span>
           <h2>出入库趋势</h2>
         </div>
         <span class="inventory-command__panel-chip">{{ trendLabels.length }} 个节点</span>
@@ -62,7 +62,7 @@
     <section class="inventory-command__panel">
       <div class="inventory-command__panel-head">
         <div>
-          <span class="inventory-command__eyebrow">TRANSACTION MATRIX</span>
+          <span class="inventory-command__eyebrow">出入库流水</span>
           <h2>出入库明细</h2>
         </div>
         <span class="inventory-command__panel-chip">{{ tableData.length }} 条</span>

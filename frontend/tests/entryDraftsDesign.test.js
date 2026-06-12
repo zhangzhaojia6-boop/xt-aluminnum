@@ -16,7 +16,7 @@ test('EntryDrafts keeps local draft storage and restore route behavior', () => {
 })
 
 test('EntryDrafts uses the industrial draft recovery visual system', () => {
-  assert.match(src, /DRAFT RECOVERY BAY/)
+  assert.match(src, /草稿恢复/)
   assert.match(src, /entry-drafts__hero/)
   assert.match(src, /entry-drafts__readout/)
   assert.match(src, /entry-drafts__status/)

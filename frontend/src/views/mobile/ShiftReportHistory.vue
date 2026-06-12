@@ -2,7 +2,7 @@
   <div class="mobile-shell history-log" data-testid="entry-history-page" data-visual-pass="stitch-image2-second-pass-mobile">
     <div class="history-log__hero mobile-top">
       <div class="history-log__hero-copy">
-        <span class="history-log__eyebrow">ALL-DAY LOG</span>
+        <span class="history-log__eyebrow">整日记录</span>
         <h1>历史填报</h1>
         <p>按整日查看有权限的录入记录 · 可恢复查看</p>
       </div>
@@ -64,7 +64,7 @@
     <section v-else class="history-log__panel panel mobile-card">
       <header class="history-log__panel-head">
         <div>
-          <span class="history-log__eyebrow">RECORD TIMELINE</span>
+          <span class="history-log__eyebrow">记录时间线</span>
           <strong>最近记录</strong>
         </div>
         <span class="history-log__panel-count">{{ visibleCountLabel }}</span>
@@ -86,7 +86,7 @@
             <span class="history-log__status" :class="historyToneClass(item)">
               <i aria-hidden="true"></i>{{ sourceTagLabel(item) }}
             </span>
-            <span class="history-log__seq">LOG {{ historySeq(index) }}</span>
+            <span class="history-log__seq">记录 {{ historySeq(index) }}</span>
           </div>
 
           <div class="mobile-history-main">
