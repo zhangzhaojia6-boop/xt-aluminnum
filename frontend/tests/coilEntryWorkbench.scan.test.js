@@ -95,7 +95,7 @@ test('scan lookup composable runs browser barcode detector path', async () => {
 
 test('coil entry workbench applies scanned fields without locking them', () => {
   assert.match(coilEntrySource, /scanLookup/)
-  assert.match(coilEntrySource, /扫随行卡兜底/)
+  assert.match(coilEntrySource, /扫码带出/)
   assert.match(coilEntrySource, /MES_ASSISTED_SCAN_FIELDS/)
   for (const field of ['tracking_card_no', 'alloy_grade', 'input_spec', 'output_spec', 'input_weight', 'output_weight', 'on_machine_time', 'off_machine_time', 'material_state']) {
     assert.match(coilEntrySource, new RegExp(`['"]${field}['"]`))
@@ -119,7 +119,7 @@ test('coil entry workbench lets operators pick MES pending supplements', () => {
   assert.match(coilEntrySource, /fetchMesPendingSupplements/)
   assert.match(coilEntrySource, /MES 待补录/)
   assert.match(coilEntrySource, /正常先点上方 MES 待补录卡片/)
-  assert.match(coilEntrySource, /找不到卷材？扫随行卡兜底/)
+  assert.match(coilEntrySource, /找不到卷材？扫码带出/)
   assert.match(coilEntrySource, /手工补录一卷/)
   assert.match(coilEntrySource, /当前机台暂无 MES 待补录卷材/)
   assert.match(coilEntrySource, /data-testid="mes-pending-supplements"/)
@@ -182,7 +182,7 @@ test('coil entry workbench lets operators pick MES pending supplements', () => {
 
 test('unified entry form keeps scanned per-coil fields editable', () => {
   assert.match(unifiedEntrySource, /scanLookup/)
-  assert.match(unifiedEntrySource, /扫随行卡兜底/)
+  assert.match(unifiedEntrySource, /扫码带出/)
   assert.match(unifiedEntrySource, /MES_ASSISTED_SCAN_FIELDS/)
   for (const field of ['tracking_card_no', 'alloy_grade', 'input_spec', 'output_spec', 'input_weight', 'output_weight', 'on_machine_time', 'off_machine_time', 'material_state']) {
     assert.match(unifiedEntrySource, new RegExp(`['"]${field}['"]`))

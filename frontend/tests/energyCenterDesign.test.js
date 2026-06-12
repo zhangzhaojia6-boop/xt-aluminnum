@@ -85,6 +85,19 @@ test('EnergyCenter keeps electricity and comprehensive energy separated', () => 
   assert.doesNotMatch(src, /label:\s*'总能耗'[\s\S]{0,120}sumBy\('electricity_value'\)/)
 })
 
+test('EnergyCenter orders desktop and mobile detail fields by energy values before source metadata', () => {
+  assert.match(
+    src,
+    /prop="business_date"[\s\S]*?prop="workshop_code"[\s\S]*?prop="shift_code"[\s\S]*?prop="electricity_value"[\s\S]*?prop="gas_value"[\s\S]*?prop="water_value"[\s\S]*?prop="total_energy"[\s\S]*?prop="source_label"[\s\S]*?prop="source_updated_at"/,
+    'desktop table should keep energy values before source metadata'
+  )
+  assert.match(
+    src,
+    /<span>业务日期<\/span><strong>[\s\S]*?<span>电耗<\/span><strong>[\s\S]*?<span>气耗<\/span><strong>[\s\S]*?<span>水耗<\/span><strong>[\s\S]*?<span>总能耗<\/span><strong>[\s\S]*?<span>数据来源<\/span><strong>[\s\S]*?<span>采集时间<\/span><strong>/,
+    'mobile cards should use the same energy-first order as the desktop table'
+  )
+})
+
 test('EnergyCenter uses the industrial blue responsive surface', () => {
   assert.match(src, /data-testid="energy-center-page"/)
   assert.match(src, /data-testid="energy-center-stats"/)
