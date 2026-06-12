@@ -228,7 +228,7 @@ import { fetchDailyProduction } from '../../../api/dashboard.js'
 import { exportMissingReportExcel, fetchLiveAggregation, fetchLiveFillDetails, fetchMesFillGaps } from '../../../api/realtime.js'
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
-import { inferBusinessDate } from '../../../utils/shiftClock.js'
+import { inferLastCompletedBusinessDate } from '../../../utils/shiftClock.js'
 import { downloadBlob } from '../../../utils/downloadBlob.js'
 import { filterActiveWorkshopRows } from '../../../utils/activeWorkshops.js'
 import { buildFillDetailsStitchSurface } from '../../../utils/stitchManageSurface.js'
@@ -241,7 +241,7 @@ import {
   MISSING_AUDIT_VALUE,
 } from '../../../utils/manageFillDetailsAudit.js'
 
-const targetDate = ref(inferBusinessDate())
+const targetDate = ref(inferLastCompletedBusinessDate())
 const auth = useAuthStore()
 const loading = ref(false)
 const errorText = ref('')

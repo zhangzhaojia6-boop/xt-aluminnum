@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import {
   normalizeFactoryDirector,
+  normalizeLiveMissingReports,
   normalizeMesFillGaps,
   normalizeQuality,
   normalizeReconciliation,
@@ -10,6 +11,7 @@ import {
 
 const FALLBACK_ROUTE = {
   production: '/manage/alerts?surface=anomaly',
+  reporting: '/manage/fill-details',
   quality: '/manage/alerts?surface=quality',
   reconciliation: '/manage/alerts?surface=reconciliation',
   mes: '/manage/fill-details'
@@ -31,12 +33,17 @@ async function defaultFetchM(params) {
   const { fetchMesFillGaps } = await import('../api/realtime.js')
   return fetchMesFillGaps(params)
 }
+async function defaultFetchLive(params) {
+  const { fetchLiveAggregation } = await import('../api/realtime.js')
+  return fetchLiveAggregation(params)
+}
 
 export function createAlertsTimeline({
   fetchFactoryDashboard: fdImpl = defaultFetchFD,
   fetchQualityIssues: qImpl = defaultFetchQ,
   fetchReconciliationItems: rImpl = defaultFetchR,
   fetchMesFillGaps: mImpl = defaultFetchM,
+  fetchLiveAggregation: liveImpl = defaultFetchLive,
   now = new Date()
 } = {}) {
   const yesterday = dayjs(now).subtract(1, 'day').format('YYYY-MM-DD')
@@ -45,7 +52,7 @@ export function createAlertsTimeline({
   const events = ref([])
   const loading = ref(false)
   const lastError = ref('')
-  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false })
+  const endpointFailed = ref({ factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false })
   let token = 0
   let inflight = Promise.resolve()
 
@@ -67,15 +74,16 @@ export function createAlertsTimeline({
     inflight = (async () => {
       const date = targetDate.value
       try {
-        const [fd, q, r, m] = await Promise.allSettled([
+        const [fd, q, r, m, live] = await Promise.allSettled([
           fdImpl({ target_date: date }),
           qImpl({ target_date: date }),
           rImpl({ target_date: date, status: 'open' }),
-          mImpl({ business_date: date })
+          mImpl({ business_date: date }),
+          liveImpl({ business_date: date })
         ])
         if (my !== token) return
         const buckets = []
-        const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false }
+        const fail = { factoryDirector: false, quality: false, reconciliation: false, mes: false, live: false }
         if (fd.status === 'fulfilled') {
           buckets.push(normalizeFactoryDirector(fd.value, date))
         } else {
@@ -100,9 +108,15 @@ export function createAlertsTimeline({
           fail.mes = true
           buckets.push([fallbackCard('mes')])
         }
+        if (live.status === 'fulfilled') {
+          buckets.push(normalizeLiveMissingReports(live.value, date))
+        } else {
+          fail.live = true
+          buckets.push([fallbackCard('reporting')])
+        }
         endpointFailed.value = fail
         events.value = mergeAndSort(buckets)
-        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0) + (fail.mes ? 1 : 0)
+        const fails = (fail.factoryDirector ? 1 : 0) + (fail.quality ? 1 : 0) + (fail.reconciliation ? 1 : 0) + (fail.mes ? 1 : 0) + (fail.live ? 1 : 0)
         lastError.value = fails >= 2 ? '部分数据加载失败，已切换占位卡' : ''
       } finally {
         if (my === token) loading.value = false
@@ -138,7 +152,7 @@ export function createAlertsTimeline({
 
   const freshnessStatus = computed(() => {
     const f = endpointFailed.value
-    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0) + (f.mes ? 1 : 0)
+    const fails = (f.factoryDirector ? 1 : 0) + (f.quality ? 1 : 0) + (f.reconciliation ? 1 : 0) + (f.mes ? 1 : 0) + (f.live ? 1 : 0)
     if (fails === 0) return 'green'
     if (fails >= 3) return 'red'
     return 'yellow'

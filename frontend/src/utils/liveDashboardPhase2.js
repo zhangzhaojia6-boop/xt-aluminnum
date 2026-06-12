@@ -57,16 +57,17 @@ function pickValue(source = {}, keys = []) {
 }
 
 export function formatTrustedMetric(value, unit = '', digits = 2) {
-  const text = formatNumber(isPresent(value) ? value : 0, digits)
+  if (!isPresent(value)) return MISSING_TEXT
+  const text = formatNumber(value, digits)
   return unit ? `${text} ${unit}` : text
 }
 
 function formatCount(value) {
-  return isPresent(value) ? String(Number(value)) : '0'
+  return isPresent(value) ? String(Number(value)) : MISSING_TEXT
 }
 
 function formatLag(seconds) {
-  if (!isPresent(seconds)) return '0s'
+  if (!isPresent(seconds)) return MISSING_TEXT
   const lag = Number(seconds)
   if (lag < 60) return `${lag.toFixed(0)}s`
   return `${(lag / 60).toFixed(1)}m`

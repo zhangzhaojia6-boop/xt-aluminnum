@@ -52,13 +52,13 @@ test('second pass secondary management pages keep the same visual pass and sourc
   }
 })
 
-test('system settings exposes the twelve-workshop and MES mapping cockpit in the same visual language', () => {
+test('system settings exposes the thirteen-workshop and MES mapping cockpit in the same visual language', () => {
   assert.match(systemSettings, /data-visual-pass="stitch-image2-second-pass"/)
   assert.match(systemSettings, /data-testid="second-pass-source-strip"/)
   assert.match(systemSettings, /MES 外部数据/)
   assert.match(systemSettings, /人工填报/)
   assert.match(systemSettings, /算法数据/)
-  assert.match(systemSettings, /十二车间/)
+  assert.match(systemSettings, /十三车间/)
   assert.match(systemSettings, /别名映射/)
   assert.match(systemSettings, /机列台账/)
   assert.match(systemSettings, /PC 工艺映射/)

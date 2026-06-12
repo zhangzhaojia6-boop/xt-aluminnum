@@ -13,6 +13,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import EnergyImportRecord, IotEnergySnapshot, MachineEnergyRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -25,6 +26,9 @@ from app.utils.date_utils import parse_date
 
 VALID_ENERGY_TYPES = {'electricity', 'gas', 'water', 'other'}
 FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
+FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '拉矫', '园区剪切', '剪切'}
+MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
+MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
 PACKAGING_INBOUND_OUTPUT_FIELD = 'packaging_inbound_output_tons'
 SUBMITTED_ENTRY_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
 SUBMITTED_REPORT_STATUSES = {'submitted', 'approved', 'auto_confirmed', 'confirmed'}
@@ -104,6 +108,82 @@ def _owner_storage_inbound_tons(payload: dict) -> float:
         total += value
         has_component = True
     return total if has_component else 0.0
+
+
+def _plain_text(value) -> str:
+    return str(value or '').strip()
+
+
+def _source_payload(row) -> dict:
+    return dict(getattr(row, 'source_payload', None) or {})
+
+
+def _status_key(value) -> str:
+    return _plain_text(value).lower()
+
+
+def _mes_output_tons(row: MesWorkshopProcessRecord) -> float:
+    value = _to_float(row.output_weight_tons)
+    if value is not None:
+        return value
+    kg_value = _to_float(row.output_weight_kg)
+    return (kg_value or 0.0) / 1000
+
+
+def _mes_stock_output_tons(row: MesStockRecord) -> float:
+    value = _to_float(row.net_weight_tons)
+    if value is not None:
+        return value
+    kg_value = _to_float(row.net_weight_kg)
+    return (kg_value or 0.0) / 1000
+
+
+def _is_mes_packaging_output(row: MesWorkshopProcessRecord) -> bool:
+    process_name = _plain_text(row.process_name)
+    workshop_name = _plain_text(row.workshop_name)
+    if not any(keyword in process_name for keyword in MES_PACKAGING_PROCESS_KEYWORDS):
+        return False
+    return any(name in workshop_name for name in FINAL_PACKAGING_MES_WORKSHOP_NAMES)
+
+
+def _is_mes_stock_packaging_output(row: MesStockRecord) -> bool:
+    payload = _source_payload(row)
+    status = _status_key(row.status_name or payload.get('Status') or payload.get('status'))
+    if status not in {'', '1', 'done', 'finished', '入库', '已入库', '正常'}:
+        return False
+    from_department = _plain_text(
+        payload.get('FromDepartment')
+        or payload.get('from_department')
+        or payload.get('fromDept')
+    )
+    to_department = _plain_text(
+        payload.get('ToDepartment')
+        or payload.get('to_department')
+        or payload.get('toDept')
+    )
+    if '成品' in to_department or '入库' in to_department:
+        return any(keyword in from_department for keyword in MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS)
+    return False
+
+
+def _query_mes_stock_packaging_output_by_date(db: Session, *, business_date: date) -> float:
+    rows = db.query(MesStockRecord).filter(MesStockRecord.business_date == business_date).all()
+    return sum(_mes_stock_output_tons(row) for row in rows if _is_mes_stock_packaging_output(row))
+
+
+def _query_mes_process_packaging_output_by_date(db: Session, *, business_date: date) -> float:
+    rows = db.query(MesWorkshopProcessRecord).filter(MesWorkshopProcessRecord.business_date == business_date).all()
+    return sum(_mes_output_tons(row) for row in rows if _is_mes_packaging_output(row))
+
+
+def _mes_packaging_output_tons(db: Session, *, business_date: date) -> float:
+    try:
+        stock_output = _query_mes_stock_packaging_output_by_date(db, business_date=business_date)
+        if stock_output > 0:
+            return stock_output
+        return _query_mes_process_packaging_output_by_date(db, business_date=business_date)
+    except (OperationalError, ProgrammingError):
+        return 0.0
 
 
 def _factory_final_output_tons(db: Session, *, business_date: date) -> float:
@@ -566,6 +646,43 @@ def _primary_energy_rows(*, mobile_rows: list[dict], system_rows: list[dict], ow
     return system_rows
 
 
+def _with_mes_packaging_output_basis(
+    db: Session,
+    *,
+    business_date: date | None,
+    rows: list[dict],
+    workshop_id: int | None = None,
+    shift_config_id: int | None = None,
+) -> list[dict]:
+    if business_date is None or workshop_id is not None or shift_config_id is not None:
+        return rows
+    if sum(_to_float(item.get('output_weight')) or 0.0 for item in rows) > 0:
+        return rows
+
+    packaging_output = _mes_packaging_output_tons(db, business_date=business_date)
+    if packaging_output <= 0:
+        return rows
+    total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in rows)
+    return [
+        *rows,
+        {
+            'business_date': business_date.isoformat(),
+            'workshop_id': None,
+            'workshop_code': 'FACTORY',
+            'shift_config_id': None,
+            'shift_code': None,
+            'electricity_value': None,
+            'gas_value': None,
+            'water_value': None,
+            'total_energy': None,
+            'output_weight': packaging_output,
+            'energy_per_ton': total_energy / packaging_output if total_energy else None,
+            'source': 'mes_packaging_output_basis',
+            'source_label': 'MES包装产量',
+        },
+    ]
+
+
 def get_energy_summary(
     db: Session,
     *,
@@ -616,7 +733,13 @@ def get_energy_summary(
     if shift_config_id is not None:
         owner_rows = [row for row in owner_rows if row.get('shift_config_id') == shift_config_id]
     if not rows and not mobile_rows:
-        return [*owner_rows, *iot_rows]
+        return _with_mes_packaging_output_basis(
+            db,
+            business_date=business_date,
+            rows=[*owner_rows, *iot_rows],
+            workshop_id=workshop_id,
+            shift_config_id=shift_config_id,
+        )
     workshop_id_map = _resolve_workshop_id(db)
     shift_id_map = _resolve_shift_id(db)
 
@@ -664,7 +787,13 @@ def get_energy_summary(
         if hasattr(payload['business_date'], 'isoformat'):
             payload['business_date'] = payload['business_date'].isoformat()
 
-    return [*grouped.values(), *mobile_rows, *owner_rows, *iot_rows]
+    return _with_mes_packaging_output_basis(
+        db,
+        business_date=business_date,
+        rows=[*grouped.values(), *mobile_rows, *owner_rows, *iot_rows],
+        workshop_id=workshop_id,
+        shift_config_id=shift_config_id,
+    )
 
 
 def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
@@ -679,9 +808,17 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows)
     total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows)
     row_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in primary_rows)
+    mes_packaging_output = _mes_packaging_output_tons(db, business_date=business_date)
     factory_final_output = _factory_final_output_tons(db, business_date=business_date)
-    total_output = factory_final_output if factory_final_output > 0 else row_total_output
-    output_basis = 'factory_final_packaging_inbound' if factory_final_output > 0 else 'energy_rows'
+    if mes_packaging_output > 0:
+        total_output = mes_packaging_output
+        output_basis = 'mes_packaging_output'
+    elif factory_final_output > 0:
+        total_output = factory_final_output
+        output_basis = 'factory_final_packaging_inbound'
+    else:
+        total_output = row_total_output
+        output_basis = 'energy_rows'
     energy_per_ton = total_energy / total_output if total_output else None
     owner_electricity_value = sum(_to_float(item.get('electricity_value')) or 0.0 for item in owner_rows)
     owner_gas_value = sum(_to_float(item.get('gas_value')) or 0.0 for item in owner_rows)

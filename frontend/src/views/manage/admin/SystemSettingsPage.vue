@@ -95,7 +95,7 @@
             data-testid="system-settings-generic-terminals"
           >
             <header>
-              <span>PC 终端待绑定</span>
+              <span>PC 终端待建映射</span>
               <strong>{{ genericTerminalCount }}</strong>
             </header>
             <ul>
@@ -135,7 +135,7 @@ const settingGroups = [
   {
     label: '配置',
     items: [
-      { title: '十二车间', path: '/manage/master', tag: '主数据标准', icon: Files, tone: 'ready' },
+      { title: '十三车间', path: '/manage/master', tag: '主数据标准', icon: Files, tone: 'ready' },
       { title: '别名映射', path: '/manage/alias', tag: '车间机列归一', icon: Connection, tone: 'ready' },
       { title: '机列台账', path: '/manage/master', tag: '二维码与账号', icon: Files, tone: 'ready' },
       { title: 'PC 工艺映射', path: '/manage/mes-terminal-bindings', tag: '终端绑定', icon: Connection, tone: 'warning' },

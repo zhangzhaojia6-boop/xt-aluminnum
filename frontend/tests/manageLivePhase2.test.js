@@ -132,7 +132,7 @@ test('/manage/live coalesces realtime snapshot reloads to avoid request storms',
   assert.doesNotMatch(livePageSource, /void\s+loadDashboardSurface\(\{\s*silent:\s*streamOpen,\s*includeDetails:\s*!streamOpen\s*\}\)/)
 })
 
-test('ticker exposes the first-screen factory signals with zero fallback', () => {
+test('ticker exposes the first-screen factory signals without fake zero fallback', () => {
   const items = buildLiveTickerItems({
     factory_total: {
       packaging_output: 126.42,
@@ -164,8 +164,8 @@ test('ticker exposes the first-screen factory signals with zero fallback', () =>
   assert.equal(items[0].source, 'MES包装')
   assert.equal(items[1].source, '内勤入库')
   assert.equal(items[2].value, '211.8 吨')
-  assert.equal(items[3].value, '0 kWh')
-  assert.equal(items[4].value, '0 kWh/吨')
+  assert.equal(items[3].value, '待同步')
+  assert.equal(items[4].value, '待同步')
 })
 
 test('ticker accepts daily energy aliases from the energy center summary', () => {
@@ -187,10 +187,10 @@ test('ticker does not display comprehensive total_energy as electricity', () => 
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '0 kWh')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
 })
 
-test('ticker honors unavailable energy flag with zero value and muted tone', () => {
+test('ticker honors unavailable energy flag with pending value and muted tone', () => {
   const items = buildLiveTickerItems({
     energy_summary: {
       data_available: false,
@@ -199,8 +199,8 @@ test('ticker honors unavailable energy flag with zero value and muted tone', () 
     },
   })
 
-  assert.equal(items.find((item) => item.label === '总电耗')?.value, '0 kWh')
-  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '0 kWh/吨')
+  assert.equal(items.find((item) => item.label === '总电耗')?.value, '待同步')
+  assert.equal(items.find((item) => item.label === '吨电耗')?.value, '待同步')
   assert.equal(items.find((item) => item.label === '总电耗')?.tone, 'muted')
 })
 
@@ -321,7 +321,7 @@ test('metric comparison does not display total_energy as total electricity', () 
     },
   })
 
-  assert.equal(items[1].primaryValue, '0 kWh')
+  assert.equal(items[1].primaryValue, '待同步')
   assert.equal(items[1].compareValue, '17,020 kWh')
 })
 
@@ -335,14 +335,14 @@ test('metric comparison honors unavailable energy flag instead of showing fake z
     },
   })
 
-  assert.equal(items[1].primaryValue, '0 kWh')
-  assert.equal(items[1].compareValue, '0 kWh')
-  assert.equal(items[2].primaryValue, '0 kWh/吨')
+  assert.equal(items[1].primaryValue, '待同步')
+  assert.equal(items[1].compareValue, '待同步')
+  assert.equal(items[2].primaryValue, '待同步')
 })
 
 test('event rail and trusted metric formatting expose empty, error and disconnected states', () => {
-  assert.equal(formatTrustedMetric(null, 'kWh'), '0 kWh')
-  assert.equal(formatTrustedMetric(undefined, '吨'), '0 吨')
+  assert.equal(formatTrustedMetric(null, 'kWh'), '待同步')
+  assert.equal(formatTrustedMetric(undefined, '吨'), '待同步')
   assert.equal(formatTrustedMetric(0, 'kWh'), '0 kWh')
 
   const events = buildLiveEventItems({

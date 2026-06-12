@@ -40,7 +40,7 @@ test('SystemSettingsPage exposes MES supplement readiness without changing setti
   assert.match(src, /data-testid="system-settings-mes-readiness"/)
   assert.match(src, /MES 补录就绪/)
   assert.match(src, /data-testid="system-settings-generic-terminals"/)
-  assert.match(src, /PC 终端待绑定/)
+  assert.match(src, /PC 终端待建映射/)
   assert.match(src, /generic_terminals/)
   assert.match(src, /fetchMesSupplementReadiness\(\{ limit: 100 \}\)/)
   assert.match(src, /readinessRate\('cold_roll_sequence_rate'\)/)

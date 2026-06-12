@@ -9,6 +9,7 @@ const FD_ROUTE = '/manage/alerts?surface=anomaly'
 const Q_ROUTE = '/manage/alerts?surface=quality'
 const R_ROUTE = '/manage/alerts?surface=reconciliation'
 const MES_ROUTE = '/manage/fill-details'
+const REPORTING_ROUTE = '/manage/fill-details'
 
 function safeArray(v) {
   return Array.isArray(v) ? v : []
@@ -144,6 +145,15 @@ function mesGapDetail(row) {
   ], ' · ')
 }
 
+function numberValue(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
+}
+
+function statusIsMissing(status) {
+  return !['submitted', 'approved', 'auto_confirmed', 'confirmed', '已填', '已提交'].includes(String(status || '').toLowerCase())
+}
+
 export function normalizeFactoryDirector(payload, targetDate) {
   const lane = payload && payload.exception_lane
   if (!lane) return []
@@ -209,6 +219,67 @@ export function normalizeMesFillGaps(payload, targetDate) {
       detailRoute: MES_ROUTE,
       status: 'open'
     }))
+}
+
+export function normalizeLiveMissingReports(payload, targetDate) {
+  const progress = payload?.overall_progress || payload?.overallProgress || {}
+  const pending = progress.pending_assignment || progress.pendingAssignment || {}
+  const ownerStatus = payload?.owner_daily_status || payload?.ownerDailyStatus || {}
+  const out = []
+  const missingCellCount = numberValue(progress.missing_cell_count ?? progress.missingCellCount)
+  const pendingCount = numberValue(pending.entry_count ?? pending.entryCount)
+  const missingMachineCount = numberValue(pending.missing_machine_count ?? pending.missingMachineCount)
+  const missingShiftCount = numberValue(pending.missing_shift_count ?? pending.missingShiftCount)
+
+  if (missingCellCount > 0) {
+    out.push({
+      id: 'live-missing:missing-cells',
+      domain: 'reporting',
+      occurredAt: `${targetDate}T23:59:59`,
+      summary: `缺报 ${missingCellCount} 个填报单元`,
+      detail: joinNonEmpty([
+        pendingCount > 0 ? `待归属 ${pendingCount} 条` : '',
+        missingMachineCount > 0 ? `缺机列 ${missingMachineCount} 条` : '',
+        missingShiftCount > 0 ? `缺班次 ${missingShiftCount} 条` : '',
+      ], ' · '),
+      detailRoute: REPORTING_ROUTE,
+      status: 'open',
+    })
+  }
+
+  if (pendingCount > 0) {
+    out.push({
+      id: 'live-missing:pending-assignment',
+      domain: 'reporting',
+      occurredAt: `${targetDate}T23:59:58`,
+      summary: `待归属填报 ${pendingCount} 条`,
+      detail: joinNonEmpty([
+        missingMachineCount > 0 ? `缺机列 ${missingMachineCount} 条` : '',
+        missingShiftCount > 0 ? `缺班次 ${missingShiftCount} 条` : '',
+      ], ' · '),
+      detailRoute: REPORTING_ROUTE,
+      status: 'open',
+    })
+  }
+
+  safeArray(ownerStatus.items).forEach((row, idx) => {
+    if (!statusIsMissing(row.status || row.submit_status || row.submitStatus)) return
+    out.push({
+      id: `live-missing-owner:${row.role_label || row.role || idx}:${row.person_name || row.username || idx}`,
+      domain: 'reporting',
+      occurredAt: row.updated_at || row.created_at || `${targetDate}T23:59:57`,
+      summary: `未填报角色：${joinNonEmpty([
+        row.role_label || row.role,
+        row.person_name || row.username,
+        row.workshop_name,
+      ], ' · ')}`,
+      detail: row.status_label || row.status || '待提交',
+      detailRoute: REPORTING_ROUTE,
+      status: 'open',
+    })
+  })
+
+  return out
 }
 
 export function mergeAndSort(eventsArrays) {

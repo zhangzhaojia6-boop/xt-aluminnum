@@ -16,7 +16,6 @@ test('business date defaults: manage pages use the 07:30 production anchor', () 
     'src/views/manage/live/LiveDashboardPage.vue',
     'src/views/reports/LiveDashboard.vue',
     'src/views/reports/ReportList.vue',
-    'src/views/energy/EnergyCenter.vue',
     'src/views/attendance/AttendanceOverview.vue',
     'src/views/attendance/ExceptionList.vue',
     'src/components/manage/DateSwitcher.vue',
@@ -26,6 +25,17 @@ test('business date defaults: manage pages use the 07:30 production anchor', () 
   for (const file of files) {
     const source = readSource(file)
     assert.match(source, /inferBusinessDate/, `${file} should use the production business day`)
+    assert.doesNotMatch(source, /dayjs\(\)\.format\('YYYY-MM-DD'\)/, `${file} should not default to calendar today`)
+  }
+})
+
+test('business date defaults: historical ledger pages use the last completed business day', () => {
+  for (const file of [
+    'src/views/energy/EnergyCenter.vue',
+    'src/views/manage/fill-details/FillDetailsPage.vue',
+  ]) {
+    const source = readSource(file)
+    assert.match(source, /inferLastCompletedBusinessDate/, `${file} should use the last completed business day`)
     assert.doesNotMatch(source, /dayjs\(\)\.format\('YYYY-MM-DD'\)/, `${file} should not default to calendar today`)
   }
 })

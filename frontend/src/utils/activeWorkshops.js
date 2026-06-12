@@ -102,6 +102,7 @@ export function filterActiveWorkshopRows(rows = []) {
 
     const normalizedName = normalizeWorkshopName(rawName)
     const normalizedRow = { ...row }
+    if ('name' in normalizedRow) normalizedRow.name = normalizedName
     if ('workshop' in normalizedRow) normalizedRow.workshop = normalizedName
     if ('workshop_name' in normalizedRow) normalizedRow.workshop_name = normalizedName
     if ('workshopName' in normalizedRow) normalizedRow.workshopName = normalizedName

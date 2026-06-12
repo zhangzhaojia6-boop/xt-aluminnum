@@ -197,7 +197,7 @@ import { fetchEnergySummary } from '../../api/energy'
 import DateSwitcher from '../../components/manage/DateSwitcher.vue'
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import { formatShiftLabel } from '../../utils/display'
-import { inferBusinessDate } from '../../utils/shiftClock'
+import { inferLastCompletedBusinessDate } from '../../utils/shiftClock'
 import { buildEnergyStitchSurface } from '../../utils/stitchManageSurface.js'
 import { normalizeWorkshopName } from '../../utils/activeWorkshops.js'
 
@@ -218,7 +218,7 @@ const WORKSHOP_CODE_LABELS = {
 }
 
 const filters = reactive({
-  business_date: inferBusinessDate()
+  business_date: inferLastCompletedBusinessDate()
 })
 const rows = ref([])
 const loading = ref(false)
@@ -285,6 +285,7 @@ function formatWorkshopLabel(value) {
 
 function formatEnergySourceLabel(row = {}) {
   if (row.source_label) return row.source_label
+  if (row.source === 'mes_packaging_output_basis') return 'MES包装产量'
   if (row.source === 'iot_shadow') return '物联网采集'
   if (row.source === 'mobile_shift_report') return '电工填报'
   if (row.source === 'owner_only') return '内勤填报'

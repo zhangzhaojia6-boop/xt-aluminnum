@@ -33,6 +33,7 @@ function normalizeUser(user) {
     ...user,
     assigned_shift_ids: user.assigned_shift_ids || [],
     data_scope_type: user.data_scope_type || 'self_team',
+    entry_surface: Boolean(user.entry_surface) || Boolean(user.is_mobile_user),
     is_mobile_user: Boolean(user.is_mobile_user),
     is_reviewer: Boolean(user.is_reviewer) || role === 'workshop_director',
     is_manager: Boolean(user.is_manager) || role === 'workshop_director',
@@ -81,7 +82,7 @@ export const useAuthStore = defineStore('auth', {
       return this.isAdmin || (this.isReviewer && (this.dataScopeType === 'all' || this.user?.workshop_id == null))
     },
     canAccessFillSurface() {
-      return this.isMobileUser
+      return this.isMobileUser || Boolean(this.user?.entry_surface)
     },
     entrySurface() {
       return this.canAccessFillSurface
