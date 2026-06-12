@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.1] - 2026-06-12
+
+### Changed
+- 完成 Stitch + image2 前端重构分阶段验收记录，明确管理端、手机填报端和核心指标页继续接入真实接口字段，不放假数字。
+- 日报、能耗、手机扫码入口的展示口径更清楚，MES 数据、人工填报和算法结果继续分开呈现。
+
+### Fixed
+- 根目录后端测试门禁改为只收集真实后端测试目录，避免误扫临时缓存目录导致 Windows 权限失败。
+- 手机端可选 MES 待补录请求失败时不再误触发退出登录，扫码填报主流程更稳。
+
 ## [0.4.3] - 2026-06-09
 
 ### Added
