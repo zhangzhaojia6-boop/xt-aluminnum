@@ -91,7 +91,9 @@
           <div class="energy-center__table" data-testid="energy-center-table">
             <ReferenceDataTable :data="energyRows" stripe>
               <el-table-column prop="business_date" label="业务日期" width="100" />
-              <el-table-column prop="workshop_code" label="车间" width="92" />
+              <el-table-column prop="workshop_code" label="车间" width="92">
+                <template #default="{ row }">{{ formatWorkshopLabel(row.workshop_code) }}</template>
+              </el-table-column>
               <el-table-column prop="shift_code" label="班次" width="84">
                 <template #default="{ row }">
                   <span class="energy-center__shift">{{ formatShiftLabel(row.shift_code, '-') }}</span>
@@ -134,7 +136,7 @@
               :key="`${row.business_date}-${row.workshop_code}-${row.shift_code}-${row.source || 'energy'}`"
             >
               <div class="energy-center__mobile-title">
-                <span>{{ row.workshop_code || '-' }}</span>
+                <span>{{ formatWorkshopLabel(row.workshop_code) }}</span>
                 <em>{{ formatShiftLabel(row.shift_code, '-') }}</em>
               </div>
               <div class="energy-center__mobile-grid">
@@ -197,6 +199,23 @@ import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vu
 import { formatShiftLabel } from '../../utils/display'
 import { inferBusinessDate } from '../../utils/shiftClock'
 import { buildEnergyStitchSurface } from '../../utils/stitchManageSurface.js'
+import { normalizeWorkshopName } from '../../utils/activeWorkshops.js'
+
+const WORKSHOP_CODE_LABELS = {
+  ZD: '铸锭',
+  ZR2: '铸二',
+  ZR3: '铸三',
+  RZ: '热轧',
+  CH: '淬火车间',
+  JZ: '精整',
+  LJ: '拉矫',
+  JQ: '园区剪切',
+  'ZXTF-N': '新厂在线',
+  'ZXTF-P': '园区在线',
+  LZ1650: '冷轧1650',
+  LZ1850: '冷轧1850',
+  LZ2050: '冷轧2050',
+}
 
 const filters = reactive({
   business_date: inferBusinessDate()
@@ -256,6 +275,12 @@ function formatStat(value) {
 function formatCell(value) {
   if (value === null || value === undefined || value === '') return '-'
   return formatStat(toNumber(value))
+}
+
+function formatWorkshopLabel(value) {
+  const text = String(value || '').trim()
+  if (!text) return '-'
+  return WORKSHOP_CODE_LABELS[text] || normalizeWorkshopName(text)
 }
 
 function formatEnergySourceLabel(row = {}) {

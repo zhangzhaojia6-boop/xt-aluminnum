@@ -99,7 +99,7 @@ def test_inspect_pilot_config_passes_with_minimum_valid_setup() -> None:
     assert result["hard_issues"] == []
 
 
-def test_inspect_pilot_config_counts_only_twelve_production_workshops() -> None:
+def test_inspect_pilot_config_counts_only_thirteen_production_workshops() -> None:
     workshops = [
         SimpleNamespace(id=index + 1, code=code, name=code, is_active=True)
         for index, code in enumerate(
@@ -109,7 +109,6 @@ def test_inspect_pilot_config_counts_only_twelve_production_workshops() -> None:
                 "ZR6",
                 "HS",
                 "CPK",
-                "CH",
                 "ZXTF",
             ]
         )
@@ -151,7 +150,7 @@ def test_inspect_pilot_config_counts_only_twelve_production_workshops() -> None:
 
     result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
 
-    assert result["stats"]["active_workshop_count"] == 12
+    assert result["stats"]["active_workshop_count"] == 13
     assert result["stats"]["active_database_workshop_count"] == 18
 
 

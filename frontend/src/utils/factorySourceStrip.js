@@ -26,14 +26,15 @@ export function buildFactorySourceStrip(overview = {}) {
   const freshness = overview.freshness || {}
   const source = String(overview.source || freshness.source || 'unknown')
   const status = String(freshness.status || '')
+  const processOutput = overview.process_output_tons ?? overview.total_output_tons
   return {
     source,
     status,
     sourceLabel: sourceLabel(source),
     tone: sourceTone(source, status),
     items: [
-      { key: 'inbound', label: '入库产量', value: formatValue(overview.today_output_tons), unit: '吨' },
-      { key: 'process', label: '过站下机', value: formatValue(overview.total_output_tons), unit: '吨' },
+      { key: 'inbound', label: 'MES 入库产量', value: formatValue(overview.today_output_tons), unit: '吨' },
+      { key: 'process', label: '过站下机参考', value: formatValue(processOutput), unit: '吨' },
       { key: 'wip', label: '在制', value: formatValue(overview.wip_tons), unit: '吨' },
       { key: 'yield', label: '成品率', value: formatValue(overview.yield_rate), unit: '%' },
     ],

@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import resolve_production_business_date
+from app.core.active_workshops import normalize_workshop_name, workshop_name_query_tokens
 from app.core.scope import ScopeSummary
 from app.core.report_statuses import READY_REPORT_STATUSES
 from app.models.master import Equipment, MasterCodeAlias, Workshop
@@ -59,6 +60,20 @@ def _number(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _canonical_workshop_name(value: Any, fallback: str = '未识别车间') -> str:
+    normalized = normalize_workshop_name(value)
+    return normalized or fallback
+
+
+def _canonical_workshop_name_or_none(value: Any) -> str | None:
+    normalized = normalize_workshop_name(value)
+    return normalized or None
+
+
+def _workshop_tokens(value: Any) -> set[str]:
+    return {str(token).strip() for token in workshop_name_query_tokens(value) if str(token).strip()}
 
 
 def _int_number(value: Any) -> int:
@@ -209,6 +224,7 @@ def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] 
             token
             for token in (
                 getattr(workshop, 'name', None),
+                _canonical_workshop_name(getattr(workshop, 'name', None), fallback=''),
                 getattr(workshop, 'code', None),
             )
             if token
@@ -232,7 +248,10 @@ def _matches_workshop(value: Any, tokens: set[str] | None) -> bool:
         return True
     if not tokens:
         return False
-    return str(value or '').strip() in tokens
+    text = str(value or '').strip()
+    if text in tokens:
+        return True
+    return _canonical_workshop_name(text, fallback='') in tokens
 
 
 def _bounded_limit(value: int | None) -> int:
@@ -435,7 +454,7 @@ def _latest_local_business_date(db: Session, *, fallback: date, scope: ScopeSumm
 
 def _workshop_name_map(db: Session) -> dict[int, str]:
     return {
-        int(row.id): str(row.name)
+        int(row.id): _canonical_workshop_name(getattr(row, 'name', None), fallback=str(row.name))
         for row in _safe_all(db, Workshop)
         if getattr(row, 'id', None) is not None
     }
@@ -478,7 +497,8 @@ def _workshop_expression(workshop: str | None):
     text = str(workshop or '').strip()
     if not text:
         return None
-    return or_(MesCoilSnapshot.current_workshop == text, MesCoilSnapshot.workshop_code == text)
+    tokens = _workshop_tokens(text)
+    return or_(MesCoilSnapshot.current_workshop.in_(tokens), MesCoilSnapshot.workshop_code.in_(tokens))
 
 
 def _filter_text_expression(query: str | None):
@@ -579,10 +599,16 @@ def _filter_coils(
     query: str | None = None,
 ) -> list[Any]:
     workshop_text = str(workshop or '').strip()
+    workshop_tokens = _workshop_tokens(workshop_text) if workshop_text else set()
     return [
         row
         for row in rows
-        if (not workshop_text or str(getattr(row, 'current_workshop', '') or '').strip() == workshop_text or str(getattr(row, 'workshop_code', '') or '').strip() == workshop_text)
+        if (
+            not workshop_text
+            or str(getattr(row, 'current_workshop', '') or '').strip() in workshop_tokens
+            or _canonical_workshop_name(getattr(row, 'current_workshop', None), fallback='') in workshop_tokens
+            or str(getattr(row, 'workshop_code', '') or '').strip() in workshop_tokens
+        )
         and _matches_destination_filter(row, destination)
         and _matches_filter_text(row, query)
     ]
@@ -685,7 +711,7 @@ def _line_code_for_coil(row: Any, line_aliases: Mapping[str, str]) -> str:
         if line_code:
             return line_code
     slot_no = _slot_no(machine_code)
-    workshop = str(getattr(row, 'current_workshop', None) or '').strip()
+    workshop = _canonical_workshop_name(getattr(row, 'current_workshop', None), fallback='')
     if workshop and slot_no is not None:
         return f'{workshop}:{slot_no:02d}'
     return machine_code
@@ -814,7 +840,7 @@ def _build_overview_from_mes_extended(
     total_input = sum(_number(getattr(row, 'input_weight_tons', None)) for row in process_rows)
     total_output = sum(_number(getattr(row, 'output_weight_tons', None)) for row in process_rows)
     today_output = sum(_number(getattr(row, 'net_weight_tons', None)) for row in today_stock_rows)
-    stock_total = sum(_number(getattr(row, 'net_weight_tons', None)) for row in stock_rows)
+    stock_total = today_output
     daily_wip_total = sum(_number(getattr(row, 'material_weight_tons', None)) for row in daily_wip_rows)
     wip_total = daily_wip_total if daily_wip_rows else sum(_number(getattr(row, 'doing_weight_tons', None)) for row in wip_rows)
     if wip_total <= 0 and total_input > 0:
@@ -822,7 +848,7 @@ def _build_overview_from_mes_extended(
 
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in process_rows:
-        grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+        grouped[_canonical_workshop_name(getattr(row, 'workshop_name', None))].append(row)
     workshop_summary = []
     for workshop_name, rows in grouped.items():
         workshop_input = sum(_number(getattr(row, 'input_weight_tons', None)) for row in rows)
@@ -839,7 +865,7 @@ def _build_overview_from_mes_extended(
     if not workshop_summary and daily_wip_rows:
         wip_grouped: dict[str, list[Any]] = defaultdict(list)
         for row in daily_wip_rows:
-            wip_grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+            wip_grouped[_canonical_workshop_name(getattr(row, 'workshop_name', None))].append(row)
         for workshop_name, rows in wip_grouped.items():
             workshop_summary.append(
                 {
@@ -850,11 +876,10 @@ def _build_overview_from_mes_extended(
                     'yield_rate': None,
                 }
             )
-    yield_rate = round(total_output / total_input * 100, 2) if total_input else None
-    if yield_rate is None and yield_rows:
-        rates = [_number(getattr(row, 'yield_rate', None)) for row in yield_rows]
-        rates = [value for value in rates if value > 0]
-        yield_rate = round(sum(rates) / len(rates), 2) if rates else None
+    process_yield_rate = round(total_output / total_input * 100, 2) if total_input else None
+    rates = [_number(getattr(row, 'yield_rate', None)) for row in yield_rows]
+    rates = [value for value in rates if value > 0]
+    yield_rate = round(sum(rates) / len(rates), 2) if rates else None
 
     missing_data = ['cost_inputs']
     response_freshness = _mes_extended_freshness(freshness)
@@ -867,7 +892,11 @@ def _build_overview_from_mes_extended(
         'stock_tons': round(stock_total, 4),
         'total_input_tons': round(total_input, 4),
         'total_output_tons': round(total_output, 4),
+        'process_output_tons': round(total_output, 4),
         'yield_rate': yield_rate,
+        'process_yield_rate': process_yield_rate,
+        'output_basis': 'mes_stock_records' if today_output > 0 else 'none',
+        'process_output_basis': 'mes_workshop_process_records' if process_rows else 'none',
         'workshop_summary': sorted(workshop_summary, key=lambda item: item['total_output_tons'], reverse=True),
         'abnormal_count': abnormal_count,
         'cost_estimate': _estimate(missing_data=missing_data),
@@ -990,7 +1019,7 @@ def _overview_from_live_aggregation(
     factory_total = payload.get('factory_total') or {}
     total_input = _number(factory_total.get('input'))
     total_output = _number(factory_total.get('output'))
-    workshop_summary = []
+    grouped_summary: dict[str, dict[str, Any]] = {}
     for workshop in payload.get('workshops') or []:
         workshop_total = workshop.get('workshop_total') or {}
         row_count = int(workshop_total.get('total_entry_count') or 0)
@@ -998,16 +1027,24 @@ def _overview_from_live_aggregation(
         if row_count <= 0 and output <= 0:
             continue
         input_weight = _number(workshop_total.get('input'))
-        workshop_summary.append(
+        workshop_name = _canonical_workshop_name(
+            workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}",
+        )
+        existing = grouped_summary.setdefault(
+            workshop_name,
             {
                 'workshop_id': workshop.get('workshop_id'),
-                'workshop_name': workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}",
-                'row_count': row_count,
-                'total_input_tons': round(input_weight, 4),
-                'total_output_tons': round(output, 4),
+                'workshop_name': workshop_name,
+                'row_count': 0,
+                'total_input_tons': 0.0,
+                'total_output_tons': 0.0,
                 'yield_rate': workshop_total.get('yield_rate'),
-            }
+            },
         )
+        existing['row_count'] += row_count
+        existing['total_input_tons'] = round(existing['total_input_tons'] + input_weight, 4)
+        existing['total_output_tons'] = round(existing['total_output_tons'] + output, 4)
+    workshop_summary = list(grouped_summary.values())
     progress = payload.get('overall_progress') or {}
     return {
         'business_date': str(payload.get('business_date') or ''),
@@ -1018,7 +1055,11 @@ def _overview_from_live_aggregation(
         'stock_tons': round(total_output, 4),
         'total_input_tons': round(total_input, 4),
         'total_output_tons': round(total_output, 4),
+        'process_output_tons': round(total_output, 4),
         'yield_rate': factory_total.get('yield_rate'),
+        'process_yield_rate': factory_total.get('yield_rate'),
+        'output_basis': 'live_aggregation',
+        'process_output_basis': 'live_aggregation_factory_total',
         'workshop_summary': sorted(workshop_summary, key=lambda item: item['total_output_tons'], reverse=True),
         'abnormal_count': int(progress.get('attention_cell_count') or 0) + int(progress.get('missing_cell_count') or 0),
         'cost_estimate': _estimate(missing_data=['cost_inputs']),
@@ -1033,22 +1074,28 @@ def _workshops_from_live_aggregation(
 ) -> list[dict[str, Any]]:
     source = _live_payload_source(payload)
     response_freshness = _live_source_freshness(freshness, source)
-    items = []
+    by_name: dict[str, dict[str, Any]] = {}
     for workshop in payload.get('workshops') or []:
         total = workshop.get('workshop_total') or {}
         row_count = int(total.get('total_entry_count') or 0)
         output = _number(total.get('output'))
         if row_count <= 0 and output <= 0:
             continue
-        items.append(
-            {
-                'workshop_name': workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}",
+        workshop_name = _canonical_workshop_name(workshop.get('workshop_name') or f"车间{workshop.get('workshop_id')}")
+        existing = by_name.get(workshop_name)
+        if existing is None:
+            by_name[workshop_name] = {
+                'workshop_name': workshop_name,
                 'active_coil_count': row_count,
                 'active_tons': round(output, 4),
                 'stalled_count': _live_workshop_attention_count(workshop),
                 'freshness': response_freshness,
             }
-        )
+            continue
+        existing['active_coil_count'] += row_count
+        existing['active_tons'] = round(existing['active_tons'] + output, 4)
+        existing['stalled_count'] += _live_workshop_attention_count(workshop)
+    items = list(by_name.values())
     return sorted(items, key=lambda item: item['active_tons'], reverse=True)
 
 
@@ -1063,7 +1110,7 @@ def _machine_lines_from_live_aggregation(
     equipment_by_id = _equipment_map(db)
     items = []
     for workshop in payload.get('workshops') or []:
-        workshop_name = workshop.get('workshop_name')
+        workshop_name = _canonical_workshop_name_or_none(workshop.get('workshop_name'))
         for machine in workshop.get('machines') or []:
             machine_id = machine.get('machine_id')
             shifts = machine.get('shifts') or []
@@ -1312,7 +1359,7 @@ def _list_workshops_from_mes_extended(
         daily_wip_rows = _daily_wip_rows_for_date(db, target_date=target_date, scope=scope)
         grouped_wip: dict[str, list[Any]] = defaultdict(list)
         for row in daily_wip_rows:
-            grouped_wip[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+            grouped_wip[_canonical_workshop_name(getattr(row, 'workshop_name', None))].append(row)
         return sorted(
             [
                 {
@@ -1329,7 +1376,7 @@ def _list_workshops_from_mes_extended(
         )
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in rows:
-        grouped[str(getattr(row, 'workshop_name', None) or '未识别车间')].append(row)
+        grouped[_canonical_workshop_name(getattr(row, 'workshop_name', None))].append(row)
     items = []
     for workshop_name, workshop_rows in grouped.items():
         items.append(
@@ -1376,7 +1423,7 @@ def list_workshops(
 
     grouped: dict[str, list[Any]] = defaultdict(list)
     for row in _scoped_coils(db, scope=scope):
-        grouped[getattr(row, 'current_workshop', None) or '未识别车间'].append(row)
+        grouped[_canonical_workshop_name(getattr(row, 'current_workshop', None))].append(row)
     items = []
     for workshop_name, rows in grouped.items():
         items.append(
@@ -1404,8 +1451,9 @@ def list_workshops(
         )
         if extended_items:
             return extended_items
-    by_name = {str(item['workshop_name']): item for item in items}
+    by_name = {_canonical_workshop_name(item['workshop_name']): item for item in items}
     for local_item in local_items:
+        local_item['workshop_name'] = _canonical_workshop_name(local_item['workshop_name'])
         existing = by_name.get(str(local_item['workshop_name']))
         if existing is None:
             items.append(local_item)
@@ -1513,7 +1561,9 @@ def list_machine_lines(
             {
                 'line_code': line_code,
                 'line_name': getattr(line, 'line_name', None),
-                'workshop_name': getattr(line, 'workshop_name', None) or (getattr(rows[0], 'current_workshop', None) if rows else None),
+                'workshop_name': _canonical_workshop_name_or_none(
+                    getattr(line, 'workshop_name', None) or (getattr(rows[0], 'current_workshop', None) if rows else None)
+                ),
                 'active_coil_count': len(active_rows),
                 'active_tons': round(sum(_weight(row) for row in active_rows), 4),
                 'finished_tons': round(sum(_weight(row) for row in finished_rows), 4),
@@ -1584,11 +1634,11 @@ def list_coils(
             **_process_weight_payload(latest_process_by_batch.get(str(getattr(row, 'batch_no', '') or '').strip())),
             'line_code': _line_code_for_coil(row, line_aliases),
             'machine_code': getattr(row, 'machine_code', None),
-            'previous_workshop': getattr(events.get(row.coil_id), 'previous_workshop', None),
+            'previous_workshop': _canonical_workshop_name_or_none(getattr(events.get(row.coil_id), 'previous_workshop', None)),
             'previous_process': getattr(events.get(row.coil_id), 'previous_process', None),
-            'current_workshop': getattr(row, 'current_workshop', None),
+            'current_workshop': _canonical_workshop_name_or_none(getattr(row, 'current_workshop', None)),
             'current_process': getattr(row, 'current_process', None),
-            'next_workshop': getattr(row, 'next_workshop', None),
+            'next_workshop': _canonical_workshop_name_or_none(getattr(row, 'next_workshop', None)),
             'next_process': getattr(row, 'next_process', None),
             'destination': _destination(row),
         }
@@ -1620,11 +1670,15 @@ def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = No
         'coil_key': coil_key,
         'tracking_card_no': getattr(row, 'tracking_card_no', None),
         **_process_weight_payload(latest_process_by_batch.get(batch_no)),
-        'previous_workshop': getattr(event, 'previous_workshop', None),
+        'previous_workshop': _canonical_workshop_name_or_none(getattr(event, 'previous_workshop', None)),
         'previous_process': getattr(event, 'previous_process', None),
-        'current_workshop': getattr(row, 'current_workshop', None) if row else getattr(event, 'current_workshop', None),
+        'current_workshop': _canonical_workshop_name_or_none(
+            getattr(row, 'current_workshop', None) if row else getattr(event, 'current_workshop', None),
+        ),
         'current_process': getattr(row, 'current_process', None) if row else getattr(event, 'current_process', None),
-        'next_workshop': getattr(row, 'next_workshop', None) if row else getattr(event, 'next_workshop', None),
+        'next_workshop': _canonical_workshop_name_or_none(
+            getattr(row, 'next_workshop', None) if row else getattr(event, 'next_workshop', None),
+        ),
         'next_process': getattr(row, 'next_process', None) if row else getattr(event, 'next_process', None),
         'destination': _destination(row) if row else {'kind': 'unknown', 'label': '未知'},
         'freshness': build_freshness(db),

@@ -443,9 +443,13 @@ def test_factory_overview_uses_mes_extended_tables_when_local_rows_absent(monkey
     assert overview['freshness']['source'] == 'mes_extended'
     assert overview['total_input_tons'] == 20.0
     assert overview['total_output_tons'] == 18.5
-    assert overview['yield_rate'] == 92.5
+    assert overview['process_output_tons'] == 18.5
+    assert overview['yield_rate'] == 93.3
+    assert overview['process_yield_rate'] == 92.5
     assert overview['today_output_tons'] == 6.2
-    assert overview['stock_tons'] == 8.5
+    assert overview['stock_tons'] == 6.2
+    assert overview['output_basis'] == 'mes_stock_records'
+    assert overview['process_output_basis'] == 'mes_workshop_process_records'
     assert overview['wip_tons'] == 13.5
     assert overview['workshop_summary'] == [
         {
@@ -461,6 +465,74 @@ def test_factory_overview_uses_mes_extended_tables_when_local_rows_absent(monkey
             'total_input_tons': 8.0,
             'total_output_tons': 7.1,
             'yield_rate': 88.75,
+        },
+    ]
+
+
+def test_factory_overview_canonicalizes_workshops_and_keeps_mes_tonnage_bases_separate(monkeypatch):
+    db = _FakeDB(
+        process_records=[
+            SimpleNamespace(
+                id=1,
+                workshop_name='铸轧二',
+                input_weight_tons=8.0,
+                output_weight_tons=7.0,
+                business_date=date(2026, 6, 11),
+            ),
+            SimpleNamespace(
+                id=2,
+                workshop_name='铸二',
+                input_weight_tons=3.0,
+                output_weight_tons=2.5,
+                business_date=date(2026, 6, 11),
+            ),
+            SimpleNamespace(
+                id=3,
+                workshop_name='园区淬火',
+                input_weight_tons=2.0,
+                output_weight_tons=1.9,
+                business_date=date(2026, 6, 11),
+            ),
+        ],
+        stock_records=[
+            SimpleNamespace(
+                id=1,
+                net_weight_tons=4.2,
+                business_date=date(2026, 6, 11),
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {'lag_seconds': 30, 'source': 'mes_sqlserver', 'status': 'fresh'},
+    )
+    monkeypatch.setattr(factory_command_service, '_should_use_local_shift_data', lambda _db, _freshness: False)
+
+    overview = factory_command_service.build_overview(db, now=date(2026, 6, 11))
+
+    assert overview['today_output_tons'] == 4.2
+    assert overview['stock_tons'] == 4.2
+    assert overview['total_output_tons'] == 11.4
+    assert overview['process_output_tons'] == 11.4
+    assert overview['yield_rate'] is None
+    assert overview['process_yield_rate'] == 87.69
+    assert overview['output_basis'] == 'mes_stock_records'
+    assert overview['process_output_basis'] == 'mes_workshop_process_records'
+    assert overview['workshop_summary'] == [
+        {
+            'workshop_name': '铸二',
+            'row_count': 2,
+            'total_input_tons': 11.0,
+            'total_output_tons': 9.5,
+            'yield_rate': 86.36,
+        },
+        {
+            'workshop_name': '淬火车间',
+            'row_count': 1,
+            'total_input_tons': 2.0,
+            'total_output_tons': 1.9,
+            'yield_rate': 95.0,
         },
     ]
 
@@ -879,7 +951,7 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
     assert overview['today_output_tons'] == 9.7
     live_line = next(item for item in lines if item['line_code'] == 'LZ2050-1')
     assert live_line['line_name'] == '2050轧机'
-    assert live_line['workshop_name'] == '2050冷轧车间'
+    assert live_line['workshop_name'] == '冷轧2050'
     assert live_line['active_coil_count'] == 1
     assert live_line['active_tons'] == 9.7
     assert live_line['finished_tons'] == 9.7
@@ -896,7 +968,7 @@ def test_factory_command_uses_live_fill_entries_with_mes_machine_binding(tmp_pat
     assert live_line['freshness']['source'] == 'mixed'
     assert workshops == [
         {
-            'workshop_name': '2050冷轧车间',
+            'workshop_name': '冷轧2050',
             'active_coil_count': 1,
             'active_tons': 9.7,
             'stalled_count': 1,

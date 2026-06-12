@@ -230,6 +230,7 @@ import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
 import { downloadBlob } from '../../../utils/downloadBlob.js'
+import { filterActiveWorkshopRows } from '../../../utils/activeWorkshops.js'
 import { buildFillDetailsStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildAuditTickerItems,
@@ -399,7 +400,7 @@ function rowKey(row) {
 async function loadWorkshops() {
   if (workshopsLoaded.value || !canChooseWorkshop.value) return
   try {
-    workshops.value = await fetchWorkshops({ limit: 300 })
+    workshops.value = filterActiveWorkshopRows(await fetchWorkshops({ limit: 300 }))
   } catch {
     workshops.value = []
   } finally {

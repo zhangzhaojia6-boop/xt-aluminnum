@@ -33,7 +33,11 @@ class FactoryOverviewOut(BaseModel):
     stock_tons: float = 0.0
     total_input_tons: float = 0.0
     total_output_tons: float = 0.0
+    process_output_tons: float | None = None
     yield_rate: float | None = None
+    process_yield_rate: float | None = None
+    output_basis: str | None = None
+    process_output_basis: str | None = None
     workshop_summary: list[dict[str, Any]] = Field(default_factory=list)
     abnormal_count: int = 0
     cost_estimate: FactoryEstimateOut
