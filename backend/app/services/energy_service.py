@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import UploadFile
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -506,7 +506,6 @@ def _load_mobile_shift_energy_rows(
         .filter(
             MobileShiftReport.business_date == business_date,
             MobileShiftReport.report_status.in_(('submitted', 'approved', 'auto_confirmed')),
-            or_(MobileShiftReport.electricity_daily.isnot(None), MobileShiftReport.gas_daily.isnot(None)),
         )
     )
     if workshop_id is not None:
@@ -540,6 +539,8 @@ def _load_mobile_shift_energy_rows(
         detail_totals = machine_totals.get(report.id) or {}
         electricity_value = _prefer_machine_detail_total(report.electricity_daily, detail_totals.get('energy_kwh'))
         gas_value = _prefer_machine_detail_total(report.gas_daily, detail_totals.get('gas_m3'))
+        if not electricity_value and not gas_value:
+            continue
         bucket['electricity_value'] += electricity_value
         bucket['gas_value'] += gas_value
         bucket['total_energy'] += electricity_value + gas_value

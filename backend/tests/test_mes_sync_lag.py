@@ -95,6 +95,32 @@ def test_latest_sync_status_exposes_last_run_fields(monkeypatch):
     assert payload['lag_seconds'] == 360.0
 
 
+def test_latest_sync_status_treats_recent_successful_sync_as_fresh_even_when_source_data_is_idle(monkeypatch):
+    monkeypatch.setattr(mes_sync_service.settings, 'MES_ADAPTER', 'rest_api')
+    cursor = SimpleNamespace(
+        cursor_value='cursor-2',
+        last_event_at=datetime(2026, 4, 11, 1, 0, tzinfo=UTC),
+        last_synced_at=datetime(2026, 4, 11, 2, 5, tzinfo=UTC),
+    )
+    run_log = SimpleNamespace(
+        status='success',
+        started_at=datetime(2026, 4, 11, 2, 4, tzinfo=UTC),
+        finished_at=datetime(2026, 4, 11, 2, 5, tzinfo=UTC),
+        fetched_count=0,
+        upserted_count=0,
+        replayed_count=0,
+        error_message=None,
+    )
+    db = _FakeDB(cursor=cursor, run_log=run_log)
+
+    payload = mes_sync_service.latest_sync_status(db, now=datetime(2026, 4, 11, 2, 6, tzinfo=UTC))
+
+    assert payload['lag_seconds'] == 3960.0
+    assert payload['sync_freshness_seconds'] == 60.0
+    assert payload['status'] == 'fresh'
+    assert payload['action_required'] == 'none'
+
+
 def test_latest_sync_status_reports_unconfigured_without_querying(monkeypatch):
     class NoQueryDB:
         def query(self, model):  # pragma: no cover - should never be called

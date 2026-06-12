@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.adapters import MesAdapter, NullMesAdapter, set_mes_adapter
+from app.adapters import set_mes_adapter
+from app.adapters.factory import create_mes_adapter
 from app.agents.aggregator import aggregator_agent
 from app.agents.aluminum_price_fetcher import aluminum_price_fetcher_agent
 from app.agents.cost_aggregator import cost_aggregator_agent
@@ -25,52 +26,6 @@ from app.services import dingtalk_service
 
 logger = logging.getLogger(__name__)
 configure_json_logging()
-
-
-def create_mes_adapter() -> MesAdapter:
-    adapter_name = (settings.MES_ADAPTER or 'null').strip().lower()
-    if adapter_name == 'null':
-        return NullMesAdapter()
-    if adapter_name == 'rest_api':
-        from app.adapters.rest_api_mes_adapter import RestApiMesAdapter
-
-        return RestApiMesAdapter(
-            base_url=str(settings.MES_API_BASE or '').strip(),
-            api_key=settings.MES_API_KEY,
-            timeout_seconds=settings.MES_API_TIMEOUT_SECONDS,
-            tracking_card_info_path=settings.mes_api_tracking_card_info_path_normalized,
-            coil_snapshots_path=settings.mes_api_coil_snapshots_path_normalized,
-        )
-    if adapter_name in {'xintai', 'xintai_api'}:
-        from app.adapters.xintai_mes_adapter import XintaiMesAdapter
-
-        return XintaiMesAdapter(
-            base_url=str(settings.MES_API_BASE or '').strip(),
-            api_key=str(settings.MES_API_KEY or '').strip(),
-            timeout_seconds=settings.MES_API_TIMEOUT_SECONDS,
-        )
-    if adapter_name == 'mvc':
-        from app.adapters.mvc_mes_adapter import MvcMesAdapter
-
-        return MvcMesAdapter(
-            base_url=str(settings.MES_MVC_BASE_URL or '').strip(),
-            username=str(settings.MES_MVC_USERNAME or '').strip(),
-            password=str(settings.MES_MVC_PASSWORD or ''),
-            timeout_seconds=settings.MES_MVC_TIMEOUT_SECONDS,
-        )
-    if adapter_name == 'sqlserver':
-        from app.adapters.sqlserver_mes_adapter import SqlServerMesAdapter
-
-        return SqlServerMesAdapter(
-            host=str(settings.MES_SQLSERVER_HOST or '').strip(),
-            port=settings.MES_SQLSERVER_PORT,
-            database=str(settings.MES_SQLSERVER_DATABASE or '').strip(),
-            username=str(settings.MES_SQLSERVER_USERNAME or '').strip(),
-            password=str(settings.MES_SQLSERVER_PASSWORD or ''),
-            timeout_seconds=settings.MES_SQLSERVER_TIMEOUT_SECONDS,
-            encrypt=settings.MES_SQLSERVER_ENCRYPT,
-        )
-    raise RuntimeError(f'Unsupported MES_ADAPTER: {settings.MES_ADAPTER}')
 
 
 set_mes_adapter(create_mes_adapter())

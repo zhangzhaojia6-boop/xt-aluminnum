@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.adapters import NullMesAdapter, get_mes_adapter, set_mes_adapter
+from app.adapters.factory import create_mes_adapter
+from app.config import settings
 from app.database import get_sessionmaker
 
 
@@ -21,6 +24,7 @@ def _publish_sync_event(result: dict[str, object]) -> None:
 def _run_sync_group(runner) -> dict[str, object]:
     from app.services import mes_sync_service
 
+    _ensure_mes_adapter_initialized()
     SessionLocal = get_sessionmaker()
     with SessionLocal() as session:
         try:
@@ -37,6 +41,13 @@ def _run_sync_group(runner) -> dict[str, object]:
             raise
     _publish_sync_event(result)
     return result
+
+
+def _ensure_mes_adapter_initialized() -> None:
+    if (settings.MES_ADAPTER or 'null').strip().lower() == 'null':
+        return
+    if isinstance(get_mes_adapter(), NullMesAdapter):
+        set_mes_adapter(create_mes_adapter())
 
 
 def sync_mes_coil_snapshots() -> dict[str, object]:

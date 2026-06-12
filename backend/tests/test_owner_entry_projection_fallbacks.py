@@ -491,6 +491,57 @@ def test_summarize_energy_for_date_uses_machine_energy_records_when_report_total
         db.close()
 
 
+def test_summarize_energy_for_date_uses_machine_energy_records_when_report_total_is_blank(tmp_path) -> None:
+    db = build_session(tmp_path)
+    try:
+        _seed_inventory_owner_rows(db)
+        db.add(
+            MobileShiftReport(
+                id=63,
+                business_date=date(2026, 4, 17),
+                shift_config_id=1,
+                workshop_id=11,
+                team_id=None,
+                leader_user_id=8,
+                leader_name='电工',
+                report_status='submitted',
+                electricity_daily=None,
+                gas_daily=None,
+            )
+        )
+        db.add_all(
+            [
+                MachineEnergyRecord(
+                    shift_report_id=63,
+                    machine_id=None,
+                    machine_code='CPK-1',
+                    machine_name='成品库1号线',
+                    energy_kwh=160.0,
+                    gas_m3=10.0,
+                ),
+                MachineEnergyRecord(
+                    shift_report_id=63,
+                    machine_id=None,
+                    machine_code='CPK-2',
+                    machine_name='成品库2号线',
+                    energy_kwh=40.0,
+                    gas_m3=5.0,
+                ),
+            ]
+        )
+        db.commit()
+
+        payload = summarize_energy_for_date(db, business_date=date(2026, 4, 17))
+
+        assert payload['primary_source'] == 'mobile_shift_report'
+        assert payload['electricity_value'] == 200.0
+        assert payload['gas_value'] == 15.0
+        assert payload['total_energy'] == 215.0
+        assert payload['mobile_totals']['row_count'] == 1
+    finally:
+        db.close()
+
+
 def test_summarize_energy_for_date_uses_mobile_before_import_rows(tmp_path) -> None:
     db = build_session(tmp_path)
     try:
