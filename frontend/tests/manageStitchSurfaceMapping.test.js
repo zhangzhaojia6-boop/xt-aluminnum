@@ -208,6 +208,7 @@ test('live Stitch surface keeps realtime wall slots wired to aggregation and SSE
     'statusBar',
     'realtimeKpiStrip',
     'marketTicker',
+    'processFlow',
     'machineMatrix',
     'mesDistribution',
     'eventRail',

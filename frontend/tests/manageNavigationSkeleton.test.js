@@ -32,7 +32,7 @@ test('owner skeleton exposes current top-level labels', () => {
 test('owner skeleton keeps one stable entry per core surface', () => {
   const groups = manageNavGroups(reviewAuth)
 
-  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 5, 1])
+  assert.deepEqual(groups.map((group) => group.items.length), [1, 1, 6, 1])
 })
 
 test('owner skeleton paths point to current user-facing manage pages', () => {
@@ -44,6 +44,7 @@ test('owner skeleton paths point to current user-facing manage pages', () => {
     '/manage/today',
     '/manage/production',
     '/manage/workshop-dashboard',
+    '/manage/coils',
     '/manage/fill-details',
     '/manage/energy',
     '/manage/alerts',
@@ -60,7 +61,7 @@ test('compact management navigation exposes the same review pages as the compact
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
   assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表', '生产分析'])
-  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/coils', '/manage/fill-details', '/manage/energy'])
 })
 
 test('compact management navigation keeps admin users on the same review pages as compact review users', () => {
@@ -68,7 +69,7 @@ test('compact management navigation keeps admin users on the same review pages a
   const paths = groups.flatMap((group) => group.items.map((item) => item.path))
 
   assert.deepEqual(groups.map((group) => group.label), ['实时调度', '昨日报表', '生产分析'])
-  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
+  assert.deepEqual(paths, ['/manage/live', '/manage/today', '/manage/production', '/manage/coils', '/manage/fill-details', '/manage/energy'])
 })
 
 test('workshop director skeleton only exposes own workshop dashboard', () => {

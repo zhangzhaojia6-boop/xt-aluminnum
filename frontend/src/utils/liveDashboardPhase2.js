@@ -2,6 +2,38 @@ import { compareShiftLabels, formatNumber, formatShiftLabel } from './display.js
 
 const MISSING_TEXT = '待同步'
 const REMOVED_WORKSHOP_NAMES = new Set(['冷轧三车间', '二分厂精整车间'])
+const PROCESS_FLOW_STAGES = [
+  {
+    key: 'casting',
+    stage: '铸轧',
+    match: /铸|熔铸|铸锭/,
+  },
+  {
+    key: 'hot-rolling',
+    stage: '热轧',
+    match: /热轧/,
+  },
+  {
+    key: 'cold-rolling',
+    stage: '冷轧',
+    match: /冷轧|1650|1850|2050/,
+  },
+  {
+    key: 'annealing',
+    stage: '退火',
+    match: /退火/,
+  },
+  {
+    key: 'finishing',
+    stage: '精整',
+    match: /精整|拉矫|剪切|纵剪|横剪/,
+  },
+  {
+    key: 'packaging',
+    stage: '包装入库',
+    match: /包装|成品|入库/,
+  },
+]
 
 function isPresent(value) {
   if (value === null || value === undefined || value === '') return false
@@ -11,6 +43,10 @@ function isPresent(value) {
 function numberValue(value) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
+}
+
+function roundMetric(value, digits = 2) {
+  return Number(Number(value).toFixed(digits))
 }
 
 function pickValue(source = {}, keys = []) {
@@ -234,6 +270,121 @@ export function buildLiveMachineMatrix(workshops = []) {
     pendingMachines,
     machineCount: normalizedWorkshops.reduce((sum, workshop) => sum + workshop.machines.length, 0),
   }
+}
+
+function resolveProcessStage(workshop = {}) {
+  const text = [
+    workshop.workshop_name,
+    workshop.workshopName,
+    workshop.process_name,
+    workshop.processName,
+  ].filter(Boolean).join(' ')
+
+  return PROCESS_FLOW_STAGES.find((stage) => stage.match.test(text)) || null
+}
+
+function dayTotalOf(machine = {}) {
+  return machine.day_total || machine.dayTotal || {}
+}
+
+function workshopTotalOf(workshop = {}) {
+  return workshop.workshop_total || workshop.workshopTotal || {}
+}
+
+function addIfPresent(target, key, value) {
+  if (!isPresent(value)) return
+  target[key] += Number(value)
+  target[`${key}Count`] += 1
+}
+
+function buildFlowAccumulator(stage) {
+  return {
+    key: stage.key,
+    stage: stage.stage,
+    input: 0,
+    inputCount: 0,
+    output: 0,
+    outputCount: 0,
+    scrap: 0,
+    scrapCount: 0,
+    machineCount: 0,
+    pendingMachineCount: 0,
+    workshopNames: new Set(),
+  }
+}
+
+function applyFactoryPackagingOutput(stageMap, aggregation = {}) {
+  const factoryTotal = resolveFactoryTotal(aggregation)
+  const packagingOutput = pickValue(factoryTotal, [
+    'packaging_output',
+    'packagingOutput',
+    'daily_output',
+    'dailyOutput',
+    'factory_total_output',
+    'factoryTotalOutput',
+  ])
+  if (!isPresent(packagingOutput)) return
+
+  const packaging = stageMap.get('packaging')
+  packaging.output = Number(packagingOutput)
+  packaging.outputCount = Math.max(packaging.outputCount, 1)
+}
+
+export function buildLiveProcessFlowItems(aggregation = {}) {
+  const stageMap = new Map(PROCESS_FLOW_STAGES.map((stage) => [stage.key, buildFlowAccumulator(stage)]))
+
+  ;(aggregation.workshops || []).forEach((workshop) => {
+    if (isRemovedWorkshop(workshop)) return
+    const stage = resolveProcessStage(workshop)
+    if (!stage) return
+
+    const bucket = stageMap.get(stage.key)
+    const machines = Array.isArray(workshop.machines) ? workshop.machines : []
+    bucket.workshopNames.add(workshop.workshop_name || workshop.workshopName || stage.stage)
+
+    if (!machines.length) {
+      const workshopTotal = workshopTotalOf(workshop)
+      addIfPresent(bucket, 'input', workshopTotal.input)
+      addIfPresent(bucket, 'output', workshopTotal.output)
+      addIfPresent(bucket, 'scrap', workshopTotal.scrap)
+      return
+    }
+
+    machines.forEach((machine) => {
+      const dayTotal = dayTotalOf(machine)
+      bucket.machineCount += 1
+      if (isUnboundMachine(machine)) bucket.pendingMachineCount += 1
+      addIfPresent(bucket, 'input', dayTotal.input)
+      addIfPresent(bucket, 'output', dayTotal.output)
+      addIfPresent(bucket, 'scrap', dayTotal.scrap)
+    })
+  })
+
+  applyFactoryPackagingOutput(stageMap, aggregation)
+
+  return PROCESS_FLOW_STAGES.map((stage) => {
+    const bucket = stageMap.get(stage.key)
+    const hasTrustedOutput = bucket.outputCount > 0
+    const output = hasTrustedOutput ? roundMetric(bucket.output) : null
+    const tone = bucket.pendingMachineCount > 0 ? 'warning' : (hasTrustedOutput ? 'success' : 'muted')
+
+    return {
+      key: bucket.key,
+      stage: bucket.stage,
+      output,
+      input: bucket.inputCount > 0 ? roundMetric(bucket.input) : null,
+      scrap: bucket.scrapCount > 0 ? roundMetric(bucket.scrap) : null,
+      valueText: hasTrustedOutput ? formatTrustedMetric(output, '吨') : MISSING_TEXT,
+      inputText: bucket.inputCount > 0 ? formatTrustedMetric(bucket.input, '吨') : MISSING_TEXT,
+      scrapText: bucket.scrapCount > 0 ? formatTrustedMetric(bucket.scrap, '吨') : MISSING_TEXT,
+      machineCount: bucket.machineCount,
+      pendingMachineCount: bucket.pendingMachineCount,
+      workshopNames: [...bucket.workshopNames],
+      hasTrustedOutput,
+      source: stage.key === 'packaging' && hasTrustedOutput ? 'MES包装' : (hasTrustedOutput ? '实时聚合' : MISSING_TEXT),
+      tone,
+    }
+  })
 }
 
 function resolveOwnerValue(energy = {}, keys = []) {

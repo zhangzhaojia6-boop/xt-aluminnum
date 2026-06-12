@@ -30,6 +30,7 @@ const GovernanceCenter = () => import('../views/review/GovernanceCenter.vue')
 const AiWorkstation = () => import('../views/ai/AiWorkstation.vue')
 const Workshop = () => import('../views/master/Workshop.vue')
 const AliasMapping = () => import('../views/master/AliasMapping.vue')
+const MesTerminalBinding = () => import('../views/master/MesTerminalBinding.vue')
 const UserManagement = () => import('../views/master/UserManagement.vue')
 const RuleConfigCenter = () => import('../views/master/RuleConfigCenter.vue')
 const LiveDashboardPage = () => import('../views/manage/live/LiveDashboardPage.vue')
@@ -43,6 +44,7 @@ const ContractsCenter = () => import('../views/contracts/ContractsCenter.vue')
 const DestinationScreen = () => import('../views/factory-command/DestinationScreen.vue')
 const TodayPage = () => import('../views/manage/today/TodayPage.vue')
 const ProductionPage = () => import('../views/manage/production/ProductionPage.vue')
+const CoilTracePage = () => import('../views/manage/coils/CoilTracePage.vue')
 const AlertsPage = () => import('../views/manage/alerts/AlertsPage.vue')
 const FillDetailsPage = () => import('../views/manage/fill-details/FillDetailsPage.vue')
 const WorkshopDashboardPage = () => import('../views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
@@ -118,6 +120,7 @@ const rawRoutes = [
       { path: 'workshop-dashboard', name: 'manage-workshop-dashboard', component: WorkshopDashboardPage, meta: { ...reviewMeta, access: 'workshop_dashboard', title: '各车间看板', canonical: '/manage/workshop-dashboard' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },
+      { path: 'coils', name: 'manage-coils', component: CoilTracePage, meta: { ...reviewMeta, title: '卷级线索', canonical: '/manage/coils' } },
       { path: 'daily-report', name: 'manage-daily-report', redirect: preserveRouteState('/manage/today', { section: 'daily-report' }), meta: { ...reviewMeta, title: '日报总览', canonical: '/manage/today' } },
       { path: 'fill-details', name: 'manage-fill-details', component: FillDetailsPage, meta: { ...reviewMeta, title: '填报明细', canonical: '/manage/fill-details' } },
       { path: 'energy', name: 'energy-center', component: EnergyCenter, meta: { ...reviewMeta, title: '能源中心', canonical: '/manage/energy' } },
@@ -135,6 +138,7 @@ const rawRoutes = [
       { path: 'ingestion', name: 'admin-ingestion-center', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '数据导入已停用', centerNo: '06', canonical: '/manage/admin/settings' } },
       { path: 'master', name: 'admin-master-workshop', component: Workshop, meta: { ...adminMeta, title: '主数据中心', centerNo: '14', canonical: '/manage/master' } },
       { path: 'alias', name: 'manage-alias', component: AliasMapping, meta: { ...adminMeta, title: '别名映射', canonical: '/manage/alias' } },
+      { path: 'mes-terminal-bindings', name: 'manage-mes-terminal-bindings', component: MesTerminalBinding, meta: { ...adminMeta, title: 'MES 终端绑定', canonical: '/manage/mes-terminal-bindings' } },
       { path: 'imports', name: 'manage-imports', redirect: { name: 'admin-ops-reliability' }, meta: { ...adminMeta, title: '导入历史已停用', canonical: '/manage/admin/settings' } },
       { path: 'ai', name: 'review-brain-center', redirect: '/manage/ai-assistant', meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },
       { path: 'ai-assistant', name: 'factory-ai-assistant', component: AiWorkstation, meta: { ...reviewMeta, title: 'AI 助手', centerNo: '11', canonical: '/manage/ai-assistant' } },

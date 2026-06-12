@@ -58,6 +58,32 @@ def _parse_json_object(value: str | None, *, setting_name: str) -> dict[str, str
     return normalized
 
 
+def _parse_nested_json_object(value: str | None, *, setting_name: str) -> dict[str, dict[str, str]]:
+    if _is_blank(value):
+        return {}
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'{setting_name} must be a JSON object') from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f'{setting_name} must be a JSON object')
+
+    normalized: dict[str, dict[str, str]] = {}
+    for raw_key, raw_value in parsed.items():
+        key = str(raw_key).strip()
+        if not key or not isinstance(raw_value, dict):
+            continue
+        item: dict[str, str] = {}
+        for nested_key, nested_value in raw_value.items():
+            nested_key_text = str(nested_key).strip()
+            nested_value_text = str(nested_value).strip() if nested_value is not None else ''
+            if nested_key_text and nested_value_text:
+                item[nested_key_text] = nested_value_text
+        if item:
+            normalized[key] = item
+    return normalized
+
+
 class Settings(BaseSettings):
     APP_NAME: str = '鑫泰铝业'
     APP_VERSION: str = '0.4.1'
@@ -92,6 +118,19 @@ class Settings(BaseSettings):
     MES_SQLSERVER_PASSWORD: str | None = None
     MES_SQLSERVER_TIMEOUT_SECONDS: float = 8.0
     MES_SQLSERVER_ENCRYPT: bool = False
+    IOT_ENERGY_ADAPTER: str = 'null'
+    IOT_ENERGY_SQLSERVER_HOST: str | None = None
+    IOT_ENERGY_SQLSERVER_PORT: int = 1433
+    IOT_ENERGY_SQLSERVER_DATABASE: str | None = None
+    IOT_ENERGY_SQLSERVER_USERNAME: str | None = None
+    IOT_ENERGY_SQLSERVER_PASSWORD: str | None = None
+    IOT_ENERGY_SQLSERVER_QUERY: str | None = None
+    IOT_ENERGY_SQLSERVER_TIMEOUT_SECONDS: float = 8.0
+    IOT_ENERGY_SQLSERVER_ENCRYPT: bool = False
+    IOT_ENERGY_METER_MAP: str | None = None
+    IOT_ENERGY_SYNC_POLL_SECONDS: int = 60
+    IOT_ENERGY_SYNC_RETRY_LIMIT: int = 3
+    IOT_ENERGY_SYNC_BACKOFF_SECONDS: float = 2.0
     MES_SYNC_LIMIT: int = 200
     MES_SYNC_WINDOW_MINUTES: int = 10
     MES_SYNC_POLL_SECONDS: int = 30
@@ -201,6 +240,10 @@ class Settings(BaseSettings):
         return str(self.APP_CONNECTION_PUSH_MODE or 'disabled').strip().lower() or 'disabled'
 
     @property
+    def iot_energy_meter_map(self) -> dict[str, dict[str, str]]:
+        return _parse_nested_json_object(self.IOT_ENERGY_METER_MAP, setting_name='IOT_ENERGY_METER_MAP')
+
+    @property
     def mobile_data_entry_mode_normalized(self) -> str:
         return str(self.MOBILE_DATA_ENTRY_MODE or 'manual_only').strip().lower() or 'manual_only'
 
@@ -255,6 +298,26 @@ class Settings(BaseSettings):
 
         if self.MES_SQLSERVER_TIMEOUT_SECONDS <= 0:
             issues.append('MES_SQLSERVER_TIMEOUT_SECONDS must be greater than 0')
+
+        if self.IOT_ENERGY_SQLSERVER_PORT <= 0:
+            issues.append('IOT_ENERGY_SQLSERVER_PORT must be greater than 0')
+
+        if self.IOT_ENERGY_SQLSERVER_TIMEOUT_SECONDS <= 0:
+            issues.append('IOT_ENERGY_SQLSERVER_TIMEOUT_SECONDS must be greater than 0')
+
+        if self.IOT_ENERGY_SYNC_POLL_SECONDS <= 0:
+            issues.append('IOT_ENERGY_SYNC_POLL_SECONDS must be greater than 0')
+
+        if self.IOT_ENERGY_SYNC_RETRY_LIMIT < 0:
+            issues.append('IOT_ENERGY_SYNC_RETRY_LIMIT must be zero or greater')
+
+        if self.IOT_ENERGY_SYNC_BACKOFF_SECONDS < 0:
+            issues.append('IOT_ENERGY_SYNC_BACKOFF_SECONDS must be zero or greater')
+
+        try:
+            self.iot_energy_meter_map
+        except ValueError as exc:
+            issues.append(str(exc))
 
         if self.MES_SYNC_LIMIT <= 0:
             issues.append('MES_SYNC_LIMIT must be greater than 0')
@@ -383,6 +446,10 @@ class Settings(BaseSettings):
         if mes_adapter_name not in {'null', 'rest_api', 'mvc', 'xintai', 'xintai_api', 'sqlserver'}:
             issues.append('MES_ADAPTER must be null, rest_api, mvc, xintai, xintai_api, or sqlserver')
 
+        iot_energy_adapter_name = (self.IOT_ENERGY_ADAPTER or 'null').strip().lower()
+        if iot_energy_adapter_name not in {'null', 'sqlserver'}:
+            issues.append('IOT_ENERGY_ADAPTER must be null or sqlserver')
+
         if mobile_data_entry_mode == 'manual_only' and self.MOBILE_SCAN_ASSIST_ENABLED:
             issues.append('manual_only cannot enable MOBILE_SCAN_ASSIST_ENABLED')
 
@@ -443,6 +510,21 @@ class Settings(BaseSettings):
             ]
             if missing_mes_sqlserver_fields:
                 issues.append(f"MES_ADAPTER=sqlserver is missing {', '.join(missing_mes_sqlserver_fields)}")
+
+        if iot_energy_adapter_name == 'sqlserver':
+            missing_iot_sqlserver_fields = [
+                field_name
+                for field_name, field_value in (
+                    ('IOT_ENERGY_SQLSERVER_HOST', self.IOT_ENERGY_SQLSERVER_HOST),
+                    ('IOT_ENERGY_SQLSERVER_DATABASE', self.IOT_ENERGY_SQLSERVER_DATABASE),
+                    ('IOT_ENERGY_SQLSERVER_USERNAME', self.IOT_ENERGY_SQLSERVER_USERNAME),
+                    ('IOT_ENERGY_SQLSERVER_PASSWORD', self.IOT_ENERGY_SQLSERVER_PASSWORD),
+                    ('IOT_ENERGY_SQLSERVER_QUERY', self.IOT_ENERGY_SQLSERVER_QUERY),
+                )
+                if _is_blank(field_value)
+            ]
+            if missing_iot_sqlserver_fields:
+                issues.append(f"IOT_ENERGY_ADAPTER=sqlserver is missing {', '.join(missing_iot_sqlserver_fields)}")
 
         if not issues:
             return

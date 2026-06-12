@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from app.services import mes_machine_match_service
@@ -19,6 +20,29 @@ def _machine(
         name=name,
         workshop_id=workshop_id,
         equipment_type=equipment_type,
+    )
+
+
+def _terminal_binding(
+    *,
+    terminal_code: str,
+    equipment_id: int,
+    workshop_name: str | None = None,
+    process_name: str | None = None,
+    is_active: bool = True,
+    valid_from=None,
+    valid_to=None,
+):
+    return SimpleNamespace(
+        terminal_code=terminal_code,
+        terminal_name=None,
+        workshop_name=workshop_name,
+        process_name=process_name,
+        equipment_id=equipment_id,
+        confidence='high',
+        valid_from=valid_from,
+        valid_to=valid_to,
+        is_active=is_active,
     )
 
 
@@ -73,6 +97,91 @@ def test_keeps_generic_pc_terminal_unassigned() -> None:
 
     assert payload['machine_id'] is None
     assert payload['source'] == 'generic_mes_terminal'
+
+
+def test_resolves_generic_pc_terminal_with_structured_binding() -> None:
+    machines = [
+        _machine(machine_id=41, code='JZ-ZJ-Z', name='纵剪', workshop_id=8, equipment_type='slitter'),
+    ]
+    bindings = [
+        _terminal_binding(
+            terminal_code='PC-JZ-01',
+            equipment_id=41,
+            workshop_name='精整',
+            process_name='包装',
+        )
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        terminal_bindings=bindings,
+        terminal_hints={'DeviceCode': 'PC-JZ-01'},
+        device_name='PC',
+        process_hint='包装',
+        workshop_name='精整',
+        preferred_workshop_id=8,
+    )
+
+    assert payload['machine_id'] == 41
+    assert payload['machine_name'] == '纵剪'
+    assert payload['source'] == 'mes_terminal_binding'
+    assert payload['confidence'] == 'high'
+
+
+def test_does_not_apply_pc_terminal_binding_across_process_scope() -> None:
+    machines = [
+        _machine(machine_id=41, code='JZ-ZJ-Z', name='纵剪', workshop_id=8, equipment_type='slitter'),
+    ]
+    bindings = [
+        _terminal_binding(
+            terminal_code='PC-JZ-01',
+            equipment_id=41,
+            workshop_name='精整',
+            process_name='包装',
+        )
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        terminal_bindings=bindings,
+        terminal_hints={'DeviceCode': 'PC-JZ-01'},
+        device_name='PC',
+        process_hint='冷轧',
+        workshop_name='精整',
+        preferred_workshop_id=8,
+    )
+
+    assert payload['machine_id'] is None
+    assert payload['source'] == 'generic_mes_terminal'
+
+
+def test_pc_terminal_binding_handles_timezone_aware_event_time() -> None:
+    machines = [
+        _machine(machine_id=41, code='JZ-ZJ-Z', name='纵剪', workshop_id=8, equipment_type='slitter'),
+    ]
+    bindings = [
+        _terminal_binding(
+            terminal_code='PC-JZ-01',
+            equipment_id=41,
+            workshop_name='精整',
+            process_name='包装',
+            valid_from=datetime(2026, 6, 10, 9, 30),
+            valid_to=datetime(2026, 6, 11, 9, 30),
+        )
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        terminal_bindings=bindings,
+        terminal_hints={'DeviceCode': 'PC-JZ-01'},
+        device_name='PC',
+        process_hint='包装',
+        workshop_name='精整',
+        event_time=datetime(2026, 6, 10, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert payload['machine_id'] == 41
+    assert payload['source'] == 'mes_terminal_binding'
 
 
 def test_resolves_straightener_device_without_cross_matching_number_only_machines() -> None:

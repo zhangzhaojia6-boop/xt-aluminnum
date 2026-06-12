@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.deps import get_current_user, get_db
 from app.database import Base
 from app.main import app
-from app.models.master import Equipment, MasterCodeAlias, Workshop
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Workshop
 from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.services import mes_supplement_readiness_service
 
@@ -26,6 +26,7 @@ def _session_factory(tmp_path):
             Workshop.__table__,
             Equipment.__table__,
             MasterCodeAlias.__table__,
+            MesTerminalBinding.__table__,
             MesCoilSnapshot.__table__,
             MesWorkshopProcessRecord.__table__,
         ],
@@ -160,6 +161,7 @@ def _seed_base(db) -> None:
                 output_weight_kg=None,
                 business_date=BUSINESS_DATE,
                 end_time=datetime(2026, 6, 10, 12, 0),
+                source_payload={'DeviceName': 'PC', 'DeviceCode': 'PC-ZJ-01', 'WorkShopLine': '铸轧1#机'},
             ),
             MesWorkshopProcessRecord(
                 id=104,
@@ -205,6 +207,9 @@ def test_supplement_readiness_summarizes_mes_mapping_and_window_delta(tmp_path) 
     assert payload['window_comparison']['supplement_window_count'] == 3
     assert payload['window_comparison']['stored_business_date_count'] == 4
     assert payload['window_comparison']['delta_count'] == -1
+    assert payload['generic_terminals'][0]['source_id'] == 'PROC-CAST-103'
+    assert payload['generic_terminals'][0]['terminal_hints']['DeviceCode'] == 'PC-ZJ-01'
+    assert payload['generic_terminals'][0]['terminal_hints']['WorkShopLine'] == '铸轧1#机'
     assert payload['unmatched_devices'] == []
     assert 'output_weight_coverage_below_80_percent' in payload['warnings']
     assert 'machine_match_coverage_below_70_percent' not in payload['warnings']
@@ -254,11 +259,71 @@ def test_packaging_pc_terminal_does_not_block_machine_readiness(tmp_path) -> Non
     assert payload['coverage']['machine_match_rate'] == 1.0
     assert payload['coverage']['machine_match_scope_count'] == 0
     assert payload['coverage']['generic_terminal_count'] == 2
+    assert len(payload['generic_terminals']) == 2
+    assert payload['generic_terminals'][0]['binding_source'] == 'generic_mes_terminal'
     assert payload['coverage']['cold_roll_sequence_rate'] == 1.0
     assert payload['machine_binding']['unmatched_count'] == 0
     assert payload['unmatched_devices'] == []
     assert 'machine_match_coverage_below_70_percent' not in payload['warnings']
     assert 'cold_roll_sequence_coverage_below_80_percent' not in payload['warnings']
+
+
+def test_pc_terminal_binding_promotes_generic_terminal_into_machine_scope(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(Workshop(id=1, code='JZ', name='精整', workshop_type='finishing', sort_order=1, is_active=True))
+        db.add(
+            Equipment(
+                id=21,
+                code='JZ-PACK-1',
+                name='包装入库线',
+                workshop_id=1,
+                equipment_type='slitter',
+                operational_status='running',
+                qr_code='XT-JZ-PACK-1',
+                is_active=True,
+            )
+        )
+        db.add(
+            MesTerminalBinding(
+                terminal_code='PC-JZ-01',
+                terminal_name='精整包装一体机',
+                mes_device_name='PC',
+                workshop_name='精整',
+                process_name='包装',
+                equipment_id=21,
+                is_active=True,
+            )
+        )
+        db.add(
+            MesWorkshopProcessRecord(
+                id=301,
+                source_id='PACK-301',
+                source_path='sqlserver',
+                batch_no='26PACK301',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='PC',
+                output_weight_kg=3200,
+                business_date=BUSINESS_DATE,
+                end_time=datetime(2026, 6, 10, 10, 0),
+                source_payload={'DeviceCode': 'PC-JZ-01', 'WorkShopLine': '包装入库线'},
+            )
+        )
+        db.commit()
+
+        payload = mes_supplement_readiness_service.build_supplement_readiness(
+            db,
+            business_date=BUSINESS_DATE,
+            limit=100,
+        )
+
+    assert payload['status'] == 'ready'
+    assert payload['coverage']['machine_match_scope_count'] == 1
+    assert payload['coverage']['generic_terminal_count'] == 0
+    assert payload['machine_binding']['matched_count'] == 1
+    assert payload['machine_binding']['source_counts']['mes_terminal_binding'] == 1
+    assert payload['generic_terminals'] == []
 
 
 def test_mes_supplement_readiness_route_is_management_only(tmp_path) -> None:

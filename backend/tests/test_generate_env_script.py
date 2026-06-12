@@ -35,6 +35,12 @@ def test_build_env_content_for_quick_trial_production() -> None:
     assert 'MOBILE_DATA_ENTRY_MODE=manual_only' in content
     assert 'MES_SQLSERVER_HOST=' in content
     assert 'MES_SQLSERVER_PASSWORD=' in content
+    assert 'IOT_ENERGY_ADAPTER=null' in content
+    assert 'IOT_ENERGY_SQLSERVER_QUERY=' in content
+    assert 'IOT_ENERGY_METER_MAP={}' in content
+    assert 'IOT_ENERGY_SYNC_POLL_SECONDS=60' in content
+    assert 'IOT_ENERGY_SYNC_RETRY_LIMIT=3' in content
+    assert 'IOT_ENERGY_SYNC_BACKOFF_SECONDS=2' in content
     assert 'MES_MVC_BASE_URL=' in content
     assert 'WECOM_APP_ENABLED=false' in content
     assert 'AUTO_PUBLISH_ENABLED=true' in content

@@ -99,6 +99,34 @@ class Equipment(Base):
         return self.bound_user.name if self.bound_user is not None else None
 
 
+class MesTerminalBinding(Base):
+    __tablename__ = "mes_terminal_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "terminal_code",
+            "workshop_name",
+            "process_name",
+            "valid_from",
+            name="uq_mes_terminal_binding_scope",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    terminal_code: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    terminal_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    mes_device_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    workshop_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    process_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    equipment_id: Mapped[int] = mapped_column(Integer, ForeignKey("equipment.id"), nullable=False, index=True)
+    confidence: Mapped[str] = mapped_column(String(16), default="high", nullable=False)
+    valid_from: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    valid_to: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    equipment = relationship("Equipment", foreign_keys=[equipment_id])
+
+
 class WorkshopTemplateConfig(Base):
     __tablename__ = "workshop_template_configs"
 

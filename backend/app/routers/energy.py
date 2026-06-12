@@ -59,7 +59,7 @@ def import_energy(
     raise HTTPException(status_code=410, detail='能耗导入功能已停用，请使用电工/内勤每日填报。')
 
 
-@router.get('/summary', response_model=list[EnergySummaryOut])
+@router.get('/summary', response_model=list[EnergySummaryOut], response_model_exclude_none=True)
 def list_energy_summary(
     business_date: date | None = None,
     workshop_id: int | None = None,

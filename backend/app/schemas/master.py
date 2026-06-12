@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Any, Optional
 from pydantic import BaseModel
 
@@ -220,6 +220,42 @@ class MasterCodeAliasUpdate(BaseModel):
 
 
 class MasterCodeAliasOut(MasterCodeAliasBase):
+    id: int
+
+    model_config = {"from_attributes": True}
+
+
+class MesTerminalBindingBase(BaseModel):
+    terminal_code: str
+    terminal_name: Optional[str] = None
+    mes_device_name: Optional[str] = None
+    workshop_name: Optional[str] = None
+    process_name: Optional[str] = None
+    equipment_id: int
+    confidence: str = 'high'
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: bool = True
+
+
+class MesTerminalBindingCreate(MesTerminalBindingBase):
+    pass
+
+
+class MesTerminalBindingUpdate(BaseModel):
+    terminal_code: Optional[str] = None
+    terminal_name: Optional[str] = None
+    mes_device_name: Optional[str] = None
+    workshop_name: Optional[str] = None
+    process_name: Optional[str] = None
+    equipment_id: Optional[int] = None
+    confidence: Optional[str] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: Optional[bool] = None
+
+
+class MesTerminalBindingOut(MesTerminalBindingBase):
     id: int
 
     model_config = {"from_attributes": True}

@@ -18,7 +18,7 @@ const WORKSHOP_DIRECTOR_GROUPS = [
   }
 ]
 
-const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
+const COMPACT_REVIEW_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/coils', '/manage/fill-details', '/manage/energy'])
 
 const NAV_GROUPS = [
   {
@@ -41,6 +41,7 @@ const NAV_GROUPS = [
     items: [
       { title: '生产分析', shortLabel: '作业', path: '/manage/production', icon: Histogram, access: 'review', commandGroup: '生产分析' },
       { title: '各车间看板', shortLabel: '车间', path: '/manage/workshop-dashboard', icon: Monitor, access: 'workshop_dashboard', commandGroup: '生产分析' },
+      { title: '卷级线索', shortLabel: '卷材', path: '/manage/coils', icon: DataLine, access: 'review', commandGroup: '生产分析' },
       { title: '填报明细', shortLabel: '明细', path: '/manage/fill-details', icon: DataLine, access: 'review', commandGroup: '生产分析' },
       { title: '能耗中心', shortLabel: '能耗', path: '/manage/energy', icon: DataLine, access: 'review', commandGroup: '生产分析' },
       { title: '异常处理', shortLabel: '异常', path: '/manage/alerts', icon: Bell, access: 'review', commandGroup: '生产分析' }

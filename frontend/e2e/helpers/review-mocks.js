@@ -168,6 +168,14 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       pending_assignment_entry_count: 0,
       pending_machine_assignment_count: 0
     },
+    energy_summary: {
+      algorithm_total_energy: 8840,
+      owner_total_electricity: 8700,
+      algorithm_energy_per_ton: 41.31,
+      primary_source_label: '物联网采集',
+      owner_source_label: '电工填报',
+      source_updated_at: '2026-05-12T09:20:00'
+    },
     data_source: 'work_order_runtime',
     factory_total: {
       input: 220,
@@ -212,10 +220,46 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       tracking_card_no: 'TK-20260423-001',
       batch_no: 'B20260423',
       material_code: '6061',
+      customer_alias: '永晟客户',
+      alloy_grade: '6061',
+      spec_display: '1.20*1220*C',
+      mes_input_weight_tons: 6.35,
+      mes_output_weight_tons: 6,
+      auto_scrap_weight_tons: 0.35,
+      auto_scrap_rate: 0.0551,
+      scrap_status: 'normal',
+      line_code: 'XT-ZD-1',
+      machine_code: 'XT-ZD-1',
+      previous_workshop: '熔铸车间',
       previous_process: '熔铸',
+      current_workshop: '挤压车间',
       current_process: '挤压',
+      next_workshop: '时效车间',
       next_process: '时效',
-      destination: { kind: 'warehouse', label: '成品库' }
+      destination: { kind: 'finished_stock', label: '成品库存' }
+    },
+    {
+      coil_key: 'TK-20260423-002',
+      tracking_card_no: 'TK-20260423-002',
+      batch_no: 'B20260424',
+      material_code: '5052',
+      customer_alias: '中原客户',
+      alloy_grade: '5052',
+      spec_display: '0.96*1220*C',
+      mes_input_weight_tons: 6,
+      mes_output_weight_tons: 6.35,
+      auto_scrap_weight_tons: null,
+      auto_scrap_rate: null,
+      scrap_status: 'abnormal_output_gt_input',
+      line_code: null,
+      machine_code: null,
+      previous_workshop: '冷轧车间',
+      previous_process: '冷轧',
+      current_workshop: '园区在线退火',
+      current_process: '包装',
+      next_workshop: '成品库',
+      next_process: '入库',
+      destination: { kind: 'finished_stock', label: '成品库存' }
     }
   ]
 
@@ -372,7 +416,7 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
     await fulfillJson(route, factoryCommandMachineLines)
   })
 
-  await page.route('**/api/v1/factory-command/coils', async (route) => {
+  await page.route(/.*\/api\/v1\/factory-command\/coils(?:\?.*)?$/, async (route) => {
     await fulfillJson(route, factoryCommandCoils)
   })
 
@@ -395,8 +439,8 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
 
   await page.route('**/api/v1/factory-command/destinations', async (route) => {
     await fulfillJson(route, [
-      { kind: 'warehouse', label: '成品库', tons: 52 },
-      { kind: 'shipment', label: '发货', tons: 48 }
+      { kind: 'finished_stock', label: '成品库存', tons: 52 },
+      { kind: 'delivery', label: '交付', tons: 48 }
     ])
   })
 
@@ -695,6 +739,32 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
       })
     })
   })
+
+  await page.route('**/api/v1/master/mes-terminal-bindings**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 1,
+            terminal_code: 'PC-ZXTF-P-01',
+            terminal_name: '园区在线退火包装一体机',
+            mes_device_name: 'PC',
+            workshop_name: '园区在线退火',
+            process_name: '包装',
+            equipment_id: 101,
+            confidence: 'high',
+            valid_from: '2026-06-01T07:30:00',
+            valid_to: null,
+            is_active: true
+          }
+        ],
+        total: 1
+      })
+    })
+  })
+
   await page.route('**/api/v1/imports/history**', async (route) => {
     await route.fulfill({
       status: 200,
@@ -1047,6 +1117,64 @@ export async function setupReviewSessionAndMocks(page, session = {}) {
         failed_count: 0
       },
       items: []
+    })
+  })
+
+  await page.route('**/api/v1/mes/supplement-readiness**', async (route) => {
+    await fulfillJson(route, {
+      business_date: '2026-06-10',
+      sample_limit: 100,
+      status: 'needs_mapping',
+      coverage: {
+        sample_count: 21,
+        device_name_rate: 0.9,
+        output_weight_rate: 0.86,
+        machine_match_rate: 0.62,
+        machine_match_scope_count: 16,
+        generic_terminal_count: 5,
+        snapshot_match_rate: 0.81,
+        cold_roll_sequence_rate: 0.78
+      },
+      machine_binding: {
+        matched_count: 10,
+        unmatched_count: 6,
+        high_confidence_count: 6,
+        medium_confidence_count: 4,
+        source_counts: {
+          alias: 6,
+          generic_mes_terminal: 5,
+          unresolved: 6
+        }
+      },
+      material_categories: {
+        packaging: 8,
+        cold_roll_pass: 7,
+        upstream: 6
+      },
+      window_comparison: {
+        supplement_window_count: 21,
+        stored_business_date_count: 18,
+        delta_count: 3,
+        supplement_window_output_kg: 126000,
+        stored_business_date_output_kg: 118000,
+        delta_output_kg: 8000
+      },
+      generic_terminals: [
+        {
+          source_id: 'MPR-001',
+          batch_no: '26A04967',
+          workshop_name: '园区在线车间',
+          process_name: '包装',
+          device_name: 'PC',
+          binding_source: 'generic_mes_terminal',
+          terminal_hints: {
+            DeviceCode: 'PC-ZXTF-P-01',
+            WorkShopLine: '园区在线北线'
+          }
+        }
+      ],
+      unmatched_devices: [],
+      warnings: ['machine_match_coverage_below_70_percent']
     })
   })
 

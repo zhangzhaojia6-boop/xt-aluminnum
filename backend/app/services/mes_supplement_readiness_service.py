@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from app.models.master import Equipment, MasterCodeAlias
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding
 from app.models.mes import MesWorkshopProcessRecord
 from app.services import mes_machine_match_service
 from app.services.mobile_mes_supplement_service import (
@@ -17,6 +17,25 @@ from app.services.mobile_mes_supplement_service import (
     _snapshot_for_process,
     _window_for_business_date,
     resolve_supplement_business_date,
+)
+
+
+TERMINAL_HINT_KEYS = (
+    'DeviceCode',
+    'MachineCode',
+    'WorkShopLine',
+    'LineName',
+    'TerminalCode',
+    'TerminalName',
+    'StationCode',
+    'StationName',
+    'ClientName',
+    'ComputerName',
+    'HostName',
+    'IPAddress',
+    'ClientIp',
+    'IP',
+    'Ip',
 )
 
 
@@ -99,6 +118,19 @@ def _load_window_rows(
     )
 
 
+def _terminal_hints(row: MesWorkshopProcessRecord) -> dict[str, str]:
+    payload = row.source_payload if isinstance(row.source_payload, dict) else {}
+    hints: dict[str, str] = {}
+    for key in TERMINAL_HINT_KEYS:
+        value = payload.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            hints[key] = text
+    return hints
+
+
 def build_supplement_readiness(
     db: Session,
     *,
@@ -114,6 +146,7 @@ def build_supplement_readiness(
         .filter(MasterCodeAlias.entity_type == 'equipment', MasterCodeAlias.is_active.is_(True))
         .all()
     )
+    terminal_bindings = db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
     snapshots = _snapshot_by_batch(db, [row.batch_no for row in rows])
     process_sequences = _build_process_sequence_map(rows, snapshots)
 
@@ -131,6 +164,7 @@ def build_supplement_readiness(
     categories: dict[str, int] = {}
     binding_sources: dict[str, int] = {}
     unmatched_devices: list[dict[str, Any]] = []
+    generic_terminals: list[dict[str, Any]] = []
 
     for row in rows:
         if row.device_name:
@@ -152,13 +186,29 @@ def build_supplement_readiness(
         binding = mes_machine_match_service.resolve_mes_machine_binding(
             machines=machines,
             aliases=aliases,
+            terminal_bindings=terminal_bindings,
+            terminal_hints=_terminal_hints(row),
             device_name=row.device_name,
             process_hint=row.process_name,
+            workshop_name=row.workshop_name,
+            event_time=row.end_time,
         )
         source = str(binding.get('source') or 'unresolved')
         binding_sources[source] = binding_sources.get(source, 0) + 1
         if source == 'generic_mes_terminal':
             generic_terminal_count += 1
+            if len(generic_terminals) < 10:
+                generic_terminals.append(
+                    {
+                        'source_id': row.source_id,
+                        'batch_no': row.batch_no,
+                        'workshop_name': row.workshop_name,
+                        'process_name': row.process_name,
+                        'device_name': row.device_name,
+                        'binding_source': source,
+                        'terminal_hints': _terminal_hints(row),
+                    }
+                )
             continue
         machine_match_scope += 1
         if binding.get('machine_id') is not None:
@@ -220,6 +270,7 @@ def build_supplement_readiness(
             'stored_business_date_output_kg': round(stored_output, 4),
             'delta_output_kg': round(supplement_output - stored_output, 4),
         },
+        'generic_terminals': generic_terminals,
         'unmatched_devices': unmatched_devices,
         'warnings': _warnings(
             total=total,

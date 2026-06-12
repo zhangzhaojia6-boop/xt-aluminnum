@@ -112,6 +112,89 @@ def _weight(row: Any) -> float:
     return 0.0
 
 
+def _weight_tons_from_process(record: Any, tons_field: str, kg_field: str) -> float | None:
+    tons_value = getattr(record, tons_field, None)
+    if tons_value is not None:
+        return round(_number(tons_value), 4)
+    kg_value = getattr(record, kg_field, None)
+    if kg_value is not None:
+        return round(_number(kg_value) / 1000, 4)
+    return None
+
+
+def _process_sort_key(record: Any) -> tuple[float, int]:
+    value = (
+        getattr(record, 'end_time', None)
+        or getattr(record, 'last_seen_from_mes_at', None)
+        or getattr(record, 'updated_at', None)
+        or getattr(record, 'created_at', None)
+    )
+    timestamp = value.timestamp() if hasattr(value, 'timestamp') else 0.0
+    return (timestamp, int(getattr(record, 'id', 0) or 0))
+
+
+def _latest_process_records_by_batch(db: Session, batch_nos: set[str]) -> dict[str, Any]:
+    normalized = {str(value).strip() for value in batch_nos if str(value or '').strip()}
+    if not normalized:
+        return {}
+
+    query = db.query(MesWorkshopProcessRecord)
+    try:
+        if _is_sqlalchemy_query(query):
+            records = list(query.filter(MesWorkshopProcessRecord.batch_no.in_(normalized)).all())
+        else:
+            records = [
+                row
+                for row in _all(db, MesWorkshopProcessRecord)
+                if str(getattr(row, 'batch_no', '') or '').strip() in normalized
+            ]
+    except (OperationalError, ProgrammingError):
+        return {}
+
+    latest: dict[str, Any] = {}
+    for record in records:
+        batch_no = str(getattr(record, 'batch_no', '') or '').strip()
+        if not batch_no:
+            continue
+        current = latest.get(batch_no)
+        if current is None or _process_sort_key(record) > _process_sort_key(current):
+            latest[batch_no] = record
+    return latest
+
+
+def _process_weight_payload(record: Any | None) -> dict[str, Any]:
+    if record is None:
+        return {
+            'mes_input_weight_tons': None,
+            'mes_output_weight_tons': None,
+            'auto_scrap_weight_tons': None,
+            'auto_scrap_rate': None,
+            'scrap_status': 'no_mes_process_record',
+        }
+
+    input_tons = _weight_tons_from_process(record, 'input_weight_tons', 'input_weight_kg')
+    output_tons = _weight_tons_from_process(record, 'output_weight_tons', 'output_weight_kg')
+    scrap_rate = None
+    if input_tons is None or output_tons is None:
+        scrap_tons = None
+        status = 'missing_weight'
+    elif output_tons > input_tons:
+        scrap_tons = None
+        status = 'abnormal_output_gt_input'
+    else:
+        scrap_tons = round(input_tons - output_tons, 4)
+        scrap_rate = round(scrap_tons / input_tons, 4) if input_tons > 0 else None
+        status = 'normal'
+
+    return {
+        'mes_input_weight_tons': input_tons,
+        'mes_output_weight_tons': output_tons,
+        'auto_scrap_weight_tons': scrap_tons,
+        'auto_scrap_rate': scrap_rate,
+        'scrap_status': status,
+    }
+
+
 def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] | None:
     if scope is None or scope.is_admin or scope.data_scope_type == 'all':
         return None
@@ -1488,12 +1571,17 @@ def list_coils(
     )
     events = _latest_events_by_coil(db, {row.coil_id for row in rows})
     line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
+    latest_process_by_batch = _latest_process_records_by_batch(
+        db,
+        {str(getattr(row, 'batch_no', '') or '').strip() for row in rows},
+    )
     return [
         {
             'coil_key': row.coil_id,
             'tracking_card_no': row.tracking_card_no,
             'batch_no': getattr(row, 'batch_no', None),
             'material_code': getattr(row, 'material_code', None),
+            **_process_weight_payload(latest_process_by_batch.get(str(getattr(row, 'batch_no', '') or '').strip())),
             'line_code': _line_code_for_coil(row, line_aliases),
             'machine_code': getattr(row, 'machine_code', None),
             'previous_workshop': getattr(events.get(row.coil_id), 'previous_workshop', None),
@@ -1526,9 +1614,12 @@ def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = No
         }
     events = sorted([event for event in _all(db, CoilFlowEvent) if event.coil_key == coil_key], key=_event_sort_key)
     event = events[-1] if events else None
+    batch_no = str(getattr(row, 'batch_no', '') or '').strip()
+    latest_process_by_batch = _latest_process_records_by_batch(db, {batch_no})
     return {
         'coil_key': coil_key,
         'tracking_card_no': getattr(row, 'tracking_card_no', None),
+        **_process_weight_payload(latest_process_by_batch.get(batch_no)),
         'previous_workshop': getattr(event, 'previous_workshop', None),
         'previous_process': getattr(event, 'previous_process', None),
         'current_workshop': getattr(row, 'current_workshop', None) if row else getattr(event, 'current_workshop', None),

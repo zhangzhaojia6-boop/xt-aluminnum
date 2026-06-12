@@ -6,10 +6,11 @@ from decimal import Decimal
 
 from fastapi import UploadFile
 from sqlalchemy import func, or_
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.models.consumable import DailyConsumableLog
-from app.models.energy import EnergyImportRecord, MachineEnergyRecord
+from app.models.energy import EnergyImportRecord, IotEnergySnapshot, MachineEnergyRecord
 from app.models.imports import ImportRow
 from app.models.master import Workshop
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrderEntry
@@ -49,6 +50,15 @@ def _to_float(value) -> float | None:
 
 
 _KG_DATA_SOURCES = {'mobile_coil_agg'}
+
+
+def _is_missing_iot_shadow_table(error: Exception) -> bool:
+    message = str(error).lower()
+    return 'iot_energy_snapshots' in message and (
+        'no such table' in message
+        or 'does not exist' in message
+        or 'undefined table' in message
+    )
 
 
 def _shift_weight_tons(item: ShiftProductionData, field_name: str) -> float:
@@ -414,6 +424,74 @@ def _load_owner_only_energy_rows(
     return list(grouped.values())
 
 
+def _load_iot_shadow_energy_rows(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None = None,
+    shift_config_id: int | None = None,
+) -> list[dict]:
+    if shift_config_id is not None:
+        return []
+
+    workshop_code_map = _workshop_code_map(db)
+    query = db.query(IotEnergySnapshot).filter(IotEnergySnapshot.business_date == business_date)
+    if workshop_id is not None:
+        query = query.filter(IotEnergySnapshot.workshop_id == workshop_id)
+
+    try:
+        snapshots = query.all()
+    except (OperationalError, ProgrammingError) as error:
+        if _is_missing_iot_shadow_table(error):
+            return []
+        raise
+
+    grouped: dict[int | None, dict] = {}
+    for snapshot in snapshots:
+        key = snapshot.workshop_id
+        bucket = grouped.setdefault(
+            key,
+            {
+                'business_date': business_date.isoformat(),
+                'workshop_id': snapshot.workshop_id,
+                'workshop_code': workshop_code_map.get(snapshot.workshop_id) if snapshot.workshop_id else None,
+                'shift_config_id': None,
+                'shift_code': None,
+                'electricity_value': 0.0,
+                'gas_value': 0.0,
+                'water_value': 0.0,
+                'total_energy': 0.0,
+                'output_weight': 0.0,
+                'energy_per_ton': None,
+                'source': 'iot_shadow',
+                'source_label': '物联网采集',
+                'source_updated_at': None,
+            },
+        )
+        electricity_value = _to_float(snapshot.electricity_kwh) or 0.0
+        gas_value = _to_float(snapshot.gas_m3) or 0.0
+        water_value = _to_float(snapshot.water_m3) or 0.0
+        bucket['electricity_value'] += electricity_value
+        bucket['gas_value'] += gas_value
+        bucket['water_value'] += water_value
+        bucket['total_energy'] += electricity_value + gas_value + water_value
+        if snapshot.reading_at and (
+            bucket['source_updated_at'] is None or snapshot.reading_at > bucket['source_updated_at']
+        ):
+            bucket['source_updated_at'] = snapshot.reading_at
+
+    for workshop_key, bucket in grouped.items():
+        output_weight = _sum_shift_output_tons(
+            db,
+            business_date=business_date,
+            workshop_id=workshop_key,
+        ) if workshop_key is not None else 0.0
+        bucket['output_weight'] = output_weight
+        bucket['energy_per_ton'] = bucket['total_energy'] / output_weight if output_weight else None
+
+    return list(grouped.values())
+
+
 def _load_mobile_shift_energy_rows(
     db: Session,
     *,
@@ -524,10 +602,20 @@ def get_energy_summary(
         if business_date is not None
         else []
     )
+    iot_rows = (
+        _load_iot_shadow_energy_rows(
+            db,
+            business_date=business_date,
+            workshop_id=workshop_id,
+            shift_config_id=shift_config_id,
+        )
+        if business_date is not None
+        else []
+    )
     if shift_config_id is not None:
         owner_rows = [row for row in owner_rows if row.get('shift_config_id') == shift_config_id]
     if not rows and not mobile_rows:
-        return owner_rows
+        return [*owner_rows, *iot_rows]
     workshop_id_map = _resolve_workshop_id(db)
     shift_id_map = _resolve_shift_id(db)
 
@@ -575,7 +663,7 @@ def get_energy_summary(
         if hasattr(payload['business_date'], 'isoformat'):
             payload['business_date'] = payload['business_date'].isoformat()
 
-    return [*grouped.values(), *mobile_rows, *owner_rows]
+    return [*grouped.values(), *mobile_rows, *owner_rows, *iot_rows]
 
 
 def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:

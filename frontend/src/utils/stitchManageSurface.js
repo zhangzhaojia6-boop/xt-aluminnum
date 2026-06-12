@@ -10,6 +10,7 @@ import {
   buildLiveMachineMatrix,
   buildLiveMetricCompareItems,
   buildLivePriorityItems,
+  buildLiveProcessFlowItems,
   buildLiveTickerItems,
 } from './liveDashboardPhase2.js'
 
@@ -55,6 +56,7 @@ export const LIVE_STITCH_SLOT_ORDER = [
   'statusBar',
   'realtimeKpiStrip',
   'marketTicker',
+  'processFlow',
   'machineMatrix',
   'mesDistribution',
   'eventRail',
@@ -447,6 +449,100 @@ function buildEnergyBottomStatus({
   ]
 }
 
+function resolveLiveEnergySummary(aggregation = {}) {
+  return aggregation.energy_summary || aggregation.energySummary || {}
+}
+
+function pickEnergyValue(source = {}, keys = []) {
+  for (const key of keys) {
+    if (source[key] === null || source[key] === undefined || source[key] === '') continue
+    const value = toFiniteNumber(source[key])
+    if (value !== null) return value
+  }
+  return null
+}
+
+function pickEnergyText(source = {}, keys = []) {
+  for (const key of keys) {
+    const value = source[key]
+    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim()
+  }
+  return ''
+}
+
+function formatLiveEnergyTime(value) {
+  if (!value) return '--:--'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '--:--'
+  return parsed.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function resolveLiveEnergySourceLabel(energy = {}) {
+  const explicitLabel = pickEnergyText(energy, [
+    'primary_source_label',
+    'primarySourceLabel',
+    'source_label',
+    'sourceLabel',
+  ])
+  if (explicitLabel) return explicitLabel
+
+  const source = pickEnergyText(energy, ['primary_source', 'primarySource', 'source'])
+  if (source === 'iot_shadow') return '物联网采集'
+  if (source === 'owner_only') return '电工填报'
+  return '系统采集'
+}
+
+function buildLiveEnergyBottomStatus(aggregation = {}) {
+  const energy = resolveLiveEnergySummary(aggregation)
+  const usable = energy.data_available !== false && energy.dataAvailable !== false
+  const algorithmEnergy = usable
+    ? pickEnergyValue(energy, ['algorithm_total_energy', 'algorithmTotalEnergy', 'total_electricity', 'totalElectricity'])
+    : null
+  const ownerEnergy = pickEnergyValue(energy, [
+    'owner_total_electricity',
+    'ownerTotalElectricity',
+    'owner_electricity',
+    'ownerElectricity',
+    'electricity_value',
+    'electricityValue',
+  ])
+  const perTon = usable
+    ? pickEnergyValue(energy, ['algorithm_energy_per_ton', 'algorithmEnergyPerTon', 'energy_per_ton', 'energyPerTon'])
+    : null
+  const sourceUpdatedAt = pickEnergyText(energy, [
+    'source_updated_at',
+    'sourceUpdatedAt',
+    'primary_source_updated_at',
+    'primarySourceUpdatedAt',
+    'updated_at',
+    'updatedAt',
+  ])
+  const ownerLabel = pickEnergyText(energy, ['owner_source_label', 'ownerSourceLabel']) || '电工填报'
+
+  return [
+    {
+      key: 'energy-source',
+      label: '能耗采集',
+      value: algorithmEnergy !== null
+        ? `${resolveLiveEnergySourceLabel(energy)} · ${formatLiveEnergyTime(sourceUpdatedAt)}`
+        : '待同步',
+      tone: algorithmEnergy !== null ? 'success' : 'warning',
+    },
+    {
+      key: 'energy-fill',
+      label: ownerLabel,
+      value: ownerEnergy !== null ? `${formatEnergyNumber(ownerEnergy)} kWh` : '待填报',
+      tone: ownerEnergy !== null ? 'success' : 'warning',
+    },
+    {
+      key: 'energy-per-ton',
+      label: '吨电耗',
+      value: perTon !== null ? `${formatEnergyNumber(perTon)} kWh/吨` : (algorithmEnergy !== null ? '无产量分母' : '待同步'),
+      tone: perTon !== null ? 'success' : 'warning',
+    },
+  ]
+}
+
 export function buildTodayStitchSurface({
   snapshotData = {},
   targetDate = '',
@@ -500,6 +596,7 @@ export function buildLiveStitchSurface({
     },
     realtimeKpiStrip: buildLiveMetricCompareItems(aggregation),
     marketTicker: buildLiveTickerItems(aggregation),
+    processFlow: buildLiveProcessFlowItems(aggregation),
     machineMatrix: buildLiveMachineMatrix(aggregation.workshops || []),
     mesDistribution: aggregation.wip_distribution || aggregation.wipDistribution || [],
     eventRail,
@@ -510,6 +607,7 @@ export function buildLiveStitchSurface({
     bottomStatus: [
       { key: 'stream', label: '实时链路', value: streamState.value, tone: streamState.tone },
       { key: 'snapshot', label: '快照兜底', value: aggregation.business_date || aggregation.businessDate ? '可用' : '待核', tone: aggregation.business_date || aggregation.businessDate ? 'success' : 'warning' },
+      ...buildLiveEnergyBottomStatus(aggregation),
     ],
   }
 }

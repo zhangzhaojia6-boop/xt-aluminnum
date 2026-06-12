@@ -47,3 +47,6 @@ class EnergySummaryOut(BaseModel):
     total_energy: float = 0.0
     output_weight: float = 0.0
     energy_per_ton: float | None = None
+    source: str | None = None
+    source_label: str | None = None
+    source_updated_at: datetime | None = None

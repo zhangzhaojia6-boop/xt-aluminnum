@@ -63,3 +63,48 @@ class MachineEnergyDailyCompare(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class IotEnergySyncRun(Base):
+    __tablename__ = 'iot_energy_sync_runs'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_system: Mapped[str] = mapped_column(String(64), nullable=False, default='iot_meter', index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default='pending', index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    records_read: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    records_written: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IotEnergySnapshot(Base):
+    __tablename__ = 'iot_energy_snapshots'
+    __table_args__ = (
+        UniqueConstraint('source_system', 'meter_code', 'reading_at', name='uq_iot_energy_snapshot_meter_time'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    sync_run_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('iot_energy_sync_runs.id'), nullable=True, index=True)
+    business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    workshop_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('workshops.id'), nullable=True, index=True)
+    machine_id: Mapped[int | None] = mapped_column(Integer, ForeignKey('equipment.id'), nullable=True, index=True)
+    meter_code: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    meter_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    electricity_kwh: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    gas_m3: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    water_m3: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    reading_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    source_system: Mapped[str] = mapped_column(String(64), nullable=False, default='iot_meter', index=True)
+    raw_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

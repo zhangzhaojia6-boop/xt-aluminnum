@@ -88,6 +88,7 @@ def setup_scheduler(target_scheduler=None):
     from app.tasks.daily_report import generate_daily_reports
     from app.tasks.data_archive import archive_old_data
     from app.tasks.fill_reminder import send_fill_reminders
+    from app.tasks.iot_energy_sync import sync_iot_energy_snapshots
     from app.tasks.mes_sync import (
         sync_mes_business_projection,
         sync_mes_coil_snapshots,
@@ -124,6 +125,14 @@ def setup_scheduler(target_scheduler=None):
             'interval',
             job_id='mes_sync_reference',
             minutes=settings.MES_REFERENCE_SYNC_POLL_MINUTES,
+        )
+    if (settings.IOT_ENERGY_ADAPTER or 'null').strip().lower() != 'null':
+        _add_job_once(
+            active_scheduler,
+            sync_iot_energy_snapshots,
+            'interval',
+            job_id='iot_energy_sync',
+            seconds=settings.IOT_ENERGY_SYNC_POLL_SECONDS,
         )
     _add_job_once(active_scheduler, send_fill_reminders, 'cron', job_id='fill_reminder', hour='8,14,20', minute=0)
     _add_job_once(active_scheduler, archive_old_data, 'cron', job_id='data_archive', day_of_week='sun', hour=2)

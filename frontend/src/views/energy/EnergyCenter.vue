@@ -90,6 +90,14 @@
                   <span class="energy-center__shift">{{ formatShiftLabel(row.shift_code, '-') }}</span>
                 </template>
               </el-table-column>
+              <el-table-column prop="source_label" label="数据来源" width="104">
+                <template #default="{ row }">
+                  <span class="energy-center__source">{{ formatEnergySourceLabel(row) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="source_updated_at" label="采集时间" width="112">
+                <template #default="{ row }">{{ formatSourceUpdatedAt(row.source_updated_at) }}</template>
+              </el-table-column>
               <el-table-column prop="electricity_value" label="电耗" width="76" align="right">
                 <template #default="{ row }">{{ formatCell(row.electricity_value) }}</template>
               </el-table-column>
@@ -114,13 +122,18 @@
           </div>
 
           <div class="energy-center__mobile-list" data-testid="energy-center-mobile-list">
-            <article v-for="row in energyRows" :key="`${row.business_date}-${row.workshop_code}-${row.shift_code}`">
+            <article
+              v-for="row in energyRows"
+              :key="`${row.business_date}-${row.workshop_code}-${row.shift_code}-${row.source || 'energy'}`"
+            >
               <div class="energy-center__mobile-title">
                 <span>{{ row.workshop_code || '-' }}</span>
                 <em>{{ formatShiftLabel(row.shift_code, '-') }}</em>
               </div>
               <div class="energy-center__mobile-grid">
                 <span>业务日期</span><strong>{{ row.business_date || '-' }}</strong>
+                <span>数据来源</span><strong>{{ formatEnergySourceLabel(row) }}</strong>
+                <span>采集时间</span><strong>{{ formatSourceUpdatedAt(row.source_updated_at) }}</strong>
                 <span>电耗</span><strong>{{ formatCell(row.electricity_value) }}</strong>
                 <span>气耗</span><strong>{{ formatCell(row.gas_value) }}</strong>
                 <span>水耗</span><strong>{{ formatCell(row.water_value) }}</strong>
@@ -236,6 +249,21 @@ function formatStat(value) {
 function formatCell(value) {
   if (value === null || value === undefined || value === '') return '-'
   return formatStat(toNumber(value))
+}
+
+function formatEnergySourceLabel(row = {}) {
+  if (row.source_label) return row.source_label
+  if (row.source === 'iot_shadow') return '物联网采集'
+  if (row.source === 'mobile_shift_report') return '电工填报'
+  if (row.source === 'owner_only') return '内勤填报'
+  if (row.source === 'energy_import') return '旧导入'
+  return row.source || '-'
+}
+
+function formatSourceUpdatedAt(value) {
+  if (!value) return '-'
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('HH:mm:ss') : '-'
 }
 
 function formatRefreshTime(date = new Date()) {
@@ -797,7 +825,8 @@ onMounted(load)
 }
 
 .energy-center__matrix-meta span,
-.energy-center__shift {
+.energy-center__shift,
+.energy-center__source {
   display: inline-flex;
   align-items: center;
   min-height: 28px;

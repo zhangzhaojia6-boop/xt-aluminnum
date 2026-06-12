@@ -185,6 +185,25 @@ export async function deleteAliasMapping(id) {
   return data
 }
 
+export async function fetchMesTerminalBindings(params = {}) {
+  return unwrapItems((await api.get('/master/mes-terminal-bindings', { params })).data)
+}
+
+export async function createMesTerminalBinding(payload) {
+  const { data } = await api.post('/master/mes-terminal-bindings', payload)
+  return data
+}
+
+export async function updateMesTerminalBinding(id, payload) {
+  const { data } = await api.put(`/master/mes-terminal-bindings/${id}`, payload)
+  return data
+}
+
+export async function deleteMesTerminalBinding(id) {
+  const { data } = await api.delete(`/master/mes-terminal-bindings/${id}`)
+  return data
+}
+
 export async function fetchRuleConfigs(params = {}) {
   const { data } = await api.get('/rule-configs', { params })
   return Array.isArray(data) ? data : []

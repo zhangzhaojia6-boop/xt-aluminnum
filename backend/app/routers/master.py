@@ -22,6 +22,9 @@ from app.schemas.master import (
     MasterCodeAliasCreate,
     MasterCodeAliasOut,
     MasterCodeAliasUpdate,
+    MesTerminalBindingCreate,
+    MesTerminalBindingOut,
+    MesTerminalBindingUpdate,
     ShiftConfigCreate,
     ShiftConfigOut,
     ShiftConfigUpdate,
@@ -209,6 +212,77 @@ def delete_alias(
 ) -> dict:
     try:
         master_service.delete_alias(db, alias_id=alias_id, operator=current_user)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {'success': True, 'data': None, 'message': '删除成功', 'total': None}
+
+
+@router.get('/mes-terminal-bindings', response_model=PaginatedResponse[MesTerminalBindingOut])
+def list_mes_terminal_bindings(
+    terminal_code: str | None = None,
+    workshop_name: str | None = None,
+    process_name: str | None = None,
+    is_active: bool | None = None,
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _ = current_user
+    items = master_service.list_mes_terminal_bindings(
+        db,
+        terminal_code=terminal_code,
+        workshop_name=workshop_name,
+        process_name=process_name,
+        is_active=is_active,
+    )
+    payload = [MesTerminalBindingOut.model_validate(item) for item in items]
+    return _paginate_items(payload, skip=skip, limit=limit)
+
+
+@router.post('/mes-terminal-bindings', response_model=MesTerminalBindingOut, status_code=status.HTTP_201_CREATED)
+def create_mes_terminal_binding(
+    payload: MesTerminalBindingCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MesTerminalBindingOut:
+    _require_admin(current_user)
+    try:
+        item = master_service.create_mes_terminal_binding(db, payload=payload.model_dump(), operator=current_user)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return MesTerminalBindingOut.model_validate(item)
+
+
+@router.put('/mes-terminal-bindings/{binding_id}', response_model=MesTerminalBindingOut)
+def update_mes_terminal_binding(
+    binding_id: int,
+    payload: MesTerminalBindingUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MesTerminalBindingOut:
+    _require_admin(current_user)
+    try:
+        item = master_service.update_mes_terminal_binding(
+            db,
+            binding_id=binding_id,
+            payload=payload.model_dump(exclude_unset=True),
+            operator=current_user,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return MesTerminalBindingOut.model_validate(item)
+
+
+@router.delete('/mes-terminal-bindings/{binding_id}')
+def delete_mes_terminal_binding(
+    binding_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    _require_admin(current_user)
+    try:
+        master_service.delete_mes_terminal_binding(db, binding_id=binding_id, operator=current_user)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {'success': True, 'data': None, 'message': '删除成功', 'total': None}

@@ -83,6 +83,22 @@
               <b>{{ mesWindowCount }}</b>
             </article>
           </div>
+          <div
+            v-if="genericTerminalCount > 0"
+            class="xt-system-settings__terminal"
+            data-testid="system-settings-generic-terminals"
+          >
+            <header>
+              <span>PC 终端待绑定</span>
+              <strong>{{ genericTerminalCount }}</strong>
+            </header>
+            <ul>
+              <li v-for="item in genericTerminalItems" :key="item.source_id || `${item.workshop_name}-${item.process_name}`">
+                <span>{{ item.workshop_name || '未知车间' }} / {{ item.process_name || '未知工艺' }}</span>
+                <b>{{ terminalHintText(item) }}</b>
+              </li>
+            </ul>
+          </div>
         </section>
       </aside>
     </div>
@@ -115,6 +131,7 @@ const settingGroups = [
     items: [
       { title: '主数据', path: '/manage/master', tag: '已就绪', icon: Files, tone: 'ready' },
       { title: '别名映射', path: '/manage/alias', tag: '实时同步', icon: Connection, tone: 'ready' },
+      { title: '终端绑定', path: '/manage/mes-terminal-bindings', tag: 'PC 机列', icon: Connection, tone: 'warning' },
       { title: '规则配置', path: '/manage/admin/rules', tag: '规则引擎', icon: Setting, tone: 'warning' }
     ]
   },
@@ -139,7 +156,7 @@ const mesReadiness = ref(null)
 const mesReadinessLoading = ref(false)
 const mesReadinessError = ref('')
 const statusItems = [
-  { label: '核心模块', value: `${settingLinks.length}/7` },
+  { label: '核心模块', value: `${settingLinks.length}/${settingLinks.length}` },
   { label: '配置通道', value: 'ACTIVE' },
   { label: '入口状态', value: 'ONLINE' }
 ]
@@ -169,6 +186,21 @@ const mesWindowCount = computed(() => {
   const value = Number(mesReadiness.value?.window_comparison?.supplement_window_count ?? 0)
   return Number.isFinite(value) ? String(value) : '0'
 })
+
+const genericTerminalCount = computed(() => {
+  const value = Number(mesReadiness.value?.coverage?.generic_terminal_count ?? 0)
+  return Number.isFinite(value) ? value : 0
+})
+
+const genericTerminalItems = computed(() => {
+  const items = Array.isArray(mesReadiness.value?.generic_terminals) ? mesReadiness.value.generic_terminals : []
+  return items.slice(0, 3)
+})
+
+function terminalHintText(item) {
+  const hints = item?.terminal_hints && typeof item.terminal_hints === 'object' ? item.terminal_hints : {}
+  return hints.DeviceCode || hints.MachineCode || hints.WorkShopLine || hints.LineName || item.device_name || 'PC'
+}
 
 function readinessRate(key) {
   const value = Number(mesReadiness.value?.coverage?.[key] ?? 0)
@@ -254,8 +286,14 @@ onMounted(loadMesReadiness)
   min-height: 108px;
   padding: var(--xt-space-4);
   overflow: hidden;
-  border-left: 4px solid rgba(0, 242, 255, 0.86);
+  border: 1px solid rgba(0, 242, 255, 0.2);
   border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(0, 132, 255, 0.16), rgba(3, 18, 34, 0.38) 56%, rgba(0, 242, 255, 0.08)),
+    rgba(4, 18, 32, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 26px rgba(0, 12, 28, 0.16);
 }
 
 .xt-system-settings__header::after,
@@ -577,6 +615,51 @@ onMounted(loadMesReadiness)
   font-family: var(--xt-font-mono);
   font-size: var(--xt-text-xl);
   line-height: 1;
+}
+
+.xt-system-settings__terminal {
+  display: grid;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(255, 171, 0, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(255, 171, 0, 0.12), rgba(0, 242, 255, 0.05)),
+    rgba(3, 18, 34, 0.5);
+}
+
+.xt-system-settings__terminal ul {
+  display: grid;
+  gap: var(--xt-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.xt-system-settings__terminal li {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding-top: var(--xt-space-2);
+  border-top: 1px solid rgba(255, 171, 0, 0.14);
+}
+
+.xt-system-settings__terminal li span {
+  overflow: hidden;
+  color: rgba(225, 253, 255, 0.86);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xt-system-settings__terminal li b {
+  overflow: hidden;
+  color: rgba(255, 214, 128, 0.94);
+  font-family: var(--xt-font-mono);
+  font-size: var(--xt-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xt-system-settings__linkage {

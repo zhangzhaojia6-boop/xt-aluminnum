@@ -9,7 +9,7 @@
       <div class="live-dashboard-page__title">
         <span class="live-dashboard-page__eyebrow">鑫泰铝业 数据中枢 / 生产实时</span>
         <h1>全厂实时调度墙</h1>
-        <p>FINAL STAGE · MACHINE MATRIX · DATA CREDIT</p>
+        <p>实时流转 / 机列矩阵 / 来源核验</p>
       </div>
       <div class="live-dashboard-page__actions">
         <span class="live-dashboard-page__chip">{{ targetDate }}</span>
@@ -24,6 +24,7 @@
     </header>
 
     <LiveMarketTicker :items="tickerItems" />
+    <LiveProcessFlow :items="processFlowItems" />
 
     <section class="live-dashboard-page__priority" aria-label="今日优先处理">
       <header>
@@ -88,6 +89,7 @@ import LiveMachineDrawer from './LiveMachineDrawer.vue'
 import LiveMachineMatrix from './LiveMachineMatrix.vue'
 import LiveMarketTicker from './LiveMarketTicker.vue'
 import LiveMetricCompareCard from './LiveMetricCompareCard.vue'
+import LiveProcessFlow from './LiveProcessFlow.vue'
 import { buildLiveStitchSurface } from '../../../utils/stitchManageSurface'
 import {
   mergeRealtimeEventPatch,
@@ -133,6 +135,7 @@ const stitchSurface = computed(() => buildLiveStitchSurface({
   aggregation: aggregation.value,
 }))
 const tickerItems = computed(() => stitchSurface.value.marketTicker)
+const processFlowItems = computed(() => stitchSurface.value.processFlow)
 const machineMatrix = computed(() => stitchSurface.value.machineMatrix)
 const compareItems = computed(() => stitchSurface.value.realtimeKpiStrip)
 const eventItems = computed(() => stitchSurface.value.eventRail)

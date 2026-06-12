@@ -8,7 +8,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.business_time import OWNER_DAILY_CUTOFF, resolve_owner_daily_business_date, resolve_production_business_date
+from app.core.business_time import OWNER_DAILY_LATE_CUTOFF, resolve_owner_daily_business_date, resolve_production_business_date
 from app.core.permissions import assert_scope_access
 from app.core.scope import build_scope_summary
 from app.core.report_statuses import READY_REPORT_STATUSES
@@ -233,7 +233,7 @@ def _owner_daily_candidates(
     users = query.order_by(User.id.asc()).all()
     reported_user_ids = _reported_owner_daily_user_ids(db, business_date=business_date)
     current_local = _local_now(now)
-    if current_local.date() > business_date and current_local.time() >= OWNER_DAILY_CUTOFF:
+    if current_local.date() > business_date and current_local.time() >= OWNER_DAILY_LATE_CUTOFF:
         reminder_type = 'daily_late_report'
     elif current_local.date() > business_date + timedelta(days=1):
         reminder_type = 'daily_late_report'

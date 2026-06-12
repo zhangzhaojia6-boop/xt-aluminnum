@@ -1139,6 +1139,63 @@ def test_list_coils_applies_filters_offset_and_limit(monkeypatch):
     assert [item['coil_key'] for item in coils] == ['MES:2', 'MES:3']
 
 
+def test_list_coils_exposes_mes_weight_and_auto_scrap_without_polluting_destination(monkeypatch):
+    db = _FakeDB(
+        coils=[_coil(coil_id='MES:SCRAP', tracking_card_no='LZ-SCRAP', batch_no='BATCH-SCRAP')],
+        process_records=[
+            SimpleNamespace(
+                batch_no='BATCH-SCRAP',
+                process_name='轧制',
+                device_name='1#轧机',
+                input_weight_kg=6350,
+                output_weight_kg=6000,
+                input_weight_tons=None,
+                output_weight_tons=None,
+                end_time=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+                id=10,
+            )
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    coils = factory_command_service.list_coils(db)
+
+    assert coils[0]['destination']['kind'] == 'in_progress'
+    assert coils[0]['mes_input_weight_tons'] == 6.35
+    assert coils[0]['mes_output_weight_tons'] == 6.0
+    assert coils[0]['auto_scrap_weight_tons'] == 0.35
+    assert coils[0]['auto_scrap_rate'] == 0.0551
+    assert coils[0]['scrap_status'] == 'normal'
+
+
+def test_coil_flow_marks_negative_auto_scrap_as_abnormal(monkeypatch):
+    db = _FakeDB(
+        coils=[_coil(coil_id='MES:NEG', tracking_card_no='LZ-NEG', batch_no='BATCH-NEG')],
+        process_records=[
+            SimpleNamespace(
+                batch_no='BATCH-NEG',
+                process_name='轧制',
+                device_name='1#轧机',
+                input_weight_kg=6000,
+                output_weight_kg=6350,
+                input_weight_tons=None,
+                output_weight_tons=None,
+                end_time=datetime(2026, 5, 2, 8, 30, tzinfo=UTC),
+                id=11,
+            )
+        ],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    flow = factory_command_service.get_coil_flow(db, coil_key='MES:NEG')
+
+    assert flow['mes_input_weight_tons'] == 6.0
+    assert flow['mes_output_weight_tons'] == 6.35
+    assert flow['auto_scrap_weight_tons'] is None
+    assert flow['auto_scrap_rate'] is None
+    assert flow['scrap_status'] == 'abnormal_output_gt_input'
+
+
 def test_list_coils_pushes_filters_and_page_to_database(monkeypatch, tmp_path):
     db = _sqlalchemy_session(tmp_path)
     db.add_all(

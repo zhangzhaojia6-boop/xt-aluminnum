@@ -57,6 +57,23 @@ def test_readyz_ok(monkeypatch):
     assert resp.json()["checks"]["database"] == "ok"
 
 
+def test_api_v1_readyz_matches_readiness(monkeypatch):
+    client = TestClient(app)
+
+    monkeypatch.setattr(
+        "app.main.health_service.build_readiness_payload",
+        lambda: (
+            True,
+            {"status": "ready", "checks": {"database": "ok", "uploads": "ok"}},
+        ),
+    )
+
+    resp = client.get("/api/v1/readyz")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ready"
+    assert resp.json()["checks"]["database"] == "ok"
+
+
 def test_readyz_not_ready(monkeypatch):
     client = TestClient(app)
 
@@ -183,6 +200,31 @@ def test_build_readiness_payload_reports_mes_unconfigured_as_ready(monkeypatch):
     assert payload["checks"]["mes_sync"] == "unconfigured"
     assert payload["details"]["mes_sync"]["status"] == "unconfigured"
     assert payload["details"]["mes_sync"]["action_required"] == "configure_mes"
+
+
+def test_build_readiness_payload_warns_on_stale_iot_energy_sync(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "null")
+    monkeypatch.setattr("app.core.health.settings.IOT_ENERGY_ADAPTER", "sqlserver")
+    monkeypatch.setattr(
+        "app.services.iot_energy_sync_service.latest_sync_status",
+        lambda _db: {
+            "status": "stale",
+            "configured": True,
+            "source": "iot_energy",
+            "lag_seconds": 1800.0,
+            "action_required": "check_iot_energy_lag",
+        },
+    )
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is True
+    assert payload["status"] == "ready"
+    assert payload["checks"]["iot_energy_sync"] == "stale"
+    assert payload["details"]["iot_energy_sync"]["action_required"] == "check_iot_energy_lag"
 
 
 def test_build_readiness_payload_reports_mes_projection_migration_missing_without_blocking_app_ready(monkeypatch):

@@ -35,6 +35,8 @@ test('EnergyCenter keeps all management table fields visible', () => {
     'business_date',
     'workshop_code',
     'shift_code',
+    'source_label',
+    'source_updated_at',
     'electricity_value',
     'gas_value',
     'water_value',
@@ -45,9 +47,17 @@ test('EnergyCenter keeps all management table fields visible', () => {
     assert.match(src, new RegExp(field))
   }
 
-  for (const label of ['业务日期', '车间', '班次', '电耗', '气耗', '水耗', '总能耗', '产量', '单吨能耗']) {
+  for (const label of ['业务日期', '车间', '班次', '数据来源', '采集时间', '电耗', '气耗', '水耗', '总能耗', '产量', '单吨能耗']) {
     assert.match(src, new RegExp(label))
   }
+})
+
+test('EnergyCenter exposes IoT shadow source and collection time', () => {
+  assert.match(src, /formatEnergySourceLabel/)
+  assert.match(src, /formatSourceUpdatedAt/)
+  assert.match(src, /物联网采集/)
+  assert.match(src, /row\.source_label/)
+  assert.match(src, /row\.source_updated_at/)
 })
 
 test('EnergyCenter keeps electricity and comprehensive energy separated', () => {

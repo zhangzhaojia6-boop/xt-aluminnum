@@ -349,3 +349,9 @@ def api_healthz() -> dict:
 def readyz() -> JSONResponse:
     ready, payload = health_service.build_readiness_payload()
     return JSONResponse(content=payload, status_code=200 if ready else 503)
+
+
+@app.get(f'{settings.API_V1_PREFIX}/readyz')
+def api_readyz() -> JSONResponse:
+    ready, payload = health_service.build_readiness_payload()
+    return JSONResponse(content=payload, status_code=200 if ready else 503)

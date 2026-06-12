@@ -81,5 +81,6 @@ class MesSupplementReadinessOut(BaseModel):
     machine_binding: dict = Field(default_factory=dict)
     material_categories: dict = Field(default_factory=dict)
     window_comparison: dict = Field(default_factory=dict)
+    generic_terminals: list[dict] = Field(default_factory=list)
     unmatched_devices: list[dict] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

@@ -50,6 +50,16 @@ export const centerNavigation = [
     summary: '产线产量、OEE、趋势'
   },
   {
+    id: 'coils',
+    no: '06',
+    title: '卷级线索',
+    zone: 'review',
+    path: '/manage/coils',
+    routeName: 'manage-coils',
+    icon: '卷',
+    summary: '随行卡、当前工艺、机列归属、MES 与补录对照'
+  },
+  {
     id: 'cost',
     no: '10',
     title: '经营效益',
@@ -132,7 +142,8 @@ const routeMetaByName = {
   'manage-workshop-dashboard': { center: 'workshop', group: '生产', order: 2, icon: 'Monitor', legacy: false, roles: ['review'], keepAlive: true },
   'manage-today': { center: 'overview', group: '三页骨架', order: 2, icon: 'House', legacy: false, roles: ['review'], keepAlive: true },
   'manage-production': { center: 'factory', group: '三页骨架', order: 3, icon: 'DataBoard', legacy: false, roles: ['review'], keepAlive: true },
-  'manage-fill-details': { center: 'factory', group: '生产', order: 4, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-coils': { center: 'coils', group: '生产', order: 4, icon: 'Tickets', legacy: false, roles: ['review'], keepAlive: true },
+  'manage-fill-details': { center: 'factory', group: '生产', order: 5, icon: 'DataLine', legacy: false, roles: ['review'], keepAlive: true },
   'manage-alerts': { group: '兼容入口', order: 103, icon: 'WarningFilled', legacy: true, roles: ['review'], keepAlive: false },
   'review-report-center': { group: '归档入口', order: 105, icon: 'TrendCharts', legacy: true, roles: ['review'], keepAlive: true },
   'review-quality-center': { center: 'quality', group: '质量与核对', order: 6, icon: 'WarningFilled', legacy: false, roles: ['review'], keepAlive: true },
@@ -169,6 +180,7 @@ const commandMetaByName = {
   'manage-workshop-dashboard': { shortLabel: '车间看板', commandGroup: '生产', secondaryGroup: '本车间' },
   'manage-today': { shortLabel: '昨日日报', commandGroup: '昨日日报', secondaryGroup: '全局' },
   'manage-production': { shortLabel: '生产', commandGroup: '生产', secondaryGroup: '作业' },
+  'manage-coils': { shortLabel: '卷级线索', commandGroup: '生产', secondaryGroup: '卷材' },
   'manage-fill-details': { shortLabel: '明细', commandGroup: '生产', secondaryGroup: '填报' },
   'review-report-center': { shortLabel: '归档', commandGroup: '工具', secondaryGroup: '报表' },
   'review-quality-center': { shortLabel: '质量', commandGroup: '工厂', secondaryGroup: '质量' },
@@ -208,6 +220,7 @@ const reviewNavigation = [
       { routeName: 'manage-workshop-dashboard', label: '各车间看板', access: 'review' },
       { routeName: 'manage-today', label: '昨日日报', access: 'review' },
       { routeName: 'manage-production', label: '生产', access: 'review' },
+      { routeName: 'manage-coils', label: '卷级线索', access: 'review' },
       { routeName: 'manage-fill-details', label: '填报明细', access: 'review' }
     ]
   }

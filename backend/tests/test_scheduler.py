@@ -23,6 +23,7 @@ class FakeScheduler:
 
 def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'mvc')
+    monkeypatch.setattr(scheduler_module.settings, 'IOT_ENERGY_ADAPTER', 'null')
     scheduler = FakeScheduler()
 
     setup_scheduler(scheduler)
@@ -49,6 +50,19 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['mes_sync_reference']['kwargs']['minutes'] == 360
     assert scheduler.jobs['fill_reminder']['trigger'] == 'cron'
     assert scheduler.jobs['data_archive']['trigger'] == 'cron'
+
+
+def test_setup_scheduler_registers_iot_energy_sync_only_when_enabled(monkeypatch) -> None:
+    monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'null')
+    monkeypatch.setattr(scheduler_module.settings, 'IOT_ENERGY_ADAPTER', 'sqlserver')
+    monkeypatch.setattr(scheduler_module.settings, 'IOT_ENERGY_SYNC_POLL_SECONDS', 60, raising=False)
+    scheduler = FakeScheduler()
+
+    setup_scheduler(scheduler)
+
+    assert 'iot_energy_sync' in scheduler.jobs
+    assert scheduler.jobs['iot_energy_sync']['trigger'] == 'interval'
+    assert scheduler.jobs['iot_energy_sync']['kwargs']['seconds'] == 60
 
 
 def test_setup_scheduler_is_idempotent() -> None:

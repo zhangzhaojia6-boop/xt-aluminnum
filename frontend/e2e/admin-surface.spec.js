@@ -132,6 +132,20 @@ test('admin settings route renders the system settings surface', async ({ page }
   await expect(page.getByRole('button', { name: '补录产量' })).toHaveCount(0)
 })
 
+test('admin settings links to MES terminal binding management', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.goto('/manage/admin/settings')
+
+  const terminalLink = page.getByRole('link', { name: /终端绑定/ })
+  await expect(terminalLink).toHaveAttribute('href', '/manage/mes-terminal-bindings')
+  await terminalLink.click()
+
+  await expect(page).toHaveURL(/\/manage\/mes-terminal-bindings$/)
+  await expect(page.getByTestId('mes-terminal-binding-page')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'MES 终端绑定' })).toBeVisible()
+  await expect(page.getByTestId('mes-terminal-binding-table')).toBeVisible()
+})
+
 test('admin settings route stays within viewport without overflow', async ({ page }) => {
   await loginAsAdmin(page)
 
@@ -150,6 +164,45 @@ test('admin settings route stays within viewport without overflow', async ({ pag
     ))
     expect(overflow).toBeLessThanOrEqual(1)
   }
+})
+
+test('manage live route shows realtime process flow without page overflow', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.setViewportSize({ width: 1366, height: 820 })
+  await page.goto('/manage/live')
+
+  await expect(page.getByTestId('manage-live')).toBeVisible()
+  await expect(page.getByText('生产流转总览')).toBeVisible()
+  await expect(page.getByText('缺数据不计 0')).toBeVisible()
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('能耗采集')
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('物联网采集 · 09:20')
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('电工填报')
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('8,700 kWh')
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('41.31 kWh/吨')
+
+  const overflow = await page.evaluate(() => Math.max(
+    document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    document.body.scrollWidth - document.body.clientWidth
+  ))
+  expect(overflow).toBeLessThanOrEqual(1)
+})
+
+test('manage live route stays readable on a narrow factory screen', async ({ page }) => {
+  await loginAsAdmin(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/manage/live?desktop=1')
+
+  await expect(page.getByTestId('manage-live')).toBeVisible()
+  await expect(page.getByText('全厂实时调度墙')).toBeVisible()
+  await expect(page.getByText('实时流转 / 机列矩阵 / 来源核验')).toBeVisible()
+  await expect(page.getByText('生产流转总览')).toBeVisible()
+  await expect(page.getByTestId('stitch-bottom-status')).toContainText('能耗采集')
+
+  const overflow = await page.evaluate(() => Math.max(
+    document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    document.body.scrollWidth - document.body.clientWidth
+  ))
+  expect(overflow).toBeLessThanOrEqual(1)
 })
 
 test('admin settings route does not render retired external missing input checklist', async ({ page }) => {

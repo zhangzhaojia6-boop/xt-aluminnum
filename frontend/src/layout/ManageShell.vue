@@ -182,7 +182,7 @@ const auth = useAuthStore()
 const SIDEBAR_RAIL_BREAKPOINT = 1180
 const SIDEBAR_MOBILE_BREAKPOINT = 900
 const TOPBAR_COMPACT_BREAKPOINT = 640
-const DASHBOARD_WALL_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/fill-details', '/manage/energy'])
+const DASHBOARD_WALL_PATHS = new Set(['/manage/live', '/manage/today', '/manage/production', '/manage/coils', '/manage/fill-details', '/manage/energy'])
 const userCollapsed = ref(localStorage.getItem('xt-sidebar-collapsed') === 'true')
 const isAutoRail = ref(false)
 const isMobileViewport = ref(false)

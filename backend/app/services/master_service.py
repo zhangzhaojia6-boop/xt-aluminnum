@@ -4,7 +4,7 @@ from typing import Iterable
 
 from sqlalchemy.orm import Session
 
-from app.models.master import Employee, Equipment, MasterCodeAlias, Team, Workshop
+from app.models.master import Employee, Equipment, MasterCodeAlias, MesTerminalBinding, Team, Workshop
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.audit_service import record_audit
@@ -114,6 +114,104 @@ def delete_alias(
             'alias_code': alias.alias_code,
             'is_active': alias.is_active,
         },
+    )
+
+
+def list_mes_terminal_bindings(
+    db: Session,
+    *,
+    terminal_code: str | None = None,
+    workshop_name: str | None = None,
+    process_name: str | None = None,
+    is_active: bool | None = None,
+) -> list[MesTerminalBinding]:
+    query = db.query(MesTerminalBinding)
+    if terminal_code:
+        query = query.filter(MesTerminalBinding.terminal_code == terminal_code)
+    if workshop_name:
+        query = query.filter(MesTerminalBinding.workshop_name == workshop_name)
+    if process_name:
+        query = query.filter(MesTerminalBinding.process_name == process_name)
+    if is_active is not None:
+        query = query.filter(MesTerminalBinding.is_active.is_(is_active))
+    return query.order_by(MesTerminalBinding.is_active.desc(), MesTerminalBinding.id.desc()).all()
+
+
+def _ensure_equipment_exists(db: Session, equipment_id: int | None) -> None:
+    if equipment_id is None or db.get(Equipment, equipment_id) is None:
+        raise ValueError('equipment not found')
+
+
+def create_mes_terminal_binding(
+    db: Session,
+    *,
+    payload: dict,
+    operator: User | None,
+) -> MesTerminalBinding:
+    _ensure_equipment_exists(db, payload.get('equipment_id'))
+    item = MesTerminalBinding(**payload)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    record_audit(
+        db,
+        user=operator,
+        action='create_mes_terminal_binding',
+        module='master',
+        entity_type='mes_terminal_bindings',
+        entity_id=item.id,
+        detail={'terminal_code': item.terminal_code, 'equipment_id': item.equipment_id},
+    )
+    return item
+
+
+def update_mes_terminal_binding(
+    db: Session,
+    *,
+    binding_id: int,
+    payload: dict,
+    operator: User | None,
+) -> MesTerminalBinding:
+    item = db.get(MesTerminalBinding, binding_id)
+    if not item:
+        raise ValueError('mes terminal binding not found')
+    if 'equipment_id' in payload:
+        _ensure_equipment_exists(db, payload.get('equipment_id'))
+    for key, value in payload.items():
+        setattr(item, key, value)
+    db.commit()
+    db.refresh(item)
+    record_audit(
+        db,
+        user=operator,
+        action='update_mes_terminal_binding',
+        module='master',
+        entity_type='mes_terminal_bindings',
+        entity_id=item.id,
+        detail={'terminal_code': item.terminal_code, 'equipment_id': item.equipment_id},
+    )
+    return item
+
+
+def delete_mes_terminal_binding(
+    db: Session,
+    *,
+    binding_id: int,
+    operator: User | None,
+) -> None:
+    item = db.get(MesTerminalBinding, binding_id)
+    if not item:
+        raise ValueError('mes terminal binding not found')
+    item.is_active = False
+    db.flush()
+    record_audit(
+        db,
+        user=operator,
+        action='deactivate_mes_terminal_binding',
+        module='master',
+        entity_type='mes_terminal_bindings',
+        entity_id=item.id,
+        detail={'terminal_code': item.terminal_code, 'equipment_id': item.equipment_id, 'is_active': item.is_active},
     )
 
 

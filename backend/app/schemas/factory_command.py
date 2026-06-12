@@ -68,6 +68,11 @@ class FactoryCoilListItemOut(BaseModel):
     tracking_card_no: str
     batch_no: str | None = None
     material_code: str | None = None
+    mes_input_weight_tons: float | None = None
+    mes_output_weight_tons: float | None = None
+    auto_scrap_weight_tons: float | None = None
+    auto_scrap_rate: float | None = None
+    scrap_status: str = 'no_mes_process_record'
     line_code: str | None = None
     machine_code: str | None = None
     previous_workshop: str | None = None
@@ -82,6 +87,11 @@ class FactoryCoilListItemOut(BaseModel):
 class FactoryCoilFlowOut(BaseModel):
     coil_key: str
     tracking_card_no: str | None = None
+    mes_input_weight_tons: float | None = None
+    mes_output_weight_tons: float | None = None
+    auto_scrap_weight_tons: float | None = None
+    auto_scrap_rate: float | None = None
+    scrap_status: str = 'no_mes_process_record'
     previous_workshop: str | None = None
     previous_process: str | None = None
     current_workshop: str | None = None

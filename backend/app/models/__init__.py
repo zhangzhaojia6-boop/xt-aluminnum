@@ -26,8 +26,14 @@ from app.models.executive import (
     ProcessingFeeSurcharge,
 )
 from app.models.imports import FieldMappingTemplate, ImportBatch, ImportRow
-from app.models.master import Employee, Equipment, MasterCodeAlias, Position, Team, Workshop, WorkshopTemplateConfig
-from app.models.energy import EnergyImportRecord, MachineEnergyDailyCompare, MachineEnergyRecord
+from app.models.master import Employee, Equipment, MasterCodeAlias, MesTerminalBinding, Position, Team, Workshop, WorkshopTemplateConfig
+from app.models.energy import (
+    EnergyImportRecord,
+    IotEnergySnapshot,
+    IotEnergySyncRun,
+    MachineEnergyDailyCompare,
+    MachineEnergyRecord,
+)
 from app.models.consumable import DailyConsumableLog
 from app.models.mes import (
     CoilFlowEvent,
@@ -74,6 +80,7 @@ __all__ = [
     'Position',
     'Employee',
     'Equipment',
+    'MesTerminalBinding',
     'WorkshopTemplateConfig',
     'MasterCodeAlias',
     'ShiftConfig',
@@ -100,6 +107,8 @@ __all__ = [
     'WorkOrderEntry',
     'FieldAmendment',
     'EnergyImportRecord',
+    'IotEnergySnapshot',
+    'IotEnergySyncRun',
     'MachineEnergyRecord',
     'MachineEnergyDailyCompare',
     'DailyConsumableLog',

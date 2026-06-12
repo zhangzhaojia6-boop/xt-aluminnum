@@ -8,7 +8,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.core.business_time import resolve_production_business_date
 from app.database import get_engine, get_sessionmaker
-from app.services import mes_sync_service
+from app.services import iot_energy_sync_service, mes_sync_service
 
 
 def _utc_timestamp() -> str:
@@ -151,6 +151,40 @@ def build_readiness_payload() -> tuple[bool, dict]:
                 'source': 'mes_projection',
                 'lag_seconds': None,
                 'action_required': 'check_mes_sync',
+                'error': exc.__class__.__name__,
+            }
+
+    if (settings.IOT_ENERGY_ADAPTER or 'null').strip().lower() == 'null':
+        checks['iot_energy_sync'] = 'unconfigured'
+        details['iot_energy_sync'] = {
+            'configured': False,
+            'status': 'unconfigured',
+            'source': 'local_entry',
+            'lag_seconds': None,
+            'action_required': 'configure_iot_energy',
+        }
+    else:
+        try:
+            session_factory = get_sessionmaker()
+            db = session_factory()
+            try:
+                iot_sync_status = iot_energy_sync_service.latest_sync_status(db)
+            finally:
+                db.close()
+            details['iot_energy_sync'] = _sanitize_mes_sync_status(iot_sync_status)
+            sync_status = iot_sync_status.get('status')
+            if sync_status in {'failed', 'stale', 'unconfigured', 'idle'}:
+                checks['iot_energy_sync'] = str(sync_status)
+            else:
+                checks['iot_energy_sync'] = 'ok'
+        except Exception as exc:  # noqa: BLE001
+            checks['iot_energy_sync'] = f'error:{exc.__class__.__name__}'
+            details['iot_energy_sync'] = {
+                'configured': True,
+                'status': 'failed',
+                'source': 'iot_energy',
+                'lag_seconds': None,
+                'action_required': 'check_iot_energy_sync',
                 'error': exc.__class__.__name__,
             }
 

@@ -9,6 +9,7 @@ from app.config import settings
 PRODUCTION_BUSINESS_DAY_START = time(7, 30)
 OWNER_DAILY_BUSINESS_DAY_START = time(9, 30)
 OWNER_DAILY_CUTOFF = OWNER_DAILY_BUSINESS_DAY_START
+OWNER_DAILY_LATE_CUTOFF = time(10, 0)
 
 
 def local_now(now: datetime | None = None) -> datetime:

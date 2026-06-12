@@ -1,13 +1,32 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from datetime import datetime
+from typing import Any, Iterable, Mapping
 
-from app.models.master import Equipment, MasterCodeAlias
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding
 from app.services.real_master_data import VIRTUAL_QR_EQUIPMENT_TYPES
 
 
 GENERIC_MES_DEVICE_NAMES = {'PC', '电脑', '一体机'}
+
+TERMINAL_HINT_KEYS = (
+    'DeviceCode',
+    'MachineCode',
+    'WorkShopLine',
+    'LineName',
+    'TerminalCode',
+    'TerminalName',
+    'StationCode',
+    'StationName',
+    'ClientName',
+    'ComputerName',
+    'HostName',
+    'IPAddress',
+    'ClientIp',
+    'IP',
+    'Ip',
+)
 
 MES_PROCESS_MACHINE_TYPE_HINTS = (
     (('冷轧',), {'cold_mill'}),
@@ -72,6 +91,15 @@ def _machine_payload(machine: Equipment, *, source: str, confidence: str, raw_de
         'confidence': confidence,
         'raw_device_name': _text(raw_device_name) or None,
     }
+
+
+def _terminal_hint_forms(terminal_hints: Mapping[str, Any] | None) -> set[str]:
+    if not terminal_hints:
+        return set()
+    forms: set[str] = set()
+    for key in TERMINAL_HINT_KEYS:
+        forms.update(_text_forms(terminal_hints.get(key)))
+    return forms
 
 
 def _empty_payload(*, source: str, raw_device_name: Any) -> dict[str, Any]:
@@ -176,6 +204,62 @@ def _match_numeric_hint(*, machines: list[Equipment], device_forms: set[str]) ->
     return _unique(candidates)
 
 
+def _binding_in_effect(binding: MesTerminalBinding, event_time: datetime | None) -> bool:
+    if not getattr(binding, 'is_active', True):
+        return False
+    if event_time is None:
+        return True
+    event_at = event_time.replace(tzinfo=None) if event_time.tzinfo is not None else event_time
+    valid_from = getattr(binding, 'valid_from', None)
+    valid_to = getattr(binding, 'valid_to', None)
+    if valid_from is not None and valid_from.tzinfo is not None:
+        valid_from = valid_from.replace(tzinfo=None)
+    if valid_to is not None and valid_to.tzinfo is not None:
+        valid_to = valid_to.replace(tzinfo=None)
+    if valid_from is not None and event_at < valid_from:
+        return False
+    if valid_to is not None and event_at >= valid_to:
+        return False
+    return True
+
+
+def _matches_scope(binding_value: Any, actual_value: Any) -> bool:
+    expected = normalize_mes_machine_text(binding_value)
+    if not expected:
+        return True
+    actual = normalize_mes_machine_text(actual_value)
+    return expected == actual
+
+
+def _match_terminal_binding(
+    *,
+    machines: list[Equipment],
+    terminal_bindings: Iterable[MesTerminalBinding],
+    terminal_hints: Mapping[str, Any] | None,
+    workshop_name: object | None,
+    process_hint: object | None,
+    event_time: datetime | None,
+) -> tuple[Equipment, MesTerminalBinding] | None:
+    hint_forms = _terminal_hint_forms(terminal_hints)
+    if not hint_forms:
+        return None
+    machine_by_id = {getattr(machine, 'id', None): machine for machine in machines}
+    for binding in terminal_bindings:
+        if not _binding_in_effect(binding, event_time):
+            continue
+        if not _matches_scope(getattr(binding, 'workshop_name', None), workshop_name):
+            continue
+        if not _matches_scope(getattr(binding, 'process_name', None), process_hint):
+            continue
+        binding_forms = _text_forms(getattr(binding, 'terminal_code', None)) | _text_forms(getattr(binding, 'terminal_name', None))
+        if not (binding_forms & hint_forms):
+            continue
+        machine = machine_by_id.get(getattr(binding, 'equipment_id', None))
+        if machine is not None and is_physical_machine(machine):
+            return machine, binding
+    return None
+
+
 def infer_mes_machine_id_from_route(*, machines: list[Equipment], process_hint: object | None) -> int | None:
     physical_machines = [machine for machine in machines if is_physical_machine(machine)]
     if len(physical_machines) == 1:
@@ -218,9 +302,29 @@ def resolve_mes_machine_binding(
     process_hint: object | None = None,
     preferred_workshop_id: int | None = None,
     aliases: Iterable[MasterCodeAlias] = (),
+    terminal_bindings: Iterable[MesTerminalBinding] = (),
+    terminal_hints: Mapping[str, Any] | None = None,
+    workshop_name: object | None = None,
+    event_time: datetime | None = None,
 ) -> dict[str, Any]:
     device_forms = _text_forms(device_name)
     if _is_generic_device(device_name):
+        terminal_match = _match_terminal_binding(
+            machines=machines,
+            terminal_bindings=terminal_bindings,
+            terminal_hints=terminal_hints,
+            workshop_name=workshop_name,
+            process_hint=process_hint,
+            event_time=event_time,
+        )
+        if terminal_match is not None:
+            machine, binding = terminal_match
+            return _machine_payload(
+                machine,
+                source='mes_terminal_binding',
+                confidence=_text(getattr(binding, 'confidence', None)) or 'high',
+                raw_device_name=device_name,
+            )
         return _empty_payload(source='generic_mes_terminal', raw_device_name=device_name)
 
     for scoped in _scoped_machines(machines=machines, preferred_workshop_id=preferred_workshop_id):
