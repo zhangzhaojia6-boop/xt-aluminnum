@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.active_workshops import filter_active_production_workshops
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Equipment, Team, Workshop
 from app.models.shift import ShiftConfig
@@ -288,6 +289,7 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
     checks: dict[str, dict[str, Any]] = {}
 
     workshops = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+    production_workshops = filter_active_production_workshops(workshops)
     workshop_ids = {item.id for item in workshops}
     if not workshops:
         issues.append(
@@ -531,7 +533,8 @@ def inspect_pilot_config(db: Session, *, target_date: date) -> dict[str, Any]:
         "warning_issues": warning_issues,
         "checks": checks,
         "stats": {
-            "active_workshop_count": len(workshops),
+            "active_workshop_count": len(production_workshops),
+            "active_database_workshop_count": len(workshops),
             "active_shift_count": len(shifts),
             "active_mobile_user_count": len(mobile_users),
             "active_equipment_count": len(equipment_rows),

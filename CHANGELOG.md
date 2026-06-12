@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.3] - 2026-06-12
+
+### Fixed
+- 后端健康检查的活跃车间统计改为十二个生产车间口径，避免旧车间或辅助承载节点让管理端判断口径变成 18 个车间。
+- 健康检查额外保留数据库启用节点数量，方便运维排查，但不再混入生产大屏主口径。
+
 ## [0.4.3.2] - 2026-06-12
 
 ### Changed

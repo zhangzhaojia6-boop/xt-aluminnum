@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
+from app.core.active_workshops import ACTIVE_PRODUCTION_WORKSHOP_CODES
 from app.services.config_readiness_service import (
     build_owner_workshop_binding_plan,
     inspect_pilot_config,
@@ -96,6 +97,62 @@ def test_inspect_pilot_config_passes_with_minimum_valid_setup() -> None:
 
     assert result["hard_gate_passed"] is True
     assert result["hard_issues"] == []
+
+
+def test_inspect_pilot_config_counts_only_twelve_production_workshops() -> None:
+    workshops = [
+        SimpleNamespace(id=index + 1, code=code, name=code, is_active=True)
+        for index, code in enumerate(
+            [
+                *ACTIVE_PRODUCTION_WORKSHOP_CODES,
+                "ZR5",
+                "ZR6",
+                "HS",
+                "CPK",
+                "CH",
+                "ZXTF",
+            ]
+        )
+    ]
+    shift = SimpleNamespace(id=11, workshop_id=None, is_active=True)
+    user = SimpleNamespace(
+        id=7,
+        username="leader01",
+        name="张三",
+        is_active=True,
+        is_mobile_user=True,
+        role="machine_operator",
+        workshop_id=workshops[0].id,
+        team_id=None,
+    )
+    equipment = SimpleNamespace(
+        code="ZD-01",
+        name="1#机",
+        workshop_id=workshops[0].id,
+        bound_user_id=7,
+        is_active=True,
+    )
+    schedule = SimpleNamespace(
+        business_date=date(2026, 4, 6),
+        shift_config_id=11,
+        workshop_id=workshops[0].id,
+        team_id=None,
+    )
+    db = _FakeDB(
+        {
+            "Workshop": workshops,
+            "ShiftConfig": [shift],
+            "Team": [],
+            "User": [user],
+            "Equipment": [equipment],
+            "AttendanceSchedule": [schedule],
+        }
+    )
+
+    result = inspect_pilot_config(db, target_date=date(2026, 4, 6))
+
+    assert result["stats"]["active_workshop_count"] == 12
+    assert result["stats"]["active_database_workshop_count"] == 18
 
 
 def test_inspect_pilot_config_detects_uncovered_schedule_workshop() -> None:
