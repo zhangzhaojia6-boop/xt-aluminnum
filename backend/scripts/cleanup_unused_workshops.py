@@ -21,6 +21,7 @@ from app.core.active_workshops import (  # noqa: E402
 )
 from app.database import get_sessionmaker  # noqa: E402
 from app.models.master import Equipment, Team, Workshop  # noqa: E402
+from app.models.system import User  # noqa: E402
 
 
 KEEP_SUPPORT_NAMES = {'成品库'}
@@ -63,12 +64,17 @@ def cleanup_unused_workshops(*, apply: bool) -> dict[str, int | list[dict[str, s
                 Team.workshop_id == workshop.id,
                 Team.is_active.is_(True),
             ).count()
+            user_count = db.query(User).filter(
+                User.workshop_id == workshop.id,
+                User.is_active.is_(True),
+            ).count()
             changed.append({
                 'id': workshop.id,
                 'code': workshop.code,
                 'name': workshop.name,
                 'equipment_count': equipment_count,
                 'team_count': team_count,
+                'user_count': user_count,
             })
             print(f'deactivate {workshop.code} {workshop.name}: {reason}')
 
@@ -80,6 +86,10 @@ def cleanup_unused_workshops(*, apply: bool) -> dict[str, int | list[dict[str, s
                 )
                 db.query(Team).filter(Team.workshop_id == workshop.id).update(
                     {Team.is_active: False},
+                    synchronize_session=False,
+                )
+                db.query(User).filter(User.workshop_id == workshop.id).update(
+                    {User.is_active: False},
                     synchronize_session=False,
                 )
 
