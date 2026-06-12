@@ -676,6 +676,62 @@ def test_seed_real_master_data_includes_1650_1850_and_keeps_retired_hwb_inactive
         db.close()
 
 
+def test_seed_real_master_data_does_not_resurrect_unused_workshops_or_accounts(tmp_path) -> None:
+    from app.services.real_master_data import seed_real_master_data
+
+    db = build_session(tmp_path)
+    try:
+        factory = Workshop(code='FACTORY', name='全厂', sort_order=999, is_active=True)
+        db.add(factory)
+        db.flush()
+        db.add(
+            Equipment(
+                code='FACTORY-DIR',
+                name='全厂主任',
+                workshop_id=factory.id,
+                equipment_type='virtual_role_qr',
+                operational_status='running',
+                qr_code='XT-FACTORY-DIR',
+                is_active=True,
+            )
+        )
+        seed_real_master_data(db)
+
+        zr5 = db.execute(select(Workshop).where(Workshop.code == 'ZR5')).scalar_one()
+        zr5_team = db.execute(select(Team).where(Team.code == 'ZR5-A')).scalar_one()
+        db.add(
+            User(
+                username='ZR5-A-EN',
+                password_hash='x',
+                name='铸轧五长白班组电工',
+                role='energy_stat',
+                workshop_id=zr5.id,
+                team_id=zr5_team.id,
+                is_mobile_user=True,
+                is_active=True,
+            )
+        )
+        db.commit()
+
+        seed_real_master_data(db)
+
+        workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all()}
+        for code in ('ZR5', 'ZR6', 'HS', 'FACTORY'):
+            assert workshops[code].is_active is False
+
+        for code in ('ZR5', 'ZR6', 'HS'):
+            workshop_id = workshops[code].id
+            assert not db.execute(select(Team).where(Team.workshop_id == workshop_id, Team.is_active.is_(True))).first()
+            assert not db.execute(select(Equipment).where(Equipment.workshop_id == workshop_id, Equipment.is_active.is_(True))).first()
+            assert not db.execute(select(User).where(User.workshop_id == workshop_id, User.is_active.is_(True))).first()
+
+        factory_qr = db.execute(select(Equipment).where(Equipment.code == 'FACTORY-DIR')).scalar_one()
+        assert factory_qr.is_active is False
+        assert factory_qr.operational_status == 'stopped'
+    finally:
+        db.close()
+
+
 def test_seed_real_master_data_includes_zr3_operator_reporting_machines(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 

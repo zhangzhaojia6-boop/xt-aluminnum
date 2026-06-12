@@ -36,8 +36,8 @@ WORKSHOPS = [
     {'code': 'ZD', 'name': '铸锭分厂', 'sort_order': 1},
     {'code': 'ZR2', 'name': '铸轧二', 'sort_order': 2},
     {'code': 'ZR3', 'name': '铸轧三', 'sort_order': 3},
-    {'code': 'ZR5', 'name': '铸轧五', 'sort_order': 4},
-    {'code': 'ZR6', 'name': '铸轧六', 'sort_order': 5},
+    {'code': 'ZR5', 'name': '铸轧五', 'sort_order': 4, 'is_active': False},
+    {'code': 'ZR6', 'name': '铸轧六', 'sort_order': 5, 'is_active': False},
     {'code': 'RZ', 'name': '热轧', 'sort_order': 6},
     {'code': 'LZ2050', 'name': '2050冷轧', 'sort_order': 7},
     {'code': 'LZ1850', 'name': '1850冷轧', 'sort_order': 8},
@@ -50,7 +50,7 @@ WORKSHOPS = [
     {'code': 'JQ', 'name': '剪切车间', 'sort_order': 15},
     {'code': 'LJ', 'name': '拉矫车间', 'sort_order': 16},
     {'code': 'CT', 'name': '彩涂', 'sort_order': 17, 'is_active': False},
-    {'code': 'HS', 'name': '回收车间', 'sort_order': 18},
+    {'code': 'HS', 'name': '回收车间', 'sort_order': 18, 'is_active': False},
     {'code': 'CPK', 'name': '成品库', 'sort_order': 19},
     {'code': 'ZXTF-N', 'name': '新厂在线退火', 'sort_order': 200},
     {'code': 'ZXTF-P', 'name': '园区在线退火', 'sort_order': 201},
@@ -643,19 +643,8 @@ def _deactivate_placeholder_rows(db: Session, model) -> None:
 
 def _deactivate_legacy_rows(db: Session) -> None:
     inactive_workshop_ids: set[int] = set()
-    virtual_qr_workshop_ids = {
-        item
-        for item in db.execute(
-            select(Equipment.workshop_id).where(Equipment.equipment_type.in_(VIRTUAL_QR_EQUIPMENT_TYPES))
-        ).scalars()
-        if item is not None
-    }
-
     workshops = db.execute(select(Workshop)).scalars().all()
     for item in workshops:
-        if item.id in virtual_qr_workshop_ids:
-            item.is_active = True
-            continue
         if item.code not in REAL_WORKSHOP_CODES:
             item.is_active = False
             inactive_workshop_ids.add(item.id)
@@ -902,7 +891,7 @@ def _ensure_special_owner_account(
     user.is_mobile_user = True
     user.is_reviewer = False
     user.is_manager = False
-    user.is_active = True
+    user.is_active = bool(workshop.is_active) and bool(team.is_active)
     if stable_pin:
         user.pin_code = stable_pin
     if not user.pin_code:
@@ -1065,6 +1054,21 @@ def seed_workshop_director_users(db: Session, workshops_by_code: dict[str, Works
             user.password_hash = get_password_hash(secrets.token_urlsafe(24))
 
 
+def deactivate_users_for_inactive_workshops(db: Session) -> None:
+    inactive_workshop_ids = [
+        item
+        for item in db.execute(select(Workshop.id).where(Workshop.is_active.is_(False))).scalars()
+        if item is not None
+    ]
+    if not inactive_workshop_ids:
+        return
+    users = db.execute(
+        select(User).where(User.workshop_id.in_(inactive_workshop_ids), User.is_active.is_(True))
+    ).scalars()
+    for user in users:
+        user.is_active = False
+
+
 def seed_workshop_director_qrs(db: Session, workshops_by_code: dict[str, Workshop]) -> None:
     for workshop in workshops_by_code.values():
         if not workshop.is_active:
@@ -1218,5 +1222,6 @@ def seed_real_master_data(db: Session) -> None:
     rehome_legacy_online_role_qrs(db, workshops_by_code)
     seed_virtual_role_qr_accounts(db)
     seed_workshop_director_users(db, workshops_by_code)
+    deactivate_users_for_inactive_workshops(db)
 
     db.commit()
