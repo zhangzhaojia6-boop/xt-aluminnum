@@ -22,7 +22,7 @@
 
       <div v-if="mode === 'per_coil' && canScan" class="ue-scan-row">
         <button class="ue-scan-btn" :disabled="scanning" @click="handleScanLookup()">
-          {{ scanning ? '扫码中…' : '扫随行卡兜底' }}
+          {{ scanning ? '扫码中…' : '扫码带出' }}
         </button>
       </div>
 

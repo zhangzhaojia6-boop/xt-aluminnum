@@ -17,6 +17,12 @@ test('mobile api exposes MES pending supplement endpoint', () => {
   assert.match(mobileApiSource, /\/mobile\/mes-pending-supplements/)
 })
 
+test('MES pending supplements are optional and never trigger auth logout', () => {
+  assert.match(mobileApiSource, /fetchMesPendingSupplements/)
+  assert.match(mobileApiSource, /skipAuthLogout:\s*true/)
+  assert.match(mobileApiSource, /skipErrorToast:\s*true/)
+})
+
 test('scan lookup composable supports dingtalk and browser scanners', () => {
   assert.match(scanLookupSource, /useScanLookup/)
   assert.match(scanLookupSource, /dd\.biz\.util\.scan/)

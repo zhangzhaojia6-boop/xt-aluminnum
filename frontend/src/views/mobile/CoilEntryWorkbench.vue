@@ -133,9 +133,9 @@
     </div>
 
     <div class="coil-actions">
-      <p class="coil-actions__hint">正常先点上方 MES 待补录卡片；找不到卷材时再走兜底。</p>
+      <p class="coil-actions__hint">正常先点上方 MES 待补录卡片；找不到卷材时再扫码带出。</p>
       <el-button v-if="canScan" size="large" plain :loading="scanning" class="xt-pressable" @click="handleScanLookup()">
-        找不到卷材？扫随行卡兜底
+        找不到卷材？扫码带出
       </el-button>
       <el-button type="primary" size="large" class="xt-pressable" @click="openManualEntryDialog">
         手工补录一卷

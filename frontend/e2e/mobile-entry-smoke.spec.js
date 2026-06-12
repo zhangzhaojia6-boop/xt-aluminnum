@@ -264,7 +264,7 @@ async function setupUnifiedPerCoilEntrySession(page) {
   })
 }
 
-test('admin mobile entry shows the manual-first mobile entry', async ({ page }) => {
+test('admin mobile entry respects management-only permissions', async ({ page }) => {
   skipWithoutCredentials([
     ['PLAYWRIGHT_USERNAME or INIT_ADMIN_USERNAME', username],
     ['PLAYWRIGHT_PASSWORD or INIT_ADMIN_PASSWORD', password]
@@ -277,15 +277,14 @@ test('admin mobile entry shows the manual-first mobile entry', async ({ page }) 
   await page.getByTestId('login-password').fill(password)
   await page.getByTestId('login-submit').click()
 
-  await expect(page).toHaveURL(/\/(?:entry|manage\/today|manage\/admin(?:\/settings)?)$/)
+  await expect(page).toHaveURL(/\/(?:entry|manage\/.*)$/)
 
-  if (!page.url().endsWith('/entry')) {
-    const currentShiftResponse = page.waitForResponse((response) =>
-      response.url().includes('/api/v1/mobile/current-shift') &&
-      response.request().method() === 'GET'
-    )
+  if (page.url().includes('/manage/')) {
+    await expect(page.getByTestId('mobile-entry')).toHaveCount(0)
     await page.goto('/entry')
-    await currentShiftResponse
+    await expect(page).toHaveURL(/\/manage\/.*/)
+    await expect(page.getByTestId('mobile-entry')).toHaveCount(0)
+    return
   }
 
   await expect(page.getByTestId('mobile-entry')).toBeVisible()

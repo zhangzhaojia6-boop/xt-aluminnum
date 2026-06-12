@@ -88,12 +88,12 @@ test('EnergyCenter keeps electricity and comprehensive energy separated', () => 
 test('EnergyCenter orders desktop and mobile detail fields by energy values before source metadata', () => {
   assert.match(
     src,
-    /prop="business_date"[\s\S]*?prop="workshop_code"[\s\S]*?prop="shift_code"[\s\S]*?prop="electricity_value"[\s\S]*?prop="gas_value"[\s\S]*?prop="water_value"[\s\S]*?prop="total_energy"[\s\S]*?prop="source_label"[\s\S]*?prop="source_updated_at"/,
+    /prop="business_date"[\s\S]*?prop="workshop_code"[\s\S]*?prop="shift_code"[\s\S]*?prop="electricity_value"[\s\S]*?prop="gas_value"[\s\S]*?prop="water_value"[\s\S]*?prop="total_energy"[\s\S]*?prop="output_weight"[\s\S]*?prop="energy_per_ton"[\s\S]*?prop="source_label"[\s\S]*?prop="source_updated_at"/,
     'desktop table should keep energy values before source metadata'
   )
   assert.match(
     src,
-    /<span>业务日期<\/span><strong>[\s\S]*?<span>电耗<\/span><strong>[\s\S]*?<span>气耗<\/span><strong>[\s\S]*?<span>水耗<\/span><strong>[\s\S]*?<span>总能耗<\/span><strong>[\s\S]*?<span>数据来源<\/span><strong>[\s\S]*?<span>采集时间<\/span><strong>/,
+    /<span>业务日期<\/span><strong>[\s\S]*?<span>电耗<\/span><strong>[\s\S]*?<span>气耗<\/span><strong>[\s\S]*?<span>水耗<\/span><strong>[\s\S]*?<span>总能耗<\/span><strong>[\s\S]*?<span>产量<\/span><strong>[\s\S]*?<span>单吨能耗<\/span><strong>[\s\S]*?<span>数据来源<\/span><strong>[\s\S]*?<span>采集时间<\/span><strong>/,
     'mobile cards should use the same energy-first order as the desktop table'
   )
 })
