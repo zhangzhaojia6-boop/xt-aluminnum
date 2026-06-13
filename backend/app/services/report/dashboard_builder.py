@@ -383,6 +383,7 @@ def _build_dashboard_leader_summary(
     blocker_summary: dict[str, Any] | None,
     yield_matrix_lane: dict[str, Any] | None,
     yield_rate: float | None = None,
+    yield_rates: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     energy_rows = energy_summary.get('rows')
     energy_available = (
@@ -402,6 +403,7 @@ def _build_dashboard_leader_summary(
         'contract_lane': contract_lane,
         'yield_matrix_lane': dict(yield_matrix_lane or {}),
         'yield_rate': yield_rate,
+        'yield_rates': dict(yield_rates or {}),
         'anomaly_summary': {
             'total': int(exception_lane.get('mobile_exception_count') or 0) + int(exception_lane.get('production_exception_count') or 0),
             'digest': blocker_summary.get('digest') if isinstance(blocker_summary, dict) else '未发现关键异常',
@@ -497,6 +499,25 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         sync_status=sync_status,
         runtime_settings=settings,
     )
+    latest_report_data = latest_report.report_data if latest_report and isinstance(latest_report.report_data, dict) else {}
+    dashboard_yield_rate = production_report.get('yield_rate') or latest_report_data.get('yield_rate')
+    dashboard_yield_matrix = production_report.get('yield_matrix_lane') or latest_report_data.get('yield_matrix_lane') or {}
+    dashboard_yield_rates = latest_report_data.get('yield_rates') if isinstance(latest_report_data.get('yield_rates'), dict) else {}
+    dashboard_energy_rows = energy_summary.get('rows')
+    dashboard_energy_available = (
+        (energy_summary.get('primary_source') not in {'none', None} and ('rows' not in energy_summary or bool(dashboard_energy_rows)))
+        or _to_float(energy_summary.get('total_energy')) > 0
+        or _to_float(energy_summary.get('energy_per_ton')) > 0
+    )
+    if total_output > 0 and dashboard_energy_available and not dashboard_yield_rate and not (
+        isinstance(dashboard_yield_matrix, dict)
+        and dashboard_yield_matrix.get('quality_status') == 'ready'
+        and _to_float(dashboard_yield_matrix.get('company_total_yield')) > 0
+    ):
+        try:
+            dashboard_yield_rates = daily_overview_builder._build_yield_rates(db, target_date)
+        except SQLAlchemyError:
+            pass
     leader_summary = _build_dashboard_leader_summary(
         target_date=target_date,
         latest_report=latest_report,
@@ -507,8 +528,9 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         inventory_lane=inventory_lane,
         exception_lane=exception_lane,
         blocker_summary=blocker_summary,
-        yield_matrix_lane=production_report.get('yield_matrix_lane') or (latest_report.report_data.get('yield_matrix_lane') if latest_report and isinstance(latest_report.report_data, dict) else {}),
-        yield_rate=production_report.get('yield_rate') or (latest_report.report_data.get('yield_rate') if latest_report and isinstance(latest_report.report_data, dict) else None),
+        yield_matrix_lane=dashboard_yield_matrix,
+        yield_rate=dashboard_yield_rate,
+        yield_rates=dashboard_yield_rates,
     )
     history_digest = _build_history_digest(db, target_date=target_date)
     energy_lane = _build_energy_lane(db, target_date=target_date)

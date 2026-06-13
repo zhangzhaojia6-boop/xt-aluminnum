@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.4] - 2026-06-14
+
+### Fixed
+- 修复昨日日报工作台中页面成品率已有数值，但 AI 总览日报仍提示“全厂成品率缺失或为 0”的口径不一致问题。
+- 工厂看板领导摘要在主成品率字段为空、质量矩阵未就绪时，会使用同一日报概览口径下的日成品率兜底，避免前端同页数字互相打架。
+
 ## [0.4.3.3] - 2026-06-12
 
 ### Fixed

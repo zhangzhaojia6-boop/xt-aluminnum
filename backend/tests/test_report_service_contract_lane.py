@@ -714,8 +714,12 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
             'pending_or_unreported_shifts': 0,
             'returned_shifts': 0,
             'energy_per_ton': 5.2,
-            'yield_matrix_lane': {'quality_status': 'ready', 'company_total_yield': 94.4},
+            'yield_matrix_lane': {'quality_status': 'warning', 'company_total_yield': None},
         },
+    )
+    monkeypatch.setattr(
+        'app.services.report_service.daily_overview_builder._build_yield_rates',
+        lambda *_args, **_kwargs: {'daily': 96.18, 'owner_daily': 95.4},
     )
     monkeypatch.setattr(
         'app.services.report_service.energy_service.summarize_energy_for_date',
@@ -778,6 +782,7 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
 
     assert '发货 184.00 吨' in payload['leader_summary']['summary_text']
     assert '入库面积 1800.00 ㎡' in payload['leader_summary']['summary_text']
+    assert '全厂成品率 96.18%' in payload['leader_summary']['summary_text']
     assert payload['leader_summary']['summary_text'] != '旧摘要'
     assert payload['blocker_summary'] == {
         'has_blockers': True,
@@ -847,6 +852,26 @@ def test_dashboard_leader_summary_uses_runtime_yield_when_matrix_not_ready() -> 
         blocker_summary={'digest': '无异常'},
         yield_matrix_lane={'quality_status': 'warning', 'company_total_yield': None},
         yield_rate=96.18,
+    )
+
+    assert payload['metrics']['yield_rate'] == 96.18
+    assert '全厂成品率缺失' not in payload['summary_text']
+
+
+def test_dashboard_leader_summary_uses_daily_yield_rates_when_runtime_yield_missing() -> None:
+    payload = report_service._build_dashboard_leader_summary(
+        target_date=date(2026, 4, 17),
+        latest_report=None,
+        total_output=180.5,
+        energy_summary={'total_energy': 1250.0, 'energy_per_ton': 5.2, 'primary_source': 'machine', 'rows': [{'source': 'machine'}]},
+        mobile_summary={'reporting_rate': 100.0},
+        contract_lane={'daily_contract_weight': 59.0},
+        inventory_lane=[],
+        exception_lane={'mobile_exception_count': 0, 'production_exception_count': 0},
+        blocker_summary={'digest': '无异常'},
+        yield_matrix_lane={'quality_status': 'warning', 'company_total_yield': None},
+        yield_rate=None,
+        yield_rates={'daily': 96.18, 'owner_daily': 95.4},
     )
 
     assert payload['metrics']['yield_rate'] == 96.18
