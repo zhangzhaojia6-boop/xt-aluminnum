@@ -247,6 +247,14 @@ def _record_event_time(record: MesSourceRecord, *keys: str) -> datetime | None:
     return None
 
 
+def _record_metadata_event_time(record: MesSourceRecord, *keys: str) -> datetime | None:
+    for key in keys:
+        parsed = _parse_datetime(record.metadata.get(key))
+        if parsed is not None:
+            return parsed
+    return record.event_time
+
+
 def _record_business_date(record: MesSourceRecord, *keys: str) -> Any:
     event_time = _record_event_time(record, *keys)
     return resolve_production_business_date(event_time) if event_time is not None else None
@@ -886,7 +894,14 @@ def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> di
 
 def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
     payload = _safe_payload(record.metadata)
-    in_stock_date = _record_event_time(record, 'InStockDate', 'StrInStockDate', 'OperateDate', 'CreateDate', 'AllocationDate')
+    in_stock_date = _record_metadata_event_time(
+        record,
+        'InStockDate',
+        'StrInStockDate',
+        'AllocationDate',
+        'OperateDate',
+        'CreateDate',
+    )
     net_kg = _to_float(_metadata_value(payload, 'NetWeight', 'InStockNetWeight'))
     gross_kg = _to_float(_metadata_value(payload, 'GrossWeight'))
     return {

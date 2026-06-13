@@ -197,6 +197,7 @@ import {
 } from '../../../utils/manageFillDetailsAudit.js'
 import { buildMissingReportRows } from '../../../utils/missingReportRows.js'
 
+const WORKSHOP_DETAIL_PAGE_LIMIT = 800
 const auth = useAuthStore()
 const targetDate = ref(inferBusinessDate())
 const loading = ref(false)
@@ -357,7 +358,7 @@ async function load() {
     const [dashboardResult, liveResult, detailResult, pendingResult, mesGapResult, processResult, materialResult] = await Promise.allSettled([
       fetchWorkshopDashboard(scopedParams({ target_date: targetDate.value })),
       fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
-      fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 1200 })),
+      fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: WORKSHOP_DETAIL_PAGE_LIMIT })),
       fetchPendingAssignmentEntries(scopedParams({ business_date: targetDate.value })),
       fetchMesFillGaps(scopedParams({ business_date: targetDate.value })),
       fetchMesWorkshopProcessRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),

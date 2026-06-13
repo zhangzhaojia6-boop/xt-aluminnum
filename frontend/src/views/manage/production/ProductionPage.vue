@@ -160,7 +160,7 @@ const rawKpiItems = computed(() => {
   const marginValue = marginReady ? fmt(Number(me.estimated_margin) / 10000, 1) : '—'
 
   return [
-    { key: 'output', label: '入库产量', value: fmt(lm.total_output_weight, 2), unit: '吨' },
+    { key: 'output', label: '包装产量', value: fmt(lm.total_output_weight, 2), unit: '吨' },
     { key: 'delta', label: '比昨日', value: deltaText, unit: '吨', tone: deltaTone },
     {
       key: 'margin',

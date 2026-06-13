@@ -73,6 +73,20 @@ def test_build_best_effort_leader_summary_returns_deterministic_fallback_when_ll
     assert payload['metrics']['storage_inbound_area'] == 2000.0
 
 
+def test_leader_summary_metrics_uses_daily_yield_when_matrix_not_ready() -> None:
+    metrics = leader_summary_service.build_leader_summary_metrics(
+        report_date=date(2026, 4, 10),
+        report_data={
+            **_sample_report_data(),
+            'yield_matrix_lane': {'quality_status': 'warning', 'company_total_yield': None},
+            'yield_rates': {'daily': 96.18},
+        },
+    )
+
+    assert metrics['yield_rate'] == 96.18
+    assert '全厂成品率缺失' not in leader_summary_service.build_deterministic_leader_summary(metrics=metrics)
+
+
 def test_build_best_effort_leader_summary_prefers_llm_when_available() -> None:
     payload = leader_summary_service.build_best_effort_leader_summary(
         report_date=date(2026, 4, 10),

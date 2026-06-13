@@ -53,6 +53,8 @@ test('manage coils page filters loaded coils locally without changing the API co
   assert.match(pageSrc, /visibleCoils/)
   assert.match(pageSrc, /matchText/)
   assert.match(pageSrc, /machineStateMatches/)
+  assert.match(pageSrc, /hasBoundMachine/)
+  assert.match(pageSrc, /isUnknownMachineLabel/)
   assert.doesNotMatch(apiSrc, /customer_alias/)
   assert.doesNotMatch(apiSrc, /machine_state/)
 })

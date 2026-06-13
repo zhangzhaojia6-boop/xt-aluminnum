@@ -12,6 +12,7 @@ async function loginAsAdmin(page) {
       is_mobile_user: true,
       is_reviewer: true,
       is_manager: true,
+      super_admin_surface: true,
       data_scope_type: 'all',
       assigned_shift_ids: []
     }

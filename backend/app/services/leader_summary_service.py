@@ -30,17 +30,36 @@ def _has_number(value: Any) -> bool:
         return False
 
 
+def _first_positive_number(*values: Any) -> Any:
+    for value in values:
+        if _has_number(value):
+            return value
+    return None
+
+
+def _resolve_yield_rate(report_data: dict[str, Any], yield_matrix_lane: dict[str, Any]) -> Any:
+    if yield_matrix_lane.get('quality_status') == 'ready' and _has_number(yield_matrix_lane.get('company_total_yield')):
+        return yield_matrix_lane.get('company_total_yield')
+
+    yield_rates = dict(report_data.get('yield_rates') or {})
+    leader_metrics = dict(report_data.get('leader_metrics') or {})
+    factory_total = dict(report_data.get('factory_total') or {})
+    return _first_positive_number(
+        report_data.get('yield_rate'),
+        yield_rates.get('daily'),
+        yield_rates.get('owner_daily'),
+        leader_metrics.get('yield_rate'),
+        factory_total.get('yield_rate'),
+    )
+
+
 def build_leader_summary_metrics(*, report_date: date, report_data: dict[str, Any]) -> dict[str, Any]:
     yield_matrix_lane = dict(report_data.get('yield_matrix_lane') or {})
     contract_lane = dict(report_data.get('contract_lane') or {})
     anomaly_summary = dict(report_data.get('anomaly_summary') or {})
     inventory_lane = list(report_data.get('inventory_lane') or [])
 
-    company_total_yield = (
-        yield_matrix_lane.get('company_total_yield')
-        if yield_matrix_lane.get('quality_status') == 'ready'
-        else report_data.get('yield_rate')
-    )
+    company_total_yield = _resolve_yield_rate(report_data, yield_matrix_lane)
     in_process_weight = sum(_to_float(item.get('storage_prepared')) for item in inventory_lane)
     consumable_weight = sum(_to_float(item.get('storage_finished')) for item in inventory_lane)
     shipment_weight = sum(_to_float(item.get('shipment_weight')) for item in inventory_lane)

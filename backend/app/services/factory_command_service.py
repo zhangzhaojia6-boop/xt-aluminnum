@@ -702,10 +702,10 @@ def _coil_machine_aliases(row: Any) -> list[str]:
     ]
 
 
-def _line_code_for_coil(row: Any, line_aliases: Mapping[str, str]) -> str:
+def _line_code_for_coil(row: Any, line_aliases: Mapping[str, str]) -> str | None:
     machine_code = str(getattr(row, 'machine_code', None) or '').strip()
     if not machine_code:
-        return 'unknown'
+        return None
     for alias in _coil_machine_aliases(row):
         line_code = line_aliases.get(_alias_key(alias))
         if line_code:

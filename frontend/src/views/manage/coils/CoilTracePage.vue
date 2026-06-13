@@ -233,7 +233,7 @@ const visibleCoils = computed(() => rawCoils.value.filter((coil) => (
   && machineStateMatches(coil, filters.value.machine_state)
 )))
 const coils = visibleCoils
-const pendingBindingCount = computed(() => coils.value.filter((coil) => !coil.machine_code && !coil.line_code).length)
+const pendingBindingCount = computed(() => coils.value.filter((coil) => !hasBoundMachine(coil)).length)
 const inFactoryCount = computed(() => coils.value.filter((coil) => coil.current_workshop || coil.current_process).length)
 const activeFilterText = computed(() => {
   const labels = []
@@ -311,10 +311,20 @@ function matchText(coil, fields, value) {
 
 function machineStateMatches(coil, state) {
   if (!state) return true
-  const bound = Boolean(coil?.machine_code || coil?.line_code)
+  const bound = hasBoundMachine(coil)
   if (state === 'bound') return bound
   if (state === 'pending') return !bound
   return true
+}
+
+function isUnknownMachineLabel(value) {
+  const text = String(value ?? '').trim().toLowerCase()
+  return !text || text === 'unknown'
+}
+
+function hasBoundMachine(coil) {
+  if (!coil) return false
+  return !isUnknownMachineLabel(coil.machine_code) || !isUnknownMachineLabel(coil.line_code)
 }
 
 function destinationLabel(destination) {
@@ -336,7 +346,9 @@ function materialSummary(coil) {
 
 function machineLabel(coil) {
   if (!coil) return '-'
-  return coil.machine_code || coil.line_code || '待绑定'
+  if (!isUnknownMachineLabel(coil.machine_code)) return coil.machine_code
+  if (!isUnknownMachineLabel(coil.line_code)) return coil.line_code
+  return '待绑定'
 }
 
 function bindingTone(coil) {

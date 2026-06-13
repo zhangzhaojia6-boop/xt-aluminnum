@@ -334,6 +334,8 @@ def test_generate_production_report_converts_mobile_coil_aggregates_to_tons(monk
     assert payload['process_output_weight'] == 74.11
     assert payload['qualified_weight'] == 72.5
     assert payload['scrap_weight'] == 1.5
+    assert payload['yield_rate'] == 97.83
+    assert payload['yield_rate_source'] == 'mobile_coil_process_output'
     assert payload['workshop_output'] == {'2050冷轧车间': 74.11}
     assert payload['shift_output'] == {'N': 74.11}
 
@@ -830,6 +832,25 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
     }
     assert payload['analysis_handoff']['trend']['current_output'] == 180.5
     assert payload['analysis_handoff']['contracts']['daily_contract_weight'] == 59.0
+
+
+def test_dashboard_leader_summary_uses_runtime_yield_when_matrix_not_ready() -> None:
+    payload = report_service._build_dashboard_leader_summary(
+        target_date=date(2026, 4, 17),
+        latest_report=None,
+        total_output=180.5,
+        energy_summary={'total_energy': 1250.0, 'energy_per_ton': 5.2, 'primary_source': 'machine', 'rows': [{'source': 'machine'}]},
+        mobile_summary={'reporting_rate': 100.0},
+        contract_lane={'daily_contract_weight': 59.0},
+        inventory_lane=[],
+        exception_lane={'mobile_exception_count': 0, 'production_exception_count': 0},
+        blocker_summary={'digest': '无异常'},
+        yield_matrix_lane={'quality_status': 'warning', 'company_total_yield': None},
+        yield_rate=96.18,
+    )
+
+    assert payload['metrics']['yield_rate'] == 96.18
+    assert '全厂成品率缺失' not in payload['summary_text']
 
 
 def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift(monkeypatch) -> None:

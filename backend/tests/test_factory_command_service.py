@@ -1268,6 +1268,16 @@ def test_coil_flow_marks_negative_auto_scrap_as_abnormal(monkeypatch):
     assert flow['scrap_status'] == 'abnormal_output_gt_input'
 
 
+def test_list_coils_keeps_unmatched_machine_line_empty(monkeypatch):
+    db = _FakeDB(coils=[_coil(coil_id='MES:NO-LINE', tracking_card_no='NO-LINE', machine_code=None)])
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    coils = factory_command_service.list_coils(db)
+
+    assert coils[0]['line_code'] is None
+    assert coils[0]['machine_code'] is None
+
+
 def test_list_coils_pushes_filters_and_page_to_database(monkeypatch, tmp_path):
     db = _sqlalchemy_session(tmp_path)
     db.add_all(

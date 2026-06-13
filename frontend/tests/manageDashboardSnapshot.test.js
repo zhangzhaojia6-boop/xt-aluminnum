@@ -62,6 +62,31 @@ test('useDashboardSnapshot does not treat missing energy as zero', async () => {
   assert.equal(snap.leaderMetrics.value.energy_per_ton, null)
 })
 
+test('useDashboardSnapshot keeps MES packaging output separate from finished inbound output', async () => {
+  const fakeFetch = async () => ({ leader_metrics: {} })
+  const fakeDailyFetch = async () => ({
+    plant_output: {
+      daily_output: 81.25,
+      finished_inbound_output: 73.6,
+      basis_label: '包装产量',
+    },
+  })
+  const mod = await import('../src/composables/useDashboardSnapshot.js')
+  const snap = mod.createDashboardSnapshot({
+    fetchImpl: fakeFetch,
+    fetchDailyImpl: fakeDailyFetch,
+    fetchFactoryCommandImpl: async () => ({}),
+    now: new Date('2026-05-23T10:00:00Z')
+  })
+
+  await snap.load()
+
+  assert.equal(snap.leaderMetrics.value.total_output_weight, 81.25)
+  assert.equal(snap.leaderMetrics.value.storage_finished_weight, 73.6)
+  assert.equal(snap.managementEstimate.value.output_tons, 81.25)
+  assert.equal(snap.managementEstimate.value.cost_basis_label, '包装产量')
+})
+
 test('useDashboardSnapshot falls back to factory command MES extended overview for management pages', async () => {
   const fakeFetch = async () => ({ leader_metrics: {} })
   const fakeDailyFetch = async () => ({})

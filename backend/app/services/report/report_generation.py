@@ -466,6 +466,7 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
     total_scrap = sum(_shift_weight_tons(item, 'scrap_weight') for item in items)
     total_downtime = sum(int(item.downtime_minutes or 0) for item in items)
     total_issue_count = sum(int(item.issue_count or 0) for item in items)
+    yield_rate = round(total_qualified / process_output * 100, 2) if process_output > 0 and total_qualified > 0 else None
 
     shift_output: dict[str, float] = {}
     workshop_output: dict[str, float] = {}
@@ -512,6 +513,8 @@ def _generate_production_report(db: Session, *, report_date: date, scope: str) -
         'shift_output': shift_output,
         'qualified_weight': total_qualified,
         'scrap_weight': total_scrap,
+        'yield_rate': yield_rate,
+        'yield_rate_source': 'mobile_coil_process_output' if yield_rate is not None else 'none',
         'downtime_minutes': total_downtime,
         'issue_count': total_issue_count,
         'confirmed_shifts': auto_confirmed,

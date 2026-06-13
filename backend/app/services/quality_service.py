@@ -14,7 +14,7 @@ from app.models.shift import ShiftConfig
 from app.models.quality import DataQualityIssue
 from app.models.reports import DailyReport
 from app.models.system import User
-from app.services import master_service, reconciliation_service
+from app.services import energy_service, master_service, reconciliation_service
 from app.services.audit_service import record_audit
 
 
@@ -113,6 +113,16 @@ def _clear_open_issues(db: Session, *, business_date: date) -> None:
     db.query(DataQualityIssue).filter(
         DataQualityIssue.business_date == business_date, DataQualityIssue.status == 'open'
     ).delete()
+
+
+def _has_energy_data(db: Session, *, business_date: date, energy_rows: list[EnergyImportRecord]) -> bool:
+    if energy_rows:
+        return True
+    summary_rows = energy_service.get_energy_summary(db, business_date=business_date)
+    for row in summary_rows:
+        if any(float(row.get(key) or 0) > 0 for key in ('electricity_value', 'gas_value', 'water_value', 'total_energy')):
+            return True
+    return False
 
 
 def run_quality_checks(
@@ -222,7 +232,7 @@ def run_quality_checks(
             )
         )
 
-    if not energy_rows:
+    if not _has_energy_data(db, business_date=business_date, energy_rows=energy_rows):
         created.append(
             _add_issue(
                 db,

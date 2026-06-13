@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.core.deps import get_current_user, get_db
 from app.main import app
 from app.models.system import User
+from app.services import quality_service
 
 
 class DummyDB:
@@ -96,6 +97,30 @@ def test_quality_run_and_list(monkeypatch) -> None:
     assert issues.json()[0]['issue_type'] == 'unreconciled'
 
     app.dependency_overrides.clear()
+
+
+def test_quality_energy_presence_accepts_live_energy_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        quality_service.energy_service,
+        'get_energy_summary',
+        lambda db, *, business_date: [
+            {'electricity_value': 11462.0, 'gas_value': 0.0, 'total_energy': 11462.0}
+        ],
+    )
+
+    assert quality_service._has_energy_data(DummyDB(), business_date=date(2026, 6, 12), energy_rows=[]) is True
+
+
+def test_quality_energy_presence_rejects_empty_energy_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        quality_service.energy_service,
+        'get_energy_summary',
+        lambda db, *, business_date: [
+            {'electricity_value': 0.0, 'gas_value': 0.0, 'water_value': 0.0, 'total_energy': 0.0}
+        ],
+    )
+
+    assert quality_service._has_energy_data(DummyDB(), business_date=date(2026, 6, 12), energy_rows=[]) is False
 
 
 def test_quality_actions_reject_blank_note(monkeypatch) -> None:

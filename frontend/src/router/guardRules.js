@@ -54,6 +54,10 @@ function defaultLanding(authStore, compactClient) {
   return { name: 'login' }
 }
 
+function canSwitchToEntrySurface(authStore) {
+  return Boolean(authStore.superAdminSurface)
+}
+
 function prefersMobileSurface(authStore, to, compactClient) {
   if (!compactClient || !authStore.canAccessFillSurface) return false
   if (to.meta.zone === 'entry' || to.name === 'login') return false
@@ -111,6 +115,10 @@ export function resolveGuardDecision({
 
   if (auth.isFillOnlyRole && to.meta.zone !== 'entry' && to.name !== 'login') {
     return { name: 'mobile-entry' }
+  }
+
+  if (to.meta.zone === 'entry' && !hasRuntimeAuthCode && !auth.isFillOnlyRole && (auth.canAccessReviewSurface || auth.adminSurface) && !canSwitchToEntrySurface(auth)) {
+    return defaultLanding(auth, compactClient)
   }
 
   const compactManageDecision = resolveCompactManageDecision(auth, to, access, compactClient)

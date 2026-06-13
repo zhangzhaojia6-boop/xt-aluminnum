@@ -342,6 +342,8 @@ test('FillDetailsPage is wired to the three audit data sources', () => {
   assert.match(src, /fetchDailyProduction/)
   assert.match(src, /fetchLiveAggregation/)
   assert.match(src, /fetchLiveFillDetails/)
+  assert.match(src, /const FILL_DETAILS_PAGE_LIMIT = 800/)
+  assert.match(src, /limit:\s*FILL_DETAILS_PAGE_LIMIT/)
   assert.match(src, /fetchMesFillGaps/)
   assert.match(src, /exportMissingReportExcel/)
   assert.match(realtimeApi, /fetchMesFillGaps/)

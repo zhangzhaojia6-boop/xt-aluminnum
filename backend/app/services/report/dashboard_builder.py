@@ -382,6 +382,7 @@ def _build_dashboard_leader_summary(
     exception_lane: dict[str, Any],
     blocker_summary: dict[str, Any] | None,
     yield_matrix_lane: dict[str, Any] | None,
+    yield_rate: float | None = None,
 ) -> dict[str, Any]:
     energy_rows = energy_summary.get('rows')
     energy_available = (
@@ -400,6 +401,7 @@ def _build_dashboard_leader_summary(
         else 0,
         'contract_lane': contract_lane,
         'yield_matrix_lane': dict(yield_matrix_lane or {}),
+        'yield_rate': yield_rate,
         'anomaly_summary': {
             'total': int(exception_lane.get('mobile_exception_count') or 0) + int(exception_lane.get('production_exception_count') or 0),
             'digest': blocker_summary.get('digest') if isinstance(blocker_summary, dict) else '未发现关键异常',
@@ -506,6 +508,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         exception_lane=exception_lane,
         blocker_summary=blocker_summary,
         yield_matrix_lane=production_report.get('yield_matrix_lane') or (latest_report.report_data.get('yield_matrix_lane') if latest_report and isinstance(latest_report.report_data, dict) else {}),
+        yield_rate=production_report.get('yield_rate') or (latest_report.report_data.get('yield_rate') if latest_report and isinstance(latest_report.report_data, dict) else None),
     )
     history_digest = _build_history_digest(db, target_date=target_date)
     energy_lane = _build_energy_lane(db, target_date=target_date)

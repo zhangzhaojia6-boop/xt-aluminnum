@@ -52,7 +52,7 @@ _QUERY_BY_KEY = {
     ),
     'stock_records': (
         'SELECT TOP ({limit}) * FROM WMS_InStockDetail '
-        'ORDER BY OperateDate DESC, CreateDate DESC'
+        'ORDER BY AllocationDate DESC, OperateDate DESC, CreateDate DESC'
     ),
     'material_records': (
         'SELECT TOP ({limit}) * FROM MES_Feeding '
@@ -208,12 +208,15 @@ def _coil_snapshot_from_row(row: Mapping[str, Any]) -> CoilSnapshot:
 
 
 def _source_record(query_key: str, row: Mapping[str, Any]) -> MesSourceRecord:
+    event_keys = (
+        ('EventTime', 'AllocationDate', 'InStockDate', 'OperateDate', 'ReportTime', 'UpdateTime', 'CreateDate')
+        if query_key == 'stock_records'
+        else ('EventTime', 'OperateDate', 'EndTime', 'EndDatetime', 'InStockDate', 'ReportTime', 'UpdateTime', 'CreateDate')
+    )
     return MesSourceRecord(
         source_id=_record_id(row),
         source_path=f'sqlserver:{query_key}',
-        event_time=_datetime(
-            _value(row, 'EventTime', 'OperateDate', 'EndTime', 'EndDatetime', 'InStockDate', 'ReportTime', 'UpdateTime', 'CreateDate')
-        ),
+        event_time=_datetime(_value(row, *event_keys)),
         metadata=_safe_metadata(row),
     )
 

@@ -46,6 +46,47 @@ test('resolveGuardDecision redirects fill-only users away from manage routes', (
   )
 })
 
+test('resolveGuardDecision keeps management users out of mobile entry routes', () => {
+  const entryRoute = route({
+    name: 'mobile-entry',
+    fullPath: '/entry',
+    meta: { requiresAuth: true, zone: 'entry', access: 'entry' },
+  })
+
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: entryRoute,
+      auth: auth({ canAccessFillSurface: true, canAccessReviewSurface: true }),
+    }),
+    { name: 'manage-today' }
+  )
+  assert.deepEqual(
+    resolveGuardDecision({
+      to: entryRoute,
+      auth: auth({
+        adminSurface: true,
+        canAccessFillSurface: true,
+        canAccessReviewSurface: true,
+        defaultSurface: 'admin',
+      }),
+    }),
+    { name: 'admin-ops-reliability' }
+  )
+  assert.equal(
+    resolveGuardDecision({
+      to: entryRoute,
+      auth: auth({
+        adminSurface: true,
+        canAccessFillSurface: true,
+        canAccessReviewSurface: true,
+        defaultSurface: 'admin',
+        superAdminSurface: true,
+      }),
+    }),
+    true
+  )
+})
+
 test('resolveGuardDecision blocks non-admin users from admin access', () => {
   assert.deepEqual(
     resolveGuardDecision({

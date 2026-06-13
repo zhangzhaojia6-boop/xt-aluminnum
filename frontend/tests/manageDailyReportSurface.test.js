@@ -9,7 +9,7 @@ import {
   MISSING_DAILY_VALUE
 } from '../src/utils/manageDailyReportSurface.js'
 
-test('daily settlement cards keep plant inbound output separate from process throughput', () => {
+test('daily settlement cards keep MES packaging output separate from plant inbound output', () => {
   const cards = buildDailySettlementCards({
     plant_output: {
       daily_output: 81.25,
@@ -27,10 +27,11 @@ test('daily settlement cards keep plant inbound output separate from process thr
   })
 
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.25')
-  assert.equal(cards.find((item) => item.key === 'plant-output')?.label, '全厂入库产量')
-  assert.equal(cards.find((item) => item.key === 'plant-output')?.sourceLabel, 'MES包装产量')
+  assert.equal(cards.find((item) => item.key === 'plant-output')?.label, '包装产量')
+  assert.equal(cards.find((item) => item.key === 'plant-output')?.sourceLabel, 'MES数据库')
   assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '73.6')
-  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.label, '内勤入库填报')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.label, '全厂入库产量')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.sourceLabel, '内勤成品库填报')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'contract-tonnage')?.unit, '吨')
 })

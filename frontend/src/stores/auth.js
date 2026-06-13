@@ -37,7 +37,8 @@ function normalizeUser(user) {
     is_mobile_user: Boolean(user.is_mobile_user),
     is_reviewer: Boolean(user.is_reviewer) || role === 'workshop_director',
     is_manager: Boolean(user.is_manager) || role === 'workshop_director',
-    admin_surface: Boolean(user.admin_surface)
+    admin_surface: Boolean(user.admin_surface),
+    super_admin_surface: Boolean(user.super_admin_surface)
   }
 }
 
@@ -103,7 +104,7 @@ export const useAuthStore = defineStore('auth', {
       return this.isAdmin || Boolean(this.user?.admin_surface)
     },
     superAdminSurface() {
-      return this.isAdmin && this.entrySurface && this.reviewSurface && this.adminSurface
+      return this.isAdmin && Boolean(this.user?.super_admin_surface)
     },
     defaultSurface() {
       if (this.entrySurface && !this.reviewSurface && !this.adminSurface) return 'entry'

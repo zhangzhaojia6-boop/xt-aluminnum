@@ -180,3 +180,24 @@ def test_live_aggregation_does_not_warn_when_attendance_has_no_schedule():
     assert cell['attendance_status'] == 'not_applicable'
     assert cell['status_tone'] == 'success'
     assert cell['status_text'] == '已填'
+
+
+def test_live_aggregation_treats_no_terminal_workshop_without_data_as_not_applicable():
+    payload = aggregate_live_payload(
+        workshops=[_workshop(1, '热轧')],
+        machines=[_machine(10, '热轧一体机占位', 1, assigned_shift_ids=None)],
+        shifts=[
+            _shift(1, '长白班', 1),
+            _shift(2, '小夜班', 2),
+            _shift(3, '大夜班', 3),
+        ],
+        entries=[],
+        attendance={},
+        expected_counts={},
+    )
+
+    machine = payload['workshops'][0]['machines'][0]
+    assert payload['overall_progress']['total_cells'] == 0
+    assert payload['overall_progress']['missing_cell_count'] == 0
+    assert [item['status_text'] for item in machine['shifts']] == ['不适用', '不适用', '不适用']
+    assert [item['submission_status'] for item in machine['shifts']] == ['not_applicable', 'not_applicable', 'not_applicable']

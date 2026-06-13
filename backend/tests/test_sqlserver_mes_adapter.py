@@ -171,13 +171,14 @@ def test_sqlserver_adapter_maps_wip_totals() -> None:
     assert rows[0].metadata['process_totals'] == {'轧制': 25.5}
 
 
-def test_sqlserver_adapter_maps_stock_record_event_time_from_create_date() -> None:
+def test_sqlserver_adapter_maps_stock_record_event_time_from_allocation_date_before_create_date() -> None:
     runner = _QueryRunner({
         'stock_records': [
             {
                 'Id': 'stock-1',
                 'BatchNumber': 'PB-001',
                 'NetWeight': '1200',
+                'AllocationDate': '2026-06-03 16:30:00',
                 'CreateDate': '2026-06-04 08:30:00',
             }
         ]
@@ -187,7 +188,8 @@ def test_sqlserver_adapter_maps_stock_record_event_time_from_create_date() -> No
     rows = adapter.list_stock_records(limit=10)
 
     assert len(rows) == 1
-    assert rows[0].event_time == datetime(2026, 6, 4, 8, 30)
+    assert rows[0].event_time == datetime(2026, 6, 3, 16, 30)
+    assert rows[0].metadata['AllocationDate'] == '2026-06-03 16:30:00'
     assert rows[0].metadata['CreateDate'] == '2026-06-04 08:30:00'
 
 
@@ -218,6 +220,7 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'MES_Product' in _QUERY_BY_KEY['wip_totals']
     assert 'MES_ProductProcessRecord' in _QUERY_BY_KEY['workshop_process_records']
     assert 'ORDER BY EndDatetime DESC' in _QUERY_BY_KEY['workshop_process_records']
+    assert 'ORDER BY AllocationDate DESC' in _QUERY_BY_KEY['stock_records']
     assert "CurrentWorkShop IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert "CurrentProcess IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert 'SUM(FeedingWeight)' in _QUERY_BY_KEY['wip_totals']

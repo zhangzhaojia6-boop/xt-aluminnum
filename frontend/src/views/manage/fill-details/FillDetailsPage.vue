@@ -241,6 +241,7 @@ import {
   MISSING_AUDIT_VALUE,
 } from '../../../utils/manageFillDetailsAudit.js'
 
+const FILL_DETAILS_PAGE_LIMIT = 800
 const targetDate = ref(inferLastCompletedBusinessDate())
 const auth = useAuthStore()
 const loading = ref(false)
@@ -414,7 +415,7 @@ async function load() {
   try {
     await loadWorkshops()
     const [detailResult, dailyResult, liveResult, mesGapResult] = await Promise.allSettled([
-      fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: 2000 })),
+      fetchLiveFillDetails(scopedParams({ business_date: targetDate.value, limit: FILL_DETAILS_PAGE_LIMIT })),
       fetchDailyProduction({ target_date: targetDate.value }),
       fetchLiveAggregation(scopedParams({ business_date: targetDate.value })),
       fetchMesFillGaps(scopedParams({ business_date: targetDate.value })),

@@ -1016,6 +1016,26 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
     assert float(wip.doing_weight_tons) == 430.0
 
 
+def test_stock_record_business_date_prefers_allocation_date_over_create_date():
+    record = MesSourceRecord(
+        source_id='stock-cross-day',
+        source_path='sqlserver:stock_records',
+        event_time=datetime(2026, 6, 2, 1, 10, tzinfo=UTC),
+        metadata={
+            'Id': 'stock-cross-day',
+            'BatchNumber': '26RA04967',
+            'NetWeight': '6350',
+            'AllocationDate': datetime(2026, 6, 1, 16, 20, tzinfo=UTC),
+            'CreateDate': datetime(2026, 6, 2, 1, 10, tzinfo=UTC),
+        },
+    )
+
+    fields = mes_sync_service._stock_fields(record, synced_at=datetime(2026, 6, 2, 1, 15, tzinfo=UTC))
+
+    assert fields['in_stock_date'] == datetime(2026, 6, 1, 16, 20, tzinfo=UTC)
+    assert fields['business_date'] == date(2026, 6, 1)
+
+
 def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path / 'mes-wip-duplicate.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesWipTotalSnapshot.__table__])

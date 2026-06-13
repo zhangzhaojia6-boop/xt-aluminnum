@@ -12,6 +12,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
+from app.core.active_workshops import get_workshop_data_source_policy
 from app.core.business_time import resolve_production_business_date
 from app.core.scope import (
     build_scope_summary,
@@ -788,6 +789,8 @@ def aggregate_live_payload(
     ordered_shifts = sorted(shifts, key=lambda item: (getattr(item, 'sort_order', 0), item.id))
 
     for workshop in sorted(workshops, key=lambda item: item.id):
+        workshop_policy = get_workshop_data_source_policy(getattr(workshop, 'name', None))
+        default_shift_ids = [shift.id for shift in ordered_shifts] if workshop_policy.get('has_terminal', True) else []
         workshop_input = 0.0
         workshop_output = 0.0
         workshop_scrap = 0.0
@@ -800,7 +803,7 @@ def aggregate_live_payload(
             machine_output = 0.0
             machine_scrap = 0.0
             applicable_shift_ids = {
-                int(item) for item in (getattr(machine, 'assigned_shift_ids', None) or [shift.id for shift in ordered_shifts])
+                int(item) for item in (getattr(machine, 'assigned_shift_ids', None) or default_shift_ids)
             }
             applicable_shift_ids.update(data_shift_ids_by_machine.get((workshop.id, machine.id), set()))
 

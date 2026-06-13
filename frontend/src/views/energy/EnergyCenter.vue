@@ -217,6 +217,18 @@ const WORKSHOP_CODE_LABELS = {
   LZ2050: '冷轧2050',
 }
 
+const ENERGY_WORKSHOP_DISPLAY_LABELS = {
+  铸锭: '铸锭车间',
+  铸二: '铸二车间',
+  铸三: '铸三车间',
+  热轧: '热轧车间',
+  精整: '精整车间',
+  拉矫: '拉矫车间',
+  园区剪切: '园区剪切车间',
+  新厂在线: '新厂在线退火',
+  园区在线: '园区在线退火',
+}
+
 const filters = reactive({
   business_date: inferLastCompletedBusinessDate()
 })
@@ -280,7 +292,8 @@ function formatCell(value) {
 function formatWorkshopLabel(value) {
   const text = String(value || '').trim()
   if (!text) return '-'
-  return WORKSHOP_CODE_LABELS[text] || normalizeWorkshopName(text)
+  const normalized = WORKSHOP_CODE_LABELS[text] || normalizeWorkshopName(text)
+  return ENERGY_WORKSHOP_DISPLAY_LABELS[normalized] || normalized
 }
 
 function formatEnergySourceLabel(row = {}) {

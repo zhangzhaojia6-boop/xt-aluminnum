@@ -75,6 +75,7 @@ export function createDashboardSnapshot({
       const sm = data.value.leader_summary?.metrics || {}
       const factoryCommandOutput = factoryCommand.today_output_tons ?? factoryCommand.storage_finished_weight ?? null
       const totalOutput = plantOutput.daily_output ?? lm.total_output_weight ?? lm.today_total_output ?? sm.total_output_weight ?? factoryCommandOutput ?? null
+      const finishedInboundOutput = plantOutput.finished_inbound_output ?? lm.storage_finished_weight ?? sm.storage_finished_weight ?? null
       const energyPerTon = dailyEnergy.data_available === false
         ? null
         : plantOutput.energy_per_ton ?? lm.energy_per_ton ?? sm.energy_per_ton ?? null
@@ -82,7 +83,7 @@ export function createDashboardSnapshot({
         ...lm,
         total_output_weight: totalOutput,
         today_total_output: totalOutput,
-        storage_finished_weight: plantOutput.daily_output ?? lm.storage_finished_weight ?? sm.storage_finished_weight ?? factoryCommandOutput ?? null,
+        storage_finished_weight: finishedInboundOutput,
         energy_per_ton: energyPerTon,
         yield_rate: lm.yield_rate ?? sm.yield_rate ?? factoryCommand.yield_rate ?? null,
         reporting_rate: lm.reporting_rate ?? sm.reporting_rate ?? null,

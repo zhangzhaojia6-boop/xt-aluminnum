@@ -250,7 +250,7 @@ test('live Stitch surface translates internal realtime states into user-facing C
 
 test('production Stitch surface preserves existing KPI, ranking and source objects', () => {
   const kpiItems = [
-    { key: 'output', label: '入库产量', value: '343', unit: '吨' },
+    { key: 'output', label: '包装产量', value: '343', unit: '吨' },
     { key: 'energy', label: '日吨能耗', value: '64.2', unit: 'kWh/吨' },
   ]
   const rankedRows = [

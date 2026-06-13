@@ -31,7 +31,7 @@ test('ProductionPage renders workshop name as text (no dead deep-link to unimple
 })
 
 test('ProductionPage exposes the 5 KPI labels from current output contract', () => {
-  for (const label of ['入库产量', '比昨日', '估算毛利', '合同缺口', '日吨能耗']) {
+  for (const label of ['包装产量', '比昨日', '估算毛利', '合同缺口', '日吨能耗']) {
     assert.match(SRC, new RegExp(label), `missing KPI label ${label}`)
   }
 })
