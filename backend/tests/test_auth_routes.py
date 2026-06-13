@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.auth import create_access_token, create_refresh_token, get_password_hash
+from app.core.auth import create_access_token, create_refresh_token, get_password_hash, verify_password
 from app.core.deps import get_db
 from app.core.rate_limit import reset_rate_limits
 from app.database import Base
@@ -212,6 +212,37 @@ def test_login_repairs_initial_admin_contract(tmp_path, monkeypatch) -> None:
         assert user.team_id is None
         assert user.assigned_shift_ids is None
         assert user.is_active is True
+
+
+def test_login_does_not_reset_existing_admin_with_init_password(tmp_path, monkeypatch) -> None:
+    session_factory = build_sessionmaker(tmp_path)
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_USERNAME', 'admin')
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_PASSWORD', 'InitOnly#2026')
+    monkeypatch.setattr(auth_router.settings, 'INIT_ADMIN_NAME', 'System Admin')
+    _override_db(session_factory)
+    with session_factory() as db:
+        db.add(
+            User(
+                username='admin',
+                password_hash=get_password_hash('RealAdmin#2026'),
+                name='System Admin',
+                role='admin',
+                data_scope_type='all',
+                is_active=True,
+            )
+        )
+        db.commit()
+
+    response = TestClient(app).post(
+        '/api/v1/auth/login',
+        json={'username': 'admin', 'password': 'InitOnly#2026'},
+    )
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Invalid username or password'
+    with session_factory() as db:
+        user = db.query(User).filter(User.username == 'admin').one()
+        assert verify_password('RealAdmin#2026', user.password_hash)
 
 
 def test_me_returns_current_user_for_valid_token(tmp_path) -> None:

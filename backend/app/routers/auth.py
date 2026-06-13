@@ -47,9 +47,6 @@ def login(
 
     if user and body.username == settings.INIT_ADMIN_USERNAME:
         password_ok = verify_password(body.password, user.password_hash)
-        if not password_ok and body.password == settings.INIT_ADMIN_PASSWORD:
-            apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME, password=settings.INIT_ADMIN_PASSWORD)
-            password_ok = True
         if not password_ok:
             raise HTTPException(status_code=400, detail='Invalid username or password')
         apply_admin_account_contract(user, name=settings.INIT_ADMIN_NAME)
