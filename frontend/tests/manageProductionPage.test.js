@@ -81,6 +81,9 @@ test('ProductionPage shows empty placeholder when production_lane is empty', () 
   assert.match(SRC, /无车间数据/)
 })
 
-test('ProductionPage shows the same factory command source basis as today page', () => {
+test('ProductionPage renders the Stitch source strip from a normalized production source overview', () => {
   assert.match(SRC, /<FactorySourceStrip[\s\S]*:overview="stitchSurface\.sourceOverview"/)
+  assert.match(SRC, /const productionSourceOverview = computed/)
+  assert.match(SRC, /today_output_tons:\s*plantOutput\.daily_output/)
+  assert.match(SRC, /process_output_tons:\s*snapshot\.data\.value\.process_total_output/)
 })

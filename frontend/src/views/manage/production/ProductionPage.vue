@@ -221,6 +221,23 @@ const rawProductionBrief = computed(() => {
   ]
 })
 
+const productionSourceOverview = computed(() => {
+  const dailyOverview = snapshot.data.value.daily_overview || {}
+  const plantOutput = dailyOverview.plant_output || {}
+  const factoryCommandOverview = snapshot.factoryCommandOverview.value || {}
+  const lm = snapshot.leaderMetrics.value || {}
+
+  return {
+    ...factoryCommandOverview,
+    source: plantOutput.daily_output == null ? factoryCommandOverview.source : 'mes_projection',
+    today_output_tons: plantOutput.daily_output ?? factoryCommandOverview.today_output_tons,
+    process_output_tons: snapshot.data.value.process_total_output
+      ?? factoryCommandOverview.process_output_tons
+      ?? factoryCommandOverview.total_output_tons,
+    yield_rate: lm.yield_rate ?? factoryCommandOverview.yield_rate,
+  }
+})
+
 const stitchSurface = computed(() => buildProductionStitchSurface({
   snapshotData: snapshot.data.value,
   targetDate: snapshot.targetDate.value,
@@ -228,7 +245,7 @@ const stitchSurface = computed(() => buildProductionStitchSurface({
   rankedRows: rawRankedRows.value,
   productionBrief: rawProductionBrief.value,
   leadingWorkshopText: rawLeadingWorkshopText.value,
-  sourceOverview: snapshot.factoryCommandOverview.value,
+  sourceOverview: productionSourceOverview.value,
   runtimeState: {
     snapshotLoading: snapshot.loading.value,
     snapshotError: snapshot.lastError.value,

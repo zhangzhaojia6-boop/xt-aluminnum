@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.5] - 2026-06-14
+
+### Fixed
+- 修复生产分析页数据来源条与顶部“包装产量”口径不一致的问题，来源条现在优先显示日报同口径的 MES 包装产量。
+- 生产分析页继续保留 MES 过站下机量作为参考值，避免“包装产量”和“过站下机参考”显示成同一个数字。
+
 ## [0.4.3.4] - 2026-06-14
 
 ### Fixed
