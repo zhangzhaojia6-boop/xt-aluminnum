@@ -24,8 +24,8 @@ from app.models.master import Equipment, Team, Workshop  # noqa: E402
 from app.models.system import User  # noqa: E402
 
 
-KEEP_SUPPORT_NAMES = {'成品库'}
-KEEP_SUPPORT_CODES = {'CPK', 'FINISHED', 'STORAGE'}
+KEEP_SUPPORT_NAMES = {'成品库', '回收车间'}
+KEEP_SUPPORT_CODES = {'CPK', 'FINISHED', 'STORAGE', 'HS'}
 
 
 def _code(value: str | None) -> str:
@@ -38,7 +38,7 @@ def should_keep_workshop(workshop: Workshop) -> tuple[bool, str]:
     if is_active_production_workshop_code(workshop.code) or is_active_production_workshop_name(workshop.name):
         return True, '保留：13个生产车间'
     if normalize_workshop_name(workshop.name) in KEEP_SUPPORT_NAMES or _code(workshop.code) in KEEP_SUPPORT_CODES:
-        return True, '保留：内勤/成品库'
+        return True, '保留：内勤/成品库/回收/专项填报入口'
     return False, '停用：不在生产车间和成品库范围'
 
 

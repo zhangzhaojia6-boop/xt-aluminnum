@@ -676,7 +676,7 @@ def test_seed_real_master_data_includes_1650_1850_and_keeps_retired_hwb_inactive
         db.close()
 
 
-def test_seed_real_master_data_does_not_resurrect_unused_workshops_or_accounts(tmp_path) -> None:
+def test_seed_real_master_data_keeps_support_role_qrs_without_resurrecting_unused_workshops(tmp_path) -> None:
     from app.services.real_master_data import seed_real_master_data
 
     db = build_session(tmp_path)
@@ -716,18 +716,34 @@ def test_seed_real_master_data_does_not_resurrect_unused_workshops_or_accounts(t
         seed_real_master_data(db)
 
         workshops = {item.code: item for item in db.execute(select(Workshop)).scalars().all()}
-        for code in ('ZR5', 'ZR6', 'HS', 'FACTORY'):
+        for code in ('ZR5', 'ZR6', 'FACTORY'):
             assert workshops[code].is_active is False
+        assert workshops['HS'].is_active is True
 
-        for code in ('ZR5', 'ZR6', 'HS'):
+        for code in ('ZR5', 'ZR6'):
             workshop_id = workshops[code].id
             assert not db.execute(select(Team).where(Team.workshop_id == workshop_id, Team.is_active.is_(True))).first()
             assert not db.execute(select(Equipment).where(Equipment.workshop_id == workshop_id, Equipment.is_active.is_(True))).first()
             assert not db.execute(select(User).where(User.workshop_id == workshop_id, User.is_active.is_(True))).first()
 
         factory_qr = db.execute(select(Equipment).where(Equipment.code == 'FACTORY-DIR')).scalar_one()
+        recovery_qr = db.execute(select(Equipment).where(Equipment.code == 'HS-RC')).scalar_one()
+        overhaul_qr = db.execute(select(Equipment).where(Equipment.code == 'CPK-OH')).scalar_one()
+        recovery_user = db.execute(select(User).where(User.username == 'HS-RC')).scalar_one()
+        overhaul_user = db.execute(select(User).where(User.username == 'CPK-OH')).scalar_one()
+
         assert factory_qr.is_active is False
         assert factory_qr.operational_status == 'stopped'
+        assert recovery_qr.is_active is True
+        assert recovery_qr.bound_user_id == recovery_user.id
+        assert recovery_user.role == 'recovery_owner'
+        assert recovery_user.is_mobile_user is True
+        assert recovery_user.is_active is True
+        assert overhaul_qr.is_active is True
+        assert overhaul_qr.bound_user_id == overhaul_user.id
+        assert overhaul_user.role == 'overhaul_owner'
+        assert overhaul_user.is_mobile_user is True
+        assert overhaul_user.is_active is True
     finally:
         db.close()
 

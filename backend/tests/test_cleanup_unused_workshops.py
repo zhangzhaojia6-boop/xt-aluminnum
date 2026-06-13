@@ -21,10 +21,13 @@ def test_cleanup_keeps_thirteen_active_production_workshops() -> None:
 
 def test_cleanup_keeps_finished_goods_storage_and_inactive_workshops() -> None:
     keep_storage, storage_reason = should_keep_workshop(_workshop('CPK', '成品库'))
+    keep_recovery, recovery_reason = should_keep_workshop(_workshop('HS', '回收车间'))
     keep_inactive, inactive_reason = should_keep_workshop(_workshop('OLD', '冷轧三车间', is_active=False))
 
     assert keep_storage is True
     assert '成品库' in storage_reason
+    assert keep_recovery is True
+    assert '回收' in recovery_reason
     assert keep_inactive is True
     assert '未启用' in inactive_reason
 

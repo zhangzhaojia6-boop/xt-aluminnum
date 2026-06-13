@@ -252,6 +252,27 @@ def test_inventory_template_splits_contract_progress_fields_for_contracts_role()
     ]
 
 
+def test_recovery_and_overhaul_owner_fields_keep_previous_daily_entry_shape() -> None:
+    from app.routers.mobile import ROLE_FIELD_MAPPING
+
+    recovery_fields = ROLE_FIELD_MAPPING['recovery_owner']['direct_fields']
+    overhaul_fields = ROLE_FIELD_MAPPING['overhaul_owner']['direct_fields']
+
+    assert ROLE_FIELD_MAPPING['recovery_owner']['label'] == '回收产量'
+    assert [field['name'] for field in recovery_fields] == [
+        'recovery_weight',
+        'recovery_material_type',
+        'recovery_notes',
+    ]
+    assert ROLE_FIELD_MAPPING['overhaul_owner']['label'] == '大修磨辊子+能耗'
+    assert [field['name'] for field in overhaul_fields] == [
+        'roller_grinding_count',
+        'overhaul_energy_kwh',
+        'overhaul_gas_m3',
+        'overhaul_notes',
+    ]
+
+
 def test_split_entry_form_payload_routes_real_report_fields_between_standard_and_extra_payload() -> None:
     payload = {
         'business_date': '2026-03-30',

@@ -50,7 +50,7 @@ WORKSHOPS = [
     {'code': 'JQ', 'name': '剪切车间', 'sort_order': 15},
     {'code': 'LJ', 'name': '拉矫车间', 'sort_order': 16},
     {'code': 'CT', 'name': '彩涂', 'sort_order': 17, 'is_active': False},
-    {'code': 'HS', 'name': '回收车间', 'sort_order': 18, 'is_active': False},
+    {'code': 'HS', 'name': '回收车间', 'sort_order': 18},
     {'code': 'CPK', 'name': '成品库', 'sort_order': 19},
     {'code': 'ZXTF-N', 'name': '新厂在线退火', 'sort_order': 200},
     {'code': 'ZXTF-P', 'name': '园区在线退火', 'sort_order': 201},
