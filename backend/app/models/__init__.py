@@ -12,6 +12,17 @@ from app.models.attendance import (
 )
 from app.models.assistant import AiBriefingEvent, AiContextPack, AiConversation, AiMessage, AiWatchlistItem
 from app.models.assistant_usage import AssistantUsage
+from app.models.agent_communication import (
+    AgentChannelBinding,
+    AgentEvent,
+    AgentOperationApproval,
+    AgentOutboxMessage,
+    AgentProfile,
+    AgentRateLimit,
+    CommunicationChannel,
+    ExternalMessageLog,
+    MultimodalEvidence,
+)
 from app.models.executive import (
     AluminumPriceDaily,
     CostDailyResult,
@@ -98,6 +109,15 @@ __all__ = [
     'AiBriefingEvent',
     'AiWatchlistItem',
     'AssistantUsage',
+    'AgentProfile',
+    'CommunicationChannel',
+    'AgentChannelBinding',
+    'AgentEvent',
+    'AgentOutboxMessage',
+    'ExternalMessageLog',
+    'MultimodalEvidence',
+    'AgentOperationApproval',
+    'AgentRateLimit',
     'EmployeeAttendanceDetail',
     'ShiftProductionData',
     'MobileShiftReport',
