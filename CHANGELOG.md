@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a 4-digit version scheme: `MAJOR.MINOR.PATCH.MICRO`.
 
+## [0.4.3.6] - 2026-06-14
+
+### Fixed
+- 修复 `/readyz` 外层 MES 同步状态误判问题：SQL Server 同步服务已返回 fresh 时，不再因为业务事件时间差较大而显示 stale。
+
 ## [0.4.3.5] - 2026-06-14
 
 ### Fixed

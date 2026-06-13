@@ -54,6 +54,23 @@ def _sanitize_mes_sync_status(payload: dict) -> dict:
     return sanitized
 
 
+def _resolve_mes_sync_check(payload: dict) -> str:
+    sync_status = payload.get('status')
+    if sync_status in {'migration_missing', 'failed', 'stale', 'unconfigured'}:
+        return sync_status
+    if sync_status == 'fresh':
+        return 'ok'
+
+    sync_freshness_seconds = payload.get('sync_freshness_seconds')
+    if sync_freshness_seconds is not None:
+        return 'ok' if float(sync_freshness_seconds) <= mes_sync_service.stale_threshold_seconds() else 'stale'
+
+    lag_seconds = payload.get('lag_seconds')
+    if lag_seconds is None:
+        return 'idle'
+    return 'ok' if float(lag_seconds) <= mes_sync_service.stale_threshold_seconds() else 'stale'
+
+
 def inspect_pipeline_readiness(*, target_date: date | None = None) -> dict:
     from app.services.config_readiness_service import inspect_pilot_config
 
@@ -128,20 +145,7 @@ def build_readiness_payload() -> tuple[bool, dict]:
             finally:
                 db.close()
             details['mes_sync'] = _sanitize_mes_sync_status(mes_sync_status)
-            sync_status = mes_sync_status.get('status')
-            lag_seconds = mes_sync_status.get('lag_seconds')
-            if sync_status in {'migration_missing', 'failed'}:
-                checks['mes_sync'] = sync_status
-            elif sync_status == 'stale':
-                checks['mes_sync'] = 'stale'
-            elif sync_status == 'unconfigured':
-                checks['mes_sync'] = 'unconfigured'
-            elif lag_seconds is None:
-                checks['mes_sync'] = 'idle'
-            elif float(lag_seconds) <= mes_sync_service.stale_threshold_seconds():
-                checks['mes_sync'] = 'ok'
-            else:
-                checks['mes_sync'] = 'stale'
+            checks['mes_sync'] = _resolve_mes_sync_check(mes_sync_status)
         except Exception as exc:  # noqa: BLE001
             checks['mes_sync'] = f'error:{exc.__class__.__name__}'
             details['mes_sync'] = {

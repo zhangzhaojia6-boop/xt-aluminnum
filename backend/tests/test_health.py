@@ -188,6 +188,33 @@ def test_build_readiness_payload_warns_on_stale_mes_sync(monkeypatch):
     assert payload["details"]["mes_sync"]["action_required"] == "check_sync_lag"
 
 
+def test_build_readiness_payload_trusts_fresh_mes_sync_status_over_business_event_lag(monkeypatch):
+    monkeypatch.setattr("app.core.health._check_database", lambda: None)
+    monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
+    monkeypatch.setattr("app.core.health.settings.AUTO_PIPELINE_REQUIRE_READY", False)
+    monkeypatch.setattr("app.core.health.settings.MES_ADAPTER", "sqlserver")
+    monkeypatch.setattr(
+        "app.services.mes_sync_service.latest_sync_status",
+        lambda _db: {
+            "status": "fresh",
+            "last_run_status": "success",
+            "configured": True,
+            "migration_ready": True,
+            "source": "mes_projection",
+            "lag_seconds": 35046.0,
+            "sync_freshness_seconds": 46.0,
+            "action_required": "none",
+        },
+    )
+
+    ready, payload = health_service.build_readiness_payload()
+
+    assert ready is True
+    assert payload["status"] == "ready"
+    assert payload["checks"]["mes_sync"] == "ok"
+    assert payload["details"]["mes_sync"]["status"] == "fresh"
+
+
 def test_build_readiness_payload_reports_mes_unconfigured_as_ready(monkeypatch):
     monkeypatch.setattr("app.core.health._check_database", lambda: None)
     monkeypatch.setattr("app.core.health._check_upload_dir", lambda: None)
