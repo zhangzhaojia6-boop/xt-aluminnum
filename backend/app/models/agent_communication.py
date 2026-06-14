@@ -99,6 +99,35 @@ class AgentOutboxMessage(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class ChatInboxMessage(Base):
+    __tablename__ = 'chat_inbox'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    group_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    sender_external_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    trace_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AgentRun(Base):
+    __tablename__ = 'agent_runs'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    trace_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    agent_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    chat_inbox_id: Mapped[int | None] = mapped_column(ForeignKey('chat_inbox.id'), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='answered', index=True)
+    status_color: Mapped[str] = mapped_column(String(16), nullable=False, default='green', index=True)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    rag_citation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    result_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class ExternalMessageLog(Base):
     __tablename__ = 'external_message_logs'
 

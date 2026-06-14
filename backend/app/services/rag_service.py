@@ -231,8 +231,19 @@ def _decode_text(content: bytes) -> DecodedText:
 
 def _query_tokens(query: str) -> list[str]:
     parts = re.split(r'[\s,，。；;：:/\\|+-]+', query)
-    tokens = [part.strip() for part in parts if len(part.strip()) >= 2]
+    tokens: list[str] = []
+    for part in parts:
+        clean_part = part.strip()
+        if len(clean_part) < 2:
+            continue
+        tokens.append(clean_part)
+        if _contains_cjk(clean_part) and len(clean_part) > 4:
+            tokens.extend(clean_part[index : index + 4] for index in range(0, len(clean_part) - 3))
     return tokens or [query]
+
+
+def _contains_cjk(value: str) -> bool:
+    return any('\u4e00' <= char <= '\u9fff' for char in value)
 
 
 def _score_chunk(query: str, tokens: list[str], content: str) -> int:

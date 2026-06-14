@@ -5373,3 +5373,119 @@ passed
 | 原始大目标 | `99.0%` | `99.15%` |
 | RAG 阶段 | `35%` | `55%` |
 | 系统理解总文档可交接度 | `99.99%` | `99.99%` |
+
+## 63. Agent 命令入口接入 RAG 最小闭环
+
+本轮继续第二阶段到第三阶段之间的衔接：把已经完成的 RAG 知识库接到统一 Agent 命令入口。当前仍然没有触发真实钉钉发送。
+
+### 63.1 本轮解决了什么
+
+新增 `/api/v1/agent/command`。
+
+最小流程如下：
+
+| 步骤 | 当前实现 |
+|---|---|
+| 保存外部消息 | 写入 `chat_inbox` |
+| 查询知识库 | 调用 `rag_service.query_knowledge` |
+| 生成回答 | 使用固定中文模板，不让大模型编数字 |
+| 保存运行记录 | 写入 `agent_runs` |
+| 外发消息 | 本轮不外发，`outbox_message_id=null` |
+
+小白版理解：现在群消息或管理端测试消息进来后，系统会先把问题记账，再去资料库查答案。查到资料时，回答里会带“数据来源”；查不到时，会明确说数据不足。
+
+### 63.2 新增表
+
+| 表 | 用途 |
+|---|---|
+| `chat_inbox` | 保存外部聊天入口消息，包括通道、群、发送人、文本和追踪号 |
+| `agent_runs` | 保存 Agent 每次运行的答案、状态、RAG 命中数量和结果载荷 |
+
+迁移文件：
+
+```text
+backend/alembic/versions/0042_agent_command_audit.py
+```
+
+### 63.3 RAG 检索改进
+
+本轮顺手补了中文短句检索。
+
+之前 “换辊超时怎么办” 这种连续中文句子不一定能命中资料里的 “换辊超时”。现在 fallback 会额外生成 4 字中文窗口，例如：
+
+```text
+换辊超时
+```
+
+这样不接 embedding 的情况下，也能更稳地命中中文现场问题。
+
+### 63.4 权限边界
+
+当前 `/api/v1/agent/command` 仍要求当前登录用户具备管理、审核或管理员权限。
+
+这意味着本轮没有开放匿名钉钉 webhook，也没有绕过系统登录权限。后续如果接 DingTalk Stream 或机器人回调，需要再加签名校验、通道绑定和发送人身份映射。
+
+### 63.5 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+2 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+4 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_overview_service.py backend/tests/test_agent_management_router.py backend/tests/test_rag_routes.py -q
+17 passed
+```
+
+已执行：
+
+```text
+python -m compileall backend/app/models/agent_communication.py backend/app/services/agent_command_service.py backend/app/services/rag_service.py backend/app/routers/agent.py
+passed
+```
+
+已执行：
+
+```text
+cd backend && DATABASE_URL=sqlite:///<temp-db> python -m alembic upgrade head
+passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 63.6 当前边界
+
+还不能宣称 Agent 通讯中台和真实钉钉完成。
+
+原因：
+
+- 本轮只做 `/api/v1/agent/command` 的 RAG 问答和审计留痕。
+- 还没有把 Agent command 绑定到真实钉钉 Stream 或机器人回调。
+- 还没有把需要外发的回答写入 `agent_outbox_messages`。
+- 还没有做真实钉钉测试群发送验证。
+- 还没有做浏览器上传资料后再从 Agent command 查询的端到端验证。
+
+### 63.7 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.15%` | `99.25%` |
+| RAG 阶段 | `55%` | `65%` |
+| Agent 通讯阶段 | `25%` | `35%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |
