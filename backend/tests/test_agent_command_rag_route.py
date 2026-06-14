@@ -140,6 +140,37 @@ def test_agent_command_requires_management_scope() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_detects_business_intent_without_fabricating_numbers() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-004',
+                'text': '今日产量',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-intent-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'production_today'
+        assert payload['status_color'] == 'yellow'
+        assert '无新增生产数字' in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['intent'] == 'production_today'
+        assert run.result_payload['fact_status'] == 'not_connected'
+        assert db.query(ChatInboxMessage).one().text == '今日产量'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
     db, previous_overrides = _install_overrides()
 

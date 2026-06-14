@@ -63,6 +63,7 @@ def agent_command(
     return {
         'trace_id': result.trace_id,
         'status_color': result.status_color,
+        'intent': result.intent,
         'answer': result.answer,
         'rag': result.rag,
         'chat_inbox_id': result.chat_inbox_id,

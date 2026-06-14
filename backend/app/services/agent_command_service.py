@@ -22,6 +22,7 @@ class AgentCommandError(ValueError):
 class AgentCommandResult:
     trace_id: str
     status_color: str
+    intent: str
     answer: str
     rag: dict[str, Any]
     chat_inbox_id: int
@@ -64,6 +65,7 @@ def handle_agent_command(
 
     rag_payload = query_knowledge(db, query=clean_text, limit=5, user=current_user)
     citations = rag_payload.get('citations') or []
+    intent = _detect_intent(clean_text)
     status_color = 'green' if citations else 'yellow'
     answer = _format_answer(
         scope_label='全厂',
@@ -77,6 +79,8 @@ def handle_agent_command(
 
     result_payload = {
         'status_color': status_color,
+        'intent': intent,
+        'fact_status': 'not_connected',
         'rag': {
             'answer': rag_payload.get('answer'),
             'citations': citations,
@@ -131,6 +135,7 @@ def handle_agent_command(
 
     return AgentCommandResult(
         trace_id=clean_trace_id,
+        intent=intent,
         status_color=status_color,
         answer=answer,
         rag={'answer': rag_payload.get('answer'), 'citations': citations, 'items': rag_payload.get('items') or []},
@@ -151,6 +156,21 @@ def _status_label(status_color: str) -> str:
         'orange': '橙',
         'red': '红',
     }.get(status_color, '黄')
+
+
+def _detect_intent(text: str) -> str:
+    value = _clean(text)
+    checks = (
+        ('quality_anomaly', ('质量', '缺陷', '门禁')),
+        ('machine_stop', ('停机', '为什么停', '维修', '换辊')),
+        ('consumable_usage', ('辅材', '耗材', '超耗', '消耗')),
+        ('production_today', ('今日产量', '今天产量', '日产量', '产量')),
+        ('anomaly_summary', ('异常', '哪个车间')),
+    )
+    for intent, keywords in checks:
+        if any(keyword in value for keyword in keywords):
+            return intent
+    return 'general_knowledge'
 
 
 def _format_sources(citations: list[dict[str, Any]]) -> str:
