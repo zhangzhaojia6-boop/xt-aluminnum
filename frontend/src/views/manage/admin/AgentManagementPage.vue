@@ -135,6 +135,8 @@
           <h2>发件箱</h2>
           <span>{{ outbox.length }} 条</span>
         </header>
+        <p v-if="dispatchText" class="xt-agent-management__inline-state">{{ dispatchText }}</p>
+        <p v-if="logErrorText" class="xt-agent-management__inline-state is-error">{{ logErrorText }}</p>
         <div v-if="outbox.length === 0" class="xt-agent-management__empty">暂无记录</div>
         <div v-else class="xt-agent-management__list">
           <article v-for="item in outbox" :key="item.id" class="xt-agent-management__row">
@@ -142,9 +144,36 @@
               <b>{{ item.title }}</b>
               <small>{{ item.trace_id }} / 尝试 {{ item.attempts || 0 }} 次</small>
             </div>
-            <span class="xt-agent-management__tag" :class="{ 'is-warning': item.status === 'pending', 'is-muted': item.status === 'dry_run' }">
-              {{ outboxStateLabel(item.status) }}
-            </span>
+            <div class="xt-agent-management__actions">
+              <span class="xt-agent-management__tag" :class="{ 'is-warning': item.status === 'pending', 'is-muted': item.status === 'dry_run' }">
+                {{ outboxStateLabel(item.status) }}
+              </span>
+              <button type="button" class="xt-agent-management__button" @click="loadOutboxLogs(item.id)">
+                {{ selectedOutboxId === item.id && logLoading ? '读取中' : '外发日志' }}
+              </button>
+              <button
+                type="button"
+                class="xt-agent-management__button is-primary"
+                :disabled="dispatchingId === item.id || !canDispatchOutbox(item)"
+                @click="handleDispatchOutbox(item)"
+              >
+                {{ dispatchingId === item.id ? '处理中' : '执行分发' }}
+              </button>
+            </div>
+          </article>
+        </div>
+        <div v-if="selectedOutboxId" class="xt-agent-management__logs">
+          <header>
+            <h3>外发日志</h3>
+            <span>{{ logEntries.length }} 条</span>
+          </header>
+          <div v-if="logLoading" class="xt-agent-management__empty">读取中</div>
+          <div v-else-if="logEntries.length === 0" class="xt-agent-management__empty">暂无记录</div>
+          <article v-for="item in logEntries" v-else :key="item.id">
+            <b>{{ externalLogStateLabel(item.status) }}</b>
+            <small>{{ item.channel_type || '未知通道' }} / {{ item.channel_key_masked || '未记录' }}</small>
+            <small>{{ item.detail || item.provider_message_id || '无返回信息' }}</small>
+            <time>{{ formatTime(item.created_at) }}</time>
           </article>
         </div>
       </section>
@@ -172,7 +201,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { fetchAgentManagementOverview } from '../../../api/agent-management.js'
+import {
+  dispatchAgentOutboxMessage,
+  fetchAgentManagementOverview,
+  fetchAgentOutboxLogs
+} from '../../../api/agent-management.js'
 
 const EMPTY_OVERVIEW = {
   safe_mode: true,
@@ -189,6 +222,12 @@ const EMPTY_OVERVIEW = {
 const loading = ref(false)
 const errorText = ref('')
 const overview = ref({ ...EMPTY_OVERVIEW })
+const dispatchingId = ref(null)
+const dispatchText = ref('')
+const selectedOutboxId = ref(null)
+const logLoading = ref(false)
+const logErrorText = ref('')
+const logEntries = ref([])
 
 const summary = computed(() => overview.value?.summary || {})
 const agents = computed(() => overview.value?.agents || [])
@@ -300,6 +339,20 @@ function outboxStateLabel(value) {
   return labels[value] || value || '未知'
 }
 
+function externalLogStateLabel(value) {
+  const labels = {
+    dry_run: '演练记录',
+    sent: '已发送',
+    failed: '失败',
+    retrying: '重试中'
+  }
+  return labels[value] || value || '外发记录'
+}
+
+function canDispatchOutbox(item) {
+  return ['pending', 'retrying', 'failed'].includes(item?.status)
+}
+
 async function loadOverview() {
   loading.value = true
   errorText.value = ''
@@ -310,6 +363,38 @@ async function loadOverview() {
     overview.value = { ...EMPTY_OVERVIEW }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadOutboxLogs(outboxMessageId) {
+  selectedOutboxId.value = outboxMessageId
+  logLoading.value = true
+  logErrorText.value = ''
+  try {
+    const data = await fetchAgentOutboxLogs(outboxMessageId)
+    logEntries.value = data?.items || []
+  } catch (error) {
+    logErrorText.value = error?.response?.data?.detail || error?.message || '外发日志读取失败'
+    logEntries.value = []
+  } finally {
+    logLoading.value = false
+  }
+}
+
+async function handleDispatchOutbox(item) {
+  if (!canDispatchOutbox(item)) return
+  dispatchingId.value = item.id
+  dispatchText.value = ''
+  logErrorText.value = ''
+  try {
+    const result = await dispatchAgentOutboxMessage(item.id)
+    dispatchText.value = `发件箱 ${result.outbox_message_id}：${outboxStateLabel(result.status)}`
+    await loadOverview()
+    await loadOutboxLogs(item.id)
+  } catch (error) {
+    logErrorText.value = error?.response?.data?.detail || error?.message || '分发失败'
+  } finally {
+    dispatchingId.value = null
   }
 }
 
@@ -449,6 +534,23 @@ onMounted(loadOverview)
   background: rgba(255, 92, 92, 0.08);
   color: rgba(255, 218, 214, 0.96);
   cursor: pointer;
+}
+
+.xt-agent-management__inline-state {
+  margin: 0;
+  padding: var(--xt-space-2) var(--xt-space-3);
+  border: 1px solid rgba(57, 217, 138, 0.22);
+  border-radius: 8px;
+  background: rgba(57, 217, 138, 0.08);
+  color: rgba(137, 255, 205, 0.9);
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
+.xt-agent-management__inline-state.is-error {
+  border-color: rgba(255, 92, 92, 0.26);
+  background: rgba(255, 92, 92, 0.08);
+  color: rgba(255, 190, 190, 0.92);
 }
 
 .xt-agent-management__metrics {
@@ -620,6 +722,36 @@ onMounted(loadOverview)
   min-width: 0;
 }
 
+.xt-agent-management__actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xt-space-2);
+}
+
+.xt-agent-management__button {
+  min-height: 28px;
+  padding: 3px var(--xt-space-2);
+  border: 1px solid rgba(116, 245, 255, 0.24);
+  border-radius: 4px;
+  background: rgba(20, 136, 255, 0.08);
+  color: rgba(185, 223, 235, 0.9);
+  cursor: pointer;
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
+.xt-agent-management__button.is-primary {
+  border-color: rgba(255, 176, 32, 0.34);
+  background: rgba(255, 176, 32, 0.12);
+  color: rgba(255, 226, 160, 0.95);
+}
+
+.xt-agent-management__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .xt-agent-management__tag {
   flex: 0 0 auto;
   padding: 3px var(--xt-space-2);
@@ -673,6 +805,49 @@ onMounted(loadOverview)
   justify-content: flex-start;
 }
 
+.xt-agent-management__logs {
+  display: grid;
+  gap: var(--xt-space-2);
+  padding-top: var(--xt-space-2);
+  border-top: 1px solid rgba(0, 242, 255, 0.12);
+}
+
+.xt-agent-management__logs header {
+  padding-bottom: var(--xt-space-2);
+}
+
+.xt-agent-management__logs h3 {
+  margin: 0;
+  color: rgba(225, 253, 255, 0.9);
+  font-size: var(--xt-text-base);
+  font-weight: 900;
+}
+
+.xt-agent-management__logs article {
+  display: grid;
+  gap: 2px;
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(94, 112, 143, 0.2);
+  border-radius: 8px;
+  background: rgba(11, 18, 34, 0.34);
+}
+
+.xt-agent-management__logs article b {
+  color: rgba(225, 253, 255, 0.94);
+  font-size: var(--xt-text-sm);
+  font-weight: 900;
+}
+
+.xt-agent-management__logs article small,
+.xt-agent-management__logs article time {
+  overflow: hidden;
+  color: rgba(185, 223, 235, 0.66);
+  font-size: var(--xt-text-xs);
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @keyframes xt-agent-management-loading {
   from {
     background-position: 100% 0;
@@ -707,6 +882,12 @@ onMounted(loadOverview)
   .xt-agent-management__metrics,
   .xt-agent-management__evidence {
     grid-template-columns: 1fr;
+  }
+
+  .xt-agent-management__row,
+  .xt-agent-management__actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

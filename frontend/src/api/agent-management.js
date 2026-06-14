@@ -14,3 +14,13 @@ export async function askAgentKnowledge(question) {
   const { data } = await api.post('/agent-management/knowledge/answer', { question })
   return data
 }
+
+export async function dispatchAgentOutboxMessage(outboxMessageId) {
+  const { data } = await api.post(`/agent-management/outbox/${outboxMessageId}/dispatch`)
+  return data
+}
+
+export async function fetchAgentOutboxLogs(outboxMessageId) {
+  const { data } = await api.get(`/agent-management/outbox/${outboxMessageId}/logs`)
+  return data
+}

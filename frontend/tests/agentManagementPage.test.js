@@ -24,9 +24,13 @@ test('AgentManagementPage reads the safe overview endpoint', () => {
   assert.match(apiSrc, /fetchAgentManagementOverview/)
   assert.match(apiSrc, /fetchAgentKnowledgeEntries/)
   assert.match(apiSrc, /askAgentKnowledge/)
+  assert.match(apiSrc, /dispatchAgentOutboxMessage/)
+  assert.match(apiSrc, /fetchAgentOutboxLogs/)
   assert.match(apiSrc, /api\.get\('\/agent-management\/overview'/)
   assert.match(apiSrc, /api\.get\('\/agent-management\/knowledge'/)
   assert.match(apiSrc, /api\.post\('\/agent-management\/knowledge\/answer'/)
+  assert.match(apiSrc, /api\.post\(`\/agent-management\/outbox\/\$\{outboxMessageId\}\/dispatch`/)
+  assert.match(apiSrc, /api\.get\(`\/agent-management\/outbox\/\$\{outboxMessageId\}\/logs`/)
   assert.doesNotMatch(apiSrc, /put|delete/i)
 })
 
@@ -48,4 +52,15 @@ test('AgentManagementPage includes loading, empty and error states', () => {
   for (const text of ['读取中', '暂无记录', '读取失败']) {
     assert.match(pageSrc, new RegExp(text))
   }
+})
+
+test('AgentManagementPage can dispatch outbox messages and inspect external logs', () => {
+  assert.match(pageSrc, /dispatchAgentOutboxMessage/)
+  assert.match(pageSrc, /fetchAgentOutboxLogs/)
+  assert.match(pageSrc, /handleDispatchOutbox/)
+  assert.match(pageSrc, /loadOutboxLogs/)
+  assert.match(pageSrc, /执行分发/)
+  assert.match(pageSrc, /外发日志/)
+  assert.match(pageSrc, /channel_key_masked/)
+  assert.doesNotMatch(pageSrc, /channel_key[^_]/)
 })
