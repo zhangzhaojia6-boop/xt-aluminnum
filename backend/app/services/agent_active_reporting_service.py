@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+import hashlib
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -90,7 +91,18 @@ def queue_factory_overview(
             'metrics': metrics,
             'anomalies': safe_anomalies,
         },
+        dedupe_key=_build_dedupe_key(
+            event_type='factory_overview_report',
+            scope_type='factory',
+            workshop_id=None,
+            business_date=business_date,
+            channel_key=channel.channel_key,
+            anomalies=safe_anomalies,
+        ),
+        now=occurred_at,
     )
+    if message.event_id != event.id:
+        return _mark_event_deduped(db, event, message)
     event.status = 'queued'
     db.commit()
     db.refresh(event)
@@ -176,7 +188,18 @@ def queue_workshop_status(
             'metrics': metrics,
             'anomalies': safe_anomalies,
         },
+        dedupe_key=_build_dedupe_key(
+            event_type='workshop_status_report',
+            scope_type='workshop',
+            workshop_id=workshop_id,
+            business_date=business_date,
+            channel_key=channel.channel_key,
+            anomalies=safe_anomalies,
+        ),
+        now=occurred_at,
     )
+    if message.event_id != event.id:
+        return _mark_event_deduped(db, event, message)
     event.status = 'queued'
     db.commit()
     db.refresh(event)
@@ -330,6 +353,66 @@ def _format_number(value: float) -> str:
     if value == int(value):
         return str(int(value))
     return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
+def _mark_event_deduped(db: Session, event: AgentEvent, message) -> ActiveReportOutcome:
+    event.status = 'suppressed'
+    event.payload = {
+        **(event.payload or {}),
+        'dedupe_detail': 'outbox_deduped',
+        'deduped_outbox_message_id': message.id,
+    }
+    db.commit()
+    db.refresh(event)
+    db.refresh(message)
+    return ActiveReportOutcome(
+        status='suppressed',
+        detail='outbox_deduped',
+        event_id=event.id,
+        outbox_message_id=message.id,
+        severity=event.severity,
+    )
+
+
+def _build_dedupe_key(
+    *,
+    event_type: str,
+    scope_type: str,
+    workshop_id: int | None,
+    business_date: date,
+    channel_key: str,
+    anomalies: list[dict[str, object]],
+) -> str:
+    if scope_type == 'workshop':
+        scope_key = f'workshop:{int(workshop_id or 0)}'
+    else:
+        scope_key = 'factory'
+    raw_key = ':'.join(
+        [
+            _clean_component(event_type),
+            scope_key,
+            business_date.isoformat(),
+            _clean_component(channel_key),
+            _anomaly_signature(anomalies),
+        ]
+    )
+    if len(raw_key) <= 150:
+        return raw_key
+    digest = hashlib.sha256(raw_key.encode('utf-8')).hexdigest()[:16]
+    return f'{raw_key[:133]}:{digest}'
+
+
+def _anomaly_signature(anomalies: list[dict[str, object]]) -> str:
+    parts = []
+    for item in anomalies:
+        anomaly_type = _clean_component(str(item.get('type') or 'unknown'))
+        title = _clean_component(str(item.get('title') or item.get('value') or 'unknown'))
+        parts.append(f'{anomaly_type}:{title}')
+    return '+'.join(sorted(parts)) if parts else 'normal'
+
+
+def _clean_component(value: object) -> str:
+    return str(value or '').strip().replace('\n', ' ').replace('\r', ' ') or 'unknown'
 
 
 def _utcnow() -> datetime:

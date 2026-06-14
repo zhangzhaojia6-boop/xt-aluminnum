@@ -6176,3 +6176,77 @@ git diff --check
 | Agent 通讯阶段 | `60%` | `63%` |
 | 真实钉钉阶段 | `31%` | `33%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 72. 主动汇报已接入 outbox 去重键
+
+### 72.1 本轮新增能力
+
+上一轮只是在 `queue_bound_message` 里提供了去重能力。本轮把主动汇报服务接上了这个能力：
+
+| 主动汇报类型 | 去重键范围 |
+|---|---|
+| 全厂总览主动汇报 | 事件类型 + 全厂范围 + 生产日 + 通道 + 异常签名 |
+| 车间状态主动汇报 | 事件类型 + 车间 ID + 生产日 + 通道 + 异常签名 |
+
+如果同一个异常在 30 分钟内再次触发，系统会复用原 outbox，并把新事件标记为 `suppressed`，原因是 `outbox_deduped`。
+
+小白版理解：上一轮是给发件箱装了“防重复锁”，本轮是让主动汇报真的开始使用这把锁。
+
+### 72.2 代码链路
+
+相关入口：
+
+- `agent_active_reporting_service.queue_factory_overview`
+- `agent_active_reporting_service.queue_workshop_status`
+- `agent_communication_service.queue_bound_message`
+
+关键规则：
+
+- 事件仍然会进入 `agent_events` 留档。
+- 重复事件不会创建第二条 `agent_outbox_messages`。
+- 重复事件会保留 `deduped_outbox_message_id`，方便追溯它复用了哪条外发消息。
+- 真实外发仍然只发生在后续执行 `dispatch_outbox_message` 时。
+
+### 72.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_active_reporting_service.py -q
+失败原因：第二次同异常主动汇报仍返回 queued，而不是 suppressed。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_active_reporting_service.py -q
+6 passed
+
+python -m pytest backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+21 passed
+
+python -m compileall backend/app/services/agent_active_reporting_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 72.4 当前边界
+
+还不能宣称“所有 Agent 都已自动去重”。
+
+原因：
+
+- 本轮只接入了主动汇报服务。
+- 后续还要逐步检查催报 Agent、日报秘书、质量异常、辅材超耗、停机升级等是否都走这个入口或传入稳定 `dedupe_key`。
+- 还没有做真实钉钉测试群验证。
+
+### 72.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.59%` | `99.62%` |
+| Agent 通讯阶段 | `63%` | `66%` |
+| 真实钉钉阶段 | `33%` | `35%` |
+| 前端治理阶段 | `78%` | `78%` |

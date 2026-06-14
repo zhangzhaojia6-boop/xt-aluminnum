@@ -192,3 +192,50 @@ def test_duplicate_factory_report_is_suppressed_but_archived() -> None:
         assert suppressed_event.payload['rate_limit_detail'] == 'rate_limited'
     finally:
         db.close()
+
+
+def test_workshop_report_reuses_outbox_for_same_anomaly_inside_dedupe_window() -> None:
+    db = _db_session()
+    try:
+        _bind_workshop_channel(db, channel_key='workshop-2-chat', workshop_id=2)
+        anomaly = [{'type': 'machine_stop', 'title': '1#机停机', 'severity': 'critical', 'value': '35 分钟'}]
+
+        first = active_service.queue_workshop_status(
+            db,
+            business_date=date(2026, 6, 13),
+            channel_key='workshop-2-chat',
+            workshop_id=2,
+            workshop_name='铸二',
+            metrics={'本车间产量': '20.00 吨'},
+            anomalies=anomaly,
+            occurred_at=datetime(2026, 6, 13, 8, 0, tzinfo=UTC),
+            window_seconds=1,
+        )
+        second = active_service.queue_workshop_status(
+            db,
+            business_date=date(2026, 6, 13),
+            channel_key='workshop-2-chat',
+            workshop_id=2,
+            workshop_name='铸二',
+            metrics={'本车间产量': '20.50 吨'},
+            anomalies=anomaly,
+            occurred_at=datetime(2026, 6, 13, 8, 10, tzinfo=UTC),
+            window_seconds=1,
+        )
+
+        assert first.status == 'queued'
+        assert second.status == 'suppressed'
+        assert second.detail == 'outbox_deduped'
+        assert second.outbox_message_id == first.outbox_message_id
+        assert db.query(AgentOutboxMessage).count() == 1
+
+        message = db.get(AgentOutboxMessage, first.outbox_message_id)
+        suppressed_event = db.get(AgentEvent, second.event_id)
+        assert message is not None
+        assert message.dedupe_key == 'workshop_status_report:workshop:2:2026-06-13:workshop-2-chat:machine_stop:1#机停机'
+        assert message.dedupe_expires_at is not None
+        assert suppressed_event is not None
+        assert suppressed_event.status == 'suppressed'
+        assert suppressed_event.payload['dedupe_detail'] == 'outbox_deduped'
+    finally:
+        db.close()
