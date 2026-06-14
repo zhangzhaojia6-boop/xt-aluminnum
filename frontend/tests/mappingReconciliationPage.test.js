@@ -34,3 +34,15 @@ test('mapping reconciliation page uses real API functions and dry-run copy', () 
   assert.match(page, /runMappingReconciliation/)
   assert.match(page, /只读 dry-run/)
 })
+
+test('mapping reconciliation page can run selected file and business day dry-run', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /selectedReferenceFile/)
+  assert.match(page, /businessDate/)
+  assert.match(page, /reference_file:/)
+  assert.match(page, /business_date:/)
+  assert.match(page, /运行真实试算/)
+  assert.doesNotMatch(page, /运行脱敏样例/)
+  assert.doesNotMatch(page, /const dryRunPayload =/)
+})

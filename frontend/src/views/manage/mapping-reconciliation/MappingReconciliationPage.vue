@@ -6,7 +6,7 @@
         <h1>输出skill 对齐</h1>
       </div>
       <button type="button" :disabled="running" @click="runDryRun">
-        {{ running ? '试算中' : '运行脱敏样例' }}
+        {{ running ? '试算中' : '运行真实试算' }}
       </button>
     </header>
 
@@ -25,6 +25,35 @@
     </section>
 
     <section class="xt-mapping-reconciliation__grid">
+      <article class="xt-mapping-reconciliation__panel is-controls">
+        <header>
+          <h2>试算条件</h2>
+          <span>只读执行</span>
+        </header>
+        <div class="xt-mapping-reconciliation__controls">
+          <label>
+            <span>参考文件</span>
+            <select v-model="selectedReferenceFile">
+              <option value="">请选择文件</option>
+              <option v-for="item in runnableFiles" :key="item.relative_path" :value="item.relative_path">
+                {{ item.relative_path }}
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>业务日</span>
+            <input v-model="businessDate" type="date" />
+          </label>
+          <fieldset>
+            <legend>可比维度</legend>
+            <label v-for="item in dimensionOptions" :key="item.key">
+              <input v-model="selectedDimensions" type="checkbox" :value="item.key" />
+              <span>{{ item.label }}</span>
+            </label>
+          </fieldset>
+        </div>
+      </article>
+
       <article class="xt-mapping-reconciliation__panel">
         <header>
           <h2>参考源</h2>
@@ -106,56 +135,85 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { fetchMappingReconciliationSources, runMappingReconciliation } from '../../../api/mapping-reconciliation.js'
+import { inferLastCompletedBusinessDate } from '../../../utils/shiftClock.js'
 
 const loading = ref(false)
 const running = ref(false)
 const errorText = ref('')
 const sources = ref({ available: false, files: [], system_sources: [] })
 const result = ref(null)
+const selectedReferenceFile = ref('')
+const businessDate = ref(inferLastCompletedBusinessDate())
+const selectedDimensions = ref(['business_date', 'workshop'])
 
 const sourceFiles = computed(() => sources.value?.files || [])
+const runnableFiles = computed(() => sourceFiles.value.filter((item) => ['.txt', '.md', '.log', '.xlsx', '.xls'].includes(item.extension)))
 const systemSources = computed(() => sources.value?.system_sources || [])
 const sourceRoot = computed(() => sources.value?.reference_source || '未配置')
 const differences = computed(() => result.value?.differences || [])
 const ruleProposals = computed(() => result.value?.rule_proposals || [])
 const matchRate = computed(() => Number(result.value?.overall_match_rate || 0))
+const referenceRowsCount = computed(() => Number(result.value?.reference_rows_count || 0))
+const systemRowsCount = computed(() => Number(result.value?.system_rows_count || 0))
+
+const dimensionOptions = [
+  { key: 'business_date', label: '日期' },
+  { key: 'workshop', label: '车间' },
+  { key: 'shift', label: '班次' },
+  { key: 'machine', label: '机台' },
+  { key: 'process', label: '工序' }
+]
+
+const defaultMappingFields = [
+  {
+    metric: 'output',
+    reference_field: 'output_tons',
+    system_field: 'output_tons',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 30
+  },
+  {
+    metric: 'energy',
+    reference_field: 'energy_kwh',
+    system_field: 'energy_kwh',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 15
+  },
+  {
+    metric: 'gas',
+    reference_field: 'gas_m3',
+    system_field: 'gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 10
+  }
+]
+
+const defaultDimensionAliases = {
+  workshop: {
+    精整车间: '精整',
+    拉矫车间: '拉矫',
+    剪切车间: '园区剪切',
+    成品库: '成品库'
+  },
+  shift: {
+    白班: '长白班',
+    小夜: '小夜班',
+    大夜: '大夜班'
+  }
+}
 
 const metricCards = computed(() => [
   { key: 'files', label: '参考文件', value: displayNumber(sourceFiles.value.length), meta: sources.value?.available ? '已挂载' : '未挂载' },
-  { key: 'tables', label: '系统源表', value: displayNumber(systemSources.value.length), meta: '云端只读' },
+  { key: 'rows', label: '对齐行数', value: `${displayNumber(referenceRowsCount.value)} / ${displayNumber(systemRowsCount.value)}`, meta: '输出skill / 系统' },
   { key: 'match', label: '当前匹配率', value: `${displayNumber(matchRate.value)}%`, meta: result.value ? '来自试算' : '未运行' },
   { key: 'diff', label: '差异数量', value: displayNumber(differences.value.length), meta: '可追原因' }
 ])
-
-const dryRunPayload = {
-  reference_rows: [
-    { business_date: '2026-06-13', workshop: '精整', shift: '长白班', output_tons: 12.5, energy_kwh: 1800 }
-  ],
-  system_rows: [
-    { business_date: '2026-06-13', workshop: '精整车间', shift: '白班', output_kg: 12500, electricity_kwh: 1800 }
-  ],
-  fields: [
-    {
-      metric: 'output',
-      reference_field: 'output_tons',
-      system_field: 'output_kg',
-      reference_unit: 'ton',
-      system_unit: 'kg',
-      tolerance: 0.001,
-      weight: 30
-    },
-    {
-      metric: 'energy',
-      reference_field: 'energy_kwh',
-      system_field: 'electricity_kwh',
-      reference_unit: 'kwh',
-      system_unit: 'kwh',
-      tolerance: 0.001,
-      weight: 15
-    }
-  ],
-  dimension_aliases: { workshop: { 精整车间: '精整' }, shift: { 白班: '长白班' } }
-}
 
 function displayNumber(value) {
   const number = Number(value || 0)
@@ -203,6 +261,9 @@ async function loadSources() {
   errorText.value = ''
   try {
     sources.value = await fetchMappingReconciliationSources()
+    if (!selectedReferenceFile.value && runnableFiles.value.length > 0) {
+      selectedReferenceFile.value = runnableFiles.value[0].relative_path
+    }
   } catch (error) {
     errorText.value = error?.response?.data?.detail || error?.message || '读取失败'
     sources.value = { available: false, files: [], system_sources: [] }
@@ -212,10 +273,24 @@ async function loadSources() {
 }
 
 async function runDryRun() {
+  if (!selectedReferenceFile.value) {
+    errorText.value = '请选择参考文件'
+    return
+  }
+  if (!businessDate.value) {
+    errorText.value = '请选择业务日'
+    return
+  }
   running.value = true
   errorText.value = ''
   try {
-    result.value = await runMappingReconciliation(dryRunPayload)
+    result.value = await runMappingReconciliation({
+      reference_file: selectedReferenceFile.value,
+      business_date: businessDate.value,
+      fields: defaultMappingFields,
+      dimensions: selectedDimensions.value.length > 0 ? selectedDimensions.value : ['business_date', 'workshop'],
+      dimension_aliases: defaultDimensionAliases
+    })
   } catch (error) {
     errorText.value = error?.response?.data?.detail || error?.message || '试算失败'
   } finally {
@@ -450,6 +525,62 @@ onMounted(loadSources)
   font-weight: 850;
 }
 
+.xt-mapping-reconciliation__panel.is-controls {
+  grid-column: 1 / -1;
+}
+
+.xt-mapping-reconciliation__controls {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(180px, 0.6fr) minmax(320px, 1fr);
+  gap: var(--xt-space-3);
+}
+
+.xt-mapping-reconciliation__controls label,
+.xt-mapping-reconciliation__controls fieldset {
+  display: grid;
+  gap: var(--xt-space-2);
+  margin: 0;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.xt-mapping-reconciliation__controls label span,
+.xt-mapping-reconciliation__controls legend {
+  color: rgba(245, 240, 230, 0.64);
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
+.xt-mapping-reconciliation__controls select,
+.xt-mapping-reconciliation__controls input[type='date'] {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(199, 155, 75, 0.28);
+  border-radius: 10px;
+  background: rgba(8, 17, 22, 0.72);
+  color: var(--mapping-text);
+  font-weight: 850;
+  padding: 0 var(--xt-space-3);
+}
+
+.xt-mapping-reconciliation__controls fieldset {
+  align-content: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.xt-mapping-reconciliation__controls fieldset legend {
+  grid-column: 1 / -1;
+}
+
+.xt-mapping-reconciliation__controls fieldset label {
+  display: flex;
+  align-items: center;
+  gap: var(--xt-space-1);
+  color: rgba(245, 240, 230, 0.76);
+  font-weight: 850;
+}
+
 .xt-mapping-reconciliation__table-wrap {
   overflow-x: auto;
 }
@@ -480,7 +611,8 @@ onMounted(loadSources)
 
 @media (max-width: 1120px) {
   .xt-mapping-reconciliation__metrics,
-  .xt-mapping-reconciliation__grid {
+  .xt-mapping-reconciliation__grid,
+  .xt-mapping-reconciliation__controls {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -492,8 +624,13 @@ onMounted(loadSources)
   }
 
   .xt-mapping-reconciliation__metrics,
-  .xt-mapping-reconciliation__grid {
+  .xt-mapping-reconciliation__grid,
+  .xt-mapping-reconciliation__controls {
     grid-template-columns: 1fr;
+  }
+
+  .xt-mapping-reconciliation__controls fieldset {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
