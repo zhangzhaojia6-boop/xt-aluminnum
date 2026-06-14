@@ -4890,3 +4890,116 @@ python -m pytest backend/tests/test_factory_command_service.py backend/tests/tes
 - 生产环境还没部署这次修复。
 - 还没看到部署后的新 `hourly_inspection` 记录。
 - 还没在管理端实际打开 AI 简报区域验证新记录展示。
+
+## 58. 输出skill 对齐底座与管理端入口
+
+本轮开始落实 `D:\输出skill` 对齐第一阶段，不再停留在方案层。
+
+### 58.1 新增能力
+
+新增后端只读对齐底座：
+
+| 文件 | 作用 |
+|---|---|
+| `backend/app/services/mapping_reconciliation_service.py` | 内存级字段对齐、单位换算、别名归一、差异原因、dry-run 规则建议 |
+| `backend/app/routers/mapping_reconciliation.py` | `/api/v1/mapping-reconciliation/sources`、`/api/v1/mapping-reconciliation/run` |
+| `backend/tests/fixtures/output_skill_mapping_sample.json` | 脱敏输出skill 对齐样例 |
+| `docs/audits/output-skill-data-mapping-baseline.md` | 第一阶段只读基线审计 |
+
+新增前端入口：
+
+| 文件 | 作用 |
+|---|---|
+| `frontend/src/api/mapping-reconciliation.js` | 前端调用新对齐接口 |
+| `frontend/src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue` | 管理端输出skill 对齐页面 |
+| `frontend/src/router/index.js` | 新增 `/manage/mapping-reconciliation` |
+| `frontend/src/config/manage-navigation.js` | 管理端系统导航新增“输出skill对齐” |
+
+### 58.2 当前只读证据
+
+本地 `D:\输出skill` 只读扫描结果：
+
+| 类型 | 数量 |
+|---|---:|
+| `.xls` | 208 |
+| `.xlsx` | 86 |
+| `.png` | 235 |
+| `.txt` | 77 |
+| `.json` | 114 |
+
+参考目录里存在 `.exe/.cmd/.ps1` 等文件，所以后续 RAG/解析必须按白名单读取，不能把可执行文件纳入知识库或测试样本。
+
+云端只读查询确认关键表存在：
+
+| 表 | 行数 |
+|---|---:|
+| `mes_stock_records` | 1547 |
+| `mes_workshop_process_records` | 2180 |
+| `shift_production_data` | 91 |
+| `work_order_entries` | 2876 |
+| `daily_consumable_logs` | 1 |
+| `machine_energy_records` | 27 |
+| `data_quality_issues` | 6 |
+| `data_reconciliation_items` | 0 |
+| `daily_reports` | 1 |
+
+云端活跃管理口径仍是 `13 个活跃生产车间 + 回收车间 + 成品库` 的 15 项口径，不能混成一个数字讲。
+
+### 58.3 已固化的最小规则
+
+已用测试固定：
+
+| 规则 | 例子 |
+|---|---|
+| kg/吨统一 | `12500 kg = 12.5 吨` |
+| 车间别名 | `精整车间 -> 精整` |
+| 班次别名 | `白班 -> 长白班` |
+| 差异原因 | `value_diff`、`missing_system_row`、`extra_system_row`、`missing_field_value` |
+| 安全边界 | 对齐接口需要管理员，且规则建议只返回 dry-run |
+
+### 58.4 测试结果
+
+后端：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py backend/tests/test_imports_daily_production_mapping_preview_route.py -q
+8 passed
+```
+
+前端：
+
+```text
+npm run test
+668 passed
+```
+
+构建：
+
+```text
+npm run build
+passed
+```
+
+### 58.5 仍未完成
+
+当前不能宣称输出skill 真实全量匹配率已经达到 95%。
+
+原因：
+
+- 还没有把 `D:\输出skill` 中 `.txt/.xls/.xlsx` 内容解析成结构化行。
+- 还没有把云端系统数据按同一日期、车间、班次、机列、工序拉平成对齐行。
+- `/api/v1/mapping-reconciliation/run` 当前支持传入脱敏/内存行 dry-run，还不是选择文件后自动跑真实对齐。
+- `/manage/mapping-reconciliation` 已能进入和调用接口，但还没做真实日期批量匹配。
+
+### 58.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `98.1%` | `98.4%` |
+| 系统理解总文档可交接度 | `99.97%` | `99.98%` |
+
+下一步最应该做：
+
+1. 写输出skill `.txt/.xls/.xlsx` 只读解析器。
+2. 写系统侧只读拉平函数。
+3. 让 `/api/v1/mapping-reconciliation/run` 支持按日期和文件范围真实试算。

@@ -63,6 +63,7 @@ const NAV_GROUPS = [
       { title: '账号权限', shortLabel: '账号', path: '/manage/admin/users', icon: Bell, access: 'admin', commandGroup: '系统' },
       { title: '业务规则', shortLabel: '规则', path: '/manage/admin/rules', icon: Histogram, access: 'admin', commandGroup: '系统' },
       { title: '通讯治理', shortLabel: '通讯', path: '/manage/admin/agents', icon: Connection, access: 'admin', commandGroup: '系统' },
+      { title: '输出skill对齐', shortLabel: '对齐', path: '/manage/mapping-reconciliation', icon: Connection, access: 'admin', commandGroup: '系统' },
       { title: '系统设置', shortLabel: '设置', path: '/manage/admin/settings', icon: Setting, access: 'admin', commandGroup: '系统' }
     ]
   }
@@ -84,4 +85,3 @@ export function manageNavGroups(auth, options = {}) {
     }))
     .filter((group) => group.items.length > 0)
 }
-

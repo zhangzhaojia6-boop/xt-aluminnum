@@ -1,0 +1,48 @@
+{
+  "reference_rows": [
+    {
+      "business_date": "2026-06-13",
+      "workshop": "精整",
+      "shift": "长白班",
+      "output_tons": 12.5,
+      "energy_kwh": 1800
+    }
+  ],
+  "system_rows": [
+    {
+      "business_date": "2026-06-13",
+      "workshop": "精整车间",
+      "shift": "白班",
+      "output_kg": 12500,
+      "electricity_kwh": 1800
+    }
+  ],
+  "fields": [
+    {
+      "metric": "output",
+      "reference_field": "output_tons",
+      "system_field": "output_kg",
+      "reference_unit": "ton",
+      "system_unit": "kg",
+      "tolerance": 0.001,
+      "weight": 30
+    },
+    {
+      "metric": "energy",
+      "reference_field": "energy_kwh",
+      "system_field": "electricity_kwh",
+      "reference_unit": "kwh",
+      "system_unit": "kwh",
+      "tolerance": 0.001,
+      "weight": 15
+    }
+  ],
+  "dimension_aliases": {
+    "workshop": {
+      "精整车间": "精整"
+    },
+    "shift": {
+      "白班": "长白班"
+    }
+  }
+}
