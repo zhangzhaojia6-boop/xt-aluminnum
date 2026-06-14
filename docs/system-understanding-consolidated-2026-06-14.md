@@ -6534,3 +6534,76 @@ git diff --check
 | Agent 通讯阶段 | `73%` | `76%` |
 | 真实钉钉阶段 | `39%` | `40%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 77. Agent command 辅材是否超耗已接辅材日报事实
+
+### 77.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `consumable_usage` 意图后，已开始读取 `daily_consumable_logs`：
+
+- 只读当天业务日的辅材日报。
+- 只对同时存在 `*_daily` 和 `*_target` 的字段判定超耗。
+- 达到 110% 为黄色，达到 120% 为橙色。
+- 没有目标值的字段不会硬判超耗，只计入“无定额无法判定”。
+
+小白版理解：现在问“辅材是否超耗”，Agent 会先找已填的辅材日报。如果某个辅材有定额，就能自动判断是否超了；如果没有定额，它会明确告诉你“这个还不能自动判断”，不会乱报。
+
+### 77.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 数据来源 | `daily_consumable_logs.payload` |
+| 可自动判定字段 | 当前先覆盖 `hydraulic_oil_daily/target`、`gear_oil_daily/target` |
+| 黄色阈值 | 日用量达到目标值 110% |
+| 橙色阈值 | 日用量达到目标值 120% |
+| 无定额字段 | 只计数，不判定超耗 |
+
+注意：轧制油吨耗、飞滤剂吨耗、硅藻土吨耗等字段如果只有实际值没有目标值，本轮不会判定超耗，需要后续补定额配置后再扩大自动判断范围。
+
+### 77.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_consumable_targets_for_over_quota_summary -q
+失败原因：接口仍返回 yellow 知识库兜底，没有读取 daily_consumable_logs。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_consumable_targets_for_over_quota_summary -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+8 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+30 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+```
+
+### 77.4 当前边界
+
+还不能宣称所有辅材都能自动判定超耗。
+
+原因：
+
+- 本轮只覆盖已有目标值字段。
+- 很多吨耗字段当前只有实际值，没有系统定额。
+- 还没有接入采购/库存/定额主数据。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+
+### 77.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.74%` | `99.77%` |
+| Agent 通讯阶段 | `76%` | `79%` |
+| 真实钉钉阶段 | `40%` | `41%` |
+| 前端治理阶段 | `78%` | `78%` |

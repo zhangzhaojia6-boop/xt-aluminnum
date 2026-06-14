@@ -18,6 +18,8 @@ from app.models.agent_communication import (
     ChatInboxMessage,
     CommunicationChannel,
 )
+from app.models.consumable import DailyConsumableLog
+from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
 from app.services import agent_communication_service
@@ -29,6 +31,8 @@ AGENT_COMMAND_TABLES = [
     RagDocument.__table__,
     RagChunk.__table__,
     RagQueryLog.__table__,
+    Workshop.__table__,
+    DailyConsumableLog.__table__,
     AgentProfile.__table__,
     CommunicationChannel.__table__,
     AgentChannelBinding.__table__,
@@ -309,6 +313,72 @@ def test_agent_command_uses_live_anomaly_fact_for_workshop_summary(monkeypatch) 
         run = db.query(AgentRun).one()
         assert run.result_payload['fact_status'] == 'connected'
         assert run.result_payload['facts']['top_workshops'][0] == '冷轧2050'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_uses_consumable_targets_for_over_quota_summary(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    db.add_all([
+        Workshop(id=2, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=1, is_active=True),
+        Workshop(id=3, code='LJ', name='拉矫', workshop_type='straightening', sort_order=2, is_active=True),
+        DailyConsumableLog(
+            workshop_id=2,
+            workshop_type='cold_roll',
+            business_date=date(2026, 6, 9),
+            payload={
+                'hydraulic_oil_daily': 12,
+                'hydraulic_oil_target': 10,
+                'gear_oil_daily': 8,
+                'gear_oil_target': 10,
+                'rolling_oil_per_ton': 1.8,
+            },
+        ),
+        DailyConsumableLog(
+            workshop_id=3,
+            workshop_type='straightening',
+            business_date=date(2026, 6, 9),
+            payload={
+                'hydraulic_oil_daily': 5,
+                'hydraulic_oil_target': 6,
+            },
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-007',
+                'text': '辅材是否超耗',
+                'agent_code': 'consumable_agent',
+                'trace_id': 'trace-agent-consumable-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'consumable_usage'
+        assert payload['status_color'] == 'orange'
+        assert '冷轧2050' in payload['answer']
+        assert '液压油' in payload['answer']
+        assert '超耗 1 项' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['over_quota_count'] == 1
+        assert payload['facts']['unchecked_value_count'] == 1
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['top_over_quota'][0]['workshop_name'] == '冷轧2050'
     finally:
         _restore_overrides(previous_overrides, db)
 

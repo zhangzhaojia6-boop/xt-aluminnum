@@ -10,7 +10,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import resolve_production_business_date
+from app.core.templates.consumable_payload import flatten_payload, parse_payload
 from app.models.agent_communication import AgentRun, ChatInboxMessage
+from app.models.consumable import DailyConsumableLog
+from app.models.master import Workshop
 from app.models.system import User
 from app.services import agent_communication_service
 from app.services import realtime_service
@@ -179,10 +182,13 @@ def _detect_intent(text: str) -> str:
 
 
 def _load_business_facts(db: Session, *, intent: str, current_user: User | None) -> dict[str, Any]:
-    if intent not in {'production_today', 'anomaly_summary'} or current_user is None:
+    if intent not in {'production_today', 'anomaly_summary', 'consumable_usage'} or current_user is None:
         return {'status': 'not_connected'}
 
     business_date = resolve_production_business_date()
+    if intent == 'consumable_usage':
+        return _extract_consumable_facts(db, business_date=business_date)
+
     try:
         payload = _load_live_aggregation(db, business_date=business_date, current_user=current_user)
     except SQLAlchemyError:
@@ -208,6 +214,98 @@ def _load_business_facts(db: Session, *, intent: str, current_user: User | None)
         'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
         'data_source': payload.get('data_source') or 'unknown',
     }
+
+
+CONSUMABLE_TARGET_GROUPS: tuple[tuple[str, str, str], ...] = (
+    ('hydraulic_oil', '液压油', '桶'),
+    ('gear_oil', '齿轮油', '桶'),
+)
+
+
+def _extract_consumable_facts(db: Session, *, business_date) -> dict[str, Any]:
+    rows = (
+        db.query(DailyConsumableLog, Workshop)
+        .join(Workshop, Workshop.id == DailyConsumableLog.workshop_id)
+        .filter(DailyConsumableLog.business_date == business_date)
+        .order_by(Workshop.sort_order.asc(), Workshop.id.asc())
+        .all()
+    )
+    over_quota: list[dict[str, Any]] = []
+    checked_count = 0
+    unchecked_value_count = 0
+    for log, workshop in rows:
+        payload = flatten_payload(parse_payload(dict(log.payload or {})))
+        for prefix, label, unit in CONSUMABLE_TARGET_GROUPS:
+            daily = _optional_number(payload.get(f'{prefix}_daily'))
+            target = _optional_number(payload.get(f'{prefix}_target'))
+            if daily is None:
+                continue
+            if target is None or target <= 0:
+                unchecked_value_count += 1
+                continue
+            checked_count += 1
+            ratio = round(daily / target * 100, 2)
+            if ratio < 110:
+                continue
+            over_quota.append({
+                'workshop_name': workshop.name,
+                'workshop_code': workshop.code,
+                'field': prefix,
+                'label': label,
+                'daily': round(daily, 2),
+                'target': round(target, 2),
+                'unit': unit,
+                'ratio': ratio,
+                'status_color': 'orange' if ratio >= 120 else 'yellow',
+            })
+
+        unchecked_value_count += _count_unchecked_consumable_values(payload)
+
+    over_quota.sort(key=lambda item: (-float(item['ratio']), str(item['workshop_name']), str(item['label'])))
+    status_color = _consumable_status_color(over_quota)
+    return {
+        'status': 'connected',
+        'status_color': status_color,
+        'business_date': business_date.isoformat(),
+        'business_day_start': '07:30',
+        'log_count': len(rows),
+        'checked_target_count': checked_count,
+        'unchecked_value_count': unchecked_value_count,
+        'over_quota_count': len(over_quota),
+        'top_over_quota': over_quota[:5],
+        'data_source': 'daily_consumable_logs',
+    }
+
+
+def _optional_number(value: Any) -> float | None:
+    if value in (None, ''):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _count_unchecked_consumable_values(payload: dict[str, Any]) -> int:
+    count = 0
+    for key, value in payload.items():
+        if value in (None, ''):
+            continue
+        if key.endswith(('_target', '_compare', '_monthly')):
+            continue
+        if any(key == f'{prefix}_daily' for prefix, _label, _unit in CONSUMABLE_TARGET_GROUPS):
+            continue
+        if _optional_number(value) is not None:
+            count += 1
+    return count
+
+
+def _consumable_status_color(items: list[dict[str, Any]]) -> str:
+    if any(item.get('status_color') == 'orange' for item in items):
+        return 'orange'
+    if items:
+        return 'yellow'
+    return 'green'
 
 
 def _load_live_aggregation(db: Session, *, business_date, current_user: User) -> dict:
@@ -322,6 +420,24 @@ def _build_answer_for_intent(
             sources='实时聚合 / overall_progress.pending_assignment；实时聚合 / data_quality.missing_output_weight',
         )
 
+    if intent == 'consumable_usage' and facts.get('status') == 'connected':
+        over_quota_count = _int_or_zero(facts.get('over_quota_count'))
+        conclusion = '发现辅材超耗' if over_quota_count else '未发现超过报警阈值的辅材'
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion=conclusion,
+            key_numbers=(
+                f"超耗 {over_quota_count} 项；"
+                f"已校验 {facts.get('checked_target_count') or 0} 项；"
+                f"无定额无法判定 {facts.get('unchecked_value_count') or 0} 项；"
+                f"重点 {_format_consumable_over_quota(facts.get('top_over_quota') or [])}"
+            ),
+            reason='按 daily_consumable_logs 中已配置目标值的辅材项计算，达到 110% 预警、120% 升级。',
+            action='先核对超耗车间的辅材填报和定额配置；无定额字段需补定额后才能自动判定。',
+            sources='辅材日报 / daily_consumable_logs',
+        )
+
     return _format_answer(
         scope_label='全厂',
         status_color=status_color,
@@ -341,6 +457,19 @@ def _format_workshop_list(workshops: Any) -> str:
     if not workshops:
         return '无'
     return '、'.join(str(item) for item in list(workshops)[:5])
+
+
+def _format_consumable_over_quota(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return '无'
+    parts = []
+    for item in items[:3]:
+        parts.append(
+            f"{item.get('workshop_name')} {item.get('label')} "
+            f"{_format_tons(item.get('daily'))}/{_format_tons(item.get('target'))}{item.get('unit') or ''} "
+            f"({item.get('ratio')}%)"
+        )
+    return '；'.join(parts)
 
 
 def _format_fact_sources(facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:
