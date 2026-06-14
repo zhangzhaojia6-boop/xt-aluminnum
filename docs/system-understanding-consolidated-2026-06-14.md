@@ -5279,3 +5279,97 @@ passed
 1. 做 `/manage/rag` 前端页面：上传、列表、详情、切片预览、删除、测试问答。
 2. 用浏览器实际上传一个 UTF-8 和一个 GBK 文本，确认页面、接口、数据库都通。
 3. 把 RAG 查询接到 Agent 命令入口，让群问答能引用资料来源。
+
+## 62. RAG 知识库前端入口最小闭环
+
+本轮在上一节后端 RAG 最小闭环基础上，补上了管理端前端入口。当前仍然是“知识库资料管理页”，不是最终的多 Agent 群问答入口。
+
+### 62.1 本轮解决了什么
+
+新增 `/manage/rag` 管理端页面，导航名称为“知识库资料”。
+
+页面已接入真实 `/api/v1/rag` 后端接口：
+
+| 前端动作 | 后端接口 |
+|---|---|
+| 上传文本附件 | `POST /api/v1/rag/documents/upload` |
+| 查看文档清单 | `GET /api/v1/rag/documents` |
+| 查看文档切片 | `GET /api/v1/rag/documents/{id}` |
+| 删除文档 | `DELETE /api/v1/rag/documents/{id}` |
+| 测试问答 | `POST /api/v1/rag/query` |
+
+小白版理解：现在管理员可以从管理端入口上传文本资料，看到资料被切成哪些段，也可以输入问题测试系统能不能从这些资料里找答案和来源。
+
+### 62.2 前端视觉口径
+
+本页先用 Stitch 生成工业资料台方向，再迁移到现有前端工程。
+
+Stitch 项目：
+
+```text
+projects/15891304796857737989
+```
+
+Stitch 页面稿：
+
+```text
+projects/15891304796857737989/screens/46572f9e8bb540cfa6aad09c7c05cb7b
+```
+
+实现时只接真实接口，不放长期假数字。
+
+### 62.3 测试证据
+
+已执行：
+
+```text
+node --test tests/ragKnowledgePage.test.js tests/mappingReconciliationPage.test.js
+6 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+4 passed
+```
+
+已执行：
+
+```text
+npm run test
+672 passed
+```
+
+已执行：
+
+```text
+npm run build
+passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 62.4 当前边界
+
+还不能宣称 RAG 和钉钉主动汇报全部完成。
+
+原因：
+
+- 本轮做的是 `/manage/rag` 管理端资料入口。
+- 还没有做浏览器真实上传文件的线上验证。
+- 还没有把 RAG 查询正式接入 `/api/v1/agent/command`。
+- 还没有接 embedding 或 pgvector，当前仍是数据库文本检索 fallback。
+
+### 62.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.0%` | `99.15%` |
+| RAG 阶段 | `35%` | `55%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |
