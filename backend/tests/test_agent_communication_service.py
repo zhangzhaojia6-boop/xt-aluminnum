@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models import Base
+from app.models.agent_communication import AgentOutboxMessage
 from app.services import agent_communication_service as service
 
 
@@ -203,6 +204,68 @@ def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -
 
         logs = service.list_external_logs(db, outbox_message_id=message.id)
         assert [log.status for log in logs] == ['retrying', 'retrying', 'dead_letter']
+    finally:
+        db.close()
+
+
+def test_queue_message_dedupes_same_event_inside_thirty_minute_window() -> None:
+    db = _db_session()
+    try:
+        service.register_agent(db, code='stop_detector', name='修停机 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-maintenance',
+            name='修停机测试群',
+            target_type='workshop',
+            target_key='2',
+            workshop_id=2,
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='stop_detector', channel_key='chat-maintenance')
+        started_at = datetime(2026, 6, 13, 8, 0, tzinfo=UTC)
+
+        first = service.queue_bound_message(
+            db,
+            agent_code='stop_detector',
+            channel_key='chat-maintenance',
+            title='【冷轧1650｜停机】测试',
+            content='1#机停机 10 分钟。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+            trace_id='trace-stop-1',
+            dedupe_key='machine_stop:workshop-2:line-1',
+            now=started_at,
+        )
+        duplicate = service.queue_bound_message(
+            db,
+            agent_code='stop_detector',
+            channel_key='chat-maintenance',
+            title='【冷轧1650｜停机】测试重复',
+            content='1#机停机 18 分钟。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+            trace_id='trace-stop-2',
+            dedupe_key='machine_stop:workshop-2:line-1',
+            now=started_at + timedelta(minutes=10),
+        )
+        after_window = service.queue_bound_message(
+            db,
+            agent_code='stop_detector',
+            channel_key='chat-maintenance',
+            title='【冷轧1650｜停机】测试升级',
+            content='1#机停机 41 分钟。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+            trace_id='trace-stop-3',
+            dedupe_key='machine_stop:workshop-2:line-1',
+            now=started_at + timedelta(minutes=31),
+        )
+
+        assert duplicate.id == first.id
+        assert duplicate.trace_id == 'trace-stop-1'
+        assert after_window.id != first.id
+        assert db.query(AgentOutboxMessage).count() == 2
     finally:
         db.close()
 

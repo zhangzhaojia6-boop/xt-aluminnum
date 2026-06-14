@@ -6108,3 +6108,71 @@ git diff --check
 | Agent 通讯阶段 | `56%` | `60%` |
 | 真实钉钉阶段 | `28%` | `31%` |
 | 前端治理阶段 | `77%` | `78%` |
+
+## 71. Agent outbox 同异常 30 分钟去重
+
+### 71.1 本轮新增能力
+
+外部通讯发件箱现在支持“同异常 30 分钟内不重复入队”。调用 `queue_bound_message` 时，如果传入相同 `dedupe_key`，系统会先查同一个 Agent、同一个通道下是否已有未过期消息：
+
+| 场景 | 处理 |
+|---|---|
+| 未传 `dedupe_key` | 保持旧行为，每次创建新 outbox |
+| 传入 `dedupe_key`，30 分钟内重复触发 | 复用原 outbox，不新建消息 |
+| 传入 `dedupe_key`，超过 30 分钟后触发 | 创建新 outbox |
+
+小白版理解：同一台机同一个停机问题，半小时内不会反复往群里塞新消息；半小时后如果问题还在，才允许重新提醒。
+
+### 71.2 数据库和代码链路
+
+本轮新增两个字段：
+
+- `agent_outbox_messages.dedupe_key`：同异常识别键。
+- `agent_outbox_messages.dedupe_expires_at`：去重保护到期时间。
+
+代码入口仍是 `agent_communication_service.queue_bound_message`。这点很重要：没有新增第二套消息系统，也没有绕过 outbox。以后停机、辅材、质量、催报、日报等 Agent 只要走这个入口并传入稳定 `dedupe_key`，就能共享同一套防刷屏规则。
+
+### 71.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+失败原因：queue_bound_message() got an unexpected keyword argument 'dedupe_key'
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+6 passed
+
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py -q
+15 passed
+
+python -m compileall backend/app/models/agent_communication.py backend/app/services/agent_communication_service.py backend/alembic/versions/0044_agent_outbox_dedupe_window.py
+通过
+
+git diff --check
+通过
+```
+
+### 71.4 当前边界
+
+还不能宣称“所有 Agent 都已自动去重”。
+
+原因：
+
+- 本轮补的是统一入队能力。
+- 上层停机、辅材、质量、催报等 Agent 还需要逐步传入稳定 `dedupe_key`。
+- 还没有做真实钉钉测试群验证。
+- 还没有运行生产环境迁移。
+
+### 71.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.56%` | `99.59%` |
+| Agent 通讯阶段 | `60%` | `63%` |
+| 真实钉钉阶段 | `31%` | `33%` |
+| 前端治理阶段 | `78%` | `78%` |

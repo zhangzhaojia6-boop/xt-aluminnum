@@ -49,6 +49,7 @@ class RateLimitOutcome:
 
 MAX_DISPATCH_ATTEMPTS = 3
 RETRY_DELAY_MINUTES = 5
+DEDUP_WINDOW_MINUTES = 30
 
 
 def _clean(value: str | None) -> str:
@@ -183,6 +184,9 @@ def queue_bound_message(
     trace_id: str | None = None,
     event_id: int | None = None,
     payload: dict | None = None,
+    dedupe_key: str | None = None,
+    dedupe_window_minutes: int = DEDUP_WINDOW_MINUTES,
+    now: datetime | None = None,
 ) -> AgentOutboxMessage:
     agent = _get_active_agent(db, agent_code)
     channel = _get_active_channel(db, channel_key=channel_key, channel_type=channel_type)
@@ -198,6 +202,26 @@ def queue_bound_message(
     if binding is None:
         raise AgentCommunicationError('agent_channel_not_bound')
 
+    clean_dedupe_key = _clean(dedupe_key) or None
+    now_value = _naive_utc(now or _utcnow())
+    dedupe_expires_at = None
+    if clean_dedupe_key:
+        existing = (
+            db.query(AgentOutboxMessage)
+            .filter(
+                AgentOutboxMessage.agent_profile_id == agent.id,
+                AgentOutboxMessage.channel_id == channel.id,
+                AgentOutboxMessage.dedupe_key == clean_dedupe_key,
+                AgentOutboxMessage.dedupe_expires_at.is_not(None),
+                AgentOutboxMessage.dedupe_expires_at > now_value,
+            )
+            .order_by(AgentOutboxMessage.id.desc())
+            .first()
+        )
+        if existing is not None:
+            return existing
+        dedupe_expires_at = now_value + timedelta(minutes=max(1, int(dedupe_window_minutes or DEDUP_WINDOW_MINUTES)))
+
     message = AgentOutboxMessage(
         dispatch_key=f'agent:{agent.code}:{channel.channel_type}:{channel.id}:{uuid4().hex}',
         agent_profile_id=agent.id,
@@ -211,6 +235,8 @@ def queue_bound_message(
         trace_id=trace_id or uuid4().hex,
         event_id=event_id,
         payload=payload,
+        dedupe_key=clean_dedupe_key,
+        dedupe_expires_at=dedupe_expires_at,
     )
     return _commit_refresh(db, message)
 
