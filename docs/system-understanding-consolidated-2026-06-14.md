@@ -5569,3 +5569,89 @@ passed
 | Agent 通讯阶段 | `35%` | `42%` |
 | 真实钉钉阶段 | `10%` | `12%` |
 | 系统理解总文档可交接度 | `99.99%` | `99.99%` |
+
+## 65. outbox 手动分发和外发日志查询后端入口
+
+本轮继续第四阶段前置工作：补管理端后端接口，让管理员可以手动触发 outbox 分发，并查询对应外发日志。
+
+### 65.1 本轮解决了什么
+
+新增两个管理接口：
+
+| 接口 | 用途 |
+|---|---|
+| `POST /api/v1/agent-management/outbox/{id}/dispatch` | 手动触发某条 outbox 消息分发 |
+| `GET /api/v1/agent-management/outbox/{id}/logs` | 查看该 outbox 消息对应的外发日志 |
+
+当前接口复用已有：
+
+```text
+agent_communication_service.dispatch_outbox_message
+agent_communication_service.list_external_logs
+```
+
+小白版理解：以前消息可以进“发件箱”，但管理后端还没有按钮背后的接口去“尝试发送/试跑发送”。现在 dry-run 通道可以走完整的分发路径，并在 `external_message_logs` 留一条“只是试跑，没有真实发送”的记录。
+
+### 65.2 安全边界
+
+本轮测试只覆盖 dry-run 通道。
+
+`communication_channels.dry_run=true` 时：
+
+| 行为 | 结果 |
+|---|---|
+| 调用 dispatch | 不会调用真实钉钉发送 |
+| outbox 状态 | 变为 `dry_run` |
+| attempts | 增加 1 |
+| external log | 写入 `dry_run only, message not sent` |
+
+日志接口不会返回完整 `channel_key`，只返回脱敏后的 `channel_key_masked`。
+
+### 65.3 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+7 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_overview_service.py backend/tests/test_rag_routes.py -q
+20 passed
+```
+
+已执行：
+
+```text
+python -m compileall backend/app/routers/agent_management.py
+passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 65.4 当前边界
+
+还不能宣称真实钉钉测试完成。
+
+原因：
+
+- 本轮没有调用真实非 dry-run 通道。
+- 本轮没有在云端测试群收到消息。
+- 本轮只是让管理后端具备分发入口和日志查看入口。
+
+### 65.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.32%` | `99.38%` |
+| Agent 通讯阶段 | `42%` | `48%` |
+| 真实钉钉阶段 | `12%` | `18%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |

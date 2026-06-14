@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary
 from app.models.system import User
-from app.services import agent_knowledge_service, agent_management_overview_service
+from app.services import agent_communication_service, agent_knowledge_service, agent_management_overview_service
 
 
 router = APIRouter(tags=['agent-management'])
@@ -49,3 +49,56 @@ def knowledge_answer(
     if not question:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='question required')
     return agent_knowledge_service.answer_question(question)
+
+
+@router.post('/outbox/{outbox_message_id}/dispatch')
+def dispatch_outbox_message(
+    outbox_message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _ensure_agent_management_access(current_user)
+    try:
+        outcome = agent_communication_service.dispatch_outbox_message(db, outbox_message_id)
+    except agent_communication_service.AgentCommunicationError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {
+        'outbox_message_id': outcome.outbox_message_id,
+        'status': outcome.status,
+        'detail': outcome.detail,
+    }
+
+
+@router.get('/outbox/{outbox_message_id}/logs')
+def outbox_message_logs(
+    outbox_message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _ensure_agent_management_access(current_user)
+    items = agent_communication_service.list_external_logs(db, outbox_message_id=outbox_message_id)
+    return {
+        'total': len(items),
+        'items': [
+            {
+                'id': item.id,
+                'outbox_message_id': item.outbox_message_id,
+                'channel_type': item.channel_type,
+                'channel_key_masked': _mask_key(item.channel_key),
+                'status': item.status,
+                'detail': item.detail,
+                'provider_message_id': item.provider_message_id,
+                'created_at': item.created_at.isoformat() if item.created_at else None,
+            }
+            for item in items
+        ],
+    }
+
+
+def _mask_key(value: str | None) -> str:
+    raw = str(value or '').strip()
+    if not raw:
+        return ''
+    if len(raw) <= 6:
+        return f'{raw[:1]}***'
+    return f'{raw[:4]}***{raw[-2:]}'

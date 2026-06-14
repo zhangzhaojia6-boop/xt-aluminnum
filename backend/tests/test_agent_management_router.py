@@ -8,6 +8,7 @@ from app.core.deps import get_current_user, get_db
 from app.main import app
 from app.models import Base
 from app.models.system import User
+from app.services import agent_communication_service
 
 
 def _session_factory(tmp_path):
@@ -111,3 +112,70 @@ def test_agent_management_knowledge_routes_reject_non_admin(tmp_path) -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 403
+
+
+def test_agent_management_can_dispatch_dry_run_outbox_and_read_logs(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    db = session_factory()
+    try:
+        agent_communication_service.register_agent(db, code='factory_dispatch', name='全厂总控 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-prod-secret-001',
+            name='测试总控群',
+            target_type='management',
+            target_key='management',
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-001',
+        )
+        message = agent_communication_service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-001',
+            title='测试消息',
+            content='dry-run 消息，不应该真实发送。',
+            source_summary='unit_test',
+            trace_id='trace-router-dispatch',
+        )
+    finally:
+        db.close()
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        dispatch_response = client.post(f'/api/v1/agent-management/outbox/{message.id}/dispatch')
+        logs_response = client.get(f'/api/v1/agent-management/outbox/{message.id}/logs')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert dispatch_response.status_code == 200
+    dispatch_payload = dispatch_response.json()
+    assert dispatch_payload == {
+        'outbox_message_id': message.id,
+        'status': 'dry_run',
+        'detail': 'dry-run only, message not sent',
+    }
+
+    assert logs_response.status_code == 200
+    logs_payload = logs_response.json()
+    assert logs_payload['total'] == 1
+    assert logs_payload['items'][0]['status'] == 'dry_run'
+    assert logs_payload['items'][0]['channel_type'] == 'dingtalk_group'
+    assert logs_payload['items'][0]['channel_key_masked'].startswith('chat')
+    assert 'secret-001' not in logs_payload['items'][0]['channel_key_masked']
+
+
+def test_agent_management_outbox_dispatch_rejects_non_admin(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    client = _client(session_factory, _user('manager'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/1/dispatch')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == 'Agent management access denied'
