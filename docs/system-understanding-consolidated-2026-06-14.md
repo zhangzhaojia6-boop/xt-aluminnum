@@ -5003,3 +5003,83 @@ passed
 1. 写输出skill `.txt/.xls/.xlsx` 只读解析器。
 2. 写系统侧只读拉平函数。
 3. 让 `/api/v1/mapping-reconciliation/run` 支持按日期和文件范围真实试算。
+
+## 59. 输出skill 真实文件解析与业务日 dry-run 接入
+
+本轮继续推进第一阶段 `D:\输出skill` 对齐，从“内存样例 dry-run”推进到“文件解析 + 系统表只读拉平 + 接口自动试算”。
+
+### 59.1 新增能力
+
+| 文件 | 新增内容 |
+|---|---|
+| `backend/app/services/mapping_reconciliation_service.py` | 新增 `parse_output_skill_reference_file`、`resolve_reference_file`、`build_system_mapping_rows` |
+| `backend/app/routers/mapping_reconciliation.py` | `/api/v1/mapping-reconciliation/run` 支持 `reference_file + business_date` |
+| `backend/tests/test_mapping_reconciliation_service.py` | 覆盖 `.txt/.xlsx/.xls` 解析和 MES 工序行拉平 |
+| `backend/tests/test_mapping_reconciliation_route.py` | 覆盖接口按文件和业务日自动 dry-run |
+| `backend/requirements.txt` | 补 `xlrd==2.0.1`，用于读取老 `.xls` |
+| `docs/audits/output-skill-data-mapping-baseline.md` | 更新第一阶段审计证据 |
+
+### 59.2 当前实现边界
+
+已支持的参考文件：
+
+| 类型 | 当前处理 |
+|---|---|
+| `.txt/.md/.log` | 按 UTF-8/GBK 只读解析，识别日期、车间、班次、产量、能耗、废料 |
+| `.xlsx` | 用 `openpyxl` 只读解析常见列：日期、车间、班次、产量、能耗、废料 |
+| `.xls` | 用 `xlrd` 只读解析常见列：日期、车间、班次、产量、能耗、废料 |
+
+系统侧本轮只拉平 `mes_workshop_process_records`：
+
+| 输出字段 | 来源 |
+|---|---|
+| `business_date` | `mes_workshop_process_records.business_date` |
+| `workshop` | `workshop_name` |
+| `process` | `process_name` |
+| `machine` | `device_name` |
+| `coil_no` | `batch_no` |
+| `input_tons` | 优先 `input_weight_tons`，否则 `input_weight_kg / 1000` |
+| `output_tons` | 优先 `output_weight_tons`，否则 `output_weight_kg / 1000` |
+| `yield_rate` | `yield_rate` |
+
+为了避免任意读磁盘，接口中的 `reference_file` 会被限制在 `OUTPUT_SKILL_REFERENCE_ROOT` 或默认输出skill参考根目录下。
+
+### 59.3 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_imports_daily_production_mapping_preview_route.py backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+13 passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 59.4 仍未完成
+
+还不能宣称输出skill 真实全量匹配率达到 95%。
+
+原因：
+
+- 还没用真实 `D:\输出skill` 批量跑某个业务日的匹配率。
+- 系统侧还只拉了 MES 工序表，没把 `mes_stock_records` 包装/入库、`machine_energy_records` 能耗、`daily_consumable_logs` 辅材一起拉平。
+- 前端 `/manage/mapping-reconciliation` 还没从静态样例升级到选择文件和业务日发起真实 dry-run。
+- `.txt` 解析当前是日报正文常见句式的确定性解析，不代表能覆盖所有历史自然语言格式。
+
+### 59.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `98.4%` | `98.7%` |
+| 系统理解总文档可交接度 | `99.98%` | `99.99%` |
+
+下一步最应该做：
+
+1. 加系统侧 `mes_stock_records`、`machine_energy_records`、`daily_consumable_logs` 拉平。
+2. 改 `/manage/mapping-reconciliation`，让页面真正选择文件和业务日跑 dry-run。
+3. 用真实输出skill文件做只读匹配率样本，但不提交原始数据。

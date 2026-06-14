@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from app.core.deps import get_current_user, get_db
+from app.database import Base
 from app.main import app
+from app.models.mes import MesWorkshopProcessRecord
 from app.models.system import User
 
 
-def _install_overrides(*, role: str = 'admin'):
-    fake_db = object()
+def _install_overrides(*, role: str = 'admin', db_override=None):
+    fake_db = object() if db_override is None else db_override
 
     def fake_get_db():
         yield fake_db
@@ -93,6 +100,72 @@ def test_mapping_reconciliation_run_compares_rows_without_writing_database() -> 
     assert response.status_code == 200
     payload = response.json()
     assert payload['run_mode'] == 'dry_run'
+    assert payload['overall_match_rate'] == 100
+    assert payload['differences'] == []
+
+
+def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_rows(tmp_path, monkeypatch) -> None:
+    reference_dir = tmp_path / 'output-skill'
+    reference_dir.mkdir()
+    (reference_dir / 'daily.txt').write_text(
+        '2026年6月13日 生产日报\n'
+        '精整 长白班 产量 12.5 吨\n',
+        encoding='utf-8',
+    )
+    monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(reference_dir))
+
+    engine = create_engine(
+        'sqlite:///:memory:',
+        connect_args={'check_same_thread': False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=[MesWorkshopProcessRecord.__table__])
+    db = Session(engine)
+    db.add(
+        MesWorkshopProcessRecord(
+            source_id='mes-route-1',
+            source_path='ProcessRecord',
+            business_date=date(2026, 6, 13),
+            workshop_name='精整车间',
+            process_name='包装',
+            device_name='PC-01',
+            output_weight_kg=12500,
+        )
+    )
+    db.commit()
+    previous_overrides = _install_overrides(db_override=db)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/run',
+            json={
+                'reference_file': 'daily.txt',
+                'business_date': '2026-06-13',
+                'fields': [
+                    {
+                        'metric': 'output',
+                        'reference_field': 'output_tons',
+                        'system_field': 'output_tons',
+                        'reference_unit': 'ton',
+                        'system_unit': 'ton',
+                        'tolerance': 0.001,
+                        'weight': 30,
+                    }
+                ],
+                'dimensions': ['business_date', 'workshop'],
+                'dimension_aliases': {'workshop': {'精整车间': '精整'}},
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['run_mode'] == 'dry_run'
+    assert payload['reference_parse']['status'] == 'parsed'
+    assert payload['system_rows_count'] == 1
     assert payload['overall_match_rate'] == 100
     assert payload['differences'] == []
 

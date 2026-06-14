@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import os
+import re
+from datetime import date, datetime
 from dataclasses import asdict, dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+from openpyxl import load_workbook
+from sqlalchemy.orm import Session
+
+from app.models.mes import MesWorkshopProcessRecord
 
 
 DEFAULT_DIMENSIONS = ('business_date', 'workshop', 'shift')
@@ -23,6 +31,11 @@ SYSTEM_SOURCES = [
     'equipment',
     'shift_configs',
 ]
+TEXT_EXTENSIONS = {'.txt', '.md', '.log'}
+EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
+SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大夜')
+DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
+NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +82,19 @@ def _reference_root() -> Path:
     return FALLBACK_REFERENCE_ROOT
 
 
+def resolve_reference_file(reference_file: str | Path, *, reference_root: str | Path | None = None) -> Path:
+    root = Path(reference_root) if reference_root is not None else _reference_root()
+    resolved_root = root.resolve()
+    incoming = Path(reference_file)
+    candidate = incoming if incoming.is_absolute() else resolved_root / incoming
+    resolved_candidate = candidate.resolve()
+    try:
+        resolved_candidate.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValueError('reference_file must stay inside output skill reference root') from exc
+    return resolved_candidate
+
+
 def list_sources(*, reference_root: str | Path | None = None, limit: int = 200) -> dict[str, Any]:
     root = Path(reference_root) if reference_root is not None else _reference_root()
     files: list[dict[str, Any]] = []
@@ -87,6 +113,221 @@ def list_sources(*, reference_root: str | Path | None = None, limit: int = 200) 
         'available': root.exists(),
         'files': files,
         'system_sources': SYSTEM_SOURCES,
+    }
+
+
+def _to_date_text(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = str(value or '').strip()
+    if not text:
+        return None
+    match = DATE_RE.search(text)
+    if match:
+        year, month, day = (int(part) for part in match.groups())
+        return date(year, month, day).isoformat()
+    try:
+        return date.fromisoformat(text[:10]).isoformat()
+    except ValueError:
+        return None
+
+
+def _read_reference_text(path: Path) -> str:
+    for encoding in ('utf-8-sig', 'utf-8', 'gbk'):
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return path.read_text(encoding='utf-8', errors='ignore')
+
+
+def _metric_tons(line: str, labels: Sequence[str]) -> float | None:
+    label_pattern = '|'.join(re.escape(label) for label in labels)
+    match = re.search(rf'(?:{label_pattern})\s*{NUMBER_RE}\s*(吨|t|T|kg|KG|公斤|千克)?', line)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = (match.group(2) or '吨').lower()
+    if unit in {'kg', '公斤', '千克'}:
+        return value / 1000
+    return value
+
+
+def _metric_number(line: str, labels: Sequence[str]) -> float | None:
+    label_pattern = '|'.join(re.escape(label) for label in labels)
+    match = re.search(rf'(?:{label_pattern})\s*{NUMBER_RE}', line, flags=re.IGNORECASE)
+    return float(match.group(1)) if match else None
+
+
+def _line_workshop_shift(line: str) -> tuple[str | None, str | None]:
+    for shift in SHIFT_NAMES:
+        if shift in line:
+            workshop = line.split(shift, 1)[0].strip(' ：:，,')
+            return workshop.replace(' ', '') or None, shift
+    return None, None
+
+
+def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
+    content = _read_reference_text(path)
+    current_date: str | None = None
+    rows: list[dict[str, Any]] = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line_date = _to_date_text(line)
+        if line_date:
+            current_date = line_date
+
+        workshop, shift = _line_workshop_shift(line)
+        if not current_date or not workshop or not shift:
+            continue
+
+        row: dict[str, Any] = {
+            'business_date': current_date,
+            'workshop': workshop,
+            'shift': shift,
+        }
+        output_tons = _metric_tons(line, ('产量', '下机量', '包装产量', '入库量'))
+        energy_kwh = _metric_number(line, ('能耗', '电量', '用电', '总电气', '总用电'))
+        scrap_tons = _metric_tons(line, ('废料', '废品', '废料量'))
+        if output_tons is not None:
+            row['output_tons'] = output_tons
+        if energy_kwh is not None:
+            row['energy_kwh'] = energy_kwh
+        if scrap_tons is not None:
+            row['scrap_tons'] = scrap_tons
+        if len(row) > 3:
+            row['source_file'] = str(path)
+            row['source_type'] = 'output_skill_text'
+            rows.append(row)
+    return rows
+
+
+def _normalize_header(value: Any) -> str:
+    return _normalize_text(value).lower().replace('吨', 'ton').replace('度', 'kwh')
+
+
+def _excel_field(header: str) -> str | None:
+    if header in {'日期', '生产日', '业务日'}:
+        return 'business_date'
+    if header in {'车间', '部门', '工厂'}:
+        return 'workshop'
+    if header == '班次':
+        return 'shift'
+    if '能耗' in header or '电量' in header or 'kwh' in header:
+        return 'energy_kwh'
+    if '废料' in header or '废品' in header:
+        return 'scrap_tons'
+    if '产量' in header or '下机量' in header or '入库量' in header or '包装' in header:
+        return 'output_tons'
+    return None
+
+
+def _parse_excel_rows(path: Path) -> list[dict[str, Any]]:
+    if path.suffix.lower() == '.xls':
+        return _parse_xls_rows(path)
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    sheet = workbook.active
+    rows_iter = sheet.iter_rows(values_only=True)
+    headers = next(rows_iter, None)
+    if not headers:
+        return []
+
+    field_by_index = {
+        index: field
+        for index, header in enumerate(headers)
+        if (field := _excel_field(_normalize_header(header))) is not None
+    }
+    parsed_rows: list[dict[str, Any]] = []
+    for values in rows_iter:
+        row: dict[str, Any] = {}
+        for index, value in enumerate(values):
+            field = field_by_index.get(index)
+            if not field or value in (None, ''):
+                continue
+            if field == 'business_date':
+                row[field] = _to_date_text(value)
+            elif field in {'output_tons', 'energy_kwh', 'scrap_tons'}:
+                number = _to_float(value)
+                if number is not None:
+                    row[field] = number
+            else:
+                row[field] = str(value).strip()
+        if row.get('business_date') and row.get('workshop') and row.get('shift'):
+            row['source_file'] = str(path)
+            row['source_type'] = 'output_skill_excel'
+            parsed_rows.append(row)
+    workbook.close()
+    return parsed_rows
+
+
+def _parse_xls_rows(path: Path) -> list[dict[str, Any]]:
+    import xlrd
+
+    workbook = xlrd.open_workbook(str(path))
+    sheet = workbook.sheet_by_index(0)
+    if sheet.nrows < 1:
+        return []
+
+    headers = sheet.row_values(0)
+    field_by_index = {
+        index: field
+        for index, header in enumerate(headers)
+        if (field := _excel_field(_normalize_header(header))) is not None
+    }
+    parsed_rows: list[dict[str, Any]] = []
+    for row_index in range(1, sheet.nrows):
+        row: dict[str, Any] = {}
+        for index, value in enumerate(sheet.row_values(row_index)):
+            field = field_by_index.get(index)
+            if not field or value in (None, ''):
+                continue
+            if field == 'business_date':
+                cell = sheet.cell(row_index, index)
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    row[field] = xlrd.xldate.xldate_as_datetime(value, workbook.datemode).date().isoformat()
+                else:
+                    row[field] = _to_date_text(value)
+            elif field in {'output_tons', 'energy_kwh', 'scrap_tons'}:
+                number = _to_float(value)
+                if number is not None:
+                    row[field] = number
+            else:
+                row[field] = str(value).strip()
+        if row.get('business_date') and row.get('workshop') and row.get('shift'):
+            row['source_file'] = str(path)
+            row['source_type'] = 'output_skill_excel'
+            parsed_rows.append(row)
+    return parsed_rows
+
+
+def parse_output_skill_reference_file(file_path: str | Path) -> dict[str, Any]:
+    path = Path(file_path)
+    suffix = path.suffix.lower()
+    if suffix in TEXT_EXTENSIONS:
+        rows = _parse_text_rows(path)
+        source_type = 'output_skill_text'
+    elif suffix in EXCEL_EXTENSIONS:
+        rows = _parse_excel_rows(path)
+        source_type = 'output_skill_excel'
+    else:
+        return {
+            'status': 'unsupported',
+            'source_file': str(path),
+            'source_type': 'unsupported',
+            'rows': [],
+            'issues': [{'code': 'unsupported_extension', 'extension': suffix}],
+        }
+    return {
+        'status': 'parsed',
+        'source_file': str(path),
+        'source_type': source_type,
+        'rows': rows,
+        'issues': [],
     }
 
 
@@ -115,6 +356,8 @@ def _dimension_key(dimension: Mapping[str, Any], dimensions: Sequence[str]) -> t
 def _to_float(value: Any) -> float | None:
     if value is None or value == '':
         return None
+    if isinstance(value, Decimal):
+        return float(value)
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -286,3 +529,39 @@ def propose_rules(differences: Sequence[MappingDifference]) -> list[dict[str, An
                 }
             )
     return proposals
+
+
+def _tons_from_pair(tons: Any, kg: Any) -> float | None:
+    tons_value = _to_float(tons)
+    if tons_value is not None:
+        return tons_value
+    kg_value = _to_float(kg)
+    if kg_value is None:
+        return None
+    return kg_value / 1000
+
+
+def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
+    records = (
+        db.query(MesWorkshopProcessRecord)
+        .filter(MesWorkshopProcessRecord.business_date == business_date)
+        .order_by(MesWorkshopProcessRecord.id.asc())
+        .all()
+    )
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        rows.append(
+            {
+                'business_date': business_date.isoformat(),
+                'workshop': record.workshop_name or '',
+                'shift': '',
+                'process': record.process_name or '',
+                'machine': record.device_name or '',
+                'coil_no': record.batch_no or '',
+                'input_tons': _tons_from_pair(record.input_weight_tons, record.input_weight_kg),
+                'output_tons': _tons_from_pair(record.output_weight_tons, record.output_weight_kg),
+                'yield_rate': _to_float(record.yield_rate),
+                'source_table': 'mes_workshop_process_records',
+            }
+        )
+    return rows

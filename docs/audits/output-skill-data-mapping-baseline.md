@@ -1,6 +1,6 @@
 # 输出skill 数据映射基线审计
 
-生成日期：2026-06-14
+生成日期：2026-06-15
 
 ## 1. 本轮目标
 
@@ -124,7 +124,7 @@
 | 接口 | 状态 | 说明 |
 |---|---|---|
 | `GET /api/v1/mapping-reconciliation/sources` | 已实现 | 列出参考源文件结构和系统源表名 |
-| `POST /api/v1/mapping-reconciliation/run` | 已实现 | 对传入的脱敏/内存数据做 dry-run 对齐 |
+| `POST /api/v1/mapping-reconciliation/run` | 已实现 | 支持传入脱敏/内存行，也支持传参考文件名 + 业务日自动 dry-run 对齐 |
 | `GET /api/v1/mapping-reconciliation/runs/{id}` | 未实现 | 后续需要持久化运行记录后再做 |
 | `GET /api/v1/mapping-reconciliation/runs/{id}/differences` | 未实现 | 后续需要持久化运行记录后再做 |
 | `POST /api/v1/mapping-reconciliation/rules/propose` | 未单独实现 | 目前 `run` 返回 `rule_proposals` |
@@ -135,26 +135,30 @@
 已执行：
 
 ```text
-python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
-6 passed
+python -m pytest backend/tests/test_imports_daily_production_mapping_preview_route.py backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+13 passed
 ```
 
 ## 9. 当前匹配率说明
 
-本轮还没有把 `D:\输出skill` 原始报表内容解析成结构化行，也没有把云端全量数据按同一日期批量拉平，所以不能宣称真实全量匹配率已达到 95%。
+本轮已经把 `D:\输出skill` 常见文本和 Excel 参考文件接入到只读解析器，但还没有跑云端真实日期的全量批量匹配，所以不能宣称真实全量匹配率已达到 95%。
 
-当前已经完成的是“匹配算法最小可用底座”：
+当前已经完成的是“匹配算法 + 文件解析 + 系统 MES 工序行拉平”的第一版底座：
 
 | 样例 | 匹配率 |
 |---|---:|
 | 脱敏 fixture：产量 kg/吨 + 车间别名 + 班次别名 | 100% |
+| 临时 `.txt` 输出skill 样例：日期、车间、班次、产量、能耗、废料 | 解析成功 |
+| 临时 `.xlsx/.xls` 输出skill 样例：日期、车间、班次、产量、能耗、废料 | 解析成功 |
+| 内存数据库 `mes_workshop_process_records`：同业务日工序产量拉平 | 读取成功 |
+| `/api/v1/mapping-reconciliation/run`：传文件名 + 业务日自动 dry-run | 100% |
 | 人工构造：能耗值差异 + 缺系统行 | 0%，可解释差异 |
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
 
 ## 10. 下一步
 
-1. 增加只读解析器，读取 `D:\输出skill` 中 `.txt/.xls/.xlsx` 的字段标题和汇总行，生成结构化参考行。
-2. 增加系统侧只读拉平函数，按业务日、车间、班次、机列、工序生成系统行。
-3. 将 `run` 接口从“传入内存行”升级为“选择日期和文件后自动对齐”。
-4. 增加 `/manage/mapping-reconciliation` 前端页面，显示数据源选择、匹配率、差异明细、规则建议。
+1. 用真实 `D:\输出skill` 文件跑一个业务日只读匹配率，不提交原始数据。
+2. 继续扩展系统侧拉平：补 `mes_stock_records` 包装/入库、`machine_energy_records` 能耗、`daily_consumable_logs` 辅材。
+3. 让 `/manage/mapping-reconciliation` 从静态样例改为选择文件和业务日后调用真实 dry-run。
+4. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
 5. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。
