@@ -52,6 +52,7 @@ const SystemSettingsPage = () => import('../views/manage/admin/SystemSettingsPag
 const AgentManagementPage = () => import('../views/manage/admin/AgentManagementPage.vue')
 const MappingReconciliationPage = () => import('../views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 const RagKnowledgePage = () => import('../views/manage/rag/RagKnowledgePage.vue')
+const CommunicationChannelsPage = () => import('../views/manage/channels/CommunicationChannelsPage.vue')
 
 const appTitle = import.meta.env.VITE_APP_TITLE || '鑫泰铝业'
 
@@ -153,6 +154,7 @@ const rawRoutes = [
       { path: 'admin/setting', redirect: { name: 'admin-ops-reliability' } },
       { path: 'admin/settings', name: 'admin-ops-reliability', component: SystemSettingsPage, meta: { ...adminMeta, title: '系统设置', centerNo: '12', canonical: '/manage/admin/settings' } },
       { path: 'admin/agents', name: 'admin-agent-management', component: AgentManagementPage, meta: { ...adminMeta, title: '通讯治理台', centerNo: '15', canonical: '/manage/admin/agents' } },
+      { path: 'channels', name: 'manage-channels', component: CommunicationChannelsPage, meta: { ...adminMeta, title: '通讯通道', centerNo: '15', canonical: '/manage/channels' } },
       { path: 'rag', name: 'manage-rag', component: RagKnowledgePage, meta: { ...adminMeta, title: '知识库资料', centerNo: '17', canonical: '/manage/rag' } },
       { path: 'mapping-reconciliation', name: 'manage-mapping-reconciliation', component: MappingReconciliationPage, meta: { ...adminMeta, title: '输出skill 对齐', centerNo: '16', canonical: '/manage/mapping-reconciliation' } },
       { path: 'admin/users', name: 'admin-users', component: UserManagement, meta: { ...adminMeta, title: '用户管理', centerNo: '13', canonical: '/manage/admin/users' } },

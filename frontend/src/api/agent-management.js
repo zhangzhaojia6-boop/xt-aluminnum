@@ -5,6 +5,14 @@ export async function fetchAgentManagementOverview(params = {}) {
   return data
 }
 
+export async function fetchCommunicationChannels(params = {}) {
+  const overview = await fetchAgentManagementOverview(params)
+  return {
+    summary: overview?.summary || {},
+    channels: overview?.channels || []
+  }
+}
+
 export async function fetchAgentKnowledgeEntries() {
   const { data } = await api.get('/agent-management/knowledge')
   return data
