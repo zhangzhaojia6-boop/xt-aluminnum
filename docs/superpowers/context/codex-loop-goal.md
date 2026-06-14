@@ -1,0 +1,11 @@
+# Codex Loop Goal：真实钉钉 + RAG 附件 + Agent 通讯 + 输出skill对齐 + 中国风工业前端
+
+你现在是 `xt-aluminnum / aluminum-bypass` 项目的资深全栈工程师、业务流程负责人和现场交付负责人。你拥有完整仓库权限、云端系统权限、云端数据库权限、钉钉 MCP 权限、Stitch MCP 权限、浏览器真实验证权限。目标不是写方案，而是用小步循环把系统做成可用版本：支持文本附件上传和 RAG 入库，真实连接钉钉通讯，建设多车间 Agent 通讯中台，让平台映射汇总算法数据库结果尽量对齐 `D:\输出skill`，并用 Stitch MCP 重构前端为中国风工业大气风格。
+
+先读这些文件：`README.md`、`AGENTS.md`、`docs/superpowers/context/codex-master-plan.md`、`docs/superpowers/context/output-skill-reconciliation.md`、`docs/superpowers/context/026-06-14-agent-comm-rag-frontend.md`、`backend/app/main.py`、`backend/app/config.py`、`backend/app/services/dingtalk_service.py`、`backend/app/core/event_bus.py`、`backend/app/core/workflow_dispatcher.py`、`backend/app/adapters/wecom/group_bot.py`、`backend/app/services/ai_context_service.py`、`backend/app/agents/aggregator.py`、`backend/app/agents/reporter.py`、`backend/app/agents/reminder.py`、`frontend/src/router/index.js`、`frontend/src/config/navigation.js`。如果文件不存在，先创建所需 context 文件和最小 AGENTS 规则，但不要停在文档层，要继续实现代码。
+
+执行 gstack loop：G=锁定本轮小目标，S=扫描现有代码和云端数据，T=确定测试命令和浏览器验收点，A=最小补丁实现，C=运行测试、查日志、实际验证，K=记录证据和下一轮。执行 superpower loop：先写极短 spec，再写 plan，再 implement，再 audit，再补 tests，再输出 evidence。每一轮只改一个可验证目标，失败就把错误当下一轮输入继续修，不要大爆改，不要伪代码，不要只改文档。
+
+总目标分六条：第一，建立 `D:\输出skill` 与云端数据库平台映射汇总算法的匹配基线，输出字段映射、口径差异、匹配率、修正规则和测试 fixture，同口径字段尽量达到 95%+。第二，实现文本附件上传和 RAG 入库，支持 txt、md、csv、json、log，识别 UTF-8/GBK，拒绝二进制，保存 `rag_documents`、`rag_chunks`，提供 upload/list/detail/delete/query 接口，回答必须带来源。第三，实现 Agent 通讯中台，新增或复用 `agent_profiles`、`communication_channels`、`agent_channel_bindings`、`agent_events`、`agent_runs`、`agent_outbox`、`chat_inbox`、`external_message_logs`，新增 `/api/v1/agent/command`，先校验人和群，再查实时事实，再查 RAG，再输出短中文回答并审计。第四，接入真实钉钉，复用 `dingtalk_service`、钉钉 MCP 和真实配置，支持群里 @Agent 查询产量、停机、辅材、异常，也支持系统主动发整点状态、停机升级、催报、日报；所有外发消息先进 outbox，支持真实发送、dry-run、重试 3 次、dead-letter、幂等、30 分钟去重。第五，做最小 Agent 集：全厂总控、车间状态、修停机、上下机产量、辅材、质量、能耗成本、日报秘书、催报。第六，前端用 Stitch MCP 重构，但必须落地真实 Vue 组件，不要截图背景，不要 AI 味，视觉为深墨黑、钢铁灰、青铜金、暗红状态灯、玉白文字、厚重卡片、清晰表格，中国风工业大气。
+
+必须保留 `/entry`、`/manage`、钉钉 H5、日报、催报、实时流、权限、审计、历史兼容重定向。真实密钥、钉钉配置、数据库连接可以通过 MCP、云端 secret、本地 `.env` 使用，但不要提交到 Git，不要写进前端包，不要写进最终报告，不要打印到测试日志。最后必须运行后端 pytest、alembic upgrade head、前端 npm test、npm run build、浏览器验收、真实钉钉测试，并提交 commit：`feat: connect real dingtalk rag agents reconciliation and industrial UI`。

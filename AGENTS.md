@@ -1,3 +1,5 @@
+先读 README、docs/superpowers、docs/longterm-ai-skill-system-spec.md，D:/zzj Claude code/aluminum-bypass/docs/system-understanding-consolidated-2026-06-14.md
+
 # AGENTS.md
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
