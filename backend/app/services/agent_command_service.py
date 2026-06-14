@@ -71,7 +71,7 @@ def handle_agent_command(
     citations = rag_payload.get('citations') or []
     intent = _detect_intent(clean_text)
     facts = _load_business_facts(db, intent=intent, current_user=current_user)
-    status_color = 'green' if (facts.get('status') == 'connected' or citations) else 'yellow'
+    status_color = _resolve_status_color(facts=facts, citations=citations)
     answer = _build_answer_for_intent(
         intent=intent,
         status_color=status_color,
@@ -179,23 +179,21 @@ def _detect_intent(text: str) -> str:
 
 
 def _load_business_facts(db: Session, *, intent: str, current_user: User | None) -> dict[str, Any]:
-    if intent != 'production_today' or current_user is None:
+    if intent not in {'production_today', 'anomaly_summary'} or current_user is None:
         return {'status': 'not_connected'}
 
     business_date = resolve_production_business_date()
     try:
-        payload = realtime_service.build_live_aggregation(
-            db,
-            business_date=business_date,
-            workshop_id=None,
-            current_user=current_user,
-        )
+        payload = _load_live_aggregation(db, business_date=business_date, current_user=current_user)
     except SQLAlchemyError:
         return {
             'status': 'not_connected',
             'reason': 'live_aggregation_unavailable',
             'business_date': business_date.isoformat(),
         }
+
+    if intent == 'anomaly_summary':
+        return _extract_anomaly_facts(payload=payload, business_date=business_date)
 
     factory_total = payload.get('factory_total') or {}
     return {
@@ -210,6 +208,67 @@ def _load_business_facts(db: Session, *, intent: str, current_user: User | None)
         'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
         'data_source': payload.get('data_source') or 'unknown',
     }
+
+
+def _load_live_aggregation(db: Session, *, business_date, current_user: User) -> dict:
+    return realtime_service.build_live_aggregation(
+        db,
+        business_date=business_date,
+        workshop_id=None,
+        current_user=current_user,
+    )
+
+
+def _resolve_status_color(*, facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:
+    if facts.get('status_color'):
+        return str(facts['status_color'])
+    if facts.get('status') == 'connected':
+        return 'green'
+    return 'green' if citations else 'yellow'
+
+
+def _extract_anomaly_facts(*, payload: dict[str, Any], business_date) -> dict[str, Any]:
+    pending_assignment = ((payload.get('overall_progress') or {}).get('pending_assignment') or {})
+    missing_output = ((payload.get('data_quality') or {}).get('missing_output_weight') or {})
+    pending_count = _int_or_zero(pending_assignment.get('entry_count'))
+    missing_output_count = _int_or_zero(missing_output.get('entry_count'))
+    anomaly_count = pending_count + missing_output_count
+    top_workshops = _top_anomaly_workshops(pending_assignment=pending_assignment, missing_output=missing_output)
+    status_color = 'orange' if anomaly_count else 'green'
+    return {
+        'status': 'connected',
+        'status_color': status_color,
+        'business_date': payload.get('business_date') or business_date.isoformat(),
+        'business_day_start': '07:30',
+        'anomaly_count': anomaly_count,
+        'pending_assignment_count': pending_count,
+        'missing_output_weight_count': missing_output_count,
+        'pending_assignment_workshop_count': _int_or_zero(pending_assignment.get('workshop_count')),
+        'top_workshops': top_workshops,
+        'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
+        'data_source': payload.get('data_source') or 'unknown',
+    }
+
+
+def _top_anomaly_workshops(*, pending_assignment: dict[str, Any], missing_output: dict[str, Any]) -> list[str]:
+    counts: dict[str, int] = {}
+    for row in pending_assignment.get('rows') or []:
+        name = _clean(row.get('workshop_name')) or '未标记车间'
+        counts[name] = counts.get(name, 0) + _int_or_zero(row.get('entry_count'))
+    for item in missing_output.get('items') or []:
+        name = _clean(item.get('workshop_name')) or '未标记车间'
+        counts[name] = counts.get(name, 0) + 1
+    return [
+        name
+        for name, _count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:5]
+    ]
+
+
+def _int_or_zero(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _number_or_zero(value: Any) -> float:
@@ -245,6 +304,24 @@ def _build_answer_for_intent(
             sources=_format_fact_sources(facts, citations),
         )
 
+    if intent == 'anomaly_summary' and facts.get('status') == 'connected':
+        anomaly_count = _int_or_zero(facts.get('anomaly_count'))
+        top_workshops = facts.get('top_workshops') or []
+        conclusion = '当前发现需处理异常' if anomaly_count else '当前未发现实时异常'
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion=conclusion,
+            key_numbers=(
+                f"未匹配机列/班次 {_int_or_zero(facts.get('pending_assignment_count'))} 条；"
+                f"缺下机量 {_int_or_zero(facts.get('missing_output_weight_count'))} 条；"
+                f"重点车间 {_format_workshop_list(top_workshops)}"
+            ),
+            reason='复用生产大屏实时异常口径，统计未匹配机列/班次和缺下机量两类待处理项。',
+            action='先处理重点车间待分配卷和缺下机量记录，再刷新生产大屏复核。',
+            sources='实时聚合 / overall_progress.pending_assignment；实时聚合 / data_quality.missing_output_weight',
+        )
+
     return _format_answer(
         scope_label='全厂',
         status_color=status_color,
@@ -258,6 +335,12 @@ def _build_answer_for_intent(
 
 def _format_tons(value: Any) -> str:
     return f'{_number_or_zero(value):.2f}'
+
+
+def _format_workshop_list(workshops: Any) -> str:
+    if not workshops:
+        return '无'
+    return '、'.join(str(item) for item in list(workshops)[:5])
 
 
 def _format_fact_sources(facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:

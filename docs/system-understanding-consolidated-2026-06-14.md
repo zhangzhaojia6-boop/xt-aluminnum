@@ -6464,3 +6464,73 @@ git diff --check
 | Agent 通讯阶段 | `70%` | `73%` |
 | 真实钉钉阶段 | `38%` | `39%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 76. Agent command 哪个车间异常已接实时异常摘要
+
+### 76.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `anomaly_summary` 意图后，已开始复用生产大屏实时聚合中的两类待处理异常：
+
+- `overall_progress.pending_assignment`：填报卷或补录卷还没有匹配机列/班次。
+- `data_quality.missing_output_weight`：正式填报缺下机量。
+
+小白版理解：现在群里问“哪个车间异常”，Agent 不再只查知识库，而是会从生产大屏同一套实时数据里找当前最需要处理的车间。
+
+### 76.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 未匹配机列/班次 | 生产大屏 `overall_progress.pending_assignment.entry_count` |
+| 缺下机量 | 生产大屏 `data_quality.missing_output_weight.entry_count` |
+| 重点车间 | 从 `pending_assignment.rows` 和 `missing_output_weight.items` 统计前 5 个车间 |
+| 状态灯 | 有异常为橙色，无异常为绿色 |
+
+注意：这不是全量异常中心，只是先接入生产大屏上已经稳定展示的两类现场堵塞项。
+
+### 76.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_live_anomaly_fact_for_workshop_summary -q
+失败原因：接口仍返回 yellow 知识库兜底，没有读取实时异常事实。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_live_anomaly_fact_for_workshop_summary -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+7 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+29 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+```
+
+### 76.4 当前边界
+
+还不能宣称“所有异常都能问”。
+
+原因：
+
+- 本轮只覆盖未匹配机列/班次和缺下机量。
+- 质量门禁、停机超时、辅材超耗、能耗异常还要分别接入各自事实服务。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+
+### 76.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.71%` | `99.74%` |
+| Agent 通讯阶段 | `73%` | `76%` |
+| 真实钉钉阶段 | `39%` | `40%` |
+| 前端治理阶段 | `78%` | `78%` |

@@ -231,6 +231,88 @@ def test_agent_command_uses_live_production_fact_for_today_output(monkeypatch) -
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_uses_live_anomaly_fact_for_workshop_summary(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'overall_progress': {
+                'pending_assignment': {
+                    'entry_count': 3,
+                    'workshop_count': 2,
+                    'rows': [
+                        {
+                            'workshop_name': '冷轧2050',
+                            'entry_count': 2,
+                            'missing_machine_count': 2,
+                            'missing_shift_count': 0,
+                        },
+                        {
+                            'workshop_name': '拉矫',
+                            'entry_count': 1,
+                            'missing_machine_count': 0,
+                            'missing_shift_count': 1,
+                        },
+                    ],
+                },
+            },
+            'data_quality': {
+                'missing_output_weight': {
+                    'entry_count': 1,
+                    'items': [
+                        {
+                            'workshop_name': '冷轧2050',
+                            'machine_name': '2050#主操',
+                            'tracking_card_no': 'RA260609001',
+                        },
+                    ],
+                },
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-006',
+                'text': '哪个车间异常',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-anomaly-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'anomaly_summary'
+        assert payload['status_color'] == 'orange'
+        assert '冷轧2050' in payload['answer']
+        assert '未匹配机列/班次 3 条' in payload['answer']
+        assert '缺下机量 1 条' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['anomaly_count'] == 4
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['top_workshops'][0] == '冷轧2050'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
     db, previous_overrides = _install_overrides()
 
