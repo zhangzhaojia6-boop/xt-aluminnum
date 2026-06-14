@@ -11,7 +11,12 @@ from typing import Any, Iterable, Mapping, Sequence
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.consumable import DailyConsumableLog
+from app.models.energy import MachineEnergyRecord
+from app.models.master import Equipment, Workshop
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.production import MobileShiftReport
+from app.models.shift import ShiftConfig
 
 
 DEFAULT_DIMENSIONS = ('business_date', 'workshop', 'shift')
@@ -541,15 +546,30 @@ def _tons_from_pair(tons: Any, kg: Any) -> float | None:
     return kg_value / 1000
 
 
+def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not payload:
+        return {}
+    known_metrics = {
+        'packaging_inbound_output_tons',
+        'electricity_daily',
+        'gas_daily',
+    }
+    return {
+        key: _to_float(value)
+        for key, value in payload.items()
+        if key not in known_metrics and _to_float(value) is not None
+    }
+
+
 def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
-    records = (
+    rows: list[dict[str, Any]] = []
+    process_records = (
         db.query(MesWorkshopProcessRecord)
         .filter(MesWorkshopProcessRecord.business_date == business_date)
         .order_by(MesWorkshopProcessRecord.id.asc())
         .all()
     )
-    rows: list[dict[str, Any]] = []
-    for record in records:
+    for record in process_records:
         rows.append(
             {
                 'business_date': business_date.isoformat(),
@@ -562,6 +582,78 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 'output_tons': _tons_from_pair(record.output_weight_tons, record.output_weight_kg),
                 'yield_rate': _to_float(record.yield_rate),
                 'source_table': 'mes_workshop_process_records',
+            }
+        )
+
+    stock_records = (
+        db.query(MesStockRecord)
+        .filter(MesStockRecord.business_date == business_date)
+        .order_by(MesStockRecord.id.asc())
+        .all()
+    )
+    for record in stock_records:
+        rows.append(
+            {
+                'business_date': business_date.isoformat(),
+                'workshop': '成品库',
+                'shift': '',
+                'process': '入库',
+                'machine': '',
+                'coil_no': record.batch_no or '',
+                'contract_no': record.contract_no or '',
+                'customer': record.customer_alias or '',
+                'output_tons': _tons_from_pair(record.net_weight_tons, record.net_weight_kg),
+                'status': record.status_name or '',
+                'source_table': 'mes_stock_records',
+            }
+        )
+
+    energy_records = (
+        db.query(MachineEnergyRecord, MobileShiftReport, Workshop, ShiftConfig, Equipment)
+        .join(MobileShiftReport, MachineEnergyRecord.shift_report_id == MobileShiftReport.id)
+        .join(Workshop, MobileShiftReport.workshop_id == Workshop.id)
+        .join(ShiftConfig, MobileShiftReport.shift_config_id == ShiftConfig.id)
+        .outerjoin(Equipment, MachineEnergyRecord.machine_id == Equipment.id)
+        .filter(MobileShiftReport.business_date == business_date)
+        .order_by(MachineEnergyRecord.id.asc())
+        .all()
+    )
+    for energy, report, workshop, shift, equipment in energy_records:
+        rows.append(
+            {
+                'business_date': report.business_date.isoformat(),
+                'workshop': workshop.name,
+                'shift': shift.name,
+                'process': '能耗',
+                'machine': energy.machine_name or (equipment.name if equipment else ''),
+                'machine_code': energy.machine_code or (equipment.code if equipment else ''),
+                'energy_kwh': _to_float(energy.energy_kwh),
+                'gas_m3': _to_float(energy.gas_m3),
+                'source_table': 'machine_energy_records',
+            }
+        )
+
+    consumable_rows = (
+        db.query(DailyConsumableLog, Workshop)
+        .join(Workshop, DailyConsumableLog.workshop_id == Workshop.id)
+        .filter(DailyConsumableLog.business_date == business_date)
+        .order_by(DailyConsumableLog.id.asc())
+        .all()
+    )
+    for log, workshop in consumable_rows:
+        payload = log.payload or {}
+        rows.append(
+            {
+                'business_date': log.business_date.isoformat(),
+                'workshop': workshop.name,
+                'shift': '',
+                'process': '内勤辅材',
+                'machine': '',
+                'output_tons': _to_float(payload.get('packaging_inbound_output_tons')),
+                'energy_kwh': _to_float(payload.get('electricity_daily')),
+                'gas_m3': _to_float(payload.get('gas_daily')),
+                'consumable_payload': _consumable_payload_metrics(payload),
+                'source_table': 'daily_consumable_logs',
             }
         )
     return rows

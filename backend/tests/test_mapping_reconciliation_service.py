@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.consumable import DailyConsumableLog
+from app.models.energy import MachineEnergyRecord
+from app.models.master import Equipment, Team, Workshop
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.production import MobileShiftReport
+from app.models.shift import ShiftConfig
+from app.models.system import User
 from app.services.mapping_reconciliation_service import (
     MappingFieldSpec,
     build_system_mapping_rows,
@@ -21,6 +27,18 @@ from app.services.mapping_reconciliation_service import (
 
 
 FIXTURE_PATH = Path(__file__).parent / 'fixtures' / 'output_skill_mapping_sample.json'
+RECONCILIATION_TABLES = [
+    Workshop.__table__,
+    Team.__table__,
+    User.__table__,
+    ShiftConfig.__table__,
+    Equipment.__table__,
+    MobileShiftReport.__table__,
+    MachineEnergyRecord.__table__,
+    DailyConsumableLog.__table__,
+    MesWorkshopProcessRecord.__table__,
+    MesStockRecord.__table__,
+]
 
 
 def test_compare_mapping_rows_converts_kg_to_tons_and_reports_match_rate() -> None:
@@ -288,7 +306,7 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
 
 def test_build_system_mapping_rows_flattens_mes_process_records() -> None:
     engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(engine, tables=[MesWorkshopProcessRecord.__table__])
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
 
     with Session(engine) as db:
         db.add_all(
@@ -357,3 +375,104 @@ def test_build_system_mapping_rows_flattens_mes_process_records() -> None:
             'source_table': 'mes_workshop_process_records',
         },
     ]
+
+
+def test_build_system_mapping_rows_flattens_stock_energy_and_consumables() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='JZ', name='精整车间', workshop_type='finishing'),
+                Team(id=1, workshop_id=1, code='A', name='甲班'),
+                User(id=1, username='owner', password_hash='x', name='内勤', role='consumable_stat'),
+                ShiftConfig(
+                    id=1,
+                    code='A',
+                    name='长白班',
+                    shift_type='day',
+                    start_time=time(7, 30),
+                    end_time=time(15, 30),
+                ),
+                Equipment(id=1, code='JZ-01', name='精整1#机', workshop_id=1),
+                MesStockRecord(
+                    source_id='stock-1',
+                    source_path='StockRecord',
+                    business_date=date(2026, 6, 13),
+                    batch_no='26A05000',
+                    contract_no='HT-001',
+                    customer_alias='客户A',
+                    net_weight_tons=7.25,
+                    status_name='已入库',
+                ),
+                MobileShiftReport(
+                    id=1,
+                    business_date=date(2026, 6, 13),
+                    shift_config_id=1,
+                    workshop_id=1,
+                    team_id=1,
+                    report_status='submitted',
+                ),
+                MachineEnergyRecord(
+                    shift_report_id=1,
+                    machine_id=1,
+                    machine_code='JZ-01',
+                    machine_name='精整1#机',
+                    energy_kwh=1800,
+                    gas_m3=20,
+                ),
+                DailyConsumableLog(
+                    workshop_id=1,
+                    workshop_type='finishing',
+                    business_date=date(2026, 6, 13),
+                    payload={
+                        'packaging_inbound_output_tons': 11.5,
+                        'rolling_oil_per_ton': 1.25,
+                        'electricity_daily': 2000,
+                        'gas_daily': 32,
+                    },
+                    created_by_user_id=1,
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 13))
+
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '成品库',
+        'shift': '',
+        'process': '入库',
+        'machine': '',
+        'coil_no': '26A05000',
+        'contract_no': 'HT-001',
+        'customer': '客户A',
+        'output_tons': 7.25,
+        'status': '已入库',
+        'source_table': 'mes_stock_records',
+    } in rows
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '精整车间',
+        'shift': '长白班',
+        'process': '能耗',
+        'machine': '精整1#机',
+        'machine_code': 'JZ-01',
+        'energy_kwh': 1800.0,
+        'gas_m3': 20.0,
+        'source_table': 'machine_energy_records',
+    } in rows
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '精整车间',
+        'shift': '',
+        'process': '内勤辅材',
+        'machine': '',
+        'output_tons': 11.5,
+        'energy_kwh': 2000.0,
+        'gas_m3': 32.0,
+        'consumable_payload': {'rolling_oil_per_ton': 1.25},
+        'source_table': 'daily_consumable_logs',
+    } in rows

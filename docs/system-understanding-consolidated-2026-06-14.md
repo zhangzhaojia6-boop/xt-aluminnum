@@ -5083,3 +5083,80 @@ passed
 1. 加系统侧 `mes_stock_records`、`machine_energy_records`、`daily_consumable_logs` 拉平。
 2. 改 `/manage/mapping-reconciliation`，让页面真正选择文件和业务日跑 dry-run。
 3. 用真实输出skill文件做只读匹配率样本，但不提交原始数据。
+
+## 60. 输出skill 系统侧多表拉平补齐
+
+本轮继续第一阶段，不改生产数据，只把系统侧“可拿来和输出skill对账的数据行”补齐。
+
+### 60.1 本轮解决了什么
+
+上一轮 `build_system_mapping_rows` 只会读 `mes_workshop_process_records`，也就是“每个卷过某道工序”的 MES 工序记录。这会导致三个重要口径缺失：
+
+| 缺口 | 为什么重要 |
+|---|---|
+| 成品库入库/包装参考 | 全厂入库产量不能只看车间工序下机量 |
+| 能耗明细 | 输出skill 和日报常会看电、气等消耗 |
+| 内勤辅材填报 | 在 MES 还没完全覆盖前，它仍是包装入库、辅材、专项字段的对照来源 |
+
+本轮把系统侧拉平扩展为四类来源：
+
+| 来源表 | 拉平后的含义 |
+|---|---|
+| `mes_workshop_process_records` | MES 工序产量、上机量、下机量、机台、工序、卷号 |
+| `mes_stock_records` | 成品库入库/包装参考，统一放到 `成品库 + 入库` 口径 |
+| `machine_energy_records` | 通过 `mobile_shift_reports` 找到业务日、车间、班次，再输出机台电量和气量 |
+| `daily_consumable_logs` | 内勤日填报的包装入库、能耗、气耗和辅材 payload |
+
+### 60.2 当前字段映射
+
+| 前端/对账字段 | 当前系统来源 |
+|---|---|
+| 工序产量 | `mes_workshop_process_records.output_weight_tons`，没有吨字段时用 `output_weight_kg / 1000` |
+| 工序投料/上机 | `mes_workshop_process_records.input_weight_tons`，没有吨字段时用 `input_weight_kg / 1000` |
+| 全厂入库参考 | `mes_stock_records.net_weight_tons`，没有吨字段时用 `net_weight_kg / 1000` |
+| 能耗电量 | `machine_energy_records.energy_kwh` |
+| 能耗气量 | `machine_energy_records.gas_m3` |
+| 内勤包装入库填报 | `daily_consumable_logs.payload.packaging_inbound_output_tons` |
+| 内勤电量填报 | `daily_consumable_logs.payload.electricity_daily` |
+| 内勤气量填报 | `daily_consumable_logs.payload.gas_daily` |
+| 辅材字段 | `daily_consumable_logs.payload` 里除包装、电、气外的数值字段 |
+
+### 60.3 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_imports_daily_production_mapping_preview_route.py backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 60.4 仍未完成
+
+还不能宣称真实输出skill全量匹配率达到 95%。
+
+原因：
+
+- 还没有拿真实 `D:\输出skill` 某个业务日批量试跑。
+- 前端 `/manage/mapping-reconciliation` 还没有选择真实文件和业务日的控件。
+- 系统侧质量、停机、成本、合同字段还没拉平。
+- 还没做运行记录持久化，所以 `/runs/{id}` 一类接口仍未实现。
+
+### 60.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `98.7%` | `98.9%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |
+
+下一步最应该做：
+
+1. 改 `/manage/mapping-reconciliation`，让用户能选文件和业务日跑真实 dry-run。
+2. 用一个真实输出skill业务日做只读匹配率样本，不提交原始文件。
+3. 补质量、停机、成本、合同字段的系统侧拉平。

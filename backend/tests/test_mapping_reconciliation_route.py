@@ -10,8 +10,26 @@ from sqlalchemy.pool import StaticPool
 from app.core.deps import get_current_user, get_db
 from app.database import Base
 from app.main import app
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.consumable import DailyConsumableLog
+from app.models.energy import MachineEnergyRecord
+from app.models.master import Equipment, Team, Workshop
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.production import MobileShiftReport
+from app.models.shift import ShiftConfig
 from app.models.system import User
+
+RECONCILIATION_TABLES = [
+    Workshop.__table__,
+    Team.__table__,
+    User.__table__,
+    ShiftConfig.__table__,
+    Equipment.__table__,
+    MobileShiftReport.__table__,
+    MachineEnergyRecord.__table__,
+    DailyConsumableLog.__table__,
+    MesWorkshopProcessRecord.__table__,
+    MesStockRecord.__table__,
+]
 
 
 def _install_overrides(*, role: str = 'admin', db_override=None):
@@ -119,7 +137,7 @@ def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_row
         connect_args={'check_same_thread': False},
         poolclass=StaticPool,
     )
-    Base.metadata.create_all(engine, tables=[MesWorkshopProcessRecord.__table__])
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
     db = Session(engine)
     db.add(
         MesWorkshopProcessRecord(
