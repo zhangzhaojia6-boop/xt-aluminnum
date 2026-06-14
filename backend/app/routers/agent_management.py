@@ -69,6 +69,28 @@ def dispatch_outbox_message(
     }
 
 
+@router.post('/outbox/dry-run-smoke')
+def dry_run_smoke(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _ensure_agent_management_access(current_user)
+    outcome = agent_communication_service.run_dry_run_smoke_test(db)
+    return {
+        'outbox_message_id': outcome.outbox_message_id,
+        'status': outcome.status,
+        'detail': outcome.detail,
+        'log_total': outcome.log_total,
+        'channel': {
+            'id': outcome.channel_id,
+            'name': outcome.channel_name,
+            'channel_type': outcome.channel_type,
+            'channel_key_masked': _mask_key(outcome.channel_key),
+            'dry_run': True,
+        },
+    }
+
+
 @router.get('/outbox/{outbox_message_id}/logs')
 def outbox_message_logs(
     outbox_message_id: int,

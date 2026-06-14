@@ -33,3 +33,8 @@ export async function fetchAgentOutboxLogs(outboxMessageId) {
   const { data } = await api.get(`/agent-management/outbox/${outboxMessageId}/logs`)
   return data
 }
+
+export async function runCommunicationDryRunSmoke() {
+  const { data } = await api.post('/agent-management/outbox/dry-run-smoke')
+  return data
+}

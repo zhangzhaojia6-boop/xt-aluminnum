@@ -29,6 +29,18 @@ class DispatchOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class DryRunSmokeOutcome:
+    status: str
+    detail: str
+    outbox_message_id: int
+    channel_id: int
+    channel_type: str
+    channel_key: str
+    channel_name: str
+    log_total: int
+
+
+@dataclass(frozen=True, slots=True)
 class RateLimitOutcome:
     allowed: bool
     detail: str
@@ -245,6 +257,57 @@ def dispatch_outbox_message(
     db.commit()
     db.refresh(message)
     return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
+
+
+def run_dry_run_smoke_test(db: Session) -> DryRunSmokeOutcome:
+    agent = register_agent(
+        db,
+        code='agent_management_smoke',
+        name='通讯自检 Agent',
+        agent_type='governance',
+        scope_type='factory',
+        config_payload={'managed_by': 'agent_management_dry_run_smoke'},
+    )
+    channel = register_channel(
+        db,
+        channel_type='dingtalk_group',
+        channel_key='agent-management-dry-run-channel',
+        name='通讯自检演练通道',
+        target_type='factory',
+        target_key='factory',
+        dry_run=True,
+        metadata_payload={'managed_by': 'agent_management_dry_run_smoke'},
+    )
+    bind_agent_to_channel(
+        db,
+        agent_code=agent.code,
+        channel_key=channel.channel_key,
+        channel_type=channel.channel_type,
+        min_severity='info',
+    )
+    message = queue_bound_message(
+        db,
+        agent_code=agent.code,
+        channel_key=channel.channel_key,
+        channel_type=channel.channel_type,
+        title='通讯链路演练',
+        content='【全厂｜通讯自检】状态：绿；结论：dry-run 演练消息；关键数字：0 条真实外发；原因：验证 outbox 到外发日志链路；建议动作：确认日志可查；数据来源：系统自检；可回复命令：通讯自检。',
+        source_summary='agent_management_dry_run_smoke',
+        trace_id=f'agent-management-smoke-{uuid4().hex}',
+        payload={'smoke_test': True, 'dry_run': True},
+    )
+    outcome = dispatch_outbox_message(db, message.id)
+    logs = list_external_logs(db, outbox_message_id=message.id)
+    return DryRunSmokeOutcome(
+        status=outcome.status,
+        detail=outcome.detail,
+        outbox_message_id=outcome.outbox_message_id,
+        channel_id=channel.id,
+        channel_type=channel.channel_type,
+        channel_key=channel.channel_key,
+        channel_name=channel.name,
+        log_total=len(logs),
+    )
 
 
 def list_external_logs(db: Session, *, outbox_message_id: int) -> list[ExternalMessageLog]:

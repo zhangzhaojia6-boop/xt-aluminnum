@@ -7,14 +7,22 @@
         <span>外部通讯配置</span>
         <h1>通讯通道中心</h1>
       </div>
-      <button type="button" class="xt-channels__refresh" @click="loadChannels">
-        {{ loading ? '读取中' : '刷新通道' }}
-      </button>
+      <div class="xt-channels__hero-actions">
+        <button type="button" class="xt-channels__refresh" :disabled="smokeLoading" @click="runDryRunSmoke">
+          {{ smokeLoading ? '演练中' : '运行演练自检' }}
+        </button>
+        <button type="button" class="xt-channels__refresh" @click="loadChannels">
+          {{ loading ? '读取中' : '刷新通道' }}
+        </button>
+      </div>
     </header>
 
     <div v-if="errorText" class="xt-channels__state is-error">
       <span>{{ errorText }}</span>
       <button type="button" @click="loadChannels">重新读取</button>
+    </div>
+    <div v-if="smokeText" class="xt-channels__state">
+      <span>{{ smokeText }}</span>
     </div>
 
     <div class="xt-channels__metrics" aria-label="通道状态">
@@ -160,11 +168,14 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   fetchAgentOutboxLogs,
-  fetchCommunicationChannels
+  fetchCommunicationChannels,
+  runCommunicationDryRunSmoke
 } from '../../../api/agent-management.js'
 
 const loading = ref(false)
 const errorText = ref('')
+const smokeLoading = ref(false)
+const smokeText = ref('')
 const logLoading = ref(false)
 const logErrorText = ref('')
 const selectedOutboxId = ref(null)
@@ -275,6 +286,24 @@ async function loadOutboxLogs(outboxMessageId) {
   }
 }
 
+async function runDryRunSmoke() {
+  smokeLoading.value = true
+  smokeText.value = ''
+  logErrorText.value = ''
+  try {
+    const result = await runCommunicationDryRunSmoke()
+    smokeText.value = `演练自检：${outboxStateLabel(result?.status)}，日志 ${displayNumber(result?.log_total)} 条`
+    await loadChannels()
+    if (result?.outbox_message_id) {
+      await loadOutboxLogs(result.outbox_message_id)
+    }
+  } catch (error) {
+    smokeText.value = error?.response?.data?.detail || error?.message || '演练自检失败'
+  } finally {
+    smokeLoading.value = false
+  }
+}
+
 onMounted(loadChannels)
 </script>
 
@@ -340,6 +369,13 @@ onMounted(loadChannels)
   letter-spacing: -0.02em;
 }
 
+.xt-channels__hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--xt-space-2);
+}
+
 .xt-channels__refresh,
 .xt-channels__state button {
   border: 1px solid rgba(210, 166, 98, 0.42);
@@ -348,6 +384,11 @@ onMounted(loadChannels)
   color: rgba(255, 232, 190, 0.95);
   cursor: pointer;
   font-weight: 900;
+}
+
+.xt-channels__refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .xt-channels__refresh {
@@ -556,6 +597,10 @@ onMounted(loadChannels)
   .xt-channels__panel header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .xt-channels__hero-actions {
+    justify-content: flex-start;
   }
 
   .xt-channels__metrics {

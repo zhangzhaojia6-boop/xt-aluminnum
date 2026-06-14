@@ -169,6 +169,38 @@ def test_agent_management_can_dispatch_dry_run_outbox_and_read_logs(tmp_path) ->
     assert 'secret-001' not in logs_payload['items'][0]['channel_key_masked']
 
 
+def test_agent_management_can_run_dry_run_smoke_without_real_send(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/dry-run-smoke')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['status'] == 'dry_run'
+    assert payload['detail'] == 'dry-run only, message not sent'
+    assert payload['log_total'] == 1
+    assert payload['outbox_message_id'] > 0
+    assert payload['channel']['dry_run'] is True
+    assert payload['channel']['channel_type'] == 'dingtalk_group'
+    assert 'channel_key' not in payload['channel']
+    assert payload['channel']['channel_key_masked']
+
+
+def test_agent_management_dry_run_smoke_rejects_non_admin(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    client = _client(session_factory, _user('manager'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/dry-run-smoke')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == 'Agent management access denied'
+
+
 def test_agent_management_outbox_dispatch_rejects_non_admin(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     client = _client(session_factory, _user('manager'))

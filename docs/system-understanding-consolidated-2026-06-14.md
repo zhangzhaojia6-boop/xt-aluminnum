@@ -5908,3 +5908,120 @@ cd frontend && node --test tests/channelManagementPage.test.js tests/agentManage
 | Agent 通讯阶段 | `54%` | `55%` |
 | 真实钉钉阶段 | `24%` | `25%` |
 | 前端治理阶段 | `74%` | `76%` |
+
+## 69. 通讯链路 dry-run 自检闭环
+
+本轮继续第四阶段的安全验收能力：新增管理员专用的通讯链路 dry-run 自检。它能创建或复用一个演练通道，生成一条发件箱消息，立即走 dry-run 分发，并写入外发日志。这个能力用于验证“outbox 到 external_message_logs”链路是否通，不会调用真实钉钉发送。
+
+### 69.1 本轮解决了什么
+
+新增后端接口：
+
+```text
+POST /api/v1/agent-management/outbox/dry-run-smoke
+```
+
+它内部复用现有服务：
+
+| 步骤 | 复用函数 | 结果 |
+|---|---|---|
+| 注册演练 Agent | `register_agent` | `agent_management_smoke` |
+| 注册演练通道 | `register_channel` | `dingtalk_group`，强制 `dry_run=true` |
+| 绑定 Agent 和通道 | `bind_agent_to_channel` | 允许消息进入 outbox |
+| 创建演练消息 | `queue_bound_message` | 生成一条待分发消息 |
+| 执行 dry-run 分发 | `dispatch_outbox_message` | 状态变为 `dry_run` |
+| 查询日志 | `list_external_logs` | 产生 1 条外发日志 |
+
+返回只包含脱敏通道信息：
+
+```text
+outbox_message_id
+status
+detail
+log_total
+channel.id
+channel.name
+channel.channel_type
+channel.channel_key_masked
+channel.dry_run
+```
+
+前端 `/manage/channels` 新增“运行演练自检”按钮。点击后会调用 dry-run 自检接口，刷新通道和发件箱，并自动打开本次 outbox 的外发日志。
+
+### 69.2 安全边界
+
+这个自检入口是管理员专用，非管理员返回 403。
+
+| 风险点 | 处理 |
+|---|---|
+| 误发真实钉钉 | 演练通道强制 `dry_run=true` |
+| 泄露通道标识 | 前端和接口只返回 `channel_key_masked` |
+| 绕过 outbox | 不允许，仍走 `queue_bound_message -> dispatch_outbox_message` |
+| 绕过日志 | 不允许，dry-run 也写 `external_message_logs` |
+| 伪造真实验收 | 文档明确这不是真实钉钉发送验收 |
+
+小白版理解：这像消防演习。系统会完整走一遍“准备发消息、进发件箱、分发、写日志”的动作，但不会真的往钉钉群里发。
+
+### 69.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+失败原因：POST /api/v1/agent-management/outbox/dry-run-smoke 返回 404。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+9 passed
+```
+
+已执行相关后端回归：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py -q
+13 passed
+```
+
+前端先写失败测试后实现，红灯失败点为：
+
+```text
+node --test tests/channelManagementPage.test.js
+失败原因：缺少 runCommunicationDryRunSmoke API 和页面“运行演练自检”入口。
+```
+
+实现后已执行：
+
+```text
+cd frontend && node --test tests/channelManagementPage.test.js
+4 passed
+```
+
+已执行相关前端回归：
+
+```text
+cd frontend && node --test tests/channelManagementPage.test.js tests/agentManagementPage.test.js
+10 passed
+```
+
+### 69.4 当前边界
+
+还不能宣称真实钉钉测试完成。
+
+原因：
+
+- 本轮是 dry-run 自检，不是真实钉钉群发送。
+- 还没有登录云端系统点击该按钮做浏览器验收。
+- 还没有把非 dry-run 通道接到测试群做真实发送。
+- 还没有验证群里 @Agent 问答入口。
+
+### 69.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.50%` | `99.53%` |
+| Agent 通讯阶段 | `55%` | `56%` |
+| 真实钉钉阶段 | `25%` | `28%` |
+| 前端治理阶段 | `76%` | `77%` |

@@ -56,8 +56,13 @@ test('communication channels page exposes outbox log inspection without sending 
 
   assert.match(api, /fetchAgentOutboxLogs/)
   assert.match(api, /\/agent-management\/outbox\/\$\{outboxMessageId\}\/logs/)
+  assert.match(api, /runCommunicationDryRunSmoke/)
+  assert.match(api, /\/agent-management\/outbox\/dry-run-smoke/)
+  assert.match(page, /runCommunicationDryRunSmoke/)
   for (const text of ['最近外发任务', '外发日志', '查看日志', '投递状态', '返回结果']) {
     assert.match(page, new RegExp(text))
   }
+  assert.match(page, /运行演练自检/)
+  assert.match(page, /演练自检/)
   assert.doesNotMatch(page, /立即发送|测试发送|创建通道|编辑通道/)
 })
