@@ -5160,3 +5160,122 @@ passed
 1. 改 `/manage/mapping-reconciliation`，让用户能选文件和业务日跑真实 dry-run。
 2. 用一个真实输出skill业务日做只读匹配率样本，不提交原始文件。
 3. 补质量、停机、成本、合同字段的系统侧拉平。
+
+## 61. RAG 文本附件后端最小闭环
+
+本轮开始推进第二阶段：文本附件上传和 RAG 入库。当前只做后端最小闭环，没有改前端页面，也没有做云端浏览器真实上传验收。
+
+### 61.1 本轮解决了什么
+
+新增了三张知识库表：
+
+| 表 | 用途 |
+|---|---|
+| `rag_documents` | 保存上传文档的文件名、编码、大小、切片数量、上传人和状态 |
+| `rag_chunks` | 保存文档切片，后续 RAG 查询先从这里找来源 |
+| `rag_query_logs` | 保存每次查询、回答、命中来源和查询人 |
+
+新增了 `/api/v1/rag` 后端接口：
+
+| 接口 | 当前能力 |
+|---|---|
+| `POST /api/v1/rag/documents/upload` | 上传 `.txt/.md/.csv/.json/.log` 文本附件，识别 UTF-8/GBK，切片入库 |
+| `GET /api/v1/rag/documents` | 列出知识库文档 |
+| `GET /api/v1/rag/documents/{id}` | 查看文档和切片 |
+| `DELETE /api/v1/rag/documents/{id}` | 删除文档和切片 |
+| `POST /api/v1/rag/query` | 用数据库文本检索 fallback 查询，回答必须带来源 |
+
+### 61.2 安全边界
+
+当前上传入口会拒绝：
+
+| 类型 | 处理 |
+|---|---|
+| `.exe/.cmd/.bat/.ps1/.sh/.dll/.msi/.scr` 等可执行或脚本文件 | 直接拒绝 |
+| 二进制内容 | 直接拒绝 |
+| 超过 2MB 的文件 | 直接拒绝 |
+| 含 `password/token/secret/api_key/数据库密码/密钥` 等赋值痕迹的文本 | 直接拒绝 |
+
+小白版理解：这一步先保证“资料能安全入库、能被查到、回答能指出来源”，不让系统把程序、二进制、疑似密码文件吞进知识库。
+
+### 61.3 当前查询口径
+
+当前还没有接 pgvector 或 embedding，先用数据库文本检索 fallback。
+
+如果能查到资料，回答格式类似：
+
+```text
+根据知识库资料：……
+```
+
+并返回 `citations`，里面包含文档 ID、文件名、切片序号和来源标记。
+
+如果查不到资料，系统会回答：
+
+```text
+数据不足，知识库没有找到可靠来源。
+```
+
+这符合“RAG 没有事实就不能编”的要求。
+
+### 61.4 权限口径
+
+当前 RAG 后端入口允许管理员、管理类角色和审核类角色访问；主操等现场移动端角色不能直接管理知识库。
+
+后续如果要让车间主任只看本车间资料，需要继续给 `rag_documents.scope_payload` 加车间范围过滤。
+
+### 61.5 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+4 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_knowledge_service.py backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+25 passed
+```
+
+已执行：
+
+```text
+python -m compileall backend/app/models/rag.py backend/app/services/rag_service.py backend/app/routers/rag.py
+passed
+```
+
+已执行：
+
+```text
+DATABASE_URL=sqlite:///<temp-db> python -m alembic upgrade head
+passed
+```
+
+### 61.6 仍未完成
+
+还不能宣称第二阶段全部完成。
+
+原因：
+
+- `/manage/rag` 前端页面还没做。
+- 还没有浏览器真实上传、查看切片、查询、删除的验收截图或记录。
+- 还没有把 RAG 查询接入 `/api/v1/agent/command`。
+- 还没有 pgvector/embedding，只是文本检索 fallback。
+- 还没跑最终要求里的全量 `pytest`、`alembic upgrade head`、`npm test`、`npm run build`。
+
+### 61.7 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `98.9%` | `99.0%` |
+| RAG 阶段 | `0%` | `35%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |
+
+下一步最应该做：
+
+1. 做 `/manage/rag` 前端页面：上传、列表、详情、切片预览、删除、测试问答。
+2. 用浏览器实际上传一个 UTF-8 和一个 GBK 文本，确认页面、接口、数据库都通。
+3. 把 RAG 查询接到 Agent 命令入口，让群问答能引用资料来源。

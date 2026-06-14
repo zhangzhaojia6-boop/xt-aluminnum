@@ -75,6 +75,7 @@ from app.models.production import (
     WorkOrderEntry,
 )
 from app.models.quality import DataQualityIssue, QualityIssueLog, QualityYieldDaily
+from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.reconciliation import DataReconciliationItem
 from app.models.reports import DailyReport
 from app.models.rule_config import RuleConfig
@@ -147,6 +148,9 @@ __all__ = [
     'DataQualityIssue',
     'QualityYieldDaily',
     'QualityIssueLog',
+    'RagDocument',
+    'RagChunk',
+    'RagQueryLog',
     'ProductionPlanDaily',
     'AlloySpecBreakdown',
     'ShipmentOutflowRecord',
