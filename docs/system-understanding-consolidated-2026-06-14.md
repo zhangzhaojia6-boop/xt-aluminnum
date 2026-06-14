@@ -6688,3 +6688,71 @@ git diff --check
 | Agent 通讯阶段 | `79%` | `82%` |
 | 真实钉钉阶段 | `41%` | `42%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 79. Agent command 质量门禁异常已接质量事实
+
+### 79.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `quality_anomaly` 意图后，已开始读取两类质量事实：
+
+- `data_quality_issues`：质量门禁、数据质量和发布阻断类问题。
+- `quality_issue_log`：现场填报的质量问题记录。
+
+小白版理解：现在问“质量门禁有没有异常”，Agent 会先看当天业务日有没有未关闭的质量门禁，再看现场有没有质量问题记录。如果门禁阻断存在，会直接红灯提示。
+
+### 79.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 门禁阻断 | `data_quality_issues.status=open` 且 `issue_level` 为 `blocker/blocked/critical/red` |
+| 数据预警 | 其他未关闭 `data_quality_issues` |
+| 现场质量问题 | `quality_issue_log` 当天业务日记录 |
+| 状态灯 | 有门禁阻断为红色；只有预警或现场问题为黄色；都没有为绿色 |
+
+### 79.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_quality_gate_and_issue_facts -q
+失败原因：接口仍返回 yellow 知识库兜底，没有读取 quality 表。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_quality_gate_and_issue_facts -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+10 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+32 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+```
+
+### 79.4 当前边界
+
+还不能宣称质量闭环全部完成。
+
+原因：
+
+- 本轮只读取现有质量事实，不自动运行质量检查。
+- 还没有接入质检处理闭环、责任人确认和钉钉外发。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+
+### 79.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.80%` | `99.83%` |
+| Agent 通讯阶段 | `82%` | `85%` |
+| 真实钉钉阶段 | `42%` | `43%` |
+| 前端治理阶段 | `78%` | `78%` |

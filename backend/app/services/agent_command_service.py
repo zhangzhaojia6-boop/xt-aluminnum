@@ -17,6 +17,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
 from app.models.master import Equipment
 from app.models.production import ShiftProductionData
+from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import agent_communication_service
@@ -186,7 +187,11 @@ def _detect_intent(text: str) -> str:
 
 
 def _load_business_facts(db: Session, *, intent: str, text: str, current_user: User | None) -> dict[str, Any]:
-    if intent not in {'production_today', 'anomaly_summary', 'consumable_usage', 'machine_stop'} or current_user is None:
+    if (
+        intent
+        not in {'production_today', 'anomaly_summary', 'consumable_usage', 'machine_stop', 'quality_anomaly'}
+        or current_user is None
+    ):
         return {'status': 'not_connected'}
 
     business_date = resolve_production_business_date()
@@ -194,6 +199,8 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
         return _extract_consumable_facts(db, business_date=business_date)
     if intent == 'machine_stop':
         return _extract_machine_stop_facts(db, business_date=business_date, command_text=text)
+    if intent == 'quality_anomaly':
+        return _extract_quality_facts(db, business_date=business_date)
 
     try:
         payload = _load_live_aggregation(db, business_date=business_date, current_user=current_user)
@@ -300,6 +307,60 @@ def _machine_stop_status_color(minutes: int) -> str:
     if minutes >= 10:
         return 'yellow'
     return 'green'
+
+
+def _extract_quality_facts(db: Session, *, business_date) -> dict[str, Any]:
+    quality_rows = (
+        db.query(DataQualityIssue)
+        .filter(
+            DataQualityIssue.business_date == business_date,
+            DataQualityIssue.status == 'open',
+        )
+        .order_by(DataQualityIssue.issue_level.asc(), DataQualityIssue.id.desc())
+        .all()
+    )
+    issue_rows = (
+        db.query(QualityIssueLog, Workshop)
+        .outerjoin(Workshop, Workshop.id == QualityIssueLog.workshop_id)
+        .filter(QualityIssueLog.business_date == business_date)
+        .order_by(QualityIssueLog.id.desc())
+        .all()
+    )
+    blockers = [item for item in quality_rows if item.issue_level in {'blocker', 'blocked', 'critical', 'red'}]
+    warnings = [item for item in quality_rows if item not in blockers]
+    status_color = 'red' if blockers else ('yellow' if warnings or issue_rows else 'green')
+    return {
+        'status': 'connected',
+        'status_color': status_color,
+        'business_date': business_date.isoformat(),
+        'business_day_start': '07:30',
+        'blocker_count': len(blockers),
+        'warning_count': len(warnings),
+        'quality_issue_count': len(issue_rows),
+        'top_blockers': [_quality_gate_item(item) for item in blockers[:5]],
+        'top_quality_issues': [_quality_log_item(item, workshop) for item, workshop in issue_rows[:5]],
+        'data_source': 'data_quality_issues+quality_issue_log',
+    }
+
+
+def _quality_gate_item(item: DataQualityIssue) -> dict[str, Any]:
+    return {
+        'issue_type': item.issue_type,
+        'issue_level': item.issue_level,
+        'source_type': item.source_type,
+        'dimension_key': item.dimension_key,
+        'field_name': item.field_name,
+        'issue_desc': item.issue_desc,
+    }
+
+
+def _quality_log_item(item: QualityIssueLog, workshop: Workshop | None) -> dict[str, Any]:
+    return {
+        'workshop_name': workshop.name if workshop else '未标记车间',
+        'tracking_card_no': item.tracking_card_no or '',
+        'quality_issue_type': item.quality_issue_type or '',
+        'quality_issue_desc': item.quality_issue_desc or '未填写描述',
+    }
 
 
 CONSUMABLE_TARGET_GROUPS: tuple[tuple[str, str, str], ...] = (
@@ -545,6 +606,25 @@ def _build_answer_for_intent(
             sources='班次生产数据 / shift_production_data',
         )
 
+    if intent == 'quality_anomaly' and facts.get('status') == 'connected':
+        blocker_count = _int_or_zero(facts.get('blocker_count'))
+        quality_issue_count = _int_or_zero(facts.get('quality_issue_count'))
+        conclusion = '质量门禁阻断' if blocker_count else ('发现现场质量问题' if quality_issue_count else '当前未发现质量异常')
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion=conclusion,
+            key_numbers=(
+                f"门禁阻断 {blocker_count} 条；"
+                f"数据预警 {_int_or_zero(facts.get('warning_count'))} 条；"
+                f"现场质量问题 {quality_issue_count} 条；"
+                f"重点 {_format_quality_focus(facts)}"
+            ),
+            reason=_format_quality_reason(facts),
+            action='门禁阻断需先处理后再发布日报；现场质量问题请责任车间补充处理结论。',
+            sources='质量门禁 / data_quality_issues；现场质量 / quality_issue_log',
+        )
+
     return _format_answer(
         scope_label='全厂',
         status_color=status_color,
@@ -599,6 +679,30 @@ def _format_machine_stop_reason(items: list[dict[str, Any]]) -> str:
         f"{first.get('workshop_name')} {first.get('equipment_name')} "
         f"原因：{first.get('downtime_reason') or '未填写原因'}。"
     )
+
+
+def _format_quality_focus(facts: dict[str, Any]) -> str:
+    blockers = facts.get('top_blockers') or []
+    if blockers:
+        return '；'.join(str(item.get('issue_desc') or '未填写门禁原因') for item in blockers[:2])
+    issues = facts.get('top_quality_issues') or []
+    if issues:
+        return '；'.join(
+            f"{item.get('workshop_name')} {item.get('quality_issue_desc') or '未填写描述'}"
+            for item in issues[:2]
+        )
+    return '无'
+
+
+def _format_quality_reason(facts: dict[str, Any]) -> str:
+    blockers = facts.get('top_blockers') or []
+    if blockers:
+        return str(blockers[0].get('issue_desc') or '存在质量门禁阻断。')
+    if _int_or_zero(facts.get('warning_count')) > 0:
+        return '存在未关闭的数据质量预警。'
+    if _int_or_zero(facts.get('quality_issue_count')) > 0:
+        return '存在现场质量问题记录，需跟进处理结论。'
+    return '当天业务日没有找到未关闭质量门禁或现场质量问题。'
 
 
 def _format_fact_sources(facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:

@@ -21,6 +21,7 @@ from app.models.agent_communication import (
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Equipment, Workshop
 from app.models.production import ShiftProductionData
+from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -37,6 +38,8 @@ AGENT_COMMAND_TABLES = [
     Equipment.__table__,
     ShiftConfig.__table__,
     ShiftProductionData.__table__,
+    DataQualityIssue.__table__,
+    QualityIssueLog.__table__,
     DailyConsumableLog.__table__,
     AgentProfile.__table__,
     CommunicationChannel.__table__,
@@ -460,6 +463,76 @@ def test_agent_command_uses_shift_downtime_fact_for_machine_stop(monkeypatch) ->
         run = db.query(AgentRun).one()
         assert run.result_payload['fact_status'] == 'connected'
         assert run.result_payload['facts']['top_stops'][0]['equipment_name'] == '2号机'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_uses_quality_gate_and_issue_facts(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    db.add_all([
+        Workshop(id=5, code='LZ1850', name='冷轧1850', workshop_type='cold_roll', sort_order=1, is_active=True),
+        DataQualityIssue(
+            business_date=date(2026, 6, 9),
+            issue_type='quality_gate',
+            source_type='yield_matrix',
+            dimension_key='workshop:LZ1850',
+            field_name='yield_rate',
+            issue_level='blocker',
+            issue_desc='质量门禁阻断：冷轧1850成品率低于红线',
+            status='open',
+        ),
+        DataQualityIssue(
+            business_date=date(2026, 6, 9),
+            issue_type='missing_data',
+            source_type='energy',
+            dimension_key='energy',
+            field_name='energy_value',
+            issue_level='warning',
+            issue_desc='当日未导入能耗数据',
+            status='open',
+        ),
+        QualityIssueLog(
+            business_date=date(2026, 6, 9),
+            workshop_id=5,
+            tracking_card_no='RA260609009',
+            quality_issue_type='surface',
+            quality_issue_desc='表面划伤复核',
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-quality',
+                'sender_external_id': 'ding-user-009',
+                'text': '质量门禁有没有异常',
+                'agent_code': 'quality_agent',
+                'trace_id': 'trace-agent-quality-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'quality_anomaly'
+        assert payload['status_color'] == 'red'
+        assert '质量门禁阻断' in payload['answer']
+        assert '现场质量问题 1 条' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['blocker_count'] == 1
+        assert payload['facts']['quality_issue_count'] == 1
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['top_blockers'][0]['issue_desc'] == '质量门禁阻断：冷轧1850成品率低于红线'
     finally:
         _restore_overrides(previous_overrides, db)
 
