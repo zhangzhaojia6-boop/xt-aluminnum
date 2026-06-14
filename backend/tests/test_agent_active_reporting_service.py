@@ -92,6 +92,34 @@ def test_factory_overview_queues_traceable_management_report() -> None:
         db.close()
 
 
+def test_factory_overview_message_uses_fixed_agent_template() -> None:
+    db = _db_session()
+    try:
+        _bind_factory_channel(db)
+
+        outcome = active_service.queue_factory_overview(
+            db,
+            business_date=date(2026, 6, 13),
+            channel_key='management-chat',
+            metrics={'全厂总产量': '128.50 吨', '缺报数量': '2 项'},
+            anomalies=[{'title': '热轧停机待核查', 'severity': 'warning', 'value': '42 分钟'}],
+            trace_id='trace-template-001',
+            occurred_at=datetime(2026, 6, 13, 8, 30, tzinfo=UTC),
+        )
+
+        message = db.get(AgentOutboxMessage, outcome.outbox_message_id)
+        assert message is not None
+        assert message.content.startswith('【全厂｜2026-06-13 08:30】状态：黄；')
+        for text in ['结论：', '关键数字：', '原因：', '建议动作：', '数据来源：', '可回复命令：']:
+            assert text in message.content
+        assert '全厂总产量：128.50 吨' in message.content
+        assert '热轧停机待核查：42 分钟' in message.content
+        assert '###' not in message.content
+        assert '####' not in message.content
+    finally:
+        db.close()
+
+
 def test_workshop_report_rejects_channel_from_other_workshop() -> None:
     db = _db_session()
     try:

@@ -6250,3 +6250,74 @@ git diff --check
 | Agent 通讯阶段 | `63%` | `66%` |
 | 真实钉钉阶段 | `33%` | `35%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 73. 主动汇报消息已改为固定 Agent 模板
+
+### 73.1 本轮新增能力
+
+主动汇报写入 outbox 的正文，已从旧 Markdown 段落改为固定中文值班模板：
+
+```text
+【范围｜时间】状态：绿/黄/红；结论；关键数字；原因；建议动作；数据来源；可回复命令。
+```
+
+小白版理解：以前像一份小报告，群里看起来慢；现在像值班员一句话汇报，先看状态，再看数字和动作。
+
+### 73.2 当前模板规则
+
+| 字段 | 规则 |
+|---|---|
+| 范围 | 全厂或具体车间 |
+| 时间 | 优先使用事件发生时间，没有则使用生产日 |
+| 状态 | `info=绿`、`warning=黄`、`critical=红` |
+| 关键数字 | 来自主动汇报传入的确定性 `metrics` |
+| 原因 | 来自主动汇报传入的确定性 `anomalies` |
+| 建议动作 | 有严重异常时要求责任人立即确认原因和恢复时间 |
+| 数据来源 | 固定为“数据中枢主动汇报” |
+| 可回复命令 | `今日产量 / 异常明细 / 辅材明细` |
+
+注意：这里没有让大模型查库或编数字，正文全部由后端确定性代码从已传入的业务事实组织。
+
+### 73.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_active_reporting_service.py -q
+失败原因：消息正文仍以 ### 全厂主动汇报 开头，不符合固定模板。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_active_reporting_service.py -q
+7 passed
+
+python -m pytest backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+22 passed
+
+python -m compileall backend/app/services/agent_active_reporting_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 73.4 当前边界
+
+还不能宣称所有 Agent 都已使用固定模板。
+
+原因：
+
+- 本轮只覆盖主动汇报服务。
+- `/api/v1/agent/command`、RAG 问答、日报秘书、催报 Agent 等后续还要逐步统一模板。
+- 还没有做真实钉钉测试群验收。
+
+### 73.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.62%` | `99.65%` |
+| Agent 通讯阶段 | `66%` | `68%` |
+| 真实钉钉阶段 | `35%` | `36%` |
+| 前端治理阶段 | `78%` | `78%` |

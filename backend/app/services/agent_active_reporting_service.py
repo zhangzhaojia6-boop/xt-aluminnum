@@ -81,7 +81,14 @@ def queue_factory_overview(
         agent_code='factory_dispatch',
         channel_key=channel.channel_key,
         title=f'【全厂总览】{business_date.isoformat()}',
-        content=_build_report_content('全厂主动汇报', metrics=metrics, anomalies=safe_anomalies),
+        content=_build_report_content(
+            scope_label='全厂',
+            time_label=_format_time_label(occurred_at, business_date),
+            status_label=_status_label(severity),
+            subject='全厂主动汇报',
+            metrics=metrics,
+            anomalies=safe_anomalies,
+        ),
         business_date=business_date,
         source_summary='factory_active_report',
         trace_id=safe_trace_id,
@@ -176,7 +183,14 @@ def queue_workshop_status(
         agent_code='workshop_status',
         channel_key=channel.channel_key,
         title=f'【{workshop_name}车间主动汇报】{business_date.isoformat()}',
-        content=_build_report_content(f'{workshop_name}车间主动汇报', metrics=metrics, anomalies=safe_anomalies),
+        content=_build_report_content(
+            scope_label=f'{workshop_name}车间',
+            time_label=_format_time_label(occurred_at, business_date),
+            status_label=_status_label(severity),
+            subject=f'{workshop_name}车间主动汇报',
+            metrics=metrics,
+            anomalies=safe_anomalies,
+        ),
         business_date=business_date,
         source_summary='workshop_active_report',
         trace_id=safe_trace_id,
@@ -315,20 +329,28 @@ def _get_channel(db: Session, *, channel_key: str, channel_type: str = 'dingtalk
     return channel
 
 
-def _build_report_content(title: str, *, metrics: dict[str, object], anomalies: list[dict[str, object]]) -> str:
-    lines = [f'### {title}', '', '#### 核心数据']
-    if metrics:
-        lines.extend(f'- {key}：{value}' for key, value in metrics.items())
-    else:
-        lines.append('- 暂无核心数据')
-
-    lines.extend(['', '#### 异常状态'])
-    if anomalies:
-        lines.extend(f"- {item.get('title', '异常待核查')}：{item.get('value', '-')}" for item in anomalies)
-    else:
-        lines.append('- 暂无待核查异常')
-    lines.extend(['', '来源：数据中枢主动汇报'])
-    return '\n'.join(lines)
+def _build_report_content(
+    *,
+    scope_label: str,
+    time_label: str,
+    status_label: str,
+    subject: str,
+    metrics: dict[str, object],
+    anomalies: list[dict[str, object]],
+) -> str:
+    metric_text = _metric_summary(metrics)
+    anomaly_text = _anomaly_summary(anomalies)
+    conclusion = f'{subject}已生成，状态为{status_label}'
+    action = _recommended_action(anomalies)
+    return (
+        f'【{scope_label}｜{time_label}】状态：{status_label}；'
+        f'结论：{conclusion}；'
+        f'关键数字：{metric_text}；'
+        f'原因：{anomaly_text}；'
+        f'建议动作：{action}；'
+        '数据来源：数据中枢主动汇报；'
+        '可回复命令：今日产量 / 异常明细 / 辅材明细。'
+    )
 
 
 def _highest_severity(anomalies: list[dict[str, object]]) -> str:
@@ -353,6 +375,43 @@ def _format_number(value: float) -> str:
     if value == int(value):
         return str(int(value))
     return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
+def _format_time_label(occurred_at: datetime | None, business_date: date) -> str:
+    if occurred_at is None:
+        return business_date.isoformat()
+    value = occurred_at.astimezone(timezone.utc) if occurred_at.tzinfo is not None else occurred_at
+    return value.strftime('%Y-%m-%d %H:%M')
+
+
+def _status_label(severity: str) -> str:
+    labels = {
+        'info': '绿',
+        'warning': '黄',
+        'critical': '红',
+    }
+    return labels.get(str(severity or '').strip().lower(), '黄')
+
+
+def _metric_summary(metrics: dict[str, object]) -> str:
+    if not metrics:
+        return '暂无核心数据'
+    return '；'.join(f'{key}：{value}' for key, value in metrics.items())
+
+
+def _anomaly_summary(anomalies: list[dict[str, object]]) -> str:
+    if not anomalies:
+        return '暂无待核查异常'
+    return '；'.join(f"{item.get('title', '异常待核查')}：{item.get('value', '-')}" for item in anomalies)
+
+
+def _recommended_action(anomalies: list[dict[str, object]]) -> str:
+    if not anomalies:
+        return '继续观察，按计划生产'
+    severe = any(str(item.get('severity') or '').strip().lower() == 'critical' for item in anomalies)
+    if severe:
+        return '请责任人立即确认原因和恢复时间'
+    return '请责任人核查异常并在群内反馈'
 
 
 def _mark_event_deduped(db: Session, event: AgentEvent, message) -> ActiveReportOutcome:
