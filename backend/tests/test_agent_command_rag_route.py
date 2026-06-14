@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -19,8 +19,10 @@ from app.models.agent_communication import (
     CommunicationChannel,
 )
 from app.models.consumable import DailyConsumableLog
-from app.models.master import Workshop
+from app.models.master import Equipment, Workshop
+from app.models.production import ShiftProductionData
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
+from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import agent_communication_service
 from app.services.rag_service import create_document_from_bytes
@@ -32,6 +34,9 @@ AGENT_COMMAND_TABLES = [
     RagChunk.__table__,
     RagQueryLog.__table__,
     Workshop.__table__,
+    Equipment.__table__,
+    ShiftConfig.__table__,
+    ShiftProductionData.__table__,
     DailyConsumableLog.__table__,
     AgentProfile.__table__,
     CommunicationChannel.__table__,
@@ -379,6 +384,82 @@ def test_agent_command_uses_consumable_targets_for_over_quota_summary(monkeypatc
         run = db.query(AgentRun).one()
         assert run.result_payload['fact_status'] == 'connected'
         assert run.result_payload['facts']['top_over_quota'][0]['workshop_name'] == '冷轧2050'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_uses_shift_downtime_fact_for_machine_stop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+    db.add_all([
+        Workshop(id=4, code='RZ', name='热轧车间', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Equipment(id=21, code='RZ-2', name='2号机', workshop_id=4, operational_status='stopped', is_active=True),
+        Equipment(id=22, code='RZ-1', name='1号机', workshop_id=4, operational_status='running', is_active=True),
+        ShiftConfig(
+            id=31,
+            code='DAY',
+            name='长白班',
+            shift_type='day',
+            start_time=time(7, 30),
+            end_time=time(15, 30),
+            is_active=True,
+        ),
+        ShiftProductionData(
+            business_date=date(2026, 6, 9),
+            shift_config_id=31,
+            workshop_id=4,
+            equipment_id=21,
+            downtime_minutes=42,
+            downtime_reason='换辊待维修确认',
+            output_weight=12.5,
+            data_status='submitted',
+            data_source='mobile_shift_report',
+        ),
+        ShiftProductionData(
+            business_date=date(2026, 6, 9),
+            shift_config_id=31,
+            workshop_id=4,
+            equipment_id=22,
+            downtime_minutes=0,
+            output_weight=18.5,
+            data_status='submitted',
+            data_source='mobile_shift_report',
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-maintenance',
+                'sender_external_id': 'ding-user-008',
+                'text': '2号机为什么停',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-stop-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'machine_stop'
+        assert payload['status_color'] == 'orange'
+        assert '2号机' in payload['answer']
+        assert '42 分钟' in payload['answer']
+        assert '换辊待维修确认' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['machine_filter'] == '2'
+        assert payload['facts']['top_stops'][0]['downtime_minutes'] == 42
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['top_stops'][0]['equipment_name'] == '2号机'
     finally:
         _restore_overrides(previous_overrides, db)
 

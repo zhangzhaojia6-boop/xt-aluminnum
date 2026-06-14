@@ -6607,3 +6607,84 @@ git diff --check
 | Agent 通讯阶段 | `76%` | `79%` |
 | 真实钉钉阶段 | `40%` | `41%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 78. Agent command 2号机为什么停已接停机事实
+
+### 78.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `machine_stop` 意图后，已开始读取 `shift_production_data`：
+
+- 只读当前生产业务日。
+- 读取 `downtime_minutes` 和 `downtime_reason`。
+- 通过 `equipment` 关联机列名称和编码。
+- 支持从问题里识别类似“2号机”的机号过滤。
+- 状态灯按停机时长判断：10 分钟黄、30 分钟橙、60 分钟红。
+
+小白版理解：现在问“2号机为什么停”，如果当天业务日里有这台机的停机记录，Agent 会直接说停了多久、什么原因、该怎么升级处理。
+
+### 78.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 数据来源 | `shift_production_data` |
+| 停机分钟 | `downtime_minutes` |
+| 停机原因 | `downtime_reason`，为空时显示未填写原因 |
+| 机列名称 | `equipment.name` |
+| 班次 | `shift_configs.name` |
+| 状态灯 | `10=黄`、`30=橙`、`60=红` |
+
+### 78.3 RAG 与事实的边界
+
+如果问题是“换辊超时怎么办”这类制度/SOP 问题，且当天没有匹配的真实停机记录，但 RAG 有来源，Agent 仍然优先回答知识库，不会被空停机事实覆盖。
+
+### 78.4 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_shift_downtime_fact_for_machine_stop -q
+失败原因：接口仍返回 yellow 知识库兜底，没有读取 shift_production_data。
+```
+
+实现后曾触发一次回归：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+失败原因：“换辊超时怎么办”被空停机事实覆盖，RAG 来源没有进入回答。
+```
+
+修正后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+9 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+31 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+```
+
+### 78.5 当前边界
+
+还不能宣称真实钉钉停机问答完成。
+
+原因：
+
+- 本轮只覆盖班次生产数据里的停机字段。
+- 还没有接入维修工单、设备状态实时流、物联网停机信号。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+
+### 78.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.77%` | `99.80%` |
+| Agent 通讯阶段 | `79%` | `82%` |
+| 真实钉钉阶段 | `41%` | `42%` |
+| 前端治理阶段 | `78%` | `78%` |

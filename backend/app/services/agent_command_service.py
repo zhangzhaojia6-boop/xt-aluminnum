@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -14,6 +15,9 @@ from app.core.templates.consumable_payload import flatten_payload, parse_payload
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Workshop
+from app.models.master import Equipment
+from app.models.production import ShiftProductionData
+from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import agent_communication_service
 from app.services import realtime_service
@@ -73,7 +77,7 @@ def handle_agent_command(
     rag_payload = query_knowledge(db, query=clean_text, limit=5, user=current_user)
     citations = rag_payload.get('citations') or []
     intent = _detect_intent(clean_text)
-    facts = _load_business_facts(db, intent=intent, current_user=current_user)
+    facts = _load_business_facts(db, intent=intent, text=clean_text, current_user=current_user)
     status_color = _resolve_status_color(facts=facts, citations=citations)
     answer = _build_answer_for_intent(
         intent=intent,
@@ -181,13 +185,15 @@ def _detect_intent(text: str) -> str:
     return 'general_knowledge'
 
 
-def _load_business_facts(db: Session, *, intent: str, current_user: User | None) -> dict[str, Any]:
-    if intent not in {'production_today', 'anomaly_summary', 'consumable_usage'} or current_user is None:
+def _load_business_facts(db: Session, *, intent: str, text: str, current_user: User | None) -> dict[str, Any]:
+    if intent not in {'production_today', 'anomaly_summary', 'consumable_usage', 'machine_stop'} or current_user is None:
         return {'status': 'not_connected'}
 
     business_date = resolve_production_business_date()
     if intent == 'consumable_usage':
         return _extract_consumable_facts(db, business_date=business_date)
+    if intent == 'machine_stop':
+        return _extract_machine_stop_facts(db, business_date=business_date, command_text=text)
 
     try:
         payload = _load_live_aggregation(db, business_date=business_date, current_user=current_user)
@@ -214,6 +220,86 @@ def _load_business_facts(db: Session, *, intent: str, current_user: User | None)
         'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
         'data_source': payload.get('data_source') or 'unknown',
     }
+
+
+def _extract_machine_stop_facts(db: Session, *, business_date, command_text: str) -> dict[str, Any]:
+    machine_filter = _extract_machine_filter(command_text)
+    rows = (
+        db.query(ShiftProductionData, Workshop, Equipment, ShiftConfig)
+        .join(Workshop, Workshop.id == ShiftProductionData.workshop_id)
+        .outerjoin(Equipment, Equipment.id == ShiftProductionData.equipment_id)
+        .outerjoin(ShiftConfig, ShiftConfig.id == ShiftProductionData.shift_config_id)
+        .filter(
+            ShiftProductionData.business_date == business_date,
+            ShiftProductionData.downtime_minutes > 0,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .order_by(ShiftProductionData.downtime_minutes.desc(), Workshop.sort_order.asc())
+        .all()
+    )
+    stop_items = []
+    for row, workshop, equipment, shift in rows:
+        if machine_filter and not _matches_machine_filter(equipment, machine_filter):
+            continue
+        minutes = _int_or_zero(row.downtime_minutes)
+        stop_items.append({
+            'workshop_name': workshop.name,
+            'workshop_code': workshop.code,
+            'equipment_name': equipment.name if equipment else '未标记机列',
+            'equipment_code': equipment.code if equipment else '',
+            'shift_name': shift.name if shift else '未标记班次',
+            'downtime_minutes': minutes,
+            'downtime_reason': row.downtime_reason or '未填写原因',
+            'data_status': row.data_status,
+            'data_source': row.data_source,
+        })
+
+    max_minutes = max([item['downtime_minutes'] for item in stop_items], default=0)
+    return {
+        'status': 'connected',
+        'status_color': _machine_stop_status_color(max_minutes),
+        'business_date': business_date.isoformat(),
+        'business_day_start': '07:30',
+        'machine_filter': machine_filter,
+        'stop_count': len(stop_items),
+        'max_downtime_minutes': max_minutes,
+        'top_stops': stop_items[:5],
+        'data_source': 'shift_production_data',
+    }
+
+
+def _extract_machine_filter(text: str) -> str | None:
+    value = _clean(text)
+    match = re.search(r'(\d+)\s*(?:#|号)?\s*机', value)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _matches_machine_filter(equipment: Equipment | None, machine_filter: str) -> bool:
+    if equipment is None:
+        return False
+    token = str(machine_filter)
+    name = str(equipment.name or '')
+    code = str(equipment.code or '')
+    return (
+        f'{token}号' in name
+        or f'{token}#' in name
+        or name.strip() == token
+        or code.endswith(f'-{token}')
+        or code.endswith(f'#{token}')
+        or code == token
+    )
+
+
+def _machine_stop_status_color(minutes: int) -> str:
+    if minutes >= 60:
+        return 'red'
+    if minutes >= 30:
+        return 'orange'
+    if minutes >= 10:
+        return 'yellow'
+    return 'green'
 
 
 CONSUMABLE_TARGET_GROUPS: tuple[tuple[str, str, str], ...] = (
@@ -438,6 +524,27 @@ def _build_answer_for_intent(
             sources='辅材日报 / daily_consumable_logs',
         )
 
+    if (
+        intent == 'machine_stop'
+        and facts.get('status') == 'connected'
+        and (_int_or_zero(facts.get('stop_count')) > 0 or not citations)
+    ):
+        stop_count = _int_or_zero(facts.get('stop_count'))
+        conclusion = '发现停机记录' if stop_count else '当前未找到匹配停机记录'
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion=conclusion,
+            key_numbers=(
+                f"停机 {stop_count} 条；"
+                f"最长 {_int_or_zero(facts.get('max_downtime_minutes'))} 分钟；"
+                f"重点 {_format_machine_stop_list(facts.get('top_stops') or [])}"
+            ),
+            reason=_format_machine_stop_reason(facts.get('top_stops') or []),
+            action='超过 30 分钟需车间负责人确认恢复时间；超过 60 分钟需升级到总控群。',
+            sources='班次生产数据 / shift_production_data',
+        )
+
     return _format_answer(
         scope_label='全厂',
         status_color=status_color,
@@ -470,6 +577,28 @@ def _format_consumable_over_quota(items: list[dict[str, Any]]) -> str:
             f"({item.get('ratio')}%)"
         )
     return '；'.join(parts)
+
+
+def _format_machine_stop_list(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return '无'
+    parts = []
+    for item in items[:3]:
+        parts.append(
+            f"{item.get('workshop_name')} {item.get('equipment_name')} "
+            f"{_int_or_zero(item.get('downtime_minutes'))} 分钟"
+        )
+    return '；'.join(parts)
+
+
+def _format_machine_stop_reason(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return '当天业务日没有找到匹配停机记录。'
+    first = items[0]
+    return (
+        f"{first.get('workshop_name')} {first.get('equipment_name')} "
+        f"原因：{first.get('downtime_reason') or '未填写原因'}。"
+    )
 
 
 def _format_fact_sources(facts: dict[str, Any], citations: list[dict[str, Any]]) -> str:
