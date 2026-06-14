@@ -334,7 +334,8 @@ function outboxStateLabel(value) {
     retrying: '重试中',
     dry_run: '演练',
     sent: '已发送',
-    failed: '失败'
+    failed: '失败',
+    dead_letter: '死信'
   }
   return labels[value] || value || '未知'
 }
@@ -344,7 +345,8 @@ function externalLogStateLabel(value) {
     dry_run: '演练记录',
     sent: '已发送',
     failed: '失败',
-    retrying: '重试中'
+    retrying: '重试中',
+    dead_letter: '死信'
   }
   return labels[value] || value || '外发记录'
 }

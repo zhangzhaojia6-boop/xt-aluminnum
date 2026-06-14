@@ -47,6 +47,10 @@ class RateLimitOutcome:
     hit_count: int
 
 
+MAX_DISPATCH_ATTEMPTS = 3
+RETRY_DELAY_MINUTES = 5
+
+
 def _clean(value: str | None) -> str:
     return str(value or '').strip()
 
@@ -220,14 +224,16 @@ def dispatch_outbox_message(
     message = db.get(AgentOutboxMessage, int(outbox_message_id))
     if message is None:
         raise AgentCommunicationError('outbox_message_not_found')
+    if message.status == 'dead_letter':
+        return DispatchOutcome(status='dead_letter', detail=message.last_error or 'dead_letter_no_retry', outbox_message_id=message.id)
     channel = db.get(CommunicationChannel, message.channel_id) if message.channel_id else None
     if channel is None or not channel.is_active:
-        _mark_failed(db, message, channel, 'channel_not_available')
-        return DispatchOutcome(status='failed', detail='channel_not_available', outbox_message_id=message.id)
+        return _mark_retry_or_dead_letter(db, message, channel, 'channel_not_available')
 
     if channel.dry_run:
         message.status = 'dry_run'
         message.attempts += 1
+        message.next_retry_at = None
         _write_external_log(
             db,
             message=message,
@@ -246,17 +252,16 @@ def dispatch_outbox_message(
         ok = False
         detail = str(exc) or 'send_failed'
 
-    message.attempts += 1
     if ok:
+        message.attempts += 1
         message.status = 'sent'
         message.sent_at = _utcnow()
-    else:
-        message.status = 'failed'
-        message.last_error = detail
-    _write_external_log(db, message=message, channel=channel, status=message.status, detail=detail)
-    db.commit()
-    db.refresh(message)
-    return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
+        message.next_retry_at = None
+        _write_external_log(db, message=message, channel=channel, status=message.status, detail=detail)
+        db.commit()
+        db.refresh(message)
+        return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
+    return _mark_retry_or_dead_letter(db, message, channel, detail)
 
 
 def run_dry_run_smoke_test(db: Session) -> DryRunSmokeOutcome:
@@ -399,12 +404,24 @@ def _default_sender(channel: CommunicationChannel):
     raise AgentCommunicationError(f'unsupported_channel_type:{channel.channel_type}')
 
 
-def _mark_failed(db: Session, message: AgentOutboxMessage, channel: CommunicationChannel | None, detail: str) -> None:
-    message.status = 'failed'
+def _mark_retry_or_dead_letter(
+    db: Session,
+    message: AgentOutboxMessage,
+    channel: CommunicationChannel | None,
+    detail: str,
+) -> DispatchOutcome:
     message.attempts += 1
     message.last_error = detail
-    _write_external_log(db, message=message, channel=channel, status='failed', detail=detail)
+    if message.attempts >= MAX_DISPATCH_ATTEMPTS:
+        message.status = 'dead_letter'
+        message.next_retry_at = None
+    else:
+        message.status = 'retrying'
+        message.next_retry_at = _utcnow() + timedelta(minutes=RETRY_DELAY_MINUTES)
+    _write_external_log(db, message=message, channel=channel, status=message.status, detail=detail)
     db.commit()
+    db.refresh(message)
+    return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
 
 
 def _write_external_log(

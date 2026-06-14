@@ -145,6 +145,68 @@ def test_dispatch_enabled_dingtalk_group_message_calls_sender_once() -> None:
         db.close()
 
 
+def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -> None:
+    db = _db_session()
+    sender_calls = []
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='factory_dispatch', channel_key='chat-management')
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='【全厂总览】失败重试测试',
+            content='这条消息用于验证失败重试和死信。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def failing_sender(chat_id: str, payload: dict) -> tuple[bool, str]:
+            sender_calls.append((chat_id, payload))
+            return False, 'dingtalk_timeout'
+
+        first = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
+        db.refresh(message)
+        assert first.status == 'retrying'
+        assert message.status == 'retrying'
+        assert message.attempts == 1
+        assert message.last_error == 'dingtalk_timeout'
+        assert message.next_retry_at is not None
+
+        second = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
+        db.refresh(message)
+        assert second.status == 'retrying'
+        assert message.status == 'retrying'
+        assert message.attempts == 2
+        assert message.next_retry_at is not None
+
+        third = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
+        db.refresh(message)
+        assert third.status == 'dead_letter'
+        assert message.status == 'dead_letter'
+        assert message.attempts == 3
+        assert message.next_retry_at is None
+
+        fourth = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
+        db.refresh(message)
+        assert fourth.status == 'dead_letter'
+        assert len(sender_calls) == 3
+
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert [log.status for log in logs] == ['retrying', 'retrying', 'dead_letter']
+    finally:
+        db.close()
+
+
 def test_rate_limit_key_blocks_duplicate_active_window() -> None:
     db = _db_session()
     try:

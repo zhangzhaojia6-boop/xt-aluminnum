@@ -224,6 +224,7 @@ def build_agent_management_overview(db: Session, *, limit: int = 20) -> dict[str
                 'trace_id': item.trace_id,
                 'attempts': item.attempts,
                 'last_error': item.last_error,
+                'next_retry_at': _iso(item.next_retry_at),
                 'sent_at': _iso(item.sent_at),
                 'created_at': _iso(item.created_at),
             }

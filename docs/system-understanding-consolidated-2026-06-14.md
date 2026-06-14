@@ -6025,3 +6025,86 @@ cd frontend && node --test tests/channelManagementPage.test.js tests/agentManage
 | Agent 通讯阶段 | `55%` | `56%` |
 | 真实钉钉阶段 | `25%` | `28%` |
 | 前端治理阶段 | `76%` | `77%` |
+
+## 70. Agent outbox 失败重试与死信规则
+
+### 70.1 本轮新增能力
+
+外部通讯发件箱现在不再把真实发送失败直接记成最终失败，而是按统一规则处理：
+
+| 场景 | 新状态 | 含义 |
+|---|---|---|
+| 第 1 次发送失败 | `retrying` | 等待下次重试 |
+| 第 2 次发送失败 | `retrying` | 仍可继续重试 |
+| 第 3 次发送失败 | `dead_letter` | 进入死信，不再自动或手动重复真实发送 |
+| dry-run 演练 | `dry_run` | 只写日志，不真实外发 |
+| 发送成功 | `sent` | 已真实发送成功 |
+
+小白版理解：这像快递派送。前两次送不到会约下次再送，第三次还送不到就放进异常件柜，不再让系统一直重复骚扰外部群。
+
+### 70.2 数据库和接口链路
+
+本轮新增 `agent_outbox_messages.next_retry_at` 字段，用来记录下一次重试时间。该字段允许为空，不改历史消息原文，也不回填生产数据。
+
+管理端概览接口会返回：
+
+- `status`：当前发件箱状态。
+- `attempts`：已尝试次数。
+- `last_error`：最近一次失败原因。
+- `next_retry_at`：下次重试时间。
+
+前端 `/manage/admin/agents` 已补齐中文状态：
+
+- `retrying` 显示为“重试中”。
+- `dead_letter` 显示为“死信”。
+
+### 70.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+失败原因：发送失败后返回 failed，而不是 retrying。
+
+node --test frontend/tests/agentManagementPage.test.js
+失败原因：AgentManagementPage 缺少 dead_letter 中文显示。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+5 passed
+
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py -q
+14 passed
+
+node --test frontend/tests/agentManagementPage.test.js frontend/tests/channelManagementPage.test.js
+11 passed
+
+python -m compileall backend/app/models/agent_communication.py backend/app/services/agent_communication_service.py backend/app/services/agent_management_overview_service.py backend/app/routers/agent_management.py backend/alembic/versions/0043_agent_outbox_retry_dead_letter.py
+通过
+
+git diff --check
+通过
+```
+
+### 70.4 当前边界
+
+还不能宣称真实钉钉测试完成。
+
+原因：
+
+- 本轮验证的是 outbox 失败状态机，不是真实钉钉测试群发送。
+- 还没有运行生产环境 `alembic upgrade head`。
+- 还没有做云端浏览器点击验证。
+- 还没有验证 DingTalk Stream 或群内 @Agent 问答入口。
+
+### 70.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.53%` | `99.56%` |
+| Agent 通讯阶段 | `56%` | `60%` |
+| 真实钉钉阶段 | `28%` | `31%` |
+| 前端治理阶段 | `77%` | `78%` |

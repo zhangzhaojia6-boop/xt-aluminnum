@@ -64,3 +64,8 @@ test('AgentManagementPage can dispatch outbox messages and inspect external logs
   assert.match(pageSrc, /channel_key_masked/)
   assert.doesNotMatch(pageSrc, /channel_key[^_]/)
 })
+
+test('AgentManagementPage renders dead-letter outbox status in Chinese', () => {
+  assert.match(pageSrc, /dead_letter:\s*'死信'/)
+  assert.match(pageSrc, /retrying:\s*'重试中'/)
+})
