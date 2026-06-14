@@ -74,17 +74,103 @@
         </table>
       </div>
     </section>
+
+    <section class="xt-channels__panel">
+      <header>
+        <div>
+          <h2>最近外发任务</h2>
+          <span>只查看发件箱和返回日志，不在此页触发发送</span>
+        </div>
+        <b>投递状态</b>
+      </header>
+
+      <p v-if="logErrorText" class="xt-channels__inline-state is-error">{{ logErrorText }}</p>
+      <div v-if="loading" class="xt-channels__empty">读取中</div>
+      <div v-else-if="outbox.length === 0" class="xt-channels__empty">暂无记录</div>
+      <div v-else class="xt-channels__table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>消息</th>
+              <th>通道</th>
+              <th>投递状态</th>
+              <th>尝试次数</th>
+              <th>下次重试</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in outbox" :key="item.id">
+              <td>
+                <b>{{ item.title || '未命名消息' }}</b>
+                <small>{{ item.trace_id || '未记录追踪号' }}</small>
+              </td>
+              <td>{{ channelTypeLabel(item.channel_type) }}</td>
+              <td>
+                <span class="xt-channels__tag" :class="{ 'is-warning': ['pending', 'retrying'].includes(item.status), 'is-muted': item.status === 'dry_run' }">
+                  {{ outboxStateLabel(item.status) }}
+                </span>
+              </td>
+              <td>{{ displayNumber(item.attempts) }}</td>
+              <td>{{ formatTime(item.next_retry_at) }}</td>
+              <td>
+                <button type="button" class="xt-channels__button" @click="loadOutboxLogs(item.id)">
+                  {{ selectedOutboxId === item.id && logLoading ? '读取中' : '查看日志' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="selectedOutboxId" class="xt-channels__logs">
+        <header>
+          <h3>外发日志</h3>
+          <span>{{ logEntries.length }} 条</span>
+        </header>
+        <div v-if="logLoading" class="xt-channels__empty">读取中</div>
+        <div v-else-if="logEntries.length === 0" class="xt-channels__empty">暂无记录</div>
+        <div v-else class="xt-channels__table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>结果</th>
+                <th>通道标识</th>
+                <th>返回结果</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in logEntries" :key="item.id">
+                <td>{{ externalLogStateLabel(item.status) }}</td>
+                <td>{{ item.channel_key_masked || '未记录' }}</td>
+                <td>{{ item.detail || item.provider_message_id || '无返回信息' }}</td>
+                <td>{{ formatTime(item.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { fetchCommunicationChannels } from '../../../api/agent-management.js'
+import {
+  fetchAgentOutboxLogs,
+  fetchCommunicationChannels
+} from '../../../api/agent-management.js'
 
 const loading = ref(false)
 const errorText = ref('')
+const logLoading = ref(false)
+const logErrorText = ref('')
+const selectedOutboxId = ref(null)
 const channels = ref([])
+const outbox = ref([])
+const logEntries = ref([])
 const summary = ref({})
 
 const activeTotal = computed(() => channels.value.filter((item) => item.is_active).length)
@@ -133,19 +219,59 @@ function targetLabel(item) {
   return labels[item?.target_type] || '全厂'
 }
 
+function outboxStateLabel(value) {
+  const labels = {
+    pending: '待发送',
+    retrying: '重试中',
+    dry_run: '演练',
+    sent: '已发送',
+    failed: '失败',
+    dead_letter: '死信'
+  }
+  return labels[value] || value || '未知'
+}
+
+function externalLogStateLabel(value) {
+  const labels = {
+    dry_run: '演练记录',
+    sent: '已发送',
+    failed: '失败',
+    success: '成功',
+    skipped: '跳过'
+  }
+  return labels[value] || value || '外发记录'
+}
+
 async function loadChannels() {
   loading.value = true
   errorText.value = ''
   try {
     const data = await fetchCommunicationChannels({ limit: 100 })
     channels.value = data?.channels || []
+    outbox.value = data?.outbox || []
     summary.value = data?.summary || {}
   } catch (error) {
     errorText.value = error?.response?.data?.detail || error?.message || '通道读取失败'
     channels.value = []
+    outbox.value = []
     summary.value = {}
   } finally {
     loading.value = false
+  }
+}
+
+async function loadOutboxLogs(outboxMessageId) {
+  selectedOutboxId.value = outboxMessageId
+  logLoading.value = true
+  logErrorText.value = ''
+  try {
+    const data = await fetchAgentOutboxLogs(outboxMessageId)
+    logEntries.value = data?.items || []
+  } catch (error) {
+    logErrorText.value = error?.response?.data?.detail || error?.message || '外发日志读取失败'
+    logEntries.value = []
+  } finally {
+    logLoading.value = false
   }
 }
 
@@ -229,6 +355,18 @@ onMounted(loadChannels)
   padding: 0 var(--xt-space-4);
 }
 
+.xt-channels__button {
+  min-height: 30px;
+  padding: 0 var(--xt-space-3);
+  border: 1px solid rgba(210, 166, 98, 0.34);
+  border-radius: 7px;
+  background: rgba(210, 166, 98, 0.1);
+  color: rgba(255, 232, 190, 0.95);
+  cursor: pointer;
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+}
+
 .xt-channels__state {
   min-height: 64px;
   display: flex;
@@ -237,6 +375,22 @@ onMounted(loadChannels)
   gap: var(--xt-space-3);
   color: rgba(255, 192, 174, 0.96);
   font-weight: 900;
+}
+
+.xt-channels__inline-state {
+  margin: 0;
+  padding: var(--xt-space-2) var(--xt-space-3);
+  border: 1px solid rgba(166, 124, 72, 0.22);
+  border-radius: 8px;
+  background: rgba(166, 124, 72, 0.08);
+  color: rgba(255, 232, 190, 0.9);
+  font-weight: 900;
+}
+
+.xt-channels__inline-state.is-error {
+  border-color: rgba(208, 76, 61, 0.32);
+  background: rgba(208, 76, 61, 0.1);
+  color: rgba(255, 192, 174, 0.96);
 }
 
 .xt-channels__metrics {
@@ -312,6 +466,20 @@ onMounted(loadChannels)
 
 .xt-channels__table-wrap {
   overflow-x: auto;
+}
+
+.xt-channels__logs {
+  display: grid;
+  gap: var(--xt-space-3);
+  padding-top: var(--xt-space-3);
+  border-top: 1px solid rgba(166, 124, 72, 0.14);
+}
+
+.xt-channels__logs h3 {
+  margin: 0;
+  color: rgba(245, 247, 239, 0.92);
+  font-size: var(--xt-text-base);
+  font-weight: 900;
 }
 
 .xt-channels table {

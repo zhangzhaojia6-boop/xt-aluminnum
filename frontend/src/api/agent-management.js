@@ -9,7 +9,8 @@ export async function fetchCommunicationChannels(params = {}) {
   const overview = await fetchAgentManagementOverview(params)
   return {
     summary: overview?.summary || {},
-    channels: overview?.channels || []
+    channels: overview?.channels || [],
+    outbox: overview?.outbox || []
   }
 }
 
