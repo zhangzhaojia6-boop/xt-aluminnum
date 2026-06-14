@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.system import User
+from app.services import agent_communication_service
 from app.services.rag_service import query_knowledge
 
 
@@ -36,6 +37,7 @@ def handle_agent_command(
     text: str,
     agent_code: str | None,
     trace_id: str | None,
+    queue_outbox: bool = False,
     source_payload: dict[str, Any] | None = None,
     current_user: User | None = None,
 ) -> AgentCommandResult:
@@ -93,6 +95,33 @@ def handle_agent_command(
     db.add(run)
     db.flush()
 
+    outbox_message_id: int | None = None
+    if queue_outbox:
+        channel_key = _clean(group_id)
+        if not channel_key:
+            raise AgentCommandError('group_id_required_for_outbox')
+        try:
+            message = agent_communication_service.queue_bound_message(
+                db,
+                agent_code=clean_agent_code,
+                channel_key=channel_key,
+                channel_type=clean_channel,
+                title=f'【{clean_agent_code}】知识库回复',
+                content=answer,
+                source_summary='agent_command_rag',
+                trace_id=clean_trace_id,
+                payload={
+                    'chat_inbox_id': inbox.id,
+                    'agent_run_id': run.id,
+                    'rag_citation_count': len(citations),
+                },
+            )
+        except agent_communication_service.AgentCommunicationError as exc:
+            raise AgentCommandError(str(exc)) from exc
+        outbox_message_id = message.id
+        run.result_payload = {**result_payload, 'outbox_message_id': outbox_message_id}
+        db.flush()
+
     return AgentCommandResult(
         trace_id=clean_trace_id,
         status_color=status_color,
@@ -100,7 +129,7 @@ def handle_agent_command(
         rag={'answer': rag_payload.get('answer'), 'citations': citations, 'items': rag_payload.get('items') or []},
         chat_inbox_id=inbox.id,
         agent_run_id=run.id,
-        outbox_message_id=None,
+        outbox_message_id=outbox_message_id,
     )
 
 

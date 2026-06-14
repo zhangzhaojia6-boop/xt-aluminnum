@@ -8,9 +8,17 @@ from sqlalchemy.pool import StaticPool
 from app.core.deps import get_current_user, get_db
 from app.database import Base
 from app.main import app
-from app.models.agent_communication import AgentRun, ChatInboxMessage
+from app.models.agent_communication import (
+    AgentChannelBinding,
+    AgentOutboxMessage,
+    AgentProfile,
+    AgentRun,
+    ChatInboxMessage,
+    CommunicationChannel,
+)
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
+from app.services import agent_communication_service
 from app.services.rag_service import create_document_from_bytes
 
 
@@ -19,6 +27,10 @@ AGENT_COMMAND_TABLES = [
     RagDocument.__table__,
     RagChunk.__table__,
     RagQueryLog.__table__,
+    AgentProfile.__table__,
+    CommunicationChannel.__table__,
+    AgentChannelBinding.__table__,
+    AgentOutboxMessage.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
 ]
@@ -124,5 +136,66 @@ def test_agent_command_requires_management_scope() -> None:
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'Agent command access denied'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        create_document_from_bytes(
+            db,
+            filename='停机升级规则.md',
+            content=('停机超过三十分钟需要升级给车间负责人，并进入橙色状态。' * 20).encode('utf-8'),
+            content_type='text/markdown',
+            uploaded_by=None,
+        )
+        agent_communication_service.register_agent(db, code='maintenance_agent', name='修停机 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-maintenance',
+            name='修停机测试群',
+            target_type='workshop',
+            target_key='maintenance',
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='maintenance_agent',
+            channel_key='chat-maintenance',
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-maintenance',
+                'sender_external_id': 'ding-user-002',
+                'text': '停机超过三十分钟怎么办',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-outbox-001',
+                'queue_outbox': True,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['outbox_message_id'] is not None
+
+        message = db.get(AgentOutboxMessage, payload['outbox_message_id'])
+        assert message is not None
+        assert message.status == 'pending'
+        assert message.attempts == 0
+        assert message.trace_id == 'trace-agent-outbox-001'
+        assert message.content == payload['answer']
+        assert message.payload['chat_inbox_id'] == payload['chat_inbox_id']
+        assert message.payload['agent_run_id'] == payload['agent_run_id']
+        assert message.payload['rag_citation_count'] == 1
+
+        run = db.get(AgentRun, payload['agent_run_id'])
+        assert run.result_payload['outbox_message_id'] == payload['outbox_message_id']
     finally:
         _restore_overrides(previous_overrides, db)

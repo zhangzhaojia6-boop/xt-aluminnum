@@ -5489,3 +5489,83 @@ passed
 | RAG 阶段 | `55%` | `65%` |
 | Agent 通讯阶段 | `25%` | `35%` |
 | 系统理解总文档可交接度 | `99.99%` | `99.99%` |
+
+## 64. Agent 命令回复进入 outbox 最小闭环
+
+本轮继续第三阶段到第四阶段之间的安全闸门：让 `/api/v1/agent/command` 在明确要求外发排队时，把回答放进 `agent_outbox_messages`，但仍然不直接发送钉钉。
+
+### 64.1 本轮解决了什么
+
+`/api/v1/agent/command` 新增 `queue_outbox` 入参。
+
+当前行为：
+
+| 条件 | 结果 |
+|---|---|
+| `queue_outbox=false` 或不传 | 只返回回答、写 `chat_inbox` 和 `agent_runs` |
+| `queue_outbox=true` 且 Agent 已绑定通道 | 写入 `agent_outbox_messages`，状态为 `pending` |
+| `queue_outbox=true` 但缺少群 ID 或通道绑定 | 返回错误，不偷偷丢消息 |
+
+小白版理解：现在系统可以把“准备发到群里的回复”先放进发件箱，等待后续调度器或人工确认发送。这比直接发钉钉安全，因为能先看到、能重试、能留痕。
+
+### 64.2 安全边界
+
+本轮没有调用 `dispatch_outbox_message`，所以不会触发真实钉钉发送。
+
+本轮只是复用已有：
+
+```text
+agent_communication_service.queue_bound_message
+```
+
+这意味着真实发送仍然要经过已有 outbox 分发函数、dry-run 判断、发送结果日志和失败处理。
+
+### 64.3 测试证据
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+3 passed
+```
+
+已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_overview_service.py backend/tests/test_agent_management_router.py backend/tests/test_rag_routes.py -q
+18 passed
+```
+
+已执行：
+
+```text
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+passed
+```
+
+已执行：
+
+```text
+git diff --check
+passed
+```
+
+### 64.4 当前边界
+
+还不能宣称真实钉钉已接通。
+
+原因：
+
+- 现在只是进入 outbox。
+- 还没有新增 DingTalk Stream 或机器人回调。
+- 还没有在云端真实群里触发 `dispatch_outbox_message`。
+- 还没有把外发成功或失败结果写入真实生产 `external_message_logs` 做验收。
+
+### 64.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.25%` | `99.32%` |
+| Agent 通讯阶段 | `35%` | `42%` |
+| 真实钉钉阶段 | `10%` | `12%` |
+| 系统理解总文档可交接度 | `99.99%` | `99.99%` |
