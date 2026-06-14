@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -167,6 +169,64 @@ def test_agent_command_detects_business_intent_without_fabricating_numbers() -> 
         assert run.result_payload['intent'] == 'production_today'
         assert run.result_payload['fact_status'] == 'not_connected'
         assert db.query(ChatInboxMessage).one().text == '今日产量'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_uses_live_production_fact_for_today_output(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'packaging_output': 42.5,
+                'finished_inbound_output': 39.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:30',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-005',
+                'text': '今日产量',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-fact-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'production_today'
+        assert payload['status_color'] == 'green'
+        assert '包装产量 42.50 吨' in payload['answer']
+        assert '全厂入库产量 39.25 吨' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['business_date'] == '2026-06-09'
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['daily_output_tons'] == 42.5
+        assert run.result_payload['facts']['finished_inbound_output_tons'] == 39.25
     finally:
         _restore_overrides(previous_overrides, db)
 

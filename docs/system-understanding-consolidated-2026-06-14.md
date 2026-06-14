@@ -6389,3 +6389,78 @@ git diff --check
 | Agent 通讯阶段 | `68%` | `70%` |
 | 真实钉钉阶段 | `36%` | `38%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 75. Agent command 今日产量已接实时聚合事实
+
+### 75.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `production_today` 意图后，已开始复用生产大屏同一条实时聚合链路：
+
+- 业务日来自 `resolve_production_business_date`，仍按生产口径。
+- 事实来源来自 `realtime_service.build_live_aggregation`，不是 Agent 自己重新拼 SQL。
+- 回答中会同时显示“包装产量”和“全厂入库产量”。
+- `facts` 会返回到接口，也会写入 `agent_runs.result_payload`，方便审计。
+
+小白版理解：现在群里问“今日产量”，Agent 不再只说“无新增生产数字”。如果生产大屏聚合能查到事实，它会把同一套数字拿来回答，并写清来源。
+
+### 75.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 包装产量 | 复用生产大屏 `factory_total.daily_output`，同 `packaging_output`，优先取外部 MES 包装数据 |
+| 全厂入库产量 | 复用生产大屏 `factory_total.finished_inbound_output`，保留内勤成品入库对照 |
+| 业务日开始 | 当前实时聚合返回 `07:30` |
+| 数据来源 | `daily_output_source`、`finished_inbound_source` 原样写入 `facts` |
+
+### 75.3 失败兜底
+
+如果实时聚合不可用，Agent 不会报 500，也不会编数字。它会把 `fact_status` 写成 `not_connected`，回答仍然使用“无新增生产数字”的保守口径。
+
+### 75.4 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_live_production_fact_for_today_output -q
+失败原因：agent_command_service 还没有 resolve_production_business_date，说明今日产量意图未接生产事实链路。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_live_production_fact_for_today_output -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+6 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+28 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+```
+
+### 75.5 当前边界
+
+还不能宣称真实钉钉群问答完成。
+
+原因：
+
+- 本轮只接了 `今日产量` 这一类意图。
+- 停机、辅材、质量、异常等意图还没有接各自事实服务。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+- 还没有跑云端浏览器验收。
+
+### 75.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.68%` | `99.71%` |
+| Agent 通讯阶段 | `70%` | `73%` |
+| 真实钉钉阶段 | `38%` | `39%` |
+| 前端治理阶段 | `78%` | `78%` |
