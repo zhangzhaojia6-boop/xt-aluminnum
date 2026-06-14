@@ -60,6 +60,43 @@ function makeFakes({ fdOk = true, qOk = true, rOk = true, liveOk = true } = {}) 
   }
 }
 
+test('load sends each endpoint the date parameter expected by its backend', async () => {
+  const calls = []
+  const t = createAlertsTimeline({
+    fetchFactoryDashboard: async (params) => {
+      calls.push(['factory', params])
+      return {}
+    },
+    fetchQualityIssues: async (params) => {
+      calls.push(['quality', params])
+      return []
+    },
+    fetchReconciliationItems: async (params) => {
+      calls.push(['reconciliation', params])
+      return []
+    },
+    fetchMesFillGaps: async (params) => {
+      calls.push(['mes', params])
+      return { items: [] }
+    },
+    fetchLiveAggregation: async (params) => {
+      calls.push(['live', params])
+      return {}
+    },
+    now: new Date('2026-05-20T08:00:00')
+  })
+
+  await t.load()
+
+  assert.deepEqual(Object.fromEntries(calls), {
+    factory: { target_date: '2026-05-19' },
+    quality: { business_date: '2026-05-19' },
+    reconciliation: { business_date: '2026-05-19', status: 'open' },
+    mes: { business_date: '2026-05-19' },
+    live: { business_date: '2026-05-19' }
+  })
+})
+
 test('load aggregates events from five endpoints, sorted desc', async () => {
   const t = createAlertsTimeline({ ...makeFakes(), now: new Date('2026-05-20T08:00:00') })
   await t.load()

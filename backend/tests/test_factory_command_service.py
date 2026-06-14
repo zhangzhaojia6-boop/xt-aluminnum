@@ -1144,6 +1144,26 @@ def test_workshops_and_machine_lines_group_by_current_scope(monkeypatch):
     assert lines[0]['margin_estimate']['label'] == '毛差估算'
 
 
+def test_machine_lines_group_missing_mes_machine_code_as_unmatched(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(coil_id='MES:1', current_workshop='2050车间', machine_code=None, net_weight=10.0),
+            _coil(coil_id='MES:2', current_workshop='冷轧', machine_code='冷轧:01', net_weight=5.0),
+        ],
+        lines=[SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1)],
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    lines = factory_command_service.list_machine_lines(db)
+
+    unmatched = next(item for item in lines if item['machine_binding_status'] == 'unmatched')
+    assert unmatched['line_code'] == '未匹配机列:冷轧2050'
+    assert unmatched['line_name'] == '未匹配机列'
+    assert unmatched['workshop_name'] == '冷轧2050'
+    assert unmatched['active_coil_count'] == 1
+    assert unmatched['active_tons'] == 10.0
+
+
 def test_machine_line_aliases_normalize_non_slot_machine_names(monkeypatch):
     db = _FakeDB(
         coils=[

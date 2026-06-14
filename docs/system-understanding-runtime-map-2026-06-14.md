@@ -222,7 +222,7 @@ MES 状态：
 
 当前线上验证：
 
-- `admin / zzj200123` 登录成功。
+- `admin` 管理员账号登录成功；文档不保存明文密码。
 - 云端初始化密码登录失败，不再覆盖真实密码。
 
 ## 10. 页面、API、表之间的主链路
@@ -401,3 +401,95 @@ MES 状态：
 2. 用真实角色账号逐页 QA。
 3. 重点核对 MES 主数据如何逐步替代内勤统计岗。
 4. 继续补齐物联网能耗库接入后的能耗链路。
+
+## 13. 追加复核：健康检查、部署和外部访问边界
+
+时间：2026-06-14 13:40
+
+本轮继续按只读方式复核运行链路，重点回答“页面能打开但登录提示连接失败时，应该先查哪里”。
+
+### 13.1 后端健康检查分层
+
+后端在 `backend/app/main.py` 同时提供四个健康入口：
+
+- `/healthz`
+- `/api/v1/healthz`
+- `/readyz`
+- `/api/v1/readyz`
+
+通俗理解：
+
+- `healthz` 只回答“程序还活着吗”，主要检查应用本身。
+- `readyz` 回答“系统能不能进入主业务链路”，会额外检查数据库、上传目录、日报流水线门禁、MES 同步状态和物联网能耗同步状态。
+
+代码证据：
+
+- `backend/app/main.py` 注册顶层和 `/api/v1` 两套健康路由。
+- `backend/app/core/health.py` 的 `build_liveness_payload()` 只返回 `app=ok`。
+- `backend/app/core/health.py` 的 `build_readiness_payload()` 会检查 database、uploads、pipeline、mes_sync、iot_energy_sync。
+
+### 13.2 readyz 不等于所有外部系统都已正式接入
+
+当前代码语义中，外部数据源异常不一定会把整个应用判成不可用：
+
+- MES 未配置、迁移缺失、同步 stale 或同步失败，会反映到 `checks.mes_sync` 和 `details.mes_sync`，但应用仍可能返回 `status=ready`。
+- 物联网能耗未配置会显示 `iot_energy_sync=unconfigured`，这是“尚未接入”的状态，不等于后端程序坏了。
+- 真正阻断 `readyz` 的是数据库、上传目录或自动日报硬门禁失败。
+
+这套设计的好处是：外部系统短暂异常时，管理端和手机填报端不至于整站不可用；坏处是排查时不能只看 HTTP 200，要继续看 `checks` 和 `details`。
+
+### 13.3 前端 API 访问路径
+
+前端统一 API 客户端在 `frontend/src/api/index.js`：
+
+- 默认 `VITE_API_BASE_URL=/api/v1`
+- 生产前端会用同域相对路径请求 `/api/v1/...`
+- 请求超时文案是“请求超时，服务器响应太慢，请稍后重试”
+- 真正没连到后端时，文案是“连接服务器失败，请检查网络、代理或稍后重试”
+
+因此，用户看到“连接服务器失败”时，含义通常是：浏览器请求没有拿到后端响应。它和“账号或密码不正确”不是一类问题。
+
+### 13.4 Nginx 和部署脚本链路
+
+生产 Nginx 配置在 `nginx/nginx.conf`：
+
+- `/api/` 代理到后端 `http://backend:8000/api/`
+- `/healthz` 代理到后端 `/healthz`
+- `/readyz` 代理到后端 `/readyz`
+- `/api/v1/realtime/stream` 单独关闭缓冲，支持实时流
+- 其他页面路径走前端 `index.html`
+
+systemd 部署脚本在 `scripts/deploy_systemd_host.sh`：
+
+- 先备份数据库并校验备份。
+- 执行后端迁移和主数据初始化。
+- 默认不重置管理员密码；只有传入 `ADMIN_LOGIN_PASSWORD` 时才显式重置。
+- 前端构建时默认写入 `VITE_API_BASE_URL=/api/v1`。
+- 重启服务后等待 `/readyz` 返回 HTTP 200 且 `hard_gate_passed=true`。
+
+### 13.5 线上只读探测结果
+
+本轮只读探测结果：
+
+- `https://xtmijd.com/api/v1/healthz`：HTTP 200。
+- `https://xtmijd.com/api/v1/readyz`：HTTP 200，`status=ready`。
+- `https://xtmijd.com/healthz`：HTTP 200。
+- `https://xtmijd.com/readyz`：HTTP 200，`status=ready`。
+- `https://www.xtmijd.com/api/v1/healthz`：连接失败。
+
+结论：
+
+- 当前无 `www` 的正式域名健康检查正常。
+- 带 `www` 的域名不可作为登录入口。
+- 如果用户从 `www.xtmijd.com`、代理环境、旧缓存或错误收藏入口进入，前端可能显示“连接服务器失败”。
+
+### 13.6 本轮验证命令结果
+
+- `python -m pytest -q backend/tests/test_health.py backend/tests/test_nginx_https_config.py`：`17 passed`。
+- `npm test --prefix frontend -- --run frontend/tests/apiErrorMessages.test.js frontend/tests/manageRouteRedirects.test.js`：实际触发当前前端测试集，`666 passed`。
+
+边界说明：
+
+- 本轮没有登录后逐按钮做全站浏览器 QA。
+- 本轮没有修改生产配置、Nginx、DNS 或数据库。
+- 本轮只证明健康检查、Nginx 配置断言、前端错误文案和当前无 `www` 域名可达性，不代表所有外部服务业务动作都完成实测。

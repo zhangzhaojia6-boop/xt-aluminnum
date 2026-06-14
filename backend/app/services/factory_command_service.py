@@ -702,6 +702,11 @@ def _coil_machine_aliases(row: Any) -> list[str]:
     ]
 
 
+def _unmatched_line_code_for_coil(row: Any) -> str:
+    workshop = _canonical_workshop_name(getattr(row, 'current_workshop', None), fallback='') or '未知车间'
+    return f'未匹配机列:{workshop}'
+
+
 def _line_code_for_coil(row: Any, line_aliases: Mapping[str, str]) -> str | None:
     machine_code = str(getattr(row, 'machine_code', None) or '').strip()
     if not machine_code:
@@ -1548,6 +1553,8 @@ def list_machine_lines(
     line_aliases = _line_alias_map(line_rows)
     for coil in coils:
         line_code = _line_code_for_coil(coil, line_aliases)
+        if line_code is None:
+            line_code = _unmatched_line_code_for_coil(coil)
         coil_groups[line_code].append(coil)
 
     all_line_codes = set(line_map) | set(coil_groups)
@@ -1557,10 +1564,11 @@ def list_machine_lines(
         rows = coil_groups.get(line_code, [])
         active_rows = [row for row in rows if _destination(row)['kind'] == 'in_progress']
         finished_rows = [row for row in rows if _destination(row)['kind'] != 'in_progress']
+        is_unmatched = str(line_code).startswith('未匹配机列:')
         items.append(
             {
                 'line_code': line_code,
-                'line_name': getattr(line, 'line_name', None),
+                'line_name': '未匹配机列' if is_unmatched else getattr(line, 'line_name', None),
                 'workshop_name': _canonical_workshop_name_or_none(
                     getattr(line, 'workshop_name', None) or (getattr(rows[0], 'current_workshop', None) if rows else None)
                 ),
@@ -1568,6 +1576,7 @@ def list_machine_lines(
                 'active_tons': round(sum(_weight(row) for row in active_rows), 4),
                 'finished_tons': round(sum(_weight(row) for row in finished_rows), 4),
                 'stalled_count': sum(1 for row in active_rows if _is_stalled(row)),
+                'machine_binding_status': 'unmatched' if is_unmatched else 'bound',
                 'cost_estimate': _estimate(),
                 'margin_estimate': _estimate(label='毛差估算'),
                 'freshness': freshness,

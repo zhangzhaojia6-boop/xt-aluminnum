@@ -3,12 +3,28 @@ from __future__ import annotations
 from datetime import time
 from types import SimpleNamespace
 
+from app.models.mes import MesCoilSnapshot, MesMachineLineSnapshot
 from app.services import ai_briefing_service
 
 
+class _Query:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def all(self):
+        return list(self._rows)
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+
 class _FakeDB:
-    def __init__(self):
+    def __init__(self, rows_by_model=None):
         self.added = []
+        self.rows_by_model = rows_by_model or {}
+
+    def query(self, model):
+        return _Query(self.rows_by_model.get(model, []))
 
     def add(self, value):
         self.added.append(value)
@@ -50,6 +66,60 @@ def test_hourly_inspection_can_hide_normal_items(monkeypatch):
 
     assert event['payload']['normal_items'] == []
     assert event['severity'] == 'info'
+
+
+def test_hourly_inspection_handles_unmatched_mes_machine_codes(monkeypatch):
+    db = _FakeDB(
+        {
+            MesCoilSnapshot: [
+                SimpleNamespace(
+                    coil_id='MES:1',
+                    tracking_card_no='BN-1',
+                    current_workshop='2050车间',
+                    current_process='冷轧',
+                    next_process='退火',
+                    machine_code=None,
+                    net_weight=10.0,
+                    delay_hours=0,
+                    in_stock_date=None,
+                    status_name='生产中',
+                ),
+                SimpleNamespace(
+                    coil_id='MES:2',
+                    tracking_card_no='BN-2',
+                    current_workshop='冷轧',
+                    current_process='冷轧',
+                    next_process='退火',
+                    machine_code='冷轧:01',
+                    net_weight=5.0,
+                    delay_hours=0,
+                    in_stock_date=None,
+                    status_name='生产中',
+                ),
+            ],
+            MesMachineLineSnapshot: [
+                SimpleNamespace(line_code='冷轧:01', line_name='1#轧机', workshop_name='冷轧', slot_no=1),
+            ],
+        }
+    )
+    monkeypatch.setattr(
+        ai_briefing_service.factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {'lag_seconds': 60, 'last_run_status': 'success'},
+    )
+    monkeypatch.setattr(
+        ai_briefing_service.factory_command_service,
+        'build_overview',
+        lambda _db: {'wip_tons': 15.0, 'abnormal_count': 0, 'freshness': {'status': 'fresh'}},
+    )
+    monkeypatch.setattr(ai_briefing_service.ai_rules_service, 'evaluate_rules', lambda _db: [])
+
+    event = ai_briefing_service.generate_briefing(db, briefing_type='hourly_inspection', hide_normal=True)
+
+    line_codes = {item['line_code'] for item in event['payload']['priority_machine_lines']}
+    assert '未匹配机列:冷轧2050' in line_codes
+    assert '冷轧:01' in line_codes
+    assert db.added
 
 
 def test_briefing_generation_uses_owner_and_scope(monkeypatch):

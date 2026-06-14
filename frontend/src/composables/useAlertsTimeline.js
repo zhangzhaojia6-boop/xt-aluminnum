@@ -76,8 +76,8 @@ export function createAlertsTimeline({
       try {
         const [fd, q, r, m, live] = await Promise.allSettled([
           fdImpl({ target_date: date }),
-          qImpl({ target_date: date }),
-          rImpl({ target_date: date, status: 'open' }),
+          qImpl({ business_date: date }),
+          rImpl({ business_date: date, status: 'open' }),
           mImpl({ business_date: date }),
           liveImpl({ business_date: date })
         ])

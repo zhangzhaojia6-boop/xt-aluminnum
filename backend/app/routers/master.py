@@ -99,6 +99,7 @@ def create_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Workshop:
+    _require_admin(current_user)
     data = payload.model_dump()
     data['workshop_type'] = normalize_workshop_type(data.get('workshop_type'))
     item = Workshop(**data)
@@ -126,7 +127,7 @@ def update_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Workshop:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Workshop, workshop_id)
     if not item:
         raise _not_found('车间')
@@ -145,7 +146,7 @@ def delete_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Workshop, workshop_id)
     if not item:
         raise _not_found('车间')
@@ -181,6 +182,7 @@ def create_alias(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterCodeAliasOut:
+    _require_admin(current_user)
     item = master_service.create_alias(db, payload=payload.model_dump(), operator=current_user)
     return MasterCodeAliasOut.model_validate(item)
 
@@ -192,6 +194,7 @@ def update_alias(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MasterCodeAliasOut:
+    _require_admin(current_user)
     try:
         item = master_service.update_alias(
             db,
@@ -210,6 +213,7 @@ def delete_alias(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
+    _require_admin(current_user)
     try:
         master_service.delete_alias(db, alias_id=alias_id, operator=current_user)
     except ValueError as exc:
@@ -333,6 +337,7 @@ def create_team(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Team:
+    _require_admin(current_user)
     if not db.get(Workshop, payload.workshop_id):
         raise HTTPException(status_code=400, detail='关联车间不存在')
     item = Team(**payload.model_dump())
@@ -360,7 +365,7 @@ def update_team(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Team:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Team, team_id)
     if not item:
         raise _not_found('班组')
@@ -380,7 +385,7 @@ def delete_team(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Team, team_id)
     if not item:
         raise _not_found('班组')
@@ -414,6 +419,7 @@ def create_employee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Employee:
+    _require_admin(current_user)
     if not db.get(Workshop, payload.workshop_id):
         raise HTTPException(status_code=400, detail='关联车间不存在')
     if payload.team_id and not db.get(Team, payload.team_id):
@@ -443,7 +449,7 @@ def update_employee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Employee:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Employee, employee_id)
     if not item:
         raise _not_found('员工')
@@ -465,7 +471,7 @@ def delete_employee(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(Employee, employee_id)
     if not item:
         raise _not_found('员工')
@@ -633,6 +639,7 @@ def create_shift_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ShiftConfig:
+    _require_admin(current_user)
     item = ShiftConfig(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -658,7 +665,7 @@ def update_shift_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ShiftConfig:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(ShiftConfig, shift_config_id)
     if not item:
         raise _not_found('班次')
@@ -675,7 +682,7 @@ def delete_shift_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    _ = current_user
+    _require_admin(current_user)
     item = db.get(ShiftConfig, shift_config_id)
     if not item:
         raise _not_found('班次')

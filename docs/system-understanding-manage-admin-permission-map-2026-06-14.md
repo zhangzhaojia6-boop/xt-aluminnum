@@ -2,13 +2,13 @@
 
 日期：2026-06-14
 
-本轮目标是只读理解管理端登录、权限、用户配置、系统设置、别名映射和车间主任边界。没有修改生产数据，没有重置密码，没有调用任何生产写接口。
+本轮目标是理解管理端登录、权限、用户配置、系统设置、别名映射和车间主任边界。线上验证只做只读和登录接口检查；本地代码层面补了主数据写接口的管理员兜底校验。没有修改生产数据，没有重置密码，没有调用任何生产写接口。
 
 ## 1. 一句话结论
 
-管理端管理员账号当前可用，`admin / zzj200123` 在线上登录接口验证成功。前端管理端入口和导航权限分层比较清楚：管理员能看系统配置和账号，车间主任只看本车间看板，主操/电工/内勤主要走手机填报端。
+管理端管理员账号当前可用，`admin` 在线上登录接口验证成功；文档不保存明文密码。前端管理端入口和导航权限分层比较清楚：管理员能看系统配置和账号，车间主任只看本车间看板，主操/电工/内勤主要走手机填报端。
 
-但后端主数据接口存在一个需要后续修复的权限风险：`/api/v1/users/*` 已经强制管理员；而 `/api/v1/master/workshops`、`/api/v1/master/teams`、`/api/v1/master/employees`、`/api/v1/master/shift-configs`、`/api/v1/master/aliases` 的部分写操作在路由层只要求登录，没有逐个调用管理员校验。前端虽然把这些页面藏在管理员入口里，但后端接口最好也补上管理员校验。
+此前发现后端主数据写接口存在一个兜底权限风险：`/api/v1/users/*` 已经强制管理员；而 `/api/v1/master/workshops`、`/api/v1/master/teams`、`/api/v1/master/employees`、`/api/v1/master/shift-configs`、`/api/v1/master/aliases` 的写操作只要求登录。现已通过 TDD 修复：这些新增、编辑、删除接口都会调用管理员校验；读接口保持不变，避免影响页面筛选和查看。
 
 ## 2. 登录链路
 
@@ -29,7 +29,7 @@
 
 线上只读验证：
 
-- `POST https://xtmijd.com/api/v1/auth/login` 使用 `admin / zzj200123` 返回 `200`
+- `POST https://xtmijd.com/api/v1/auth/login` 使用 `admin` 管理员账号返回 `200`；文档不保存明文密码
 - `GET https://xtmijd.com/api/v1/auth/me` 返回管理员身份
 - `GET https://xtmijd.com/login` 返回 `200`
 - `GET https://xtmijd.com/manage/admin/settings` 返回 `200`
@@ -130,17 +130,17 @@
 
 结论：车间主任看板后端有范围校验。
 
-### 5.3 主数据接口风险
+### 5.3 主数据接口权限修复
 
 主数据接口在 `backend/app/routers/master.py`。
 
-已确认风险：
+已修复范围：
 
-- `create_workshop`、`update_workshop`、`delete_workshop` 只依赖 `get_current_user`，没有调用 `_require_admin`
-- `create_team`、`update_team`、`delete_team` 只依赖 `get_current_user`，没有调用 `_require_admin`
-- `create_employee`、`update_employee`、`delete_employee` 只依赖 `get_current_user`，没有调用 `_require_admin`
-- `create_shift_config`、`update_shift_config`、`delete_shift_config` 只依赖 `get_current_user`，没有调用 `_require_admin`
-- `create_alias`、`update_alias`、`delete_alias` 只依赖 `get_current_user`，服务层也没有额外权限判断
+- `create_workshop`、`update_workshop`、`delete_workshop` 已补 `_require_admin`
+- `create_team`、`update_team`、`delete_team` 已补 `_require_admin`
+- `create_employee`、`update_employee`、`delete_employee` 已补 `_require_admin`
+- `create_shift_config`、`update_shift_config`、`delete_shift_config` 已补 `_require_admin`
+- `create_alias`、`update_alias`、`delete_alias` 已补 `_require_admin`
 
 相对安全的主数据接口：
 
@@ -159,14 +159,14 @@
 
 业务影响：
 
-如果某个非管理员账号拿到有效登录令牌，并且直接调用这些主数据写接口，理论上可能改动车间、班组、员工、班次或别名映射。前端页面不会暴露这些入口，但后端不应该只依赖前端隐藏按钮。
+修复前，如果某个非管理员账号拿到有效登录令牌，并且直接调用这些主数据写接口，理论上可能改动车间、班组、员工、班次或别名映射。前端页面不会暴露这些入口，但后端不应该只依赖前端隐藏按钮。
 
-建议后续修复：
+本轮 TDD 验证：
 
-- 给主数据写接口统一补 `_require_admin(current_user)`
-- 保留读接口给管理查看角色或登录用户，避免影响页面筛选
-- 补后端测试：非管理员调用主数据写接口应返回 `403`
-- 先在测试库验证，不直接碰生产数据
+- 先新增 `backend/tests/test_master_write_permissions.py`，让非管理员调用 15 个主数据写接口。
+- 红灯阶段确认旧代码会放行 `POST /api/v1/master/workshops`，测试失败原因正确。
+- 修复后同一测试变绿，15 个写接口均返回 `403`。
+- 读接口没有改动，页面筛选、列表查看逻辑不受影响。
 
 ## 6. 数据表映射
 
@@ -224,9 +224,34 @@
 本地测试：
 
 - `npm test --prefix frontend -- --run frontend/tests/routerGuardRules.test.js frontend/tests/manageNavigationSkeleton.test.js frontend/tests/manageSettingsDrawer.test.js frontend/tests/manageRouteRedirects.test.js`
-- 实际执行结果：当前前端测试集 `665 passed`
+- 实际执行结果：当前前端测试集 `666 passed`
 - `python -m pytest backend/tests/test_auth_routes.py -q`
 - 实际执行结果：`12 passed`
+
+## 10. 追加复核：用户、主数据和设置入口
+
+时间：2026-06-14
+
+本次继续只读理解和本地测试，没有改生产数据，也没有调用生产写接口。
+
+代码复核结论：
+
+- `frontend/src/views/manage/admin/SystemSettingsPage.vue` 是系统设置入口集合，实际跳向主数据、别名映射、PC 工艺映射、规则配置、用户管理、权限治理、QR 打印和 AI 助手。
+- `frontend/src/views/master/UserManagement.vue` 调用 `frontend/src/api/users.js`，后端落到 `/api/v1/users/*`，这些接口已逐个调用 `_require_admin`。
+- `frontend/src/views/master/AliasMapping.vue` 和 `frontend/src/views/master/MesTerminalBinding.vue` 调用 `frontend/src/api/master.js`，后端落到 `/api/v1/master/*`。
+- `mes-terminal-bindings` 和 `equipment` 相关写接口后端已经有 `_require_admin`。
+- `workshops`、`teams`、`employees`、`shift-configs`、`aliases` 的写接口已补管理员兜底校验；前端页面藏在管理员区，后端接口现在也会自己检查“是不是管理员”。
+
+本轮验证命令：
+
+- `python -m pytest -q backend/tests/test_users_routes.py backend/tests/test_master_pagination.py backend/tests/test_workshop_template_admin_routes.py backend/tests/test_rule_configs_router.py`
+- 结果：`16 passed`
+- `npm test --prefix frontend -- --run frontend/tests/routerGuardRules.test.js frontend/tests/manageRouteRedirects.test.js frontend/tests/manageNavigationSkeleton.test.js frontend/tests/manageSettingsDrawer.test.js frontend/tests/userManagementDesign.test.js`
+- 实际结果：该命令触发当前前端测试集，`666 passed`
+
+小白版理解：
+
+前端像“门牌和按钮”，它能告诉普通用户去哪；后端像“真正的门锁”，必须自己判断这个人有没有权限。现在用户管理和主数据写入这两类门锁都已经补成“必须是管理员才放行”。
 
 边界说明：
 
@@ -238,9 +263,8 @@
 
 高优先级：
 
-1. 补主数据写接口后端管理员校验。
-2. 给主数据写接口增加非管理员 `403` 测试。
-3. 把 `www.xtmijd.com` 的访问问题处理掉，或者在用户侧统一只给 `xtmijd.com` 无 `www` 地址。
+1. 把 `www.xtmijd.com` 的访问问题处理掉，或者在用户侧统一只给 `xtmijd.com` 无 `www` 地址。
+2. 保持主数据写接口的非管理员 `403` 测试，后续改权限时必须一起跑。
 
 中优先级：
 
@@ -252,4 +276,3 @@
 
 1. 旧路由兼容入口很多，后续可以按访问日志灰度清理。
 2. 系统配置表 `system_configs` 当前更多用于基础配置，部分配置仍来自环境变量，需要继续梳理。
-

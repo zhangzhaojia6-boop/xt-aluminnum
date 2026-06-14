@@ -136,3 +136,53 @@
 - 给 `owner_daily` 历史增加回归测试：生产内勤、成品库、总电工都能按业务日查到整日记录。
 - 给 `machine_energy_records` 增加“有机台明细时班次总能耗等于明细汇总”的测试。
 - 给 `/mobile/entry-fields` 增加角色字段快照测试，防止以后模板字段被误删或误分配。
+
+## 本轮复核补充（2026-06-14 下午）
+
+这次补充只做代码阅读、线上只读接口烟测和浏览器只读验证，没有提交生产填报数据。
+
+### 权限边界再确认
+
+- 管理员 `admin` 能登录管理端，但在生产环境不是手机填报用户。
+- 管理员访问 `GET /api/v1/mobile/bootstrap` 返回 403，这是正确行为，不是接口坏了。
+- 管理员访问 `GET /api/v1/mobile/report/history` 返回 403，也是正确行为。
+- 管理员访问 `/entry` 前端会被带回 `/manage/admin/settings`，说明前端和后端都在阻止管理员误进手机填报端。
+- 车间主任看板接口 `GET /api/v1/dashboard/workshop-director` 可读，管理员全局查看时 `workshop_id = null`，车间主任实际登录时会被 `assert_manager_dashboard_access()` 限制在自己的车间。
+
+### 线上只读接口证据
+
+线上 `GET /api/v1/users/?limit=500&is_active=true` 只读抽查显示：
+
+- 启用主操 `machine_operator`：47 个。
+- 启用电工 `energy_stat`：16 个。
+- 启用内勤/辅材 `consumable_stat`：16 个。
+- 启用车间主任 `workshop_director`：15 个。
+- 启用移动/专项角色总数：86 个。
+- 有机台绑定的启用账号：101 个。
+
+这里的 `15` 是包含回收、成品库等更宽管理/部门口径，不等于“13 个活跃生产车间”。以后讨论车间数量时必须先说明口径。
+
+### 车间看板前端证据
+
+浏览器只读打开 `/manage/workshop-dashboard` 正常，无控制台红错、无请求失败。页面展示：
+
+- 车间看板。
+- 机列填报明细。
+- 电工填报明细。
+- MES 外部数据、人工填报、算法数据三类来源标识。
+- 缺报导出入口。
+- 更宽口径车间筛选项：铸锭分厂、铸轧二、铸轧三、热轧、三条冷轧、精整、剪切、拉矫、回收、成品库、新厂在线退火、园区在线退火、淬火车间等。
+
+### 保存链路再确认
+
+- `backend/app/services/mobile_report/lifecycle.py::save_or_submit_report()` 是班次填报主保存逻辑。
+- 电工提交 `machine_energy_records` 时，会先把明细汇总到 `mobile_shift_reports.electricity_daily/gas_daily`，再写入 `machine_energy_records`。
+- `backend/app/services/mobile_report/summary.py::create_coil_entry()` 是主操逐卷保存逻辑，写 `work_order_entries`，`entry_type = mobile_coil`。
+- `backend/app/services/mobile_report/summary.py::save_owner_daily_entry()` 是每日一录保存逻辑，写 `work_order_entries`，`entry_type = owner_daily`。
+- `mobile_report_service.py` 本身只是兼容转发文件，真实实现已经拆到 `backend/app/services/mobile_report/` 文件夹。
+
+### 仍需后续处理的风险
+
+- `/entry/history` 当前只明确合并班次记录和主操逐卷记录；每日一录 `owner_daily` 还需要继续补进历史页闭环。
+- 车间看板显示的是 15 个更宽口径选项；如果某些页面只要 13 个活跃生产车间，必须使用独立的活跃生产车间口径，不能直接复用这里的管理筛选。
+- 线上只读烟测证明页面可打开、权限能拦截，但没有替代真实手机端账号的逐角色提交测试。

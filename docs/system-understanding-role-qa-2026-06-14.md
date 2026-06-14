@@ -41,7 +41,7 @@
 
 登录验证：
 
-- `https://xtmijd.com/api/v1/auth/login` 使用 `admin / zzj200123` 返回 200。
+- `https://xtmijd.com/api/v1/auth/login` 使用 `admin` 管理员账号返回 200；文档不保存明文密码。
 - 真实网页登录 `https://xtmijd.com/login` 后进入 `/manage/admin/settings`。
 - 登录过程没有控制台错误，没有失败请求。
 
@@ -211,4 +211,3 @@
 2. 继续做管理端核心页面逐页 QA：实时调度、昨日报表、生产分析、卷级线索、填报明细、能耗、异常、设置。
 3. 做手机端“只读流程 + 测试库提交流程”两套验证，避免误写生产数据。
 4. 把每一轮验证结果继续写入 `docs/system-understanding-*.md` 和长期记忆。
-
