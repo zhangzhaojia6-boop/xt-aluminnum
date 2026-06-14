@@ -6321,3 +6321,71 @@ git diff --check
 | Agent 通讯阶段 | `66%` | `68%` |
 | 真实钉钉阶段 | `35%` | `36%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 74. Agent command 群回复已接入 outbox 去重
+
+### 74.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在 `queue_outbox=true` 时，现在会为群回复生成稳定 `dedupe_key`。同一个通道、同一个群、同一个 Agent、同一个问题，在 30 分钟内重复触发，会复用同一条 outbox，不再重复创建外发任务。
+
+小白版理解：群里有人连续问同一句“停机超过三十分钟怎么办”，系统会记录两次提问和两次回答审计，但不会往发件箱塞两条一样的待发消息。
+
+### 74.2 代码链路
+
+相关入口：
+
+- `agent.py -> POST /api/v1/agent/command`
+- `agent_command_service.handle_agent_command`
+- `agent_communication_service.queue_bound_message`
+
+关键边界：
+
+- 每次外部命令仍写 `chat_inbox`。
+- 每次 Agent 回答仍写 `agent_runs`。
+- 只有 outbox 外发任务会按 `dedupe_key` 复用。
+- 真实外发仍然只发生在后续执行 `dispatch_outbox_message` 时。
+
+### 74.3 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+失败原因：第二次同问题创建了新的 outbox_message_id。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+4 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 74.4 当前边界
+
+还不能宣称真实钉钉群问答完成。
+
+原因：
+
+- 本轮验证的是本地测试库里的 agent command 和 outbox 去重。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+- 还没有跑云端浏览器验收。
+
+### 74.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.65%` | `99.68%` |
+| Agent 通讯阶段 | `68%` | `70%` |
+| 真实钉钉阶段 | `36%` | `38%` |
+| 前端治理阶段 | `78%` | `78%` |

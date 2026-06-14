@@ -199,3 +199,73 @@ def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
         assert run.result_payload['outbox_message_id'] == payload['outbox_message_id']
     finally:
         _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_reuses_group_reply_outbox_for_same_question() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        create_document_from_bytes(
+            db,
+            filename='停机升级规则.md',
+            content=('停机超过三十分钟需要升级给车间负责人，并进入橙色状态。' * 20).encode('utf-8'),
+            content_type='text/markdown',
+            uploaded_by=None,
+        )
+        agent_communication_service.register_agent(db, code='maintenance_agent', name='修停机 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-maintenance',
+            name='修停机测试群',
+            target_type='workshop',
+            target_key='maintenance',
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='maintenance_agent',
+            channel_key='chat-maintenance',
+        )
+
+        client = TestClient(app)
+        first = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-maintenance',
+                'sender_external_id': 'ding-user-002',
+                'text': '停机超过三十分钟怎么办',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-outbox-101',
+                'queue_outbox': True,
+            },
+        )
+        second = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-maintenance',
+                'sender_external_id': 'ding-user-003',
+                'text': '停机超过三十分钟怎么办',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-outbox-102',
+                'queue_outbox': True,
+            },
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        first_payload = first.json()
+        second_payload = second.json()
+        assert second_payload['outbox_message_id'] == first_payload['outbox_message_id']
+        assert db.query(AgentOutboxMessage).count() == 1
+
+        message = db.get(AgentOutboxMessage, first_payload['outbox_message_id'])
+        assert message is not None
+        assert message.dedupe_key == 'agent_command:dingtalk_group:chat-maintenance:maintenance_agent:8d8bd2d8b199e09b'
+        assert message.dedupe_expires_at is not None
+        assert db.query(ChatInboxMessage).count() == 2
+        assert db.query(AgentRun).count() == 2
+    finally:
+        _restore_overrides(previous_overrides, db)

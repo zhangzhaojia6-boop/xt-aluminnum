@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 from typing import Any
 from uuid import uuid4
 
@@ -115,6 +116,12 @@ def handle_agent_command(
                     'agent_run_id': run.id,
                     'rag_citation_count': len(citations),
                 },
+                dedupe_key=_build_command_dedupe_key(
+                    channel=clean_channel,
+                    group_id=channel_key,
+                    agent_code=clean_agent_code,
+                    text=clean_text,
+                ),
             )
         except agent_communication_service.AgentCommunicationError as exc:
             raise AgentCommandError(str(exc)) from exc
@@ -155,6 +162,23 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
         source_ref = item.get('source_ref') or f"chunk-{item.get('chunk_index', '-')}"
         parts.append(f'{filename} / {source_ref}')
     return '；'.join(parts)
+
+
+def _build_command_dedupe_key(*, channel: str, group_id: str, agent_code: str, text: str) -> str:
+    text_digest = hashlib.sha256(_clean(text).encode('utf-8')).hexdigest()[:16]
+    return ':'.join(
+        [
+            'agent_command',
+            _key_component(channel),
+            _key_component(group_id),
+            _key_component(agent_code),
+            text_digest,
+        ]
+    )
+
+
+def _key_component(value: str | None) -> str:
+    return _clean(value).replace('\n', ' ').replace('\r', ' ') or 'unknown'
 
 
 def _format_answer(
