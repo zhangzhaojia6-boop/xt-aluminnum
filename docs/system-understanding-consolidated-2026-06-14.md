@@ -6756,3 +6756,85 @@ git diff --check
 | Agent 通讯阶段 | `82%` | `85%` |
 | 真实钉钉阶段 | `42%` | `43%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 80. Agent command 能耗成本已接管理端能耗汇总事实
+
+### 80.1 本轮新增能力
+
+`POST /api/v1/agent/command` 识别到 `energy_cost` 意图后，已开始复用管理端能耗页同一套汇总入口：
+
+- 读取 `energy_service.summarize_energy_for_date`。
+- 支持“今日能耗成本怎么样”“电耗/吨耗/电气/成本”等问题。
+- 返回电量、气量、水量、产量分母、吨耗、主来源和分母来源。
+- 成本单价未配置时明确显示“成本金额暂无”，不按猜测估价。
+
+小白版理解：现在问“今日能耗成本怎么样”，Agent 不再胡乱从知识库里找一句话，而是去读管理端能耗汇总。它能说今天电用了多少、气用了多少、按哪个产量分母算吨耗；如果没有电价/气价配置，它会直接说成本金额暂无，不编钱数。
+
+### 80.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 数据来源 | `energy_service.summarize_energy_for_date` |
+| 电量 | `electricity_value`，展示为“度” |
+| 气量 | `gas_value`，展示为“立方” |
+| 水量 | `water_value`，当前进入 facts，回答先不展开 |
+| 总能耗 | `total_energy` |
+| 吨耗分母 | `total_output_weight`，来源看 `output_basis` |
+| 吨耗 | `energy_per_ton` |
+| 主来源 | `primary_source`，例如 `mobile_shift_report` |
+| 成本金额 | 当前 `cost_status=unconfigured`，不自动估算 |
+
+### 80.3 当前来源解释
+
+能耗汇总仍沿用管理端能耗页口径：
+
+- `mobile_shift_report`：电工班次填报和机台能耗明细。
+- `owner_only`：内勤每日一录。
+- `energy_import/system`：旧能耗导入。
+- `mes_packaging_output`：MES 包装产量分母。
+- `factory_final_packaging_inbound`：全厂入库产量分母。
+
+### 80.4 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_energy_summary_fact_for_energy_cost -q
+失败原因：接口仍把“今日能耗成本怎么样”识别为 general_knowledge，没有读取能耗汇总。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_uses_energy_summary_fact_for_energy_cost -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+11 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_active_reporting_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+33 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/routers/agent.py
+通过
+```
+
+### 80.5 当前边界
+
+还不能宣称能耗成本 Agent 全部完成。
+
+原因：
+
+- 本轮只接能耗汇总事实，没有接电价、气价、水价、分时电价和成本核算配置。
+- 没有接入独立物联网能耗库的真实生产数据。
+- 还没有接 DingTalk Stream 或机器人入口。
+- 还没有在真实钉钉测试群里 @Agent 验证。
+
+### 80.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.83%` | `99.86%` |
+| Agent 通讯阶段 | `85%` | `88%` |
+| 真实钉钉阶段 | `43%` | `44%` |
+| 前端治理阶段 | `78%` | `78%` |

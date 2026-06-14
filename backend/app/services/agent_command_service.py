@@ -21,6 +21,7 @@ from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import agent_communication_service
+from app.services import energy_service
 from app.services import realtime_service
 from app.services.rag_service import query_knowledge
 
@@ -176,6 +177,7 @@ def _detect_intent(text: str) -> str:
     checks = (
         ('quality_anomaly', ('质量', '缺陷', '门禁')),
         ('machine_stop', ('停机', '为什么停', '维修', '换辊')),
+        ('energy_cost', ('能耗', '电耗', '吨耗', '电气', '成本')),
         ('consumable_usage', ('辅材', '耗材', '超耗', '消耗')),
         ('production_today', ('今日产量', '今天产量', '日产量', '产量')),
         ('anomaly_summary', ('异常', '哪个车间')),
@@ -189,12 +191,14 @@ def _detect_intent(text: str) -> str:
 def _load_business_facts(db: Session, *, intent: str, text: str, current_user: User | None) -> dict[str, Any]:
     if (
         intent
-        not in {'production_today', 'anomaly_summary', 'consumable_usage', 'machine_stop', 'quality_anomaly'}
+        not in {'production_today', 'anomaly_summary', 'consumable_usage', 'machine_stop', 'quality_anomaly', 'energy_cost'}
         or current_user is None
     ):
         return {'status': 'not_connected'}
 
     business_date = resolve_production_business_date()
+    if intent == 'energy_cost':
+        return _extract_energy_cost_facts(db, business_date=business_date)
     if intent == 'consumable_usage':
         return _extract_consumable_facts(db, business_date=business_date)
     if intent == 'machine_stop':
@@ -226,6 +230,40 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
         'finished_inbound_source': factory_total.get('finished_inbound_source') or 'unknown',
         'mes_sync_status': (payload.get('mes_sync_status') or {}).get('status'),
         'data_source': payload.get('data_source') or 'unknown',
+    }
+
+
+def _extract_energy_cost_facts(db: Session, *, business_date) -> dict[str, Any]:
+    try:
+        summary = energy_service.summarize_energy_for_date(db, business_date=business_date)
+    except SQLAlchemyError:
+        return {
+            'status': 'not_connected',
+            'reason': 'energy_summary_unavailable',
+            'business_date': business_date.isoformat(),
+        }
+
+    total_energy = _number_or_zero(summary.get('total_energy'))
+    energy_per_ton = _optional_number(summary.get('energy_per_ton'))
+    return {
+        'status': 'connected',
+        'status_color': 'green' if total_energy > 0 else 'yellow',
+        'business_date': business_date.isoformat(),
+        'business_day_start': '07:30',
+        'electricity_kwh': _number_or_zero(summary.get('electricity_value')),
+        'gas_m3': _number_or_zero(summary.get('gas_value')),
+        'water_ton': _number_or_zero(summary.get('water_value')),
+        'total_energy': total_energy,
+        'output_weight_tons': _number_or_zero(summary.get('total_output_weight')),
+        'output_basis': summary.get('output_basis') or 'unknown',
+        'energy_per_ton': round(energy_per_ton, 2) if energy_per_ton is not None else None,
+        'primary_source': summary.get('primary_source') or 'none',
+        'mobile_row_count': _int_or_zero((summary.get('mobile_totals') or {}).get('row_count')),
+        'owner_row_count': _int_or_zero((summary.get('owner_totals') or {}).get('row_count')),
+        'system_row_count': _int_or_zero((summary.get('system_totals') or {}).get('row_count')),
+        'cost_status': 'unconfigured',
+        'cost_value': None,
+        'data_source': 'energy_service.summarize_energy_for_date',
     }
 
 
@@ -585,6 +623,26 @@ def _build_answer_for_intent(
             sources='辅材日报 / daily_consumable_logs',
         )
 
+    if intent == 'energy_cost' and facts.get('status') == 'connected':
+        return _format_answer(
+            scope_label='全厂',
+            status_color=status_color,
+            conclusion='已读取今日能耗汇总' if _number_or_zero(facts.get('total_energy')) > 0 else '当前未收到有效能耗汇总',
+            key_numbers=(
+                f"电量 {_format_tons(facts.get('electricity_kwh'))} 度；"
+                f"气量 {_format_tons(facts.get('gas_m3'))} 立方；"
+                f"产量分母 {_format_tons(facts.get('output_weight_tons'))} 吨；"
+                f"吨耗 {_format_energy_per_ton(facts.get('energy_per_ton'))}；"
+                f"成本金额{_format_cost_value(facts)}"
+            ),
+            reason=(
+                '能耗复用管理端能耗汇总口径，优先采用电工班次填报和机台明细，'
+                '再保留内勤每日一录、旧导入和物联网影子来源。'
+            ),
+            action='先核对能耗页来源标签；成本单价未配置前，只看电量、气量和吨耗，不自动估算金额。',
+            sources=_format_energy_sources(facts),
+        )
+
     if (
         intent == 'machine_stop'
         and facts.get('status') == 'connected'
@@ -678,6 +736,42 @@ def _format_machine_stop_reason(items: list[dict[str, Any]]) -> str:
     return (
         f"{first.get('workshop_name')} {first.get('equipment_name')} "
         f"原因：{first.get('downtime_reason') or '未填写原因'}。"
+    )
+
+
+def _format_energy_per_ton(value: Any) -> str:
+    number = _optional_number(value)
+    if number is None:
+        return '暂无'
+    return f'{number:.2f}'
+
+
+def _format_cost_value(facts: dict[str, Any]) -> str:
+    cost_value = _optional_number(facts.get('cost_value'))
+    if cost_value is None:
+        return '暂无'
+    return f'{cost_value:.2f} 元'
+
+
+def _format_energy_sources(facts: dict[str, Any]) -> str:
+    source_labels = {
+        'mobile_shift_report': '电工填报和机台明细',
+        'owner_only': '内勤每日一录',
+        'system': '旧能耗导入',
+        'energy_import': '旧能耗导入',
+        'none': '无主来源',
+    }
+    basis_labels = {
+        'mes_packaging_output': 'MES包装产量分母',
+        'factory_final_packaging_inbound': '全厂入库产量分母',
+        'energy_rows': '能耗行产量分母',
+        'unknown': '未知产量分母',
+    }
+    primary_source = str(facts.get('primary_source') or 'none')
+    output_basis = str(facts.get('output_basis') or 'unknown')
+    return (
+        f"能耗汇总 / {source_labels.get(primary_source, primary_source)}；"
+        f"吨耗分母 / {basis_labels.get(output_basis, output_basis)}"
     )
 
 

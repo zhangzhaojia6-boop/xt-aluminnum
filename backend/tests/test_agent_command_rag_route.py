@@ -537,6 +537,66 @@ def test_agent_command_uses_quality_gate_and_issue_facts(monkeypatch) -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_uses_energy_summary_fact_for_energy_cost(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_energy_summary(*_args, **_kwargs):
+        return {
+            'electricity_value': 131500.0,
+            'gas_value': 53433.0,
+            'water_value': 0.0,
+            'total_energy': 184933.0,
+            'total_output_weight': 343.481,
+            'output_basis': 'mes_packaging_output',
+            'energy_per_ton': 538.4,
+            'primary_source': 'mobile_shift_report',
+            'mobile_totals': {'row_count': 3, 'total_energy': 184933.0},
+            'owner_totals': {'row_count': 1, 'total_energy': 180000.0},
+            'system_totals': {'row_count': 0, 'total_energy': 0.0},
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.energy_service.summarize_energy_for_date',
+        fake_energy_summary,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-energy',
+                'sender_external_id': 'ding-user-010',
+                'text': '今日能耗成本怎么样',
+                'agent_code': 'energy_cost_agent',
+                'trace_id': 'trace-agent-energy-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'energy_cost'
+        assert payload['status_color'] == 'green'
+        assert '电量 131500.00 度' in payload['answer']
+        assert '气量 53433.00 立方' in payload['answer']
+        assert '吨耗 538.40' in payload['answer']
+        assert '成本金额暂无' in payload['answer']
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['primary_source'] == 'mobile_shift_report'
+        assert payload['facts']['output_basis'] == 'mes_packaging_output'
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['fact_status'] == 'connected'
+        assert run.result_payload['facts']['energy_per_ton'] == 538.4
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
     db, previous_overrides = _install_overrides()
 
