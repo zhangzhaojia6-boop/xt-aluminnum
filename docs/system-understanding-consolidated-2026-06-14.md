@@ -11361,3 +11361,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999993%` | `99.9999994%` |
 | RAG 附件和知识库阶段 | `94.4%` | `94.6%` |
 | 外部通讯权限安全 | `87.1%` | `87.6%` |
+
+## 148. RAG 文档上传已补资料车间元信息权限拦截
+
+### 148.1 本轮新增能力
+
+`POST /api/v1/rag/documents/upload` 现在会校验上传表单里的 `workshop` 元信息是否在当前用户可看的车间范围内。
+
+小白版理解：上一轮已经防住“查询时手填别的车间”。这一轮补上“上传时把资料标成别的车间”。比如冷轧主任上传一份资料，却把资料来源标成热轧，以前系统会接受，后续 Agent 可能把这份资料当作热轧资料引用。现在这种请求会直接 403，不会生成 RAG 文档和切片。
+
+### 148.2 当前行为
+
+- 未填写 `workshop` 时保持旧行为，兼容全厂资料和历史上传。
+- 管理员或全厂范围用户仍可上传跨车间资料。
+- 单车间用户填写 `workshop` 时，只允许自己的车间名、编码或 ID。
+- 拦截发生在读取文件和切片前，避免越权请求继续消耗解析资源。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 148.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_metadata_workshop_outside_user_scope -q
+失败原因：冷轧主任上传资料并标记 workshop=热轧 时，接口返回 200。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_metadata_workshop_outside_user_scope -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_master_write_permissions.py -q
+38 passed
+
+python -m compileall backend/app/routers/rag.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 148.4 尚未覆盖
+
+- 本轮没有做真实浏览器上传验证。
+- 本轮没有做真实钉钉群验证。
+- RAG 文档列表和详情是否要按车间范围过滤，后续建议单独做一轮 TDD，避免单车间用户看到其他车间资料清单。
+
+### 148.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999994%` | `99.9999995%` |
+| RAG 附件和知识库阶段 | `94.6%` | `94.9%` |
+| 外部通讯权限安全 | `87.6%` | `87.9%` |

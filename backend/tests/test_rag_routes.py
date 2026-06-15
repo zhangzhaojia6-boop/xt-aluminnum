@@ -231,6 +231,44 @@ def test_rag_query_rejects_requested_workshop_outside_user_scope() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_rejects_metadata_workshop_outside_user_scope() -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+
+    try:
+        db.add_all([
+            Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        ])
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            data={
+                'source_name': '热轧点检SOP',
+                'workshop': '热轧',
+                'permission_scope': 'manage',
+            },
+            files={
+                'file': (
+                    'hot-check.md',
+                    BytesIO(('热轧 点检标准 每班确认油温和辊缝。' * 60).encode('utf-8')),
+                    'text/markdown',
+                )
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'RAG workshop scope denied'
+        assert db.query(RagDocument).count() == 0
+        assert db.query(RagChunk).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_malformed_json_file() -> None:
     db, previous_overrides = _install_overrides()
 

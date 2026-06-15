@@ -56,6 +56,7 @@ async def upload_rag_document(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_rag_access(current_user)
+    _ensure_rag_requested_workshop_access(current_user, db, workshop)
     content = await file.read()
     try:
         document = create_document_from_bytes(
