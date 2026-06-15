@@ -137,6 +137,35 @@ def test_send_group_message_calls_dingtalk_chat_send(monkeypatch) -> None:
     assert calls[1][2] == {'chatid': 'chat-1', 'msg': message}
 
 
+def test_send_group_message_preserves_dingtalk_failure_payload(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+
+    def fake_request_json(*, method, url, payload=None):
+        if 'gettoken' in url:
+            return {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200}
+        return {
+            'errcode': 310000,
+            'errmsg': 'invalid robot code',
+            'request_id': 'req-failed-001',
+        }
+
+    monkeypatch.setattr(service, '_request_json', fake_request_json)
+    message = build_approval_notice(12, '李四', '通过')
+
+    ok, detail = service.send_group_message('chat-1', message)
+
+    assert ok is False
+    assert detail == {
+        'detail': 'invalid robot code',
+        'provider_message_id': None,
+        'response_payload': {
+            'errcode': 310000,
+            'errmsg': 'invalid robot code',
+            'request_id': 'req-failed-001',
+        },
+    }
+
+
 def test_dingtalk_message_templates() -> None:
     fill = build_fill_reminder('张三', '白班', '12:00')
     anomaly = build_anomaly_alert('冷轧', '成材率', 92.5, 95)

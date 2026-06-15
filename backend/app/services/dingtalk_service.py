@@ -571,6 +571,7 @@ class DingTalkService:
         if not self.enabled:
             return False, 'dingtalk_not_configured'
 
+        response = None
         try:
             access_token = self.fetch_access_token()
             self._throttle_message_send()
@@ -587,6 +588,12 @@ class DingTalkService:
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning('DingTalk group message failed: %s', exc)
+            if isinstance(response, dict):
+                return False, {
+                    'detail': str(exc) or 'dingtalk_send_failed',
+                    'provider_message_id': self._extract_provider_message_id(response),
+                    'response_payload': response,
+                }
             return False, str(exc) or 'dingtalk_send_failed'
 
     @staticmethod

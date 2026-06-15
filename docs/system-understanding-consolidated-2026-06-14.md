@@ -12276,3 +12276,56 @@ python -m compileall backend/app/routers/dingtalk.py
 | 外部通讯权限安全 | `92.2%` | `92.5%` |
 | 钉钉入站安全边界 | `88.0%` | `89.0%` |
 | 钉钉入站到回群链路 | `69.0%` | `69.1%` |
+
+## 164. 钉钉群消息失败也会保留原始返回体
+
+### 164.1 本轮修复点
+
+`DingTalkService.send_group_message()` 现在在钉钉接口返回业务失败码时，会返回结构化失败结果，包含 `detail`、`provider_message_id` 和 `response_payload`。
+
+小白版理解：真实联调时，钉钉可能返回“机器人码无效”“群不存在”“权限不足”等失败。以前系统只保留一句错误文字，排查时不知道钉钉原始返回了什么。现在失败也会把钉钉返回体交给 outbox，后续能写入 `external_message_logs.response_payload`，方便定位真实原因。
+
+### 164.2 当前行为
+
+- 成功发送仍返回 `detail=dingtalk_sent`、`provider_message_id` 和完整 `response_payload`。
+- 钉钉接口返回 `errcode != 0` 时，返回 `ok=false` 和结构化失败体。
+- 如果是取 token、网络异常等还没拿到钉钉返回体的错误，仍返回原有错误文字。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 164.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_group_message_preserves_dingtalk_failure_payload -q
+失败原因：失败时 detail 只是字符串 invalid robot code，没有 response_payload。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_group_message_preserves_dingtalk_failure_payload backend/tests/test_dingtalk_service.py::test_send_group_message_calls_dingtalk_chat_send -q
+2 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py -q
+11 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/dingtalk_service.py
+通过
+```
+
+### 164.4 尚未覆盖
+
+- 本轮没有真实钉钉失败回调或真实群发送验证。
+- 本轮只保证服务层能把钉钉失败返回体交给 outbox 日志链路。
+
+### 164.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 真实钉钉可排障性 | `70.0%` | `72.0%` |
+| 外部通讯权限安全 | `92.5%` | `92.6%` |
+| 主动外发闭环 | `72.8%` | `73.1%` |
