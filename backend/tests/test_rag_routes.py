@@ -94,6 +94,54 @@ def test_rag_upload_accepts_gbk_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_persists_source_metadata_and_query_citations() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            data={
+                'source_name': '冷轧1650工艺SOP',
+                'version': '2026-06-A',
+                'workshop': '冷轧1650',
+                'owner': '工艺部',
+                'effective_date': '2026-06-15',
+                'permission_scope': 'manage',
+            },
+            files={
+                'file': (
+                    'cold-roll-sop.md',
+                    BytesIO(('冷轧1650 工艺规则：道次信息必须随卷记录。' * 60).encode('utf-8')),
+                    'text/markdown',
+                )
+            },
+        )
+        assert response.status_code == 200
+        uploaded = response.json()
+        assert uploaded['source_name'] == '冷轧1650工艺SOP'
+        assert uploaded['metadata_payload'] == {
+            'version': '2026-06-A',
+            'workshop': '冷轧1650',
+            'owner': '工艺部',
+            'effective_date': '2026-06-15',
+        }
+        assert uploaded['scope_payload'] == {'permission_scope': 'manage'}
+
+        detail_response = client.get(f"/api/v1/rag/documents/{uploaded['id']}")
+        assert detail_response.status_code == 200
+        assert detail_response.json()['document']['source_name'] == '冷轧1650工艺SOP'
+
+        query_response = client.post('/api/v1/rag/query', json={'query': '道次信息 随卷记录', 'limit': 3})
+        assert query_response.status_code == 200
+        citation = query_response.json()['citations'][0]
+        assert citation['source_name'] == '冷轧1650工艺SOP'
+        assert citation['metadata']['version'] == '2026-06-A'
+        assert citation['metadata']['workshop'] == '冷轧1650'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_malformed_json_file() -> None:
     db, previous_overrides = _install_overrides()
 

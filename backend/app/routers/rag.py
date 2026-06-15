@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,12 @@ def _ensure_rag_access(user: User) -> None:
 @router.post('/documents/upload')
 async def upload_rag_document(
     file: UploadFile = File(...),
+    source_name: str | None = Form(default=None),
+    version: str | None = Form(default=None),
+    workshop: str | None = Form(default=None),
+    owner: str | None = Form(default=None),
+    effective_date: str | None = Form(default=None),
+    permission_scope: str | None = Form(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
@@ -49,6 +55,14 @@ async def upload_rag_document(
             content=content,
             content_type=file.content_type,
             uploaded_by=current_user,
+            source_name=source_name,
+            metadata={
+                'version': version,
+                'workshop': workshop,
+                'owner': owner,
+                'effective_date': effective_date,
+            },
+            scope={'permission_scope': permission_scope},
         )
         db.commit()
     except RagValidationError as exc:

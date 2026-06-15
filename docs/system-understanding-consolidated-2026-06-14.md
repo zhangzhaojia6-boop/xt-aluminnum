@@ -10836,3 +10836,56 @@ cd frontend && npm run build
 | 原始大目标 | `99.999993%` | `99.999994%` |
 | 输出skill 对齐阶段 | `96.0%` | `96.3%` |
 | 前后端映射阶段 | `91.7%` | `91.9%` |
+
+## 139. RAG 知识库上传已补资料来源元信息链路
+
+### 139.1 本轮新增能力
+
+`/api/v1/rag/documents/upload` 现在支持随文件一起提交资料来源信息：
+
+- `source_name`：资料来源名称。
+- `version`：资料版本。
+- `workshop`：所属车间。
+- `owner`：负责人或归口部门。
+- `effective_date`：适用日期。
+- `permission_scope`：权限范围。
+
+小白版理解：以前上传知识库资料后，系统主要只知道“文件名”。现在可以同时记住“这份资料是谁的、哪个车间用、哪个版本、什么时候适用”，后续 AI 引用资料时就不容易只给一个冷冰冰的文件名。
+
+### 139.2 当前行为
+
+- 上传接口会把公开来源信息保存到 `rag_documents.source_name`、`metadata_payload`、`scope_payload`。
+- 文档列表和详情会返回这些公开来源信息。
+- 知识库检索 `/api/v1/rag/query` 的 `citations` 会带出 `source_name` 和公开 `metadata`。
+- 内部解析标记 `parser` 仍可保留在库内，但不会作为前端展示元信息返回。
+- 本轮只补后端链路和测试，没有改生产数据。
+
+### 139.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_persists_source_metadata_and_query_citations -q
+失败原因：上传接口没有保存 source_name，仍返回文件名 cold-roll-sop.md。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_persists_source_metadata_and_query_citations -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+12 passed
+
+python -m compileall backend/app/services/rag_service.py backend/app/routers/rag.py
+通过
+```
+
+### 139.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999994%` | `99.999995%` |
+| 输出skill 对齐阶段 | `96.3%` | `96.5%` |
+| 前后端映射阶段 | `91.9%` | `92.0%` |

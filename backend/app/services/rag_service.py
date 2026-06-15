@@ -51,21 +51,27 @@ def create_document_from_bytes(
     content: bytes,
     content_type: str | None,
     uploaded_by: User | None,
+    source_name: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    scope: dict[str, Any] | None = None,
 ) -> RagDocument:
     clean_name = _clean_filename(filename)
+    clean_source_name = _clean_source_name(source_name, fallback=clean_name)
+    public_metadata = _clean_payload(metadata)
     decoded = validate_and_decode_upload(clean_name, content)
     chunks = split_text(decoded.text)
 
     document = RagDocument(
         filename=clean_name,
-        source_name=clean_name,
+        source_name=clean_source_name,
         content_type=content_type,
         encoding=decoded.encoding,
         status='active',
         file_size=len(content),
         chunk_count=len(chunks),
         uploaded_by_id=getattr(uploaded_by, 'id', None),
-        metadata_payload={'parser': 'plain_text_fallback'},
+        scope_payload=_clean_payload(scope),
+        metadata_payload={'parser': 'plain_text_fallback', **public_metadata},
     )
     db.add(document)
     db.flush()
@@ -79,7 +85,7 @@ def create_document_from_bytes(
                 char_start=item['char_start'],
                 char_end=item['char_end'],
                 source_ref=f'{clean_name}#chunk-{index + 1}',
-                metadata_payload={'filename': clean_name},
+                metadata_payload={'filename': clean_name, 'source_name': clean_source_name},
             )
         )
     db.flush()
@@ -149,8 +155,10 @@ def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = 
             {
                 'document_id': item['document_id'],
                 'filename': item['filename'],
+                'source_name': item['source_name'],
                 'chunk_index': item['chunk_index'],
                 'source_ref': item['source_ref'],
+                'metadata': item['metadata'],
             }
             for item in items
         ]
@@ -212,6 +220,8 @@ def serialize_document(document: RagDocument) -> dict[str, Any]:
         'file_size': document.file_size,
         'chunk_count': document.chunk_count,
         'uploaded_by_id': document.uploaded_by_id,
+        'scope_payload': document.scope_payload or {},
+        'metadata_payload': _public_metadata(document.metadata_payload),
         'created_at': document.created_at.isoformat() if document.created_at else None,
         'updated_at': document.updated_at.isoformat() if document.updated_at else None,
     }
@@ -234,6 +244,28 @@ def _clean_filename(filename: str) -> str:
     if not clean_name:
         raise RagValidationError('文件名不能为空')
     return clean_name
+
+
+def _clean_source_name(source_name: str | None, *, fallback: str) -> str:
+    clean_name = redact_secret_text(str(source_name or '').strip())
+    return clean_name or fallback
+
+
+def _clean_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    clean_payload: dict[str, Any] = {}
+    for key, value in (payload or {}).items():
+        clean_value = redact_secret_text(str(value or '').strip())
+        if clean_value:
+            clean_payload[str(key)] = clean_value
+    return clean_payload
+
+
+def _public_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in (payload or {}).items()
+        if key != 'parser'
+    }
 
 
 def _looks_binary(content: bytes) -> bool:
@@ -298,8 +330,10 @@ def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: int) -> dict[s
     return {
         'document_id': document.id,
         'filename': document.filename,
+        'source_name': document.source_name,
         'chunk_index': chunk.chunk_index,
         'source_ref': chunk.source_ref,
+        'metadata': _public_metadata(document.metadata_payload),
         'score': score,
         'snippet': snippet,
     }
