@@ -6989,3 +6989,82 @@ python -m compileall backend/app/services/agent_communication_service.py backend
 | Agent 通讯阶段 | `90%` | `92%` |
 | 真实钉钉阶段 | `50%` | `53%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 83. 钉钉群发送服务已返回结构化外部响应
+
+### 83.1 本轮新增能力
+
+`dingtalk_service.send_group_message` 真实发送成功后，不再只返回 `dingtalk_sent` 字符串，而是返回结构化结果：
+
+- `detail`：发送结果文本，例如 `dingtalk_sent`。
+- `provider_message_id`：从钉钉响应里提取的消息 ID。
+- `response_payload`：钉钉原始响应体。
+
+小白版理解：上一轮 outbox 已经会记“外部返回详情”，但钉钉发送服务还没把详情交上来。本轮把这半截接上了。以后真实发群消息时，如果钉钉返回消息 ID，系统能把它记录下来。
+
+### 83.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 群发送函数 | `dingtalk_service.send_group_message` |
+| 真实发送成功 | 返回结构化 dict |
+| dry-run | 仍返回 `dingtalk_dry_run`，不真实发送 |
+| 未配置 | 仍返回 `dingtalk_not_configured` |
+| 消息 ID 字段 | 支持 `messageId/message_id/msgId/msg_id/openMsgId/open_msg_id` |
+| 嵌套结果 | 也会从 `result` 里识别消息 ID |
+
+### 83.3 和 external log 的关系
+
+这轮与上一轮组合后，链路变成：
+
+```text
+agent_outbox_messages
+-> dispatch_outbox_message
+-> dingtalk_service.send_group_message
+-> structured response
+-> external_message_logs.detail/provider_message_id/response_payload
+```
+
+也就是说，真实外发不是“AI 直接发群”，仍然要先进 outbox，再由 dispatch 派发，并把钉钉结果写进日志。
+
+### 83.4 测试证据
+
+先改测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_group_message_calls_dingtalk_chat_send -q
+失败原因：send_group_message 仍只返回字符串 dingtalk_sent，没有返回 provider_message_id 和 response_payload。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_group_message_calls_dingtalk_chat_send -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+28 passed
+
+python -m compileall backend/app/services/dingtalk_service.py backend/app/services/agent_communication_service.py backend/app/routers/dingtalk.py
+通过
+```
+
+### 83.5 当前边界
+
+还不能宣称真实钉钉外发验收完成。
+
+原因：
+
+- 本轮使用测试替身模拟钉钉响应，没有打真实钉钉测试群。
+- 还没有确认线上钉钉实际返回字段名是否就是当前覆盖的字段之一。
+- 还没有在管理端查看真实 `external_message_logs`。
+- 还没有完成最终浏览器验收和真实钉钉群验证。
+
+### 83.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.91%` | `99.93%` |
+| Agent 通讯阶段 | `92%` | `93%` |
+| 真实钉钉阶段 | `53%` | `57%` |
+| 前端治理阶段 | `78%` | `78%` |

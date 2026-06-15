@@ -120,7 +120,7 @@ def test_send_group_message_calls_dingtalk_chat_send(monkeypatch) -> None:
         calls.append((method, url, payload))
         if 'gettoken' in url:
             return {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200}
-        return {'errcode': 0}
+        return {'errcode': 0, 'messageId': 'ding-msg-001'}
 
     monkeypatch.setattr(service, '_request_json', fake_request_json)
     message = build_approval_notice(12, '李四', '通过')
@@ -128,7 +128,11 @@ def test_send_group_message_calls_dingtalk_chat_send(monkeypatch) -> None:
     ok, detail = service.send_group_message('chat-1', message)
 
     assert ok is True
-    assert detail == 'dingtalk_sent'
+    assert detail == {
+        'detail': 'dingtalk_sent',
+        'provider_message_id': 'ding-msg-001',
+        'response_payload': {'errcode': 0, 'messageId': 'ding-msg-001'},
+    }
     assert 'chat/send' in calls[1][1]
     assert calls[1][2] == {'chatid': 'chat-1', 'msg': message}
 

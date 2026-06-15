@@ -561,7 +561,7 @@ class DingTalkService:
             logger.warning('DingTalk work notification failed: %s', exc)
             return False, str(exc) or 'dingtalk_send_failed'
 
-    def send_group_message(self, chat_id: str, message: dict) -> tuple[bool, str]:
+    def send_group_message(self, chat_id: str, message: dict) -> tuple[bool, str | dict]:
         chat = str(chat_id or '').strip()
         if not chat:
             return False, 'dingtalk_chat_missing'
@@ -580,10 +580,28 @@ class DingTalkService:
                 payload={'chatid': chat, 'msg': message},
             )
             self._ensure_success(response)
-            return True, 'dingtalk_sent'
+            return True, {
+                'detail': 'dingtalk_sent',
+                'provider_message_id': self._extract_provider_message_id(response),
+                'response_payload': response,
+            }
         except Exception as exc:  # noqa: BLE001
             logger.warning('DingTalk group message failed: %s', exc)
             return False, str(exc) or 'dingtalk_send_failed'
+
+    @staticmethod
+    def _extract_provider_message_id(payload: dict) -> str | None:
+        for key in ('messageId', 'message_id', 'msgId', 'msg_id', 'openMsgId', 'open_msg_id'):
+            value = payload.get(key)
+            if value not in (None, ''):
+                return str(value)
+        result = payload.get('result')
+        if isinstance(result, dict):
+            for key in ('messageId', 'message_id', 'msgId', 'msg_id', 'openMsgId', 'open_msg_id'):
+                value = result.get(key)
+                if value not in (None, ''):
+                    return str(value)
+        return None
 
 
 service = DingTalkService()
@@ -593,7 +611,7 @@ def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str]
     return service.send_work_notification(userid, content)
 
 
-def send_group_message(chat_id: str, message: dict) -> tuple[bool, str]:
+def send_group_message(chat_id: str, message: dict) -> tuple[bool, str | dict]:
     return service.send_group_message(chat_id, message)
 
 
