@@ -213,7 +213,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25\n'
+        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -234,6 +234,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'quality_issue_count': 2.0,
             'yield_rate': 96.15,
             'rolling_oil_per_ton': 1.25,
+            'cost_per_ton': 867.0,
             'source_file': str(report),
             'source_type': 'output_skill_text',
         },
@@ -271,8 +272,9 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '质量异常数',
         '良品率(%)',
         '轧制油吨耗',
+        '综合成本(元/吨)',
     ])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1, 331.16])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -296,6 +298,7 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'quality_issue_count': 1.0,
             'yield_rate': 94.2,
             'rolling_oil_per_ton': 1.1,
+            'cost_per_ton': 331.16,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }
@@ -324,8 +327,9 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
         '质量问题数',
         '成材率',
         '轧制油单吨消耗',
+        '吨成本',
     ]
-    values = ['2026-06-13', '热轧', '大夜班', 'RZ-02', '热轧', '26B00001', 'HT-002', '客户B', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3]
+    values = ['2026-06-13', '热轧', '大夜班', 'RZ-02', '热轧', '26B00001', 'HT-002', '客户B', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3, 405.5]
     for index, header in enumerate(headers):
         sheet.write(0, index, header)
     for index, value in enumerate(values):
@@ -353,6 +357,7 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'quality_issue_count': 3.0,
             'yield_rate': 92.8,
             'rolling_oil_per_ton': 1.3,
+            'cost_per_ton': 405.5,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }

@@ -7941,3 +7941,67 @@ git diff --check
 | 原始大目标 | `99.995%` | `99.996%` |
 | D:\输出skill 对齐阶段 | `90%` | `91%` |
 | 后端数据链路阶段 | `90%` | `90.2%` |
+
+## 98. 输出skill 参考源已接入吨成本字段
+
+### 98.1 本轮新增能力
+
+`mapping_reconciliation_service` 现在能从 `D:\输出skill` 参考文件里读出 `cost_per_ton`。
+
+支持的写法包括：
+
+- 文本里的 `单吨成本 867 元/吨`
+- `.xlsx` 表头里的 `综合成本(元/吨)`
+- `.xls` 表头里的 `吨成本`
+
+小白版理解：以前输出skill 文件里即使写了“每吨成本多少钱”，对齐台也读不出来。现在它会被规范成 `cost_per_ton`，后续可以和系统里的成本口径做对比。
+
+### 98.2 当前边界
+
+本轮只接入参考源读取，不把系统里的任何估算成本、策略成本或财务成本强行混成一个字段。
+
+没有改：
+
+- 生产数据库原始数据。
+- 成本策略表。
+- 财务正式成本口径。
+- 前端页面。
+
+后续如果要做系统侧成本对齐，需要先确认对比对象是：
+
+- 日报综合能耗成本 `plant_cost.cost_per_ton`
+- 成本策略日结果 `cost_daily_results.total_cost`
+- 机列日成本快照 `machine_daily_cost_snapshots.total_cost`
+- 还是财务最终确认成本
+
+这四类不能混为一谈。
+
+### 98.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：txt/xlsx/xls 解析结果缺 cost_per_ton。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 98.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.996%` | `99.997%` |
+| D:\输出skill 对齐阶段 | `91%` | `92%` |
+| 后端数据链路阶段 | `90.2%` | `90.4%` |

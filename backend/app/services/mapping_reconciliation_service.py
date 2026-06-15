@@ -49,6 +49,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'quality_issue_count',
     'yield_rate',
     'rolling_oil_per_ton',
+    'cost_per_ton',
 }
 
 
@@ -223,6 +224,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         quality_issue_count = _metric_number(line, ('质量异常', '质量问题', '质量门禁', '异常数'))
         yield_rate = _metric_number(line, ('成材率', '成品率', '良品率', '得率'))
         rolling_oil_per_ton = _metric_number(line, ('轧制油吨耗', '轧制油单吨消耗', '轧制油每吨', 'rolling_oil_per_ton'))
+        cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', 'cost_per_ton'))
         if output_tons is not None:
             row['output_tons'] = output_tons
         if energy_kwh is not None:
@@ -237,6 +239,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['yield_rate'] = yield_rate
         if rolling_oil_per_ton is not None:
             row['rolling_oil_per_ton'] = rolling_oil_per_ton
+        if cost_per_ton is not None:
+            row['cost_per_ton'] = cost_per_ton
         if len(row) > 3:
             row['source_file'] = str(path)
             row['source_type'] = 'output_skill_text'
@@ -281,6 +285,12 @@ def _excel_field(header: str) -> str | None:
         return 'rolling_oil_per_ton'
     if 'rolling_oil_per_ton' in header:
         return 'rolling_oil_per_ton'
+    if '成本' in header and (
+        'ton' in header or '单ton' in header or '每ton' in header or '元/ton' in header or 'cost_per_ton' in header
+    ):
+        return 'cost_per_ton'
+    if 'cost_per_ton' in header:
+        return 'cost_per_ton'
     if '产量' in header or '下机量' in header or '入库量' in header or '包装' in header:
         return 'output_tons'
     return None
