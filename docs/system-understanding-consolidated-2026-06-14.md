@@ -7681,3 +7681,68 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.99%` | `99.992%` |
 | D:\输出skill 对齐阶段 | `86%` | `87%` |
 | 后端数据链路阶段 | `89%` | `89.3%` |
+
+## 94. 输出skill 参考源已识别成材率字段
+
+### 94.1 本轮新增能力
+
+`mapping_reconciliation_service` 现在能从文本、`.xlsx`、`.xls` 参考源里读取成材率类字段，并归一成：
+
+- `yield_rate`
+
+当前支持的常见叫法：
+
+- `成材率`
+- `成品率`
+- `良品率`
+- `得率`
+
+小白版理解：以前输出skill 文件里哪怕写了“成材率 96.15%”，系统对齐时也只会拿产量、能耗、废料、停机、质量异常去比。现在“成材率”本身也能进对齐台，能和系统侧 MES 工序记录里的 `yield_rate` 做同口径比较。
+
+### 94.2 当前边界
+
+本轮只做参考源字段识别，不改系统侧原始数据，不改接口结构，不改页面。
+
+当前按百分数口径读取，例如：
+
+- `96.15%` → `96.15`
+- Excel 单元格 `94.2` → `94.2`
+
+仍未覆盖：
+
+- Excel 百分比单元格保存为 `0.942` 时自动转成 `94.2`。
+- 成材率由投入、产出、废料自动反算并和人工值对照。
+- 不同页面中“成品率、良品率、成材率”是否完全同义的业务口径确认。
+
+### 94.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：文本、xlsx、xls 解析结果缺 yield_rate。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 94.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.992%` | `99.993%` |
+| D:\输出skill 对齐阶段 | `87%` | `88%` |
+| 后端数据链路阶段 | `89.3%` | `89.6%` |
