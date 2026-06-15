@@ -272,6 +272,15 @@ const defaultMappingFields = [
     system_unit: 'yuan_per_ton',
     tolerance: 0.01,
     weight: 10
+  },
+  {
+    metric: 'total_cost',
+    reference_field: 'total_cost',
+    system_field: 'total_cost',
+    reference_unit: 'yuan',
+    system_unit: 'yuan',
+    tolerance: 0.01,
+    weight: 10
   }
 ]
 
@@ -339,7 +348,8 @@ function metricLabel(value) {
     energy: '能耗',
     gas: '燃气',
     rolling_oil: '轧制油吨耗',
-    cost: '吨成本'
+    cost: '吨成本',
+    total_cost: '总成本'
   }
   return labels[value] || value || '指标'
 }

@@ -9925,3 +9925,79 @@ cd frontend && node --test tests/mappingReconciliationPage.test.js
 | 原始大目标 | `99.999972%` | `99.999974%` |
 | 输出skill 对齐阶段 | `92.2%` | `92.5%` |
 | 前后端映射阶段 | `89.0%` | `89.3%` |
+
+## 127. 输出skill 对齐已补总成本字段解析与页面默认试算
+
+### 127.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能把输出skill 参考文件里的总成本类字段解析成 `total_cost`，`/manage/mapping-reconciliation` 页面默认试算字段也会把 `total_cost` 纳入对比。
+
+小白版理解：系统侧成本结果表里已经有“总成本”这个数字，但参考文件里如果写“总成本 12800.5 元”或“总成本(元)”，以前不会进入对比。现在“总成本”和“吨成本”被分开处理，页面能同时对比总花费和每吨成本，不会把两个口径混成一个数。
+
+### 127.2 当前行为
+
+总成本字段解析当前覆盖：
+
+- 文本行：`总成本`、`成本合计`、`总费用`、`total_cost`。
+- 结构化表头：含 `总成本`、`成本合计`、`总费用`、`total_cost` 的字段会归到 `total_cost`。
+- JSON、NDJSON、Excel 复用同一套表头映射。
+- 页面默认试算新增“总成本”指标，参考字段和系统字段均为 `total_cost`，单位按元比较。
+
+### 127.3 当前边界
+
+本轮没有读取或提交输出skill 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的成本字段覆盖补强。
+
+### 127.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+失败原因：文本行中的 总成本 12800.5 元 未进入 total_cost。
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+失败原因：JSON 表头 总成本(元) 未进入 total_cost。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段仍缺少 total_cost。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 127.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999974%` | `99.999976%` |
+| 输出skill 对齐阶段 | `92.5%` | `92.8%` |
+| 前后端映射阶段 | `89.3%` | `89.5%` |

@@ -215,7 +215,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
+        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 总成本 12800.5 元 单吨成本 867 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -238,6 +238,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'quality_issue_count': 2.0,
             'yield_rate': 96.15,
             'rolling_oil_per_ton': 1.25,
+            'total_cost': 12800.5,
             'cost_per_ton': 867.0,
             'source_file': str(report),
             'source_type': 'output_skill_text',
@@ -415,6 +416,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
                         '质量异常数': 2,
                         '成品率': 0.935,
                         '轧制油吨耗': 1.05,
+                        '总成本(元)': 12800.5,
                         '吨成本': 386.2,
                     }
                 ]
@@ -447,6 +449,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
             'quality_issue_count': 2.0,
             'yield_rate': 93.5,
             'rolling_oil_per_ton': 1.05,
+            'total_cost': 12800.5,
             'cost_per_ton': 386.2,
             'source_file': str(report),
             'source_type': 'output_skill_json',
