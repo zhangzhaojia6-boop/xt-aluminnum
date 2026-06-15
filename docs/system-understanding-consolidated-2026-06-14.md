@@ -8773,3 +8773,63 @@ python -m compileall backend/app/routers/agent_management.py backend/app/core/re
 | 原始大目标 | `99.99965%` | `99.9997%` |
 | 钉钉外发审计阶段 | `85.3%` | `85.7%` |
 | 安全审计阶段 | `87%` | `87.4%` |
+
+## 110. 外发日志 detail 展示已补文本脱敏
+
+### 110.1 本轮新增能力
+
+`GET /api/v1/agent-management/outbox/{id}/logs` 返回给管理端页面时，`detail` 文本现在会经过 `redact_secret_text()` 脱敏。
+
+小白版理解：如果服务商错误详情里写了 `password=...`、`token=...` 这种文本，页面不会再把原值显示出来，而是显示成 `<redacted>`。
+
+### 110.2 当前行为
+
+这次只改“接口返回给前端看的内容”：
+
+- 数据库里的 `external_message_logs.detail` 原始审计记录不变。
+- 管理端 `/manage/admin/agents` 和 `/manage/channels` 通过接口看到的是脱敏后的文本。
+- `response_payload` 继续走递归字段脱敏。
+
+### 110.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- outbox 状态机。
+- 真实钉钉发送逻辑。
+- 通道配置。
+- 数据库表结构。
+- 前端页面结构。
+
+这是外部通讯治理台的安全展示补强。
+
+### 110.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+失败原因：detail 中的 password=detail-pass token=detail-token 原样返回。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_secret_redaction.py -q
+25 passed
+
+node --test tests/externalLogDisplay.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+15 passed
+
+python -m compileall backend/app/routers/agent_management.py
+通过
+```
+
+### 110.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9997%` | `99.99975%` |
+| 钉钉外发审计阶段 | `85.7%` | `86%` |
+| 安全审计阶段 | `87.4%` | `87.8%` |

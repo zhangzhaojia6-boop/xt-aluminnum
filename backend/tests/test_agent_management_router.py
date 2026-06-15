@@ -300,6 +300,62 @@ def test_agent_management_logs_redact_nested_provider_secret_payload(tmp_path) -
     }
 
 
+def test_agent_management_logs_redact_secret_text_detail(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    db = session_factory()
+    try:
+        agent_communication_service.register_agent(db, code='factory_dispatch', name='全厂总控 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-prod-secret-004',
+            name='测试总控群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-004',
+        )
+        message = agent_communication_service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-004',
+            title='测试消息',
+            content='真实发送模拟消息。',
+            source_summary='unit_test',
+            trace_id='trace-router-provider-detail-secret',
+        )
+        agent_communication_service.dispatch_outbox_message(
+            db,
+            message.id,
+            sender=lambda _channel_key, _payload: (
+                False,
+                {
+                    'detail': 'driver failed password=detail-pass token=detail-token',
+                    'provider_message_id': 'provider-msg-003',
+                    'response_payload': {'errcode': 310001},
+                },
+            ),
+        )
+    finally:
+        db.close()
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.get(f'/api/v1/agent-management/outbox/{message.id}/logs')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    detail = response.json()['items'][0]['detail']
+    assert 'detail-pass' not in detail
+    assert 'detail-token' not in detail
+    assert detail == 'driver failed password=<redacted> token=<redacted>'
+
+
 def test_agent_management_can_run_dry_run_smoke_without_real_send(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     client = _client(session_factory, _user('admin'))

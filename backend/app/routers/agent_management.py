@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.core.redaction import is_sensitive_key
+from app.core.redaction import is_sensitive_key, redact_secret_text
 from app.core.scope import build_scope_summary
 from app.models.system import User
 from app.services import agent_communication_service, agent_knowledge_service, agent_management_overview_service
@@ -109,7 +109,7 @@ def outbox_message_logs(
                 'channel_type': item.channel_type,
                 'channel_key_masked': _mask_key(item.channel_key),
                 'status': item.status,
-                'detail': item.detail,
+                'detail': redact_secret_text(item.detail or ''),
                 'provider_message_id': item.provider_message_id,
                 'response_payload': _sanitize_external_payload(item.response_payload),
                 'created_at': item.created_at.isoformat() if item.created_at else None,
