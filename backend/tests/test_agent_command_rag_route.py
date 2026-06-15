@@ -689,6 +689,72 @@ def test_agent_command_uses_shift_downtime_fact_for_machine_stop(monkeypatch) ->
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_machine_stop_facts_stay_within_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add_all([
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        Equipment(id=21, code='RZ-2', name='2号机', workshop_id=10, operational_status='stopped', is_active=True),
+        ShiftConfig(
+            id=31,
+            code='DAY',
+            name='长白班',
+            shift_type='day',
+            start_time=time(7, 30),
+            end_time=time(15, 30),
+            is_active=True,
+        ),
+        ShiftProductionData(
+            business_date=date(2026, 6, 9),
+            shift_config_id=31,
+            workshop_id=10,
+            equipment_id=21,
+            downtime_minutes=42,
+            downtime_reason='热轧换辊待维修确认',
+            output_weight=12.5,
+            data_status='submitted',
+            data_source='mobile_shift_report',
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'cold-director',
+                'text': '2号机为什么停',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-stop-scope-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'machine_stop'
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['stop_count'] == 0
+        assert payload['facts']['top_stops'] == []
+        assert '热轧' not in payload['answer']
+        assert '热轧换辊待维修确认' not in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['facts']['stop_count'] == 0
+        assert run.result_payload['facts']['top_stops'] == []
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_uses_quality_gate_and_issue_facts(monkeypatch) -> None:
     db, previous_overrides = _install_overrides()
     db.add_all([

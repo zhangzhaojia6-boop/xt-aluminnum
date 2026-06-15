@@ -11535,3 +11535,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999996%` | `99.9999997%` |
 | RAG 附件和知识库阶段 | `95.2%` | `95.5%` |
 | 外部通讯权限安全 | `88.3%` | `88.7%` |
+
+## 151. Agent 停机事实查询已按用户车间范围过滤
+
+### 151.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在处理“2号机为什么停”“停机原因”等停机类问题时，现在会按当前用户的数据范围过滤 `shift_production_data` 停机事实。
+
+小白版理解：RAG 是资料室，停机事实是现场账本。上一轮已经防住知识库资料串车间；这一轮补上现场停机账本的边界。比如冷轧2050车间主任问“2号机为什么停”，即使热轧 2 号机当天确实停了，系统也不能把热轧的停机原因说给冷轧主任。
+
+### 151.2 当前行为
+
+- 管理员或全厂范围用户仍可查询全厂停机事实。
+- 单车间用户只能查询自己 `workshop_id` 对应车间的停机事实。
+- 没有匹配到本车间停机时，Agent 返回“当前未找到匹配停机记录”，不会泄露其他车间原因。
+- 本轮只收口停机事实，辅材、质量、能耗等事实查询仍建议继续逐项加 TDD 权限回归。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 151.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_machine_stop_facts_stay_within_user_workshop -q
+失败原因：冷轧2050车间主任询问“2号机为什么停”时，接口把热轧 2 号机停机记录算入 stop_count。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_machine_stop_facts_stay_within_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+41 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 151.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- Agent 的辅材、质量、能耗、异常汇总等事实查询还需要继续逐项检查是否按当前用户范围过滤。
+
+### 151.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999997%` | `99.9999998%` |
+| Agent 通讯中台阶段 | `83.4%` | `83.8%` |
+| 外部通讯权限安全 | `88.7%` | `89.1%` |

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.business_time import resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping
+from app.core.scope import build_scope_summary
 from app.core.templates.consumable_payload import flatten_payload, parse_payload
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.consumable import DailyConsumableLog
@@ -229,7 +230,12 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     if intent == 'consumable_usage':
         return _extract_consumable_facts(db, business_date=business_date)
     if intent == 'machine_stop':
-        return _extract_machine_stop_facts(db, business_date=business_date, command_text=text)
+        return _extract_machine_stop_facts(
+            db,
+            business_date=business_date,
+            command_text=text,
+            current_user=current_user,
+        )
     if intent == 'quality_anomaly':
         return _extract_quality_facts(db, business_date=business_date)
 
@@ -294,9 +300,16 @@ def _extract_energy_cost_facts(db: Session, *, business_date) -> dict[str, Any]:
     }
 
 
-def _extract_machine_stop_facts(db: Session, *, business_date, command_text: str) -> dict[str, Any]:
+def _extract_machine_stop_facts(
+    db: Session,
+    *,
+    business_date,
+    command_text: str,
+    current_user: User,
+) -> dict[str, Any]:
     machine_filter = _extract_machine_filter(command_text)
-    rows = (
+    scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
+    query = (
         db.query(ShiftProductionData, Workshop, Equipment, ShiftConfig)
         .join(Workshop, Workshop.id == ShiftProductionData.workshop_id)
         .outerjoin(Equipment, Equipment.id == ShiftProductionData.equipment_id)
@@ -306,9 +319,10 @@ def _extract_machine_stop_facts(db: Session, *, business_date, command_text: str
             ShiftProductionData.downtime_minutes > 0,
             ShiftProductionData.data_status != 'voided',
         )
-        .order_by(ShiftProductionData.downtime_minutes.desc(), Workshop.sort_order.asc())
-        .all()
     )
+    if scoped_workshop_id is not None:
+        query = query.filter(ShiftProductionData.workshop_id == scoped_workshop_id)
+    rows = query.order_by(ShiftProductionData.downtime_minutes.desc(), Workshop.sort_order.asc()).all()
     stop_items = []
     for row, workshop, equipment, shift in rows:
         if machine_filter and not _matches_machine_filter(equipment, machine_filter):
@@ -338,6 +352,15 @@ def _extract_machine_stop_facts(db: Session, *, business_date, command_text: str
         'top_stops': stop_items[:5],
         'data_source': 'shift_production_data',
     }
+
+
+def _scoped_workshop_id_for_facts(current_user: User | None) -> int | None:
+    if current_user is None:
+        return None
+    scope = build_scope_summary(current_user)
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return None
+    return scope.workshop_id
 
 
 def _extract_machine_filter(text: str) -> str | None:
