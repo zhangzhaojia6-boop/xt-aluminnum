@@ -35,3 +35,18 @@ test('formatExternalLogResult shows redacted sensitive values without leaking te
     '回执码：88 / 回执：invalid token'
   )
 })
+
+test('formatExternalLogResult shows provider request id for failed receipts', () => {
+  assert.equal(
+    formatExternalLogResult({
+      detail: 'dingtalk_failed',
+      provider_message_id: 'ding-failed-001',
+      response_payload: {
+        errcode: 310000,
+        request_id: 'req-failed-001',
+        access_token: '***'
+      }
+    }),
+    'dingtalk_failed / 消息ID：ding-failed-001 / 请求号：req-failed-001 / 回执码：310000'
+  )
+})

@@ -8638,3 +8638,74 @@ python -m compileall backend/app/services/agent_communication_service.py
 | 原始大目标 | `99.9995%` | `99.9996%` |
 | 钉钉外发审计阶段 | `84.5%` | `85%` |
 | Agent 通讯中台阶段 | `88.7%` | `89%` |
+
+## 108. 外发日志前端已展示服务商请求号
+
+### 108.1 本轮新增能力
+
+管理端外发日志现在会把服务商返回体里的请求号展示出来。
+
+支持字段包括：
+
+- `request_id`
+- `requestId`
+- `requestID`
+- `requestid`
+
+小白版理解：如果钉钉或其他服务商返回“这次请求的编号”，管理员在 `/manage/admin/agents` 和 `/manage/channels` 查看外发日志时能直接看到它。后续联系服务商排查失败原因时，就不用只拿一句错误文字去猜。
+
+### 108.2 当前行为
+
+`frontend/src/utils/externalLogDisplay.js` 现在会把外发日志格式化为：
+
+- 执行详情
+- 消息 ID
+- 请求号
+- 回执码
+- 回执文字
+
+敏感字段仍然不展示，例如 token 类内容不会被拼进页面结果。
+
+### 108.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- 后端外发状态机。
+- 钉钉真实发送逻辑。
+- 通道配置。
+- outbox 重试和 dead-letter 逻辑。
+- 任何生产密钥或真实配置。
+
+这是前端可追溯性的最小修复。
+
+### 108.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/externalLogDisplay.test.js
+失败原因：格式化结果缺少“请求号：req-failed-001”。
+```
+
+实现后已执行：
+
+```text
+node --test tests/externalLogDisplay.test.js
+4 passed
+
+node --test tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+11 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+18 passed
+```
+
+### 108.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9996%` | `99.99965%` |
+| 钉钉外发审计阶段 | `85%` | `85.3%` |
+| Agent 通讯中台阶段 | `89%` | `89.2%` |
