@@ -383,6 +383,29 @@ def test_agent_management_logs_redact_secret_text_detail(tmp_path) -> None:
     assert detail == 'driver failed password=<redacted> token=<redacted>'
 
 
+def test_agent_management_outbox_dispatch_redacts_agent_error_detail(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+
+    def fake_dispatch(_db, _outbox_message_id):
+        raise agent_communication_service.AgentCommunicationError(
+            'outbox lookup failed password=detail-pass token=detail-token'
+        )
+
+    monkeypatch.setattr(agent_communication_service, 'dispatch_outbox_message', fake_dispatch)
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/99/dispatch')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    detail = response.json()['detail']
+    assert 'detail-pass' not in detail
+    assert 'detail-token' not in detail
+    assert detail == 'outbox lookup failed password=<redacted> token=<redacted>'
+
+
 def test_agent_management_can_run_dry_run_smoke_without_real_send(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     client = _client(session_factory, _user('admin'))

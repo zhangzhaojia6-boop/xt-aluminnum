@@ -62,7 +62,7 @@ def dispatch_outbox_message(
     try:
         outcome = agent_communication_service.dispatch_outbox_message(db, outbox_message_id)
     except agent_communication_service.AgentCommunicationError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=redact_secret_text(str(exc))) from exc
     return {
         'outbox_message_id': outcome.outbox_message_id,
         'status': outcome.status,
