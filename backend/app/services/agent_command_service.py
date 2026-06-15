@@ -158,6 +158,7 @@ def handle_agent_command(
                     group_id=channel_key,
                     agent_code=clean_agent_code,
                     text=clean_text,
+                    scope_label=facts.get('scope_label'),
                 ),
             )
         except agent_communication_service.AgentCommunicationError as exc:
@@ -945,14 +946,24 @@ def _outbox_source_summary_for_intent(intent: str) -> str:
     return f'agent_command_{intent}'
 
 
-def _build_command_dedupe_key(*, channel: str, group_id: str, agent_code: str, text: str) -> str:
+def _build_command_dedupe_key(
+    *,
+    channel: str,
+    group_id: str,
+    agent_code: str,
+    text: str,
+    scope_label: str | None = None,
+) -> str:
     text_digest = hashlib.sha256(_clean(text).encode('utf-8')).hexdigest()[:16]
+    clean_scope_label = _clean(scope_label or '全厂')
+    scope_digest = hashlib.sha256(clean_scope_label.encode('utf-8')).hexdigest()[:12]
     return ':'.join(
         [
             'agent_command',
             _key_component(channel),
             _key_component(group_id),
             _key_component(agent_code),
+            f'scope-{scope_digest}',
             text_digest,
         ]
     )

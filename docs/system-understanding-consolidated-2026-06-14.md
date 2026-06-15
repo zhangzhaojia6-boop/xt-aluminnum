@@ -11824,3 +11824,56 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.99999992%` | `99.99999993%` |
 | Agent 通讯中台阶段 | `85.0%` | `85.3%` |
 | 外部通讯权限安全 | `90.3%` | `90.6%` |
+
+## 156. Agent 待发送消息去重已补上车间范围，避免同群同问串用不同车间答案
+
+### 156.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在 `queue_outbox=true` 时，会把 Agent 回复放入 `agent_outbox_messages`。之前的去重标识只包含“渠道、群、Agent、问题文本”，同一个群里不同车间主任问同一句问题时，可能复用第一条待发送消息。
+
+小白版理解：以前系统只看“同一个群里是不是问了同一句话”，没看“这句话是哪个车间范围的答案”。现在去重标识额外带上“回答范围摘要”，同一车间短时间重复问仍会合并，不同车间不会拿到别的车间那条待发送回复。
+
+### 156.2 当前行为
+
+- `agent_command_service._build_command_dedupe_key()` 新增 `scope_label` 参数。
+- 去重标识格式从“群 + Agent + 文本摘要”扩展为“群 + Agent + 范围摘要 + 文本摘要”。
+- 范围摘要只用哈希短码进入 `dedupe_key`，避免车间名过长或特殊字符影响数据库字段长度。
+- 同一个群、同一个 Agent、同一句问题、同一个范围，仍在去重窗口内复用原待发送消息。
+- 同一个群、同一个 Agent、同一句问题、不同车间范围，会生成不同待发送消息。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息，也没有触碰生产数据。
+
+### 156.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_outbox_dedupe_keeps_different_workshop_scopes_separate -q
+失败原因：冷轧2050主任和热轧主任在同一群问同一句“哪个车间异常”时，第二次复用了第一次的 outbox_message_id。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_outbox_dedupe_keeps_different_workshop_scopes_separate -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+46 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+```
+
+### 156.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群发送验证。
+- 本轮只验证“入待发送队列”的去重边界，没有验证外部服务实际发送、重试、失败回执、消息撤回等链路。
+
+### 156.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999993%` | `99.99999994%` |
+| Agent 通讯中台阶段 | `85.3%` | `85.6%` |
+| 外部通讯权限安全 | `90.6%` | `90.8%` |

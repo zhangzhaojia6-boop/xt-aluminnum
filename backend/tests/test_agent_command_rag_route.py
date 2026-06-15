@@ -1357,9 +1357,141 @@ def test_agent_command_reuses_group_reply_outbox_for_same_question() -> None:
 
         message = db.get(AgentOutboxMessage, first_payload['outbox_message_id'])
         assert message is not None
-        assert message.dedupe_key == 'agent_command:dingtalk_group:chat-maintenance:maintenance_agent:8d8bd2d8b199e09b'
+        assert message.dedupe_key.startswith(
+            'agent_command:dingtalk_group:chat-maintenance:maintenance_agent:scope-'
+        )
+        assert message.dedupe_key.endswith(':8d8bd2d8b199e09b')
         assert message.dedupe_expires_at is not None
         assert db.query(ChatInboxMessage).count() == 2
         assert db.query(AgentRun).count() == 2
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_outbox_dedupe_keeps_different_workshop_scopes_separate(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add_all(
+        [
+            Workshop(
+                id=10,
+                code='RZ',
+                name='热轧',
+                workshop_type='hot_roll',
+                sort_order=1,
+                is_active=True,
+            ),
+            Workshop(
+                id=20,
+                code='LZ2050',
+                name='冷轧2050',
+                workshop_type='cold_roll',
+                sort_order=2,
+                is_active=True,
+            ),
+        ]
+    )
+    db.commit()
+
+    def fake_live_aggregation(_db, *, business_date, workshop_id, current_user):
+        assert workshop_id is None
+        workshop_name = '冷轧2050' if current_user.workshop_id == 20 else '热轧'
+        return {
+            'business_date': '2026-06-09',
+            'overall_progress': {
+                'pending_assignment': {
+                    'entry_count': 1,
+                    'workshop_count': 1,
+                    'rows': [{'workshop_name': workshop_name, 'entry_count': 1}],
+                },
+            },
+            'data_quality': {'missing_output_weight': {'entry_count': 0, 'items': []}},
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        agent_communication_service.register_agent(db, code='factory_dispatch', name='全厂总控 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='生产管理测试群',
+            target_type='factory',
+            target_key='factory',
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+        )
+
+        client = TestClient(app)
+        first = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'cold-director',
+                'text': '哪个车间异常',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-outbox-scope-001',
+                'queue_outbox': True,
+            },
+        )
+
+        def hot_director() -> User:
+            return User(
+                id=2,
+                username='hot_director',
+                password_hash='x',
+                name='热轧主任',
+                role='workshop_director',
+                workshop_id=10,
+                is_manager=True,
+                is_reviewer=True,
+                is_active=True,
+            )
+
+        app.dependency_overrides[get_current_user] = hot_director
+        second = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'hot-director',
+                'text': '哪个车间异常',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-outbox-scope-002',
+                'queue_outbox': True,
+            },
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        first_payload = first.json()
+        second_payload = second.json()
+        assert first_payload['outbox_message_id'] != second_payload['outbox_message_id']
+        assert db.query(AgentOutboxMessage).count() == 2
+
+        first_message = db.get(AgentOutboxMessage, first_payload['outbox_message_id'])
+        second_message = db.get(AgentOutboxMessage, second_payload['outbox_message_id'])
+        assert first_message is not None
+        assert second_message is not None
+        assert first_message.dedupe_key != second_message.dedupe_key
+        assert '【冷轧2050｜' in first_message.content
+        assert '【热轧｜' in second_message.content
     finally:
         _restore_overrides(previous_overrides, db)
