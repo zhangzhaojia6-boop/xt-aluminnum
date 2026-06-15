@@ -294,7 +294,7 @@ def _score_chunk(query: str, tokens: list[str], content: str) -> int:
 
 
 def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: int) -> dict[str, Any]:
-    snippet = chunk.content[:220]
+    snippet = redact_secret_text(chunk.content[:220])
     return {
         'document_id': document.id,
         'filename': document.filename,

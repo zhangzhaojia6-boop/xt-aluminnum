@@ -278,6 +278,48 @@ def test_rag_query_log_redacts_secret_style_query_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_query_redacts_sensitive_text_from_returned_answer() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        document = RagDocument(
+            filename='历史脏资料.md',
+            source_name='历史脏资料.md',
+            content_type='text/markdown',
+            encoding='utf-8',
+            status='active',
+            file_size=80,
+            chunk_count=1,
+        )
+        db.add(document)
+        db.flush()
+        db.add(
+            RagChunk(
+                document_id=document.id,
+                chunk_index=0,
+                content='维修资料：server=db;uid=readonly;password=dirty-pass;token=dirty-token',
+                char_start=0,
+                char_end=80,
+                source_ref='历史脏资料.md#chunk-1',
+            )
+        )
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post('/api/v1/rag/query', json={'query': '维修资料', 'limit': 3})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert 'dirty-pass' not in payload['answer']
+        assert 'dirty-token' not in payload['answer']
+        assert 'password=<redacted>' in payload['answer']
+        assert 'token=<redacted>' in payload['answer']
+        assert 'dirty-pass' not in payload['items'][0]['snippet']
+        assert 'dirty-token' not in payload['items'][0]['snippet']
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_routes_require_manage_permission() -> None:
     db, previous_overrides = _install_overrides(role='machine_operator')
 

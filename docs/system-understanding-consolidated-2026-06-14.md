@@ -9445,3 +9445,76 @@ python -m compileall backend/app/services/rag_service.py
 | 原始大目标 | `99.99992%` | `99.99993%` |
 | RAG 附件和知识库阶段 | `92.8%` | `93.0%` |
 | 安全审计阶段 | `89.6%` | `89.7%` |
+
+## 120. RAG 查询返回已对历史脏片段脱敏
+
+### 120.1 本轮新增能力
+
+`POST /api/v1/rag/query` 现在不仅会在查询日志里脱敏，也会在返回给页面和 Agent 的 `answer`、`items[].snippet` 中脱敏密码样文本。
+
+小白版理解：即使知识库历史上已经混进了带 `password=...`、`token=...` 的旧片段，用户查询或 Agent 引用时也不会把原值直接说出来，而是显示成 `<redacted>`。
+
+### 120.2 当前行为
+
+RAG 当前返回链路变为：
+
+- 检索仍按原始 chunk 内容匹配，保证能找到资料。
+- 对外返回的片段先做敏感文本脱敏。
+- 回答由脱敏后的片段组装。
+- 查询日志仍继续保存脱敏后的 query 和 answer。
+- 来源引用仍保留文件名、chunk 编号和 source_ref，不影响追溯。
+
+这次只保护 RAG 查询返回面，不改变上传、切片、排序、删除、权限或数据库结构。
+
+### 120.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 上传入口。
+- RAG 文档切片规则。
+- RAG 文档软删除规则。
+- Agent 命令权限。
+- 钉钉 outbox 和真实发送逻辑。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 到 Agent/页面输出前的安全补强。
+
+### 120.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_redacts_sensitive_text_from_returned_answer -q
+失败原因：历史脏片段中的 password=dirty-pass、token=dirty-token 原样出现在 RAG answer。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_redacts_sensitive_text_from_returned_answer -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+11 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+44 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 120.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99993%` | `99.99994%` |
+| RAG 附件和知识库阶段 | `93.0%` | `93.2%` |
+| Agent 通讯中台阶段 | `89.6%` | `89.7%` |
+| 安全审计阶段 | `89.7%` | `89.9%` |
