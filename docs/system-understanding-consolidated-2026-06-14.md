@@ -9374,3 +9374,74 @@ python -m compileall backend/app/services/rag_service.py
 | 原始大目标 | `99.99991%` | `99.99992%` |
 | RAG 附件和知识库阶段 | `92.6%` | `92.8%` |
 | 安全审计阶段 | `89.4%` | `89.6%` |
+
+## 119. RAG 上传已拒绝格式错误的 JSON 文件
+
+### 119.1 本轮新增能力
+
+`POST /api/v1/rag/documents/upload` 现在会在 `.json` 文件入库前校验 JSON 结构。格式错误的 JSON 会被拒绝，不会进入 `rag_documents` 和 `rag_chunks`。
+
+小白版理解：如果一个文件名叫 `字段映射.json`，但里面其实少了括号、少了引号或内容没写完整，系统现在会先拦住。这样后续 Agent 查询知识库时，不会引用一份“看起来像结构化资料、实际已经破损”的来源。
+
+### 119.2 当前行为
+
+RAG 上传当前文本附件规则为：
+
+- `.txt`、`.md`、`.csv`、`.log` 继续按普通文本入库。
+- `.json` 必须先通过 JSON 结构校验。
+- UTF-8、UTF-8 BOM、GBK 编码继续支持。
+- 二进制、可执行文件、伪装成文本的可执行文件继续拒绝。
+- 明显密钥、令牌、Bearer token、PEM 私钥文本继续拒绝。
+
+这次只补 JSON 文件格式校验，不改变切片大小、查询逻辑、权限逻辑、前端页面或数据库结构。
+
+### 119.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 查询接口。
+- RAG 查询日志脱敏。
+- 文档切片规则。
+- 文档软删除规则。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 附件入库前的格式质量补强。
+
+### 119.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_malformed_json_file -q
+失败原因：格式错误的 字段映射.json 返回 200 并入库。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_malformed_json_file -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+10 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+43 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 119.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99992%` | `99.99993%` |
+| RAG 附件和知识库阶段 | `92.8%` | `93.0%` |
+| 安全审计阶段 | `89.6%` | `89.7%` |

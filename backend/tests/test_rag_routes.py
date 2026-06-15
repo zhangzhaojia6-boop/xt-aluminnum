@@ -94,6 +94,30 @@ def test_rag_upload_accepts_gbk_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_rejects_malformed_json_file() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            files={
+                'file': (
+                    '字段映射.json',
+                    BytesIO('{"workshop": "冷轧1650",'.encode('utf-8')),
+                    'application/json',
+                )
+            },
+        )
+
+        assert response.status_code == 400
+        assert 'JSON' in response.json()['detail']
+        assert db.query(RagDocument).count() == 0
+        assert db.query(RagChunk).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_delete_soft_disables_document_and_excludes_it_from_query() -> None:
     db, previous_overrides = _install_overrides()
 

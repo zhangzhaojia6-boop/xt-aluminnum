@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -175,6 +176,8 @@ def validate_and_decode_upload(filename: str, content: bytes) -> DecodedText:
         raise RagValidationError('不支持二进制文件')
 
     decoded = _decode_text(content)
+    if suffix == '.json':
+        _validate_json_text(decoded.text)
     if SECRET_PATTERN.search(decoded.text):
         raise RagValidationError('文件疑似包含敏感密钥，已拒绝入库')
     return decoded
@@ -243,6 +246,13 @@ def _looks_binary(content: bytes) -> bool:
 
 def _looks_executable(content: bytes) -> bool:
     return any(content.startswith(signature) for signature in EXECUTABLE_SIGNATURES)
+
+
+def _validate_json_text(text: str) -> None:
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise RagValidationError('JSON 文件格式不正确') from exc
 
 
 def _decode_text(content: bytes) -> DecodedText:
