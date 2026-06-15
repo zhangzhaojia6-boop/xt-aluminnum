@@ -9028,3 +9028,71 @@ python -m compileall backend/app/routers/agent.py
 | 原始大目标 | `99.99982%` | `99.99984%` |
 | Agent 通讯中台阶段 | `89.2%` | `89.4%` |
 | 安全审计阶段 | `88.3%` | `88.5%` |
+
+## 114. Agent command 外部 source_payload 入库前已脱敏
+
+### 114.1 本轮新增能力
+
+`POST /api/v1/agent/command` 现在会在写入 `chat_inbox.source_payload` 和 `agent_runs.result_payload.source_payload` 前过滤敏感字段。
+
+小白版理解：未来钉钉机器人、Stream 或其他外部通道把原始消息包传进系统时，如果包里夹带 `access_token`、`password`、`api_key` 这类字段，系统不会把这些字段明文写进 Agent 审计表。
+
+### 114.2 当前行为
+
+本轮复用已有的 `filter_sensitive_mapping()`：
+
+- 顶层敏感键会移除。
+- 内层对象里的敏感键会移除。
+- 列表对象里的敏感键也会移除。
+- 非敏感业务字段继续保留，用于审计追溯。
+
+这让 Agent command 的外部消息审计更接近生产口径：保留“谁发的、哪条消息、哪个事件”，不保存不该保存的密钥类字段。
+
+### 114.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- Agent 意图识别。
+- RAG 检索。
+- 业务事实查询。
+- outbox 入队和分发。
+- 通道配置。
+- 数据库结构。
+- 前端页面结构。
+
+这是 Agent command 外部 payload 入库前的安全补强。
+
+### 114.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+失败原因：source_payload 中的 access_token、嵌套 password、列表内 api_key 原样写入 chat_inbox 和 agent_runs。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+14 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_secret_redaction.py -q
+41 passed
+
+cd frontend && node --test tests/externalLogDisplay.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+15 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+```
+
+### 114.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99984%` | `99.99986%` |
+| Agent 通讯中台阶段 | `89.4%` | `89.6%` |
+| 安全审计阶段 | `88.5%` | `88.8%` |

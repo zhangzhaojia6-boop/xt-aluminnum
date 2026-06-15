@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.business_time import resolve_production_business_date
+from app.core.redaction import filter_sensitive_mapping
 from app.core.templates.consumable_payload import flatten_payload, parse_payload
 from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.consumable import DailyConsumableLog
@@ -63,6 +64,7 @@ def handle_agent_command(
     clean_channel = _clean(channel) or 'internal'
     clean_agent_code = _clean(agent_code) or 'factory_dispatch'
     clean_trace_id = _clean(trace_id) or uuid4().hex
+    safe_source_payload = filter_sensitive_mapping(source_payload or {})
 
     inbox = ChatInboxMessage(
         channel=clean_channel,
@@ -71,7 +73,7 @@ def handle_agent_command(
         text=clean_text,
         agent_code=clean_agent_code,
         trace_id=clean_trace_id,
-        source_payload=source_payload or {},
+        source_payload=safe_source_payload,
     )
     db.add(inbox)
     db.flush()
@@ -98,7 +100,7 @@ def handle_agent_command(
             'answer': rag_payload.get('answer'),
             'citations': citations,
         },
-        'source_payload': source_payload or {},
+        'source_payload': safe_source_payload,
     }
     run = AgentRun(
         trace_id=clean_trace_id,

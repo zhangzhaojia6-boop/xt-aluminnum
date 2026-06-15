@@ -186,6 +186,47 @@ def test_agent_command_redacts_agent_error_detail(monkeypatch) -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_filters_sensitive_source_payload_before_audit_storage() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-test',
+                'sender_external_id': 'ding-user-001',
+                'text': '今日产量',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-source-payload-redaction',
+                'source_payload': {
+                    'message_id': 'msg-001',
+                    'access_token': 'source-token-should-not-store',
+                    'sender': {
+                        'name': '张三',
+                        'password': 'nested-password-should-not-store',
+                    },
+                    'items': [
+                        {'event_id': 'evt-001', 'api_key': 'nested-api-key-should-not-store'},
+                    ],
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        inbox = db.query(ChatInboxMessage).one()
+        run = db.query(AgentRun).one()
+        assert inbox.source_payload == {
+            'message_id': 'msg-001',
+            'sender': {'name': '张三'},
+            'items': [{'event_id': 'evt-001'}],
+        }
+        assert run.result_payload['source_payload'] == inbox.source_payload
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_detects_business_intent_without_fabricating_numbers() -> None:
     db, previous_overrides = _install_overrides()
 
