@@ -61,5 +61,25 @@ test('rag knowledge page validates allowed text attachments before upload', () =
   }
   assert.match(page, /isAllowedRagFile/)
   assert.match(page, /不支持该文件类型/)
-  assert.match(page, /await uploadRagDocument\(file\)/)
+  assert.match(page, /await uploadRagDocument\(file,\s*ragMetadata\.value\)/)
+})
+
+test('rag upload carries source metadata from the page to the api', () => {
+  const api = source('../src/api/rag.js')
+  const page = source('../src/views/manage/rag/RagKnowledgePage.vue')
+
+  assert.match(api, /uploadRagDocument\(file,\s*metadata\s*=\s*\{\}\)/)
+  for (const field of ['source_name', 'version', 'workshop', 'owner', 'effective_date', 'permission_scope']) {
+    assert.match(api, new RegExp(`formData\\.append\\('${field}'`))
+    assert.match(page, new RegExp(`${field}:`))
+  }
+
+  for (const label of ['资料来源', '版本', '所属车间', '负责人', '适用日期', '权限范围']) {
+    assert.match(page, new RegExp(label))
+  }
+  assert.match(page, /ragMetadata/)
+  assert.match(page, /source_name \|\| item\.filename/)
+  assert.match(page, /metadata_payload/)
+  assert.match(page, /item\.source_name \|\| item\.filename/)
+  assert.match(page, /item\.metadata\?\.workshop/)
 })

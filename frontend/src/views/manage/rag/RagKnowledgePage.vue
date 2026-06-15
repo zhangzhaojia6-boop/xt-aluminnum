@@ -19,6 +19,37 @@
       <button type="button" @click="loadDocuments">重试</button>
     </div>
 
+    <section class="xt-rag__metadata" aria-label="资料来源信息">
+      <label>
+        <span>资料来源</span>
+        <input v-model="ragMetadata.source_name" type="text" />
+      </label>
+      <label>
+        <span>版本</span>
+        <input v-model="ragMetadata.version" type="text" />
+      </label>
+      <label>
+        <span>所属车间</span>
+        <input v-model="ragMetadata.workshop" type="text" />
+      </label>
+      <label>
+        <span>负责人</span>
+        <input v-model="ragMetadata.owner" type="text" />
+      </label>
+      <label>
+        <span>适用日期</span>
+        <input v-model="ragMetadata.effective_date" type="date" />
+      </label>
+      <label>
+        <span>权限范围</span>
+        <select v-model="ragMetadata.permission_scope">
+          <option value="manage">管理端</option>
+          <option value="factory">全厂</option>
+          <option value="workshop">车间</option>
+        </select>
+      </label>
+    </section>
+
     <section class="xt-rag__metrics" aria-label="知识库指标">
       <article v-for="card in metricCards" :key="card.key">
         <span>{{ card.label }}</span>
@@ -38,7 +69,8 @@
           <table>
             <thead>
               <tr>
-                <th>文件名</th>
+                <th>资料来源</th>
+                <th>归属</th>
                 <th>编码</th>
                 <th>切片数</th>
                 <th>上传时间</th>
@@ -49,9 +81,12 @@
             <tbody>
               <tr v-for="item in documents" :key="item.id" :class="{ 'is-selected': selectedDocument?.id === item.id }">
                 <td>
-                  <button type="button" class="xt-rag__link" @click="selectDocument(item.id)">{{ item.filename }}</button>
-                  <small>{{ formatBytes(item.file_size) }}</small>
+                  <button type="button" class="xt-rag__link" @click="selectDocument(item.id)">
+                    {{ item.source_name || item.filename }}
+                  </button>
+                  <small>{{ item.filename }} / {{ formatBytes(item.file_size) }}</small>
                 </td>
+                <td>{{ item.metadata_payload?.workshop || '-' }}</td>
                 <td>{{ item.encoding || '-' }}</td>
                 <td>{{ displayNumber(item.chunk_count) }}</td>
                 <td>{{ formatTime(item.created_at) }}</td>
@@ -77,8 +112,13 @@
         </header>
         <div v-if="!selectedDocument" class="xt-rag__empty">请选择文档</div>
         <div v-else class="xt-rag__detail">
-          <b>{{ selectedDocument.filename }}</b>
-          <span>{{ selectedDocument.encoding }} / {{ displayNumber(selectedDocument.chunk_count) }} 段</span>
+          <b>{{ selectedDocument.source_name || selectedDocument.filename }}</b>
+          <span>{{ selectedDocument.filename }} / {{ selectedDocument.encoding }} / {{ displayNumber(selectedDocument.chunk_count) }} 段</span>
+          <span>
+            {{ selectedDocument.metadata_payload?.workshop || '未标车间' }}
+            · {{ selectedDocument.metadata_payload?.version || '未标版本' }}
+            · {{ selectedDocument.metadata_payload?.owner || '未标负责人' }}
+          </span>
         </div>
         <ol v-if="chunks.length > 0" class="xt-rag__chunks">
           <li v-for="chunk in chunks.slice(0, 6)" :key="chunk.id">
@@ -111,7 +151,8 @@
           <div v-if="citations.length === 0" class="xt-rag__empty is-compact">暂无来源</div>
           <ol v-else>
             <li v-for="item in citations" :key="`${item.document_id}-${item.chunk_index}`">
-              <b>{{ item.filename }}</b>
+              <b>{{ item.source_name || item.filename }}</b>
+              <span>{{ item.metadata?.workshop || item.source_ref }}</span>
               <span>{{ item.source_ref }}</span>
             </li>
           </ol>
@@ -143,6 +184,14 @@ const chunks = ref([])
 const queryText = ref('')
 const queryResult = ref(null)
 const fileInput = ref(null)
+const ragMetadata = ref({
+  source_name: '',
+  version: '',
+  workshop: '',
+  owner: '',
+  effective_date: '',
+  permission_scope: 'manage'
+})
 const ALLOWED_RAG_EXTENSIONS = ['.txt', '.md', '.csv', '.json', '.log']
 
 const totalChunks = computed(() => documents.value.reduce((total, item) => total + Number(item.chunk_count || 0), 0))
@@ -225,7 +274,7 @@ async function handleFilePicked(event) {
   uploading.value = true
   errorText.value = ''
   try {
-    const uploaded = await uploadRagDocument(file)
+    const uploaded = await uploadRagDocument(file, ragMetadata.value)
     await loadDocuments()
     await selectDocument(uploaded.id)
   } catch (error) {
@@ -285,6 +334,7 @@ onMounted(loadDocuments)
 }
 
 .xt-rag__hero,
+.xt-rag__metadata,
 .xt-rag__metrics article,
 .xt-rag__panel,
 .xt-rag__state {
@@ -330,6 +380,41 @@ onMounted(loadDocuments)
 
 .xt-rag__actions input {
   display: none;
+}
+
+.xt-rag__metadata {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+}
+
+.xt-rag__metadata label {
+  display: grid;
+  gap: var(--xt-space-1);
+}
+
+.xt-rag__metadata span {
+  color: var(--rag-gold);
+  font-size: var(--xt-text-xs);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.xt-rag__metadata input,
+.xt-rag__metadata select {
+  min-width: 0;
+  border: 1px solid rgba(184, 134, 11, 0.34);
+  border-radius: 0;
+  background: #101011;
+  color: var(--rag-text);
+  padding: 0.68rem 0.76rem;
+}
+
+.xt-rag__metadata input:focus,
+.xt-rag__metadata select:focus {
+  border-color: var(--rag-gold);
+  outline: none;
 }
 
 .xt-rag button {
@@ -561,6 +646,7 @@ onMounted(loadDocuments)
 }
 
 @media (max-width: 1180px) {
+  .xt-rag__metadata,
   .xt-rag__metrics,
   .xt-rag__grid {
     grid-template-columns: 1fr 1fr;
@@ -574,6 +660,7 @@ onMounted(loadDocuments)
   }
 
   .xt-rag__metrics,
+  .xt-rag__metadata,
   .xt-rag__grid {
     grid-template-columns: 1fr;
   }

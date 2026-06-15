@@ -10889,3 +10889,60 @@ python -m compileall backend/app/services/rag_service.py backend/app/routers/rag
 | 原始大目标 | `99.999994%` | `99.999995%` |
 | 输出skill 对齐阶段 | `96.3%` | `96.5%` |
 | 前后端映射阶段 | `91.9%` | `92.0%` |
+
+## 140. RAG 管理端页面已接资料来源元信息
+
+### 140.1 本轮新增能力
+
+`/manage/rag` 现在不再只是上传裸文件。页面上传区新增资料来源信息：
+
+- 资料来源。
+- 版本。
+- 所属车间。
+- 负责人。
+- 适用日期。
+- 权限范围。
+
+小白版理解：以前人在页面上只能选文件，系统不知道这份文件具体归谁、给哪个车间用。现在上传前就能把这些信息一起填进去，后端会一起保存，后续 RAG 引用资料时也能显示更清楚的来源。
+
+### 140.2 当前行为
+
+- `frontend/src/api/rag.js` 的 `uploadRagDocument(file, metadata)` 会把元信息追加到上传表单。
+- `RagKnowledgePage.vue` 上传时会传入 `ragMetadata.value`。
+- 文档清单优先显示 `source_name`，同时保留原始文件名和大小。
+- 切片详情会显示来源名、文件名、编码、切片数、车间、版本、负责人。
+- RAG 查询来源会优先显示 `source_name`，并显示引用所属车间或切片位置。
+- 本轮没有改生产数据，没有改 RAG 后端表结构。
+
+### 140.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+cd frontend && node --test tests/ragKnowledgePage.test.js
+失败原因：页面仍调用 uploadRagDocument(file)，API 也没有 uploadRagDocument(file, metadata = {})。
+```
+
+实现后已执行：
+
+```text
+cd frontend && node --test tests/ragKnowledgePage.test.js
+5 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+12 passed
+
+cd frontend && npm run build
+通过
+
+cd frontend && npm test
+694 passed
+```
+
+### 140.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999995%` | `99.999996%` |
+| RAG 附件和知识库阶段 | `93.4%` | `93.8%` |
+| 前端真实映射阶段 | `92.0%` | `92.3%` |
