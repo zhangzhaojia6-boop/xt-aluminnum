@@ -90,7 +90,23 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /metric: 'rolling_oil'/)
   assert.match(page, /reference_field: 'rolling_oil_per_ton'/)
   assert.match(page, /system_field: 'rolling_oil_per_ton'/)
-  for (const field of ['liquefied_gas_per_ton', 'titanium_wire_per_ton', 'steel_strip_per_ton', 'd40_per_ton', 'filter_agent_per_ton', 'paint_per_ton']) {
+  for (const field of [
+    'liquefied_gas_per_ton',
+    'titanium_wire_per_ton',
+    'steel_strip_per_ton',
+    'magnesium_per_ton',
+    'manganese_per_ton',
+    'iron_per_ton',
+    'copper_per_ton',
+    'hot_roll_emulsion_per_ton',
+    'diatomite_per_ton',
+    'white_earth_per_ton',
+    'd40_per_ton',
+    'steel_plate_per_ton',
+    'steel_buckle_per_ton',
+    'filter_agent_per_ton',
+    'paint_per_ton'
+  ]) {
     assert.match(page, new RegExp(`reference_field: '${field}'`))
     assert.match(page, new RegExp(`system_field: '${field}'`))
   }
@@ -108,7 +124,16 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /liquefied_gas: '液化气吨耗'/)
   assert.match(page, /titanium_wire: '钛丝吨耗'/)
   assert.match(page, /steel_strip: '钢带吨耗'/)
+  assert.match(page, /magnesium: '镁吨耗'/)
+  assert.match(page, /manganese: '锰吨耗'/)
+  assert.match(page, /iron: '铁吨耗'/)
+  assert.match(page, /copper: '铜吨耗'/)
+  assert.match(page, /hot_roll_emulsion: '热轧乳液吨耗'/)
+  assert.match(page, /diatomite: '硅藻土吨耗'/)
+  assert.match(page, /white_earth: '白土吨耗'/)
   assert.match(page, /d40: 'D40吨耗'/)
+  assert.match(page, /steel_plate: '钢板吨耗'/)
+  assert.match(page, /steel_buckle: '钢扣吨耗'/)
   assert.match(page, /filter_agent: '飞滤剂吨耗'/)
   assert.match(page, /paint: '油漆吨耗'/)
   assert.match(page, /cost: '吨成本'/)

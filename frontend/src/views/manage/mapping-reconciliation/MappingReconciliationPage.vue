@@ -292,9 +292,90 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'magnesium',
+    reference_field: 'magnesium_per_ton',
+    system_field: 'magnesium_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'manganese',
+    reference_field: 'manganese_per_ton',
+    system_field: 'manganese_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'iron',
+    reference_field: 'iron_per_ton',
+    system_field: 'iron_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'copper',
+    reference_field: 'copper_per_ton',
+    system_field: 'copper_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'hot_roll_emulsion',
+    reference_field: 'hot_roll_emulsion_per_ton',
+    system_field: 'hot_roll_emulsion_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'diatomite',
+    reference_field: 'diatomite_per_ton',
+    system_field: 'diatomite_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'white_earth',
+    reference_field: 'white_earth_per_ton',
+    system_field: 'white_earth_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
     metric: 'd40',
     reference_field: 'd40_per_ton',
     system_field: 'd40_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'steel_plate',
+    reference_field: 'steel_plate_per_ton',
+    system_field: 'steel_plate_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'steel_buckle',
+    reference_field: 'steel_buckle_per_ton',
+    system_field: 'steel_buckle_per_ton',
     reference_unit: 'per_ton',
     system_unit: 'per_ton',
     tolerance: 0.01,
@@ -414,7 +495,16 @@ function metricLabel(value) {
     liquefied_gas: '液化气吨耗',
     titanium_wire: '钛丝吨耗',
     steel_strip: '钢带吨耗',
+    magnesium: '镁吨耗',
+    manganese: '锰吨耗',
+    iron: '铁吨耗',
+    copper: '铜吨耗',
+    hot_roll_emulsion: '热轧乳液吨耗',
+    diatomite: '硅藻土吨耗',
+    white_earth: '白土吨耗',
     d40: 'D40吨耗',
+    steel_plate: '钢板吨耗',
+    steel_buckle: '钢扣吨耗',
     filter_agent: '飞滤剂吨耗',
     paint: '油漆吨耗',
     cost: '吨成本',

@@ -215,7 +215,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
+        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 镁吨耗 0.02 锰吨耗 0.03 铁吨耗 0.04 铜吨耗 0.005 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -240,6 +240,10 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'rolling_oil_per_ton': 1.25,
             'liquefied_gas_per_ton': 0.05,
             'titanium_wire_per_ton': 0.01,
+            'magnesium_per_ton': 0.02,
+            'manganese_per_ton': 0.03,
+            'iron_per_ton': 0.04,
+            'copper_per_ton': 0.005,
             'total_cost': 12800.5,
             'cost_per_ton': 867.0,
             'throughput_cost_per_ton': 280.25,
@@ -303,11 +307,14 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '质量异常数',
         '良品率(%)',
         '轧制油吨耗',
+        '热轧乳液吨耗',
+        '硅藻土吨耗',
+        '白土吨耗',
         'D40吨耗',
         '综合成本(元/吨)',
         '过站吨成本',
     ])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1, 0.2, 331.16, 280.25])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1, 0.6, 0.07, 0.09, 0.2, 331.16, 280.25])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -331,6 +338,9 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'quality_issue_count': 1.0,
             'yield_rate': 94.2,
             'rolling_oil_per_ton': 1.1,
+            'hot_roll_emulsion_per_ton': 0.6,
+            'diatomite_per_ton': 0.07,
+            'white_earth_per_ton': 0.09,
             'd40_per_ton': 0.2,
             'cost_per_ton': 331.16,
             'throughput_cost_per_ton': 280.25,
@@ -363,10 +373,12 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
         '成材率',
         '轧制油单吨消耗',
         '钢带吨耗',
+        '钢板吨耗',
+        '钢扣吨耗',
         '吨成本',
         '流转吨成本',
     ]
-    values = ['2026-06-13', '热轧', '大夜班', 'RZ-02', '热轧', '26B00001', 'HT-002', '客户B', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3, 0.08, 405.5, 333.3]
+    values = ['2026-06-13', '热轧', '大夜班', 'RZ-02', '热轧', '26B00001', 'HT-002', '客户B', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3, 0.08, 0.11, 0.12, 405.5, 333.3]
     for index, header in enumerate(headers):
         sheet.write(0, index, header)
     for index, value in enumerate(values):
@@ -395,6 +407,8 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'yield_rate': 92.8,
             'rolling_oil_per_ton': 1.3,
             'steel_strip_per_ton': 0.08,
+            'steel_plate_per_ton': 0.11,
+            'steel_buckle_per_ton': 0.12,
             'cost_per_ton': 405.5,
             'throughput_cost_per_ton': 333.3,
             'source_file': str(report),

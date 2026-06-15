@@ -10156,3 +10156,84 @@ cd frontend && npm run build
 | 原始大目标 | `99.999978%` | `99.999980%` |
 | 输出skill 对齐阶段 | `93.1%` | `93.4%` |
 | 前后端映射阶段 | `89.7%` | `89.9%` |
+
+## 130. 输出skill 对齐已继续补齐合金与过滤包装辅材吨耗字段
+
+### 130.1 本轮新增能力
+
+在第 129 节基础上，`mapping_reconciliation_service.parse_output_skill_reference_file()` 继续补齐系统耗材白名单里已有、但输出skill 参考源之前还不能自动识别的一组吨耗字段：
+
+- `镁吨耗` -> `magnesium_per_ton`
+- `锰吨耗` -> `manganese_per_ton`
+- `铁吨耗` -> `iron_per_ton`
+- `铜吨耗` -> `copper_per_ton`
+- `热轧乳液吨耗` -> `hot_roll_emulsion_per_ton`
+- `硅藻土吨耗` -> `diatomite_per_ton`
+- `白土吨耗` -> `white_earth_per_ton`
+- `钢板吨耗` -> `steel_plate_per_ton`
+- `钢扣吨耗` -> `steel_buckle_per_ton`
+
+`/manage/mapping-reconciliation` 页面默认试算字段也同步纳入这 9 个指标。
+
+小白版理解：这轮不是新增业务表，也不是改生产数据，而是让“日报/输出skill 文件里写出来的这些辅材吨耗”能和系统里已有的耗材字段对得上。以后管理端试算时，不需要人工再一个个补字段名。
+
+### 130.2 当前行为
+
+本轮新增的解析覆盖：
+
+- 文本行：支持镁、锰、铁、铜等合金辅材吨耗。
+- Excel / JSON / NDJSON：支持热轧乳液、硅藻土、白土、钢板、钢扣等表头归一。
+- 页面默认试算：参考字段和系统字段使用同名标准字段，单位按 `per_ton` 比较。
+
+这些字段都来自 `CONSUMABLE_PAYLOAD_FIELDS_FLAT` 和 `daily_consumable_logs.payload` 展开后的系统侧字段，仍属于已存在字段的识别补强。
+
+### 130.3 当前边界
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的辅材字段覆盖继续补强。
+
+### 130.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xls_file_normalizes_common_columns -q
+失败原因：参考文件中的镁、锰、铁、铜、热轧乳液、硅藻土、白土、钢板、钢扣吨耗字段未被解析。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段缺少这些辅材吨耗指标。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xls_file_normalizes_common_columns -q
+3 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 130.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999980%` | `99.999982%` |
+| 输出skill 对齐阶段 | `93.4%` | `93.8%` |
+| 前后端映射阶段 | `89.9%` | `90.1%` |
