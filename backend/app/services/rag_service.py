@@ -20,7 +20,8 @@ CHUNK_SIZE = 700
 CHUNK_OVERLAP = 100
 SECRET_PATTERN = re.compile(
     r'((password|passwd|secret|token|api[_-]?key|app[_-]?secret|database[_-]?password|数据库密码|密钥)\s*[:=]'
-    r'|authorization\s*[:=]\s*bearer\s+\S+)',
+    r'|authorization\s*[:=]\s*bearer\s+\S+'
+    r'|-----begin [a-z0-9 ]*private key-----)',
     re.IGNORECASE,
 )
 

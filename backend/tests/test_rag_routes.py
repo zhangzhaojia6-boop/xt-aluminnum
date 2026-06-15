@@ -178,6 +178,36 @@ def test_rag_upload_rejects_authorization_bearer_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_rejects_pem_private_key_text() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            files={
+                'file': (
+                    'private-key.txt',
+                    BytesIO(
+                        (
+                            '-----BEGIN PRIVATE KEY-----\n'
+                            'fake-private-key-body\n'
+                            '-----END PRIVATE KEY-----\n'
+                        ).encode('utf-8')
+                    ),
+                    'text/plain',
+                )
+            },
+        )
+
+        assert response.status_code == 400
+        assert '敏感' in response.json()['detail']
+        assert db.query(RagDocument).count() == 0
+        assert db.query(RagChunk).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_query_log_redacts_secret_style_query_text() -> None:
     db, previous_overrides = _install_overrides()
 

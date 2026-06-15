@@ -9233,3 +9233,73 @@ python -m compileall backend/app/services/rag_service.py
 | 原始大目标 | `99.99988%` | `99.9999%` |
 | RAG 附件和知识库阶段 | `92.2%` | `92.4%` |
 | 安全审计阶段 | `89%` | `89.2%` |
+
+## 117. RAG 上传已拒绝 PEM 私钥文本
+
+### 117.1 本轮新增能力
+
+`POST /api/v1/rag/documents/upload` 现在会拒绝包含 `-----BEGIN PRIVATE KEY-----` 这类 PEM 私钥头的文本附件。
+
+小白版理解：如果有人误把私钥文件、证书调试片段或服务器密钥文本上传到知识库，系统会在入库前拦下来，不会切片、不进入 RAG 检索。
+
+### 117.2 当前行为
+
+RAG 上传当前敏感内容拦截覆盖继续扩大：
+
+- `password=...`
+- `token=...`
+- `api_key=...`
+- `app_secret=...`
+- `database_password=...`
+- `Authorization: Bearer ...`
+- `-----BEGIN ... PRIVATE KEY-----`
+
+这次只扩展 PEM 私钥识别规则，不影响普通文本、工艺文档、设备说明或公钥类说明材料。
+
+### 117.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 查询接口。
+- RAG 查询日志脱敏。
+- 文档切片规则。
+- 文档软删除规则。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 附件入库前的安全补强。
+
+### 117.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+失败原因：包含 -----BEGIN PRIVATE KEY----- 的 txt 文档返回 200 并入库。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+8 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+41 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 117.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999%` | `99.99991%` |
+| RAG 附件和知识库阶段 | `92.4%` | `92.6%` |
+| 安全审计阶段 | `89.2%` | `89.4%` |
