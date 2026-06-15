@@ -11650,3 +11650,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999998%` | `99.9999999%` |
 | Agent 通讯中台阶段 | `83.8%` | `84.2%` |
 | 外部通讯权限安全 | `89.1%` | `89.5%` |
+
+## 153. Agent 质量事实查询已按用户车间范围过滤
+
+### 153.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在处理“质量门禁有没有异常”“质量问题”等质量类问题时，现在会按当前用户的数据范围过滤质量事实。
+
+小白版理解：质量门禁和现场质量问题都可能包含车间敏感信息。以前冷轧2050车间主任问质量时，如果热轧有质量门禁阻断，系统可能把热轧问题说出来。现在单车间用户只会看到自己车间的现场质量记录，以及 `dimension_key=workshop:*` 且匹配自己车间的质量门禁。
+
+### 153.2 当前行为
+
+- 管理员或全厂范围用户仍可查询全厂质量门禁和现场质量问题。
+- 单车间用户只能查询自己 `workshop_id` 对应的现场质量问题。
+- `data_quality_issues.dimension_key` 以 `workshop:` 开头时，会按当前用户车间 ID、编码、名称匹配。
+- 非 `workshop:` 维度的全厂级数据质量问题继续保留，避免误伤全厂通用门禁。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 153.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_quality_facts_stay_within_user_workshop -q
+失败原因：冷轧2050车间主任询问“质量门禁有没有异常”时，接口把热轧质量门禁算入状态，返回 red。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_quality_facts_stay_within_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+43 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 153.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- Agent 的能耗事实和异常汇总事实还需要继续逐项检查是否按当前用户范围过滤。
+
+### 153.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999999%` | `99.99999991%` |
+| Agent 通讯中台阶段 | `84.2%` | `84.6%` |
+| 外部通讯权限安全 | `89.5%` | `89.9%` |

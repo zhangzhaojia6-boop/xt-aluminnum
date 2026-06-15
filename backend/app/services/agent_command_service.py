@@ -237,7 +237,7 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
             current_user=current_user,
         )
     if intent == 'quality_anomaly':
-        return _extract_quality_facts(db, business_date=business_date)
+        return _extract_quality_facts(db, business_date=business_date, current_user=current_user)
 
     try:
         payload = _load_live_aggregation(db, business_date=business_date, current_user=current_user)
@@ -397,7 +397,9 @@ def _machine_stop_status_color(minutes: int) -> str:
     return 'green'
 
 
-def _extract_quality_facts(db: Session, *, business_date) -> dict[str, Any]:
+def _extract_quality_facts(db: Session, *, business_date, current_user: User) -> dict[str, Any]:
+    scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
+    scoped_workshop = db.get(Workshop, int(scoped_workshop_id)) if scoped_workshop_id is not None else None
     quality_rows = (
         db.query(DataQualityIssue)
         .filter(
@@ -407,13 +409,21 @@ def _extract_quality_facts(db: Session, *, business_date) -> dict[str, Any]:
         .order_by(DataQualityIssue.issue_level.asc(), DataQualityIssue.id.desc())
         .all()
     )
-    issue_rows = (
+    if scoped_workshop is not None:
+        quality_rows = [
+            item
+            for item in quality_rows
+            if _data_quality_issue_visible_to_workshop(item, scoped_workshop)
+        ]
+
+    issue_query = (
         db.query(QualityIssueLog, Workshop)
         .outerjoin(Workshop, Workshop.id == QualityIssueLog.workshop_id)
         .filter(QualityIssueLog.business_date == business_date)
-        .order_by(QualityIssueLog.id.desc())
-        .all()
     )
+    if scoped_workshop_id is not None:
+        issue_query = issue_query.filter(QualityIssueLog.workshop_id == scoped_workshop_id)
+    issue_rows = issue_query.order_by(QualityIssueLog.id.desc()).all()
     blockers = [item for item in quality_rows if item.issue_level in {'blocker', 'blocked', 'critical', 'red'}]
     warnings = [item for item in quality_rows if item not in blockers]
     status_color = 'red' if blockers else ('yellow' if warnings or issue_rows else 'green')
@@ -429,6 +439,19 @@ def _extract_quality_facts(db: Session, *, business_date) -> dict[str, Any]:
         'top_quality_issues': [_quality_log_item(item, workshop) for item, workshop in issue_rows[:5]],
         'data_source': 'data_quality_issues+quality_issue_log',
     }
+
+
+def _data_quality_issue_visible_to_workshop(item: DataQualityIssue, workshop: Workshop) -> bool:
+    dimension_key = _clean(item.dimension_key).casefold()
+    if not dimension_key.startswith('workshop:'):
+        return True
+    requested = dimension_key.split(':', 1)[1].strip()
+    allowed = {
+        str(workshop.id).casefold(),
+        str(workshop.code or '').strip().casefold(),
+        str(workshop.name or '').strip().casefold(),
+    }
+    return requested in allowed
 
 
 def _quality_gate_item(item: DataQualityIssue) -> dict[str, Any]:

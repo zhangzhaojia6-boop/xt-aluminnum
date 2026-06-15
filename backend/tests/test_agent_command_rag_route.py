@@ -889,6 +889,70 @@ def test_agent_command_uses_quality_gate_and_issue_facts(monkeypatch) -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_quality_facts_stay_within_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add_all([
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        DataQualityIssue(
+            business_date=date(2026, 6, 9),
+            issue_type='quality_gate',
+            source_type='yield_matrix',
+            dimension_key='workshop:RZ',
+            field_name='yield_rate',
+            issue_level='blocker',
+            issue_desc='热轧质量门禁阻断：成品率低于红线',
+            status='open',
+        ),
+        QualityIssueLog(
+            business_date=date(2026, 6, 9),
+            workshop_id=10,
+            tracking_card_no='RZ260609009',
+            quality_issue_type='surface',
+            quality_issue_desc='热轧表面划伤复核',
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'cold-director',
+                'text': '质量门禁有没有异常',
+                'agent_code': 'quality_agent',
+                'trace_id': 'trace-agent-quality-scope-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'quality_anomaly'
+        assert payload['status_color'] == 'green'
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['blocker_count'] == 0
+        assert payload['facts']['quality_issue_count'] == 0
+        assert payload['facts']['top_blockers'] == []
+        assert payload['facts']['top_quality_issues'] == []
+        assert '热轧' not in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['facts']['blocker_count'] == 0
+        assert run.result_payload['facts']['quality_issue_count'] == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_uses_energy_summary_fact_for_energy_cost(monkeypatch) -> None:
     db, previous_overrides = _install_overrides()
 
