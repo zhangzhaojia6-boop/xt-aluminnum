@@ -8565,3 +8565,76 @@ python -m compileall backend/app/routers/dingtalk.py
 | 原始大目标 | `99.9994%` | `99.9995%` |
 | 钉钉入站阶段 | `86%` | `86.5%` |
 | Agent 通讯中台阶段 | `88.5%` | `88.7%` |
+
+## 107. 外发失败日志已保留服务商结构化返回
+
+### 107.1 本轮新增能力
+
+`agent_communication_service.dispatch_outbox_message()` 现在在外发失败进入 `retrying` 或 `dead_letter` 时，也会把服务商结构化返回写入：
+
+- `external_message_logs.provider_message_id`
+- `external_message_logs.response_payload`
+
+小白版理解：以前发钉钉失败时，日志里大多只剩一句错误文字。现在如果钉钉或发送适配器返回了错误码、请求编号、消息编号，系统会一起留档，方便后面判断到底是群配置错、机器人无权限、接口限流，还是其它服务商错误。
+
+### 107.2 当前行为
+
+成功外发时继续保留：
+
+- 发送状态
+- 服务商消息编号
+- 服务商返回体
+
+失败重试时现在也保留：
+
+- 发送状态 `retrying`
+- 错误详情
+- 服务商消息编号
+- 服务商返回体
+
+达到最大重试次数后进入 `dead_letter`，也会继续走同一套日志留证。
+
+### 107.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- 外发状态机。
+- 最大重试次数。
+- 重试间隔。
+- dry-run 行为。
+- outbox 幂等去重。
+- 钉钉配置和密钥读取。
+
+这是外发审计证据完整性的最小修复。
+
+### 107.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+失败原因：失败外发日志中的 provider_message_id 为 None，response_payload 没有落库。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py -q
+8 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_active_reporting_service.py -q
+22 passed
+
+python -m compileall backend/app/services/agent_communication_service.py
+通过
+```
+
+### 107.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9995%` | `99.9996%` |
+| 钉钉外发审计阶段 | `84.5%` | `85%` |
+| Agent 通讯中台阶段 | `88.7%` | `89%` |

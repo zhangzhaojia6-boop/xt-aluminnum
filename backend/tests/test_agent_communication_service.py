@@ -252,6 +252,50 @@ def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -
         db.close()
 
 
+def test_dispatch_failure_records_structured_provider_response_in_external_log() -> None:
+    db = _db_session()
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='factory_dispatch', channel_key='chat-management')
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='【全厂总览】失败返回测试',
+            content='这条消息用于验证失败返回体留证。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def structured_failure_sender(_chat_id: str, _payload: dict) -> tuple[bool, dict]:
+            return False, {
+                'errmsg': 'invalid robot code',
+                'provider_message_id': 'ding-failed-001',
+                'response_payload': {'errcode': 310000, 'request_id': 'req-failed-001'},
+            }
+
+        outcome = service.dispatch_outbox_message(db, message.id, sender=structured_failure_sender)
+
+        assert outcome.status == 'retrying'
+        assert outcome.detail == 'invalid robot code'
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert logs[0].status == 'retrying'
+        assert logs[0].detail == 'invalid robot code'
+        assert logs[0].provider_message_id == 'ding-failed-001'
+        assert logs[0].response_payload == {'errcode': 310000, 'request_id': 'req-failed-001'}
+    finally:
+        db.close()
+
+
 def test_queue_message_dedupes_same_event_inside_thirty_minute_window() -> None:
     db = _db_session()
     try:

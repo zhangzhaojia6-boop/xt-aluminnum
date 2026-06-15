@@ -303,7 +303,14 @@ def dispatch_outbox_message(
         db.commit()
         db.refresh(message)
         return DispatchOutcome(status=message.status, detail=send_result.detail, outbox_message_id=message.id)
-    return _mark_retry_or_dead_letter(db, message, channel, send_result.detail)
+    return _mark_retry_or_dead_letter(
+        db,
+        message,
+        channel,
+        send_result.detail,
+        provider_message_id=send_result.provider_message_id,
+        response_payload=send_result.response_payload,
+    )
 
 
 def run_dry_run_smoke_test(db: Session) -> DryRunSmokeOutcome:
@@ -480,6 +487,8 @@ def _mark_retry_or_dead_letter(
     message: AgentOutboxMessage,
     channel: CommunicationChannel | None,
     detail: str,
+    provider_message_id: str | None = None,
+    response_payload: dict | None = None,
 ) -> DispatchOutcome:
     message.attempts += 1
     message.last_error = detail
@@ -489,7 +498,15 @@ def _mark_retry_or_dead_letter(
     else:
         message.status = 'retrying'
         message.next_retry_at = _utcnow() + timedelta(minutes=RETRY_DELAY_MINUTES)
-    _write_external_log(db, message=message, channel=channel, status=message.status, detail=detail)
+    _write_external_log(
+        db,
+        message=message,
+        channel=channel,
+        status=message.status,
+        detail=detail,
+        provider_message_id=provider_message_id,
+        response_payload=response_payload,
+    )
     db.commit()
     db.refresh(message)
     return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
