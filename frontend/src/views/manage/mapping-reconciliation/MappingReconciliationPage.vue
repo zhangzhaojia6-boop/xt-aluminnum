@@ -219,6 +219,15 @@ const defaultMappingFields = [
     weight: 10
   },
   {
+    metric: 'yield',
+    reference_field: 'yield_rate',
+    system_field: 'yield_rate',
+    reference_unit: 'percent',
+    system_unit: 'percent',
+    tolerance: 0.01,
+    weight: 15
+  },
+  {
     metric: 'energy',
     reference_field: 'energy_kwh',
     system_field: 'energy_kwh',
@@ -234,6 +243,24 @@ const defaultMappingFields = [
     reference_unit: 'm3',
     system_unit: 'm3',
     tolerance: 0.1,
+    weight: 10
+  },
+  {
+    metric: 'rolling_oil',
+    reference_field: 'rolling_oil_per_ton',
+    system_field: 'rolling_oil_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 10
+  },
+  {
+    metric: 'cost',
+    reference_field: 'cost_per_ton',
+    system_field: 'cost_per_ton',
+    reference_unit: 'yuan_per_ton',
+    system_unit: 'yuan_per_ton',
+    tolerance: 0.01,
     weight: 10
   }
 ]
@@ -291,7 +318,17 @@ function fieldLabel(value) {
 }
 
 function metricLabel(value) {
-  const labels = { output: '产量', scrap: '废料', downtime: '停机', quality: '质量', energy: '能耗', gas: '燃气' }
+  const labels = {
+    output: '产量',
+    scrap: '废料',
+    downtime: '停机',
+    quality: '质量',
+    yield: '成材率',
+    energy: '能耗',
+    gas: '燃气',
+    rolling_oil: '轧制油吨耗',
+    cost: '吨成本'
+  }
   return labels[value] || value || '指标'
 }
 

@@ -159,10 +159,11 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 | 人工构造：能耗值差异 + 缺系统行 | 0%，可解释差异 |
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
 | 接口返回：差异原因汇总 | 返回 `difference_summary`，前端 `/manage/mapping-reconciliation` 已展示 |
+| 前端默认 dry-run 字段 | 已覆盖 `yield_rate`、`rolling_oil_per_ton`、`cost_per_ton` |
 
 ## 10. 下一步
 
 1. 用真实 `D:\输出skill` 文件跑一个业务日只读匹配率，不提交原始数据。
-2. 让 `/manage/mapping-reconciliation` 从静态样例改为选择文件和业务日后调用真实 dry-run。
+2. 用真实业务日复核成材率、轧制油吨耗、吨成本的字段来源是否和经营日报口径一致。
 3. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
 4. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。

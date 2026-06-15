@@ -72,6 +72,23 @@ test('mapping reconciliation page compares downtime and quality by default', () 
   assert.match(page, /quality: '质量'/)
 })
 
+test('mapping reconciliation page compares yield rate per-ton material and cost by default', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /metric: 'yield'/)
+  assert.match(page, /reference_field: 'yield_rate'/)
+  assert.match(page, /system_field: 'yield_rate'/)
+  assert.match(page, /metric: 'rolling_oil'/)
+  assert.match(page, /reference_field: 'rolling_oil_per_ton'/)
+  assert.match(page, /system_field: 'rolling_oil_per_ton'/)
+  assert.match(page, /metric: 'cost'/)
+  assert.match(page, /reference_field: 'cost_per_ton'/)
+  assert.match(page, /system_field: 'cost_per_ton'/)
+  assert.match(page, /yield: '成材率'/)
+  assert.match(page, /rolling_oil: '轧制油吨耗'/)
+  assert.match(page, /cost: '吨成本'/)
+})
+
 test('mapping reconciliation page renders backend difference summary', () => {
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 

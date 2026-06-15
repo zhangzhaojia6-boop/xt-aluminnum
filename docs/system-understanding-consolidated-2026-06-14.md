@@ -8186,3 +8186,62 @@ npm run test
 | 原始大目标 | `99.9985%` | `99.999%` |
 | D:\输出skill 对齐阶段 | `93.5%` | `94%` |
 | 前端落地阶段 | `88%` | `88.5%` |
+
+## 102. 输出skill 对齐前端默认试算已补齐成材率、轧制油吨耗、吨成本
+
+### 102.1 本轮新增能力
+
+`/manage/mapping-reconciliation` 的默认只读试算字段现在不只比对产量、废料、停机、质量、能耗、燃气，也会同步比对：
+
+- 成材率：`yield_rate`
+- 轧制油吨耗：`rolling_oil_per_ton`
+- 吨成本：`cost_per_ton`
+
+小白版理解：后端已经能从参考文本、表格和系统结果里识别这些经营指标。前端如果不把它们放进默认试算，就会出现“后端会算，但页面一键试算没拿来对”的断层。本轮把这个断点补上。
+
+### 102.2 当前边界
+
+本轮没有改生产数据，也没有改变后端算法。
+
+没有改：
+
+- MES 投影表和同步逻辑。
+- 人工填报链路。
+- 成本计算策略。
+- 差异原因算法。
+- 管理端权限。
+
+这只是让前端默认 dry-run 请求带上后端已支持的字段，并补上中文指标名。
+
+### 102.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认字段缺 metric: 'yield'、metric: 'rolling_oil'、metric: 'cost'。
+```
+
+实现后已执行：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+7 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+16 passed
+
+npm run build
+通过
+
+npm run test
+686 passed
+```
+
+### 102.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999%` | `99.9991%` |
+| D:\输出skill 对齐阶段 | `94%` | `94.3%` |
+| 前端落地阶段 | `88.5%` | `88.7%` |
