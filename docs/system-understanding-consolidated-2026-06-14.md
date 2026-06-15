@@ -7810,3 +7810,68 @@ git diff --check
 | 原始大目标 | `99.993%` | `99.994%` |
 | D:\输出skill 对齐阶段 | `88%` | `89%` |
 | 后端数据链路阶段 | `89.6%` | `89.8%` |
+
+## 96. 输出skill 对齐已接入轧制油吨耗字段
+
+### 96.1 本轮新增能力
+
+`mapping_reconciliation_service` 现在能从参考源和系统源两边对齐 `rolling_oil_per_ton`。
+
+参考源支持：
+
+- 文本里的 `轧制油吨耗 1.25`
+- `.xlsx` 表头里的 `轧制油吨耗`
+- `.xls` 表头里的 `轧制油单吨消耗`
+
+系统源支持：
+
+- `daily_consumable_logs.payload.rolling_oil_per_ton`
+
+小白版理解：以前系统能看到内勤每日一录里填过轧制油吨耗，但对齐台只能把它放在一个“辅材包”里，不方便和输出skill 表格直接比。现在它会同时出现在系统行的顶层字段里，可以直接按 `rolling_oil_per_ton` 配置对比。
+
+### 96.2 当前边界
+
+本轮只接入一个已存在且测试里有真实样例的字段：
+
+- `rolling_oil_per_ton`
+
+没有把所有 `*_per_ton` 字段都自动解释成同一类业务指标，也没有改生产数据库。
+
+仍未覆盖：
+
+- 液化气、钛丝、钢带、D40、钢板、钢扣、油漆等其他辅材吨耗字段逐一对齐。
+- 能耗吨耗 `energy_per_ton` 和辅材吨耗之间的前端显示分层。
+- 成本类 `cost_per_ton`、`fee_per_ton` 的输出skill 对齐。
+
+### 96.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：文本/xlsx/xls 解析结果缺 rolling_oil_per_ton，系统侧日辅材行也缺顶层 rolling_oil_per_ton。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 96.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.994%` | `99.995%` |
+| D:\输出skill 对齐阶段 | `89%` | `90%` |
+| 后端数据链路阶段 | `89.8%` | `90%` |

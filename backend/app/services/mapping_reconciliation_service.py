@@ -48,6 +48,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'downtime_minutes',
     'quality_issue_count',
     'yield_rate',
+    'rolling_oil_per_ton',
 }
 
 
@@ -221,6 +222,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         downtime_minutes = _metric_minutes(line, ('停机时长', '停机时间', '停机'))
         quality_issue_count = _metric_number(line, ('质量异常', '质量问题', '质量门禁', '异常数'))
         yield_rate = _metric_number(line, ('成材率', '成品率', '良品率', '得率'))
+        rolling_oil_per_ton = _metric_number(line, ('轧制油吨耗', '轧制油单吨消耗', '轧制油每吨', 'rolling_oil_per_ton'))
         if output_tons is not None:
             row['output_tons'] = output_tons
         if energy_kwh is not None:
@@ -233,6 +235,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['quality_issue_count'] = quality_issue_count
         if yield_rate is not None:
             row['yield_rate'] = yield_rate
+        if rolling_oil_per_ton is not None:
+            row['rolling_oil_per_ton'] = rolling_oil_per_ton
         if len(row) > 3:
             row['source_file'] = str(path)
             row['source_type'] = 'output_skill_text'
@@ -261,6 +265,12 @@ def _excel_field(header: str) -> str | None:
         return 'quality_issue_count'
     if '成材率' in header or '成品率' in header or '良品率' in header or '得率' in header or 'yield' in header:
         return 'yield_rate'
+    if '轧制油' in header and (
+        '吨耗' in header or 'ton耗' in header or '单吨' in header or '单ton' in header or '每吨' in header or '每ton' in header
+    ):
+        return 'rolling_oil_per_ton'
+    if 'rolling_oil_per_ton' in header:
+        return 'rolling_oil_per_ton'
     if '产量' in header or '下机量' in header or '入库量' in header or '包装' in header:
         return 'output_tons'
     return None
@@ -726,6 +736,7 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
     )
     for log, workshop in consumable_rows:
         payload = log.payload or {}
+        consumable_metrics = _consumable_payload_metrics(payload)
         rows.append(
             {
                 'business_date': log.business_date.isoformat(),
@@ -736,7 +747,8 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 'output_tons': _to_float(payload.get('packaging_inbound_output_tons')),
                 'energy_kwh': _to_float(payload.get('electricity_daily')),
                 'gas_m3': _to_float(payload.get('gas_daily')),
-                'consumable_payload': _consumable_payload_metrics(payload),
+                **consumable_metrics,
+                'consumable_payload': consumable_metrics,
                 'source_table': 'daily_consumable_logs',
             }
         )

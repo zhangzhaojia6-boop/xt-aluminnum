@@ -213,7 +213,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15%\n'
+        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -233,6 +233,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'downtime_minutes': 30.0,
             'quality_issue_count': 2.0,
             'yield_rate': 96.15,
+            'rolling_oil_per_ton': 1.25,
             'source_file': str(report),
             'source_type': 'output_skill_text',
         },
@@ -254,8 +255,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
     report = tmp_path / 'mapping.xlsx'
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机(分钟)', '质量异常数', '良品率(%)'])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 9.75, 1200, 0.12, 25, 1, 0.942])
+    sheet.append(['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机(分钟)', '质量异常数', '良品率(%)', '轧制油吨耗'])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -273,6 +274,7 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'downtime_minutes': 25.0,
             'quality_issue_count': 1.0,
             'yield_rate': 94.2,
+            'rolling_oil_per_ton': 1.1,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }
@@ -285,8 +287,8 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
     report = tmp_path / 'mapping.xls'
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet('日报')
-    headers = ['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机分钟', '质量问题数', '成材率']
-    values = ['2026-06-13', '热轧', '大夜班', 21.5, 2600, 0.4, 40, 3, 0.928]
+    headers = ['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机分钟', '质量问题数', '成材率', '轧制油单吨消耗']
+    values = ['2026-06-13', '热轧', '大夜班', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3]
     for index, header in enumerate(headers):
         sheet.write(0, index, header)
     for index, value in enumerate(values):
@@ -308,6 +310,7 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'downtime_minutes': 40.0,
             'quality_issue_count': 3.0,
             'yield_rate': 92.8,
+            'rolling_oil_per_ton': 1.3,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }
@@ -483,6 +486,7 @@ def test_build_system_mapping_rows_flattens_stock_energy_and_consumables() -> No
         'output_tons': 11.5,
         'energy_kwh': 2000.0,
         'gas_m3': 32.0,
+        'rolling_oil_per_ton': 1.25,
         'consumable_payload': {'rolling_oil_per_ton': 1.25},
         'source_table': 'daily_consumable_logs',
     } in rows
