@@ -123,7 +123,15 @@ def delete_document(db: Session, document_id: int) -> bool:
     return True
 
 
-def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = None) -> dict[str, Any]:
+def query_knowledge(
+    db: Session,
+    *,
+    query: str,
+    limit: int,
+    user: User | None = None,
+    workshop: str | None = None,
+    machine_code: str | None = None,
+) -> dict[str, Any]:
     clean_query = str(query or '').strip()
     if not clean_query:
         answer = '数据不足，问题为空，无法检索知识库。'
@@ -132,6 +140,7 @@ def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = 
         return {'answer': answer, 'citations': citations, 'items': []}
 
     tokens = _query_tokens(clean_query)
+    metadata_filters = _clean_payload({'workshop': workshop, 'machine_code': machine_code})
     query_filter = or_(*(RagChunk.content.ilike(f'%{token}%') for token in tokens))
     chunks = (
         db.query(RagChunk, RagDocument)
@@ -140,6 +149,12 @@ def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = 
         .filter(query_filter)
         .all()
     )
+    if metadata_filters:
+        chunks = [
+            (chunk, document)
+            for chunk, document in chunks
+            if _document_matches_metadata(document, metadata_filters)
+        ]
     ranked = sorted(
         ((chunk, document, _score_chunk(clean_query, tokens, chunk.content)) for chunk, document in chunks),
         key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index),
@@ -266,6 +281,15 @@ def _public_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
         for key, value in (payload or {}).items()
         if key != 'parser'
     }
+
+
+def _document_matches_metadata(document: RagDocument, metadata_filters: dict[str, Any]) -> bool:
+    public_metadata = _public_metadata(document.metadata_payload)
+    for key, expected in metadata_filters.items():
+        actual = str(public_metadata.get(key) or '').strip()
+        if actual.casefold() != str(expected).strip().casefold():
+            return False
+    return True
 
 
 def _looks_binary(content: bytes) -> bool:

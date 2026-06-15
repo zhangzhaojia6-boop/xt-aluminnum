@@ -145,6 +145,52 @@ def test_rag_upload_persists_source_metadata_and_query_citations() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_query_filters_sources_by_workshop_and_machine_code() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        for source_name, workshop, machine_code, filename in [
+            ('冷轧1650点检SOP', '冷轧1650', 'LZ1650-1', 'cold-check.md'),
+            ('热轧一号机点检SOP', '热轧', 'RZ-1', 'hot-check.md'),
+        ]:
+            response = client.post(
+                '/api/v1/rag/documents/upload',
+                data={
+                    'source_name': source_name,
+                    'workshop': workshop,
+                    'machine_code': machine_code,
+                    'permission_scope': 'manage',
+                },
+                files={
+                    'file': (
+                        filename,
+                        BytesIO((f'{source_name} 点检标准 每班确认油温和辊缝。' * 60).encode('utf-8')),
+                        'text/markdown',
+                    )
+                },
+            )
+            assert response.status_code == 200
+
+        query_response = client.post(
+            '/api/v1/rag/query',
+            json={
+                'query': '点检标准',
+                'limit': 5,
+                'workshop': '热轧',
+                'machine_code': 'RZ-1',
+            },
+        )
+        assert query_response.status_code == 200
+        payload = query_response.json()
+        assert payload['citations']
+        assert {item['source_name'] for item in payload['citations']} == {'热轧一号机点检SOP'}
+        assert payload['citations'][0]['metadata']['workshop'] == '热轧'
+        assert payload['citations'][0]['metadata']['machine_code'] == 'RZ-1'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_malformed_json_file() -> None:
     db, previous_overrides = _install_overrides()
 

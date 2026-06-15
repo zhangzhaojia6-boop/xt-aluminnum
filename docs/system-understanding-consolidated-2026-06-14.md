@@ -11009,3 +11009,52 @@ cd frontend && npm run build
 | 原始大目标 | `99.999996%` | `99.999997%` |
 | RAG 附件和知识库阶段 | `93.8%` | `94.0%` |
 | Agent 查资料可用性 | `88.4%` | `88.6%` |
+
+## 142. RAG 查询已支持按车间和机台过滤资料
+
+### 142.1 本轮新增能力
+
+`POST /api/v1/rag/query` 现在支持两个可选过滤字段：
+
+- `workshop`：只查指定车间的知识资料。
+- `machine_code`：只查指定机台/机列的知识资料。
+
+小白版理解：以前问“点检标准”时，只要资料里有这几个字，冷轧、热轧、任何机台的资料都可能一起出来。现在如果请求里带上“热轧 + RZ-1”，系统会先按关键词找资料，再只保留热轧 RZ-1 相关资料，后续 Agent 按车间和机台回答时不容易串台。
+
+### 142.2 当前行为
+
+- 过滤基于 `rag_documents.metadata_payload` 中的公开元信息。
+- 没有新增数据库字段，没有新增 migration。
+- 未传过滤条件时，保持原来的全库文本检索行为。
+- 过滤条件使用精确匹配，大小写不敏感，适合机台编码。
+- 本轮只补后端接口能力，还没有给 `/manage/rag` 测试问答区增加前端筛选控件。
+
+### 142.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_filters_sources_by_workshop_and_machine_code -q
+失败原因：接口忽略 workshop 和 machine_code，同时返回冷轧1650点检SOP、热轧一号机点检SOP。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_filters_sources_by_workshop_and_machine_code -q
+1 passed
+
+python -m compileall backend/app/services/rag_service.py backend/app/routers/rag.py
+通过
+
+python -m pytest backend/tests/test_rag_routes.py -q
+13 passed
+```
+
+### 142.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999997%` | `99.999998%` |
+| RAG 附件和知识库阶段 | `94.0%` | `94.3%` |
+| Agent 查资料可用性 | `88.6%` | `89.0%` |

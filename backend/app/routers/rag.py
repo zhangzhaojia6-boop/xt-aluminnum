@@ -26,6 +26,8 @@ router = APIRouter(tags=['rag'])
 class RagQueryRequest(BaseModel):
     query: str
     limit: int = Field(default=5, ge=1, le=10)
+    workshop: str | None = None
+    machine_code: str | None = None
 
 
 def _ensure_rag_access(user: User) -> None:
@@ -122,6 +124,13 @@ def query_rag(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_rag_access(current_user)
-    payload = query_knowledge(db, query=body.query, limit=body.limit, user=current_user)
+    payload = query_knowledge(
+        db,
+        query=body.query,
+        limit=body.limit,
+        user=current_user,
+        workshop=body.workshop,
+        machine_code=body.machine_code,
+    )
     db.commit()
     return payload
