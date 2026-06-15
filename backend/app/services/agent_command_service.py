@@ -124,13 +124,15 @@ def handle_agent_command(
                 agent_code=clean_agent_code,
                 channel_key=channel_key,
                 channel_type=clean_channel,
-                title=f'【{clean_agent_code}】知识库回复',
+                title=_outbox_title_for_intent(clean_agent_code, intent),
                 content=answer,
-                source_summary='agent_command_rag',
+                source_summary=_outbox_source_summary_for_intent(intent),
                 trace_id=clean_trace_id,
                 payload={
                     'chat_inbox_id': inbox.id,
                     'agent_run_id': run.id,
+                    'intent': intent,
+                    'fact_status': facts.get('status', 'not_connected'),
                     'rag_citation_count': len(citations),
                 },
                 dedupe_key=_build_command_dedupe_key(
@@ -819,6 +821,25 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
         source_ref = item.get('source_ref') or f"chunk-{item.get('chunk_index', '-')}"
         parts.append(f'{filename} / {source_ref}')
     return '；'.join(parts)
+
+
+def _outbox_title_for_intent(agent_code: str, intent: str) -> str:
+    labels = {
+        'production_today': '今日产量回复',
+        'anomaly_summary': '异常汇总回复',
+        'consumable_usage': '辅材消耗回复',
+        'machine_stop': '停机查询回复',
+        'quality_anomaly': '质量异常回复',
+        'energy_cost': '能耗成本回复',
+        'general_knowledge': '知识库回复',
+    }
+    return f"【{agent_code}】{labels.get(intent, '现场问答回复')}"
+
+
+def _outbox_source_summary_for_intent(intent: str) -> str:
+    if intent == 'general_knowledge':
+        return 'agent_command_rag'
+    return f'agent_command_{intent}'
 
 
 def _build_command_dedupe_key(*, channel: str, group_id: str, agent_code: str, text: str) -> str:

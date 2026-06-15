@@ -658,6 +658,76 @@ def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_outbox_labels_business_fact_source(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'finished_inbound_output': 39.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:30',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        agent_communication_service.register_agent(db, code='factory_dispatch', name='全厂总控 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='factory',
+            target_key='factory',
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-management',
+                'sender_external_id': 'ding-user-011',
+                'text': '今日产量',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-fact-outbox-001',
+                'queue_outbox': True,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        message = db.get(AgentOutboxMessage, payload['outbox_message_id'])
+        assert message is not None
+        assert message.title == '【factory_dispatch】今日产量回复'
+        assert message.source_summary == 'agent_command_production_today'
+        assert message.payload['intent'] == 'production_today'
+        assert message.payload['fact_status'] == 'connected'
+        assert message.payload['rag_citation_count'] == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_reuses_group_reply_outbox_for_same_question() -> None:
     db, previous_overrides = _install_overrides()
 

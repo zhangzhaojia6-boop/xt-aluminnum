@@ -8409,3 +8409,85 @@ node --test tests/ragKnowledgePage.test.js
 | 原始大目标 | `99.9992%` | `99.9993%` |
 | RAG 阶段 | `86%` | `87%` |
 | 后端数据链路阶段 | `91.2%` | `91.4%` |
+
+## 105. Agent 外发消息已区分知识库回复和业务事实回复
+
+### 105.1 本轮新增能力
+
+`/api/v1/agent/command` 写入 `agent_outbox_messages` 时，标题和来源摘要现在会按问题意图区分。
+
+以前所有外发都统一写成：
+
+- 标题：`知识库回复`
+- 来源：`agent_command_rag`
+
+现在规则改为：
+
+- 问知识库资料：仍是 `知识库回复` / `agent_command_rag`
+- 问今日产量：`今日产量回复` / `agent_command_production_today`
+- 问异常汇总：`异常汇总回复` / `agent_command_anomaly_summary`
+- 问辅材消耗：`辅材消耗回复` / `agent_command_consumable_usage`
+- 问停机：`停机查询回复` / `agent_command_machine_stop`
+- 问质量：`质量异常回复` / `agent_command_quality_anomaly`
+- 问能耗成本：`能耗成本回复` / `agent_command_energy_cost`
+
+小白版理解：以前钉钉发件箱里所有回答都像“查资料回来的”，哪怕实际是系统查生产大屏、能耗页、质量表算出来的。现在发件箱能看出这条消息到底是“资料解释”还是“业务事实查询”。
+
+### 105.2 审计字段变化
+
+`agent_outbox_messages.payload` 现在额外保留：
+
+- `intent`
+- `fact_status`
+
+已有字段继续保留：
+
+- `chat_inbox_id`
+- `agent_run_id`
+- `rag_citation_count`
+
+这有助于排查“为什么这条钉钉消息这么说”：可以先看它是哪个意图，再看有没有连到实时业务事实，最后再看有没有 RAG 来源。
+
+### 105.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- Agent 回答正文模板。
+- 产量、异常、辅材、能耗、停机、质量算法。
+- outbox 幂等 key。
+- 钉钉 token、webhook、真实配置。
+- 前端页面。
+
+这是通讯审计准确性的最小修复。
+
+### 105.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+失败原因：今日产量外发消息标题仍是“知识库回复”，source_summary 仍是 agent_command_rag。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+12 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_active_reporting_service.py -q
+16 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+```
+
+### 105.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9993%` | `99.9994%` |
+| Agent 通讯中台阶段 | `88%` | `88.5%` |
+| 钉钉外发审计阶段 | `84%` | `84.5%` |
