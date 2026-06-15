@@ -12168,3 +12168,58 @@ python -m compileall backend/app/tasks/agent_outbox.py backend/app/core/schedule
 | Agent 通讯中台阶段 | `86.8%` | `87.1%` |
 | 外部通讯权限安全 | `91.9%` | `92.0%` |
 | 主动外发闭环 | `72.0%` | `72.6%` |
+
+## 162. 钉钉入站已支持“已绑定群默认排队回复”
+
+### 162.1 本轮新增能力
+
+`POST /api/v1/dingtalk/agent-inbound` 现在会在“钉钉群通道已配置，并且该 Agent 已绑定这个群”的情况下，默认把 Agent 回复排入 `agent_outbox_messages`。
+
+小白版理解：以前钉钉群里问 Agent，后端能算出答案，但如果请求没有明确传 `queueOutbox=true`，答案只在接口返回里，不一定会回到群。现在只要这个群和 Agent 已经在通讯治理台绑定，系统就会默认把回复放进发件箱，后续由 outbox 调度链路发出去。
+
+### 162.2 当前行为
+
+- 没有配置群通道或没有绑定 Agent 时，仍只返回接口结果，不强行入队，避免未配置群报错。
+- 显式传 `queueOutbox=false` 或 `queue_outbox=false` 时，仍然不入队，保留人工和测试侧的关闭开关。
+- 入队后仍走 `agent_communication_service.queue_bound_message()`，保留绑定校验、去重 key、dry-run、真实发送、重试、dead-letter 和外部日志链路。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 162.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_queues_reply_when_group_channel_is_bound_by_default -q
+失败原因：已绑定群通道和 Agent 的入站消息，outbox_message_id 仍然是 None。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_queues_reply_when_group_channel_is_bound_by_default backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_treats_string_false_as_no_outbox -q
+2 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+6 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_outbox_task.py -q
+35 passed
+
+python -m compileall backend/app/routers/dingtalk.py
+通过
+```
+
+### 162.4 尚未覆盖
+
+- 本轮没有调用真实钉钉 Stream 或机器人回调。
+- 本轮没有真实发送群消息，只验证“入站后进入 outbox”等待调度。
+- 生产上要真正回群，还需要该群通道非 dry-run、真实配置可用、后台 `agent_outbox_dispatch` 正常运行。
+
+### 162.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| Agent 通讯中台阶段 | `87.1%` | `87.4%` |
+| 外部通讯权限安全 | `92.0%` | `92.2%` |
+| 钉钉入站到回群链路 | `68.0%` | `69.0%` |
+| 主动外发闭环 | `72.6%` | `72.8%` |

@@ -21,7 +21,7 @@ from app.config import settings
 from app.core.auth import create_access_token
 from app.core.scope import build_scope_summary
 from app.database import get_db
-from app.models.agent_communication import CommunicationChannel
+from app.models.agent_communication import AgentChannelBinding, AgentProfile, CommunicationChannel
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.auth import LoginResponse, UserInfo
@@ -323,6 +323,28 @@ def _ensure_inbound_channel_scope_access(user: User, channel_scope: dict[str, An
     raise HTTPException(status_code=403, detail='dingtalk_channel_scope_denied')
 
 
+def _has_bound_inbound_outbox_channel(db: Session, *, group_id: str, agent_code: str) -> bool:
+    clean_group_id = _clean_text(group_id)
+    clean_agent_code = _clean_text(agent_code)
+    if not clean_group_id or not clean_agent_code:
+        return False
+    return (
+        db.query(AgentChannelBinding.id)
+        .join(AgentProfile, AgentProfile.id == AgentChannelBinding.agent_profile_id)
+        .join(CommunicationChannel, CommunicationChannel.id == AgentChannelBinding.channel_id)
+        .filter(
+            AgentProfile.code == clean_agent_code,
+            AgentProfile.is_active.is_(True),
+            CommunicationChannel.channel_type == 'dingtalk_group',
+            CommunicationChannel.channel_key == clean_group_id,
+            CommunicationChannel.is_active.is_(True),
+            AgentChannelBinding.is_active.is_(True),
+        )
+        .first()
+        is not None
+    )
+
+
 def _ensure_inbound_token(header_token: str | None) -> None:
     expected = _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None))
     if not expected:
@@ -376,7 +398,12 @@ def dingtalk_agent_inbound(
     )
     trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
-    queue_outbox = _parse_inbound_bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox'))
+    queue_outbox_value = _first_payload_value(payload, 'queueOutbox', 'queue_outbox')
+    queue_outbox = (
+        _has_bound_inbound_outbox_channel(db, group_id=group_id, agent_code=agent_code)
+        if queue_outbox_value is None
+        else _parse_inbound_bool(queue_outbox_value)
+    )
     channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
     _ensure_inbound_channel_scope_access(user, channel_scope)
 
