@@ -53,6 +53,8 @@ def handle_agent_command(
     text: str,
     agent_code: str | None,
     trace_id: str | None,
+    workshop: str | None = None,
+    machine_code: str | None = None,
     queue_outbox: bool = False,
     source_payload: dict[str, Any] | None = None,
     current_user: User | None = None,
@@ -64,6 +66,8 @@ def handle_agent_command(
     clean_channel = _clean(channel) or 'internal'
     clean_agent_code = _clean(agent_code) or 'factory_dispatch'
     clean_trace_id = _clean(trace_id) or uuid4().hex
+    clean_workshop = _clean(workshop) or None
+    clean_machine_code = _clean(machine_code) or None
     safe_source_payload = filter_sensitive_mapping(source_payload or {})
 
     inbox = ChatInboxMessage(
@@ -78,7 +82,14 @@ def handle_agent_command(
     db.add(inbox)
     db.flush()
 
-    rag_payload = query_knowledge(db, query=clean_text, limit=5, user=current_user)
+    rag_payload = query_knowledge(
+        db,
+        query=clean_text,
+        limit=5,
+        user=current_user,
+        workshop=clean_workshop,
+        machine_code=clean_machine_code,
+    )
     citations = rag_payload.get('citations') or []
     intent = _detect_intent(clean_text)
     facts = _load_business_facts(db, intent=intent, text=clean_text, current_user=current_user)
@@ -99,6 +110,10 @@ def handle_agent_command(
         'rag': {
             'answer': rag_payload.get('answer'),
             'citations': citations,
+            'scope': {
+                'workshop': clean_workshop,
+                'machine_code': clean_machine_code,
+            },
         },
         'source_payload': safe_source_payload,
     }
@@ -156,7 +171,15 @@ def handle_agent_command(
         facts=facts,
         status_color=status_color,
         answer=answer,
-        rag={'answer': rag_payload.get('answer'), 'citations': citations, 'items': rag_payload.get('items') or []},
+        rag={
+            'answer': rag_payload.get('answer'),
+            'citations': citations,
+            'items': rag_payload.get('items') or [],
+            'scope': {
+                'workshop': clean_workshop,
+                'machine_code': clean_machine_code,
+            },
+        },
         chat_inbox_id=inbox.id,
         agent_run_id=run.id,
         outbox_message_id=outbox_message_id,

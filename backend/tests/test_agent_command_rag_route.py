@@ -134,6 +134,60 @@ def test_agent_command_answers_from_rag_and_records_audit_trail() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_filters_rag_by_workshop_and_machine_code() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        create_document_from_bytes(
+            db,
+            filename='冷轧换辊标准.md',
+            content=('换辊标准要求先停机挂牌，确认张力后通知维修。' * 20).encode('utf-8'),
+            content_type='text/markdown',
+            uploaded_by=None,
+            source_name='冷轧换辊标准',
+            metadata={'workshop': '冷轧2050', 'machine_code': 'LZ2050-9'},
+        )
+        create_document_from_bytes(
+            db,
+            filename='热轧1号机换辊标准.md',
+            content=('换辊标准要求先停机挂牌，确认轧辊温度后通知维修。' * 20).encode('utf-8'),
+            content_type='text/markdown',
+            uploaded_by=None,
+            source_name='热轧1号机换辊标准',
+            metadata={'workshop': '热轧', 'machine_code': 'RZ-1'},
+        )
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-maintenance',
+                'sender_external_id': 'ding-user-012',
+                'text': '换辊标准怎么做',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-rag-scope-001',
+                'workshop': '热轧',
+                'machine_code': 'RZ-1',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['rag']['citations']
+        assert payload['rag']['citations'][0]['filename'] == '热轧1号机换辊标准.md'
+        assert payload['rag']['citations'][0]['metadata']['workshop'] == '热轧'
+        assert payload['rag']['citations'][0]['metadata']['machine_code'] == 'RZ-1'
+        assert '冷轧换辊标准.md' not in payload['answer']
+
+        query_log = db.query(RagQueryLog).one()
+        assert query_log.result_count == 1
+        assert query_log.citations[0]['filename'] == '热轧1号机换辊标准.md'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_requires_management_scope() -> None:
     db, previous_overrides = _install_overrides(role='machine_operator')
 

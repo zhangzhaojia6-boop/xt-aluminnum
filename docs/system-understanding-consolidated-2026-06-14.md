@@ -11058,3 +11058,63 @@ python -m pytest backend/tests/test_rag_routes.py -q
 | 原始大目标 | `99.999997%` | `99.999998%` |
 | RAG 附件和知识库阶段 | `94.0%` | `94.3%` |
 | Agent 查资料可用性 | `88.6%` | `89.0%` |
+
+## 143. Agent 指令查询 RAG 已接通车间和机台范围
+
+### 143.1 本轮新增能力
+
+`POST /api/v1/agent/command` 现在支持两个可选字段：
+
+- `workshop`：指定本次 Agent 查询要看的车间。
+- `machine_code`：指定本次 Agent 查询要看的机台/机列。
+
+小白版理解：以前群里问“换辊标准怎么做”，Agent 会去知识库找“换辊标准”，但不知道这次问题是热轧还是冷轧、是哪台机，可能引用到别的车间资料。现在如果请求里带上“热轧 + RZ-1”，Agent 会把这个范围传给 RAG，只引用匹配范围的资料。
+
+### 143.2 当前行为
+
+- 只新增兼容字段，不影响旧请求；不传 `workshop`、`machine_code` 时仍按原全库检索。
+- RAG 过滤仍基于 `rag_documents.metadata_payload` 的公开元信息。
+- Agent 审计结果里会记录本次 RAG 查询的范围，方便追溯“为什么引用这份资料”。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 143.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_filters_rag_by_workshop_and_machine_code -q
+失败原因：接口收到 workshop=热轧、machine_code=RZ-1 后，仍然引用了冷轧换辊标准.md。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_filters_rag_by_workshop_and_machine_code -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_rag_routes.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+31 passed
+
+python -m compileall backend/app/routers/agent.py backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感字段扫描
+未发现敏感配置文本进入本轮差异
+```
+
+### 143.4 尚未覆盖
+
+- 本轮是后端定向测试，没有做浏览器页面验证。
+- 本轮没有做真实钉钉群消息验证。
+- 前端如果要让管理端手动触发 Agent 时可选择车间/机台，还需要后续补 UI。
+
+### 143.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999998%` | `99.999999%` |
+| RAG 附件和知识库阶段 | `94.3%` | `94.4%` |
+| Agent 查资料可用性 | `89.0%` | `89.4%` |

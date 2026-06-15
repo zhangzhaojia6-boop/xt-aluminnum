@@ -23,6 +23,8 @@ class AgentCommandRequest(BaseModel):
     text: str
     agent_code: str | None = None
     trace_id: str | None = None
+    workshop: str | None = None
+    machine_code: str | None = None
     queue_outbox: bool = False
     source_payload: dict[str, Any] | None = None
 
@@ -49,6 +51,8 @@ def agent_command(
             text=payload.text,
             agent_code=payload.agent_code,
             trace_id=payload.trace_id,
+            workshop=payload.workshop,
+            machine_code=payload.machine_code,
             queue_outbox=payload.queue_outbox,
             source_payload=payload.source_payload,
             current_user=current_user,
