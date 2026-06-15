@@ -70,6 +70,27 @@ def dispatch_outbox_message(
     }
 
 
+@router.post('/outbox/dispatch-due')
+def dispatch_due_outbox_messages(
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _ensure_agent_management_access(current_user)
+    outcomes = agent_communication_service.dispatch_due_outbox_messages(db, limit=limit)
+    return {
+        'total': len(outcomes),
+        'items': [
+            {
+                'outbox_message_id': item.outbox_message_id,
+                'status': item.status,
+                'detail': redact_secret_text(item.detail),
+            }
+            for item in outcomes
+        ],
+    }
+
+
 @router.post('/outbox/dry-run-smoke')
 def dry_run_smoke(
     current_user: User = Depends(get_current_user),

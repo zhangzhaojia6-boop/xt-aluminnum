@@ -406,6 +406,61 @@ def test_agent_management_outbox_dispatch_redacts_agent_error_detail(tmp_path, m
     assert detail == 'outbox lookup failed password=<redacted> token=<redacted>'
 
 
+def test_agent_management_can_dispatch_due_outbox_messages_with_redacted_details(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+    calls = []
+
+    def fake_dispatch_due(_db, *, limit=50):
+        calls.append(limit)
+        return [
+            agent_communication_service.DispatchOutcome(
+                status='sent',
+                detail='dingtalk_sent',
+                outbox_message_id=11,
+            ),
+            agent_communication_service.DispatchOutcome(
+                status='retrying',
+                detail='send failed authorization:detail-auth',
+                outbox_message_id=12,
+            ),
+        ]
+
+    monkeypatch.setattr(agent_communication_service, 'dispatch_due_outbox_messages', fake_dispatch_due)
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/dispatch-due?limit=2')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert calls == [2]
+    payload = response.json()
+    assert payload == {
+        'total': 2,
+        'items': [
+            {'outbox_message_id': 11, 'status': 'sent', 'detail': 'dingtalk_sent'},
+            {
+                'outbox_message_id': 12,
+                'status': 'retrying',
+                'detail': 'send failed authorization=<redacted>',
+            },
+        ],
+    }
+
+
+def test_agent_management_due_outbox_dispatch_rejects_non_admin(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    client = _client(session_factory, _user('manager'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/dispatch-due')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == 'Agent management access denied'
+
+
 def test_agent_management_can_run_dry_run_smoke_without_real_send(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     client = _client(session_factory, _user('admin'))

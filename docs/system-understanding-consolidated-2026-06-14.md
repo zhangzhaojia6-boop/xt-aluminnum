@@ -11992,3 +11992,62 @@ git diff --check
 | 原始大目标 | `99.99999995%` | `99.99999996%` |
 | Agent 通讯中台阶段 | `85.9%` | `86.2%` |
 | 外部通讯权限安全 | `91.1%` | `91.4%` |
+
+## 159. Agent 管理端已新增“批量调度到期 outbox”的管理员接口
+
+### 159.1 本轮新增能力
+
+`POST /api/v1/agent-management/outbox/dispatch-due` 现在可以让管理员触发一次批量调度。它会调用 `agent_communication_service.dispatch_due_outbox_messages()`，批量处理待发送和已到重试时间的 outbox 消息。
+
+小白版理解：上一轮只是后端服务里有“批量扫到期消息”的能力，但外面还没有入口能触发它。这一轮把它接到 Agent 管理接口上，后续管理端按钮、云端任务或人工运维都可以调用这个统一入口。
+
+### 159.2 当前行为
+
+- 只有管理员能调用该接口，非管理员返回 403。
+- 入参 `limit` 限制为 1 到 100，默认 50。
+- 返回结构包含 `total` 和 `items`，每条包含 `outbox_message_id`、`status`、`detail`。
+- 返回给前端的 `detail` 会经过 `redact_secret_text()` 脱敏。
+- 该接口本身不绕过 dry-run；真实是否外发仍取决于通道配置和 `dispatch_outbox_message()` 原逻辑。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 159.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py::test_agent_management_can_dispatch_due_outbox_messages_with_redacted_details -q
+失败原因：POST /api/v1/agent-management/outbox/dispatch-due 返回 404，说明管理端没有批量触发到期 outbox 的接口。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py::test_agent_management_can_dispatch_due_outbox_messages_with_redacted_details backend/tests/test_agent_management_router.py::test_agent_management_due_outbox_dispatch_rejects_non_admin -q
+2 passed
+
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py -q
+71 passed
+
+python -m compileall backend/app/routers/agent_management.py backend/app/services/agent_communication_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 159.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群发送验证。
+- 本轮没有新增前端按钮，也没有把接口接入云端定时任务。
+
+### 159.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999996%` | `99.99999997%` |
+| Agent 通讯中台阶段 | `86.2%` | `86.5%` |
+| 外部通讯权限安全 | `91.4%` | `91.7%` |
