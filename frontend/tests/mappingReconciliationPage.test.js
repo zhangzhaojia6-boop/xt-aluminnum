@@ -46,3 +46,15 @@ test('mapping reconciliation page can run selected file and business day dry-run
   assert.doesNotMatch(page, /运行脱敏样例/)
   assert.doesNotMatch(page, /const dryRunPayload =/)
 })
+
+test('mapping reconciliation page compares scrap by default and renders metrics in Chinese', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /metric: 'scrap'/)
+  assert.match(page, /reference_field: 'scrap_tons'/)
+  assert.match(page, /system_field: 'scrap_tons'/)
+  assert.match(page, /function metricLabel/)
+  assert.match(page, /scrap: '废料'/)
+  assert.match(page, /\{\{ metricLabel\(item\.metric\) \}\}/)
+  assert.doesNotMatch(page, /<td>\{\{ item\.metric \}\}<\/td>/)
+})

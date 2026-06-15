@@ -7377,3 +7377,53 @@ npm run build
 | 原始大目标 | `99.965%` | `99.97%` |
 | RAG 阶段 | `91%` | `92%` |
 | 前端治理阶段 | `79.5%` | `80%` |
+
+## 89. 输出skill 对齐页面默认纳入废料试算
+
+### 89.1 本轮新增能力
+
+`/manage/mapping-reconciliation` 的真实试算默认字段从“产量、能耗、燃气”扩展为“产量、废料、能耗、燃气”。
+
+原因：后端 `parse_output_skill_reference_file` 已经能从 `D:\输出skill` 的文本和 Excel 里解析 `scrap_tons`，但前端默认试算字段之前没有把 `scrap_tons` 发给 `/api/v1/mapping-reconciliation/run`。这样用户点“运行真实试算”时，废料差异不会主动暴露。
+
+现在页面会把废料作为默认对齐项参与 dry-run。差异表的“指标”列也从英文内部字段改为中文显示：
+
+- `output` 显示为 `产量`
+- `scrap` 显示为 `废料`
+- `energy` 显示为 `能耗`
+- `gas` 显示为 `燃气`
+
+小白版理解：以前系统能看懂日报里的“废料”，但页面没把它拿出来比。现在点一次试算，废料也会一起比，看到的指标名也更像现场语言。
+
+### 89.2 当前边界
+
+本轮只补了前端默认试算字段和中文显示，没有改生产数据库，也没有改后端对原始数据的读取方式。
+
+废料匹配能否达到高匹配率，仍取决于系统侧对应业务日是否已经有 `scrap_tons` 或等价字段进入对齐行。后续需要继续把主操填报、MES 投影或算法废料字段纳入 `build_system_mapping_rows` 的可比口径。
+
+### 89.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+失败原因：页面没有默认 `metric: 'scrap'`，差异表仍直接显示 `item.metric`。
+```
+
+实现后已执行：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+4 passed
+
+npm run build
+通过
+```
+
+### 89.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.97%` | `99.975%` |
+| D:\输出skill 对齐阶段 | `82%` | `83%` |
+| 前端治理阶段 | `80%` | `80.5%` |

@@ -100,7 +100,7 @@
             </thead>
             <tbody>
               <tr v-for="(item, index) in differences" :key="`${item.reason_code}-${index}`">
-                <td>{{ item.metric }}</td>
+                <td>{{ metricLabel(item.metric) }}</td>
                 <td>{{ formatDimension(item.dimension) }}</td>
                 <td>{{ formatValue(item.reference_value) }}</td>
                 <td>{{ formatValue(item.system_value) }}</td>
@@ -175,6 +175,15 @@ const defaultMappingFields = [
     weight: 30
   },
   {
+    metric: 'scrap',
+    reference_field: 'scrap_tons',
+    system_field: 'scrap_tons',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 10
+  },
+  {
     metric: 'energy',
     reference_field: 'energy_kwh',
     system_field: 'energy_kwh',
@@ -244,6 +253,11 @@ function formatDimension(value) {
 function fieldLabel(value) {
   const labels = { business_date: '日期', workshop: '车间', shift: '班次', machine: '机台', process: '工序' }
   return labels[value] || value || '字段'
+}
+
+function metricLabel(value) {
+  const labels = { output: '产量', scrap: '废料', energy: '能耗', gas: '燃气' }
+  return labels[value] || value || '指标'
 }
 
 function reasonLabel(value) {
