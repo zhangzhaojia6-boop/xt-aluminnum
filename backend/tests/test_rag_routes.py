@@ -341,6 +341,73 @@ def test_rag_documents_hide_out_of_scope_workshop_sources() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_query_filters_results_to_user_workshop_when_no_workshop_requested() -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+
+    try:
+        db.add_all([
+            Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        ])
+        hot_document = RagDocument(
+            filename='hot-check.md',
+            source_name='热轧点检SOP',
+            content_type='text/markdown',
+            encoding='utf-8',
+            status='active',
+            file_size=80,
+            chunk_count=1,
+            metadata_payload={'workshop': '热轧'},
+        )
+        cold_document = RagDocument(
+            filename='cold-check.md',
+            source_name='冷轧点检SOP',
+            content_type='text/markdown',
+            encoding='utf-8',
+            status='active',
+            file_size=80,
+            chunk_count=1,
+            metadata_payload={'workshop': '冷轧2050'},
+        )
+        db.add_all([hot_document, cold_document])
+        db.flush()
+        db.add_all([
+            RagChunk(
+                document_id=hot_document.id,
+                chunk_index=0,
+                content='热轧 点检标准 每班确认油温。',
+                char_start=0,
+                char_end=80,
+                source_ref='hot-check.md#chunk-1',
+            ),
+            RagChunk(
+                document_id=cold_document.id,
+                chunk_index=0,
+                content='冷轧 点检标准 每班确认张力。',
+                char_start=0,
+                char_end=80,
+                source_ref='cold-check.md#chunk-1',
+            ),
+        ])
+        db.commit()
+
+        client = TestClient(app)
+        query_response = client.post('/api/v1/rag/query', json={'query': '点检标准', 'limit': 5})
+
+        assert query_response.status_code == 200
+        payload = query_response.json()
+        assert {item['source_name'] for item in payload['citations']} == {'冷轧点检SOP'}
+        assert '热轧' not in payload['answer']
+
+        log = db.query(RagQueryLog).one()
+        assert {item['source_name'] for item in log.citations} == {'冷轧点检SOP'}
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_malformed_json_file() -> None:
     db, previous_overrides = _install_overrides()
 

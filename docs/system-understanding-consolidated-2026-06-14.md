@@ -11477,3 +11477,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999995%` | `99.9999996%` |
 | RAG 附件和知识库阶段 | `94.9%` | `95.2%` |
 | 外部通讯权限安全 | `87.9%` | `88.3%` |
+
+## 150. RAG 查询结果已按用户车间范围过滤
+
+### 150.1 本轮新增能力
+
+`POST /api/v1/rag/query` 现在不只检查用户显式填写的 `workshop` 参数，还会在真正返回答案前，按文档 `metadata_payload.workshop` 过滤检索命中的 RAG 资料。
+
+小白版理解：上一轮防住了“冷轧主任在资料列表里看到热轧资料”。这一轮继续防住“冷轧主任不点资料列表，直接问知识库，答案里却引用热轧资料”。现在单车间用户即使不填写车间筛选，系统也只会把本车间资料和未标车间的通用资料拿来回答。
+
+### 150.2 当前行为
+
+- 文档未标 `workshop` 时视为通用资料，仍可参与 RAG 问答。
+- 管理员或全厂范围用户仍可检索跨车间资料。
+- 单车间用户只能检索自己车间名、编码或 ID 匹配的资料。
+- 过滤发生在 `query_knowledge()` 内部，所以 `/manage/rag` 和 `/api/v1/agent/command` 复用 RAG 时都会受保护。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 150.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_filters_results_to_user_workshop_when_no_workshop_requested -q
+失败原因：冷轧主任不指定 workshop 查询“点检标准”时，返回来源同时包含“热轧点检SOP”和“冷轧点检SOP”。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_filters_results_to_user_workshop_when_no_workshop_requested -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_master_write_permissions.py -q
+40 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 150.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- 这一步只修 RAG 查询权限边界；后续还要继续做真实上传、真实问答和 Agent 钉钉群联调。
+
+### 150.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999996%` | `99.9999997%` |
+| RAG 附件和知识库阶段 | `95.2%` | `95.5%` |
+| 外部通讯权限安全 | `88.3%` | `88.7%` |

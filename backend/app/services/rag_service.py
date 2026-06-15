@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.scope import can_request_workshop_scope
 from app.core.redaction import redact_secret_text
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
@@ -155,6 +156,11 @@ def query_knowledge(
             for chunk, document in chunks
             if _document_matches_metadata(document, metadata_filters)
         ]
+    chunks = [
+        (chunk, document)
+        for chunk, document in chunks
+        if _document_visible_to_user(db, document, user)
+    ]
     ranked = sorted(
         ((chunk, document, _score_chunk(clean_query, tokens, chunk.content)) for chunk, document in chunks),
         key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index),
@@ -290,6 +296,16 @@ def _document_matches_metadata(document: RagDocument, metadata_filters: dict[str
         if actual.casefold() != str(expected).strip().casefold():
             return False
     return True
+
+
+def _document_visible_to_user(db: Session, document: RagDocument, user: User | None) -> bool:
+    if user is None:
+        return True
+    public_metadata = _public_metadata(document.metadata_payload)
+    workshop = str(public_metadata.get('workshop') or '').strip()
+    if not workshop:
+        return True
+    return can_request_workshop_scope(user, db, workshop)
 
 
 def _looks_binary(content: bytes) -> bool:
