@@ -215,7 +215,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 镁吨耗 0.02 锰吨耗 0.03 铁吨耗 0.04 铜吨耗 0.005 滤布日耗 3 高温胶带日耗 2 再生油出库 0.8 再生油入库 0.6 液压油日耗 1.2 液压油月累计 10 液压油指标 0.5 齿轮油日耗 0.7 齿轮油月累计 6 齿轮油指标 0.4 铸锭块数 12 铸锭投料量 20 铸锭下机量 19 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
+        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 用电月累计 131500 用电指标 130000 用气月累计 53433 用气指标 53000 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 镁吨耗 0.02 锰吨耗 0.03 铁吨耗 0.04 铜吨耗 0.005 滤布日耗 3 高温胶带日耗 2 再生油出库 0.8 再生油入库 0.6 液压油日耗 1.2 液压油月累计 10 液压油指标 0.5 齿轮油日耗 0.7 齿轮油月累计 6 齿轮油指标 0.4 铸锭块数 12 铸锭投料量 20 铸锭下机量 19 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -233,6 +233,10 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'output_tons': 12.5,
             'energy_kwh': 1800.0,
             'gas_m3': 32.0,
+            'electricity_monthly': 131500.0,
+            'electricity_target': 130000.0,
+            'gas_monthly': 53433.0,
+            'gas_target': 53000.0,
             'scrap_tons': 0.2,
             'downtime_minutes': 30.0,
             'quality_issue_count': 2.0,
@@ -315,6 +319,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '客户',
         '产量(吨)',
         '能耗(kWh)',
+        '用电月累计',
+        '用电指标',
         '废料(吨)',
         '停机(分钟)',
         '质量异常数',
@@ -327,6 +333,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '高温胶带日耗',
         '再生油出库',
         '再生油入库',
+        '用气月累计',
+        '用气指标',
         '液压油日耗',
         '齿轮油日耗',
         '铸锭投料量',
@@ -335,7 +343,7 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '综合成本(元/吨)',
         '过站吨成本',
     ])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1, 0.6, 0.07, 0.09, 4, 2, 0.8, 0.6, 1.2, 0.7, 20, 19, 0.2, 331.16, 280.25])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 131500, 130000, 0.12, 25, 1, 0.942, 1.1, 0.6, 0.07, 0.09, 4, 2, 0.8, 0.6, 53433, 53000, 1.2, 0.7, 20, 19, 0.2, 331.16, 280.25])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -354,6 +362,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'customer': '客户A',
             'output_tons': 9.75,
             'energy_kwh': 1200.0,
+            'electricity_monthly': 131500.0,
+            'electricity_target': 130000.0,
             'scrap_tons': 0.12,
             'downtime_minutes': 25.0,
             'quality_issue_count': 1.0,
@@ -366,6 +376,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'high_temp_tape_daily': 2.0,
             'regen_oil_out': 0.8,
             'regen_oil_in': 0.6,
+            'gas_monthly': 53433.0,
+            'gas_target': 53000.0,
             'hydraulic_oil_daily': 1.2,
             'gear_oil_daily': 0.7,
             'ingot_input_tons': 20.0,

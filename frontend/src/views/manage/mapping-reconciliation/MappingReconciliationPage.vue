@@ -256,6 +256,42 @@ const defaultMappingFields = [
     weight: 10
   },
   {
+    metric: 'electricity_monthly',
+    reference_field: 'electricity_monthly',
+    system_field: 'electricity_monthly',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'electricity_target',
+    reference_field: 'electricity_target',
+    system_field: 'electricity_target',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'gas_monthly',
+    reference_field: 'gas_monthly',
+    system_field: 'gas_monthly',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'gas_target',
+    reference_field: 'gas_target',
+    system_field: 'gas_target',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
     metric: 'rolling_oil',
     reference_field: 'rolling_oil_per_ton',
     system_field: 'rolling_oil_per_ton',
@@ -608,6 +644,10 @@ function metricLabel(value) {
     yield: '成材率',
     energy: '能耗',
     gas: '燃气',
+    electricity_monthly: '用电月累计',
+    electricity_target: '用电指标',
+    gas_monthly: '用气月累计',
+    gas_target: '用气指标',
     rolling_oil: '轧制油吨耗',
     liquefied_gas: '液化气吨耗',
     titanium_wire: '钛丝吨耗',

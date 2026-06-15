@@ -10325,3 +10325,79 @@ cd frontend && npm test -- --runInBand
 | 原始大目标 | `99.999982%` | `99.999984%` |
 | 输出skill 对齐阶段 | `93.8%` | `94.2%` |
 | 前后端映射阶段 | `90.1%` | `90.3%` |
+
+## 132. 输出skill 对齐已补用电/用气月累计与指标字段
+
+### 132.1 本轮新增能力
+
+在第 131 节基础上，`mapping_reconciliation_service.parse_output_skill_reference_file()` 继续补齐 `daily_consumable_logs.payload` 锁定字段里已有、但输出skill 参考源之前还不能自动识别的能耗目标类字段：
+
+- `用电月累计` -> `electricity_monthly`
+- `用电指标` -> `electricity_target`
+- `用气月累计` -> `gas_monthly`
+- `用气指标` -> `gas_target`
+
+`/manage/mapping-reconciliation` 页面默认试算字段也同步纳入这些指标。
+
+小白版理解：系统里内勤/专项每日一录已经能保存“用电月累计、用电指标、用气月累计、用气指标”，但输出skill 文件如果写这些字段，之前管理端对账页不会主动拿来比。现在它们能和系统字段一一对上，尤其能减少“能耗月累计和指标在日报里有、对齐页却没比”的漏项。
+
+### 132.2 当前行为
+
+本轮新增的解析覆盖：
+
+- 文本行：支持 `用电月累计`、`用电指标`、`用气月累计`、`用气指标`。
+- Excel / JSON / NDJSON：这些字段会优先按标准业务字段识别，避免 `用气指标` 被误归成普通 `gas_m3`。
+- 页面默认试算：用电字段按 `kWh` 比较；用气字段按 `m3` 比较；容差保持 `0.1`。
+
+系统侧字段仍来自 `daily_consumable_logs.payload` 的已锁定字段展开结果，没有新增生产表，也没有改变原始数据。
+
+### 132.3 当前边界
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的能耗目标字段覆盖补强。
+
+### 132.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns -q
+失败原因：文本和 Excel 参考源中的用电月累计、用电指标、用气月累计、用气指标未被解析；Excel 里的用气指标会误归到普通 gas_m3。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段缺少这四个能耗目标指标。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns -q
+2 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 132.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999984%` | `99.999986%` |
+| 输出skill 对齐阶段 | `94.2%` | `94.5%` |
+| 前后端映射阶段 | `90.3%` | `90.5%` |

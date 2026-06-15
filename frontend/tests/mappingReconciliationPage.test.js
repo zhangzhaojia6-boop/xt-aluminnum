@@ -101,6 +101,10 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'hot_roll_emulsion_per_ton',
     'diatomite_per_ton',
     'white_earth_per_ton',
+    'electricity_monthly',
+    'electricity_target',
+    'gas_monthly',
+    'gas_target',
     'filter_cloth_daily',
     'high_temp_tape_daily',
     'regen_oil_out',
@@ -144,6 +148,10 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /hot_roll_emulsion: '热轧乳液吨耗'/)
   assert.match(page, /diatomite: '硅藻土吨耗'/)
   assert.match(page, /white_earth: '白土吨耗'/)
+  assert.match(page, /electricity_monthly: '用电月累计'/)
+  assert.match(page, /electricity_target: '用电指标'/)
+  assert.match(page, /gas_monthly: '用气月累计'/)
+  assert.match(page, /gas_target: '用气指标'/)
   assert.match(page, /filter_cloth: '滤布日耗'/)
   assert.match(page, /high_temp_tape: '高温胶带日耗'/)
   assert.match(page, /regen_oil_out: '再生油出库'/)
