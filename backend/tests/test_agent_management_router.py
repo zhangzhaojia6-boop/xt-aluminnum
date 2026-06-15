@@ -232,6 +232,74 @@ def test_agent_management_logs_include_provider_response_payload(tmp_path) -> No
     }
 
 
+def test_agent_management_logs_redact_nested_provider_secret_payload(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    db = session_factory()
+    try:
+        agent_communication_service.register_agent(db, code='factory_dispatch', name='全厂总控 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-prod-secret-003',
+            name='测试总控群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-003',
+        )
+        message = agent_communication_service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-prod-secret-003',
+            title='测试消息',
+            content='真实发送模拟消息。',
+            source_summary='unit_test',
+            trace_id='trace-router-provider-nested-secret',
+        )
+        agent_communication_service.dispatch_outbox_message(
+            db,
+            message.id,
+            sender=lambda _channel_key, _payload: (
+                False,
+                {
+                    'detail': 'dingtalk_failed',
+                    'provider_message_id': 'provider-msg-002',
+                    'response_payload': {
+                        'errcode': 310000,
+                        'result': {
+                            'request_id': 'req-provider-002',
+                            'api_key': 'nested-api-key-should-not-leak',
+                            'credential': 'nested-credential-should-not-leak',
+                        },
+                    },
+                },
+            ),
+        )
+    finally:
+        db.close()
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.get(f'/api/v1/agent-management/outbox/{message.id}/logs')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['items'][0]['response_payload'] == {
+        'errcode': 310000,
+        'result': {
+            'request_id': 'req-provider-002',
+            'api_key': '***',
+            'credential': '***',
+        },
+    }
+
+
 def test_agent_management_can_run_dry_run_smoke_without_real_send(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     client = _client(session_factory, _user('admin'))

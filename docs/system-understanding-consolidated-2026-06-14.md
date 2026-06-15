@@ -8709,3 +8709,67 @@ python -m pytest backend/tests/test_agent_communication_service.py backend/tests
 | 原始大目标 | `99.9996%` | `99.99965%` |
 | 钉钉外发审计阶段 | `85%` | `85.3%` |
 | Agent 通讯中台阶段 | `89%` | `89.2%` |
+
+## 109. 外发日志接口已补强嵌套敏感字段脱敏
+
+### 109.1 本轮新增能力
+
+`GET /api/v1/agent-management/outbox/{id}/logs` 现在会递归脱敏服务商返回体里的敏感字段。
+
+这次重点补齐：
+
+- 嵌套 `api_key`
+- 嵌套 `credential`
+
+小白版理解：如果钉钉或其他通道返回的数据结构里夹带了密钥类字段，即使它藏在 `result` 这种内层对象里，管理端接口也只会返回 `***`，不会把原值交给前端页面。
+
+### 109.2 当前行为
+
+后端治理路由现在复用 `app.core.redaction.is_sensitive_key()` 判断敏感字段，不再自己维护一份容易漏项的小词表。
+
+同时，核心脱敏词表新增 `credential`，和已有的 `password`、`secret`、`token`、`api_key`、`authorization` 等口径保持一致。
+
+### 109.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- 外发状态机。
+- outbox 重试次数。
+- dead-letter 逻辑。
+- 钉钉真实配置读取。
+- 前端页面结构。
+- 生产数据。
+
+这是外部通讯审计日志的安全补强。
+
+### 109.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+失败原因：嵌套 response_payload.result.api_key 和 credential 原样返回。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_secret_redaction.py -q
+24 passed
+
+node --test tests/externalLogDisplay.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+15 passed
+
+python -m compileall backend/app/routers/agent_management.py backend/app/core/redaction.py
+通过
+```
+
+### 109.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99965%` | `99.9997%` |
+| 钉钉外发审计阶段 | `85.3%` | `85.7%` |
+| 安全审计阶段 | `87%` | `87.4%` |

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.redaction import is_sensitive_key
 from app.core.scope import build_scope_summary
 from app.models.system import User
 from app.services import agent_communication_service, agent_knowledge_service, agent_management_overview_service
@@ -128,11 +129,10 @@ def _mask_key(value: str | None) -> str:
 
 
 def _sanitize_external_payload(value):
-    sensitive_markers = ('token', 'secret', 'webhook', 'authorization', 'password')
     if isinstance(value, dict):
         result = {}
         for key, item in value.items():
-            if any(marker in str(key).lower() for marker in sensitive_markers):
+            if is_sensitive_key(key):
                 result[key] = '***'
             else:
                 result[key] = _sanitize_external_payload(item)

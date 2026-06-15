@@ -16,6 +16,7 @@ _SENSITIVE_KEY_TOKENS = (
     'apikey',
     'api_key',
     'authorization',
+    'credential',
     'mobile',
     'phone',
     'address',
