@@ -58,3 +58,16 @@ test('mapping reconciliation page compares scrap by default and renders metrics 
   assert.match(page, /\{\{ metricLabel\(item\.metric\) \}\}/)
   assert.doesNotMatch(page, /<td>\{\{ item\.metric \}\}<\/td>/)
 })
+
+test('mapping reconciliation page compares downtime and quality by default', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /metric: 'downtime'/)
+  assert.match(page, /reference_field: 'downtime_minutes'/)
+  assert.match(page, /system_field: 'downtime_minutes'/)
+  assert.match(page, /metric: 'quality'/)
+  assert.match(page, /reference_field: 'quality_issue_count'/)
+  assert.match(page, /system_field: 'quality_issue_count'/)
+  assert.match(page, /downtime: '停机'/)
+  assert.match(page, /quality: '质量'/)
+})

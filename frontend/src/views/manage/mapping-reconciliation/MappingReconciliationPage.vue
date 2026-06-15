@@ -184,6 +184,24 @@ const defaultMappingFields = [
     weight: 10
   },
   {
+    metric: 'downtime',
+    reference_field: 'downtime_minutes',
+    system_field: 'downtime_minutes',
+    reference_unit: 'minute',
+    system_unit: 'minute',
+    tolerance: 1,
+    weight: 10
+  },
+  {
+    metric: 'quality',
+    reference_field: 'quality_issue_count',
+    system_field: 'quality_issue_count',
+    reference_unit: 'count',
+    system_unit: 'count',
+    tolerance: 0,
+    weight: 10
+  },
+  {
     metric: 'energy',
     reference_field: 'energy_kwh',
     system_field: 'energy_kwh',
@@ -256,7 +274,7 @@ function fieldLabel(value) {
 }
 
 function metricLabel(value) {
-  const labels = { output: '产量', scrap: '废料', energy: '能耗', gas: '燃气' }
+  const labels = { output: '产量', scrap: '废料', downtime: '停机', quality: '质量', energy: '能耗', gas: '燃气' }
   return labels[value] || value || '指标'
 }
 

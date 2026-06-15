@@ -7569,3 +7569,62 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.98%` | `99.985%` |
 | D:\输出skill 对齐阶段 | `84%` | `85%` |
 | 后端数据链路阶段 | `88.5%` | `89%` |
+
+## 92. 输出skill 对齐页面默认试算已带停机和质量
+
+### 92.1 本轮新增能力
+
+`/manage/mapping-reconciliation` 的真实试算默认字段继续扩展。
+
+当前页面默认会把以下字段发给 `/api/v1/mapping-reconciliation/run`：
+
+- `output_tons`：产量
+- `scrap_tons`：废料
+- `downtime_minutes`：停机
+- `quality_issue_count`：质量
+- `energy_kwh`：能耗
+- `gas_m3`：燃气
+
+差异表的“指标”列也会把新增指标显示成中文：
+
+- `downtime` 显示为 `停机`
+- `quality` 显示为 `质量`
+
+小白版理解：后端已经能算“停机”和“质量”，现在页面点击“运行真实试算”也会真的把这两项带过去，不会只停留在后端有能力但前端没用上。
+
+### 92.2 当前边界
+
+本轮只改前端默认字段和中文显示，没有改后端接口结构，也没有改任何生产数据。
+
+还未覆盖：
+
+- 页面按字段类型筛选。
+- Excel 参考源停机/质量列解析。
+- 质量专表、停机维修专表的明细行接入。
+
+### 92.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+失败原因：页面没有 metric: 'downtime' 和 metric: 'quality'。
+```
+
+实现后已执行：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+5 passed
+
+npm run build
+通过
+```
+
+### 92.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.985%` | `99.99%` |
+| D:\输出skill 对齐阶段 | `85%` | `86%` |
+| 前端治理阶段 | `80.5%` | `81%` |
