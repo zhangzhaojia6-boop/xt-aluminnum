@@ -7746,3 +7746,67 @@ git diff --check
 | 原始大目标 | `99.992%` | `99.993%` |
 | D:\输出skill 对齐阶段 | `87%` | `88%` |
 | 后端数据链路阶段 | `89.3%` | `89.6%` |
+
+## 95. 输出skill Excel 成材率已支持百分比底层小数
+
+### 95.1 本轮新增能力
+
+`mapping_reconciliation_service` 现在会把 Excel 参考源里的 `yield_rate` 做一次轻量归一。
+
+如果 `.xlsx` 或 `.xls` 单元格里是 Excel 百分比常见底层值：
+
+- `0.942`
+
+系统会转成：
+
+- `94.2`
+
+小白版理解：Excel 里看起来是 `94.2%`，底层经常存成 `0.942`。以前系统会拿 `0.942` 去和系统侧 `94.2` 比，肯定对不上。现在读入时先换成同一口径，再进入对齐台。
+
+### 95.2 当前边界
+
+本轮只对参考源 Excel 的 `yield_rate` 做换算，不改文本参考源，也不改系统侧原始数据。
+
+当前规则：
+
+- `0 < yield_rate <= 1` 时乘以 `100`
+- `yield_rate > 1` 时保持原样
+
+仍未覆盖：
+
+- 其他百分比类字段的统一比例/百分数换算。
+- 前端差异表里对“百分比底层值”的原因提示。
+- 不同业务页面对“成材率、成品率、良品率”的最终业务定义确认。
+
+### 95.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：Excel 0.942/0.928 被原样读入，未转成 94.2/92.8。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 95.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.993%` | `99.994%` |
+| D:\输出skill 对齐阶段 | `88%` | `89%` |
+| 后端数据链路阶段 | `89.6%` | `89.8%` |

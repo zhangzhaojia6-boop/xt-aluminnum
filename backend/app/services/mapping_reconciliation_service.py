@@ -266,6 +266,15 @@ def _excel_field(header: str) -> str | None:
     return None
 
 
+def _normalize_reference_number(field: str, value: Any) -> float | None:
+    number = _to_float(value)
+    if number is None:
+        return None
+    if field == 'yield_rate' and 0 < number <= 1:
+        return round(number * 100, 6)
+    return number
+
+
 def _parse_excel_rows(path: Path) -> list[dict[str, Any]]:
     if path.suffix.lower() == '.xls':
         return _parse_xls_rows(path)
@@ -292,7 +301,7 @@ def _parse_excel_rows(path: Path) -> list[dict[str, Any]]:
             if field == 'business_date':
                 row[field] = _to_date_text(value)
             elif field in NUMERIC_REFERENCE_FIELDS:
-                number = _to_float(value)
+                number = _normalize_reference_number(field, value)
                 if number is not None:
                     row[field] = number
             else:
@@ -333,7 +342,7 @@ def _parse_xls_rows(path: Path) -> list[dict[str, Any]]:
                 else:
                     row[field] = _to_date_text(value)
             elif field in NUMERIC_REFERENCE_FIELDS:
-                number = _to_float(value)
+                number = _normalize_reference_number(field, value)
                 if number is not None:
                     row[field] = number
             else:
