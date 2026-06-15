@@ -11708,3 +11708,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999999%` | `99.99999991%` |
 | Agent 通讯中台阶段 | `84.2%` | `84.6%` |
 | 外部通讯权限安全 | `89.5%` | `89.9%` |
+
+## 154. Agent 能耗事实查询已按用户车间范围过滤
+
+### 154.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在处理“能耗、吨耗、电耗、成本”等问题时，现在会把当前用户的数据范围传给能耗汇总服务。
+
+小白版理解：以前车间主任问“今日能耗成本怎么样”，系统可能直接拿全厂能耗总表来回答。现在如果是单车间主任提问，系统会先识别他绑定的车间，再只查这个车间范围内的能耗、电量、气量和吨耗。管理员或全厂范围用户仍保留全厂汇总能力。
+
+### 154.2 当前行为
+
+- 管理员或全厂范围用户继续使用全厂 `summarize_energy_for_date()` 口径。
+- 单车间用户会把自己的 `workshop_id` 传入 `summarize_energy_for_date()`。
+- 能耗服务按车间查询时，不再套用全厂 MES 包装产量或全厂入库产量作为吨耗分母，避免单车间吨耗被全厂产量稀释。
+- 能耗数据仍来自管理端能耗汇总链路：电工班次填报、机台能耗明细、内勤每日一录、旧导入和物联网影子来源。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 154.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_energy_facts_stay_within_user_workshop -q
+失败原因：冷轧2050车间主任询问“今日能耗成本怎么样”时，能耗汇总收到的 workshop_id 是 None，等同全厂范围。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_energy_facts_stay_within_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py backend/tests/test_energy_mes_packaging_output_basis.py backend/tests/test_owner_entry_projection_fallbacks.py -q
+59 passed
+
+python -m compileall backend/app/services/agent_command_service.py backend/app/services/energy_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 154.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- Agent 的异常汇总事实还需要继续检查是否按当前用户范围过滤。
+
+### 154.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999991%` | `99.99999992%` |
+| Agent 通讯中台阶段 | `84.6%` | `85.0%` |
+| 外部通讯权限安全 | `89.9%` | `90.3%` |

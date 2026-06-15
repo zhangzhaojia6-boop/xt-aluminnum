@@ -226,7 +226,7 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
 
     business_date = resolve_production_business_date()
     if intent == 'energy_cost':
-        return _extract_energy_cost_facts(db, business_date=business_date)
+        return _extract_energy_cost_facts(db, business_date=business_date, current_user=current_user)
     if intent == 'consumable_usage':
         return _extract_consumable_facts(db, business_date=business_date, current_user=current_user)
     if intent == 'machine_stop':
@@ -266,9 +266,14 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     }
 
 
-def _extract_energy_cost_facts(db: Session, *, business_date) -> dict[str, Any]:
+def _extract_energy_cost_facts(db: Session, *, business_date, current_user: User) -> dict[str, Any]:
+    scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
     try:
-        summary = energy_service.summarize_energy_for_date(db, business_date=business_date)
+        summary = energy_service.summarize_energy_for_date(
+            db,
+            business_date=business_date,
+            workshop_id=scoped_workshop_id,
+        )
     except SQLAlchemyError:
         return {
             'status': 'not_connected',

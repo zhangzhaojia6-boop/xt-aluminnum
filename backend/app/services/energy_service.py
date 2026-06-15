@@ -796,8 +796,13 @@ def get_energy_summary(
     )
 
 
-def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
-    rows = get_energy_summary(db, business_date=business_date)
+def summarize_energy_for_date(
+    db: Session,
+    *,
+    business_date: date,
+    workshop_id: int | None = None,
+) -> dict:
+    rows = get_energy_summary(db, business_date=business_date, workshop_id=workshop_id)
     owner_rows = [item for item in rows if item.get('source') == 'owner_only']
     mobile_rows = [item for item in rows if item.get('source') == 'mobile_shift_report']
     system_rows = [item for item in rows if item.get('source') == 'energy_import' or item.get('source') is None]
@@ -808,8 +813,8 @@ def summarize_energy_for_date(db: Session, *, business_date: date) -> dict:
     water_value = sum(_to_float(item.get('water_value')) or 0.0 for item in primary_rows)
     total_energy = sum(_to_float(item.get('total_energy')) or 0.0 for item in primary_rows)
     row_total_output = sum(_to_float(item.get('output_weight')) or 0.0 for item in primary_rows)
-    mes_packaging_output = _mes_packaging_output_tons(db, business_date=business_date)
-    factory_final_output = _factory_final_output_tons(db, business_date=business_date)
+    mes_packaging_output = _mes_packaging_output_tons(db, business_date=business_date) if workshop_id is None else 0.0
+    factory_final_output = _factory_final_output_tons(db, business_date=business_date) if workshop_id is None else 0.0
     if mes_packaging_output > 0:
         total_output = mes_packaging_output
         output_basis = 'mes_packaging_output'

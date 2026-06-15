@@ -1013,6 +1013,82 @@ def test_agent_command_uses_energy_summary_fact_for_energy_cost(monkeypatch) -> 
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_energy_facts_stay_within_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    scoped_workshop_ids: list[int | None] = []
+
+    def fake_energy_summary(_db, *, business_date, workshop_id=None):
+        scoped_workshop_ids.append(workshop_id)
+        if workshop_id == 20:
+            return {
+                'electricity_value': 1200.0,
+                'gas_value': 300.0,
+                'water_value': 0.0,
+                'total_energy': 1500.0,
+                'total_output_weight': 12.0,
+                'output_basis': 'energy_rows',
+                'energy_per_ton': 125.0,
+                'primary_source': 'mobile_shift_report',
+                'mobile_totals': {'row_count': 1, 'total_energy': 1500.0},
+                'owner_totals': {'row_count': 0, 'total_energy': 0.0},
+                'system_totals': {'row_count': 0, 'total_energy': 0.0},
+            }
+        return {
+            'electricity_value': 131500.0,
+            'gas_value': 53433.0,
+            'water_value': 0.0,
+            'total_energy': 184933.0,
+            'total_output_weight': 343.481,
+            'output_basis': 'mes_packaging_output',
+            'energy_per_ton': 538.4,
+            'primary_source': 'mobile_shift_report',
+            'mobile_totals': {'row_count': 3, 'total_energy': 184933.0},
+            'owner_totals': {'row_count': 1, 'total_energy': 180000.0},
+            'system_totals': {'row_count': 0, 'total_energy': 0.0},
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.energy_service.summarize_energy_for_date',
+        fake_energy_summary,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'cold-director',
+                'text': '今日能耗成本怎么样',
+                'agent_code': 'energy_cost_agent',
+                'trace_id': 'trace-agent-energy-scope-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'energy_cost'
+        assert scoped_workshop_ids == [20]
+        assert '电量 1200.00 度' in payload['answer']
+        assert '吨耗 125.00' in payload['answer']
+        assert '131500.00' not in payload['answer']
+        assert payload['facts']['electricity_kwh'] == 1200.0
+        assert payload['facts']['energy_per_ton'] == 125.0
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['facts']['electricity_kwh'] == 1200.0
+        assert run.result_payload['facts']['energy_per_ton'] == 125.0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_can_queue_bound_group_reply_without_dispatch() -> None:
     db, previous_overrides = _install_overrides()
 
