@@ -265,6 +265,60 @@ const defaultMappingFields = [
     weight: 10
   },
   {
+    metric: 'liquefied_gas',
+    reference_field: 'liquefied_gas_per_ton',
+    system_field: 'liquefied_gas_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'titanium_wire',
+    reference_field: 'titanium_wire_per_ton',
+    system_field: 'titanium_wire_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'steel_strip',
+    reference_field: 'steel_strip_per_ton',
+    system_field: 'steel_strip_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'd40',
+    reference_field: 'd40_per_ton',
+    system_field: 'd40_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'filter_agent',
+    reference_field: 'filter_agent_per_ton',
+    system_field: 'filter_agent_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'paint',
+    reference_field: 'paint_per_ton',
+    system_field: 'paint_per_ton',
+    reference_unit: 'per_ton',
+    system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
     metric: 'cost',
     reference_field: 'cost_per_ton',
     system_field: 'cost_per_ton',
@@ -357,6 +411,12 @@ function metricLabel(value) {
     energy: '能耗',
     gas: '燃气',
     rolling_oil: '轧制油吨耗',
+    liquefied_gas: '液化气吨耗',
+    titanium_wire: '钛丝吨耗',
+    steel_strip: '钢带吨耗',
+    d40: 'D40吨耗',
+    filter_agent: '飞滤剂吨耗',
+    paint: '油漆吨耗',
     cost: '吨成本',
     total_cost: '总成本',
     throughput_cost: '过站吨成本'

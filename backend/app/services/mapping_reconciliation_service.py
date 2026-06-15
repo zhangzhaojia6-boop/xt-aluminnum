@@ -46,6 +46,14 @@ JSON_LINES_EXTENSIONS = {'.ndjson'}
 SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大夜')
 DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
 NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
+CONSUMABLE_REFERENCE_FIELD_ALIASES = {
+    'liquefied_gas_per_ton': ('液化气吨耗', '液化气单吨消耗', '液化气每吨', 'liquefied_gas_per_ton'),
+    'titanium_wire_per_ton': ('钛丝吨耗', '钛丝单吨消耗', '钛丝每吨', 'titanium_wire_per_ton'),
+    'steel_strip_per_ton': ('钢带吨耗', '钢带单吨消耗', '钢带每吨', 'steel_strip_per_ton'),
+    'd40_per_ton': ('D40吨耗', 'd40吨耗', 'D40单吨消耗', 'd40_per_ton'),
+    'filter_agent_per_ton': ('飞滤剂吨耗', '飞滤剂单吨消耗', '飞滤剂每吨', 'filter_agent_per_ton'),
+    'paint_per_ton': ('油漆吨耗', '油漆单吨消耗', '油漆每吨', 'paint_per_ton'),
+}
 NUMERIC_REFERENCE_FIELDS = {
     'input_tons',
     'output_tons',
@@ -59,6 +67,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'total_cost',
     'cost_per_ton',
     'throughput_cost_per_ton',
+    *CONSUMABLE_REFERENCE_FIELD_ALIASES.keys(),
 }
 DIFFERENCE_REASON_LABELS = {
     'value_diff': '数值不一致',
@@ -286,6 +295,10 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['gas_m3'] = gas_m3
         if rolling_oil_per_ton is not None:
             row['rolling_oil_per_ton'] = rolling_oil_per_ton
+        for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
+            value = _metric_number(line, aliases)
+            if value is not None:
+                row[field] = value
         if total_cost is not None:
             row['total_cost'] = total_cost
         if throughput_cost_per_ton is not None:
@@ -346,6 +359,9 @@ def _excel_field(header: str) -> str | None:
         return 'rolling_oil_per_ton'
     if 'rolling_oil_per_ton' in header:
         return 'rolling_oil_per_ton'
+    for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
+        if field in header or any(_normalize_header(alias) in header for alias in aliases):
+            return field
     if '总成本' in header or '成本合计' in header or '总费用' in header or 'total_cost' in header:
         return 'total_cost'
     if (

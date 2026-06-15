@@ -90,6 +90,10 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /metric: 'rolling_oil'/)
   assert.match(page, /reference_field: 'rolling_oil_per_ton'/)
   assert.match(page, /system_field: 'rolling_oil_per_ton'/)
+  for (const field of ['liquefied_gas_per_ton', 'titanium_wire_per_ton', 'steel_strip_per_ton', 'd40_per_ton', 'filter_agent_per_ton', 'paint_per_ton']) {
+    assert.match(page, new RegExp(`reference_field: '${field}'`))
+    assert.match(page, new RegExp(`system_field: '${field}'`))
+  }
   assert.match(page, /metric: 'cost'/)
   assert.match(page, /reference_field: 'cost_per_ton'/)
   assert.match(page, /system_field: 'cost_per_ton'/)
@@ -101,6 +105,12 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /system_field: 'throughput_cost_per_ton'/)
   assert.match(page, /yield: '成材率'/)
   assert.match(page, /rolling_oil: '轧制油吨耗'/)
+  assert.match(page, /liquefied_gas: '液化气吨耗'/)
+  assert.match(page, /titanium_wire: '钛丝吨耗'/)
+  assert.match(page, /steel_strip: '钢带吨耗'/)
+  assert.match(page, /d40: 'D40吨耗'/)
+  assert.match(page, /filter_agent: '飞滤剂吨耗'/)
+  assert.match(page, /paint: '油漆吨耗'/)
   assert.match(page, /cost: '吨成本'/)
   assert.match(page, /total_cost: '总成本'/)
   assert.match(page, /throughput_cost: '过站吨成本'/)
