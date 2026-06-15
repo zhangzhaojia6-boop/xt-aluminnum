@@ -213,7 +213,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨\n'
+        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -230,6 +230,8 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'output_tons': 12.5,
             'energy_kwh': 1800.0,
             'scrap_tons': 0.2,
+            'downtime_minutes': 30.0,
+            'quality_issue_count': 2.0,
             'source_file': str(report),
             'source_type': 'output_skill_text',
         },
@@ -504,6 +506,8 @@ def test_build_system_mapping_rows_flattens_shift_production_scrap() -> None:
                     input_weight=10.0,
                     output_weight=9.5,
                     scrap_weight=0.3,
+                    downtime_minutes=18,
+                    issue_count=2,
                     electricity_kwh=1200,
                     data_source='mobile',
                     data_status='confirmed',
@@ -524,6 +528,8 @@ def test_build_system_mapping_rows_flattens_shift_production_scrap() -> None:
         'input_tons': 10.0,
         'output_tons': 9.5,
         'scrap_tons': 0.3,
+        'downtime_minutes': 18.0,
+        'quality_issue_count': 2.0,
         'energy_kwh': 1200.0,
         'source_table': 'shift_production_data',
     } in rows

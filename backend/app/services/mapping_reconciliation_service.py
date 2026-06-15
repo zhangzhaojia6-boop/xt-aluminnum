@@ -166,6 +166,18 @@ def _metric_number(line: str, labels: Sequence[str]) -> float | None:
     return float(match.group(1)) if match else None
 
 
+def _metric_minutes(line: str, labels: Sequence[str]) -> float | None:
+    label_pattern = '|'.join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
+    match = re.search(rf'(?:{label_pattern})\s*{NUMBER_RE}\s*(小时|h|H|分钟|min|MIN)?', line)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2) or '分钟'
+    if unit in {'小时', 'h', 'H'}:
+        return value * 60
+    return value
+
+
 def _line_workshop_shift(line: str) -> tuple[str | None, str | None]:
     for shift in SHIFT_NAMES:
         if shift in line:
@@ -198,12 +210,18 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         output_tons = _metric_tons(line, ('产量', '下机量', '包装产量', '入库量'))
         energy_kwh = _metric_number(line, ('能耗', '电量', '用电', '总电气', '总用电'))
         scrap_tons = _metric_tons(line, ('废料', '废品', '废料量'))
+        downtime_minutes = _metric_minutes(line, ('停机时长', '停机时间', '停机'))
+        quality_issue_count = _metric_number(line, ('质量异常', '质量问题', '质量门禁', '异常数'))
         if output_tons is not None:
             row['output_tons'] = output_tons
         if energy_kwh is not None:
             row['energy_kwh'] = energy_kwh
         if scrap_tons is not None:
             row['scrap_tons'] = scrap_tons
+        if downtime_minutes is not None:
+            row['downtime_minutes'] = downtime_minutes
+        if quality_issue_count is not None:
+            row['quality_issue_count'] = quality_issue_count
         if len(row) > 3:
             row['source_file'] = str(path)
             row['source_type'] = 'output_skill_text'
@@ -596,6 +614,8 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 'input_tons': _shift_production_weight_tons(record, 'input_weight'),
                 'output_tons': _shift_production_weight_tons(record, 'output_weight'),
                 'scrap_tons': _shift_production_weight_tons(record, 'scrap_weight'),
+                'downtime_minutes': _to_float(record.downtime_minutes),
+                'quality_issue_count': _to_float(record.issue_count),
                 'energy_kwh': _to_float(record.electricity_kwh),
                 'source_table': 'shift_production_data',
             }

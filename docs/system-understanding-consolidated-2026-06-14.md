@@ -7493,3 +7493,79 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.975%` | `99.98%` |
 | D:\输出skill 对齐阶段 | `83%` | `84%` |
 | 后端数据链路阶段 | `88%` | `88.5%` |
+
+## 91. 输出skill 对齐已纳入停机分钟和质量异常数
+
+### 91.1 本轮新增能力
+
+`mapping_reconciliation_service` 现在支持两个新对齐字段：
+
+- `downtime_minutes`
+- `quality_issue_count`
+
+参考源解析方面，`D:\输出skill` 文本里类似下面的内容会被解析：
+
+```text
+精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项
+```
+
+系统源摊平方面，`build_system_mapping_rows` 会从 `shift_production_data` 读取：
+
+- `downtime_minutes`
+- `issue_count`
+
+并转成对齐字段：
+
+- `downtime_minutes`
+- `quality_issue_count`
+
+小白版理解：现在对齐页面背后的算法不只看产量、能耗、废料，也能把班次停机了多久、质量异常几项拿出来对比。
+
+### 91.2 单位规则
+
+停机统一按分钟对齐。
+
+当前文本解析支持：
+
+- `30 分钟` → `30`
+- `0.5 小时` → `30`
+
+质量异常统一按数量对齐，不做单位换算。
+
+### 91.3 当前边界
+
+本轮只接入文本参考源和 `shift_production_data` 系统源。
+
+还未覆盖：
+
+- Excel 参考源里的停机/质量列。
+- 质量专表 `data_quality_issues` 的明细原因和门禁状态。
+- 维修/停机专表的开始时间、结束时间、停机等级。
+- 前端默认试算字段还未把停机/质量加入默认字段列表。
+
+### 91.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：参考源缺 downtime_minutes/quality_issue_count，系统侧班次行也缺这两个字段。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 91.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.98%` | `99.985%` |
+| D:\输出skill 对齐阶段 | `84%` | `85%` |
+| 后端数据链路阶段 | `88.5%` | `89%` |
