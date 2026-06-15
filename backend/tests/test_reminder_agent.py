@@ -181,6 +181,34 @@ def test_reminder_agent_falls_back_to_stdout_when_dingtalk_fails(monkeypatch) ->
     assert detail == "stdout_sink_after_dingtalk_failed:timeout"
 
 
+def test_reminder_agent_uses_readable_reason_when_dingtalk_returns_structured_failure(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        reminder_module,
+        "dingtalk_service",
+        SimpleNamespace(
+            send_work_notification=lambda _userid, _content: (
+                False,
+                {
+                    "detail": "invalid userid",
+                    "provider_message_id": "0",
+                    "response_payload": {"errcode": 33012, "errmsg": "invalid userid"},
+                },
+            )
+        ),
+        raising=False,
+    )
+    user = SimpleNamespace(username="leader", name="张三", dingtalk_user_id="dt_leader")
+    agent = ReminderAgent()
+
+    ok, detail = agent._send_reminder_message(user, "催报内容")
+
+    assert ok is True
+    assert detail == "stdout_sink_after_dingtalk_failed:invalid userid"
+    assert "response_payload" not in detail
+
+
 def test_reminder_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reminder.settings.AUTO_PUSH_ENABLED", True)
     monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)

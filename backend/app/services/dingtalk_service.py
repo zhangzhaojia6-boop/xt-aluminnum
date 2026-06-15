@@ -647,6 +647,12 @@ def send_group_message(chat_id: str, message: dict) -> tuple[bool, str | dict]:
     return service.send_group_message(chat_id, message)
 
 
+def send_detail_text(detail: str | dict) -> str:
+    if not isinstance(detail, dict):
+        return str(detail or '')
+    return str(detail.get('detail') or 'dingtalk_send_failed')
+
+
 def _normalize_clock_type(value: str | None) -> str | None:
     mapping = {
         'in': 'in',

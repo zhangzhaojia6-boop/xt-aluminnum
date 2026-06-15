@@ -26,6 +26,7 @@ from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
 from app.core.business_time import local_now, resolve_owner_daily_business_date, resolve_production_business_date
+from app.services.dingtalk_service import send_detail_text
 from app.services.mobile_reminder_service import _owner_daily_candidates, _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
@@ -60,7 +61,7 @@ class ReminderAgent(BaseAgent):
             if ok:
                 return ok, detail
             self.logger.info("[notify] %s | %s", identity, content)
-            return True, f"stdout_sink_after_dingtalk_failed:{detail}"
+            return True, f"stdout_sink_after_dingtalk_failed:{send_detail_text(detail)}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"
@@ -78,7 +79,7 @@ class ReminderAgent(BaseAgent):
             if ok:
                 return ok, detail
             self.logger.info("[notify] %s | %s", identity, content)
-            return True, f"stdout_sink_after_dingtalk_failed:{detail}"
+            return True, f"stdout_sink_after_dingtalk_failed:{send_detail_text(detail)}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"

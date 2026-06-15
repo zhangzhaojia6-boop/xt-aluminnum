@@ -12446,3 +12446,66 @@ python -m compileall backend/app/services/dingtalk_daily_report.py
 | 真实钉钉可排障性 | `73.0%` | `73.8%` |
 | 个人工作通知链路 | `71.0%` | `72.0%` |
 | 外部通讯日志覆盖 | `68.0%` | `69.0%` |
+
+## 167. Reporter/Reminder 钉钉失败兜底只显示可读原因
+
+### 167.1 本轮修复点
+
+`ReporterAgent` 和 `ReminderAgent` 在钉钉个人工作通知失败后，如果走本地兜底记录，现在只把结构化结果里的 `detail` 拼进业务决策文字，不再把整段 `response_payload` 原样拼进去。
+
+小白版理解：系统真实对接钉钉时，失败返回里可能包含很多机器字段。业务决策记录里只需要写“失败原因是什么”，比如 `invalid userid`，不应该塞一整段接口返回 JSON。原始返回体要进外部通讯日志或排障日志，不该污染给人看的催报/日报决策文字。
+
+### 167.2 当前行为
+
+- 钉钉返回普通字符串失败时，Reporter/Reminder 行为不变。
+- 钉钉返回结构化失败体时，Reporter/Reminder 兜底返回 `stdout_sink_after_dingtalk_failed:<detail>`。
+- 新增 `send_detail_text()` 作为钉钉发送结果的统一可读文本提取函数。
+- 没有改动真实发送策略，没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 167.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_reporter_agent.py::test_reporter_agent_uses_readable_reason_when_dingtalk_returns_structured_failure -q
+失败原因：ReporterAgent 把 response_payload 原样拼进 stdout_sink_after_dingtalk_failed。
+
+python -m pytest backend/tests/test_reminder_agent.py::test_reminder_agent_uses_readable_reason_when_dingtalk_returns_structured_failure -q
+失败原因：ReminderAgent 把 response_payload 原样拼进 stdout_sink_after_dingtalk_failed。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_reporter_agent.py::test_reporter_agent_uses_readable_reason_when_dingtalk_returns_structured_failure -q
+1 passed
+
+python -m pytest backend/tests/test_reminder_agent.py::test_reminder_agent_uses_readable_reason_when_dingtalk_returns_structured_failure -q
+1 passed
+
+python -m pytest backend/tests/test_reporter_agent.py backend/tests/test_reminder_agent.py -q
+20 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py backend/tests/test_dingtalk_daily_report.py -q
+18 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/dingtalk_service.py backend/app/agents/reporter.py backend/app/agents/reminder.py
+通过
+```
+
+### 167.4 尚未覆盖
+
+- 本轮没有让 ReporterAgent / ReminderAgent 自己写 `external_message_logs`。
+- 本轮没有真实发送钉钉工作通知。
+- Reporter/Reminder 的外部日志覆盖仍是下一步可继续补的缺口。
+
+### 167.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 真实钉钉可排障性 | `73.8%` | `74.1%` |
+| 个人工作通知链路 | `72.0%` | `72.3%` |
+| 外部通讯日志覆盖 | `69.0%` | `69.0%` |

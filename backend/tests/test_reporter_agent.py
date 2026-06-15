@@ -125,6 +125,34 @@ def test_reporter_agent_falls_back_to_stdout_when_dingtalk_fails(monkeypatch) ->
     assert detail == "stdout_sink_after_dingtalk_failed:timeout"
 
 
+def test_reporter_agent_uses_readable_reason_when_dingtalk_returns_structured_failure(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        reporter_module,
+        "dingtalk_service",
+        SimpleNamespace(
+            send_work_notification=lambda _userid, _content: (
+                False,
+                {
+                    "detail": "invalid userid",
+                    "provider_message_id": "0",
+                    "response_payload": {"errcode": 33012, "errmsg": "invalid userid"},
+                },
+            )
+        ),
+        raising=False,
+    )
+    user = SimpleNamespace(username="manager", name="车间主任", dingtalk_user_id="dt_manager")
+    agent = ReporterAgent()
+
+    ok, detail = agent._send_message(user, "日报内容")
+
+    assert ok is True
+    assert detail == "stdout_sink_after_dingtalk_failed:invalid userid"
+    assert "response_payload" not in detail
+
+
 def test_reporter_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
