@@ -7210,3 +7210,62 @@ npm run build
 | Agent 通讯阶段 | `94%` | `94%` |
 | 真实钉钉阶段 | `58%` | `59%` |
 | 前端治理阶段 | `78%` | `79%` |
+
+## 86. RAG 回答正文已携带来源
+
+### 86.1 本轮新增能力
+
+`rag_service.query_knowledge` 在命中知识库资料时，`answer` 正文会追加来源行：
+
+```text
+来源：文件名#chunk-1、文件名#chunk-2
+```
+
+小白版理解：以前接口虽然单独返回 `citations`，但如果钉钉群或 Agent 只转发 `answer`，用户可能看不到出处。现在回答正文里也有来源，转发出去也不会丢。
+
+### 86.2 当前口径
+
+| 情况 | 回答口径 |
+|---|---|
+| 查到资料 | `根据知识库资料：...`，并追加最多 3 个来源 |
+| 没查到资料 | `数据不足，知识库没有找到可靠来源。` |
+| 空问题 | `数据不足，问题为空，无法检索知识库。` |
+| citations | 仍单独返回结构化来源数组 |
+
+### 86.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_chunks_and_query_returns_sources -q
+失败原因：answer 只写了“根据知识库资料”，没有写“来源：文件名#chunk”。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py -q
+15 passed
+
+python -m compileall backend/app/services/rag_service.py backend/app/routers/rag.py backend/app/services/agent_command_service.py
+通过
+```
+
+### 86.4 当前边界
+
+还不能宣称 RAG 全链路线上验收完成。
+
+原因：
+
+- 本轮只验证本地接口和 Agent 命令相关测试。
+- 没有登录生产页面实际上传附件。
+- 没有在生产页面查看切片、查询来源和删除链路。
+
+### 86.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.95%` | `99.96%` |
+| RAG 阶段 | `88%` | `90%` |
+| Agent 通讯阶段 | `94%` | `94%` |
+| 前端治理阶段 | `79%` | `79%` |

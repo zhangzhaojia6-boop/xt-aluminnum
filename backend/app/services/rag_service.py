@@ -134,7 +134,8 @@ def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = 
             for item in items
         ]
         snippets = '；'.join(item['snippet'] for item in items[:3])
-        answer = f'根据知识库资料：{snippets}'
+        source_text = '、'.join(item['source_ref'] for item in items[:3])
+        answer = f'根据知识库资料：{snippets}\n来源：{source_text}'
 
     _write_query_log(db, query_text=clean_query, answer=answer, citations=citations, user=user)
     return {'answer': answer, 'citations': citations, 'items': items}

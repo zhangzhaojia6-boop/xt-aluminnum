@@ -72,6 +72,7 @@ def test_rag_upload_chunks_and_query_returns_sources() -> None:
         assert query_response.status_code == 200
         payload = query_response.json()
         assert payload['answer'].startswith('根据知识库资料')
+        assert '来源：工艺规则.md#chunk-' in payload['answer']
         assert payload['citations'][0]['document_id'] == uploaded['id']
         assert payload['citations'][0]['filename'] == '工艺规则.md'
     finally:
