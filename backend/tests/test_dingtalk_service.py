@@ -112,6 +112,36 @@ def test_send_work_notification_accepts_template_message(monkeypatch) -> None:
     assert calls[1][2]['msg'] == message
 
 
+def test_send_work_notification_preserves_dingtalk_failure_payload(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+
+    def fake_request_json(*, method, url, payload=None):
+        if 'gettoken' in url:
+            return {'errcode': 0, 'access_token': 'access_token_1', 'expires_in': 7200}
+        return {
+            'errcode': 33012,
+            'errmsg': 'invalid userid',
+            'request_id': 'work-req-failed-001',
+            'task_id': 0,
+        }
+
+    monkeypatch.setattr(service, '_request_json', fake_request_json)
+
+    ok, detail = service.send_work_notification('dt_100', '日报内容')
+
+    assert ok is False
+    assert detail == {
+        'detail': 'invalid userid',
+        'provider_message_id': '0',
+        'response_payload': {
+            'errcode': 33012,
+            'errmsg': 'invalid userid',
+            'request_id': 'work-req-failed-001',
+            'task_id': 0,
+        },
+    }
+
+
 def test_send_group_message_calls_dingtalk_chat_send(monkeypatch) -> None:
     service = _configured_service(monkeypatch)
     calls = []

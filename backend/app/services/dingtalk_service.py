@@ -532,7 +532,7 @@ class DingTalkService:
             return {'success': False, 'message': 'DingTalk is not configured'}
         return {'success': True, 'message': f'queued: {title}', 'content': content[:120]}
 
-    def send_work_notification(self, userid: str, content: str | dict) -> tuple[bool, str]:
+    def send_work_notification(self, userid: str, content: str | dict) -> tuple[bool, str | dict]:
         user_id = str(userid or '').strip()
         if not user_id:
             return False, 'dingtalk_user_missing'
@@ -542,6 +542,7 @@ class DingTalkService:
         if not self.enabled:
             return False, 'dingtalk_not_configured'
 
+        response = None
         try:
             access_token = self.fetch_access_token()
             self._throttle_message_send()
@@ -559,6 +560,12 @@ class DingTalkService:
             return True, 'dingtalk_sent'
         except Exception as exc:  # noqa: BLE001
             logger.warning('DingTalk work notification failed: %s', exc)
+            if isinstance(response, dict):
+                return False, {
+                    'detail': str(exc) or 'dingtalk_send_failed',
+                    'provider_message_id': self._extract_provider_message_id(response),
+                    'response_payload': response,
+                }
             return False, str(exc) or 'dingtalk_send_failed'
 
     def send_group_message(self, chat_id: str, message: dict) -> tuple[bool, str | dict]:
@@ -598,13 +605,31 @@ class DingTalkService:
 
     @staticmethod
     def _extract_provider_message_id(payload: dict) -> str | None:
-        for key in ('messageId', 'message_id', 'msgId', 'msg_id', 'openMsgId', 'open_msg_id'):
+        for key in (
+            'messageId',
+            'message_id',
+            'msgId',
+            'msg_id',
+            'openMsgId',
+            'open_msg_id',
+            'task_id',
+            'taskId',
+        ):
             value = payload.get(key)
             if value not in (None, ''):
                 return str(value)
         result = payload.get('result')
         if isinstance(result, dict):
-            for key in ('messageId', 'message_id', 'msgId', 'msg_id', 'openMsgId', 'open_msg_id'):
+            for key in (
+                'messageId',
+                'message_id',
+                'msgId',
+                'msg_id',
+                'openMsgId',
+                'open_msg_id',
+                'task_id',
+                'taskId',
+            ):
                 value = result.get(key)
                 if value not in (None, ''):
                     return str(value)
@@ -614,7 +639,7 @@ class DingTalkService:
 service = DingTalkService()
 
 
-def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str]:
+def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str | dict]:
     return service.send_work_notification(userid, content)
 
 

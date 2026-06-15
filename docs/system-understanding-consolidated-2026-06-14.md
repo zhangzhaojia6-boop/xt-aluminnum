@@ -12329,3 +12329,61 @@ python -m compileall backend/app/services/dingtalk_service.py
 | 真实钉钉可排障性 | `70.0%` | `72.0%` |
 | 外部通讯权限安全 | `92.5%` | `92.6%` |
 | 主动外发闭环 | `72.8%` | `73.1%` |
+
+## 165. 钉钉工作通知失败也会保留原始返回体
+
+### 165.1 本轮修复点
+
+`DingTalkService.send_work_notification()` 现在在钉钉个人工作通知接口返回业务失败码时，会返回结构化失败结果，包含 `detail`、`provider_message_id` 和 `response_payload`。
+
+小白版理解：催报和日报常会走“发给某个人”的钉钉工作通知。以前如果钉钉返回“用户不存在”“应用无权限”等失败，系统只保留一句错误文字，不方便判断到底是账号问题、权限问题还是钉钉侧配置问题。现在只要钉钉已经返回了原始失败体，系统就会把这份返回体保留下来，后续排障更直接。
+
+### 165.2 当前行为
+
+- 工作通知成功发送仍保持旧返回：`detail=dingtalk_sent`，避免影响现有日报、催报和 Agent 推送调用方。
+- 钉钉接口返回 `errcode != 0` 时，返回 `ok=false` 和结构化失败体。
+- 如果失败发生在取 token、网络异常等还没拿到钉钉返回体的阶段，仍返回原有错误文字。
+- `provider_message_id` 现在也能识别钉钉工作通知常见的 `task_id` / `taskId`。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 165.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_work_notification_preserves_dingtalk_failure_payload -q
+失败原因：失败时 detail 只是字符串 invalid userid，没有 response_payload。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_service.py::test_send_work_notification_preserves_dingtalk_failure_payload -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py -q
+12 passed
+
+python -m pytest backend/tests/test_dingtalk_daily_report.py backend/tests/test_reporter_agent.py backend/tests/test_reminder_agent.py -q
+23 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/dingtalk_service.py
+通过
+```
+
+### 165.4 尚未覆盖
+
+- 本轮没有真实发送钉钉工作通知。
+- 本轮没有改动日报、催报、H5 免登、Agent outbox 或外部通讯表结构。
+- 生产上要看到真实工作通知失败返回体，还需要用真实钉钉配置触发一次工作通知失败或成功联调。
+
+### 165.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 真实钉钉可排障性 | `72.0%` | `73.0%` |
+| 个人工作通知链路 | `70.0%` | `71.0%` |
+| 外部通讯权限安全 | `92.6%` | `92.7%` |
