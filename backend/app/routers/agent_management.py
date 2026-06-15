@@ -66,7 +66,7 @@ def dispatch_outbox_message(
     return {
         'outbox_message_id': outcome.outbox_message_id,
         'status': outcome.status,
-        'detail': outcome.detail,
+        'detail': redact_secret_text(outcome.detail),
     }
 
 

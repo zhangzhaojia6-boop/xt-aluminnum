@@ -8833,3 +8833,65 @@ python -m compileall backend/app/routers/agent_management.py
 | 原始大目标 | `99.9997%` | `99.99975%` |
 | 钉钉外发审计阶段 | `85.7%` | `86%` |
 | 安全审计阶段 | `87.4%` | `87.8%` |
+
+## 111. 执行分发接口响应已补 detail 脱敏
+
+### 111.1 本轮新增能力
+
+`POST /api/v1/agent-management/outbox/{id}/dispatch` 返回给管理端时，`detail` 文本现在也会经过 `redact_secret_text()` 脱敏。
+
+小白版理解：管理员点击“执行分发”后，如果底层发送器返回 `password=...`、`token=...` 这类错误详情，接口响应不会把原值直接给前端，而是显示 `<redacted>`。
+
+### 111.2 当前行为
+
+外部通讯治理台现在有两层展示保护：
+
+- 执行分发接口响应 `detail` 会脱敏。
+- 外发日志查询接口 `detail` 和 `response_payload` 也会脱敏。
+
+这两层保护只影响前端/API 展示，不改变数据库原始审计留痕。
+
+### 111.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- `agent_communication_service` 状态机。
+- outbox 重试策略。
+- dry-run 行为。
+- dead-letter 行为。
+- 通道配置。
+- 数据库结构。
+
+这是执行分发响应面的安全补强。
+
+### 111.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py -q
+失败原因：POST /outbox/{id}/dispatch 响应中的 detail 原样返回 password=detail-pass token=detail-token。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_secret_redaction.py -q
+26 passed
+
+node --test tests/externalLogDisplay.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+15 passed
+
+python -m compileall backend/app/routers/agent_management.py
+通过
+```
+
+### 111.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99975%` | `99.9998%` |
+| 钉钉外发审计阶段 | `86%` | `86.3%` |
+| 安全审计阶段 | `87.8%` | `88.1%` |

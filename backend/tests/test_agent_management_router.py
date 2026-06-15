@@ -169,6 +169,33 @@ def test_agent_management_can_dispatch_dry_run_outbox_and_read_logs(tmp_path) ->
     assert 'secret-001' not in logs_payload['items'][0]['channel_key_masked']
 
 
+def test_agent_management_outbox_dispatch_redacts_secret_text_detail(tmp_path, monkeypatch) -> None:
+    session_factory = _session_factory(tmp_path)
+
+    def fake_dispatch(_db, outbox_message_id):
+        return agent_communication_service.DispatchOutcome(
+            status='retrying',
+            detail='send failed password=detail-pass token=detail-token',
+            outbox_message_id=int(outbox_message_id),
+        )
+
+    monkeypatch.setattr(agent_communication_service, 'dispatch_outbox_message', fake_dispatch)
+
+    client = _client(session_factory, _user('admin'))
+    try:
+        response = client.post('/api/v1/agent-management/outbox/99/dispatch')
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        'outbox_message_id': 99,
+        'status': 'retrying',
+        'detail': 'send failed password=<redacted> token=<redacted>',
+    }
+
+
 def test_agent_management_logs_include_provider_response_payload(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     db = session_factory()
