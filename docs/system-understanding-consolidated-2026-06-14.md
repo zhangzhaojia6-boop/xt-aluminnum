@@ -10946,3 +10946,66 @@ cd frontend && npm test
 | 原始大目标 | `99.999995%` | `99.999996%` |
 | RAG 附件和知识库阶段 | `93.4%` | `93.8%` |
 | 前端真实映射阶段 | `92.0%` | `92.3%` |
+
+## 141. RAG 资料元信息已补机台编码
+
+### 141.1 本轮新增能力
+
+RAG 文档入库元信息现在补齐 `machine_code`：
+
+- 后端上传接口 `POST /api/v1/rag/documents/upload` 支持 `machine_code` 表单字段。
+- `machine_code` 会进入 `rag_documents.metadata_payload`。
+- RAG 查询命中的 `citations.metadata` 会带出 `machine_code`。
+- `/manage/rag` 上传区新增“机台编码”输入。
+- 文档详情和知识来源会显示机台编码，缺失时显示“未标机台”。
+
+小白版理解：以后上传“某台机的说明书、SOP、故障处理办法”时，不只知道它属于哪个车间，还能知道它对应哪台机。后续 Agent 回答“2 号机为什么停、这台机怎么处理”时，更容易找到正确资料。
+
+### 141.2 当前行为
+
+- 没有新增数据库字段，继续复用 `metadata_payload`。
+- 没有改生产数据。
+- 没有改变旧文件上传能力，未填写机台编码时仍可上传。
+- 这一步只补“元信息保存和展示”，还没有做按机台过滤 RAG 检索。
+
+### 141.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_persists_source_metadata_and_query_citations -q
+失败原因：metadata_payload 缺少 machine_code。
+
+cd frontend && node --test tests/ragKnowledgePage.test.js
+失败原因：uploadRagDocument 没有追加 machine_code，页面也没有机台编码字段。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_persists_source_metadata_and_query_citations -q
+1 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js
+5 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+12 passed
+
+python -m compileall backend/app/routers/rag.py
+通过
+
+cd frontend && npm test
+694 passed
+
+cd frontend && npm run build
+通过
+```
+
+### 141.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999996%` | `99.999997%` |
+| RAG 附件和知识库阶段 | `93.8%` | `94.0%` |
+| Agent 查资料可用性 | `88.4%` | `88.6%` |

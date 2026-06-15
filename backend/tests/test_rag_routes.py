@@ -105,6 +105,7 @@ def test_rag_upload_persists_source_metadata_and_query_citations() -> None:
                 'source_name': '冷轧1650工艺SOP',
                 'version': '2026-06-A',
                 'workshop': '冷轧1650',
+                'machine_code': 'LZ1650-1',
                 'owner': '工艺部',
                 'effective_date': '2026-06-15',
                 'permission_scope': 'manage',
@@ -123,6 +124,7 @@ def test_rag_upload_persists_source_metadata_and_query_citations() -> None:
         assert uploaded['metadata_payload'] == {
             'version': '2026-06-A',
             'workshop': '冷轧1650',
+            'machine_code': 'LZ1650-1',
             'owner': '工艺部',
             'effective_date': '2026-06-15',
         }
@@ -138,6 +140,7 @@ def test_rag_upload_persists_source_metadata_and_query_citations() -> None:
         assert citation['source_name'] == '冷轧1650工艺SOP'
         assert citation['metadata']['version'] == '2026-06-A'
         assert citation['metadata']['workshop'] == '冷轧1650'
+        assert citation['metadata']['machine_code'] == 'LZ1650-1'
     finally:
         _restore_overrides(previous_overrides, db)
 

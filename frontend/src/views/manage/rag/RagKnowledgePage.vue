@@ -33,6 +33,10 @@
         <input v-model="ragMetadata.workshop" type="text" />
       </label>
       <label>
+        <span>机台编码</span>
+        <input v-model="ragMetadata.machine_code" type="text" />
+      </label>
+      <label>
         <span>负责人</span>
         <input v-model="ragMetadata.owner" type="text" />
       </label>
@@ -116,6 +120,7 @@
           <span>{{ selectedDocument.filename }} / {{ selectedDocument.encoding }} / {{ displayNumber(selectedDocument.chunk_count) }} 段</span>
           <span>
             {{ selectedDocument.metadata_payload?.workshop || '未标车间' }}
+            · {{ selectedDocument.metadata_payload?.machine_code || '未标机台' }}
             · {{ selectedDocument.metadata_payload?.version || '未标版本' }}
             · {{ selectedDocument.metadata_payload?.owner || '未标负责人' }}
           </span>
@@ -153,6 +158,7 @@
             <li v-for="item in citations" :key="`${item.document_id}-${item.chunk_index}`">
               <b>{{ item.source_name || item.filename }}</b>
               <span>{{ item.metadata?.workshop || item.source_ref }}</span>
+              <span>{{ item.metadata?.machine_code || '未标机台' }}</span>
               <span>{{ item.source_ref }}</span>
             </li>
           </ol>
@@ -188,6 +194,7 @@ const ragMetadata = ref({
   source_name: '',
   version: '',
   workshop: '',
+  machine_code: '',
   owner: '',
   effective_date: '',
   permission_scope: 'manage'

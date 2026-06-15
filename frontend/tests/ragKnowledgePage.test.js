@@ -69,12 +69,12 @@ test('rag upload carries source metadata from the page to the api', () => {
   const page = source('../src/views/manage/rag/RagKnowledgePage.vue')
 
   assert.match(api, /uploadRagDocument\(file,\s*metadata\s*=\s*\{\}\)/)
-  for (const field of ['source_name', 'version', 'workshop', 'owner', 'effective_date', 'permission_scope']) {
+  for (const field of ['source_name', 'version', 'workshop', 'machine_code', 'owner', 'effective_date', 'permission_scope']) {
     assert.match(api, new RegExp(`formData\\.append\\('${field}'`))
     assert.match(page, new RegExp(`${field}:`))
   }
 
-  for (const label of ['资料来源', '版本', '所属车间', '负责人', '适用日期', '权限范围']) {
+  for (const label of ['资料来源', '版本', '所属车间', '机台编码', '负责人', '适用日期', '权限范围']) {
     assert.match(page, new RegExp(label))
   }
   assert.match(page, /ragMetadata/)
@@ -82,4 +82,5 @@ test('rag upload carries source metadata from the page to the api', () => {
   assert.match(page, /metadata_payload/)
   assert.match(page, /item\.source_name \|\| item\.filename/)
   assert.match(page, /item\.metadata\?\.workshop/)
+  assert.match(page, /item\.metadata\?\.machine_code/)
 })

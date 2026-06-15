@@ -40,6 +40,7 @@ async def upload_rag_document(
     source_name: str | None = Form(default=None),
     version: str | None = Form(default=None),
     workshop: str | None = Form(default=None),
+    machine_code: str | None = Form(default=None),
     owner: str | None = Form(default=None),
     effective_date: str | None = Form(default=None),
     permission_scope: str | None = Form(default=None),
@@ -59,6 +60,7 @@ async def upload_rag_document(
             metadata={
                 'version': version,
                 'workshop': workshop,
+                'machine_code': machine_code,
                 'owner': owner,
                 'effective_date': effective_date,
             },
