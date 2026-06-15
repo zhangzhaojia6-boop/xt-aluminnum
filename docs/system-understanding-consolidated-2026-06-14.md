@@ -9303,3 +9303,74 @@ python -m compileall backend/app/services/rag_service.py
 | 原始大目标 | `99.9999%` | `99.99991%` |
 | RAG 附件和知识库阶段 | `92.4%` | `92.6%` |
 | 安全审计阶段 | `89.2%` | `89.4%` |
+
+## 118. RAG 上传已拒绝伪装成文本的可执行文件
+
+### 118.1 本轮新增能力
+
+`POST /api/v1/rag/documents/upload` 现在会识别常见可执行文件头。即使文件被改名成 `.txt`，只要内容仍带 Windows、Linux 或 macOS 可执行文件特征，也会在入库前拒绝。
+
+小白版理解：以前如果有人把一个程序文件改名成 `tool.txt`，系统可能把它当普通文本收进去。现在系统会看文件内容的“开头暗号”，发现它像程序文件就拦下，不让它进知识库。
+
+### 118.2 当前行为
+
+RAG 上传当前文件安全边界继续扩大：
+
+- 只允许 `.txt`、`.md`、`.csv`、`.json`、`.log`。
+- 显式拒绝 `.exe`、`.cmd`、`.bat`、`.ps1`、`.sh`、`.dll`、`.msi`、`.scr`。
+- 拒绝带空字节或控制字符比例异常的二进制内容。
+- 拒绝常见可执行文件头，比如 Windows `MZ`、Linux `ELF`、macOS Mach-O。
+- 拒绝明显密钥、令牌、Bearer token、PEM 私钥文本。
+
+这次只补“内容像可执行文件”的判断，不改变允许上传的正常文本格式，不改变切片、查询、删除或前端页面。
+
+### 118.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 查询接口。
+- RAG 查询日志脱敏。
+- 文档切片规则。
+- 文档软删除规则。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 附件入库前的安全补强。
+
+### 118.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_renamed_executable_content -q
+失败原因：内容以 MZ 开头但文件名为 tool.txt 的附件返回 200 并入库。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_renamed_executable_content -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+9 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+42 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 118.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99991%` | `99.99992%` |
+| RAG 附件和知识库阶段 | `92.6%` | `92.8%` |
+| 安全审计阶段 | `89.4%` | `89.6%` |

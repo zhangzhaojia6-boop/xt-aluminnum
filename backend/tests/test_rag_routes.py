@@ -154,6 +154,30 @@ def test_rag_upload_rejects_executable_and_secret_like_files() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_rejects_renamed_executable_content() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            files={
+                'file': (
+                    'tool.txt',
+                    BytesIO(b'MZ' + b'This looks like text but keeps a Windows executable header.' * 20),
+                    'text/plain',
+                )
+            },
+        )
+
+        assert response.status_code == 400
+        assert '可执行' in response.json()['detail']
+        assert db.query(RagDocument).count() == 0
+        assert db.query(RagChunk).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_authorization_bearer_text() -> None:
     db, previous_overrides = _install_overrides()
 

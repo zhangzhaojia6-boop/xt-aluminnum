@@ -15,6 +15,13 @@ from app.models.system import User
 
 ALLOWED_EXTENSIONS = {'.txt', '.md', '.csv', '.json', '.log'}
 BLOCKED_EXTENSIONS = {'.exe', '.cmd', '.bat', '.ps1', '.sh', '.dll', '.msi', '.scr'}
+EXECUTABLE_SIGNATURES = (
+    b'MZ',
+    b'\x7fELF',
+    b'\xfe\xed\xfa\xce',
+    b'\xfe\xed\xfa\xcf',
+    b'\xca\xfe\xba\xbe',
+)
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 CHUNK_SIZE = 700
 CHUNK_OVERLAP = 100
@@ -162,6 +169,8 @@ def validate_and_decode_upload(filename: str, content: bytes) -> DecodedText:
         raise RagValidationError('文件过大')
     if not content:
         raise RagValidationError('文件为空')
+    if _looks_executable(content):
+        raise RagValidationError('不支持可执行文件')
     if _looks_binary(content):
         raise RagValidationError('不支持二进制文件')
 
@@ -230,6 +239,10 @@ def _looks_binary(content: bytes) -> bool:
     sample = content[:1024]
     control_count = sum(1 for value in sample if value < 9 or (13 < value < 32))
     return bool(sample) and control_count / len(sample) > 0.2
+
+
+def _looks_executable(content: bytes) -> bool:
+    return any(content.startswith(signature) for signature in EXECUTABLE_SIGNATURES)
 
 
 def _decode_text(content: bytes) -> DecodedText:
