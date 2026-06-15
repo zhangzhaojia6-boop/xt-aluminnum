@@ -14,10 +14,12 @@ from app.models.agent_communication import (
     AgentProfile,
     AgentRun,
     ChatInboxMessage,
+    CommunicationChannel,
 )
 from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
+from app.services.rag_service import create_document_from_bytes
 
 
 DINGTALK_AGENT_TABLES = [
@@ -27,6 +29,7 @@ DINGTALK_AGENT_TABLES = [
     RagChunk.__table__,
     RagQueryLog.__table__,
     AgentProfile.__table__,
+    CommunicationChannel.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
 ]
@@ -129,6 +132,82 @@ def test_dingtalk_agent_inbound_forwards_bound_manager_message_to_agent(monkeypa
         run = db.query(AgentRun).one()
         assert run.trace_id == 'trace-dingtalk-inbound-001'
         assert run.result_payload['intent'] == 'production_today'
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_scopes_rag_by_bound_channel_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add_all([
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        ),
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        CommunicationChannel(
+            channel_type='dingtalk_group',
+            channel_key='cid-hot-roll',
+            name='热轧状态群',
+            target_type='workshop',
+            target_key='热轧',
+            workshop_id=10,
+            dry_run=True,
+            is_active=True,
+            metadata_payload={'machine_code': 'RZ-1'},
+        ),
+    ])
+    create_document_from_bytes(
+        db,
+        filename='冷轧点检标准.md',
+        content=('点检标准要求先确认张力记录，再核对冷轧油路压力。' * 20).encode('utf-8'),
+        content_type='text/markdown',
+        uploaded_by=None,
+        source_name='冷轧点检标准',
+        metadata={'workshop': '冷轧2050', 'machine_code': 'LZ2050-9'},
+    )
+    create_document_from_bytes(
+        db,
+        filename='热轧1号机点检标准.md',
+        content=('点检标准要求先确认轧辊温度，再核对热轧液压压力。' * 20).encode('utf-8'),
+        content_type='text/markdown',
+        uploaded_by=None,
+        source_name='热轧1号机点检标准',
+        metadata={'workshop': '热轧', 'machine_code': 'RZ-1'},
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-hot-roll',
+                'senderStaffId': 'dt-manager-001',
+                'senderUnionId': 'union-manager-001',
+                'text': {'content': '@鑫泰助手 点检标准怎么做'},
+                'agentCode': 'maintenance_agent',
+                'traceId': 'trace-dingtalk-inbound-rag-scope-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert '热轧1号机点检标准.md' in payload['answer']
+        assert '冷轧点检标准.md' not in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['rag']['scope'] == {'workshop': '热轧', 'machine_code': 'RZ-1'}
+        assert run.result_payload['rag']['citations'][0]['filename'] == '热轧1号机点检标准.md'
     finally:
         _restore_db_override(previous_overrides, db)
 

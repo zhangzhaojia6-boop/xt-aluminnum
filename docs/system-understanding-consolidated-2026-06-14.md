@@ -11118,3 +11118,65 @@ git diff 敏感字段扫描
 | 原始大目标 | `99.999998%` | `99.999999%` |
 | RAG 附件和知识库阶段 | `94.3%` | `94.4%` |
 | Agent 查资料可用性 | `89.0%` | `89.4%` |
+
+## 144. 钉钉入站 Agent 已能按群绑定范围查 RAG
+
+### 144.1 本轮新增能力
+
+`POST /api/v1/dingtalk/agent-inbound` 现在会在收到群消息后，先根据钉钉群 ID 去查 `communication_channels`：
+
+- 如果消息里显式带了 `workshop` 或 `machine_code`，优先用消息里的范围。
+- 如果消息里没带范围，则用群通道绑定的 `workshop_id` / `target_key` 推导车间。
+- 如果群通道元信息里配置了 `machine_code`，会一起传给 Agent。
+
+小白版理解：以前热轧群里问“点检标准怎么做”，系统只知道这是一个钉钉群消息，不知道这个群代表热轧，也不知道对应哪台机，所以知识库可能把冷轧资料也找出来。现在群配置里绑定了热轧和 RZ-1 后，钉钉入站会把这个范围传给 Agent，Agent 再按范围查 RAG。
+
+### 144.2 当前行为
+
+- 没有改钉钉 H5 免登。
+- 没有改真实外发流程。
+- 没有新增数据库字段，没有 migration。
+- 未配置群通道时，保持原有行为：不强行过滤，避免旧群消息被拦死。
+- 范围会进入 Agent 运行记录里的 `rag.scope`，便于审计。
+
+### 144.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_scopes_rag_by_bound_channel_workshop -q
+失败原因：热轧群提问点检标准时，回答同时引用了冷轧点检标准.md 和 热轧1号机点检标准.md。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_scopes_rag_by_bound_channel_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_command_rag_route.py backend/tests/test_rag_routes.py -q
+32 passed
+
+python -m compileall backend/app/routers/dingtalk.py
+通过
+
+git diff --check
+通过，只有换行格式提示
+
+git diff 敏感配置扫描
+只命中测试假数据和测试入站口令，没有发现真实配置进入本轮差异
+```
+
+### 144.4 尚未覆盖
+
+- 本轮没有调用真实钉钉群。
+- 本轮没有做浏览器页面验证。
+- 群范围目前只用于 RAG 检索范围；更完整的“群权限越权拦截”还需要后续继续做。
+
+### 144.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999999%` | `99.9999991%` |
+| 真实钉钉接入阶段 | `72.0%` | `72.4%` |
+| Agent 查资料可用性 | `89.4%` | `89.8%` |

@@ -21,6 +21,8 @@ from app.config import settings
 from app.core.auth import create_access_token
 from app.core.scope import build_scope_summary
 from app.database import get_db
+from app.models.agent_communication import CommunicationChannel
+from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.auth import LoginResponse, UserInfo
 from app.services.audit_service import log_action
@@ -274,6 +276,41 @@ def _parse_inbound_bool(value: Any) -> bool:
     return text in {'true', '1', 'yes', 'y', 'on'}
 
 
+def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[str, Any]) -> dict[str, str | None]:
+    workshop = _clean_text(_first_payload_value(payload, 'workshop', 'workshopName', 'workshop_name')) or None
+    machine_code = _clean_text(
+        _first_payload_value(payload, 'machineCode', 'machine_code', 'equipmentCode', 'equipment_code')
+    ) or None
+    if not group_id:
+        return {'workshop': workshop, 'machine_code': machine_code}
+
+    channel = (
+        db.query(CommunicationChannel)
+        .filter(
+            CommunicationChannel.channel_type == 'dingtalk_group',
+            CommunicationChannel.channel_key == group_id,
+            CommunicationChannel.is_active.is_(True),
+        )
+        .first()
+    )
+    if channel is None:
+        return {'workshop': workshop, 'machine_code': machine_code}
+
+    if not workshop and channel.workshop_id:
+        bound_workshop = db.get(Workshop, channel.workshop_id)
+        workshop = bound_workshop.name if bound_workshop else None
+    if not workshop and channel.target_type == 'workshop':
+        workshop = _clean_text(channel.target_key) or None
+
+    metadata = channel.metadata_payload or {}
+    if not machine_code and isinstance(metadata, dict):
+        machine_code = _clean_text(
+            metadata.get('machine_code') or metadata.get('machineCode') or metadata.get('equipment_code')
+        ) or None
+
+    return {'workshop': workshop, 'machine_code': machine_code}
+
+
 def _ensure_inbound_token(header_token: str | None) -> None:
     expected = _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None))
     if not expected:
@@ -328,6 +365,7 @@ def dingtalk_agent_inbound(
     trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
     queue_outbox = _parse_inbound_bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox'))
+    channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
 
     try:
         result = handle_agent_command(
@@ -338,6 +376,8 @@ def dingtalk_agent_inbound(
             text=text,
             agent_code=agent_code,
             trace_id=trace_id or None,
+            workshop=channel_scope['workshop'],
+            machine_code=channel_scope['machine_code'],
             queue_outbox=queue_outbox,
             source_payload=_sanitize_inbound_payload(payload),
             current_user=user,
