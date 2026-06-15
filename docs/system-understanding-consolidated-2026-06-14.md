@@ -9164,3 +9164,72 @@ python -m compileall backend/app/services/rag_service.py
 | 原始大目标 | `99.99986%` | `99.99988%` |
 | RAG 附件和知识库阶段 | `92%` | `92.2%` |
 | 安全审计阶段 | `88.8%` | `89%` |
+
+## 116. RAG 上传已拒绝 Authorization Bearer 令牌文本
+
+### 116.1 本轮新增能力
+
+`POST /api/v1/rag/documents/upload` 现在会拒绝包含 `Authorization: Bearer ...` 的文本附件。
+
+小白版理解：如果有人把接口调试记录、机器人配置片段、钉钉回调调试文本误上传到知识库，只要里面带有常见的 Bearer 令牌格式，系统会直接拒绝，不会切片入库。
+
+### 116.2 当前行为
+
+RAG 上传当前敏感内容拦截覆盖：
+
+- `password=...`
+- `token=...`
+- `api_key=...`
+- `app_secret=...`
+- `database_password=...`
+- `Authorization: Bearer ...`
+
+这次只扩展敏感内容识别规则，不改变允许上传的文件后缀、编码识别、二进制判断、切片大小或查询逻辑。
+
+### 116.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 查询接口。
+- RAG 查询日志脱敏。
+- 文档切片规则。
+- 文档删除软删除规则。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 附件入库前的安全补强。
+
+### 116.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+失败原因：包含 Authorization: Bearer fake-token-0012 的 markdown 文档返回 200 并入库。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+7 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+40 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 116.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99988%` | `99.9999%` |
+| RAG 附件和知识库阶段 | `92.2%` | `92.4%` |
+| 安全审计阶段 | `89%` | `89.2%` |
