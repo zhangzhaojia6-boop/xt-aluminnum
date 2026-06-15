@@ -71,3 +71,14 @@ test('mapping reconciliation page compares downtime and quality by default', () 
   assert.match(page, /downtime: '停机'/)
   assert.match(page, /quality: '质量'/)
 })
+
+test('mapping reconciliation page renders backend difference summary', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /differenceSummary/)
+  assert.match(page, /reasonBreakdown/)
+  assert.match(page, /差异原因汇总/)
+  assert.match(page, /result\.value\?\.difference_summary/)
+  assert.match(page, /reason\.label/)
+  assert.match(page, /reason\.count/)
+})

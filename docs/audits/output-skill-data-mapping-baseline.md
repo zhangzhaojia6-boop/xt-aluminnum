@@ -158,12 +158,11 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 | `/api/v1/mapping-reconciliation/run`：传文件名 + 业务日自动 dry-run | 100% |
 | 人工构造：能耗值差异 + 缺系统行 | 0%，可解释差异 |
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
-| 接口返回：差异原因汇总 | 返回 `difference_summary`，可直接给前端展示 |
+| 接口返回：差异原因汇总 | 返回 `difference_summary`，前端 `/manage/mapping-reconciliation` 已展示 |
 
 ## 10. 下一步
 
 1. 用真实 `D:\输出skill` 文件跑一个业务日只读匹配率，不提交原始数据。
 2. 让 `/manage/mapping-reconciliation` 从静态样例改为选择文件和业务日后调用真实 dry-run。
-3. 让 `/manage/mapping-reconciliation` 使用 `difference_summary` 展示缺行、缺字段、数值差异等分类。
-4. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
-5. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。
+3. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
+4. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。

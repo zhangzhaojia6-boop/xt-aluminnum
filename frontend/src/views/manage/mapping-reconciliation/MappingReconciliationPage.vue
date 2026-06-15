@@ -79,6 +79,21 @@
         </div>
       </article>
 
+      <article class="xt-mapping-reconciliation__panel">
+        <header>
+          <h2>差异原因汇总</h2>
+          <span>{{ displayNumber(differenceSummary.total) }} 条</span>
+        </header>
+        <div v-if="!result" class="xt-mapping-reconciliation__empty">未运行试算</div>
+        <div v-else-if="reasonBreakdown.length === 0" class="xt-mapping-reconciliation__empty">暂无差异原因</div>
+        <ul v-else class="xt-mapping-reconciliation__summary">
+          <li v-for="reason in reasonBreakdown" :key="reason.reason_code">
+            <b>{{ reason.label }}</b>
+            <strong>{{ displayNumber(reason.count) }}</strong>
+          </li>
+        </ul>
+      </article>
+
       <article class="xt-mapping-reconciliation__panel is-wide">
         <header>
           <h2>差异明细</h2>
@@ -152,6 +167,8 @@ const systemSources = computed(() => sources.value?.system_sources || [])
 const sourceRoot = computed(() => sources.value?.reference_source || '未配置')
 const differences = computed(() => result.value?.differences || [])
 const ruleProposals = computed(() => result.value?.rule_proposals || [])
+const differenceSummary = computed(() => result.value?.difference_summary || { total: differences.value.length, by_reason_code: {}, by_metric: {}, reason_breakdown: [] })
+const reasonBreakdown = computed(() => differenceSummary.value.reason_breakdown || [])
 const matchRate = computed(() => Number(result.value?.overall_match_rate || 0))
 const referenceRowsCount = computed(() => Number(result.value?.reference_rows_count || 0))
 const systemRowsCount = computed(() => Number(result.value?.system_rows_count || 0))
@@ -239,7 +256,7 @@ const metricCards = computed(() => [
   { key: 'files', label: '参考文件', value: displayNumber(sourceFiles.value.length), meta: sources.value?.available ? '已挂载' : '未挂载' },
   { key: 'rows', label: '对齐行数', value: `${displayNumber(referenceRowsCount.value)} / ${displayNumber(systemRowsCount.value)}`, meta: '输出skill / 系统' },
   { key: 'match', label: '当前匹配率', value: `${displayNumber(matchRate.value)}%`, meta: result.value ? '来自试算' : '未运行' },
-  { key: 'diff', label: '差异数量', value: displayNumber(differences.value.length), meta: '可追原因' }
+  { key: 'diff', label: '差异数量', value: displayNumber(differenceSummary.value.total), meta: '可追原因' }
 ])
 
 function displayNumber(value) {
@@ -503,7 +520,8 @@ onMounted(loadSources)
 }
 
 .xt-mapping-reconciliation__file-list,
-.xt-mapping-reconciliation__rules {
+.xt-mapping-reconciliation__rules,
+.xt-mapping-reconciliation__summary {
   display: grid;
   gap: var(--xt-space-2);
   margin: 0;
@@ -512,7 +530,8 @@ onMounted(loadSources)
 }
 
 .xt-mapping-reconciliation__file-list li,
-.xt-mapping-reconciliation__rules li {
+.xt-mapping-reconciliation__rules li,
+.xt-mapping-reconciliation__summary li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -524,7 +543,8 @@ onMounted(loadSources)
 }
 
 .xt-mapping-reconciliation__file-list b,
-.xt-mapping-reconciliation__rules b {
+.xt-mapping-reconciliation__rules b,
+.xt-mapping-reconciliation__summary b {
   overflow: hidden;
   color: var(--mapping-text);
   font-weight: 900;
@@ -539,6 +559,12 @@ onMounted(loadSources)
   color: rgba(245, 240, 230, 0.58);
   font-size: var(--xt-text-xs);
   font-weight: 800;
+}
+
+.xt-mapping-reconciliation__summary strong {
+  color: var(--mapping-gold);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-xl);
 }
 
 .xt-mapping-reconciliation__chips {

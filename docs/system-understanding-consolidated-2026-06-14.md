@@ -8125,3 +8125,64 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py back
 | 原始大目标 | `99.998%` | `99.9985%` |
 | D:\输出skill 对齐阶段 | `93%` | `93.5%` |
 | 后端数据链路阶段 | `90.7%` | `90.9%` |
+
+## 101. 输出skill 对齐页面已展示差异原因汇总
+
+### 101.1 本轮新增能力
+
+`/manage/mapping-reconciliation` 现在会消费后端 `difference_summary`，并在页面里展示“差异原因汇总”。
+
+页面展示内容包括：
+
+- 差异总数
+- 每类原因的中文标签
+- 每类原因的数量
+
+小白版理解：以前页面只列差异明细，用户要自己一条条看。现在页面会先把原因归类，比如“数值不一致”多少条、“系统缺少同维度数据”多少条，这样现场排查会快很多。
+
+### 101.2 当前边界
+
+本轮没有重构整个页面，也没有改接口请求参数。
+
+没有改：
+
+- 后端匹配算法。
+- 生产数据。
+- 权限逻辑。
+- `/entry` 手机端。
+- 其他管理端页面。
+
+这只是把后端已经返回的汇总结果显示出来。
+
+### 101.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+失败原因：页面缺 differenceSummary、reasonBreakdown 和“差异原因汇总”。
+```
+
+实现后已执行：
+
+```text
+node --test tests/mappingReconciliationPage.test.js
+6 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+16 passed
+
+npm run build
+通过
+
+npm run test
+685 passed
+```
+
+### 101.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9985%` | `99.999%` |
+| D:\输出skill 对齐阶段 | `93.5%` | `94%` |
+| 前端落地阶段 | `88%` | `88.5%` |
