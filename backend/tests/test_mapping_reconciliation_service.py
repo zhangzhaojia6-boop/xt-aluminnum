@@ -253,8 +253,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
     report = tmp_path / 'mapping.xlsx'
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)'])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 9.75, 1200, 0.12])
+    sheet.append(['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机(分钟)', '质量异常数'])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 9.75, 1200, 0.12, 25, 1])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -269,6 +269,8 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'output_tons': 9.75,
             'energy_kwh': 1200.0,
             'scrap_tons': 0.12,
+            'downtime_minutes': 25.0,
+            'quality_issue_count': 1.0,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }
@@ -281,8 +283,8 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
     report = tmp_path / 'mapping.xls'
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet('日报')
-    headers = ['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)']
-    values = ['2026-06-13', '热轧', '大夜班', 21.5, 2600, 0.4]
+    headers = ['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机分钟', '质量问题数']
+    values = ['2026-06-13', '热轧', '大夜班', 21.5, 2600, 0.4, 40, 3]
     for index, header in enumerate(headers):
         sheet.write(0, index, header)
     for index, value in enumerate(values):
@@ -301,6 +303,8 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'output_tons': 21.5,
             'energy_kwh': 2600.0,
             'scrap_tons': 0.4,
+            'downtime_minutes': 40.0,
+            'quality_issue_count': 3.0,
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }

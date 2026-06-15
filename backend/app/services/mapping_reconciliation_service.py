@@ -41,6 +41,7 @@ EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
 SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大夜')
 DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
 NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
+NUMERIC_REFERENCE_FIELDS = {'output_tons', 'energy_kwh', 'scrap_tons', 'downtime_minutes', 'quality_issue_count'}
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +245,10 @@ def _excel_field(header: str) -> str | None:
         return 'energy_kwh'
     if '废料' in header or '废品' in header:
         return 'scrap_tons'
+    if '停机' in header:
+        return 'downtime_minutes'
+    if '质量异常' in header or '质量问题' in header or '异常数' in header or 'quality' in header:
+        return 'quality_issue_count'
     if '产量' in header or '下机量' in header or '入库量' in header or '包装' in header:
         return 'output_tons'
     return None
@@ -274,7 +279,7 @@ def _parse_excel_rows(path: Path) -> list[dict[str, Any]]:
                 continue
             if field == 'business_date':
                 row[field] = _to_date_text(value)
-            elif field in {'output_tons', 'energy_kwh', 'scrap_tons'}:
+            elif field in NUMERIC_REFERENCE_FIELDS:
                 number = _to_float(value)
                 if number is not None:
                     row[field] = number
@@ -315,7 +320,7 @@ def _parse_xls_rows(path: Path) -> list[dict[str, Any]]:
                     row[field] = xlrd.xldate.xldate_as_datetime(value, workbook.datemode).date().isoformat()
                 else:
                     row[field] = _to_date_text(value)
-            elif field in {'output_tons', 'energy_kwh', 'scrap_tons'}:
+            elif field in NUMERIC_REFERENCE_FIELDS:
                 number = _to_float(value)
                 if number is not None:
                     row[field] = number

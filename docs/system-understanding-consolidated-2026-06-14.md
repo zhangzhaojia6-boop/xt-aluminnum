@@ -7628,3 +7628,56 @@ npm run build
 | 原始大目标 | `99.985%` | `99.99%` |
 | D:\输出skill 对齐阶段 | `85%` | `86%` |
 | 前端治理阶段 | `80.5%` | `81%` |
+
+## 93. 输出skill Excel 参考源已识别停机和质量字段
+
+### 93.1 本轮新增能力
+
+`mapping_reconciliation_service` 的 Excel 参考源解析继续补齐。
+
+现在 `.xlsx` 和 `.xls` 参考文件表头里出现下面字段时，会归一成平台映射对齐字段：
+
+- `停机(分钟)`、`停机分钟` → `downtime_minutes`
+- `质量异常数`、`质量问题数`、`异常数` → `quality_issue_count`
+
+小白版理解：以前 Excel 表里写了“停机 25 分钟、质量异常 1 项”，系统读表时会漏掉。现在会读进来，能和系统侧班次产量里的停机分钟、质量异常数一起对比。
+
+### 93.2 当前边界
+
+本轮只解析参考源 Excel 的字段，不改生产数据库，不改接口结构，也不改页面。
+
+仍未覆盖：
+
+- 质量专表 `data_quality_issues` 的门禁状态、原因明细。
+- 停机/维修专表的开始时间、结束时间、停机等级。
+- Excel 里用自然语言混写的复杂停机原因。
+
+### 93.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：xlsx/xls 解析结果缺 downtime_minutes 和 quality_issue_count。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 93.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99%` | `99.992%` |
+| D:\输出skill 对齐阶段 | `86%` | `87%` |
+| 后端数据链路阶段 | `89%` | `89.3%` |
