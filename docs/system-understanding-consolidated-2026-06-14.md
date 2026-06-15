@@ -7875,3 +7875,69 @@ git diff --check
 | 原始大目标 | `99.994%` | `99.995%` |
 | D:\输出skill 对齐阶段 | `89%` | `90%` |
 | 后端数据链路阶段 | `89.8%` | `90%` |
+
+## 97. 输出skill Excel 参考源已保留机台、工序、卷号、合同和客户字段
+
+### 97.1 本轮新增能力
+
+`mapping_reconciliation_service` 的 Excel 参考源解析现在会保留更多定位字段。
+
+支持从 `.xlsx` 和 `.xls` 表头里识别：
+
+- `机台`、`机列`、`设备名称` → `machine`
+- `工序`、`工艺`、`当前工艺` → `process`
+- `卷号`、`随行卡号`、`批号` → `coil_no`
+- `合同号`、`合同`、`合同编号` → `contract_no`
+- `客户`、`客户名`、`客户名称` → `customer`
+
+小白版理解：以前 Excel 参考表里就算写了“哪台机、哪个工序、哪个卷、哪个合同、哪个客户”，系统读进来后也会丢掉这些定位信息，只剩车间、班次和数值。现在这些字段会留下来，后续能按更细粒度去对齐，不容易把不同卷、不同合同的数据粗暴混在一起。
+
+### 97.2 当前边界
+
+本轮只处理 Excel 表头型参考源，不处理自然语言文本里的复杂描述。
+
+没有改：
+
+- 系统侧 MES 投影表。
+- 比较算法默认维度。
+- 前端筛选项。
+- 生产原始数据。
+
+仍未覆盖：
+
+- 文本日报中类似 `26A04967 在 JQ-01 包装` 的自然语言抽取。
+- 同一个 Excel 单元格里混写多个卷号或多个合同的拆分。
+- 前端差异表按卷号、合同号直接筛选。
+
+### 97.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：xlsx/xls 解析结果缺 machine/process/coil_no/contract_no/customer。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 97.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.995%` | `99.996%` |
+| D:\输出skill 对齐阶段 | `90%` | `91%` |
+| 后端数据链路阶段 | `90%` | `90.2%` |

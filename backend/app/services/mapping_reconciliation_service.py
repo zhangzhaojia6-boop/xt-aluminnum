@@ -255,6 +255,16 @@ def _excel_field(header: str) -> str | None:
         return 'workshop'
     if header == '班次':
         return 'shift'
+    if header in {'机台', '机列', '设备', '设备名称', '设备名'}:
+        return 'machine'
+    if header in {'工序', '工艺', '当前工艺'}:
+        return 'process'
+    if header in {'卷号', '随行卡号', '随行卡', '卡号', '批号'}:
+        return 'coil_no'
+    if header in {'合同号', '合同', '合同编号'}:
+        return 'contract_no'
+    if header in {'客户', '客户名', '客户名称'}:
+        return 'customer'
     if '能耗' in header or '电量' in header or 'kwh' in header:
         return 'energy_kwh'
     if '废料' in header or '废品' in header:

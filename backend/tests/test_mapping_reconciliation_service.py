@@ -255,8 +255,24 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
     report = tmp_path / 'mapping.xlsx'
     workbook = Workbook()
     sheet = workbook.active
-    sheet.append(['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机(分钟)', '质量异常数', '良品率(%)', '轧制油吨耗'])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1])
+    sheet.append([
+        '日期',
+        '车间',
+        '班次',
+        '机台',
+        '工序',
+        '卷号',
+        '合同号',
+        '客户',
+        '产量(吨)',
+        '能耗(kWh)',
+        '废料(吨)',
+        '停机(分钟)',
+        '质量异常数',
+        '良品率(%)',
+        '轧制油吨耗',
+    ])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 0.12, 25, 1, 0.942, 1.1])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -268,6 +284,11 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'business_date': '2026-06-13',
             'workshop': '园区剪切',
             'shift': '长白班',
+            'machine': 'JQ-01',
+            'process': '包装',
+            'coil_no': '26A04967',
+            'contract_no': 'HT-001',
+            'customer': '客户A',
             'output_tons': 9.75,
             'energy_kwh': 1200.0,
             'scrap_tons': 0.12,
@@ -287,8 +308,24 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
     report = tmp_path / 'mapping.xls'
     workbook = xlwt.Workbook()
     sheet = workbook.add_sheet('日报')
-    headers = ['日期', '车间', '班次', '产量(吨)', '能耗(kWh)', '废料(吨)', '停机分钟', '质量问题数', '成材率', '轧制油单吨消耗']
-    values = ['2026-06-13', '热轧', '大夜班', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3]
+    headers = [
+        '日期',
+        '车间',
+        '班次',
+        '设备名称',
+        '当前工艺',
+        '随行卡号',
+        '合同',
+        '客户名',
+        '产量(吨)',
+        '能耗(kWh)',
+        '废料(吨)',
+        '停机分钟',
+        '质量问题数',
+        '成材率',
+        '轧制油单吨消耗',
+    ]
+    values = ['2026-06-13', '热轧', '大夜班', 'RZ-02', '热轧', '26B00001', 'HT-002', '客户B', 21.5, 2600, 0.4, 40, 3, 0.928, 1.3]
     for index, header in enumerate(headers):
         sheet.write(0, index, header)
     for index, value in enumerate(values):
@@ -304,6 +341,11 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'business_date': '2026-06-13',
             'workshop': '热轧',
             'shift': '大夜班',
+            'machine': 'RZ-02',
+            'process': '热轧',
+            'coil_no': '26B00001',
+            'contract_no': 'HT-002',
+            'customer': '客户B',
             'output_tons': 21.5,
             'energy_kwh': 2600.0,
             'scrap_tons': 0.4,
