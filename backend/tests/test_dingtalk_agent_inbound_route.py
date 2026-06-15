@@ -21,6 +21,8 @@ from app.models.agent_communication import (
 from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
+from app.routers import dingtalk as dingtalk_router
+from app.services.agent_command_service import AgentCommandError
 from app.services.rag_service import create_document_from_bytes
 
 
@@ -361,6 +363,55 @@ def test_dingtalk_agent_inbound_rejects_missing_token_when_configured(monkeypatc
         assert response.status_code == 401
         assert response.json()['detail'] == 'dingtalk_inbound_token_invalid'
         assert db.query(ChatInboxMessage).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_redacts_agent_error_detail(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        )
+    )
+    db.commit()
+
+    def fake_handle_agent_command(*_args, **_kwargs):
+        raise AgentCommandError('agent failed password=detail-pass token=detail-token')
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(dingtalk_router, 'handle_agent_command', fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-production-test',
+                'senderStaffId': 'dt-manager-001',
+                'senderUnionId': 'union-manager-001',
+                'text': {'content': '@鑫泰助手 今日产量'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-redacted-error-001',
+            },
+        )
+
+        assert response.status_code == 400
+        detail = response.json()['detail']
+        assert 'detail-pass' not in detail
+        assert 'detail-token' not in detail
+        assert detail == 'agent failed password=<redacted> token=<redacted>'
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
     finally:
         _restore_db_override(previous_overrides, db)
 

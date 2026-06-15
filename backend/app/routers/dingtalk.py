@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import create_access_token
+from app.core.redaction import redact_secret_text
 from app.core.scope import build_scope_summary
 from app.database import get_db
 from app.models.agent_communication import AgentChannelBinding, AgentProfile, CommunicationChannel
@@ -425,7 +426,7 @@ def dingtalk_agent_inbound(
         db.commit()
     except AgentCommandError as exc:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=redact_secret_text(str(exc))) from exc
     except Exception:
         db.rollback()
         raise

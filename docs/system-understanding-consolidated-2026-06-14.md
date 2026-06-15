@@ -12223,3 +12223,56 @@ python -m compileall backend/app/routers/dingtalk.py
 | 外部通讯权限安全 | `92.0%` | `92.2%` |
 | 钉钉入站到回群链路 | `68.0%` | `69.0%` |
 | 主动外发闭环 | `72.6%` | `72.8%` |
+
+## 163. 钉钉入站 Agent 错误已做敏感信息脱敏
+
+### 163.1 本轮修复点
+
+`POST /api/v1/dingtalk/agent-inbound` 捕获 `AgentCommandError` 时，现在会复用 `redact_secret_text()` 再返回错误内容。
+
+小白版理解：外部钉钉回调是“系统对外的门口”。如果 Agent 内部报错里带了 `password`、`token` 这类字段，接口不能把真实值原样吐给外部调用方。本轮把钉钉入站接口和 `/api/v1/agent/command` 的错误脱敏口径对齐。
+
+### 163.2 当前行为
+
+- `password=xxx` 会返回为 `password=<redacted>`。
+- `token=xxx` 会返回为 `token=<redacted>`。
+- 脱敏只作用在错误响应上，不改变正常 Agent 问答、入队、dry-run 或真实外发逻辑。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 163.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_redacts_agent_error_detail -q
+失败原因：错误响应中仍包含 detail-pass 和 detail-token。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_redacts_agent_error_detail -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+7 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py -q
+33 passed
+
+python -m compileall backend/app/routers/dingtalk.py
+通过
+```
+
+### 163.4 尚未覆盖
+
+- 本轮没有真实钉钉回调测试。
+- 本轮没有覆盖所有可能的第三方错误格式，只复用系统已有通用脱敏规则。
+
+### 163.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 外部通讯权限安全 | `92.2%` | `92.5%` |
+| 钉钉入站安全边界 | `88.0%` | `89.0%` |
+| 钉钉入站到回群链路 | `69.0%` | `69.1%` |
