@@ -212,6 +212,61 @@ def test_dingtalk_agent_inbound_scopes_rag_by_bound_channel_workshop(monkeypatch
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add_all([
+        User(
+            id=2,
+            username='cold_director',
+            password_hash='x',
+            name='冷轧主任',
+            role='workshop_director',
+            is_manager=True,
+            is_reviewer=True,
+            workshop_id=20,
+            is_active=True,
+            dingtalk_user_id='dt-cold-director-001',
+            dingtalk_union_id='union-cold-director-001',
+        ),
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        CommunicationChannel(
+            channel_type='dingtalk_group',
+            channel_key='cid-hot-roll',
+            name='热轧状态群',
+            target_type='workshop',
+            target_key='热轧',
+            workshop_id=10,
+            dry_run=True,
+            is_active=True,
+        ),
+    ])
+    db.commit()
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-hot-roll',
+                'senderStaffId': 'dt-cold-director-001',
+                'senderUnionId': 'union-cold-director-001',
+                'text': {'content': '@鑫泰助手 点检标准怎么做'},
+                'agentCode': 'maintenance_agent',
+                'traceId': 'trace-dingtalk-inbound-denied-001',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'dingtalk_channel_scope_denied'
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_rejects_missing_token_when_configured(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)

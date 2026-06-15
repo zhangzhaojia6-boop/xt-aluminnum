@@ -276,13 +276,13 @@ def _parse_inbound_bool(value: Any) -> bool:
     return text in {'true', '1', 'yes', 'y', 'on'}
 
 
-def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[str, Any]) -> dict[str, str | None]:
+def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     workshop = _clean_text(_first_payload_value(payload, 'workshop', 'workshopName', 'workshop_name')) or None
     machine_code = _clean_text(
         _first_payload_value(payload, 'machineCode', 'machine_code', 'equipmentCode', 'equipment_code')
     ) or None
     if not group_id:
-        return {'workshop': workshop, 'machine_code': machine_code}
+        return {'workshop': workshop, 'machine_code': machine_code, 'workshop_id': None}
 
     channel = (
         db.query(CommunicationChannel)
@@ -294,7 +294,7 @@ def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[
         .first()
     )
     if channel is None:
-        return {'workshop': workshop, 'machine_code': machine_code}
+        return {'workshop': workshop, 'machine_code': machine_code, 'workshop_id': None}
 
     if not workshop and channel.workshop_id:
         bound_workshop = db.get(Workshop, channel.workshop_id)
@@ -308,7 +308,19 @@ def _resolve_inbound_channel_scope(db: Session, *, group_id: str, payload: dict[
             metadata.get('machine_code') or metadata.get('machineCode') or metadata.get('equipment_code')
         ) or None
 
-    return {'workshop': workshop, 'machine_code': machine_code}
+    return {'workshop': workshop, 'machine_code': machine_code, 'workshop_id': channel.workshop_id}
+
+
+def _ensure_inbound_channel_scope_access(user: User, channel_scope: dict[str, Any]) -> None:
+    workshop_id = channel_scope.get('workshop_id')
+    if workshop_id is None:
+        return
+    scope = build_scope_summary(user)
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return
+    if scope.workshop_id is not None and int(scope.workshop_id) == int(workshop_id):
+        return
+    raise HTTPException(status_code=403, detail='dingtalk_channel_scope_denied')
 
 
 def _ensure_inbound_token(header_token: str | None) -> None:
@@ -366,6 +378,7 @@ def dingtalk_agent_inbound(
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
     queue_outbox = _parse_inbound_bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox'))
     channel_scope = _resolve_inbound_channel_scope(db, group_id=group_id, payload=payload)
+    _ensure_inbound_channel_scope_access(user, channel_scope)
 
     try:
         result = handle_agent_command(

@@ -11180,3 +11180,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.999999%` | `99.9999991%` |
 | 真实钉钉接入阶段 | `72.0%` | `72.4%` |
 | Agent 查资料可用性 | `89.4%` | `89.8%` |
+
+## 145. 钉钉入站已补群绑定车间权限拦截
+
+### 145.1 本轮新增能力
+
+`POST /api/v1/dingtalk/agent-inbound` 现在不只是“按群绑定范围查 RAG”，还会先校验发送人的系统权限是否能看这个群绑定的车间。
+
+小白版理解：如果一个冷轧车间主任的钉钉身份出现在热轧群通道里，系统不能因为他是“车间主任”就允许他问热轧资料。现在后端会先看这个群绑定的是哪个车间，再看这个人绑定的车间是否一致；不一致就直接拒绝，不会进入 Agent，也不会写入 `chat_inbox` 和 `agent_runs`。
+
+### 145.2 当前行为
+
+- 管理员或全厂范围用户仍可跨车间处理。
+- 绑定单一车间的车间主任、管理/审查角色只能进入自己车间对应的群范围。
+- 未绑定车间的旧群通道暂不强行拦截，避免破坏历史兼容入口。
+- 拦截发生在写 `chat_inbox` 之前，避免留下“已回答”的假审计。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 145.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop -q
+失败原因：冷轧主任用钉钉身份访问热轧群通道时，接口返回 200。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py::test_dingtalk_agent_inbound_rejects_channel_outside_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_command_rag_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+34 passed
+
+python -m compileall backend/app/routers/dingtalk.py
+通过
+
+git diff --check
+通过，只有换行格式提示
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 145.4 尚未覆盖
+
+- 本轮仍然没有调用真实钉钉群。
+- 本轮没有做浏览器页面验证。
+- 后续还需要把 `/manage/channels` 或 `/manage/admin/agents` 的群绑定配置体验继续打磨，让管理员更容易看懂“哪个群绑定哪个车间”。
+
+### 145.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999991%` | `99.9999992%` |
+| 真实钉钉接入阶段 | `72.4%` | `72.7%` |
+| 外部通讯权限安全 | `86.0%` | `86.6%` |
