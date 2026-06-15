@@ -190,6 +190,72 @@ def test_mapping_reconciliation_run_returns_difference_summary() -> None:
     }
 
 
+def test_mapping_reconciliation_run_returns_match_summary_for_ui() -> None:
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/run',
+            json={
+                'reference_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '精整',
+                        'shift': '长白班',
+                        'output_tons': 12.5,
+                        'energy_kwh': 1800,
+                    }
+                ],
+                'system_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '精整车间',
+                        'shift': '白班',
+                        'output_kg': 12500,
+                        'electricity_kwh': 1600,
+                    }
+                ],
+                'fields': [
+                    {
+                        'metric': 'output',
+                        'reference_field': 'output_tons',
+                        'system_field': 'output_kg',
+                        'reference_unit': 'ton',
+                        'system_unit': 'kg',
+                        'tolerance': 0.001,
+                        'weight': 30,
+                    },
+                    {
+                        'metric': 'energy',
+                        'reference_field': 'energy_kwh',
+                        'system_field': 'electricity_kwh',
+                        'reference_unit': 'kwh',
+                        'system_unit': 'kwh',
+                        'tolerance': 5,
+                        'weight': 15,
+                    },
+                ],
+                'dimension_aliases': {'workshop': {'精整车间': '精整'}, 'shift': {'白班': '长白班'}},
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['match_summary'] == {
+        'total_fields': 2,
+        'matched_fields': 1,
+        'unmatched_fields': 1,
+        'overall_match_rate': 66.67,
+        'field_breakdown': [
+            {'metric': 'output', 'match_rate': 100},
+            {'metric': 'energy', 'match_rate': 0},
+        ],
+    }
+
+
 def test_mapping_reconciliation_run_persists_and_exposes_run_detail() -> None:
     engine = create_engine(
         'sqlite:///:memory:',

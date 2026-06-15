@@ -228,6 +228,19 @@ test('mapping reconciliation page renders backend difference summary', () => {
   assert.match(page, /reason\.count/)
 })
 
+test('mapping reconciliation page renders backend field match summary', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /matchSummary/)
+  assert.match(page, /fieldBreakdown/)
+  assert.match(page, /字段匹配/)
+  assert.match(page, /可比字段/)
+  assert.match(page, /未匹配字段/)
+  assert.match(page, /字段匹配率/)
+  assert.match(page, /result\.value\?\.match_summary/)
+  assert.match(page, /item\.match_rate/)
+})
+
 test('mapping reconciliation page surfaces persisted run id from backend', () => {
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 

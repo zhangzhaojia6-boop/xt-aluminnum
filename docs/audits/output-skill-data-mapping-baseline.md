@@ -168,6 +168,7 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 | 人工构造：能耗值差异 + 缺系统行 | 0%，可解释差异 |
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
 | 接口返回：差异原因汇总 | 返回 `difference_summary`，前端 `/manage/mapping-reconciliation` 已展示 |
+| 接口返回：字段匹配摘要 | 返回 `match_summary`，包含可比字段、已匹配字段、未匹配字段和字段级匹配率 |
 | 前端默认 dry-run 字段 | 已覆盖 `yield_rate`、`rolling_oil_per_ton`、`cost_per_ton`、`daily_hot_roll_contract_weight`、`electricity_cost`、`natural_gas_cost` |
 | dry-run 运行记录 | `POST /run` 返回 `run_id`，`GET /runs/{id}` 和 `/runs/{id}/differences` 可追溯 |
 
@@ -177,3 +178,33 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 2. 用真实业务日复核成材率、轧制油吨耗、吨成本的字段来源是否和经营日报口径一致。
 3. 基于 `mapping_reconciliation_runs` 做运行记录列表页和差异明细分页。
 4. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。
+
+## 11. 2026-06-15 字段匹配摘要补充
+
+本轮新增 `/api/v1/mapping-reconciliation/run` 的 `match_summary` 返回结构：
+
+| 字段 | 含义 |
+|---|---|
+| `total_fields` | 本次可比字段总数 |
+| `matched_fields` | 已匹配字段数 |
+| `unmatched_fields` | 未匹配字段数 |
+| `overall_match_rate` | 沿用现有加权总匹配率 |
+| `field_breakdown` | 每个指标的字段级匹配率 |
+
+前端 `/manage/mapping-reconciliation` 已新增“字段匹配”“未匹配字段”和“字段匹配率”展示。小白版理解：以前页面主要告诉你“总匹配率”和“差异几条”，现在还能看到“到底有多少字段可比、哪些指标字段匹配、哪些字段没匹配”。
+
+本轮验证：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+24 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+12 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+
+cd frontend && npm run build
+通过
+```

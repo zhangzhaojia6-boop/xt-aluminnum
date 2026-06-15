@@ -10720,3 +10720,60 @@ cd frontend && npm run build
 | 原始大目标 | `99.999991%` | `99.999992%` |
 | 输出skill 对齐阶段 | `95.5%` | `95.8%` |
 | 前后端映射阶段 | `91.2%` | `91.5%` |
+
+## 137. 输出skill 对齐已补字段匹配摘要
+
+### 137.1 本轮新增能力
+
+`/api/v1/mapping-reconciliation/run` 现在除了原有的 `overall_match_rate`、`field_match_rates` 和 `difference_summary`，还会返回更适合前端直接展示的 `match_summary`：
+
+- `total_fields`：本次可比字段总数。
+- `matched_fields`：已匹配字段数。
+- `unmatched_fields`：未匹配字段数。
+- `overall_match_rate`：沿用现有加权匹配率，不改算法口径。
+- `field_breakdown`：逐指标字段匹配率。
+
+小白版理解：以前管理端能看到“总分”和“差异原因”，但不够直观。现在页面能直接告诉用户“这次一共比了几个字段、几个字段对上、几个字段没对上、每类指标各自对得怎么样”。
+
+### 137.2 当前行为
+
+- 旧字段没有删除，兼容旧接口返回。
+- 新字段只是摘要，不会写入生产原始数据。
+- 总匹配率仍按现有权重计算。例如产量权重 30、能耗权重 15 时，只匹配产量的总匹配率是 `30 / 45 = 66.67%`，不是简单 `1 / 2 = 50%`。
+- `/manage/mapping-reconciliation` 已新增“字段匹配”“未匹配字段”“字段匹配率”展示，并在拿不到 `match_summary` 时回退旧字段。
+
+### 137.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py::test_mapping_reconciliation_run_returns_match_summary_for_ui -q
+失败原因：返回体没有 match_summary。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面没有 matchSummary / fieldBreakdown。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+24 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+12 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 137.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999992%` | `99.999993%` |
+| 输出skill 对齐阶段 | `95.8%` | `96.0%` |
+| 前后端映射阶段 | `91.5%` | `91.7%` |

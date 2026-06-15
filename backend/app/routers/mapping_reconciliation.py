@@ -21,6 +21,7 @@ from app.services.mapping_reconciliation_service import (
     resolve_reference_file,
     serialize_result,
     summarize_differences,
+    summarize_match_result,
 )
 
 router = APIRouter(tags=['mapping-reconciliation'])
@@ -147,6 +148,7 @@ def run_mapping_reconciliation(
     payload['run_mode'] = 'dry_run'
     payload['reference_rows_count'] = len(reference_rows)
     payload['system_rows_count'] = len(system_rows)
+    payload['match_summary'] = summarize_match_result(result)
     payload['difference_summary'] = summarize_differences(result.differences)
     if reference_parse is not None:
         payload['reference_parse'] = reference_parse

@@ -94,6 +94,21 @@
         </ul>
       </article>
 
+      <article class="xt-mapping-reconciliation__panel">
+        <header>
+          <h2>字段匹配率</h2>
+          <span>可比字段 {{ displayNumber(matchSummary.total_fields) }} 项</span>
+        </header>
+        <div v-if="!result" class="xt-mapping-reconciliation__empty">未运行试算</div>
+        <div v-else-if="fieldBreakdown.length === 0" class="xt-mapping-reconciliation__empty">暂无字段结果</div>
+        <ul v-else class="xt-mapping-reconciliation__field-rates">
+          <li v-for="item in fieldBreakdown" :key="item.metric">
+            <b>{{ metricLabel(item.metric) }}</b>
+            <span>{{ displayNumber(item.match_rate) }}%</span>
+          </li>
+        </ul>
+      </article>
+
       <article class="xt-mapping-reconciliation__panel is-wide">
         <header>
           <h2>差异明细</h2>
@@ -170,6 +185,14 @@ const ruleProposals = computed(() => result.value?.rule_proposals || [])
 const differenceSummary = computed(() => result.value?.difference_summary || { total: differences.value.length, by_reason_code: {}, by_metric: {}, reason_breakdown: [] })
 const reasonBreakdown = computed(() => differenceSummary.value.reason_breakdown || [])
 const matchRate = computed(() => Number(result.value?.overall_match_rate || 0))
+const matchSummary = computed(() => result.value?.match_summary || {
+  total_fields: Number(result.value?.total_fields || 0),
+  matched_fields: Number(result.value?.matched_fields || 0),
+  unmatched_fields: Math.max(Number(result.value?.total_fields || 0) - Number(result.value?.matched_fields || 0), 0),
+  overall_match_rate: matchRate.value,
+  field_breakdown: Object.entries(result.value?.field_match_rates || {}).map(([metric, match_rate]) => ({ metric, match_rate }))
+})
+const fieldBreakdown = computed(() => matchSummary.value.field_breakdown || [])
 const referenceRowsCount = computed(() => Number(result.value?.reference_rows_count || 0))
 const systemRowsCount = computed(() => Number(result.value?.system_rows_count || 0))
 const runId = computed(() => result.value?.run_id || null)
@@ -788,6 +811,8 @@ const metricCards = computed(() => [
   { key: 'files', label: '参考文件', value: displayNumber(sourceFiles.value.length), meta: sources.value?.available ? '已挂载' : '未挂载' },
   { key: 'rows', label: '对齐行数', value: `${displayNumber(referenceRowsCount.value)} / ${displayNumber(systemRowsCount.value)}`, meta: '输出skill / 系统' },
   { key: 'match', label: '当前匹配率', value: `${displayNumber(matchRate.value)}%`, meta: result.value ? '来自试算' : '未运行' },
+  { key: 'field-match', label: '字段匹配', value: `${displayNumber(matchSummary.value.matched_fields)} / ${displayNumber(matchSummary.value.total_fields)}`, meta: '已匹配 / 可比字段' },
+  { key: 'field-miss', label: '未匹配字段', value: displayNumber(matchSummary.value.unmatched_fields), meta: '需要看差异原因' },
   { key: 'diff', label: '差异数量', value: displayNumber(differenceSummary.value.total), meta: '可追原因' },
   { key: 'run', label: '运行编号', value: runId.value ? `#${displayNumber(runId.value)}` : '-', meta: runId.value ? '可追溯' : '未保存' }
 ])
@@ -1120,7 +1145,8 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__file-list,
 .xt-mapping-reconciliation__rules,
-.xt-mapping-reconciliation__summary {
+.xt-mapping-reconciliation__summary,
+.xt-mapping-reconciliation__field-rates {
   display: grid;
   gap: var(--xt-space-2);
   margin: 0;
@@ -1130,7 +1156,8 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__file-list li,
 .xt-mapping-reconciliation__rules li,
-.xt-mapping-reconciliation__summary li {
+.xt-mapping-reconciliation__summary li,
+.xt-mapping-reconciliation__field-rates li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1143,7 +1170,8 @@ onMounted(loadSources)
 
 .xt-mapping-reconciliation__file-list b,
 .xt-mapping-reconciliation__rules b,
-.xt-mapping-reconciliation__summary b {
+.xt-mapping-reconciliation__summary b,
+.xt-mapping-reconciliation__field-rates b {
   overflow: hidden;
   color: var(--mapping-text);
   font-weight: 900;
@@ -1164,6 +1192,13 @@ onMounted(loadSources)
   color: var(--mapping-gold);
   font-family: var(--xt-font-number);
   font-size: var(--xt-text-xl);
+}
+
+.xt-mapping-reconciliation__field-rates span {
+  color: var(--mapping-gold);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-lg);
+  font-weight: 950;
 }
 
 .xt-mapping-reconciliation__chips {

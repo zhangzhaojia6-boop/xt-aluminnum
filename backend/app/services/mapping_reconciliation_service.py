@@ -200,6 +200,19 @@ def summarize_differences(differences: Sequence[MappingDifference]) -> dict[str,
     }
 
 
+def summarize_match_result(result: MappingReconciliationResult) -> dict[str, Any]:
+    return {
+        'total_fields': result.total_fields,
+        'matched_fields': result.matched_fields,
+        'unmatched_fields': max(result.total_fields - result.matched_fields, 0),
+        'overall_match_rate': result.overall_match_rate,
+        'field_breakdown': [
+            {'metric': metric, 'match_rate': match_rate}
+            for metric, match_rate in result.field_match_rates.items()
+        ],
+    }
+
+
 def _reference_root() -> Path:
     configured = os.getenv('OUTPUT_SKILL_REFERENCE_ROOT')
     if configured:
