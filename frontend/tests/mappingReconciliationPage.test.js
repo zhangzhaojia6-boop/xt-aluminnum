@@ -115,6 +115,8 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'total_gas_m3',
     'groundwater_ton',
     'tap_water_ton',
+    'electricity_cost',
+    'natural_gas_cost',
     'filter_cloth_daily',
     'high_temp_tape_daily',
     'regen_oil_out',
@@ -134,6 +136,7 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'ingot_input_tons',
     'ingot_output_tons',
     'daily_contract_weight',
+    'daily_hot_roll_contract_weight',
     'month_to_date_contract_weight',
     'remaining_contract_weight',
     'remaining_hot_roll_contract_weight',
@@ -180,6 +183,8 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /total_gas: '天然气总量'/)
   assert.match(page, /groundwater: '地下水'/)
   assert.match(page, /tap_water: '自来水'/)
+  assert.match(page, /electricity_cost: '电费'/)
+  assert.match(page, /natural_gas_cost: '气费'/)
   assert.match(page, /filter_cloth: '滤布日耗'/)
   assert.match(page, /high_temp_tape: '高温胶带日耗'/)
   assert.match(page, /regen_oil_out: '再生油出库'/)
@@ -199,6 +204,7 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /ingot_input: '铸锭投料量'/)
   assert.match(page, /ingot_output: '铸锭下机量'/)
   assert.match(page, /daily_contract: '当日接合同'/)
+  assert.match(page, /daily_hot_roll_contract: '当日热轧合同'/)
   assert.match(page, /month_to_date_contract: '月累计合同'/)
   assert.match(page, /remaining_contract: '余合同量'/)
   assert.match(page, /remaining_hot_roll_contract: '余热轧合同'/)

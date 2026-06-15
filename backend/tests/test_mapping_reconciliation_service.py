@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import Base
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
-from app.models.executive import CostDailyResult
+from app.models.executive import CostDailyResult, MachineDailyCostSnapshot
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
@@ -40,6 +40,7 @@ RECONCILIATION_TABLES = [
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
     CostDailyResult.__table__,
+    MachineDailyCostSnapshot.__table__,
     DailyConsumableLog.__table__,
     MesWorkshopProcessRecord.__table__,
     MesStockRecord.__table__,
@@ -305,6 +306,8 @@ def test_parse_output_skill_text_file_extracts_factory_narrative_rows(tmp_path) 
         '6月14日，车间总产量日合计221吨。\n'
         '当天在制料1205吨；全厂高压总用电量126500度（分项用电124874度）；'
         '铸轧用气11977m³、铸锭熔炼炉用气25991m³、热轧加热炉用气8430m³、热轧锅炉用气867m³，共计59141m³。\n'
+        '入库成品日合计221吨（寄存117吨），月累计4380吨。当天接合同192吨（含热轧158吨）；'
+        '冷轧日投料336吨（2050投307吨、1850投0吨、外加工29吨），中厚板0吨，总余合同量2632吨，比昨日↑6吨。\n'
         '成本核算方面，电费约10.12万元、气费约21.29万元，已核合计约31.41万元，按220.671吨折算约1423元/吨。\n',
         encoding='utf-8',
     )
@@ -331,6 +334,19 @@ def test_parse_output_skill_text_file_extracts_factory_narrative_rows(tmp_path) 
             'business_date': '2026-06-14',
             'workshop': '全厂',
             'shift': '',
+            'daily_contract_weight': 192.0,
+            'daily_hot_roll_contract_weight': 158.0,
+            'remaining_contract_weight': 2632.0,
+            'daily_input_weight': 336.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_text',
+        },
+        {
+            'business_date': '2026-06-14',
+            'workshop': '全厂',
+            'shift': '',
+            'electricity_cost': 101200.0,
+            'natural_gas_cost': 212900.0,
             'total_cost': 314100.0,
             'cost_per_ton': 1423.0,
             'source_file': str(report),
@@ -1017,6 +1033,56 @@ def test_build_system_mapping_rows_flattens_cost_daily_results() -> None:
         'breakdown_count': 4,
         'process_count': 2,
         'source_table': 'cost_daily_result',
+    } in rows
+
+
+def test_build_system_mapping_rows_flattens_machine_daily_cost_snapshots() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add(Workshop(id=1, code='QC', name='全厂', workshop_type='factory'))
+        db.add_all(
+            [
+                MachineDailyCostSnapshot(
+                    business_date=date(2026, 6, 14),
+                    workshop_id=1,
+                    machine_line_id=None,
+                    electricity_kwh=126500,
+                    electricity_cost=101200,
+                    natural_gas_m3=59141,
+                    natural_gas_cost=212900,
+                    total_cost=314100,
+                    is_estimated=True,
+                ),
+                MachineDailyCostSnapshot(
+                    business_date=date(2026, 6, 13),
+                    workshop_id=1,
+                    machine_line_id=None,
+                    electricity_cost=999,
+                    natural_gas_cost=999,
+                    total_cost=1998,
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 14))
+
+    assert {
+        'business_date': '2026-06-14',
+        'workshop': '全厂',
+        'shift': '',
+        'process': '机列日成本',
+        'machine': '',
+        'machine_code': '',
+        'electricity_kwh': 126500.0,
+        'electricity_cost': 101200.0,
+        'natural_gas_m3': 59141.0,
+        'natural_gas_cost': 212900.0,
+        'total_cost': 314100.0,
+        'is_estimated': True,
+        'source_table': 'machine_daily_cost_snapshots',
     } in rows
 
 

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
-from app.models.executive import CostDailyResult
+from app.models.executive import CostDailyResult, MachineDailyCostSnapshot
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
@@ -31,6 +31,7 @@ SYSTEM_SOURCES = [
     'work_order_entries',
     'daily_consumable_logs',
     'cost_daily_result',
+    'machine_daily_cost_snapshots',
     'machine_energy_records',
     'data_quality_issues',
     'data_reconciliation_items',
@@ -91,8 +92,8 @@ OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
     'total_gas_m3': ('天然气总量', '燃气总量', '全厂用气', 'total_gas_m3'),
     'groundwater_ton': ('地下水', '地下水用量', 'groundwater_ton'),
     'tap_water_ton': ('自来水', '自来水用量', 'tap_water_ton'),
-    'daily_contract_weight': ('当日接合同', '当日合同', '日接合同', 'daily_contract_weight'),
-    'daily_hot_roll_contract_weight': ('当日热轧合同', '热轧当日合同', 'daily_hot_roll_contract_weight'),
+    'daily_contract_weight': ('当天接合同', '当日接合同', '当日合同', '日接合同', 'daily_contract_weight'),
+    'daily_hot_roll_contract_weight': ('当日热轧合同', '热轧当日合同', '含热轧', 'daily_hot_roll_contract_weight'),
     'month_to_date_contract_weight': ('月累计合同', '合同月累计', '月累合同', 'month_to_date_contract_weight'),
     'month_to_date_hot_roll_contract_weight': (
         '月累计热轧合同',
@@ -111,9 +112,14 @@ OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
     'daily_input_weight': ('当日投料', '日投料', 'daily_input_weight'),
     'month_to_date_input_weight': ('月累计投料', '投料月累计', '月累投料', 'month_to_date_input_weight'),
 }
+COST_REFERENCE_FIELD_ALIASES = {
+    'electricity_cost': ('电费', '用电成本', '电力成本', 'electricity_cost'),
+    'natural_gas_cost': ('气费', '天然气费', '燃气费', '天然气成本', '燃气成本', 'natural_gas_cost'),
+}
 REFERENCE_FIELD_ALIASES = {
     **CONSUMABLE_REFERENCE_FIELD_ALIASES,
     **OWNER_DAILY_REFERENCE_FIELD_ALIASES,
+    **COST_REFERENCE_FIELD_ALIASES,
 }
 NUMERIC_REFERENCE_FIELDS = {
     'input_tons',
@@ -290,7 +296,7 @@ def _metric_money(line: str, labels: Sequence[str]) -> float | None:
     value = float(match.group(1))
     unit = match.group(2) or '元'
     if unit in {'万元', '万'}:
-        return value * 10000
+        return round(value * 10000, 6)
     return value
 
 
@@ -336,8 +342,14 @@ def _factory_narrative_row(line: str, current_date: str, path: Path) -> dict[str
         if total_gas_m3 is not None:
             row['total_gas_m3'] = total_gas_m3
 
+    electricity_cost = _metric_money(line, COST_REFERENCE_FIELD_ALIASES['electricity_cost'])
+    natural_gas_cost = _metric_money(line, COST_REFERENCE_FIELD_ALIASES['natural_gas_cost'])
     total_cost = _metric_money(line, ('已核合计', '总成本', '成本合计', '总费用', 'total_cost'))
     cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', '折算', 'cost_per_ton'))
+    if electricity_cost is not None:
+        row['electricity_cost'] = electricity_cost
+    if natural_gas_cost is not None:
+        row['natural_gas_cost'] = natural_gas_cost
     if total_cost is not None:
         row['total_cost'] = total_cost
     if cost_per_ton is not None:
@@ -1098,6 +1110,32 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 'breakdown_count': cost.breakdown_count,
                 'process_count': cost.process_count,
                 'source_table': 'cost_daily_result',
+            }
+        )
+    machine_cost_rows = (
+        db.query(MachineDailyCostSnapshot, Workshop, Equipment)
+        .join(Workshop, MachineDailyCostSnapshot.workshop_id == Workshop.id)
+        .outerjoin(Equipment, MachineDailyCostSnapshot.machine_line_id == Equipment.id)
+        .filter(MachineDailyCostSnapshot.business_date == business_date)
+        .order_by(MachineDailyCostSnapshot.id.asc())
+        .all()
+    )
+    for cost, workshop, equipment in machine_cost_rows:
+        rows.append(
+            {
+                'business_date': cost.business_date.isoformat(),
+                'workshop': workshop.name,
+                'shift': '',
+                'process': '机列日成本',
+                'machine': equipment.name if equipment else '',
+                'machine_code': equipment.code if equipment else '',
+                'electricity_kwh': _to_float(cost.electricity_kwh),
+                'electricity_cost': _to_float(cost.electricity_cost),
+                'natural_gas_m3': _to_float(cost.natural_gas_m3),
+                'natural_gas_cost': _to_float(cost.natural_gas_cost),
+                'total_cost': _to_float(cost.total_cost),
+                'is_estimated': cost.is_estimated,
+                'source_table': 'machine_daily_cost_snapshots',
             }
         )
     return rows

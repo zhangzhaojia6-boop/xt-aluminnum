@@ -10635,3 +10635,88 @@ python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/te
 | 原始大目标 | `99.999990%` | `99.999991%` |
 | 输出skill 对齐阶段 | `95.2%` | `95.5%` |
 | 前后端映射阶段 | `91.0%` | `91.2%` |
+
+## 136. 输出skill 对齐已补合同和成本拆分叙述字段
+
+### 136.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能从真实日报正文的全厂叙述行里继续识别合同和成本拆分字段：
+
+- `当天接合同...吨` -> `daily_contract_weight`
+- `含热轧...吨` -> `daily_hot_roll_contract_weight`
+- `电费约...万元` -> `electricity_cost`，自动换算成元
+- `气费约...万元` -> `natural_gas_cost`，自动换算成元
+
+`build_system_mapping_rows()` 现在也会读取 `machine_daily_cost_snapshots`，把系统侧的机列日成本快照拉平成对账行，字段包括：
+
+- `electricity_kwh`
+- `electricity_cost`
+- `natural_gas_m3`
+- `natural_gas_cost`
+- `total_cost`
+
+小白版理解：以前日报正文里“当天接合同 192 吨、含热轧 158 吨、电费 10.12 万元、气费 21.29 万元”这些数字只能人看，系统对账页不一定能拿来比。现在这些数字能变成标准字段，并且系统侧也能从成本快照表拿到电费、气费做对照。
+
+### 136.2 当前行为
+
+- 合同叙述行仍归到 `workshop = 全厂`、`shift = ''`。
+- `含热轧` 只作为日报合同叙述里的热轧合同子字段，不会把普通热轧工序产量改成合同量。
+- 金额中 `万元` 或 `万` 会换算成元，且避免浮点小尾巴。
+- `/manage/mapping-reconciliation` 默认 dry-run 字段已新增 `daily_hot_roll_contract_weight`、`electricity_cost`、`natural_gas_cost`。
+
+### 136.3 真实文件只读抽查
+
+只读解析：
+
+```text
+D:\输出skill\2026-6-14_日报正文.txt
+```
+
+抽查结果：
+
+```text
+row_count = 3
+第 2 行：daily_contract_weight=192、daily_hot_roll_contract_weight=158
+第 3 行：electricity_cost=101200、natural_gas_cost=212900、total_cost=314100、cost_per_ton=1423
+```
+
+没有保存或提交该原始日报正文，只记录字段级解析证据。
+
+### 136.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_factory_narrative_rows backend/tests/test_mapping_reconciliation_service.py::test_build_system_mapping_rows_flattens_machine_daily_cost_snapshots -q
+失败原因：日报合同/成本拆分字段缺失，系统侧未读取 machine_daily_cost_snapshots。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段缺少电费、气费、当日热轧合同。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_factory_narrative_rows backend/tests/test_mapping_reconciliation_service.py::test_build_system_mapping_rows_flattens_machine_daily_cost_snapshots -q
+2 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+23 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 136.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999991%` | `99.999992%` |
+| 输出skill 对齐阶段 | `95.5%` | `95.8%` |
+| 前后端映射阶段 | `91.2%` | `91.5%` |

@@ -652,6 +652,15 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'daily_hot_roll_contract',
+    reference_field: 'daily_hot_roll_contract_weight',
+    system_field: 'daily_hot_roll_contract_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
     metric: 'month_to_date_contract',
     reference_field: 'month_to_date_contract_weight',
     system_field: 'month_to_date_contract_weight',
@@ -731,6 +740,24 @@ const defaultMappingFields = [
     system_unit: 'yuan',
     tolerance: 0.01,
     weight: 10
+  },
+  {
+    metric: 'electricity_cost',
+    reference_field: 'electricity_cost',
+    system_field: 'electricity_cost',
+    reference_unit: 'yuan',
+    system_unit: 'yuan',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'natural_gas_cost',
+    reference_field: 'natural_gas_cost',
+    system_field: 'natural_gas_cost',
+    reference_unit: 'yuan',
+    system_unit: 'yuan',
+    tolerance: 0.01,
+    weight: 8
   },
   {
     metric: 'throughput_cost',
@@ -820,6 +847,8 @@ function metricLabel(value) {
     total_gas: '天然气总量',
     groundwater: '地下水',
     tap_water: '自来水',
+    electricity_cost: '电费',
+    natural_gas_cost: '气费',
     rolling_oil: '轧制油吨耗',
     liquefied_gas: '液化气吨耗',
     titanium_wire: '钛丝吨耗',
@@ -850,6 +879,7 @@ function metricLabel(value) {
     ingot_input: '铸锭投料量',
     ingot_output: '铸锭下机量',
     daily_contract: '当日接合同',
+    daily_hot_roll_contract: '当日热轧合同',
     month_to_date_contract: '月累计合同',
     remaining_contract: '余合同量',
     remaining_hot_roll_contract: '余热轧合同',
