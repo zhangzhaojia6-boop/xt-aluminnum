@@ -12114,3 +12114,57 @@ git diff 敏感配置扫描
 | Agent 通讯中台阶段 | `86.5%` | `86.8%` |
 | 外部通讯权限安全 | `91.7%` | `91.9%` |
 | 前端治理台可用性 | `78.0%` | `78.4%` |
+
+## 161. Agent outbox 已接入后台自动到期调度
+
+### 161.1 本轮新增能力
+
+`setup_scheduler()` 现在会注册 `agent_outbox_dispatch` 后台任务，每 60 秒调用一次 `backend/app/tasks/agent_outbox.py` 里的 `dispatch_due_agent_outbox_messages()`。
+
+小白版理解：上一轮已经可以在管理端手动点“批量调度到期”，这一轮让系统自己定时扫发件箱。到了发送时间的消息会自动进入同一套外发流程，不需要管理员一直盯着按钮。
+
+### 161.2 当前行为
+
+- 调度任务 ID 是 `agent_outbox_dispatch`。
+- 触发频率是每 60 秒一次。
+- 任务内部复用 `agent_communication_service.dispatch_due_outbox_messages()`。
+- 成功后提交事务，返回 `status=ok` 和调度数量。
+- 失败时回滚事务并记录日志。
+- 没有新增数据库字段，没有 migration，没有绕过 dry-run、重试、dead-letter 或外部日志规则。
+
+### 161.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_scheduler.py::test_setup_scheduler_registers_backend_completion_jobs -q
+失败原因：setup_scheduler() 没有注册 agent_outbox_dispatch。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_outbox_task.py backend/tests/test_scheduler.py -q
+12 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+31 passed
+
+python -m compileall backend/app/tasks/agent_outbox.py backend/app/core/scheduler.py
+通过
+```
+
+### 161.4 尚未覆盖
+
+- 本轮没有启动真实云端 scheduler 验证一分钟自动触发。
+- 本轮没有真实发送钉钉群消息。
+- 本轮只验证本地代码和后端测试链路，生产实际外发仍要看通道是否 dry-run、配置是否启用、云端进程是否拿到 scheduler leader lock。
+
+### 161.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999998%` | `99.99999999%` |
+| Agent 通讯中台阶段 | `86.8%` | `87.1%` |
+| 外部通讯权限安全 | `91.9%` | `92.0%` |
+| 主动外发闭环 | `72.0%` | `72.6%` |
