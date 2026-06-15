@@ -299,6 +299,46 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     ]
 
 
+def test_parse_output_skill_text_file_extracts_factory_narrative_rows(tmp_path) -> None:
+    report = tmp_path / '2026-6-14_日报正文.txt'
+    report.write_text(
+        '6月14日，车间总产量日合计221吨。\n'
+        '当天在制料1205吨；全厂高压总用电量126500度（分项用电124874度）；'
+        '铸轧用气11977m³、铸锭熔炼炉用气25991m³、热轧加热炉用气8430m³、热轧锅炉用气867m³，共计59141m³。\n'
+        '成本核算方面，电费约10.12万元、气费约21.29万元，已核合计约31.41万元，按220.671吨折算约1423元/吨。\n',
+        encoding='utf-8',
+    )
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['source_type'] == 'output_skill_text'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-14',
+            'workshop': '全厂',
+            'shift': '',
+            'total_electricity_kwh': 126500.0,
+            'cast_roll_gas_m3': 11977.0,
+            'smelting_gas_m3': 25991.0,
+            'heating_furnace_gas_m3': 8430.0,
+            'boiler_gas_m3': 867.0,
+            'total_gas_m3': 59141.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_text',
+        },
+        {
+            'business_date': '2026-06-14',
+            'workshop': '全厂',
+            'shift': '',
+            'total_cost': 314100.0,
+            'cost_per_ton': 1423.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_text',
+        },
+    ]
+
+
 def test_parse_output_skill_text_file_uses_date_from_filename_when_body_has_no_date(tmp_path) -> None:
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(

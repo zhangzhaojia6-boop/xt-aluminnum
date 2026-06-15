@@ -10561,3 +10561,77 @@ cd frontend && npm run build
 | 原始大目标 | `99.999988%` | `99.999990%` |
 | 输出skill 对齐阶段 | `94.9%` | `95.2%` |
 | 前后端映射阶段 | `90.8%` | `91.0%` |
+
+## 135. 输出skill 对齐已支持真实日报正文全厂叙述行
+
+### 135.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在不只识别“车间 + 班次 + 指标”的表格式文本，也能识别 `D:\输出skill` 真实日报正文里的全厂叙述行。
+
+已覆盖的叙述字段包括：
+
+- `全厂高压总用电量` -> `total_electricity_kwh`
+- `铸轧用气` -> `cast_roll_gas_m3`
+- `铸锭熔炼炉用气` -> `smelting_gas_m3`
+- `热轧加热炉用气` -> `heating_furnace_gas_m3`
+- `热轧锅炉用气` -> `boiler_gas_m3`
+- `共计...m³` -> `total_gas_m3`
+- `已核合计约...万元` -> `total_cost`，会自动换算成元
+- `折算约...元/吨` -> `cost_per_ton`
+
+小白版理解：之前系统更像“只会读表格”，真实日报里那种一句话写完成本和能耗的正文，它会跳过。现在它能把全厂能耗和成本叙述读成标准字段，后续就能和系统数据库里的成本、能耗结果放在一起对照。
+
+### 135.2 当前行为
+
+- 没有班次的叙述行会被标记为 `workshop = 全厂`、`shift = ''`。
+- 只有读到水电气或成本这类明确字段时才生成行，不会把所有自然语言句子都强行当成数据。
+- 金额里出现 `万元` 或 `万` 时，会换算成元，避免 `31.41万元` 被错看成 `31.41元`。
+- 修复了 `_line_workshop_shift()` 在没有班次的文本行上访问未定义变量的隐藏问题。
+
+### 135.3 真实文件只读抽查
+
+只读解析：
+
+```text
+D:\输出skill\2026-6-14_日报正文.txt
+```
+
+抽查结果：
+
+```text
+status = parsed
+source_type = output_skill_text
+row_count = 3
+第 1 行：全厂水电气字段，含 total_electricity_kwh=126500、total_gas_m3=59141
+第 2 行：全厂合同/投料叙述字段
+第 3 行：全厂成本字段，含 total_cost=314100、cost_per_ton=1423
+```
+
+没有保存或提交该原始日报正文，只记录解析证据。
+
+### 135.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_factory_narrative_rows -q
+失败原因：无班次叙述行返回空数组。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_factory_narrative_rows -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+22 passed
+```
+
+### 135.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999990%` | `99.999991%` |
+| 输出skill 对齐阶段 | `95.2%` | `95.5%` |
+| 前后端映射阶段 | `91.0%` | `91.2%` |

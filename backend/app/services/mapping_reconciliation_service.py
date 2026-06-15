@@ -81,7 +81,7 @@ CONSUMABLE_REFERENCE_FIELD_ALIASES = {
     'ingot_output_tons': ('铸锭下机量', '铸锭产量', '铸锭产出量', 'ingot_output_tons'),
 }
 OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
-    'total_electricity_kwh': ('全厂用电', '全厂总用电', '总用电', 'total_electricity_kwh'),
+    'total_electricity_kwh': ('全厂用电', '全厂总用电', '全厂高压总用电量', '高压总用电量', '总用电', 'total_electricity_kwh'),
     'new_plant_electricity_kwh': ('新厂用电', '新厂总用电', 'new_plant_electricity_kwh'),
     'park_electricity_kwh': ('园区用电', '园区总用电', 'park_electricity_kwh'),
     'cast_roll_gas_m3': ('铸轧用气', '铸轧天然气', 'cast_roll_gas_m3'),
@@ -278,8 +278,20 @@ def _metric_tons(line: str, labels: Sequence[str]) -> float | None:
 
 def _metric_number(line: str, labels: Sequence[str]) -> float | None:
     label_pattern = '|'.join(re.escape(label) for label in labels)
-    match = re.search(rf'(?:{label_pattern})\s*{NUMBER_RE}', line, flags=re.IGNORECASE)
+    match = re.search(rf'(?:{label_pattern})\s*约?\s*{NUMBER_RE}', line, flags=re.IGNORECASE)
     return float(match.group(1)) if match else None
+
+
+def _metric_money(line: str, labels: Sequence[str]) -> float | None:
+    label_pattern = '|'.join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
+    match = re.search(rf'(?:{label_pattern})\s*约?\s*{NUMBER_RE}\s*(万元|万|元)?', line, flags=re.IGNORECASE)
+    if not match:
+        return None
+    value = float(match.group(1))
+    unit = match.group(2) or '元'
+    if unit in {'万元', '万'}:
+        return value * 10000
+    return value
 
 
 def _metric_minutes(line: str, labels: Sequence[str]) -> float | None:
@@ -302,6 +314,39 @@ def _line_workshop_shift(line: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _add_text_source(row: dict[str, Any], path: Path) -> dict[str, Any]:
+    row['source_file'] = str(path)
+    row['source_type'] = 'output_skill_text'
+    return row
+
+
+def _factory_narrative_row(line: str, current_date: str, path: Path) -> dict[str, Any] | None:
+    row: dict[str, Any] = {
+        'business_date': current_date,
+        'workshop': '全厂',
+        'shift': '',
+    }
+    for field, aliases in REFERENCE_FIELD_ALIASES.items():
+        value = _metric_number(line, aliases)
+        if value is not None:
+            row[field] = value
+
+    if 'total_gas_m3' not in row and ('用气' in line or '天然气' in line):
+        total_gas_m3 = _metric_number(line, ('天然气合计', '用气合计', '燃气合计', '共计'))
+        if total_gas_m3 is not None:
+            row['total_gas_m3'] = total_gas_m3
+
+    total_cost = _metric_money(line, ('已核合计', '总成本', '成本合计', '总费用', 'total_cost'))
+    cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', '折算', 'cost_per_ton'))
+    if total_cost is not None:
+        row['total_cost'] = total_cost
+    if cost_per_ton is not None:
+        row['cost_per_ton'] = cost_per_ton
+    if len(row) > 3:
+        return _add_text_source(row, path)
+    return None
+
+
 def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
     content = _read_reference_text(path)
     current_date: str | None = _to_date_text(path.name)
@@ -316,6 +361,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
 
         workshop, shift = _line_workshop_shift(line)
         if not current_date or not workshop or not shift:
+            if current_date and (row := _factory_narrative_row(line, current_date, path)) is not None:
+                rows.append(row)
             continue
 
         row: dict[str, Any] = {
@@ -367,9 +414,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         if cost_per_ton is not None:
             row['cost_per_ton'] = cost_per_ton
         if len(row) > 3:
-            row['source_file'] = str(path)
-            row['source_type'] = 'output_skill_text'
-            rows.append(row)
+            rows.append(_add_text_source(row, path))
     return rows
 
 

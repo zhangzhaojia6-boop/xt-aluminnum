@@ -106,6 +106,8 @@
 | 单位换算 | `12500 kg = 12.5 吨` |
 | 车间别名 | `精整车间 -> 精整` |
 | 班次别名 | `白班 -> 长白班`、`小夜 -> 小夜班` |
+| 全厂叙述行 | 没有班次的日报正文水电气/成本行归到 `workshop=全厂`、`shift=''` |
+| 金额单位 | `31.41万元 = 314100元` |
 | 差异原因 | `value_diff`、`missing_system_row`、`extra_system_row`、`missing_field_value` |
 | 修正建议 | 只生成 `dry_run` 规则建议，不自动写生产配置 |
 
@@ -139,7 +141,7 @@
 
 ```text
 python -m pytest backend/tests/test_imports_daily_production_mapping_preview_route.py backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
-13 passed
+22 passed
 ```
 
 ## 9. 当前匹配率说明
@@ -152,6 +154,7 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 |---|---:|
 | 脱敏 fixture：产量 kg/吨 + 车间别名 + 班次别名 | 100% |
 | 临时 `.txt` 输出skill 样例：日期、车间、班次、产量、能耗、废料 | 解析成功 |
+| 真实 `D:\输出skill\2026-6-14_日报正文.txt`：全厂叙述行水电气和成本 | 只读解析成功，生成 3 行全厂参考数据 |
 | 临时 `.xlsx/.xls` 输出skill 样例：日期、车间、班次、产量、能耗、废料 | 解析成功 |
 | 内存数据库 `mes_workshop_process_records`：同业务日工序产量拉平 | 读取成功 |
 | 内存数据库 `mes_stock_records`：同业务日成品库入库重量拉平 | 读取成功 |
