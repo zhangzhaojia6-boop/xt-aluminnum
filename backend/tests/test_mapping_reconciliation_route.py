@@ -14,7 +14,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.models.shift import ShiftConfig
 from app.models.system import User
 
@@ -24,6 +24,7 @@ RECONCILIATION_TABLES = [
     User.__table__,
     ShiftConfig.__table__,
     Equipment.__table__,
+    ShiftProductionData.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
     DailyConsumableLog.__table__,

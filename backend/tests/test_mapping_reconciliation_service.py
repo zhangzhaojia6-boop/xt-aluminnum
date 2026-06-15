@@ -14,7 +14,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.mapping_reconciliation_service import (
@@ -33,6 +33,7 @@ RECONCILIATION_TABLES = [
     User.__table__,
     ShiftConfig.__table__,
     Equipment.__table__,
+    ShiftProductionData.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
     DailyConsumableLog.__table__,
@@ -475,4 +476,54 @@ def test_build_system_mapping_rows_flattens_stock_energy_and_consumables() -> No
         'gas_m3': 32.0,
         'consumable_payload': {'rolling_oil_per_ton': 1.25},
         'source_table': 'daily_consumable_logs',
+    } in rows
+
+
+def test_build_system_mapping_rows_flattens_shift_production_scrap() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='LJ', name='拉矫车间', workshop_type='finishing'),
+                ShiftConfig(
+                    id=1,
+                    code='B',
+                    name='小夜班',
+                    shift_type='evening',
+                    start_time=time(15, 30),
+                    end_time=time(23, 30),
+                ),
+                Equipment(id=1, code='LJ-01', name='拉矫1#机', workshop_id=1),
+                ShiftProductionData(
+                    business_date=date(2026, 6, 13),
+                    shift_config_id=1,
+                    workshop_id=1,
+                    equipment_id=1,
+                    input_weight=10.0,
+                    output_weight=9.5,
+                    scrap_weight=0.3,
+                    electricity_kwh=1200,
+                    data_source='mobile',
+                    data_status='confirmed',
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 13))
+
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '拉矫车间',
+        'shift': '小夜班',
+        'process': '班次产量',
+        'machine': '拉矫1#机',
+        'machine_code': 'LJ-01',
+        'input_tons': 10.0,
+        'output_tons': 9.5,
+        'scrap_tons': 0.3,
+        'energy_kwh': 1200.0,
+        'source_table': 'shift_production_data',
     } in rows

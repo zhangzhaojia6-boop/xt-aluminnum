@@ -15,7 +15,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport
+from app.models.production import MobileShiftReport, ShiftProductionData
 from app.models.shift import ShiftConfig
 
 
@@ -546,6 +546,15 @@ def _tons_from_pair(tons: Any, kg: Any) -> float | None:
     return kg_value / 1000
 
 
+def _shift_production_weight_tons(record: ShiftProductionData, field_name: str) -> float | None:
+    value = _to_float(getattr(record, field_name, None))
+    if value is None:
+        return None
+    if record.data_source == 'mobile_coil_agg':
+        return value / 1000
+    return value
+
+
 def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     if not payload:
         return {}
@@ -563,6 +572,35 @@ def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, 
 
 def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    shift_rows = (
+        db.query(ShiftProductionData, Workshop, ShiftConfig, Equipment)
+        .join(Workshop, ShiftProductionData.workshop_id == Workshop.id)
+        .join(ShiftConfig, ShiftProductionData.shift_config_id == ShiftConfig.id)
+        .outerjoin(Equipment, ShiftProductionData.equipment_id == Equipment.id)
+        .filter(
+            ShiftProductionData.business_date == business_date,
+            ShiftProductionData.data_status != 'voided',
+        )
+        .order_by(ShiftProductionData.id.asc())
+        .all()
+    )
+    for record, workshop, shift, equipment in shift_rows:
+        rows.append(
+            {
+                'business_date': record.business_date.isoformat(),
+                'workshop': workshop.name,
+                'shift': shift.name,
+                'process': '班次产量',
+                'machine': equipment.name if equipment else '',
+                'machine_code': equipment.code if equipment else '',
+                'input_tons': _shift_production_weight_tons(record, 'input_weight'),
+                'output_tons': _shift_production_weight_tons(record, 'output_weight'),
+                'scrap_tons': _shift_production_weight_tons(record, 'scrap_weight'),
+                'energy_kwh': _to_float(record.electricity_kwh),
+                'source_table': 'shift_production_data',
+            }
+        )
+
     process_records = (
         db.query(MesWorkshopProcessRecord)
         .filter(MesWorkshopProcessRecord.business_date == business_date)

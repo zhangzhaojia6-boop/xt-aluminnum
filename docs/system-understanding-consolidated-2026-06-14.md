@@ -7427,3 +7427,69 @@ npm run build
 | 原始大目标 | `99.97%` | `99.975%` |
 | D:\输出skill 对齐阶段 | `82%` | `83%` |
 | 前端治理阶段 | `80%` | `80.5%` |
+
+## 90. 输出skill 对齐系统侧已纳入班次废料字段
+
+### 90.1 本轮新增能力
+
+`mapping_reconciliation_service.build_system_mapping_rows` 现在会读取 `shift_production_data`，把班次产量行摊平成对齐用的系统行。
+
+新增字段包括：
+
+- `input_tons`
+- `output_tons`
+- `scrap_tons`
+- `energy_kwh`
+- `machine`
+- `machine_code`
+- `shift`
+- `process = 班次产量`
+- `source_table = shift_production_data`
+
+这样上一轮前端默认纳入的“废料”试算，不再只能依赖参考文件一侧。只要系统侧 `shift_production_data.scrap_weight` 已有数据，就会作为 `scrap_tons` 参与 `/api/v1/mapping-reconciliation/run` 的 dry-run 对齐。
+
+小白版理解：以前页面会拿日报里的“废料”去比，但系统这边没有把自己已有的班次废料拿出来。现在系统会把已有班次废料也摆到对比台上。
+
+### 90.2 单位规则
+
+普通 `shift_production_data` 行按吨处理。
+
+只有 `data_source = mobile_coil_agg` 的老卷级聚合口径按公斤转吨，避免把 300 kg 误当成 300 吨。
+
+### 90.3 当前边界
+
+本轮仍然不改生产原始数据，只做只读摊平。
+
+还不能宣称 `D:\输出skill` 废料字段已 95%+ 匹配，因为还需要继续验证：
+
+- 哪些车间的废料来自 `shift_production_data`
+- 哪些车间来自卷级 `work_order_entries`
+- 哪些车间来自 MES 自动计算或日报算法
+- 同一业务日、班次、车间维度下是否存在重复系统行
+
+### 90.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：build_system_mapping_rows 返回 rows 里没有 shift_production_data 对应的 scrap_tons。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+14 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 90.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.975%` | `99.98%` |
+| D:\输出skill 对齐阶段 | `83%` | `84%` |
+| 后端数据链路阶段 | `88%` | `88.5%` |
