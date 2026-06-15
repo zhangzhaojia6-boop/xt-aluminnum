@@ -10237,3 +10237,91 @@ cd frontend && npm run build
 | 原始大目标 | `99.999980%` | `99.999982%` |
 | 输出skill 对齐阶段 | `93.4%` | `93.8%` |
 | 前后端映射阶段 | `89.9%` | `90.1%` |
+
+## 131. 输出skill 对齐已补日耗、月累计、再生油和铸锭汇总字段
+
+### 131.1 本轮新增能力
+
+在第 130 节基础上，`mapping_reconciliation_service.parse_output_skill_reference_file()` 继续补齐系统耗材和铸锭白名单里已有、但输出skill 参考源之前还不能自动识别的字段：
+
+- `滤布日耗` -> `filter_cloth_daily`
+- `高温胶带日耗` -> `high_temp_tape_daily`
+- `再生油出库` -> `regen_oil_out`
+- `再生油入库` -> `regen_oil_in`
+- `液压油日耗` -> `hydraulic_oil_daily`
+- `液压油月累计` -> `hydraulic_oil_monthly`
+- `液压油指标` -> `hydraulic_oil_target`
+- `齿轮油日耗` -> `gear_oil_daily`
+- `齿轮油月累计` -> `gear_oil_monthly`
+- `齿轮油指标` -> `gear_oil_target`
+- `铸锭块数` -> `ingot_block_count`
+- `铸锭投料量` -> `ingot_input_tons`
+- `铸锭下机量` -> `ingot_output_tons`
+
+`/manage/mapping-reconciliation` 页面默认试算字段也同步纳入这些指标。
+
+小白版理解：之前对账更偏“吨耗”和“成本”，这轮把一日一录里常见的“当天用了多少、月累计多少、指标是多少、铸锭当天汇总”也带进来。以后输出skill 文件写这些字段，管理端能直接做只读试算，不需要手工改字段名。
+
+### 131.2 当前行为
+
+本轮新增的解析覆盖：
+
+- 文本行：支持滤布、高温胶带、再生油、液压油、齿轮油、铸锭汇总字段。
+- Excel / JSON / NDJSON：这些字段会优先按标准业务字段识别，避免 `铸锭投料量` 被误归成普通 `input_tons`、`铸锭下机量` 被误归成普通 `output_tons`。
+- 页面默认试算：普通日耗/月累计字段按普通数值比较；铸锭投料和下机按吨比较；铸锭块数按数量比较。
+
+这些字段都来自系统已存在的 `daily_consumable_logs.payload` 展开字段，没有新增生产表，也没有改变原始数据。
+
+### 131.3 当前边界
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的非吨耗耗材与铸锭汇总字段覆盖补强。
+
+### 131.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns -q
+失败原因：文本和 Excel 参考源中的滤布、高温胶带、再生油、液压油、齿轮油、铸锭汇总字段未被解析；Excel 里的铸锭投料/下机还会误归到普通投入/产量。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段缺少这些日耗、月累计和铸锭汇总指标。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns -q
+2 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+
+cd frontend && npm test -- --runInBand
+691 passed
+```
+
+### 131.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999982%` | `99.999984%` |
+| 输出skill 对齐阶段 | `93.8%` | `94.2%` |
+| 前后端映射阶段 | `90.1%` | `90.3%` |

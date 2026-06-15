@@ -101,11 +101,24 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'hot_roll_emulsion_per_ton',
     'diatomite_per_ton',
     'white_earth_per_ton',
+    'filter_cloth_daily',
+    'high_temp_tape_daily',
+    'regen_oil_out',
+    'regen_oil_in',
+    'hydraulic_oil_daily',
+    'hydraulic_oil_monthly',
+    'hydraulic_oil_target',
+    'gear_oil_daily',
+    'gear_oil_monthly',
+    'gear_oil_target',
     'd40_per_ton',
     'steel_plate_per_ton',
     'steel_buckle_per_ton',
     'filter_agent_per_ton',
-    'paint_per_ton'
+    'paint_per_ton',
+    'ingot_block_count',
+    'ingot_input_tons',
+    'ingot_output_tons'
   ]) {
     assert.match(page, new RegExp(`reference_field: '${field}'`))
     assert.match(page, new RegExp(`system_field: '${field}'`))
@@ -131,11 +144,24 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /hot_roll_emulsion: '热轧乳液吨耗'/)
   assert.match(page, /diatomite: '硅藻土吨耗'/)
   assert.match(page, /white_earth: '白土吨耗'/)
+  assert.match(page, /filter_cloth: '滤布日耗'/)
+  assert.match(page, /high_temp_tape: '高温胶带日耗'/)
+  assert.match(page, /regen_oil_out: '再生油出库'/)
+  assert.match(page, /regen_oil_in: '再生油入库'/)
+  assert.match(page, /hydraulic_oil_daily: '液压油日耗'/)
+  assert.match(page, /hydraulic_oil_monthly: '液压油月累计'/)
+  assert.match(page, /hydraulic_oil_target: '液压油指标'/)
+  assert.match(page, /gear_oil_daily: '齿轮油日耗'/)
+  assert.match(page, /gear_oil_monthly: '齿轮油月累计'/)
+  assert.match(page, /gear_oil_target: '齿轮油指标'/)
   assert.match(page, /d40: 'D40吨耗'/)
   assert.match(page, /steel_plate: '钢板吨耗'/)
   assert.match(page, /steel_buckle: '钢扣吨耗'/)
   assert.match(page, /filter_agent: '飞滤剂吨耗'/)
   assert.match(page, /paint: '油漆吨耗'/)
+  assert.match(page, /ingot_block: '铸锭块数'/)
+  assert.match(page, /ingot_input: '铸锭投料量'/)
+  assert.match(page, /ingot_output: '铸锭下机量'/)
   assert.match(page, /cost: '吨成本'/)
   assert.match(page, /total_cost: '总成本'/)
   assert.match(page, /throughput_cost: '过站吨成本'/)

@@ -57,11 +57,24 @@ CONSUMABLE_REFERENCE_FIELD_ALIASES = {
     'hot_roll_emulsion_per_ton': ('热轧乳液吨耗', '热轧乳化液吨耗', '乳液吨耗', 'hot_roll_emulsion_per_ton'),
     'diatomite_per_ton': ('硅藻土吨耗', '硅藻土单吨消耗', '硅藻土每吨', 'diatomite_per_ton'),
     'white_earth_per_ton': ('白土吨耗', '白土单吨消耗', '白土每吨', 'white_earth_per_ton'),
+    'filter_cloth_daily': ('滤布日耗', '滤布当日', '滤布用量', 'filter_cloth_daily'),
+    'high_temp_tape_daily': ('高温胶带日耗', '高温胶带当日', '高温胶带用量', 'high_temp_tape_daily'),
+    'regen_oil_out': ('再生油出库', '再生油出', '再生油发出', 'regen_oil_out'),
+    'regen_oil_in': ('再生油入库', '再生油入', '再生油回收', 'regen_oil_in'),
+    'hydraulic_oil_daily': ('液压油日耗', '液压油当日', 'hydraulic_oil_daily'),
+    'hydraulic_oil_monthly': ('液压油月累计', '液压油月累', 'hydraulic_oil_monthly'),
+    'hydraulic_oil_target': ('液压油指标', '液压油定额', 'hydraulic_oil_target'),
+    'gear_oil_daily': ('齿轮油日耗', '齿轮油当日', 'gear_oil_daily'),
+    'gear_oil_monthly': ('齿轮油月累计', '齿轮油月累', 'gear_oil_monthly'),
+    'gear_oil_target': ('齿轮油指标', '齿轮油定额', 'gear_oil_target'),
     'd40_per_ton': ('D40吨耗', 'd40吨耗', 'D40单吨消耗', 'd40_per_ton'),
     'steel_plate_per_ton': ('钢板吨耗', '钢板单吨消耗', '钢板每吨', 'steel_plate_per_ton'),
     'steel_buckle_per_ton': ('钢扣吨耗', '钢扣单吨消耗', '钢扣每吨', 'steel_buckle_per_ton'),
     'filter_agent_per_ton': ('飞滤剂吨耗', '飞滤剂单吨消耗', '飞滤剂每吨', 'filter_agent_per_ton'),
     'paint_per_ton': ('油漆吨耗', '油漆单吨消耗', '油漆每吨', 'paint_per_ton'),
+    'ingot_block_count': ('铸锭块数', '铸锭数量', '锭块数', 'ingot_block_count'),
+    'ingot_input_tons': ('铸锭投料量', '铸锭投料', '铸锭投入量', 'ingot_input_tons'),
+    'ingot_output_tons': ('铸锭下机量', '铸锭产量', '铸锭产出量', 'ingot_output_tons'),
 }
 NUMERIC_REFERENCE_FIELDS = {
     'input_tons',
@@ -342,6 +355,9 @@ def _excel_field(header: str) -> str | None:
         return 'contract_no'
     if header in {'客户', '客户名', '客户名称'}:
         return 'customer'
+    for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
+        if field in header or any(_normalize_header(alias) in header for alias in aliases):
+            return field
     if (
         '投入' in header
         or '投料' in header
@@ -368,9 +384,6 @@ def _excel_field(header: str) -> str | None:
         return 'rolling_oil_per_ton'
     if 'rolling_oil_per_ton' in header:
         return 'rolling_oil_per_ton'
-    for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
-        if field in header or any(_normalize_header(alias) in header for alias in aliases):
-            return field
     if '总成本' in header or '成本合计' in header or '总费用' in header or 'total_cost' in header:
         return 'total_cost'
     if (

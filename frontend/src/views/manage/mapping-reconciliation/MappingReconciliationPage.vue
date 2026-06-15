@@ -355,6 +355,96 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'filter_cloth',
+    reference_field: 'filter_cloth_daily',
+    system_field: 'filter_cloth_daily',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'high_temp_tape',
+    reference_field: 'high_temp_tape_daily',
+    system_field: 'high_temp_tape_daily',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'regen_oil_out',
+    reference_field: 'regen_oil_out',
+    system_field: 'regen_oil_out',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'regen_oil_in',
+    reference_field: 'regen_oil_in',
+    system_field: 'regen_oil_in',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'hydraulic_oil_daily',
+    reference_field: 'hydraulic_oil_daily',
+    system_field: 'hydraulic_oil_daily',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'hydraulic_oil_monthly',
+    reference_field: 'hydraulic_oil_monthly',
+    system_field: 'hydraulic_oil_monthly',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'hydraulic_oil_target',
+    reference_field: 'hydraulic_oil_target',
+    system_field: 'hydraulic_oil_target',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'gear_oil_daily',
+    reference_field: 'gear_oil_daily',
+    system_field: 'gear_oil_daily',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'gear_oil_monthly',
+    reference_field: 'gear_oil_monthly',
+    system_field: 'gear_oil_monthly',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
+    metric: 'gear_oil_target',
+    reference_field: 'gear_oil_target',
+    system_field: 'gear_oil_target',
+    reference_unit: 'quantity',
+    system_unit: 'quantity',
+    tolerance: 0.01,
+    weight: 6
+  },
+  {
     metric: 'd40',
     reference_field: 'd40_per_ton',
     system_field: 'd40_per_ton',
@@ -396,6 +486,33 @@ const defaultMappingFields = [
     system_field: 'paint_per_ton',
     reference_unit: 'per_ton',
     system_unit: 'per_ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'ingot_block',
+    reference_field: 'ingot_block_count',
+    system_field: 'ingot_block_count',
+    reference_unit: 'count',
+    system_unit: 'count',
+    tolerance: 0,
+    weight: 8
+  },
+  {
+    metric: 'ingot_input',
+    reference_field: 'ingot_input_tons',
+    system_field: 'ingot_input_tons',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'ingot_output',
+    reference_field: 'ingot_output_tons',
+    system_field: 'ingot_output_tons',
+    reference_unit: 'ton',
+    system_unit: 'ton',
     tolerance: 0.01,
     weight: 8
   },
@@ -502,11 +619,24 @@ function metricLabel(value) {
     hot_roll_emulsion: '热轧乳液吨耗',
     diatomite: '硅藻土吨耗',
     white_earth: '白土吨耗',
+    filter_cloth: '滤布日耗',
+    high_temp_tape: '高温胶带日耗',
+    regen_oil_out: '再生油出库',
+    regen_oil_in: '再生油入库',
+    hydraulic_oil_daily: '液压油日耗',
+    hydraulic_oil_monthly: '液压油月累计',
+    hydraulic_oil_target: '液压油指标',
+    gear_oil_daily: '齿轮油日耗',
+    gear_oil_monthly: '齿轮油月累计',
+    gear_oil_target: '齿轮油指标',
     d40: 'D40吨耗',
     steel_plate: '钢板吨耗',
     steel_buckle: '钢扣吨耗',
     filter_agent: '飞滤剂吨耗',
     paint: '油漆吨耗',
+    ingot_block: '铸锭块数',
+    ingot_input: '铸锭投料量',
+    ingot_output: '铸锭下机量',
     cost: '吨成本',
     total_cost: '总成本',
     throughput_cost: '过站吨成本'
