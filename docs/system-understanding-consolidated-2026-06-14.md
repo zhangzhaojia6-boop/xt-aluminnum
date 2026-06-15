@@ -12387,3 +12387,62 @@ python -m compileall backend/app/services/dingtalk_service.py
 | 真实钉钉可排障性 | `72.0%` | `73.0%` |
 | 个人工作通知链路 | `70.0%` | `71.0%` |
 | 外部通讯权限安全 | `92.6%` | `92.7%` |
+
+## 166. 日报钉钉工作通知会写入外部通讯日志
+
+### 166.1 本轮修复点
+
+`push_daily_report_to_dingtalk()` 现在每次调用钉钉个人工作通知后，都会写一条 `external_message_logs` 记录。
+
+小白版理解：以前日报推送给个人时，系统只在返回结果和审计里写“谁成功、谁失败”。如果要追查钉钉原始返回，需要从接口调用现场找。现在每一次个人工作通知尝试都会进入“外部通讯日志”，以后管理端或数据库排障可以直接看到这次通知是成功、失败、发给哪个钉钉用户、钉钉返回了什么。
+
+### 166.2 当前行为
+
+- `channel_type` 固定为 `dingtalk_work_notification`。
+- `channel_key` 记录目标钉钉用户 ID。
+- 成功写 `status=sent`，失败写 `status=failed`。
+- 如果 `send_work_notification()` 返回结构化结果，会把 `provider_message_id` 和 `response_payload` 一并写入日志。
+- 返回给调用方的 `failed.reason` 仍保持人能读懂的一行文字，避免把整段钉钉返回体直接塞给前端或 API 使用者。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 166.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_dingtalk_daily_report.py::test_push_writes_external_message_log_with_dingtalk_failure_payload -q
+失败原因：failed.reason 还是结构化 dict，且没有写 external_message_logs。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_daily_report.py::test_push_writes_external_message_log_with_dingtalk_failure_payload -q
+1 passed
+
+python -m pytest backend/tests/test_dingtalk_daily_report.py -q
+6 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py backend/tests/test_reporter_agent.py backend/tests/test_reminder_agent.py -q
+30 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/dingtalk_daily_report.py
+通过
+```
+
+### 166.4 尚未覆盖
+
+- 本轮没有真实发送钉钉工作通知。
+- 本轮只覆盖日报推送服务里的工作通知日志，不代表所有 ReporterAgent / ReminderAgent 内部通知都已经进入 `external_message_logs`。
+- 生产上要看到真实记录，还需要用真实钉钉配置触发日报推送。
+
+### 166.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 真实钉钉可排障性 | `73.0%` | `73.8%` |
+| 个人工作通知链路 | `71.0%` | `72.0%` |
+| 外部通讯日志覆盖 | `68.0%` | `69.0%` |

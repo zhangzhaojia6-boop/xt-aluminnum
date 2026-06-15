@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.models.agent_communication import ExternalMessageLog
 from app.services import dingtalk_daily_report
 
 
@@ -13,6 +14,7 @@ class _FakeDB:
     def __init__(self, report) -> None:
         self.report = report
         self.committed = False
+        self.added = []
         self._user_query = _UserQuery([])
 
     def get(self, model, report_id):
@@ -23,6 +25,9 @@ class _FakeDB:
 
     def commit(self):
         self.committed = True
+
+    def add(self, row):
+        self.added.append(row)
 
 
 class _UserQuery:
@@ -131,3 +136,46 @@ def test_push_collects_per_user_failures(monkeypatch):
     assert result['sent_count'] == 1
     assert result['recipients'] == 2
     assert result['failed'] == [{'user_id': 11, 'reason': 'dingtalk_user_missing'}]
+
+
+def test_push_writes_external_message_log_with_dingtalk_failure_payload(monkeypatch):
+    db = _FakeDB(_report())
+    db._user_query = _UserQuery([
+        SimpleNamespace(id=11, dingtalk_user_id='dt-11'),
+    ])
+
+    def _send(*, userid, content):
+        return False, {
+            'detail': 'invalid userid',
+            'provider_message_id': '0',
+            'response_payload': {
+                'errcode': 33012,
+                'errmsg': 'invalid userid',
+                'task_id': 0,
+            },
+        }
+
+    monkeypatch.setattr(
+        dingtalk_daily_report.dingtalk_service.service,
+        'send_work_notification',
+        _send,
+    )
+    monkeypatch.setattr(dingtalk_daily_report, 'record_audit', lambda *_a, **_kw: None)
+
+    result = dingtalk_daily_report.push_daily_report_to_dingtalk(
+        db, report_id=99, operator=_operator(),
+    )
+
+    assert result['failed'] == [{'user_id': 11, 'reason': 'invalid userid'}]
+    logs = [row for row in db.added if isinstance(row, ExternalMessageLog)]
+    assert len(logs) == 1
+    assert logs[0].channel_type == 'dingtalk_work_notification'
+    assert logs[0].channel_key == 'dt-11'
+    assert logs[0].status == 'failed'
+    assert logs[0].detail == 'invalid userid'
+    assert logs[0].provider_message_id == '0'
+    assert logs[0].response_payload == {
+        'errcode': 33012,
+        'errmsg': 'invalid userid',
+        'task_id': 0,
+    }
