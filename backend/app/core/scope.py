@@ -138,3 +138,28 @@ def resolve_work_order_entry_workshop_scope(summary: ScopeSummary) -> int | None
     if summary.data_scope_type == 'self_workshop':
         return summary.workshop_id
     return summary.workshop_id
+
+
+def can_request_workshop_scope(user: User, db, requested_workshop: str | None) -> bool:
+    clean_requested = str(requested_workshop or '').strip().lower()
+    if not clean_requested:
+        return True
+
+    summary = build_scope_summary(user)
+    if summary.is_admin or summary.data_scope_type == 'all':
+        return True
+    if summary.workshop_id is None:
+        return False
+
+    from app.models.master import Workshop
+
+    workshop = db.get(Workshop, int(summary.workshop_id))
+    if workshop is None:
+        return False
+
+    allowed_names = {
+        str(workshop.id),
+        str(workshop.name or '').strip().lower(),
+        str(workshop.code or '').strip().lower(),
+    }
+    return clean_requested in allowed_names

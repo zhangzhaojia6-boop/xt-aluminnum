@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.redaction import redact_secret_text
-from app.core.scope import build_scope_summary
+from app.core.scope import build_scope_summary, can_request_workshop_scope
 from app.models.agent_communication import CommunicationChannel
 from app.models.system import User
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
@@ -64,6 +64,15 @@ def _ensure_agent_command_channel_scope_access(user: User, db: Session, payload:
     )
 
 
+def _ensure_agent_command_requested_workshop_access(user: User, db: Session, payload: AgentCommandRequest) -> None:
+    if can_request_workshop_scope(user, db, payload.workshop):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail='Agent command workshop scope denied',
+    )
+
+
 @router.post('/command')
 def agent_command(
     payload: AgentCommandRequest,
@@ -71,6 +80,7 @@ def agent_command(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_agent_command_access(current_user)
+    _ensure_agent_command_requested_workshop_access(current_user, db, payload)
     _ensure_agent_command_channel_scope_access(current_user, db, payload)
     try:
         result = handle_agent_command(

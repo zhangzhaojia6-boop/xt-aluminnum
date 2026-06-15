@@ -10,19 +10,21 @@ from sqlalchemy.pool import StaticPool
 from app.core.deps import get_current_user, get_db
 from app.database import Base
 from app.main import app
+from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
 
 
 RAG_TABLES = [
     User.__table__,
+    Workshop.__table__,
     RagDocument.__table__,
     RagChunk.__table__,
     RagQueryLog.__table__,
 ]
 
 
-def _install_overrides(*, role: str = 'admin'):
+def _install_overrides(*, role: str = 'admin', user_kwargs: dict | None = None):
     engine = create_engine(
         'sqlite:///:memory:',
         connect_args={'check_same_thread': False},
@@ -35,7 +37,15 @@ def _install_overrides(*, role: str = 'admin'):
         yield db
 
     def fake_get_user() -> User:
-        return User(id=1, username=role, password_hash='x', name='User', role=role, is_active=True)
+        return User(
+            id=1,
+            username=role,
+            password_hash='x',
+            name='User',
+            role=role,
+            is_active=True,
+            **(user_kwargs or {}),
+        )
 
     previous_overrides = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = fake_get_db
@@ -187,6 +197,36 @@ def test_rag_query_filters_sources_by_workshop_and_machine_code() -> None:
         assert {item['source_name'] for item in payload['citations']} == {'热轧一号机点检SOP'}
         assert payload['citations'][0]['metadata']['workshop'] == '热轧'
         assert payload['citations'][0]['metadata']['machine_code'] == 'RZ-1'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_rag_query_rejects_requested_workshop_outside_user_scope() -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+
+    try:
+        db.add_all([
+            Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        ])
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/query',
+            json={
+                'query': '点检标准',
+                'limit': 5,
+                'workshop': '热轧',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'RAG workshop scope denied'
+        assert db.query(RagQueryLog).count() == 0
     finally:
         _restore_overrides(previous_overrides, db)
 

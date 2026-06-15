@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
-from app.core.scope import build_scope_summary
+from app.core.scope import build_scope_summary, can_request_workshop_scope
 from app.models.system import User
 from app.services.rag_service import (
     RagValidationError,
@@ -34,6 +34,12 @@ def _ensure_rag_access(user: User) -> None:
     scope = build_scope_summary(user)
     if not (scope.is_admin or scope.is_manager or scope.is_reviewer):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='RAG access denied')
+
+
+def _ensure_rag_requested_workshop_access(user: User, db: Session, requested_workshop: str | None) -> None:
+    if can_request_workshop_scope(user, db, requested_workshop):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='RAG workshop scope denied')
 
 
 @router.post('/documents/upload')
@@ -124,6 +130,7 @@ def query_rag(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_rag_access(current_user)
+    _ensure_rag_requested_workshop_access(current_user, db, body.workshop)
     payload = query_knowledge(
         db,
         query=body.query,

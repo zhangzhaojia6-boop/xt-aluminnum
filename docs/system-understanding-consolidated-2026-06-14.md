@@ -11296,3 +11296,68 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999992%` | `99.9999993%` |
 | 真实钉钉接入阶段 | `72.7%` | `72.9%` |
 | 外部通讯权限安全 | `86.6%` | `87.1%` |
+
+## 147. Agent 和 RAG 已补显式车间参数权限拦截
+
+### 147.1 本轮新增能力
+
+`POST /api/v1/agent/command` 和 `POST /api/v1/rag/query` 现在会校验请求里显式传入的 `workshop` 是否在当前用户可看的车间范围内。
+
+小白版理解：上一轮已经防住“冷轧主任指定热轧群 ID”。这一轮继续防住另一种绕路：不填群 ID，只在请求里直接写 `workshop=热轧`。现在单车间用户只能请求自己的车间名、车间编码或车间 ID；管理员和全厂范围用户不受这个限制。
+
+### 147.2 当前行为
+
+- 未传 `workshop` 时保持旧行为，不强行改变历史入口。
+- 管理员或全厂范围用户仍可跨车间查询。
+- 单车间用户显式传 `workshop` 时，只允许自己的车间名、编码或 ID。
+- Agent 拦截发生在 `handle_agent_command` 前，不写 `chat_inbox` 和 `agent_runs`。
+- RAG 拦截发生在 `query_knowledge` 前，不写 `rag_query_logs`。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 147.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_rejects_requested_workshop_outside_user_scope -q
+失败原因：冷轧主任直接请求 workshop=热轧 时，/api/v1/agent/command 返回 200。
+
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_rejects_requested_workshop_outside_user_scope -q
+失败原因：冷轧主任直接请求 workshop=热轧 时，/api/v1/rag/query 返回 200。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_rejects_requested_workshop_outside_user_scope -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_rejects_requested_workshop_outside_user_scope -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+37 passed
+
+python -m compileall backend/app/core/scope.py backend/app/routers/agent.py backend/app/routers/rag.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 147.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有调用真实钉钉群。
+- RAG 文档上传时的 `workshop` 元信息是否也要按用户车间限制，仍建议后续单独补一轮 TDD。
+
+### 147.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999993%` | `99.9999994%` |
+| RAG 附件和知识库阶段 | `94.4%` | `94.6%` |
+| 外部通讯权限安全 | `87.1%` | `87.6%` |

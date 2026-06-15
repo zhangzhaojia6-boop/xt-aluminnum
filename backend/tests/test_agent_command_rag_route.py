@@ -271,6 +271,40 @@ def test_agent_command_rejects_outbox_channel_outside_user_workshop() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_rejects_requested_workshop_outside_user_scope() -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+
+    try:
+        db.add_all([
+            Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        ])
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'internal-cold-director',
+                'text': '点检标准怎么做',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-workshop-denied-001',
+                'workshop': '热轧',
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'Agent command workshop scope denied'
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_redacts_agent_error_detail(monkeypatch) -> None:
     db, previous_overrides = _install_overrides()
 
