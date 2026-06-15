@@ -11419,3 +11419,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999994%` | `99.9999995%` |
 | RAG 附件和知识库阶段 | `94.6%` | `94.9%` |
 | 外部通讯权限安全 | `87.6%` | `87.9%` |
+
+## 149. RAG 文档列表、详情和删除已补车间范围过滤
+
+### 149.1 本轮新增能力
+
+`GET /api/v1/rag/documents`、`GET /api/v1/rag/documents/{id}` 和 `DELETE /api/v1/rag/documents/{id}` 现在会按文档 `metadata_payload.workshop` 做车间范围过滤。
+
+小白版理解：上一轮已经防住“上传时把资料标成别的车间”。这一轮继续防住“单车间用户在资料列表里看到别的车间资料，或者靠文档 ID 打开、删除别的车间资料”。现在冷轧主任只能看到冷轧资料和未标车间的通用资料；热轧资料会像不存在一样返回 404。
+
+### 149.2 当前行为
+
+- 文档未标 `workshop` 时视为通用资料，仍可被有 RAG 权限的管理/审查角色看到。
+- 管理员或全厂范围用户仍可查看和删除跨车间资料。
+- 单车间用户只能看到自己车间名、编码或 ID 匹配的资料。
+- 越权详情和删除返回 `404 RAG document not found`，避免泄露“这份资料其实存在”。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 149.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_documents_hide_out_of_scope_workshop_sources -q
+失败原因：冷轧主任查看文档列表时，接口返回 2 条，包含热轧资料。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_documents_hide_out_of_scope_workshop_sources -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_master_write_permissions.py -q
+39 passed
+
+python -m compileall backend/app/routers/rag.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 149.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- RAG 前端列表如果需要明确展示“当前只看本车间资料”的中文提示，后续可在 `/manage/rag` 单独用 Stitch/taste 做页面优化，不应混在本轮后端权限补丁里。
+
+### 149.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999995%` | `99.9999996%` |
+| RAG 附件和知识库阶段 | `94.9%` | `95.2%` |
+| 外部通讯权限安全 | `87.9%` | `88.3%` |

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary, can_request_workshop_scope
 from app.models.system import User
+from app.models.rag import RagDocument
 from app.services.rag_service import (
     RagValidationError,
     create_document_from_bytes,
@@ -40,6 +41,21 @@ def _ensure_rag_requested_workshop_access(user: User, db: Session, requested_wor
     if can_request_workshop_scope(user, db, requested_workshop):
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='RAG workshop scope denied')
+
+
+def _rag_document_workshop(document: RagDocument) -> str | None:
+    metadata = document.metadata_payload or {}
+    return str(metadata.get('workshop') or '').strip() or None
+
+
+def _can_access_rag_document(user: User, db: Session, document: RagDocument) -> bool:
+    return can_request_workshop_scope(user, db, _rag_document_workshop(document))
+
+
+def _ensure_rag_document_access(user: User, db: Session, document: RagDocument) -> None:
+    if _can_access_rag_document(user, db, document):
+        return
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='RAG document not found')
 
 
 @router.post('/documents/upload')
@@ -91,7 +107,11 @@ def get_rag_documents(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_rag_access(current_user)
-    items = [serialize_document(document) for document in list_documents(db)]
+    items = [
+        serialize_document(document)
+        for document in list_documents(db)
+        if _can_access_rag_document(current_user, db, document)
+    ]
     return {'items': items, 'total': len(items)}
 
 
@@ -105,6 +125,7 @@ def get_rag_document(
     detail = get_document_detail(db, document_id)
     if detail is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='RAG document not found')
+    _ensure_rag_document_access(current_user, db, detail['document'])
     return {
         'document': serialize_document(detail['document']),
         'chunks': [serialize_chunk(chunk) for chunk in detail['chunks']],
@@ -118,6 +139,10 @@ def remove_rag_document(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_rag_access(current_user)
+    detail = get_document_detail(db, document_id)
+    if detail is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='RAG document not found')
+    _ensure_rag_document_access(current_user, db, detail['document'])
     if not delete_document(db, document_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='RAG document not found')
     db.commit()
