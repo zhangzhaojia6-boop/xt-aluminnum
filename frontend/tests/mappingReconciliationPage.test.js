@@ -96,10 +96,14 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /metric: 'total_cost'/)
   assert.match(page, /reference_field: 'total_cost'/)
   assert.match(page, /system_field: 'total_cost'/)
+  assert.match(page, /metric: 'throughput_cost'/)
+  assert.match(page, /reference_field: 'throughput_cost_per_ton'/)
+  assert.match(page, /system_field: 'throughput_cost_per_ton'/)
   assert.match(page, /yield: '成材率'/)
   assert.match(page, /rolling_oil: '轧制油吨耗'/)
   assert.match(page, /cost: '吨成本'/)
   assert.match(page, /total_cost: '总成本'/)
+  assert.match(page, /throughput_cost: '过站吨成本'/)
 })
 
 test('mapping reconciliation page renders backend difference summary', () => {

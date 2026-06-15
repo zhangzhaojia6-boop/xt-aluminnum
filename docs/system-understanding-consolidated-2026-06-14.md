@@ -9777,6 +9777,9 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 
 cd frontend && npm run build
 通过
+
+cd frontend && npm test -- --runInBand
+691 passed
 ```
 
 ### 124.5 当前进度变化
@@ -10001,3 +10004,75 @@ cd frontend && npm run build
 | 原始大目标 | `99.999974%` | `99.999976%` |
 | 输出skill 对齐阶段 | `92.5%` | `92.8%` |
 | 前后端映射阶段 | `89.3%` | `89.5%` |
+
+## 128. 输出skill 对齐已补过站吨成本字段解析与页面默认试算
+
+### 128.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能把输出skill 参考文件里的“过站吨成本、流转吨成本、吞吐吨成本、过工序吨成本”解析成 `throughput_cost_per_ton`。
+
+`/manage/mapping-reconciliation` 页面默认试算字段也会把 `throughput_cost_per_ton` 纳入对比，指标中文名为“过站吨成本”。
+
+小白版理解：以前系统侧成本结果表已经有“过站吨成本”，但参考文件里写了这个数时，系统要么没认出来，要么把它误当成普通“吨成本”。现在它和普通吨成本分开对账，能看出“按成品吨算的成本”和“按流转过站吨算的成本”是不是各自对得上。
+
+### 128.2 当前行为
+
+过站吨成本字段解析当前覆盖：
+
+- 文本行：`过站吨成本`、`流转吨成本`、`吞吐吨成本`、`过工序吨成本`、`throughput_cost_per_ton`。
+- 结构化表头：支持中文 `吨`，也支持内部标准化后的 `ton`，避免 `过站吨成本` 被误识别成普通 `cost_per_ton`。
+- JSON、NDJSON、Excel 复用同一套表头映射。
+- 页面默认试算新增“过站吨成本”指标，参考字段和系统字段均为 `throughput_cost_per_ton`，单位按元/吨比较。
+
+### 128.3 当前边界
+
+本轮没有读取或提交输出skill 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的成本字段覆盖补强。
+
+### 128.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+失败原因：文本未解析 throughput_cost_per_ton；表格/JSON 把过站吨成本误归到 cost_per_ton。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段仍缺少 throughput_cost_per_ton。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+14 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 128.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999976%` | `99.999978%` |
+| 输出skill 对齐阶段 | `92.8%` | `93.1%` |
+| 前后端映射阶段 | `89.5%` | `89.7%` |

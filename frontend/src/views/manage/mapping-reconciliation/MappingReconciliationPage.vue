@@ -281,6 +281,15 @@ const defaultMappingFields = [
     system_unit: 'yuan',
     tolerance: 0.01,
     weight: 10
+  },
+  {
+    metric: 'throughput_cost',
+    reference_field: 'throughput_cost_per_ton',
+    system_field: 'throughput_cost_per_ton',
+    reference_unit: 'yuan_per_ton',
+    system_unit: 'yuan_per_ton',
+    tolerance: 0.01,
+    weight: 10
   }
 ]
 
@@ -349,7 +358,8 @@ function metricLabel(value) {
     gas: '燃气',
     rolling_oil: '轧制油吨耗',
     cost: '吨成本',
-    total_cost: '总成本'
+    total_cost: '总成本',
+    throughput_cost: '过站吨成本'
   }
   return labels[value] || value || '指标'
 }

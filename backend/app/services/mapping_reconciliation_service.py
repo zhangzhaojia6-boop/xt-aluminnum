@@ -58,6 +58,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'rolling_oil_per_ton',
     'total_cost',
     'cost_per_ton',
+    'throughput_cost_per_ton',
 }
 DIFFERENCE_REASON_LABELS = {
     'value_diff': '数值不一致',
@@ -262,6 +263,10 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         gas_m3 = _metric_number(line, ('燃气', '用气', '气量', '天然气', 'gas_m3'))
         rolling_oil_per_ton = _metric_number(line, ('轧制油吨耗', '轧制油单吨消耗', '轧制油每吨', 'rolling_oil_per_ton'))
         total_cost = _metric_number(line, ('总成本', '成本合计', '总费用', 'total_cost'))
+        throughput_cost_per_ton = _metric_number(
+            line,
+            ('过站吨成本', '流转吨成本', '吞吐吨成本', '过工序吨成本', 'throughput_cost_per_ton'),
+        )
         cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', 'cost_per_ton'))
         if input_tons is not None:
             row['input_tons'] = input_tons
@@ -283,6 +288,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['rolling_oil_per_ton'] = rolling_oil_per_ton
         if total_cost is not None:
             row['total_cost'] = total_cost
+        if throughput_cost_per_ton is not None:
+            row['throughput_cost_per_ton'] = throughput_cost_per_ton
         if cost_per_ton is not None:
             row['cost_per_ton'] = cost_per_ton
         if len(row) > 3:
@@ -341,6 +348,18 @@ def _excel_field(header: str) -> str | None:
         return 'rolling_oil_per_ton'
     if '总成本' in header or '成本合计' in header or '总费用' in header or 'total_cost' in header:
         return 'total_cost'
+    if (
+        '过站吨成本' in header
+        or '过站ton成本' in header
+        or '流转吨成本' in header
+        or '流转ton成本' in header
+        or '吞吐吨成本' in header
+        or '吞吐ton成本' in header
+        or '过工序吨成本' in header
+        or '过工序ton成本' in header
+        or 'throughput_cost_per_ton' in header
+    ):
+        return 'throughput_cost_per_ton'
     if '成本' in header and (
         'ton' in header or '单ton' in header or '每ton' in header or '元/ton' in header or 'cost_per_ton' in header
     ):
