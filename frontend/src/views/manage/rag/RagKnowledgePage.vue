@@ -143,6 +143,7 @@ const chunks = ref([])
 const queryText = ref('')
 const queryResult = ref(null)
 const fileInput = ref(null)
+const ALLOWED_RAG_EXTENSIONS = ['.txt', '.md', '.csv', '.json', '.log']
 
 const totalChunks = computed(() => documents.value.reduce((total, item) => total + Number(item.chunk_count || 0), 0))
 const citations = computed(() => queryResult.value?.citations || [])
@@ -175,6 +176,11 @@ function formatTime(value) {
 
 function openFilePicker() {
   fileInput.value?.click()
+}
+
+function isAllowedRagFile(file) {
+  const filename = String(file?.name || '').toLowerCase()
+  return ALLOWED_RAG_EXTENSIONS.some((extension) => filename.endsWith(extension))
 }
 
 async function loadDocuments() {
@@ -212,6 +218,10 @@ async function handleFilePicked(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
   if (!file) return
+  if (!isAllowedRagFile(file)) {
+    errorText.value = '不支持该文件类型'
+    return
+  }
   uploading.value = true
   errorText.value = ''
   try {

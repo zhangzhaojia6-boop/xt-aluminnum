@@ -51,3 +51,15 @@ test('rag knowledge page exposes upload chunks query and source areas without fa
   assert.match(page, /\.xt-rag__answer\s*\{[\s\S]*white-space:\s*pre-wrap/)
   assert.doesNotMatch(page, /假数据|示例产量|机器人头像|霓虹/)
 })
+
+test('rag knowledge page validates allowed text attachments before upload', () => {
+  const page = source('../src/views/manage/rag/RagKnowledgePage.vue')
+
+  assert.match(page, /ALLOWED_RAG_EXTENSIONS/)
+  for (const extension of ['.txt', '.md', '.csv', '.json', '.log']) {
+    assert.match(page, new RegExp(extension.replace('.', '\\.')))
+  }
+  assert.match(page, /isAllowedRagFile/)
+  assert.match(page, /不支持该文件类型/)
+  assert.match(page, /await uploadRagDocument\(file\)/)
+})
