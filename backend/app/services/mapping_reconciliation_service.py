@@ -53,6 +53,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'downtime_minutes',
     'quality_issue_count',
     'yield_rate',
+    'gas_m3',
     'rolling_oil_per_ton',
     'cost_per_ton',
 }
@@ -255,6 +256,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         downtime_minutes = _metric_minutes(line, ('停机时长', '停机时间', '停机'))
         quality_issue_count = _metric_number(line, ('质量异常', '质量问题', '质量门禁', '异常数'))
         yield_rate = _metric_number(line, ('成材率', '成品率', '良品率', '得率'))
+        gas_m3 = _metric_number(line, ('燃气', '用气', '气量', '天然气', 'gas_m3'))
         rolling_oil_per_ton = _metric_number(line, ('轧制油吨耗', '轧制油单吨消耗', '轧制油每吨', 'rolling_oil_per_ton'))
         cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', 'cost_per_ton'))
         if output_tons is not None:
@@ -269,6 +271,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['quality_issue_count'] = quality_issue_count
         if yield_rate is not None:
             row['yield_rate'] = yield_rate
+        if gas_m3 is not None:
+            row['gas_m3'] = gas_m3
         if rolling_oil_per_ton is not None:
             row['rolling_oil_per_ton'] = rolling_oil_per_ton
         if cost_per_ton is not None:
@@ -303,6 +307,8 @@ def _excel_field(header: str) -> str | None:
         return 'customer'
     if '能耗' in header or '电量' in header or 'kwh' in header:
         return 'energy_kwh'
+    if '燃气' in header or '用气' in header or '气量' in header or '天然气' in header or 'gas_m3' in header:
+        return 'gas_m3'
     if '废料' in header or '废品' in header:
         return 'scrap_tons'
     if '停机' in header:

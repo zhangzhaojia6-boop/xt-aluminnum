@@ -9786,3 +9786,72 @@ cd frontend && npm run build
 | 原始大目标 | `99.999965%` | `99.99997%` |
 | 输出skill 对齐阶段 | `91.8%` | `92.0%` |
 | 前后端映射阶段 | `88.8%` | `88.9%` |
+
+## 125. 输出skill 对齐已补燃气字段解析
+
+### 125.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能把输出skill 参考文件里的燃气类字段解析成 `gas_m3`。
+
+小白版理解：页面早就有“燃气”这个对齐指标，系统侧数据也会产出 `gas_m3`，但参考文件里如果写“燃气 32 m3”或“用气(m3)”，以前不会进入对比。现在这些值能进来，前端的燃气对齐不再是空壳。
+
+### 125.2 当前行为
+
+燃气字段解析当前覆盖：
+
+- 文本行：`燃气`、`用气`、`气量`、`天然气`、`gas_m3`。
+- 结构化表头：`燃气`、`用气`、`气量`、`天然气`、`gas_m3`。
+- JSON、NDJSON、Excel 复用同一套表头映射。
+- `gas_m3` 进入数值字段集合，参与后续匹配率和差异计算。
+
+这次只补燃气字段识别，不改变匹配公式、不改变数据库结构、不改变生产数据。
+
+### 125.3 当前边界
+
+本轮没有读取或提交输出skill 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- `/manage/mapping-reconciliation` 页面结构。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的字段覆盖补强。
+
+### 125.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+失败原因：文本行中的 燃气 32 m3 未进入 gas_m3。
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+失败原因：JSON 表头 用气(m3) 未进入 gas_m3。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 125.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99997%` | `99.999972%` |
+| 输出skill 对齐阶段 | `92.0%` | `92.2%` |
+| 前后端映射阶段 | `88.9%` | `89.0%` |

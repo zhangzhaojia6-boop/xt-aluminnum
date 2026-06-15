@@ -215,7 +215,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 产量 12.5 吨 能耗 1800 度 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
+        '精整 长白班 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -231,6 +231,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'shift': '长白班',
             'output_tons': 12.5,
             'energy_kwh': 1800.0,
+            'gas_m3': 32.0,
             'scrap_tons': 0.2,
             'downtime_minutes': 30.0,
             'quality_issue_count': 2.0,
@@ -406,6 +407,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
                         '客户名': '客户C',
                         '产量(吨)': 7.2,
                         '能耗(kWh)': 980,
+                        '用气(m3)': 18.5,
                         '废料(吨)': 0.08,
                         '停机分钟': 90,
                         '质量异常数': 2,
@@ -436,6 +438,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
             'customer': '客户C',
             'output_tons': 7.2,
             'energy_kwh': 980.0,
+            'gas_m3': 18.5,
             'scrap_tons': 0.08,
             'downtime_minutes': 90.0,
             'quality_issue_count': 2.0,
