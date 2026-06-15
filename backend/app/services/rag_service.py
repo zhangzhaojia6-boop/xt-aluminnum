@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.redaction import redact_secret_text
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.system import User
 
@@ -289,8 +290,8 @@ def _write_query_log(
 ) -> None:
     db.add(
         RagQueryLog(
-            query_text=query_text,
-            answer=answer,
+            query_text=redact_secret_text(query_text),
+            answer=redact_secret_text(answer),
             result_count=len(citations),
             citations=citations,
             user_id=getattr(user, 'id', None),

@@ -9096,3 +9096,71 @@ python -m compileall backend/app/services/agent_command_service.py
 | 原始大目标 | `99.99984%` | `99.99986%` |
 | Agent 通讯中台阶段 | `89.4%` | `89.6%` |
 | 安全审计阶段 | `88.5%` | `88.8%` |
+
+## 115. RAG 查询日志已补敏感文本脱敏
+
+### 115.1 本轮新增能力
+
+`POST /api/v1/rag/query` 写入 `rag_query_logs` 时，现在会对 `query_text` 和 `answer` 执行 `redact_secret_text()`。
+
+小白版理解：管理员如果误把 `password=...`、`token=...` 这种内容粘到 RAG 查询框里，系统仍会完成查询，但日志里不会保存明文密码或 token。
+
+### 115.2 当前行为
+
+RAG 当前安全边界变为：
+
+- 上传附件时，仍会拒绝明显密钥文件入库。
+- 查询知识库时，仍使用用户原问题做检索，保证搜索行为不变。
+- 写查询日志时，密钥样文本会变成 `<redacted>`。
+- 查询回答写日志前也会脱敏，避免历史脏数据片段被二次写入日志。
+
+这次只保护日志保存面，不改变用户接口返回、不改变切片、不改变知识库检索规则。
+
+### 115.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- RAG 上传文件类型白名单。
+- UTF-8/GBK 解码规则。
+- 二进制文件拦截。
+- 文档切片大小和重叠长度。
+- RAG 检索排序。
+- 前端页面结构。
+- 数据库结构。
+
+这是 RAG 查询日志的安全补强。
+
+### 115.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+失败原因：rag_query_logs.query_text 原样保存 uid=readonly、password=secret-pass、token=abc123。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+6 passed
+
+python -m pytest backend/tests/test_rag_routes.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_secret_redaction.py -q
+39 passed
+
+cd frontend && node --test tests/ragKnowledgePage.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+19 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+```
+
+### 115.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99986%` | `99.99988%` |
+| RAG 附件和知识库阶段 | `92%` | `92.2%` |
+| 安全审计阶段 | `88.8%` | `89%` |

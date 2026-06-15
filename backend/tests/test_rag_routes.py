@@ -154,6 +154,28 @@ def test_rag_upload_rejects_executable_and_secret_like_files() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_query_log_redacts_secret_style_query_text() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/query',
+            json={'query': 'server=db;uid=readonly;password=secret-pass;token=abc123', 'limit': 3},
+        )
+
+        assert response.status_code == 200
+        log = db.query(RagQueryLog).one()
+        assert 'readonly' not in log.query_text
+        assert 'secret-pass' not in log.query_text
+        assert 'abc123' not in log.query_text
+        assert 'uid=<redacted>' in log.query_text
+        assert 'password=<redacted>' in log.query_text
+        assert 'token=<redacted>' in log.query_text
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_routes_require_manage_permission() -> None:
     db, previous_overrides = _install_overrides(role='machine_operator')
 
