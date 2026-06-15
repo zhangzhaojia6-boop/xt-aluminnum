@@ -5,23 +5,27 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import json
 import logging
 from datetime import datetime, timezone
 from urllib import request as urllib_request
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import create_access_token
+from app.core.scope import build_scope_summary
 from app.database import get_db
 from app.models.system import User
 from app.schemas.auth import LoginResponse, UserInfo
 from app.services.audit_service import log_action
 from app.services import dingtalk_service
+from app.services.agent_command_service import AgentCommandError, handle_agent_command
 
 logger = logging.getLogger(__name__)
 
@@ -212,4 +216,139 @@ def dingtalk_h5_login(
         'token_type': 'bearer',
         'user': user_info.model_dump(),
         'machine_info': None,
+    }
+
+
+def _clean_text(value: Any) -> str:
+    return str(value or '').strip()
+
+
+def _first_payload_value(payload: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = payload.get(key)
+        if value not in (None, ''):
+            return value
+    return None
+
+
+def _extract_agent_text(payload: dict[str, Any]) -> str:
+    text_value = payload.get('text')
+    if isinstance(text_value, dict):
+        content = _clean_text(text_value.get('content'))
+        if content:
+            return content
+    if isinstance(text_value, str):
+        content = _clean_text(text_value)
+        if content:
+            return content
+
+    content_value = payload.get('content')
+    if isinstance(content_value, dict):
+        content = _clean_text(content_value.get('content') or content_value.get('text'))
+        if content:
+            return content
+    return _clean_text(content_value)
+
+
+def _sanitize_inbound_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            lowered = key_text.lower()
+            if any(marker in lowered for marker in ('token', 'secret', 'webhook', 'authorization', 'sign')):
+                continue
+            cleaned[key_text] = _sanitize_inbound_payload(item)
+        return cleaned
+    if isinstance(value, list):
+        return [_sanitize_inbound_payload(item) for item in value]
+    return value
+
+
+def _ensure_inbound_token(header_token: str | None) -> None:
+    expected = _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None))
+    if not expected:
+        if settings.is_production_like:
+            raise HTTPException(status_code=503, detail='dingtalk_inbound_token_required')
+        return
+    if _clean_text(header_token) != expected:
+        raise HTTPException(status_code=401, detail='dingtalk_inbound_token_invalid')
+
+
+def _resolve_inbound_user(db: Session, payload: dict[str, Any]) -> User:
+    sender_user_id = _clean_text(
+        _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
+    )
+    sender_union_id = _clean_text(_first_payload_value(payload, 'senderUnionId', 'unionId'))
+    if not sender_user_id and not sender_union_id:
+        raise HTTPException(status_code=401, detail='dingtalk_sender_required')
+
+    try:
+        user = dingtalk_service.resolve_unique_dingtalk_user(
+            db,
+            dingtalk_user_id=sender_user_id,
+            dingtalk_union_id=sender_union_id,
+        )
+    except dingtalk_service.DingTalkUserAmbiguous as exc:
+        raise HTTPException(status_code=409, detail='dingtalk_user_ambiguous') from exc
+    if not user:
+        raise HTTPException(status_code=403, detail='dingtalk_user_not_bound')
+
+    scope = build_scope_summary(user)
+    if not (scope.is_admin or scope.is_manager or scope.is_reviewer):
+        raise HTTPException(status_code=403, detail='dingtalk_agent_access_denied')
+    return user
+
+
+@router.post('/agent-inbound')
+def dingtalk_agent_inbound(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+    inbound_token: str | None = Header(default=None, alias='x-dingtalk-inbound-token'),
+) -> dict[str, Any]:
+    _ensure_inbound_token(inbound_token)
+    text = _extract_agent_text(payload)
+    if not text:
+        raise HTTPException(status_code=400, detail='command_text_required')
+
+    user = _resolve_inbound_user(db, payload)
+    group_id = _clean_text(_first_payload_value(payload, 'conversationId', 'conversation_id', 'chatId', 'openConversationId'))
+    sender_external_id = _clean_text(
+        _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
+    )
+    trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
+    agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
+    queue_outbox = bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox') or False)
+
+    try:
+        result = handle_agent_command(
+            db,
+            channel='dingtalk_group',
+            group_id=group_id or None,
+            sender_external_id=sender_external_id or None,
+            text=text,
+            agent_code=agent_code,
+            trace_id=trace_id or None,
+            queue_outbox=queue_outbox,
+            source_payload=_sanitize_inbound_payload(payload),
+            current_user=user,
+        )
+        db.commit()
+    except AgentCommandError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        'errcode': 0,
+        'errmsg': 'ok',
+        'trace_id': result.trace_id,
+        'status_color': result.status_color,
+        'intent': result.intent,
+        'answer': result.answer,
+        'chat_inbox_id': result.chat_inbox_id,
+        'agent_run_id': result.agent_run_id,
+        'outbox_message_id': result.outbox_message_id,
     }

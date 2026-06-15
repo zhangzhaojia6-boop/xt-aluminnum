@@ -6838,3 +6838,82 @@ python -m compileall backend/app/services/agent_command_service.py backend/app/r
 | Agent 通讯阶段 | `85%` | `88%` |
 | 真实钉钉阶段 | `43%` | `44%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 81. 钉钉群消息入站已接 Agent command 审计链路
+
+### 81.1 本轮新增能力
+
+新增 `POST /api/v1/dingtalk/agent-inbound`，用于接收钉钉机器人或 DingTalk Stream 转来的群消息，并转入现有 Agent 命令链路：
+
+- 支持钉钉常见字段：`conversationId`、`senderStaffId`、`senderUnionId`、`text.content`、`agentCode`、`traceId`。
+- 先校验 `DINGTALK_INBOUND_TOKEN`，再解析消息。
+- 根据钉钉用户 ID 或 union ID 匹配系统已绑定用户。
+- 只允许管理员、管理层、审核角色使用 Agent 问答。
+- 复用 `handle_agent_command`，所以仍会写 `chat_inbox`、`agent_runs`，必要时可进入 `agent_outbox`。
+- 入站原始 payload 会过滤 `token/secret/webhook/authorization/sign` 等敏感字段后再入库。
+
+小白版理解：现在钉钉群里来的消息，不是直接让 AI 乱回，而是先确认“这个钉钉人是谁、有没有权限”，再交给系统已经有账本的 Agent 通道处理。这样以后出问题能追溯是谁问的、问了什么、系统怎么答的。
+
+### 81.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 入站路由 | `POST /api/v1/dingtalk/agent-inbound` |
+| 通道标识 | 固定写入 `dingtalk_group` |
+| 群标识 | 优先取 `conversationId` |
+| 人员标识 | 优先取 `senderStaffId`，辅助取 `senderUnionId` |
+| 文本 | 优先取 `text.content` |
+| 权限 | 仅管理员、管理层、审核角色 |
+| 审计 | `chat_inbox` + `agent_runs` |
+| 外发 | 仅当 payload 带 `queueOutbox` 时进入 outbox，不直接真实发送 |
+
+### 81.3 安全边界
+
+- 新增配置名 `DINGTALK_INBOUND_TOKEN`，真实值只应放云端环境变量。
+- 生产环境如果没有配置入站令牌，会返回 `dingtalk_inbound_token_required`。
+- 配置了令牌但请求没带或不匹配，会返回 `dingtalk_inbound_token_invalid`，且不写 `chat_inbox`。
+- 未绑定钉钉用户返回 `dingtalk_user_not_bound`。
+- 绑定用户不是管理/审核角色返回 `dingtalk_agent_access_denied`。
+- 本轮不做真实钉钉 Stream 长连接，不做真实群回复外发。
+
+### 81.4 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+失败原因：配置缺少 DINGTALK_INBOUND_TOKEN，且 /api/v1/dingtalk/agent-inbound 路由不存在。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+2 passed
+
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+28 passed
+
+python -m compileall backend/app/routers/dingtalk.py backend/app/services/agent_command_service.py
+通过
+```
+
+### 81.5 当前边界
+
+还不能宣称真实钉钉通讯全部完成。
+
+原因：
+
+- 本轮只接 HTTP 入站适配，没有启动 DingTalk Stream 长连接。
+- 还没有用真实钉钉测试群发消息验证。
+- 还没有做钉钉官方签名验签，只先用系统入站令牌兜底。
+- 还没有把 outbox 消息真实 dispatch 到钉钉群。
+
+### 81.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.86%` | `99.89%` |
+| Agent 通讯阶段 | `88%` | `90%` |
+| 真实钉钉阶段 | `44%` | `50%` |
+| 前端治理阶段 | `78%` | `78%` |

@@ -154,6 +154,7 @@ class Settings(BaseSettings):
     DINGTALK_AGENT_ID: str | None = None
     DINGTALK_ENABLED: bool = False
     DINGTALK_NOTIFY_DRY_RUN: bool = False
+    DINGTALK_INBOUND_TOKEN: str | None = None
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
