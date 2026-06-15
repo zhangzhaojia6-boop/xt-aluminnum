@@ -292,6 +292,96 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'total_electricity',
+    reference_field: 'total_electricity_kwh',
+    system_field: 'total_electricity_kwh',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'new_plant_electricity',
+    reference_field: 'new_plant_electricity_kwh',
+    system_field: 'new_plant_electricity_kwh',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'park_electricity',
+    reference_field: 'park_electricity_kwh',
+    system_field: 'park_electricity_kwh',
+    reference_unit: 'kwh',
+    system_unit: 'kwh',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'cast_roll_gas',
+    reference_field: 'cast_roll_gas_m3',
+    system_field: 'cast_roll_gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'smelting_gas',
+    reference_field: 'smelting_gas_m3',
+    system_field: 'smelting_gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'heating_furnace_gas',
+    reference_field: 'heating_furnace_gas_m3',
+    system_field: 'heating_furnace_gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'boiler_gas',
+    reference_field: 'boiler_gas_m3',
+    system_field: 'boiler_gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'total_gas',
+    reference_field: 'total_gas_m3',
+    system_field: 'total_gas_m3',
+    reference_unit: 'm3',
+    system_unit: 'm3',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'groundwater',
+    reference_field: 'groundwater_ton',
+    system_field: 'groundwater_ton',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
+    metric: 'tap_water',
+    reference_field: 'tap_water_ton',
+    system_field: 'tap_water_ton',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.1,
+    weight: 8
+  },
+  {
     metric: 'rolling_oil',
     reference_field: 'rolling_oil_per_ton',
     system_field: 'rolling_oil_per_ton',
@@ -720,6 +810,16 @@ function metricLabel(value) {
     electricity_target: '用电指标',
     gas_monthly: '用气月累计',
     gas_target: '用气指标',
+    total_electricity: '全厂用电',
+    new_plant_electricity: '新厂用电',
+    park_electricity: '园区用电',
+    cast_roll_gas: '铸轧用气',
+    smelting_gas: '熔炼炉用气',
+    heating_furnace_gas: '加热炉用气',
+    boiler_gas: '锅炉用气',
+    total_gas: '天然气总量',
+    groundwater: '地下水',
+    tap_water: '自来水',
     rolling_oil: '轧制油吨耗',
     liquefied_gas: '液化气吨耗',
     titanium_wire: '钛丝吨耗',

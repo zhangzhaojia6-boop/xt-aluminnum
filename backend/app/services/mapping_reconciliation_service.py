@@ -81,6 +81,16 @@ CONSUMABLE_REFERENCE_FIELD_ALIASES = {
     'ingot_output_tons': ('铸锭下机量', '铸锭产量', '铸锭产出量', 'ingot_output_tons'),
 }
 OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
+    'total_electricity_kwh': ('全厂用电', '全厂总用电', '总用电', 'total_electricity_kwh'),
+    'new_plant_electricity_kwh': ('新厂用电', '新厂总用电', 'new_plant_electricity_kwh'),
+    'park_electricity_kwh': ('园区用电', '园区总用电', 'park_electricity_kwh'),
+    'cast_roll_gas_m3': ('铸轧用气', '铸轧天然气', 'cast_roll_gas_m3'),
+    'smelting_gas_m3': ('熔炼炉用气', '熔炼炉天然气', 'smelting_gas_m3'),
+    'heating_furnace_gas_m3': ('加热炉用气', '加热炉天然气', 'heating_furnace_gas_m3'),
+    'boiler_gas_m3': ('锅炉用气', '锅炉天然气', 'boiler_gas_m3'),
+    'total_gas_m3': ('天然气总量', '燃气总量', '全厂用气', 'total_gas_m3'),
+    'groundwater_ton': ('地下水', '地下水用量', 'groundwater_ton'),
+    'tap_water_ton': ('自来水', '自来水用量', 'tap_water_ton'),
     'daily_contract_weight': ('当日接合同', '当日合同', '日接合同', 'daily_contract_weight'),
     'daily_hot_roll_contract_weight': ('当日热轧合同', '热轧当日合同', 'daily_hot_roll_contract_weight'),
     'month_to_date_contract_weight': ('月累计合同', '合同月累计', '月累合同', 'month_to_date_contract_weight'),

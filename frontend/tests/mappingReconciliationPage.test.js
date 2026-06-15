@@ -105,6 +105,16 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'electricity_target',
     'gas_monthly',
     'gas_target',
+    'total_electricity_kwh',
+    'new_plant_electricity_kwh',
+    'park_electricity_kwh',
+    'cast_roll_gas_m3',
+    'smelting_gas_m3',
+    'heating_furnace_gas_m3',
+    'boiler_gas_m3',
+    'total_gas_m3',
+    'groundwater_ton',
+    'tap_water_ton',
     'filter_cloth_daily',
     'high_temp_tape_daily',
     'regen_oil_out',
@@ -160,6 +170,16 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /electricity_target: '用电指标'/)
   assert.match(page, /gas_monthly: '用气月累计'/)
   assert.match(page, /gas_target: '用气指标'/)
+  assert.match(page, /total_electricity: '全厂用电'/)
+  assert.match(page, /new_plant_electricity: '新厂用电'/)
+  assert.match(page, /park_electricity: '园区用电'/)
+  assert.match(page, /cast_roll_gas: '铸轧用气'/)
+  assert.match(page, /smelting_gas: '熔炼炉用气'/)
+  assert.match(page, /heating_furnace_gas: '加热炉用气'/)
+  assert.match(page, /boiler_gas: '锅炉用气'/)
+  assert.match(page, /total_gas: '天然气总量'/)
+  assert.match(page, /groundwater: '地下水'/)
+  assert.match(page, /tap_water: '自来水'/)
   assert.match(page, /filter_cloth: '滤布日耗'/)
   assert.match(page, /high_temp_tape: '高温胶带日耗'/)
   assert.match(page, /regen_oil_out: '再生油出库'/)
