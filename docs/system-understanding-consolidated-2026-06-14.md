@@ -11936,3 +11936,59 @@ git diff --check
 | 原始大目标 | `99.99999994%` | `99.99999995%` |
 | Agent 通讯中台阶段 | `85.6%` | `85.9%` |
 | 外部通讯权限安全 | `90.8%` | `91.1%` |
+
+## 158. Agent outbox 已补上“批量调度到期消息”的后端服务能力
+
+### 158.1 本轮新增能力
+
+`agent_communication_service.dispatch_due_outbox_messages()` 现在可以批量扫描并投递到期 outbox 消息。它只处理两类消息：`pending` 待发送消息，以及 `retrying` 且 `next_retry_at` 已经到点的消息。
+
+小白版理解：上一轮补了“没到重试时间不要重复发”。这一轮补的是“到了发送时间，系统要能一次扫出该发的消息”。这样后续不管是后台定时任务、管理端按钮，还是云端调度脚本，都可以复用同一个安全入口，不用人工一条条点。
+
+### 158.2 当前行为
+
+- `pending` 消息会被批量调度。
+- `retrying` 且 `next_retry_at <= 当前时间` 的消息会被批量调度。
+- `retrying` 但 `next_retry_at` 还在未来的消息会被跳过。
+- 批量函数内部复用 `dispatch_outbox_message()`，所以 dry-run、真实发送、失败重试、dead-letter、外部日志仍走同一套逻辑。
+- 批量数量默认最多 50 条，单次上限 100 条，避免一次任务扫太多造成外部通道压力。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 158.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_due_outbox_messages_only_sends_pending_and_due_retrying -q
+失败原因：服务中不存在 dispatch_due_outbox_messages，说明 outbox 只有单条投递能力，没有批量扫描到期消息的入口。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_due_outbox_messages_only_sends_pending_and_due_retrying -q
+1 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+52 passed
+
+python -m compileall backend/app/services/agent_communication_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 158.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群发送验证。
+- 本轮只补了可复用的后端批量调度函数，还没有把它挂到后台定时器、管理端批量按钮或云端 cron。
+
+### 158.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999995%` | `99.99999996%` |
+| Agent 通讯中台阶段 | `85.9%` | `86.2%` |
+| 外部通讯权限安全 | `91.1%` | `91.4%` |

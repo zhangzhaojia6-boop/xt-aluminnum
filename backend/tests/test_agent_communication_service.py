@@ -415,6 +415,81 @@ def test_queue_message_dedupes_same_event_inside_thirty_minute_window() -> None:
         db.close()
 
 
+def test_dispatch_due_outbox_messages_only_sends_pending_and_due_retrying() -> None:
+    db = _db_session()
+    sender_calls = []
+    now = datetime(2026, 6, 13, 9, 30, tzinfo=UTC)
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='factory_dispatch', channel_key='chat-management')
+        pending = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='待发送消息',
+            content='这条消息应该被批量调度发送。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+        due_retry = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='到点重试消息',
+            content='这条消息已经到重试时间。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+        future_retry = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='未到点重试消息',
+            content='这条消息还不能再次发送。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+        due_retry.status = 'retrying'
+        due_retry.attempts = 1
+        due_retry.next_retry_at = now - timedelta(minutes=1)
+        future_retry.status = 'retrying'
+        future_retry.attempts = 1
+        future_retry.next_retry_at = now + timedelta(minutes=10)
+        db.commit()
+
+        def fake_sender(chat_id: str, payload: dict) -> tuple[bool, str]:
+            sender_calls.append((chat_id, payload['markdown']['title']))
+            return True, 'dingtalk_sent'
+
+        outcomes = service.dispatch_due_outbox_messages(db, limit=10, sender=fake_sender, now=now)
+
+        assert [item.outbox_message_id for item in outcomes] == [pending.id, due_retry.id]
+        assert [item.status for item in outcomes] == ['sent', 'sent']
+        assert sender_calls == [
+            ('chat-management', '待发送消息'),
+            ('chat-management', '到点重试消息'),
+        ]
+        db.refresh(pending)
+        db.refresh(due_retry)
+        db.refresh(future_retry)
+        assert pending.status == 'sent'
+        assert due_retry.status == 'sent'
+        assert future_retry.status == 'retrying'
+        assert future_retry.attempts == 1
+        assert service.list_external_logs(db, outbox_message_id=future_retry.id) == []
+    finally:
+        db.close()
+
+
 def test_rate_limit_key_blocks_duplicate_active_window() -> None:
     db = _db_session()
     try:

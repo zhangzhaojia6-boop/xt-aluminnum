@@ -319,6 +319,35 @@ def dispatch_outbox_message(
     )
 
 
+def dispatch_due_outbox_messages(
+    db: Session,
+    *,
+    limit: int = 50,
+    sender=None,
+    now: datetime | None = None,
+) -> list[DispatchOutcome]:
+    now_value = _naive_utc(now or _utcnow())
+    row_limit = min(100, max(1, int(limit or 50)))
+    due_retry_filter = (
+        (AgentOutboxMessage.status == 'retrying')
+        & (
+            AgentOutboxMessage.next_retry_at.is_(None)
+            | (AgentOutboxMessage.next_retry_at <= now_value)
+        )
+    )
+    rows = (
+        db.query(AgentOutboxMessage.id)
+        .filter((AgentOutboxMessage.status == 'pending') | due_retry_filter)
+        .order_by(AgentOutboxMessage.id.asc())
+        .limit(row_limit)
+        .all()
+    )
+    return [
+        dispatch_outbox_message(db, int(row_id), sender=sender)
+        for (row_id,) in rows
+    ]
+
+
 def run_dry_run_smoke_test(db: Session) -> DryRunSmokeOutcome:
     agent = register_agent(
         db,
