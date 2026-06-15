@@ -9651,3 +9651,65 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.99995%` | `99.99996%` |
 | 输出skill 对齐阶段 | `91.3%` | `91.7%` |
 | 前后端映射阶段 | `88.5%` | `88.6%` |
+
+## 123. 输出skill 对齐页面已允许运行 JSON 参考文件
+
+### 123.1 本轮新增能力
+
+`/manage/mapping-reconciliation` 的参考文件下拉框现在会把 `.json` 文件纳入可运行列表。
+
+小白版理解：上一轮后端已经能读 JSON 参考文件，但页面还没有把 JSON 文件当成“可以运行试算的文件”。这会造成一个很别扭的问题：代码会解析，用户却可能在页面上选不到。现在前后端入口已经对齐。
+
+### 123.2 当前行为
+
+页面可运行参考文件类型现在包括：
+
+- `.txt`
+- `.md`
+- `.log`
+- `.xlsx`
+- `.xls`
+- `.json`
+
+这次只改前端筛选入口，不改变后端解析规则、不改变匹配算法、不改变数据库结构、不改变生产数据。
+
+### 123.3 当前边界
+
+本轮没有读取或提交 JSON 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `mapping_reconciliation_service` 匹配公式。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的前后端入口一致性补强。
+
+### 123.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面可运行文件扩展名列表仍缺少 .json。
+```
+
+实现后已执行：
+
+```text
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+9 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+19 passed
+```
+
+### 123.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99996%` | `99.999965%` |
+| 输出skill 对齐阶段 | `91.7%` | `91.8%` |
+| 前后端映射阶段 | `88.6%` | `88.8%` |

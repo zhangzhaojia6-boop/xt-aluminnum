@@ -107,3 +107,9 @@ test('mapping reconciliation page surfaces persisted run id from backend', () =>
   assert.match(page, /运行编号/)
   assert.match(page, /result\.value\?\.run_id/)
 })
+
+test('mapping reconciliation page allows json reference files after backend parser support', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /\['\.txt', '\.md', '\.log', '\.xlsx', '\.xls', '\.json'\]/)
+})

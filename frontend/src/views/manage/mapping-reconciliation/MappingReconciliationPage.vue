@@ -162,7 +162,7 @@ const businessDate = ref(inferLastCompletedBusinessDate())
 const selectedDimensions = ref(['business_date', 'workshop'])
 
 const sourceFiles = computed(() => sources.value?.files || [])
-const runnableFiles = computed(() => sourceFiles.value.filter((item) => ['.txt', '.md', '.log', '.xlsx', '.xls'].includes(item.extension)))
+const runnableFiles = computed(() => sourceFiles.value.filter((item) => ['.txt', '.md', '.log', '.xlsx', '.xls', '.json'].includes(item.extension)))
 const systemSources = computed(() => sources.value?.system_sources || [])
 const sourceRoot = computed(() => sources.value?.reference_source || '未配置')
 const differences = computed(() => result.value?.differences || [])
