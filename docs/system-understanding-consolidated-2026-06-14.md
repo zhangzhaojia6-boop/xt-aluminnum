@@ -8491,3 +8491,77 @@ python -m compileall backend/app/services/agent_command_service.py
 | 原始大目标 | `99.9993%` | `99.9994%` |
 | Agent 通讯中台阶段 | `88%` | `88.5%` |
 | 钉钉外发审计阶段 | `84%` | `84.5%` |
+
+## 106. 钉钉入站 queueOutbox 已修复字符串误判
+
+### 106.1 本轮新增能力
+
+钉钉入站接口：
+
+- `POST /api/v1/dingtalk/agent-inbound`
+
+现在会正确解析 `queueOutbox`。
+
+支持的真值：
+
+- `true`
+- `1`
+- `yes`
+- `y`
+- `on`
+
+以下值会被当成不排队外发：
+
+- `false`
+- `0`
+- `no`
+- `off`
+- 空值
+- 未传
+
+小白版理解：外部机器人或钉钉回调有时会把布尔值写成字符串，比如 `"false"`。以前 Python 会把非空字符串都当成“真”，所以 `"false"` 反而会触发排队外发。现在只有明确表达“真”的值才会进入 outbox。
+
+### 106.2 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- 钉钉 token 校验。
+- 钉钉用户绑定。
+- Agent 回答内容。
+- outbox 幂等和重试。
+- external_message_logs。
+- 前端页面。
+
+这是钉钉入站参数安全性的最小修复。
+
+### 106.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+失败原因：queueOutbox: "false" 被当成 True，接口误进入 outbox 绑定校验并返回 400。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_dingtalk_agent_inbound_route.py -q
+3 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_communication_service.py backend/tests/test_agent_active_reporting_service.py -q
+26 passed
+
+python -m compileall backend/app/routers/dingtalk.py
+通过
+```
+
+### 106.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9994%` | `99.9995%` |
+| 钉钉入站阶段 | `86%` | `86.5%` |
+| Agent 通讯中台阶段 | `88.5%` | `88.7%` |

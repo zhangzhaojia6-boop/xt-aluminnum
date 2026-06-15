@@ -11,6 +11,7 @@ from app.database import Base
 from app.database import get_db
 from app.main import app
 from app.models.agent_communication import (
+    AgentProfile,
     AgentRun,
     ChatInboxMessage,
 )
@@ -25,6 +26,7 @@ DINGTALK_AGENT_TABLES = [
     RagDocument.__table__,
     RagChunk.__table__,
     RagQueryLog.__table__,
+    AgentProfile.__table__,
     ChatInboxMessage.__table__,
     AgentRun.__table__,
 ]
@@ -149,5 +151,72 @@ def test_dingtalk_agent_inbound_rejects_missing_token_when_configured(monkeypatc
         assert response.status_code == 401
         assert response.json()['detail'] == 'dingtalk_inbound_token_invalid'
         assert db.query(ChatInboxMessage).count() == 0
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        )
+    )
+    db.commit()
+
+    def fake_live_aggregation(*_args, **_kwargs):
+        return {
+            'business_date': '2026-06-09',
+            'factory_total': {
+                'daily_output': 42.5,
+                'finished_inbound_output': 39.25,
+                'daily_output_source': 'mes_stock_records',
+                'finished_inbound_source': 'storage_owner_daily_entry',
+                'business_day_start': '07:30',
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json={
+                'conversationId': 'cid-production-test',
+                'senderStaffId': 'dt-manager-001',
+                'senderUnionId': 'union-manager-001',
+                'text': {'content': '@鑫泰助手 今日产量'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-dingtalk-inbound-002',
+                'queueOutbox': 'false',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['outbox_message_id'] is None
+        assert payload['intent'] == 'production_today'
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(AgentRun).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)

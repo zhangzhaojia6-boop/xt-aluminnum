@@ -265,6 +265,15 @@ def _sanitize_inbound_payload(value: Any) -> Any:
     return value
 
 
+def _parse_inbound_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value == 1
+    text = _clean_text(value).lower()
+    return text in {'true', '1', 'yes', 'y', 'on'}
+
+
 def _ensure_inbound_token(header_token: str | None) -> None:
     expected = _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None))
     if not expected:
@@ -318,7 +327,7 @@ def dingtalk_agent_inbound(
     )
     trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
-    queue_outbox = bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox') or False)
+    queue_outbox = _parse_inbound_bool(_first_payload_value(payload, 'queueOutbox', 'queue_outbox'))
 
     try:
         result = handle_agent_command(
