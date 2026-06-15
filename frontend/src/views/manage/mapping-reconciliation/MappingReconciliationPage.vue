@@ -172,6 +172,7 @@ const reasonBreakdown = computed(() => differenceSummary.value.reason_breakdown 
 const matchRate = computed(() => Number(result.value?.overall_match_rate || 0))
 const referenceRowsCount = computed(() => Number(result.value?.reference_rows_count || 0))
 const systemRowsCount = computed(() => Number(result.value?.system_rows_count || 0))
+const runId = computed(() => result.value?.run_id || null)
 
 const dimensionOptions = [
   { key: 'business_date', label: '日期' },
@@ -283,7 +284,8 @@ const metricCards = computed(() => [
   { key: 'files', label: '参考文件', value: displayNumber(sourceFiles.value.length), meta: sources.value?.available ? '已挂载' : '未挂载' },
   { key: 'rows', label: '对齐行数', value: `${displayNumber(referenceRowsCount.value)} / ${displayNumber(systemRowsCount.value)}`, meta: '输出skill / 系统' },
   { key: 'match', label: '当前匹配率', value: `${displayNumber(matchRate.value)}%`, meta: result.value ? '来自试算' : '未运行' },
-  { key: 'diff', label: '差异数量', value: displayNumber(differenceSummary.value.total), meta: '可追原因' }
+  { key: 'diff', label: '差异数量', value: displayNumber(differenceSummary.value.total), meta: '可追原因' },
+  { key: 'run', label: '运行编号', value: runId.value ? `#${displayNumber(runId.value)}` : '-', meta: runId.value ? '可追溯' : '未保存' }
 ])
 
 function displayNumber(value) {

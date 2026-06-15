@@ -78,7 +78,7 @@ from app.models.production import (
 )
 from app.models.quality import DataQualityIssue, QualityIssueLog, QualityYieldDaily
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
-from app.models.reconciliation import DataReconciliationItem
+from app.models.reconciliation import DataReconciliationItem, MappingReconciliationRun
 from app.models.reports import DailyReport
 from app.models.rule_config import RuleConfig
 from app.models.shift import ShiftConfig
@@ -161,6 +161,7 @@ __all__ = [
     'RecoveryDaily',
     'OverhaulDaily',
     'DataReconciliationItem',
+    'MappingReconciliationRun',
     'ImportBatch',
     'ImportRow',
     'FieldMappingTemplate',

@@ -116,6 +116,8 @@
 | 服务 | `backend/app/services/mapping_reconciliation_service.py` |
 | API | `backend/app/routers/mapping_reconciliation.py` |
 | 挂载 | `backend/app/main.py` |
+| 持久化模型 | `backend/app/models/reconciliation.py` |
+| 数据库迁移 | `backend/alembic/versions/0045_mapping_reconciliation_runs.py` |
 | 测试 | `backend/tests/test_mapping_reconciliation_service.py` |
 | 路由测试 | `backend/tests/test_mapping_reconciliation_route.py` |
 | 脱敏 fixture | `backend/tests/fixtures/output_skill_mapping_sample.json` |
@@ -125,9 +127,9 @@
 | 接口 | 状态 | 说明 |
 |---|---|---|
 | `GET /api/v1/mapping-reconciliation/sources` | 已实现 | 列出参考源文件结构和系统源表名 |
-| `POST /api/v1/mapping-reconciliation/run` | 已实现 | 支持传入脱敏/内存行，也支持传参考文件名 + 业务日自动 dry-run 对齐 |
-| `GET /api/v1/mapping-reconciliation/runs/{id}` | 未实现 | 后续需要持久化运行记录后再做 |
-| `GET /api/v1/mapping-reconciliation/runs/{id}/differences` | 未实现 | 后续需要持久化运行记录后再做 |
+| `POST /api/v1/mapping-reconciliation/run` | 已实现 | 支持传入脱敏/内存行，也支持传参考文件名 + 业务日自动 dry-run 对齐，并写入 `mapping_reconciliation_runs` |
+| `GET /api/v1/mapping-reconciliation/runs/{id}` | 已实现 | 读取一次 dry-run 对齐运行记录和完整结果 |
+| `GET /api/v1/mapping-reconciliation/runs/{id}/differences` | 已实现 | 读取一次运行记录里的差异明细和差异汇总 |
 | `POST /api/v1/mapping-reconciliation/rules/propose` | 未单独实现 | 目前 `run` 返回 `rule_proposals` |
 | `POST /api/v1/mapping-reconciliation/rules/apply-dry-run` | 未实现 | 后续做规则试算，不写正式配置 |
 
@@ -160,10 +162,11 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
 | 接口返回：差异原因汇总 | 返回 `difference_summary`，前端 `/manage/mapping-reconciliation` 已展示 |
 | 前端默认 dry-run 字段 | 已覆盖 `yield_rate`、`rolling_oil_per_ton`、`cost_per_ton` |
+| dry-run 运行记录 | `POST /run` 返回 `run_id`，`GET /runs/{id}` 和 `/runs/{id}/differences` 可追溯 |
 
 ## 10. 下一步
 
 1. 用真实 `D:\输出skill` 文件跑一个业务日只读匹配率，不提交原始数据。
 2. 用真实业务日复核成材率、轧制油吨耗、吨成本的字段来源是否和经营日报口径一致。
-3. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
+3. 基于 `mapping_reconciliation_runs` 做运行记录列表页和差异明细分页。
 4. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。

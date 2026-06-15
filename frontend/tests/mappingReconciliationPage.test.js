@@ -99,3 +99,11 @@ test('mapping reconciliation page renders backend difference summary', () => {
   assert.match(page, /reason\.label/)
   assert.match(page, /reason\.count/)
 })
+
+test('mapping reconciliation page surfaces persisted run id from backend', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /runId/)
+  assert.match(page, /运行编号/)
+  assert.match(page, /result\.value\?\.run_id/)
+})

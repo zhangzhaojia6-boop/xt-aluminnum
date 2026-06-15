@@ -16,6 +16,7 @@ from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData
+from app.models.reconciliation import MappingReconciliationRun
 from app.models.shift import ShiftConfig
 from app.models.system import User
 
@@ -32,6 +33,7 @@ RECONCILIATION_TABLES = [
     DailyConsumableLog.__table__,
     MesWorkshopProcessRecord.__table__,
     MesStockRecord.__table__,
+    MappingReconciliationRun.__table__,
 ]
 
 
@@ -183,6 +185,74 @@ def test_mapping_reconciliation_run_returns_difference_summary() -> None:
             {'reason_code': 'missing_system_row', 'label': '系统缺少同维度数据', 'count': 1},
         ],
     }
+
+
+def test_mapping_reconciliation_run_persists_and_exposes_run_detail() -> None:
+    engine = create_engine(
+        'sqlite:///:memory:',
+        connect_args={'check_same_thread': False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+    db = Session(engine)
+    previous_overrides = _install_overrides(db_override=db)
+
+    try:
+        client = TestClient(app)
+        run_response = client.post(
+            '/api/v1/mapping-reconciliation/run',
+            json={
+                'reference_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '拉矫',
+                        'shift': '小夜班',
+                        'energy_kwh': 1800,
+                    }
+                ],
+                'system_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '拉矫车间',
+                        'shift': '小夜',
+                        'electricity_kwh': 1760,
+                    }
+                ],
+                'fields': [
+                    {
+                        'metric': 'energy',
+                        'reference_field': 'energy_kwh',
+                        'system_field': 'electricity_kwh',
+                        'reference_unit': 'kwh',
+                        'system_unit': 'kwh',
+                        'tolerance': 5,
+                        'weight': 15,
+                    }
+                ],
+                'dimension_aliases': {'workshop': {'拉矫车间': '拉矫'}, 'shift': {'小夜': '小夜班'}},
+            },
+        )
+        run_payload = run_response.json()
+        detail_response = client.get(f"/api/v1/mapping-reconciliation/runs/{run_payload['run_id']}")
+        differences_response = client.get(f"/api/v1/mapping-reconciliation/runs/{run_payload['run_id']}/differences")
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert run_response.status_code == 200
+    assert run_payload['run_id'] > 0
+    assert run_payload['run_mode'] == 'dry_run'
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload['id'] == run_payload['run_id']
+    assert detail_payload['run_mode'] == 'dry_run'
+    assert detail_payload['created_by_id'] == 1
+    assert detail_payload['result']['overall_match_rate'] == 0
+    assert detail_payload['result']['difference_summary']['total'] == 1
+
+    assert differences_response.status_code == 200
+    assert differences_response.json()['differences'][0]['reason_code'] == 'value_diff'
 
 
 def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_rows(tmp_path, monkeypatch) -> None:

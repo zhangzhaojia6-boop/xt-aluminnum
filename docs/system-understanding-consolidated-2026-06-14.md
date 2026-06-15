@@ -8245,3 +8245,89 @@ npm run test
 | 原始大目标 | `99.999%` | `99.9991%` |
 | D:\输出skill 对齐阶段 | `94%` | `94.3%` |
 | 前端落地阶段 | `88.5%` | `88.7%` |
+
+## 103. 输出skill 对齐 dry-run 已有数据库运行记录
+
+### 103.1 本轮新增能力
+
+`/api/v1/mapping-reconciliation/run` 现在会在真实数据库会话中写入一条 `mapping_reconciliation_runs` 记录，并在接口返回里带上 `run_id`。
+
+新增两个只读追溯接口：
+
+- `GET /api/v1/mapping-reconciliation/runs/{id}`：查看某次运行的完整结果。
+- `GET /api/v1/mapping-reconciliation/runs/{id}/differences`：查看某次运行的差异明细和差异汇总。
+
+前端 `/manage/mapping-reconciliation` 已显示“运行编号”。现场排查时可以直接说“看第几次试算”，不用只靠截图或口头描述。
+
+### 103.2 当前边界
+
+本轮允许写入的是 dry-run 审计记录，不写生产原始数据。
+
+没有改：
+
+- 原始产量、能耗、辅材、质量、成本数据。
+- 输出skill 参考文件。
+- 差异匹配算法。
+- 自动修正规则。
+- 权限范围，仍然只有管理员能访问映射对齐接口。
+
+小白版理解：以前“一次试算”跑完就只在页面里，刷新后不好追。现在系统会记一张“试算回执”，以后能按编号查回。
+
+### 103.3 数据库变化
+
+新增 migration：
+
+```text
+backend/alembic/versions/0045_mapping_reconciliation_runs.py
+```
+
+新增表：
+
+```text
+mapping_reconciliation_runs
+```
+
+主要保存：
+
+- 运行模式：当前为 `dry_run`
+- 业务日
+- 参考文件
+- 操作人
+- 参考行数 / 系统行数
+- 匹配率
+- 请求参数
+- 结果 payload
+
+### 103.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py -q
+失败原因：MappingReconciliationRun 尚不存在。
+
+node --test tests/mappingReconciliationPage.test.js
+失败原因：页面没有 runId / 运行编号。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py backend/tests/test_mapping_reconciliation_service.py -q
+17 passed
+
+python -m pytest backend/tests/test_migration_chain.py backend/tests/test_alembic_version_width.py -q
+5 passed
+
+node --test tests/mappingReconciliationPage.test.js
+8 passed
+```
+
+### 103.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9991%` | `99.9992%` |
+| D:\输出skill 对齐阶段 | `94.3%` | `94.8%` |
+| 后端数据链路阶段 | `90.9%` | `91.2%` |
+| 前端落地阶段 | `88.7%` | `88.8%` |

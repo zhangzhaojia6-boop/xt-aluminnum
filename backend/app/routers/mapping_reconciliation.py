@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.scope import build_scope_summary
+from app.models.reconciliation import MappingReconciliationRun
 from app.models.system import User
 from app.services.mapping_reconciliation_service import (
     MappingFieldSpec,
@@ -51,6 +52,58 @@ def _ensure_mapping_reconciliation_access(user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail='Mapping reconciliation access denied',
         )
+
+
+def _serialize_run(entity: MappingReconciliationRun) -> dict[str, Any]:
+    return {
+        'id': entity.id,
+        'run_mode': entity.run_mode,
+        'status': entity.status,
+        'business_date': entity.business_date.isoformat() if entity.business_date else None,
+        'reference_file': entity.reference_file,
+        'reference_source': entity.reference_source,
+        'created_by_id': entity.created_by_id,
+        'reference_rows_count': entity.reference_rows_count,
+        'system_rows_count': entity.system_rows_count,
+        'overall_match_rate': float(entity.overall_match_rate or 0),
+        'result': entity.result_payload or {},
+        'created_at': entity.created_at.isoformat() if entity.created_at else None,
+    }
+
+
+def _persist_run(
+    *,
+    db: Session,
+    body: MappingRunRequest,
+    payload: dict[str, Any],
+    current_user: User,
+) -> MappingReconciliationRun | None:
+    if not isinstance(db, Session):
+        return None
+    entity = MappingReconciliationRun(
+        run_mode='dry_run',
+        status='completed',
+        business_date=body.business_date,
+        reference_file=body.reference_file,
+        reference_source=payload.get('reference_parse', {}).get('source_path') if payload.get('reference_parse') else None,
+        created_by_id=current_user.id,
+        reference_rows_count=payload['reference_rows_count'],
+        system_rows_count=payload['system_rows_count'],
+        overall_match_rate=payload['overall_match_rate'],
+        request_payload=body.model_dump(mode='json'),
+        result_payload=payload,
+    )
+    db.add(entity)
+    db.commit()
+    db.refresh(entity)
+    return entity
+
+
+def _get_run_or_404(db: Session, run_id: int) -> MappingReconciliationRun:
+    entity = db.get(MappingReconciliationRun, run_id)
+    if entity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Mapping reconciliation run not found')
+    return entity
 
 
 @router.get('/sources')
@@ -98,4 +151,33 @@ def run_mapping_reconciliation(
     if reference_parse is not None:
         payload['reference_parse'] = reference_parse
     payload['rule_proposals'] = propose_rules(result.differences)
+    persisted = _persist_run(db=db, body=body, payload=payload, current_user=current_user)
+    if persisted is not None:
+        payload['run_id'] = persisted.id
     return payload
+
+
+@router.get('/runs/{run_id}')
+def get_mapping_reconciliation_run(
+    run_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    return _serialize_run(_get_run_or_404(db, run_id))
+
+
+@router.get('/runs/{run_id}/differences')
+def get_mapping_reconciliation_run_differences(
+    run_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    entity = _get_run_or_404(db, run_id)
+    result_payload = entity.result_payload or {}
+    return {
+        'run_id': entity.id,
+        'differences': result_payload.get('differences', []),
+        'difference_summary': result_payload.get('difference_summary', {}),
+    }
