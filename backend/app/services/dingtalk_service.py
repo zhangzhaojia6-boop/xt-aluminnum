@@ -14,6 +14,7 @@ from app.config import settings
 from app.core.auth import create_access_token
 from app.database import get_sessionmaker
 from app.core.scope import build_scope_summary, scope_to_dict
+from app.models.agent_communication import ExternalMessageLog
 from app.models.attendance import AttendanceClockRecord
 from app.models.master import Employee
 from app.models.system import User
@@ -651,6 +652,41 @@ def send_detail_text(detail: str | dict) -> str:
     if not isinstance(detail, dict):
         return str(detail or '')
     return str(detail.get('detail') or 'dingtalk_send_failed')
+
+
+def send_detail_parts(detail: str | dict) -> tuple[str, str | None, dict | None]:
+    if not isinstance(detail, dict):
+        return str(detail or ''), None, None
+    text = str(detail.get('detail') or 'dingtalk_send_failed')
+    provider_message_id = detail.get('provider_message_id')
+    response_payload = detail.get('response_payload')
+    return (
+        text,
+        str(provider_message_id) if provider_message_id not in (None, '') else None,
+        response_payload if isinstance(response_payload, dict) else None,
+    )
+
+
+def record_work_notification_attempt(
+    db,
+    *,
+    userid: str,
+    ok: bool,
+    detail: str | dict,
+) -> str:
+    detail_text, provider_message_id, response_payload = send_detail_parts(detail)
+    db.add(
+        ExternalMessageLog(
+            outbox_message_id=None,
+            channel_type='dingtalk_work_notification',
+            channel_key=userid,
+            status='sent' if ok else 'failed',
+            detail=detail_text,
+            provider_message_id=provider_message_id,
+            response_payload=response_payload,
+        )
+    )
+    return detail_text
 
 
 def _normalize_clock_type(value: str | None) -> str | None:

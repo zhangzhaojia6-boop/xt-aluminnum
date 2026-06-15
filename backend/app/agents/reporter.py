@@ -27,7 +27,7 @@ from app.services import app_connection_service
 from app.services import dingtalk_service
 from app.services import leader_summary_service
 from app.services import report_service
-from app.services.dingtalk_service import send_detail_text
+from app.services.dingtalk_service import record_work_notification_attempt, send_detail_text
 from app.services.pilot_observability_service import log_pilot_event
 
 
@@ -106,7 +106,7 @@ class ReporterAgent(BaseAgent):
         """初始化报告 Agent。"""
         super().__init__("reporter")
 
-    def _send_message(self, user: User, content: str) -> tuple[bool, str]:
+    def _send_message(self, user: User, content: str, *, db: Session | None = None) -> tuple[bool, str]:
         """Send a report notification through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
@@ -116,10 +116,15 @@ class ReporterAgent(BaseAgent):
         channel, identity = _resolve_notify_identity(user)
         if channel == "dingtalk":
             ok, detail = dingtalk_service.send_work_notification(identity, content)
+            detail_text = (
+                record_work_notification_attempt(db, userid=identity, ok=ok, detail=detail)
+                if db is not None
+                else send_detail_text(detail)
+            )
             if ok:
-                return ok, detail
+                return ok, detail_text
             self.logger.info("[notify] %s | %s", identity, content)
-            return True, f"stdout_sink_after_dingtalk_failed:{send_detail_text(detail)}"
+            return True, f"stdout_sink_after_dingtalk_failed:{detail_text}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"
@@ -268,7 +273,7 @@ class ReporterAgent(BaseAgent):
         sent_count = 0
         failed_count = 0
         for leader in leaders:
-            ok, detail = self._send_message(leader, message)
+            ok, detail = self._send_message(leader, message, db=db)
             if ok:
                 sent_count += 1
             else:

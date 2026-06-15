@@ -26,7 +26,7 @@ from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import dingtalk_service
 from app.core.business_time import local_now, resolve_owner_daily_business_date, resolve_production_business_date
-from app.services.dingtalk_service import send_detail_text
+from app.services.dingtalk_service import record_work_notification_attempt, send_detail_text
 from app.services.mobile_reminder_service import _owner_daily_candidates, _shift_deadline
 
 READY_STATUSES = {"submitted", "approved", "auto_confirmed"}
@@ -48,7 +48,7 @@ class ReminderAgent(BaseAgent):
         """初始化催报 Agent。"""
         super().__init__("reminder")
 
-    def _send_reminder_message(self, user: User, content: str) -> tuple[bool, str]:
+    def _send_reminder_message(self, user: User, content: str, *, db: Session | None = None) -> tuple[bool, str]:
         """Send a reminder through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
@@ -58,15 +58,20 @@ class ReminderAgent(BaseAgent):
         channel, identity = _resolve_notify_identity(user)
         if channel == "dingtalk":
             ok, detail = dingtalk_service.send_work_notification(identity, content)
+            detail_text = (
+                record_work_notification_attempt(db, userid=identity, ok=ok, detail=detail)
+                if db is not None
+                else send_detail_text(detail)
+            )
             if ok:
-                return ok, detail
+                return ok, detail_text
             self.logger.info("[notify] %s | %s", identity, content)
-            return True, f"stdout_sink_after_dingtalk_failed:{send_detail_text(detail)}"
+            return True, f"stdout_sink_after_dingtalk_failed:{detail_text}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"
 
-    def _send_escalation_message(self, user: User, content: str) -> tuple[bool, str]:
+    def _send_escalation_message(self, user: User, content: str, *, db: Session | None = None) -> tuple[bool, str]:
         """Send an escalation through DingTalk or local sink."""
 
         if not settings.AUTO_PUSH_ENABLED:
@@ -76,10 +81,15 @@ class ReminderAgent(BaseAgent):
         channel, identity = _resolve_notify_identity(user)
         if channel == "dingtalk":
             ok, detail = dingtalk_service.send_work_notification(identity, content)
+            detail_text = (
+                record_work_notification_attempt(db, userid=identity, ok=ok, detail=detail)
+                if db is not None
+                else send_detail_text(detail)
+            )
             if ok:
-                return ok, detail
+                return ok, detail_text
             self.logger.info("[notify] %s | %s", identity, content)
-            return True, f"stdout_sink_after_dingtalk_failed:{send_detail_text(detail)}"
+            return True, f"stdout_sink_after_dingtalk_failed:{detail_text}"
 
         self.logger.info("[notify] %s | %s", identity, content)
         return True, "stdout_sink"
@@ -333,7 +343,7 @@ class ReminderAgent(BaseAgent):
                     f"【催报提醒】{workshop_name} {role_label} 尚未提交，"
                     f"请尽快在填报端完成。（第{next_count}次提醒）"
                 )
-                self._send_reminder_message(leader, message)
+                self._send_reminder_message(leader, message, db=db)
                 self.record_decision(
                     AgentAction.AUTO_REMIND,
                     "mobile_reminder_record",
@@ -369,7 +379,7 @@ class ReminderAgent(BaseAgent):
                     f"【催报升级】{workshop_name} {role_label} 已催报{next_count}次未响应，"
                     f"请管理员关注。负责人：{leader.name}"
                 )
-                self._send_escalation_message(admin_user, escalation_message)
+                self._send_escalation_message(admin_user, escalation_message, db=db)
 
             self.record_decision(
                 AgentAction.AUTO_ALERT,

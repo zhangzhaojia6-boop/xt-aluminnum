@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from app.agents import reporter as reporter_module
 from app.agents.reporter import ReporterAgent
+from app.models.agent_communication import ExternalMessageLog
 from app.services import dingtalk_service
 
 
@@ -37,6 +38,11 @@ class _FakeDB:
         if self._called == 1:
             return _FakeQuery(first=self._report)
         return _FakeQuery(rows=self._users)
+
+    def add(self, row):
+        if not hasattr(self, "added"):
+            self.added = []
+        self.added.append(row)
 
 
 def _build_report():
@@ -153,6 +159,42 @@ def test_reporter_agent_uses_readable_reason_when_dingtalk_returns_structured_fa
     assert "response_payload" not in detail
 
 
+def test_reporter_agent_logs_dingtalk_work_notification_when_db_is_available(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        reporter_module,
+        "dingtalk_service",
+        SimpleNamespace(
+            send_work_notification=lambda _userid, _content: (
+                False,
+                {
+                    "detail": "invalid userid",
+                    "provider_message_id": "0",
+                    "response_payload": {"errcode": 33012, "errmsg": "invalid userid"},
+                },
+            )
+        ),
+        raising=False,
+    )
+    db = SimpleNamespace(added=[], add=lambda row: db.added.append(row))
+    user = SimpleNamespace(username="manager", name="车间主任", dingtalk_user_id="dt_manager")
+    agent = ReporterAgent()
+
+    ok, detail = agent._send_message(user, "日报内容", db=db)
+
+    assert ok is True
+    assert detail == "stdout_sink_after_dingtalk_failed:invalid userid"
+    logs = [row for row in db.added if isinstance(row, ExternalMessageLog)]
+    assert len(logs) == 1
+    assert logs[0].channel_type == "dingtalk_work_notification"
+    assert logs[0].channel_key == "dt_manager"
+    assert logs[0].status == "failed"
+    assert logs[0].detail == "invalid userid"
+    assert logs[0].provider_message_id == "0"
+    assert logs[0].response_payload == {"errcode": 33012, "errmsg": "invalid userid"}
+
+
 def test_reporter_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", True, raising=False)
@@ -221,7 +263,7 @@ def test_reporter_agent_pushes_to_leaders(monkeypatch) -> None:
     report = _build_report()
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content, **_kwargs: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -252,7 +294,7 @@ def test_reporter_agent_prefers_yield_matrix_company_total(monkeypatch) -> None:
     report.report_data["yield_matrix_lane"] = {"company_total_yield": 94.4, "quality_status": "ready"}
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content, **_kwargs: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -274,7 +316,7 @@ def test_reporter_agent_ignores_unverified_yield_matrix(monkeypatch) -> None:
     report.report_data["yield_matrix_lane"] = {"company_total_yield": 94.4, "quality_status": "warning"}
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda user, content: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content, **_kwargs: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")))
 
     agent.execute(db=db, target_date=date(2026, 4, 4))
 
@@ -369,7 +411,7 @@ def test_reporter_agent_skips_auto_workflow_emit_for_manual_publish(monkeypatch)
     report.published_by = 9
     db = _FakeDB(report=report, users=_build_users())
     agent = ReporterAgent()
-    monkeypatch.setattr(agent, "_send_message", lambda user, content: (True, "sent"))
+    monkeypatch.setattr(agent, "_send_message", lambda user, content, **_kwargs: (True, "sent"))
 
     decisions = agent.execute(db=db, target_date=date(2026, 4, 4))
 

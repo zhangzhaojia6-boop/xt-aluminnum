@@ -12509,3 +12509,67 @@ python -m compileall backend/app/services/dingtalk_service.py backend/app/agents
 | 真实钉钉可排障性 | `73.8%` | `74.1%` |
 | 个人工作通知链路 | `72.0%` | `72.3%` |
 | 外部通讯日志覆盖 | `69.0%` | `69.0%` |
+
+## 168. Reporter/Reminder 执行态个人工作通知会写外部日志
+
+### 168.1 本轮修复点
+
+`ReporterAgent.execute()` 和 `ReminderAgent.execute()` 在真实执行时会把 `db` 传给个人钉钉工作通知发送函数。只要发送目标是钉钉用户，就会通过 `record_work_notification_attempt()` 写入 `external_message_logs`。
+
+小白版理解：日报自动推送、催报提醒、催报升级这些“系统主动找人”的动作，以后不只在 Agent 决策里看到一句结果，还会在外部通讯日志里留下发送尝试记录。成功、失败、目标钉钉用户、失败原因、钉钉原始返回体都能按同一口径记录。
+
+### 168.2 当前行为
+
+- 没有 `db` 的旧直调仍保持兼容，不写外部日志。
+- `ReporterAgent.execute()` 推送管理层日报时会写 `dingtalk_work_notification` 日志。
+- `ReminderAgent.execute()` 发送催报提醒和升级提醒时会写 `dingtalk_work_notification` 日志。
+- 日报手动推送服务、ReporterAgent、ReminderAgent 现在共用 `record_work_notification_attempt()`。
+- 没有新增数据库字段，没有 migration，没有真实发送钉钉消息。
+
+### 168.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_reporter_agent.py::test_reporter_agent_logs_dingtalk_work_notification_when_db_is_available -q
+失败原因：ReporterAgent._send_message() 不接受 db 参数，无法写 external_message_logs。
+
+python -m pytest backend/tests/test_reminder_agent.py::test_reminder_agent_logs_dingtalk_work_notification_when_db_is_available -q
+失败原因：ReminderAgent._send_reminder_message() 不接受 db 参数，无法写 external_message_logs。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_reporter_agent.py::test_reporter_agent_logs_dingtalk_work_notification_when_db_is_available -q
+1 passed
+
+python -m pytest backend/tests/test_reminder_agent.py::test_reminder_agent_logs_dingtalk_work_notification_when_db_is_available -q
+1 passed
+
+python -m pytest backend/tests/test_reporter_agent.py backend/tests/test_reminder_agent.py -q
+22 passed
+
+python -m pytest backend/tests/test_dingtalk_service.py backend/tests/test_dingtalk_daily_report.py -q
+18 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py -q
+26 passed
+
+python -m compileall backend/app/services/dingtalk_service.py backend/app/services/dingtalk_daily_report.py backend/app/agents/reporter.py backend/app/agents/reminder.py
+通过
+```
+
+### 168.4 尚未覆盖
+
+- 本轮没有真实发送钉钉工作通知。
+- 本轮没有浏览器查看 `external_message_logs` 页面或治理台。
+- 外部通讯完整验收仍需要真实配置、非 dry-run 通道和云端运行验证。
+
+### 168.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 真实钉钉可排障性 | `74.1%` | `75.0%` |
+| 个人工作通知链路 | `72.3%` | `74.0%` |
+| 外部通讯日志覆盖 | `69.0%` | `70.5%` |

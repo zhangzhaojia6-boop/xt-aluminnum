@@ -9,7 +9,6 @@ from typing import Iterable
 
 from sqlalchemy.orm import Session
 
-from app.models.agent_communication import ExternalMessageLog
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services import dingtalk_service
@@ -34,41 +33,6 @@ def _resolve_recipients(
     else:
         query = query.filter(User.role.in_(['admin', 'manager']))
     return query.all()
-
-
-def _normalize_send_detail(detail: str | dict) -> tuple[str, str | None, dict | None]:
-    if not isinstance(detail, dict):
-        return str(detail or ''), None, None
-    text = str(detail.get('detail') or 'dingtalk_send_failed')
-    provider_message_id = detail.get('provider_message_id')
-    response_payload = detail.get('response_payload')
-    return (
-        text,
-        str(provider_message_id) if provider_message_id not in (None, '') else None,
-        response_payload if isinstance(response_payload, dict) else None,
-    )
-
-
-def _write_work_notification_log(
-    db: Session,
-    *,
-    userid: str,
-    ok: bool,
-    detail: str | dict,
-) -> str:
-    detail_text, provider_message_id, response_payload = _normalize_send_detail(detail)
-    db.add(
-        ExternalMessageLog(
-            outbox_message_id=None,
-            channel_type='dingtalk_work_notification',
-            channel_key=userid,
-            status='sent' if ok else 'failed',
-            detail=detail_text,
-            provider_message_id=provider_message_id,
-            response_payload=response_payload,
-        )
-    )
-    return detail_text
 
 
 def push_daily_report_to_dingtalk(
@@ -113,7 +77,7 @@ def push_daily_report_to_dingtalk(
             userid=user.dingtalk_user_id,
             content=body,
         )
-        reason_text = _write_work_notification_log(
+        reason_text = dingtalk_service.record_work_notification_attempt(
             db,
             userid=user.dingtalk_user_id,
             ok=ok,

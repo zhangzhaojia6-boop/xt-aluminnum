@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from app.agents import reminder as reminder_module
 from app.agents.reminder import ReminderAgent
+from app.models.agent_communication import ExternalMessageLog
 
 
 class _FakeQuery:
@@ -207,6 +208,42 @@ def test_reminder_agent_uses_readable_reason_when_dingtalk_returns_structured_fa
     assert ok is True
     assert detail == "stdout_sink_after_dingtalk_failed:invalid userid"
     assert "response_payload" not in detail
+
+
+def test_reminder_agent_logs_dingtalk_work_notification_when_db_is_available(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reminder.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reminder.settings.DINGTALK_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        reminder_module,
+        "dingtalk_service",
+        SimpleNamespace(
+            send_work_notification=lambda _userid, _content: (
+                False,
+                {
+                    "detail": "invalid userid",
+                    "provider_message_id": "0",
+                    "response_payload": {"errcode": 33012, "errmsg": "invalid userid"},
+                },
+            )
+        ),
+        raising=False,
+    )
+    db = SimpleNamespace(added=[], add=lambda row: db.added.append(row))
+    user = SimpleNamespace(username="leader", name="张三", dingtalk_user_id="dt_leader")
+    agent = ReminderAgent()
+
+    ok, detail = agent._send_reminder_message(user, "催报内容", db=db)
+
+    assert ok is True
+    assert detail == "stdout_sink_after_dingtalk_failed:invalid userid"
+    logs = [row for row in db.added if isinstance(row, ExternalMessageLog)]
+    assert len(logs) == 1
+    assert logs[0].channel_type == "dingtalk_work_notification"
+    assert logs[0].channel_key == "dt_leader"
+    assert logs[0].status == "failed"
+    assert logs[0].detail == "invalid userid"
+    assert logs[0].provider_message_id == "0"
+    assert logs[0].response_payload == {"errcode": 33012, "errmsg": "invalid userid"}
 
 
 def test_reminder_agent_falls_back_to_stdout_sink_without_dingtalk_identity(monkeypatch) -> None:
