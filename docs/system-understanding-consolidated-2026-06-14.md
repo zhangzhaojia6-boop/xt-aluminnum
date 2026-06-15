@@ -9518,3 +9518,69 @@ python -m compileall backend/app/services/rag_service.py
 | RAG 附件和知识库阶段 | `93.0%` | `93.2%` |
 | Agent 通讯中台阶段 | `89.6%` | `89.7%` |
 | 安全审计阶段 | `89.7%` | `89.9%` |
+
+## 121. 输出skill 文本对齐支持从文件名识别生产日
+
+### 121.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 解析 `.txt`、`.md`、`.log` 参考文件时，现在会先从文件名识别生产日。如果正文行里没有写完整日期，但文件名类似 `2026-06-13-daily.txt`，系统也能把后续车间班次数据归到 `2026-06-13`。
+
+小白版理解：现场很多日报正文可能只写“精整 长白班 产量 12.5 吨”，日期放在文件名里。以前这种文件会解析不到任何数据；现在只要文件名带日期，系统就能把正文数据归到正确生产日。
+
+### 121.2 当前行为
+
+输出skill 文本解析当前规则为：
+
+- 正文里有日期时，优先使用正文日期。
+- 正文没有日期但文件名有日期时，使用文件名日期作为默认生产日。
+- 仍然只做只读解析和 dry-run 对比，不修改生产原始数据。
+- 仍然保持车间、班次、单位换算、差异原因、字段匹配率的原有逻辑。
+
+这次只补文本参考文件的生产日识别，不改变数据库写入、不改变匹配公式、不改变前端页面结构。
+
+### 121.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- mapping reconciliation 表结构。
+- 前端 `/manage/mapping-reconciliation` 页面结构。
+- 生产日报、实时大屏和填报端。
+
+这是 `D:\输出skill` 对齐阶段的只读解析增强。
+
+### 121.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_uses_date_from_filename_when_body_has_no_date -q
+失败原因：文件名为 2026-06-13-daily.txt 但正文没有日期时，rows 返回空数组。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_uses_date_from_filename_when_body_has_no_date -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+18 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+8 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 121.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99994%` | `99.99995%` |
+| 输出skill 对齐阶段 | `91.0%` | `91.3%` |
+| 前后端映射阶段 | `88.4%` | `88.5%` |

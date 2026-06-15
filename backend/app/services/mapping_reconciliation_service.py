@@ -227,7 +227,7 @@ def _line_workshop_shift(line: str) -> tuple[str | None, str | None]:
 
 def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
     content = _read_reference_text(path)
-    current_date: str | None = None
+    current_date: str | None = _to_date_text(path.name)
     rows: list[dict[str, Any]] = []
     for raw_line in content.splitlines():
         line = raw_line.strip()

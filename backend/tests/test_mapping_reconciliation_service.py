@@ -252,6 +252,29 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     ]
 
 
+def test_parse_output_skill_text_file_uses_date_from_filename_when_body_has_no_date(tmp_path) -> None:
+    report = tmp_path / '2026-06-13-daily.txt'
+    report.write_text(
+        '精整 长白班 产量 12.5 吨 能耗 1800 度\n',
+        encoding='utf-8',
+    )
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-13',
+            'workshop': '精整',
+            'shift': '长白班',
+            'output_tons': 12.5,
+            'energy_kwh': 1800.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_text',
+        }
+    ]
+
+
 def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> None:
     from openpyxl import Workbook
 
