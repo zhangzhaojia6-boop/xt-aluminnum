@@ -249,11 +249,16 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
         }
 
     if intent == 'anomaly_summary':
-        return _extract_anomaly_facts(payload=payload, business_date=business_date)
+        return _extract_anomaly_facts(
+            payload=payload,
+            business_date=business_date,
+            scope_label=_scope_label_for_facts(db, current_user),
+        )
 
     factory_total = payload.get('factory_total') or {}
     return {
         'status': 'connected',
+        'scope_label': _scope_label_for_facts(db, current_user),
         'business_date': payload.get('business_date') or business_date.isoformat(),
         'business_day_start': factory_total.get('business_day_start') or '07:30',
         'daily_output_tons': _number_or_zero(factory_total.get('daily_output')),
@@ -285,6 +290,7 @@ def _extract_energy_cost_facts(db: Session, *, business_date, current_user: User
     energy_per_ton = _optional_number(summary.get('energy_per_ton'))
     return {
         'status': 'connected',
+        'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': 'green' if total_energy > 0 else 'yellow',
         'business_date': business_date.isoformat(),
         'business_day_start': '07:30',
@@ -348,6 +354,7 @@ def _extract_machine_stop_facts(
     max_minutes = max([item['downtime_minutes'] for item in stop_items], default=0)
     return {
         'status': 'connected',
+        'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': _machine_stop_status_color(max_minutes),
         'business_date': business_date.isoformat(),
         'business_day_start': '07:30',
@@ -366,6 +373,17 @@ def _scoped_workshop_id_for_facts(current_user: User | None) -> int | None:
     if scope.is_admin or scope.data_scope_type == 'all':
         return None
     return scope.workshop_id
+
+
+def _scope_label_for_facts(db: Session, current_user: User | None) -> str:
+    scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
+    if scoped_workshop_id is None:
+        return '全厂'
+    try:
+        workshop = db.get(Workshop, int(scoped_workshop_id))
+    except (TypeError, ValueError):
+        workshop = None
+    return _clean(getattr(workshop, 'name', None)) or '本车间'
 
 
 def _extract_machine_filter(text: str) -> str | None:
@@ -434,6 +452,7 @@ def _extract_quality_facts(db: Session, *, business_date, current_user: User) ->
     status_color = 'red' if blockers else ('yellow' if warnings or issue_rows else 'green')
     return {
         'status': 'connected',
+        'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': status_color,
         'business_date': business_date.isoformat(),
         'business_day_start': '07:30',
@@ -530,6 +549,7 @@ def _extract_consumable_facts(db: Session, *, business_date, current_user: User)
     status_color = _consumable_status_color(over_quota)
     return {
         'status': 'connected',
+        'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': status_color,
         'business_date': business_date.isoformat(),
         'business_day_start': '07:30',
@@ -590,7 +610,7 @@ def _resolve_status_color(*, facts: dict[str, Any], citations: list[dict[str, An
     return 'green' if citations else 'yellow'
 
 
-def _extract_anomaly_facts(*, payload: dict[str, Any], business_date) -> dict[str, Any]:
+def _extract_anomaly_facts(*, payload: dict[str, Any], business_date, scope_label: str) -> dict[str, Any]:
     pending_assignment = ((payload.get('overall_progress') or {}).get('pending_assignment') or {})
     missing_output = ((payload.get('data_quality') or {}).get('missing_output_weight') or {})
     pending_count = _int_or_zero(pending_assignment.get('entry_count'))
@@ -600,6 +620,7 @@ def _extract_anomaly_facts(*, payload: dict[str, Any], business_date) -> dict[st
     status_color = 'orange' if anomaly_count else 'green'
     return {
         'status': 'connected',
+        'scope_label': scope_label,
         'status_color': status_color,
         'business_date': payload.get('business_date') or business_date.isoformat(),
         'business_day_start': '07:30',
@@ -651,7 +672,7 @@ def _build_answer_for_intent(
 ) -> str:
     if intent == 'production_today' and facts.get('status') == 'connected':
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion='已读取今日生产聚合',
             key_numbers=(
@@ -672,7 +693,7 @@ def _build_answer_for_intent(
         top_workshops = facts.get('top_workshops') or []
         conclusion = '当前发现需处理异常' if anomaly_count else '当前未发现实时异常'
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion=conclusion,
             key_numbers=(
@@ -689,7 +710,7 @@ def _build_answer_for_intent(
         over_quota_count = _int_or_zero(facts.get('over_quota_count'))
         conclusion = '发现辅材超耗' if over_quota_count else '未发现超过报警阈值的辅材'
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion=conclusion,
             key_numbers=(
@@ -705,7 +726,7 @@ def _build_answer_for_intent(
 
     if intent == 'energy_cost' and facts.get('status') == 'connected':
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion='已读取今日能耗汇总' if _number_or_zero(facts.get('total_energy')) > 0 else '当前未收到有效能耗汇总',
             key_numbers=(
@@ -731,7 +752,7 @@ def _build_answer_for_intent(
         stop_count = _int_or_zero(facts.get('stop_count'))
         conclusion = '发现停机记录' if stop_count else '当前未找到匹配停机记录'
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion=conclusion,
             key_numbers=(
@@ -749,7 +770,7 @@ def _build_answer_for_intent(
         quality_issue_count = _int_or_zero(facts.get('quality_issue_count'))
         conclusion = '质量门禁阻断' if blocker_count else ('发现现场质量问题' if quality_issue_count else '当前未发现质量异常')
         return _format_answer(
-            scope_label='全厂',
+            scope_label=_answer_scope_label(facts),
             status_color=status_color,
             conclusion=conclusion,
             key_numbers=(
@@ -776,6 +797,10 @@ def _build_answer_for_intent(
 
 def _format_tons(value: Any) -> str:
     return f'{_number_or_zero(value):.2f}'
+
+
+def _answer_scope_label(facts: dict[str, Any]) -> str:
+    return _clean(facts.get('scope_label')) or '全厂'
 
 
 def _format_workshop_list(workshops: Any) -> str:

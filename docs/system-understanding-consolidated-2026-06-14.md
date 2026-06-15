@@ -11766,3 +11766,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.99999991%` | `99.99999992%` |
 | Agent 通讯中台阶段 | `84.6%` | `85.0%` |
 | 外部通讯权限安全 | `89.9%` | `90.3%` |
+
+## 155. Agent 异常汇总回复范围标签已与用户车间范围对齐
+
+### 155.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在处理“哪个车间异常”等实时异常汇总问题时，回复抬头现在会显示真实数据范围。
+
+小白版理解：实时聚合服务本身已经会按当前用户过滤车间数据，但 Agent 回复模板以前固定写“全厂”。这会让车间主任看到自己车间的数据时误以为是全厂数据。本轮补上范围标签：管理员或全厂账号显示“全厂”，单车间主任显示自己的车间名，比如“冷轧2050”。
+
+### 155.2 当前行为
+
+- `realtime_service.build_live_aggregation()` 继续通过 `current_user` 做真实数据范围过滤。
+- Agent 事实返回新增 `scope_label`，用于说明这组事实到底是全厂还是本车间。
+- 生产、异常、辅材、能耗、停机、质量等业务事实回复都会优先使用 `facts.scope_label` 做抬头。
+- 这轮没有改变产量、异常、能耗、辅材、质量、停机的算法，只修正回复范围标签。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 155.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_anomaly_answer_uses_user_workshop_scope_label -q
+失败原因：冷轧2050车间主任询问“哪个车间异常”时，facts 没有 scope_label，回答抬头仍是“全厂”。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_anomaly_answer_uses_user_workshop_scope_label -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+45 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 155.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- 外部通讯真实发送、outbox 重试、dead-letter、30 分钟去重和钉钉返回写入还需要继续做真实链路验收。
+
+### 155.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999992%` | `99.99999993%` |
+| Agent 通讯中台阶段 | `85.0%` | `85.3%` |
+| 外部通讯权限安全 | `90.3%` | `90.6%` |

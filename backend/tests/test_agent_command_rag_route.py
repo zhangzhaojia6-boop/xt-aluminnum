@@ -613,6 +613,81 @@ def test_agent_command_uses_consumable_targets_for_over_quota_summary(monkeypatc
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_anomaly_answer_uses_user_workshop_scope_label(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add(Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True))
+    db.commit()
+
+    def fake_live_aggregation(_db, *, business_date, workshop_id, current_user):
+        assert workshop_id is None
+        assert current_user.workshop_id == 20
+        return {
+            'business_date': '2026-06-09',
+            'overall_progress': {
+                'pending_assignment': {
+                    'entry_count': 2,
+                    'workshop_count': 1,
+                    'rows': [
+                        {
+                            'workshop_name': '冷轧2050',
+                            'entry_count': 2,
+                            'missing_machine_count': 2,
+                            'missing_shift_count': 0,
+                        },
+                    ],
+                },
+            },
+            'data_quality': {
+                'missing_output_weight': {
+                    'entry_count': 1,
+                    'items': [
+                        {
+                            'workshop_name': '冷轧2050',
+                            'machine_name': '2050#主操',
+                            'tracking_card_no': 'RA260609001',
+                        },
+                    ],
+                },
+            },
+            'mes_sync_status': {'status': 'ok'},
+            'data_source': 'mixed',
+        }
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+    monkeypatch.setattr(
+        'app.services.agent_command_service.realtime_service.build_live_aggregation',
+        fake_live_aggregation,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'cold-director',
+                'text': '哪个车间异常',
+                'agent_code': 'factory_dispatch',
+                'trace_id': 'trace-agent-anomaly-scope-label-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'anomaly_summary'
+        assert payload['facts']['scope_label'] == '冷轧2050'
+        assert payload['answer'].startswith('【冷轧2050｜')
+        assert not payload['answer'].startswith('【全厂｜')
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_consumable_facts_stay_within_user_workshop(monkeypatch) -> None:
     db, previous_overrides = _install_overrides(
         role='workshop_director',
