@@ -135,8 +135,8 @@
 | `POST /api/v1/mapping-reconciliation/run` | 已实现 | 支持传入脱敏/内存行，也支持传参考文件名 + 业务日自动 dry-run 对齐，并写入 `mapping_reconciliation_runs` |
 | `GET /api/v1/mapping-reconciliation/runs/{id}` | 已实现 | 读取一次 dry-run 对齐运行记录和完整结果 |
 | `GET /api/v1/mapping-reconciliation/runs/{id}/differences` | 已实现 | 读取一次运行记录里的差异明细和差异汇总 |
-| `POST /api/v1/mapping-reconciliation/rules/propose` | 未单独实现 | 目前 `run` 返回 `rule_proposals` |
-| `POST /api/v1/mapping-reconciliation/rules/apply-dry-run` | 未实现 | 后续做规则试算，不写正式配置 |
+| `POST /api/v1/mapping-reconciliation/rules/propose` | 已实现 | 传入差异明细，单独生成规则建议，不写配置 |
+| `POST /api/v1/mapping-reconciliation/rules/apply-dry-run` | 已实现 | 临时套用别名候选重新试算匹配率，返回 `applied=false`、`persisted=false` |
 
 ## 8. 当前测试证据
 
@@ -169,6 +169,8 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 | 人工构造：车间/班次别名候选 | 生成 dry-run 建议 |
 | 接口返回：差异原因汇总 | 返回 `difference_summary`，前端 `/manage/mapping-reconciliation` 已展示 |
 | 接口返回：字段匹配摘要 | 返回 `match_summary`，包含可比字段、已匹配字段、未匹配字段和字段级匹配率 |
+| 规则建议单独接口 | `/rules/propose` 可只根据差异生成 dry-run 规则建议 |
+| 规则试算接口 | `/rules/apply-dry-run` 可临时套用别名候选重新计算匹配率，不写生产配置 |
 | 前端默认 dry-run 字段 | 已覆盖 `yield_rate`、`rolling_oil_per_ton`、`cost_per_ton`、`daily_hot_roll_contract_weight`、`electricity_cost`、`natural_gas_cost` |
 | dry-run 运行记录 | `POST /run` 返回 `run_id`，`GET /runs/{id}` 和 `/runs/{id}/differences` 可追溯 |
 
@@ -203,6 +205,40 @@ cd frontend && node --test tests/mappingReconciliationPage.test.js
 12 passed
 
 python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+## 12. 2026-06-15 规则建议和规则试算接口补充
+
+本轮补齐两个第一阶段规划里明确列出的接口：
+
+| 接口 | 行为 |
+|---|---|
+| `POST /api/v1/mapping-reconciliation/rules/propose` | 根据差异明细生成 `alias_candidate` 规则建议，只返回建议，不保存 |
+| `POST /api/v1/mapping-reconciliation/rules/apply-dry-run` | 把 `alias_candidate` 临时并入 `dimension_aliases` 后重新对比，返回试算后的匹配率和差异 |
+
+安全边界：
+
+- 两个接口都需要管理员权限。
+- `apply-dry-run` 返回 `applied=false` 和 `persisted=false`。
+- 不写 `master_code_aliases`，不写生产口径配置，不写 `mapping_reconciliation_runs`。
+- 规则候选仍需要人工确认后再进入正式主数据或别名配置。
+
+前端 `/manage/mapping-reconciliation` 规则建议区域已新增“试算规则影响”按钮，用来查看临时规则是否能改善匹配率。小白版理解：这一步像“先把规则放在草稿纸上算一遍”，不是直接改系统。
+
+本轮验证：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py backend/tests/test_mapping_reconciliation_service.py -q
+26 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+13 passed
+
+python -m compileall backend/app/routers/mapping_reconciliation.py
 通过
 
 cd frontend && npm run build

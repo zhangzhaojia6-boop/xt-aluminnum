@@ -47,6 +47,24 @@ class MappingRunRequest(BaseModel):
     dimension_aliases: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
+class MappingDifferenceIn(BaseModel):
+    reason_code: str
+    metric: str
+    dimension: dict[str, Any] = Field(default_factory=dict)
+    reference_value: float | str | None = None
+    system_value: float | str | None = None
+    diff_value: float | None = None
+    suggested_rule: str = ''
+
+
+class RuleProposeRequest(BaseModel):
+    differences: list[MappingDifferenceIn] = Field(default_factory=list)
+
+
+class RuleApplyDryRunRequest(MappingRunRequest):
+    proposals: list[dict[str, Any]] = Field(default_factory=list)
+
+
 def _ensure_mapping_reconciliation_access(user: User) -> None:
     if not build_scope_summary(user).is_admin:
         raise HTTPException(
@@ -107,19 +125,34 @@ def _get_run_or_404(db: Session, run_id: int) -> MappingReconciliationRun:
     return entity
 
 
-@router.get('/sources')
-def get_sources(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
-    _ensure_mapping_reconciliation_access(current_user)
-    return list_sources()
+def _differences_from_request(items: list[MappingDifferenceIn]):
+    from app.services.mapping_reconciliation_service import MappingDifference
+
+    return [MappingDifference(**item.model_dump()) for item in items]
 
 
-@router.post('/run')
-def run_mapping_reconciliation(
+def _dimension_aliases_with_proposals(
+    base_aliases: dict[str, dict[str, str]],
+    proposals: list[dict[str, Any]],
+) -> dict[str, dict[str, str]]:
+    aliases = {field: dict(values) for field, values in base_aliases.items()}
+    for item in proposals:
+        if item.get('rule_type') != 'alias_candidate':
+            continue
+        field = item.get('field')
+        reference_value = item.get('reference_value')
+        system_value = item.get('system_value')
+        if not field or not reference_value or not system_value:
+            continue
+        aliases.setdefault(str(field), {})[str(system_value)] = str(reference_value)
+    return aliases
+
+
+def _resolve_rows(
+    *,
     body: MappingRunRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> dict[str, Any]:
-    _ensure_mapping_reconciliation_access(current_user)
+    db: Session,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any] | None]:
     reference_rows = body.reference_rows
     system_rows = body.system_rows
     reference_parse: dict[str, Any] | None = None
@@ -136,6 +169,24 @@ def run_mapping_reconciliation(
 
     if body.business_date and not system_rows:
         system_rows = build_system_mapping_rows(db, business_date=body.business_date)
+
+    return reference_rows, system_rows, reference_parse
+
+
+@router.get('/sources')
+def get_sources(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    return list_sources()
+
+
+@router.post('/run')
+def run_mapping_reconciliation(
+    body: MappingRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    reference_rows, system_rows, reference_parse = _resolve_rows(body=body, db=db)
 
     result = compare_mapping_rows(
         reference_rows=reference_rows,
@@ -157,6 +208,49 @@ def run_mapping_reconciliation(
     if persisted is not None:
         payload['run_id'] = persisted.id
     return payload
+
+
+@router.post('/rules/propose')
+def propose_mapping_reconciliation_rules(
+    body: RuleProposeRequest,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    return {
+        'run_mode': 'dry_run',
+        'applied': False,
+        'rule_proposals': propose_rules(_differences_from_request(body.differences)),
+    }
+
+
+@router.post('/rules/apply-dry-run')
+def apply_mapping_reconciliation_rules_dry_run(
+    body: RuleApplyDryRunRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    _ensure_mapping_reconciliation_access(current_user)
+    reference_rows, system_rows, reference_parse = _resolve_rows(body=body, db=db)
+    dimension_aliases = _dimension_aliases_with_proposals(body.dimension_aliases, body.proposals)
+    result = compare_mapping_rows(
+        reference_rows=reference_rows,
+        system_rows=system_rows,
+        fields=[MappingFieldSpec(**item.model_dump()) for item in body.fields],
+        dimensions=body.dimensions,
+        dimension_aliases=dimension_aliases,
+    )
+    result_payload = serialize_result(result)
+    result_payload['match_summary'] = summarize_match_result(result)
+    result_payload['difference_summary'] = summarize_differences(result.differences)
+    if reference_parse is not None:
+        result_payload['reference_parse'] = reference_parse
+    return {
+        'run_mode': 'dry_run',
+        'applied': False,
+        'persisted': False,
+        'dimension_aliases': dimension_aliases,
+        'result': result_payload,
+    }
 
 
 @router.get('/runs/{run_id}')

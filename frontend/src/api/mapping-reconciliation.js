@@ -9,3 +9,13 @@ export async function runMappingReconciliation(payload) {
   const { data } = await api.post('/mapping-reconciliation/run', payload)
   return data
 }
+
+export async function proposeMappingReconciliationRules(payload) {
+  const { data } = await api.post('/mapping-reconciliation/rules/propose', payload)
+  return data
+}
+
+export async function applyMappingReconciliationRulesDryRun(payload) {
+  const { data } = await api.post('/mapping-reconciliation/rules/apply-dry-run', payload)
+  return data
+}

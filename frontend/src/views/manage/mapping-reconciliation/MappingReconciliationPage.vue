@@ -146,7 +146,9 @@
       <article class="xt-mapping-reconciliation__panel">
         <header>
           <h2>规则建议</h2>
-          <span>{{ ruleProposals.length }} 条</span>
+          <button type="button" :disabled="rulePreviewRunning || ruleProposals.length === 0" @click="applyRuleDryRun">
+            {{ rulePreviewRunning ? '试算中' : '试算规则影响' }}
+          </button>
         </header>
         <div v-if="ruleProposals.length === 0" class="xt-mapping-reconciliation__empty">暂无建议</div>
         <ol v-else class="xt-mapping-reconciliation__rules">
@@ -156,6 +158,11 @@
             <small>{{ item.dry_run ? '仅试算' : '待确认' }}</small>
           </li>
         </ol>
+        <div v-if="rulePreview.result" class="xt-mapping-reconciliation__rule-preview">
+          <span>规则试算后匹配率</span>
+          <strong>{{ displayNumber(rulePreviewMatchRate) }}%</strong>
+          <small>{{ rulePreview.applied ? '已写入' : '未写入配置' }}</small>
+        </div>
       </article>
     </section>
   </section>
@@ -164,7 +171,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { fetchMappingReconciliationSources, runMappingReconciliation } from '../../../api/mapping-reconciliation.js'
+import {
+  applyMappingReconciliationRulesDryRun,
+  fetchMappingReconciliationSources,
+  runMappingReconciliation
+} from '../../../api/mapping-reconciliation.js'
 import { inferLastCompletedBusinessDate } from '../../../utils/shiftClock.js'
 
 const loading = ref(false)
@@ -172,6 +183,8 @@ const running = ref(false)
 const errorText = ref('')
 const sources = ref({ available: false, files: [], system_sources: [] })
 const result = ref(null)
+const rulePreview = ref({ applied: false, result: null })
+const rulePreviewRunning = ref(false)
 const selectedReferenceFile = ref('')
 const businessDate = ref(inferLastCompletedBusinessDate())
 const selectedDimensions = ref(['business_date', 'workshop'])
@@ -196,6 +209,11 @@ const fieldBreakdown = computed(() => matchSummary.value.field_breakdown || [])
 const referenceRowsCount = computed(() => Number(result.value?.reference_rows_count || 0))
 const systemRowsCount = computed(() => Number(result.value?.system_rows_count || 0))
 const runId = computed(() => result.value?.run_id || null)
+const rulePreviewMatchRate = computed(() => Number(
+  rulePreview.value?.result?.match_summary?.overall_match_rate
+  ?? rulePreview.value?.result?.overall_match_rate
+  ?? 0
+))
 
 const dimensionOptions = [
   { key: 'business_date', label: '日期' },
@@ -964,10 +982,36 @@ async function runDryRun() {
       dimensions: selectedDimensions.value.length > 0 ? selectedDimensions.value : ['business_date', 'workshop'],
       dimension_aliases: defaultDimensionAliases
     })
+    rulePreview.value = { applied: false, result: null }
   } catch (error) {
     errorText.value = error?.response?.data?.detail || error?.message || '试算失败'
   } finally {
     running.value = false
+  }
+}
+
+async function applyRuleDryRun() {
+  if (!result.value || ruleProposals.value.length === 0) return
+  if (!selectedReferenceFile.value || !businessDate.value) {
+    errorText.value = '请选择参考文件和业务日'
+    return
+  }
+  rulePreviewRunning.value = true
+  errorText.value = ''
+  try {
+    const preview = await applyMappingReconciliationRulesDryRun({
+      reference_file: selectedReferenceFile.value,
+      business_date: businessDate.value,
+      fields: defaultMappingFields,
+      dimensions: selectedDimensions.value.length > 0 ? selectedDimensions.value : ['business_date', 'workshop'],
+      dimension_aliases: defaultDimensionAliases,
+      proposals: ruleProposals.value
+    })
+    rulePreview.value = { ...preview, applied: false }
+  } catch (error) {
+    errorText.value = error?.response?.data?.detail || error?.message || '规则试算失败'
+  } finally {
+    rulePreviewRunning.value = false
   }
 }
 
@@ -1199,6 +1243,29 @@ onMounted(loadSources)
   font-family: var(--xt-font-number);
   font-size: var(--xt-text-lg);
   font-weight: 950;
+}
+
+.xt-mapping-reconciliation__rule-preview {
+  display: grid;
+  gap: var(--xt-space-2);
+  padding: var(--xt-space-3);
+  border: 1px solid rgba(199, 155, 75, 0.22);
+  border-radius: 12px;
+  background: rgba(199, 155, 75, 0.08);
+}
+
+.xt-mapping-reconciliation__rule-preview span,
+.xt-mapping-reconciliation__rule-preview small {
+  color: rgba(245, 240, 230, 0.62);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
+}
+
+.xt-mapping-reconciliation__rule-preview strong {
+  color: var(--mapping-gold);
+  font-family: var(--xt-font-number);
+  font-size: var(--xt-text-2xl);
+  line-height: 1;
 }
 
 .xt-mapping-reconciliation__chips {

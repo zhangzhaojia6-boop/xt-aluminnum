@@ -256,6 +256,140 @@ def test_mapping_reconciliation_run_returns_match_summary_for_ui() -> None:
     }
 
 
+def test_mapping_reconciliation_rules_propose_endpoint_is_admin_only_dry_run() -> None:
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/rules/propose',
+            json={
+                'differences': [
+                    {
+                        'reason_code': 'missing_system_row',
+                        'metric': 'output',
+                        'dimension': {'workshop': '在线退火', 'shift': '大夜班'},
+                        'reference_value': 20,
+                        'system_value': None,
+                        'diff_value': None,
+                        'suggested_rule': '系统侧缺少同日期、车间、班次的数据行。',
+                    },
+                    {
+                        'reason_code': 'extra_system_row',
+                        'metric': 'dimension',
+                        'dimension': {'workshop': '新厂在线退火', 'shift': '第一班'},
+                        'reference_value': None,
+                        'system_value': None,
+                        'diff_value': None,
+                        'suggested_rule': '系统侧有额外数据行，需确认是否日期、车间、班次别名未对齐。',
+                    },
+                ]
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'run_mode': 'dry_run',
+        'applied': False,
+        'rule_proposals': [
+            {
+                'rule_type': 'alias_candidate',
+                'field': 'workshop',
+                'reference_value': '在线退火',
+                'system_value': '新厂在线退火',
+                'confidence': 'manual_review',
+                'dry_run': True,
+            },
+            {
+                'rule_type': 'alias_candidate',
+                'field': 'shift',
+                'reference_value': '大夜班',
+                'system_value': '第一班',
+                'confidence': 'manual_review',
+                'dry_run': True,
+            },
+        ],
+    }
+
+
+def test_mapping_reconciliation_rules_apply_dry_run_recalculates_without_persisting() -> None:
+    engine = create_engine(
+        'sqlite:///:memory:',
+        connect_args={'check_same_thread': False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+    db = Session(engine)
+    previous_overrides = _install_overrides(db_override=db)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/rules/apply-dry-run',
+            json={
+                'reference_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '在线退火',
+                        'shift': '大夜班',
+                        'output_tons': 20,
+                    }
+                ],
+                'system_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '新厂在线退火',
+                        'shift': '第一班',
+                        'output_tons': 20,
+                    }
+                ],
+                'fields': [
+                    {
+                        'metric': 'output',
+                        'reference_field': 'output_tons',
+                        'system_field': 'output_tons',
+                        'reference_unit': 'ton',
+                        'system_unit': 'ton',
+                        'tolerance': 0.001,
+                        'weight': 30,
+                    }
+                ],
+                'proposals': [
+                    {
+                        'rule_type': 'alias_candidate',
+                        'field': 'workshop',
+                        'reference_value': '在线退火',
+                        'system_value': '新厂在线退火',
+                        'dry_run': True,
+                    },
+                    {
+                        'rule_type': 'alias_candidate',
+                        'field': 'shift',
+                        'reference_value': '大夜班',
+                        'system_value': '第一班',
+                        'dry_run': True,
+                    },
+                ],
+            },
+        )
+        persisted_count = db.query(MappingReconciliationRun).count()
+    finally:
+        _restore_overrides(previous_overrides)
+        db.close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['run_mode'] == 'dry_run'
+    assert payload['applied'] is False
+    assert payload['persisted'] is False
+    assert payload['dimension_aliases'] == {'workshop': {'新厂在线退火': '在线退火'}, 'shift': {'第一班': '大夜班'}}
+    assert payload['result']['overall_match_rate'] == 100
+    assert payload['result']['differences'] == []
+    assert persisted_count == 0
+
+
 def test_mapping_reconciliation_run_persists_and_exposes_run_detail() -> None:
     engine = create_engine(
         'sqlite:///:memory:',

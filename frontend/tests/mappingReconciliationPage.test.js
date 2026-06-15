@@ -29,6 +29,8 @@ test('mapping reconciliation page uses real API functions and dry-run copy', () 
 
   assert.match(api, /\/mapping-reconciliation\/sources/)
   assert.match(api, /\/mapping-reconciliation\/run/)
+  assert.match(api, /\/mapping-reconciliation\/rules\/propose/)
+  assert.match(api, /\/mapping-reconciliation\/rules\/apply-dry-run/)
   assert.match(page, /data-testid="mapping-reconciliation-page"/)
   assert.match(page, /fetchMappingReconciliationSources/)
   assert.match(page, /runMappingReconciliation/)
@@ -226,6 +228,17 @@ test('mapping reconciliation page renders backend difference summary', () => {
   assert.match(page, /result\.value\?\.difference_summary/)
   assert.match(page, /reason\.label/)
   assert.match(page, /reason\.count/)
+})
+
+test('mapping reconciliation page can dry-run proposed rules without applying them', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /applyMappingReconciliationRulesDryRun/)
+  assert.match(page, /applyRuleDryRun/)
+  assert.match(page, /rulePreview/)
+  assert.match(page, /试算规则影响/)
+  assert.match(page, /规则试算后匹配率/)
+  assert.match(page, /applied: false/)
 })
 
 test('mapping reconciliation page renders backend field match summary', () => {

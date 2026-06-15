@@ -10777,3 +10777,62 @@ cd frontend && npm run build
 | 原始大目标 | `99.999992%` | `99.999993%` |
 | 输出skill 对齐阶段 | `95.8%` | `96.0%` |
 | 前后端映射阶段 | `91.5%` | `91.7%` |
+
+## 138. 输出skill 对齐已补规则建议和规则试算闭环
+
+### 138.1 本轮新增能力
+
+`/api/v1/mapping-reconciliation` 现在补齐两个只读/试算接口：
+
+- `POST /api/v1/mapping-reconciliation/rules/propose`
+- `POST /api/v1/mapping-reconciliation/rules/apply-dry-run`
+
+小白版理解：以前系统能在 `/run` 里顺手给出“可能要加的别名规则”，但没有单独接口，也不能先看“如果套用这条规则，匹配率会不会变好”。现在可以先把规则放到临时试算里跑一遍，确认有效后再人工决定是否进入正式配置。
+
+### 138.2 当前行为
+
+- `rules/propose`：只根据差异明细生成 `alias_candidate` 建议。
+- `rules/apply-dry-run`：把规则建议临时并入 `dimension_aliases`，重新执行对齐算法。
+- 两个接口都需要管理员权限。
+- `apply-dry-run` 返回 `applied=false`、`persisted=false`。
+- 不写生产主数据，不写正式别名表，不写运行记录表。
+- 前端 `/manage/mapping-reconciliation` 的“规则建议”区域新增“试算规则影响”按钮，展示“规则试算后匹配率”。
+
+### 138.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py::test_mapping_reconciliation_rules_propose_endpoint_is_admin_only_dry_run -q
+失败原因：接口 404。
+
+python -m pytest backend/tests/test_mapping_reconciliation_route.py::test_mapping_reconciliation_rules_apply_dry_run_recalculates_without_persisting -q
+失败原因：接口 404。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：前端 API 和页面没有规则试算入口。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py backend/tests/test_mapping_reconciliation_service.py -q
+26 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+13 passed
+
+python -m compileall backend/app/routers/mapping_reconciliation.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 138.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999993%` | `99.999994%` |
+| 输出skill 对齐阶段 | `96.0%` | `96.3%` |
+| 前后端映射阶段 | `91.7%` | `91.9%` |
