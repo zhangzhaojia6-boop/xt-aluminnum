@@ -133,7 +133,17 @@
       <section class="xt-agent-management__panel">
         <header>
           <h2>发件箱</h2>
-          <span>{{ outbox.length }} 条</span>
+          <div class="xt-agent-management__actions">
+            <span>{{ outbox.length }} 条</span>
+            <button
+              type="button"
+              class="xt-agent-management__button is-primary"
+              :disabled="dispatchingDue || dueDispatchableOutboxCount === 0"
+              @click="handleDispatchDueOutbox"
+            >
+              {{ dispatchingDue ? '调度中' : '批量调度到期' }}
+            </button>
+          </div>
         </header>
         <p v-if="dispatchText" class="xt-agent-management__inline-state">{{ dispatchText }}</p>
         <p v-if="logErrorText" class="xt-agent-management__inline-state is-error">{{ logErrorText }}</p>
@@ -203,6 +213,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   dispatchAgentOutboxMessage,
+  dispatchDueAgentOutboxMessages,
   fetchAgentManagementOverview,
   fetchAgentOutboxLogs
 } from '../../../api/agent-management.js'
@@ -224,6 +235,7 @@ const loading = ref(false)
 const errorText = ref('')
 const overview = ref({ ...EMPTY_OVERVIEW })
 const dispatchingId = ref(null)
+const dispatchingDue = ref(false)
 const dispatchText = ref('')
 const selectedOutboxId = ref(null)
 const logLoading = ref(false)
@@ -237,6 +249,7 @@ const events = computed(() => overview.value?.events || [])
 const evidence = computed(() => overview.value?.evidence || [])
 const operationApprovals = computed(() => overview.value?.operation_approvals || [])
 const outbox = computed(() => overview.value?.outbox || [])
+const dueDispatchableOutboxCount = computed(() => outbox.value.filter(canDispatchOutbox).length)
 const knowledgeEntries = computed(() => overview.value?.knowledge_entries || [])
 const hasPendingWork = computed(() => Number(summary.value.pending_event_total || 0) > 0 || Number(summary.value.pending_operation_total || 0) > 0)
 const runtimeLabel = computed(() => (loading.value ? '读取中' : hasPendingWork.value ? '有待处理项' : '安全运行'))
@@ -398,6 +411,26 @@ async function handleDispatchOutbox(item) {
     logErrorText.value = error?.response?.data?.detail || error?.message || '分发失败'
   } finally {
     dispatchingId.value = null
+  }
+}
+
+async function handleDispatchDueOutbox() {
+  if (dueDispatchableOutboxCount.value === 0) return
+  dispatchingDue.value = true
+  dispatchText.value = ''
+  logErrorText.value = ''
+  try {
+    const limit = Math.min(100, Math.max(1, dueDispatchableOutboxCount.value))
+    const result = await dispatchDueAgentOutboxMessages({ limit })
+    dispatchText.value = `批量调度：${displayNumber(result?.total)} 条`
+    await loadOverview()
+    if (selectedOutboxId.value) {
+      await loadOutboxLogs(selectedOutboxId.value)
+    }
+  } catch (error) {
+    logErrorText.value = error?.response?.data?.detail || error?.message || '批量调度失败'
+  } finally {
+    dispatchingDue.value = false
   }
 }
 

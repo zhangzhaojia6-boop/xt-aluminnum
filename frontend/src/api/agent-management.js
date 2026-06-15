@@ -29,6 +29,11 @@ export async function dispatchAgentOutboxMessage(outboxMessageId) {
   return data
 }
 
+export async function dispatchDueAgentOutboxMessages(params = {}) {
+  const { data } = await api.post('/agent-management/outbox/dispatch-due', null, { params })
+  return data
+}
+
 export async function fetchAgentOutboxLogs(outboxMessageId) {
   const { data } = await api.get(`/agent-management/outbox/${outboxMessageId}/logs`)
   return data

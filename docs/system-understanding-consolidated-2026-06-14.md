@@ -12051,3 +12051,66 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.99999996%` | `99.99999997%` |
 | Agent 通讯中台阶段 | `86.2%` | `86.5%` |
 | 外部通讯权限安全 | `91.4%` | `91.7%` |
+
+## 160. Agent 管理端前端已接入“批量调度到期 outbox”按钮
+
+### 160.1 本轮新增能力
+
+`/manage/admin/agents` 的“发件箱”面板现在有“批量调度到期”按钮，调用 `POST /api/v1/agent-management/outbox/dispatch-due`。
+
+小白版理解：上一轮后端已经有管理员接口，这轮把按钮接到治理台。管理员不需要逐条点发件箱，可以一次触发到期消息；真实是否发到钉钉仍由通道 dry-run 或真实发送配置决定。
+
+### 160.2 当前行为
+
+- API 新增 `dispatchDueAgentOutboxMessages(params)`。
+- 发件箱头部显示“批量调度到期”按钮。
+- 没有可调度 outbox 时按钮禁用。
+- 点击后按当前可调度条数作为 `limit`，最多 100。
+- 成功后显示 `批量调度：N 条`，刷新 overview；若正在查看某条 outbox 日志，会刷新该日志。
+- 没有新增后端字段，没有 migration，没有真实外发生产钉钉消息。
+
+### 160.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+node --test frontend/tests/agentManagementPage.test.js
+失败原因：API 和页面没有 dispatchDueAgentOutboxMessages / handleDispatchDueOutbox / 批量调度到期。
+```
+
+实现后已执行：
+
+```text
+node --test frontend/tests/agentManagementPage.test.js
+7 passed
+
+node --test frontend/tests/agentManagementPage.test.js frontend/tests/channelManagementPage.test.js
+11 passed
+
+cd frontend && npm test
+694 passed
+
+cd frontend && npm run build
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 160.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群发送验证。
+- 本轮没有把按钮点到线上生产环境，只做源码测试和生产构建。
+
+### 160.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999997%` | `99.99999998%` |
+| Agent 通讯中台阶段 | `86.5%` | `86.8%` |
+| 外部通讯权限安全 | `91.7%` | `91.9%` |
+| 前端治理台可用性 | `78.0%` | `78.4%` |
