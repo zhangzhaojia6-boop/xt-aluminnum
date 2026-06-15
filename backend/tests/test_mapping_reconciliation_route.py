@@ -125,6 +125,66 @@ def test_mapping_reconciliation_run_compares_rows_without_writing_database() -> 
     assert payload['differences'] == []
 
 
+def test_mapping_reconciliation_run_returns_difference_summary() -> None:
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/run',
+            json={
+                'reference_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '拉矫',
+                        'shift': '小夜班',
+                        'energy_kwh': 1800,
+                    },
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '园区剪切',
+                        'shift': '小夜班',
+                        'energy_kwh': 900,
+                    },
+                ],
+                'system_rows': [
+                    {
+                        'business_date': '2026-06-13',
+                        'workshop': '拉矫车间',
+                        'shift': '小夜',
+                        'electricity_kwh': 1760,
+                    }
+                ],
+                'fields': [
+                    {
+                        'metric': 'energy',
+                        'reference_field': 'energy_kwh',
+                        'system_field': 'electricity_kwh',
+                        'reference_unit': 'kwh',
+                        'system_unit': 'kwh',
+                        'tolerance': 5,
+                        'weight': 15,
+                    }
+                ],
+                'dimension_aliases': {'workshop': {'拉矫车间': '拉矫'}, 'shift': {'小夜': '小夜班'}},
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['difference_summary'] == {
+        'total': 2,
+        'by_reason_code': {'value_diff': 1, 'missing_system_row': 1},
+        'by_metric': {'energy': 2},
+        'reason_breakdown': [
+            {'reason_code': 'value_diff', 'label': '数值不一致', 'count': 1},
+            {'reason_code': 'missing_system_row', 'label': '系统缺少同维度数据', 'count': 1},
+        ],
+    }
+
+
 def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_rows(tmp_path, monkeypatch) -> None:
     reference_dir = tmp_path / 'output-skill'
     reference_dir.mkdir()

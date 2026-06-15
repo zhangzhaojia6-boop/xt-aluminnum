@@ -53,6 +53,12 @@ NUMERIC_REFERENCE_FIELDS = {
     'rolling_oil_per_ton',
     'cost_per_ton',
 }
+DIFFERENCE_REASON_LABELS = {
+    'value_diff': '数值不一致',
+    'missing_system_row': '系统缺少同维度数据',
+    'extra_system_row': '系统存在额外数据',
+    'missing_field_value': '字段值缺失',
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +94,27 @@ class MappingReconciliationResult:
 
 def serialize_result(result: MappingReconciliationResult) -> dict[str, Any]:
     return asdict(result)
+
+
+def summarize_differences(differences: Sequence[MappingDifference]) -> dict[str, Any]:
+    by_reason_code: dict[str, int] = {}
+    by_metric: dict[str, int] = {}
+    for item in differences:
+        by_reason_code[item.reason_code] = by_reason_code.get(item.reason_code, 0) + 1
+        by_metric[item.metric] = by_metric.get(item.metric, 0) + 1
+    return {
+        'total': len(differences),
+        'by_reason_code': by_reason_code,
+        'by_metric': by_metric,
+        'reason_breakdown': [
+            {
+                'reason_code': reason_code,
+                'label': DIFFERENCE_REASON_LABELS.get(reason_code, reason_code),
+                'count': count,
+            }
+            for reason_code, count in by_reason_code.items()
+        ],
+    }
 
 
 def _reference_root() -> Path:

@@ -8069,3 +8069,59 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.997%` | `99.998%` |
 | D:\输出skill 对齐阶段 | `92%` | `93%` |
 | 后端数据链路阶段 | `90.4%` | `90.7%` |
+
+## 100. 输出skill 对齐接口已返回差异原因汇总
+
+### 100.1 本轮新增能力
+
+`POST /api/v1/mapping-reconciliation/run` 现在会返回 `difference_summary`。
+
+它包含：
+
+- `total`：差异总数
+- `by_reason_code`：按差异原因统计
+- `by_metric`：按指标统计
+- `reason_breakdown`：带中文标签的差异原因列表
+
+小白版理解：以前接口只给一长串差异明细，前端要自己数“多少条是系统缺数据、多少条是数值不一致”。现在后端会直接把这张“小统计表”一起返回，页面就能更清楚地告诉用户：问题主要是缺行、缺字段，还是数值口径不一致。
+
+### 100.2 当前边界
+
+这个增强只做展示和审计汇总，不改变匹配算法，也不改变生产数据。
+
+当前支持的差异原因中文标签：
+
+- `value_diff`：数值不一致
+- `missing_system_row`：系统缺少同维度数据
+- `extra_system_row`：系统存在额外数据
+- `missing_field_value`：字段值缺失
+
+### 100.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py -q
+失败原因：接口返回缺 difference_summary。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_route.py -q
+5 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+16 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+```
+
+### 100.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.998%` | `99.9985%` |
+| D:\输出skill 对齐阶段 | `93%` | `93.5%` |
+| 后端数据链路阶段 | `90.7%` | `90.9%` |
