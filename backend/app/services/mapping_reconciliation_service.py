@@ -17,7 +17,7 @@ from app.models.energy import MachineEnergyRecord
 from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport, ShiftProductionData
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 
 
@@ -80,6 +80,31 @@ CONSUMABLE_REFERENCE_FIELD_ALIASES = {
     'ingot_input_tons': ('铸锭投料量', '铸锭投料', '铸锭投入量', 'ingot_input_tons'),
     'ingot_output_tons': ('铸锭下机量', '铸锭产量', '铸锭产出量', 'ingot_output_tons'),
 }
+OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
+    'daily_contract_weight': ('当日接合同', '当日合同', '日接合同', 'daily_contract_weight'),
+    'daily_hot_roll_contract_weight': ('当日热轧合同', '热轧当日合同', 'daily_hot_roll_contract_weight'),
+    'month_to_date_contract_weight': ('月累计合同', '合同月累计', '月累合同', 'month_to_date_contract_weight'),
+    'month_to_date_hot_roll_contract_weight': (
+        '月累计热轧合同',
+        '热轧合同月累计',
+        'month_to_date_hot_roll_contract_weight',
+    ),
+    'remaining_contract_weight': ('余合同量', '剩余合同量', 'remaining_contract_weight'),
+    'remaining_hot_roll_contract_weight': ('余热轧合同', '剩余热轧合同', 'remaining_hot_roll_contract_weight'),
+    'remaining_contract_delta_weight': (
+        '余合同较昨日',
+        '余合同变化',
+        '剩余合同较昨日',
+        'remaining_contract_delta_weight',
+    ),
+    'billet_inventory_weight': ('坯料总量', '坯料库存', '坯料结存', 'billet_inventory_weight'),
+    'daily_input_weight': ('当日投料', '日投料', 'daily_input_weight'),
+    'month_to_date_input_weight': ('月累计投料', '投料月累计', '月累投料', 'month_to_date_input_weight'),
+}
+REFERENCE_FIELD_ALIASES = {
+    **CONSUMABLE_REFERENCE_FIELD_ALIASES,
+    **OWNER_DAILY_REFERENCE_FIELD_ALIASES,
+}
 NUMERIC_REFERENCE_FIELDS = {
     'input_tons',
     'output_tons',
@@ -93,7 +118,7 @@ NUMERIC_REFERENCE_FIELDS = {
     'total_cost',
     'cost_per_ton',
     'throughput_cost_per_ton',
-    *CONSUMABLE_REFERENCE_FIELD_ALIASES.keys(),
+    *REFERENCE_FIELD_ALIASES.keys(),
 }
 DIFFERENCE_REASON_LABELS = {
     'value_diff': '数值不一致',
@@ -321,7 +346,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             row['gas_m3'] = gas_m3
         if rolling_oil_per_ton is not None:
             row['rolling_oil_per_ton'] = rolling_oil_per_ton
-        for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
+        for field, aliases in REFERENCE_FIELD_ALIASES.items():
             value = _metric_number(line, aliases)
             if value is not None:
                 row[field] = value
@@ -359,7 +384,7 @@ def _excel_field(header: str) -> str | None:
         return 'contract_no'
     if header in {'客户', '客户名', '客户名称'}:
         return 'customer'
-    for field, aliases in CONSUMABLE_REFERENCE_FIELD_ALIASES.items():
+    for field, aliases in REFERENCE_FIELD_ALIASES.items():
         if field in header or any(_normalize_header(alias) in header for alias in aliases):
             return field
     if (
@@ -822,6 +847,16 @@ def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, 
     }
 
 
+def _owner_daily_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not payload:
+        return {}
+    return {
+        key: value
+        for key in OWNER_DAILY_REFERENCE_FIELD_ALIASES
+        if (value := _to_float(payload.get(key))) is not None
+    }
+
+
 def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     shift_rows = (
@@ -948,6 +983,40 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 **consumable_metrics,
                 'consumable_payload': consumable_metrics,
                 'source_table': 'daily_consumable_logs',
+            }
+        )
+
+    owner_daily_rows = (
+        db.query(WorkOrderEntry, WorkOrder, Workshop, ShiftConfig, Equipment)
+        .join(WorkOrder, WorkOrderEntry.work_order_id == WorkOrder.id)
+        .join(Workshop, WorkOrderEntry.workshop_id == Workshop.id)
+        .outerjoin(ShiftConfig, WorkOrderEntry.shift_id == ShiftConfig.id)
+        .outerjoin(Equipment, WorkOrderEntry.machine_id == Equipment.id)
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.entry_status != 'voided',
+        )
+        .order_by(WorkOrderEntry.id.asc())
+        .all()
+    )
+    for entry, work_order, workshop, shift, equipment in owner_daily_rows:
+        owner_daily_metrics = _owner_daily_payload_metrics(entry.extra_payload)
+        if not owner_daily_metrics:
+            continue
+        rows.append(
+            {
+                'business_date': entry.business_date.isoformat(),
+                'workshop': workshop.name,
+                'shift': shift.name if shift else '',
+                'process': '每日一录',
+                'machine': equipment.name if equipment else '',
+                'machine_code': equipment.code if equipment else '',
+                'contract_no': work_order.contract_no or '',
+                'customer': work_order.customer_name or '',
+                **owner_daily_metrics,
+                'owner_daily_payload': owner_daily_metrics,
+                'source_table': 'work_order_entries',
             }
         )
 

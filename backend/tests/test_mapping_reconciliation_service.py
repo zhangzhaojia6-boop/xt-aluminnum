@@ -15,7 +15,7 @@ from app.models.energy import MachineEnergyRecord
 from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport, ShiftProductionData
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.mapping_reconciliation_service import (
@@ -35,6 +35,8 @@ RECONCILIATION_TABLES = [
     ShiftConfig.__table__,
     Equipment.__table__,
     ShiftProductionData.__table__,
+    WorkOrder.__table__,
+    WorkOrderEntry.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
     CostDailyResult.__table__,
@@ -215,7 +217,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 用电月累计 131500 用电指标 130000 用气月累计 53433 用气指标 53000 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 镁吨耗 0.02 锰吨耗 0.03 铁吨耗 0.04 铜吨耗 0.005 滤布日耗 3 高温胶带日耗 2 再生油出库 0.8 再生油入库 0.6 液压油日耗 1.2 液压油月累计 10 液压油指标 0.5 齿轮油日耗 0.7 齿轮油月累计 6 齿轮油指标 0.4 铸锭块数 12 铸锭投料量 20 铸锭下机量 19 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
+        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 用电月累计 131500 用电指标 130000 用气月累计 53433 用气指标 53000 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 液化气吨耗 0.05 钛丝吨耗 0.01 镁吨耗 0.02 锰吨耗 0.03 铁吨耗 0.04 铜吨耗 0.005 滤布日耗 3 高温胶带日耗 2 再生油出库 0.8 再生油入库 0.6 液压油日耗 1.2 液压油月累计 10 液压油指标 0.5 齿轮油日耗 0.7 齿轮油月累计 6 齿轮油指标 0.4 铸锭块数 12 铸锭投料量 20 铸锭下机量 19 当日接合同 143 月累计合同 2422 余合同量 400 余热轧合同 125 余合同较昨日 77 坯料总量 120.5 当日投料 70 月累计投料 905 总成本 12800.5 元 单吨成本 867 元/吨 过站吨成本 280.25 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -261,6 +263,14 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'ingot_block_count': 12.0,
             'ingot_input_tons': 20.0,
             'ingot_output_tons': 19.0,
+            'daily_contract_weight': 143.0,
+            'month_to_date_contract_weight': 2422.0,
+            'remaining_contract_weight': 400.0,
+            'remaining_hot_roll_contract_weight': 125.0,
+            'remaining_contract_delta_weight': 77.0,
+            'billet_inventory_weight': 120.5,
+            'daily_input_weight': 70.0,
+            'month_to_date_input_weight': 905.0,
             'total_cost': 12800.5,
             'cost_per_ton': 867.0,
             'throughput_cost_per_ton': 280.25,
@@ -339,11 +349,19 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
         '齿轮油日耗',
         '铸锭投料量',
         '铸锭下机量',
+        '当日接合同',
+        '月累计合同',
+        '余合同量',
+        '余热轧合同',
+        '余合同较昨日',
+        '坯料总量',
+        '当日投料',
+        '月累计投料',
         'D40吨耗',
         '综合成本(元/吨)',
         '过站吨成本',
     ])
-    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 131500, 130000, 0.12, 25, 1, 0.942, 1.1, 0.6, 0.07, 0.09, 4, 2, 0.8, 0.6, 53433, 53000, 1.2, 0.7, 20, 19, 0.2, 331.16, 280.25])
+    sheet.append(['2026-06-13', '园区剪切', '长白班', 'JQ-01', '包装', '26A04967', 'HT-001', '客户A', 9.75, 1200, 131500, 130000, 0.12, 25, 1, 0.942, 1.1, 0.6, 0.07, 0.09, 4, 2, 0.8, 0.6, 53433, 53000, 1.2, 0.7, 20, 19, 143, 2422, 400, 125, 77, 120.5, 70, 905, 0.2, 331.16, 280.25])
     workbook.save(report)
 
     result = parse_output_skill_reference_file(report)
@@ -382,6 +400,14 @@ def test_parse_output_skill_xlsx_file_normalizes_common_columns(tmp_path) -> Non
             'gear_oil_daily': 0.7,
             'ingot_input_tons': 20.0,
             'ingot_output_tons': 19.0,
+            'daily_contract_weight': 143.0,
+            'month_to_date_contract_weight': 2422.0,
+            'remaining_contract_weight': 400.0,
+            'remaining_hot_roll_contract_weight': 125.0,
+            'remaining_contract_delta_weight': 77.0,
+            'billet_inventory_weight': 120.5,
+            'daily_input_weight': 70.0,
+            'month_to_date_input_weight': 905.0,
             'd40_per_ton': 0.2,
             'cost_per_ton': 331.16,
             'throughput_cost_per_ton': 280.25,
@@ -769,6 +795,77 @@ def test_build_system_mapping_rows_flattens_stock_energy_and_consumables() -> No
         'rolling_oil_per_ton': 1.25,
         'consumable_payload': {'rolling_oil_per_ton': 1.25},
         'source_table': 'daily_consumable_logs',
+    } in rows
+
+
+def test_build_system_mapping_rows_flattens_owner_daily_contract_payload() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='CPK', name='成品库', workshop_type='inventory'),
+                WorkOrder(
+                    id=1,
+                    tracking_card_no='OWNER-DAILY-20260613',
+                    process_route_code='owner_daily',
+                    contract_no='HT-PLAN',
+                    customer_name='计划科',
+                    overall_status='created',
+                ),
+                WorkOrderEntry(
+                    id=1,
+                    work_order_id=1,
+                    workshop_id=1,
+                    business_date=date(2026, 6, 13),
+                    entry_type='owner_daily',
+                    entry_status='submitted',
+                    extra_payload={
+                        'daily_contract_weight': 143,
+                        'month_to_date_contract_weight': 2422,
+                        'remaining_contract_weight': 400,
+                        'remaining_hot_roll_contract_weight': 125,
+                        'remaining_contract_delta_weight': 77,
+                        'billet_inventory_weight': 120.5,
+                        'daily_input_weight': 70,
+                        'month_to_date_input_weight': 905,
+                    },
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 13))
+
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '成品库',
+        'shift': '',
+        'process': '每日一录',
+        'machine': '',
+        'machine_code': '',
+        'contract_no': 'HT-PLAN',
+        'customer': '计划科',
+        'daily_contract_weight': 143.0,
+        'month_to_date_contract_weight': 2422.0,
+        'remaining_contract_weight': 400.0,
+        'remaining_hot_roll_contract_weight': 125.0,
+        'remaining_contract_delta_weight': 77.0,
+        'billet_inventory_weight': 120.5,
+        'daily_input_weight': 70.0,
+        'month_to_date_input_weight': 905.0,
+        'owner_daily_payload': {
+            'daily_contract_weight': 143.0,
+            'month_to_date_contract_weight': 2422.0,
+            'remaining_contract_weight': 400.0,
+            'remaining_hot_roll_contract_weight': 125.0,
+            'remaining_contract_delta_weight': 77.0,
+            'billet_inventory_weight': 120.5,
+            'daily_input_weight': 70.0,
+            'month_to_date_input_weight': 905.0,
+        },
+        'source_table': 'work_order_entries',
     } in rows
 
 

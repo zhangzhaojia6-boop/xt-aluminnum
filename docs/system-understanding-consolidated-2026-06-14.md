@@ -10401,3 +10401,82 @@ cd frontend && npm run build
 | 原始大目标 | `99.999984%` | `99.999986%` |
 | 输出skill 对齐阶段 | `94.2%` | `94.5%` |
 | 前后端映射阶段 | `90.3%` | `90.5%` |
+
+## 133. 输出skill 对齐已补合同、坯料和投料每日一录字段
+
+### 133.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能把输出skill 参考文件里的合同、坯料和投料每日汇总字段解析成系统标准字段：
+
+- `当日接合同` -> `daily_contract_weight`
+- `月累计合同` -> `month_to_date_contract_weight`
+- `余合同量` -> `remaining_contract_weight`
+- `余热轧合同` -> `remaining_hot_roll_contract_weight`
+- `余合同较昨日` -> `remaining_contract_delta_weight`
+- `坯料总量` -> `billet_inventory_weight`
+- `当日投料` -> `daily_input_weight`
+- `月累计投料` -> `month_to_date_input_weight`
+
+`build_system_mapping_rows()` 也会把 `work_order_entries.entry_type = owner_daily` 且未作废的 `extra_payload` 展开为“每日一录”系统行，来源标记为 `work_order_entries`。这样管理端 `/manage/mapping-reconciliation` 不只是能读输出skill 里的合同字段，也能拿到系统侧每日一录字段做对照。
+
+小白版理解：以前对齐页已经能比产量、能耗、辅材和成本，但计划科/成品库这类每日一录里的“合同量、坯料总量、投料量”没有完整进入对账链路。现在这些字段可以直接在对齐页试算，不需要人工临时改字段名。
+
+### 133.2 当前行为
+
+本轮新增的解析覆盖：
+
+- 文本行：支持当日接合同、月累计合同、余合同量、坯料总量、当日投料、月累计投料等中文字段。
+- Excel / JSON / NDJSON：复用同一套表头归一规则。
+- 系统侧：从 `work_order_entries.extra_payload` 读取 `owner_daily` 已提交或草稿以外未作废记录中的数值字段。
+- 页面默认试算：新增上述 8 个指标，单位均按吨比较，容差保持 `0.01`。
+
+### 133.3 当前边界
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的合同、坯料和投料字段覆盖补强。
+
+### 133.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns backend/tests/test_mapping_reconciliation_service.py::test_build_system_mapping_rows_flattens_owner_daily_contract_payload -q
+失败原因：参考文件中的合同/坯料/投料字段未被解析，系统行也没有从 owner_daily extra_payload 展开。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段缺少合同/坯料/投料指标。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_xlsx_file_normalizes_common_columns backend/tests/test_mapping_reconciliation_service.py::test_build_system_mapping_rows_flattens_owner_daily_contract_payload -q
+3 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+21 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 133.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999986%` | `99.999988%` |
+| 输出skill 对齐阶段 | `94.5%` | `94.9%` |
+| 前后端映射阶段 | `90.5%` | `90.8%` |

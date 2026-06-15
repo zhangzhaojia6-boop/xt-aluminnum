@@ -553,6 +553,78 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'daily_contract',
+    reference_field: 'daily_contract_weight',
+    system_field: 'daily_contract_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'month_to_date_contract',
+    reference_field: 'month_to_date_contract_weight',
+    system_field: 'month_to_date_contract_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'remaining_contract',
+    reference_field: 'remaining_contract_weight',
+    system_field: 'remaining_contract_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'remaining_hot_roll_contract',
+    reference_field: 'remaining_hot_roll_contract_weight',
+    system_field: 'remaining_hot_roll_contract_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'remaining_contract_delta',
+    reference_field: 'remaining_contract_delta_weight',
+    system_field: 'remaining_contract_delta_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'billet_inventory',
+    reference_field: 'billet_inventory_weight',
+    system_field: 'billet_inventory_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'daily_input',
+    reference_field: 'daily_input_weight',
+    system_field: 'daily_input_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
+    metric: 'month_to_date_input',
+    reference_field: 'month_to_date_input_weight',
+    system_field: 'month_to_date_input_weight',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
     metric: 'cost',
     reference_field: 'cost_per_ton',
     system_field: 'cost_per_ton',
@@ -677,6 +749,14 @@ function metricLabel(value) {
     ingot_block: '铸锭块数',
     ingot_input: '铸锭投料量',
     ingot_output: '铸锭下机量',
+    daily_contract: '当日接合同',
+    month_to_date_contract: '月累计合同',
+    remaining_contract: '余合同量',
+    remaining_hot_roll_contract: '余热轧合同',
+    remaining_contract_delta: '余合同较昨日',
+    billet_inventory: '坯料总量',
+    daily_input: '当日投料',
+    month_to_date_input: '月累计投料',
     cost: '吨成本',
     total_cost: '总成本',
     throughput_cost: '过站吨成本'

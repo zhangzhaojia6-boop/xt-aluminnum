@@ -15,7 +15,7 @@ from app.models.energy import MachineEnergyRecord
 from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
-from app.models.production import MobileShiftReport, ShiftProductionData
+from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.reconciliation import MappingReconciliationRun
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -27,6 +27,8 @@ RECONCILIATION_TABLES = [
     ShiftConfig.__table__,
     Equipment.__table__,
     ShiftProductionData.__table__,
+    WorkOrder.__table__,
+    WorkOrderEntry.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
     CostDailyResult.__table__,

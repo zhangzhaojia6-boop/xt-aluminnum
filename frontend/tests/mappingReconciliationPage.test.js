@@ -122,7 +122,15 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'paint_per_ton',
     'ingot_block_count',
     'ingot_input_tons',
-    'ingot_output_tons'
+    'ingot_output_tons',
+    'daily_contract_weight',
+    'month_to_date_contract_weight',
+    'remaining_contract_weight',
+    'remaining_hot_roll_contract_weight',
+    'remaining_contract_delta_weight',
+    'billet_inventory_weight',
+    'daily_input_weight',
+    'month_to_date_input_weight'
   ]) {
     assert.match(page, new RegExp(`reference_field: '${field}'`))
     assert.match(page, new RegExp(`system_field: '${field}'`))
@@ -170,6 +178,14 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /ingot_block: '铸锭块数'/)
   assert.match(page, /ingot_input: '铸锭投料量'/)
   assert.match(page, /ingot_output: '铸锭下机量'/)
+  assert.match(page, /daily_contract: '当日接合同'/)
+  assert.match(page, /month_to_date_contract: '月累计合同'/)
+  assert.match(page, /remaining_contract: '余合同量'/)
+  assert.match(page, /remaining_hot_roll_contract: '余热轧合同'/)
+  assert.match(page, /remaining_contract_delta: '余合同较昨日'/)
+  assert.match(page, /billet_inventory: '坯料总量'/)
+  assert.match(page, /daily_input: '当日投料'/)
+  assert.match(page, /month_to_date_input: '月累计投料'/)
   assert.match(page, /cost: '吨成本'/)
   assert.match(page, /total_cost: '总成本'/)
   assert.match(page, /throughput_cost: '过站吨成本'/)
