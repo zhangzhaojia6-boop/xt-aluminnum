@@ -259,6 +259,12 @@ def dispatch_outbox_message(
         raise AgentCommunicationError('outbox_message_not_found')
     if message.status == 'dead_letter':
         return DispatchOutcome(status='dead_letter', detail=message.last_error or 'dead_letter_no_retry', outbox_message_id=message.id)
+    if (
+        message.status == 'retrying'
+        and message.next_retry_at is not None
+        and _naive_utc(message.next_retry_at) > _naive_utc(_utcnow())
+    ):
+        return DispatchOutcome(status='retrying', detail='retry_not_due', outbox_message_id=message.id)
     channel = db.get(CommunicationChannel, message.channel_id) if message.channel_id else None
     if channel is None or not channel.is_active:
         return _mark_retry_or_dead_letter(db, message, channel, 'channel_not_available')

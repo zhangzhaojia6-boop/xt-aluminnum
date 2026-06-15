@@ -11877,3 +11877,62 @@ python -m compileall backend/app/services/agent_command_service.py
 | 原始大目标 | `99.99999993%` | `99.99999994%` |
 | Agent 通讯中台阶段 | `85.3%` | `85.6%` |
 | 外部通讯权限安全 | `90.6%` | `90.8%` |
+
+## 157. Agent 外发重试已增加“未到重试时间不重复发送”保护
+
+### 157.1 本轮新增能力
+
+`agent_communication_service.dispatch_outbox_message()` 现在会尊重 `agent_outbox_messages.next_retry_at`。如果消息处于 `retrying`，并且还没到下一次重试时间，再次调用投递函数不会调用真实发送器，也不会新增外部发送日志。
+
+小白版理解：以前一条钉钉消息发送失败后，系统会写“5 分钟后再试”。但如果调度器或管理员立刻又触发一次，代码仍可能马上再发。现在这道闸门补上了：没到时间就只告诉你“还没到重试时间”，避免短时间重复打钉钉接口或重复刷群。
+
+### 157.2 当前行为
+
+- `dead_letter` 消息仍然不会再次发送。
+- `retrying + next_retry_at` 在未来时，返回 `status=retrying`、`detail=retry_not_due`。
+- 未到重试时间时，不调用 sender，不增加 `attempts`，不新增 `external_message_logs`。
+- 到了重试时间后，仍按原规则继续发送；连续失败达到 3 次后进入 `dead_letter`。
+- dry-run、成功发送、结构化供应商返回、失败返回体留证等原逻辑保持不变。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 157.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_retrying_message_waits_until_next_retry_time_before_resending -q
+失败原因：第一次发送失败进入 retrying 后，第二次立刻调用仍然直接发送成功，说明 next_retry_at 没有被执行。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_retrying_message_waits_until_next_retry_time_before_resending -q
+1 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py -q
+9 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+51 passed
+
+python -m compileall backend/app/services/agent_communication_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 157.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群发送验证。
+- 本轮只验证 outbox 投递服务的时间闸门，没有验证后台定时调度器是否会自动按 `next_retry_at` 扫描待重试消息。
+
+### 157.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99999994%` | `99.99999995%` |
+| Agent 通讯中台阶段 | `85.6%` | `85.9%` |
+| 外部通讯权限安全 | `90.8%` | `91.1%` |

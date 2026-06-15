@@ -227,6 +227,8 @@ def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -
         assert message.last_error == 'dingtalk_timeout'
         assert message.next_retry_at is not None
 
+        message.next_retry_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
         second = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
         db.refresh(message)
         assert second.status == 'retrying'
@@ -234,6 +236,8 @@ def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -
         assert message.attempts == 2
         assert message.next_retry_at is not None
 
+        message.next_retry_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
         third = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
         db.refresh(message)
         assert third.status == 'dead_letter'
@@ -248,6 +252,59 @@ def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -
 
         logs = service.list_external_logs(db, outbox_message_id=message.id)
         assert [log.status for log in logs] == ['retrying', 'retrying', 'dead_letter']
+    finally:
+        db.close()
+
+
+def test_dispatch_retrying_message_waits_until_next_retry_time_before_resending() -> None:
+    db = _db_session()
+    sender_calls = []
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='factory_dispatch', channel_key='chat-management')
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='【全厂总览】重试时间保护测试',
+            content='这条消息用于验证未到重试时间不会重复发送。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def failing_sender(chat_id: str, payload: dict) -> tuple[bool, str]:
+            sender_calls.append((chat_id, payload))
+            return False, 'dingtalk_timeout'
+
+        first = service.dispatch_outbox_message(db, message.id, sender=failing_sender)
+        db.refresh(message)
+        assert first.status == 'retrying'
+        assert message.attempts == 1
+        assert message.next_retry_at is not None
+
+        second = service.dispatch_outbox_message(
+            db,
+            message.id,
+            sender=lambda *_args, **_kwargs: sender_calls.append(('unexpected', {})) or (True, 'sent'),
+        )
+
+        db.refresh(message)
+        assert second.status == 'retrying'
+        assert second.detail == 'retry_not_due'
+        assert message.status == 'retrying'
+        assert message.attempts == 1
+        assert len(sender_calls) == 1
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert [log.status for log in logs] == ['retrying']
     finally:
         db.close()
 
