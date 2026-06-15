@@ -6917,3 +6917,75 @@ python -m compileall backend/app/routers/dingtalk.py backend/app/services/agent_
 | Agent 通讯阶段 | `88%` | `90%` |
 | 真实钉钉阶段 | `44%` | `50%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 82. Agent outbox 派发日志支持记录真实外部返回
+
+### 82.1 本轮新增能力
+
+`agent_communication_service.dispatch_outbox_message` 现在兼容两种发送器返回：
+
+- 旧格式：`(True, 'dingtalk_sent')`。
+- 新格式：`(True, {'detail': 'dingtalk_sent', 'provider_message_id': '...', 'response_payload': {...}})`。
+
+小白版理解：以前系统只知道“发成功/发失败”这一句话。现在如果钉钉真实返回了消息 ID 或原始响应体，系统能把这些一起记到 `external_message_logs`，以后排查“到底有没有发出去、钉钉返回了什么”更容易。
+
+### 82.2 当前口径
+
+| 字段 | 口径 |
+|---|---|
+| 派发表 | `agent_outbox_messages` |
+| 外部返回日志 | `external_message_logs` |
+| 文本结果 | `external_message_logs.detail` |
+| 外部消息 ID | `external_message_logs.provider_message_id` |
+| 原始响应体 | `external_message_logs.response_payload` |
+| dry-run | 不调用发送器，只写 `dry_run` 日志 |
+| 真实发送 | 通道非 dry-run 时才调用 sender |
+
+### 82.3 当前安全边界
+
+- 本轮不改变 dry-run 行为。
+- 本轮不自动打开真实发送。
+- 本轮不保存 webhook、token、secret。
+- 如果发送器仍返回旧字符串，系统行为保持不变。
+
+### 82.4 测试证据
+
+先写失败测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_records_structured_provider_response_in_external_log -q
+失败原因：系统把 dict 返回塞进 detail 文本字段，SQLite 报 type dict is not supported。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_communication_service.py::test_dispatch_records_structured_provider_response_in_external_log -q
+1 passed
+
+python -m pytest backend/tests/test_agent_communication_service.py backend/tests/test_agent_management_router.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+18 passed
+
+python -m compileall backend/app/services/agent_communication_service.py backend/app/routers/dingtalk.py
+通过
+```
+
+### 82.5 当前边界
+
+还不能宣称真实钉钉外发闭环完成。
+
+原因：
+
+- `dingtalk_service.send_group_message` 目前仍返回旧格式字符串。
+- 还没有用真实测试群验证钉钉官方返回结构。
+- 还没有把真实返回解析成 provider message ID。
+- 还没有做浏览器治理台查看真实 external log 的线上验证。
+
+### 82.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.89%` | `99.91%` |
+| Agent 通讯阶段 | `90%` | `92%` |
+| 真实钉钉阶段 | `50%` | `53%` |
+| 前端治理阶段 | `78%` | `78%` |

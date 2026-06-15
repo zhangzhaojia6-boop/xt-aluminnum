@@ -146,6 +146,50 @@ def test_dispatch_enabled_dingtalk_group_message_calls_sender_once() -> None:
         db.close()
 
 
+def test_dispatch_records_structured_provider_response_in_external_log() -> None:
+    db = _db_session()
+    try:
+        service.register_agent(db, code='factory_dispatch', name='全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-management',
+            name='管理测试群',
+            target_type='management',
+            target_key='management',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(db, agent_code='factory_dispatch', channel_key='chat-management')
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch',
+            channel_key='chat-management',
+            title='【全厂总览】真实返回测试',
+            content='全厂主动汇报测试消息。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def structured_sender(_chat_id: str, _payload: dict) -> tuple[bool, dict]:
+            return True, {
+                'detail': 'dingtalk_sent',
+                'provider_message_id': 'ding-msg-001',
+                'response_payload': {'errcode': 0, 'errmsg': 'ok'},
+            }
+
+        outcome = service.dispatch_outbox_message(db, message.id, sender=structured_sender)
+
+        assert outcome.status == 'sent'
+        assert outcome.detail == 'dingtalk_sent'
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert logs[0].status == 'sent'
+        assert logs[0].detail == 'dingtalk_sent'
+        assert logs[0].provider_message_id == 'ding-msg-001'
+        assert logs[0].response_payload == {'errcode': 0, 'errmsg': 'ok'}
+    finally:
+        db.close()
+
+
 def test_dispatch_failure_retries_twice_then_dead_letters_without_extra_send() -> None:
     db = _db_session()
     sender_calls = []

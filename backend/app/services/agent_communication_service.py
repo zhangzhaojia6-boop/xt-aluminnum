@@ -47,6 +47,13 @@ class RateLimitOutcome:
     hit_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderSendResult:
+    detail: str
+    provider_message_id: str | None = None
+    response_payload: dict | None = None
+
+
 MAX_DISPATCH_ATTEMPTS = 3
 RETRY_DELAY_MINUTES = 5
 DEDUP_WINDOW_MINUTES = 30
@@ -273,21 +280,30 @@ def dispatch_outbox_message(
 
     send = sender or _default_sender(channel)
     try:
-        ok, detail = send(channel.channel_key, _build_dingtalk_markdown_payload(message))
+        ok, raw_detail = send(channel.channel_key, _build_dingtalk_markdown_payload(message))
+        send_result = _normalize_provider_send_result(raw_detail)
     except Exception as exc:  # noqa: BLE001
         ok = False
-        detail = str(exc) or 'send_failed'
+        send_result = ProviderSendResult(detail=str(exc) or 'send_failed')
 
     if ok:
         message.attempts += 1
         message.status = 'sent'
         message.sent_at = _utcnow()
         message.next_retry_at = None
-        _write_external_log(db, message=message, channel=channel, status=message.status, detail=detail)
+        _write_external_log(
+            db,
+            message=message,
+            channel=channel,
+            status=message.status,
+            detail=send_result.detail,
+            provider_message_id=send_result.provider_message_id,
+            response_payload=send_result.response_payload,
+        )
         db.commit()
         db.refresh(message)
-        return DispatchOutcome(status=message.status, detail=detail, outbox_message_id=message.id)
-    return _mark_retry_or_dead_letter(db, message, channel, detail)
+        return DispatchOutcome(status=message.status, detail=send_result.detail, outbox_message_id=message.id)
+    return _mark_retry_or_dead_letter(db, message, channel, send_result.detail)
 
 
 def run_dry_run_smoke_test(db: Session) -> DryRunSmokeOutcome:
@@ -430,6 +446,35 @@ def _default_sender(channel: CommunicationChannel):
     raise AgentCommunicationError(f'unsupported_channel_type:{channel.channel_type}')
 
 
+def _normalize_provider_send_result(value) -> ProviderSendResult:
+    if isinstance(value, dict):
+        detail = _clean(
+            value.get('detail')
+            or value.get('message')
+            or value.get('errmsg')
+            or value.get('status')
+            or 'provider_response'
+        )
+        provider_message_id = _clean(
+            value.get('provider_message_id') or value.get('message_id') or value.get('msg_id')
+        ) or None
+        response_payload = value.get('response_payload')
+        if response_payload is None:
+            response_payload = {
+                str(key): item
+                for key, item in value.items()
+                if key not in {'detail', 'provider_message_id', 'message_id', 'msg_id'}
+            }
+        if response_payload is not None and not isinstance(response_payload, dict):
+            response_payload = {'value': response_payload}
+        return ProviderSendResult(
+            detail=detail or 'provider_response',
+            provider_message_id=provider_message_id,
+            response_payload=response_payload,
+        )
+    return ProviderSendResult(detail=_clean(str(value or '')) or 'send_failed')
+
+
 def _mark_retry_or_dead_letter(
     db: Session,
     message: AgentOutboxMessage,
@@ -457,6 +502,8 @@ def _write_external_log(
     channel: CommunicationChannel | None,
     status: str,
     detail: str,
+    provider_message_id: str | None = None,
+    response_payload: dict | None = None,
 ) -> ExternalMessageLog:
     log = ExternalMessageLog(
         outbox_message_id=message.id,
@@ -464,6 +511,8 @@ def _write_external_log(
         channel_key=channel.channel_key if channel is not None else None,
         status=status,
         detail=detail,
+        provider_message_id=provider_message_id,
+        response_payload=response_payload,
     )
     db.add(log)
     return log
