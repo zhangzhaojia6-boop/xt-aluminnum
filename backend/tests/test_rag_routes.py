@@ -94,6 +94,44 @@ def test_rag_upload_accepts_gbk_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_delete_soft_disables_document_and_excludes_it_from_query() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            files={'file': ('停机规则.txt', BytesIO(('停机规则 维修闭环。' * 80).encode('utf-8')), 'text/plain')},
+        )
+        assert response.status_code == 200
+        document_id = response.json()['id']
+
+        delete_response = client.delete(f'/api/v1/rag/documents/{document_id}')
+        assert delete_response.status_code == 200
+        assert delete_response.json() == {'deleted': True, 'id': document_id}
+
+        stored_document = db.get(RagDocument, document_id)
+        assert stored_document is not None
+        assert stored_document.status == 'deleted'
+        assert db.query(RagChunk).filter(RagChunk.document_id == document_id).count() > 0
+
+        list_response = client.get('/api/v1/rag/documents')
+        assert list_response.status_code == 200
+        assert list_response.json()['total'] == 0
+
+        detail_response = client.get(f'/api/v1/rag/documents/{document_id}')
+        assert detail_response.status_code == 404
+
+        query_response = client.post('/api/v1/rag/query', json={'query': '停机规则 维修闭环', 'limit': 3})
+        assert query_response.status_code == 200
+        query_payload = query_response.json()
+        assert query_payload['items'] == []
+        assert query_payload['citations'] == []
+        assert query_payload['answer'].startswith('数据不足')
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_upload_rejects_executable_and_secret_like_files() -> None:
     db, previous_overrides = _install_overrides()
 

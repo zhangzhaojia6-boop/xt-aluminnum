@@ -76,11 +76,16 @@ def create_document_from_bytes(
 
 
 def list_documents(db: Session) -> list[RagDocument]:
-    return db.query(RagDocument).order_by(RagDocument.created_at.desc(), RagDocument.id.desc()).all()
+    return (
+        db.query(RagDocument)
+        .filter(RagDocument.status == 'active')
+        .order_by(RagDocument.created_at.desc(), RagDocument.id.desc())
+        .all()
+    )
 
 
 def get_document_detail(db: Session, document_id: int) -> dict[str, Any] | None:
-    document = db.query(RagDocument).filter(RagDocument.id == document_id).first()
+    document = db.query(RagDocument).filter(RagDocument.id == document_id, RagDocument.status == 'active').first()
     if not document:
         return None
     chunks = (
@@ -93,11 +98,10 @@ def get_document_detail(db: Session, document_id: int) -> dict[str, Any] | None:
 
 
 def delete_document(db: Session, document_id: int) -> bool:
-    document = db.query(RagDocument).filter(RagDocument.id == document_id).first()
+    document = db.query(RagDocument).filter(RagDocument.id == document_id, RagDocument.status == 'active').first()
     if not document:
         return False
-    db.query(RagChunk).filter(RagChunk.document_id == document.id).delete(synchronize_session=False)
-    db.delete(document)
+    document.status = 'deleted'
     db.flush()
     return True
 
@@ -112,7 +116,13 @@ def query_knowledge(db: Session, *, query: str, limit: int, user: User | None = 
 
     tokens = _query_tokens(clean_query)
     query_filter = or_(*(RagChunk.content.ilike(f'%{token}%') for token in tokens))
-    chunks = db.query(RagChunk, RagDocument).join(RagDocument, RagDocument.id == RagChunk.document_id).filter(query_filter).all()
+    chunks = (
+        db.query(RagChunk, RagDocument)
+        .join(RagDocument, RagDocument.id == RagChunk.document_id)
+        .filter(RagDocument.status == 'active')
+        .filter(query_filter)
+        .all()
+    )
     ranked = sorted(
         ((chunk, document, _score_chunk(clean_query, tokens, chunk.content)) for chunk, document in chunks),
         key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index),

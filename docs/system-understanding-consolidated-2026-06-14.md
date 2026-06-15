@@ -8331,3 +8331,81 @@ node --test tests/mappingReconciliationPage.test.js
 | D:\输出skill 对齐阶段 | `94.3%` | `94.8%` |
 | 后端数据链路阶段 | `90.9%` | `91.2%` |
 | 前端落地阶段 | `88.7%` | `88.8%` |
+
+## 104. RAG 文档删除已改为软删除并退出检索
+
+### 104.1 本轮新增能力
+
+RAG 知识库的文档删除现在不再物理删除 `rag_documents` 和 `rag_chunks`。
+
+删除动作会把文档状态改为：
+
+- `deleted`
+
+同时保留：
+
+- 文档记录
+- 切片记录
+- 查询日志和后续审计线索
+
+小白版理解：以前点“删除”像把纸质资料直接扔掉，后面很难追溯它曾经入过库。现在点“删除”更像把资料从书架撤下，普通查询看不到它，但库房里还留有记录，方便后续审计。
+
+### 104.2 当前检索规则
+
+以下入口只返回 `active` 文档：
+
+- `GET /api/v1/rag/documents`
+- `GET /api/v1/rag/documents/{id}`
+- `POST /api/v1/rag/query`
+
+也就是说，被删除的文档：
+
+- 不在文档清单里显示。
+- 详情接口返回 404。
+- RAG 查询不会再命中它的切片。
+- 数据库里仍保留原文档和切片，便于追溯。
+
+### 104.3 当前边界
+
+本轮没有新增表，也没有改 migration。
+
+没有改：
+
+- 上传文件类型。
+- 文件编码识别。
+- 敏感字段拦截。
+- 前端页面结构。
+- Agent 通讯中台。
+- 钉钉外发链路。
+
+这是对 RAG 资料生命周期的最小生产化修复。
+
+### 104.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+失败原因：删除后 RagDocument 被物理删除，数据库中查不到原文档。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py -q
+5 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py -q
+13 passed
+
+node --test tests/ragKnowledgePage.test.js
+4 passed
+```
+
+### 104.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9992%` | `99.9993%` |
+| RAG 阶段 | `86%` | `87%` |
+| 后端数据链路阶段 | `91.2%` | `91.4%` |
