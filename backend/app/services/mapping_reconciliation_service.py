@@ -47,6 +47,7 @@ SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大�
 DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
 NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
 NUMERIC_REFERENCE_FIELDS = {
+    'input_tons',
     'output_tons',
     'energy_kwh',
     'scrap_tons',
@@ -250,6 +251,7 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
             'workshop': workshop,
             'shift': shift,
         }
+        input_tons = _metric_tons(line, ('投入量', '投入重量', '投料量', '投料', '上机重量', '上机量', 'input_tons'))
         output_tons = _metric_tons(line, ('产量', '下机量', '包装产量', '入库量'))
         energy_kwh = _metric_number(line, ('能耗', '电量', '用电', '总电气', '总用电'))
         scrap_tons = _metric_tons(line, ('废料', '废品', '废料量'))
@@ -259,6 +261,8 @@ def _parse_text_rows(path: Path) -> list[dict[str, Any]]:
         gas_m3 = _metric_number(line, ('燃气', '用气', '气量', '天然气', 'gas_m3'))
         rolling_oil_per_ton = _metric_number(line, ('轧制油吨耗', '轧制油单吨消耗', '轧制油每吨', 'rolling_oil_per_ton'))
         cost_per_ton = _metric_number(line, ('综合吨成本', '单吨成本', '吨成本', '成本/吨', 'cost_per_ton'))
+        if input_tons is not None:
+            row['input_tons'] = input_tons
         if output_tons is not None:
             row['output_tons'] = output_tons
         if energy_kwh is not None:
@@ -305,6 +309,14 @@ def _excel_field(header: str) -> str | None:
         return 'contract_no'
     if header in {'客户', '客户名', '客户名称'}:
         return 'customer'
+    if (
+        '投入' in header
+        or '投料' in header
+        or '上机' in header
+        or '来料' in header
+        or 'input_tons' in header
+    ):
+        return 'input_tons'
     if '能耗' in header or '电量' in header or 'kwh' in header:
         return 'energy_kwh'
     if '燃气' in header or '用气' in header or '气量' in header or '天然气' in header or 'gas_m3' in header:

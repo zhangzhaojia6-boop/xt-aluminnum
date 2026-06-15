@@ -184,6 +184,15 @@ const dimensionOptions = [
 
 const defaultMappingFields = [
   {
+    metric: 'input',
+    reference_field: 'input_tons',
+    system_field: 'input_tons',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 15
+  },
+  {
     metric: 'output',
     reference_field: 'output_tons',
     system_field: 'output_tons',
@@ -321,6 +330,7 @@ function fieldLabel(value) {
 
 function metricLabel(value) {
   const labels = {
+    input: '投入量',
     output: '产量',
     scrap: '废料',
     downtime: '停机',

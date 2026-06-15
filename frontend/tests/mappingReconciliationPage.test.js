@@ -59,6 +59,15 @@ test('mapping reconciliation page compares scrap by default and renders metrics 
   assert.doesNotMatch(page, /<td>\{\{ item\.metric \}\}<\/td>/)
 })
 
+test('mapping reconciliation page compares input tons by default', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /metric: 'input'/)
+  assert.match(page, /reference_field: 'input_tons'/)
+  assert.match(page, /system_field: 'input_tons'/)
+  assert.match(page, /input: '投入量'/)
+})
+
 test('mapping reconciliation page compares downtime and quality by default', () => {
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 

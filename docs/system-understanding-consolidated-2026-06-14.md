@@ -9855,3 +9855,73 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.99997%` | `99.999972%` |
 | 输出skill 对齐阶段 | `92.0%` | `92.2%` |
 | 前后端映射阶段 | `88.9%` | `89.0%` |
+
+## 126. 输出skill 对齐已补投入量字段解析与页面默认试算
+
+### 126.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在能把输出skill 参考文件里的投入类字段解析成 `input_tons`，`/manage/mapping-reconciliation` 页面默认试算字段也会把 `input_tons` 纳入对比。
+
+小白版理解：以前系统侧已经有“投入量 / 上机重量 / 投料量”这类数据，但输出skill 参考文件即使写了“投料 13 吨”或“投入量(吨)”，页面默认试算也不会把它作为一个正式指标对比。现在参考侧和系统侧都能按 `input_tons` 对上，管理端能同时看到投入量和产量，有助于判断投料、下机、废料、成材率之间是否合理。
+
+### 126.2 当前行为
+
+投入量字段解析当前覆盖：
+
+- 文本行：`投入量`、`投入重量`、`投料量`、`投料`、`上机重量`、`上机量`、`input_tons`。
+- 结构化表头：含 `投入`、`投料`、`上机`、`来料`、`input_tons` 的字段会归到 `input_tons`。
+- JSON、NDJSON、Excel 复用同一套表头映射。
+- 页面默认试算新增“投入量”指标，参考字段和系统字段均为 `input_tons`，单位按吨比较。
+
+### 126.3 当前边界
+
+本轮没有读取或提交输出skill 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 数据库结构和 migration。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的投入量字段覆盖补强。
+
+### 126.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+失败原因：文本行中的 投料 13 吨 未进入 input_tons。
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+失败原因：JSON 表头 投入量(吨) 未进入 input_tons。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面默认试算字段仍缺少 input_tons。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_text_file_extracts_business_metrics -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+11 passed
+```
+
+### 126.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999972%` | `99.999974%` |
+| 输出skill 对齐阶段 | `92.2%` | `92.5%` |
+| 前后端映射阶段 | `89.0%` | `89.3%` |

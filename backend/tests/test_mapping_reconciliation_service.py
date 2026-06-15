@@ -215,7 +215,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
     report = tmp_path / '2026-06-13-daily.txt'
     report.write_text(
         '2026年6月13日 生产日报\n'
-        '精整 长白班 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
+        '精整 长白班 投料 13 吨 产量 12.5 吨 能耗 1800 度 燃气 32 m3 废料 0.2 吨 停机 30 分钟 质量异常 2 项 成材率 96.15% 轧制油吨耗 1.25 单吨成本 867 元/吨\n'
         '拉矫 小夜班 下机量 8000 kg 能耗 950 kWh\n',
         encoding='utf-8',
     )
@@ -229,6 +229,7 @@ def test_parse_output_skill_text_file_extracts_business_metrics(tmp_path) -> Non
             'business_date': '2026-06-13',
             'workshop': '精整',
             'shift': '长白班',
+            'input_tons': 13.0,
             'output_tons': 12.5,
             'energy_kwh': 1800.0,
             'gas_m3': 32.0,
@@ -405,6 +406,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
                         '随行卡号': '26C00001',
                         '合同号': 'HT-003',
                         '客户名': '客户C',
+                        '投入量(吨)': 7.6,
                         '产量(吨)': 7.2,
                         '能耗(kWh)': 980,
                         '用气(m3)': 18.5,
@@ -436,6 +438,7 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
             'coil_no': '26C00001',
             'contract_no': 'HT-003',
             'customer': '客户C',
+            'input_tons': 7.6,
             'output_tons': 7.2,
             'energy_kwh': 980.0,
             'gas_m3': 18.5,
