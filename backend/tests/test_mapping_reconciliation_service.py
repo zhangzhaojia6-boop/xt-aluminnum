@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import Base
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
+from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData
@@ -36,6 +37,7 @@ RECONCILIATION_TABLES = [
     ShiftProductionData.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
+    CostDailyResult.__table__,
     DailyConsumableLog.__table__,
     MesWorkshopProcessRecord.__table__,
     MesStockRecord.__table__,
@@ -536,6 +538,57 @@ def test_build_system_mapping_rows_flattens_stock_energy_and_consumables() -> No
         'rolling_oil_per_ton': 1.25,
         'consumable_payload': {'rolling_oil_per_ton': 1.25},
         'source_table': 'daily_consumable_logs',
+    } in rows
+
+
+def test_build_system_mapping_rows_flattens_cost_daily_results() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add(Workshop(id=1, code='JZ', name='精整车间', workshop_type='finishing'))
+        db.add_all(
+            [
+                CostDailyResult(
+                    business_date=date(2026, 6, 13),
+                    workshop_code='JZ',
+                    strategy_code='finishing_parallel_process',
+                    total_cost=12800.5,
+                    output_ton_cost=331.16,
+                    throughput_ton_cost=280.25,
+                    caliber='output',
+                    breakdown_count=4,
+                    process_count=2,
+                ),
+                CostDailyResult(
+                    business_date=date(2026, 6, 14),
+                    workshop_code='JZ',
+                    strategy_code='finishing_parallel_process',
+                    total_cost=99999,
+                    output_ton_cost=999,
+                    throughput_ton_cost=999,
+                    caliber='output',
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 13))
+
+    assert {
+        'business_date': '2026-06-13',
+        'workshop': '精整车间',
+        'shift': '',
+        'process': '成本策略',
+        'machine': '',
+        'strategy_code': 'finishing_parallel_process',
+        'cost_caliber': 'output',
+        'total_cost': 12800.5,
+        'cost_per_ton': 331.16,
+        'throughput_cost_per_ton': 280.25,
+        'breakdown_count': 4,
+        'process_count': 2,
+        'source_table': 'cost_daily_result',
     } in rows
 
 

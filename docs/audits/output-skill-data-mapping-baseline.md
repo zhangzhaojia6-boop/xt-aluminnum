@@ -93,7 +93,7 @@
 | 废料 | `work_order_entries.scrap_weight` 或算法差值 | kg/吨统一成吨 | 需要按车间规则确定自动计算公式 |
 | 能耗 | `machine_energy_records.energy_kwh` | kWh | 当前行数 27，后续需接能耗数采库后再扩展 |
 | 辅材 | `daily_consumable_logs.payload` | 依字段 | 当前生产库只有 1 条，需要和内勤口径分开 |
-| 吨成本 | 参考源 `cost_per_ton` 已可读取；系统侧待接 `plant_cost.cost_per_ton` 或成本快照表 | 元/吨 | 目前只做参考源解析，不把估算成本硬接成财务正式成本 |
+| 吨成本 | 参考源 `cost_per_ton`；系统侧 `cost_daily_result.output_ton_cost` | 元/吨 | 当前接的是经营估算成本策略日结果，不等同财务正式成本 |
 | 质量异常 | `data_quality_issues` | 条数/状态 | 可用于异常页和 Agent 判断 |
 | 对账差异 | `data_reconciliation_items` | 差值 | 当前 0 条，本轮新增服务先 dry-run，不直接写入 |
 
@@ -163,6 +163,6 @@ python -m pytest backend/tests/test_imports_daily_production_mapping_preview_rou
 
 1. 用真实 `D:\输出skill` 文件跑一个业务日只读匹配率，不提交原始数据。
 2. 让 `/manage/mapping-reconciliation` 从静态样例改为选择文件和业务日后调用真实 dry-run。
-3. 继续扩展系统侧拉平：补质量、停机、系统侧成本、合同等字段。
+3. 继续扩展系统侧拉平：补质量、停机、合同等字段，并继续区分经营估算成本和财务正式成本。
 4. 增加运行记录持久化表后再做 `/runs/{id}` 和差异明细分页。
 5. 做真实日期的只读匹配率统计，不能为提高匹配率改生产原始数据。

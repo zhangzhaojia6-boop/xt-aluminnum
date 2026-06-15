@@ -8005,3 +8005,67 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.996%` | `99.997%` |
 | D:\输出skill 对齐阶段 | `91%` | `92%` |
 | 后端数据链路阶段 | `90.2%` | `90.4%` |
+
+## 99. 输出skill 对齐已接入系统侧成本策略日结果
+
+### 99.1 本轮新增能力
+
+`mapping_reconciliation_service.build_system_mapping_rows()` 现在会只读拉平 `cost_daily_result`。
+
+新增系统行包含：
+
+- `total_cost`：当日策略总成本
+- `cost_per_ton`：按产出口径的吨成本，即 `output_ton_cost`
+- `throughput_cost_per_ton`：按过料口径的吨成本
+- `strategy_code`：成本策略编码
+- `cost_caliber`：成本口径
+- `source_table = cost_daily_result`
+
+小白版理解：上一轮只是能从输出skill 文件里读出“吨成本”；这一轮开始，系统自己已有的成本策略日结果也能被对齐台拿出来做比较。
+
+### 99.2 当前边界
+
+这个字段仍然不是财务正式结账成本。
+
+当前对齐的是：
+
+- 经营估算成本策略日结果
+
+还没有对齐：
+
+- 财务最终确认成本
+- 发票/实际采购成本
+- 成本月度锁定结果
+- 机列成本快照按产量反算出的吨成本
+
+所以前端或报告里展示时必须带来源标签，不能直接写成“最终成本”。
+
+### 99.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+失败原因：同业务日 cost_daily_result 没有被 build_system_mapping_rows 拉平。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py -q
+11 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+15 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 99.4 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.997%` | `99.998%` |
+| D:\输出skill 对齐阶段 | `92%` | `93%` |
+| 后端数据链路阶段 | `90.4%` | `90.7%` |

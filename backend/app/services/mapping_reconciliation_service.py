@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
+from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData
@@ -28,6 +29,7 @@ SYSTEM_SOURCES = [
     'shift_production_data',
     'work_order_entries',
     'daily_consumable_logs',
+    'cost_daily_result',
     'machine_energy_records',
     'data_quality_issues',
     'data_reconciliation_items',
@@ -770,6 +772,32 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 **consumable_metrics,
                 'consumable_payload': consumable_metrics,
                 'source_table': 'daily_consumable_logs',
+            }
+        )
+
+    cost_rows = (
+        db.query(CostDailyResult, Workshop)
+        .outerjoin(Workshop, CostDailyResult.workshop_code == Workshop.code)
+        .filter(CostDailyResult.business_date == business_date)
+        .order_by(CostDailyResult.id.asc())
+        .all()
+    )
+    for cost, workshop in cost_rows:
+        rows.append(
+            {
+                'business_date': cost.business_date.isoformat(),
+                'workshop': workshop.name if workshop else cost.workshop_code,
+                'shift': '',
+                'process': '成本策略',
+                'machine': '',
+                'strategy_code': cost.strategy_code,
+                'cost_caliber': cost.caliber,
+                'total_cost': _to_float(cost.total_cost),
+                'cost_per_ton': _to_float(cost.output_ton_cost),
+                'throughput_cost_per_ton': _to_float(cost.throughput_ton_cost),
+                'breakdown_count': cost.breakdown_count,
+                'process_count': cost.process_count,
+                'source_table': 'cost_daily_result',
             }
         )
     return rows

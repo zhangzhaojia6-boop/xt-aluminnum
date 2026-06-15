@@ -12,6 +12,7 @@ from app.database import Base
 from app.main import app
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
+from app.models.executive import CostDailyResult
 from app.models.master import Equipment, Team, Workshop
 from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData
@@ -27,6 +28,7 @@ RECONCILIATION_TABLES = [
     ShiftProductionData.__table__,
     MobileShiftReport.__table__,
     MachineEnergyRecord.__table__,
+    CostDailyResult.__table__,
     DailyConsumableLog.__table__,
     MesWorkshopProcessRecord.__table__,
     MesStockRecord.__table__,
