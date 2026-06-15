@@ -613,6 +613,70 @@ def test_agent_command_uses_consumable_targets_for_over_quota_summary(monkeypatc
         _restore_overrides(previous_overrides, db)
 
 
+def test_agent_command_consumable_facts_stay_within_user_workshop(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+    db.add_all([
+        Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+        Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        DailyConsumableLog(
+            workshop_id=10,
+            workshop_type='hot_roll',
+            business_date=date(2026, 6, 9),
+            payload={
+                'hydraulic_oil_daily': 24,
+                'hydraulic_oil_target': 10,
+            },
+        ),
+        DailyConsumableLog(
+            workshop_id=20,
+            workshop_type='cold_roll',
+            business_date=date(2026, 6, 9),
+            payload={
+                'hydraulic_oil_daily': 5,
+                'hydraulic_oil_target': 10,
+            },
+        ),
+    ])
+    db.commit()
+
+    monkeypatch.setattr(
+        'app.services.agent_command_service.resolve_production_business_date',
+        lambda: date(2026, 6, 9),
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'internal',
+                'sender_external_id': 'cold-director',
+                'text': '辅材是否超耗',
+                'agent_code': 'consumable_agent',
+                'trace_id': 'trace-agent-consumable-scope-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['intent'] == 'consumable_usage'
+        assert payload['status_color'] == 'green'
+        assert payload['facts']['status'] == 'connected'
+        assert payload['facts']['log_count'] == 1
+        assert payload['facts']['over_quota_count'] == 0
+        assert payload['facts']['top_over_quota'] == []
+        assert '热轧' not in payload['answer']
+
+        run = db.query(AgentRun).one()
+        assert run.result_payload['facts']['log_count'] == 1
+        assert run.result_payload['facts']['over_quota_count'] == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_agent_command_uses_shift_downtime_fact_for_machine_stop(monkeypatch) -> None:
     db, previous_overrides = _install_overrides()
     db.add_all([

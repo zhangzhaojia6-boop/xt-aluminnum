@@ -11593,3 +11593,60 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999997%` | `99.9999998%` |
 | Agent 通讯中台阶段 | `83.4%` | `83.8%` |
 | 外部通讯权限安全 | `88.7%` | `89.1%` |
+
+## 152. Agent 辅材事实查询已按用户车间范围过滤
+
+### 152.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在处理“辅材是否超耗”“耗材消耗”等辅材类问题时，现在会按当前用户的数据范围过滤 `daily_consumable_logs` 辅材事实。
+
+小白版理解：辅材数据也是现场账本。以前冷轧2050车间主任问“辅材是否超耗”，如果热轧当天液压油超耗，系统也可能把热轧的超耗说出来。现在单车间用户只会看到自己车间的辅材定额和超耗判断。
+
+### 152.2 当前行为
+
+- 管理员或全厂范围用户仍可查询全厂辅材超耗汇总。
+- 单车间用户只能查询自己 `workshop_id` 对应车间的辅材日志。
+- 如果其他车间超耗但本车间未超耗，Agent 返回本车间“未发现超过报警阈值的辅材”，不会泄露其他车间名称和超耗数量。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 152.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_consumable_facts_stay_within_user_workshop -q
+失败原因：冷轧2050车间主任询问“辅材是否超耗”时，接口把热轧液压油超耗算入状态，返回 orange。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_consumable_facts_stay_within_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+42 passed
+
+python -m compileall backend/app/services/agent_command_service.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 152.4 尚未覆盖
+
+- 本轮没有做真实浏览器页面验证。
+- 本轮没有做真实钉钉群验证。
+- Agent 的质量、能耗等事实查询还需要继续逐项检查是否按当前用户范围过滤。
+
+### 152.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999998%` | `99.9999999%` |
+| Agent 通讯中台阶段 | `83.8%` | `84.2%` |
+| 外部通讯权限安全 | `89.1%` | `89.5%` |

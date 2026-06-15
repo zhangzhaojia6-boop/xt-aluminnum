@@ -228,7 +228,7 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
     if intent == 'energy_cost':
         return _extract_energy_cost_facts(db, business_date=business_date)
     if intent == 'consumable_usage':
-        return _extract_consumable_facts(db, business_date=business_date)
+        return _extract_consumable_facts(db, business_date=business_date, current_user=current_user)
     if intent == 'machine_stop':
         return _extract_machine_stop_facts(
             db,
@@ -457,14 +457,16 @@ CONSUMABLE_TARGET_GROUPS: tuple[tuple[str, str, str], ...] = (
 )
 
 
-def _extract_consumable_facts(db: Session, *, business_date) -> dict[str, Any]:
-    rows = (
+def _extract_consumable_facts(db: Session, *, business_date, current_user: User) -> dict[str, Any]:
+    scoped_workshop_id = _scoped_workshop_id_for_facts(current_user)
+    query = (
         db.query(DailyConsumableLog, Workshop)
         .join(Workshop, Workshop.id == DailyConsumableLog.workshop_id)
         .filter(DailyConsumableLog.business_date == business_date)
-        .order_by(Workshop.sort_order.asc(), Workshop.id.asc())
-        .all()
     )
+    if scoped_workshop_id is not None:
+        query = query.filter(DailyConsumableLog.workshop_id == scoped_workshop_id)
+    rows = query.order_by(Workshop.sort_order.asc(), Workshop.id.asc()).all()
     over_quota: list[dict[str, Any]] = []
     checked_count = 0
     unchecked_value_count = 0
