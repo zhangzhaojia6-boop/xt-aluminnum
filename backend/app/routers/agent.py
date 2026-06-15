@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.redaction import redact_secret_text
 from app.core.scope import build_scope_summary
 from app.models.system import User
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
@@ -55,7 +56,7 @@ def agent_command(
         db.commit()
     except AgentCommandError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=redact_secret_text(str(exc))) from exc
     except Exception:
         db.rollback()
         raise

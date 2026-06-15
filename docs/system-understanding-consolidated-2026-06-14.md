@@ -8962,3 +8962,69 @@ python -m compileall backend/app/routers/agent_management.py
 | 原始大目标 | `99.9998%` | `99.99982%` |
 | 钉钉外发审计阶段 | `86.3%` | `86.5%` |
 | 安全审计阶段 | `88.1%` | `88.3%` |
+
+## 113. Agent command 异常响应已补 detail 脱敏
+
+### 113.1 本轮新增能力
+
+`POST /api/v1/agent/command` 在服务层抛出 `AgentCommandError` 时，HTTP 400 的 `detail` 文本现在会经过 `redact_secret_text()` 脱敏。
+
+小白版理解：群消息入口如果遇到业务异常，接口返回给页面或外部适配器看的错误文字不会再直接带出 `password=...`、`token=...` 这类原值。
+
+### 113.2 当前行为
+
+Agent 通讯入口现在保持两个原则：
+
+- 正常回答仍走“查结构化事实 + 查 RAG + 固定中文模板 + 审计记录”的主链路。
+- 异常返回只做展示层脱敏，不改变 `chat_inbox`、`agent_runs`、`agent_outbox` 的业务状态机。
+
+这次补齐的是 `/api/v1/agent/command` 的错误响应面，和前几轮治理台 outbox/logs 脱敏形成同一套边界。
+
+### 113.3 当前边界
+
+本轮没有真实外发钉钉消息。
+
+没有改：
+
+- Agent 意图识别。
+- RAG 检索。
+- 业务事实查询。
+- outbox 入队和分发。
+- 通道配置。
+- 数据库结构。
+- 前端页面结构。
+
+这是 Agent command 入口的安全展示补强。
+
+### 113.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+失败原因：POST /api/v1/agent/command 抛出 AgentCommandError 时，400 detail 原样返回 password=detail-pass token=detail-token。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+13 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py backend/tests/test_secret_redaction.py -q
+40 passed
+
+cd frontend && node --test tests/externalLogDisplay.test.js tests/agentManagementPage.test.js tests/channelManagementPage.test.js
+15 passed
+
+python -m compileall backend/app/routers/agent.py
+通过
+```
+
+### 113.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99982%` | `99.99984%` |
+| Agent 通讯中台阶段 | `89.2%` | `89.4%` |
+| 安全审计阶段 | `88.3%` | `88.5%` |

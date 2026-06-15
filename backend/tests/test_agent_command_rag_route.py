@@ -25,7 +25,9 @@ from app.models.quality import DataQualityIssue, QualityIssueLog
 from app.models.rag import RagChunk, RagDocument, RagQueryLog
 from app.models.shift import ShiftConfig
 from app.models.system import User
+from app.routers import agent as agent_router
 from app.services import agent_communication_service
+from app.services.agent_command_service import AgentCommandError
 from app.services.rag_service import create_document_from_bytes
 
 
@@ -150,6 +152,36 @@ def test_agent_command_requires_management_scope() -> None:
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'Agent command access denied'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_redacts_agent_error_detail(monkeypatch) -> None:
+    db, previous_overrides = _install_overrides()
+
+    def fake_handle_agent_command(*_args, **_kwargs):
+        raise AgentCommandError('agent failed password=detail-pass token=detail-token')
+
+    monkeypatch.setattr(agent_router, 'handle_agent_command', fake_handle_agent_command)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-test',
+                'sender_external_id': 'ding-user-001',
+                'text': '今日产量',
+                'agent_code': 'factory_dispatch',
+            },
+        )
+
+        assert response.status_code == 400
+        detail = response.json()['detail']
+        assert 'detail-pass' not in detail
+        assert 'detail-token' not in detail
+        assert detail == 'agent failed password=<redacted> token=<redacted>'
     finally:
         _restore_overrides(previous_overrides, db)
 
