@@ -7138,3 +7138,75 @@ python -m compileall backend/app/routers/agent_management.py backend/app/service
 | Agent 通讯阶段 | `93%` | `94%` |
 | 真实钉钉阶段 | `57%` | `58%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 85. 管理端页面已展示外部平台回执摘要
+
+### 85.1 本轮新增能力
+
+前端新增 `frontend/src/utils/externalLogDisplay.js`，统一把外部通讯日志整理成一行中文摘要。
+
+当前接入页面：
+
+- `/manage/admin/agents`：智能体通讯治理台。
+- `/manage/channels`：通讯通道中心。
+
+小白版理解：上一轮后端已经能把钉钉等平台返回的结果传出来，这一轮让管理端页面真正显示这些结果。以后排查“到底有没有发出去”时，不只看“已发送”，还能看到消息 ID、回执码、回执文本。
+
+### 85.2 显示规则
+
+| 来源字段 | 页面显示 |
+|---|---|
+| `detail` | 直接显示发送结果 |
+| `provider_message_id` | 显示为 `消息ID：xxx` |
+| `response_payload.errcode/code/status_code` | 显示为 `回执码：xxx` |
+| `response_payload.errmsg/message/msg` | 显示为 `回执：xxx` |
+| `response_payload.result.messageId` 等嵌套 ID | 自动识别为消息 ID |
+| 没有任何回执 | 显示 `无返回信息` |
+
+### 85.3 当前链路
+
+```text
+external_message_logs.response_payload
+-> /api/v1/agent-management/outbox/{id}/logs
+-> fetchAgentOutboxLogs
+-> formatExternalLogResult
+-> /manage/admin/agents 和 /manage/channels 页面
+```
+
+### 85.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+失败原因：页面没有使用 formatExternalLogResult，工具函数不存在。
+```
+
+实现后已执行：
+
+```text
+node --test tests/agentManagementPage.test.js tests/channelManagementPage.test.js tests/externalLogDisplay.test.js
+14 passed
+
+npm run build
+通过
+```
+
+### 85.5 当前边界
+
+还不能宣称真实钉钉群验收已完成。
+
+原因：
+
+- 本轮只验证前端映射和构建。
+- 没有登录生产页面查看真实 outbox。
+- 没有触发真实钉钉测试群外发。
+
+### 85.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.94%` | `99.95%` |
+| Agent 通讯阶段 | `94%` | `94%` |
+| 真实钉钉阶段 | `58%` | `59%` |
+| 前端治理阶段 | `78%` | `79%` |

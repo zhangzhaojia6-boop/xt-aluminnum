@@ -152,7 +152,7 @@
               <tr v-for="item in logEntries" :key="item.id">
                 <td>{{ externalLogStateLabel(item.status) }}</td>
                 <td>{{ item.channel_key_masked || '未记录' }}</td>
-                <td>{{ item.detail || item.provider_message_id || '无返回信息' }}</td>
+                <td>{{ formatExternalLogResult(item) }}</td>
                 <td>{{ formatTime(item.created_at) }}</td>
               </tr>
             </tbody>
@@ -171,6 +171,7 @@ import {
   fetchCommunicationChannels,
   runCommunicationDryRunSmoke
 } from '../../../api/agent-management.js'
+import { formatExternalLogResult } from '../../../utils/externalLogDisplay.js'
 
 const loading = ref(false)
 const errorText = ref('')

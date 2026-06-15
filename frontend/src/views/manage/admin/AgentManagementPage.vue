@@ -172,7 +172,7 @@
           <article v-for="item in logEntries" v-else :key="item.id">
             <b>{{ externalLogStateLabel(item.status) }}</b>
             <small>{{ item.channel_type || '未知通道' }} / {{ item.channel_key_masked || '未记录' }}</small>
-            <small>{{ item.detail || item.provider_message_id || '无返回信息' }}</small>
+            <small>{{ formatExternalLogResult(item) }}</small>
             <time>{{ formatTime(item.created_at) }}</time>
           </article>
         </div>
@@ -206,6 +206,7 @@ import {
   fetchAgentManagementOverview,
   fetchAgentOutboxLogs
 } from '../../../api/agent-management.js'
+import { formatExternalLogResult } from '../../../utils/externalLogDisplay.js'
 
 const EMPTY_OVERVIEW = {
   safe_mode: true,

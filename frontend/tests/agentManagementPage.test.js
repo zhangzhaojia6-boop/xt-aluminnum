@@ -6,6 +6,7 @@ const routerSrc = readFileSync(new URL('../src/router/index.js', import.meta.url
 const navSrc = readFileSync(new URL('../src/config/manage-navigation.js', import.meta.url), 'utf8')
 const apiSrc = readFileSync(new URL('../src/api/agent-management.js', import.meta.url), 'utf8')
 const pageSrc = readFileSync(new URL('../src/views/manage/admin/AgentManagementPage.vue', import.meta.url), 'utf8')
+const externalLogDisplaySrc = readFileSync(new URL('../src/utils/externalLogDisplay.js', import.meta.url), 'utf8')
 
 test('AgentManagementPage is reachable from an admin-only manage route', () => {
   assert.match(routerSrc, /const AgentManagementPage = \(\) => import\('\.\.\/views\/manage\/admin\/AgentManagementPage\.vue'\)/)
@@ -57,6 +58,8 @@ test('AgentManagementPage includes loading, empty and error states', () => {
 test('AgentManagementPage can dispatch outbox messages and inspect external logs', () => {
   assert.match(pageSrc, /dispatchAgentOutboxMessage/)
   assert.match(pageSrc, /fetchAgentOutboxLogs/)
+  assert.match(pageSrc, /formatExternalLogResult/)
+  assert.match(externalLogDisplaySrc, /response_payload/)
   assert.match(pageSrc, /handleDispatchOutbox/)
   assert.match(pageSrc, /loadOutboxLogs/)
   assert.match(pageSrc, /执行分发/)

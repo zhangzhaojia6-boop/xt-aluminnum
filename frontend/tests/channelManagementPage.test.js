@@ -53,12 +53,15 @@ test('communication channels page explains safe routing without fake channel dat
 test('communication channels page exposes outbox log inspection without sending messages', () => {
   const api = source('../src/api/agent-management.js')
   const page = source('../src/views/manage/channels/CommunicationChannelsPage.vue')
+  const externalLogDisplay = source('../src/utils/externalLogDisplay.js')
 
   assert.match(api, /fetchAgentOutboxLogs/)
   assert.match(api, /\/agent-management\/outbox\/\$\{outboxMessageId\}\/logs/)
   assert.match(api, /runCommunicationDryRunSmoke/)
   assert.match(api, /\/agent-management\/outbox\/dry-run-smoke/)
   assert.match(page, /runCommunicationDryRunSmoke/)
+  assert.match(page, /formatExternalLogResult/)
+  assert.match(externalLogDisplay, /response_payload/)
   for (const text of ['最近外发任务', '外发日志', '查看日志', '投递状态', '返回结果']) {
     assert.match(page, new RegExp(text))
   }
