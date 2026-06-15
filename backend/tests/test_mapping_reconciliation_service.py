@@ -448,6 +448,74 @@ def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> Non
     ]
 
 
+def test_parse_output_skill_ndjson_file_normalizes_each_record(tmp_path) -> None:
+    report = tmp_path / 'mapping.ndjson'
+    report.write_text(
+        '\n'.join(
+            [
+                json.dumps(
+                    {
+                        '日期': '2026-06-13',
+                        '车间': '精整',
+                        '班次': '长白班',
+                        '设备名称': 'JZ-01',
+                        '当前工艺': '包装',
+                        '随行卡号': '26D00001',
+                        '产量(吨)': 10.25,
+                        '能耗(kWh)': 1350,
+                    },
+                    ensure_ascii=False,
+                ),
+                json.dumps(
+                    {
+                        '日期': '2026-06-13',
+                        '车间': '拉矫',
+                        '班次': '小夜班',
+                        '设备名称': 'LJ-02',
+                        '当前工艺': '拉矫',
+                        '随行卡号': '26D00002',
+                        '产量(吨)': 8.5,
+                        '成材率': 0.96,
+                    },
+                    ensure_ascii=False,
+                ),
+            ]
+        ),
+        encoding='utf-8',
+    )
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['source_type'] == 'output_skill_json_lines'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-13',
+            'workshop': '精整',
+            'shift': '长白班',
+            'machine': 'JZ-01',
+            'process': '包装',
+            'coil_no': '26D00001',
+            'output_tons': 10.25,
+            'energy_kwh': 1350.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_json_lines',
+        },
+        {
+            'business_date': '2026-06-13',
+            'workshop': '拉矫',
+            'shift': '小夜班',
+            'machine': 'LJ-02',
+            'process': '拉矫',
+            'coil_no': '26D00002',
+            'output_tons': 8.5,
+            'yield_rate': 96.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_json_lines',
+        },
+    ]
+
+
 def test_build_system_mapping_rows_flattens_mes_process_records() -> None:
     engine = create_engine('sqlite:///:memory:')
     Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)

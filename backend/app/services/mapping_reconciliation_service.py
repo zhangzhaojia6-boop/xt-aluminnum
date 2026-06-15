@@ -42,6 +42,7 @@ SYSTEM_SOURCES = [
 TEXT_EXTENSIONS = {'.txt', '.md', '.log'}
 EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
 JSON_EXTENSIONS = {'.json'}
+JSON_LINES_EXTENSIONS = {'.ndjson'}
 SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大夜')
 DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
 NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
@@ -427,11 +428,10 @@ def _json_reference_records(payload: Any) -> list[Mapping[str, Any]]:
     return []
 
 
-def _parse_json_rows(path: Path) -> list[dict[str, Any]]:
-    payload = json.loads(_read_reference_text(path))
+def _json_record_rows(records: Iterable[Mapping[str, Any]], *, path: Path, source_type: str) -> list[dict[str, Any]]:
     default_date = _to_date_text(path.name)
     parsed_rows: list[dict[str, Any]] = []
-    for item in _json_reference_records(payload):
+    for item in records:
         row: dict[str, Any] = {}
         for header, value in item.items():
             field = _excel_field(_normalize_header(header))
@@ -449,9 +449,26 @@ def _parse_json_rows(path: Path) -> list[dict[str, Any]]:
             row['business_date'] = default_date
         if row.get('business_date') and row.get('workshop') and row.get('shift'):
             row['source_file'] = str(path)
-            row['source_type'] = 'output_skill_json'
+            row['source_type'] = source_type
             parsed_rows.append(row)
     return parsed_rows
+
+
+def _parse_json_rows(path: Path) -> list[dict[str, Any]]:
+    payload = json.loads(_read_reference_text(path))
+    return _json_record_rows(_json_reference_records(payload), path=path, source_type='output_skill_json')
+
+
+def _parse_json_lines_rows(path: Path) -> list[dict[str, Any]]:
+    records: list[Mapping[str, Any]] = []
+    for line in _read_reference_text(path).splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        payload = json.loads(text)
+        if isinstance(payload, Mapping):
+            records.append(payload)
+    return _json_record_rows(records, path=path, source_type='output_skill_json_lines')
 
 
 def parse_output_skill_reference_file(file_path: str | Path) -> dict[str, Any]:
@@ -466,6 +483,9 @@ def parse_output_skill_reference_file(file_path: str | Path) -> dict[str, Any]:
     elif suffix in JSON_EXTENSIONS:
         rows = _parse_json_rows(path)
         source_type = 'output_skill_json'
+    elif suffix in JSON_LINES_EXTENSIONS:
+        rows = _parse_json_lines_rows(path)
+        source_type = 'output_skill_json_lines'
     else:
         return {
             'status': 'unsupported',

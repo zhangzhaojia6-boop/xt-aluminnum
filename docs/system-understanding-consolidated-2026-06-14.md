@@ -9713,3 +9713,76 @@ python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/te
 | 原始大目标 | `99.99996%` | `99.999965%` |
 | 输出skill 对齐阶段 | `91.7%` | `91.8%` |
 | 前后端映射阶段 | `88.6%` | `88.8%` |
+
+## 124. 输出skill 对齐已支持 NDJSON 逐行 JSON 参考文件
+
+### 124.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在支持解析 `.ndjson` 参考文件，`/manage/mapping-reconciliation` 页面也会把 `.ndjson` 文件纳入可运行列表。
+
+小白版理解：`.ndjson` 就是“一行一条 JSON 记录”。如果输出skill 里某个文件每一行都是一条“日期、车间、班次、产量、能耗”等记录，系统现在能逐行读取，再统一成对齐试算需要的字段。
+
+### 124.2 当前行为
+
+NDJSON 参考文件解析当前规则为：
+
+- 每一行必须是一个 JSON 对象。
+- 空行会跳过。
+- 字段表头复用 JSON/Excel 的统一映射规则。
+- 支持日期、车间、班次、机台、工序、随行卡号、合同号、客户、产量、能耗、废料、停机、质量异常、成材率、轧制油吨耗、吨成本等已接入口径。
+- 页面可运行参考文件类型现在包括 `.txt`、`.md`、`.log`、`.xlsx`、`.xls`、`.json`、`.ndjson`。
+
+这次只补 `.ndjson` 参考文件解析和页面选择入口，不改变匹配公式、不改变数据库结构、不改变生产数据。
+
+### 124.3 当前边界
+
+本轮只读查看了 `D:\输出skill` 的文件后缀分布，没有读取或提交 `.ndjson` 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- `/api/v1/mapping-reconciliation/*` 接口协议。
+- 生产日报、实时大屏和填报端。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的参考文件格式覆盖增强。
+
+### 124.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_ndjson_file_normalizes_each_record -q
+失败原因：mapping.ndjson 返回 unsupported。
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+失败原因：页面可运行文件扩展名列表仍缺少 .ndjson。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_ndjson_file_normalizes_each_record -q
+1 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+10 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+20 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+### 124.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.999965%` | `99.99997%` |
+| 输出skill 对齐阶段 | `91.8%` | `92.0%` |
+| 前后端映射阶段 | `88.8%` | `88.9%` |

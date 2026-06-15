@@ -111,5 +111,11 @@ test('mapping reconciliation page surfaces persisted run id from backend', () =>
 test('mapping reconciliation page allows json reference files after backend parser support', () => {
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 
-  assert.match(page, /\['\.txt', '\.md', '\.log', '\.xlsx', '\.xls', '\.json'\]/)
+  assert.match(page, /'\.json'/)
+})
+
+test('mapping reconciliation page allows ndjson reference files after backend parser support', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /\['\.txt', '\.md', '\.log', '\.xlsx', '\.xls', '\.json', '\.ndjson'\]/)
 })
