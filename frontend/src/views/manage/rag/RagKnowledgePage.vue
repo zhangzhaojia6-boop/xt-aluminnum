@@ -542,6 +542,7 @@ onMounted(loadDocuments)
   border: 1px solid rgba(184, 134, 11, 0.24);
   background: rgba(0, 0, 0, 0.16);
   padding: var(--xt-space-4);
+  white-space: pre-wrap;
 }
 
 .xt-rag__sources {

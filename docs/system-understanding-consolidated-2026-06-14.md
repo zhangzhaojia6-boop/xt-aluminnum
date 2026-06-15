@@ -7269,3 +7269,56 @@ python -m compileall backend/app/services/rag_service.py backend/app/routers/rag
 | RAG 阶段 | `88%` | `90%` |
 | Agent 通讯阶段 | `94%` | `94%` |
 | 前端治理阶段 | `79%` | `79%` |
+
+## 87. RAG 页面保留回答来源换行
+
+### 87.1 本轮新增能力
+
+`/manage/rag` 的回答生成区现在对 `.xt-rag__answer` 使用 `white-space: pre-wrap`。
+
+小白版理解：后端已经把回答写成两段，一段是答案，一段是 `来源：...`。如果前端不保留换行，用户会看到它们挤在一起。现在来源会按后端文本自然换行显示，读起来更清楚。
+
+### 87.2 当前口径
+
+| 区域 | 作用 |
+|---|---|
+| 回答生成区 | 显示 RAG 回答正文，保留换行 |
+| 知识来源 | 显示结构化 citations 列表 |
+| 切片预览 | 显示文档切片和 `source_ref` |
+
+### 87.3 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+node --test tests/ragKnowledgePage.test.js
+失败原因：`.xt-rag__answer` 没有 `white-space: pre-wrap`。
+```
+
+实现后已执行：
+
+```text
+node --test tests/ragKnowledgePage.test.js
+3 passed
+
+npm run build
+通过
+```
+
+### 87.4 当前边界
+
+还不能宣称 RAG 线上验收完成。
+
+原因：
+
+- 本轮只验证前端静态页面和构建。
+- 没有登录云端页面实际上传文本附件。
+- 没有在云端页面查看真实切片、来源和查询结果。
+
+### 87.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.96%` | `99.965%` |
+| RAG 阶段 | `90%` | `91%` |
+| 前端治理阶段 | `79%` | `79.5%` |

@@ -48,5 +48,6 @@ test('rag knowledge page exposes upload chunks query and source areas without fa
   assert.match(page, /知识来源/)
   assert.match(page, /selectedDocument/)
   assert.match(page, /queryResult/)
+  assert.match(page, /\.xt-rag__answer\s*\{[\s\S]*white-space:\s*pre-wrap/)
   assert.doesNotMatch(page, /假数据|示例产量|机器人头像|霓虹/)
 })
