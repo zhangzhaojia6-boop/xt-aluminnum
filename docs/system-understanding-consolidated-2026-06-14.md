@@ -11238,3 +11238,61 @@ git diff 敏感配置扫描
 | 原始大目标 | `99.9999991%` | `99.9999992%` |
 | 真实钉钉接入阶段 | `72.4%` | `72.7%` |
 | 外部通讯权限安全 | `86.0%` | `86.6%` |
+
+## 146. 内部 Agent 指令入口已补群通道车间权限拦截
+
+### 146.1 本轮新增能力
+
+`POST /api/v1/agent/command` 现在和钉钉入站入口一样，会在进入 Agent 主流程前检查请求里的 `channel + group_id` 是否绑定了具体车间。
+
+小白版理解：上一轮已经堵住“真实钉钉消息入口”的跨车间问题；但系统内部还有一个统一 Agent 指令入口。如果有人绕过钉钉入站接口，直接用这个入口指定“热轧群 ID”，以前冷轧主任也可能把消息写进热轧群对应的 Agent 流程。现在后端会先查 `communication_channels`，发现该群绑定热轧后，再核对当前用户是否有热轧或全厂权限；不符合就直接拒绝。
+
+### 146.2 当前行为
+
+- 管理员或全厂范围用户仍可跨车间处理。
+- 绑定单一车间的车间主任、管理/审查角色只能调用自己车间绑定的群通道。
+- 没有绑定车间的历史通道暂不拦截，避免误伤旧入口和 dry-run 通道。
+- 拦截发生在 `handle_agent_command` 之前，不会写 `chat_inbox`、`agent_runs`、`agent_outbox`。
+- 没有新增数据库字段，没有 migration，没有触碰真实生产数据。
+
+### 146.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_rejects_outbox_channel_outside_user_workshop -q
+失败原因：冷轧主任直接调用 /api/v1/agent/command 指定热轧群时，接口返回 200。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_command_rag_route.py::test_agent_command_rejects_outbox_channel_outside_user_workshop -q
+1 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py backend/tests/test_dingtalk_agent_inbound_route.py backend/tests/test_rag_routes.py backend/tests/test_master_write_permissions.py -q
+35 passed
+
+python -m compileall backend/app/routers/agent.py
+通过
+
+git diff --check
+通过
+
+git diff 敏感配置扫描
+未发现真实配置进入本轮差异
+```
+
+### 146.4 尚未覆盖
+
+- 本轮没有调用真实钉钉群。
+- 本轮没有做浏览器页面验证。
+- 这一步只补后端权限边界；后续还需要继续打磨 `/manage/channels` 和 `/manage/admin/agents`，让管理员一眼看懂“哪个群绑定哪个车间、谁能问、谁能发”。
+
+### 146.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.9999992%` | `99.9999993%` |
+| 真实钉钉接入阶段 | `72.7%` | `72.9%` |
+| 外部通讯权限安全 | `86.6%` | `87.1%` |

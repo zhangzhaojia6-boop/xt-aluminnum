@@ -52,7 +52,7 @@ AGENT_COMMAND_TABLES = [
 ]
 
 
-def _install_overrides(*, role: str = 'admin'):
+def _install_overrides(*, role: str = 'admin', user_kwargs: dict | None = None):
     engine = create_engine(
         'sqlite:///:memory:',
         connect_args={'check_same_thread': False},
@@ -65,7 +65,15 @@ def _install_overrides(*, role: str = 'admin'):
         yield db
 
     def fake_get_user() -> User:
-        return User(id=1, username=role, password_hash='x', name='User', role=role, is_active=True)
+        return User(
+            id=1,
+            username=role,
+            password_hash='x',
+            name='User',
+            role=role,
+            is_active=True,
+            **(user_kwargs or {}),
+        )
 
     previous_overrides = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = fake_get_db
@@ -206,6 +214,59 @@ def test_agent_command_requires_management_scope() -> None:
 
         assert response.status_code == 403
         assert response.json()['detail'] == 'Agent command access denied'
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
+def test_agent_command_rejects_outbox_channel_outside_user_workshop() -> None:
+    db, previous_overrides = _install_overrides(
+        role='workshop_director',
+        user_kwargs={'workshop_id': 20, 'is_manager': True, 'is_reviewer': True},
+    )
+
+    try:
+        db.add_all([
+            Workshop(id=10, code='RZ', name='热轧', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=20, code='LZ2050', name='冷轧2050', workshop_type='cold_roll', sort_order=2, is_active=True),
+        ])
+        db.commit()
+        agent_communication_service.register_agent(db, code='maintenance_agent', name='修停机 Agent')
+        agent_communication_service.register_channel(
+            db,
+            channel_type='dingtalk_group',
+            channel_key='chat-hot-roll',
+            name='热轧状态群',
+            target_type='workshop',
+            target_key='热轧',
+            workshop_id=10,
+            dry_run=True,
+        )
+        agent_communication_service.bind_agent_to_channel(
+            db,
+            agent_code='maintenance_agent',
+            channel_key='chat-hot-roll',
+            channel_type='dingtalk_group',
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/agent/command',
+            json={
+                'channel': 'dingtalk_group',
+                'group_id': 'chat-hot-roll',
+                'sender_external_id': 'internal-cold-director',
+                'text': '点检标准怎么做',
+                'agent_code': 'maintenance_agent',
+                'trace_id': 'trace-agent-command-denied-001',
+                'queue_outbox': True,
+            },
+        )
+
+        assert response.status_code == 403
+        assert response.json()['detail'] == 'Agent command channel scope denied'
+        assert db.query(ChatInboxMessage).count() == 0
+        assert db.query(AgentRun).count() == 0
+        assert db.query(AgentOutboxMessage).count() == 0
     finally:
         _restore_overrides(previous_overrides, db)
 

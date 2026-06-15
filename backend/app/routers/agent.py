@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.core.redaction import redact_secret_text
 from app.core.scope import build_scope_summary
+from app.models.agent_communication import CommunicationChannel
 from app.models.system import User
 from app.services.agent_command_service import AgentCommandError, handle_agent_command
 
@@ -35,6 +36,34 @@ def _ensure_agent_command_access(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Agent command access denied')
 
 
+def _ensure_agent_command_channel_scope_access(user: User, db: Session, payload: AgentCommandRequest) -> None:
+    group_id = str(payload.group_id or '').strip()
+    if not group_id:
+        return
+
+    channel = (
+        db.query(CommunicationChannel)
+        .filter(
+            CommunicationChannel.channel_type == (str(payload.channel or '').strip() or 'internal'),
+            CommunicationChannel.channel_key == group_id,
+            CommunicationChannel.is_active.is_(True),
+        )
+        .first()
+    )
+    if channel is None or channel.workshop_id is None:
+        return
+
+    scope = build_scope_summary(user)
+    if scope.is_admin or scope.data_scope_type == 'all':
+        return
+    if scope.workshop_id is not None and int(scope.workshop_id) == int(channel.workshop_id):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail='Agent command channel scope denied',
+    )
+
+
 @router.post('/command')
 def agent_command(
     payload: AgentCommandRequest,
@@ -42,6 +71,7 @@ def agent_command(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     _ensure_agent_command_access(current_user)
+    _ensure_agent_command_channel_scope_access(current_user, db, payload)
     try:
         result = handle_agent_command(
             db,
