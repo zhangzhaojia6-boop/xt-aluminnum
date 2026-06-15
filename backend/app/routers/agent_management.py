@@ -110,6 +110,7 @@ def outbox_message_logs(
                 'status': item.status,
                 'detail': item.detail,
                 'provider_message_id': item.provider_message_id,
+                'response_payload': _sanitize_external_payload(item.response_payload),
                 'created_at': item.created_at.isoformat() if item.created_at else None,
             }
             for item in items
@@ -124,3 +125,18 @@ def _mask_key(value: str | None) -> str:
     if len(raw) <= 6:
         return f'{raw[:1]}***'
     return f'{raw[:4]}***{raw[-2:]}'
+
+
+def _sanitize_external_payload(value):
+    sensitive_markers = ('token', 'secret', 'webhook', 'authorization', 'password')
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            if any(marker in str(key).lower() for marker in sensitive_markers):
+                result[key] = '***'
+            else:
+                result[key] = _sanitize_external_payload(item)
+        return result
+    if isinstance(value, list):
+        return [_sanitize_external_payload(item) for item in value]
+    return value

@@ -7068,3 +7068,73 @@ python -m compileall backend/app/services/dingtalk_service.py backend/app/servic
 | Agent 通讯阶段 | `92%` | `93%` |
 | 真实钉钉阶段 | `53%` | `57%` |
 | 前端治理阶段 | `78%` | `78%` |
+
+## 84. 管理端外部通讯日志可查看结构化平台回执
+
+### 84.1 本轮新增能力
+
+`/api/v1/agent-management/outbox/{outbox_message_id}/logs` 现在除了返回外部消息 ID，也会返回外部平台的结构化回执：
+
+- `provider_message_id`：钉钉等外部平台返回的消息 ID。
+- `response_payload`：外部平台返回的结构化结果。
+
+小白版理解：以前系统后台已经把钉钉这类外部平台的返回结果写进数据库，但管理端接口只露出了一半。现在页面和排障人员可以查到“平台到底回了什么”，更容易判断是真发成功、平台拒绝，还是接口返回异常。
+
+### 84.2 安全边界
+
+返回 `response_payload` 前会遮盖敏感字段。字段名里包含以下内容时，接口只返回 `***`：
+
+- `token`
+- `secret`
+- `webhook`
+- `authorization`
+- `password`
+
+这保证管理端排障能看到必要回执，但不会把令牌、密钥、Webhook 地址这类敏感信息透出去。
+
+### 84.3 当前链路
+
+```text
+外部通道发送
+-> external_message_logs.detail/provider_message_id/response_payload
+-> /api/v1/agent-management/outbox/{id}/logs
+-> 管理端外部通讯治理台
+```
+
+### 84.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py::test_agent_management_logs_include_provider_response_payload -q
+失败原因：接口返回里没有 response_payload。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_agent_management_router.py backend/tests/test_agent_communication_service.py -q
+17 passed
+
+python -m compileall backend/app/routers/agent_management.py backend/app/services/agent_communication_service.py
+通过
+```
+
+### 84.5 当前边界
+
+还不能宣称真实钉钉群验收已完成。
+
+原因：
+
+- 本轮只补齐管理端日志接口和单元测试。
+- 没有触发真实钉钉外发。
+- 没有登录生产页面做浏览器验收。
+
+### 84.6 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.93%` | `99.94%` |
+| Agent 通讯阶段 | `93%` | `94%` |
+| 真实钉钉阶段 | `57%` | `58%` |
+| 前端治理阶段 | `78%` | `78%` |
