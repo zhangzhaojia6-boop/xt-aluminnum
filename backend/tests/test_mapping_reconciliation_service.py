@@ -389,6 +389,65 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
     ]
 
 
+def test_parse_output_skill_json_file_normalizes_common_columns(tmp_path) -> None:
+    report = tmp_path / 'mapping.json'
+    report.write_text(
+        json.dumps(
+            {
+                'rows': [
+                    {
+                        '日期': '2026-06-13',
+                        '车间': '冷轧1650',
+                        '班次': '小夜班',
+                        '设备名称': '1650-01',
+                        '当前工艺': '冷轧',
+                        '随行卡号': '26C00001',
+                        '合同号': 'HT-003',
+                        '客户名': '客户C',
+                        '产量(吨)': 7.2,
+                        '能耗(kWh)': 980,
+                        '废料(吨)': 0.08,
+                        '停机分钟': 90,
+                        '质量异常数': 2,
+                        '成品率': 0.935,
+                        '轧制油吨耗': 1.05,
+                        '吨成本': 386.2,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding='utf-8',
+    )
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['source_type'] == 'output_skill_json'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-13',
+            'workshop': '冷轧1650',
+            'shift': '小夜班',
+            'machine': '1650-01',
+            'process': '冷轧',
+            'coil_no': '26C00001',
+            'contract_no': 'HT-003',
+            'customer': '客户C',
+            'output_tons': 7.2,
+            'energy_kwh': 980.0,
+            'scrap_tons': 0.08,
+            'downtime_minutes': 90.0,
+            'quality_issue_count': 2.0,
+            'yield_rate': 93.5,
+            'rolling_oil_per_ton': 1.05,
+            'cost_per_ton': 386.2,
+            'source_file': str(report),
+            'source_type': 'output_skill_json',
+        }
+    ]
+
+
 def test_build_system_mapping_rows_flattens_mes_process_records() -> None:
     engine = create_engine('sqlite:///:memory:')
     Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)

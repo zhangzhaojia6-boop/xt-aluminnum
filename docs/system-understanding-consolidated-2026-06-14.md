@@ -9584,3 +9584,70 @@ python -m compileall backend/app/services/mapping_reconciliation_service.py
 | 原始大目标 | `99.99994%` | `99.99995%` |
 | 输出skill 对齐阶段 | `91.0%` | `91.3%` |
 | 前后端映射阶段 | `88.4%` | `88.5%` |
+
+## 122. 输出skill 对齐已支持 JSON 参考文件
+
+### 122.1 本轮新增能力
+
+`mapping_reconciliation_service.parse_output_skill_reference_file()` 现在支持解析 `.json` 参考文件。只读扫到 `D:\输出skill` 中存在大量 `.json` 文件，此前这些文件会被返回为 `unsupported`，无法进入字段映射和匹配率计算。
+
+小白版理解：以前系统只能读文本和 Excel。现在如果输出skill 里有类似“日期、车间、班次、产量、能耗、成材率”的 JSON 表格，系统也能把它转成统一字段，再和数据中枢里的系统数据做 dry-run 对比。
+
+### 122.2 当前行为
+
+JSON 参考文件解析当前规则为：
+
+- 支持 JSON 数组。
+- 支持 `{ "rows": [...] }`、`{ "items": [...] }`、`{ "data": [...] }`、`{ "records": [...] }` 包裹结构。
+- 支持单条 JSON 对象。
+- 字段表头复用 Excel 的统一映射规则，例如日期、车间、班次、机台、工序、随行卡号、合同号、客户、产量、能耗、废料、停机、质量异常、成材率、轧制油吨耗、吨成本。
+- 仍然只做只读解析和 dry-run 对比，不修改生产原始数据。
+
+这次只补 `.json` 参考文件解析，不改变匹配公式、不改变数据库结构、不改变前端页面结构。
+
+### 122.3 当前边界
+
+本轮没有读取或提交 JSON 原始业务内容。
+
+没有改：
+
+- 云端数据库数据。
+- 生产原始数据。
+- mapping reconciliation 表结构。
+- 前端 `/manage/mapping-reconciliation` 页面结构。
+- RAG、Agent、钉钉真实发送链路。
+
+这是 `D:\输出skill` 对齐阶段的参考文件格式覆盖增强。
+
+### 122.4 测试证据
+
+先写测试后实现，红灯失败点为：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+失败原因：mapping.json 返回 unsupported。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py::test_parse_output_skill_json_file_normalizes_common_columns -q
+1 passed
+
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+19 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+8 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py
+通过
+```
+
+### 122.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| 原始大目标 | `99.99995%` | `99.99996%` |
+| 输出skill 对齐阶段 | `91.3%` | `91.7%` |
+| 前后端映射阶段 | `88.5%` | `88.6%` |

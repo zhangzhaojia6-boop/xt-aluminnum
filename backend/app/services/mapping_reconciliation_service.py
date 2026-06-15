@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from datetime import date, datetime
@@ -40,6 +41,7 @@ SYSTEM_SOURCES = [
 ]
 TEXT_EXTENSIONS = {'.txt', '.md', '.log'}
 EXCEL_EXTENSIONS = {'.xlsx', '.xls'}
+JSON_EXTENSIONS = {'.json'}
 SHIFT_NAMES = ('长白班', '小夜班', '大夜班', '白班', '小夜', '大夜')
 DATE_RE = re.compile(r'(20\d{2})[年\-/.](\d{1,2})[月\-/.](\d{1,2})日?')
 NUMBER_RE = r'([0-9]+(?:\.[0-9]+)?)'
@@ -413,6 +415,45 @@ def _parse_xls_rows(path: Path) -> list[dict[str, Any]]:
     return parsed_rows
 
 
+def _json_reference_records(payload: Any) -> list[Mapping[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, Mapping)]
+    if isinstance(payload, Mapping):
+        for key in ('rows', 'items', 'data', 'records'):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, Mapping)]
+        return [payload]
+    return []
+
+
+def _parse_json_rows(path: Path) -> list[dict[str, Any]]:
+    payload = json.loads(_read_reference_text(path))
+    default_date = _to_date_text(path.name)
+    parsed_rows: list[dict[str, Any]] = []
+    for item in _json_reference_records(payload):
+        row: dict[str, Any] = {}
+        for header, value in item.items():
+            field = _excel_field(_normalize_header(header))
+            if not field or value in (None, ''):
+                continue
+            if field == 'business_date':
+                row[field] = _to_date_text(value)
+            elif field in NUMERIC_REFERENCE_FIELDS:
+                number = _normalize_reference_number(field, value)
+                if number is not None:
+                    row[field] = number
+            else:
+                row[field] = str(value).strip()
+        if not row.get('business_date') and default_date:
+            row['business_date'] = default_date
+        if row.get('business_date') and row.get('workshop') and row.get('shift'):
+            row['source_file'] = str(path)
+            row['source_type'] = 'output_skill_json'
+            parsed_rows.append(row)
+    return parsed_rows
+
+
 def parse_output_skill_reference_file(file_path: str | Path) -> dict[str, Any]:
     path = Path(file_path)
     suffix = path.suffix.lower()
@@ -422,6 +463,9 @@ def parse_output_skill_reference_file(file_path: str | Path) -> dict[str, Any]:
     elif suffix in EXCEL_EXTENSIONS:
         rows = _parse_excel_rows(path)
         source_type = 'output_skill_excel'
+    elif suffix in JSON_EXTENSIONS:
+        rows = _parse_json_rows(path)
+        source_type = 'output_skill_json'
     else:
         return {
             'status': 'unsupported',
