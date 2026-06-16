@@ -12630,3 +12630,60 @@ git diff --check
 | RAG 查询可信度 | `78.0%` | `79.0%` |
 | RAG 安全边界 | `80.0%` | `80.6%` |
 | Agent 引用知识库稳定性 | `76.0%` | `76.4%` |
+
+## 170. RAG 上传会拒绝疑似含密钥的文件名
+
+### 170.1 本轮修复点
+
+`rag_service._clean_filename()` 现在会检查上传文件名。如果文件名里出现 `password=...`、`token=...`、`secret=...` 这类敏感字段，会在入库前拒绝。
+
+小白版理解：以前系统已经会检查文件正文里有没有密钥，但文件名本身也会显示在知识库列表、详情和回答来源里。如果有人上传一个叫 `password=xxx.txt` 的文件，即使正文没密钥，文件名也会被系统展示出来。现在文件名也会被挡住，避免把敏感信息写进 `rag_documents` 和 `rag_chunks.source_ref`。
+
+### 170.2 当前行为
+
+- 普通 `.txt/.md/.csv/.json/.log` 文件名上传不变。
+- 文件名疑似包含密钥、令牌、密码时，接口返回 400。
+- 拒绝后不会写入 `rag_documents`，也不会写入 `rag_chunks`。
+- 没有新增数据库字段，没有 migration，没有真实上传生产附件。
+
+### 170.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_secret_like_filename -q
+失败原因：`password=plain-text-token.txt` 被 200 接收。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_upload_rejects_secret_like_filename -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+19 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+23 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 170.4 尚未覆盖
+
+- 本轮没有跑浏览器上传页面。
+- 本轮没有检查历史库里是否已经有敏感文件名。
+- 本轮没有做云端真实附件上传验收。
+
+### 170.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| RAG 查询可信度 | `79.0%` | `79.0%` |
+| RAG 安全边界 | `80.6%` | `81.4%` |
+| Agent 引用知识库稳定性 | `76.4%` | `76.4%` |

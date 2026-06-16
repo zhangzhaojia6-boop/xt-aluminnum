@@ -570,6 +570,30 @@ def test_rag_upload_rejects_pem_private_key_text() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_upload_rejects_secret_like_filename() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/rag/documents/upload',
+            files={
+                'file': (
+                    'password=plain-text-token.txt',
+                    BytesIO(('普通点检资料，不含密钥正文。' * 20).encode('utf-8')),
+                    'text/plain',
+                )
+            },
+        )
+
+        assert response.status_code == 400
+        assert '敏感' in response.json()['detail']
+        assert db.query(RagDocument).count() == 0
+        assert db.query(RagChunk).count() == 0
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_query_log_redacts_secret_style_query_text() -> None:
     db, previous_overrides = _install_overrides()
 

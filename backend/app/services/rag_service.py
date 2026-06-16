@@ -264,6 +264,8 @@ def _clean_filename(filename: str) -> str:
     clean_name = Path(str(filename or '')).name.strip()
     if not clean_name:
         raise RagValidationError('文件名不能为空')
+    if SECRET_PATTERN.search(clean_name):
+        raise RagValidationError('文件名疑似包含敏感密钥，已拒绝入库')
     return clean_name
 
 
