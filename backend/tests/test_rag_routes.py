@@ -634,6 +634,45 @@ def test_rag_query_redacts_sensitive_text_from_returned_answer() -> None:
         _restore_overrides(previous_overrides, db)
 
 
+def test_rag_query_treats_like_wildcards_as_literal_text() -> None:
+    db, previous_overrides = _install_overrides()
+
+    try:
+        document = RagDocument(
+            filename='点检资料.md',
+            source_name='点检资料.md',
+            content_type='text/markdown',
+            encoding='utf-8',
+            status='active',
+            file_size=80,
+            chunk_count=1,
+        )
+        db.add(document)
+        db.flush()
+        db.add(
+            RagChunk(
+                document_id=document.id,
+                chunk_index=0,
+                content='冷轧点检标准：每班确认张力和板形。',
+                char_start=0,
+                char_end=80,
+                source_ref='点检资料.md#chunk-1',
+            )
+        )
+        db.commit()
+
+        client = TestClient(app)
+        response = client.post('/api/v1/rag/query', json={'query': '%%', 'limit': 3})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['items'] == []
+        assert payload['citations'] == []
+        assert payload['answer'].startswith('数据不足')
+    finally:
+        _restore_overrides(previous_overrides, db)
+
+
 def test_rag_routes_require_manage_permission() -> None:
     db, previous_overrides = _install_overrides(role='machine_operator')
 

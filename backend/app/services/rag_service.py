@@ -142,7 +142,7 @@ def query_knowledge(
 
     tokens = _query_tokens(clean_query)
     metadata_filters = _clean_payload({'workshop': workshop, 'machine_code': machine_code})
-    query_filter = or_(*(RagChunk.content.ilike(f'%{token}%') for token in tokens))
+    query_filter = or_(*(RagChunk.content.ilike(_like_contains_pattern(token), escape='\\') for token in tokens))
     chunks = (
         db.query(RagChunk, RagDocument)
         .join(RagDocument, RagDocument.id == RagChunk.document_id)
@@ -349,6 +349,11 @@ def _query_tokens(query: str) -> list[str]:
         if _contains_cjk(clean_part) and len(clean_part) > 4:
             tokens.extend(clean_part[index : index + 4] for index in range(0, len(clean_part) - 3))
     return tokens or [query]
+
+
+def _like_contains_pattern(value: str) -> str:
+    escaped = str(value).replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    return f'%{escaped}%'
 
 
 def _contains_cjk(value: str) -> bool:

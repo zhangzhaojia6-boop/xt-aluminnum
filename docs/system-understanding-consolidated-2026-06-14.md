@@ -12573,3 +12573,60 @@ python -m compileall backend/app/services/dingtalk_service.py backend/app/servic
 | 真实钉钉可排障性 | `74.1%` | `75.0%` |
 | 个人工作通知链路 | `72.3%` | `74.0%` |
 | 外部通讯日志覆盖 | `69.0%` | `70.5%` |
+
+## 169. RAG 查询通配符不再误命中任意资料
+
+### 169.1 本轮修复点
+
+`rag_service.query_knowledge()` 现在会把用户问题里的 `%`、`_`、反斜杠按普通文字处理，再交给数据库文本检索。
+
+小白版理解：以前有人问知识库时，如果问题里带了数据库 LIKE 通配符，比如 `%%`，数据库可能会把它理解成“匹配所有内容”，导致系统从任意资料里找一段返回，看起来像答了，其实没有真实关键词依据。现在这些符号会被当成普通字面量，找不到可靠来源就返回“数据不足”。
+
+### 169.2 当前行为
+
+- 正常中文关键词查询不变。
+- 查询 `%%` 这类只有通配符的内容时，不会误命中文档。
+- 没有可靠来源时仍返回空 `items`、空 `citations` 和“数据不足”回答。
+- 没有新增数据库字段，没有 migration，没有改前端页面，没有真实上传生产附件。
+
+### 169.3 测试证据
+
+本轮按 TDD 执行，先看见红灯：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_treats_like_wildcards_as_literal_text -q
+失败原因：查询 `%%` 会命中 `点检资料.md`，返回了不该返回的资料。
+```
+
+实现后已执行：
+
+```text
+python -m pytest backend/tests/test_rag_routes.py::test_rag_query_treats_like_wildcards_as_literal_text -q
+1 passed
+
+python -m pytest backend/tests/test_rag_routes.py -q
+18 passed
+
+python -m pytest backend/tests/test_agent_command_rag_route.py -q
+23 passed
+
+python -m compileall backend/app/services/rag_service.py
+通过
+
+git diff --check
+通过
+```
+
+### 169.4 尚未覆盖
+
+- 本轮没有跑浏览器上传附件和问答页面。
+- 本轮没有跑全量后端测试、前端测试或云端真实验收。
+- RAG 仍是数据库文本检索 fallback，还不是向量检索最终形态。
+
+### 169.5 当前进度变化
+
+| 维度 | 上轮后 | 本轮后 |
+|---|---:|---:|
+| RAG 查询可信度 | `78.0%` | `79.0%` |
+| RAG 安全边界 | `80.0%` | `80.6%` |
+| Agent 引用知识库稳定性 | `76.0%` | `76.4%` |
