@@ -936,9 +936,7 @@ def _is_locked_production_final_report(entity: DailyReport) -> bool:
         return False
     if entity.status in {'reviewed', 'published'}:
         return True
-    if entity.final_confirmed_by is not None or entity.final_confirmed_at is not None:
-        return True
-    return bool(entity.is_final_version and entity.generated_at is not None)
+    return entity.final_confirmed_by is not None or entity.final_confirmed_at is not None
 
 def review_report(
     db: Session,

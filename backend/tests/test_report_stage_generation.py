@@ -141,6 +141,43 @@ def test_final_stage_updates_draft_production_report(monkeypatch):
     assert audits[0]['detail']['stage'] == 'final'
 
 
+def test_final_stage_regenerates_existing_draft(monkeypatch):
+    _calls, audits = _stub_payload(monkeypatch)
+    db = FakeDB()
+
+    first_reports = report_generation.generate_production_stage_report(
+        db,
+        report_date=date(2026, 6, 16),
+        stage='final',
+        scope='auto_confirmed',
+        output_mode='both',
+        operator=_operator(),
+    )
+    entity = first_reports[0]
+
+    def second_payload(db, *, report_date, report_type, scope):
+        return {'report_date': report_date.isoformat(), 'total_output_weight': 98.7}, '第二版生产摘要'
+
+    monkeypatch.setattr(report_generation, '_generate_report_payload', second_payload)
+
+    second_reports = report_generation.generate_production_stage_report(
+        db,
+        report_date=date(2026, 6, 16),
+        stage='final',
+        scope='auto_confirmed',
+        output_mode='both',
+        operator=_operator(),
+    )
+
+    assert second_reports == [entity]
+    assert entity.report_data['total_output_weight'] == 98.7
+    assert entity.report_data['report_stage'] == 'final'
+    assert entity.text_summary == '第二版生产摘要'
+    assert entity.final_text_summary == '第二版生产摘要'
+    assert entity.status == 'draft'
+    assert len(audits) == 2
+
+
 def test_final_stage_returns_locked_production_report_unchanged(monkeypatch):
     calls, audits = _stub_payload(monkeypatch)
     existing = DailyReport(
