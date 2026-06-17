@@ -1000,6 +1000,77 @@ def test_live_aggregation_uses_mes_process_and_material_machine_output(tmp_path,
     assert payload['factory_total']['source_basis'] == 'mes_machine_output'
 
 
+def test_live_aggregation_keeps_park_online_and_unresolved_mes_process_output(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=3, code='ZXTF-P', name='园区在线退火', workshop_type='annealing', sort_order=1, is_active=True),
+            Workshop(id=4, code='JZ', name='精整车间', workshop_type='finishing', sort_order=2, is_active=True),
+            ShiftConfig(id=3, code='D', name='白班', shift_type='day', start_time=time(8, 0), end_time=time(20, 0), is_active=True),
+            Equipment(
+                id=31,
+                code='ZXTF-3',
+                name='园区北',
+                workshop_id=3,
+                equipment_type='annealing_line',
+                sort_order=1,
+                is_active=True,
+            ),
+            Equipment(
+                id=41,
+                code='JZ-ZJ-Z',
+                name='纵剪',
+                workshop_id=4,
+                equipment_type='slitter',
+                sort_order=1,
+                is_active=True,
+            ),
+            MesWorkshopProcessRecord(
+                source_id='park-online-live',
+                source_path='sqlserver',
+                workshop_name='园区在线车间',
+                process_name='在线退火',
+                device_name='园区北线（WIFI）',
+                input_weight_tons=123.52,
+                output_weight_tons=121.8,
+                business_date=date(2026, 6, 17),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='finishing-packaging-pc',
+                source_path='sqlserver',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='PC',
+                input_weight_tons=81.89,
+                output_weight_tons=84.16,
+                business_date=date(2026, 6, 17),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 6, 17),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    park_machine = payload['workshops'][0]['machines'][0]
+    finishing_machines = payload['workshops'][1]['machines']
+    unresolved = next(item for item in finishing_machines if str(item['machine_name']).startswith('MES未匹配机台 / 包装'))
+    assert park_machine['machine_name'] == '园区北'
+    assert park_machine['day_total']['output'] == 121.8
+    assert payload['workshops'][0]['workshop_total']['output'] == 121.8
+    assert unresolved['day_total']['output'] == 84.16
+    assert unresolved['machine_binding_status'] == 'unbound'
+    assert payload['workshops'][1]['workshop_total']['output'] == 84.16
+    assert payload['factory_total']['output'] == 205.96
+
+
 def test_build_live_aggregation_infers_mes_machine_from_route_when_device_missing(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

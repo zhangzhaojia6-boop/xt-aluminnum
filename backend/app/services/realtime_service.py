@@ -1425,6 +1425,23 @@ def _preferred_hot_roll_material_machine(machines: list[Equipment]) -> Equipment
     return None
 
 
+def _unresolved_mes_machine(*, workshop: Workshop, device_name: object | None, process_hint: object | None) -> SimpleNamespace:
+    process_text = str(process_hint or '').strip() or '未标记工序'
+    device_text = str(device_name or '').strip()
+    key_text = f'{process_text}|{device_text}'
+    stable_suffix = sum(ord(char) for char in key_text) % 90000
+    machine_name = f'MES未匹配机台 / {process_text}'
+    if device_text:
+        machine_name = f'{machine_name} / {device_text}'
+    return SimpleNamespace(
+        id=-((int(workshop.id) * 100000) + stable_suffix + 1000),
+        workshop_id=int(workshop.id),
+        name=machine_name,
+        machine_binding_status='unbound',
+        sort_order=900000 + stable_suffix,
+    )
+
+
 def _resolve_mes_output_machine(
     *,
     machines: list[Equipment],
@@ -1459,7 +1476,7 @@ def _append_mes_machine_output(
     result: dict[tuple[int, int], dict[str, Any]],
     *,
     workshop: Workshop,
-    machine: Equipment,
+    machine: Equipment | SimpleNamespace,
     input_weight: float,
     output_weight: float,
     pass_count: int,
@@ -1476,6 +1493,8 @@ def _append_mes_machine_output(
             'scrap': 0.0,
             'pass_count_total': 0,
             'row_count': 0,
+            'machine_name': getattr(machine, 'name', None),
+            'machine_binding_status': getattr(machine, 'machine_binding_status', None) or 'bound',
             'source_basis': source_basis,
             'source_label': source_label,
             'binding_sources': {},
@@ -1562,7 +1581,11 @@ def _load_mes_machine_output_scope(
                 machine = _preferred_hot_roll_material_machine(machines_by_workshop.get(int(matched_workshop.id), []))
                 binding_source = 'hot_roll_material_default' if machine is not None else binding_source
             if machine is None:
-                continue
+                machine = _unresolved_mes_machine(
+                    workshop=matched_workshop,
+                    device_name=row.line_name,
+                    process_hint=process_hint,
+                )
             _append_mes_machine_output(
                 result,
                 workshop=matched_workshop,
@@ -1607,7 +1630,11 @@ def _load_mes_machine_output_scope(
                 event_time=row.end_time,
             )
             if machine is None:
-                continue
+                machine = _unresolved_mes_machine(
+                    workshop=matched_workshop,
+                    device_name=row.device_name,
+                    process_hint=row.process_name,
+                )
             _append_mes_machine_output(
                 result,
                 workshop=matched_workshop,
@@ -1651,9 +1678,12 @@ def _apply_mes_machine_output_authority(
         workshop_pass_count = 0
         source_basis = 'mes_machine_output'
         source_label = '外部 MES 工艺/机台产量'
+        visible_machine_ids: set[int] = set()
 
         for machine_payload in workshop_payload.get('machines') or []:
             machine_id = _optional_int(machine_payload.get('machine_id'))
+            if machine_id is not None:
+                visible_machine_ids.add(machine_id)
             bucket = machine_buckets.get(machine_id) if machine_id is not None else None
             day_total = dict(machine_payload.get('day_total') or {})
             if bucket is None:
@@ -1692,6 +1722,40 @@ def _apply_mes_machine_output_authority(
                 }
             )
             machine_payload['day_total'] = day_total
+
+        for machine_id, bucket in sorted(machine_buckets.items(), key=lambda item: str(item[1].get('machine_name') or item[0])):
+            if machine_id in visible_machine_ids:
+                continue
+            input_total = _to_float(bucket.get('input'))
+            output_total = _to_float(bucket.get('output'))
+            scrap_total = _to_float(bucket.get('scrap'))
+            workshop_input += input_total
+            workshop_output += output_total
+            workshop_scrap += scrap_total
+            workshop_pass_count += int(bucket.get('pass_count_total') or 0)
+            workshop_payload.setdefault('machines', []).append(
+                {
+                    'machine_id': machine_id,
+                    'machine_name': bucket.get('machine_name') or 'MES未匹配机台',
+                    'machine_binding_status': bucket.get('machine_binding_status') or 'unbound',
+                    'mes_binding': {
+                        'status': 'unresolved',
+                        'source_basis': bucket.get('source_basis') or source_basis,
+                    },
+                    'shifts': [],
+                    'day_total': {
+                        'input': round(input_total, 2),
+                        'output': round(output_total, 2),
+                        'scrap': round(scrap_total, 2),
+                        'yield_rate': _round_rate(input_total, output_total),
+                        'yield_rate_source': 'mes_machine_output',
+                        'source_basis': bucket.get('source_basis') or source_basis,
+                        'source_label': bucket.get('source_label') or source_label,
+                        'row_count': int(bucket.get('row_count') or 0),
+                        'binding_sources': dict(bucket.get('binding_sources') or {}),
+                    },
+                }
+            )
 
         workshop_total = dict(workshop_payload.get('workshop_total') or {})
         workshop_total.update(
