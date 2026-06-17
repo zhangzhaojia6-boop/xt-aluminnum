@@ -35,9 +35,9 @@ MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
 MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
 STORAGE_OWNER_ROLE = 'storage_owner'
 MES_OUTPUT_WORKSHOP_MAPPINGS = {
-    '冷轧1650': {'include': ('1650',), 'exclude': ('1850', '2050', '精整', '拉矫', '剪切', '退火')},
-    '冷轧1850': {'include': ('1850',), 'exclude': ('1650', '2050', '精整', '拉矫', '剪切', '退火')},
-    '冷轧2050': {'include': ('2050',), 'exclude': ('1650', '1850', '精整', '拉矫', '剪切', '退火')},
+    '冷轧1650': {'include': ('1650',), 'exclude': ('1850', '2050', '精整', '拉矫', '剪切', '退火'), 'device_include': ('1650',)},
+    '冷轧1850': {'include': ('1850',), 'exclude': ('1650', '2050', '精整', '拉矫', '剪切', '退火'), 'device_include': ('1850',)},
+    '冷轧2050': {'include': ('2050',), 'exclude': ('1650', '1850', '精整', '拉矫', '剪切', '退火'), 'device_include': ('2050',)},
     '新厂在线': {'include': ('新厂在线', '新厂北线', '新厂南线', '北线退火', '南线退火', '北线', '南线'), 'exclude': ('园区',)},
     '园区在线': {'include': ('园区在线', '园区退火'), 'exclude': ('新厂', '北线', '南线')},
     '拉矫': {'include': ('拉矫',), 'exclude': ()},
@@ -141,6 +141,10 @@ def _mes_row_matches_workshop(row: MesWorkshopProcessRecord, workshop: Workshop)
     text = _process_row_text(row)
     mapping = MES_OUTPUT_WORKSHOP_MAPPINGS.get(canonical_name)
     if mapping is not None:
+        device_text = str(getattr(row, 'device_name', '') or '')
+        device_includes = tuple(mapping.get('device_include') or ())
+        if device_includes and any(token in device_text for token in ('1650', '1850', '2050')):
+            return any(token in device_text for token in device_includes)
         includes = tuple(mapping.get('include') or ())
         excludes = tuple(mapping.get('exclude') or ())
         return (not includes or any(token in text for token in includes)) and not any(token in text for token in excludes)

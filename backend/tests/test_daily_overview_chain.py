@@ -611,6 +611,57 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
     assert by_name['园区淬火']['source_basis'] == 'manual_mobile_coil'
 
 
+def test_workshop_output_uses_device_name_for_cold_roll_mes_rows(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-cold-device.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='LZ1650', name='1650车间', workshop_type='cold_roll', is_active=True),
+            Workshop(id=2, code='LZ2050', name='2050车间', workshop_type='cold_roll', is_active=True),
+            MesWorkshopProcessRecord(
+                source_id='raw-1650-device',
+                source_path='sqlserver',
+                workshop_name='2050车间',
+                process_name='冷轧',
+                device_name='1650冷轧（WAN）',
+                output_weight_tons=141.74,
+                business_date=date(2026, 6, 16),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='raw-2050-device',
+                source_path='sqlserver',
+                workshop_name='2050车间',
+                process_name='冷轧',
+                device_name='2050冷轧（WAN）',
+                output_weight_tons=167.9,
+                business_date=date(2026, 6, 16),
+            ),
+        ]
+    )
+    db.commit()
+
+    rows = daily_overview_builder._build_workshop_output(
+        db,
+        date(2026, 6, 16),
+        {1: '1650车间', 2: '2050车间'},
+    )
+    by_name = {row['workshop']: row for row in rows}
+
+    assert by_name['1650车间']['daily_output'] == 141.74
+    assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
+    assert by_name['2050车间']['daily_output'] == 167.9
+    assert by_name['2050车间']['source_basis'] == 'mes_workshop_process_records'
+
+
 def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-mes-yield.db'}", future=True)
     Base.metadata.create_all(

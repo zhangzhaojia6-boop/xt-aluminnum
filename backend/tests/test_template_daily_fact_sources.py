@@ -225,6 +225,41 @@ def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> N
     assert facts.sources["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
 
 
+def test_mes_report_mapping_uses_device_name_for_cold_roll_rows(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.add_all(
+            [
+                MesWorkshopProcessRecord(
+                    source_id="raw-1650-device",
+                    source_path="sqlserver",
+                    workshop_name="2050车间",
+                    process_name="冷轧",
+                    device_name="1650冷轧（WAN）",
+                    output_weight_tons=141.74,
+                    business_date=REPORT_DATE,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id="raw-2050-device",
+                    source_path="sqlserver",
+                    workshop_name="2050车间",
+                    process_name="冷轧",
+                    device_name="2050冷轧（WAN）",
+                    output_weight_tons=167.9,
+                    business_date=REPORT_DATE,
+                ),
+            ]
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["cold_1650_daily"] == 141.74
+    assert facts.values["cold_2050_daily"] == 167.9
+
+
 def test_rolling_total_is_sum_of_report_mapped_1650_1850_2050(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:

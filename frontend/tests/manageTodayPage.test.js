@@ -99,6 +99,13 @@ test('TodayPage binds daily report blocks to the daily overview payload', () => 
   assert.match(src, /wipRows\s*=\s*computed\(\(\)\s*=>\s*stitchSurface\.value\.wipDistribution/)
 })
 
+test('TodayPage shows total wip tons next to the position count', () => {
+  const src = source('../src/views/manage/today/TodayPage.vue')
+  assert.match(src, /\{\{\s*wipRows\.length\s*\}\}\s*个位置\s*·\s*\{\{\s*wipTotalText\s*\}\}/)
+  assert.match(src, /const wipTotalText\s*=\s*computed/)
+  assert.match(src, /row\.totalWeight/)
+})
+
 test('TodayPage keeps factory command data basis in the Stitch wall', () => {
   const src = source('../src/views/manage/today/TodayPage.vue')
   assert.match(src, /dailyOverview\s*=\s*computed\(\(\)\s*=>\s*snapshot\.data\.value\.daily_overview/)

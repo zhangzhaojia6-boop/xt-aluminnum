@@ -68,7 +68,7 @@ test('active workshop filter removes retired workshops and keeps canonical rows'
   assert.equal(isActiveWorkshopName('冷轧2050'), true)
 })
 
-test('daily report rows use the canonical thirteen-workshop surface', () => {
+test('daily report output rows use canonical workshops while wip keeps source positions', () => {
   const workshopRows = buildDailyWorkshopRows([
     { workshop: '铸锭车间', daily_output: 10 },
     { workshop: '园区在线退火', daily_output: 12 },
@@ -76,13 +76,14 @@ test('daily report rows use the canonical thirteen-workshop surface', () => {
     { workshop: '陌生车间', daily_output: 1 },
   ])
   const wipRows = buildDailyWipRows([
-    { workshop: '1650冷轧车间', total_weight: 6, coil_count: 2 },
+    { workshop: '新厂北线', total_weight: 122, coil_count: 0 },
+    { workshop: '1650/2050冷轧', total_weight: 63.5, coil_count: 0 },
     { workshop: '二分厂精整车间', total_weight: 88, coil_count: 8 },
-    { workshop: '旧车间', total_weight: 1, coil_count: 1 },
+    { workshop: '旧车间', total_weight: 1, coil_count: 1, is_active: false },
   ])
 
   assert.deepEqual(workshopRows.map((row) => row.workshop), ['园区在线', '铸锭'])
-  assert.deepEqual(wipRows.map((row) => row.title), ['冷轧1650'])
+  assert.deepEqual(wipRows.map((row) => row.title), ['新厂北线', '1650/2050冷轧'])
 })
 
 test('live dashboard matrix and process flow use canonical workshop names', () => {

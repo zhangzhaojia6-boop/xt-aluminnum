@@ -40,9 +40,9 @@ MANUAL_OUTPUT_WORKSHOPS = {
 }
 
 MES_REPORT_PROCESS_MAPPING = {
-    "cold_1650_daily": {"include": ("1650",), "exclude": ("1850", "2050", "精整", "拉矫", "剪切", "退火")},
-    "cold_1850_daily": {"include": ("1850",), "exclude": ("1650", "2050", "精整", "拉矫", "剪切", "退火")},
-    "cold_2050_daily": {"include": ("2050",), "exclude": ("1650", "1850", "精整", "拉矫", "剪切", "退火")},
+    "cold_1650_daily": {"include": ("1650",), "exclude": ("1850", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1650",)},
+    "cold_1850_daily": {"include": ("1850",), "exclude": ("1650", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1850",)},
+    "cold_2050_daily": {"include": ("2050",), "exclude": ("1650", "1850", "精整", "拉矫", "剪切", "退火"), "device_include": ("2050",)},
     "online_anneal_daily": {"include": ("在线退火", "退火"), "exclude": ()},
     "straightening_daily": {"include": ("拉矫",), "exclude": ()},
     "finishing_daily": {"include": ("精整",), "exclude": ()},
@@ -302,15 +302,21 @@ def _mapped_mes_output(
     claimed_source_ids = claimed_source_ids if claimed_source_ids is not None else set()
     includes = tuple(mapping.get("include") or ())
     excludes = tuple(mapping.get("exclude") or ())
+    device_includes = tuple(mapping.get("device_include") or ())
     for row in rows:
         source_key = row.source_id or str(row.id)
         if source_key in claimed_source_ids:
             continue
         text = _row_text(row)
-        if includes and not any(token in text for token in includes):
-            continue
-        if excludes and any(token in text for token in excludes):
-            continue
+        device_text = str(getattr(row, "device_name", "") or "")
+        if device_includes and any(token in device_text for token in ("1650", "1850", "2050")):
+            if not any(token in device_text for token in device_includes):
+                continue
+        else:
+            if includes and not any(token in text for token in includes):
+                continue
+            if excludes and any(token in text for token in excludes):
+                continue
         total += _output_weight_tons(row)
         pass_total += _pass_count(row)
         count += 1

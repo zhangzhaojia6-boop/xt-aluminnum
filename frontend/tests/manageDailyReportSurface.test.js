@@ -152,7 +152,7 @@ test('daily workshop rows filter cancelled workshops and keep throughput wording
   assert.equal(rows[0].dailyOutputText, '12 吨')
 })
 
-test('daily wip rows show daily snapshot reference and feeding tons', () => {
+test('daily wip rows keep source positions and show daily snapshot reference', () => {
   const rows = buildDailyWipRows([
     {
       workshop: '园区在线',
@@ -161,14 +161,18 @@ test('daily wip rows show daily snapshot reference and feeding tons', () => {
       coil_count: 3,
       source_label: '外部 MES 当日快照参考',
     },
+    { workshop: '新厂北线', total_weight: 122, coil_count: 0 },
+    { workshop: '1650/2050冷轧', total_weight: 63.5, coil_count: 0 },
     { workshop: '冷轧三车间', total_weight: 99, coil_count: 9 },
     { workshop: '二分厂精整车间', total_weight: 88, coil_count: 8 },
     { workshop: '旧车间', total_weight: 77, coil_count: 7, is_active: false }
   ])
 
-  assert.equal(rows.length, 1)
+  assert.equal(rows.length, 3)
   assert.equal(rows[0].title, '园区在线')
   assert.equal(rows[0].weightText, '9.5 吨')
+  assert.equal(rows[0].totalWeight, 9.5)
   assert.equal(rows[0].feedingText, '投料 12.3 吨')
   assert.equal(rows[0].sourceLabel, '外部 MES 当日快照参考')
+  assert.deepEqual(rows.map((row) => row.title), ['园区在线', '新厂北线', '1650/2050冷轧'])
 })

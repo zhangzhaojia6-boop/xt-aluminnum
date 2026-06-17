@@ -128,7 +128,7 @@
           <article class="xt-today__panel xt-today__wip">
             <header class="xt-today__panel-head">
               <h2>在制料分布</h2>
-              <span>{{ wipRows.length }} 个位置</span>
+              <span>{{ wipRows.length }} 个位置 · {{ wipTotalText }}</span>
             </header>
             <div v-if="wipRows.length" class="xt-today__wip-grid">
               <div v-for="row in wipRows" :key="row.key" class="xt-today__wip-card">
@@ -377,6 +377,10 @@ const settlementCards = computed(() => stitchSurface.value.kpiStrip)
 const comparisonCards = computed(() => stitchSurface.value.comparisonRail)
 const workshopRows = computed(() => stitchSurface.value.workshopTable)
 const wipRows = computed(() => stitchSurface.value.wipDistribution)
+const wipTotalText = computed(() => {
+  const total = wipRows.value.reduce((sum, row) => sum + (Number(row.totalWeight) || 0), 0)
+  return `${fmt(total)} 吨`
+})
 const missingRows = computed(() => stitchSurface.value.missingReportRows)
 const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const dailyOverview = computed(() => snapshot.data.value.daily_overview || {})

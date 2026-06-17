@@ -1,4 +1,4 @@
-import { filterActiveWorkshopRows } from './activeWorkshops.js'
+import { filterActiveWorkshopRows, isRetiredWorkshopName } from './activeWorkshops.js'
 
 export const MISSING_DAILY_VALUE = '暂无可信数据'
 
@@ -53,6 +53,20 @@ function sumWorkshopOutput(rows = []) {
   const workshopRows = buildDailyWorkshopRows(rows)
   if (!workshopRows.length) return null
   return workshopRows.reduce((sum, row) => sum + (toNumber(row.daily_output) || 0), 0)
+}
+
+function rawWorkshopName(row = {}) {
+  return String(row.workshop || row.workshop_name || row.workshopName || row.name || '').trim()
+}
+
+function filterVisibleWipRows(rows = []) {
+  return (rows || []).filter((row) => {
+    const name = rawWorkshopName(row)
+    if (!name || isRetiredWorkshopName(name)) return false
+    if (row.is_active === false || row.is_removed === true || row.removed === true) return false
+    const status = String(row.status || row.workshop_status || '').toLowerCase()
+    return status !== 'removed'
+  })
 }
 
 export function buildDailySettlementCards(overview = {}) {
@@ -159,13 +173,16 @@ export function buildDailyWorkshopRows(rows = []) {
 }
 
 export function buildDailyWipRows(rows = []) {
-  return filterActiveWorkshopRows(rows)
+  return filterVisibleWipRows(rows)
     .map((row, index) => {
+      const title = rawWorkshopName(row) || '--'
       const feedingText = formatMetric(row.feeding_weight, '吨')
+      const totalWeight = toNumber(row.total_weight)
       return {
-        key: row.workshop ?? index,
-        title: row.workshop || '--',
+        key: `${title}-${index}`,
+        title,
         weightText: formatMetric(row.total_weight, '吨'),
+        totalWeight: totalWeight ?? 0,
         feedingText: feedingText === MISSING_DAILY_VALUE ? '投料 —' : `投料 ${feedingText}`,
         countText: `${toNumber(row.coil_count) ?? 0} 卷`,
         sourceLabel: row.source_label || '外部 MES 当日快照参考',
