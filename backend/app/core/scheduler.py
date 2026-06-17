@@ -85,7 +85,7 @@ def setup_scheduler(target_scheduler=None):
     if active_scheduler is None:
         return None
 
-    from app.tasks.daily_report import generate_daily_reports
+    from app.tasks.daily_report import generate_final_daily_report, generate_forecast_daily_report
     from app.tasks.data_archive import archive_old_data
     from app.tasks.fill_reminder import send_fill_reminders
     from app.tasks.agent_outbox import dispatch_due_agent_outbox_messages
@@ -97,7 +97,8 @@ def setup_scheduler(target_scheduler=None):
         sync_mes_reference_projection,
     )
 
-    _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=8, minute=0)
+    _add_job_once(active_scheduler, generate_forecast_daily_report, 'cron', job_id='daily_report_forecast', hour=7, minute=30)
+    _add_job_once(active_scheduler, generate_final_daily_report, 'cron', job_id='daily_report_final', hour=9, minute=30)
     if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
         _add_job_once(
             active_scheduler,

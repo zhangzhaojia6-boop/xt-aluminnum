@@ -29,7 +29,8 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     setup_scheduler(scheduler)
 
     assert set(scheduler.jobs) >= {
-        'daily_report',
+        'daily_report_forecast',
+        'daily_report_final',
         'mes_sync_core',
         'mes_sync_realtime',
         'mes_sync_business',
@@ -38,9 +39,13 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'fill_reminder',
         'data_archive',
     }
-    assert scheduler.jobs['daily_report']['trigger'] == 'cron'
-    assert scheduler.jobs['daily_report']['kwargs']['hour'] == 8
-    assert scheduler.jobs['daily_report']['kwargs']['minute'] == 0
+    assert 'daily_report' not in scheduler.jobs
+    assert scheduler.jobs['daily_report_forecast']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_report_forecast']['kwargs']['hour'] == 7
+    assert scheduler.jobs['daily_report_forecast']['kwargs']['minute'] == 30
+    assert scheduler.jobs['daily_report_final']['trigger'] == 'cron'
+    assert scheduler.jobs['daily_report_final']['kwargs']['hour'] == 9
+    assert scheduler.jobs['daily_report_final']['kwargs']['minute'] == 30
     assert scheduler.jobs['mes_sync_core']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_core']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_realtime']['trigger'] == 'interval'
