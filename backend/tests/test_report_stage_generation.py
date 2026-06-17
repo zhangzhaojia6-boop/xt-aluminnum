@@ -224,6 +224,47 @@ def test_final_stage_refreshes_published_production_report(monkeypatch):
     assert audits[0]['detail']['stage'] == 'final'
 
 
+def test_final_stage_refreshes_reviewed_unconfirmed_production_report(monkeypatch):
+    _calls, audits = _stub_payload(monkeypatch)
+    existing = DailyReport(
+        id=6,
+        report_date=date(2026, 6, 16),
+        report_type='production',
+        report_data={'reviewed_old': True},
+        text_summary='已审旧摘要',
+        final_text_summary=None,
+        status='reviewed',
+        reviewed_by=7,
+        reviewed_at=datetime(2026, 6, 17, 8, 10),
+        final_confirmed_by=None,
+        final_confirmed_at=None,
+        generated_scope='auto_confirmed',
+        output_mode='both',
+        is_final_version=False,
+    )
+    db = FakeDB([existing])
+
+    reports = report_generation.generate_production_stage_report(
+        db,
+        report_date=date(2026, 6, 16),
+        stage='final',
+        scope='auto_confirmed',
+        output_mode='both',
+        operator=_operator(),
+    )
+
+    assert reports == [existing]
+    assert existing.status == 'reviewed'
+    assert existing.reviewed_by == 7
+    assert existing.report_data['report_stage'] == 'final'
+    assert existing.report_data['stage_label'] == '09:30终报'
+    assert existing.report_data['generated_cutoff_label'] == '09:30终报'
+    assert existing.text_summary == '生产摘要'
+    assert existing.final_text_summary == '生产摘要'
+    assert existing.is_final_version is True
+    assert audits[0]['detail']['stage'] == 'final'
+
+
 def test_final_stage_returns_locked_production_report_unchanged(monkeypatch):
     calls, audits = _stub_payload(monkeypatch)
     existing = DailyReport(

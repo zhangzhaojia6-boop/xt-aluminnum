@@ -936,9 +936,7 @@ def generate_production_stage_report(
 def _is_locked_production_final_report(entity: DailyReport) -> bool:
     if entity.report_type != 'production':
         return False
-    if entity.final_confirmed_by is not None or entity.final_confirmed_at is not None:
-        return True
-    return entity.status == 'reviewed'
+    return entity.final_confirmed_by is not None or entity.final_confirmed_at is not None
 
 def review_report(
     db: Session,
