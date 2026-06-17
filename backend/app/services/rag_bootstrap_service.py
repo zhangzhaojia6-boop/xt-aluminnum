@@ -31,7 +31,7 @@ DATE_PATTERNS = (
     re.compile(r'\b\d{4}年\d{1,2}月\d{1,2}日\b'),
     re.compile(r'\b\d{1,2}月\d{1,2}[日号]\b'),
 )
-VALUE_WITH_UNIT_PATTERN = re.compile(r'(\d+(?:\.\d+)?)\s*(吨|kwh|KWH|kWh|千瓦时|度)')
+NUMERIC_TOKEN_PATTERN = re.compile(r'(?<![A-Za-z])\d[\d,]*(?:\.\d+)?')
 
 
 def build_rag_bootstrap_manifest(reference_root: Path) -> list[RagBootstrapItem]:
@@ -48,7 +48,7 @@ def sanitize_bootstrap_text(text: str) -> str:
     sanitized = str(text or '')
     for pattern in DATE_PATTERNS:
         sanitized = pattern.sub(DATE_PLACEHOLDER, sanitized)
-    sanitized = VALUE_WITH_UNIT_PATTERN.sub(lambda match: f'{VALUE_PLACEHOLDER}{match.group(2)}', sanitized)
+    sanitized = NUMERIC_TOKEN_PATTERN.sub(VALUE_PLACEHOLDER, sanitized)
     return sanitized
 
 

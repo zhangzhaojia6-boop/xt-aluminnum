@@ -22,9 +22,15 @@ def _write_sample_files(root: Path) -> None:
         '\n'.join(
             [
                 '日报日期：2026-06-16',
-                '车间总产量：328吨',
-                '综合电耗：5120kWh',
-                '模板口径：按班组汇总。',
+                '天然气：57776m³',
+                '成品率：84.86%',
+                '成本：13.44万元',
+                '加工费：1044元/吨',
+                '穿带：6道',
+                '缺陷：3条',
+                '较昨日下降12吨',
+                '合计166.992',
+                '母版口径：按班组汇总。',
             ]
         ),
         encoding='utf-8',
@@ -33,8 +39,14 @@ def _write_sample_files(root: Path) -> None:
         '\n'.join(
             [
                 '报告日：6月16日',
-                '产量核对：328吨',
-                '用电核对：5120kWh',
+                '天然气核对：57776m³',
+                '成品率核对：84.86%',
+                '成本核对：13.44万元',
+                '加工费核对：1044元/吨',
+                '穿带核对：6道',
+                '缺陷核对：3条',
+                '较昨日下降12吨',
+                '合计166.992',
                 '母版口径：按正文保留段落。',
             ]
         ),
@@ -74,13 +86,29 @@ def test_bootstrap_rag_apply_sanitizes_and_marks_rule_docs(tmp_path: Path) -> No
         combined_text = ' '.join(chunk.content for chunk in chunks)
         assert '2026-06-16' not in combined_text
         assert '6月16日' not in combined_text
-        assert '328吨' not in combined_text
-        assert '5120kWh' not in combined_text
-        assert '车间总产量' in combined_text
-        assert '综合电耗' in combined_text
+        assert '57776m³' not in combined_text
+        assert '84.86%' not in combined_text
+        assert '13.44万元' not in combined_text
+        assert '1044元/吨' not in combined_text
+        assert '6道' not in combined_text
+        assert '3条' not in combined_text
+        assert '下降12吨' not in combined_text
+        assert '合计166.992' not in combined_text
+        assert '天然气' in combined_text
+        assert '成品率' in combined_text
+        assert '成本' in combined_text
+        assert '较昨日' in combined_text
+        assert '合计' in combined_text
         assert '母版口径' in combined_text
         assert '[示例日期]' in combined_text
-        assert '[示例数值]吨' in combined_text
+        assert '[示例数值]m³' in combined_text
+        assert '[示例数值]%' in combined_text
+        assert '[示例数值]万元' in combined_text
+        assert '[示例数值]元/吨' in combined_text
+        assert '[示例数值]道' in combined_text
+        assert '[示例数值]条' in combined_text
+        assert '较昨日下降[示例数值]吨' in combined_text
+        assert '合计[示例数值]' in combined_text
 
         for doc in docs:
             doc_chunks = [chunk for chunk in chunks if chunk.document_id == doc.id]
