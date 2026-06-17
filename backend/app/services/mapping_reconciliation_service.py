@@ -24,6 +24,9 @@ from app.models.shift import ShiftConfig
 DEFAULT_DIMENSIONS = ('business_date', 'workshop', 'shift')
 DEFAULT_REFERENCE_ROOT = Path('D:/输出skill')
 FALLBACK_REFERENCE_ROOT = Path('reference/output-skill')
+PARSEABLE_REFERENCE_EXTENSIONS = {'.txt', '.md', '.log', '.xlsx', '.xls', '.json', '.ndjson'}
+IMAGE_REFERENCE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp'}
+IGNORED_REFERENCE_DIR_NAMES = {'.pytest_cache', '__pycache__'}
 SYSTEM_SOURCES = [
     'mes_stock_records',
     'mes_workshop_process_records',
@@ -235,23 +238,58 @@ def resolve_reference_file(reference_file: str | Path, *, reference_root: str | 
     return resolved_candidate
 
 
+def _reference_parse_status(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in PARSEABLE_REFERENCE_EXTENSIONS:
+        return 'parseable'
+    if suffix in IMAGE_REFERENCE_EXTENSIONS:
+        return 'image_pending_ocr'
+    return 'unsupported'
+
+
+def _is_reference_file_visible(path: Path, root: Path) -> bool:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    return not any(part.startswith('.') or part in IGNORED_REFERENCE_DIR_NAMES for part in relative.parts[:-1])
+
+
 def list_sources(*, reference_root: str | Path | None = None, limit: int = 200) -> dict[str, Any]:
     root = Path(reference_root) if reference_root is not None else _reference_root()
-    files: list[dict[str, Any]] = []
+    all_files: list[dict[str, Any]] = []
     if root.exists():
-        for item in sorted((path for path in root.rglob('*') if path.is_file()), key=lambda path: str(path))[:limit]:
-            files.append(
+        candidates = (
+            path
+            for path in root.rglob('*')
+            if path.is_file() and _is_reference_file_visible(path, root)
+        )
+        for item in sorted(candidates, key=lambda path: str(path)):
+            parse_status = _reference_parse_status(item)
+            all_files.append(
                 {
                     'name': item.name,
                     'relative_path': str(item.relative_to(root)).replace('\\', '/'),
                     'extension': item.suffix.lower(),
                     'size_bytes': item.stat().st_size,
+                    'parse_status': parse_status,
                 }
             )
+    total_files = len(all_files)
+    parseable_files = sum(1 for item in all_files if item.get('parse_status') == 'parseable')
+    image_pending_files = sum(1 for item in all_files if item.get('parse_status') == 'image_pending_ocr')
+    unsupported_files = max(total_files - parseable_files - image_pending_files, 0)
     return {
         'reference_source': str(root),
         'available': root.exists(),
-        'files': files,
+        'files': all_files[: max(int(limit), 0)],
+        'file_summary': {
+            'total_files': total_files,
+            'parseable_files': parseable_files,
+            'image_pending_files': image_pending_files,
+            'unsupported_files': unsupported_files,
+            'parseable_coverage_rate': round((parseable_files / total_files) * 100, 2) if total_files else 0,
+        },
         'system_sources': SYSTEM_SOURCES,
     }
 
