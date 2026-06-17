@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -176,6 +176,52 @@ def test_final_stage_regenerates_existing_draft(monkeypatch):
     assert entity.final_text_summary == '第二版生产摘要'
     assert entity.status == 'draft'
     assert len(audits) == 2
+
+
+def test_final_stage_refreshes_published_production_report(monkeypatch):
+    _calls, audits = _stub_payload(monkeypatch)
+    original_published_at = datetime(2026, 6, 17, 8, 5, tzinfo=timezone.utc)
+    refreshed_at = datetime(2026, 6, 17, 9, 30, tzinfo=timezone.utc)
+    monkeypatch.setattr(report_generation, 'datetime', SimpleNamespace(now=lambda tz: refreshed_at))
+    existing = DailyReport(
+        id=5,
+        report_date=date(2026, 6, 16),
+        report_type='production',
+        report_data={'old': True},
+        text_summary='08:00旧摘要',
+        final_text_summary=None,
+        status='published',
+        published_by=7,
+        published_at=original_published_at,
+        generated_scope='auto_confirmed',
+        output_mode='both',
+        generated_at=original_published_at,
+        is_final_version=False,
+    )
+    db = FakeDB([existing])
+
+    reports = report_generation.generate_production_stage_report(
+        db,
+        report_date=date(2026, 6, 16),
+        stage='final',
+        scope='auto_confirmed',
+        output_mode='both',
+        operator=_operator(),
+    )
+
+    assert reports == [existing]
+    assert existing.status == 'published'
+    assert existing.published_by == 7
+    assert existing.published_at == refreshed_at
+    assert existing.generated_at == refreshed_at
+    assert existing.report_data['report_stage'] == 'final'
+    assert existing.report_data['stage_label'] == '09:30终报'
+    assert existing.report_data['generated_cutoff_label'] == '09:30终报'
+    assert existing.report_data['total_output_weight'] == 12.5
+    assert existing.text_summary == '生产摘要'
+    assert existing.final_text_summary == '生产摘要'
+    assert existing.is_final_version is True
+    assert audits[0]['detail']['stage'] == 'final'
 
 
 def test_final_stage_returns_locked_production_report_unchanged(monkeypatch):

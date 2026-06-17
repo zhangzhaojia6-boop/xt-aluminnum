@@ -80,6 +80,12 @@ def _add_job_once(target_scheduler, func, trigger: str, *, job_id: str, **kwargs
     )
 
 
+def _remove_job_if_present(target_scheduler, job_id: str) -> None:
+    if target_scheduler is None or target_scheduler.get_job(job_id) is None:
+        return
+    target_scheduler.remove_job(job_id)
+
+
 def setup_scheduler(target_scheduler=None):
     active_scheduler = target_scheduler or scheduler
     if active_scheduler is None:
@@ -97,6 +103,7 @@ def setup_scheduler(target_scheduler=None):
         sync_mes_reference_projection,
     )
 
+    _remove_job_if_present(active_scheduler, 'daily_report')
     _add_job_once(active_scheduler, generate_forecast_daily_report, 'cron', job_id='daily_report_forecast', hour=7, minute=30)
     _add_job_once(active_scheduler, generate_final_daily_report, 'cron', job_id='daily_report_final', hour=9, minute=30)
     if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':

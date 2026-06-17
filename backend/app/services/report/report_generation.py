@@ -904,6 +904,8 @@ def generate_production_stage_report(
         entity.output_mode = output_mode
         entity.generated_at = now
         entity.is_final_version = stage == 'final'
+        if stage == 'final' and entity.status == 'published':
+            entity.published_at = now
         if not getattr(entity, 'status', None):
             entity.status = 'draft'
     entity.final_text_summary = text_summary if stage == 'final' else None
@@ -934,9 +936,9 @@ def generate_production_stage_report(
 def _is_locked_production_final_report(entity: DailyReport) -> bool:
     if entity.report_type != 'production':
         return False
-    if entity.status in {'reviewed', 'published'}:
+    if entity.final_confirmed_by is not None or entity.final_confirmed_at is not None:
         return True
-    return entity.final_confirmed_by is not None or entity.final_confirmed_at is not None
+    return entity.status == 'reviewed'
 
 def review_report(
     db: Session,

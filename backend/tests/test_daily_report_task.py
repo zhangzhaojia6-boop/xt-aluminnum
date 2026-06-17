@@ -111,6 +111,40 @@ def test_generate_final_daily_report_runs_chain_in_order(monkeypatch) -> None:
     assert session.commits == 2
 
 
+def test_generate_final_daily_report_runs_reporter_after_final_stage(monkeypatch) -> None:
+    events: list[tuple] = []
+    session = FakeSession(events)
+    state = {'final_stage_generated': False}
+
+    def fake_stage(**kwargs):
+        state['final_stage_generated'] = kwargs['stage'] == 'final'
+        events.append(('stage_generated', kwargs['stage'], state['final_stage_generated']))
+
+    def fake_reporter(*, db, target_date):
+        events.append(('reporter_seen_final_stage', state['final_stage_generated'], target_date, db))
+
+    monkeypatch.setattr(daily_report, 'last_completed_production_business_date', lambda: date(2026, 6, 1))
+    monkeypatch.setattr(daily_report, 'get_sessionmaker', lambda: lambda: session)
+    monkeypatch.setattr(
+        daily_report.aggregator_agent,
+        'execute',
+        lambda *, db, target_date: events.append(('aggregator', target_date, db)),
+    )
+    monkeypatch.setattr(daily_report.report_service, 'generate_production_stage_report', fake_stage)
+    monkeypatch.setattr(daily_report.reporter_agent, 'execute', fake_reporter)
+
+    result = daily_report.generate_final_daily_report()
+
+    assert result == {'status': 'ok', 'business_date': '2026-06-01', 'stage': 'final'}
+    assert events == [
+        ('aggregator', date(2026, 6, 1), session),
+        ('commit', 1),
+        ('stage_generated', 'final', True),
+        ('reporter_seen_final_stage', True, date(2026, 6, 1), session),
+        ('commit', 2),
+    ]
+
+
 def test_generate_final_daily_report_respects_explicit_target_date(monkeypatch) -> None:
     session = FakeSession()
     seen: list[date] = []

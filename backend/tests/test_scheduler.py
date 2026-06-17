@@ -20,6 +20,9 @@ class FakeScheduler:
             'kwargs': kwargs,
         }
 
+    def remove_job(self, job_id: str):
+        del self.jobs[job_id]
+
 
 def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'mvc')
@@ -71,6 +74,25 @@ def test_setup_scheduler_registers_iot_energy_sync_only_when_enabled(monkeypatch
     assert 'iot_energy_sync' in scheduler.jobs
     assert scheduler.jobs['iot_energy_sync']['trigger'] == 'interval'
     assert scheduler.jobs['iot_energy_sync']['kwargs']['seconds'] == 60
+
+
+def test_setup_scheduler_removes_legacy_daily_report_job(monkeypatch) -> None:
+    monkeypatch.setattr(scheduler_module.settings, 'MES_ADAPTER', 'null')
+    monkeypatch.setattr(scheduler_module.settings, 'IOT_ENERGY_ADAPTER', 'null')
+    scheduler = FakeScheduler()
+    scheduler.jobs['daily_report'] = {
+        'func': object(),
+        'trigger': 'cron',
+        'kwargs': {'id': 'daily_report', 'hour': 8, 'minute': 0},
+    }
+
+    setup_scheduler(scheduler)
+
+    assert 'daily_report' not in scheduler.jobs
+    assert scheduler.jobs['daily_report_forecast']['kwargs']['hour'] == 7
+    assert scheduler.jobs['daily_report_forecast']['kwargs']['minute'] == 30
+    assert scheduler.jobs['daily_report_final']['kwargs']['hour'] == 9
+    assert scheduler.jobs['daily_report_final']['kwargs']['minute'] == 30
 
 
 def test_setup_scheduler_is_idempotent() -> None:
