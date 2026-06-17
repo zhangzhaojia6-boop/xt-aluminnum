@@ -338,7 +338,9 @@ def _query_mes_output(
             continue
         total += _output_weight_tons(row)
         count += 1
-    return (round(total, 3), count) if count else (None, 0)
+    if count:
+        return round(total, 3), count
+    return (0.0, 0) if rows else (None, 0)
 
 
 def _owner_daily_payload_values(db: Session, *, target_date: date) -> dict[str, Any]:

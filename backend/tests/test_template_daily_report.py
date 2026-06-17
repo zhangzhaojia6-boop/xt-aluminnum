@@ -240,3 +240,5 @@ def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for
     assert facts["sources"]["hot_roll_daily"]["source_type"] == "manual_mobile_coil"
     assert facts["values"]["cold_1650_daily"] == 33.0
     assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
+    assert facts["values"]["coating_daily"] == 0.0
+    assert facts["sources"]["coating_daily"]["source_type"] == "mes_workshop_process_records"
