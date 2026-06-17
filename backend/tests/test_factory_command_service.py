@@ -1519,6 +1519,29 @@ def test_freshness_thresholds(monkeypatch):
     assert high_risk['risk_tone'] == 'high'
 
 
+def test_freshness_prefers_sync_lag_over_source_lag(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr(
+        factory_command_service,
+        'latest_sync_status',
+        lambda _db, now=None: {
+            'status': 'fresh',
+            'lag_seconds': 46,
+            'sync_lag_seconds': 46,
+            'sync_freshness_seconds': 46,
+            'source_lag_seconds': 35046,
+        },
+    )
+
+    freshness = factory_command_service.build_freshness(db)
+
+    assert freshness['status'] == 'fresh'
+    assert freshness['lag_seconds'] == 46
+    assert freshness['sync_lag_seconds'] == 46
+    assert freshness['source_lag_seconds'] == 35046
+    assert freshness['risk_tone'] == 'normal'
+
+
 def test_freshness_uses_real_time_when_overview_receives_business_date(monkeypatch):
     db = _FakeDB()
     seen_now = []

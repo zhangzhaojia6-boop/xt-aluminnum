@@ -46,6 +46,12 @@ def _check_upload_dir() -> None:
 
 def _sanitize_mes_sync_status(payload: dict) -> dict:
     sanitized = dict(payload)
+    sync_freshness_seconds = sanitized.get('sync_freshness_seconds')
+    if sync_freshness_seconds is not None:
+        if sanitized.get('source_lag_seconds') is None and sanitized.get('lag_seconds') != sync_freshness_seconds:
+            sanitized['source_lag_seconds'] = sanitized.get('lag_seconds')
+        sanitized['sync_lag_seconds'] = sync_freshness_seconds
+        sanitized['lag_seconds'] = sync_freshness_seconds
     if sanitized.get('status') == 'failed':
         if sanitized.get('error_message'):
             sanitized['error_message'] = 'redacted'

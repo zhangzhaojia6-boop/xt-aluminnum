@@ -28,6 +28,9 @@ class MesSyncStatusOut(BaseModel):
     last_synced_at: datetime | None = None
     last_event_at: datetime | None = None
     lag_seconds: float | None = None
+    sync_lag_seconds: float | None = None
+    sync_freshness_seconds: float | None = None
+    source_lag_seconds: float | None = None
     fetched_count: int = 0
     upserted_count: int = 0
     replayed_count: int = 0

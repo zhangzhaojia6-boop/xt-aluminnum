@@ -501,6 +501,8 @@ def _base_sync_status(*, cursor_key: str, configured: bool) -> dict[str, Any]:
         'stale_threshold_seconds': stale_threshold_seconds(),
         'retry_limit': _retry_limit(),
         'lag_seconds': None,
+        'sync_lag_seconds': None,
+        'source_lag_seconds': None,
         'sync_freshness_seconds': None,
         'last_synced_at': None,
         'last_event_at': None,
@@ -1337,7 +1339,7 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
             .filter(MesSyncRunLog.cursor_key == cursor_key)
             .order_by(MesSyncRunLog.started_at.desc(), MesSyncRunLog.id.desc())
         )
-        lag_seconds = compute_sync_lag_seconds(db, cursor_key=cursor_key, now=current)
+        source_lag_seconds = compute_sync_lag_seconds(db, cursor_key=cursor_key, now=current)
     except Exception as exc:  # noqa: BLE001
         if _is_projection_shape_error(exc):
             return _projection_migration_missing_status(cursor_key=cursor_key)
@@ -1345,7 +1347,9 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
 
     last_run_status = latest_run.status if latest_run else 'idle'
     sync_freshness_seconds = _compute_sync_freshness_seconds(cursor, latest_run, current=current)
-    status = 'failed' if last_run_status == 'failed' else _status_from_sync_freshness(sync_freshness_seconds, lag_seconds)
+    sync_lag_seconds = sync_freshness_seconds
+    lag_seconds = sync_lag_seconds if sync_lag_seconds is not None else source_lag_seconds
+    status = 'failed' if last_run_status == 'failed' else _status_from_sync_freshness(sync_lag_seconds, source_lag_seconds)
     if status == 'failed':
         action_required = 'check_vendor'
     elif status == 'stale':
@@ -1366,7 +1370,9 @@ def latest_sync_status(db: Session, *, cursor_key: str = SYNC_CURSOR_KEY, now: d
         'last_event_at': cursor.last_event_at.isoformat() if cursor and cursor.last_event_at else None,
         'last_synced_at': cursor.last_synced_at.isoformat() if cursor and cursor.last_synced_at else None,
         'lag_seconds': lag_seconds,
-        'sync_freshness_seconds': sync_freshness_seconds,
+        'sync_lag_seconds': sync_lag_seconds,
+        'sync_freshness_seconds': sync_lag_seconds,
+        'source_lag_seconds': source_lag_seconds,
         'last_run_status': last_run_status,
         'last_run_started_at': latest_run.started_at.isoformat() if latest_run else None,
         'last_run_finished_at': latest_run.finished_at.isoformat() if latest_run and latest_run.finished_at else None,

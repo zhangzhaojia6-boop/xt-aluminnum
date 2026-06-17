@@ -92,7 +92,9 @@ def test_latest_sync_status_exposes_last_run_fields(monkeypatch):
 
     assert payload['cursor_value'] == 'cursor-2'
     assert payload['last_run_status'] == 'success'
-    assert payload['lag_seconds'] == 360.0
+    assert payload['lag_seconds'] == 60.0
+    assert payload['sync_lag_seconds'] == 60.0
+    assert payload['source_lag_seconds'] == 360.0
 
 
 def test_latest_sync_status_treats_recent_successful_sync_as_fresh_even_when_source_data_is_idle(monkeypatch):
@@ -115,8 +117,10 @@ def test_latest_sync_status_treats_recent_successful_sync_as_fresh_even_when_sou
 
     payload = mes_sync_service.latest_sync_status(db, now=datetime(2026, 4, 11, 2, 6, tzinfo=UTC))
 
-    assert payload['lag_seconds'] == 3960.0
+    assert payload['lag_seconds'] == 60.0
+    assert payload['sync_lag_seconds'] == 60.0
     assert payload['sync_freshness_seconds'] == 60.0
+    assert payload['source_lag_seconds'] == 3960.0
     assert payload['status'] == 'fresh'
     assert payload['action_required'] == 'none'
 

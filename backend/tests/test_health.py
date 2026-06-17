@@ -213,6 +213,9 @@ def test_build_readiness_payload_trusts_fresh_mes_sync_status_over_business_even
     assert payload["status"] == "ready"
     assert payload["checks"]["mes_sync"] == "ok"
     assert payload["details"]["mes_sync"]["status"] == "fresh"
+    assert payload["details"]["mes_sync"]["lag_seconds"] == 46.0
+    assert payload["details"]["mes_sync"]["sync_lag_seconds"] == 46.0
+    assert payload["details"]["mes_sync"]["source_lag_seconds"] == 35046.0
 
 
 def test_build_readiness_payload_reports_mes_unconfigured_as_ready(monkeypatch):
