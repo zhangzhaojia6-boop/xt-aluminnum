@@ -3,8 +3,12 @@
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import base64
+import hashlib
+import hmac
 import json
 import logging
+import os
 import time
 from urllib import parse, request
 
@@ -604,6 +608,42 @@ class DingTalkService:
                 }
             return False, str(exc) or 'dingtalk_send_failed'
 
+    def send_custom_robot_message(
+        self,
+        webhook_ref: str,
+        message: dict,
+        *,
+        secret_ref: str | None = None,
+    ) -> tuple[bool, str | dict]:
+        webhook = _resolve_secret_ref(webhook_ref)
+        secret = _resolve_secret_ref(secret_ref)
+        if not webhook:
+            return False, 'dingtalk_robot_webhook_missing'
+        if getattr(settings, 'DINGTALK_NOTIFY_DRY_RUN', False):
+            logger.info('[notify] dingtalk custom robot dry-run %s | %s', _mask_ref(webhook_ref), message)
+            return True, 'dingtalk_dry_run'
+
+        response = None
+        try:
+            url = _signed_robot_webhook(webhook, secret)
+            self._throttle_message_send()
+            response = self._request_json(method='POST', url=url, payload=message)
+            self._ensure_success(response)
+            return True, {
+                'detail': 'dingtalk_custom_robot_sent',
+                'provider_message_id': self._extract_provider_message_id(response),
+                'response_payload': response,
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('DingTalk custom robot message failed: %s', exc)
+            if isinstance(response, dict):
+                return False, {
+                    'detail': str(exc) or 'dingtalk_custom_robot_send_failed',
+                    'provider_message_id': self._extract_provider_message_id(response),
+                    'response_payload': response,
+                }
+            return False, str(exc) or 'dingtalk_custom_robot_send_failed'
+
     @staticmethod
     def _extract_provider_message_id(payload: dict) -> str | None:
         for key in (
@@ -646,6 +686,46 @@ def send_work_notification(userid: str, content: str | dict) -> tuple[bool, str 
 
 def send_group_message(chat_id: str, message: dict) -> tuple[bool, str | dict]:
     return service.send_group_message(chat_id, message)
+
+
+def send_custom_robot_message(
+    webhook_ref: str,
+    message: dict,
+    *,
+    secret_ref: str | None = None,
+) -> tuple[bool, str | dict]:
+    return service.send_custom_robot_message(webhook_ref, message, secret_ref=secret_ref)
+
+
+def _resolve_secret_ref(value: str | None) -> str:
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    if text.startswith('http://') or text.startswith('https://') or text.startswith('SEC'):
+        return text
+    return str(os.environ.get(text, '')).strip()
+
+
+def _signed_robot_webhook(webhook: str, secret: str | None = None, *, now_ms: int | None = None) -> str:
+    raw_url = str(webhook or '').strip()
+    raw_secret = str(secret or '').strip()
+    if not raw_url or not raw_secret:
+        return raw_url
+    timestamp = str(now_ms if now_ms is not None else int(time.time() * 1000))
+    string_to_sign = f'{timestamp}\n{raw_secret}'.encode('utf-8')
+    digest = hmac.new(raw_secret.encode('utf-8'), string_to_sign, digestmod=hashlib.sha256).digest()
+    sign = parse.quote_plus(base64.b64encode(digest).decode('utf-8'))
+    separator = '&' if '?' in raw_url else '?'
+    return f'{raw_url}{separator}timestamp={timestamp}&sign={sign}'
+
+
+def _mask_ref(value: str | None) -> str:
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    if len(text) <= 8:
+        return f'{text[:1]}***'
+    return f'{text[:4]}***{text[-3:]}'
 
 
 def send_detail_text(detail: str | dict) -> str:

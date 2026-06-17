@@ -206,6 +206,72 @@ def test_dispatch_enabled_dingtalk_work_notice_calls_personal_sender_once() -> N
         db.close()
 
 
+def test_dispatch_enabled_dingtalk_custom_robot_uses_channel_secret_ref(monkeypatch) -> None:
+    db = _db_session()
+    calls = []
+    try:
+        monkeypatch.setattr(
+            service.dingtalk_service,
+            'send_custom_robot_message',
+            lambda webhook_ref, payload, *, secret_ref=None: calls.append((webhook_ref, payload, secret_ref)) or (
+                True,
+                {
+                    'detail': 'dingtalk_custom_robot_sent',
+                    'response_payload': {'errcode': 0, 'errmsg': 'ok'},
+                },
+            ),
+        )
+        service.register_agent(db, code='factory_dispatch_zzj', name='张兆嘉全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_custom_robot',
+            channel_key='DINGTALK_ROBOT_FACTORY_DISPATCH_WEBHOOK',
+            name='鑫泰全厂调度 Agent 机器人',
+            target_type='debug_group',
+            target_key='zzj-debug-agent-group',
+            dry_run=False,
+            secret_ref='DINGTALK_ROBOT_FACTORY_DISPATCH_SECRET',
+        )
+        service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch_zzj',
+            channel_key='DINGTALK_ROBOT_FACTORY_DISPATCH_WEBHOOK',
+            channel_type='dingtalk_custom_robot',
+        )
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch_zzj',
+            channel_key='DINGTALK_ROBOT_FACTORY_DISPATCH_WEBHOOK',
+            channel_type='dingtalk_custom_robot',
+            title='【全厂调度】机器人测试',
+            content='通过自定义机器人发送。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        outcome = service.dispatch_outbox_message(db, message.id)
+
+        assert outcome.status == 'sent'
+        assert calls == [
+            (
+                'DINGTALK_ROBOT_FACTORY_DISPATCH_WEBHOOK',
+                {
+                    'msgtype': 'markdown',
+                    'markdown': {
+                        'title': '【全厂调度】机器人测试',
+                        'text': '通过自定义机器人发送。',
+                    },
+                },
+                'DINGTALK_ROBOT_FACTORY_DISPATCH_SECRET',
+            )
+        ]
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert logs[0].channel_type == 'dingtalk_custom_robot'
+        assert logs[0].channel_key == 'DINGTALK_ROBOT_FACTORY_DISPATCH_WEBHOOK'
+    finally:
+        db.close()
+
+
 def test_dispatch_records_structured_provider_response_in_external_log() -> None:
     db = _db_session()
     try:

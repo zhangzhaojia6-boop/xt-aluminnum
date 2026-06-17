@@ -487,6 +487,12 @@ def _default_sender(channel: CommunicationChannel):
         return dingtalk_service.send_group_message
     if channel.channel_type == 'dingtalk_work_notice':
         return dingtalk_service.send_work_notification
+    if channel.channel_type == 'dingtalk_custom_robot':
+        return lambda _channel_key, message: dingtalk_service.send_custom_robot_message(
+            channel.channel_key,
+            message,
+            secret_ref=channel.secret_ref,
+        )
     raise AgentCommunicationError(f'unsupported_channel_type:{channel.channel_type}')
 
 

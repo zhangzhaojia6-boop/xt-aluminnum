@@ -196,6 +196,66 @@ def test_send_group_message_preserves_dingtalk_failure_payload(monkeypatch) -> N
     }
 
 
+def test_signed_robot_webhook_appends_timestamp_and_sign_without_mutating_webhook() -> None:
+    signed = dingtalk_service._signed_robot_webhook(
+        'https://oapi.dingtalk.com/robot/send?access_token=token-1',
+        'SEC-test-secret',
+        now_ms=1234567890,
+    )
+
+    assert signed.startswith('https://oapi.dingtalk.com/robot/send?access_token=token-1&timestamp=1234567890&sign=')
+    assert 'SEC-test-secret' not in signed
+
+
+def test_send_custom_robot_message_resolves_webhook_and_secret_refs(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    calls = []
+    monkeypatch.setenv('DINGTALK_ROBOT_TEST_WEBHOOK', 'https://oapi.dingtalk.com/robot/send?access_token=token-1')
+    monkeypatch.setenv('DINGTALK_ROBOT_TEST_SECRET', 'SEC-test-secret')
+
+    def fake_request_json(*, method, url, payload=None):
+        calls.append((method, url, payload))
+        return {'errcode': 0, 'errmsg': 'ok'}
+
+    monkeypatch.setattr(service, '_request_json', fake_request_json)
+
+    ok, detail = service.send_custom_robot_message(
+        'DINGTALK_ROBOT_TEST_WEBHOOK',
+        {'msgtype': 'markdown', 'markdown': {'title': '测试', 'text': '测试内容'}},
+        secret_ref='DINGTALK_ROBOT_TEST_SECRET',
+    )
+
+    assert ok is True
+    assert detail['detail'] == 'dingtalk_custom_robot_sent'
+    assert calls[0][0] == 'POST'
+    assert 'access_token=token-1' in calls[0][1]
+    assert 'timestamp=' in calls[0][1]
+    assert 'sign=' in calls[0][1]
+    assert 'SEC-test-secret' not in calls[0][1]
+    assert calls[0][2]['markdown']['title'] == '测试'
+
+
+def test_send_custom_robot_message_dry_run_skips_http(monkeypatch) -> None:
+    service = _configured_service(monkeypatch)
+    monkeypatch.setenv('DINGTALK_ROBOT_TEST_WEBHOOK', 'https://oapi.dingtalk.com/robot/send?access_token=token-1')
+    monkeypatch.setenv('DINGTALK_ROBOT_TEST_SECRET', 'SEC-test-secret')
+    monkeypatch.setattr(dingtalk_service.settings, 'DINGTALK_NOTIFY_DRY_RUN', True, raising=False)
+    monkeypatch.setattr(
+        service,
+        '_request_json',
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError('dry run should not call DingTalk')),
+    )
+
+    ok, detail = service.send_custom_robot_message(
+        'DINGTALK_ROBOT_TEST_WEBHOOK',
+        {'msgtype': 'text', 'text': {'content': '测试'}},
+        secret_ref='DINGTALK_ROBOT_TEST_SECRET',
+    )
+
+    assert ok is True
+    assert detail == 'dingtalk_dry_run'
+
+
 def test_dingtalk_message_templates() -> None:
     fill = build_fill_reminder('张三', '白班', '12:00')
     anomaly = build_anomaly_alert('冷轧', '成材率', 92.5, 95)
