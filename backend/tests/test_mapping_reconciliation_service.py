@@ -1119,6 +1119,15 @@ def test_build_system_mapping_rows_flattens_wip_with_total_snapshot_fallback() -
         'wip_feeding_tons': 28.5,
         'source_table': 'mes_wip_total_snapshots',
     } in rows
+    assert {
+        'business_date': '2026-06-16',
+        'workshop': '全厂',
+        'shift': '',
+        'process': '汇总',
+        'machine': '',
+        'wip_total': 4466.5,
+        'source_table': 'mapping_reconciliation_summary',
+    } in rows
 
 
 def test_build_system_mapping_rows_flattens_cost_daily_results() -> None:

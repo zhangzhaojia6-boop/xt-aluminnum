@@ -1191,6 +1191,64 @@ def _build_wip_mapping_rows(db: Session, *, business_date: date) -> list[dict[st
     return rows
 
 
+def _sum_metric(rows: Sequence[Mapping[str, Any]], field: str, *, source_table: str | None = None) -> float | None:
+    values = [
+        number
+        for row in rows
+        if (source_table is None or row.get('source_table') == source_table)
+        if (number := _to_float(row.get(field))) is not None
+    ]
+    if not values:
+        return None
+    return round(sum(values), 4)
+
+
+def _build_factory_summary_row(rows: Sequence[Mapping[str, Any]], *, business_date: date) -> dict[str, Any] | None:
+    summary: dict[str, Any] = {
+        'business_date': business_date.isoformat(),
+        'workshop': '全厂',
+        'shift': '',
+        'process': '汇总',
+        'machine': '',
+    }
+    metric_sources = {
+        'wip_total': [('wip_total', None)],
+        'total_electricity_kwh': [
+            ('total_electricity_kwh', None),
+            ('electricity_kwh', 'machine_daily_cost_snapshots'),
+            ('energy_kwh', 'machine_energy_records'),
+        ],
+        'total_gas_m3': [
+            ('total_gas_m3', None),
+            ('natural_gas_m3', 'machine_daily_cost_snapshots'),
+            ('gas_m3', 'machine_energy_records'),
+        ],
+        'electricity_cost': [('electricity_cost', 'machine_daily_cost_snapshots')],
+        'natural_gas_cost': [('natural_gas_cost', 'machine_daily_cost_snapshots')],
+        'total_cost': [('total_cost', 'machine_daily_cost_snapshots')],
+        'daily_contract_weight': [('daily_contract_weight', None)],
+        'daily_hot_roll_contract_weight': [('daily_hot_roll_contract_weight', None)],
+        'month_to_date_contract_weight': [('month_to_date_contract_weight', None)],
+        'remaining_contract_weight': [('remaining_contract_weight', None)],
+        'remaining_hot_roll_contract_weight': [('remaining_hot_roll_contract_weight', None)],
+        'remaining_contract_delta_weight': [('remaining_contract_delta_weight', None)],
+        'billet_inventory_weight': [('billet_inventory_weight', None)],
+        'daily_input_weight': [('daily_input_weight', None)],
+        'month_to_date_input_weight': [('month_to_date_input_weight', None)],
+    }
+    for target_field, sources in metric_sources.items():
+        for source_field, source_table in sources:
+            value = _sum_metric(rows, source_field, source_table=source_table)
+            if value is not None:
+                summary[target_field] = value
+                break
+
+    if not _reference_row_has_metric(summary):
+        return None
+    summary['source_table'] = 'mapping_reconciliation_summary'
+    return summary
+
+
 def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     shift_rows = (
@@ -1406,4 +1464,6 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
             }
         )
     rows.extend(_build_wip_mapping_rows(db, business_date=business_date))
+    if factory_summary := _build_factory_summary_row(rows, business_date=business_date):
+        rows.append(factory_summary)
     return rows

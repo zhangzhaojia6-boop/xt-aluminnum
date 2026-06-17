@@ -235,6 +235,7 @@ cd frontend && npm run build
 | 解析 override JSON：从 `summaries` 文本抽取合同、投料、坯料、水电气 | `backend/app/services/mapping_reconciliation_service.py` |
 | 解析日报正文在制料：新增 `wip_total` 和拆分在制字段别名 | `backend/app/services/mapping_reconciliation_service.py` |
 | 系统侧在制料拉平：接入 `mes_daily_wip_snapshots` 和 `mes_wip_total_snapshots`，每日快照为 0 时用总量快照兜底 | `backend/app/services/mapping_reconciliation_service.py` |
+| 系统侧全厂汇总：把分车间在制料、水电气、合同、成本汇总成 `workshop=全厂` 只读对齐行 | `backend/app/services/mapping_reconciliation_service.py` |
 | 页面默认比较在制料 | `frontend/src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue` |
 | 测试覆盖真实缺口 | `backend/tests/test_mapping_reconciliation_service.py`、`frontend/tests/mappingReconciliationPage.test.js` |
 
