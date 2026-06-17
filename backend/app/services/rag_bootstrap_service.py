@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 from sqlalchemy.orm import Session
 
@@ -23,6 +24,16 @@ class RagBootstrapOutcome:
     filenames: list[str]
 
 
+DATE_PLACEHOLDER = '[示例日期]'
+VALUE_PLACEHOLDER = '[示例数值]'
+DATE_PATTERNS = (
+    re.compile(r'\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b'),
+    re.compile(r'\b\d{4}年\d{1,2}月\d{1,2}日\b'),
+    re.compile(r'\b\d{1,2}月\d{1,2}[日号]\b'),
+)
+VALUE_WITH_UNIT_PATTERN = re.compile(r'(\d+(?:\.\d+)?)\s*(吨|kwh|KWH|kWh|千瓦时|度)')
+
+
 def build_rag_bootstrap_manifest(reference_root: Path) -> list[RagBootstrapItem]:
     root = Path(reference_root)
     items: list[RagBootstrapItem] = []
@@ -33,21 +44,54 @@ def build_rag_bootstrap_manifest(reference_root: Path) -> list[RagBootstrapItem]
     return items
 
 
+def sanitize_bootstrap_text(text: str) -> str:
+    sanitized = str(text or '')
+    for pattern in DATE_PATTERNS:
+        sanitized = pattern.sub(DATE_PLACEHOLDER, sanitized)
+    sanitized = VALUE_WITH_UNIT_PATTERN.sub(lambda match: f'{VALUE_PLACEHOLDER}{match.group(2)}', sanitized)
+    return sanitized
+
+
+def _load_sanitized_content(path: Path) -> bytes:
+    raw = path.read_bytes()
+    text: str | None = None
+    for encoding in ('utf-8-sig', 'utf-8', 'gbk'):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        raise UnicodeDecodeError('bootstrap', raw, 0, len(raw), '仅支持 UTF-8 或 GBK 文本')
+    return sanitize_bootstrap_text(text).encode('utf-8')
+
+
 def bootstrap_rag_knowledge(db: Session, *, reference_root: Path, apply: bool = False) -> RagBootstrapOutcome:
     items = build_rag_bootstrap_manifest(reference_root)
     if apply:
-        existing = {name for (name,) in db.query(RagDocument.filename).all()}
+        existing = {
+            name
+            for (name,) in db.query(RagDocument.filename)
+            .filter(RagDocument.status == 'active')
+            .all()
+        }
         for item in items:
             if item.path.name in existing:
                 continue
             create_document_from_bytes(
                 db,
                 filename=item.path.name,
-                content=item.path.read_bytes(),
+                content=_load_sanitized_content(item.path),
                 content_type='text/plain',
                 uploaded_by=None,
                 source_name=item.source_name,
-                metadata={'category': item.category, 'reference_root': str(reference_root)},
+                metadata={
+                    'category': item.category,
+                    'reference_root': str(reference_root),
+                    'reference_mode': 'template_example_rule',
+                    'fact_status': 'not_live_production_fact',
+                    'sanitized_import': 'true',
+                },
                 scope={'permission_scope': 'factory'},
             )
         db.flush()
