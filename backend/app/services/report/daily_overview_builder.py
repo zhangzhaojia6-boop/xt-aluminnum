@@ -8,10 +8,11 @@ from sqlalchemy import and_, func, inspect, or_
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.active_workshops import get_workshop_data_source_policy, normalize_workshop_name, workshop_name_query_tokens
 from app.core.business_time import production_business_window
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
 from app.models.production import WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -33,6 +34,16 @@ FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '精整车间', '拉矫', '拉�
 MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
 MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
 STORAGE_OWNER_ROLE = 'storage_owner'
+MES_OUTPUT_WORKSHOP_MAPPINGS = {
+    '冷轧1650': {'include': ('1650',), 'exclude': ('1850', '2050', '精整', '拉矫', '剪切', '退火')},
+    '冷轧1850': {'include': ('1850',), 'exclude': ('1650', '2050', '精整', '拉矫', '剪切', '退火')},
+    '冷轧2050': {'include': ('2050',), 'exclude': ('1650', '1850', '精整', '拉矫', '剪切', '退火')},
+    '新厂在线': {'include': ('新厂在线', '新厂北线', '新厂南线', '北线退火', '南线退火', '北线', '南线'), 'exclude': ('园区',)},
+    '园区在线': {'include': ('园区在线', '园区退火'), 'exclude': ('新厂', '北线', '南线')},
+    '拉矫': {'include': ('拉矫',), 'exclude': ()},
+    '精整': {'include': ('精整',), 'exclude': ()},
+    '园区剪切': {'include': ('园区剪切', '剪切车间', '剪切'), 'exclude': ()},
+}
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
@@ -98,6 +109,147 @@ def _mobile_coil_output_scope_by_workshop(db: Session, start: date, end: date) -
     return result
 
 
+def _process_row_text(row: MesWorkshopProcessRecord) -> str:
+    payload = getattr(row, 'source_payload', None) or {}
+    payload_text = ' '.join(
+        str(payload.get(key) or '')
+        for key in ('process_code', 'report_process_code', 'metric_code')
+    )
+    return ' '.join(
+        str(item or '')
+        for item in (row.workshop_name, row.process_name, row.device_name, row.source_id, payload_text)
+    )
+
+
+def _process_row_pass_count(row: MesWorkshopProcessRecord) -> int:
+    payload = getattr(row, 'source_payload', None) or {}
+    for key in ('pass_count', 'passes', '道次'):
+        if payload.get(key) not in (None, ''):
+            return int(_to_float(payload.get(key)))
+    return 1
+
+
+def _mes_input_tons(row: MesWorkshopProcessRecord) -> float:
+    direct = _to_float(row.input_weight_tons)
+    if direct > 0:
+        return direct
+    return _to_float(row.input_weight_kg) / 1000
+
+
+def _mes_row_matches_workshop(row: MesWorkshopProcessRecord, workshop: Workshop) -> bool:
+    canonical_name = normalize_workshop_name(workshop.name)
+    text = _process_row_text(row)
+    mapping = MES_OUTPUT_WORKSHOP_MAPPINGS.get(canonical_name)
+    if mapping is not None:
+        includes = tuple(mapping.get('include') or ())
+        excludes = tuple(mapping.get('exclude') or ())
+        return (not includes or any(token in text for token in includes)) and not any(token in text for token in excludes)
+    tokens = set(workshop_name_query_tokens(workshop.name))
+    tokens.update(workshop_name_query_tokens(workshop.code))
+    return any(token and token in text for token in tokens)
+
+
+def _query_mes_process_output_scope_by_workshop(db: Session, start: date, end: date) -> dict[int, dict[str, Any]]:
+    if db is None or not _has_mes_workshop_process_record_table(db):
+        return {}
+    workshops = [
+        item
+        for item in db.query(Workshop).filter(Workshop.is_active.is_(True)).order_by(Workshop.sort_order.asc(), Workshop.id.asc()).all()
+        if get_workshop_data_source_policy(item.name).get('primary_source') == 'mes'
+    ]
+    rows = (
+        db.query(MesWorkshopProcessRecord)
+        .filter(
+            MesWorkshopProcessRecord.business_date >= start,
+            MesWorkshopProcessRecord.business_date <= end,
+        )
+        .order_by(MesWorkshopProcessRecord.id.asc())
+        .all()
+    )
+    result: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        output_weight = _mes_output_tons(row)
+        if output_weight <= 0:
+            continue
+        matched_workshop = next((workshop for workshop in workshops if _mes_row_matches_workshop(row, workshop)), None)
+        if matched_workshop is None:
+            continue
+        bucket = result.setdefault(
+            int(matched_workshop.id),
+            {
+                'input': 0.0,
+                'output': 0.0,
+                'process_output': 0.0,
+                'pass_count_total': 0,
+                'process_stage_outputs': {},
+                'source_basis': 'mes_workshop_process_records',
+                'source_label': '外部 MES 过站产量',
+            },
+        )
+        bucket['input'] += _mes_input_tons(row)
+        bucket['output'] += output_weight
+        bucket['process_output'] += output_weight
+        bucket['pass_count_total'] += _process_row_pass_count(row)
+        if str(matched_workshop.workshop_type or '').strip() == 'cold_roll':
+            stage = normalize_process_stage(getattr(row, 'source_payload', None) or {})
+            stage_key = stage or 'unmarked'
+            stage_outputs = bucket['process_stage_outputs']
+            stage_outputs[stage_key] = stage_outputs.get(stage_key, 0.0) + output_weight
+
+    for bucket in result.values():
+        bucket['input'] = _round2(bucket['input']) or 0.0
+        bucket['output'] = _round2(bucket['output']) or 0.0
+        bucket['process_output'] = _round2(bucket['process_output']) or 0.0
+        bucket['process_stage_outputs'] = {
+            key: _round2(value) or 0.0
+            for key, value in bucket['process_stage_outputs'].items()
+        }
+    return result
+
+
+def _clone_output_payload(payload: dict[str, Any], *, source_basis: str, source_label: str) -> dict[str, Any]:
+    return {
+        'input': _round2(_to_float(payload.get('input'))) or 0.0,
+        'output': _round2(_to_float(payload.get('output'))) or 0.0,
+        'process_output': _round2(_to_float(payload.get('process_output'))) or 0.0,
+        'pass_count_total': int(payload.get('pass_count_total') or 0),
+        'process_stage_outputs': dict(payload.get('process_stage_outputs') or {}),
+        'source_basis': source_basis,
+        'source_label': source_label,
+    }
+
+
+def _mixed_workshop_output_scope_by_workshop(db: Session, start: date, end: date) -> dict[int, dict[str, Any]]:
+    mobile_scope = _mobile_coil_output_scope_by_workshop(db, start, end)
+    mes_scope = _query_mes_process_output_scope_by_workshop(db, start, end)
+    workshops = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
+    result: dict[int, dict[str, Any]] = {}
+    for workshop in workshops:
+        wid = int(workshop.id)
+        policy = get_workshop_data_source_policy(workshop.name)
+        if policy.get('primary_source') == 'mes':
+            if wid in mes_scope:
+                result[wid] = _clone_output_payload(
+                    mes_scope[wid],
+                    source_basis='mes_workshop_process_records',
+                    source_label='外部 MES 过站产量',
+                )
+            elif wid in mobile_scope:
+                result[wid] = _clone_output_payload(
+                    mobile_scope[wid],
+                    source_basis='manual_mobile_coil_fallback',
+                    source_label='人工填报兜底产量',
+                )
+            continue
+        if wid in mobile_scope:
+            result[wid] = _clone_output_payload(
+                mobile_scope[wid],
+                source_basis='manual_mobile_coil',
+                source_label='人工填报产量',
+            )
+    return result
+
+
 def _fmt_delta_label(delta: float | None, *, suffix: str = '') -> str | None:
     if delta is None:
         return None
@@ -133,15 +285,15 @@ def _query_input_output_by_workshop(db: Session, start: date, end: date) -> dict
 
 def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str]) -> list[dict]:
     month_start = target_date.replace(day=1)
-    today_scope = _mobile_coil_output_scope_by_workshop(db, target_date, target_date)
-    yesterday_scope = _mobile_coil_output_scope_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
-    monthly_scope = _mobile_coil_output_scope_by_workshop(db, month_start, target_date)
+    today_scope = _mixed_workshop_output_scope_by_workshop(db, target_date, target_date)
+    yesterday_scope = _mixed_workshop_output_scope_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
+    monthly_scope = _mixed_workshop_output_scope_by_workshop(db, month_start, target_date)
     today = {wid: payload['output'] for wid, payload in today_scope.items()}
     yesterday = {wid: payload['output'] for wid, payload in yesterday_scope.items()}
     monthly = {wid: payload['output'] for wid, payload in monthly_scope.items()}
 
     rows = []
-    all_ids = (set(today_scope) | set(monthly_scope)) & set(ws_map)
+    all_ids = (set(today_scope) | set(yesterday_scope) | set(monthly_scope)) & set(ws_map)
     for wid in sorted(all_ids, key=lambda w: -(today.get(w, 0))):
         name = ws_map.get(wid, f'车间{wid}')
         d = _round2(today.get(wid, 0))
@@ -158,12 +310,19 @@ def _build_workshop_output(db: Session, target_date: date, ws_map: dict[int, str
             'process_output': today_payload.get('process_output'),
             'pass_count_total': today_payload.get('pass_count_total', 0),
             'process_stage_outputs': today_payload.get('process_stage_outputs', {}),
+            'source_basis': today_payload.get('source_basis'),
+            'source_label': today_payload.get('source_label'),
         })
     return rows
 
 
 def _wip_workshop_key(value: Any) -> str:
     return str(value or '').strip()
+
+
+def _wip_weight_tons(value: Any) -> float:
+    weight = _to_float(value)
+    return weight / 1000 if weight > 10000 else weight
 
 
 def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, dict[str, Any]]:
@@ -177,10 +336,7 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
         if dated_query.limit(1).first() is not None:
             query = dated_query
         else:
-            latest_snapshot_at = query.with_entities(func.max(MesWipTotalSnapshot.snapshot_at)).scalar()
-            if latest_snapshot_at is None:
-                return {}
-            query = query.filter(MesWipTotalSnapshot.snapshot_at == latest_snapshot_at)
+            return {}
 
         rows = (
             query.with_entities(
@@ -203,7 +359,7 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
             'key': key,
             'workshop': workshop,
             'coil_count': int(count or 0),
-            'total_weight': _to_float(weight),
+            'total_weight': _wip_weight_tons(weight),
         }
     return result
 
@@ -346,6 +502,39 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
             return None
         return round(sum(normalized) / len(normalized), 2)
 
+    def mes_yield_from_records(start: date, end: date) -> float | None:
+        if db is None or not _has_mes_yield_record_table(db):
+            return None
+        try:
+            rows = (
+                db.query(MesYieldRecord)
+                .filter(
+                    MesYieldRecord.business_date >= start,
+                    MesYieldRecord.business_date <= end,
+                )
+                .all()
+            )
+        except (OperationalError, ProgrammingError):
+            return None
+        total_feeding = 0.0
+        total_in_stock = 0.0
+        fallback_rates = []
+        for row in rows:
+            feeding = _to_float(row.feeding_weight_tons)
+            in_stock = _to_float(row.in_stock_net_weight_tons)
+            if feeding > 0 and in_stock >= 0:
+                total_feeding += feeding
+                total_in_stock += in_stock
+                continue
+            normalized = normalize_yield(row.yield_rate)
+            if normalized is not None:
+                fallback_rates.append(normalized)
+        if total_feeding > 0:
+            return round(total_in_stock / total_feeding * 100, 2)
+        if fallback_rates:
+            return round(sum(fallback_rates) / len(fallback_rates), 2)
+        return None
+
     today_data = _query_input_output_by_workshop(db, target_date, target_date)
     yesterday_data = _query_input_output_by_workshop(db, target_date - timedelta(days=1), target_date - timedelta(days=1))
     month_start = target_date.replace(day=1)
@@ -358,16 +547,20 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
             return None
         return round(total_out / total_in * 100, 2)
 
-    daily = yield_from_entries(target_date, target_date) or calc_yield(today_data)
-    yesterday = yield_from_entries(target_date - timedelta(days=1), target_date - timedelta(days=1)) or calc_yield(yesterday_data)
-    monthly = yield_from_entries(month_start, target_date) or calc_yield(monthly_data)
+    daily_mes = mes_yield_from_records(target_date, target_date)
+    yesterday_mes = mes_yield_from_records(target_date - timedelta(days=1), target_date - timedelta(days=1))
+    monthly_mes = mes_yield_from_records(month_start, target_date)
+
+    daily = daily_mes or yield_from_entries(target_date, target_date) or calc_yield(today_data)
+    yesterday = yesterday_mes or yield_from_entries(target_date - timedelta(days=1), target_date - timedelta(days=1)) or calc_yield(yesterday_data)
+    monthly = monthly_mes or yield_from_entries(month_start, target_date) or calc_yield(monthly_data)
 
     return {
         'daily': daily,
         'daily_delta': _delta(daily, yesterday),
         'monthly': monthly,
         'owner_daily': _owner_daily_value(db, target_date, 'plant_wide_yield_rate'),
-        'basis': 'mobile_coil_yield_rate',
+        'basis': 'mes_yield_records' if any(value is not None for value in (daily_mes, yesterday_mes, monthly_mes)) else 'mobile_coil_yield_rate',
     }
 
 
@@ -443,6 +636,18 @@ def _build_contracts(db: Session, target_date: date) -> dict:
     monthly_total = _round2(_to_float(projection.get('month_to_date_contract_weight')))
     remaining = _round2(_to_float(projection.get('remaining_contract_weight')))
     remaining_delta = _round2(_to_float(projection.get('remaining_contract_delta_weight')))
+    projection_delta_raw = projection.get('remaining_contract_delta_weight')
+    has_explicit_delta = (projection_delta_raw not in (None, '') and _to_float(projection_delta_raw) != 0) or any(
+        item.get('remaining_contract_delta_weight') is not None
+        for item in projection.get('items', [])
+        if isinstance(item, dict)
+    )
+    if not has_explicit_delta and remaining is not None:
+        previous_projection = build_contract_projection(db, target_date=target_date - timedelta(days=1))
+        if previous_projection.get('quality_status') != 'missing':
+            previous_remaining = _round2(_to_float(previous_projection.get('remaining_contract_weight')))
+            if previous_remaining is not None:
+                remaining_delta = _delta(remaining, previous_remaining)
 
     return {
         'daily_new': daily_new,
@@ -486,6 +691,20 @@ def _has_work_order_entry_table(db: Session) -> bool:
 def _has_mes_stock_record_table(db: Session) -> bool:
     try:
         return inspect(db.get_bind()).has_table(MesStockRecord.__tablename__)
+    except Exception:
+        return True
+
+
+def _has_mes_workshop_process_record_table(db: Session) -> bool:
+    try:
+        return inspect(db.get_bind()).has_table(MesWorkshopProcessRecord.__tablename__)
+    except Exception:
+        return True
+
+
+def _has_mes_yield_record_table(db: Session) -> bool:
+    try:
+        return inspect(db.get_bind()).has_table(MesYieldRecord.__tablename__)
     except Exception:
         return True
 
@@ -690,9 +909,11 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
     daily_output = mes_totals_by_date.get(target_date, 0.0)
     yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
-    monthly_output = sum(mes_totals_by_date.values())
+    mes_monthly_output = sum(mes_totals_by_date.values())
     finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
     finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
+    monthly_output = finished_inbound_monthly_output if inbound_totals_by_date else 0.0
+    monthly_output_source = 'storage_owner_daily_entry' if inbound_totals_by_date else 'none'
     days_elapsed = max(1, target_date.day)
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
@@ -702,14 +923,17 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'business_day_start': '07:30',
         'daily_output_source': mes_sources_by_date.get(target_date, 'mes_stock_records'),
         'finished_inbound_source': 'storage_owner_daily_entry',
+        'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
         'monthly_output': _round2(monthly_output),
         'monthly_average_output': _round2(monthly_output / days_elapsed),
         'packaging_output': _round2(daily_output),
         'packaging_monthly_output': _round2(monthly_output),
+        'packaging_monthly_source': monthly_output_source,
         'packaging_monthly_average': _round2(monthly_output / days_elapsed),
         'packaging_basis_label': '包装产量',
+        'mes_packaging_monthly_output': _round2(mes_monthly_output),
         'finished_inbound_output': _round2(finished_inbound_output),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
@@ -841,11 +1065,17 @@ def _build_shift_breakdown(db: Session, target_date: date) -> dict:
     }
 
 
-def build_daily_production_overview(db: Session, *, target_date: date) -> dict[str, Any]:
+def build_daily_production_overview(
+    db: Session,
+    *,
+    target_date: date,
+    wip_date: date | None = None,
+) -> dict[str, Any]:
+    effective_wip_date = wip_date or target_date
     ws_map = _workshop_map(db)
 
     workshop_output = _build_workshop_output(db, target_date, ws_map)
-    wip = _build_wip_distribution(db, target_date)
+    wip = _build_wip_distribution(db, effective_wip_date)
     yield_rates = _build_yield_rates(db, target_date)
     energy = _build_energy(db, target_date)
     contracts = _build_contracts(db, target_date)
@@ -878,6 +1108,7 @@ def build_daily_production_overview(db: Session, *, target_date: date) -> dict[s
 
     return {
         'target_date': target_date.isoformat(),
+        'wip_business_date': effective_wip_date.isoformat(),
         'header_kpis': header_kpis,
         'plant_output': plant_output,
         'shift_breakdown': shift_breakdown,

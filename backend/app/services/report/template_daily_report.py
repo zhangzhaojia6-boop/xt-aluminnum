@@ -505,8 +505,18 @@ def _copy_recovery_and_overhaul(db: Session, *, target_date: date, values: dict[
         return
 
 
-def build_template_daily_report_facts(db: Session, *, target_date: date) -> dict[str, Any]:
-    return collect_template_daily_facts(db, target_date=target_date, required_fields=REQUIRED_FIELDS).as_dict()
+def build_template_daily_report_facts(
+    db: Session,
+    *,
+    target_date: date,
+    wip_date: date | None = None,
+) -> dict[str, Any]:
+    return collect_template_daily_facts(
+        db,
+        target_date=target_date,
+        wip_date=wip_date,
+        required_fields=REQUIRED_FIELDS,
+    ).as_dict()
 
 
 def validate_template_daily_report_facts(facts: dict[str, Any]) -> dict[str, Any]:
@@ -599,23 +609,36 @@ def render_template_daily_report(facts: dict[str, Any]) -> str:
     )
 
 
-def build_template_daily_report_payload(db: Session, *, target_date: date) -> dict[str, Any]:
-    facts = build_template_daily_report_facts(db, target_date=target_date)
+def build_template_daily_report_payload(
+    db: Session,
+    *,
+    target_date: date,
+    wip_date: date | None = None,
+) -> dict[str, Any]:
+    facts = build_template_daily_report_facts(db, target_date=target_date, wip_date=wip_date)
     validation = validate_template_daily_report_facts(facts)
     return {
         **validation,
         "target_date": target_date.isoformat(),
+        "wip_date": facts.get("wip_date"),
         "facts": facts,
         "sources": facts.get("sources") or {},
     }
 
 
-def apply_template_daily_report_to_report(db: Session, *, report: DailyReport, target_date: date) -> dict[str, Any]:
-    payload = build_template_daily_report_payload(db, target_date=target_date)
+def apply_template_daily_report_to_report(
+    db: Session,
+    *,
+    report: DailyReport,
+    target_date: date,
+    wip_date: date | None = None,
+) -> dict[str, Any]:
+    payload = build_template_daily_report_payload(db, target_date=target_date, wip_date=wip_date)
     report_data = dict(report.report_data or {})
     report_data[TEMPLATE_REPORT_KEY] = {
         "status": payload["status"],
         "text": payload.get("text"),
+        "wip_date": payload.get("wip_date"),
         "missing_fields": payload.get("missing_fields") or [],
         "conflicts": payload.get("conflicts") or [],
         "sources": payload.get("sources") or {},
@@ -626,7 +649,11 @@ def apply_template_daily_report_to_report(db: Session, *, report: DailyReport, t
     return payload
 
 
-def apply_template_daily_report_to_latest_report(db: Session, target_date: date) -> dict[str, Any]:
+def apply_template_daily_report_to_latest_report(
+    db: Session,
+    target_date: date,
+    wip_date: date | None = None,
+) -> dict[str, Any]:
     report = (
         db.query(DailyReport)
         .filter(DailyReport.report_date == target_date, DailyReport.report_type == "production")
@@ -641,4 +668,4 @@ def apply_template_daily_report_to_latest_report(db: Session, target_date: date)
             "conflicts": [],
             "target_date": target_date.isoformat(),
         }
-    return apply_template_daily_report_to_report(db, report=report, target_date=target_date)
+    return apply_template_daily_report_to_report(db, report=report, target_date=target_date, wip_date=wip_date)

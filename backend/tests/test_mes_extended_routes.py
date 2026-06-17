@@ -373,5 +373,4 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
     assert wip_rows[0]['workshop_name'] == '在线退火分厂'
     assert wip_rows[0]['source_id'] == 'wip-1'
     assert 'source_payload' not in wip_rows[0]
-    assert len(fallback_wip_rows) == 1
-    assert fallback_wip_rows[0]['source_id'] == 'wip-1'
+    assert fallback_wip_rows == []

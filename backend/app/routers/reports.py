@@ -96,11 +96,16 @@ def preview_template_daily_report(
     current_user: User = Depends(get_current_user),
 ) -> TemplateDailyReportPreviewResponse:
     _ensure_report_publish_access(current_user)
-    payload = template_daily_report.build_template_daily_report_payload(db, target_date=body.target_date)
+    payload = template_daily_report.build_template_daily_report_payload(
+        db,
+        target_date=body.target_date,
+        wip_date=body.wip_date,
+    )
     missing_fields = list(payload.get('missing_fields') or [])
     return TemplateDailyReportPreviewResponse(
         status=str(payload.get('status') or 'blocked'),
         target_date=body.target_date,
+        wip_date=payload.get('wip_date') or body.wip_date,
         text=payload.get('text'),
         missing_fields=missing_fields,
         missing_field_groups=group_missing_fields(missing_fields),

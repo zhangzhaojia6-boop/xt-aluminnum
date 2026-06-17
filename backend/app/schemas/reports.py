@@ -69,11 +69,13 @@ class ReportPipelineResponse(BaseModel):
 
 class TemplateDailyReportPreviewRequest(BaseModel):
     target_date: date
+    wip_date: date | None = None
 
 
 class TemplateDailyReportPreviewResponse(BaseModel):
     status: str
     target_date: date
+    wip_date: date | None = None
     text: str | None = None
     missing_fields: list[str] = Field(default_factory=list)
     missing_field_groups: dict[str, list[str]] = Field(default_factory=dict)

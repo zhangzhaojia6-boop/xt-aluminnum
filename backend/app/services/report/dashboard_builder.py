@@ -630,7 +630,7 @@ def build_workshop_dashboard(
         base_query = base_query.filter(ShiftProductionData.workshop_id == workshop_id)
 
     items = base_query.order_by(ShiftProductionData.id.desc()).limit(100).all()
-    output_scope = daily_overview_builder._mobile_coil_output_scope_by_workshop(db, target_date, target_date)
+    output_scope = daily_overview_builder._mixed_workshop_output_scope_by_workshop(db, target_date, target_date)
     scoped_output_payloads = (
         [output_scope.get(workshop_id, {})]
         if workshop_id is not None
@@ -705,6 +705,14 @@ def build_workshop_dashboard(
     delivery_status = build_delivery_status(db, target_date=target_date)
     sync_status = _safe_latest_mes_sync_status(db)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id)
+    month_to_date_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
+    if workshop_id is not None:
+        month_scope = daily_overview_builder._mixed_workshop_output_scope_by_workshop(
+            db,
+            target_date.replace(day=1),
+            target_date,
+        )
+        month_to_date_output = _to_float(month_scope.get(workshop_id, {}).get('output'))
 
     return {
         'target_date': target_date.isoformat(),
@@ -715,7 +723,9 @@ def build_workshop_dashboard(
         'process_output': process_output,
         'pass_count_total': pass_count_total,
         'process_stage_outputs': process_stage_outputs,
-        'month_to_date_output': _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id),
+        'output_source_basis': scoped_output_payloads[0].get('source_basis') if workshop_id is not None and scoped_output_payloads else 'mixed_workshop_output',
+        'output_source_label': scoped_output_payloads[0].get('source_label') if workshop_id is not None and scoped_output_payloads else '车间混合口径产量',
+        'month_to_date_output': month_to_date_output,
         'history_digest': history_digest,
         'shift_count': len(items),
         'confirmed_shift_count': confirmed,

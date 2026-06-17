@@ -8,6 +8,7 @@ from sqlalchemy import func, inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import resolve_production_business_date
 from app.models.master import Workshop
 from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
@@ -85,6 +86,7 @@ QUALITY_PLATE_COIL_CODES = {"PLATE_COIL", "PLATECOIL", "PB", "PBC", "普板", "�
 @dataclass
 class TemplateDailyFacts:
     target_date: date
+    wip_date: date | None = None
     values: dict[str, Any] = field(default_factory=dict)
     sources: dict[str, Any] = field(default_factory=dict)
     missing_fields: list[str] = field(default_factory=list)
@@ -93,6 +95,7 @@ class TemplateDailyFacts:
     def as_dict(self) -> dict[str, Any]:
         return {
             "target_date": self.target_date.isoformat(),
+            "wip_date": self.wip_date.isoformat() if self.wip_date else None,
             "values": self.values,
             "sources": self.sources,
             "missing_fields": self.missing_fields,
@@ -385,9 +388,15 @@ def collect_quality_yield_facts(db: Session, facts: TemplateDailyFacts) -> None:
         _set_missing_value(facts, "hot_roll_monthly_yield_rate", target_hot_roll, "quality_yield_daily", workshop_code=row.workshop_code)
 
 
-def collect_opening_facts(db: Session, facts: TemplateDailyFacts) -> None:
+def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: date | None = None) -> None:
+    effective_wip_date = wip_date or facts.wip_date or facts.target_date
+    facts.wip_date = effective_wip_date
     try:
-        overview = daily_overview_builder.build_daily_production_overview(db, target_date=facts.target_date)
+        overview = daily_overview_builder.build_daily_production_overview(
+            db,
+            target_date=facts.target_date,
+            wip_date=effective_wip_date,
+        )
     except Exception as exc:
         facts.conflicts.append({"field": "daily_overview", "reason": type(exc).__name__})
         return
@@ -412,7 +421,13 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts) -> None:
 
     wip_total = sum(_to_float(row.get("total_weight")) for row in wip_distribution)
     if wip_total > 0:
-        _set_value(facts, "wip_total", round(wip_total, 2), "mes_wip_distribution")
+        _set_value(
+            facts,
+            "wip_total",
+            round(wip_total, 2),
+            "mes_wip_distribution",
+            business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
+        )
 
     _set_value(facts, "daily_contract_weight", contracts.get("daily_new"), "contract_projection")
     _set_value(facts, "remaining_contract_weight", contracts.get("remaining"), "contract_projection")
@@ -572,12 +587,14 @@ def collect_template_daily_facts(
     db: Session,
     *,
     target_date: date,
+    wip_date: date | None = None,
     required_fields: tuple[str, ...],
 ) -> TemplateDailyFacts:
-    facts = TemplateDailyFacts(target_date=target_date)
+    effective_wip_date = wip_date or resolve_production_business_date()
+    facts = TemplateDailyFacts(target_date=target_date, wip_date=effective_wip_date)
     _set_value(facts, "report_date", target_date, "runtime_target_date")
 
-    collect_opening_facts(db, facts)
+    collect_opening_facts(db, facts, wip_date=effective_wip_date)
     _copy_owner_values(facts, _owner_daily_payload_values(db, target_date=target_date), required_fields)
     collect_owner_rollup_facts(db, facts)
     collect_manual_workshop_facts(db, facts)

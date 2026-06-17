@@ -1,0 +1,181 @@
+{
+  "testedAt": "2026-06-17T13:45:19.197Z",
+  "baseURL": "https://xtmijd.com",
+  "health": 200,
+  "ready": 503,
+  "readyChecks": {
+    "database": "ok",
+    "uploads": "ok",
+    "equipment_binding": "ok",
+    "schedule": "ok",
+    "pipeline": "blocked",
+    "mes_sync": "ok",
+    "iot_energy_sync": "unconfigured"
+  },
+  "readyHardIssues": [
+    {
+      "level": "hard",
+      "code": "MOBILE_USER_WORKSHOP_MISSING",
+      "message": "存在未绑定车间的移动填报账号。",
+      "suggestion": "请在用户管理中为账号绑定车间归属；可先运行 python scripts/check_owner_account_bindings.py --json 生成 dry-run 修复清单。",
+      "sample": [
+        "13803859571(马相国)",
+        "13523527122(马棵)"
+      ]
+    }
+  ],
+  "login": 200,
+  "userRole": "admin",
+  "pages": [
+    {
+      "path": "/manage/live",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/live",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 12581,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/today",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/today",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 14277,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/production",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/production\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 15004,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/fill-details",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/fill-details",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 8353,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/energy",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/energy",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 15091,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/alerts",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/alerts",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 16005,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/admin/settings",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/admin/settings",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 14202,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/entry/history",
+      "viewport": "393x727",
+      "navStatus": 200,
+      "finalUrl": "/entry/history",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 393,
+        "clientWidth": 393,
+        "textLength": 0,
+        "headings": [],
+        "buttons": 0
+      },
+      "ms": 10054,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    }
+  ]
+}

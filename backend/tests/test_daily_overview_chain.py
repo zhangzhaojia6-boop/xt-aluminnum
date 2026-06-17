@@ -10,8 +10,9 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models.attendance import AttendanceSchedule
 from app.models.consumable import DailyConsumableLog
+from app.models.imports import ImportBatch, ImportRow
 from app.models.master import Employee, Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -92,6 +93,58 @@ def test_daily_overview_exposes_plant_output_basis_and_plant_cost(monkeypatch) -
     assert payload['plant_cost']['cost_per_ton'] == round(2.08 * 10000 / 18.5, 0)
     assert payload['shift_breakdown']['output_basis_label'] == '工序下机量'
     assert payload['header_kpis'][0]['label'] == '包装产量'
+
+
+def test_daily_overview_can_use_separate_wip_business_date(monkeypatch) -> None:
+    seen: dict[str, date] = {}
+
+    monkeypatch.setattr(daily_overview_builder, '_workshop_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(daily_overview_builder, '_build_workshop_output', lambda *_args, **_kwargs: [])
+
+    def fake_wip(_db, business_date: date):
+        seen['wip_date'] = business_date
+        return [{'workshop': '冷轧车间', 'coil_count': 1, 'total_weight': 879.0}]
+
+    monkeypatch.setattr(daily_overview_builder, '_build_wip_distribution', fake_wip)
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_yield_rates',
+        lambda *_args, **_kwargs: {'daily': None, 'daily_delta': None, 'monthly': None},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_energy',
+        lambda *_args, **_kwargs: {
+            'total_electricity': 0.0,
+            'total_gas': 0.0,
+            'electricity_cost': 0.0,
+            'gas_cost': 0.0,
+            'total_cost': 0.0,
+            'by_workshop': [],
+        },
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_contracts',
+        lambda *_args, **_kwargs: {'daily_new': 0, 'monthly_total': 0, 'remaining': 0, 'remaining_delta': 0},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_plant_output',
+        lambda *_args, **_kwargs: {'daily_output': 0.0, 'yesterday_output': 0.0, 'monthly_output': 0.0},
+    )
+    monkeypatch.setattr(daily_overview_builder, '_build_shift_breakdown', lambda *_args, **_kwargs: {})
+
+    payload = daily_overview_builder.build_daily_production_overview(
+        None,
+        target_date=date(2026, 6, 16),
+        wip_date=date(2026, 6, 17),
+    )
+
+    assert payload['target_date'] == '2026-06-16'
+    assert payload['wip_business_date'] == '2026-06-17'
+    assert seen['wip_date'] == date(2026, 6, 17)
+    assert payload['header_kpis'][2]['value'] == 879.0
 
 
 def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
@@ -296,6 +349,234 @@ def test_wip_distribution_uses_wip_total_when_daily_snapshot_weight_is_zero(tmp_
     ]
 
 
+def test_wip_distribution_does_not_use_other_day_wip_total_snapshot(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-strict-date.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add(
+        MesWipTotalSnapshot(
+            source_id='latest-other-day',
+            workshop_name='新厂在线车间',
+            process_name='北线退火',
+            doing_count=588,
+            doing_weight_tons=4466.5,
+            snapshot_at=datetime(2026, 5, 31, 8, 0, tzinfo=UTC),
+        )
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
+
+    assert payload == []
+
+
+def test_wip_distribution_converts_large_wip_total_snapshot_weight_from_kg(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-unit.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add(
+        MesWipTotalSnapshot(
+            source_id='新厂在线车间:北线退火',
+            workshop_name='新厂在线车间',
+            process_name='北线退火',
+            doing_count=588,
+            doing_weight_tons=302338.2,
+            snapshot_at=datetime(2026, 5, 29, 8, 0, tzinfo=UTC),
+        )
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
+
+    assert payload[0]['total_weight'] == 302.34
+
+
+def test_contracts_derive_remaining_delta_from_yesterday_when_owner_entry_delta_missing(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-contract-delta.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[Workshop.__table__, WorkOrder.__table__, WorkOrderEntry.__table__, ImportBatch.__table__, ImportRow.__table__],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='CPK', name='成品库', workshop_type='inventory', is_active=True),
+            WorkOrder(id=1, tracking_card_no='OWNER-2026-06-15', process_route_code='owner_daily'),
+            WorkOrder(id=2, tracking_card_no='OWNER-2026-06-16', process_route_code='owner_daily'),
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 6, 15),
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={
+                    'daily_contract_weight': 303,
+                    'remaining_contract_weight': 2699,
+                },
+            ),
+            WorkOrderEntry(
+                work_order_id=2,
+                workshop_id=1,
+                business_date=date(2026, 6, 16),
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={
+                    'daily_contract_weight': 66,
+                    'remaining_contract_weight': 2569,
+                },
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_contracts(db, date(2026, 6, 16))
+
+    assert payload['remaining'] == 2569.0
+    assert payload['remaining_delta'] == -130.0
+
+
+def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-workshop-output-mixed.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='RZ', name='热轧车间', workshop_type='hot_roll', is_active=True),
+            Workshop(id=2, code='LZ1650', name='1650车间', workshop_type='cold_roll', is_active=True),
+            Workshop(id=3, code='CH', name='园区淬火', workshop_type='quenching', is_active=True),
+            WorkOrder(id=1, tracking_card_no='RZ-1', process_route_code='manual'),
+            WorkOrder(id=2, tracking_card_no='LZ1650-1', process_route_code='manual'),
+            WorkOrder(id=3, tracking_card_no='CH-1', process_route_code='manual'),
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 5, 29),
+                output_weight=88000,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+            ),
+            WorkOrderEntry(
+                work_order_id=2,
+                workshop_id=2,
+                business_date=date(2026, 5, 29),
+                output_weight=7000,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+            ),
+            WorkOrderEntry(
+                work_order_id=3,
+                workshop_id=3,
+                business_date=date(2026, 5, 29),
+                output_weight=5000,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+            ),
+            MesWorkshopProcessRecord(
+                source_id='mes-hot-roll',
+                source_path='sqlserver',
+                workshop_name='热轧车间',
+                process_name='热轧',
+                output_weight_tons=12,
+                business_date=date(2026, 5, 29),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='mes-1650',
+                source_path='sqlserver',
+                workshop_name='1650车间',
+                process_name='冷轧',
+                output_weight_tons=33,
+                business_date=date(2026, 5, 29),
+                source_payload={'pass_count': 11},
+            ),
+            MesWorkshopProcessRecord(
+                source_id='mes-quench',
+                source_path='sqlserver',
+                workshop_name='园区淬火',
+                process_name='淬火',
+                output_weight_tons=99,
+                business_date=date(2026, 5, 29),
+            ),
+        ]
+    )
+    db.commit()
+
+    rows = daily_overview_builder._build_workshop_output(
+        db,
+        date(2026, 5, 29),
+        {1: '热轧车间', 2: '1650车间', 3: '园区淬火'},
+    )
+    by_name = {row['workshop']: row for row in rows}
+
+    assert by_name['热轧车间']['daily_output'] == 88.0
+    assert by_name['热轧车间']['source_basis'] == 'manual_mobile_coil'
+    assert by_name['1650车间']['daily_output'] == 33.0
+    assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
+    assert by_name['1650车间']['pass_count_total'] == 11
+    assert by_name['园区淬火']['daily_output'] == 5.0
+    assert by_name['园区淬火']['source_basis'] == 'manual_mobile_coil'
+
+
+def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-mes-yield.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesYieldRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='LZ1650', name='1650车间', workshop_type='cold_roll', is_active=True),
+            WorkOrder(id=1, tracking_card_no='LZ1650-1', process_route_code='manual'),
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 5, 29),
+                output_weight=99000,
+                input_weight=100000,
+                yield_rate=99.0,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+            ),
+            MesYieldRecord(
+                source_id='yield-yesterday',
+                source_path='sqlserver',
+                feeding_weight_tons=50,
+                in_stock_net_weight_tons=40,
+                business_date=date(2026, 5, 28),
+            ),
+            MesYieldRecord(
+                source_id='yield-today',
+                source_path='sqlserver',
+                feeding_weight_tons=100,
+                in_stock_net_weight_tons=85,
+                yield_rate=10,
+                business_date=date(2026, 5, 29),
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_yield_rates(db, date(2026, 5, 29))
+
+    assert payload['daily'] == 85.0
+    assert payload['daily_delta'] == 5.0
+    assert payload['monthly'] == 83.33
+    assert payload['basis'] == 'mes_yield_records'
+
+
 def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
@@ -323,7 +604,8 @@ def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeyp
 
     assert payload['daily_output'] == 0.0
     assert payload['yesterday_output'] == 0.0
-    assert payload['monthly_output'] == 0
+    assert payload['monthly_output'] == 2.8
+    assert payload['monthly_output_source'] == 'storage_owner_daily_entry'
     assert payload['basis'] == 'mes_packaging_output'
     assert payload['basis_label'] == '包装产量'
     assert payload['finished_inbound_output'] == 2.0

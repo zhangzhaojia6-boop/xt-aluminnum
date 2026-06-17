@@ -11,6 +11,7 @@ from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
+from app.services.report import template_daily_fact_sources
 from app.services.report.template_daily_fact_sources import collect_template_daily_facts
 from app.services.report.template_daily_report import REQUIRED_FIELDS
 
@@ -95,6 +96,54 @@ def test_owner_daily_wins_for_manual_workshop_outputs(tmp_path) -> None:
 
     assert facts.values["hot_roll_daily"] == 275
     assert facts.sources["hot_roll_daily"]["source_type"] == "owner_daily"
+
+
+def test_template_daily_facts_default_to_current_business_date_for_wip(monkeypatch) -> None:
+    seen: dict[str, date] = {}
+
+    monkeypatch.setattr(
+        template_daily_fact_sources,
+        "resolve_production_business_date",
+        lambda: date(2026, 6, 17),
+    )
+
+    def fake_overview(_db, *, target_date: date, wip_date: date | None = None):
+        seen["target_date"] = target_date
+        seen["wip_date"] = wip_date
+        return {
+            "plant_output": {},
+            "contracts": {},
+            "yield_rates": {},
+            "energy": {},
+            "cost": {},
+            "wip_business_date": wip_date.isoformat() if wip_date else None,
+            "wip_distribution": [{"total_weight": 879.0}],
+        }
+
+    monkeypatch.setattr(
+        template_daily_fact_sources.daily_overview_builder,
+        "build_daily_production_overview",
+        fake_overview,
+    )
+    monkeypatch.setattr(template_daily_fact_sources, "_owner_daily_payload_values", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(template_daily_fact_sources, "_copy_owner_values", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_owner_rollup_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_manual_workshop_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_mes_workshop_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_recovery_and_overhaul_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_quality_yield_facts", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(template_daily_fact_sources, "collect_yesterday_comparison_facts", lambda *_args, **_kwargs: None)
+
+    facts = template_daily_fact_sources.collect_template_daily_facts(
+        object(),
+        target_date=date(2026, 6, 16),
+        required_fields=("wip_total",),
+    )
+
+    assert seen == {"target_date": date(2026, 6, 16), "wip_date": date(2026, 6, 17)}
+    assert facts.values["wip_total"] == 879.0
+    assert facts.sources["wip_total"]["business_date"] == "2026-06-17"
+    assert facts.as_dict()["wip_date"] == "2026-06-17"
 
 
 def test_mes_mapped_workshop_outputs_use_explicit_process_mapping(tmp_path) -> None:

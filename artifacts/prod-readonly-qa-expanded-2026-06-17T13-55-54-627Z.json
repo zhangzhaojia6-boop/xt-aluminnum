@@ -1,0 +1,986 @@
+{
+  "testedAt": "2026-06-17T13:55:54.627Z",
+  "baseURL": "https://xtmijd.com",
+  "ready": 503,
+  "readyChecks": {
+    "database": "ok",
+    "uploads": "ok",
+    "equipment_binding": "ok",
+    "schedule": "ok",
+    "pipeline": "blocked",
+    "mes_sync": "ok",
+    "iot_energy_sync": "unconfigured"
+  },
+  "readyHardIssues": [
+    {
+      "level": "hard",
+      "code": "MOBILE_USER_WORKSHOP_MISSING",
+      "message": "存在未绑定车间的移动填报账号。",
+      "suggestion": "请在用户管理中为账号绑定车间归属；可先运行 python scripts/check_owner_account_bindings.py --json 生成 dry-run 修复清单。",
+      "sample": [
+        "13803859571(马相国)",
+        "13523527122(马棵)"
+      ]
+    }
+  ],
+  "login": 200,
+  "userRole": "admin",
+  "pages": [
+    {
+      "path": "/manage/live",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/live",
+      "title": "生产实时 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 鑫泰铝业 数据中枢 / 生产实时 全厂实时调度墙 实时流转 / 机列矩阵 / 来源核验 2026-06-17 实时连接正常 LAST 21:51:18 刷新 MES 外部数据 人工填报 算法数据 MES包装产量 164.35 吨 来源 MES包装 内勤入库填报 0 吨 来源 内勤入库 过站下机 892.99 吨 来源 工序通过量 总电耗 待同步 来源 算法 吨电耗 待同步 来源 算法 未填 124 来源 填报 异",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 3089,
+        "headings": [
+          "全厂实时调度墙"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 7413,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 7399,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 7323,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 7296,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/vendor-form-ahU4H2O-.js",
+          "duration": 7262,
+          "transferSize": 5448
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 5770,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 5397,
+          "transferSize": 170835
+        },
+        {
+          "name": "/assets/echarts-hud-D4ZePZfi.js",
+          "duration": 2795,
+          "transferSize": 826
+        }
+      ],
+      "ms": 26851,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/today",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/today",
+      "title": "昨日日报 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 0,
+        "headings": [],
+        "navItems": [],
+        "largeBlank": true
+      },
+      "resources": [
+        {
+          "name": "/assets/stitchManageSurface-DScKiJzj.js",
+          "duration": 7587,
+          "transferSize": 7959
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 6911,
+          "transferSize": 170835
+        },
+        {
+          "name": "/api/v1/user/preferences",
+          "duration": 5660,
+          "transferSize": 314
+        },
+        {
+          "name": "/assets/MissingReportPanel-Hpgntigp.js",
+          "duration": 5370,
+          "transferSize": 1505
+        },
+        {
+          "name": "/assets/echarts-hud-D4ZePZfi.js",
+          "duration": 5337,
+          "transferSize": 826
+        },
+        {
+          "name": "/assets/useHudChartTheme-De0R7E1F.js",
+          "duration": 5280,
+          "transferSize": 829
+        },
+        {
+          "name": "/assets/useDashboardSnapshot-lZfo-xYO.js",
+          "duration": 5000,
+          "transferSize": 3507
+        },
+        {
+          "name": "/assets/display-DKKrQ2kI.js",
+          "duration": 4963,
+          "transferSize": 2584
+        }
+      ],
+      "ms": 28895,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/production",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 25000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/production\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 25001,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/coils",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/coils",
+      "title": "卷级线索 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 MES 主数据 卷级线索 全部去向 在制 成品库存 已分配 交付 未知 全部机列 已匹配机列 待绑定机列 查询 卷级线索 100 在制卷 99 待绑定机列 100 数据来源 MES 当前筛选 100 / 100 卷 全部卷级线索 卷材列表 MES 过站线索 100 卷 随行卡 批号/合金 当前车间 当前工艺 机列归属 自动废料 去向 26RA03629 26RA03629 26-s-3-065-1 · H24 ·",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 11251,
+        "headings": [
+          "卷级线索",
+          "MES 过站线索",
+          "卷材流向"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 5710,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/factory-command-DE_SGdF9.js",
+          "duration": 5134,
+          "transferSize": 1032
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 4883,
+          "transferSize": 170835
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 4784,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 4344,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 4286,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 4182,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/vendor-form-ahU4H2O-.js",
+          "duration": 3241,
+          "transferSize": 5448
+        }
+      ],
+      "ms": 23979,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/fill-details",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/fill-details",
+      "title": "填报明细 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 数据链路 填报明细 ‹ 6月16日 日报 ▾ › 刷新 导出缺报 242 当前筛选 MES 外部数据 人工填报 算法数据 MES包装产量 308.68 吨 内勤入库填报 277.64 吨 过站下机参考 1,564.19 吨 算法总用电 9,738 度 电工填报 暂无可信数据 合同吨数 66 吨 外部 MES 同步正常 口径对照 算法主值在前，填报值作对照 包装产量对照 MES包装 308.68 吨 内勤入库填报 ",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 28930,
+        "headings": [
+          "填报明细",
+          "口径对照",
+          "MES 对照异常"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 4185,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 3734,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/manageFillDetailsAudit-DtZqeSp_.js",
+          "duration": 3716,
+          "transferSize": 3381
+        },
+        {
+          "name": "/api/v1/dashboard/daily-production?target_date=2026-06-16",
+          "duration": 3616,
+          "transferSize": 2380
+        },
+        {
+          "name": "/api/v1/aggregation/live?business_date=2026-06-16",
+          "duration": 3401,
+          "transferSize": 7653
+        },
+        {
+          "name": "/assets/master-BTzGHF_A.js",
+          "duration": 3339,
+          "transferSize": 963
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 3236,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 3028,
+          "transferSize": 16142
+        }
+      ],
+      "ms": 23136,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/energy",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/energy",
+      "title": "能源中心 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 能耗总览 能源中心 能耗看板 已同步 2026-06-16 / 8 条 页面刷新 21:53:13 ‹ 6月16日 日报 ▾ › 刷新 MES 外部数据 人工填报 算法数据 电耗 9,738 kWh 气耗 24,502 m³ 水耗 0 m³ 总能耗 34,240 kgce 产量 308.68 吨 单吨峰值 110.92 kgce/吨 采集 电耗采集 9,738 kWh 能耗汇总接口 采集 气耗采集 24,502 ",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 1318,
+        "headings": [
+          "能源中心",
+          "能耗明细表",
+          "能耗关注"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 3768,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 3681,
+          "transferSize": 170835
+        },
+        {
+          "name": "/assets/echarts-hud-D4ZePZfi.js",
+          "duration": 3380,
+          "transferSize": 826
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 3358,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 3114,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 2954,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 2901,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/vendor-form-ahU4H2O-.js",
+          "duration": 2528,
+          "transferSize": 5448
+        }
+      ],
+      "ms": 22353,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/alerts",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/alerts",
+      "title": "异常 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 异常总览 异常 ‹ 6月16日 日报 ▾ › 刷新 MES 外部数据 人工填报 算法数据 全部异常 178 未结 178 已处理 0 筛选域 全部 全部 178 生产 0 质检 0 对账 0 填报 22 MES 156 ACTION QUEUE 异常处理队列 178 件未结 / 178 件异常 缺报补录 22 缺报 104 个填报单元 未填报角色：内勤 · 铸锭分厂 内勤 · 铸锭分厂 未填报角色：内勤 · 铸轧",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 16738,
+        "headings": [
+          "异常",
+          "异常处理队列",
+          "异常事件流"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/api/v1/dashboard/factory-director?target_date=2026-06-16",
+          "duration": 7449,
+          "transferSize": 30667
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 6508,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 3920,
+          "transferSize": 170835
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 3686,
+          "transferSize": 117704
+        },
+        {
+          "name": "/api/v1/aggregation/live?business_date=2026-06-16",
+          "duration": 3383,
+          "transferSize": 7654
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 3317,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 3171,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/AlertsPage-C21U2rJs.js",
+          "duration": 2756,
+          "transferSize": 6891
+        }
+      ],
+      "ms": 23307,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/workshop-dashboard",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/workshop-dashboard",
+      "title": "各车间看板 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 车间看板 铸锭分厂 ‹ 6月17日 日报 ▾ › 刷新 车间 铸锭分厂 铸轧二 铸轧三 热轧 2050冷轧 1850冷轧 1650冷轧 精整车间 剪切车间 拉矫车间 回收车间 成品库 新厂在线退火 园区在线退火 淬火车间 导出缺报 链路在线 MES 外部数据 人工填报 算法数据 今日下机量 0 吨 成品口径产量 0 吨 道次总数 0 道 异常数量 0 项 机列填报明细 0 条 机列 班次 责任人 填报时间 随行卡",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 918,
+        "headings": [
+          "铸锭分厂",
+          "机列填报明细",
+          "电工填报明细",
+          "外部 MES 明细",
+          "MES 对照异常",
+          "在制料明细"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/vendor-form-ahU4H2O-.js",
+          "duration": 4064,
+          "transferSize": 5448
+        },
+        {
+          "name": "/api/v1/dashboard/workshop-director?target_date=2026-06-17&workshop_id=1",
+          "duration": 4015,
+          "transferSize": 3258
+        },
+        {
+          "name": "/assets/realtime-CJ2gs344.js",
+          "duration": 3801,
+          "transferSize": 1244
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 3771,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/echarts-hud-D4ZePZfi.js",
+          "duration": 3502,
+          "transferSize": 826
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 3308,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/manageFillDetailsAudit-DtZqeSp_.js",
+          "duration": 3280,
+          "transferSize": 3381
+        },
+        {
+          "name": "/api/v1/user/preferences",
+          "duration": 3273,
+          "transferSize": 314
+        }
+      ],
+      "ms": 25750,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/admin/settings",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/admin/settings",
+      "title": "系统设置 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 系统配置 系统设置 生产环境 MES 外部数据 人工填报 算法数据 [ 配置 ] 十三车间 主数据标准 别名映射 车间机列归一 机列台账 二维码与账号 PC 工艺映射 终端绑定 规则配置 规则引擎 [ 权限 ] 用户管理 组织架构 权限治理 安全中心 [ 工具 / 助手 ] QR 打印 标签服务 AI 助手 智能决策 配置完整度 92.5% 系统优秀 中枢状态 核心模块 9/9 数据源状态 已分层 配置通道 已启",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 471,
+        "headings": [
+          "系统设置",
+          "中枢状态"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 6489,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 4633,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 4320,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 3802,
+          "transferSize": 170835
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 3742,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 3590,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/SystemSettingsPage-CGB60Bpn.js",
+          "duration": 3473,
+          "transferSize": 3033
+        },
+        {
+          "name": "/assets/vendor-form-ahU4H2O-.js",
+          "duration": 3018,
+          "transferSize": 5448
+        }
+      ],
+      "ms": 23507,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/manage/admin/users",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/admin/users",
+      "title": "用户管理 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 权限账号治理 权限治理中心 用户账号 角色权限 归属范围 同步钉钉成员 新增用户 总账号数 115 当前筛选 启用账号 9 本页 机列绑定率 90% 本页 手机端账号 10 本页 账号清单 用户账号 115 条 筛选车间 账号状态 绑定状态 筛选机列 用户名 姓名 角色 所属车间 所属班组 绑定机列 手机端 观察/处置兼容 状态 最近登录 操作 ZD-EN 铸锭车间 电工 车间电工 铸锭分厂 - 铸锭车间 电工 ",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "textLength": 1250,
+        "headings": [
+          "权限治理中心",
+          "用户账号"
+        ],
+        "navItems": [
+          "鑫泰\n数据中枢\n数据中枢",
+          "调度",
+          "日报",
+          "作业",
+          "车间",
+          "卷材",
+          "明细",
+          "能耗",
+          "异常",
+          "考勤",
+          "资料",
+          "账号",
+          "规则",
+          "通讯",
+          "通道",
+          "知识库",
+          "对齐",
+          "设置",
+          "收起侧边栏",
+          "搜索\nCtrl K"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/assets/index-BGQDHNcc.css",
+          "duration": 10344,
+          "transferSize": 7295
+        },
+        {
+          "name": "/assets/vendor-ui-De2Q8m8R.js",
+          "duration": 8510,
+          "transferSize": 117704
+        },
+        {
+          "name": "/assets/vendor-axios-DCteP740.js",
+          "duration": 5298,
+          "transferSize": 16142
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 4805,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 4591,
+          "transferSize": 12251
+        },
+        {
+          "name": "/assets/index-BF-HqyZ1.js",
+          "duration": 4386,
+          "transferSize": 12026
+        },
+        {
+          "name": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "duration": 4099,
+          "transferSize": 6006
+        },
+        {
+          "name": "/assets/vendor-wc7BmRed.js",
+          "duration": 4066,
+          "transferSize": 170835
+        }
+      ],
+      "ms": 28160,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/entry",
+      "viewport": "390x844",
+      "navStatus": 200,
+      "finalUrl": "/manage/today",
+      "title": "昨日日报 - 鑫泰铝业",
+      "text": "工厂总览 统计周期：6月16日生产经营数据 实时 日报 ‹ 6月16日 日报 ▾ › 刷新 包装产量 暂无可信数据 吨 全厂入库产量 暂无可信数据 过站下机参考 暂无可信数据 合同吨数 暂无可信数据 吨 吨电耗 暂无可信数据 日成品率 暂无可信数据 MES 外部数据 人工填报 算法数据 生产流转总览 算法主口径 · 填报数据作对照 铸锭 今日产出 — 月累计 — 铸轧 今日产出 — 月累计 — 热轧 今日产出 — 月累计 — 冷轧（轧机） 今日产出 — 月累计 — 退火 / 拉矫 / 精整 今日产出 — 月累计 — 包装 / 入库对照 MES包装 — 内勤填报 — MES月累计 — 填报月累计 — 车间产量概览 过站下机参考，不计入",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "textLength": 797,
+        "headings": [
+          "工厂总览",
+          "生产流转总览",
+          "车间产量概览",
+          "在制料分布",
+          "异常 / 催报 / 告警 / AI 摘要",
+          "三班填报"
+        ],
+        "navItems": [
+          "打开导航",
+          "实时",
+          "日报",
+          "‹",
+          "6月16日 日报\n▾",
+          "›",
+          "刷新"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/api/v1/dashboard/timeseries?target_date=2026-06-16&days=14",
+          "duration": 7034,
+          "transferSize": 1093
+        },
+        {
+          "name": "/api/v1/aggregation/live?business_date=2026-06-16",
+          "duration": 6601,
+          "transferSize": 7653
+        },
+        {
+          "name": "/assets/stitchManageSurface-DScKiJzj.js",
+          "duration": 6309,
+          "transferSize": 7959
+        },
+        {
+          "name": "/api/v1/dashboard/daily-production?target_date=2026-06-16",
+          "duration": 6125,
+          "transferSize": 2380
+        },
+        {
+          "name": "/api/v1/factory-command/overview?target_date=2026-06-16",
+          "duration": 6068,
+          "transferSize": 1014
+        },
+        {
+          "name": "/assets/index-BF-HqyZ1.js",
+          "duration": 4772,
+          "transferSize": 12026
+        },
+        {
+          "name": "/assets/auth-9jcO7Tvr.js",
+          "duration": 4690,
+          "transferSize": 2860
+        },
+        {
+          "name": "/assets/useHudChartTheme-De0R7E1F.js",
+          "duration": 4655,
+          "transferSize": 829
+        }
+      ],
+      "ms": 24458,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    },
+    {
+      "path": "/entry/history",
+      "viewport": "390x844",
+      "navStatus": 200,
+      "finalUrl": "/manage/today",
+      "title": "昨日日报 - 鑫泰铝业",
+      "text": "工厂总览 统计周期：6月16日生产经营数据 实时 日报 填报 8/13 车间 › ‹ 6月16日 日报 ▾ › 刷新 包装产量 比昨日 60.95 吨 308.68 吨 全厂入库产量 277.64 吨 过站下机参考 1,564.19 吨 合同吨数 66 吨 吨电耗 31.6 kWh/吨 日成品率 96.53 % MES 外部数据 人工填报 算法数据 生产流转总览 算法主口径 · 填报数据作对照 铸锭 今日产出 — 月累计 — 铸轧 今日产出 — 月累计 — 热轧 今日产出 977 吨 月累计 9,106 吨 热轧 977.03 吨 冷轧（轧机） 今日产出 94 吨 月累计 1,275 吨 冷轧1650 57.63 吨 冷轧2050 ",
+      "metrics": {
+        "overflowX": false,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "textLength": 1904,
+        "headings": [
+          "工厂总览",
+          "生产流转总览",
+          "车间产量概览",
+          "在制料分布",
+          "异常 / 催报 / 告警 / AI 摘要",
+          "三班填报"
+        ],
+        "navItems": [
+          "打开导航",
+          "实时",
+          "日报",
+          "填报 8/13 车间\n›",
+          "‹",
+          "6月16日 日报\n▾",
+          "›",
+          "刷新"
+        ],
+        "largeBlank": false
+      },
+      "resources": [
+        {
+          "name": "/api/v1/dashboard/factory-director?target_date=2026-06-16",
+          "duration": 9539,
+          "transferSize": 30669
+        },
+        {
+          "name": "/api/v1/dashboard/timeseries?target_date=2026-06-16&days=14",
+          "duration": 6734,
+          "transferSize": 1093
+        },
+        {
+          "name": "/api/v1/factory-command/overview?target_date=2026-06-16",
+          "duration": 6025,
+          "transferSize": 1013
+        },
+        {
+          "name": "/api/v1/dashboard/daily-production?target_date=2026-06-16",
+          "duration": 5686,
+          "transferSize": 2380
+        },
+        {
+          "name": "/assets/vendor-echarts-DzdgZizC.js",
+          "duration": 5270,
+          "transferSize": 70241
+        },
+        {
+          "name": "/api/v1/aggregation/live?business_date=2026-06-16",
+          "duration": 5195,
+          "transferSize": 7654
+        },
+        {
+          "name": "/assets/useDashboardSnapshot-lZfo-xYO.js",
+          "duration": 4961,
+          "transferSize": 3507
+        },
+        {
+          "name": "/assets/vendor-vue-BO9-Bp0g.js",
+          "duration": 4581,
+          "transferSize": 12251
+        }
+      ],
+      "ms": 22418,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": [],
+      "pageErrors": []
+    }
+  ]
+}

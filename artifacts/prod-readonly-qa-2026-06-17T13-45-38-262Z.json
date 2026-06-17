@@ -1,0 +1,443 @@
+{
+  "testedAt": "2026-06-17T13:45:38.262Z",
+  "baseURL": "https://xtmijd.com",
+  "health": 200,
+  "ready": 503,
+  "readyChecks": {
+    "database": "ok",
+    "uploads": "ok",
+    "equipment_binding": "ok",
+    "schedule": "ok",
+    "pipeline": "blocked",
+    "mes_sync": "ok",
+    "iot_energy_sync": "unconfigured"
+  },
+  "readyHardIssues": [
+    {
+      "level": "hard",
+      "code": "MOBILE_USER_WORKSHOP_MISSING",
+      "message": "存在未绑定车间的移动填报账号。",
+      "suggestion": "请在用户管理中为账号绑定车间归属；可先运行 python scripts/check_owner_account_bindings.py --json 生成 dry-run 修复清单。",
+      "sample": [
+        "13803859571(马相国)",
+        "13523527122(马棵)"
+      ]
+    }
+  ],
+  "login": 200,
+  "userRole": "admin",
+  "pages": [
+    {
+      "path": "/login",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/login",
+      "title": "登录与角色入口 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 全厂作战地图 鑫泰铝业 数据中枢 炉 熔铸炉 铸 铸锭线 批 批次链 AI AI 总管 岗位直录 在线 自动校验 运行 日报发布 待命 闭环 发现 → 判断 → 执行 管理端 管理员登录 进入系统",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 111,
+        "headings": [
+          "鑫泰铝业 数据中枢"
+        ],
+        "visibleButtons": 5
+      },
+      "ms": 15508,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/live",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/live",
+      "title": "鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 32484,
+      "apiFailures": [],
+      "consoleErrors": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: net::ERR_EMPTY_RESPONSE"
+        }
+      ],
+      "requestFailures": [
+        {
+          "url": "/assets/vendor-dayjs-B4p_5sCw.js",
+          "failure": "net::ERR_EMPTY_RESPONSE"
+        }
+      ],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/today",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/today\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 30015,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/production",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/production",
+      "title": "生产 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 18791,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/coils",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/coils",
+      "title": "卷级线索 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 MES 主数据 卷级线索 全部去向 在制 成品库存 已分配 交付 未知 全部机列 已匹配机列 待绑定机列 同步中 卷级线索 0 在制卷 0 待绑定机列 0 数据来源 MES 当前筛选 0 / 0 卷 全部卷级线索 卷材列表 MES 过站线索 0 卷 随行卡 批号/合金 当前车间 当前工艺 机列归属 自动废料 去向 正在读取 MES 卷级线索... 人工补录对照 卷材流向 待选择 请选择一卷查看流向",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 313,
+        "headings": [
+          "卷级线索",
+          "MES 过站线索",
+          "卷材流向"
+        ],
+        "visibleButtons": 24
+      },
+      "ms": 17369,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/fill-details",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/fill-details",
+      "title": "填报明细 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 23612,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/energy",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/energy\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 30010,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/alerts",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/alerts",
+      "title": "异常 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 17505,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/workshop-dashboard",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/workshop-dashboard\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 30007,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/admin/settings",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/admin/settings",
+      "title": "系统设置 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 系统配置 系统设置 生产环境 MES 外部数据 人工填报 算法数据 [ 配置 ] 十三车间 主数据标准 别名映射 车间机列归一 机列台账 二维码与账号 PC 工艺映射 终端绑定 规则配置 规则引擎 [ 权限 ] 用户管理 组织架构 权限治理 安全中心 [ 工具 / 助手 ] QR 打印 标签服务 AI 助手 智能决策 配置完整度 92.5% 系统优秀 中枢状态 核心模块 9/9 数据源状态 已分层 配置通道 已启用 入口状态 在线 MES 补录就绪 读取中 读取中 系统联动监控 主数据 别名",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 1344,
+        "clientHeight": 900,
+        "textLength": 384,
+        "headings": [
+          "系统设置",
+          "中枢状态"
+        ],
+        "visibleButtons": 32
+      },
+      "ms": 18800,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/admin/users",
+      "viewport": "1440x900",
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://xtmijd.com/manage/admin/users\", waiting until \"domcontentloaded\"\u001b[22m\n",
+      "ms": 30015,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/admin/agents",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/admin/agents",
+      "title": "通讯治理台 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 12304,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/rag",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/rag",
+      "title": "知识库资料 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 27591,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/channels",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/channels",
+      "title": "通讯通道 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 外部通讯配置 通讯通道中心 运行演练自检 刷新通道 通道总数 1 统一治理 启用通道 1 当前可用 演练模式 1 只写日志 真实发送 0 按后端配置执行 通道清单 所有外发均进入发件箱统一分发 通道状态 通道名称 类型 范围 通道标识 绑定数量 模式 状态 通讯自检演练通道 2026/6/17 21:04:48 钉钉群 全厂 agen***el 1 演练模式 启用 最近外发任务 只查看发件箱和返回日志，不在此页触发发送 投递状态 消息 通道 投递状态 尝试次数 下次重试 操作 通讯链路演练 ",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "textLength": 438,
+        "headings": [
+          "通讯通道中心",
+          "通道清单",
+          "最近外发任务"
+        ],
+        "visibleButtons": 26
+      },
+      "ms": 15259,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/mapping-reconciliation",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/mapping-reconciliation",
+      "title": "输出skill 对齐 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 只读 dry-run 输出skill 对齐 运行真实试算 参考文件 3 已挂载 可解析覆盖率 100% 3 个可试算 图片待解析 0 image_pending_ocr 对齐行数 0 / 0 输出skill / 系统 当前匹配率 0% 未运行 字段匹配 0 / 0 已匹配 / 可比字段 未匹配字段 0 需要看差异原因 差异数量 0 可追原因 运行编号 - 未保存 试算条件 只读执行 参考文件 请选择文件 2026-6-16_日均报表.xls 2026-6-16_日报正文.txt delive",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 1876,
+        "clientHeight": 900,
+        "textLength": 1006,
+        "headings": [
+          "输出skill 对齐",
+          "试算条件",
+          "参考源",
+          "系统源",
+          "差异原因汇总"
+        ],
+        "visibleButtons": 25
+      },
+      "ms": 18500,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/manage/ai-assistant",
+      "viewport": "1440x900",
+      "navStatus": 200,
+      "finalUrl": "/manage/ai-assistant",
+      "title": "AI 助手 - 鑫泰铝业",
+      "text": "鑫泰 数据中枢 数据中枢 实时调度 调度 昨日报表 日报 生产分析 作业 车间 卷材 明细 能耗 异常 人员考勤 考勤 系统 资料 账号 规则 通讯 通道 知识库 对齐 设置 搜索 Ctrl K AI 助手 系 系统管理员 问答助手 对话 新建 新的对话 06-03 15:49 删除 新的对话 06-02 14:06 删除 新的对话 05-29 11:13 删除 新的对话 05-08 07:34 删除 新的对话 05-07 09:24 删除 新的对话 05-06 10:02 删除 AI 工作台 AI 工作台 就绪 · 证据上下文 事实约束 LLM 对话 6 消息 0 证据 0 引擎 事实+LLM 对话 主动汇报 关注列表 暂无消息 AI 现场 规则 日报 发送",
+      "metrics": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "overflowX": false,
+        "scrollHeight": 904,
+        "clientHeight": 900,
+        "textLength": 334,
+        "headings": [
+          "AI 工作台"
+        ],
+        "visibleButtons": 34
+      },
+      "ms": 20850,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/entry",
+      "viewport": "393x727",
+      "navStatus": 200,
+      "finalUrl": "/entry",
+      "title": "昨日日报 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 393,
+        "clientWidth": 393,
+        "overflowX": false,
+        "scrollHeight": 727,
+        "clientHeight": 727,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 16899,
+      "apiFailures": [],
+      "consoleErrors": [],
+      "requestFailures": [],
+      "nonGetApi": []
+    },
+    {
+      "path": "/entry/history",
+      "viewport": "393x727",
+      "navStatus": 200,
+      "finalUrl": "/entry/history",
+      "title": "昨日日报 - 鑫泰铝业",
+      "text": "",
+      "metrics": {
+        "scrollWidth": 393,
+        "clientWidth": 393,
+        "overflowX": false,
+        "scrollHeight": 727,
+        "clientHeight": 727,
+        "textLength": 0,
+        "headings": [],
+        "visibleButtons": 0
+      },
+      "ms": 14999,
+      "apiFailures": [],
+      "consoleErrors": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: net::ERR_CONNECTION_CLOSED"
+        }
+      ],
+      "requestFailures": [
+        {
+          "url": "/assets/dashboard-BzUyd_nZ.js",
+          "failure": "net::ERR_CONNECTION_CLOSED"
+        }
+      ],
+      "nonGetApi": [
+        {
+          "method": "POST",
+          "url": "/api/v1/telemetry/errors"
+        },
+        {
+          "method": "POST",
+          "url": "/api/v1/telemetry/errors"
+        }
+      ]
+    }
+  ]
+}

@@ -125,7 +125,7 @@ def test_mes_packaging_output_prefers_mes_stock_in_records_over_process_packagin
     assert totals == {BUSINESS_DATE: 341.71}
 
 
-def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separate(tmp_path) -> None:
+def test_plant_output_uses_mes_stock_packaging_for_daily_and_storage_owner_for_monthly(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -204,9 +204,11 @@ def test_plant_output_uses_mes_stock_packaging_as_main_and_keeps_inbound_separat
     assert plant['daily_output'] == 36.5
     assert plant['packaging_output'] == 36.5
     assert plant['yesterday_output'] == 22.25
-    assert plant['monthly_output'] == 58.75
-    assert plant['packaging_monthly_output'] == 58.75
-    assert plant['monthly_average_output'] == round(58.75 / 9, 2)
+    assert plant['monthly_output'] == 27.25
+    assert plant['monthly_output_source'] == 'storage_owner_daily_entry'
+    assert plant['packaging_monthly_output'] == 27.25
+    assert plant['packaging_monthly_source'] == 'storage_owner_daily_entry'
+    assert plant['monthly_average_output'] == round(27.25 / 9, 2)
     assert plant['finished_inbound_source'] == 'storage_owner_daily_entry'
     assert plant['finished_inbound_output'] == 27.25
     assert plant['finished_inbound_basis_label'] == '全厂入库产量'

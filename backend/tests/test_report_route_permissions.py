@@ -166,23 +166,36 @@ def test_template_daily_preview_rejects_fill_only_user_before_service_call(monke
 
 
 def test_template_daily_preview_allows_manager_role(monkeypatch) -> None:
-    monkeypatch.setattr(
-        'app.routers.reports.template_daily_report.build_template_daily_report_payload',
-        lambda *_args, **_kwargs: {
+    seen: dict[str, object] = {}
+
+    def fake_template_payload(*_args, **kwargs):
+        seen.update(kwargs)
+        return {
             'status': 'blocked',
             'text': None,
             'missing_fields': ['total_electricity_kwh'],
             'conflicts': [],
             'sources': {},
-        },
+            'wip_date': '2026-06-17',
+        }
+
+    monkeypatch.setattr(
+        'app.routers.reports.template_daily_report.build_template_daily_report_payload',
+        fake_template_payload,
     )
     _override_user(_user('manager', is_reviewer=False, is_manager=True))
 
-    response = TestClient(app).post('/api/v1/reports/template-daily/preview', json={'target_date': '2026-06-16'})
+    response = TestClient(app).post(
+        '/api/v1/reports/template-daily/preview',
+        json={'target_date': '2026-06-16', 'wip_date': '2026-06-17'},
+    )
 
     assert response.status_code == 200
     payload = response.json()
+    assert seen['target_date'] == date(2026, 6, 16)
+    assert seen['wip_date'] == date(2026, 6, 17)
     assert payload['status'] == 'blocked'
+    assert payload['wip_date'] == '2026-06-17'
     assert payload['missing_fields'] == ['total_electricity_kwh']
     assert payload['missing_field_groups'] == {'energy': ['total_electricity_kwh']}
 

@@ -403,16 +403,10 @@ def list_wip_total_snapshots(
         query = _apply_workshop_names(query, MesWipTotalSnapshot, workshop_names)
         if business_date is not None:
             start_at, end_at = production_business_window(business_date)
-            dated_query = query.filter(
+            query = query.filter(
                 MesWipTotalSnapshot.snapshot_at >= start_at,
                 MesWipTotalSnapshot.snapshot_at < end_at,
             )
-            if dated_query.limit(1).first() is not None:
-                query = dated_query
-            else:
-                latest_snapshot_at = query.with_entities(func.max(MesWipTotalSnapshot.snapshot_at)).scalar()
-                if latest_snapshot_at is not None:
-                    query = query.filter(MesWipTotalSnapshot.snapshot_at == latest_snapshot_at)
         rows = (
             query.order_by(MesWipTotalSnapshot.snapshot_at.desc(), MesWipTotalSnapshot.id.desc())
             .offset(_bounded_offset(offset))
