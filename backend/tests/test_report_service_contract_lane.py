@@ -663,6 +663,7 @@ def test_build_factory_dashboard_uses_runtime_output_for_management_today(monkey
         lambda *_args, **_kwargs: {'active_contract_count': 0, 'stalled_contract_count': 0, 'active_coil_count': 0, 'remaining_weight': 0.0},
     )
     monkeypatch.setattr('app.services.report_service.mobile_report_service.summarize_mobile_inventory', lambda *_args, **_kwargs: [])
+    monkeypatch.setattr('app.services.report_service.daily_overview_builder._build_wip_distribution', lambda *_args, **_kwargs: [])
     monkeypatch.setattr(
         'app.services.report_service._build_exception_lane',
         lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 2, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},
@@ -757,6 +758,10 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
         lambda *_args, **_kwargs: [{'storage_prepared': 12.0, 'storage_finished': 320.0, 'shipment_weight': 184.0, 'storage_inbound_area': 1800.0}],
     )
     monkeypatch.setattr(
+        'app.services.report_service.daily_overview_builder._build_wip_distribution',
+        lambda *_args, **_kwargs: [{'workshop': '当日在制', 'total_weight': 879.0}],
+    )
+    monkeypatch.setattr(
         'app.services.report_service._build_exception_lane',
         lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 0, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},
     )
@@ -780,6 +785,9 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
 
     payload = report_service.build_factory_dashboard(FactoryDashboardDB(latest_report), target_date=date(2026, 4, 17))
 
+    assert '在制料 879.00 吨' in payload['leader_summary']['summary_text']
+    assert payload['leader_summary']['metrics']['in_process_weight'] == 879.0
+    assert payload['leader_metrics']['in_process_weight'] == 879.0
     assert '发货 184.00 吨' in payload['leader_summary']['summary_text']
     assert '入库面积 1800.00 ㎡' in payload['leader_summary']['summary_text']
     assert '全厂成品率 96.18%' in payload['leader_summary']['summary_text']
@@ -940,6 +948,7 @@ def test_build_factory_dashboard_recomputes_stale_llm_summary_when_metrics_drift
         'app.services.report_service.mobile_report_service.summarize_mobile_inventory',
         lambda *_args, **_kwargs: [{'storage_prepared': 12.0, 'storage_finished': 320.0, 'shipment_weight': 184.0, 'storage_inbound_area': 1800.0}],
     )
+    monkeypatch.setattr('app.services.report_service.daily_overview_builder._build_wip_distribution', lambda *_args, **_kwargs: [])
     monkeypatch.setattr(
         'app.services.report_service._build_exception_lane',
         lambda *_args, **_kwargs: {'mobile_exception_count': 0, 'production_exception_count': 0, 'unreported_shift_count': 0, 'reminder_late_count': 0, 'pending_report_publish_count': 0, 'reconciliation_open_count': 0},

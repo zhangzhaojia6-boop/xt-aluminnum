@@ -340,6 +340,7 @@ def _build_factory_leader_metrics(
     total_output: float,
     energy_per_ton: float | None,
     inventory_lane: list[dict[str, Any]],
+    wip_distribution: list[dict[str, Any]] | None = None,
     contract_lane: dict[str, Any],
     latest_report: DailyReport | None,
     management_estimate: dict[str, Any] | None = None,
@@ -351,10 +352,13 @@ def _build_factory_leader_metrics(
         if yield_matrix_lane.get('quality_status') == 'ready'
         else report_data.get('yield_rate')
     )
+    in_process_weight = sum(_to_float(item.get('total_weight')) for item in list(wip_distribution or []))
+    if in_process_weight <= 0:
+        in_process_weight = sum(_to_float(item.get('storage_prepared')) for item in inventory_lane)
     return {
         'today_total_output': round(total_output, 2),
         'energy_per_ton': round(_to_float(energy_per_ton), 2) if energy_per_ton is not None else None,
-        'in_process_weight': round(sum(_to_float(item.get('storage_prepared')) for item in inventory_lane), 2),
+        'in_process_weight': round(in_process_weight, 2),
         'storage_finished_weight': round(sum(_to_float(item.get('storage_finished')) for item in inventory_lane), 2),
         'shipment_weight': round(sum(_to_float(item.get('shipment_weight')) for item in inventory_lane), 2),
         'storage_inbound_area': round(sum(_to_float(item.get('storage_inbound_area')) for item in inventory_lane), 2),
@@ -379,6 +383,7 @@ def _build_dashboard_leader_summary(
     mobile_summary: dict[str, Any],
     contract_lane: dict[str, Any],
     inventory_lane: list[dict[str, Any]],
+    wip_distribution: list[dict[str, Any]] | None = None,
     exception_lane: dict[str, Any],
     blocker_summary: dict[str, Any] | None,
     yield_matrix_lane: dict[str, Any] | None,
@@ -409,6 +414,7 @@ def _build_dashboard_leader_summary(
             'digest': blocker_summary.get('digest') if isinstance(blocker_summary, dict) else '未发现关键异常',
         },
         'inventory_lane': inventory_lane,
+        'wip_distribution': list(wip_distribution or []),
     }
     current_metrics = leader_summary_service.build_leader_summary_metrics(report_date=target_date, report_data=report_data)
     stored_summary = (
@@ -475,6 +481,10 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     contract_lane = build_contract_projection(db, target_date=target_date)
     contract_progress = build_contract_progress_projection(db, target_date=target_date)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date)
+    try:
+        wip_distribution = daily_overview_builder._build_wip_distribution(db, target_date)
+    except SQLAlchemyError:
+        wip_distribution = []
     exception_lane = _build_exception_lane(db, target_date=target_date)
     reminder_summary = mobile_reminder_service.summarize_reminders(db, target_date=target_date)
     sync_status = _safe_latest_mes_sync_status(db)
@@ -526,6 +536,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         mobile_summary=mobile_summary,
         contract_lane=contract_lane,
         inventory_lane=inventory_lane,
+        wip_distribution=wip_distribution,
         exception_lane=exception_lane,
         blocker_summary=blocker_summary,
         yield_matrix_lane=dashboard_yield_matrix,
@@ -566,6 +577,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
             total_output=total_output,
             energy_per_ton=energy_summary['energy_per_ton'],
             inventory_lane=inventory_lane,
+            wip_distribution=wip_distribution,
             contract_lane=contract_lane,
             latest_report=latest_report,
             management_estimate=management_estimate,

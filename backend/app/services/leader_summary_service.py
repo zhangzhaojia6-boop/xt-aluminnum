@@ -53,6 +53,11 @@ def _resolve_yield_rate(report_data: dict[str, Any], yield_matrix_lane: dict[str
     )
 
 
+def _wip_distribution_weight(report_data: dict[str, Any]) -> float | None:
+    total = sum(_to_float(item.get('total_weight')) for item in list(report_data.get('wip_distribution') or []))
+    return total if total > 0 else None
+
+
 def build_leader_summary_metrics(*, report_date: date, report_data: dict[str, Any]) -> dict[str, Any]:
     yield_matrix_lane = dict(report_data.get('yield_matrix_lane') or {})
     contract_lane = dict(report_data.get('contract_lane') or {})
@@ -60,7 +65,9 @@ def build_leader_summary_metrics(*, report_date: date, report_data: dict[str, An
     inventory_lane = list(report_data.get('inventory_lane') or [])
 
     company_total_yield = _resolve_yield_rate(report_data, yield_matrix_lane)
-    in_process_weight = sum(_to_float(item.get('storage_prepared')) for item in inventory_lane)
+    in_process_weight = _wip_distribution_weight(report_data)
+    if in_process_weight is None:
+        in_process_weight = sum(_to_float(item.get('storage_prepared')) for item in inventory_lane)
     consumable_weight = sum(_to_float(item.get('storage_finished')) for item in inventory_lane)
     shipment_weight = sum(_to_float(item.get('shipment_weight')) for item in inventory_lane)
     storage_inbound_area = sum(_to_float(item.get('storage_inbound_area')) for item in inventory_lane)

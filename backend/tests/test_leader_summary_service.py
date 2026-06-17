@@ -87,6 +87,28 @@ def test_leader_summary_metrics_uses_daily_yield_when_matrix_not_ready() -> None
     assert '全厂成品率缺失' not in leader_summary_service.build_deterministic_leader_summary(metrics=metrics)
 
 
+def test_leader_summary_metrics_prefers_mes_wip_distribution_for_in_process_weight() -> None:
+    metrics = leader_summary_service.build_leader_summary_metrics(
+        report_date=date(2026, 6, 16),
+        report_data={
+            **_sample_report_data(),
+            'wip_distribution': [
+                {'workshop': '拉矫', 'total_weight': 276.0},
+                {'workshop': '精整', 'total_weight': 250.0},
+                {'workshop': '新厂北线', 'total_weight': 122.0},
+                {'workshop': '园区退火', 'total_weight': 80.5},
+                {'workshop': '1650/2050冷轧', 'total_weight': 63.5},
+                {'workshop': '园区精整', 'total_weight': 50.5},
+                {'workshop': '新厂南线', 'total_weight': 26.0},
+                {'workshop': '1850冷轧', 'total_weight': 10.5},
+            ],
+        },
+    )
+
+    assert metrics['in_process_weight'] == 879.0
+    assert '在制料 879.00 吨' in leader_summary_service.build_deterministic_leader_summary(metrics=metrics)
+
+
 def test_build_best_effort_leader_summary_prefers_llm_when_available() -> None:
     payload = leader_summary_service.build_best_effort_leader_summary(
         report_date=date(2026, 4, 10),
