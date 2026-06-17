@@ -767,7 +767,7 @@ def test_build_plant_output_uses_official_owner_daily_and_monthly_when_available
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_owner_storage_direct_inbound_by_date',
-        lambda *_args, **_kwargs: {date(2026, 6, 16): 328.033},
+        lambda *_args, **_kwargs: {date(2026, 6, 15): 305.848, date(2026, 6, 16): 328.033},
     )
     monkeypatch.setattr(
         daily_overview_builder,
@@ -778,6 +778,7 @@ def test_build_plant_output_uses_official_owner_daily_and_monthly_when_available
     payload = daily_overview_builder._build_plant_output(None, date(2026, 6, 16), {'total_electricity': 0})
 
     assert payload['daily_output'] == 328.03
+    assert payload['yesterday_output'] == 305.85
     assert payload['monthly_output'] == 5013.73
     assert payload['finished_inbound_output'] == 328.03
     assert payload['mes_packaging_output'] == 308.68
