@@ -13,6 +13,7 @@ from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.reports import DailyReport
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
+from app.services.report.template_daily_fact_sources import collect_template_daily_facts
 
 
 SUBMITTED_STATUSES = ("submitted", "verified", "approved")
@@ -505,33 +506,7 @@ def _copy_recovery_and_overhaul(db: Session, *, target_date: date, values: dict[
 
 
 def build_template_daily_report_facts(db: Session, *, target_date: date) -> dict[str, Any]:
-    values: dict[str, Any] = {"report_date": target_date}
-    sources: dict[str, Any] = {"report_date": _source("runtime_target_date")}
-    conflicts: list[dict[str, Any]] = []
-
-    try:
-        overview = daily_overview_builder.build_daily_production_overview(db, target_date=target_date)
-        _copy_overview_values(values, sources, overview)
-    except Exception as exc:
-        conflicts.append({"field": "daily_overview", "reason": type(exc).__name__})
-
-    try:
-        _copy_workshop_outputs(db, target_date=target_date, values=values, sources=sources)
-    except Exception as exc:
-        conflicts.append({"field": "workshop_outputs", "reason": type(exc).__name__})
-
-    owner_payload = _owner_daily_payload_values(db, target_date=target_date)
-    _copy_owner_values(values, sources, owner_payload)
-    _copy_recovery_and_overhaul(db, target_date=target_date, values=values, sources=sources)
-
-    missing_fields = [key for key in REQUIRED_FIELDS if values.get(key) is None]
-    return {
-        "target_date": target_date.isoformat(),
-        "values": values,
-        "sources": sources,
-        "missing_fields": missing_fields,
-        "conflicts": conflicts,
-    }
+    return collect_template_daily_facts(db, target_date=target_date, required_fields=REQUIRED_FIELDS).as_dict()
 
 
 def validate_template_daily_report_facts(facts: dict[str, Any]) -> dict[str, Any]:

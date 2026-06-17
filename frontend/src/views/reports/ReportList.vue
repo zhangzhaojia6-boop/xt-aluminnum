@@ -49,6 +49,31 @@
       </article>
     </section>
 
+    <section class="report-delivery__preview" data-testid="template-daily-preview">
+      <div class="report-delivery__preview-head">
+        <div>
+          <span class="report-delivery__eyebrow">7:30 文字日报</span>
+          <h2>模板预览</h2>
+        </div>
+        <div class="report-delivery__preview-actions">
+          <el-date-picker v-model="previewDate" type="date" value-format="YYYY-MM-DD" />
+          <el-button class="report-delivery__refresh" :loading="previewLoading" @click="loadPreview">预览</el-button>
+        </div>
+      </div>
+
+      <div v-if="previewPayload" class="report-delivery__preview-body" :class="`tone-${previewTone}`">
+        <div class="report-delivery__preview-status">
+          <ReferenceStatusTag :status="previewTone" :label="previewStatusLabel" />
+          <span>{{ previewDate }}</span>
+          <span>缺失 {{ previewMissingCount }} 项</span>
+        </div>
+        <pre v-if="previewPayload.text" class="report-delivery__preview-text">{{ previewPayload.text }}</pre>
+        <div v-else class="report-delivery__missing-fields">
+          <span v-for="field in previewMissingFields" :key="field">{{ field }}</span>
+        </div>
+      </div>
+    </section>
+
     <section class="report-delivery__matrix">
       <div class="report-delivery__matrix-head">
         <div>
@@ -126,12 +151,15 @@ import { ElMessage } from 'element-plus'
 
 import ReferenceDataTable from '../../components/reference/ReferenceDataTable.vue'
 import ReferenceStatusTag from '../../components/reference/ReferenceStatusTag.vue'
-import { fetchReports } from '../../api/reports'
+import { fetchReports, previewTemplateDailyReport } from '../../api/reports'
 import { formatOutputModeLabel, formatReportScopeLabel, formatReportTypeLabel, formatStatusLabel } from '../../utils/display'
 import { inferBusinessDate } from '../../utils/shiftClock'
 
 const items = ref([])
 const defaultBusinessDate = inferBusinessDate()
+const previewDate = ref(defaultBusinessDate)
+const previewLoading = ref(false)
+const previewPayload = ref(null)
 
 const filters = reactive({
   start_date: defaultBusinessDate,
@@ -146,6 +174,11 @@ const reportStats = computed(() => [
   { key: 'pending', label: '待处理', value: formatCount(countByStatus(['draft', 'pending', 'generating'])), unit: '份', accent: 'amber' },
   { key: 'final', label: '最终版', value: formatCount(items.value.filter((row) => row?.is_final_version).length), unit: '份', accent: 'blue' }
 ])
+
+const previewMissingFields = computed(() => previewPayload.value?.missing_fields || [])
+const previewMissingCount = computed(() => previewMissingFields.value.length)
+const previewTone = computed(() => String(previewPayload.value?.status || '') === 'ready' ? 'success' : 'danger')
+const previewStatusLabel = computed(() => previewTone.value === 'success' ? '可生成' : '缺字段')
 
 function formatCount(value) {
   return new Intl.NumberFormat('zh-CN').format(value)
@@ -199,6 +232,18 @@ async function load() {
   }
 }
 
+async function loadPreview() {
+  if (!previewDate.value) return
+  previewLoading.value = true
+  try {
+    previewPayload.value = await previewTemplateDailyReport(previewDate.value)
+  } catch {
+    ElMessage.error('模板预览失败')
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -232,6 +277,7 @@ onMounted(load)
 
 .report-delivery__hero,
 .report-delivery__filters,
+.report-delivery__preview,
 .report-delivery__matrix,
 .report-delivery__stat,
 .report-delivery__mobile-list article {
@@ -269,6 +315,8 @@ onMounted(load)
 .report-delivery__hero-copy,
 .report-delivery__refresh,
 .report-delivery__filters :deep(.el-form),
+.report-delivery__preview-head,
+.report-delivery__preview-body,
 .report-delivery__matrix-head,
 .report-delivery__table,
 .report-delivery__mobile-list {
@@ -328,6 +376,89 @@ onMounted(load)
 .report-delivery__filters {
   padding: 20px 22px 8px;
   border-radius: 16px;
+}
+
+.report-delivery__preview {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 18px;
+}
+
+.report-delivery__preview-head,
+.report-delivery__preview-actions,
+.report-delivery__preview-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.report-delivery__preview-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.report-delivery__preview-actions :deep(.el-date-editor) {
+  width: 168px;
+}
+
+.report-delivery__preview-actions :deep(.el-input__wrapper) {
+  min-height: 38px;
+  border-radius: 10px;
+  background: rgba(1, 16, 31, 0.72);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 242, 255, 0.3),
+    inset 0 0 0 1px rgba(0, 242, 255, 0.14);
+}
+
+.report-delivery__preview-actions :deep(.el-input__inner) {
+  color: #e1fdff;
+}
+
+.report-delivery__preview-body {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(0, 242, 255, 0.14);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(1, 16, 31, 0.52);
+}
+
+.report-delivery__preview-status {
+  justify-content: flex-start;
+  color: var(--report-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.report-delivery__preview-text {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  border-radius: 12px;
+  padding: 14px;
+  color: #f6fbff;
+  background: rgba(0, 0, 0, 0.22);
+  font-family: 'LXGW WenKai', 'Hanken Grotesk', sans-serif;
+  line-height: 1.72;
+  white-space: pre-wrap;
+}
+
+.report-delivery__missing-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-delivery__missing-fields span {
+  border: 1px solid rgba(255, 171, 0, 0.24);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #ffd38a;
+  background: rgba(255, 171, 0, 0.08);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .report-delivery__filters :deep(.el-form) {
@@ -549,6 +680,7 @@ onMounted(load)
 
 @media (max-width: 720px) {
   .report-delivery__hero,
+  .report-delivery__preview-head,
   .report-delivery__matrix-head {
     align-items: stretch;
     flex-direction: column;
@@ -566,6 +698,11 @@ onMounted(load)
   .report-delivery__filters :deep(.el-form-item),
   .report-delivery__filters :deep(.el-date-editor),
   .report-delivery__filters :deep(.el-select) {
+    width: 100%;
+  }
+
+  .report-delivery__preview-actions,
+  .report-delivery__preview-actions :deep(.el-date-editor) {
     width: 100%;
   }
 

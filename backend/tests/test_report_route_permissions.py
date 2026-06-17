@@ -152,6 +152,41 @@ def test_daily_pipeline_allows_manager_role(monkeypatch) -> None:
     assert response.json()['is_final_version'] is True
 
 
+def test_template_daily_preview_rejects_fill_only_user_before_service_call(monkeypatch) -> None:
+    monkeypatch.setattr(
+        'app.routers.reports.template_daily_report.build_template_daily_report_payload',
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError('service should not run')),
+    )
+    _override_user(_user('machine_operator', is_reviewer=False, is_manager=False))
+
+    response = TestClient(app).post('/api/v1/reports/template-daily/preview', json={'target_date': '2026-06-16'})
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == 'Report publish access denied'
+
+
+def test_template_daily_preview_allows_manager_role(monkeypatch) -> None:
+    monkeypatch.setattr(
+        'app.routers.reports.template_daily_report.build_template_daily_report_payload',
+        lambda *_args, **_kwargs: {
+            'status': 'blocked',
+            'text': None,
+            'missing_fields': ['total_electricity_kwh'],
+            'conflicts': [],
+            'sources': {},
+        },
+    )
+    _override_user(_user('manager', is_reviewer=False, is_manager=True))
+
+    response = TestClient(app).post('/api/v1/reports/template-daily/preview', json={'target_date': '2026-06-16'})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['status'] == 'blocked'
+    assert payload['missing_fields'] == ['total_electricity_kwh']
+    assert payload['missing_field_groups'] == {'energy': ['total_electricity_kwh']}
+
+
 def test_report_generate_maps_value_error_to_400(monkeypatch) -> None:
     _assert_report_value_error_maps_to_400(
         monkeypatch,

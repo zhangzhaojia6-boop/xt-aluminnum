@@ -20,12 +20,16 @@ from app.schemas.reports import (
     ReportGenerateResponse,
     ReportPipelineRequest,
     ReportPipelineResponse,
+    TemplateDailyReportPreviewRequest,
+    TemplateDailyReportPreviewResponse,
 )
 from app.services import report_service
 from app.services.dingtalk_daily_report import (
     DailyReportPushError,
     push_daily_report_to_dingtalk,
 )
+from app.services.report import template_daily_report
+from app.services.report.template_daily_field_contract import group_missing_fields
 
 router = APIRouter(tags=['reports'])
 
@@ -83,6 +87,26 @@ def list_daily_reports(
         status=status,
     )
     return [DailyReportOut.model_validate(item) for item in rows]
+
+
+@router.post('/template-daily/preview', response_model=TemplateDailyReportPreviewResponse)
+def preview_template_daily_report(
+    body: TemplateDailyReportPreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TemplateDailyReportPreviewResponse:
+    _ensure_report_publish_access(current_user)
+    payload = template_daily_report.build_template_daily_report_payload(db, target_date=body.target_date)
+    missing_fields = list(payload.get('missing_fields') or [])
+    return TemplateDailyReportPreviewResponse(
+        status=str(payload.get('status') or 'blocked'),
+        target_date=body.target_date,
+        text=payload.get('text'),
+        missing_fields=missing_fields,
+        missing_field_groups=group_missing_fields(missing_fields),
+        conflicts=list(payload.get('conflicts') or []),
+        sources=dict(payload.get('sources') or {}),
+    )
 
 
 @router.get('/{report_id}', response_model=DailyReportOut)
