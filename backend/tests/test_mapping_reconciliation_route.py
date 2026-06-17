@@ -575,6 +575,35 @@ def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_row
     assert payload['differences'] == []
 
 
+def test_mapping_reconciliation_run_returns_400_for_missing_reference_file(tmp_path, monkeypatch) -> None:
+    reference_dir = tmp_path / 'output-skill'
+    reference_dir.mkdir()
+    monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(reference_dir))
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/mapping-reconciliation/run',
+            json={
+                'reference_file': 'missing.txt',
+                'business_date': '2026-06-13',
+                'fields': [
+                    {
+                        'metric': 'output',
+                        'reference_field': 'output_tons',
+                        'system_field': 'output_tons',
+                    }
+                ],
+            },
+        )
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'reference_file not found inside output skill reference root'
+
+
 def test_mapping_reconciliation_requires_admin_role() -> None:
     previous_overrides = _install_overrides(role='manager')
 

@@ -25,8 +25,9 @@ from app.models.shift import ShiftConfig
 
 
 DEFAULT_DIMENSIONS = ('business_date', 'workshop', 'shift')
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_REFERENCE_ROOT = Path('D:/输出skill')
-FALLBACK_REFERENCE_ROOT = Path('reference/output-skill')
+FALLBACK_REFERENCE_ROOT = REPOSITORY_ROOT / 'reference' / 'output-skill'
 PARSEABLE_REFERENCE_EXTENSIONS = {'.txt', '.md', '.log', '.xlsx', '.xls', '.json', '.ndjson'}
 IMAGE_REFERENCE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp'}
 IGNORED_REFERENCE_DIR_NAMES = {'.pytest_cache', '__pycache__'}
@@ -265,6 +266,8 @@ def resolve_reference_file(reference_file: str | Path, *, reference_root: str | 
         resolved_candidate.relative_to(resolved_root)
     except ValueError as exc:
         raise ValueError('reference_file must stay inside output skill reference root') from exc
+    if not resolved_candidate.exists():
+        raise ValueError('reference_file not found inside output skill reference root')
     return resolved_candidate
 
 
