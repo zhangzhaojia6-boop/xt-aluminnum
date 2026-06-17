@@ -9,6 +9,7 @@ from app.database import Base
 from app.models.master import Workshop
 from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
+from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
 from app.services.report.template_daily_fact_sources import collect_template_daily_facts
 from app.services.report.template_daily_report import REQUIRED_FIELDS
@@ -27,6 +28,7 @@ def _session(tmp_path):
             WorkOrderEntry.__table__,
             MesWorkshopProcessRecord.__table__,
             DailyReport.__table__,
+            QualityYieldDaily.__table__,
         ],
     )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
@@ -163,6 +165,73 @@ def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
     assert facts.values["daily_yield_rate"] == 84.86
     assert facts.values["hot_roll_furnace_gas_m3"] == 8194
     assert facts.values["cold_roll_input_daily"] == 197
+
+
+def test_owner_recovery_weight_fills_daily_and_month_sum(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        _seed_owner_daily_payload(db, {"recovery_weight": 63})
+        db.add(
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 6, 15),
+                entry_type="owner_daily",
+                entry_status="submitted",
+                extra_payload={"recovery_weight": 65},
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["recovery_daily"] == 63
+    assert facts.values["recovery_month"] == 128
+    assert facts.sources["recovery_daily"]["field"] == "recovery_weight"
+    assert facts.sources["recovery_month"]["source_type"] == "owner_daily_month_sum"
+
+
+def test_quality_yield_daily_fills_template_yield_breakdown(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.add_all(
+            [
+                QualityYieldDaily(
+                    business_date=date(2026, 6, 15),
+                    workshop_code="HOT_ROLL",
+                    yield_daily=85.78,
+                ),
+                QualityYieldDaily(
+                    business_date=REPORT_DATE,
+                    workshop_code="FACTORY",
+                    yield_daily=84.86,
+                    yield_monthly=86.00,
+                    yield_target_p_casting=92.02,
+                    yield_target_p_hot_roll=84.46,
+                ),
+                QualityYieldDaily(
+                    business_date=REPORT_DATE,
+                    workshop_code="HOT_ROLL",
+                    yield_daily=84.86,
+                    yield_monthly=84.46,
+                ),
+            ]
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["daily_yield_rate"] == 84.86
+    assert facts.values["monthly_yield_rate"] == 86.00
+    assert facts.values["hot_roll_yield_rate"] == 84.86
+    assert facts.values["hot_roll_yield_delta"] == -0.92
+    assert facts.values["cast_roll_yield_rate"] == 92.02
+    assert facts.values["plate_coil_yield_rate"] == 92.02
+    assert facts.values["hot_roll_monthly_yield_rate"] == 84.46
 
 
 def test_missing_energy_fields_block_template_report(tmp_path) -> None:

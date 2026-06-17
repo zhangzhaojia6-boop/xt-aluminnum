@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.master import Workshop
 from app.models.mes import MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
+from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
@@ -68,7 +69,17 @@ OWNER_FIELD_ALIASES = {
     "hot_roll_furnace_gas_m3": ("hot_roll_furnace_gas_m3", "heating_furnace_gas_m3"),
     "hot_roll_boiler_gas_m3": ("hot_roll_boiler_gas_m3", "boiler_gas_m3"),
     "cold_roll_input_daily": ("cold_roll_input_daily", "daily_input_weight"),
+    "recovery_daily": ("recovery_daily", "recovery_weight", "recovery_output_tons"),
 }
+
+OWNER_MONTH_SUM_ALIASES = {
+    "recovery_month": ("recovery_month", "recovery_weight", "recovery_daily", "recovery_output_tons"),
+}
+
+QUALITY_FACTORY_CODES = {"FACTORY", "COMPANY", "ALL", "M", "全厂", "公司"}
+QUALITY_HOT_ROLL_CODES = {"HOT_ROLL", "HOTROLL", "HR", "RZ", "热轧"}
+QUALITY_CAST_ROLL_CODES = {"CAST_ROLL", "CASTROLL", "ZR", "铸轧"}
+QUALITY_PLATE_COIL_CODES = {"PLATE_COIL", "PLATECOIL", "PB", "PBC", "普板", "普板卷"}
 
 
 @dataclass
@@ -107,6 +118,12 @@ def _set_value(facts: TemplateDailyFacts, key: str, value: Any, source_type: str
         value = round(value, 3)
     facts.values[key] = value
     facts.sources[key] = _source(source_type, **source_extra)
+
+
+def _set_missing_value(facts: TemplateDailyFacts, key: str, value: Any, source_type: str, **source_extra: Any) -> None:
+    if facts.values.get(key) is not None:
+        return
+    _set_value(facts, key, value, source_type, **source_extra)
 
 
 def _matches_any(value: Any, tokens: tuple[str, ...]) -> bool:
@@ -239,6 +256,132 @@ def _copy_owner_values(facts: TemplateDailyFacts, owner_payload: dict[str, Any],
             if source_key in owner_payload:
                 _set_value(facts, key, _to_float(owner_payload[source_key]), "owner_daily", field=source_key)
                 break
+
+
+def _owner_month_sum(
+    db: Session,
+    *,
+    start: date,
+    end: date,
+    source_keys: tuple[str, ...],
+) -> float | None:
+    if not _has_table(db, WorkOrderEntry.__tablename__):
+        return None
+    rows = (
+        db.query(WorkOrderEntry)
+        .filter(
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_type == "owner_daily",
+            WorkOrderEntry.entry_status.in_(SUBMITTED_STATUSES),
+        )
+        .order_by(WorkOrderEntry.business_date.asc(), WorkOrderEntry.updated_at.asc(), WorkOrderEntry.id.asc())
+        .all()
+    )
+    total = 0.0
+    found = False
+    for row in rows:
+        payload = dict(row.extra_payload or {})
+        for source_key in source_keys:
+            if payload.get(source_key) in (None, ""):
+                continue
+            total += _to_float(payload[source_key])
+            found = True
+            break
+    return round(total, 3) if found else None
+
+
+def collect_owner_rollup_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    month_start = facts.target_date.replace(day=1)
+    for target_field, source_keys in OWNER_MONTH_SUM_ALIASES.items():
+        if facts.values.get(target_field) is not None:
+            continue
+        value = _owner_month_sum(db, start=month_start, end=facts.target_date, source_keys=source_keys)
+        _set_value(facts, target_field, value, "owner_daily_month_sum", fields=list(source_keys))
+
+
+def _quality_percent(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    raw = float(value)
+    if raw < 0:
+        return None
+    percent = raw * 100 if raw <= 1.5 else raw
+    if percent > 100:
+        return None
+    return round(percent, 2)
+
+
+def _quality_code(row: QualityYieldDaily) -> str:
+    return str(getattr(row, "workshop_code", "") or "").strip().upper()
+
+
+def _quality_code_matches(code: str, tokens: set[str]) -> bool:
+    return any(token and token in code for token in tokens)
+
+
+def _latest_quality_rows_before(db: Session, target_date: date) -> dict[str, QualityYieldDaily]:
+    rows = (
+        db.query(QualityYieldDaily)
+        .filter(QualityYieldDaily.business_date < target_date)
+        .order_by(QualityYieldDaily.business_date.desc(), QualityYieldDaily.id.desc())
+        .all()
+    )
+    latest: dict[str, QualityYieldDaily] = {}
+    for row in rows:
+        latest.setdefault(_quality_code(row), row)
+    return latest
+
+
+def collect_quality_yield_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    if not _has_table(db, QualityYieldDaily.__tablename__):
+        return
+    try:
+        rows = (
+            db.query(QualityYieldDaily)
+            .filter(QualityYieldDaily.business_date == facts.target_date)
+            .order_by(QualityYieldDaily.id.asc())
+            .all()
+        )
+        previous_by_code = _latest_quality_rows_before(db, facts.target_date)
+    except (OperationalError, ProgrammingError):
+        return
+
+    for row in rows:
+        code = _quality_code(row)
+        daily = _quality_percent(row.yield_daily)
+        monthly = _quality_percent(row.yield_monthly)
+        target_m = _quality_percent(row.yield_target_m)
+        target_casting = _quality_percent(row.yield_target_p_casting)
+        target_hot_roll = _quality_percent(row.yield_target_p_hot_roll)
+        overall = _quality_percent(row.yield_overall_company)
+
+        if _quality_code_matches(code, QUALITY_FACTORY_CODES):
+            _set_value(facts, "daily_yield_rate", daily or overall, "quality_yield_daily", workshop_code=row.workshop_code)
+            _set_value(facts, "monthly_yield_rate", monthly or target_m, "quality_yield_daily", workshop_code=row.workshop_code)
+        if _quality_code_matches(code, QUALITY_HOT_ROLL_CODES):
+            _set_value(facts, "hot_roll_yield_rate", daily, "quality_yield_daily", workshop_code=row.workshop_code)
+            _set_value(facts, "hot_roll_monthly_yield_rate", monthly or target_hot_roll, "quality_yield_daily", workshop_code=row.workshop_code)
+            previous = previous_by_code.get(code)
+            previous_daily = _quality_percent(previous.yield_daily) if previous is not None else None
+            if daily is not None and previous_daily is not None:
+                _set_value(
+                    facts,
+                    "hot_roll_yield_delta",
+                    round(daily - previous_daily, 3),
+                    "quality_yield_daily",
+                    workshop_code=row.workshop_code,
+                    comparison="previous_business_date",
+                )
+        if _quality_code_matches(code, QUALITY_CAST_ROLL_CODES):
+            _set_value(facts, "cast_roll_yield_rate", monthly or daily, "quality_yield_daily", workshop_code=row.workshop_code)
+        if _quality_code_matches(code, QUALITY_PLATE_COIL_CODES):
+            _set_value(facts, "plate_coil_yield_rate", monthly or daily, "quality_yield_daily", workshop_code=row.workshop_code)
+
+        _set_missing_value(facts, "monthly_yield_rate", target_m, "quality_yield_daily", workshop_code=row.workshop_code)
+        _set_missing_value(facts, "cast_roll_yield_rate", target_casting, "quality_yield_daily", workshop_code=row.workshop_code)
+        _set_missing_value(facts, "plate_coil_yield_rate", target_casting, "quality_yield_daily", workshop_code=row.workshop_code)
+        _set_missing_value(facts, "hot_roll_monthly_yield_rate", target_hot_roll, "quality_yield_daily", workshop_code=row.workshop_code)
 
 
 def collect_opening_facts(db: Session, facts: TemplateDailyFacts) -> None:
@@ -435,9 +578,11 @@ def collect_template_daily_facts(
 
     collect_opening_facts(db, facts)
     _copy_owner_values(facts, _owner_daily_payload_values(db, target_date=target_date), required_fields)
+    collect_owner_rollup_facts(db, facts)
     collect_manual_workshop_facts(db, facts)
     collect_mes_workshop_facts(db, facts)
     collect_recovery_and_overhaul_facts(db, facts)
+    collect_quality_yield_facts(db, facts)
     collect_yesterday_comparison_facts(db, facts)
 
     facts.missing_fields = [key for key in required_fields if facts.values.get(key) is None]
