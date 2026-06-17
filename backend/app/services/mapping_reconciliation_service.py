@@ -25,6 +25,51 @@ from app.models.shift import ShiftConfig
 
 
 DEFAULT_DIMENSIONS = ('business_date', 'workshop', 'shift')
+DEFAULT_DIMENSION_ALIASES = {
+    'workshop': {
+        '铸轧二': '铸二',
+        '铸轧二车间': '铸二',
+        '铸二车间': '铸二',
+        '铸轧三': '铸三',
+        '铸轧三车间': '铸三',
+        '铸三车间': '铸三',
+        '1650': '冷轧1650',
+        '1650车间': '冷轧1650',
+        '1650冷轧': '冷轧1650',
+        '1650冷轧车间': '冷轧1650',
+        '1850': '冷轧1850',
+        '1850车间': '冷轧1850',
+        '1850冷轧': '冷轧1850',
+        '1850冷轧车间': '冷轧1850',
+        '2050': '冷轧2050',
+        '2050车间': '冷轧2050',
+        '2050冷轧': '冷轧2050',
+        '2050冷轧车间': '冷轧2050',
+        '精整车间': '精整',
+        '精整(剪子)': '精整',
+        '拉矫车间': '拉矫',
+        '拉矫下机量': '拉矫',
+        '园区剪切车间': '园区剪切',
+        '剪切车间': '园区剪切',
+        '园区精整': '园区剪切',
+        '园区圆片': '圆片料',
+        '淬火': '淬火车间',
+        '园区淬火': '淬火车间',
+        '园区淬火车间': '淬火车间',
+        '淬火+覆膜': '淬火车间',
+        '新厂在线车间': '新厂在线',
+        '在线车间': '新厂在线',
+        '新厂北线': '新厂在线',
+        '新厂南线': '新厂在线',
+        '园区在线车间': '园区在线',
+        '园区退火': '园区在线',
+        '园区退火(北)': '园区在线',
+        '园区退火(南)': '园区在线',
+        '铣床车间': '铣床',
+        '涂层': '彩涂',
+        '辊涂(光铝)': '彩涂',
+    },
+}
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_REFERENCE_ROOT = Path('D:/输出skill')
 FALLBACK_REFERENCE_ROOT = REPOSITORY_ROOT / 'reference' / 'output-skill'
@@ -850,13 +895,23 @@ def _normalize_text(value: Any) -> str:
     return str(value or '').strip().replace(' ', '').replace('（', '(').replace('）', ')')
 
 
+def _dimension_aliases(field: str, aliases: Mapping[str, Mapping[str, str]] | None) -> dict[str, str]:
+    merged = {
+        _normalize_text(source): _normalize_text(target)
+        for source, target in DEFAULT_DIMENSION_ALIASES.get(field, {}).items()
+    }
+    if aliases and field in aliases:
+        merged.update({_normalize_text(source): _normalize_text(target) for source, target in aliases[field].items()})
+    return merged
+
+
 def _normalize_dimension(
     field: str,
     value: Any,
     aliases: Mapping[str, Mapping[str, str]] | None,
 ) -> str:
     normalized = _normalize_text(value)
-    field_aliases = aliases.get(field, {}) if aliases else {}
+    field_aliases = _dimension_aliases(field, aliases)
     return _normalize_text(field_aliases.get(normalized, normalized))
 
 
@@ -1072,6 +1127,13 @@ def _shift_production_weight_tons(record: ShiftProductionData, field_name: str) 
     return value
 
 
+def _wip_total_snapshot_weight_tons(value: Any) -> float | None:
+    number = _to_float(value)
+    if number is None:
+        return None
+    return number / 1000
+
+
 def _consumable_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     if not payload:
         return {}
@@ -1099,19 +1161,13 @@ def _owner_daily_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str,
 
 def _latest_wip_total_by_workshop(db: Session, *, business_date: date) -> dict[str, dict[str, Any]]:
     try:
-        query = db.query(MesWipTotalSnapshot)
         start_at, end_at = production_business_window(business_date)
-        dated_query = query.filter(
+        query = db.query(MesWipTotalSnapshot).filter(
             MesWipTotalSnapshot.snapshot_at >= start_at,
             MesWipTotalSnapshot.snapshot_at < end_at,
         )
-        if dated_query.limit(1).first() is not None:
-            query = dated_query
-        else:
-            latest_snapshot_at = query.with_entities(func.max(MesWipTotalSnapshot.snapshot_at)).scalar()
-            if latest_snapshot_at is None:
-                return {}
-            query = query.filter(MesWipTotalSnapshot.snapshot_at == latest_snapshot_at)
+        if query.limit(1).first() is None:
+            return {}
 
         rows = (
             query.with_entities(
@@ -1133,7 +1189,7 @@ def _latest_wip_total_by_workshop(db: Session, *, business_date: date) -> dict[s
         result[key] = {
             'workshop': str(workshop or ''),
             'coil_count': int(count or 0),
-            'wip_total': _to_float(weight) or 0.0,
+            'wip_total': _wip_total_snapshot_weight_tons(weight) or 0.0,
         }
     return result
 
@@ -1160,26 +1216,28 @@ def _build_wip_mapping_rows(db: Session, *, business_date: date) -> list[dict[st
     for workshop, count, weight, feeding_weight in daily_rows:
         key = _normalize_text(workshop)
         fallback = fallback_by_workshop.get(key)
-        total_weight = _to_float(weight) or 0.0
+        total_weight = _to_float(weight)
         source_basis = 'mes_daily_wip_snapshots'
         coil_count = int(count or 0)
-        if total_weight <= 0 and fallback and fallback['wip_total'] > 0:
+        if (total_weight is None or total_weight <= 0) and fallback and fallback['wip_total'] > 0:
             total_weight = fallback['wip_total']
             coil_count = fallback['coil_count'] or coil_count
             source_basis = 'mes_wip_total_snapshots'
-        rows.append(
-            {
-                'business_date': business_date.isoformat(),
-                'workshop': str(workshop or ''),
-                'shift': '',
-                'process': '在制料',
-                'machine': '',
-                'wip_total': round(total_weight, 4),
-                'wip_coil_count': coil_count,
-                'wip_feeding_tons': _to_float(feeding_weight) or 0.0,
-                'source_table': source_basis,
-            }
-        )
+        row = {
+            'business_date': business_date.isoformat(),
+            'workshop': str(workshop or ''),
+            'shift': '',
+            'process': '在制料',
+            'machine': '',
+            'wip_coil_count': coil_count,
+            'wip_feeding_tons': _to_float(feeding_weight) or 0.0,
+            'source_table': source_basis,
+        }
+        if total_weight is not None and total_weight > 0:
+            row['wip_total'] = round(total_weight, 4)
+        else:
+            row['wip_source_issue'] = 'missing_material_weight_for_business_date'
+        rows.append(row)
         used_workshops.add(key)
 
     for key, fallback in fallback_by_workshop.items():

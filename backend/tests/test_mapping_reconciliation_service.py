@@ -212,6 +212,41 @@ def test_compare_mapping_rows_merges_duplicate_dimensions_without_overwriting_fi
     assert result.differences == []
 
 
+def test_compare_mapping_rows_applies_default_workshop_aliases() -> None:
+    reference_rows = [
+        {'business_date': '2026-06-16', 'workshop': '铸二', 'output_tons': 24.31},
+        {'business_date': '2026-06-16', 'workshop': '冷轧1650', 'output_tons': 63.5},
+        {'business_date': '2026-06-16', 'workshop': '淬火车间', 'output_tons': 18.0},
+    ]
+    system_rows = [
+        {'business_date': '2026-06-16', 'workshop': '铸轧二', 'output_tons': 24.31},
+        {'business_date': '2026-06-16', 'workshop': '1650车间', 'output_tons': 63.5},
+        {'business_date': '2026-06-16', 'workshop': '园区淬火车间', 'output_tons': 18.0},
+    ]
+
+    result = compare_mapping_rows(
+        reference_rows=reference_rows,
+        system_rows=system_rows,
+        fields=[
+            MappingFieldSpec(
+                metric='output',
+                reference_field='output_tons',
+                system_field='output_tons',
+                reference_unit='ton',
+                system_unit='ton',
+                tolerance=0.001,
+                weight=10,
+            )
+        ],
+        dimensions=['business_date', 'workshop'],
+    )
+
+    assert result.total_fields == 3
+    assert result.matched_fields == 3
+    assert result.overall_match_rate == 100
+    assert result.differences == []
+
+
 def test_propose_rules_is_dry_run_and_does_not_mutate_source_rows() -> None:
     reference_rows = [
         {
@@ -1171,7 +1206,7 @@ def test_build_system_mapping_rows_flattens_wip_with_total_snapshot_fallback() -
         'shift': '',
         'process': '在制料',
         'machine': '',
-        'wip_total': 4466.5,
+        'wip_total': 4.4665,
         'wip_coil_count': 588,
         'wip_feeding_tons': 28.5,
         'source_table': 'mes_wip_total_snapshots',
@@ -1182,9 +1217,57 @@ def test_build_system_mapping_rows_flattens_wip_with_total_snapshot_fallback() -
         'shift': '',
         'process': '汇总',
         'machine': '',
-        'wip_total': 4466.5,
+        'wip_total': 4.4665,
         'source_table': 'mapping_reconciliation_summary',
     } in rows
+
+
+def test_build_system_mapping_rows_does_not_use_out_of_window_wip_snapshot() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 6, 16),
+                    workshop_name='2050车间',
+                    process_name='冷轧',
+                    coil_count=2,
+                    material_weight_tons=None,
+                    feeding_weight_tons=14.5,
+                    source='mes_coil_snapshot',
+                ),
+                MesWipTotalSnapshot(
+                    source_id='2050车间:冷轧',
+                    workshop_name='2050车间',
+                    process_name='冷轧',
+                    doing_count=2,
+                    doing_weight_tons=879000,
+                    snapshot_at=datetime(2026, 6, 17, 19, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 16))
+
+    assert {
+        'business_date': '2026-06-16',
+        'workshop': '2050车间',
+        'shift': '',
+        'process': '在制料',
+        'machine': '',
+        'wip_coil_count': 2,
+        'wip_feeding_tons': 14.5,
+        'source_table': 'mes_daily_wip_snapshots',
+        'wip_source_issue': 'missing_material_weight_for_business_date',
+    } in rows
+    assert all(row.get('wip_total') != 879000 for row in rows)
+    assert all(
+        row.get('source_table') != 'mapping_reconciliation_summary' or 'wip_total' not in row
+        for row in rows
+    )
 
 
 def test_build_system_mapping_rows_flattens_cost_daily_results() -> None:

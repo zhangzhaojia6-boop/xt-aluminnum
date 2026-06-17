@@ -325,3 +325,28 @@ python -m compileall backend/app/routers/mapping_reconciliation.py
 cd frontend && npm run build
 通过
 ```
+
+## 14. 2026-06-17 车间别名和在制料口径补充
+
+本轮按现场要求收窄范围：先忽略用电、用气，只处理车间别名、在制料单位和在制料取数范围。
+
+### 14.1 修复点
+
+| 项目 | 修复后规则 |
+|---|---|
+| 车间别名 | 在映射核对服务内置常用车间别名，例如 `铸轧二 -> 铸二`、`1650车间 -> 冷轧1650`、`园区淬火车间 -> 淬火车间`，接口传入的别名仍可覆盖默认规则 |
+| 在制料单位 | `mes_wip_total_snapshots.doing_weight_tons` 实际来自 MES `FeedingWeight`，映射核对时按公斤除以 1000 转成吨 |
+| 在制料范围 | 只允许使用当前生产日 07:30 到次日 07:30 范围内的总量快照，不再用未来最新快照兜底历史日期 |
+| 在制料缺失 | 当日明细没有材料重量、且同生产日没有总量快照时，不再输出 `wip_total=0`，改为标记 `wip_source_issue=missing_material_weight_for_business_date` |
+
+小白版理解：以前像是“拿了别的日期的一大包重量来跟当天日报比”，而且单位还没换算。现在只拿当天时间范围内的数据，并且先把公斤换成吨；当天确实没有重量时，页面应显示缺数据原因，而不是误显示 0。
+
+### 14.2 本轮验证
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+35 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+```
