@@ -91,7 +91,6 @@ WORKSHOP_NAME_ALIASES: dict[str, str] = {
 }
 
 NO_TERMINAL_WORKSHOP_NAMES = {'铸锭', '铸二', '铸三', '热轧', '淬火车间'}
-BILLET_INPUT_WORKSHOP_NAMES = {'铸二', '铸三', '热轧'}
 
 
 def is_active_production_workshop_code(code: str | None) -> bool:
@@ -119,18 +118,10 @@ def is_active_production_workshop_name(name: str | None) -> bool:
 
 def get_workshop_data_source_policy(value: Any) -> dict[str, Any]:
     name = normalize_workshop_name(value)
-    if name in BILLET_INPUT_WORKSHOP_NAMES:
-        primary_source = 'manual_billet_input'
-    elif name == '铸锭':
-        primary_source = 'manual_daily_summary'
-    elif name == '淬火车间':
-        primary_source = 'manual_supplement'
-    else:
-        primary_source = 'mes'
     return {
         'workshop_name': name,
         'has_terminal': name not in NO_TERMINAL_WORKSHOP_NAMES,
-        'primary_source': primary_source,
+        'primary_source': 'mes',
         'supplement_window_start': '09:30' if name in NO_TERMINAL_WORKSHOP_NAMES else None,
     }
 

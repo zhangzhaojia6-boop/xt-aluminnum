@@ -250,6 +250,12 @@ def _entry_weight_tons(item: dict, field_name: str) -> float:
     return value
 
 
+def _is_mes_weight_entry(item: dict) -> bool:
+    if item.get('entry_type') == 'mes_projection':
+        return True
+    return bool(item.get('mes_weight_authority'))
+
+
 def _is_formal_entry(item: dict) -> bool:
     return item.get('entry_status') in FORMAL_ENTRY_STATUSES or item.get('entry_type') == 'mes_projection'
 
@@ -796,6 +802,7 @@ def aggregate_live_payload(
     factory_output = 0.0
     factory_scrap = 0.0
     overall_entry_counts = _entry_count_summary(entries)
+    mes_weight_available = any(_is_mes_weight_entry(item) for item in entries)
     pending_assignment = _build_pending_assignment_summary(entries=entries, workshops=workshops, shifts=shifts)
     missing_output_weight = _build_missing_output_weight_summary(
         entries=entries,
@@ -867,9 +874,10 @@ def aggregate_live_payload(
                 draft_count = len([item for item in rows if item.get('entry_status') == 'draft'])
                 total_count = len(rows)
                 formal_rows = [item for item in rows if _is_formal_entry(item)]
-                input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in formal_rows), 2)
-                output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in formal_rows), 2)
-                scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in formal_rows), 2)
+                weight_rows = [item for item in formal_rows if _is_mes_weight_entry(item)] if mes_weight_available else formal_rows
+                input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in weight_rows), 2)
+                output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in weight_rows), 2)
+                scrap_total = round(sum(_entry_weight_tons(item, 'scrap_weight') for item in weight_rows), 2)
                 expected_total = int(expected_counts.get((workshop.id, machine.id, shift.id), 0))
                 if expected_total <= 0 and total_count > 0:
                     expected_total = total_count
@@ -1256,13 +1264,54 @@ def _build_mtd_totals(
     workshop_ids: list[int],
     workshop_id: int | None,
 ) -> dict[str, Any]:
-    """Sum month-to-date production from entries for the given workshops.
+    """Sum month-to-date production for the given workshops.
 
-    Range: [first day of business_date's month .. business_date] inclusive.
-    Weights stored in kg are converted to tons. Pass count is read from
-    extra_payload.pass_count for mobile_coil entries.
+    MES output records are authoritative when available. The legacy
+    WorkOrderEntry branch remains only as a no-MES compatibility fallback.
     """
     month_start = date(business_date.year, business_date.month, 1)
+    mes_by_workshop = daily_overview_builder._mixed_workshop_output_scope_by_workshop(db, month_start, business_date)
+    if mes_by_workshop:
+        scoped_ids = {int(item) for item in workshop_ids}
+        if workshop_id is not None:
+            scoped_ids = {int(workshop_id)}
+        rounded: dict[int, dict[str, Any]] = {}
+        factory_input = 0.0
+        factory_output = 0.0
+        factory_pass_total = 0
+        for ws_id, bucket in mes_by_workshop.items():
+            if scoped_ids and int(ws_id) not in scoped_ids:
+                continue
+            input_total = _to_float(bucket.get('input'))
+            output_total = _to_float(bucket.get('output'))
+            pass_total = int(bucket.get('pass_count_total') or 0)
+            rounded[int(ws_id)] = {
+                'mtd_input': round(input_total, 2),
+                'mtd_output': round(output_total, 2),
+                'mtd_scrap': 0.0,
+                'mtd_yield_rate': _round_rate(input_total, output_total),
+                'mtd_pass_count_total': pass_total,
+                'source_basis': bucket.get('source_basis') or 'mes_output_records',
+                'source_label': bucket.get('source_label') or '外部 MES 产量',
+            }
+            factory_input += input_total
+            factory_output += output_total
+            factory_pass_total += pass_total
+        return {
+            'by_workshop': rounded,
+            'factory': {
+                'mtd_input': round(factory_input, 2),
+                'mtd_output': round(factory_output, 2),
+                'mtd_scrap': 0.0,
+                'mtd_yield_rate': _round_rate(factory_input, factory_output),
+                'mtd_pass_count_total': int(factory_pass_total),
+                'month_start': month_start.isoformat(),
+                'month_end': business_date.isoformat(),
+                'source_basis': 'mes_output_records',
+                'source_label': '外部 MES 产量',
+            },
+        }
+
     query = (
         db.query(WorkOrderEntry)
         .filter(WorkOrderEntry.business_date >= month_start)
@@ -1914,6 +1963,12 @@ def _entry_tracking_keys(item: Mapping[str, Any]) -> set[str]:
     return keys
 
 
+def _same_entry_business_date(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+    left_date = str(left.get('business_date') or '').strip()
+    right_date = str(right.get('source_business_date') or '').strip()
+    return bool(left_date and right_date and left_date == right_date)
+
+
 def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict], mes_rows: list[dict]) -> tuple[list[dict], str]:
     mes_rows_by_card: dict[str, dict[Any, dict]] = defaultdict(dict)
     for item in mes_rows:
@@ -1950,6 +2005,17 @@ def _merge_runtime_entries(*, entry_rows: list[dict], local_entries: list[dict],
             for field_name in ('workshop_id', 'machine_id', 'shift_id'):
                 if updated.get(field_name) is None and mes_item.get(field_name) is not None:
                     updated[field_name] = mes_item[field_name]
+            if _same_entry_business_date(updated, mes_item):
+                has_mes_weight = False
+                for field_name in ('input_weight', 'output_weight', 'scrap_weight'):
+                    if mes_item.get(field_name) is None:
+                        continue
+                    updated[field_name] = mes_item[field_name]
+                    has_mes_weight = True
+                if has_mes_weight:
+                    updated['weight_unit'] = 'tons'
+                    updated['weight_source'] = 'mes_projection'
+                    updated['mes_weight_authority'] = True
             enriched.append(updated)
         return enriched, has_mes_match
 

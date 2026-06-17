@@ -55,8 +55,8 @@ _QUERY_BY_KEY = {
         'ORDER BY AllocationDate DESC, OperateDate DESC, CreateDate DESC'
     ),
     'material_records': (
-        'SELECT TOP ({limit}) * FROM MES_Feeding '
-        'ORDER BY FeedingDate DESC, CreateDate DESC'
+        'SELECT TOP ({limit}) * FROM MES_Material '
+        'ORDER BY ProductionDate DESC, CreateDate DESC'
     ),
     'yield_records': (
         'SELECT TOP ({limit}) * FROM MES_ProductProcessRecord '
@@ -208,11 +208,12 @@ def _coil_snapshot_from_row(row: Mapping[str, Any]) -> CoilSnapshot:
 
 
 def _source_record(query_key: str, row: Mapping[str, Any]) -> MesSourceRecord:
-    event_keys = (
-        ('EventTime', 'AllocationDate', 'InStockDate', 'OperateDate', 'ReportTime', 'UpdateTime', 'CreateDate')
-        if query_key == 'stock_records'
-        else ('EventTime', 'OperateDate', 'EndTime', 'EndDatetime', 'InStockDate', 'ReportTime', 'UpdateTime', 'CreateDate')
-    )
+    if query_key == 'stock_records':
+        event_keys = ('EventTime', 'AllocationDate', 'InStockDate', 'OperateDate', 'ReportTime', 'UpdateTime', 'CreateDate')
+    elif query_key == 'material_records':
+        event_keys = ('ProductionDate', 'StrProductionDate', 'EventTime', 'OperateDate', 'UpdateTime', 'CreateDate')
+    else:
+        event_keys = ('EventTime', 'OperateDate', 'EndTime', 'EndDatetime', 'InStockDate', 'ReportTime', 'UpdateTime', 'CreateDate')
     return MesSourceRecord(
         source_id=_record_id(row),
         source_path=f'sqlserver:{query_key}',

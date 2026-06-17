@@ -193,6 +193,30 @@ def test_sqlserver_adapter_maps_stock_record_event_time_from_allocation_date_bef
     assert rows[0].metadata['CreateDate'] == '2026-06-04 08:30:00'
 
 
+def test_sqlserver_adapter_maps_material_record_event_time_from_production_date() -> None:
+    runner = _QueryRunner({
+        'material_records': [
+            {
+                'Id': 'material-1',
+                'MaterialCode': 'R4-8998-2',
+                'WorkShopRolling': '热轧车间',
+                'WorkShopLine': '1#',
+                'Weight': '7830',
+                'ProductionDate': '2026-06-17 04:25:00',
+                'CreateDate': '2026-06-17 08:57:59',
+            }
+        ]
+    })
+    adapter = SqlServerMesAdapter(query_runner=runner)
+
+    rows = adapter.list_material_records(limit=10)
+
+    assert len(rows) == 1
+    assert rows[0].event_time == datetime(2026, 6, 17, 4, 25)
+    assert rows[0].metadata['WorkShopRolling'] == '热轧车间'
+    assert rows[0].metadata['WorkShopLine'] == '1#'
+
+
 def test_sqlserver_adapter_maps_xtal_device_workshop_to_machine_line() -> None:
     runner = _QueryRunner({
         'devices': [
@@ -240,7 +264,10 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'MES_Product' in _QUERY_BY_KEY['card_lookup']
     assert 'MES_Product' in _QUERY_BY_KEY['wip_totals']
     assert 'MES_ProductProcessRecord' in _QUERY_BY_KEY['workshop_process_records']
+    assert 'MES_Material' in _QUERY_BY_KEY['material_records']
+    assert 'MES_Feeding' not in _QUERY_BY_KEY['material_records']
     assert 'ORDER BY EndDatetime DESC' in _QUERY_BY_KEY['workshop_process_records']
+    assert 'ORDER BY ProductionDate DESC' in _QUERY_BY_KEY['material_records']
     assert 'ORDER BY AllocationDate DESC' in _QUERY_BY_KEY['stock_records']
     assert "CurrentWorkShop IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert "CurrentProcess IS NOT NULL" in _QUERY_BY_KEY['wip_totals']

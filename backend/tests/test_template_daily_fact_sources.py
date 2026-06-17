@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
-from app.models.mes import MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
@@ -27,6 +27,7 @@ def _session(tmp_path):
             Workshop.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            MesMaterialRecord.__table__,
             MesWorkshopProcessRecord.__table__,
             MesWipTotalSnapshot.__table__,
             DailyReport.__table__,
@@ -75,28 +76,102 @@ def _seed_mes_process(db, *, source_id: str, text: str, output_tons: float, pass
     )
 
 
-def test_owner_daily_wins_for_manual_workshop_outputs(tmp_path) -> None:
+def _seed_mes_material(
+    db,
+    *,
+    source_id: str,
+    workshop: str,
+    line: str,
+    weight_tons: float,
+    production_date: datetime,
+):
+    db.add(
+        MesMaterialRecord(
+            source_id=source_id,
+            source_path="sqlserver:material_records",
+            material_code=source_id,
+            workshop_name=workshop,
+            line_name=line,
+            weight_kg=weight_tons * 1000,
+            weight_tons=weight_tons,
+            production_date=production_date,
+        )
+    )
+
+
+def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:
         _seed_workshop_and_order(db)
         _seed_owner_daily_payload(db, {"hot_roll_daily": 275})
-        db.add(
-            WorkOrderEntry(
-                work_order_id=2,
-                workshop_id=2,
-                business_date=REPORT_DATE,
-                output_weight=999000,
-                entry_type="mobile_coil",
-                entry_status="submitted",
-            )
+        _seed_mes_process(db, source_id="hot-roll-mes", text="热轧", output_tons=123)
+        db.add_all(
+            [
+                WorkOrder(id=3, tracking_card_no="HR-2", process_route_code="manual"),
+                WorkOrder(id=4, tracking_card_no="HR-3", process_route_code="manual"),
+                WorkOrderEntry(
+                    work_order_id=2,
+                    workshop_id=2,
+                    business_date=REPORT_DATE,
+                    input_weight=11000,
+                    output_weight=0,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    submitted_at=datetime(2026, 6, 16, 7, 59),
+                ),
+                WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=2,
+                    business_date=REPORT_DATE,
+                    input_weight=70000,
+                    output_weight=0,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    submitted_at=datetime(2026, 6, 16, 8, 0),
+                ),
+                WorkOrderEntry(
+                    work_order_id=4,
+                    workshop_id=2,
+                    business_date=REPORT_DATE,
+                    input_weight=12000,
+                    output_weight=0,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    submitted_at=datetime(2026, 6, 17, 8, 0),
+                ),
+            ]
+        )
+        _seed_mes_material(
+            db,
+            source_id="hot-before-window",
+            workshop="热轧车间",
+            line="1#",
+            weight_tons=11,
+            production_date=datetime(2026, 6, 16, 7, 59),
+        )
+        _seed_mes_material(
+            db,
+            source_id="hot-in-window",
+            workshop="热轧车间",
+            line="1#",
+            weight_tons=70,
+            production_date=datetime(2026, 6, 16, 8, 0),
+        )
+        _seed_mes_material(
+            db,
+            source_id="hot-window-end",
+            workshop="热轧车间",
+            line="1#",
+            weight_tons=12,
+            production_date=datetime(2026, 6, 17, 8, 0),
         )
         db.commit()
 
     with SessionLocal() as db:
         facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
 
-    assert facts.values["hot_roll_daily"] == 275
-    assert facts.sources["hot_roll_daily"]["source_type"] == "owner_daily"
+    assert facts.values["hot_roll_daily"] == 70
+    assert facts.sources["hot_roll_daily"]["source_type"] == "mes_material_records"
 
 
 def test_template_daily_facts_default_to_current_business_date_for_wip(monkeypatch) -> None:

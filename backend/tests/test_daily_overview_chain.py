@@ -12,7 +12,7 @@ from app.models.attendance import AttendanceSchedule
 from app.models.consumable import DailyConsumableLog
 from app.models.imports import ImportBatch, ImportRow
 from app.models.master import Employee, Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -522,7 +522,7 @@ def test_contracts_derive_remaining_delta_from_yesterday_when_owner_entry_delta_
     assert payload['remaining_delta'] == -130.0
 
 
-def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_path) -> None:
+def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_downstream(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-workshop-output-mixed.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -530,6 +530,7 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
             Workshop.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            MesMaterialRecord.__table__,
             MesWorkshopProcessRecord.__table__,
         ],
     )
@@ -539,16 +540,22 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
             Workshop(id=1, code='RZ', name='热轧车间', workshop_type='hot_roll', is_active=True),
             Workshop(id=2, code='LZ1650', name='1650车间', workshop_type='cold_roll', is_active=True),
             Workshop(id=3, code='CH', name='园区淬火', workshop_type='quenching', is_active=True),
+            Workshop(id=4, code='ZZ2', name='铸轧二车间', workshop_type='cast_roll', is_active=True),
             WorkOrder(id=1, tracking_card_no='RZ-1', process_route_code='manual'),
             WorkOrder(id=2, tracking_card_no='LZ1650-1', process_route_code='manual'),
             WorkOrder(id=3, tracking_card_no='CH-1', process_route_code='manual'),
+            WorkOrder(id=4, tracking_card_no='ZZ2-before', process_route_code='manual'),
+            WorkOrder(id=5, tracking_card_no='ZZ2-window', process_route_code='manual'),
+            WorkOrder(id=6, tracking_card_no='ZZ2-end', process_route_code='manual'),
             WorkOrderEntry(
                 work_order_id=1,
                 workshop_id=1,
                 business_date=date(2026, 5, 29),
-                output_weight=88000,
+                input_weight=70000,
+                output_weight=0,
                 entry_type='mobile_coil',
                 entry_status='submitted',
+                submitted_at=datetime(2026, 5, 29, 8, 0),
             ),
             WorkOrderEntry(
                 work_order_id=2,
@@ -557,6 +564,36 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
                 output_weight=7000,
                 entry_type='mobile_coil',
                 entry_status='submitted',
+            ),
+            WorkOrderEntry(
+                work_order_id=4,
+                workshop_id=4,
+                business_date=date(2026, 5, 29),
+                input_weight=11000,
+                output_weight=0,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+                submitted_at=datetime(2026, 5, 29, 7, 59),
+            ),
+            WorkOrderEntry(
+                work_order_id=5,
+                workshop_id=4,
+                business_date=date(2026, 5, 29),
+                input_weight=44000,
+                output_weight=0,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+                submitted_at=datetime(2026, 5, 30, 7, 59),
+            ),
+            WorkOrderEntry(
+                work_order_id=6,
+                workshop_id=4,
+                business_date=date(2026, 5, 29),
+                input_weight=22000,
+                output_weight=0,
+                entry_type='mobile_coil',
+                entry_status='submitted',
+                submitted_at=datetime(2026, 5, 30, 8, 0),
             ),
             WorkOrderEntry(
                 work_order_id=3,
@@ -573,6 +610,54 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
                 process_name='热轧',
                 output_weight_tons=12,
                 business_date=date(2026, 5, 29),
+            ),
+            MesMaterialRecord(
+                source_id='mat-hot-roll',
+                source_path='sqlserver:material_records',
+                material_code='mat-hot-roll',
+                workshop_name='热轧车间',
+                line_name='1#',
+                weight_kg=70000,
+                weight_tons=70,
+                production_date=datetime(2026, 5, 29, 8, 0),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='mes-cast-2',
+                source_path='sqlserver',
+                workshop_name='铸二车间',
+                process_name='铸轧二',
+                output_weight_tons=9,
+                business_date=date(2026, 5, 29),
+            ),
+            MesMaterialRecord(
+                source_id='mat-cast-2-before',
+                source_path='sqlserver:material_records',
+                material_code='mat-cast-2-before',
+                workshop_name='铸二车间',
+                line_name='3#',
+                weight_kg=11000,
+                weight_tons=11,
+                production_date=datetime(2026, 5, 29, 7, 59),
+            ),
+            MesMaterialRecord(
+                source_id='mat-cast-2-window',
+                source_path='sqlserver:material_records',
+                material_code='mat-cast-2-window',
+                workshop_name='铸二车间',
+                line_name='3#',
+                weight_kg=44000,
+                weight_tons=44,
+                production_date=datetime(2026, 5, 30, 7, 59),
+            ),
+            MesMaterialRecord(
+                source_id='mat-cast-2-end',
+                source_path='sqlserver:material_records',
+                material_code='mat-cast-2-end',
+                workshop_name='铸二车间',
+                line_name='3#',
+                weight_kg=22000,
+                weight_tons=22,
+                production_date=datetime(2026, 5, 30, 8, 0),
             ),
             MesWorkshopProcessRecord(
                 source_id='mes-1650',
@@ -598,17 +683,21 @@ def test_workshop_output_uses_manual_for_named_workshops_and_mes_for_others(tmp_
     rows = daily_overview_builder._build_workshop_output(
         db,
         date(2026, 5, 29),
-        {1: '热轧车间', 2: '1650车间', 3: '园区淬火'},
+        {1: '热轧车间', 2: '1650车间', 3: '园区淬火', 4: '铸轧二车间'},
     )
     by_name = {row['workshop']: row for row in rows}
 
-    assert by_name['热轧车间']['daily_output'] == 88.0
-    assert by_name['热轧车间']['source_basis'] == 'manual_mobile_coil'
+    assert by_name['热轧车间']['daily_output'] == 70.0
+    assert by_name['热轧车间']['source_basis'] == 'mes_material_records'
+    assert by_name['热轧车间']['process_stage_outputs'] == {'1#': 70.0}
+    assert by_name['铸轧二车间']['daily_output'] == 44.0
+    assert by_name['铸轧二车间']['source_basis'] == 'mes_material_records'
+    assert by_name['铸轧二车间']['process_stage_outputs'] == {'3#': 44.0}
     assert by_name['1650车间']['daily_output'] == 33.0
     assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
     assert by_name['1650车间']['pass_count_total'] == 11
-    assert by_name['园区淬火']['daily_output'] == 5.0
-    assert by_name['园区淬火']['source_basis'] == 'manual_mobile_coil'
+    assert by_name['园区淬火']['daily_output'] == 99.0
+    assert by_name['园区淬火']['source_basis'] == 'mes_workshop_process_records'
 
 
 def test_workshop_output_uses_device_name_for_cold_roll_mes_rows(tmp_path) -> None:
@@ -715,7 +804,7 @@ def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> N
     assert payload['basis'] == 'mes_yield_records'
 
 
-def test_yield_rates_prefer_official_owner_daily_report_when_present(tmp_path) -> None:
+def test_yield_rates_prefer_mes_algorithm_over_owner_daily_report_when_present(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-owner-yield.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -761,10 +850,10 @@ def test_yield_rates_prefer_official_owner_daily_report_when_present(tmp_path) -
 
     payload = daily_overview_builder._build_yield_rates(db, date(2026, 6, 16))
 
-    assert payload['daily'] == 84.86
-    assert payload['daily_delta'] == -1.38
-    assert payload['monthly'] == 86.0
-    assert payload['basis'] == 'owner_daily_report'
+    assert payload['daily'] == 96.53
+    assert payload['daily_delta'] == 10.29
+    assert payload['monthly'] == 96.53
+    assert payload['basis'] == 'mes_yield_records'
 
 
 def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeypatch) -> None:
@@ -796,19 +885,22 @@ def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeyp
 
     assert payload['daily_output'] == 0.0
     assert payload['yesterday_output'] == 0.0
-    assert payload['monthly_output'] == 2.8
-    assert payload['monthly_output_source'] == 'storage_owner_daily_entry'
+    assert payload['monthly_output'] == 0.0
+    assert payload['monthly_output_source'] == 'mes_packaging_output'
     assert payload['basis'] == 'mes_packaging_output'
     assert payload['basis_label'] == '包装产量'
     assert payload['finished_inbound_output'] == 2.0
     assert payload['finished_inbound_monthly_output'] == 2.8
 
 
-def test_build_plant_output_uses_official_owner_daily_and_monthly_when_available(monkeypatch) -> None:
+def test_build_plant_output_keeps_mes_packaging_as_output_when_owner_inbound_available(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_mes_packaging_output_with_source_by_date',
-        lambda *_args, **_kwargs: ({date(2026, 6, 16): 308.68}, {date(2026, 6, 16): 'mes_stock_records'}),
+        lambda *_args, **_kwargs: (
+            {date(2026, 6, 15): 305.848, date(2026, 6, 16): 308.68},
+            {date(2026, 6, 15): 'mes_stock_records', date(2026, 6, 16): 'mes_stock_records'},
+        ),
     )
     monkeypatch.setattr(
         daily_overview_builder,
@@ -828,12 +920,13 @@ def test_build_plant_output_uses_official_owner_daily_and_monthly_when_available
 
     payload = daily_overview_builder._build_plant_output(None, date(2026, 6, 16), {'total_electricity': 0})
 
-    assert payload['daily_output'] == 328.03
+    assert payload['daily_output'] == 308.68
     assert payload['yesterday_output'] == 305.85
-    assert payload['monthly_output'] == 5013.73
+    assert payload['monthly_output'] == 614.53
     assert payload['finished_inbound_output'] == 328.03
     assert payload['mes_packaging_output'] == 308.68
-    assert payload['daily_output_source'] == 'storage_owner_daily_entry'
+    assert payload['daily_output_source'] == 'mes_stock_records'
+    assert payload['monthly_output_source'] == 'mes_packaging_output'
 
 
 def test_daily_overview_contracts_use_weight_projection(monkeypatch) -> None:

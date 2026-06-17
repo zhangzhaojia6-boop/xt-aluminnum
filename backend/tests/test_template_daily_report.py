@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models.master import Workshop
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.mes import MesMaterialRecord, MesWorkshopProcessRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.services.report import template_daily_report
 
@@ -197,7 +197,7 @@ def test_all_template_required_fields_have_contract_metadata() -> None:
     assert missing == []
 
 
-def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for_others(tmp_path) -> None:
+def test_build_facts_uses_mes_material_for_hot_roll_and_process_for_cold_roll(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-report.db'}", future=True)
     Base.metadata.create_all(
         engine,
@@ -205,6 +205,7 @@ def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for
             Workshop.__table__,
             WorkOrder.__table__,
             WorkOrderEntry.__table__,
+            MesMaterialRecord.__table__,
             MesWorkshopProcessRecord.__table__,
         ],
     )
@@ -215,13 +216,26 @@ def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for
                 Workshop(id=1, code="HR", name="热轧车间", workshop_type="hot_roll", is_active=True),
                 Workshop(id=2, code="C1650", name="1650车间", workshop_type="cold_roll", is_active=True),
                 WorkOrder(id=1, tracking_card_no="HR-1", process_route_code="manual"),
+                WorkOrder(id=3, tracking_card_no="HR-2", process_route_code="manual"),
                 WorkOrderEntry(
                     work_order_id=1,
                     workshop_id=1,
                     business_date=REPORT_DATE,
-                    output_weight=88000,
+                    input_weight=88000,
+                    output_weight=0,
                     entry_type="mobile_coil",
                     entry_status="submitted",
+                    submitted_at=datetime(2026, 6, 16, 8, 0),
+                ),
+                WorkOrderEntry(
+                    work_order_id=3,
+                    workshop_id=1,
+                    business_date=REPORT_DATE,
+                    input_weight=12000,
+                    output_weight=0,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                    submitted_at=datetime(2026, 6, 17, 8, 0),
                 ),
                 MesWorkshopProcessRecord(
                     source_id="mes-hot-roll",
@@ -230,6 +244,26 @@ def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for
                     process_name="热轧",
                     output_weight_tons=12,
                     business_date=REPORT_DATE,
+                ),
+                MesMaterialRecord(
+                    source_id="mat-hot-roll",
+                    source_path="sqlserver:material_records",
+                    material_code="mat-hot-roll",
+                    workshop_name="热轧车间",
+                    line_name="1#",
+                    weight_kg=88000,
+                    weight_tons=88,
+                    production_date=datetime(2026, 6, 16, 8, 0),
+                ),
+                MesMaterialRecord(
+                    source_id="mat-hot-roll-next",
+                    source_path="sqlserver:material_records",
+                    material_code="mat-hot-roll-next",
+                    workshop_name="热轧车间",
+                    line_name="1#",
+                    weight_kg=12000,
+                    weight_tons=12,
+                    production_date=datetime(2026, 6, 17, 8, 0),
                 ),
                 MesWorkshopProcessRecord(
                     source_id="mes-1650",
@@ -247,7 +281,7 @@ def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for
         facts = template_daily_report.build_template_daily_report_facts(db, target_date=REPORT_DATE)
 
     assert facts["values"]["hot_roll_daily"] == 88.0
-    assert facts["sources"]["hot_roll_daily"]["source_type"] == "manual_mobile_coil"
+    assert facts["sources"]["hot_roll_daily"]["source_type"] == "mes_material_records"
     assert facts["values"]["cold_1650_daily"] == 33.0
     assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"
     assert facts["values"]["coating_daily"] == 0.0

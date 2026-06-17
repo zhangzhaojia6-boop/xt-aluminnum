@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import func, inspect
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.business_time import production_business_window, resolve_production_business_date
 from app.models.master import Workshop
-from app.models.mes import MesWipTotalSnapshot, MesWorkshopProcessRecord
+from app.models.mes import MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
@@ -39,7 +39,17 @@ MANUAL_OUTPUT_WORKSHOPS = {
     "cast_3_daily": ("铸三", "铸轧三"),
 }
 
+MES_MATERIAL_OUTPUT_WORKSHOPS = {
+    "hot_roll_daily": ("热轧车间", "热轧"),
+    "cast_2_daily": ("铸二车间", "铸二", "铸轧二", "铸轧二车间", "铸轧2"),
+    "cast_3_daily": ("铸三车间", "铸三", "铸轧三", "铸轧三车间", "铸轧3"),
+}
+
 MES_REPORT_PROCESS_MAPPING = {
+    "hot_roll_daily": {"include": ("热轧",), "exclude": ("包装", "入库")},
+    "foundry_daily": {"include": ("铸锭", "铸造", "熔炼"), "exclude": ()},
+    "cast_2_daily": {"include": ("铸二", "铸轧二", "铸轧2"), "exclude": ("铸三", "铸轧三")},
+    "cast_3_daily": {"include": ("铸三", "铸轧三", "铸轧3"), "exclude": ("铸二", "铸轧二")},
     "cold_1650_daily": {"include": ("1650",), "exclude": ("1850", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1650",)},
     "cold_1850_daily": {"include": ("1850",), "exclude": ("1650", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1850",)},
     "cold_2050_daily": {"include": ("2050",), "exclude": ("1650", "1850", "精整", "拉矫", "剪切", "退火"), "device_include": ("2050",)},
@@ -49,6 +59,8 @@ MES_REPORT_PROCESS_MAPPING = {
     "shearing_daily": {"include": ("剪切",), "exclude": ()},
     "coating_daily": {"include": ("彩涂",), "exclude": ()},
 }
+BILLET_MATERIAL_FIELDS = set(MES_MATERIAL_OUTPUT_WORKSHOPS)
+BILLET_BUSINESS_DAY_START = time(8, 0)
 
 MONTHLY_FIELD_BY_DAILY_FIELD = {
     "hot_roll_daily": "hot_roll_month",
@@ -279,6 +291,54 @@ def _query_manual_mobile_output(
     return (round(total, 3), pass_total) if matched else (None, 0)
 
 
+def _billet_material_business_window(start: date, end: date) -> tuple[datetime, datetime]:
+    return (
+        datetime.combine(start, BILLET_BUSINESS_DAY_START),
+        datetime.combine(end + timedelta(days=1), BILLET_BUSINESS_DAY_START),
+    )
+
+
+def _material_weight_tons(row: MesMaterialRecord) -> float:
+    direct = _to_float(row.weight_tons)
+    if direct > 0:
+        return direct
+    return _to_float(row.weight_kg) / 1000
+
+
+def _query_mes_material_output(
+    db: Session,
+    *,
+    start: date,
+    end: date,
+    tokens: tuple[str, ...],
+) -> tuple[float | None, int]:
+    if not hasattr(db, "query"):
+        return None, 0
+    if not _has_table(db, MesMaterialRecord.__tablename__):
+        return None, 0
+    start_at, end_at = _billet_material_business_window(start, end)
+    rows = (
+        db.query(MesMaterialRecord)
+        .filter(
+            MesMaterialRecord.production_date >= start_at,
+            MesMaterialRecord.production_date < end_at,
+        )
+        .order_by(MesMaterialRecord.id.asc())
+        .all()
+    )
+    total = 0.0
+    count = 0
+    for row in rows:
+        if not _matches_any(row.workshop_name, tokens):
+            continue
+        weight = _material_weight_tons(row)
+        if weight <= 0:
+            continue
+        total += weight
+        count += 1
+    return (round(total, 3), count) if count else (None, 0)
+
+
 def _mes_rows(db: Session, *, start: date, end: date) -> list[MesWorkshopProcessRecord]:
     if not _has_table(db, MesWorkshopProcessRecord.__tablename__):
         return []
@@ -348,9 +408,11 @@ def _owner_daily_payload_values(db: Session, *, target_date: date) -> dict[str, 
 
 def _copy_owner_values(facts: TemplateDailyFacts, owner_payload: dict[str, Any], required_fields: tuple[str, ...]) -> None:
     for key in required_fields:
+        if key in MANUAL_OUTPUT_FIELDS:
+            continue
         for source_key in (key, *OWNER_FIELD_ALIASES.get(key, ())):
             if source_key in owner_payload:
-                _set_value(facts, key, _to_float(owner_payload[source_key]), "owner_daily", field=source_key)
+                _set_missing_value(facts, key, _to_float(owner_payload[source_key]), "owner_daily", field=source_key)
                 break
 
 
@@ -534,7 +596,7 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
     _set_value(facts, "daily_contract_weight", contracts.get("daily_new"), "contract_projection")
     _set_value(facts, "remaining_contract_weight", contracts.get("remaining"), "contract_projection")
     _set_value(facts, "remaining_contract_delta", contracts.get("remaining_delta"), "contract_projection")
-    _set_value(facts, "daily_yield_rate", yield_rates.get("owner_daily") or yield_rates.get("daily"), "yield_projection")
+    _set_value(facts, "daily_yield_rate", yield_rates.get("daily") or yield_rates.get("owner_daily"), "yield_projection")
     _set_value(facts, "daily_yield_delta", yield_rates.get("daily_delta"), "yield_projection")
     _set_value(facts, "monthly_yield_rate", yield_rates.get("monthly"), "yield_projection")
     _set_value(facts, "total_electricity_kwh", energy.get("total_electricity"), "owner_or_energy_summary")
@@ -557,6 +619,22 @@ def collect_manual_workshop_facts(db: Session, facts: TemplateDailyFacts) -> Non
         _set_value(facts, MONTHLY_FIELD_BY_DAILY_FIELD[key], monthly, "manual_mobile_coil")
 
 
+def collect_mes_material_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
+    month_start = facts.target_date.replace(day=1)
+    for key, tokens in MES_MATERIAL_OUTPUT_WORKSHOPS.items():
+        daily, daily_count = _query_mes_material_output(db, start=facts.target_date, end=facts.target_date, tokens=tokens)
+        monthly, monthly_count = _query_mes_material_output(db, start=month_start, end=facts.target_date, tokens=tokens)
+        _set_value(facts, key, daily, "mes_material_records", basis="ProductionDate 08:00-08:00", roll_count=daily_count)
+        _set_value(
+            facts,
+            MONTHLY_FIELD_BY_DAILY_FIELD[key],
+            monthly,
+            "mes_material_records",
+            basis="ProductionDate 08:00-08:00",
+            roll_count=monthly_count,
+        )
+
+
 def collect_mes_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     month_start = facts.target_date.replace(day=1)
     daily_rows = _mes_rows(db, start=facts.target_date, end=facts.target_date)
@@ -565,6 +643,8 @@ def collect_mes_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     claimed_month: set[str] = set()
 
     for key, mapping in MES_REPORT_PROCESS_MAPPING.items():
+        if key in BILLET_MATERIAL_FIELDS:
+            continue
         daily, daily_pass, _daily_count = _mapped_mes_output(daily_rows, mapping, claimed_source_ids=claimed_daily)
         monthly, monthly_pass, _monthly_count = _mapped_mes_output(month_rows, mapping, claimed_source_ids=claimed_month)
         _set_value(facts, key, daily, "mes_workshop_process_records")
@@ -699,7 +779,7 @@ def collect_template_daily_facts(
     collect_opening_facts(db, facts, wip_date=effective_wip_date)
     _copy_owner_values(facts, _owner_daily_payload_values(db, target_date=target_date), required_fields)
     collect_owner_rollup_facts(db, facts)
-    collect_manual_workshop_facts(db, facts)
+    collect_mes_material_workshop_facts(db, facts)
     collect_mes_workshop_facts(db, facts)
     collect_recovery_and_overhaul_facts(db, facts)
     collect_quality_yield_facts(db, facts)

@@ -161,9 +161,13 @@ def _is_mes_stock_packaging_output(row: MesStockRecord) -> bool:
         or payload.get('to_department')
         or payload.get('toDept')
     )
-    if '成品' in to_department or '入库' in to_department:
+    if '半成品' in to_department:
+        return False
+    if to_department == '成品库' or '成品' in to_department or '入库' in to_department:
+        return True
+    if from_department:
         return any(keyword in from_department for keyword in MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS)
-    return False
+    return _mes_stock_output_tons(row) > 0
 
 
 def _query_mes_stock_packaging_output_by_date(db: Session, *, business_date: date) -> float:

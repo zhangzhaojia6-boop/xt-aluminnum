@@ -36,9 +36,9 @@ def test_active_workshop_filter_keeps_only_active_code_or_active_name():
     assert [item.name for item in filtered] == ['园区淬火', '铸轧二']
 
 
-def test_no_terminal_workshop_policy_separates_billet_and_mes_primary_workshops():
-    assert get_workshop_data_source_policy('热轧')['primary_source'] == 'manual_billet_input'
-    assert get_workshop_data_source_policy('铸三')['primary_source'] == 'manual_billet_input'
-    assert get_workshop_data_source_policy('铸锭')['primary_source'] == 'manual_daily_summary'
+def test_no_terminal_workshop_policy_keeps_mes_as_primary_source():
+    assert get_workshop_data_source_policy('热轧')['primary_source'] == 'mes'
+    assert get_workshop_data_source_policy('铸三')['primary_source'] == 'mes'
+    assert get_workshop_data_source_policy('铸锭')['primary_source'] == 'mes'
     assert get_workshop_data_source_policy('淬火车间')['has_terminal'] is False
     assert get_workshop_data_source_policy('精整')['primary_source'] == 'mes'

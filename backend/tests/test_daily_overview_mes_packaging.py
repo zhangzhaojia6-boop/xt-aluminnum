@@ -125,7 +125,53 @@ def test_mes_packaging_output_prefers_mes_stock_in_records_over_process_packagin
     assert totals == {BUSINESS_DATE: 341.71}
 
 
-def test_plant_output_uses_mes_stock_packaging_for_daily_and_storage_owner_for_monthly(tmp_path) -> None:
+def test_mes_packaging_output_counts_legacy_stock_rows_without_department_payload(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesStockRecord(
+                source_id='stock-legacy-row',
+                source_path='sqlserver:stock_records',
+                net_weight_tons=25.357,
+                status_name='1',
+                business_date=BUSINESS_DATE,
+                source_payload={},
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        totals = daily_overview_builder._query_mes_packaging_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+
+    assert totals == {BUSINESS_DATE: 25.36}
+
+
+def test_mes_packaging_output_rejects_non_finished_stock_destination(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesStockRecord(
+                source_id='stock-middle-warehouse',
+                source_path='sqlserver:stock_records',
+                net_weight_tons=25.357,
+                status_name='1',
+                business_date=BUSINESS_DATE,
+                source_payload={
+                    'FromDepartment': '精整',
+                    'ToDepartment': '半成品库',
+                    'Status': 1,
+                },
+            )
+        )
+        db.commit()
+
+    with session_factory() as db:
+        totals = daily_overview_builder._query_mes_packaging_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+
+    assert totals == {}
+
+
+def test_plant_output_uses_mes_stock_packaging_for_daily_and_monthly(tmp_path) -> None:
     session_factory = _session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -204,11 +250,11 @@ def test_plant_output_uses_mes_stock_packaging_for_daily_and_storage_owner_for_m
     assert plant['daily_output'] == 36.5
     assert plant['packaging_output'] == 36.5
     assert plant['yesterday_output'] == 22.25
-    assert plant['monthly_output'] == 27.25
-    assert plant['monthly_output_source'] == 'storage_owner_daily_entry'
-    assert plant['packaging_monthly_output'] == 27.25
-    assert plant['packaging_monthly_source'] == 'storage_owner_daily_entry'
-    assert plant['monthly_average_output'] == round(27.25 / 9, 2)
+    assert plant['monthly_output'] == 58.75
+    assert plant['monthly_output_source'] == 'mes_packaging_output'
+    assert plant['packaging_monthly_output'] == 58.75
+    assert plant['packaging_monthly_source'] == 'mes_packaging_output'
+    assert plant['monthly_average_output'] == round(58.75 / 9, 2)
     assert plant['finished_inbound_source'] == 'storage_owner_daily_entry'
     assert plant['finished_inbound_output'] == 27.25
     assert plant['finished_inbound_basis_label'] == '全厂入库产量'
