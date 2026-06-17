@@ -52,16 +52,18 @@
 import QRCode from 'qrcode'
 import { computed, onMounted, ref } from 'vue'
 
-import { fetchEquipment, fetchWorkshops } from '../../api/master.js'
+import { fetchEquipmentPage, fetchWorkshops } from '../../api/master.js'
 
 const loading = ref(true)
 const equipmentList = ref([])
 const workshopMap = ref({})
 const qrImages = ref({})
+const MASTER_PAGE_LIMIT = 500
+const NON_PRINTABLE_ROLE_QR_CODES = new Set(['HS-EN', 'HS-CS', 'CPK-EN', 'CPK-CS'])
 
 const baseUrl = `${window.location.origin}`
 
-const printableEquipment = computed(() => equipmentList.value.filter((eq) => eq.qr_code))
+const printableEquipment = computed(() => equipmentList.value.filter(isPrintableQr))
 
 const groupedEquipment = computed(() => {
   const groups = {}
@@ -91,6 +93,19 @@ function isDirectorQr(eq) {
   return eq.equipment_type === 'virtual_role_qr' && String(eq.code || '').toUpperCase().endsWith('-DIR')
 }
 
+function normalizeEquipmentCode(eq) {
+  return String(eq.code || '').toUpperCase().replace(/^XT-/, '')
+}
+
+function isPrintableQr(eq) {
+  if (!eq.qr_code || eq.is_active === false || eq.operational_status !== 'running') return false
+  if (eq.equipment_type === 'virtual_workshop_qr' || isDirectorQr(eq)) return true
+  if (eq.equipment_type === 'virtual_role_qr') {
+    return !NON_PRINTABLE_ROLE_QR_CODES.has(normalizeEquipmentCode(eq))
+  }
+  return Boolean(eq.bound_user_id)
+}
+
 function buildLoginUrl(eq) {
   if (eq.equipment_type === 'virtual_workshop_qr') {
     const wsCode = eq.qr_code.replace('XT-', '').replace('-WS', '')
@@ -100,8 +115,7 @@ function buildLoginUrl(eq) {
 }
 
 async function generateQrImages() {
-  for (const eq of equipmentList.value) {
-    if (!eq.qr_code) continue
+  for (const eq of printableEquipment.value) {
     const url = buildLoginUrl(eq)
     try {
       qrImages.value[eq.qr_code] = await QRCode.toDataURL(url, { width: 200, margin: 1 })
@@ -109,10 +123,28 @@ async function generateQrImages() {
   }
 }
 
+async function fetchAllEquipment() {
+  const items = []
+  let skip = 0
+  let total = Infinity
+  while (items.length < total) {
+    const page = await fetchEquipmentPage({ skip, limit: MASTER_PAGE_LIMIT })
+    const batch = Array.isArray(page.items) ? page.items : []
+    items.push(...batch)
+    total = Number.isFinite(Number(page.total)) ? Number(page.total) : items.length
+    if (!batch.length || batch.length < MASTER_PAGE_LIMIT) break
+    skip += batch.length
+  }
+  return items
+}
+
 async function load() {
   loading.value = true
   try {
-    const [eqData, wsData] = await Promise.all([fetchEquipment(), fetchWorkshops()])
+    const [eqData, wsData] = await Promise.all([
+      fetchAllEquipment(),
+      fetchWorkshops({ limit: MASTER_PAGE_LIMIT })
+    ])
     equipmentList.value = eqData || []
     const map = {}
     for (const ws of (wsData || [])) {

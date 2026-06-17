@@ -230,7 +230,6 @@ import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferLastCompletedBusinessDate } from '../../../utils/shiftClock.js'
 import { downloadBlob } from '../../../utils/downloadBlob.js'
-import { filterActiveWorkshopRows } from '../../../utils/activeWorkshops.js'
 import { buildFillDetailsStitchSurface } from '../../../utils/stitchManageSurface.js'
 import {
   buildAuditTickerItems,
@@ -241,7 +240,7 @@ import {
   MISSING_AUDIT_VALUE,
 } from '../../../utils/manageFillDetailsAudit.js'
 
-const FILL_DETAILS_PAGE_LIMIT = 800
+const FILL_DETAILS_PAGE_LIMIT = 2000
 const targetDate = ref(inferLastCompletedBusinessDate())
 const auth = useAuthStore()
 const loading = ref(false)
@@ -410,7 +409,7 @@ function rowKey(row) {
 async function loadWorkshops() {
   if (workshopsLoaded.value || !canChooseWorkshop.value) return
   try {
-    workshops.value = filterActiveWorkshopRows(await fetchWorkshops({ limit: 300 }))
+    workshops.value = await fetchWorkshops({ limit: 500 })
   } catch {
     workshops.value = []
   } finally {

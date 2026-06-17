@@ -1,5 +1,5 @@
 import { formatShiftLabel } from './display.js'
-import { filterActiveWorkshopRows } from './activeWorkshops.js'
+import { filterActiveWorkshopRows, normalizeWorkshopName } from './activeWorkshops.js'
 
 export const MISSING_AUDIT_VALUE = '暂无可信数据'
 
@@ -260,7 +260,7 @@ export function explainWorkshopDataEmptyState({ loading = false, hasWorkshop = t
 }
 
 export function buildFillLedgerRows(rows = []) {
-  return activeWorkshopRows(rows)
+  return (rows || [])
     .filter((row) => (row.source_type || row.sourceType) !== 'mes_projection')
     .map((row, index) => {
       const isOwnerDaily = row.source_type === 'owner_daily'
@@ -269,7 +269,7 @@ export function buildFillLedgerRows(rows = []) {
         rowId: row.row_id || row.id || `row-${index}`,
         sourceType: row.source_type || '',
         sourceLabel: row.source_label || row.source_type || '-',
-        workshopName: row.workshop_name || '-',
+        workshopName: normalizeWorkshopName(row.workshop_name || row.workshopName || row.workshop || '-'),
         machineName: isOwnerDaily ? (row.machine_name || '内勤岗') : (row.machine_name || '-'),
         shiftName: isOwnerDaily ? '每日一录' : formatShiftLabel(row.shift_name),
         responsibleText: row.responsible_name || row.responsible_username || '-',

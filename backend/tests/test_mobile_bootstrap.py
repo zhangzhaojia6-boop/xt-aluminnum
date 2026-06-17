@@ -579,6 +579,61 @@ def test_entry_fields_returns_tracking_card_for_machine_operator() -> None:
     assert all(field['name'] != 'batch_no' or field['label'] == '批号' for field in first_fields)
 
 
+def test_entry_fields_maps_recycling_inner_clerk_qr_to_recovery_owner_fields() -> None:
+    class EntryFieldsDB:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=23, code='HS', name='回收车间', workshop_type='recycling')
+
+    current_user = User(
+        id=930,
+        username='HS-CS',
+        password_hash='x',
+        name='回收车间内勤',
+        role='consumable_stat',
+        workshop_id=23,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    payload = entry_fields(db=EntryFieldsDB(), current_user=current_user)
+
+    assert payload['mode'] == 'owner_daily'
+    assert payload['submit_target'] == 'owner_daily'
+    assert payload['role_label'] == '回收产量'
+    assert [field['name'] for field in payload['groups'][0]['fields']] == [
+        'recovery_weight',
+        'recovery_material_type',
+        'recovery_notes',
+    ]
+
+
+def test_entry_fields_maps_inventory_inner_clerk_qr_to_storage_owner_fields() -> None:
+    class EntryFieldsDB:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=11, code='CPK', name='成品库', workshop_type='inventory')
+
+    current_user = User(
+        id=67,
+        username='CPK-CS',
+        password_hash='x',
+        name='成品库内勤',
+        role='consumable_stat',
+        workshop_id=11,
+        is_mobile_user=True,
+        is_active=True,
+    )
+
+    payload = entry_fields(db=EntryFieldsDB(), current_user=current_user)
+
+    assert payload['mode'] == 'owner_daily'
+    assert payload['submit_target'] == 'owner_daily'
+    assert payload['role_label'] == '成品库'
+    field_names = [field['name'] for field in payload['groups'][0]['fields']]
+    assert 'park_inbound_daily' in field_names
+    assert 'new_plant_inbound_daily' in field_names
+    assert 'consignment_weight' in field_names
+
+
 def test_entry_fields_ignores_workshop_template_override_for_machine_operator(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'mobile-entry-fields.db'}", future=True)
     Base.metadata.create_all(engine, tables=[Workshop.__table__, WorkshopTemplateConfig.__table__])

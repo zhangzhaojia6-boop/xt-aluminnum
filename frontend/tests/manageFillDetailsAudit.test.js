@@ -251,13 +251,15 @@ test('fill ledger search matches responsible person, machine and tracking card',
   const rows = buildFillLedgerRows([
     { row_id: 'a', source_type: 'owner_daily', workshop_name: '精整', responsible_name: '张三', machine_name: '内勤岗' },
     { row_id: 'b', source_type: 'work_order_entry', workshop_name: '园区在线', responsible_name: '李四', machine_name: '1#退火炉', tracking_card_no: 'TX-001' },
+    { row_id: 'storage', source_type: 'owner_daily', workshop_name: '成品库', responsible_name: '成品库内勤', machine_name: '内勤岗' },
+    { row_id: 'recovery', source_type: 'owner_daily', workshop_name: '回收车间', responsible_name: '回收内勤', machine_name: '内勤岗' },
     { row_id: 'c', source_type: 'mes_projection', responsible_name: '外部 MES', machine_name: 'MES 机列' },
   ])
 
   assert.deepEqual(filterFillLedgerRows(rows, { keyword: '张三' }).map((row) => row.rowId), ['a'])
   assert.deepEqual(filterFillLedgerRows(rows, { keyword: 'TX-001' }).map((row) => row.rowId), ['b'])
-  assert.deepEqual(filterFillLedgerRows(rows, { sourceType: 'owner_daily' }).map((row) => row.rowId), ['a'])
-  assert.deepEqual(rows.map((row) => row.rowId), ['a', 'b'])
+  assert.deepEqual(filterFillLedgerRows(rows, { sourceType: 'owner_daily' }).map((row) => row.rowId), ['a', 'storage', 'recovery'])
+  assert.deepEqual(rows.map((row) => row.rowId), ['a', 'b', 'storage', 'recovery'])
 })
 
 test('workshop dashboard separates machine production rows from electrician energy rows', () => {
@@ -342,8 +344,9 @@ test('FillDetailsPage is wired to the three audit data sources', () => {
   assert.match(src, /fetchDailyProduction/)
   assert.match(src, /fetchLiveAggregation/)
   assert.match(src, /fetchLiveFillDetails/)
-  assert.match(src, /const FILL_DETAILS_PAGE_LIMIT = 800/)
+  assert.match(src, /const FILL_DETAILS_PAGE_LIMIT = 2000/)
   assert.match(src, /limit:\s*FILL_DETAILS_PAGE_LIMIT/)
+  assert.doesNotMatch(src, /filterActiveWorkshopRows/)
   assert.match(src, /fetchMesFillGaps/)
   assert.match(src, /exportMissingReportExcel/)
   assert.match(realtimeApi, /fetchMesFillGaps/)
