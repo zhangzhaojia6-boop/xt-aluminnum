@@ -457,6 +457,52 @@ def test_wip_distribution_does_not_use_other_day_wip_total_snapshot(tmp_path) ->
     assert payload == []
 
 
+def test_wip_distribution_falls_back_to_recent_wip_total_before_business_window(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-recent.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesWipTotalSnapshot(
+            source_id='recent-2050',
+            workshop_name='2050车间',
+            process_name='冷轧',
+            doing_count=14,
+            doing_weight_tons=14_000.0,
+            snapshot_at=datetime(2026, 6, 18, 6, 53, tzinfo=UTC),
+        ),
+        MesWipTotalSnapshot(
+            source_id='recent-finishing',
+            workshop_name='精整',
+            process_name='包装',
+            doing_count=250,
+            doing_weight_tons=250_000.0,
+            snapshot_at=datetime(2026, 6, 18, 6, 53, tzinfo=UTC),
+        ),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 6, 18))
+
+    assert payload == [
+        {
+            'workshop': '精整',
+            'coil_count': 250,
+            'total_weight': 250.0,
+            'feeding_weight': 0.0,
+            'source_basis': 'mes_wip_total_snapshot',
+            'source_label': '外部 MES 在制总量参考',
+        },
+        {
+            'workshop': '2050车间',
+            'coil_count': 14,
+            'total_weight': 14.0,
+            'feeding_weight': 0.0,
+            'source_basis': 'mes_wip_total_snapshot',
+            'source_label': '外部 MES 在制总量参考',
+        },
+    ]
+
+
 def test_wip_distribution_converts_large_wip_total_snapshot_weight_from_kg(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-unit.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])

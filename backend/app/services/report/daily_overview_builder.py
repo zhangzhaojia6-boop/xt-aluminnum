@@ -441,23 +441,34 @@ def _wip_weight_tons(value: Any) -> float:
 
 def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, dict[str, Any]]:
     try:
-        query = db.query(MesWipTotalSnapshot)
         start_at, end_at = production_business_window(target_date)
-        dated_query = query.filter(
-            MesWipTotalSnapshot.snapshot_at >= start_at,
-            MesWipTotalSnapshot.snapshot_at < end_at,
+        latest_at = (
+            db.query(func.max(MesWipTotalSnapshot.snapshot_at))
+            .filter(
+                MesWipTotalSnapshot.snapshot_at >= start_at,
+                MesWipTotalSnapshot.snapshot_at < end_at,
+            )
+            .scalar()
         )
-        if dated_query.limit(1).first() is not None:
-            query = dated_query
-        else:
+        if latest_at is None:
+            latest_at = (
+                db.query(func.max(MesWipTotalSnapshot.snapshot_at))
+                .filter(
+                    MesWipTotalSnapshot.snapshot_at >= start_at - timedelta(days=1),
+                    MesWipTotalSnapshot.snapshot_at < end_at,
+                )
+                .scalar()
+            )
+        if latest_at is None:
             return {}
 
         rows = (
-            query.with_entities(
+            db.query(
                 MesWipTotalSnapshot.workshop_name,
                 func.sum(MesWipTotalSnapshot.doing_count),
                 func.sum(MesWipTotalSnapshot.doing_weight_tons),
             )
+            .filter(MesWipTotalSnapshot.snapshot_at == latest_at)
             .group_by(MesWipTotalSnapshot.workshop_name)
             .all()
         )
