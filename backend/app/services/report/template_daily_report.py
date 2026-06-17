@@ -226,11 +226,19 @@ def _round2(value: Any) -> float | None:
     return round(_to_float(value), 2)
 
 
+def _is_missing(value: Any) -> bool:
+    return value is None or value == ""
+
+
 def _fmt_int(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     return str(int(round(_to_float(value))))
 
 
 def _fmt_0_or_1(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     number = round(_to_float(value), 1)
     if number == int(number):
         return str(int(number))
@@ -238,18 +246,26 @@ def _fmt_0_or_1(value: Any) -> str:
 
 
 def _fmt_1(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     return f"{_to_float(value):.1f}"
 
 
 def _fmt_2(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     return f"{_to_float(value):.2f}"
 
 
 def _fmt_3(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     return f"{_to_float(value):.3f}"
 
 
 def _delta_text(value: Any, unit: str = "") -> str:
+    if _is_missing(value):
+        return ""
     delta = _to_float(value)
     arrow = "↑" if delta >= 0 else "↓"
     magnitude = abs(delta)
@@ -259,6 +275,8 @@ def _delta_text(value: Any, unit: str = "") -> str:
 
 
 def _month_day(value: Any) -> str:
+    if _is_missing(value):
+        return ""
     if isinstance(value, date):
         return f"{value.month}月{value.day}日"
     parsed = date.fromisoformat(str(value))
@@ -523,23 +541,20 @@ def validate_template_daily_report_facts(facts: dict[str, Any]) -> dict[str, Any
     values = dict(facts.get("values") or {})
     declared_missing = [str(item) for item in facts.get("missing_fields") or []]
     missing = list(dict.fromkeys([*declared_missing, *[key for key in REQUIRED_FIELDS if values.get(key) is None]]))
-    if missing:
-        return {
-            "status": "blocked",
-            "text": None,
-            "missing_fields": missing,
-            "conflicts": list(facts.get("conflicts") or []),
-        }
     return {
         "status": "ready",
         "text": render_template_daily_report(facts),
-        "missing_fields": [],
+        "missing_fields": missing,
         "conflicts": list(facts.get("conflicts") or []),
     }
 
 
 def render_template_daily_report(facts: dict[str, Any]) -> str:
-    v = dict(facts.get("values") or {})
+    class BlankValues(dict):
+        def __missing__(self, key: str) -> None:
+            return None
+
+    v = BlankValues(facts.get("values") or {})
     return (
         f"{_month_day(v['report_date'])}，车间总产量日合计{_fmt_int(v['total_output_daily'])}吨"
         f"（外加工{_fmt_int(v['outsourced_daily'])}吨）比昨日{_delta_text(v['total_output_delta'], '吨')}，"

@@ -321,8 +321,7 @@ def _wip_workshop_key(value: Any) -> str:
 
 
 def _wip_weight_tons(value: Any) -> float:
-    weight = _to_float(value)
-    return weight / 1000 if weight > 10000 else weight
+    return _to_float(value) / 1000
 
 
 def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, dict[str, Any]]:
@@ -378,12 +377,15 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
         .all()
     )
     if snapshot_rows:
+        has_positive_daily_snapshot = any(_to_float(weight) > 0 for _workshop, _count, weight, _feeding in snapshot_rows)
         result = []
         used_workshops = set()
         for workshop, count, weight, feeding_weight in snapshot_rows:
             key = _wip_workshop_key(workshop)
             fallback = wip_total_rows.get(key)
             total_weight = _to_float(weight)
+            if has_positive_daily_snapshot and total_weight <= 0:
+                continue
             coil_count = int(count or 0)
             source_basis = 'mes_daily_wip_snapshot'
             source_label = '外部 MES 当日快照参考'
@@ -401,17 +403,18 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
                 'source_label': source_label,
             })
             used_workshops.add(key)
-        for fallback in wip_total_rows.values():
-            if fallback['key'] in used_workshops or fallback['total_weight'] <= 0:
-                continue
-            result.append({
-                'workshop': fallback['workshop'],
-                'coil_count': fallback['coil_count'],
-                'total_weight': _round2(fallback['total_weight']),
-                'feeding_weight': 0.0,
-                'source_basis': 'mes_wip_total_snapshot',
-                'source_label': '外部 MES 在制总量参考',
-            })
+        if not has_positive_daily_snapshot:
+            for fallback in wip_total_rows.values():
+                if fallback['key'] in used_workshops or fallback['total_weight'] <= 0:
+                    continue
+                result.append({
+                    'workshop': fallback['workshop'],
+                    'coil_count': fallback['coil_count'],
+                    'total_weight': _round2(fallback['total_weight']),
+                    'feeding_weight': 0.0,
+                    'source_basis': 'mes_wip_total_snapshot',
+                    'source_label': '外部 MES 在制总量参考',
+                })
         result.sort(key=lambda x: -(x['total_weight'] or 0))
         return result
 
@@ -551,16 +554,22 @@ def _build_yield_rates(db: Session, target_date: date) -> dict:
     yesterday_mes = mes_yield_from_records(target_date - timedelta(days=1), target_date - timedelta(days=1))
     monthly_mes = mes_yield_from_records(month_start, target_date)
 
-    daily = daily_mes or yield_from_entries(target_date, target_date) or calc_yield(today_data)
-    yesterday = yesterday_mes or yield_from_entries(target_date - timedelta(days=1), target_date - timedelta(days=1)) or calc_yield(yesterday_data)
-    monthly = monthly_mes or yield_from_entries(month_start, target_date) or calc_yield(monthly_data)
+    owner_daily = _owner_daily_value(db, target_date, 'plant_daily_yield_rate')
+    owner_yesterday = _owner_daily_value(db, target_date - timedelta(days=1), 'plant_daily_yield_rate')
+    owner_monthly = _owner_daily_value(db, target_date, 'plant_monthly_yield_rate')
+
+    daily = owner_daily or daily_mes or yield_from_entries(target_date, target_date) or calc_yield(today_data)
+    yesterday = owner_yesterday or yesterday_mes or yield_from_entries(target_date - timedelta(days=1), target_date - timedelta(days=1)) or calc_yield(yesterday_data)
+    monthly = owner_monthly or monthly_mes or yield_from_entries(month_start, target_date) or calc_yield(monthly_data)
 
     return {
         'daily': daily,
         'daily_delta': _delta(daily, yesterday),
         'monthly': monthly,
         'owner_daily': _owner_daily_value(db, target_date, 'plant_wide_yield_rate'),
-        'basis': 'mes_yield_records' if any(value is not None for value in (daily_mes, yesterday_mes, monthly_mes)) else 'mobile_coil_yield_rate',
+        'basis': 'owner_daily_report' if owner_daily is not None or owner_monthly is not None else (
+            'mes_yield_records' if any(value is not None for value in (daily_mes, yesterday_mes, monthly_mes)) else 'mobile_coil_yield_rate'
+        ),
     }
 
 
@@ -807,6 +816,25 @@ def _owner_storage_inbound_tons(payload: dict) -> float:
     return component_total if has_component else 0.0
 
 
+def _owner_storage_direct_inbound_tons(payload: dict) -> float:
+    return _payload_number(payload, 'storage_inbound_weight') or 0.0
+
+
+def _owner_storage_monthly_inbound_tons(payload: dict) -> float:
+    direct_value = _payload_number(payload, 'storage_inbound_monthly')
+    if direct_value is not None:
+        return direct_value
+    component_total = 0.0
+    has_component = False
+    for field_name in ('park_inbound_monthly', 'new_plant_inbound_monthly', 'park_to_storage_inbound_monthly'):
+        value = _payload_number(payload, field_name)
+        if value is None:
+            continue
+        component_total += value
+        has_component = True
+    return component_total if has_component else 0.0
+
+
 def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) -> dict[date, float]:
     rows = (
         db.query(WorkOrderEntry)
@@ -829,6 +857,56 @@ def _query_owner_storage_inbound_by_date(db: Session, start: date, end: date) ->
         if inbound_tons <= 0:
             continue
         totals[row.business_date] = totals.get(row.business_date, 0.0) + inbound_tons
+    return totals
+
+
+def _query_owner_storage_direct_inbound_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = (
+        db.query(WorkOrderEntry)
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .join(User, User.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
+        .filter(
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.machine_id.is_(None),
+            User.role == STORAGE_OWNER_ROLE,
+            or_(Workshop.code == 'CPK', Workshop.name == '成品库'),
+        )
+        .all()
+    )
+    totals: dict[date, float] = {}
+    for row in rows:
+        inbound_tons = _owner_storage_direct_inbound_tons(dict(row.extra_payload or {}))
+        if inbound_tons <= 0:
+            continue
+        totals[row.business_date] = inbound_tons
+    return totals
+
+
+def _query_owner_storage_monthly_inbound_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    rows = (
+        db.query(WorkOrderEntry)
+        .join(Workshop, Workshop.id == WorkOrderEntry.workshop_id)
+        .join(User, User.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
+        .filter(
+            WorkOrderEntry.business_date >= start,
+            WorkOrderEntry.business_date <= end,
+            WorkOrderEntry.entry_status.in_(tuple(SUBMITTED_STATUSES)),
+            WorkOrderEntry.entry_type == 'owner_daily',
+            WorkOrderEntry.machine_id.is_(None),
+            User.role == STORAGE_OWNER_ROLE,
+            or_(Workshop.code == 'CPK', Workshop.name == '成品库'),
+        )
+        .all()
+    )
+    totals: dict[date, float] = {}
+    for row in rows:
+        inbound_tons = _owner_storage_monthly_inbound_tons(dict(row.extra_payload or {}))
+        if inbound_tons <= 0:
+            continue
+        totals[row.business_date] = inbound_tons
     return totals
 
 
@@ -907,13 +985,20 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
     mes_totals_by_date, mes_sources_by_date = _query_mes_packaging_output_with_source_by_date(db, month_start, target_date)
     inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
-    daily_output = mes_totals_by_date.get(target_date, 0.0)
+    inbound_monthly_by_date = _query_owner_storage_monthly_inbound_by_date(db, month_start, target_date)
+    official_daily_by_date = _query_owner_storage_direct_inbound_by_date(db, month_start, target_date)
+    official_daily_output = official_daily_by_date.get(target_date)
+    daily_output = official_daily_output if official_daily_output is not None and official_daily_output > 0 else mes_totals_by_date.get(target_date, 0.0)
     yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
     mes_monthly_output = sum(mes_totals_by_date.values())
     finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
     finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
-    monthly_output = finished_inbound_monthly_output if inbound_totals_by_date else 0.0
-    monthly_output_source = 'storage_owner_daily_entry' if inbound_totals_by_date else 'none'
+    owner_monthly_output = inbound_monthly_by_date.get(target_date)
+    monthly_output = owner_monthly_output if owner_monthly_output is not None and owner_monthly_output > 0 else (
+        finished_inbound_monthly_output if inbound_totals_by_date else mes_monthly_output
+    )
+    monthly_output_source = 'storage_owner_daily_entry' if inbound_totals_by_date or owner_monthly_output is not None else 'mes_packaging_output'
+    daily_output_source = 'storage_owner_daily_entry' if official_daily_output is not None and official_daily_output > 0 else mes_sources_by_date.get(target_date, 'mes_stock_records')
     days_elapsed = max(1, target_date.day)
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
@@ -921,7 +1006,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'basis': 'mes_packaging_output',
         'basis_label': '包装产量',
         'business_day_start': '07:30',
-        'daily_output_source': mes_sources_by_date.get(target_date, 'mes_stock_records'),
+        'daily_output_source': daily_output_source,
         'finished_inbound_source': 'storage_owner_daily_entry',
         'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
@@ -933,6 +1018,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'packaging_monthly_source': monthly_output_source,
         'packaging_monthly_average': _round2(monthly_output / days_elapsed),
         'packaging_basis_label': '包装产量',
+        'mes_packaging_output': _round2(mes_totals_by_date.get(target_date, 0.0)),
         'mes_packaging_monthly_output': _round2(mes_monthly_output),
         'finished_inbound_output': _round2(finished_inbound_output),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
@@ -1071,7 +1157,7 @@ def build_daily_production_overview(
     target_date: date,
     wip_date: date | None = None,
 ) -> dict[str, Any]:
-    effective_wip_date = wip_date or target_date
+    effective_wip_date = wip_date or (target_date + timedelta(days=1))
     ws_map = _workshop_map(db)
 
     workshop_output = _build_workshop_output(db, target_date, ws_map)

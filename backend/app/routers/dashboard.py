@@ -220,10 +220,15 @@ def timeseries_dashboard(
 def daily_production_overview(
     request: Request,
     target_date: date | None = None,
+    wip_date: date | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_manager_user),
 ) -> dict:
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
     from app.services.report import daily_overview_builder
-    return daily_overview_builder.build_daily_production_overview(db, target_date=_target_or_last_completed(target_date))
+    return daily_overview_builder.build_daily_production_overview(
+        db,
+        target_date=_target_or_last_completed(target_date),
+        wip_date=wip_date,
+    )

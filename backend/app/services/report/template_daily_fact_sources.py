@@ -8,9 +8,9 @@ from sqlalchemy import func, inspect
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import production_business_window, resolve_production_business_date
 from app.models.master import Workshop
-from app.models.mes import MesWorkshopProcessRecord
+from app.models.mes import MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import OverhaulDaily, RecoveryDaily, WorkOrderEntry
 from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
@@ -82,6 +82,20 @@ QUALITY_HOT_ROLL_CODES = {"HOT_ROLL", "HOTROLL", "HR", "RZ", "热轧"}
 QUALITY_CAST_ROLL_CODES = {"CAST_ROLL", "CASTROLL", "ZR", "铸轧"}
 QUALITY_PLATE_COIL_CODES = {"PLATE_COIL", "PLATECOIL", "PB", "PBC", "普板", "普板卷"}
 
+WIP_BREAKDOWN_FIELDS = (
+    "wip_1650_2050_cold",
+    "wip_1850_cold",
+    "wip_milling",
+    "wip_new_north",
+    "wip_new_south",
+    "wip_park_anneal",
+    "wip_straightening",
+    "wip_finishing",
+    "wip_park_finishing",
+    "wip_hot_plate_shearing",
+    "wip_coating",
+)
+
 
 @dataclass
 class TemplateDailyFacts:
@@ -132,6 +146,79 @@ def _set_missing_value(facts: TemplateDailyFacts, key: str, value: Any, source_t
 def _matches_any(value: Any, tokens: tuple[str, ...]) -> bool:
     text = str(value or "")
     return any(token and token in text for token in tokens)
+
+
+def _wip_snapshot_weight_tons(value: Any) -> float:
+    return _to_float(value) / 1000
+
+
+def _wip_bucket(workshop_name: Any, process_name: Any) -> str | None:
+    workshop = str(workshop_name or "")
+    process = str(process_name or "")
+    text = f"{workshop} {process}"
+    if "园区在线" in workshop:
+        return "wip_park_anneal"
+    if "北线" in process and "园区" not in workshop:
+        return "wip_new_north"
+    if "南线" in process and "园区" not in workshop:
+        return "wip_new_south"
+    if ("1650" in workshop or "2050" in workshop) and "冷轧" in process:
+        return "wip_1650_2050_cold"
+    if "1850" in workshop and "冷轧" in process:
+        return "wip_1850_cold"
+    if "铣床" in text:
+        return "wip_milling"
+    if "拉矫" in workshop:
+        return "wip_straightening"
+    if workshop.strip() == "精整":
+        return "wip_finishing"
+    if "园区精整" in workshop:
+        return "wip_park_finishing"
+    if "热轧" in workshop and "中厚板剪切" in process:
+        return "wip_hot_plate_shearing"
+    if "彩涂" in workshop:
+        return "wip_coating"
+    return None
+
+
+def _wip_breakdown_from_total_snapshots(db: Session, business_date: date) -> dict[str, float]:
+    values = {key: 0.0 for key in WIP_BREAKDOWN_FIELDS}
+    if not hasattr(db, "query"):
+        return {}
+    if not _has_table(db, MesWipTotalSnapshot.__tablename__):
+        return {}
+    try:
+        start_at, end_at = production_business_window(business_date)
+        rows = (
+            db.query(
+                MesWipTotalSnapshot.workshop_name,
+                MesWipTotalSnapshot.process_name,
+                func.sum(MesWipTotalSnapshot.doing_weight_tons),
+            )
+            .filter(MesWipTotalSnapshot.snapshot_at >= start_at, MesWipTotalSnapshot.snapshot_at < end_at)
+            .group_by(MesWipTotalSnapshot.workshop_name, MesWipTotalSnapshot.process_name)
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return {}
+    if not rows:
+        return {}
+    for workshop, process, weight in rows:
+        bucket = _wip_bucket(workshop, process)
+        if bucket is not None:
+            values[bucket] += _wip_snapshot_weight_tons(weight)
+    values["wip_anneal_total"] = values["wip_new_north"] + values["wip_new_south"] + values["wip_park_anneal"]
+    values["wip_finishing_total"] = values["wip_straightening"] + values["wip_finishing"] + values["wip_park_finishing"]
+    values["wip_total"] = (
+        values["wip_1650_2050_cold"]
+        + values["wip_1850_cold"]
+        + values["wip_milling"]
+        + values["wip_anneal_total"]
+        + values["wip_finishing_total"]
+        + values["wip_hot_plate_shearing"]
+        + values["wip_coating"]
+    )
+    return {key: round(value, 3) for key, value in values.items()}
 
 
 def _row_text(row: MesWorkshopProcessRecord) -> str:
@@ -426,6 +513,15 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
             "wip_total",
             round(wip_total, 2),
             "mes_wip_distribution",
+            business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
+        )
+    wip_breakdown = _wip_breakdown_from_total_snapshots(db, effective_wip_date)
+    for key, value in wip_breakdown.items():
+        _set_value(
+            facts,
+            key,
+            value,
+            "mes_wip_total_snapshot",
             business_date=overview.get("wip_business_date") or effective_wip_date.isoformat(),
         )
 

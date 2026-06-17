@@ -174,17 +174,19 @@ def test_render_template_daily_report_matches_locked_template() -> None:
     assert text == _template_text()
 
 
-def test_validate_template_daily_report_blocks_missing_required_fields() -> None:
+def test_validate_template_daily_report_renders_with_blank_missing_fields() -> None:
     facts = _facts()
     facts["values"].pop("total_output_daily")
     facts["values"].pop("wip_total")
 
     result = template_daily_report.validate_template_daily_report_facts(facts)
 
-    assert result["status"] == "blocked"
+    assert result["status"] == "ready"
     assert "total_output_daily" in result["missing_fields"]
     assert "wip_total" in result["missing_fields"]
-    assert result["text"] is None
+    assert result["text"] is not None
+    assert "车间总产量日合计吨" in result["text"]
+    assert "当天在制料吨" in result["text"]
 
 
 def test_all_template_required_fields_have_contract_metadata() -> None:

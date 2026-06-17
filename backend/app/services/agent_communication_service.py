@@ -485,6 +485,8 @@ def _build_dingtalk_markdown_payload(message: AgentOutboxMessage) -> dict:
 def _default_sender(channel: CommunicationChannel):
     if channel.channel_type == 'dingtalk_group':
         return dingtalk_service.send_group_message
+    if channel.channel_type == 'dingtalk_work_notice':
+        return dingtalk_service.send_work_notification
     raise AgentCommunicationError(f'unsupported_channel_type:{channel.channel_type}')
 
 

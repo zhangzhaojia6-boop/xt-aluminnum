@@ -146,6 +146,66 @@ def test_dispatch_enabled_dingtalk_group_message_calls_sender_once() -> None:
         db.close()
 
 
+def test_dispatch_enabled_dingtalk_work_notice_calls_personal_sender_once() -> None:
+    db = _db_session()
+    sender_calls = []
+    try:
+        service.register_agent(db, code='factory_dispatch_zzj', name='张兆嘉全厂调度 Agent')
+        service.register_channel(
+            db,
+            channel_type='dingtalk_work_notice',
+            channel_key='666327013924069283',
+            name='张兆嘉个人工作通知',
+            target_type='user',
+            target_key='666327013924069283',
+            dry_run=False,
+        )
+        service.bind_agent_to_channel(
+            db,
+            agent_code='factory_dispatch_zzj',
+            channel_key='666327013924069283',
+            channel_type='dingtalk_work_notice',
+        )
+        message = service.queue_bound_message(
+            db,
+            agent_code='factory_dispatch_zzj',
+            channel_key='666327013924069283',
+            channel_type='dingtalk_work_notice',
+            title='【张兆嘉测试】全厂总览',
+            content='仅发给张兆嘉的个人工作通知测试。',
+            business_date=date(2026, 6, 13),
+            source_summary='unit_test',
+        )
+
+        def fake_sender(userid: str, payload: dict) -> tuple[bool, str]:
+            sender_calls.append((userid, payload))
+            return True, 'dingtalk_work_notice_sent'
+
+        outcome = service.dispatch_outbox_message(db, message.id, sender=fake_sender)
+
+        assert outcome.status == 'sent'
+        assert sender_calls == [
+            (
+                '666327013924069283',
+                {
+                    'msgtype': 'markdown',
+                    'markdown': {
+                        'title': '【张兆嘉测试】全厂总览',
+                        'text': '仅发给张兆嘉的个人工作通知测试。',
+                    },
+                },
+            )
+        ]
+        db.refresh(message)
+        assert message.status == 'sent'
+        logs = service.list_external_logs(db, outbox_message_id=message.id)
+        assert logs[0].channel_type == 'dingtalk_work_notice'
+        assert logs[0].channel_key == '666327013924069283'
+        assert logs[0].status == 'sent'
+    finally:
+        db.close()
+
+
 def test_dispatch_records_structured_provider_response_in_external_log() -> None:
     db = _db_session()
     try:

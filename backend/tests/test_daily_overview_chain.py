@@ -147,6 +147,37 @@ def test_daily_overview_can_use_separate_wip_business_date(monkeypatch) -> None:
     assert payload['header_kpis'][2]['value'] == 879.0
 
 
+def test_daily_overview_defaults_wip_to_next_business_day(monkeypatch) -> None:
+    seen: dict[str, date] = {}
+
+    monkeypatch.setattr(daily_overview_builder, '_workshop_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(daily_overview_builder, '_build_workshop_output', lambda *_args, **_kwargs: [])
+
+    def fake_wip(_db, business_date: date):
+        seen['wip_date'] = business_date
+        return []
+
+    monkeypatch.setattr(daily_overview_builder, '_build_wip_distribution', fake_wip)
+    monkeypatch.setattr(daily_overview_builder, '_build_yield_rates', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(daily_overview_builder, '_build_energy', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_contracts',
+        lambda *_args, **_kwargs: {'daily_new': 0, 'monthly_total': 0, 'remaining': 0, 'remaining_delta': 0},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_build_plant_output',
+        lambda *_args, **_kwargs: {'daily_output': 0.0, 'yesterday_output': 0.0, 'monthly_output': 0.0},
+    )
+    monkeypatch.setattr(daily_overview_builder, '_build_shift_breakdown', lambda *_args, **_kwargs: {})
+
+    payload = daily_overview_builder.build_daily_production_overview(None, target_date=date(2026, 6, 16))
+
+    assert payload['wip_business_date'] == '2026-06-17'
+    assert seen['wip_date'] == date(2026, 6, 17)
+
+
 def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
     assert daily_overview_builder._owner_storage_inbound_tons({
         'park_inbound_daily': 12.5,
@@ -156,6 +187,14 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
         'storage_inbound_weight': 7.2,
         'park_inbound_daily': 12.5,
     }) == 7.2
+    assert daily_overview_builder._owner_storage_monthly_inbound_tons({
+        'park_inbound_monthly': 120.5,
+        'new_plant_inbound_monthly': 30.0,
+    }) == 150.5
+    assert daily_overview_builder._owner_storage_monthly_inbound_tons({
+        'storage_inbound_monthly': 5013.725,
+        'park_inbound_monthly': 120.5,
+    }) == 5013.725
 
 
 def test_finished_inbound_output_uses_storage_owner_daily_entry_only(tmp_path) -> None:
@@ -341,10 +380,58 @@ def test_wip_distribution_uses_wip_total_when_daily_snapshot_weight_is_zero(tmp_
         {
             'workshop': '新厂在线车间',
             'coil_count': 588,
-            'total_weight': 4466.5,
+            'total_weight': 4.47,
             'feeding_weight': 28.5,
             'source_basis': 'mes_wip_total_snapshot',
             'source_label': '外部 MES 在制总量参考',
+        }
+    ]
+
+
+def test_wip_distribution_ignores_zero_snapshots_and_total_fallback_when_positive_daily_exists(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-official-wip.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesDailyWipSnapshot(
+            business_date=date(2026, 6, 17),
+            workshop_name='精整分厂',
+            process_name='精整',
+            coil_count=0,
+            material_weight_tons=576.5,
+            feeding_weight_tons=0.0,
+            source='output_skill_daily_report',
+        ),
+        MesDailyWipSnapshot(
+            business_date=date(2026, 6, 17),
+            workshop_name='2050车间',
+            process_name='冷轧',
+            coil_count=2,
+            material_weight_tons=0.0,
+            feeding_weight_tons=16.5,
+            source='mes_coil_snapshot',
+        ),
+        MesWipTotalSnapshot(
+            source_id='精整:包装',
+            workshop_name='精整',
+            process_name='包装',
+            doing_count=33839,
+            doing_weight_tons=264254.65,
+            snapshot_at=datetime(2026, 6, 17, 8, 0, tzinfo=UTC),
+        ),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 6, 17))
+
+    assert payload == [
+        {
+            'workshop': '精整分厂',
+            'coil_count': 0,
+            'total_weight': 576.5,
+            'feeding_weight': 0.0,
+            'source_basis': 'mes_daily_wip_snapshot',
+            'source_label': '外部 MES 当日快照参考',
         }
     ]
 
@@ -577,11 +664,63 @@ def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> N
     assert payload['basis'] == 'mes_yield_records'
 
 
+def test_yield_rates_prefer_official_owner_daily_report_when_present(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-owner-yield.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesYieldRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='CPK', name='成品库', is_active=True),
+            WorkOrder(id=1, tracking_card_no='OWNER-2026-06-15', process_route_code='owner_daily'),
+            WorkOrderEntry(
+                work_order_id=1,
+                workshop_id=1,
+                business_date=date(2026, 6, 15),
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={'plant_daily_yield_rate': 86.24},
+            ),
+            WorkOrder(id=2, tracking_card_no='OWNER-2026-06-16', process_route_code='owner_daily'),
+            WorkOrderEntry(
+                work_order_id=2,
+                workshop_id=1,
+                business_date=date(2026, 6, 16),
+                entry_type='owner_daily',
+                entry_status='submitted',
+                extra_payload={'plant_daily_yield_rate': 84.86, 'plant_monthly_yield_rate': 86.0},
+            ),
+            MesYieldRecord(
+                source_id='yield-today',
+                source_path='sqlserver',
+                feeding_weight_tons=100,
+                in_stock_net_weight_tons=96.53,
+                business_date=date(2026, 6, 16),
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = daily_overview_builder._build_yield_rates(db, date(2026, 6, 16))
+
+    assert payload['daily'] == 84.86
+    assert payload['daily_delta'] == -1.38
+    assert payload['monthly'] == 86.0
+    assert payload['basis'] == 'owner_daily_report'
+
+
 def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         daily_overview_builder,
-        '_query_mes_packaging_output_by_date',
-        lambda *_args, **_kwargs: {},
+        '_query_mes_packaging_output_with_source_by_date',
+        lambda *_args, **_kwargs: ({}, {}),
     )
     monkeypatch.setattr(
         daily_overview_builder,
@@ -591,6 +730,8 @@ def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeyp
             date(2026, 5, 29): 2.0,
         },
     )
+    monkeypatch.setattr(daily_overview_builder, '_query_owner_storage_monthly_inbound_by_date', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(daily_overview_builder, '_query_owner_storage_direct_inbound_by_date', lambda *_args, **_kwargs: {})
     energy = {
         'total_electricity': 400.0,
         'total_gas': 0.0,
@@ -610,6 +751,37 @@ def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeyp
     assert payload['basis_label'] == '包装产量'
     assert payload['finished_inbound_output'] == 2.0
     assert payload['finished_inbound_monthly_output'] == 2.8
+
+
+def test_build_plant_output_uses_official_owner_daily_and_monthly_when_available(monkeypatch) -> None:
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_mes_packaging_output_with_source_by_date',
+        lambda *_args, **_kwargs: ({date(2026, 6, 16): 308.68}, {date(2026, 6, 16): 'mes_stock_records'}),
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_finished_inbound_totals_by_date',
+        lambda *_args, **_kwargs: {date(2026, 6, 16): 328.033},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_owner_storage_direct_inbound_by_date',
+        lambda *_args, **_kwargs: {date(2026, 6, 16): 328.033},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder,
+        '_query_owner_storage_monthly_inbound_by_date',
+        lambda *_args, **_kwargs: {date(2026, 6, 16): 5013.725},
+    )
+
+    payload = daily_overview_builder._build_plant_output(None, date(2026, 6, 16), {'total_electricity': 0})
+
+    assert payload['daily_output'] == 328.03
+    assert payload['monthly_output'] == 5013.73
+    assert payload['finished_inbound_output'] == 328.03
+    assert payload['mes_packaging_output'] == 308.68
+    assert payload['daily_output_source'] == 'storage_owner_daily_entry'
 
 
 def test_daily_overview_contracts_use_weight_projection(monkeypatch) -> None:
