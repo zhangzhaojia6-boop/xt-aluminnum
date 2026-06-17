@@ -64,6 +64,10 @@ def test_mapping_reconciliation_sources_lists_reference_files(tmp_path, monkeypa
     reference_dir = tmp_path / 'output-skill'
     reference_dir.mkdir()
     (reference_dir / '2026-06-13-summary.txt').write_text('日报摘要', encoding='utf-8')
+    (reference_dir / '2026-06-13-summary.png').write_bytes(b'\x89PNG\r\n')
+    cache_dir = reference_dir / '.pytest_cache'
+    cache_dir.mkdir()
+    (cache_dir / 'README.md').write_text('pytest cache', encoding='utf-8')
     monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(reference_dir))
     previous_overrides = _install_overrides()
 
@@ -77,10 +81,16 @@ def test_mapping_reconciliation_sources_lists_reference_files(tmp_path, monkeypa
     payload = response.json()
     assert payload['reference_source'] == str(reference_dir)
     assert payload['available'] is True
-    assert payload['files'][0]['relative_path'] == '2026-06-13-summary.txt'
+    files_by_path = {item['relative_path']: item for item in payload['files']}
+    assert files_by_path['2026-06-13-summary.txt']['parse_status'] == 'parseable'
+    assert files_by_path['2026-06-13-summary.png']['parse_status'] == 'image_pending_ocr'
+    assert '.pytest_cache/README.md' not in files_by_path
+    assert payload['file_summary']['total_files'] == 2
+    assert payload['file_summary']['parseable_files'] == 1
+    assert payload['file_summary']['image_pending_files'] == 1
+    assert payload['file_summary']['parseable_coverage_rate'] == 50
     assert 'mes_stock_records' in payload['system_sources']
     assert 'machine_energy_records' in payload['system_sources']
-
 
 def test_mapping_reconciliation_sources_respects_limit_query(tmp_path, monkeypatch) -> None:
     reference_dir = tmp_path / 'output-skill'
@@ -99,6 +109,28 @@ def test_mapping_reconciliation_sources_respects_limit_query(tmp_path, monkeypat
     assert response.status_code == 200
     payload = response.json()
     assert len(payload['files']) == 2
+
+
+def test_mapping_reconciliation_sources_summary_counts_all_visible_files(tmp_path, monkeypatch) -> None:
+    reference_dir = tmp_path / 'output-skill'
+    reference_dir.mkdir()
+    (reference_dir / '2026-06-13-summary.txt').write_text('日报摘要', encoding='utf-8')
+    (reference_dir / '2026-06-13-summary.png').write_bytes(b'\x89PNG\r\n')
+    monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(reference_dir))
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.get('/api/v1/mapping-reconciliation/sources?limit=1')
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload['files']) == 1
+    assert payload['file_summary']['total_files'] == 2
+    assert payload['file_summary']['parseable_files'] == 1
+    assert payload['file_summary']['image_pending_files'] == 1
 
 
 def test_mapping_reconciliation_run_compares_rows_without_writing_database() -> None:

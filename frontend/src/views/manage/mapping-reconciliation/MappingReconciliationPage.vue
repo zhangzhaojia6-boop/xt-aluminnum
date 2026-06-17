@@ -73,7 +73,7 @@
         <ul v-else class="xt-mapping-reconciliation__file-list">
           <li v-for="item in visibleSourceFiles" :key="item.relative_path">
             <b>{{ item.name }}</b>
-            <span>{{ item.extension || '无扩展名' }} / {{ formatBytes(item.size_bytes) }}</span>
+            <span>{{ parseStatusLabel(item.parse_status) }} / {{ item.extension || '无扩展名' }} / {{ formatBytes(item.size_bytes) }}</span>
           </li>
         </ul>
       </article>
@@ -212,6 +212,13 @@ const visibleSourceFiles = computed(() => filteredSourceFiles.value.slice(0, SOU
 const runnableFiles = computed(() => sourceFiles.value.filter((item) => ['.txt', '.md', '.log', '.xlsx', '.xls', '.json', '.ndjson'].includes(item.extension)))
 const systemSources = computed(() => sources.value?.system_sources || [])
 const sourceRoot = computed(() => sources.value?.reference_source || '未配置')
+const fileSummary = computed(() => sources.value?.file_summary || {
+  total_files: sourceFiles.value.length,
+  parseable_files: runnableFiles.value.length,
+  image_pending_files: sourceFiles.value.filter((item) => item.parse_status === 'image_pending_ocr').length,
+  unsupported_files: 0,
+  parseable_coverage_rate: sourceFiles.value.length > 0 ? (runnableFiles.value.length / sourceFiles.value.length) * 100 : 0
+})
 const differences = computed(() => result.value?.differences || [])
 const ruleProposals = computed(() => result.value?.rule_proposals || [])
 const differenceSummary = computed(() => result.value?.difference_summary || { total: differences.value.length, by_reason_code: {}, by_metric: {}, reason_breakdown: [] })
@@ -846,6 +853,8 @@ const defaultDimensionAliases = {
 
 const metricCards = computed(() => [
   { key: 'files', label: '参考文件', value: displayNumber(sourceFiles.value.length), meta: sources.value?.available ? '已挂载' : '未挂载' },
+  { key: 'parseable-coverage', label: '可解析覆盖率', value: `${displayNumber(fileSummary.value.parseable_coverage_rate)}%`, meta: `${displayNumber(fileSummary.value.parseable_files)} 个可试算` },
+  { key: 'image-pending', label: '图片待解析', value: displayNumber(fileSummary.value.image_pending_files), meta: 'image_pending_ocr' },
   { key: 'rows', label: '对齐行数', value: `${displayNumber(referenceRowsCount.value)} / ${displayNumber(systemRowsCount.value)}`, meta: '输出skill / 系统' },
   { key: 'match', label: '当前匹配率', value: `${displayNumber(matchRate.value)}%`, meta: result.value ? '来自试算' : '未运行' },
   { key: 'field-match', label: '字段匹配', value: `${displayNumber(matchSummary.value.matched_fields)} / ${displayNumber(matchSummary.value.total_fields)}`, meta: '已匹配 / 可比字段' },
@@ -864,6 +873,15 @@ function formatBytes(value) {
   if (number >= 1024 * 1024) return `${(number / 1024 / 1024).toFixed(1)} MB`
   if (number >= 1024) return `${(number / 1024).toFixed(1)} KB`
   return `${number} B`
+}
+
+function parseStatusLabel(value) {
+  const labels = {
+    parseable: '可解析',
+    image_pending_ocr: '图片待解析',
+    unsupported: '暂不支持'
+  }
+  return labels[value] || '待识别'
 }
 
 function formatValue(value) {

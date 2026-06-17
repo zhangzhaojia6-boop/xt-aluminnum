@@ -267,6 +267,17 @@ test('mapping reconciliation page renders backend field match summary', () => {
   assert.match(page, /item\.match_rate/)
 })
 
+test('mapping reconciliation page surfaces parseable coverage and image pending files', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /fileSummary/)
+  assert.match(page, /可解析覆盖率/)
+  assert.match(page, /图片待解析/)
+  assert.match(page, /parseable_coverage_rate/)
+  assert.match(page, /image_pending_files/)
+  assert.match(page, /image_pending_ocr/)
+})
+
 test('mapping reconciliation page surfaces persisted run id from backend', () => {
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 
