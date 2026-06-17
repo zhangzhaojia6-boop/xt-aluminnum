@@ -128,6 +128,33 @@ def test_resolves_generic_pc_terminal_with_structured_binding() -> None:
     assert payload['confidence'] == 'high'
 
 
+def test_resolves_terminal_binding_when_mes_machine_code_is_empty() -> None:
+    machines = [
+        _machine(machine_id=41, code='JZ-ZJ-Z', name='纵剪', workshop_id=8, equipment_type='slitter'),
+    ]
+    bindings = [
+        _terminal_binding(
+            terminal_code='PC-JZ-01',
+            equipment_id=41,
+            workshop_name='精整',
+            process_name='包装',
+        )
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        terminal_bindings=bindings,
+        terminal_hints={'DeviceCode': 'PC-JZ-01'},
+        device_name=None,
+        process_hint='包装',
+        workshop_name='精整',
+        preferred_workshop_id=8,
+    )
+
+    assert payload['machine_id'] == 41
+    assert payload['source'] == 'mes_terminal_binding'
+
+
 def test_does_not_apply_pc_terminal_binding_across_process_scope() -> None:
     machines = [
         _machine(machine_id=41, code='JZ-ZJ-Z', name='纵剪', workshop_id=8, equipment_type='slitter'),
@@ -182,6 +209,24 @@ def test_pc_terminal_binding_handles_timezone_aware_event_time() -> None:
 
     assert payload['machine_id'] == 41
     assert payload['source'] == 'mes_terminal_binding'
+
+
+def test_infers_north_annealing_line_from_route_when_machine_code_missing() -> None:
+    machines = [
+        _machine(machine_id=149, code='ZXTF-1', name='新厂北', workshop_id=29, equipment_type='annealing_line'),
+        _machine(machine_id=150, code='ZXTF-2', name='新厂南', workshop_id=29, equipment_type='annealing_line'),
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        device_name=None,
+        process_hint='北线退火',
+        preferred_workshop_id=29,
+    )
+
+    assert payload['machine_id'] == 149
+    assert payload['machine_name'] == '新厂北'
+    assert payload['source'] == 'route_inferred'
 
 
 def test_resolves_straightener_device_without_cross_matching_number_only_machines() -> None:

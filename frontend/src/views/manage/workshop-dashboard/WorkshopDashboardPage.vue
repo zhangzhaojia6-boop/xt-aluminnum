@@ -144,10 +144,10 @@
           </header>
           <article v-for="row in wipRows" :key="row.key" class="workshop-board__mini-row">
             <div>
-              <strong>{{ row.material_code || row.line_name || '-' }}</strong>
-              <span>{{ row.alloy_grade || '-' }} · {{ row.spec_display || row.position_name || '-' }}</span>
+              <strong>{{ row.title }}</strong>
+              <span>{{ row.subtitle }}</span>
             </div>
-            <b>{{ formatNumber(row.weight_tons, 2) }} 吨</b>
+            <b>{{ formatNumber(row.weight, 2) }} 吨</b>
           </article>
           <p v-if="wipRows.length === 0" class="workshop-board__empty">{{ wipEmptyText }}</p>
         </section>
@@ -184,7 +184,7 @@ import DateSwitcher from '../../../components/manage/DateSwitcher.vue'
 import MissingReportPanel from '../../../components/manage/MissingReportPanel.vue'
 import { fetchWorkshopDashboard } from '../../../api/dashboard.js'
 import { exportMissingReportExcel, fetchLiveAggregation, fetchLiveFillDetails, fetchMesFillGaps, fetchPendingAssignmentEntries } from '../../../api/realtime.js'
-import { fetchMesMaterialRecords, fetchMesWorkshopProcessRecords } from '../../../api/mes.js'
+import { fetchMesWipTotalSnapshots, fetchMesWorkshopProcessRecords } from '../../../api/mes.js'
 import { fetchWorkshops } from '../../../api/master.js'
 import { useAuthStore } from '../../../stores/auth.js'
 import { inferBusinessDate } from '../../../utils/shiftClock.js'
@@ -257,7 +257,13 @@ const mesGapRows = computed(() => {
   const items = Array.isArray(mesGapData.value?.items) ? mesGapData.value.items : []
   return items.filter((row) => row.status && row.status !== 'matched').slice(0, 5)
 })
-const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index) => ({ ...row, key: row.source_id || `wip-${index}` })))
+const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index) => ({
+  ...row,
+  key: row.source_id || `wip-${index}`,
+  title: row.process_name || row.workshop_name || '-',
+  subtitle: `${row.workshop_name || '-'} · ${formatNumber(row.doing_count, 0)} 卷`,
+  weight: row.doing_weight_tons ?? 0,
+})))
 const hasWorkshop = computed(() => Boolean(workshopId.value))
 const mesEmptyText = computed(() => explainWorkshopDataEmptyState({
   loading: loading.value,
@@ -362,7 +368,7 @@ async function load() {
       fetchPendingAssignmentEntries(scopedParams({ business_date: targetDate.value })),
       fetchMesFillGaps(scopedParams({ business_date: targetDate.value })),
       fetchMesWorkshopProcessRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
-      fetchMesMaterialRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
+      fetchMesWipTotalSnapshots(scopedParams({ business_date: targetDate.value, limit: 80 })),
     ])
     dashboard.value = dashboardResult.status === 'fulfilled' ? dashboardResult.value || {} : {}
     live.value = liveResult.status === 'fulfilled' ? liveResult.value || {} : {}

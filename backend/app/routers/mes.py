@@ -222,6 +222,7 @@ def yield_records(
 @router.get('/extended/wip-total-snapshots', response_model=list[MesWipTotalSnapshotOut])
 def wip_total_snapshots(
     business_date: date | None = None,
+    workshop_id: int | None = None,
     search: str | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -235,7 +236,7 @@ def wip_total_snapshots(
         search=search,
         limit=limit,
         offset=offset,
-        workshop_names=mes_extended_service.resolve_scope_workshop_names(db, scope),
+        workshop_names=_resolve_mes_workshop_names(db, scope, workshop_id),
     )
 
 

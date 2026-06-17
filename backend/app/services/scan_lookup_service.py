@@ -5,9 +5,10 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import inspect, or_
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from app.models.master import Equipment, MasterCodeAlias
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding
 from app.models.mes import MesCoilSnapshot
 from app.services import master_service, mes_assisted_fill_service, mes_machine_match_service
 from app.utils.tracking_cards import tracking_card_lookup_key, tracking_card_sql_lookup_key
@@ -109,6 +110,16 @@ def _has_coil_snapshot_table(db: Session) -> bool:
     return inspect(bind).has_table(MesCoilSnapshot.__tablename__)
 
 
+def _active_terminal_bindings(db: Session) -> list[MesTerminalBinding]:
+    bind = db.get_bind()
+    if not inspect(bind).has_table(MesTerminalBinding.__tablename__):
+        return []
+    try:
+        return db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
+    except (OperationalError, ProgrammingError):
+        return []
+
+
 def _safe_resolve_canonical(db: Session, *, entity_type: str, value: object | None) -> str:
     raw = str(value or '').strip()
     if not raw:
@@ -176,12 +187,17 @@ def _resolve_machine_binding_for_snapshot(db: Session, row: MesCoilSnapshot) -> 
         )
         .all()
     )
+    terminal_bindings = _active_terminal_bindings(db)
     binding = mes_machine_match_service.resolve_mes_machine_binding(
         machines=workshop_rows,
         device_name=row.machine_code,
         process_hint=process_hint,
         preferred_workshop_id=workshop.id,
         aliases=aliases,
+        terminal_bindings=terminal_bindings,
+        terminal_hints=row.source_payload if isinstance(row.source_payload, dict) else {},
+        workshop_name=workshop.name or raw_workshop,
+        event_time=row.event_time or row.updated_from_mes_at,
     )
     if binding['machine_id'] is None:
         return empty

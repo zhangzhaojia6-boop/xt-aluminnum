@@ -32,13 +32,14 @@ from app.core.workshop_templates import (
 )
 from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, ShiftAttendanceConfirmation
 from app.models.energy import MachineEnergyRecord
-from app.models.master import Equipment, Workshop
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Workshop
 from app.models.mes import MesCoilSnapshot
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services import attendance_confirm_service
 from app.services import master_service
+from app.services import mes_machine_match_service
 from app.services import mes_sync_service
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
 from app.services.report import daily_overview_builder
@@ -2062,9 +2063,34 @@ def _infer_mes_machine_id_from_route(*, machines: list[Equipment], process_hint:
             for machine in physical_machines
             if str(getattr(machine, 'equipment_type', '') or '').strip().lower() in equipment_types
         ]
+        directional = _match_directional_mes_route_hint(machines=matches, process_hint=process_text)
+        if directional is not None:
+            return directional.id
         if len(matches) == 1:
             return matches[0].id
         return None
+    return None
+
+
+def _normalize_mes_machine_text(value: object | None) -> str:
+    return str(value or '').strip().upper().replace(' ', '')
+
+
+def _match_directional_mes_route_hint(*, machines: list[Equipment], process_hint: str) -> Equipment | None:
+    direction_markers: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+        (('北', 'north'), ('北', 'NORTH', 'N线', 'N#', '-N', '_N')),
+        (('南', 'south'), ('南', 'SOUTH', 'S线', 'S#', '-S', '_S')),
+    )
+    for hint_markers, machine_markers in direction_markers:
+        if not any(marker in process_hint for marker in hint_markers):
+            continue
+        candidates = []
+        for machine in machines:
+            text = f"{_normalize_mes_machine_text(getattr(machine, 'code', None))} {_normalize_mes_machine_text(getattr(machine, 'name', None))}"
+            if any(marker in text for marker in machine_markers):
+                candidates.append(machine)
+        if len(candidates) == 1:
+            return candidates[0]
     return None
 
 
@@ -2086,6 +2112,15 @@ def _load_mes_snapshot_rows(
     machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
     for machine in machine_rows:
         machines_by_workshop[machine.workshop_id].append(machine)
+    equipment_aliases = (
+        db.query(MasterCodeAlias)
+        .filter(
+            MasterCodeAlias.entity_type == 'equipment',
+            MasterCodeAlias.is_active.is_(True),
+        )
+        .all()
+    )
+    terminal_bindings = db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
     shift_rows = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     shift_id_by_code = {str(item.code or '').strip().upper(): item.id for item in shift_rows if item.code}
     work_order_by_card: dict[str, WorkOrder] = {}
@@ -2119,6 +2154,20 @@ def _load_mes_snapshot_rows(
         if resolved_workshop_id is None:
             return None, 'unresolved'
         process_hint = item.current_process or item.process_code or item.next_process
+        raw_workshop = item.workshop_code or item.current_workshop or item.next_workshop
+        binding = mes_machine_match_service.resolve_mes_machine_binding(
+            machines=machine_rows,
+            device_name=item.machine_code,
+            process_hint=process_hint,
+            preferred_workshop_id=resolved_workshop_id,
+            aliases=equipment_aliases,
+            terminal_bindings=terminal_bindings,
+            terminal_hints=item.source_payload if isinstance(item.source_payload, dict) else {},
+            workshop_name=workshop_name_by_id.get(resolved_workshop_id) or raw_workshop,
+            event_time=item.event_time or item.updated_from_mes_at,
+        )
+        if binding.get('machine_id') is not None:
+            return int(binding['machine_id']), str(binding.get('source') or 'route_inferred')
         inferred_machine_id = _infer_mes_machine_id_from_route(
             machines=machines_by_workshop.get(resolved_workshop_id, []),
             process_hint=process_hint,

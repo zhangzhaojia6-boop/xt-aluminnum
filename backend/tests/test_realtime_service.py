@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
-from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Team, Workshop
 from app.models.mes import MesCoilSnapshot, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
@@ -25,6 +25,7 @@ def build_realtime_session(tmp_path):
             User.__table__,
             Equipment.__table__,
             MasterCodeAlias.__table__,
+            MesTerminalBinding.__table__,
             ShiftConfig.__table__,
             ShiftProductionData.__table__,
             MobileShiftReport.__table__,
@@ -855,6 +856,100 @@ def test_build_live_aggregation_infers_mes_machine_from_route_when_device_missin
     assert machine['machine_id'] == 11
     assert machine['shifts'][0]['submitted_count'] == 1
     assert machine['shifts'][0]['total_output'] == 9.7
+
+
+def test_build_live_aggregation_infers_north_annealing_line_from_route(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=29, code='ZXTF-N', name='新厂在线退火', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=149, code='ZXTF-1', name='新厂北', workshop_id=29, equipment_type='annealing_line', is_active=True),
+            Equipment(id=150, code='ZXTF-2', name='新厂南', workshop_id=29, equipment_type='annealing_line', is_active=True),
+            MasterCodeAlias(
+                entity_type='workshop',
+                canonical_code='ZXTF-N',
+                alias_code='新厂在线车间',
+                alias_name='新厂在线车间',
+                source_type='mes_mvc',
+                is_active=True,
+            ),
+            MesCoilSnapshot(
+                id=713,
+                coil_id='MES-713',
+                tracking_card_no='R2-7316-3',
+                workshop_code='新厂在线车间',
+                machine_code=None,
+                shift_code='N',
+                current_process='北线退火',
+                status='synced',
+                business_date=date(2026, 6, 16),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 6, 16),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['mes_machine_binding']['mes_rows_with_machine'] == 1
+    assert payload['mes_machine_binding']['route_inferred_machine_count'] == 1
+    assert payload['mes_machine_binding']['unresolved_machine_count'] == 0
+
+
+def test_build_live_aggregation_uses_mes_terminal_binding(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=4, code='JZ', name='精整车间', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='N', name='夜班', shift_type='night', start_time=time(20, 0), end_time=time(8, 0), is_active=True),
+            Equipment(id=21, code='JZ-ZJ1', name='纵剪1#', workshop_id=4, equipment_type='slitter', is_active=True),
+            Equipment(id=22, code='JZ-ZJ2', name='纵剪2#', workshop_id=4, equipment_type='slitter', is_active=True),
+            MesTerminalBinding(
+                terminal_code='PC-JZ-01',
+                terminal_name='精整一号终端',
+                workshop_name='精整车间',
+                process_name='纵剪',
+                equipment_id=21,
+                confidence='high',
+                is_active=True,
+            ),
+            MesCoilSnapshot(
+                id=714,
+                coil_id='MES-714',
+                tracking_card_no='RA260506714',
+                workshop_code='JZ',
+                machine_code=None,
+                shift_code='N',
+                current_process='纵剪',
+                status='synced',
+                business_date=date(2026, 5, 6),
+                source_payload={'DeviceCode': 'PC-JZ-01'},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 5, 6),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    assert payload['mes_machine_binding']['mes_rows_with_machine'] == 1
+    assert payload['mes_machine_binding']['unresolved_machine_count'] == 0
+    assert payload['mes_machine_binding']['mes_rows_without_machine'] == 0
 
 
 def test_build_live_aggregation_keeps_ambiguous_mes_route_unassigned(tmp_path, monkeypatch) -> None:
