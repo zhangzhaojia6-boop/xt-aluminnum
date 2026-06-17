@@ -81,11 +81,12 @@ def ensure_zzj_agent_sop(db: Session, *, apply: bool = False) -> AgentSopBootstr
     codes = list(ZZJ_AGENT_WORKFLOWS)
     agents = db.query(AgentProfile).filter(AgentProfile.code.in_(codes)).all()
     if apply:
+        missing_codes = [code for code in codes if code not in {agent.code for agent in agents}]
+        if missing_codes:
+            raise ValueError(f'missing required AgentProfile rows: {", ".join(missing_codes)}')
         by_code = {agent.code: agent for agent in agents}
         for code, workflow in ZZJ_AGENT_WORKFLOWS.items():
-            agent = by_code.get(code)
-            if agent is None:
-                continue
+            agent = by_code[code]
             payload = dict(agent.config_payload or {})
             payload['workflow'] = dict(workflow)
             payload['sop_version'] = '2026-06-18'

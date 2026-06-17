@@ -149,6 +149,10 @@ def ensure_zhang_zhaojia_personal_agents(
             'real_send_enabled': False,
         },
     )
+    existing_payloads = {
+        agent.code: dict(agent.config_payload or {})
+        for agent in db.query(AgentProfile).filter(AgentProfile.code.in_(agent_codes)).all()
+    }
     for spec in plan['agents']:
         agent_communication_service.register_agent(
             db,
@@ -156,13 +160,11 @@ def ensure_zhang_zhaojia_personal_agents(
             name=spec['name'],
             agent_type=spec['agent_type'],
             scope_type='user',
-            config_payload={
-                'owner_name': '张兆嘉',
-                'owner_dingtalk_user_id': plan['target_user']['dingtalk_user_id'],
-                'capabilities': spec['capabilities'],
-                'requires_outbox': True,
-                'write_operations_require_approval': True,
-            },
+            config_payload=_build_agent_config_payload(
+                existing_payload=existing_payloads.get(spec['code']),
+                owner_dingtalk_user_id=plan['target_user']['dingtalk_user_id'],
+                capabilities=spec['capabilities'],
+            ),
         )
         agent_communication_service.bind_agent_to_channel(
             db,
@@ -203,6 +205,25 @@ def _count_bindings(db: Session, agent_codes: list[str], channel_key: str) -> in
         )
         .count()
     )
+
+
+def _build_agent_config_payload(
+    *,
+    existing_payload: dict | None,
+    owner_dingtalk_user_id: str,
+    capabilities: list[str],
+) -> dict:
+    payload = dict(existing_payload or {})
+    payload.update(
+        {
+            'owner_name': '张兆嘉',
+            'owner_dingtalk_user_id': owner_dingtalk_user_id,
+            'capabilities': list(capabilities),
+            'requires_outbox': True,
+            'write_operations_require_approval': True,
+        }
+    )
+    return payload
 
 
 def _clean(value: str | None) -> str:

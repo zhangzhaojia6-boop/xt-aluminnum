@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -45,5 +46,24 @@ def test_sop_apply_adds_workflows_without_removing_capabilities() -> None:
         assert payload['workflow']['correction_report_time'] == '09:35'
         assert payload['workflow']['requires_outbox'] is True
         assert payload['workflow']['can_direct_send_dingtalk'] is False
+    finally:
+        db.close()
+
+
+def test_sop_apply_fails_when_required_agents_are_missing_and_keeps_payloads_unchanged() -> None:
+    db = _session()
+    try:
+        ensure_zhang_zhaojia_personal_agents(db, apply=True)
+        missing_agent = db.query(AgentProfile).filter(AgentProfile.code == 'quality_guard_zzj').one()
+        db.delete(missing_agent)
+        db.commit()
+
+        with pytest.raises(ValueError, match='missing required AgentProfile rows'):
+            ensure_zzj_agent_sop(db, apply=True)
+
+        remaining_agents = db.query(AgentProfile).all()
+        assert len(remaining_agents) == 5
+        assert all('workflow' not in (agent.config_payload or {}) for agent in remaining_agents)
+        assert all('sop_version' not in (agent.config_payload or {}) for agent in remaining_agents)
     finally:
         db.close()
