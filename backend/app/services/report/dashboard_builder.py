@@ -482,7 +482,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     contract_progress = build_contract_progress_projection(db, target_date=target_date)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date)
     try:
-        wip_distribution = daily_overview_builder._build_wip_distribution(db, target_date)
+        wip_distribution = daily_overview_builder._build_wip_distribution(db, target_date + timedelta(days=1))
     except SQLAlchemyError:
         wip_distribution = []
     exception_lane = _build_exception_lane(db, target_date=target_date)

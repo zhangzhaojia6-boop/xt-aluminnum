@@ -757,9 +757,13 @@ def test_build_factory_dashboard_recomputes_leader_summary_from_current_lanes(mo
         'app.services.report_service.mobile_report_service.summarize_mobile_inventory',
         lambda *_args, **_kwargs: [{'storage_prepared': 12.0, 'storage_finished': 320.0, 'shipment_weight': 184.0, 'storage_inbound_area': 1800.0}],
     )
+    def fake_wip_distribution(_db, wip_date):
+        assert wip_date == date(2026, 4, 18)
+        return [{'workshop': '当日在制', 'total_weight': 879.0}]
+
     monkeypatch.setattr(
         'app.services.report_service.daily_overview_builder._build_wip_distribution',
-        lambda *_args, **_kwargs: [{'workshop': '当日在制', 'total_weight': 879.0}],
+        fake_wip_distribution,
     )
     monkeypatch.setattr(
         'app.services.report_service._build_exception_lane',
