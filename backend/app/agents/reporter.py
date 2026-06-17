@@ -52,6 +52,22 @@ def _build_push_key(report: DailyReport) -> str:
     return f"report:{report.id}:{time_point.isoformat()}"
 
 
+def _template_daily_report_payload(report_data: dict[str, Any]) -> dict[str, Any]:
+    payload = report_data.get("template_daily_report")
+    return dict(payload or {}) if isinstance(payload, dict) else {}
+
+
+def _template_daily_report_text(report: DailyReport, report_data: dict[str, Any]) -> str | None:
+    payload = _template_daily_report_payload(report_data)
+    if str(payload.get("status") or "") != "ready":
+        return None
+    text = str(payload.get("text") or "").strip()
+    if text:
+        return text
+    fallback = str(report.final_text_summary or "").strip()
+    return fallback or None
+
+
 def _build_auto_publish_payload(
     report: DailyReport,
     *,
@@ -229,6 +245,20 @@ class ReporterAgent(BaseAgent):
             )
             return self._decisions
 
+        template_payload = _template_daily_report_payload(report_data)
+        if template_payload.get("status") == "blocked":
+            report_data["auto_push_blocked_reason"] = "template_daily_report_blocked"
+            report.report_data = report_data
+            log_pilot_event(
+                "auto_push_skipped",
+                report_id=report.id,
+                report_date=target_date.isoformat(),
+                reason="template_daily_report_blocked",
+                missing_fields=template_payload.get("missing_fields") or [],
+                push_key=push_key,
+            )
+            return self._decisions
+
         total_output = float(report_data.get("total_output_weight") or 0.0)
         reporting_rate = float(report_data.get("reporting_rate") or 0.0)
         yield_matrix_lane = dict(report_data.get("yield_matrix_lane") or {})
@@ -253,15 +283,20 @@ class ReporterAgent(BaseAgent):
             or report.text_summary
             or "暂无日报摘要。"
         )
-        message = (
-            f"【生产日报】{target_date.strftime('%Y-%m-%d')}\n"
-            f"今日产量：{total_output:.2f} 吨\n"
-            f"上报率：{reporting_rate:.2f}%\n"
-            f"成材率：{yield_rate:.2f}%\n"
-            f"出勤：{attendance_total} 人\n"
-            f"异常：{anomaly_total} 条（{anomaly_digest}）\n\n"
-            f"{summary_text}"
-        )
+        template_text = _template_daily_report_text(report, report_data)
+        if template_text:
+            summary_text = template_text
+            message = template_text
+        else:
+            message = (
+                f"【生产日报】{target_date.strftime('%Y-%m-%d')}\n"
+                f"今日产量：{total_output:.2f} 吨\n"
+                f"上报率：{reporting_rate:.2f}%\n"
+                f"成材率：{yield_rate:.2f}%\n"
+                f"出勤：{attendance_total} 人\n"
+                f"异常：{anomaly_total} 条（{anomaly_digest}）\n\n"
+                f"{summary_text}"
+            )
 
         leaders = (
             db.query(User)

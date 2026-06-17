@@ -97,6 +97,21 @@ DIRECT_OWNER_FIELD_GROUPS = (
 )
 
 
+def _owner_daily_effective_role(user: User, workshop: Workshop | None) -> str:
+    role = str(getattr(user, 'role', '') or '')
+    workshop_code = str(getattr(workshop, 'code', '') or '').upper()
+    if role == 'consumable_stat' and workshop_code == 'HS':
+        return 'recovery_owner'
+    if role == 'consumable_stat' and workshop_code == 'CPK':
+        return 'storage_owner'
+    return role
+
+
+def _owner_daily_group_key(user: User, workshop: Workshop | None) -> tuple[str, str]:
+    workshop_key = str(getattr(workshop, 'code', '') or getattr(user, 'workshop_id', '') or getattr(user, 'id', ''))
+    return (workshop_key.upper(), _owner_daily_effective_role(user, workshop))
+
+
 def _build_fill_detail_field_meta() -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
     meta = dict(OWNER_DAILY_FIELD_META)
     field_types: dict[str, str] = {}
@@ -1005,67 +1020,86 @@ def _build_owner_daily_status(
     business_date: date,
     workshop_id: int | None,
 ) -> dict[str, Any]:
-    users_query = db.query(User).filter(
+    expected_users_query = db.query(User).filter(
         User.is_active.is_(True),
         User.role.in_(tuple(OWNER_DAILY_ROLES)),
         User.username.in_(tuple(REPORTING_ROLE_QR_CODE_SET)),
     )
     if workshop_id is not None:
-        users_query = users_query.filter(User.workshop_id == workshop_id)
-    users = users_query.order_by(User.workshop_id.asc(), User.username.asc()).all()
-    user_ids = [item.id for item in users]
-    latest_by_user: dict[int, WorkOrderEntry] = {}
-    if user_ids:
-        rows = (
-            db.query(WorkOrderEntry)
-            .filter(
-                WorkOrderEntry.business_date == business_date,
-                WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
-                WorkOrderEntry.created_by_user_id.in_(user_ids),
-            )
-            .order_by(WorkOrderEntry.updated_at.asc(), WorkOrderEntry.id.asc())
-            .all()
-        )
-        for row in rows:
-            if row.created_by_user_id is None:
-                continue
-            latest_by_user[int(row.created_by_user_id)] = row
+        expected_users_query = expected_users_query.filter(User.workshop_id == workshop_id)
+    expected_users = expected_users_query.order_by(User.workshop_id.asc(), User.username.asc()).all()
 
-    workshop_ids = {item.workshop_id for item in users if item.workshop_id is not None}
+    entry_rows_query = (
+        db.query(WorkOrderEntry, User)
+        .join(User, User.id == func.coalesce(WorkOrderEntry.created_by_user_id, WorkOrderEntry.created_by))
+        .filter(
+            WorkOrderEntry.business_date == business_date,
+            WorkOrderEntry.entry_type == OWNER_DAILY_ENTRY_TYPE,
+            User.is_active.is_(True),
+            User.role.in_(tuple(OWNER_DAILY_ROLES)),
+        )
+        .order_by(WorkOrderEntry.updated_at.asc(), WorkOrderEntry.id.asc())
+    )
+    if workshop_id is not None:
+        entry_rows_query = entry_rows_query.filter(WorkOrderEntry.workshop_id == workshop_id)
+
+    users_by_id = {int(user.id): user for user in expected_users if user.id is not None}
+    latest_by_user: dict[int, WorkOrderEntry] = {}
+    for row, user in entry_rows_query.all():
+        if user.id is None:
+            continue
+        users_by_id[int(user.id)] = user
+        latest_by_user[int(user.id)] = row
+
+    workshop_ids = {item.workshop_id for item in users_by_id.values() if item.workshop_id is not None}
     workshops = db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).all() if workshop_ids else []
     workshop_by_id = {item.id: item for item in workshops}
-    items = []
+    grouped_items: dict[tuple[str, str], tuple[tuple[int, int, float, int], dict[str, Any]]] = {}
     totals: dict[str, float] = {}
-    submitted_count = 0
-    for user in users:
+    for user in users_by_id.values():
         entry = latest_by_user.get(int(user.id))
         is_submitted = entry is not None and entry.entry_status in FORMAL_ENTRY_STATUSES
-        submitted_count += 1 if is_submitted else 0
         workshop = workshop_by_id.get(user.workshop_id)
+        effective_role = _owner_daily_effective_role(user, workshop)
         payload = dict(entry.extra_payload or {}) if entry else {}
         field_meta, field_types = _workshop_field_context(workshop)
         metrics = _extra_payload_metrics(payload, field_meta=field_meta, field_types=field_types) if is_submitted else []
-        for metric in metrics:
+        item = {
+            'user_id': user.id,
+            'username': user.username,
+            'person_name': user.name,
+            'role': user.role,
+            'effective_role': effective_role,
+            'role_label': OWNER_DAILY_ROLE_LABELS.get(effective_role, effective_role),
+            'workshop_id': user.workshop_id,
+            'workshop_name': workshop.name if workshop else None,
+            'status': 'submitted' if is_submitted else 'not_started',
+            'entry_id': entry.id if entry else None,
+            'updated_at': entry.updated_at.isoformat() if entry and entry.updated_at else None,
+            'metrics': metrics,
+        }
+        updated_score = entry.updated_at.timestamp() if entry is not None and entry.updated_at else 0.0
+        score = (
+            1 if is_submitted else 0,
+            1 if user.username in REPORTING_ROLE_QR_CODE_SET else 0,
+            updated_score,
+            int(user.id or 0),
+        )
+        group_key = _owner_daily_group_key(user, workshop)
+        current = grouped_items.get(group_key)
+        if current is None or score > current[0]:
+            grouped_items[group_key] = (score, item)
+
+    items = [item for _score, item in grouped_items.values()]
+    items.sort(key=lambda item: (item.get('workshop_id') or 0, str(item.get('effective_role') or ''), str(item.get('username') or '')))
+    submitted_count = len([item for item in items if item.get('status') == 'submitted'])
+    for item in items:
+        for metric in item.get('metrics') or []:
             key = str(metric['key'])
             value = _payload_float(metric.get('value'))
             if value is None:
                 continue
             totals[key] = totals.get(key, 0.0) + value
-        items.append(
-            {
-                'user_id': user.id,
-                'username': user.username,
-                'person_name': user.name,
-                'role': user.role,
-                'role_label': OWNER_DAILY_ROLE_LABELS.get(user.role, user.role),
-                'workshop_id': user.workshop_id,
-                'workshop_name': workshop.name if workshop else None,
-                'status': 'submitted' if is_submitted else 'not_started',
-                'entry_id': entry.id if entry else None,
-                'updated_at': entry.updated_at.isoformat() if entry and entry.updated_at else None,
-                'metrics': metrics,
-            }
-        )
     return {
         'business_date': business_date.isoformat(),
         'submitted_count': submitted_count,

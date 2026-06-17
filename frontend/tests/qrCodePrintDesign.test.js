@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs'
 const source = readFileSync(new URL('../src/views/master/QRCodePrint.vue', import.meta.url), 'utf8')
 
 test('QRCodePrint keeps the real QR data and print operations', () => {
-  assert.match(source, /fetchEquipment/)
+  assert.match(source, /fetchEquipmentPage/)
+  assert.match(source, /function fetchAllEquipment/)
+  assert.match(source, /while \(items\.length < total\)/)
   assert.match(source, /fetchWorkshops/)
   assert.match(source, /QRCode\.toDataURL/)
   assert.match(source, /buildLoginUrl/)

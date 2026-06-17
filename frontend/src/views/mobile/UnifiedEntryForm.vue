@@ -304,6 +304,7 @@ const lockedFieldsToken = ref('')
 const mesReferenceFields = ref([])
 const groups = ref([])
 const readonlyFields = ref([])
+const entryRoleLabel = ref('')
 const visibleReadonlyFields = computed(() =>
   readonlyFields.value.filter((rf) => !rf.hidden)
 )
@@ -339,7 +340,7 @@ const roleLabel = computed(() => {
     recovery_owner: '回收内勤',
     overhaul_owner: '大修内勤',
   }
-  return labels[auth.role] || auth.displayName
+  return entryRoleLabel.value || labels[auth.role] || auth.displayName
 })
 
 const ROLE_COLORS = {
@@ -775,9 +776,14 @@ async function loadData() {
     }
     groups.value = fields.groups || []
     readonlyFields.value = fields.readonly_fields || []
+    entryRoleLabel.value = fields.role_label || ''
     mode.value = fields.mode || 'per_shift'
     submitTarget.value = fields.submit_target || (fields.mode === 'per_coil' ? 'coil_entry' : 'shift_report')
     identityField.value = fields.identity_field || null
+    if (!groups.value.length) {
+      error.value = fields.error || '当前二维码没有可填报字段，请联系管理员检查岗位模板。'
+      return
+    }
     if (!shift.shift_id && mode.value !== 'owner_daily') {
       error.value = '未找到当前班次，请联系管理员配置班次。'
       return

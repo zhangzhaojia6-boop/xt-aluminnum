@@ -52,12 +52,13 @@
 import QRCode from 'qrcode'
 import { computed, onMounted, ref } from 'vue'
 
-import { fetchEquipment, fetchWorkshops } from '../../api/master.js'
+import { fetchEquipmentPage, fetchWorkshops } from '../../api/master.js'
 
 const loading = ref(true)
 const equipmentList = ref([])
 const workshopMap = ref({})
 const qrImages = ref({})
+const MASTER_PAGE_LIMIT = 500
 
 const baseUrl = `${window.location.origin}`
 
@@ -109,10 +110,28 @@ async function generateQrImages() {
   }
 }
 
+async function fetchAllEquipment() {
+  const items = []
+  let skip = 0
+  let total = Infinity
+  while (items.length < total) {
+    const page = await fetchEquipmentPage({ skip, limit: MASTER_PAGE_LIMIT })
+    const batch = Array.isArray(page.items) ? page.items : []
+    items.push(...batch)
+    total = Number.isFinite(Number(page.total)) ? Number(page.total) : items.length
+    if (!batch.length || batch.length < MASTER_PAGE_LIMIT) break
+    skip += batch.length
+  }
+  return items
+}
+
 async function load() {
   loading.value = true
   try {
-    const [eqData, wsData] = await Promise.all([fetchEquipment(), fetchWorkshops()])
+    const [eqData, wsData] = await Promise.all([
+      fetchAllEquipment(),
+      fetchWorkshops({ limit: MASTER_PAGE_LIMIT })
+    ])
     equipmentList.value = eqData || []
     const map = {}
     for (const ws of (wsData || [])) {

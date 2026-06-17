@@ -113,14 +113,16 @@ test('live dashboard matrix and process flow use canonical workshop names', () =
   assert.equal(coldRolling.valueText, '8 吨')
 })
 
-test('fill details keeps manual rows only and normalizes active workshop names', () => {
+test('fill details keeps all manual rows and normalizes known workshop names', () => {
   const rows = buildFillLedgerRows([
     { id: 1, source_type: 'owner_daily', workshop_name: '园区剪切车间', responsible_name: '张三' },
     { id: 2, source_type: 'mes_projection', workshop_name: '精整车间', responsible_name: 'MES' },
     { id: 3, source_type: 'owner_daily', workshop_name: '二分厂精整车间', responsible_name: '旧角色' },
     { id: 4, source_type: 'owner_daily', workshop_name: '陌生车间', responsible_name: '未知' },
+    { id: 5, source_type: 'owner_daily', workshop_name: '成品库', responsible_name: '成品库内勤' },
+    { id: 6, source_type: 'owner_daily', workshop_name: '回收车间', responsible_name: '回收内勤' },
   ])
 
-  assert.deepEqual(rows.map((row) => row.workshopName), ['园区剪切'])
+  assert.deepEqual(rows.map((row) => row.workshopName), ['园区剪切', '二分厂精整车间', '陌生车间', '成品库', '回收车间'])
   assert.equal(rows[0].machineName, '内勤岗')
 })

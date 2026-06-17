@@ -476,6 +476,49 @@ def test_fill_detail_meta_covers_direct_owner_role_fields() -> None:
         assert realtime_service.FILL_DETAIL_FIELD_META[key] == meta
 
 
+def test_owner_daily_status_uses_actual_submitted_owner_qr_before_canonical_duplicate(tmp_path) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=23, code='HS', name='回收车间', workshop_type='recycling', sort_order=1, is_active=True),
+            User(id=930, username='HS-CS', password_hash='x', name='回收车间内勤', role='consumable_stat', workshop_id=23, is_active=True),
+            User(id=939, username='HS-RC', password_hash='x', name='回收车间回收', role='recovery_owner', workshop_id=23, is_active=True),
+            WorkOrder(id=3514, tracking_card_no='OWNER-consumable_stat-930-2026-06-17', process_route_code='owner_daily', overall_status='created'),
+            WorkOrderEntry(
+                id=3514,
+                work_order_id=3514,
+                workshop_id=23,
+                machine_id=None,
+                shift_id=None,
+                business_date=date(2026, 6, 17),
+                entry_status='submitted',
+                entry_type='owner_daily',
+                created_by_user_id=930,
+                submitted_at=datetime(2026, 6, 17, 15, 17),
+                updated_at=datetime(2026, 6, 17, 15, 18),
+                extra_payload={'recovery_weight': 63, 'recovery_material_type': '渣锭屑锭'},
+            ),
+        ]
+    )
+    db.commit()
+
+    payload = realtime_service._build_owner_daily_status(
+        db,
+        business_date=date(2026, 6, 17),
+        workshop_id=None,
+    )
+
+    assert payload['submitted_count'] == 1
+    assert payload['total_count'] == 1
+    item = payload['items'][0]
+    assert item['username'] == 'HS-CS'
+    assert item['effective_role'] == 'recovery_owner'
+    assert item['role_label'] == '回收'
+    assert item['entry_id'] == 3514
+    assert payload['totals'][0]['key'] == 'recovery_weight'
+    assert payload['totals'][0]['value'] == 63
+
+
 def test_build_live_aggregation_reports_formal_mobile_entries_missing_output_weight(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

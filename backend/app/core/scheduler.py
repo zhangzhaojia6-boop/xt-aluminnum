@@ -97,7 +97,7 @@ def setup_scheduler(target_scheduler=None):
         sync_mes_reference_projection,
     )
 
-    _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=8, minute=0)
+    _add_job_once(active_scheduler, generate_daily_reports, 'cron', job_id='daily_report', hour=7, minute=30)
     if (settings.MES_ADAPTER or 'null').strip().lower() != 'null':
         _add_job_once(
             active_scheduler,

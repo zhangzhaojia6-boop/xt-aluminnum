@@ -356,6 +356,14 @@ ROLE_FIELD_MAPPING = {
     'overhaul_owner': {'direct_fields': OVERHAUL_OWNER_FIELDS, 'label': '大修磨辊子+能耗'},
 }
 
+
+def _role_field_mapping_for_context(role: str, workshop_type: str | None) -> dict | None:
+    if role == 'consumable_stat' and workshop_type == 'recycling':
+        return {'direct_fields': RECOVERY_OWNER_FIELDS, 'label': '回收产量'}
+    if role == 'consumable_stat' and workshop_type == 'inventory':
+        return {'direct_fields': INVENTORY_OWNER_FIELDS, 'label': '成品库'}
+    return ROLE_FIELD_MAPPING.get(role)
+
 QUALITY_ENTRY_FIELD_NAMES = {
     'quality_note',
     'quality_issue_type',
@@ -420,7 +428,7 @@ def entry_fields(
 
     role = current_user.role or ''
     template = get_workshop_template_definition(ws_code or ws_type, db=None)
-    mapping = ROLE_FIELD_MAPPING.get(role)
+    mapping = _role_field_mapping_for_context(role, ws_type)
     if mapping is None:
         return {
             'groups': [],

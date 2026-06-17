@@ -32,6 +32,7 @@ from app.services.management_estimate_service import build_management_estimate
 from app.services import mobile_report_service
 from app.services import mobile_reminder_service
 from app.services.report import daily_overview_builder
+from app.services.report import template_daily_report
 from app.services.yield_matrix_canonical_service import build_yield_matrix_projection
 from app.services.yield_matrix_delivery_target_service import resolve_yield_matrix_delivery_targets
 from app.services.production_service import (
@@ -784,6 +785,32 @@ def generate_daily_reports(
             text_summary=text_summary,
             output_mode=output_mode,
         )
+        template_payload = None
+        if current_type == 'production':
+            try:
+                template_payload = template_daily_report.build_template_daily_report_payload(
+                    db,
+                    target_date=report_date,
+                )
+            except Exception as exc:
+                template_payload = {
+                    'status': 'blocked',
+                    'text': None,
+                    'missing_fields': ['template_daily_report'],
+                    'conflicts': [{'field': 'template_daily_report', 'reason': type(exc).__name__}],
+                    'sources': {},
+                }
+            if payload_data is not None:
+                payload_data = dict(payload_data)
+                payload_data['template_daily_report'] = {
+                    'status': template_payload.get('status'),
+                    'text': template_payload.get('text'),
+                    'missing_fields': template_payload.get('missing_fields') or [],
+                    'conflicts': template_payload.get('conflicts') or [],
+                    'sources': template_payload.get('sources') or {},
+                }
+            if template_payload.get('status') == 'ready' and template_payload.get('text'):
+                payload_text = str(template_payload['text']) if output_mode != 'json' else payload_text
 
         entity = (
             db.query(DailyReport)
@@ -813,6 +840,8 @@ def generate_daily_reports(
             entity.reviewed_at = None
             entity.published_by = None
             entity.published_at = None
+        if template_payload and template_payload.get('status') == 'ready' and template_payload.get('text'):
+            entity.final_text_summary = str(template_payload['text'])
         db.flush()
         entities.append(entity)
 
@@ -924,7 +953,11 @@ def run_daily_pipeline(
     delivery_status = build_delivery_status(db, target_date=report_date)
     for item in reports:
         if item.report_type == 'production':
-            item.final_text_summary = boss_summary
+            template_payload = dict((item.report_data or {}).get('template_daily_report') or {})
+            if template_payload.get('status') == 'ready' and template_payload.get('text'):
+                item.final_text_summary = str(template_payload['text'])
+            else:
+                item.final_text_summary = boss_summary
             item.is_final_version = is_final_version
         item.quality_gate_status = quality_status
         item.quality_gate_summary = quality_summary

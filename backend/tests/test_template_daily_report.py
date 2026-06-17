@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.database import Base
+from app.models.master import Workshop
+from app.models.mes import MesWorkshopProcessRecord
+from app.models.production import WorkOrder, WorkOrderEntry
+from app.services.report import template_daily_report
+
+
+REPORT_DATE = date(2026, 6, 16)
+
+
+def _template_text() -> str:
+    return (Path(__file__).resolve().parents[1].parent / "docs" / "模板.md").read_text(encoding="utf-8").strip()
+
+
+def _complete_values() -> dict:
+    return {
+        "report_date": REPORT_DATE,
+        "total_output_daily": 328,
+        "outsourced_daily": 0,
+        "total_output_delta": 22,
+        "total_output_month": 5014,
+        "outsourced_month": 270,
+        "cast_roll_active_lines": 4,
+        "cast_roll_daily": 81,
+        "cast_roll_month": 1340,
+        "foundry_daily": 346,
+        "foundry_month": 4672,
+        "hot_roll_daily": 275,
+        "hot_roll_month": 4215,
+        "cold_1650_daily": 144,
+        "cold_1650_month": 2529,
+        "cold_1650_pass_daily": 55,
+        "cold_1650_pass_month": 799,
+        "cold_1850_daily": 33,
+        "cold_1850_month": 699,
+        "cold_1850_pass_daily": 15,
+        "cold_1850_pass_month": 347,
+        "cold_2050_daily": 96,
+        "cold_2050_month": 2103,
+        "cold_2050_pass_daily": 33,
+        "cold_2050_pass_month": 1190,
+        "rolling_daily": 272,
+        "rolling_month": 5331,
+        "rolling_pass_daily": 103,
+        "rolling_pass_month": 2336,
+        "online_anneal_daily": 253,
+        "online_anneal_month": 5255,
+        "straightening_daily": 188,
+        "straightening_month": 2426,
+        "finishing_daily": 86,
+        "finishing_month": 1384,
+        "shearing_daily": 87,
+        "shearing_month": 1268,
+        "coating_daily": 0,
+        "coating_month": 0,
+        "recovery_daily": 63,
+        "recovery_month": 1123,
+        "roller_grind_daily": 8,
+        "roller_grind_month": 144,
+        "wip_total": 879,
+        "wip_1650_2050_cold": 63.5,
+        "wip_1850_cold": 10.5,
+        "wip_milling": 0,
+        "wip_anneal_total": 228.5,
+        "wip_new_north": 122,
+        "wip_new_south": 26,
+        "wip_park_anneal": 80.5,
+        "wip_finishing_total": 576.5,
+        "wip_straightening": 276,
+        "wip_finishing": 250,
+        "wip_park_finishing": 50.5,
+        "wip_hot_plate_shearing": 0,
+        "wip_coating": 0,
+        "total_electricity_kwh": 168000,
+        "subitem_electricity_kwh": 166533,
+        "cast_roll_gas_m3": 12003,
+        "cast_2_gas_m3": 4678,
+        "cast_3_gas_m3": 7325,
+        "smelting_gas_m3": 24554,
+        "recovery_gas_m3": 1426,
+        "hot_roll_furnace_gas_m3": 8194,
+        "east_furnace_gas_m3": 4382,
+        "west_furnace_gas_m3": 3812,
+        "hot_roll_boiler_gas_m3": 1094,
+        "anneal_gas_m3": 4209,
+        "straightening_boiler_gas_m3": 1448,
+        "new_north_gas_m3": 2804,
+        "new_south_gas_m3": 0,
+        "coating_gas_m3": 2034,
+        "canteen_gas_m3": 10,
+        "total_gas_m3": 57776,
+        "cast_roll_electricity_per_ton_daily": 96.7,
+        "cast_roll_electricity_per_ton_month": 80.6,
+        "cast_roll_gas_per_ton_daily": 148.1,
+        "cast_roll_gas_per_ton_month": 121.3,
+        "foundry_electricity_per_ton_daily": 24.3,
+        "foundry_electricity_per_ton_month": 28.0,
+        "foundry_gas_per_ton_daily": 71.0,
+        "foundry_gas_per_ton_month": 81.6,
+        "hot_roll_electricity_per_ton_daily": 158.4,
+        "hot_roll_electricity_per_ton_month": 131.7,
+        "hot_roll_gas_per_ton_daily": 29.8,
+        "hot_roll_gas_per_ton_month": 26.7,
+        "cold_1650_electricity_per_ton_daily": 111.8,
+        "cold_1650_electricity_per_ton_month": 83.6,
+        "cold_1850_electricity_per_ton_daily": 117.8,
+        "cold_1850_electricity_per_ton_month": 108.5,
+        "cold_2050_electricity_per_ton_daily": 110.9,
+        "cold_2050_electricity_per_ton_month": 152.8,
+        "online_anneal_electricity_per_ton_daily": 66.9,
+        "online_anneal_electricity_per_ton_month": 55.0,
+        "straightening_electricity_per_ton_daily": 14.5,
+        "straightening_electricity_per_ton_month": 16.5,
+        "finishing_electricity_per_ton_daily": 11.5,
+        "finishing_electricity_per_ton_month": 8.6,
+        "shearing_electricity_per_ton_daily": 14.9,
+        "shearing_electricity_per_ton_month": 15.6,
+        "coating_electricity_per_ton_daily": 0.0,
+        "coating_electricity_per_ton_month": 0.0,
+        "coating_gas_per_ton_daily": 0.0,
+        "coating_gas_per_ton_month": 0.0,
+        "finished_inbound_daily": 328,
+        "consignment_weight": 161,
+        "finished_inbound_month": 5014,
+        "daily_contract_weight": 66,
+        "daily_hot_roll_contract_weight": 66,
+        "cold_roll_input_daily": 197,
+        "cold_2050_input_daily": 197,
+        "cold_1850_input_daily": 0,
+        "outsourced_input_daily": 0,
+        "medium_plate_input_daily": 137,
+        "remaining_contract_weight": 2569,
+        "remaining_contract_delta": -130,
+        "daily_yield_rate": 84.86,
+        "daily_yield_delta": -1.38,
+        "hot_roll_yield_rate": 84.86,
+        "hot_roll_yield_delta": -0.92,
+        "monthly_yield_rate": 86.00,
+        "cast_roll_yield_rate": 92.02,
+        "plate_coil_yield_rate": 92.02,
+        "hot_roll_monthly_yield_rate": 84.46,
+        "electricity_cost_10k": 13.44,
+        "gas_cost_10k": 20.80,
+        "total_cost_10k": 34.24,
+        "cost_basis_weight": 328.033,
+        "cost_per_ton": 1044,
+    }
+
+
+def _facts(values: dict | None = None) -> dict:
+    payload = dict(_complete_values())
+    if values:
+        payload.update(values)
+    return {
+        "target_date": REPORT_DATE.isoformat(),
+        "values": payload,
+        "sources": {key: {"source_type": "test"} for key in payload},
+        "missing_fields": [],
+        "conflicts": [],
+    }
+
+
+def test_render_template_daily_report_matches_locked_template() -> None:
+    text = template_daily_report.render_template_daily_report(_facts())
+
+    assert text == _template_text()
+
+
+def test_validate_template_daily_report_blocks_missing_required_fields() -> None:
+    facts = _facts()
+    facts["values"].pop("total_output_daily")
+    facts["values"].pop("wip_total")
+
+    result = template_daily_report.validate_template_daily_report_facts(facts)
+
+    assert result["status"] == "blocked"
+    assert "total_output_daily" in result["missing_fields"]
+    assert "wip_total" in result["missing_fields"]
+    assert result["text"] is None
+
+
+def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for_others(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-report.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
+    )
+    SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
+    with SessionLocal() as db:
+        db.add_all(
+            [
+                Workshop(id=1, code="HR", name="热轧车间", workshop_type="hot_roll", is_active=True),
+                Workshop(id=2, code="C1650", name="1650车间", workshop_type="cold_roll", is_active=True),
+                WorkOrder(id=1, tracking_card_no="HR-1", process_route_code="manual"),
+                WorkOrderEntry(
+                    work_order_id=1,
+                    workshop_id=1,
+                    business_date=REPORT_DATE,
+                    output_weight=88000,
+                    entry_type="mobile_coil",
+                    entry_status="submitted",
+                ),
+                MesWorkshopProcessRecord(
+                    source_id="mes-hot-roll",
+                    source_path="sqlserver",
+                    workshop_name="热轧车间",
+                    process_name="热轧",
+                    output_weight_tons=12,
+                    business_date=REPORT_DATE,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id="mes-1650",
+                    source_path="sqlserver",
+                    workshop_name="1650车间",
+                    process_name="冷轧",
+                    output_weight_tons=33,
+                    business_date=REPORT_DATE,
+                ),
+            ]
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = template_daily_report.build_template_daily_report_facts(db, target_date=REPORT_DATE)
+
+    assert facts["values"]["hot_roll_daily"] == 88.0
+    assert facts["sources"]["hot_roll_daily"]["source_type"] == "manual_mobile_coil"
+    assert facts["values"]["cold_1650_daily"] == 33.0
+    assert facts["sources"]["cold_1650_daily"]["source_type"] == "mes_workshop_process_records"

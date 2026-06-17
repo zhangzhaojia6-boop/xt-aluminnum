@@ -448,6 +448,56 @@ def test_real_online_annealing_role_qrs_survive_split(
     assert payload['user']['workshop_id'] == expected_workshop_id
 
 
+def test_real_reporting_role_qrs_can_fetch_non_empty_entry_fields(tmp_path) -> None:
+    from app.services.real_master_data import REPORTING_ROLE_QR_CODES, seed_real_master_data
+
+    session_factory = build_sessionmaker(tmp_path)
+    with session_factory() as db:
+        seed_real_master_data(db)
+        workshops_by_code = {item.code: item for item in db.query(Workshop).all()}
+        legacy_specs = [
+            ('HS-CS', '回收车间内勤', 'HS'),
+            ('CPK-CS', '成品库内勤', 'CPK'),
+        ]
+        for code, name, workshop_code in legacy_specs:
+            workshop = workshops_by_code[workshop_code]
+            db.add(
+                Equipment(
+                    code=code,
+                    name=name,
+                    workshop_id=workshop.id,
+                    equipment_type='virtual_role_qr',
+                    operational_status='running',
+                    qr_code=f'XT-{code}',
+                    is_active=True,
+                )
+            )
+        db.commit()
+    _override_db(session_factory)
+
+    client = TestClient(app)
+    checked = []
+    for code in [*REPORTING_ROLE_QR_CODES, 'HS-CS', 'CPK-CS']:
+        login_response = client.post('/api/v1/auth/qr-login', json={'qr_code': f'XT-{code}'})
+        assert login_response.status_code == 200, code
+        token = login_response.json()['access_token']
+
+        fields_response = client.get(
+            '/api/v1/mobile/entry-fields',
+            headers={'Authorization': f'Bearer {token}'},
+        )
+
+        assert fields_response.status_code == 200, code
+        fields_payload = fields_response.json()
+        assert fields_payload['groups'], code
+        assert fields_payload['groups'][0]['fields'], code
+        assert not fields_payload.get('error'), code
+        checked.append(code)
+
+    assert 'HS-CS' in checked
+    assert 'CPK-CS' in checked
+
+
 def test_qr_role_login_can_fetch_current_shift_with_testclient(tmp_path, monkeypatch) -> None:
     session_factory = build_sessionmaker(tmp_path)
     _seed_role_qr(
