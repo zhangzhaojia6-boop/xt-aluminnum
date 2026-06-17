@@ -211,6 +211,61 @@ cd frontend && npm run build
 通过
 ```
 
+## 13. 2026-06-17 真实验收补充
+
+本轮按 `gstack=Goal/Scan/Test/Apply/Check/Keep` 复核第一阶段完成度。结论：旧版本不能直接评 9.5 分，原因不是生产原始数据错误，而是映射链路还有真实文件结构缺口。
+
+### 13.1 扫描发现
+
+| 项目 | 结果 | 影响 |
+|---|---|---|
+| 本地 `D:\输出skill` | 共 4381 个文件，其中可解析 560 个，图片待 OCR 273 个 | 不能只按标准表头解析，必须识别真实日报结构 |
+| `2026-6-16_日报正文.txt` | 可解析 3 行，全厂水电气、合同、成本已读到 | 已补充 `wip_total` 和在制料拆分字段 |
+| `2026-6-16_日均报表.xls` | 旧版本解析 0 行 | 原因是表头在第 5 行，且汇总表没有班次 |
+| `delivery_override_2026-06-16.json` | 旧版本解析 0 行 | 原因是有效数据在 `summaries` 文本里，不是标准 `rows[]` |
+| 云端 `reference/output-skill` | 生产机当前不存在该目录 | 云端页面会显示参考源未挂载，不能直接选择本地 `D:\输出skill` |
+| 云端 `mes_daily_wip_snapshots` | 2026-06-16 有 2 行，但重量合计为 0 | 这会导致在制料显示 0 |
+| 云端 `mes_wip_total_snapshots` | 有 57 行，总量快照可作为兜底来源 | 需要进入映射服务 dry-run，不直接改原始数据 |
+
+### 13.2 本轮修复
+
+| 修复点 | 文件 |
+|---|---|
+| 解析真实 Excel：支持表头不在第一行、汇总表无班次、按工作表名补业务日 | `backend/app/services/mapping_reconciliation_service.py` |
+| 解析 override JSON：从 `summaries` 文本抽取合同、投料、坯料、水电气 | `backend/app/services/mapping_reconciliation_service.py` |
+| 解析日报正文在制料：新增 `wip_total` 和拆分在制字段别名 | `backend/app/services/mapping_reconciliation_service.py` |
+| 系统侧在制料拉平：接入 `mes_daily_wip_snapshots` 和 `mes_wip_total_snapshots`，每日快照为 0 时用总量快照兜底 | `backend/app/services/mapping_reconciliation_service.py` |
+| 页面默认比较在制料 | `frontend/src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue` |
+| 测试覆盖真实缺口 | `backend/tests/test_mapping_reconciliation_service.py`、`frontend/tests/mappingReconciliationPage.test.js` |
+
+### 13.3 本轮验证
+
+```text
+python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/tests/test_mapping_reconciliation_route.py -q
+31 passed
+
+cd frontend && node --test tests/mappingReconciliationPage.test.js
+15 passed
+
+python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
+通过
+
+cd frontend && npm run build
+通过
+```
+
+真实本地只读解析结果：
+
+| 文件 | 修复前 | 修复后 |
+|---|---:|---:|
+| `2026-6-16_日报正文.txt` | 3 行，但无在制料字段 | 3 行，包含 `wip_total=879` |
+| `2026-6-16_日均报表.xls` | 0 行 | 187 行 |
+| `delivery_override_2026-06-16.json` | 0 行 | 3 行 |
+
+### 13.4 当前完成度判断
+
+本轮后，第一阶段的代码底座、接口、页面和测试已经可继续做真实业务日 dry-run。仍不能把“全量真实匹配率 95%+”当作已完成，因为生产机还没有挂载参考文件目录，且图片类报表还处于 `image_pending_ocr`。下一步必须在云端只读放入可验收参考文件或接入上传入口，再用 `/api/v1/mapping-reconciliation/run` 跑真实业务日匹配率。
+
 ## 12. 2026-06-15 规则建议和规则试算接口补充
 
 本轮补齐两个第一阶段规划里明确列出的接口：

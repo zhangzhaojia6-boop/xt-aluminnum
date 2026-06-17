@@ -157,6 +157,7 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
     'remaining_hot_roll_contract_weight',
     'remaining_contract_delta_weight',
     'billet_inventory_weight',
+    'wip_total',
     'daily_input_weight',
     'month_to_date_input_weight'
   ]) {
@@ -225,6 +226,7 @@ test('mapping reconciliation page compares yield rate per-ton material and cost 
   assert.match(page, /remaining_hot_roll_contract: '余热轧合同'/)
   assert.match(page, /remaining_contract_delta: '余合同较昨日'/)
   assert.match(page, /billet_inventory: '坯料总量'/)
+  assert.match(page, /wip_total: '在制料'/)
   assert.match(page, /daily_input: '当日投料'/)
   assert.match(page, /month_to_date_input: '月累计投料'/)
   assert.match(page, /cost: '吨成本'/)

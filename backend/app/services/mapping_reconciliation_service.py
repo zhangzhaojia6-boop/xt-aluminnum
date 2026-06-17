@@ -10,13 +10,16 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from openpyxl import load_workbook
+from sqlalchemy import func
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from app.core.business_time import production_business_window
 from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.executive import CostDailyResult, MachineDailyCostSnapshot
 from app.models.master import Equipment, Workshop
-from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.mes import MesDailyWipSnapshot, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 
@@ -36,6 +39,8 @@ SYSTEM_SOURCES = [
     'cost_daily_result',
     'machine_daily_cost_snapshots',
     'machine_energy_records',
+    'mes_daily_wip_snapshots',
+    'mes_wip_total_snapshots',
     'data_quality_issues',
     'data_reconciliation_items',
     'daily_reports',
@@ -85,14 +90,22 @@ CONSUMABLE_REFERENCE_FIELD_ALIASES = {
     'ingot_output_tons': ('铸锭下机量', '铸锭产量', '铸锭产出量', 'ingot_output_tons'),
 }
 OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
-    'total_electricity_kwh': ('全厂用电', '全厂总用电', '全厂高压总用电量', '高压总用电量', '总用电', 'total_electricity_kwh'),
+    'total_electricity_kwh': (
+        '全厂用电',
+        '全厂总用电',
+        '全厂高压用电',
+        '全厂高压总用电量',
+        '高压总用电量',
+        '总用电',
+        'total_electricity_kwh',
+    ),
     'new_plant_electricity_kwh': ('新厂用电', '新厂总用电', 'new_plant_electricity_kwh'),
     'park_electricity_kwh': ('园区用电', '园区总用电', 'park_electricity_kwh'),
     'cast_roll_gas_m3': ('铸轧用气', '铸轧天然气', 'cast_roll_gas_m3'),
     'smelting_gas_m3': ('熔炼炉用气', '熔炼炉天然气', 'smelting_gas_m3'),
     'heating_furnace_gas_m3': ('加热炉用气', '加热炉天然气', 'heating_furnace_gas_m3'),
     'boiler_gas_m3': ('锅炉用气', '锅炉天然气', 'boiler_gas_m3'),
-    'total_gas_m3': ('天然气总量', '燃气总量', '全厂用气', 'total_gas_m3'),
+    'total_gas_m3': ('天然气总量', '燃气总量', '全厂用气', '气耗共计', '用气共计', 'total_gas_m3'),
     'groundwater_ton': ('地下水', '地下水用量', 'groundwater_ton'),
     'tap_water_ton': ('自来水', '自来水用量', 'tap_water_ton'),
     'daily_contract_weight': ('当天接合同', '当日接合同', '当日合同', '日接合同', 'daily_contract_weight'),
@@ -112,17 +125,34 @@ OWNER_DAILY_REFERENCE_FIELD_ALIASES = {
         'remaining_contract_delta_weight',
     ),
     'billet_inventory_weight': ('坯料总量', '坯料库存', '坯料结存', 'billet_inventory_weight'),
-    'daily_input_weight': ('当日投料', '日投料', 'daily_input_weight'),
+    'daily_input_weight': ('当日投料', '日投料', '当天冷轧投料', '冷轧投料', 'daily_input_weight'),
     'month_to_date_input_weight': ('月累计投料', '投料月累计', '月累投料', 'month_to_date_input_weight'),
 }
 COST_REFERENCE_FIELD_ALIASES = {
     'electricity_cost': ('电费', '用电成本', '电力成本', 'electricity_cost'),
     'natural_gas_cost': ('气费', '天然气费', '燃气费', '天然气成本', '燃气成本', 'natural_gas_cost'),
 }
+WIP_REFERENCE_FIELD_ALIASES = {
+    'wip_total': ('当天在制料', '在制料总计', '在制料', '在制总量', 'wip_total'),
+    'wip_1650_2050_cold': ('1650/2050冷轧', '1650和2050冷轧', 'wip_1650_2050_cold'),
+    'wip_1850_cold': ('1850冷轧', 'wip_1850_cold'),
+    'wip_milling': ('铣床', 'wip_milling'),
+    'wip_anneal_total': ('退火分厂', '退火在制', 'wip_anneal_total'),
+    'wip_new_north': ('新厂北线', '北线退火', 'wip_new_north'),
+    'wip_new_south': ('新厂南线', '南线退火', 'wip_new_south'),
+    'wip_park_anneal': ('园区退火', '园区在线退火', 'wip_park_anneal'),
+    'wip_finishing_total': ('精整分厂', '精整在制', 'wip_finishing_total'),
+    'wip_straightening': ('拉矫', 'wip_straightening'),
+    'wip_finishing': ('精整', 'wip_finishing'),
+    'wip_park_finishing': ('园区精整', 'wip_park_finishing'),
+    'wip_hot_plate_shearing': ('热轧中厚板剪切', '中厚板剪切', 'wip_hot_plate_shearing'),
+    'wip_coating': ('彩涂', 'wip_coating'),
+}
 REFERENCE_FIELD_ALIASES = {
     **CONSUMABLE_REFERENCE_FIELD_ALIASES,
     **OWNER_DAILY_REFERENCE_FIELD_ALIASES,
     **COST_REFERENCE_FIELD_ALIASES,
+    **WIP_REFERENCE_FIELD_ALIASES,
 }
 NUMERIC_REFERENCE_FIELDS = {
     'input_tons',
@@ -515,7 +545,7 @@ def _excel_field(header: str) -> str | None:
         return 'input_tons'
     if '能耗' in header or '电量' in header or 'kwh' in header:
         return 'energy_kwh'
-    if '燃气' in header or '用气' in header or '气量' in header or '天然气' in header or 'gas_m3' in header:
+    if '燃气' in header or '然气' in header or '用气' in header or '气量' in header or '天然气' in header or 'gas_m3' in header:
         return 'gas_m3'
     if '废料' in header or '废品' in header:
         return 'scrap_tons'
@@ -565,41 +595,98 @@ def _normalize_reference_number(field: str, value: Any) -> float | None:
     return number
 
 
+REFERENCE_DIMENSION_FIELDS = {
+    'business_date',
+    'workshop',
+    'shift',
+    'machine',
+    'machine_code',
+    'process',
+    'coil_no',
+    'contract_no',
+    'customer',
+    'source_file',
+    'source_type',
+}
+
+
+def _reference_text(value: Any) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def _reference_row_has_metric(row: Mapping[str, Any]) -> bool:
+    return any(field not in REFERENCE_DIMENSION_FIELDS and value not in (None, '') for field, value in row.items())
+
+
+def _finalize_reference_row(row: dict[str, Any], *, path: Path, source_type: str) -> dict[str, Any] | None:
+    if not (row.get('business_date') and row.get('workshop') and _reference_row_has_metric(row)):
+        return None
+    row.setdefault('shift', '')
+    row['source_file'] = str(path)
+    row['source_type'] = source_type
+    return row
+
+
+def _default_business_date(sheet_name: Any, path: Path) -> str | None:
+    return _to_date_text(sheet_name) or _to_date_text(path.name)
+
+
+def _header_fields(values: Sequence[Any]) -> dict[int, str]:
+    return {
+        index: field
+        for index, header in enumerate(values)
+        if (field := _excel_field(_normalize_header(header))) is not None
+    }
+
+
+def _header_row_index(rows: Sequence[Sequence[Any]]) -> int | None:
+    for index, values in enumerate(rows):
+        fields = set(_header_fields(values).values())
+        if 'workshop' in fields and _reference_row_has_metric({field: 1 for field in fields}):
+            return index
+    return None
+
+
 def _parse_excel_rows(path: Path) -> list[dict[str, Any]]:
     if path.suffix.lower() == '.xls':
         return _parse_xls_rows(path)
 
     workbook = load_workbook(path, read_only=True, data_only=True)
-    sheet = workbook.active
-    rows_iter = sheet.iter_rows(values_only=True)
-    headers = next(rows_iter, None)
-    if not headers:
-        return []
-
-    field_by_index = {
-        index: field
-        for index, header in enumerate(headers)
-        if (field := _excel_field(_normalize_header(header))) is not None
-    }
     parsed_rows: list[dict[str, Any]] = []
-    for values in rows_iter:
-        row: dict[str, Any] = {}
-        for index, value in enumerate(values):
-            field = field_by_index.get(index)
-            if not field or value in (None, ''):
-                continue
-            if field == 'business_date':
-                row[field] = _to_date_text(value)
-            elif field in NUMERIC_REFERENCE_FIELDS:
-                number = _normalize_reference_number(field, value)
-                if number is not None:
-                    row[field] = number
-            else:
-                row[field] = str(value).strip()
-        if row.get('business_date') and row.get('workshop') and row.get('shift'):
-            row['source_file'] = str(path)
-            row['source_type'] = 'output_skill_excel'
-            parsed_rows.append(row)
+    for sheet in workbook.worksheets:
+        sheet_rows = [tuple(values) for values in sheet.iter_rows(values_only=True)]
+        header_index = _header_row_index(sheet_rows)
+        if header_index is None:
+            continue
+        field_by_index = _header_fields(sheet_rows[header_index])
+        default_date = _default_business_date(sheet.title, path)
+        current_process = ''
+        for values in sheet_rows[header_index + 1 :]:
+            row: dict[str, Any] = {}
+            for index, value in enumerate(values):
+                field = field_by_index.get(index)
+                if not field or value in (None, ''):
+                    continue
+                if field in row:
+                    continue
+                if field == 'business_date':
+                    row[field] = _to_date_text(value)
+                elif field in NUMERIC_REFERENCE_FIELDS:
+                    number = _normalize_reference_number(field, value)
+                    if number is not None:
+                        row[field] = number
+                else:
+                    row[field] = _reference_text(value)
+            if not row.get('business_date') and default_date:
+                row['business_date'] = default_date
+            if row.get('process'):
+                current_process = str(row['process'])
+            elif current_process:
+                row['process'] = current_process
+            if finalized := _finalize_reference_row(row, path=path, source_type='output_skill_excel'):
+                parsed_rows.append(finalized)
     workbook.close()
     return parsed_rows
 
@@ -608,40 +695,64 @@ def _parse_xls_rows(path: Path) -> list[dict[str, Any]]:
     import xlrd
 
     workbook = xlrd.open_workbook(str(path))
-    sheet = workbook.sheet_by_index(0)
-    if sheet.nrows < 1:
+    parsed_rows: list[dict[str, Any]] = []
+    for sheet in workbook.sheets():
+        if sheet.nrows < 1:
+            continue
+        sheet_rows = [tuple(sheet.row_values(row_index)) for row_index in range(sheet.nrows)]
+        header_index = _header_row_index(sheet_rows)
+        if header_index is None:
+            continue
+        field_by_index = _header_fields(sheet_rows[header_index])
+        default_date = _default_business_date(sheet.name, path)
+        current_process = ''
+        for row_index in range(header_index + 1, sheet.nrows):
+            row: dict[str, Any] = {}
+            for index, value in enumerate(sheet.row_values(row_index)):
+                field = field_by_index.get(index)
+                if not field or value in (None, ''):
+                    continue
+                if field in row:
+                    continue
+                if field == 'business_date':
+                    cell = sheet.cell(row_index, index)
+                    if cell.ctype == xlrd.XL_CELL_DATE:
+                        row[field] = xlrd.xldate.xldate_as_datetime(value, workbook.datemode).date().isoformat()
+                    else:
+                        row[field] = _to_date_text(value)
+                elif field in NUMERIC_REFERENCE_FIELDS:
+                    number = _normalize_reference_number(field, value)
+                    if number is not None:
+                        row[field] = number
+                else:
+                    row[field] = _reference_text(value)
+            if not row.get('business_date') and default_date:
+                row['business_date'] = default_date
+            if row.get('process'):
+                current_process = str(row['process'])
+            elif current_process:
+                row['process'] = current_process
+            if finalized := _finalize_reference_row(row, path=path, source_type='output_skill_excel'):
+                parsed_rows.append(finalized)
+    return parsed_rows
+
+
+def _parse_delivery_override_rows(payload: Mapping[str, Any], path: Path) -> list[dict[str, Any]]:
+    current_date = _to_date_text(path.name)
+    summaries = payload.get('summaries')
+    if not current_date or not isinstance(summaries, Mapping):
         return []
 
-    headers = sheet.row_values(0)
-    field_by_index = {
-        index: field
-        for index, header in enumerate(headers)
-        if (field := _excel_field(_normalize_header(header))) is not None
-    }
-    parsed_rows: list[dict[str, Any]] = []
-    for row_index in range(1, sheet.nrows):
-        row: dict[str, Any] = {}
-        for index, value in enumerate(sheet.row_values(row_index)):
-            field = field_by_index.get(index)
-            if not field or value in (None, ''):
-                continue
-            if field == 'business_date':
-                cell = sheet.cell(row_index, index)
-                if cell.ctype == xlrd.XL_CELL_DATE:
-                    row[field] = xlrd.xldate.xldate_as_datetime(value, workbook.datemode).date().isoformat()
-                else:
-                    row[field] = _to_date_text(value)
-            elif field in NUMERIC_REFERENCE_FIELDS:
-                number = _normalize_reference_number(field, value)
-                if number is not None:
-                    row[field] = number
-            else:
-                row[field] = str(value).strip()
-        if row.get('business_date') and row.get('workshop') and row.get('shift'):
-            row['source_file'] = str(path)
-            row['source_type'] = 'output_skill_excel'
-            parsed_rows.append(row)
-    return parsed_rows
+    rows: list[dict[str, Any]] = []
+    for value in summaries.values():
+        if not isinstance(value, str):
+            continue
+        row = _factory_narrative_row(value, current_date, path)
+        if not row:
+            continue
+        row['source_type'] = 'output_skill_json'
+        rows.append(row)
+    return rows
 
 
 def _json_reference_records(payload: Any) -> list[Mapping[str, Any]]:
@@ -675,16 +786,17 @@ def _json_record_rows(records: Iterable[Mapping[str, Any]], *, path: Path, sourc
                 row[field] = str(value).strip()
         if not row.get('business_date') and default_date:
             row['business_date'] = default_date
-        if row.get('business_date') and row.get('workshop') and row.get('shift'):
-            row['source_file'] = str(path)
-            row['source_type'] = source_type
-            parsed_rows.append(row)
+        if finalized := _finalize_reference_row(row, path=path, source_type=source_type):
+            parsed_rows.append(finalized)
     return parsed_rows
 
 
 def _parse_json_rows(path: Path) -> list[dict[str, Any]]:
     payload = json.loads(_read_reference_text(path))
-    return _json_record_rows(_json_reference_records(payload), path=path, source_type='output_skill_json')
+    rows = _json_record_rows(_json_reference_records(payload), path=path, source_type='output_skill_json')
+    if not rows and isinstance(payload, Mapping):
+        rows = _parse_delivery_override_rows(payload, path)
+    return rows
 
 
 def _parse_json_lines_rows(path: Path) -> list[dict[str, Any]]:
@@ -975,6 +1087,110 @@ def _owner_daily_payload_metrics(payload: Mapping[str, Any] | None) -> dict[str,
     }
 
 
+def _latest_wip_total_by_workshop(db: Session, *, business_date: date) -> dict[str, dict[str, Any]]:
+    try:
+        query = db.query(MesWipTotalSnapshot)
+        start_at, end_at = production_business_window(business_date)
+        dated_query = query.filter(
+            MesWipTotalSnapshot.snapshot_at >= start_at,
+            MesWipTotalSnapshot.snapshot_at < end_at,
+        )
+        if dated_query.limit(1).first() is not None:
+            query = dated_query
+        else:
+            latest_snapshot_at = query.with_entities(func.max(MesWipTotalSnapshot.snapshot_at)).scalar()
+            if latest_snapshot_at is None:
+                return {}
+            query = query.filter(MesWipTotalSnapshot.snapshot_at == latest_snapshot_at)
+
+        rows = (
+            query.with_entities(
+                MesWipTotalSnapshot.workshop_name,
+                func.sum(MesWipTotalSnapshot.doing_count),
+                func.sum(MesWipTotalSnapshot.doing_weight_tons),
+            )
+            .group_by(MesWipTotalSnapshot.workshop_name)
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return {}
+
+    result: dict[str, dict[str, Any]] = {}
+    for workshop, count, weight in rows:
+        key = _normalize_text(workshop)
+        if not key:
+            continue
+        result[key] = {
+            'workshop': str(workshop or ''),
+            'coil_count': int(count or 0),
+            'wip_total': _to_float(weight) or 0.0,
+        }
+    return result
+
+
+def _build_wip_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
+    fallback_by_workshop = _latest_wip_total_by_workshop(db, business_date=business_date)
+    try:
+        daily_rows = (
+            db.query(
+                MesDailyWipSnapshot.workshop_name,
+                func.sum(MesDailyWipSnapshot.coil_count),
+                func.sum(MesDailyWipSnapshot.material_weight_tons),
+                func.sum(MesDailyWipSnapshot.feeding_weight_tons),
+            )
+            .filter(MesDailyWipSnapshot.business_date == business_date)
+            .group_by(MesDailyWipSnapshot.workshop_name)
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        daily_rows = []
+
+    rows: list[dict[str, Any]] = []
+    used_workshops: set[str] = set()
+    for workshop, count, weight, feeding_weight in daily_rows:
+        key = _normalize_text(workshop)
+        fallback = fallback_by_workshop.get(key)
+        total_weight = _to_float(weight) or 0.0
+        source_basis = 'mes_daily_wip_snapshots'
+        coil_count = int(count or 0)
+        if total_weight <= 0 and fallback and fallback['wip_total'] > 0:
+            total_weight = fallback['wip_total']
+            coil_count = fallback['coil_count'] or coil_count
+            source_basis = 'mes_wip_total_snapshots'
+        rows.append(
+            {
+                'business_date': business_date.isoformat(),
+                'workshop': str(workshop or ''),
+                'shift': '',
+                'process': '在制料',
+                'machine': '',
+                'wip_total': round(total_weight, 4),
+                'wip_coil_count': coil_count,
+                'wip_feeding_tons': _to_float(feeding_weight) or 0.0,
+                'source_table': source_basis,
+            }
+        )
+        used_workshops.add(key)
+
+    for key, fallback in fallback_by_workshop.items():
+        if key in used_workshops or fallback['wip_total'] <= 0:
+            continue
+        rows.append(
+            {
+                'business_date': business_date.isoformat(),
+                'workshop': fallback['workshop'],
+                'shift': '',
+                'process': '在制料',
+                'machine': '',
+                'wip_total': round(fallback['wip_total'], 4),
+                'wip_coil_count': fallback['coil_count'],
+                'wip_feeding_tons': 0.0,
+                'source_table': 'mes_wip_total_snapshots',
+            }
+        )
+    return rows
+
+
 def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     shift_rows = (
@@ -1189,4 +1405,5 @@ def build_system_mapping_rows(db: Session, *, business_date: date) -> list[dict[
                 'source_table': 'machine_daily_cost_snapshots',
             }
         )
+    rows.extend(_build_wip_mapping_rows(db, business_date=business_date))
     return rows

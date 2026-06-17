@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 
 import pytest
@@ -14,7 +14,7 @@ from app.models.consumable import DailyConsumableLog
 from app.models.energy import MachineEnergyRecord
 from app.models.executive import CostDailyResult, MachineDailyCostSnapshot
 from app.models.master import Equipment, Team, Workshop
-from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
+from app.models.mes import MesDailyWipSnapshot, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -44,6 +44,8 @@ RECONCILIATION_TABLES = [
     DailyConsumableLog.__table__,
     MesWorkshopProcessRecord.__table__,
     MesStockRecord.__table__,
+    MesDailyWipSnapshot.__table__,
+    MesWipTotalSnapshot.__table__,
 ]
 
 
@@ -326,6 +328,7 @@ def test_parse_output_skill_text_file_extracts_factory_narrative_rows(tmp_path) 
             'smelting_gas_m3': 25991.0,
             'heating_furnace_gas_m3': 8430.0,
             'boiler_gas_m3': 867.0,
+            'wip_total': 1205.0,
             'total_gas_m3': 59141.0,
             'source_file': str(report),
             'source_type': 'output_skill_text',
@@ -567,6 +570,96 @@ def test_parse_output_skill_xls_file_normalizes_common_columns(tmp_path) -> None
             'source_file': str(report),
             'source_type': 'output_skill_excel',
         }
+    ]
+
+
+def test_parse_output_skill_xls_summary_sheet_accepts_missing_shift_and_header_offset(tmp_path) -> None:
+    xlwt = pytest.importorskip('xlwt')
+
+    report = tmp_path / '2026-6-16_日均报表.xls'
+    workbook = xlwt.Workbook()
+    sheet = workbook.add_sheet('2026-6-16')
+    for row_index in range(4):
+        sheet.write(row_index, 0, '各工序产量报表' if row_index == 0 else '')
+    headers = ['工序', '车间', '日投料量', '月累计投料', '日产量', '月累计产量', '日期', '日电度', '日然气']
+    values = ['铸轧', '铸二', 25, 664, 24.31, 644.95, 16, 2869, 4678]
+    for index, header in enumerate(headers):
+        sheet.write(4, index, header)
+    for index, value in enumerate(values):
+        sheet.write(5, index, value)
+    workbook.save(str(report))
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-16',
+            'workshop': '铸二',
+            'process': '铸轧',
+            'daily_input_weight': 25.0,
+            'month_to_date_input_weight': 664.0,
+            'output_tons': 24.31,
+            'energy_kwh': 2869.0,
+            'gas_m3': 4678.0,
+            'shift': '',
+            'source_file': str(report),
+            'source_type': 'output_skill_excel',
+        }
+    ]
+
+
+def test_parse_delivery_override_json_extracts_summary_rows(tmp_path) -> None:
+    report = tmp_path / 'delivery_override_2026-06-16.json'
+    report.write_text(
+        json.dumps(
+            {
+                'rows': {'40': {'out_day': 328.033}},
+                'summaries': {
+                    'contract': '当天接合同66吨（含热轧66吨），月累计合同5408吨（含热轧4449吨），总余合同量2569吨。',
+                    'feed': '当天冷轧投料197吨；坯料总量458吨；入库成品328.033吨。',
+                    'power': '全厂高压用电168000度，分项用电166533度；气耗共计57776m³。',
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding='utf-8',
+    )
+
+    result = parse_output_skill_reference_file(report)
+
+    assert result['status'] == 'parsed'
+    assert result['source_type'] == 'output_skill_json'
+    assert result['rows'] == [
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'daily_contract_weight': 66.0,
+            'daily_hot_roll_contract_weight': 66.0,
+            'month_to_date_contract_weight': 5408.0,
+            'remaining_contract_weight': 2569.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_json',
+        },
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'billet_inventory_weight': 458.0,
+            'daily_input_weight': 197.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_json',
+        },
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'total_electricity_kwh': 168000.0,
+            'total_gas_m3': 57776.0,
+            'source_file': str(report),
+            'source_type': 'output_skill_json',
+        },
     ]
 
 
@@ -982,6 +1075,49 @@ def test_build_system_mapping_rows_flattens_owner_daily_contract_payload() -> No
             'tap_water_ton': 4295.0,
         },
         'source_table': 'work_order_entries',
+    } in rows
+
+
+def test_build_system_mapping_rows_flattens_wip_with_total_snapshot_fallback() -> None:
+    engine = create_engine('sqlite:///:memory:')
+    Base.metadata.create_all(engine, tables=RECONCILIATION_TABLES)
+
+    with Session(engine) as db:
+        db.add_all(
+            [
+                MesDailyWipSnapshot(
+                    business_date=date(2026, 6, 16),
+                    workshop_name='新厂在线车间',
+                    process_name='北线退火',
+                    coil_count=3,
+                    material_weight_tons=None,
+                    feeding_weight_tons=28.5,
+                    source='mes_coil_snapshot',
+                ),
+                MesWipTotalSnapshot(
+                    source_id='新厂在线车间:北线退火',
+                    workshop_name='新厂在线车间',
+                    process_name='北线退火',
+                    doing_count=588,
+                    doing_weight_tons=4466.5,
+                    snapshot_at=datetime(2026, 6, 16, 8, 0, tzinfo=UTC),
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = build_system_mapping_rows(db, business_date=date(2026, 6, 16))
+
+    assert {
+        'business_date': '2026-06-16',
+        'workshop': '新厂在线车间',
+        'shift': '',
+        'process': '在制料',
+        'machine': '',
+        'wip_total': 4466.5,
+        'wip_coil_count': 588,
+        'wip_feeding_tons': 28.5,
+        'source_table': 'mes_wip_total_snapshots',
     } in rows
 
 

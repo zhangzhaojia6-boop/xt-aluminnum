@@ -773,6 +773,15 @@ const defaultMappingFields = [
     weight: 8
   },
   {
+    metric: 'wip_total',
+    reference_field: 'wip_total',
+    system_field: 'wip_total',
+    reference_unit: 'ton',
+    system_unit: 'ton',
+    tolerance: 0.01,
+    weight: 8
+  },
+  {
     metric: 'daily_input',
     reference_field: 'daily_input_weight',
     system_field: 'daily_input_weight',
@@ -965,6 +974,7 @@ function metricLabel(value) {
     remaining_hot_roll_contract: '余热轧合同',
     remaining_contract_delta: '余合同较昨日',
     billet_inventory: '坯料总量',
+    wip_total: '在制料',
     daily_input: '当日投料',
     month_to_date_input: '月累计投料',
     cost: '吨成本',
