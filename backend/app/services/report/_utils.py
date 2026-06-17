@@ -43,6 +43,8 @@ from app.services.production_service import (
 )
 
 
+PRODUCTION_FORECAST_REPORT_TYPE = 'production_forecast'
+
 VALID_REPORT_TYPES = ('production', 'attendance', 'exception')
 
 CANONICAL_REPORT_SCOPE = AUTO_CONFIRMED_REPORT_STATUS

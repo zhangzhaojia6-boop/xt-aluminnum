@@ -838,6 +838,94 @@ def generate_daily_reports(
         db.refresh(item)
     return entities
 
+def generate_production_stage_report(
+    db: Session,
+    *,
+    report_date: date,
+    stage: str,
+    scope: str,
+    output_mode: str,
+    operator: User,
+) -> list[DailyReport]:
+    if stage not in {'forecast', 'final'}:
+        raise ValueError('stage must be forecast or final')
+    if output_mode not in VALID_OUTPUT_MODES:
+        raise ValueError('output_mode must be json, text or both')
+
+    canonical_scope = _normalize_scope(scope)
+    stage_label = '07:30预报' if stage == 'forecast' else '09:30终报'
+    saved_report_type = PRODUCTION_FORECAST_REPORT_TYPE if stage == 'forecast' else 'production'
+    now = datetime.now(timezone.utc)
+
+    report_data, text_summary = _generate_report_payload(
+        db,
+        report_date=report_date,
+        report_type='production',
+        scope=canonical_scope,
+    )
+    report_data = dict(report_data)
+    report_data['report_stage'] = stage
+    report_data['stage_label'] = stage_label
+    report_data['generated_cutoff_label'] = stage_label
+
+    payload_data, payload_text = _apply_output_mode(
+        report_data=report_data,
+        text_summary=text_summary,
+        output_mode=output_mode,
+    )
+
+    entity = (
+        db.query(DailyReport)
+        .filter(DailyReport.report_date == report_date, DailyReport.report_type == saved_report_type)
+        .first()
+    )
+    if entity is None:
+        entity = DailyReport(
+            report_date=report_date,
+            report_type=saved_report_type,
+            report_data=payload_data,
+            text_summary=payload_text,
+            status='draft',
+            generated_scope=canonical_scope,
+            output_mode=output_mode,
+            generated_at=now,
+            is_final_version=stage == 'final',
+        )
+        db.add(entity)
+    else:
+        entity.report_data = payload_data
+        entity.text_summary = payload_text
+        entity.generated_scope = canonical_scope
+        entity.output_mode = output_mode
+        entity.generated_at = now
+        entity.is_final_version = stage == 'final'
+        if not getattr(entity, 'status', None):
+            entity.status = 'draft'
+    entity.final_text_summary = text_summary if stage == 'final' else None
+
+    db.flush()
+    record_audit(
+        db,
+        user=operator,
+        action='generate_report_stage',
+        module='reports',
+        entity_type='daily_reports',
+        entity_id=entity.id,
+        detail={
+            'report_date': report_date.isoformat(),
+            'report_type': saved_report_type,
+            'stage': stage,
+            'scope': canonical_scope,
+            'requested_scope': scope,
+            'output_mode': output_mode,
+        },
+        auto_commit=False,
+    )
+
+    db.commit()
+    db.refresh(entity)
+    return [entity]
+
 def review_report(
     db: Session,
     *,
