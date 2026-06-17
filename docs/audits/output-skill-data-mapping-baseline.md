@@ -280,6 +280,8 @@ cd frontend && npm run build
 
 验收时发现一个环境路径问题：后端服务从 `backend` 目录启动，旧默认值 `reference/output-skill` 会解析成 `backend/reference/output-skill`，而生产参考文件在仓库根目录 `reference/output-skill`。本轮已把默认兜底目录改为仓库根目录下的 `reference/output-skill`，并补充“参考文件不存在时返回 400，不返回 500”的路由测试。
 
+gstack 页面真实点击还发现一个业务日过滤问题：页面选择 `2026-6-16_日均报表.xls`、业务日填 `2026-06-16` 时，旧逻辑会把 Excel 里所有日期的 187 行都拿来对比，造成 7,146 条差异。本轮已在 `/api/v1/mapping-reconciliation/run` 解析参考文件后按 `business_date` 过滤参考行，避免跨日期混比。
+
 云端 dry-run 继续暴露 3 个业务口径差异：
 
 | 字段 | `D:\输出skill` | 系统侧 | 判断 |

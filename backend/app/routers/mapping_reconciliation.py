@@ -131,6 +131,13 @@ def _differences_from_request(items: list[MappingDifferenceIn]):
     return [MappingDifference(**item.model_dump()) for item in items]
 
 
+def _filter_rows_by_business_date(rows: list[dict[str, Any]], business_date: date | None) -> list[dict[str, Any]]:
+    if business_date is None:
+        return rows
+    target = business_date.isoformat()
+    return [row for row in rows if str(row.get('business_date') or '') == target]
+
+
 def _dimension_aliases_with_proposals(
     base_aliases: dict[str, dict[str, str]],
     proposals: list[dict[str, Any]],
@@ -166,6 +173,8 @@ def _resolve_rows(
         if reference_parse['status'] != 'parsed':
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=reference_parse)
         reference_rows = reference_parse['rows']
+        reference_rows = _filter_rows_by_business_date(reference_rows, body.business_date)
+        reference_parse['rows'] = reference_rows
 
     if body.business_date and not system_rows:
         system_rows = build_system_mapping_rows(db, business_date=body.business_date)

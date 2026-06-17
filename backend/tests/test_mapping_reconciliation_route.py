@@ -513,6 +513,8 @@ def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_row
     reference_dir = tmp_path / 'output-skill'
     reference_dir.mkdir()
     (reference_dir / 'daily.txt').write_text(
+        '2026年6月12日 生产日报\n'
+        '精整 长白班 产量 99 吨\n'
         '2026年6月13日 生产日报\n'
         '精整 长白班 产量 12.5 吨\n',
         encoding='utf-8',
@@ -570,6 +572,7 @@ def test_mapping_reconciliation_run_can_parse_reference_file_and_read_system_row
     payload = response.json()
     assert payload['run_mode'] == 'dry_run'
     assert payload['reference_parse']['status'] == 'parsed'
+    assert payload['reference_rows_count'] == 1
     assert payload['system_rows_count'] == 1
     assert payload['overall_match_rate'] == 100
     assert payload['differences'] == []
