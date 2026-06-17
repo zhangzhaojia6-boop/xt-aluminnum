@@ -13,7 +13,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
-from app.core.active_workshops import get_workshop_data_source_policy
+from app.core.active_workshops import get_workshop_data_source_policy, normalize_workshop_name
 from app.core.business_time import resolve_production_business_date
 from app.core.scope import (
     build_scope_summary,
@@ -34,7 +34,7 @@ from app.core.workshop_templates import (
 from app.models.attendance import AttendanceSchedule, EmployeeAttendanceDetail, ShiftAttendanceConfirmation
 from app.models.energy import MachineEnergyRecord
 from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Workshop
-from app.models.mes import MesCoilSnapshot
+from app.models.mes import MesCoilSnapshot, MesMaterialRecord, MesWorkshopProcessRecord
 from app.models.production import MobileShiftReport, ShiftProductionData, WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -802,7 +802,6 @@ def aggregate_live_payload(
     factory_output = 0.0
     factory_scrap = 0.0
     overall_entry_counts = _entry_count_summary(entries)
-    mes_weight_available = any(_is_mes_weight_entry(item) for item in entries)
     pending_assignment = _build_pending_assignment_summary(entries=entries, workshops=workshops, shifts=shifts)
     missing_output_weight = _build_missing_output_weight_summary(
         entries=entries,
@@ -874,6 +873,7 @@ def aggregate_live_payload(
                 draft_count = len([item for item in rows if item.get('entry_status') == 'draft'])
                 total_count = len(rows)
                 formal_rows = [item for item in rows if _is_formal_entry(item)]
+                mes_weight_available = any(_is_mes_weight_entry(item) for item in formal_rows)
                 weight_rows = [item for item in formal_rows if _is_mes_weight_entry(item)] if mes_weight_available else formal_rows
                 input_total = round(sum(_entry_weight_tons(item, 'input_weight') for item in weight_rows), 2)
                 output_total = round(sum(_entry_weight_tons(item, 'output_weight') for item in weight_rows), 2)
@@ -1387,6 +1387,357 @@ def _build_mtd_totals(
     }
 
 
+def _safe_equipment_aliases(db: Session) -> list[MasterCodeAlias]:
+    try:
+        return (
+            db.query(MasterCodeAlias)
+            .filter(
+                MasterCodeAlias.entity_type == 'equipment',
+                MasterCodeAlias.is_active.is_(True),
+            )
+            .all()
+        )
+    except (OperationalError, ProgrammingError):
+        return []
+
+
+def _safe_terminal_bindings(db: Session) -> list[MesTerminalBinding]:
+    try:
+        return db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
+    except (OperationalError, ProgrammingError):
+        return []
+
+
+def _machine_in_workshop(machine: Equipment | None, workshop: Workshop) -> bool:
+    return (
+        machine is not None
+        and getattr(machine, 'workshop_id', None) is not None
+        and int(machine.workshop_id) == int(workshop.id)
+    )
+
+
+def _preferred_hot_roll_material_machine(machines: list[Equipment]) -> Equipment | None:
+    for machine in machines:
+        code = str(getattr(machine, 'code', '') or '').strip().upper()
+        name = str(getattr(machine, 'name', '') or '').strip()
+        if code == 'RZ-ZJ' or name == '热轧机':
+            return machine
+    return None
+
+
+def _resolve_mes_output_machine(
+    *,
+    machines: list[Equipment],
+    machine_by_id: dict[int, Equipment],
+    aliases: list[MasterCodeAlias],
+    terminal_bindings: list[MesTerminalBinding],
+    workshop: Workshop,
+    device_name: object | None,
+    process_hint: object | None,
+    terminal_hints: Mapping[str, Any] | None,
+    event_time: datetime | None,
+) -> tuple[Equipment | None, str]:
+    binding = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        device_name=device_name,
+        process_hint=process_hint,
+        preferred_workshop_id=int(workshop.id),
+        aliases=aliases,
+        terminal_bindings=terminal_bindings,
+        terminal_hints=terminal_hints,
+        workshop_name=workshop.name,
+        event_time=event_time,
+    )
+    machine_id = _optional_int(binding.get('machine_id'))
+    machine = machine_by_id.get(machine_id) if machine_id is not None else None
+    if _machine_in_workshop(machine, workshop):
+        return machine, str(binding.get('source') or 'resolved')
+    return None, str(binding.get('source') or 'unresolved')
+
+
+def _append_mes_machine_output(
+    result: dict[tuple[int, int], dict[str, Any]],
+    *,
+    workshop: Workshop,
+    machine: Equipment,
+    input_weight: float,
+    output_weight: float,
+    pass_count: int,
+    source_basis: str,
+    source_label: str,
+    binding_source: str,
+) -> None:
+    key = (int(workshop.id), int(machine.id))
+    bucket = result.setdefault(
+        key,
+        {
+            'input': 0.0,
+            'output': 0.0,
+            'scrap': 0.0,
+            'pass_count_total': 0,
+            'row_count': 0,
+            'source_basis': source_basis,
+            'source_label': source_label,
+            'binding_sources': {},
+        },
+    )
+    bucket['input'] += input_weight
+    bucket['output'] += output_weight
+    bucket['pass_count_total'] += pass_count
+    bucket['row_count'] += 1
+    binding_sources = bucket.setdefault('binding_sources', {})
+    binding_sources[binding_source] = int(binding_sources.get(binding_source, 0)) + 1
+
+
+def _load_mes_machine_output_scope(
+    db: Session,
+    *,
+    business_date: date,
+    workshops: list[Workshop],
+    machines: list[Equipment],
+) -> dict[tuple[int, int], dict[str, Any]]:
+    result: dict[tuple[int, int], dict[str, Any]] = {}
+    if not workshops or not machines:
+        return result
+
+    material_workshops = [
+        workshop
+        for workshop in workshops
+        if normalize_workshop_name(workshop.name) in daily_overview_builder.BILLET_MATERIAL_WORKSHOP_MAPPINGS
+    ]
+    process_workshops = [
+        workshop
+        for workshop in workshops
+        if normalize_workshop_name(workshop.name) not in daily_overview_builder.BILLET_MATERIAL_WORKSHOP_MAPPINGS
+        and get_workshop_data_source_policy(workshop.name).get('primary_source') == 'mes'
+    ]
+    if not material_workshops and not process_workshops:
+        return result
+
+    machine_by_id = {int(machine.id): machine for machine in machines if getattr(machine, 'id', None) is not None}
+    machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
+    for machine in machines:
+        if getattr(machine, 'workshop_id', None) is not None:
+            machines_by_workshop[int(machine.workshop_id)].append(machine)
+    aliases = _safe_equipment_aliases(db)
+    terminal_bindings = _safe_terminal_bindings(db)
+
+    if material_workshops:
+        try:
+            start_at, end_at = daily_overview_builder._billet_material_business_window(business_date, business_date)
+            material_rows = (
+                db.query(MesMaterialRecord)
+                .filter(
+                    MesMaterialRecord.production_date >= start_at,
+                    MesMaterialRecord.production_date < end_at,
+                )
+                .order_by(MesMaterialRecord.id.asc())
+                .all()
+            )
+        except (OperationalError, ProgrammingError):
+            material_rows = []
+        for row in material_rows:
+            output_weight = daily_overview_builder._mes_material_weight_tons(row)
+            if output_weight <= 0:
+                continue
+            matched_workshop = next(
+                (workshop for workshop in material_workshops if daily_overview_builder._mes_material_row_matches_workshop(row, workshop)),
+                None,
+            )
+            if matched_workshop is None:
+                continue
+            process_hint = row.position_name or row.line_name or row.workshop_name
+            machine, binding_source = _resolve_mes_output_machine(
+                machines=machines,
+                machine_by_id=machine_by_id,
+                aliases=aliases,
+                terminal_bindings=terminal_bindings,
+                workshop=matched_workshop,
+                device_name=row.line_name,
+                process_hint=process_hint,
+                terminal_hints=row.source_payload if isinstance(row.source_payload, dict) else {},
+                event_time=row.production_date,
+            )
+            if machine is None and normalize_workshop_name(matched_workshop.name) == '热轧':
+                machine = _preferred_hot_roll_material_machine(machines_by_workshop.get(int(matched_workshop.id), []))
+                binding_source = 'hot_roll_material_default' if machine is not None else binding_source
+            if machine is None:
+                continue
+            _append_mes_machine_output(
+                result,
+                workshop=matched_workshop,
+                machine=machine,
+                input_weight=output_weight,
+                output_weight=output_weight,
+                pass_count=1,
+                source_basis='mes_material_records',
+                source_label='外部 MES 坯料卷产量',
+                binding_source=binding_source,
+            )
+
+    if process_workshops:
+        try:
+            process_rows = (
+                db.query(MesWorkshopProcessRecord)
+                .filter(MesWorkshopProcessRecord.business_date == business_date)
+                .order_by(MesWorkshopProcessRecord.id.asc())
+                .all()
+            )
+        except (OperationalError, ProgrammingError):
+            process_rows = []
+        for row in process_rows:
+            output_weight = daily_overview_builder._mes_output_tons(row)
+            if output_weight <= 0:
+                continue
+            matched_workshop = next(
+                (workshop for workshop in process_workshops if daily_overview_builder._mes_row_matches_workshop(row, workshop)),
+                None,
+            )
+            if matched_workshop is None:
+                continue
+            machine, binding_source = _resolve_mes_output_machine(
+                machines=machines,
+                machine_by_id=machine_by_id,
+                aliases=aliases,
+                terminal_bindings=terminal_bindings,
+                workshop=matched_workshop,
+                device_name=row.device_name,
+                process_hint=row.process_name,
+                terminal_hints=row.source_payload if isinstance(row.source_payload, dict) else {},
+                event_time=row.end_time,
+            )
+            if machine is None:
+                continue
+            _append_mes_machine_output(
+                result,
+                workshop=matched_workshop,
+                machine=machine,
+                input_weight=daily_overview_builder._mes_input_tons(row),
+                output_weight=output_weight,
+                pass_count=daily_overview_builder._process_row_pass_count(row),
+                source_basis='mes_workshop_process_records',
+                source_label='外部 MES 过站产量',
+                binding_source=binding_source,
+            )
+
+    for bucket in result.values():
+        bucket['input'] = round(_to_float(bucket.get('input')), 2)
+        bucket['output'] = round(_to_float(bucket.get('output')), 2)
+        bucket['scrap'] = round(_to_float(bucket.get('scrap')), 2)
+        bucket['pass_count_total'] = int(bucket.get('pass_count_total') or 0)
+    return result
+
+
+def _apply_mes_machine_output_authority(
+    payload: dict,
+    *,
+    mes_machine_output: dict[tuple[int, int], dict[str, Any]],
+) -> dict:
+    if not mes_machine_output:
+        return payload
+
+    by_workshop: dict[int, dict[int, dict[str, Any]]] = defaultdict(dict)
+    for (workshop_id, machine_id), bucket in mes_machine_output.items():
+        by_workshop[int(workshop_id)][int(machine_id)] = bucket
+
+    for workshop_payload in payload.get('workshops') or []:
+        workshop_id = _optional_int(workshop_payload.get('workshop_id'))
+        if workshop_id is None or workshop_id not in by_workshop:
+            continue
+        machine_buckets = by_workshop[workshop_id]
+        workshop_input = 0.0
+        workshop_output = 0.0
+        workshop_scrap = 0.0
+        workshop_pass_count = 0
+        source_basis = 'mes_machine_output'
+        source_label = '外部 MES 工艺/机台产量'
+
+        for machine_payload in workshop_payload.get('machines') or []:
+            machine_id = _optional_int(machine_payload.get('machine_id'))
+            bucket = machine_buckets.get(machine_id) if machine_id is not None else None
+            day_total = dict(machine_payload.get('day_total') or {})
+            if bucket is None:
+                day_total.update(
+                    {
+                        'input': 0.0,
+                        'output': 0.0,
+                        'scrap': 0.0,
+                        'yield_rate': None,
+                        'yield_rate_source': 'mes_machine_output',
+                        'source_basis': source_basis,
+                        'source_label': source_label,
+                    }
+                )
+                machine_payload['day_total'] = day_total
+                continue
+
+            input_total = _to_float(bucket.get('input'))
+            output_total = _to_float(bucket.get('output'))
+            scrap_total = _to_float(bucket.get('scrap'))
+            workshop_input += input_total
+            workshop_output += output_total
+            workshop_scrap += scrap_total
+            workshop_pass_count += int(bucket.get('pass_count_total') or 0)
+            day_total.update(
+                {
+                    'input': round(input_total, 2),
+                    'output': round(output_total, 2),
+                    'scrap': round(scrap_total, 2),
+                    'yield_rate': _round_rate(input_total, output_total),
+                    'yield_rate_source': 'mes_machine_output',
+                    'source_basis': bucket.get('source_basis') or source_basis,
+                    'source_label': bucket.get('source_label') or source_label,
+                    'row_count': int(bucket.get('row_count') or 0),
+                    'binding_sources': dict(bucket.get('binding_sources') or {}),
+                }
+            )
+            machine_payload['day_total'] = day_total
+
+        workshop_total = dict(workshop_payload.get('workshop_total') or {})
+        workshop_total.update(
+            {
+                'input': round(workshop_input, 2),
+                'output': round(workshop_output, 2),
+                'process_output': round(workshop_output, 2),
+                'scrap': round(workshop_scrap, 2),
+                'yield_rate': _round_rate(workshop_input, workshop_output),
+                'yield_rate_source': 'mes_machine_output',
+                'pass_count_total': int(workshop_pass_count),
+                'source_basis': source_basis,
+                'source_label': source_label,
+            }
+        )
+        workshop_payload['workshop_total'] = workshop_total
+
+    factory_input = 0.0
+    factory_output = 0.0
+    factory_scrap = 0.0
+    factory_pass_count = 0
+    for workshop_payload in payload.get('workshops') or []:
+        total = workshop_payload.get('workshop_total') or {}
+        factory_input += _to_float(total.get('input'))
+        factory_output += _to_float(total.get('output'))
+        factory_scrap += _to_float(total.get('scrap'))
+        factory_pass_count += int(total.get('pass_count_total') or 0)
+
+    factory_total = dict(payload.get('factory_total') or {})
+    factory_total.update(
+        {
+            'input': round(factory_input, 2),
+            'output': round(factory_output, 2),
+            'process_output': round(factory_output, 2),
+            'scrap': round(factory_scrap, 2),
+            'yield_rate': _round_rate(factory_input, factory_output),
+            'yield_rate_source': 'mes_machine_output',
+            'pass_count_total': int(factory_pass_count),
+            'source_basis': 'mes_machine_output',
+            'source_label': '外部 MES 工艺/机台产量',
+        }
+    )
+    payload['factory_total'] = factory_total
+    return payload
+
+
 def _inject_mtd_into_payload(payload: dict, mtd: dict) -> dict:
     by_workshop = mtd.get('by_workshop') or {}
     empty = {
@@ -1398,11 +1749,20 @@ def _inject_mtd_into_payload(payload: dict, mtd: dict) -> dict:
     }
     for workshop in payload.get('workshops') or []:
         ws_id = workshop.get('workshop_id')
-        bucket = by_workshop.get(int(ws_id), empty) if ws_id is not None else empty
+        bucket = dict(by_workshop.get(int(ws_id), empty) if ws_id is not None else empty)
+        if 'source_basis' in bucket:
+            bucket['mtd_source_basis'] = bucket.pop('source_basis')
+        if 'source_label' in bucket:
+            bucket['mtd_source_label'] = bucket.pop('source_label')
         total = workshop.setdefault('workshop_total', {})
         total.update(bucket)
     factory_total = payload.setdefault('factory_total', {})
-    factory_total.update(mtd.get('factory') or {})
+    factory_mtd = dict(mtd.get('factory') or {})
+    if 'source_basis' in factory_mtd:
+        factory_mtd['mtd_source_basis'] = factory_mtd.pop('source_basis')
+    if 'source_label' in factory_mtd:
+        factory_mtd['mtd_source_label'] = factory_mtd.pop('source_label')
+    factory_total.update(factory_mtd)
     return payload
 
 
@@ -2489,6 +2849,15 @@ def build_live_aggregation(
         entries=entries,
         attendance=_build_attendance_summary(db, business_date=business_date, workshop_id=scoped_workshop_id),
         expected_counts=_build_expected_count_map(db, business_date=business_date, workshop_id=scoped_workshop_id),
+    )
+    payload = _apply_mes_machine_output_authority(
+        payload,
+        mes_machine_output=_load_mes_machine_output_scope(
+            db,
+            business_date=business_date,
+            workshops=workshops,
+            machines=machines,
+        ),
     )
     payload = _apply_yield_matrix_authority(
         payload,

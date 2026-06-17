@@ -926,6 +926,80 @@ def test_mtd_totals_use_mes_material_for_hot_roll_and_process_for_downstream(tmp
     assert payload['factory']['mtd_output'] == 103.0
 
 
+def test_live_aggregation_uses_mes_process_and_material_machine_output(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=1, code='RZ', name='热轧车间', workshop_type='hot_roll', sort_order=1, is_active=True),
+            Workshop(id=2, code='LZ1650', name='1650车间', workshop_type='cold_roll', sort_order=2, is_active=True),
+            ShiftConfig(id=3, code='D', name='白班', shift_type='day', start_time=time(8, 0), end_time=time(20, 0), is_active=True),
+            Equipment(
+                id=10,
+                code='RZ-ZJ',
+                name='热轧机',
+                workshop_id=1,
+                equipment_type='hot_mill',
+                sort_order=1,
+                is_active=True,
+            ),
+            Equipment(
+                id=20,
+                code='LZ1650-1',
+                name='1650#',
+                workshop_id=2,
+                equipment_type='cold_mill',
+                sort_order=1,
+                is_active=True,
+            ),
+            MesMaterialRecord(
+                source_id='mat-hot-roll-live',
+                source_path='sqlserver:material_records',
+                material_code='mat-hot-roll-live',
+                workshop_name='热轧车间',
+                line_name='1#',
+                weight_kg=70000,
+                weight_tons=70,
+                production_date=datetime(2026, 6, 17, 8, 5),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='mes-cold-1650-live',
+                source_path='sqlserver',
+                workshop_name='1650车间',
+                process_name='冷轧',
+                device_name='1650冷轧（WAN）',
+                input_weight_tons=35,
+                output_weight_tons=33,
+                business_date=date(2026, 6, 17),
+                source_payload={'pass_count': 11},
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 6, 17),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    hot_machine = payload['workshops'][0]['machines'][0]
+    cold_machine = payload['workshops'][1]['machines'][0]
+    assert hot_machine['day_total']['output'] == 70.0
+    assert hot_machine['day_total']['source_basis'] == 'mes_material_records'
+    assert cold_machine['day_total']['input'] == 35.0
+    assert cold_machine['day_total']['output'] == 33.0
+    assert cold_machine['day_total']['source_basis'] == 'mes_workshop_process_records'
+    assert payload['workshops'][0]['workshop_total']['output'] == 70.0
+    assert payload['workshops'][1]['workshop_total']['output'] == 33.0
+    assert payload['factory_total']['output'] == 103.0
+    assert payload['factory_total']['process_output'] == 103.0
+    assert payload['factory_total']['source_basis'] == 'mes_machine_output'
+
+
 def test_build_live_aggregation_infers_mes_machine_from_route_when_device_missing(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(
