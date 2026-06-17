@@ -15,6 +15,10 @@ test('QRCodePrint keeps the real QR data and print operations', () => {
   assert.match(source, /equipment_type === 'virtual_workshop_qr'/)
   assert.match(source, /主任看板码/)
   assert.match(source, /isDirectorQr/)
+  assert.match(source, /function isPrintableQr/)
+  assert.match(source, /NON_PRINTABLE_ROLE_QR_CODES/)
+  assert.match(source, /bound_user_id/)
+  assert.match(source, /operational_status !== 'running'/)
 })
 
 test('QRCodePrint uses the industrial QR matrix while preserving scan-safe output', () => {
