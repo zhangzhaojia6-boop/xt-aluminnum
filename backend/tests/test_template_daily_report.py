@@ -187,6 +187,14 @@ def test_validate_template_daily_report_blocks_missing_required_fields() -> None
     assert result["text"] is None
 
 
+def test_all_template_required_fields_have_contract_metadata() -> None:
+    from app.services.report.template_daily_field_contract import field_group
+
+    missing = [key for key in template_daily_report.REQUIRED_FIELDS if field_group(key) == "unclassified"]
+
+    assert missing == []
+
+
 def test_build_facts_prefers_manual_outputs_for_user_named_workshops_and_mes_for_others(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'template-daily-report.db'}", future=True)
     Base.metadata.create_all(
