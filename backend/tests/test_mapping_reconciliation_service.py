@@ -155,6 +155,63 @@ def test_compare_mapping_rows_explains_value_diff_and_missing_rows() -> None:
     assert result.differences[1].dimension['workshop'] == '园区剪切'
 
 
+def test_compare_mapping_rows_merges_duplicate_dimensions_without_overwriting_fields() -> None:
+    reference_rows = [
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'wip_total': 879,
+        },
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'total_electricity_kwh': 168000,
+        },
+    ]
+    system_rows = [
+        {
+            'business_date': '2026-06-16',
+            'workshop': '全厂',
+            'shift': '',
+            'wip_total': 879,
+            'total_electricity_kwh': 168000,
+        }
+    ]
+
+    result = compare_mapping_rows(
+        reference_rows=reference_rows,
+        system_rows=system_rows,
+        fields=[
+            MappingFieldSpec(
+                metric='wip_total',
+                reference_field='wip_total',
+                system_field='wip_total',
+                reference_unit='ton',
+                system_unit='ton',
+                tolerance=0.001,
+                weight=8,
+            ),
+            MappingFieldSpec(
+                metric='total_electricity',
+                reference_field='total_electricity_kwh',
+                system_field='total_electricity_kwh',
+                reference_unit='kwh',
+                system_unit='kwh',
+                tolerance=0.1,
+                weight=8,
+            ),
+        ],
+        dimensions=['business_date', 'workshop'],
+    )
+
+    assert result.total_fields == 2
+    assert result.matched_fields == 2
+    assert result.overall_match_rate == 100
+    assert result.differences == []
+
+
 def test_propose_rules_is_dry_run_and_does_not_mutate_source_rows() -> None:
     reference_rows = [
         {

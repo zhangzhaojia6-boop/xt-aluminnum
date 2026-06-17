@@ -897,10 +897,17 @@ def _build_index(
     dimensions: Sequence[str],
     aliases: Mapping[str, Mapping[str, str]] | None,
 ) -> dict[tuple[str, ...], Mapping[str, Any]]:
-    indexed: dict[tuple[str, ...], Mapping[str, Any]] = {}
+    indexed: dict[tuple[str, ...], dict[str, Any]] = {}
     for row in rows:
         dimension = _dimension(row, dimensions, aliases)
-        indexed[_dimension_key(dimension, dimensions)] = row
+        key = _dimension_key(dimension, dimensions)
+        if key not in indexed:
+            indexed[key] = dict(row)
+            continue
+        existing = indexed[key]
+        for field, value in row.items():
+            if existing.get(field) in (None, '') and value not in (None, ''):
+                existing[field] = value
     return indexed
 
 
