@@ -350,3 +350,14 @@ python -m pytest backend/tests/test_mapping_reconciliation_service.py backend/te
 python -m compileall backend/app/services/mapping_reconciliation_service.py backend/app/routers/mapping_reconciliation.py
 通过
 ```
+
+### 14.3 云端只读验收
+
+| 验收项 | 结果 |
+|---|---|
+| 生产机版本 | `07df994c` |
+| 健康检查 | `/readyz` 返回 `status=ready`，数据库和 MES 同步正常 |
+| 默认车间别名 | `铸轧二 -> 铸二`、`1650车间 -> 冷轧1650`、`园区淬火车间 -> 淬火车间` 三项生产环境验证 3/3 匹配 |
+| 2026-06-16 在制料范围 | 当天生产窗口内没有总量快照，不再回退到 2026-06-17 之后的最新快照 |
+| 2026-06-16 在制料缺失处理 | 系统侧不再输出 `wip_total=0`，也不再输出 `1233060` 这类公斤级大数；改为标记 2 条 `missing_material_weight_for_business_date` |
+| 2026-06-17 在制料单位 | 同生产日窗口内总量快照折算后为 `1233.0602` 吨，未出现 10000 吨以上异常大数 |
