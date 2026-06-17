@@ -67,6 +67,20 @@ class ReportPipelineResponse(BaseModel):
     reports: list[DailyReportOut] = []
 
 
+class TemplateDailyReportPreviewRequest(BaseModel):
+    target_date: date
+
+
+class TemplateDailyReportPreviewResponse(BaseModel):
+    status: str
+    target_date: date
+    text: str | None = None
+    missing_fields: list[str] = Field(default_factory=list)
+    missing_field_groups: dict[str, list[str]] = Field(default_factory=dict)
+    conflicts: list[dict] = Field(default_factory=list)
+    sources: dict = Field(default_factory=dict)
+
+
 class ReportFinalizeRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
     force: bool = False
