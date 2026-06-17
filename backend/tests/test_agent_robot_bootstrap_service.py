@@ -66,6 +66,27 @@ def test_zzj_custom_robot_apply_creates_dry_run_env_ref_channels() -> None:
         db.close()
 
 
+def test_zzj_custom_robot_apply_can_enable_real_send_after_confirmation() -> None:
+    db = _db_session()
+    try:
+        ensure_zhang_zhaojia_personal_agents(db, apply=True)
+
+        outcome = ensure_zzj_custom_robot_channels(db, apply=True, dry_run=False)
+
+        assert outcome.applied is True
+        channels = (
+            db.query(CommunicationChannel)
+            .filter(CommunicationChannel.channel_type == 'dingtalk_custom_robot')
+            .all()
+        )
+        assert len(channels) == 6
+        assert all(channel.dry_run is False for channel in channels)
+        assert all(not channel.channel_key.startswith('https://') for channel in channels)
+        assert all(not str(channel.secret_ref).startswith('SEC') for channel in channels)
+    finally:
+        db.close()
+
+
 def test_zzj_custom_robot_apply_is_idempotent_and_preserves_personal_channel() -> None:
     db = _db_session()
     try:

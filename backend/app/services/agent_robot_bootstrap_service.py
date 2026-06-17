@@ -65,7 +65,7 @@ class CustomRobotBootstrapOutcome:
     notes: list[str]
 
 
-def build_zzj_custom_robot_plan() -> dict:
+def build_zzj_custom_robot_plan(*, dry_run: bool = True) -> dict:
     return {
         'target_group': {
             'name': '张兆嘉调试总群',
@@ -80,7 +80,7 @@ def build_zzj_custom_robot_plan() -> dict:
                 'name': item['name'],
                 'target_type': 'debug_group',
                 'target_key': ZZJ_DEBUG_GROUP_TARGET_KEY,
-                'dry_run': True,
+                'dry_run': bool(dry_run),
                 'min_severity': item['min_severity'],
             }
             for item in ZZJ_CUSTOM_ROBOT_SPECS
@@ -99,13 +99,14 @@ def ensure_zzj_custom_robot_channels(
     db: Session,
     *,
     apply: bool = False,
+    dry_run: bool = True,
 ) -> CustomRobotBootstrapOutcome:
-    plan = build_zzj_custom_robot_plan()
+    plan = build_zzj_custom_robot_plan(dry_run=dry_run)
     channel_keys = [item['channel_key'] for item in plan['channels']]
     notes = [
         '仅配置张兆嘉调试总群的 6 个自定义机器人通道。',
         '数据库只保存环境变量引用名，不保存 webhook 或 secret 明文。',
-        '通道默认 dry_run=True；真实发送必须单独临时切换或人工确认。',
+        f'通道当前 dry_run={bool(dry_run)}；真实发送应只用于已确认的张兆嘉调试总群。',
     ]
     if not apply:
         return CustomRobotBootstrapOutcome(
@@ -125,7 +126,7 @@ def ensure_zzj_custom_robot_channels(
             name=spec['name'],
             target_type=spec['target_type'],
             target_key=spec['target_key'],
-            dry_run=True,
+            dry_run=bool(spec['dry_run']),
             secret_ref=spec['secret_ref'],
             metadata_payload={
                 'managed_by': 'ensure_zzj_custom_robot_channels',

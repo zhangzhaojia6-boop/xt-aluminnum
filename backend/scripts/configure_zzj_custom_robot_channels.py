@@ -28,10 +28,11 @@ from app.services.agent_robot_bootstrap_service import (
 def main() -> int:
     parser = argparse.ArgumentParser(description='配置张兆嘉调试总群自定义机器人通道')
     parser.add_argument('--apply', action='store_true', help='写入数据库；默认只输出计划')
+    parser.add_argument('--enable-send', action='store_true', help='将通道切为正式发送；默认保持 dry-run')
     args = parser.parse_args()
 
     if not args.apply:
-        payload = build_zzj_custom_robot_plan()
+        payload = build_zzj_custom_robot_plan(dry_run=not args.enable_send)
         payload['applied'] = False
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -39,7 +40,7 @@ def main() -> int:
     try:
         sessionmaker = get_sessionmaker()
         with sessionmaker() as db:
-            outcome = ensure_zzj_custom_robot_channels(db, apply=True)
+            outcome = ensure_zzj_custom_robot_channels(db, apply=True, dry_run=not args.enable_send)
     except agent_communication_service.AgentCommunicationError as exc:
         print(json.dumps({
             'applied': False,
