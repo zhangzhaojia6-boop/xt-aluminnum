@@ -29,6 +29,7 @@ def _terminal_binding(
     equipment_id: int,
     workshop_name: str | None = None,
     process_name: str | None = None,
+    mes_device_name: str | None = None,
     is_active: bool = True,
     valid_from=None,
     valid_to=None,
@@ -36,6 +37,7 @@ def _terminal_binding(
     return SimpleNamespace(
         terminal_code=terminal_code,
         terminal_name=None,
+        mes_device_name=mes_device_name,
         workshop_name=workshop_name,
         process_name=process_name,
         equipment_id=equipment_id,
@@ -152,6 +154,42 @@ def test_resolves_terminal_binding_when_mes_machine_code_is_empty() -> None:
     )
 
     assert payload['machine_id'] == 41
+    assert payload['source'] == 'mes_terminal_binding'
+
+
+def test_resolves_generic_pc_by_scoped_binding_without_terminal_hints() -> None:
+    machines = [
+        _machine(machine_id=41, code='JZ-BZJ', name='包装机', workshop_id=8, equipment_type='packaging_machine'),
+        _machine(machine_id=51, code='LJ-BZJ', name='包装机', workshop_id=25, equipment_type='packaging_machine'),
+    ]
+    bindings = [
+        _terminal_binding(
+            terminal_code='PC',
+            mes_device_name='PC',
+            equipment_id=41,
+            workshop_name='精整车间',
+            process_name='包装',
+        ),
+        _terminal_binding(
+            terminal_code='PC',
+            mes_device_name='PC',
+            equipment_id=51,
+            workshop_name='拉矫车间',
+            process_name='包装',
+        ),
+    ]
+
+    payload = mes_machine_match_service.resolve_mes_machine_binding(
+        machines=machines,
+        terminal_bindings=bindings,
+        device_name='PC',
+        process_hint='包装',
+        workshop_name='精整车间',
+        preferred_workshop_id=8,
+    )
+
+    assert payload['machine_id'] == 41
+    assert payload['machine_name'] == '包装机'
     assert payload['source'] == 'mes_terminal_binding'
 
 

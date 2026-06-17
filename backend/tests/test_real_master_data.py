@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Team, Workshop
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from tests.path_helpers import REPO_ROOT
@@ -20,6 +20,7 @@ def build_session(tmp_path):
             User.__table__,
             Equipment.__table__,
             MasterCodeAlias.__table__,
+            MesTerminalBinding.__table__,
             ShiftConfig.__table__,
         ],
     )
@@ -170,7 +171,7 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         assert [item.operational_status for item in zr2_equipment] == [
             'running',
             'running',
-            'stopped',
+            'running',
             'stopped',
             'running',
             'running',
@@ -203,14 +204,43 @@ def test_seed_real_master_data_creates_revised_workshops_equipment_and_shift_tea
         ]
 
         running_machine = next(item for item in equipment if item.code == 'ZR2-1')
-        stopped_machine = next(item for item in equipment if item.code == 'ZR2-3')
+        required_zr2_machine = next(item for item in equipment if item.code == 'ZR2-3')
 
         assert running_machine.qr_code == 'XT-ZR2-1'
         # Auto-seed of per-equipment accounts retired — bound_user_id stays None for fresh seed
         assert running_machine.bound_user_id is None
 
-        assert stopped_machine.qr_code == 'XT-ZR2-3'
-        assert stopped_machine.bound_user_id is None
+        assert required_zr2_machine.qr_code == 'XT-ZR2-3'
+        assert required_zr2_machine.bound_user_id is not None
+        required_zr2_user = db.execute(select(User).where(User.username == 'ZR2-3')).scalar_one()
+        assert required_zr2_user.role == 'machine_operator'
+        assert required_zr2_user.is_mobile_user is True
+        assert required_zr2_user.is_active is True
+
+        required_packaging = {
+            item.code: item
+            for item in equipment
+            if item.code in {'JZ-BZJ', 'LJ-BZJ'}
+        }
+        assert {
+            code: (item.name, item.equipment_type, item.operational_status, bool(item.bound_user_id))
+            for code, item in required_packaging.items()
+        } == {
+            'JZ-BZJ': ('包装机', 'packaging_machine', 'running', True),
+            'LJ-BZJ': ('包装机', 'packaging_machine', 'running', True),
+        }
+        for username in ('JZ-BZJ', 'LJ-BZJ'):
+            user = db.execute(select(User).where(User.username == username)).scalar_one()
+            assert user.role == 'machine_operator'
+            assert user.is_mobile_user is True
+            assert user.is_active is True
+
+        pc_bindings = {
+            (item.workshop_name, item.process_name): item
+            for item in db.execute(select(MesTerminalBinding).where(MesTerminalBinding.terminal_code == 'PC')).scalars()
+        }
+        assert pc_bindings[('精整车间', '包装')].equipment_id == required_packaging['JZ-BZJ'].id
+        assert pc_bindings[('拉矫车间', '包装')].equipment_id == required_packaging['LJ-BZJ'].id
 
         # New owner role QRs — factory-wide unique (G14)
         qm = db.execute(select(User).where(User.username == 'CPK-QM')).scalar_one()

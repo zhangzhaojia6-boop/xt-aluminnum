@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import secrets
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_password_hash, verify_password
 from app.core.workshop_templates import WORKSHOP_TYPE_BY_WORKSHOP_CODE
-from app.models.master import Equipment, MasterCodeAlias, Team, Workshop
+from app.models.master import Equipment, MasterCodeAlias, MesTerminalBinding, Team, Workshop
 from app.models.shift import ShiftConfig
 from app.models.system import User
 from app.services.equipment_service import generate_random_pin
@@ -87,7 +87,7 @@ EQUIPMENT_BY_WORKSHOP = {
             'name': '3#机',
             'machine_type': 'cast_roller',
             'shift_mode': 'three',
-            'operational_status': 'stopped',
+            'operational_status': 'running',
             'custom_fields': ZR2_CUSTOM_FIELDS,
         },
         {
@@ -205,6 +205,7 @@ EQUIPMENT_BY_WORKSHOP = {
         {'code': 'JZ-19G', 'name': '19辊', 'machine_type': 'finishing', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'JZ-19N', 'name': '新19辊', 'machine_type': 'finishing', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'JZ-ZJ-Z', 'name': '纵剪', 'machine_type': 'slitter', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'JZ-BZJ', 'name': '包装机', 'machine_type': 'packaging_machine', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
     'JZ2': [
         {'code': 'JZ2-1', 'name': '1#', 'machine_type': 'finishing', 'operational_status': 'stopped'},
@@ -221,6 +222,7 @@ EQUIPMENT_BY_WORKSHOP = {
         {'code': 'LJ-DFC', 'name': '大分切', 'machine_type': 'shear', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'LJ-XJZ', 'name': '小剪子', 'machine_type': 'shear', 'shift_mode': 'three', 'operational_status': 'running'},
         {'code': 'JQ-TH', 'name': '退火炉', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
+        {'code': 'LJ-BZJ', 'name': '包装机', 'machine_type': 'packaging_machine', 'shift_mode': 'three', 'operational_status': 'running'},
     ],
     'CH': [
         {'code': 'CH-CHX', 'name': '淬火线', 'machine_type': 'annealing_line', 'shift_mode': 'three', 'operational_status': 'running'},
@@ -274,14 +276,14 @@ REAL_EQUIPMENT_CODES = {
 }
 REPORTING_MACHINE_CODES = (
     'ZD-1', 'ZD-2', 'ZD-3', 'ZD-4',
-    'ZR2-1', 'ZR2-2', 'ZR2-5', 'ZR2-6',
+    'ZR2-1', 'ZR2-2', 'ZR2-3', 'ZR2-5', 'ZR2-6',
     'ZR3-1', 'ZR3-2', 'ZR3-3', 'ZR3-4', 'ZR3-5', 'ZR3-6', 'ZR3-7', 'ZR3-8', 'ZR3-9',
     'ZR5-1', 'ZR6-1',
     'RZ-ZJ', 'RZ-FM', 'RZ-DM', 'RZ-MED', 'RZ-HE', 'RZ-JC',
     'LZ2050-1', 'LZ1850-1', 'LZ1650-1',
-    'JZ-19G', 'JZ-19N', 'JZ-ZJ-Z',
+    'JZ-19G', 'JZ-19N', 'JZ-ZJ-Z', 'JZ-BZJ',
     'JQ-1', 'JQ-2', 'JQ-3', 'JQ-4', 'JQ-ZJ',
-    'JQ-LJ', 'LJ-DFC', 'LJ-XJZ', 'JQ-TH',
+    'JQ-LJ', 'LJ-DFC', 'LJ-XJZ', 'JQ-TH', 'LJ-BZJ',
     'CH-CHX', 'CH-JZ1', 'CH-JZ2', 'CH-PG1', 'CH-PG2', 'CH-JQ', 'CH-LS',
     'ZXTF-1', 'ZXTF-2', 'ZXTF-3', 'ZXTF-4',
 )
@@ -306,6 +308,25 @@ ROLE_QR_SUFFIX_MAP = {
     'OH': ('overhaul_owner', '大修'),
 }
 RETIRED_ROLE_QR_SUFFIXES = {'BZ', 'OP'}
+REQUIRED_MACHINE_ACCOUNT_CODES = {'ZR2-3', 'JZ-BZJ', 'LJ-BZJ'}
+MES_TERMINAL_BINDING_SPECS = (
+    {
+        'terminal_code': 'PC',
+        'terminal_name': '精整包装PC',
+        'mes_device_name': 'PC',
+        'workshop_name': '精整车间',
+        'process_name': '包装',
+        'equipment_code': 'JZ-BZJ',
+    },
+    {
+        'terminal_code': 'PC',
+        'terminal_name': '拉矫包装PC',
+        'mes_device_name': 'PC',
+        'workshop_name': '拉矫车间',
+        'process_name': '包装',
+        'equipment_code': 'LJ-BZJ',
+    },
+)
 
 
 def role_qr_user_flags(system_role: str) -> dict[str, bool]:
@@ -540,10 +561,12 @@ MACHINE_PROCESS_BUSINESS_BY_CODE = {
     'JZ-19G': '19辊精整',
     'JZ-19N': '新19辊精整',
     'JZ-ZJ-Z': '纵剪',
+    'JZ-BZJ': '包装',
     'JQ-LJ': '拉矫',
     'JQ-TH': '退火炉',
     'LJ-DFC': '大分切',
     'LJ-XJZ': '小剪子',
+    'LJ-BZJ': '包装',
     'JQ-1': '剪切1#',
     'JQ-2': '剪切2#',
     'JQ-3': '剪切3#',
@@ -567,6 +590,7 @@ MACHINE_PROCESS_BUSINESS_BY_TYPE = {
     'finishing': '精整',
     'shear': '剪切',
     'annealing_line': '在线退火',
+    'packaging_machine': '包装',
     'coating_line': '彩涂',
     'recycling': '回收',
 }
@@ -779,6 +803,7 @@ def _ensure_machine_account_binding(
     equipment: Equipment,
     workshop: Workshop,
     shift_ids_by_code: dict[str, int],
+    create_if_missing: bool = False,
 ) -> None:
     shift_mode = (equipment.shift_mode or 'three').strip().lower()
     if shift_mode not in {'two', 'three'}:
@@ -793,11 +818,29 @@ def _ensure_machine_account_binding(
         user = username_user
 
     if user is None:
-        # Auto-seed disabled 2026-05-27: do not create per-equipment shift_leader
-        # accounts on startup. Stage 2 cleanup deletes accounts with last_login
-        # IS NULL; recreating them here would resurrect deleted users every
-        # restart. Existing accounts are still updated below.
-        return
+        if not create_if_missing:
+            # Auto-seed disabled 2026-05-27: do not create per-equipment
+            # accounts on startup. Only explicitly required machine accounts
+            # are created below.
+            return
+        pin = generate_random_pin(6)
+        user = User(
+            username=equipment.code,
+            password_hash=get_password_hash(pin),
+            pin_code=pin,
+            name=f"{workshop.name} {equipment.name}",
+            role='machine_operator',
+            workshop_id=workshop.id,
+            team_id=None,
+            data_scope_type='self_workshop',
+            assigned_shift_ids=list(equipment.assigned_shift_ids or []),
+            is_mobile_user=True,
+            is_reviewer=False,
+            is_manager=False,
+            is_active=bool(equipment.is_active) and equipment.operational_status == 'running',
+        )
+        db.add(user)
+        db.flush()
 
     user.username = equipment.code
     user.name = f"{workshop.name} {equipment.name}"
@@ -851,7 +894,54 @@ def seed_real_equipment(db: Session, workshops_by_code: dict[str, Workshop]) -> 
 
         for payload in equipment_rows:
             item = existing[payload['code']]
-            _ensure_machine_account_binding(db, equipment=item, workshop=workshop, shift_ids_by_code=shift_ids_by_code)
+            _ensure_machine_account_binding(
+                db,
+                equipment=item,
+                workshop=workshop,
+                shift_ids_by_code=shift_ids_by_code,
+                create_if_missing=item.code in REQUIRED_MACHINE_ACCOUNT_CODES,
+            )
+
+
+def seed_mes_terminal_bindings(db: Session) -> None:
+    try:
+        if not inspect(db.get_bind()).has_table(MesTerminalBinding.__tablename__):
+            return
+    except Exception:
+        return
+    equipment_by_code = {
+        item.code: item
+        for item in db.execute(
+            select(Equipment).where(Equipment.code.in_([spec['equipment_code'] for spec in MES_TERMINAL_BINDING_SPECS]))
+        ).scalars()
+    }
+    for spec in MES_TERMINAL_BINDING_SPECS:
+        equipment = equipment_by_code.get(spec['equipment_code'])
+        if equipment is None:
+            continue
+        item = db.execute(
+            select(MesTerminalBinding).where(
+                MesTerminalBinding.terminal_code == spec['terminal_code'],
+                MesTerminalBinding.workshop_name == spec['workshop_name'],
+                MesTerminalBinding.process_name == spec['process_name'],
+                MesTerminalBinding.valid_from.is_(None),
+            )
+        ).scalar_one_or_none()
+        if item is None:
+            item = MesTerminalBinding(
+                terminal_code=spec['terminal_code'],
+                workshop_name=spec['workshop_name'],
+                process_name=spec['process_name'],
+                equipment_id=equipment.id,
+                confidence='high',
+                is_active=True,
+            )
+            db.add(item)
+        item.terminal_name = spec['terminal_name']
+        item.mes_device_name = spec['mes_device_name']
+        item.equipment_id = equipment.id
+        item.confidence = 'high'
+        item.is_active = True
 
 
 def _owner_templates_for_workshop(workshop_code: str) -> list[tuple[str, str, str]]:
@@ -1215,6 +1305,7 @@ def seed_real_master_data(db: Session) -> None:
     workshops_by_code = seed_real_workshops(db)
     seed_real_teams(db, workshops_by_code)
     seed_real_equipment(db, workshops_by_code)
+    seed_mes_terminal_bindings(db)
     seed_mes_master_aliases(db)
     seed_special_owner_users(db, workshops_by_code)
     seed_owner_role_qrs(db, workshops_by_code)

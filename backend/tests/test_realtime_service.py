@@ -1071,6 +1071,63 @@ def test_live_aggregation_keeps_park_online_and_unresolved_mes_process_output(tm
     assert payload['factory_total']['output'] == 205.96
 
 
+def test_live_aggregation_maps_scoped_packaging_pc_to_packaging_machine(tmp_path, monkeypatch) -> None:
+    db = build_realtime_session(tmp_path)
+    db.add_all(
+        [
+            Workshop(id=4, code='JZ', name='精整车间', workshop_type='finishing', sort_order=1, is_active=True),
+            ShiftConfig(id=3, code='D', name='白班', shift_type='day', start_time=time(8, 0), end_time=time(20, 0), is_active=True),
+            Equipment(
+                id=41,
+                code='JZ-BZJ',
+                name='包装机',
+                workshop_id=4,
+                equipment_type='packaging_machine',
+                sort_order=2,
+                is_active=True,
+            ),
+            MesTerminalBinding(
+                terminal_code='PC',
+                terminal_name='精整包装PC',
+                mes_device_name='PC',
+                workshop_name='精整车间',
+                process_name='包装',
+                equipment_id=41,
+                confidence='high',
+                is_active=True,
+            ),
+            MesWorkshopProcessRecord(
+                source_id='finishing-packaging-pc',
+                source_path='sqlserver',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='PC',
+                input_weight_tons=81.89,
+                output_weight_tons=84.16,
+                business_date=date(2026, 6, 17),
+            ),
+        ]
+    )
+    db.commit()
+    monkeypatch.setattr(realtime_service, '_build_attendance_summary', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, '_build_expected_count_map', lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(realtime_service, 'build_yield_matrix_projection', lambda *_args, **_kwargs: {})
+
+    payload = realtime_service.build_live_aggregation(
+        db,
+        business_date=date(2026, 6, 17),
+        workshop_id=None,
+        current_user=admin_user(),
+    )
+
+    machine = payload['workshops'][0]['machines'][0]
+    assert machine['machine_id'] == 41
+    assert machine['machine_name'] == '包装机'
+    assert machine['machine_binding_status'] == 'bound'
+    assert machine['day_total']['output'] == 84.16
+    assert machine['day_total']['binding_sources'] == {'mes_terminal_binding': 1}
+
+
 def test_build_live_aggregation_infers_mes_machine_from_route_when_device_missing(tmp_path, monkeypatch) -> None:
     db = build_realtime_session(tmp_path)
     db.add_all(

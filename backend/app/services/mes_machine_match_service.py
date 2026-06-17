@@ -102,6 +102,14 @@ def _terminal_hint_forms(terminal_hints: Mapping[str, Any] | None) -> set[str]:
     return forms
 
 
+def _binding_forms(binding: MesTerminalBinding) -> set[str]:
+    forms = set()
+    forms.update(_text_forms(getattr(binding, 'terminal_code', None)))
+    forms.update(_text_forms(getattr(binding, 'terminal_name', None)))
+    forms.update(_text_forms(getattr(binding, 'mes_device_name', None)))
+    return forms
+
+
 def _empty_payload(*, source: str, raw_device_name: Any) -> dict[str, Any]:
     return {
         'machine_id': None,
@@ -251,12 +259,45 @@ def _match_terminal_binding(
             continue
         if not _matches_scope(getattr(binding, 'process_name', None), process_hint):
             continue
-        binding_forms = _text_forms(getattr(binding, 'terminal_code', None)) | _text_forms(getattr(binding, 'terminal_name', None))
-        if not (binding_forms & hint_forms):
+        if not (_binding_forms(binding) & hint_forms):
             continue
         machine = machine_by_id.get(getattr(binding, 'equipment_id', None))
         if machine is not None and is_physical_machine(machine):
             return machine, binding
+    return None
+
+
+def _match_scoped_generic_device_binding(
+    *,
+    machines: list[Equipment],
+    terminal_bindings: Iterable[MesTerminalBinding],
+    device_name: object | None,
+    workshop_name: object | None,
+    process_hint: object | None,
+    event_time: datetime | None,
+) -> tuple[Equipment, MesTerminalBinding] | None:
+    device_forms = _text_forms(device_name)
+    if not device_forms or not _is_generic_device(device_name):
+        return None
+    machine_by_id = {getattr(machine, 'id', None): machine for machine in machines}
+    matches: list[tuple[Equipment, MesTerminalBinding]] = []
+    seen_equipment_ids: set[int] = set()
+    for binding in terminal_bindings:
+        if not _binding_in_effect(binding, event_time):
+            continue
+        if not _matches_scope(getattr(binding, 'workshop_name', None), workshop_name):
+            continue
+        if not _matches_scope(getattr(binding, 'process_name', None), process_hint):
+            continue
+        if not (_binding_forms(binding) & device_forms):
+            continue
+        machine = machine_by_id.get(getattr(binding, 'equipment_id', None))
+        if machine is not None and is_physical_machine(machine):
+            matches.append((machine, binding))
+            if getattr(machine, 'id', None) is not None:
+                seen_equipment_ids.add(int(machine.id))
+    if len(matches) == 1 or len(seen_equipment_ids) == 1:
+        return matches[0]
     return None
 
 
@@ -359,6 +400,22 @@ def resolve_mes_machine_binding(
         )
         if terminal_match is not None:
             machine, binding = terminal_match
+            return _machine_payload(
+                machine,
+                source='mes_terminal_binding',
+                confidence=_text(getattr(binding, 'confidence', None)) or 'high',
+                raw_device_name=device_name,
+            )
+        scoped_match = _match_scoped_generic_device_binding(
+            machines=machines,
+            terminal_bindings=terminal_bindings,
+            device_name=device_name,
+            workshop_name=workshop_name,
+            process_hint=process_hint,
+            event_time=event_time,
+        )
+        if scoped_match is not None:
+            machine, binding = scoped_match
             return _machine_payload(
                 machine,
                 source='mes_terminal_binding',
