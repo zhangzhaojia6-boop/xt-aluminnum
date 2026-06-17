@@ -345,6 +345,7 @@ def collect_quality_yield_facts(db: Session, facts: TemplateDailyFacts) -> None:
         )
         previous_by_code = _latest_quality_rows_before(db, facts.target_date)
     except (OperationalError, ProgrammingError):
+        db.rollback()
         return
 
     for row in rows:
