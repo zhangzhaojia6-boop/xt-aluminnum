@@ -15,6 +15,54 @@ class DummyDB:
     pass
 
 
+class _FakeReportQuery:
+    def filter(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        return None
+
+
+class GenerateReportDB:
+    def __init__(self) -> None:
+        self.added: list[DailyReport] = []
+        self.committed = False
+        self.refreshed: list[DailyReport] = []
+
+    def query(self, model):
+        assert model is DailyReport
+        return _FakeReportQuery()
+
+    def add(self, entity):
+        self.added.append(entity)
+
+    def flush(self) -> None:
+        for index, entity in enumerate(self.added, start=1):
+            entity.id = index
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def refresh(self, entity) -> None:
+        self.refreshed.append(entity)
+
+
+class PipelineDB:
+    def __init__(self) -> None:
+        self.flushed = False
+        self.committed = False
+        self.refreshed = []
+
+    def flush(self) -> None:
+        self.flushed = True
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def refresh(self, entity) -> None:
+        self.refreshed.append(entity)
+
+
 class FinalizeDB:
     def __init__(self, report: SimpleNamespace) -> None:
         self.report = report
@@ -146,6 +194,94 @@ def test_finalize_report_keeps_blocker_force_admin_only(monkeypatch) -> None:
     assert report.is_final_version is False
     assert db.flushed is False
     assert db.committed is False
+
+
+def test_generate_daily_reports_embeds_template_daily_report_when_ready(monkeypatch) -> None:
+    db = GenerateReportDB()
+    template_text = "6月16日，车间总产量日合计328吨（外加工0吨）比昨日↑22吨，月累计5014吨（外加工月累计270吨）。"
+
+    monkeypatch.setattr(
+        report_generation,
+        "_generate_report_payload",
+        lambda *args, **kwargs: ({"total_output_weight": 100.5}, "旧摘要"),
+    )
+    monkeypatch.setattr(
+        report_generation.template_daily_report,
+        "build_template_daily_report_payload",
+        lambda db, *, target_date: {
+            "status": "ready",
+            "text": template_text,
+            "missing_fields": [],
+            "conflicts": [],
+            "sources": {"total_output_daily": {"source_type": "mes_packaging_output"}},
+        },
+    )
+    monkeypatch.setattr(report_generation, "record_audit", lambda *args, **kwargs: None)
+
+    reports = report_generation.generate_daily_reports(
+        db,
+        report_date=date(2026, 6, 16),
+        report_type="production",
+        scope="auto_confirmed",
+        output_mode="both",
+        operator=_operator(user_id=1, role="admin", is_manager=True),
+    )
+
+    assert len(reports) == 1
+    report = reports[0]
+    assert report.text_summary == template_text
+    assert report.final_text_summary == template_text
+    assert report.report_data["template_daily_report"]["status"] == "ready"
+    assert report.report_data["template_daily_report"]["text"] == template_text
+    assert report.report_data["template_daily_report"]["sources"]["total_output_daily"]["source_type"] == "mes_packaging_output"
+
+
+def test_run_daily_pipeline_preserves_ready_template_final_text(monkeypatch) -> None:
+    db = PipelineDB()
+    template_text = "6月16日，车间总产量日合计328吨（外加工0吨）比昨日↑22吨，月累计5014吨（外加工月累计270吨）。"
+    report = SimpleNamespace(
+        id=9,
+        report_date=date(2026, 6, 16),
+        report_type="production",
+        report_data={"template_daily_report": {"status": "ready", "text": template_text}},
+        final_text_summary=template_text,
+        is_final_version=False,
+        quality_gate_status="pending",
+        quality_gate_summary=None,
+        delivery_ready=False,
+    )
+
+    monkeypatch.setattr(report_generation.quality_service, "count_open_blockers", lambda db, *, business_date: 0)
+    monkeypatch.setattr(report_generation.quality_service, "blocker_summary", lambda db, *, business_date: {})
+    monkeypatch.setattr(
+        report_generation,
+        "build_delivery_status",
+        lambda db, *, target_date: {"delivery_ready": True},
+    )
+    monkeypatch.setattr(
+        report_generation,
+        "generate_daily_reports",
+        lambda *args, **kwargs: [report],
+    )
+    monkeypatch.setattr(report_generation, "_build_boss_text_summary", lambda *args, **kwargs: "旧老板摘要")
+    monkeypatch.setattr("app.services.reconciliation_service.count_open_items", lambda db, *, business_date: 0)
+    monkeypatch.setattr(report_generation, "record_audit", lambda *args, **kwargs: None)
+
+    blocked, message, _open_count, is_final, boss_text, reports = report_generation.run_daily_pipeline(
+        db,
+        report_date=date(2026, 6, 16),
+        scope="auto_confirmed",
+        output_mode="both",
+        force=False,
+        operator=_operator(user_id=1, role="admin", is_manager=True),
+    )
+
+    assert blocked is False
+    assert message is None
+    assert is_final is True
+    assert boss_text == "旧老板摘要"
+    assert reports == [report]
+    assert report.final_text_summary == template_text
 
 
 def test_generate_report_endpoint(monkeypatch) -> None:
