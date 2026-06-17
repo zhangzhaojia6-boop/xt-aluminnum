@@ -1514,10 +1514,10 @@ def _load_mes_machine_output_scope(
     business_date: date,
     workshops: list[Workshop],
     machines: list[Equipment],
-) -> dict[tuple[int, int], dict[str, Any]]:
+) -> tuple[dict[tuple[int, int], dict[str, Any]], set[int]]:
     result: dict[tuple[int, int], dict[str, Any]] = {}
     if not workshops or not machines:
-        return result
+        return result, set()
 
     material_workshops = [
         workshop
@@ -1530,8 +1530,9 @@ def _load_mes_machine_output_scope(
         if normalize_workshop_name(workshop.name) not in daily_overview_builder.BILLET_MATERIAL_WORKSHOP_MAPPINGS
         and get_workshop_data_source_policy(workshop.name).get('primary_source') == 'mes'
     ]
+    authoritative_workshop_ids: set[int] = set()
     if not material_workshops and not process_workshops:
-        return result
+        return result, authoritative_workshop_ids
 
     machine_by_id = {int(machine.id): machine for machine in machines if getattr(machine, 'id', None) is not None}
     machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
@@ -1555,6 +1556,8 @@ def _load_mes_machine_output_scope(
             )
         except (OperationalError, ProgrammingError):
             material_rows = []
+        if material_rows:
+            authoritative_workshop_ids.update(int(workshop.id) for workshop in material_workshops)
         for row in material_rows:
             output_weight = daily_overview_builder._mes_material_weight_tons(row)
             if output_weight <= 0:
@@ -1608,6 +1611,8 @@ def _load_mes_machine_output_scope(
             )
         except (OperationalError, ProgrammingError):
             process_rows = []
+        if process_rows:
+            authoritative_workshop_ids.update(int(workshop.id) for workshop in process_workshops)
         for row in process_rows:
             output_weight = daily_overview_builder._mes_output_tons(row)
             if output_weight <= 0:
@@ -1652,15 +1657,17 @@ def _load_mes_machine_output_scope(
         bucket['output'] = round(_to_float(bucket.get('output')), 2)
         bucket['scrap'] = round(_to_float(bucket.get('scrap')), 2)
         bucket['pass_count_total'] = int(bucket.get('pass_count_total') or 0)
-    return result
+    return result, authoritative_workshop_ids
 
 
 def _apply_mes_machine_output_authority(
     payload: dict,
     *,
     mes_machine_output: dict[tuple[int, int], dict[str, Any]],
+    authoritative_workshop_ids: set[int] | None = None,
 ) -> dict:
-    if not mes_machine_output:
+    authoritative_workshop_ids = {int(item) for item in (authoritative_workshop_ids or set())}
+    if not mes_machine_output and not authoritative_workshop_ids:
         return payload
 
     by_workshop: dict[int, dict[int, dict[str, Any]]] = defaultdict(dict)
@@ -1669,9 +1676,9 @@ def _apply_mes_machine_output_authority(
 
     for workshop_payload in payload.get('workshops') or []:
         workshop_id = _optional_int(workshop_payload.get('workshop_id'))
-        if workshop_id is None or workshop_id not in by_workshop:
+        if workshop_id is None or workshop_id not in authoritative_workshop_ids:
             continue
-        machine_buckets = by_workshop[workshop_id]
+        machine_buckets = by_workshop.get(workshop_id, {})
         workshop_input = 0.0
         workshop_output = 0.0
         workshop_scrap = 0.0
@@ -2914,14 +2921,16 @@ def build_live_aggregation(
         attendance=_build_attendance_summary(db, business_date=business_date, workshop_id=scoped_workshop_id),
         expected_counts=_build_expected_count_map(db, business_date=business_date, workshop_id=scoped_workshop_id),
     )
+    mes_machine_output, authoritative_workshop_ids = _load_mes_machine_output_scope(
+        db,
+        business_date=business_date,
+        workshops=workshops,
+        machines=machines,
+    )
     payload = _apply_mes_machine_output_authority(
         payload,
-        mes_machine_output=_load_mes_machine_output_scope(
-            db,
-            business_date=business_date,
-            workshops=workshops,
-            machines=machines,
-        ),
+        mes_machine_output=mes_machine_output,
+        authoritative_workshop_ids=authoritative_workshop_ids,
     )
     payload = _apply_yield_matrix_authority(
         payload,
