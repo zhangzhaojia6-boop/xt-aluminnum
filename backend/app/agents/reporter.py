@@ -68,6 +68,34 @@ def _template_daily_report_text(report: DailyReport, report_data: dict[str, Any]
     return fallback or None
 
 
+def _daily_report_recipients(db: Session) -> list[User]:
+    configured_name = str(getattr(settings, "DAILY_REPORT_DINGTALK_RECIPIENT_NAME", "") or "").strip()
+    if configured_name:
+        candidates = (
+            db.query(User)
+            .filter(User.is_active.is_(True), User.dingtalk_user_id.isnot(None))
+            .order_by(User.id.asc())
+            .all()
+        )
+        return [
+            user
+            for user in candidates
+            if str(getattr(user, "dingtalk_user_id", "") or "").strip()
+            and configured_name
+            in {
+                str(getattr(user, "name", "") or "").strip(),
+                str(getattr(user, "username", "") or "").strip(),
+            }
+        ]
+
+    return (
+        db.query(User)
+        .filter(User.is_active.is_(True), User.role.in_(("admin", "manager")))
+        .order_by(User.id.asc())
+        .all()
+    )
+
+
 def _build_auto_publish_payload(
     report: DailyReport,
     *,
@@ -298,12 +326,7 @@ class ReporterAgent(BaseAgent):
                 f"{summary_text}"
             )
 
-        leaders = (
-            db.query(User)
-            .filter(User.is_active.is_(True), User.role.in_(("admin", "manager")))
-            .order_by(User.id.asc())
-            .all()
-        )
+        leaders = _daily_report_recipients(db)
 
         sent_count = 0
         failed_count = 0

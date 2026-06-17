@@ -329,6 +329,57 @@ def test_reporter_agent_prefers_template_daily_report_text(monkeypatch) -> None:
     assert "今日产量：" not in sent[0][1]
 
 
+def test_reporter_agent_targets_configured_daily_report_recipient(monkeypatch) -> None:
+    monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
+    monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)
+    monkeypatch.setattr("app.agents.reporter.settings.WORKFLOW_ENABLED", False)
+    monkeypatch.setattr("app.agents.reporter.settings.DAILY_REPORT_DINGTALK_RECIPIENT_NAME", "张兆嘉", raising=False)
+    monkeypatch.setattr("app.agents.reporter.report_service.mark_shift_data_published", lambda *args, **kwargs: 3)
+    monkeypatch.setattr(
+        "app.agents.reporter.leader_summary_service.build_best_effort_leader_summary",
+        lambda **_kwargs: {
+            "summary_text": "这是领导摘要",
+            "summary_source": "deterministic",
+            "metrics": {},
+            "llm_enabled": False,
+            "llm_error": None,
+        },
+    )
+    monkeypatch.setattr(
+        "app.agents.reporter.app_connection_service.build_app_connection_payload",
+        lambda **_kwargs: {"payload_version": 1, "dispatch_key": "report:88:test"},
+    )
+    monkeypatch.setattr(
+        "app.agents.reporter.app_connection_service.dispatch_app_connection_payload",
+        lambda **_kwargs: {"status": "dry_run", "detail": "payload_recorded_without_network"},
+    )
+    sent = []
+    report = _build_report()
+    users = _build_users() + [
+        SimpleNamespace(
+            id=3,
+            name="张兆嘉",
+            username="zzj",
+            dingtalk_user_id="u_zzj",
+            role="manager",
+            is_active=True,
+        )
+    ]
+    db = _FakeDB(report=report, users=users)
+    report.report_data["template_daily_report"] = {"status": "ready", "text": "模板日报正文"}
+    agent = ReporterAgent()
+    monkeypatch.setattr(
+        agent,
+        "_send_message",
+        lambda user, content, **_kwargs: (sent.append((user.dingtalk_user_id, content)) or (True, "sent")),
+    )
+
+    agent.execute(db=db, target_date=date(2026, 6, 16))
+
+    assert sent == [("u_zzj", "模板日报正文")]
+    assert report.report_data["auto_push_sent_count"] == 1
+
+
 def test_reporter_agent_prefers_yield_matrix_company_total(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.reporter.settings.AUTO_PUSH_ENABLED", True)
     monkeypatch.setattr("app.agents.reporter.settings.DINGTALK_ENABLED", False, raising=False)

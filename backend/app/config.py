@@ -158,6 +158,7 @@ class Settings(BaseSettings):
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
+    DAILY_REPORT_DINGTALK_RECIPIENT_NAME: str = ''
     AUTO_PIPELINE_REQUIRE_READY: bool = True
     WECOM_BOT_ENABLED: bool = False
     WECOM_BOT_DRY_RUN: bool = False
