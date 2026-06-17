@@ -336,6 +336,7 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
         yield_rows = mes_extended_service.list_yield_records(db, business_date=date(2026, 5, 31), search='26RA')
         reference_rows = mes_extended_service.list_reference_items(db, source_type='customer', search='华东')
         wip_rows = mes_extended_service.list_wip_total_snapshots(db, business_date=date(2026, 5, 31), search='退火')
+        fallback_wip_rows = mes_extended_service.list_wip_total_snapshots(db, business_date=date(2026, 5, 29), search='退火')
 
     summary_by_key = {item['key']: item for item in summary['sources']}
     assert summary_by_key['workshop_process_records']['row_count'] == 2
@@ -372,3 +373,5 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
     assert wip_rows[0]['workshop_name'] == '在线退火分厂'
     assert wip_rows[0]['source_id'] == 'wip-1'
     assert 'source_payload' not in wip_rows[0]
+    assert len(fallback_wip_rows) == 1
+    assert fallback_wip_rows[0]['source_id'] == 'wip-1'

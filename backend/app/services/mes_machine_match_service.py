@@ -277,9 +277,32 @@ def infer_mes_machine_id_from_route(*, machines: list[Equipment], process_hint: 
             for machine in physical_machines
             if _text(getattr(machine, 'equipment_type', '')).lower() in equipment_types
         ]
+        directional = _match_directional_route_hint(machines=matches, process_hint=process_text)
+        if directional is not None:
+            return directional.id
         if len(matches) == 1:
             return matches[0].id
         return None
+    return None
+
+
+def _match_directional_route_hint(*, machines: list[Equipment], process_hint: str) -> Equipment | None:
+    direction_markers: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+        (('北', 'north'), ('北', 'NORTH', 'N线', 'N#', '-N', '_N')),
+        (('南', 'south'), ('南', 'SOUTH', 'S线', 'S#', '-S', '_S')),
+    )
+    for hint_markers, machine_markers in direction_markers:
+        if not any(marker in process_hint for marker in hint_markers):
+            continue
+        return _unique(
+            machine
+            for machine in machines
+            if any(
+                marker in normalize_mes_machine_text(getattr(machine, field, None))
+                for field in ('code', 'name')
+                for marker in machine_markers
+            )
+        )
     return None
 
 
@@ -308,6 +331,23 @@ def resolve_mes_machine_binding(
     event_time: datetime | None = None,
 ) -> dict[str, Any]:
     device_forms = _text_forms(device_name)
+    if not device_forms:
+        terminal_match = _match_terminal_binding(
+            machines=machines,
+            terminal_bindings=terminal_bindings,
+            terminal_hints=terminal_hints,
+            workshop_name=workshop_name,
+            process_hint=process_hint,
+            event_time=event_time,
+        )
+        if terminal_match is not None:
+            machine, binding = terminal_match
+            return _machine_payload(
+                machine,
+                source='mes_terminal_binding',
+                confidence=_text(getattr(binding, 'confidence', None)) or 'high',
+                raw_device_name=device_name,
+            )
     if _is_generic_device(device_name):
         terminal_match = _match_terminal_binding(
             machines=machines,

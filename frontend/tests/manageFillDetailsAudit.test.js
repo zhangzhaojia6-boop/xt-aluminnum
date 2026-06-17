@@ -462,7 +462,7 @@ test('TodayPage and WorkshopDashboardPage mount precise missing report panels', 
   assert.match(dashboardSrc, /MissingReportPanel/)
   assert.match(dashboardSrc, /data-testid="workshop-dashboard-filter"/)
   assert.match(dashboardSrc, /fetchMesWorkshopProcessRecords\(scopedParams/)
-  assert.match(dashboardSrc, /fetchMesMaterialRecords\(scopedParams/)
+  assert.match(dashboardSrc, /fetchMesWipTotalSnapshots\(scopedParams/)
   assert.match(dashboardSrc, /fetchMesFillGaps\(scopedParams/)
   assert.match(dashboardSrc, /exportMissingReportExcel/)
   assert.match(dashboardSrc, /data-testid="workshop-dashboard-missing-export"/)
