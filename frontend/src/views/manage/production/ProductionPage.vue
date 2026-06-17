@@ -146,6 +146,18 @@ const fmt = (v, digits = 2) =>
       maximumFractionDigits: digits,
     })
 
+function sumDailyWorkshopOutput(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return null
+  let hasValue = false
+  const total = rows.reduce((sum, row) => {
+    const value = Number(row?.daily_output)
+    if (!Number.isFinite(value)) return sum
+    hasValue = true
+    return sum + value
+  }, 0)
+  return hasValue ? total : null
+}
+
 const rawKpiItems = computed(() => {
   const lm = snapshot.leaderMetrics.value
   const trend = snapshot.trend.value
@@ -226,14 +238,16 @@ const productionSourceOverview = computed(() => {
   const plantOutput = dailyOverview.plant_output || {}
   const factoryCommandOverview = snapshot.factoryCommandOverview.value || {}
   const lm = snapshot.leaderMetrics.value || {}
+  const dailyProcessOutput = sumDailyWorkshopOutput(dailyOverview.workshop_output)
 
   return {
     ...factoryCommandOverview,
     source: plantOutput.daily_output == null ? factoryCommandOverview.source : 'mes_projection',
     today_output_tons: plantOutput.daily_output ?? factoryCommandOverview.today_output_tons,
-    process_output_tons: snapshot.data.value.process_total_output
-      ?? factoryCommandOverview.process_output_tons
-      ?? factoryCommandOverview.total_output_tons,
+    process_output_tons: factoryCommandOverview.process_output_tons
+      ?? factoryCommandOverview.total_output_tons
+      ?? dailyProcessOutput
+      ?? snapshot.data.value.process_total_output,
     yield_rate: lm.yield_rate ?? factoryCommandOverview.yield_rate,
   }
 })

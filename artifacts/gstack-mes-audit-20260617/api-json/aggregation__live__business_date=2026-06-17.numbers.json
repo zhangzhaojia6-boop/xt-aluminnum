@@ -1,0 +1,7230 @@
+[
+  {
+    "path": "business_date_context.requested_entry_count",
+    "value": 14
+  },
+  {
+    "path": "business_date_context.current_date_entry_count",
+    "value": 14
+  },
+  {
+    "path": "business_date_context.active_date_entry_count",
+    "value": 14
+  },
+  {
+    "path": "overall_progress.submitted_cells",
+    "value": 6
+  },
+  {
+    "path": "overall_progress.total_cells",
+    "value": 144
+  },
+  {
+    "path": "overall_progress.missing_cell_count",
+    "value": 138
+  },
+  {
+    "path": "overall_progress.attention_cell_count",
+    "value": 144
+  },
+  {
+    "path": "overall_progress.completion_rate",
+    "value": 4.17
+  },
+  {
+    "path": "overall_progress.formal_entry_count",
+    "value": 16
+  },
+  {
+    "path": "overall_progress.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "overall_progress.total_entry_count",
+    "value": 16
+  },
+  {
+    "path": "workshops[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "workshops[0].machines[0].machine_id",
+    "value": 109
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].machine_id",
+    "value": 110
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].machine_id",
+    "value": 111
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].machine_id",
+    "value": 112
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[0].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[0].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[0].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[0].workshop_total.mtd_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.mtd_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.mtd_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[0].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "workshops[1].machines[0].machine_id",
+    "value": 113
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].machine_id",
+    "value": 114
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].machine_id",
+    "value": 117
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].machine_id",
+    "value": 118
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[1].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[1].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[1].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[1].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[1].workshop_total.mtd_input",
+    "value": 154.29
+  },
+  {
+    "path": "workshops[1].workshop_total.mtd_output",
+    "value": 0.04
+  },
+  {
+    "path": "workshops[1].workshop_total.mtd_scrap",
+    "value": 124.48
+  },
+  {
+    "path": "workshops[1].workshop_total.mtd_yield_rate",
+    "value": 0.03
+  },
+  {
+    "path": "workshops[1].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "workshops[2].machines[0].machine_id",
+    "value": 119
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].machine_id",
+    "value": 156
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].submitted_count",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].total_input",
+    "value": 8.4
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].total_output",
+    "value": 6.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].total_scrap",
+    "value": 2.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].yield_rate",
+    "value": 71.43
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[1].day_total.input",
+    "value": 8.4
+  },
+  {
+    "path": "workshops[2].machines[1].day_total.output",
+    "value": 6.0
+  },
+  {
+    "path": "workshops[2].machines[1].day_total.scrap",
+    "value": 2.0
+  },
+  {
+    "path": "workshops[2].machines[1].day_total.yield_rate",
+    "value": 71.43
+  },
+  {
+    "path": "workshops[2].machines[2].machine_id",
+    "value": 157
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].submitted_count",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].total_input",
+    "value": 6.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].total_output",
+    "value": 5.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].total_scrap",
+    "value": 1.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].yield_rate",
+    "value": 83.33
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[2].day_total.input",
+    "value": 6.0
+  },
+  {
+    "path": "workshops[2].machines[2].day_total.output",
+    "value": 5.0
+  },
+  {
+    "path": "workshops[2].machines[2].day_total.scrap",
+    "value": 1.0
+  },
+  {
+    "path": "workshops[2].machines[2].day_total.yield_rate",
+    "value": 83.33
+  },
+  {
+    "path": "workshops[2].machines[3].machine_id",
+    "value": 158
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].machine_id",
+    "value": 159
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[4].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[4].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].machine_id",
+    "value": 160
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[5].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[5].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].machine_id",
+    "value": 161
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[6].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[6].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].machine_id",
+    "value": 162
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[7].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[7].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].machine_id",
+    "value": 163
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].submitted_count",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].total_input",
+    "value": 9.6
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].total_output",
+    "value": 5.8
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].total_scrap",
+    "value": 1.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].yield_rate",
+    "value": 60.42
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].machines[8].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].machines[8].day_total.input",
+    "value": 9.6
+  },
+  {
+    "path": "workshops[2].machines[8].day_total.output",
+    "value": 5.8
+  },
+  {
+    "path": "workshops[2].machines[8].day_total.scrap",
+    "value": 1.0
+  },
+  {
+    "path": "workshops[2].machines[8].day_total.yield_rate",
+    "value": 60.42
+  },
+  {
+    "path": "workshops[2].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[2].shift_totals[0].total_input",
+    "value": 24.0
+  },
+  {
+    "path": "workshops[2].shift_totals[0].total_output",
+    "value": 16.8
+  },
+  {
+    "path": "workshops[2].shift_totals[0].total_scrap",
+    "value": 4.0
+  },
+  {
+    "path": "workshops[2].shift_totals[0].yield_rate",
+    "value": 70.0
+  },
+  {
+    "path": "workshops[2].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[2].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[2].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[2].workshop_total.input",
+    "value": 24.0
+  },
+  {
+    "path": "workshops[2].workshop_total.output",
+    "value": 16.8
+  },
+  {
+    "path": "workshops[2].workshop_total.scrap",
+    "value": 4.0
+  },
+  {
+    "path": "workshops[2].workshop_total.yield_rate",
+    "value": 70.0
+  },
+  {
+    "path": "workshops[2].workshop_total.formal_entry_count",
+    "value": 3
+  },
+  {
+    "path": "workshops[2].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[2].workshop_total.total_entry_count",
+    "value": 3
+  },
+  {
+    "path": "workshops[2].workshop_total.mtd_input",
+    "value": 439.4
+  },
+  {
+    "path": "workshops[2].workshop_total.mtd_output",
+    "value": 127.58
+  },
+  {
+    "path": "workshops[2].workshop_total.mtd_scrap",
+    "value": 131.9
+  },
+  {
+    "path": "workshops[2].workshop_total.mtd_yield_rate",
+    "value": 29.04
+  },
+  {
+    "path": "workshops[2].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[0].machine_id",
+    "value": 120
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].total_expected",
+    "value": 10
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].total_expected",
+    "value": 13
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].total_expected",
+    "value": 12
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].machine_id",
+    "value": 176
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].total_expected",
+    "value": 7
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].total_expected",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].machine_id",
+    "value": 175
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].total_expected",
+    "value": 7
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].total_expected",
+    "value": 14
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].machine_id",
+    "value": 177
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].machine_id",
+    "value": 172
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].total_expected",
+    "value": 11
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].total_expected",
+    "value": 12
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].total_expected",
+    "value": 13
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[4].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[4].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].machine_id",
+    "value": 122
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].total_expected",
+    "value": 9
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].total_expected",
+    "value": 15
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].machines[5].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].machines[5].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[3].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[3].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[3].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[3].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[3].workshop_total.mtd_input",
+    "value": 1424416.53
+  },
+  {
+    "path": "workshops[3].workshop_total.mtd_output",
+    "value": 10838.06
+  },
+  {
+    "path": "workshops[3].workshop_total.mtd_scrap",
+    "value": 105379.35
+  },
+  {
+    "path": "workshops[3].workshop_total.mtd_yield_rate",
+    "value": 0.76
+  },
+  {
+    "path": "workshops[3].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[4].machines[0].machine_id",
+    "value": 123
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].submitted_count",
+    "value": 5
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].total_expected",
+    "value": 11
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].total_input",
+    "value": 47.94
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].total_output",
+    "value": 44.72
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].total_scrap",
+    "value": 3.22
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].yield_rate",
+    "value": 93.28
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].total_expected",
+    "value": 15
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].total_expected",
+    "value": 14
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].machines[0].day_total.input",
+    "value": 47.94
+  },
+  {
+    "path": "workshops[4].machines[0].day_total.output",
+    "value": 44.72
+  },
+  {
+    "path": "workshops[4].machines[0].day_total.scrap",
+    "value": 3.22
+  },
+  {
+    "path": "workshops[4].machines[0].day_total.yield_rate",
+    "value": 93.28
+  },
+  {
+    "path": "workshops[4].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[4].shift_totals[0].total_input",
+    "value": 47.94
+  },
+  {
+    "path": "workshops[4].shift_totals[0].total_output",
+    "value": 44.72
+  },
+  {
+    "path": "workshops[4].shift_totals[0].total_scrap",
+    "value": 3.22
+  },
+  {
+    "path": "workshops[4].shift_totals[0].yield_rate",
+    "value": 93.28
+  },
+  {
+    "path": "workshops[4].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[4].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[4].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[4].workshop_total.input",
+    "value": 47.94
+  },
+  {
+    "path": "workshops[4].workshop_total.output",
+    "value": 44.72
+  },
+  {
+    "path": "workshops[4].workshop_total.scrap",
+    "value": 3.22
+  },
+  {
+    "path": "workshops[4].workshop_total.yield_rate",
+    "value": 93.28
+  },
+  {
+    "path": "workshops[4].workshop_total.formal_entry_count",
+    "value": 7
+  },
+  {
+    "path": "workshops[4].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[4].workshop_total.total_entry_count",
+    "value": 7
+  },
+  {
+    "path": "workshops[4].workshop_total.mtd_input",
+    "value": 2043.54
+  },
+  {
+    "path": "workshops[4].workshop_total.mtd_output",
+    "value": 1898.22
+  },
+  {
+    "path": "workshops[4].workshop_total.mtd_scrap",
+    "value": 127.28
+  },
+  {
+    "path": "workshops[4].workshop_total.mtd_yield_rate",
+    "value": 92.89
+  },
+  {
+    "path": "workshops[4].workshop_total.mtd_pass_count_total",
+    "value": 402
+  },
+  {
+    "path": "workshops[5].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "workshops[5].machines[0].machine_id",
+    "value": 241
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].machine_id",
+    "value": 242
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].total_expected",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].total_expected",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].total_expected",
+    "value": 8
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].machine_id",
+    "value": 243
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].total_expected",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].total_expected",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].total_expected",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[5].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[5].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[5].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[5].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[5].workshop_total.mtd_input",
+    "value": 968.31
+  },
+  {
+    "path": "workshops[5].workshop_total.mtd_output",
+    "value": 927.59
+  },
+  {
+    "path": "workshops[5].workshop_total.mtd_scrap",
+    "value": 40.72
+  },
+  {
+    "path": "workshops[5].workshop_total.mtd_yield_rate",
+    "value": 95.79
+  },
+  {
+    "path": "workshops[5].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "workshops[6].machines[0].machine_id",
+    "value": 144
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].machine_id",
+    "value": 145
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].machine_id",
+    "value": 146
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].submitted_count",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].total_input",
+    "value": 20.63
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[2].day_total.input",
+    "value": 20.63
+  },
+  {
+    "path": "workshops[6].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[2].day_total.yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].machine_id",
+    "value": 147
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].machine_id",
+    "value": 148
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].total_expected",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].machines[4].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].machines[4].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[6].shift_totals[0].total_input",
+    "value": 20.63
+  },
+  {
+    "path": "workshops[6].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[0].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[6].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[6].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].workshop_total.input",
+    "value": 20.63
+  },
+  {
+    "path": "workshops[6].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].workshop_total.yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[6].workshop_total.formal_entry_count",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[6].workshop_total.total_entry_count",
+    "value": 2
+  },
+  {
+    "path": "workshops[6].workshop_total.mtd_input",
+    "value": 1025.93
+  },
+  {
+    "path": "workshops[6].workshop_total.mtd_output",
+    "value": 510.56
+  },
+  {
+    "path": "workshops[6].workshop_total.mtd_scrap",
+    "value": 41.83
+  },
+  {
+    "path": "workshops[6].workshop_total.mtd_yield_rate",
+    "value": 49.77
+  },
+  {
+    "path": "workshops[6].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "workshops[7].machines[0].machine_id",
+    "value": 164
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[7].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[7].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[7].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[7].workshop_total.mtd_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.mtd_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.mtd_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[7].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "workshops[8].machines[0].machine_id",
+    "value": 165
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].submitted_count",
+    "value": 4
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].total_expected",
+    "value": 11
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].total_input",
+    "value": 31.36
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].total_output",
+    "value": 30.95
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].total_scrap",
+    "value": 0.41
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].yield_rate",
+    "value": 98.69
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].total_expected",
+    "value": 5
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].total_expected",
+    "value": 12
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].machines[0].day_total.input",
+    "value": 31.36
+  },
+  {
+    "path": "workshops[8].machines[0].day_total.output",
+    "value": 30.95
+  },
+  {
+    "path": "workshops[8].machines[0].day_total.scrap",
+    "value": 0.41
+  },
+  {
+    "path": "workshops[8].machines[0].day_total.yield_rate",
+    "value": 98.69
+  },
+  {
+    "path": "workshops[8].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[8].shift_totals[0].total_input",
+    "value": 31.36
+  },
+  {
+    "path": "workshops[8].shift_totals[0].total_output",
+    "value": 30.95
+  },
+  {
+    "path": "workshops[8].shift_totals[0].total_scrap",
+    "value": 0.41
+  },
+  {
+    "path": "workshops[8].shift_totals[0].yield_rate",
+    "value": 98.69
+  },
+  {
+    "path": "workshops[8].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[8].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[8].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[8].workshop_total.input",
+    "value": 31.36
+  },
+  {
+    "path": "workshops[8].workshop_total.output",
+    "value": 30.95
+  },
+  {
+    "path": "workshops[8].workshop_total.scrap",
+    "value": 0.41
+  },
+  {
+    "path": "workshops[8].workshop_total.yield_rate",
+    "value": 98.69
+  },
+  {
+    "path": "workshops[8].workshop_total.formal_entry_count",
+    "value": 4
+  },
+  {
+    "path": "workshops[8].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[8].workshop_total.total_entry_count",
+    "value": 4
+  },
+  {
+    "path": "workshops[8].workshop_total.mtd_input",
+    "value": 1525.56
+  },
+  {
+    "path": "workshops[8].workshop_total.mtd_output",
+    "value": 1345.95
+  },
+  {
+    "path": "workshops[8].workshop_total.mtd_scrap",
+    "value": 171.11
+  },
+  {
+    "path": "workshops[8].workshop_total.mtd_yield_rate",
+    "value": 88.23
+  },
+  {
+    "path": "workshops[8].workshop_total.mtd_pass_count_total",
+    "value": 238
+  },
+  {
+    "path": "workshops[9].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "workshops[9].machines[0].machine_id",
+    "value": 182
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].total_expected",
+    "value": 7
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].total_expected",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].machine_id",
+    "value": 217
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].machine_id",
+    "value": 218
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].machine_id",
+    "value": 183
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].total_expected",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].total_expected",
+    "value": 7
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[9].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[9].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[9].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[9].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[9].workshop_total.mtd_input",
+    "value": 2462.46
+  },
+  {
+    "path": "workshops[9].workshop_total.mtd_output",
+    "value": 2394.66
+  },
+  {
+    "path": "workshops[9].workshop_total.mtd_scrap",
+    "value": 44.94
+  },
+  {
+    "path": "workshops[9].workshop_total.mtd_yield_rate",
+    "value": 97.25
+  },
+  {
+    "path": "workshops[9].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "workshops[10].machines[0].machine_id",
+    "value": 219
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].total_expected",
+    "value": 8
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].total_expected",
+    "value": 8
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].machine_id",
+    "value": 220
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].machine_id",
+    "value": 221
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].total_expected",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].total_expected",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[2].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[2].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].machine_id",
+    "value": 222
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].total_expected",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[3].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[3].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].machine_id",
+    "value": 223
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[4].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[4].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].machine_id",
+    "value": 224
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].total_expected",
+    "value": 3
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].total_expected",
+    "value": 1
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].total_expected",
+    "value": 2
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[5].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[5].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].machine_id",
+    "value": 225
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].machines[6].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].machines[6].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[10].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[10].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[10].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[10].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[10].workshop_total.mtd_input",
+    "value": 1732.65
+  },
+  {
+    "path": "workshops[10].workshop_total.mtd_output",
+    "value": 1601.84
+  },
+  {
+    "path": "workshops[10].workshop_total.mtd_scrap",
+    "value": 108.84
+  },
+  {
+    "path": "workshops[10].workshop_total.mtd_yield_rate",
+    "value": 92.45
+  },
+  {
+    "path": "workshops[10].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "workshops[11].machines[0].machine_id",
+    "value": 149
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].total_expected",
+    "value": 9
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].total_expected",
+    "value": 8
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].total_expected",
+    "value": 15
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].machine_id",
+    "value": 150
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[11].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[11].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[11].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[11].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[11].workshop_total.mtd_input",
+    "value": 1881.91
+  },
+  {
+    "path": "workshops[11].workshop_total.mtd_output",
+    "value": 1871.74
+  },
+  {
+    "path": "workshops[11].workshop_total.mtd_scrap",
+    "value": 10.17
+  },
+  {
+    "path": "workshops[11].workshop_total.mtd_yield_rate",
+    "value": 99.46
+  },
+  {
+    "path": "workshops[11].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "workshops[12].machines[0].machine_id",
+    "value": 151
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[0].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[0].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].machine_id",
+    "value": 152
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[0].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[1].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].submitted_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].draft_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].total_expected",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].shifts[2].attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].machines[1].day_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].day_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].machines[1].day_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "workshops[12].shift_totals[0].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[0].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[1].shift_id",
+    "value": 5
+  },
+  {
+    "path": "workshops[12].shift_totals[1].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[1].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[2].shift_id",
+    "value": 6
+  },
+  {
+    "path": "workshops[12].shift_totals[2].total_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].shift_totals[2].total_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].workshop_total.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].workshop_total.total_entry_count",
+    "value": 0
+  },
+  {
+    "path": "workshops[12].workshop_total.mtd_input",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.mtd_output",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.mtd_scrap",
+    "value": 0.0
+  },
+  {
+    "path": "workshops[12].workshop_total.mtd_pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "factory_total.input",
+    "value": 123.93
+  },
+  {
+    "path": "factory_total.output",
+    "value": 92.47
+  },
+  {
+    "path": "factory_total.scrap",
+    "value": 7.63
+  },
+  {
+    "path": "factory_total.yield_rate",
+    "value": 74.61
+  },
+  {
+    "path": "factory_total.mtd_input",
+    "value": 1436650.57
+  },
+  {
+    "path": "factory_total.mtd_output",
+    "value": 21516.25
+  },
+  {
+    "path": "factory_total.mtd_scrap",
+    "value": 106180.63
+  },
+  {
+    "path": "factory_total.mtd_yield_rate",
+    "value": 1.5
+  },
+  {
+    "path": "factory_total.mtd_pass_count_total",
+    "value": 640
+  },
+  {
+    "path": "factory_total.packaging_output",
+    "value": 21.7
+  },
+  {
+    "path": "factory_total.daily_output",
+    "value": 21.7
+  },
+  {
+    "path": "factory_total.factory_total_output",
+    "value": 21.7
+  },
+  {
+    "path": "factory_total.finished_inbound_output",
+    "value": 0.0
+  },
+  {
+    "path": "factory_total.owner_storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "data_quality.missing_output_weight.entry_count",
+    "value": 2
+  },
+  {
+    "path": "data_quality.missing_output_weight.input",
+    "value": 20.63
+  },
+  {
+    "path": "data_quality.missing_output_weight.scrap",
+    "value": 0.0
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].entry_id",
+    "value": 3472
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].work_order_id",
+    "value": 2389
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].machine_id",
+    "value": 146
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].input_weight",
+    "value": 10.2
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[0].scrap_weight",
+    "value": 0.0
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].entry_id",
+    "value": 3465
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].work_order_id",
+    "value": 2516
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].machine_id",
+    "value": 146
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].shift_id",
+    "value": 4
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].input_weight",
+    "value": 10.43
+  },
+  {
+    "path": "data_quality.missing_output_weight.items[1].scrap_weight",
+    "value": 0.0
+  },
+  {
+    "path": "mes_machine_binding.mes_row_count",
+    "value": 2
+  },
+  {
+    "path": "mes_machine_binding.mes_rows_with_machine",
+    "value": 2
+  },
+  {
+    "path": "mes_machine_binding.mes_rows_without_machine",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.direct_machine_code_count",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.route_inferred_machine_count",
+    "value": 2
+  },
+  {
+    "path": "mes_machine_binding.unresolved_machine_count",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.upstream_machine_code_missing_count",
+    "value": 2
+  },
+  {
+    "path": "mes_machine_binding.fill_entry_count",
+    "value": 14
+  },
+  {
+    "path": "mes_machine_binding.fill_entries_with_mes_match",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.fill_entries_bound_to_machine",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.fill_entries_pending_machine",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.pending_assignment_entry_count",
+    "value": 0
+  },
+  {
+    "path": "mes_machine_binding.pending_machine_assignment_count",
+    "value": 0
+  },
+  {
+    "path": "yield_matrix_lane.snapshot_count",
+    "value": 0
+  },
+  {
+    "path": "yield_matrix_lane.candidate_snapshot_count",
+    "value": 0
+  },
+  {
+    "path": "owner_daily_status.submitted_count",
+    "value": 0
+  },
+  {
+    "path": "owner_daily_status.total_count",
+    "value": 20
+  },
+  {
+    "path": "owner_daily_status.items[0].user_id",
+    "value": 904
+  },
+  {
+    "path": "owner_daily_status.items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "owner_daily_status.items[1].user_id",
+    "value": 13
+  },
+  {
+    "path": "owner_daily_status.items[1].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "owner_daily_status.items[2].user_id",
+    "value": 905
+  },
+  {
+    "path": "owner_daily_status.items[2].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "owner_daily_status.items[3].user_id",
+    "value": 25
+  },
+  {
+    "path": "owner_daily_status.items[3].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "owner_daily_status.items[4].user_id",
+    "value": 31
+  },
+  {
+    "path": "owner_daily_status.items[4].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "owner_daily_status.items[5].user_id",
+    "value": 911
+  },
+  {
+    "path": "owner_daily_status.items[5].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "owner_daily_status.items[6].user_id",
+    "value": 61
+  },
+  {
+    "path": "owner_daily_status.items[6].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "owner_daily_status.items[7].user_id",
+    "value": 933
+  },
+  {
+    "path": "owner_daily_status.items[7].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "owner_daily_status.items[8].user_id",
+    "value": 936
+  },
+  {
+    "path": "owner_daily_status.items[8].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "owner_daily_status.items[9].user_id",
+    "value": 937
+  },
+  {
+    "path": "owner_daily_status.items[9].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "owner_daily_status.items[10].user_id",
+    "value": 938
+  },
+  {
+    "path": "owner_daily_status.items[10].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "owner_daily_status.items[11].user_id",
+    "value": 935
+  },
+  {
+    "path": "owner_daily_status.items[11].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "owner_daily_status.items[12].user_id",
+    "value": 934
+  },
+  {
+    "path": "owner_daily_status.items[12].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "owner_daily_status.items[13].user_id",
+    "value": 956
+  },
+  {
+    "path": "owner_daily_status.items[13].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "owner_daily_status.items[14].user_id",
+    "value": 915
+  },
+  {
+    "path": "owner_daily_status.items[14].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "owner_daily_status.items[15].user_id",
+    "value": 939
+  },
+  {
+    "path": "owner_daily_status.items[15].workshop_id",
+    "value": 23
+  },
+  {
+    "path": "owner_daily_status.items[16].user_id",
+    "value": 957
+  },
+  {
+    "path": "owner_daily_status.items[16].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "owner_daily_status.items[17].user_id",
+    "value": 958
+  },
+  {
+    "path": "owner_daily_status.items[17].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "owner_daily_status.items[18].user_id",
+    "value": 955
+  },
+  {
+    "path": "owner_daily_status.items[18].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "owner_daily_status.items[19].user_id",
+    "value": 960
+  },
+  {
+    "path": "owner_daily_status.items[19].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "mes_sync_status.stale_threshold_seconds",
+    "value": 300.0
+  },
+  {
+    "path": "mes_sync_status.retry_limit",
+    "value": 3
+  },
+  {
+    "path": "mes_sync_status.lag_seconds",
+    "value": 0.0
+  },
+  {
+    "path": "mes_sync_status.sync_freshness_seconds",
+    "value": 4.311378
+  },
+  {
+    "path": "mes_sync_status.fetched_count",
+    "value": 50
+  },
+  {
+    "path": "mes_sync_status.upserted_count",
+    "value": 50
+  },
+  {
+    "path": "mes_sync_status.replayed_count",
+    "value": 0
+  }
+]

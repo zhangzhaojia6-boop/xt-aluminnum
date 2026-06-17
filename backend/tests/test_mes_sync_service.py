@@ -227,6 +227,41 @@ def test_upsert_snapshot_uses_top_level_sqlserver_id_and_upgrades_legacy_fallbac
     assert rows[0].current_process == '包装'
 
 
+def test_upsert_snapshot_maps_real_xtal_product_aliases():
+    db = _FakeDB()
+    snapshot = CoilSnapshot(
+        coil_id='MES:product-real',
+        tracking_card_no='MC-REAL',
+        batch_no='BN-REAL',
+        contract_no='HT-REAL',
+        status='1',
+        metadata={
+            'Id': 'product-real',
+            'MaterialCode': 'MC-REAL',
+            'Customer': '客户A',
+            'Alloy': '3003',
+            'State': 'H24',
+            'Specification': '0.72*1220*C',
+            'Weight': '6350',
+            'InStockNetWeight': '6200',
+            'Status': 1,
+            'CardStatus': 2,
+            'PrintStatus': 3,
+        },
+    )
+
+    mes_sync_service._upsert_snapshot(db, snapshot=snapshot, synced_at=datetime(2026, 6, 1, 8, 35, tzinfo=UTC))
+
+    entity = next(item for item in db.added if item.__class__.__name__ == 'MesCoilSnapshot')
+    assert entity.contract_no == 'HT-REAL'
+    assert entity.customer_alias == '客户A'
+    assert entity.material_weight == 6350.0
+    assert entity.net_weight == 6200.0
+    assert entity.status_name == '1'
+    assert entity.card_status_name == '2'
+    assert entity.production_status == '3'
+
+
 def test_upsert_snapshot_business_date_uses_event_time_production_day_boundary():
     db = _FakeDB()
     snapshot = CoilSnapshot(

@@ -1,0 +1,90 @@
+[
+  {
+    "path": "[0].value",
+    "value": 1.0
+  },
+  {
+    "path": "[0].version",
+    "value": 0
+  },
+  {
+    "path": "[1].value",
+    "value": 50.0
+  },
+  {
+    "path": "[1].version",
+    "value": 0
+  },
+  {
+    "path": "[2].value",
+    "value": 0.0
+  },
+  {
+    "path": "[2].version",
+    "value": 0
+  },
+  {
+    "path": "[3].value",
+    "value": 500.0
+  },
+  {
+    "path": "[3].version",
+    "value": 0
+  },
+  {
+    "path": "[4].value",
+    "value": 0.0
+  },
+  {
+    "path": "[4].version",
+    "value": 0
+  },
+  {
+    "path": "[5].id",
+    "value": 1
+  },
+  {
+    "path": "[5].value",
+    "value": 150000.0
+  },
+  {
+    "path": "[5].version",
+    "value": 1
+  },
+  {
+    "path": "[5].updated_by",
+    "value": 70
+  },
+  {
+    "path": "[6].id",
+    "value": 2
+  },
+  {
+    "path": "[6].value",
+    "value": 150000.0
+  },
+  {
+    "path": "[6].version",
+    "value": 1
+  },
+  {
+    "path": "[6].updated_by",
+    "value": 70
+  },
+  {
+    "path": "[7].id",
+    "value": 3
+  },
+  {
+    "path": "[7].value",
+    "value": 15.0
+  },
+  {
+    "path": "[7].version",
+    "value": 1
+  },
+  {
+    "path": "[7].updated_by",
+    "value": 70
+  }
+]

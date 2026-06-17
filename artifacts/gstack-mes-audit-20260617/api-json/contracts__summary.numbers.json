@@ -1,0 +1,778 @@
+[
+  {
+    "path": "kpi.active_count",
+    "value": 286
+  },
+  {
+    "path": "kpi.fulfillment_pct",
+    "value": 0
+  },
+  {
+    "path": "kpi.overdue_count",
+    "value": 284
+  },
+  {
+    "path": "kpi.mtd_delivery_tons",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[0]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[1]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[2]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[3]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[4]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[5]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[6]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[7]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[8]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[9]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[10]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[11]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[12]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[13]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[14]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[15]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[16]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[17]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[18]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[0].data[19]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[0]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[1]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[2]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[3]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[4]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[5]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[6]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[7]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[8]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[9]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[10]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[11]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[12]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[13]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[14]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[15]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[16]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[17]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[18]",
+    "value": 0.0
+  },
+  {
+    "path": "progress.series[1].data[19]",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[0].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[0].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[0].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[1].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[1].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[1].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[2].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[2].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[2].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[3].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[3].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[3].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[4].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[4].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[4].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[5].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[5].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[5].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[6].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[6].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[6].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[7].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[7].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[7].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[8].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[8].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[8].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[9].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[9].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[9].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[10].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[10].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[10].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[11].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[11].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[11].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[12].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[12].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[12].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[13].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[13].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[13].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[14].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[14].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[14].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[15].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[15].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[15].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[16].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[16].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[16].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[17].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[17].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[17].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[18].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[18].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[18].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[19].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[19].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[19].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[20].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[20].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[20].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[21].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[21].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[21].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[22].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[22].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[22].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[23].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[23].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[23].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[24].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[24].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[24].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[25].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[25].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[25].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[26].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[26].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[26].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[27].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[27].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[27].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[28].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[28].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[28].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[29].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[29].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[29].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[30].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[30].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[30].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[31].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[31].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[31].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[32].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[32].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[32].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[33].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[33].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[33].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[34].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[34].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[34].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[35].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[35].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[35].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[36].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[36].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[36].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[37].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[37].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[37].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[38].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[38].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[38].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[39].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[39].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[39].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[40].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[40].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[40].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[41].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[41].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[41].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[42].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[42].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[42].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[43].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[43].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[43].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[44].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[44].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[44].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[45].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[45].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[45].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[46].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[46].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[46].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[47].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[47].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[47].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[48].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[48].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[48].progress_pct",
+    "value": 0
+  },
+  {
+    "path": "contracts[49].total_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[49].delivered_quantity",
+    "value": 0.0
+  },
+  {
+    "path": "contracts[49].progress_pct",
+    "value": 0
+  }
+]

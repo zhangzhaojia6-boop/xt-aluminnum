@@ -1,0 +1,4 @@
+﻿--- BEGIN UNTRUSTED EXTERNAL CONTENT (source: https://xtmijd.com/manage/mapping-reconciliation) ---
+鑫泰数据中枢数据中枢实时调度调度昨日报表日报生产分析作业车间卷材明细能耗异常人员考勤考勤系统资料账号规则通讯通道知识库对齐设置搜索Ctrl KAI 助手系系统管理员只读 dry-run输出skill 对齐运行真实试算参考文件0未挂载对齐行数0 / 0输出skill / 系统当前匹配率0%未运行字段匹配0 / 0已匹配 / 可比字段未匹配字段0需要看差异原因差异数量0可追原因运行编号-未保存试算条件只读执行参考文件请选择文件业务日可比维度日期车间班次机台工序参考源0 个文件reference/output-skill暂无可读文件系统源14 张表mes_stock_recordsmes_workshop_process_recordsshift_production_datawork_order_entriesdaily_consumable_logscost_daily_resultmachine_daily_cost_snapshotsmachine_energy_recordsdata_quality_issuesdata_reconciliation_itemsdaily_reportsworkshopsequipmentshift_configs差异原因汇总0 条未运行试算字段匹配率可比字段 0 项未运行试算差异明细0 条当前没有差异规则建议试算规则影响暂无建议设置
+操作员端退出登录
+--- END UNTRUSTED EXTERNAL CONTENT ---

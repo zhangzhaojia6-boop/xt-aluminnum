@@ -106,7 +106,7 @@ def test_reporter_skips_push_when_quality_gate_blocked(monkeypatch):
 
     sent = []
     monkeypatch.setattr(agent, "_send_message",
-                        lambda user, content: (sent.append((user, content)) or (True, "sent")))
+                        lambda user, content, **_kwargs: (sent.append((user, content)) or (True, "sent")))
 
     decisions = agent.execute(db=db, target_date=date(2026, 5, 25))
 
@@ -164,7 +164,7 @@ def test_reporter_pushes_when_quality_gate_passed(monkeypatch):
 
     sent = []
     monkeypatch.setattr(agent, "_send_message",
-                        lambda user, content: (sent.append((user, content)) or (True, "sent")))
+                        lambda user, content, **_kwargs: (sent.append((user, content)) or (True, "sent")))
 
     decisions = agent.execute(db=db, target_date=date(2026, 5, 25))
 
@@ -225,7 +225,7 @@ def test_reporter_treats_missing_quality_gate_status_as_passed(monkeypatch):
 
     sent = []
     monkeypatch.setattr(agent, "_send_message",
-                        lambda user, content: (sent.append((user, content)) or (True, "sent")))
+                        lambda user, content, **_kwargs: (sent.append((user, content)) or (True, "sent")))
 
     decisions = agent.execute(db=db, target_date=date(2026, 5, 25))
 

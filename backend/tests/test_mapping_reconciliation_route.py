@@ -82,6 +82,25 @@ def test_mapping_reconciliation_sources_lists_reference_files(tmp_path, monkeypa
     assert 'machine_energy_records' in payload['system_sources']
 
 
+def test_mapping_reconciliation_sources_respects_limit_query(tmp_path, monkeypatch) -> None:
+    reference_dir = tmp_path / 'output-skill'
+    reference_dir.mkdir()
+    for index in range(3):
+        (reference_dir / f'2026-06-13-summary-{index}.txt').write_text('日报摘要', encoding='utf-8')
+    monkeypatch.setenv('OUTPUT_SKILL_REFERENCE_ROOT', str(reference_dir))
+    previous_overrides = _install_overrides()
+
+    try:
+        client = TestClient(app)
+        response = client.get('/api/v1/mapping-reconciliation/sources?limit=2')
+    finally:
+        _restore_overrides(previous_overrides)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload['files']) == 2
+
+
 def test_mapping_reconciliation_run_compares_rows_without_writing_database() -> None:
     previous_overrides = _install_overrides()
 

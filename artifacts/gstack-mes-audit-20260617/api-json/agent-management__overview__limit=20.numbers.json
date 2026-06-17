@@ -1,0 +1,38 @@
+[
+  {
+    "path": "summary.agent_total",
+    "value": 0
+  },
+  {
+    "path": "summary.active_agent_total",
+    "value": 0
+  },
+  {
+    "path": "summary.channel_total",
+    "value": 0
+  },
+  {
+    "path": "summary.active_channel_total",
+    "value": 0
+  },
+  {
+    "path": "summary.pending_event_total",
+    "value": 0
+  },
+  {
+    "path": "summary.evidence_total",
+    "value": 0
+  },
+  {
+    "path": "summary.pending_operation_total",
+    "value": 0
+  },
+  {
+    "path": "summary.outbox_pending_total",
+    "value": 0
+  },
+  {
+    "path": "summary.knowledge_entry_total",
+    "value": 11
+  }
+]

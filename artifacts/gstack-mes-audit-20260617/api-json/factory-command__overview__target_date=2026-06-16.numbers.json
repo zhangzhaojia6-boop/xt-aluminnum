@@ -1,0 +1,202 @@
+[
+  {
+    "path": "freshness.lag_seconds",
+    "value": 0.0
+  },
+  {
+    "path": "wip_tons",
+    "value": 148.69
+  },
+  {
+    "path": "today_output_tons",
+    "value": 1978.14
+  },
+  {
+    "path": "stock_tons",
+    "value": 1978.14
+  },
+  {
+    "path": "total_input_tons",
+    "value": 2126.83
+  },
+  {
+    "path": "total_output_tons",
+    "value": 1978.14
+  },
+  {
+    "path": "process_output_tons",
+    "value": 1978.14
+  },
+  {
+    "path": "yield_rate",
+    "value": 93.01
+  },
+  {
+    "path": "process_yield_rate",
+    "value": 93.01
+  },
+  {
+    "path": "workshop_summary[0].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "workshop_summary[0].row_count",
+    "value": 114
+  },
+  {
+    "path": "workshop_summary[0].total_input_tons",
+    "value": 1174.67
+  },
+  {
+    "path": "workshop_summary[0].total_output_tons",
+    "value": 1142.87
+  },
+  {
+    "path": "workshop_summary[0].yield_rate",
+    "value": 97.29
+  },
+  {
+    "path": "workshop_summary[1].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "workshop_summary[1].row_count",
+    "value": 25
+  },
+  {
+    "path": "workshop_summary[1].total_input_tons",
+    "value": 212.45
+  },
+  {
+    "path": "workshop_summary[1].total_output_tons",
+    "value": 211.05
+  },
+  {
+    "path": "workshop_summary[1].yield_rate",
+    "value": 99.34
+  },
+  {
+    "path": "workshop_summary[2].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "workshop_summary[2].row_count",
+    "value": 22
+  },
+  {
+    "path": "workshop_summary[2].total_input_tons",
+    "value": 211.35
+  },
+  {
+    "path": "workshop_summary[2].total_output_tons",
+    "value": 207.75
+  },
+  {
+    "path": "workshop_summary[2].yield_rate",
+    "value": 98.3
+  },
+  {
+    "path": "workshop_summary[3].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "workshop_summary[3].row_count",
+    "value": 20
+  },
+  {
+    "path": "workshop_summary[3].total_input_tons",
+    "value": 170.62
+  },
+  {
+    "path": "workshop_summary[3].total_output_tons",
+    "value": 170.18
+  },
+  {
+    "path": "workshop_summary[3].yield_rate",
+    "value": 99.74
+  },
+  {
+    "path": "workshop_summary[4].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "workshop_summary[4].row_count",
+    "value": 21
+  },
+  {
+    "path": "workshop_summary[4].total_input_tons",
+    "value": 147.71
+  },
+  {
+    "path": "workshop_summary[4].total_output_tons",
+    "value": 136.69
+  },
+  {
+    "path": "workshop_summary[4].yield_rate",
+    "value": 92.54
+  },
+  {
+    "path": "workshop_summary[5].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "workshop_summary[5].row_count",
+    "value": 11
+  },
+  {
+    "path": "workshop_summary[5].total_input_tons",
+    "value": 89.84
+  },
+  {
+    "path": "workshop_summary[5].total_output_tons",
+    "value": 89.01
+  },
+  {
+    "path": "workshop_summary[5].yield_rate",
+    "value": 99.08
+  },
+  {
+    "path": "workshop_summary[6].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "workshop_summary[6].row_count",
+    "value": 10
+  },
+  {
+    "path": "workshop_summary[6].total_input_tons",
+    "value": 79.39
+  },
+  {
+    "path": "workshop_summary[6].total_output_tons",
+    "value": 12.68
+  },
+  {
+    "path": "workshop_summary[6].yield_rate",
+    "value": 15.97
+  },
+  {
+    "path": "workshop_summary[7].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "workshop_summary[7].row_count",
+    "value": 7
+  },
+  {
+    "path": "workshop_summary[7].total_input_tons",
+    "value": 40.8
+  },
+  {
+    "path": "workshop_summary[7].total_output_tons",
+    "value": 7.91
+  },
+  {
+    "path": "workshop_summary[7].yield_rate",
+    "value": 19.39
+  },
+  {
+    "path": "abnormal_count",
+    "value": 248
+  }
+]

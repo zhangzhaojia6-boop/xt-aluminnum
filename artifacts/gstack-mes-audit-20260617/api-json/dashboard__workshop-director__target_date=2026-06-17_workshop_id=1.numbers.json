@@ -1,0 +1,1022 @@
+[
+  {
+    "path": "workshop_id",
+    "value": 1
+  },
+  {
+    "path": "total_output",
+    "value": 0.0
+  },
+  {
+    "path": "month_to_date_output",
+    "value": 0.0
+  },
+  {
+    "path": "pending_shift_count",
+    "value": 0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].contract_weight",
+    "value": 372.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].energy_per_ton",
+    "value": 91.15
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].contract_weight",
+    "value": 176.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].energy_per_ton",
+    "value": 125.52
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].contract_weight",
+    "value": 227.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].energy_per_ton",
+    "value": 105.1
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].contract_weight",
+    "value": 192.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].energy_per_ton",
+    "value": 153.75
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].contract_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].energy_per_ton",
+    "value": 145.56
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].energy_per_ton",
+    "value": 110.92
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].contract_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].energy_per_ton",
+    "value": 627.27
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].storage_finished_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.month_archive.total_output",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.month_archive.reported_days",
+    "value": 0
+  },
+  {
+    "path": "history_digest.month_archive.average_daily_output",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.month_archive.calendar_day",
+    "value": 17
+  },
+  {
+    "path": "history_digest.year_archive.total_output",
+    "value": 309.0
+  },
+  {
+    "path": "history_digest.year_archive.reported_days",
+    "value": 5
+  },
+  {
+    "path": "history_digest.year_archive.active_months",
+    "value": 1
+  },
+  {
+    "path": "history_digest.year_archive.average_monthly_output",
+    "value": 309.0
+  },
+  {
+    "path": "mobile_reporting_summary.expected_count",
+    "value": 3
+  },
+  {
+    "path": "mobile_reporting_summary.reported_count",
+    "value": 1
+  },
+  {
+    "path": "mobile_reporting_summary.submitted_count",
+    "value": 1
+  },
+  {
+    "path": "mobile_reporting_summary.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.returned_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.unreported_count",
+    "value": 3
+  },
+  {
+    "path": "mobile_reporting_summary.late_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.exception_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.reporting_rate",
+    "value": 33.33
+  },
+  {
+    "path": "mobile_reporting_summary.approved_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.draft_count",
+    "value": 0
+  },
+  {
+    "path": "reminder_summary.unreported_count",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.late_report_count",
+    "value": 0
+  },
+  {
+    "path": "reminder_summary.today_reminder_count",
+    "value": 28
+  },
+  {
+    "path": "reminder_summary.recent_items[0].id",
+    "value": 12616
+  },
+  {
+    "path": "reminder_summary.recent_items[0].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[0].team_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[0].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[0].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[1].id",
+    "value": 12631
+  },
+  {
+    "path": "reminder_summary.recent_items[1].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "reminder_summary.recent_items[1].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[1].team_id",
+    "value": 2
+  },
+  {
+    "path": "reminder_summary.recent_items[1].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[1].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[2].id",
+    "value": 12646
+  },
+  {
+    "path": "reminder_summary.recent_items[2].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "reminder_summary.recent_items[2].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[2].team_id",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[2].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[2].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[3].id",
+    "value": 12661
+  },
+  {
+    "path": "reminder_summary.recent_items[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[3].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[3].team_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[3].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[3].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[4].id",
+    "value": 12676
+  },
+  {
+    "path": "reminder_summary.recent_items[4].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "reminder_summary.recent_items[4].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[4].team_id",
+    "value": 2
+  },
+  {
+    "path": "reminder_summary.recent_items[4].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[4].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[5].id",
+    "value": 12691
+  },
+  {
+    "path": "reminder_summary.recent_items[5].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "reminder_summary.recent_items[5].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[5].team_id",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[5].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[5].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[6].id",
+    "value": 12711
+  },
+  {
+    "path": "reminder_summary.recent_items[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[6].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[6].leader_user_id",
+    "value": 904
+  },
+  {
+    "path": "reminder_summary.recent_items[6].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "reminder_summary.recent_items[7].id",
+    "value": 12734
+  },
+  {
+    "path": "reminder_summary.recent_items[7].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[7].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.recent_items[7].leader_user_id",
+    "value": 904
+  },
+  {
+    "path": "reminder_summary.recent_items[7].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.daily_unreported_count",
+    "value": 1
+  },
+  {
+    "path": "reminder_summary.daily_late_report_count",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.electricity_value",
+    "value": 2700.0
+  },
+  {
+    "path": "energy_summary.gas_value",
+    "value": 6850.0
+  },
+  {
+    "path": "energy_summary.water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.total_energy",
+    "value": 9550.0
+  },
+  {
+    "path": "energy_summary.output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[0].electricity_value",
+    "value": 2700.0
+  },
+  {
+    "path": "energy_lane[0].gas_value",
+    "value": 6850.0
+  },
+  {
+    "path": "energy_lane[0].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "energy_lane[0].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "energy_lane[0].total_energy",
+    "value": 9550.0
+  },
+  {
+    "path": "energy_lane[0].output_weight",
+    "value": 0
+  },
+  {
+    "path": "inventory_lane[0].storage_prepared",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].storage_finished",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].actual_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].contract_received",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "inventory_lane[0].shipment_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].consignment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].finished_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "exception_lane.unreported_shift_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.returned_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.late_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reminder_unreported_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_late_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.today_reminder_count",
+    "value": 28
+  },
+  {
+    "path": "exception_lane.production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.pending_report_publish_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reminder_items[0].id",
+    "value": 12616
+  },
+  {
+    "path": "exception_lane.reminder_items[0].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[0].team_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[0].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[0].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[1].id",
+    "value": 12631
+  },
+  {
+    "path": "exception_lane.reminder_items[1].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "exception_lane.reminder_items[1].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[1].team_id",
+    "value": 2
+  },
+  {
+    "path": "exception_lane.reminder_items[1].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[1].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[2].id",
+    "value": 12646
+  },
+  {
+    "path": "exception_lane.reminder_items[2].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "exception_lane.reminder_items[2].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[2].team_id",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[2].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[2].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[3].id",
+    "value": 12661
+  },
+  {
+    "path": "exception_lane.reminder_items[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[3].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[3].team_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[3].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[3].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[4].id",
+    "value": 12676
+  },
+  {
+    "path": "exception_lane.reminder_items[4].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "exception_lane.reminder_items[4].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[4].team_id",
+    "value": 2
+  },
+  {
+    "path": "exception_lane.reminder_items[4].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[4].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[5].id",
+    "value": 12691
+  },
+  {
+    "path": "exception_lane.reminder_items[5].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "exception_lane.reminder_items[5].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[5].team_id",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[5].leader_user_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[5].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[6].id",
+    "value": 12711
+  },
+  {
+    "path": "exception_lane.reminder_items[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[6].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[6].leader_user_id",
+    "value": 904
+  },
+  {
+    "path": "exception_lane.reminder_items[6].reminder_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.reminder_items[7].id",
+    "value": 12734
+  },
+  {
+    "path": "exception_lane.reminder_items[7].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[7].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "exception_lane.reminder_items[7].leader_user_id",
+    "value": 904
+  },
+  {
+    "path": "exception_lane.reminder_items[7].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.legacy_unreported_shift_count",
+    "value": 3
+  },
+  {
+    "path": "exception_lane.legacy_returned_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.legacy_late_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.legacy_mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.mobile_coil_entry_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.mobile_coil_workshop_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.freshness.sync_lag_seconds",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.freshness.history_points",
+    "value": 7
+  },
+  {
+    "path": "analysis_handoff.trend.current_output",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.trend.yesterday_output",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.trend.output_delta_vs_yesterday",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.trend.seven_day_average_output",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.reporting.reporting_rate",
+    "value": 33.33
+  },
+  {
+    "path": "analysis_handoff.reporting.reported_count",
+    "value": 1
+  },
+  {
+    "path": "analysis_handoff.reporting.unreported_count",
+    "value": 3
+  },
+  {
+    "path": "analysis_handoff.reporting.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.reporting.returned_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.delivery.reports_generated",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.delivery.reports_published_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.energy.total_energy",
+    "value": 9550.0
+  },
+  {
+    "path": "analysis_handoff.energy.electricity_value",
+    "value": 2700.0
+  },
+  {
+    "path": "analysis_handoff.energy.gas_value",
+    "value": 6850.0
+  },
+  {
+    "path": "analysis_handoff.energy.water_value",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.contracts.active_contract_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.contracts.stalled_contract_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.contracts.remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.risk.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.risk.mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.risk.production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.expected_count",
+    "value": 3
+  },
+  {
+    "path": "runtime_trace.frontline.reported_count",
+    "value": 1
+  },
+  {
+    "path": "runtime_trace.frontline.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.returned_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.unreported_count",
+    "value": 3
+  },
+  {
+    "path": "runtime_trace.frontline.late_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.reminder_count",
+    "value": 28
+  },
+  {
+    "path": "runtime_trace.frontline.reporting_rate",
+    "value": 33.33
+  },
+  {
+    "path": "runtime_trace.backline.history_points",
+    "value": 7
+  },
+  {
+    "path": "runtime_trace.backline.energy_row_count",
+    "value": 1
+  },
+  {
+    "path": "runtime_trace.backline.exception_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.backline.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_generated",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_ready_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_published_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.orchestration.reliability_score",
+    "value": 51.6
+  },
+  {
+    "path": "runtime_trace.orchestration.blocking_count",
+    "value": 2
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.coverage",
+    "value": 18.3
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.quality",
+    "value": 100.0
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.delivery",
+    "value": 37
+  },
+  {
+    "path": "process_output",
+    "value": 0.0
+  },
+  {
+    "path": "pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "shift_count",
+    "value": 0
+  },
+  {
+    "path": "confirmed_shift_count",
+    "value": 0
+  },
+  {
+    "path": "reviewed_shift_count",
+    "value": 0
+  },
+  {
+    "path": "rejected_shift_count",
+    "value": 0
+  },
+  {
+    "path": "attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "attendance_summary.total",
+    "value": 0
+  },
+  {
+    "path": "attendance_summary.normal",
+    "value": 0
+  },
+  {
+    "path": "attendance_summary.abnormal",
+    "value": 0
+  }
+]

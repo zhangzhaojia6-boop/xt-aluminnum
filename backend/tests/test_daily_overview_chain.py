@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from datetime import time
 from types import SimpleNamespace
 
@@ -11,7 +11,7 @@ from app.database import Base
 from app.models.attendance import AttendanceSchedule
 from app.models.consumable import DailyConsumableLog
 from app.models.master import Employee, Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesWipTotalSnapshot
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -253,6 +253,45 @@ def test_wip_distribution_prefers_daily_wip_snapshot_read_model(tmp_path) -> Non
             'feeding_weight': 18.2,
             'source_basis': 'mes_daily_wip_snapshot',
             'source_label': '外部 MES 当日快照参考',
+        }
+    ]
+
+
+def test_wip_distribution_uses_wip_total_when_daily_snapshot_weight_is_zero(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all([
+        MesDailyWipSnapshot(
+            business_date=date(2026, 5, 29),
+            workshop_name='新厂在线车间',
+            process_name='北线退火',
+            coil_count=3,
+            material_weight_tons=0.0,
+            feeding_weight_tons=28.5,
+            source='mes_coil_snapshot',
+        ),
+        MesWipTotalSnapshot(
+            source_id='新厂在线车间:北线退火',
+            workshop_name='新厂在线车间',
+            process_name='北线退火',
+            doing_count=588,
+            doing_weight_tons=4466.5,
+            snapshot_at=datetime(2026, 5, 29, 8, 0, tzinfo=UTC),
+        ),
+    ])
+    db.commit()
+
+    payload = daily_overview_builder._build_wip_distribution(db, date(2026, 5, 29))
+
+    assert payload == [
+        {
+            'workshop': '新厂在线车间',
+            'coil_count': 588,
+            'total_weight': 4466.5,
+            'feeding_weight': 28.5,
+            'source_basis': 'mes_wip_total_snapshot',
+            'source_label': '外部 MES 在制总量参考',
         }
     ]
 

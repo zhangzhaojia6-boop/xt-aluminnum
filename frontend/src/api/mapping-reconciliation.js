@@ -1,7 +1,7 @@
 import { api } from './index.js'
 
-export async function fetchMappingReconciliationSources() {
-  const { data } = await api.get('/mapping-reconciliation/sources')
+export async function fetchMappingReconciliationSources(params = {}) {
+  const { data } = await api.get('/mapping-reconciliation/sources', { params })
   return data
 }
 

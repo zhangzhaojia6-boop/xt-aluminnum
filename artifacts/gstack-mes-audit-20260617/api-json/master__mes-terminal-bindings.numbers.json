@@ -1,0 +1,14 @@
+[
+  {
+    "path": "total",
+    "value": 0
+  },
+  {
+    "path": "skip",
+    "value": 0
+  },
+  {
+    "path": "limit",
+    "value": 100
+  }
+]

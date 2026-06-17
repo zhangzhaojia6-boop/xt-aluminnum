@@ -1,0 +1,1276 @@
+{
+  "MES_Product": {
+    "row_count": 472537,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "PID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "PBatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Branch",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ContractID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ContractDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractNoticeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractNoticeCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ContractNoticeDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SaleAreaID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "SaleArea",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Customer",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerSimple",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "BatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ModeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Mode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "TypeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Type",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AlloyID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Alloy",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "StateID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "State",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Specification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SpecThickness",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecThicknessMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SpecWidth",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecLength",
+        "data_type": "decimal"
+      },
+      {
+        "name": "ThickTolerance",
+        "data_type": "decimal"
+      },
+      {
+        "name": "ThickToleranceLoss",
+        "data_type": "decimal"
+      },
+      {
+        "name": "WidthTolerance",
+        "data_type": "decimal"
+      },
+      {
+        "name": "WidthToleranceLoss",
+        "data_type": "decimal"
+      },
+      {
+        "name": "LengthTolerance",
+        "data_type": "decimal"
+      },
+      {
+        "name": "LengthToleranceLoss",
+        "data_type": "decimal"
+      },
+      {
+        "name": "FeedingSliceNum",
+        "data_type": "int"
+      },
+      {
+        "name": "SliceNum",
+        "data_type": "int"
+      },
+      {
+        "name": "FeedingWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "Weight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "NetWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "GrossWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "ProcessRouteID",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ProcessRoute",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ProcessRouteHour",
+        "data_type": "int"
+      },
+      {
+        "name": "CurrentWorkShopID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "CurrentWorkShop",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CurrentWorkShopStatus",
+        "data_type": "int"
+      },
+      {
+        "name": "CurrentProcessID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "CurrentProcess",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CurrentProcessSort",
+        "data_type": "int"
+      },
+      {
+        "name": "CurrentProcessStatus",
+        "data_type": "int"
+      },
+      {
+        "name": "NextWorkShopID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "NextWorkShop",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "NextProcessID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "NextProcess",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "NextProcessSort",
+        "data_type": "int"
+      },
+      {
+        "name": "Memo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo1",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo2",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo3",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Status",
+        "data_type": "int"
+      },
+      {
+        "name": "CardStatus",
+        "data_type": "int"
+      },
+      {
+        "name": "PrintStatus",
+        "data_type": "bit"
+      },
+      {
+        "name": "PlanFinishDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "FinishedDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "AllocationID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "InStockDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "InStockNetWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "DeliveryID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeliveryCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeliveryDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeliveryDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "OperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Operator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  "MES_ProductProcessRecord": {
+    "row_count": 692962,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "PID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "PBatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "PCustomer",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Sort",
+        "data_type": "int"
+      },
+      {
+        "name": "Status",
+        "data_type": "int"
+      },
+      {
+        "name": "BeginDatetime",
+        "data_type": "datetime"
+      },
+      {
+        "name": "BeginSpecification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "BeginSpecThickness",
+        "data_type": "decimal"
+      },
+      {
+        "name": "BeginSpecWidth",
+        "data_type": "decimal"
+      },
+      {
+        "name": "BeginSpecLength",
+        "data_type": "decimal"
+      },
+      {
+        "name": "BeginWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "EndDatetime",
+        "data_type": "datetime"
+      },
+      {
+        "name": "EndSpecification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "EndSpecThickness",
+        "data_type": "decimal"
+      },
+      {
+        "name": "EndSpecWidth",
+        "data_type": "decimal"
+      },
+      {
+        "name": "EndSpecLength",
+        "data_type": "decimal"
+      },
+      {
+        "name": "EndWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "Speed",
+        "data_type": "decimal"
+      },
+      {
+        "name": "Slice",
+        "data_type": "int"
+      },
+      {
+        "name": "Length",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SurplusWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "WorkShopID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "WorkShop",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ProcessID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Process",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "WorkerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Worker",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeviceID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeviceName",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeviceMAC",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Operator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  "WMS_InStockDetail": {
+    "row_count": 306451,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "PID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "InStockCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "AllocationOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationDetailMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "FromDepartmentID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "FromDepartment",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ToDepartmentID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ToDepartment",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ContractID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SalerSuperviseID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "SalerSupervise",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SalerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Saler",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SaleAreaID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "SaleArea",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Customer",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerName",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerMobile",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerAddress",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CrossNumberID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "CrossNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AreaNumberID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AreaNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "PositionNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "BatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ModeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Mode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "TypeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Type",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AlloyID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Alloy",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "StateID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "State",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Specification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SpecThickness",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecWidth",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecLength",
+        "data_type": "decimal"
+      },
+      {
+        "name": "NetWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "GrossWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SliceNum",
+        "data_type": "int"
+      },
+      {
+        "name": "PackageNum",
+        "data_type": "int"
+      },
+      {
+        "name": "Memo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Sort",
+        "data_type": "int"
+      },
+      {
+        "name": "Status",
+        "data_type": "int"
+      },
+      {
+        "name": "OperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Operator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "UrgentStatus",
+        "data_type": "int"
+      },
+      {
+        "name": "UrgentOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "UrgentOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "UrgentOperateDate",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  "MES_Feeding": {
+    "row_count": 0,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Customer",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ProductionOrderDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Specification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OldNum",
+        "data_type": "decimal"
+      },
+      {
+        "name": "CurrentNum",
+        "data_type": "decimal"
+      },
+      {
+        "name": "ProcessRoute",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ProcessRouteName",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "BatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "PlanCompleteDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "Memo1",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo2",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MaterialID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MaterialAlloyID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialAlloy",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MaterialSpecification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MaterialWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "MaterialWorkshopID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialWorkshop",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MaterialPositionID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "MaterialPosition",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "FeedingDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  "WMS_Stock": {
+    "row_count": 308339,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "FromDepartmentID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "FromDepartment",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ToDepartmentID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ToDepartment",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ContractID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "ContractCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SalerSuperviseID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "SalerSupervise",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SalerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Saler",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SaleAreaID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "SaleArea",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Customer",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerName",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerMobile",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CustomerAddress",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CrossNumberID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "CrossNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AreaNumberID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AreaNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "PositionNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "BatchNumber",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "ModeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Mode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "TypeID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Type",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AlloyID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Alloy",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "StateID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "State",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Specification",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "SpecThickness",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecWidth",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SpecLength",
+        "data_type": "decimal"
+      },
+      {
+        "name": "NetWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "GrossWeight",
+        "data_type": "decimal"
+      },
+      {
+        "name": "SliceNum",
+        "data_type": "int"
+      },
+      {
+        "name": "PackageNum",
+        "data_type": "int"
+      },
+      {
+        "name": "Memo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Memo3",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Sort",
+        "data_type": "int"
+      },
+      {
+        "name": "Status",
+        "data_type": "int"
+      },
+      {
+        "name": "AllocationID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "AllocationOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "AllocationDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "AllocationDetailMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "InStockID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "InStockCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "InStockDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "InStockOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "InStockOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "InStockDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "InStockDetailMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeliveryID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeliveryCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeliveryDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "DeliveryOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeliveryOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "DeliveryDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "DeliveryDetailMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OutStockID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "OutStockCode",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OutStockDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "OutStockOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "OutStockOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OutStockDetailID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "OutStockDetailMemo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "InventoryCount",
+        "data_type": "int"
+      },
+      {
+        "name": "OperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Operator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "UrgentStatus",
+        "data_type": "int"
+      },
+      {
+        "name": "UrgentOperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "UrgentOperator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "UrgentOperateDate",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  "MES_Device": {
+    "row_count": 50,
+    "columns": [
+      {
+        "name": "Id",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Name",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "MAC",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "IP",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "WorkShopID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "WorkShop",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CraftID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Craft",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "Status",
+        "data_type": "int"
+      },
+      {
+        "name": "Memo",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Operator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "OperateDate",
+        "data_type": "datetime"
+      },
+      {
+        "name": "CreatorID",
+        "data_type": "uniqueidentifier"
+      },
+      {
+        "name": "Creator",
+        "data_type": "nvarchar"
+      },
+      {
+        "name": "CreateDate",
+        "data_type": "datetime"
+      }
+    ]
+  }
+}

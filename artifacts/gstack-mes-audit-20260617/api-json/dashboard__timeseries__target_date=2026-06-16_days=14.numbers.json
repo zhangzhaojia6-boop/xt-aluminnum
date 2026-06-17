@@ -1,0 +1,114 @@
+[
+  {
+    "path": "[0].output",
+    "value": 18610.0
+  },
+  {
+    "path": "[0].energy",
+    "value": 14634.0
+  },
+  {
+    "path": "[1].output",
+    "value": 52740.0
+  },
+  {
+    "path": "[1].energy",
+    "value": 19981.0
+  },
+  {
+    "path": "[2].output",
+    "value": 16890.0
+  },
+  {
+    "path": "[2].energy",
+    "value": 26222.0
+  },
+  {
+    "path": "[3].output",
+    "value": 63010.0
+  },
+  {
+    "path": "[3].energy",
+    "value": 35780.0
+  },
+  {
+    "path": "[4].output",
+    "value": 340470.0
+  },
+  {
+    "path": "[4].energy",
+    "value": 12470.0
+  },
+  {
+    "path": "[5].output",
+    "value": 215340.0
+  },
+  {
+    "path": "[5].energy",
+    "value": 15144.0
+  },
+  {
+    "path": "[6].output",
+    "value": 341710.0
+  },
+  {
+    "path": "[6].energy",
+    "value": 11057.0
+  },
+  {
+    "path": "[7].output",
+    "value": 327410.0
+  },
+  {
+    "path": "[7].energy",
+    "value": 14173.0
+  },
+  {
+    "path": "[8].output",
+    "value": 465430.0
+  },
+  {
+    "path": "[8].energy",
+    "value": 13785.0
+  },
+  {
+    "path": "[9].output",
+    "value": 280700.0
+  },
+  {
+    "path": "[9].energy",
+    "value": 11462.0
+  },
+  {
+    "path": "[10].output",
+    "value": 241910.0
+  },
+  {
+    "path": "[10].energy",
+    "value": 6512.0
+  },
+  {
+    "path": "[11].output",
+    "value": 236040.0
+  },
+  {
+    "path": "[11].energy",
+    "value": 10462.0
+  },
+  {
+    "path": "[12].output",
+    "value": 247730.0
+  },
+  {
+    "path": "[12].energy",
+    "value": 10204.0
+  },
+  {
+    "path": "[13].output",
+    "value": 308680.0
+  },
+  {
+    "path": "[13].energy",
+    "value": 9738.0
+  }
+]

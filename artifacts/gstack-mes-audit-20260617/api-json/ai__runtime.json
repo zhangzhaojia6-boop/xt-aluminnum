@@ -1,0 +1,7 @@
+{
+  "engine": "grounded_llm",
+  "llm_configured": true,
+  "model_ref_set": true,
+  "canonical_entry": "/manage/ai-assistant",
+  "legacy_llm_entry": "/api/v1/assistant"
+}

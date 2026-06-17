@@ -71,3 +71,16 @@ test('manage coils page shows MES weight and automatic scrap clues separately', 
   assert.match(pageSrc, /废料率/)
   assert.match(pageSrc, /异常审核/)
 })
+
+test('manage coils page displays MES identity, spec, status and weight clues', () => {
+  assert.match(pageSrc, /客户\/合同/)
+  assert.match(pageSrc, /合金规格/)
+  assert.match(pageSrc, /MES 卷重/)
+  assert.match(pageSrc, /customerContractText/)
+  assert.match(pageSrc, /weightTraceText/)
+  assert.match(pageSrc, /lifecycleText/)
+  assert.match(pageSrc, /statusText/)
+  assert.match(pageSrc, /contract_no/)
+  assert.match(pageSrc, /material_weight/)
+  assert.match(pageSrc, /last_seen_from_mes_at/)
+})

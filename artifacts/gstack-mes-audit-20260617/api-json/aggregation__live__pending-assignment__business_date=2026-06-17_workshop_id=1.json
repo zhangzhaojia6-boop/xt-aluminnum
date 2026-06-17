@@ -1,0 +1,16 @@
+{
+  "business_date": "2026-06-17",
+  "workshop_id": 1,
+  "total": 0,
+  "summary": {
+    "entry_count": 0,
+    "draft_entry_count": 0,
+    "formal_entry_count": 0,
+    "missing_machine_count": 0,
+    "missing_shift_count": 0,
+    "input": 0.0,
+    "output": 0.0,
+    "scrap": 0.0
+  },
+  "items": []
+}

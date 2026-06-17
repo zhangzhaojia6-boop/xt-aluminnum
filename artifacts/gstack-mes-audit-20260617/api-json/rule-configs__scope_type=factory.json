@@ -1,0 +1,98 @@
+[
+  {
+    "id": null,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MIN_ATTENDANCE",
+    "value": 1.0,
+    "value_type": "int",
+    "version": 0,
+    "updated_by": null,
+    "updated_at": null,
+    "source": "fallback"
+  },
+  {
+    "id": null,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MAX_ATTENDANCE",
+    "value": 50.0,
+    "value_type": "int",
+    "version": 0,
+    "updated_by": null,
+    "updated_at": null,
+    "source": "fallback"
+  },
+  {
+    "id": null,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MIN_WEIGHT",
+    "value": 0.0,
+    "value_type": "float",
+    "version": 0,
+    "updated_by": null,
+    "updated_at": null,
+    "source": "fallback"
+  },
+  {
+    "id": null,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MAX_SINGLE_SHIFT_WEIGHT",
+    "value": 500.0,
+    "value_type": "float",
+    "version": 0,
+    "updated_by": null,
+    "updated_at": null,
+    "source": "fallback"
+  },
+  {
+    "id": null,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MIN_ENERGY",
+    "value": 0.0,
+    "value_type": "float",
+    "version": 0,
+    "updated_by": null,
+    "updated_at": null,
+    "source": "fallback"
+  },
+  {
+    "id": 1,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MAX_ELECTRICITY_DAILY",
+    "value": 150000.0,
+    "value_type": "int",
+    "version": 1,
+    "updated_by": 70,
+    "updated_at": "2026-05-30T08:21:58.861380+08:00",
+    "source": "override"
+  },
+  {
+    "id": 2,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "MAX_GAS_DAILY",
+    "value": 150000.0,
+    "value_type": "int",
+    "version": 1,
+    "updated_by": 70,
+    "updated_at": "2026-05-30T08:22:05.009842+08:00",
+    "source": "override"
+  },
+  {
+    "id": 3,
+    "scope_type": "factory",
+    "scope_key": "factory",
+    "key": "RECONCILIATION_TOLERANCE_PERCENT",
+    "value": 15.0,
+    "value_type": "int",
+    "version": 1,
+    "updated_by": 70,
+    "updated_at": "2026-05-30T08:22:10.089101+08:00",
+    "source": "override"
+  }
+]

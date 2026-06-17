@@ -210,6 +210,44 @@ def _process_weight_payload(record: Any | None) -> dict[str, Any]:
     }
 
 
+def _coil_trace_payload(row: Any, *, line_code: str | None = None) -> dict[str, Any]:
+    return {
+        'coil_key': getattr(row, 'coil_id', None),
+        'tracking_card_no': getattr(row, 'tracking_card_no', None),
+        'batch_no': getattr(row, 'batch_no', None),
+        'contract_no': getattr(row, 'contract_no', None),
+        'material_code': getattr(row, 'material_code', None),
+        'customer_alias': getattr(row, 'customer_alias', None),
+        'alloy_grade': getattr(row, 'alloy_grade', None),
+        'material_state': getattr(row, 'material_state', None),
+        'spec_thickness': getattr(row, 'spec_thickness', None),
+        'spec_width': getattr(row, 'spec_width', None),
+        'spec_length': getattr(row, 'spec_length', None),
+        'spec_display': getattr(row, 'spec_display', None),
+        'feeding_weight': getattr(row, 'feeding_weight', None),
+        'material_weight': getattr(row, 'material_weight', None),
+        'gross_weight': getattr(row, 'gross_weight', None),
+        'net_weight': getattr(row, 'net_weight', None),
+        'line_code': line_code,
+        'machine_code': getattr(row, 'machine_code', None),
+        'current_workshop': _canonical_workshop_name_or_none(getattr(row, 'current_workshop', None)),
+        'current_process': getattr(row, 'current_process', None),
+        'next_workshop': _canonical_workshop_name_or_none(getattr(row, 'next_workshop', None)),
+        'next_process': getattr(row, 'next_process', None),
+        'status_name': getattr(row, 'status_name', None),
+        'card_status_name': getattr(row, 'card_status_name', None),
+        'production_status': getattr(row, 'production_status', None),
+        'delay_hours': getattr(row, 'delay_hours', None),
+        'process_route_text': getattr(row, 'process_route_text', None),
+        'print_process_route_text': getattr(row, 'print_process_route_text', None),
+        'in_stock_date': getattr(row, 'in_stock_date', None),
+        'delivery_date': getattr(row, 'delivery_date', None),
+        'allocation_date': getattr(row, 'allocation_date', None),
+        'updated_from_mes_at': getattr(row, 'updated_from_mes_at', None),
+        'last_seen_from_mes_at': getattr(row, 'last_seen_from_mes_at', None),
+    }
+
+
 def _scope_workshop_tokens(db: Session, scope: ScopeSummary | None) -> set[str] | None:
     if scope is None or scope.is_admin or scope.data_scope_type == 'all':
         return None
@@ -278,11 +316,19 @@ def _matches_filter_text(row: Any, query: str | None) -> bool:
         'coil_id',
         'tracking_card_no',
         'batch_no',
+        'contract_no',
         'material_code',
+        'customer_alias',
+        'alloy_grade',
+        'material_state',
+        'spec_display',
         'machine_code',
         'current_workshop',
         'current_process',
         'next_process',
+        'status_name',
+        'card_status_name',
+        'production_status',
     )
     return any(text in str(getattr(row, field, '') or '').lower() for field in fields)
 
@@ -510,11 +556,19 @@ def _filter_text_expression(query: str | None):
         MesCoilSnapshot.coil_id.ilike(pattern),
         MesCoilSnapshot.tracking_card_no.ilike(pattern),
         MesCoilSnapshot.batch_no.ilike(pattern),
+        MesCoilSnapshot.contract_no.ilike(pattern),
         MesCoilSnapshot.material_code.ilike(pattern),
+        MesCoilSnapshot.customer_alias.ilike(pattern),
+        MesCoilSnapshot.alloy_grade.ilike(pattern),
+        MesCoilSnapshot.material_state.ilike(pattern),
+        MesCoilSnapshot.spec_display.ilike(pattern),
         MesCoilSnapshot.machine_code.ilike(pattern),
         MesCoilSnapshot.current_workshop.ilike(pattern),
         MesCoilSnapshot.current_process.ilike(pattern),
         MesCoilSnapshot.next_process.ilike(pattern),
+        MesCoilSnapshot.status_name.ilike(pattern),
+        MesCoilSnapshot.card_status_name.ilike(pattern),
+        MesCoilSnapshot.production_status.ilike(pattern),
     )
 
 
@@ -1636,19 +1690,10 @@ def list_coils(
     )
     return [
         {
-            'coil_key': row.coil_id,
-            'tracking_card_no': row.tracking_card_no,
-            'batch_no': getattr(row, 'batch_no', None),
-            'material_code': getattr(row, 'material_code', None),
+            **_coil_trace_payload(row, line_code=_line_code_for_coil(row, line_aliases)),
             **_process_weight_payload(latest_process_by_batch.get(str(getattr(row, 'batch_no', '') or '').strip())),
-            'line_code': _line_code_for_coil(row, line_aliases),
-            'machine_code': getattr(row, 'machine_code', None),
             'previous_workshop': _canonical_workshop_name_or_none(getattr(events.get(row.coil_id), 'previous_workshop', None)),
             'previous_process': getattr(events.get(row.coil_id), 'previous_process', None),
-            'current_workshop': _canonical_workshop_name_or_none(getattr(row, 'current_workshop', None)),
-            'current_process': getattr(row, 'current_process', None),
-            'next_workshop': _canonical_workshop_name_or_none(getattr(row, 'next_workshop', None)),
-            'next_process': getattr(row, 'next_process', None),
             'destination': _destination(row),
         }
         for row in rows
@@ -1675,9 +1720,9 @@ def get_coil_flow(db: Session, *, coil_key: str, scope: ScopeSummary | None = No
     event = events[-1] if events else None
     batch_no = str(getattr(row, 'batch_no', '') or '').strip()
     latest_process_by_batch = _latest_process_records_by_batch(db, {batch_no})
+    line_aliases = _line_alias_map(_scoped_machine_lines(db, scope=scope))
     return {
-        'coil_key': coil_key,
-        'tracking_card_no': getattr(row, 'tracking_card_no', None),
+        **_coil_trace_payload(row, line_code=_line_code_for_coil(row, line_aliases)),
         **_process_weight_payload(latest_process_by_batch.get(batch_no)),
         'previous_workshop': _canonical_workshop_name_or_none(getattr(event, 'previous_workshop', None)),
         'previous_process': getattr(event, 'previous_process', None),

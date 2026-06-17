@@ -176,7 +176,7 @@
     <section class="xt-fill-details__mes-gap" data-testid="fill-details-mes-gap-panel">
       <header class="xt-fill-details__panel-head">
         <h2>MES 对照异常</h2>
-        <span>{{ mesGapRows.length }} 条</span>
+        <span>{{ mesGapIssueCount }} 条</span>
       </header>
       <div v-if="mesGapRows.length" class="xt-fill-details__mes-gap-grid">
         <article v-for="row in mesGapRows" :key="rowKey(row)" class="xt-fill-details__mes-gap-row">
@@ -334,6 +334,15 @@ const bottomStatusItems = computed(() => stitchSurface.value.bottomStatus)
 const mesGapRows = computed(() => {
   const items = Array.isArray(mesGapData.value?.items) ? mesGapData.value.items : []
   return items.filter((row) => row.status && row.status !== 'matched').slice(0, 6)
+})
+const mesGapIssueCount = computed(() => {
+  const counts = mesGapData.value?.summary?.status_counts || {}
+  const values = Object.entries(counts)
+    .filter(([status]) => status !== 'matched')
+    .map(([, value]) => Number(value))
+    .filter(Number.isFinite)
+  if (values.length) return values.reduce((sum, value) => sum + value, 0)
+  return mesGapRows.value.length
 })
 
 function formatNumber(value, digits = 2) {

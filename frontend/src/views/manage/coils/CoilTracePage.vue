@@ -118,7 +118,10 @@
                     <small v-if="customerText(coil)">客户 {{ customerText(coil) }}</small>
                   </td>
                   <td data-label="当前车间">{{ coil.current_workshop || '-' }}</td>
-                  <td data-label="当前工艺">{{ coil.current_process || '-' }}</td>
+                  <td data-label="当前工艺">
+                    {{ coil.current_process || '-' }}
+                    <small v-if="hasStatusText(coil)">{{ statusText(coil) }}</small>
+                  </td>
                   <td data-label="机列归属">
                     <span class="xt-coils__binding" :class="bindingTone(coil)">
                       {{ machineLabel(coil) }}
@@ -129,7 +132,10 @@
                       {{ scrapLabel(coil) }}
                     </span>
                   </td>
-                  <td data-label="去向">{{ destinationLabel(coil.destination) }}</td>
+                  <td data-label="去向">
+                    {{ destinationLabel(coil.destination) }}
+                    <small>{{ weightTraceText(coil) }}</small>
+                  </td>
                 </tr>
               </template>
             </tbody>
@@ -149,7 +155,7 @@
         <template v-if="selectedCoil">
           <div class="xt-coils__identity">
             <strong>{{ selectedCoil.tracking_card_no || selectedCoil.coil_key }}</strong>
-            <span>{{ selectedCoil.batch_no || '批号未同步' }} · {{ selectedCoil.material_code || '材质未同步' }}</span>
+            <span>{{ selectedCoil.batch_no || '批号未同步' }} · {{ materialSummary(flowSource) }}</span>
           </div>
 
           <div class="xt-coils__route">
@@ -165,6 +171,21 @@
               <span>MES 主数据</span>
               <strong>{{ flowMachineText }}</strong>
               <small>{{ destinationLabel((flow || selectedCoil).destination) }}</small>
+            </article>
+            <article>
+              <span>客户/合同</span>
+              <strong>{{ customerContractText(flowSource) }}</strong>
+              <small>{{ statusText(flowSource) }}</small>
+            </article>
+            <article>
+              <span>合金规格</span>
+              <strong>{{ materialSummary(flowSource) }}</strong>
+              <small>{{ specText(flowSource) }}</small>
+            </article>
+            <article>
+              <span>MES 卷重</span>
+              <strong>{{ weightTraceText(flowSource) }}</strong>
+              <small>{{ lifecycleText(flowSource) }}</small>
             </article>
             <article>
               <span>MES 上机</span>
@@ -336,12 +357,37 @@ function customerText(coil) {
   return coil?.customer_alias || coil?.customer_name || coil?.contract_customer_name || ''
 }
 
+function contractText(coil) {
+  return coil?.contract_no || coil?.contract_code || ''
+}
+
+function customerContractText(coil) {
+  const parts = [customerText(coil), contractText(coil)].filter(Boolean)
+  return parts.length ? parts.join(' · ') : '客户合同未同步'
+}
+
 function materialSummary(coil) {
   const parts = [
     coil?.material_code || coil?.alloy_grade,
+    coil?.material_state,
     coil?.spec_display,
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : '材质未同步'
+}
+
+function specText(coil) {
+  if (coil?.spec_display) return coil.spec_display
+  const parts = [coil?.spec_thickness, coil?.spec_width, coil?.spec_length].filter((value) => value !== null && value !== undefined && value !== '')
+  return parts.length ? parts.join(' × ') : '规格未同步'
+}
+
+function statusText(coil) {
+  const parts = [coil?.status_name, coil?.card_status_name, coil?.production_status].filter(Boolean)
+  return parts.length ? parts.join(' / ') : '状态未同步'
+}
+
+function hasStatusText(coil) {
+  return statusText(coil) !== '状态未同步'
 }
 
 function machineLabel(coil) {
@@ -367,6 +413,50 @@ function formatPercent(value) {
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) return '待同步'
   return `${(numericValue * 100).toFixed(2).replace(/\.00$/, '')}%`
+}
+
+function formatPossibleKgWeight(value) {
+  if (value === null || value === undefined || value === '') return ''
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) return ''
+  const tons = Math.abs(numericValue) >= 1000 ? numericValue / 1000 : numericValue
+  return `${tons.toFixed(2).replace(/\.00$/, '')} 吨`
+}
+
+function weightTraceText(coil) {
+  const items = [
+    ['料重', coil?.material_weight],
+    ['净重', coil?.net_weight],
+    ['毛重', coil?.gross_weight],
+    ['投料', coil?.feeding_weight],
+  ]
+    .map(([label, value]) => {
+      const text = formatPossibleKgWeight(value)
+      return text ? `${label}${text}` : ''
+    })
+    .filter(Boolean)
+  return items.slice(0, 2).join(' / ') || '重量未同步'
+}
+
+function formatDateTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function lifecycleText(coil) {
+  if (coil?.delivery_date) return `交付 ${formatDateTime(coil.delivery_date)}`
+  if (coil?.allocation_date) return `分配 ${formatDateTime(coil.allocation_date)}`
+  if (coil?.in_stock_date) return `入库 ${formatDateTime(coil.in_stock_date)}`
+  if (coil?.updated_from_mes_at) return `更新 ${formatDateTime(coil.updated_from_mes_at)}`
+  if (coil?.last_seen_from_mes_at) return `同步 ${formatDateTime(coil.last_seen_from_mes_at)}`
+  return '时间未同步'
 }
 
 function scrapStatusText(status) {

@@ -57,12 +57,21 @@
       <article class="xt-mapping-reconciliation__panel">
         <header>
           <h2>参考源</h2>
-          <span>{{ sourceFiles.length }} 个文件</span>
+          <span>{{ visibleSourceFiles.length }}/{{ sourceFiles.length }} 个文件</span>
         </header>
         <p class="xt-mapping-reconciliation__path">{{ sourceRoot }}</p>
+        <input
+          v-if="sourceFiles.length > 0"
+          v-model="sourceFileSearch"
+          class="xt-mapping-reconciliation__file-search"
+          type="search"
+          aria-label="筛选参考文件"
+          placeholder="筛选文件"
+        />
         <div v-if="sourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无可读文件</div>
+        <div v-else-if="filteredSourceFiles.length === 0" class="xt-mapping-reconciliation__empty">暂无匹配文件</div>
         <ul v-else class="xt-mapping-reconciliation__file-list">
-          <li v-for="item in sourceFiles.slice(0, 12)" :key="item.relative_path">
+          <li v-for="item in visibleSourceFiles" :key="item.relative_path">
             <b>{{ item.name }}</b>
             <span>{{ item.extension || '无扩展名' }} / {{ formatBytes(item.size_bytes) }}</span>
           </li>
@@ -178,6 +187,9 @@ import {
 } from '../../../api/mapping-reconciliation.js'
 import { inferLastCompletedBusinessDate } from '../../../utils/shiftClock.js'
 
+const SOURCE_FILE_LIMIT = 5000
+const SOURCE_FILE_DISPLAY_LIMIT = 120
+
 const loading = ref(false)
 const running = ref(false)
 const errorText = ref('')
@@ -188,8 +200,15 @@ const rulePreviewRunning = ref(false)
 const selectedReferenceFile = ref('')
 const businessDate = ref(inferLastCompletedBusinessDate())
 const selectedDimensions = ref(['business_date', 'workshop'])
+const sourceFileSearch = ref('')
 
 const sourceFiles = computed(() => sources.value?.files || [])
+const filteredSourceFiles = computed(() => {
+  const keyword = sourceFileSearch.value.trim().toLowerCase()
+  if (!keyword) return sourceFiles.value
+  return sourceFiles.value.filter((item) => String(item.relative_path || item.name || '').toLowerCase().includes(keyword))
+})
+const visibleSourceFiles = computed(() => filteredSourceFiles.value.slice(0, SOURCE_FILE_DISPLAY_LIMIT))
 const runnableFiles = computed(() => sourceFiles.value.filter((item) => ['.txt', '.md', '.log', '.xlsx', '.xls', '.json', '.ndjson'].includes(item.extension)))
 const systemSources = computed(() => sources.value?.system_sources || [])
 const sourceRoot = computed(() => sources.value?.reference_source || '未配置')
@@ -951,7 +970,7 @@ async function loadSources() {
   loading.value = true
   errorText.value = ''
   try {
-    sources.value = await fetchMappingReconciliationSources()
+    sources.value = await fetchMappingReconciliationSources({ limit: SOURCE_FILE_LIMIT })
     if (!selectedReferenceFile.value && runnableFiles.value.length > 0) {
       selectedReferenceFile.value = runnableFiles.value[0].relative_path
     }
@@ -1175,6 +1194,24 @@ onMounted(loadSources)
   font-size: var(--xt-text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.xt-mapping-reconciliation__file-search {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--xt-space-3);
+  border: 1px solid rgba(199, 155, 75, 0.2);
+  border-radius: 10px;
+  background: rgba(10, 15, 18, 0.72);
+  color: var(--mapping-text);
+  font: inherit;
+  font-weight: 850;
+  outline: none;
+}
+
+.xt-mapping-reconciliation__file-search:focus {
+  border-color: rgba(199, 155, 75, 0.58);
+  box-shadow: 0 0 0 3px rgba(199, 155, 75, 0.12);
 }
 
 .xt-mapping-reconciliation__empty {

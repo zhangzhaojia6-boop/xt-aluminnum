@@ -1,0 +1,222 @@
+[
+  {
+    "path": "[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "[0].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "[0].electricity_value",
+    "value": 2950.0
+  },
+  {
+    "path": "[0].gas_value",
+    "value": 6807.0
+  },
+  {
+    "path": "[0].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[0].total_energy",
+    "value": 9757.0
+  },
+  {
+    "path": "[0].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[1].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "[1].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "[1].electricity_value",
+    "value": 2750.0
+  },
+  {
+    "path": "[1].gas_value",
+    "value": 7026.0
+  },
+  {
+    "path": "[1].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[1].total_energy",
+    "value": 9776.0
+  },
+  {
+    "path": "[1].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[2].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "[2].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "[2].electricity_value",
+    "value": 900.0
+  },
+  {
+    "path": "[2].gas_value",
+    "value": 1966.0
+  },
+  {
+    "path": "[2].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[2].total_energy",
+    "value": 2866.0
+  },
+  {
+    "path": "[2].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[3].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "[3].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "[3].gas_value",
+    "value": 1690.0
+  },
+  {
+    "path": "[3].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[3].total_energy",
+    "value": 1690.0
+  },
+  {
+    "path": "[3].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[4].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "[4].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "[4].electricity_value",
+    "value": 1550.0
+  },
+  {
+    "path": "[4].gas_value",
+    "value": 2401.0
+  },
+  {
+    "path": "[4].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[4].total_energy",
+    "value": 3951.0
+  },
+  {
+    "path": "[4].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[5].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "[5].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "[5].electricity_value",
+    "value": 1588.0
+  },
+  {
+    "path": "[5].gas_value",
+    "value": 2025.0
+  },
+  {
+    "path": "[5].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[5].total_energy",
+    "value": 3613.0
+  },
+  {
+    "path": "[5].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[6].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "[6].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "[6].gas_value",
+    "value": 2587.0
+  },
+  {
+    "path": "[6].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[6].total_energy",
+    "value": 2587.0
+  },
+  {
+    "path": "[6].output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "[7].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "[7].gas_value",
+    "value": 0.0
+  },
+  {
+    "path": "[7].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "[7].total_energy",
+    "value": 0.0
+  },
+  {
+    "path": "[7].output_weight",
+    "value": 308.68000000000006
+  },
+  {
+    "path": "[7].energy_per_ton",
+    "value": 110.92393417131007
+  }
+]

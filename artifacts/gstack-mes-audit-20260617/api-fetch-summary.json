@@ -1,0 +1,288 @@
+[
+  {
+    "url": "﻿https://xtmijd.com/api/v1/agent-management/overview?limit=100",
+    "error": "InvalidSchema: No connection adapters were found for '\\ufeffhttps://xtmijd.com/api/v1/agent-management/overview?limit=100'"
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/agent-management/overview?limit=20",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 9
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/active-date",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 1
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/fill-details?business_date=2026-06-16&limit=800",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 429
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/fill-details?business_date=2026-06-17&limit=200",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 191
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/fill-details?business_date=2026-06-17&limit=800&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 15
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/mes-fill-gaps?business_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 287
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/mes-fill-gaps?business_date=2026-06-17&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 3
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live/pending-assignment?business_date=2026-06-17&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 10
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live?business_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 1999
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live?business_date=2026-06-17",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 1807
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/aggregation/live?business_date=2026-06-17&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 187
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/ai/assistant/conversations",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/ai/runtime",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/attendance/results?business_date=2026-06-17",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 4
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/contracts/summary",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 194
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/dashboard/daily-production?target_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 164
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/dashboard/factory-director?target_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 765
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/dashboard/timeseries?target_date=2026-06-16&days=14",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 28
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/dashboard/workshop-director?target_date=2026-06-17&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 255
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/energy/summary?business_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 55
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/factory-command/coils/fallback%3A26RA03629%3A26-s-3-065-1/flow",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 1
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/factory-command/coils?limit=100",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 4
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/factory-command/overview?target_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 50
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/inventory/summary",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 10
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/mapping-reconciliation/sources",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/aliases",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 51
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/equipment",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 344
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/equipment?limit=500",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 344
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/equipment?limit=500&reporting_only=true",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 341
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/mes-terminal-bindings",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 3
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/teams?limit=500",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 138
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/workshops",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 33
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/workshops?limit=300",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 33
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/workshops?limit=500",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 33
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/master/workshops?skip=0&limit=10",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 23
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/mes/extended/material-records?business_date=2026-06-17&limit=80&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/mes/extended/workshop-process-records?business_date=2026-06-17&limit=80&workshop_id=1",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/mes/supplement-readiness?limit=100",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 23
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/quality/issues?business_date=2026-06-16",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/rag/documents",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 1
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/reconciliation/items?business_date=2026-06-16&status=open",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/reports?start_date=2026-06-17&end_date=2026-06-17",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/rule-configs?scope_type=factory",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 22
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/user/preferences",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 0
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/users/?limit=300",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 150
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/users/?limit=300&skip=0",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 150
+  },
+  {
+    "url": "https://xtmijd.com/api/v1/users/?skip=0&limit=10",
+    "status": 200,
+    "content_type": "application/json",
+    "numeric_count": 32
+  }
+]

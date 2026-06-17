@@ -1,0 +1,1150 @@
+[
+  {
+    "path": "total",
+    "value": 206
+  },
+  {
+    "path": "summary.total",
+    "value": 206
+  },
+  {
+    "path": "summary.status_counts.mes_batch_unmapped",
+    "value": 77
+  },
+  {
+    "path": "summary.status_counts.weight_mismatch",
+    "value": 47
+  },
+  {
+    "path": "summary.status_counts.matched",
+    "value": 50
+  },
+  {
+    "path": "summary.status_counts.missing_local_entry",
+    "value": 32
+  },
+  {
+    "path": "items[0].mes_process_record_id",
+    "value": 2452
+  },
+  {
+    "path": "items[0].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[0].mes_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[0].mes_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[0].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[1].mes_process_record_id",
+    "value": 2454
+  },
+  {
+    "path": "items[1].local_entry_id",
+    "value": 3253
+  },
+  {
+    "path": "items[1].mes_input_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[1].mes_output_weight",
+    "value": 8940.0
+  },
+  {
+    "path": "items[1].local_input_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[1].local_output_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[2].mes_process_record_id",
+    "value": 2455
+  },
+  {
+    "path": "items[2].local_entry_id",
+    "value": 3275
+  },
+  {
+    "path": "items[2].mes_input_weight",
+    "value": 9350.0
+  },
+  {
+    "path": "items[2].mes_output_weight",
+    "value": 9350.0
+  },
+  {
+    "path": "items[2].local_input_weight",
+    "value": 9350.0
+  },
+  {
+    "path": "items[2].local_output_weight",
+    "value": 9350.0
+  },
+  {
+    "path": "items[3].mes_process_record_id",
+    "value": 2457
+  },
+  {
+    "path": "items[3].local_entry_id",
+    "value": 3276
+  },
+  {
+    "path": "items[3].mes_input_weight",
+    "value": 11700.0
+  },
+  {
+    "path": "items[3].mes_output_weight",
+    "value": 11940.0
+  },
+  {
+    "path": "items[3].local_input_weight",
+    "value": 11700.0
+  },
+  {
+    "path": "items[3].local_output_weight",
+    "value": 11700.0
+  },
+  {
+    "path": "items[4].mes_process_record_id",
+    "value": 2456
+  },
+  {
+    "path": "items[4].alloy_grade",
+    "value": "5052"
+  },
+  {
+    "path": "items[4].mes_input_weight",
+    "value": 2.0
+  },
+  {
+    "path": "items[4].mes_output_weight",
+    "value": 2.0
+  },
+  {
+    "path": "items[5].mes_process_record_id",
+    "value": 2458
+  },
+  {
+    "path": "items[5].local_entry_id",
+    "value": 3258
+  },
+  {
+    "path": "items[5].mes_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[5].mes_output_weight",
+    "value": 9010.0
+  },
+  {
+    "path": "items[5].local_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[5].local_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[6].mes_process_record_id",
+    "value": 2459
+  },
+  {
+    "path": "items[6].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[6].mes_input_weight",
+    "value": 9450.0
+  },
+  {
+    "path": "items[6].mes_output_weight",
+    "value": 9450.0
+  },
+  {
+    "path": "items[6].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[7].mes_process_record_id",
+    "value": 2461
+  },
+  {
+    "path": "items[7].mes_input_weight",
+    "value": 2514.0
+  },
+  {
+    "path": "items[7].mes_output_weight",
+    "value": 2554.0
+  },
+  {
+    "path": "items[8].mes_process_record_id",
+    "value": 2460
+  },
+  {
+    "path": "items[8].mes_input_weight",
+    "value": 2497.0
+  },
+  {
+    "path": "items[8].mes_output_weight",
+    "value": 2539.0
+  },
+  {
+    "path": "items[9].mes_process_record_id",
+    "value": 2462
+  },
+  {
+    "path": "items[9].local_entry_id",
+    "value": 3278
+  },
+  {
+    "path": "items[9].mes_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[9].mes_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[9].local_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[9].local_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[10].mes_process_record_id",
+    "value": 2464
+  },
+  {
+    "path": "items[10].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[10].mes_input_weight",
+    "value": 8050.0
+  },
+  {
+    "path": "items[10].mes_output_weight",
+    "value": 8050.0
+  },
+  {
+    "path": "items[10].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[11].mes_process_record_id",
+    "value": 2463
+  },
+  {
+    "path": "items[11].local_entry_id",
+    "value": 3279
+  },
+  {
+    "path": "items[11].mes_input_weight",
+    "value": 8960.0
+  },
+  {
+    "path": "items[11].mes_output_weight",
+    "value": 8910.0
+  },
+  {
+    "path": "items[11].local_input_weight",
+    "value": 8960.0
+  },
+  {
+    "path": "items[11].local_output_weight",
+    "value": 8910.0
+  },
+  {
+    "path": "items[12].mes_process_record_id",
+    "value": 2465
+  },
+  {
+    "path": "items[12].local_entry_id",
+    "value": 3280
+  },
+  {
+    "path": "items[12].mes_input_weight",
+    "value": 9050.0
+  },
+  {
+    "path": "items[12].mes_output_weight",
+    "value": 9030.0
+  },
+  {
+    "path": "items[12].local_input_weight",
+    "value": 9050.0
+  },
+  {
+    "path": "items[12].local_output_weight",
+    "value": 9030.0
+  },
+  {
+    "path": "items[13].mes_process_record_id",
+    "value": 2474
+  },
+  {
+    "path": "items[13].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[13].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[13].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[13].local_entry_id",
+    "value": 3247
+  },
+  {
+    "path": "items[13].mes_input_weight",
+    "value": 9650.0
+  },
+  {
+    "path": "items[13].mes_output_weight",
+    "value": 9110.0
+  },
+  {
+    "path": "items[13].local_input_weight",
+    "value": 9150.0
+  },
+  {
+    "path": "items[13].local_output_weight",
+    "value": 9100.0
+  },
+  {
+    "path": "items[13].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[14].mes_process_record_id",
+    "value": 2466
+  },
+  {
+    "path": "items[14].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[14].alloy_grade",
+    "value": "5052"
+  },
+  {
+    "path": "items[14].mes_input_weight",
+    "value": 5990.0
+  },
+  {
+    "path": "items[14].mes_output_weight",
+    "value": 5980.0
+  },
+  {
+    "path": "items[14].mes_resolved_machine_id",
+    "value": 151
+  },
+  {
+    "path": "items[15].mes_process_record_id",
+    "value": 2467
+  },
+  {
+    "path": "items[15].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[15].alloy_grade",
+    "value": "5754"
+  },
+  {
+    "path": "items[15].mes_input_weight",
+    "value": 1702.0
+  },
+  {
+    "path": "items[15].mes_output_weight",
+    "value": 1771.0
+  },
+  {
+    "path": "items[16].mes_process_record_id",
+    "value": 2481
+  },
+  {
+    "path": "items[16].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[16].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[16].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[16].local_entry_id",
+    "value": 3248
+  },
+  {
+    "path": "items[16].mes_input_weight",
+    "value": 9800.0
+  },
+  {
+    "path": "items[16].mes_output_weight",
+    "value": 9280.0
+  },
+  {
+    "path": "items[16].local_input_weight",
+    "value": 9300.0
+  },
+  {
+    "path": "items[16].local_output_weight",
+    "value": 9280.0
+  },
+  {
+    "path": "items[16].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[17].mes_process_record_id",
+    "value": 2473
+  },
+  {
+    "path": "items[17].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[17].alloy_grade",
+    "value": "5754"
+  },
+  {
+    "path": "items[17].mes_input_weight",
+    "value": 1798.0
+  },
+  {
+    "path": "items[17].mes_output_weight",
+    "value": 1871.0
+  },
+  {
+    "path": "items[18].mes_process_record_id",
+    "value": 2472
+  },
+  {
+    "path": "items[18].local_entry_id",
+    "value": 3281
+  },
+  {
+    "path": "items[18].mes_input_weight",
+    "value": 8850.0
+  },
+  {
+    "path": "items[18].mes_output_weight",
+    "value": 8860.0
+  },
+  {
+    "path": "items[18].local_input_weight",
+    "value": 8850.0
+  },
+  {
+    "path": "items[18].local_output_weight",
+    "value": 8850.0
+  },
+  {
+    "path": "items[19].mes_process_record_id",
+    "value": 2471
+  },
+  {
+    "path": "items[19].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[19].mes_input_weight",
+    "value": 9310.0
+  },
+  {
+    "path": "items[19].mes_output_weight",
+    "value": 9310.0
+  },
+  {
+    "path": "items[19].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[20].mes_process_record_id",
+    "value": 2470
+  },
+  {
+    "path": "items[20].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[20].alloy_grade",
+    "value": "5754"
+  },
+  {
+    "path": "items[20].mes_input_weight",
+    "value": 1794.0
+  },
+  {
+    "path": "items[20].mes_output_weight",
+    "value": 1866.0
+  },
+  {
+    "path": "items[21].mes_process_record_id",
+    "value": 2469
+  },
+  {
+    "path": "items[21].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[21].alloy_grade",
+    "value": "5754"
+  },
+  {
+    "path": "items[21].mes_input_weight",
+    "value": 1700.0
+  },
+  {
+    "path": "items[21].mes_output_weight",
+    "value": 1770.0
+  },
+  {
+    "path": "items[22].mes_process_record_id",
+    "value": 2468
+  },
+  {
+    "path": "items[22].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[22].mes_input_weight",
+    "value": 2679.0
+  },
+  {
+    "path": "items[22].mes_output_weight",
+    "value": 2762.0
+  },
+  {
+    "path": "items[23].mes_process_record_id",
+    "value": 2478
+  },
+  {
+    "path": "items[23].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[23].mes_input_weight",
+    "value": 2623.0
+  },
+  {
+    "path": "items[23].mes_output_weight",
+    "value": 2707.0
+  },
+  {
+    "path": "items[24].mes_process_record_id",
+    "value": 2477
+  },
+  {
+    "path": "items[24].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[24].mes_input_weight",
+    "value": 2449.0
+  },
+  {
+    "path": "items[24].mes_output_weight",
+    "value": 2531.0
+  },
+  {
+    "path": "items[25].mes_process_record_id",
+    "value": 2476
+  },
+  {
+    "path": "items[25].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[25].alloy_grade",
+    "value": "5052"
+  },
+  {
+    "path": "items[25].mes_input_weight",
+    "value": 9700.0
+  },
+  {
+    "path": "items[25].mes_output_weight",
+    "value": 9580.0
+  },
+  {
+    "path": "items[25].mes_resolved_machine_id",
+    "value": 151
+  },
+  {
+    "path": "items[26].mes_process_record_id",
+    "value": 2475
+  },
+  {
+    "path": "items[26].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[26].mes_input_weight",
+    "value": 2447.0
+  },
+  {
+    "path": "items[26].mes_output_weight",
+    "value": 2532.0
+  },
+  {
+    "path": "items[27].mes_process_record_id",
+    "value": 2485
+  },
+  {
+    "path": "items[27].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[27].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[27].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[27].local_entry_id",
+    "value": 3253
+  },
+  {
+    "path": "items[27].mes_input_weight",
+    "value": 9460.0
+  },
+  {
+    "path": "items[27].mes_output_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[27].local_input_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[27].local_output_weight",
+    "value": 8950.0
+  },
+  {
+    "path": "items[27].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[28].mes_process_record_id",
+    "value": 2480
+  },
+  {
+    "path": "items[28].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[28].mes_input_weight",
+    "value": 2678.0
+  },
+  {
+    "path": "items[28].mes_output_weight",
+    "value": 2760.0
+  },
+  {
+    "path": "items[29].mes_process_record_id",
+    "value": 2479
+  },
+  {
+    "path": "items[29].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[29].mes_input_weight",
+    "value": 2680.0
+  },
+  {
+    "path": "items[29].mes_output_weight",
+    "value": 2762.0
+  },
+  {
+    "path": "items[30].mes_process_record_id",
+    "value": 2489
+  },
+  {
+    "path": "items[30].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[30].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[30].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[30].local_entry_id",
+    "value": 3257
+  },
+  {
+    "path": "items[30].mes_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[30].mes_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[30].local_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[30].local_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[30].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[31].mes_process_record_id",
+    "value": 2482
+  },
+  {
+    "path": "items[31].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[31].mes_input_weight",
+    "value": 2469.0
+  },
+  {
+    "path": "items[31].mes_output_weight",
+    "value": 2550.0
+  },
+  {
+    "path": "items[32].mes_process_record_id",
+    "value": 2490
+  },
+  {
+    "path": "items[32].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[32].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[32].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[32].local_entry_id",
+    "value": 3258
+  },
+  {
+    "path": "items[32].mes_input_weight",
+    "value": 9010.0
+  },
+  {
+    "path": "items[32].mes_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[32].local_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[32].local_output_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[32].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[33].mes_process_record_id",
+    "value": 2484
+  },
+  {
+    "path": "items[33].local_entry_id",
+    "value": 3448
+  },
+  {
+    "path": "items[33].mes_input_weight",
+    "value": 11650.0
+  },
+  {
+    "path": "items[33].mes_output_weight",
+    "value": 11660.0
+  },
+  {
+    "path": "items[33].local_input_weight",
+    "value": 11660.0
+  },
+  {
+    "path": "items[34].mes_process_record_id",
+    "value": 2483
+  },
+  {
+    "path": "items[34].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[34].mes_input_weight",
+    "value": 9540.0
+  },
+  {
+    "path": "items[34].mes_output_weight",
+    "value": 9330.0
+  },
+  {
+    "path": "items[34].mes_resolved_machine_id",
+    "value": 151
+  },
+  {
+    "path": "items[35].mes_process_record_id",
+    "value": 2488
+  },
+  {
+    "path": "items[35].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[35].mes_input_weight",
+    "value": 9620.0
+  },
+  {
+    "path": "items[35].mes_output_weight",
+    "value": 9620.0
+  },
+  {
+    "path": "items[35].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[36].mes_process_record_id",
+    "value": 2491
+  },
+  {
+    "path": "items[36].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[36].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[36].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[36].local_entry_id",
+    "value": 3259
+  },
+  {
+    "path": "items[36].mes_input_weight",
+    "value": 8910.0
+  },
+  {
+    "path": "items[36].mes_output_weight",
+    "value": 8900.0
+  },
+  {
+    "path": "items[36].local_input_weight",
+    "value": 8900.0
+  },
+  {
+    "path": "items[36].local_output_weight",
+    "value": 8900.0
+  },
+  {
+    "path": "items[36].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[37].mes_process_record_id",
+    "value": 2487
+  },
+  {
+    "path": "items[37].alloy_grade",
+    "value": "6061"
+  },
+  {
+    "path": "items[37].mes_input_weight",
+    "value": 2479.0
+  },
+  {
+    "path": "items[37].mes_output_weight",
+    "value": 2565.0
+  },
+  {
+    "path": "items[38].mes_process_record_id",
+    "value": 2486
+  },
+  {
+    "path": "items[38].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[38].local_entry_id",
+    "value": 3375
+  },
+  {
+    "path": "items[38].mes_input_weight",
+    "value": 7670.0
+  },
+  {
+    "path": "items[38].mes_output_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[38].local_input_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[38].local_output_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[38].mes_resolved_machine_id",
+    "value": 182
+  },
+  {
+    "path": "items[39].mes_process_record_id",
+    "value": 2492
+  },
+  {
+    "path": "items[39].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[39].mes_input_weight",
+    "value": 9050.0
+  },
+  {
+    "path": "items[39].mes_output_weight",
+    "value": 8850.0
+  },
+  {
+    "path": "items[39].mes_resolved_machine_id",
+    "value": 151
+  },
+  {
+    "path": "items[40].mes_process_record_id",
+    "value": 2493
+  },
+  {
+    "path": "items[40].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[40].mes_input_weight",
+    "value": 3640.0
+  },
+  {
+    "path": "items[40].mes_output_weight",
+    "value": 3570.0
+  },
+  {
+    "path": "items[40].mes_resolved_machine_id",
+    "value": 151
+  },
+  {
+    "path": "items[41].mes_process_record_id",
+    "value": 2495
+  },
+  {
+    "path": "items[41].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[41].mes_input_weight",
+    "value": 9110.0
+  },
+  {
+    "path": "items[41].mes_output_weight",
+    "value": 9110.0
+  },
+  {
+    "path": "items[41].mes_resolved_machine_id",
+    "value": 243
+  },
+  {
+    "path": "items[42].mes_process_record_id",
+    "value": 2494
+  },
+  {
+    "path": "items[42].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[42].mes_input_weight",
+    "value": 9000.0
+  },
+  {
+    "path": "items[42].mes_output_weight",
+    "value": 8500.0
+  },
+  {
+    "path": "items[42].mes_resolved_machine_id",
+    "value": 182
+  },
+  {
+    "path": "items[43].mes_process_record_id",
+    "value": 2503
+  },
+  {
+    "path": "items[43].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[43].process_sequence.pass_index",
+    "value": 1
+  },
+  {
+    "path": "items[43].process_sequence.pass_total",
+    "value": 1
+  },
+  {
+    "path": "items[43].local_entry_id",
+    "value": 3262
+  },
+  {
+    "path": "items[43].mes_input_weight",
+    "value": 11760.0
+  },
+  {
+    "path": "items[43].mes_output_weight",
+    "value": 11000.0
+  },
+  {
+    "path": "items[43].local_input_weight",
+    "value": 11760.0
+  },
+  {
+    "path": "items[43].local_output_weight",
+    "value": 11000.0
+  },
+  {
+    "path": "items[43].mes_resolved_machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[44].mes_process_record_id",
+    "value": 2496
+  },
+  {
+    "path": "items[44].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[44].alloy_grade",
+    "value": "1060"
+  },
+  {
+    "path": "items[44].mes_input_weight",
+    "value": 6440.0
+  },
+  {
+    "path": "items[44].mes_output_weight",
+    "value": 6410.0
+  },
+  {
+    "path": "items[44].mes_resolved_machine_id",
+    "value": 183
+  },
+  {
+    "path": "items[45].mes_process_record_id",
+    "value": 2498
+  },
+  {
+    "path": "items[45].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[45].local_entry_id",
+    "value": 3372
+  },
+  {
+    "path": "items[45].mes_input_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[45].mes_output_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[45].local_input_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[45].local_output_weight",
+    "value": 7600.0
+  },
+  {
+    "path": "items[45].mes_resolved_machine_id",
+    "value": 182
+  },
+  {
+    "path": "items[46].mes_process_record_id",
+    "value": 2497
+  },
+  {
+    "path": "items[46].mes_input_weight",
+    "value": 2510.0
+  },
+  {
+    "path": "items[46].mes_output_weight",
+    "value": 2548.0
+  },
+  {
+    "path": "items[47].mes_process_record_id",
+    "value": 2502
+  },
+  {
+    "path": "items[47].mes_input_weight",
+    "value": 2494.0
+  },
+  {
+    "path": "items[47].mes_output_weight",
+    "value": 2534.0
+  },
+  {
+    "path": "items[48].mes_process_record_id",
+    "value": 2501
+  },
+  {
+    "path": "items[48].mes_input_weight",
+    "value": 2480.0
+  },
+  {
+    "path": "items[48].mes_output_weight",
+    "value": 2522.0
+  },
+  {
+    "path": "items[49].mes_process_record_id",
+    "value": 2500
+  },
+  {
+    "path": "items[49].mes_input_weight",
+    "value": 6490.0
+  },
+  {
+    "path": "items[49].mes_output_weight",
+    "value": 6470.0
+  }
+]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -71,7 +72,19 @@ class FactoryCoilListItemOut(BaseModel):
     coil_key: str
     tracking_card_no: str
     batch_no: str | None = None
+    contract_no: str | None = None
     material_code: str | None = None
+    customer_alias: str | None = None
+    alloy_grade: str | None = None
+    material_state: str | None = None
+    spec_thickness: float | None = None
+    spec_width: float | None = None
+    spec_length: str | None = None
+    spec_display: str | None = None
+    feeding_weight: float | None = None
+    material_weight: float | None = None
+    gross_weight: float | None = None
+    net_weight: float | None = None
     mes_input_weight_tons: float | None = None
     mes_output_weight_tons: float | None = None
     auto_scrap_weight_tons: float | None = None
@@ -85,23 +98,61 @@ class FactoryCoilListItemOut(BaseModel):
     current_process: str | None = None
     next_workshop: str | None = None
     next_process: str | None = None
+    status_name: str | None = None
+    card_status_name: str | None = None
+    production_status: str | None = None
+    delay_hours: float | None = None
+    process_route_text: str | None = None
+    print_process_route_text: str | None = None
+    in_stock_date: datetime | None = None
+    delivery_date: datetime | None = None
+    allocation_date: datetime | None = None
+    updated_from_mes_at: datetime | None = None
+    last_seen_from_mes_at: datetime | None = None
     destination: dict[str, Any]
 
 
 class FactoryCoilFlowOut(BaseModel):
     coil_key: str
     tracking_card_no: str | None = None
+    batch_no: str | None = None
+    contract_no: str | None = None
+    material_code: str | None = None
+    customer_alias: str | None = None
+    alloy_grade: str | None = None
+    material_state: str | None = None
+    spec_thickness: float | None = None
+    spec_width: float | None = None
+    spec_length: str | None = None
+    spec_display: str | None = None
+    feeding_weight: float | None = None
+    material_weight: float | None = None
+    gross_weight: float | None = None
+    net_weight: float | None = None
     mes_input_weight_tons: float | None = None
     mes_output_weight_tons: float | None = None
     auto_scrap_weight_tons: float | None = None
     auto_scrap_rate: float | None = None
     scrap_status: str = 'no_mes_process_record'
+    line_code: str | None = None
+    machine_code: str | None = None
     previous_workshop: str | None = None
     previous_process: str | None = None
     current_workshop: str | None = None
     current_process: str | None = None
     next_workshop: str | None = None
     next_process: str | None = None
+    status_name: str | None = None
+    card_status_name: str | None = None
+    production_status: str | None = None
+    delay_hours: float | None = None
+    process_route_text: str | None = None
+    print_process_route_text: str | None = None
+    in_stock_date: datetime | None = None
+    delivery_date: datetime | None = None
+    allocation_date: datetime | None = None
+    updated_from_mes_at: datetime | None = None
+    last_seen_from_mes_at: datetime | None = None
     destination: dict[str, Any]
     freshness: FactoryCommandFreshnessOut
 

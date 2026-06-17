@@ -1,0 +1,96 @@
+{
+  "business_date": "2026-06-17",
+  "sample_limit": 100,
+  "status": "ready",
+  "coverage": {
+    "sample_count": 15,
+    "device_name_rate": 1.0,
+    "output_weight_rate": 1.0,
+    "machine_match_rate": 1.0,
+    "machine_match_scope_count": 9,
+    "generic_terminal_count": 6,
+    "snapshot_match_rate": 0.2667,
+    "cold_roll_sequence_rate": 1.0
+  },
+  "machine_binding": {
+    "matched_count": 9,
+    "unmatched_count": 0,
+    "high_confidence_count": 9,
+    "medium_confidence_count": 0,
+    "source_counts": {
+      "generic_mes_terminal": 6,
+      "contained_machine_name": 9
+    }
+  },
+  "material_categories": {
+    "coil_process": 10,
+    "cold_roll_pass": 5
+  },
+  "window_comparison": {
+    "supplement_window_start": "09:30",
+    "supplement_window_count": 15,
+    "stored_business_date_count": 27,
+    "delta_count": -12,
+    "supplement_window_output_kg": 93087.0,
+    "stored_business_date_output_kg": 150639.0,
+    "delta_output_kg": -57552.0
+  },
+  "generic_terminals": [
+    {
+      "source_id": "e0a13781-b421-4716-a6f4-918ebb5679c8",
+      "batch_no": "26RZ00271-1",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    },
+    {
+      "source_id": "cb501d8e-d605-4046-b230-7ba32d6688c2",
+      "batch_no": "26RZ00211-4",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    },
+    {
+      "source_id": "6312f85d-ad1e-44e4-b857-6b089155fb7f",
+      "batch_no": "26RZ00214-4",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    },
+    {
+      "source_id": "ac2503b3-271e-4af0-b789-803187635d08",
+      "batch_no": "26RZ00275-3",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    },
+    {
+      "source_id": "ca1ae027-399f-420e-a4c8-6cb5b657e529",
+      "batch_no": "26RZ00214-1",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    },
+    {
+      "source_id": "5c4a9578-cfc5-4fc5-aa9b-0525f3c6e7e7",
+      "batch_no": "26RZ00275-1",
+      "workshop_name": "园区精整",
+      "process_name": "包装",
+      "device_name": "PC",
+      "binding_source": "generic_mes_terminal",
+      "terminal_hints": {}
+    }
+  ],
+  "unmatched_devices": [],
+  "warnings": []
+}

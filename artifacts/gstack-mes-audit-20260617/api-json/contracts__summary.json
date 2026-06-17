@@ -1,0 +1,2660 @@
+{
+  "kpi": {
+    "active_count": 286,
+    "fulfillment_pct": 0,
+    "overdue_count": 284,
+    "mtd_delivery_tons": 0.0
+  },
+  "progress": {
+    "labels": [
+      "HC2603110145",
+      "HC2603130174",
+      "HC2604040055",
+      "HC2604080092",
+      "HC2604100120",
+      "HC2604160207",
+      "HC2604230274",
+      "HC2604230296",
+      "HC2604240314",
+      "HC2604250323",
+      "HC2604250324",
+      "HC2604250325",
+      "HC2604290362",
+      "HC2604290371",
+      "HC2604300381",
+      "HC2604300383",
+      "HC2604300385",
+      "HC2604300396",
+      "HC2605040003",
+      "HC2605040012"
+    ],
+    "series": [
+      {
+        "name": "已推进",
+        "data": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "剩余",
+        "data": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "contract_no": "HC2603110145",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2603130174",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604040055",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604080092",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604100120",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604160207",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604230274",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604230296",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604240314",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604250323",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604250324",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604250325",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604290362",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604290371",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604300381",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604300383",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604300385",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2604300396",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605040003",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605040012",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605040014",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605050018",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605060027",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605060032",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605060036",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605080049",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605080056",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605080061",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090066",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090067",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090071",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090073",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090076",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090081",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605090082",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605100087",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605100088",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605100095",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605110098",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605110100",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120105",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120108",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120109",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120111",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120112",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120115",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120117",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605120118",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130121",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130123",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130125",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130127",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130128",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130129",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130130",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130131",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130133",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130134",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130135",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130136",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130137",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130138",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605130140",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140143",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140145",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140146",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140147",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140151",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140152",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140154",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140155",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605140156",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150161",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150162",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150165",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150167",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150169",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605150170",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605160172",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605160173",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605160174",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605160176",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605160177",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605170180",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605170181",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605170182",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605170183",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605170184",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605180188",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605180189",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605180191",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190192",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190193",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190197",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190199",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190201",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190203",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190204",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190205",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190206",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190207",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190209",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190210",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190211",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605190212",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200214",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200215",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200216",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200218",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200220",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605200222",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210223",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210224",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210225",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210227",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210228",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210229",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210230",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605210231",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220235",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220236",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220238",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220239",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220242",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220244",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605220246",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230247",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230248",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230251",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230253",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230254",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230255",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230256",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230257",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230258",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230259",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230260",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230261",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230264",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230265",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605230266",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605240267",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605240269",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605240270",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250271",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250272",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250274",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250275",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250276",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250277",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250278",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605250279",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260280",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260282",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260283",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260284",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260285",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260286",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605260287",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270290",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270291",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270292",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270293",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270294",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270295",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270296",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270298",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270299",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270300",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270302",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270303",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270304",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270305",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270306",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270310",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605270311",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280312",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280313",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280314",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280316",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280317",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280318",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280319",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280320",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280321",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280322",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280323",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280324",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280325",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605280326",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290328",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290329",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290330",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290331",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290332",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290333",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290334",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290336",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290337",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290338",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290339",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290340",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290341",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290342",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290343",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605290344",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605300346",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605300348",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605300349",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605310353",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605310354",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605310355",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010003",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010004",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010005",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010007",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010010",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010011",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010012",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010014",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010015",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606010017",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020019",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020022",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020023",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020026",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020029",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020031",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020035",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606020036",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030039",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030040",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030041",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030044",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030048",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030049",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030051",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030052",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030056",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030057",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030058",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030059",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030061",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030062",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606030064",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040069",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040070",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040071",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040072",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040073",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040077",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040078",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606040081",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050084",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050086",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050089",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050090",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050095",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050101",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606050102",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606060104",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606060111",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606060113",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606070119",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606070122",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606090143",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606090148",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606100163",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606100180",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606100182",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606130223",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606140226",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2606150248",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2510150038",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2601070007",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605130005",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605140006",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605160008",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605180009",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605190010",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605270012",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2605290013",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2606030002",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "XT2606080006",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "overdue"
+    },
+    {
+      "contract_no": "HC2605180186",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "active"
+    },
+    {
+      "contract_no": "HC2606100178",
+      "customer_name": "-",
+      "total_quantity": 0.0,
+      "delivered_quantity": 0.0,
+      "progress_pct": 0,
+      "deadline": "2026-06-17",
+      "status": "active"
+    }
+  ]
+}

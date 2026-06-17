@@ -1,0 +1,563 @@
+{
+  "generated_at": "2026-06-17 Asia/Shanghai",
+  "production_frontend": "https://xtmijd.com",
+  "screenshots": {
+    "route_count": 31,
+    "contact_sheet": "D:\\zzj Claude code\\aluminum-bypass\\artifacts\\gstack-mes-audit-20260617\\contact-sheet.png",
+    "per_route_files_directory": "D:\\zzj Claude code\\aluminum-bypass\\artifacts\\gstack-mes-audit-20260617",
+    "routes": [
+      {
+        "route": "/manage/live",
+        "finalUrl": "https://xtmijd.com/manage/live",
+        "visible_number_token_count": 155,
+        "redirected": false
+      },
+      {
+        "route": "/manage/today",
+        "finalUrl": "https://xtmijd.com/manage/today",
+        "visible_number_token_count": 139,
+        "redirected": false
+      },
+      {
+        "route": "/manage/production",
+        "finalUrl": "https://xtmijd.com/manage/production",
+        "visible_number_token_count": 54,
+        "redirected": false
+      },
+      {
+        "route": "/manage/workshop-dashboard",
+        "finalUrl": "https://xtmijd.com/manage/workshop-dashboard",
+        "visible_number_token_count": 42,
+        "redirected": false
+      },
+      {
+        "route": "/manage/coils",
+        "finalUrl": "https://xtmijd.com/manage/coils",
+        "visible_number_token_count": 563,
+        "redirected": false
+      },
+      {
+        "route": "/manage/fill-details",
+        "finalUrl": "https://xtmijd.com/manage/fill-details",
+        "visible_number_token_count": 3208,
+        "redirected": false
+      },
+      {
+        "route": "/manage/energy",
+        "finalUrl": "https://xtmijd.com/manage/energy",
+        "visible_number_token_count": 193,
+        "redirected": false
+      },
+      {
+        "route": "/manage/alerts",
+        "finalUrl": "https://xtmijd.com/manage/alerts",
+        "visible_number_token_count": 1816,
+        "redirected": false
+      },
+      {
+        "route": "/manage/attendance",
+        "finalUrl": "https://xtmijd.com/manage/attendance",
+        "visible_number_token_count": 18,
+        "redirected": false
+      },
+      {
+        "route": "/manage/reports",
+        "finalUrl": "https://xtmijd.com/manage/reports",
+        "visible_number_token_count": 15,
+        "redirected": false
+      },
+      {
+        "route": "/manage/inventory",
+        "finalUrl": "https://xtmijd.com/manage/inventory",
+        "visible_number_token_count": 12,
+        "redirected": false
+      },
+      {
+        "route": "/manage/contracts",
+        "finalUrl": "https://xtmijd.com/manage/contracts",
+        "visible_number_token_count": 4015,
+        "redirected": false
+      },
+      {
+        "route": "/manage/master",
+        "finalUrl": "https://xtmijd.com/manage/master",
+        "visible_number_token_count": 67,
+        "redirected": false
+      },
+      {
+        "route": "/manage/alias",
+        "finalUrl": "https://xtmijd.com/manage/alias",
+        "visible_number_token_count": 161,
+        "redirected": false
+      },
+      {
+        "route": "/manage/mes-terminal-bindings",
+        "finalUrl": "https://xtmijd.com/manage/mes-terminal-bindings",
+        "visible_number_token_count": 3,
+        "redirected": false
+      },
+      {
+        "route": "/manage/ai-assistant",
+        "finalUrl": "https://xtmijd.com/manage/ai-assistant",
+        "visible_number_token_count": 27,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/settings",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/users",
+        "finalUrl": "https://xtmijd.com/manage/admin/users",
+        "visible_number_token_count": 178,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/rules",
+        "finalUrl": "https://xtmijd.com/manage/admin/rules",
+        "visible_number_token_count": 28,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/governance",
+        "finalUrl": "https://xtmijd.com/manage/admin/governance",
+        "visible_number_token_count": 16,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/agents",
+        "finalUrl": "https://xtmijd.com/manage/admin/agents",
+        "visible_number_token_count": 49,
+        "redirected": false
+      },
+      {
+        "route": "/manage/channels",
+        "finalUrl": "https://xtmijd.com/manage/channels",
+        "visible_number_token_count": 4,
+        "redirected": false
+      },
+      {
+        "route": "/manage/rag",
+        "finalUrl": "https://xtmijd.com/manage/rag",
+        "visible_number_token_count": 5,
+        "redirected": false
+      },
+      {
+        "route": "/manage/mapping-reconciliation",
+        "finalUrl": "https://xtmijd.com/manage/mapping-reconciliation",
+        "visible_number_token_count": 13,
+        "redirected": false
+      },
+      {
+        "route": "/manage/admin/qr-print",
+        "finalUrl": "https://xtmijd.com/manage/admin/qr-print",
+        "visible_number_token_count": 136,
+        "redirected": false
+      },
+      {
+        "route": "/entry",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      },
+      {
+        "route": "/entry/fill",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      },
+      {
+        "route": "/entry/consumables",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      },
+      {
+        "route": "/entry/attendance",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      },
+      {
+        "route": "/entry/history",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      },
+      {
+        "route": "/entry/drafts",
+        "finalUrl": "https://xtmijd.com/manage/admin/settings",
+        "visible_number_token_count": 10,
+        "redirected": true
+      }
+    ]
+  },
+  "api_capture": {
+    "json_directory": "D:\\zzj Claude code\\aluminum-bypass\\artifacts\\gstack-mes-audit-20260617\\api-json",
+    "successful_json_api_count": 47,
+    "non_success_items": [
+      {
+        "url": "﻿https://xtmijd.com/api/v1/agent-management/overview?limit=100",
+        "error": "InvalidSchema: No connection adapters were found for '\\ufeffhttps://xtmijd.com/api/v1/agent-management/overview?limit=100'"
+      }
+    ]
+  },
+  "mes_sqlserver": {
+    "database": "XTAL",
+    "table_row_counts": {
+      "MES_Product": 472537,
+      "MES_ProductProcessRecord": 692962,
+      "WMS_InStockDetail": 306451,
+      "MES_Feeding": 0,
+      "WMS_Stock": 308339,
+      "MES_Device": 50
+    },
+    "business_window_allocation_sums_file": "D:\\zzj Claude code\\aluminum-bypass\\artifacts\\gstack-mes-audit-20260617\\mes-sqlserver\\business-window-allocation-sums.json",
+    "business_window_summaries": {
+      "wms_instockdetail_allocation_business_day_2026-06-16": {
+        "window_start": "2026-06-16 07:30:00",
+        "window_end": "2026-06-17 07:30:00",
+        "row_count": 107,
+        "net_weight_kg": 308680.0,
+        "net_weight_ton": 308.68,
+        "gross_weight_kg": 217226.0,
+        "gross_weight_ton": 217.226,
+        "min_allocation_date": "2026-06-16 08:33:00",
+        "max_allocation_date": "2026-06-17 07:28:00"
+      },
+      "wms_instockdetail_allocation_calendar_day_2026-06-16": {
+        "calendar_date": "2026-06-16",
+        "row_count": 95,
+        "net_weight_kg": 275154.0,
+        "net_weight_ton": 275.154,
+        "gross_weight_kg": 190674.0,
+        "gross_weight_ton": 190.674,
+        "min_allocation_date": "2026-06-16 01:37:00",
+        "max_allocation_date": "2026-06-16 19:17:00"
+      },
+      "wms_instockdetail_allocation_business_day_2026-06-17": {
+        "window_start": "2026-06-17 07:30:00",
+        "window_end": "2026-06-18 07:30:00",
+        "row_count": 10,
+        "net_weight_kg": 21702.0,
+        "net_weight_ton": 21.702,
+        "gross_weight_kg": 22520.0,
+        "gross_weight_ton": 22.52,
+        "min_allocation_date": "2026-06-17 07:32:00",
+        "max_allocation_date": "2026-06-17 09:53:00"
+      },
+      "wms_instockdetail_allocation_calendar_day_2026-06-17": {
+        "calendar_date": "2026-06-17",
+        "row_count": 49,
+        "net_weight_kg": 117488.0,
+        "net_weight_ton": 117.488,
+        "gross_weight_kg": 112990.0,
+        "gross_weight_ton": 112.99,
+        "min_allocation_date": "2026-06-17 05:39:00",
+        "max_allocation_date": "2026-06-17 09:53:00"
+      }
+    }
+  },
+  "key_api_values": {
+    "aggregation_live_2026_06_16_factory_total": {
+      "input": 2126.83,
+      "output": 1978.14,
+      "scrap": 51.96,
+      "yield_rate": 93.01,
+      "yield_rate_source": "runtime_work_order",
+      "mtd_input": 1436526.64,
+      "mtd_output": 21423.78,
+      "mtd_scrap": 106173.0,
+      "mtd_yield_rate": 1.49,
+      "mtd_pass_count_total": 622,
+      "month_start": "2026-06-01",
+      "month_end": "2026-06-16",
+      "packaging_output": 308.68,
+      "daily_output": 308.68,
+      "factory_total_output": 308.68,
+      "finished_inbound_output": 277.64,
+      "owner_storage_finished_weight": 277.64,
+      "business_day_start": "07:30",
+      "daily_output_source": "mes_stock_records",
+      "finished_inbound_source": "storage_owner_daily_entry"
+    },
+    "aggregation_live_2026_06_17_factory_total": {
+      "input": 123.93,
+      "output": 92.47,
+      "scrap": 7.63,
+      "yield_rate": 74.61,
+      "yield_rate_source": "runtime_work_order",
+      "mtd_input": 1436650.57,
+      "mtd_output": 21516.25,
+      "mtd_scrap": 106180.63,
+      "mtd_yield_rate": 1.5,
+      "mtd_pass_count_total": 640,
+      "month_start": "2026-06-01",
+      "month_end": "2026-06-17",
+      "packaging_output": 21.7,
+      "daily_output": 21.7,
+      "factory_total_output": 21.7,
+      "finished_inbound_output": 0.0,
+      "owner_storage_finished_weight": 0.0,
+      "business_day_start": "07:30",
+      "daily_output_source": "mes_stock_records",
+      "finished_inbound_source": "storage_owner_daily_entry"
+    },
+    "dashboard_daily_production_2026_06_16_plant_output": {
+      "basis": "mes_packaging_output",
+      "basis_label": "包装产量",
+      "business_day_start": "07:30",
+      "daily_output_source": "mes_stock_records",
+      "finished_inbound_source": "storage_owner_daily_entry",
+      "daily_output": 308.68,
+      "yesterday_output": 247.73,
+      "monthly_output": 3202.0,
+      "monthly_average_output": 200.12,
+      "packaging_output": 308.68,
+      "packaging_monthly_output": 3202.0,
+      "packaging_monthly_average": 200.12,
+      "packaging_basis_label": "包装产量",
+      "finished_inbound_output": 277.64,
+      "finished_inbound_monthly_output": 4911.47,
+      "finished_inbound_monthly_average": 306.97,
+      "finished_inbound_basis_label": "全厂入库产量",
+      "energy_per_ton": 31.55
+    },
+    "dashboard_daily_production_2026_06_16_energy": {
+      "total_electricity": 9738.0,
+      "total_gas": 24502.0,
+      "primary_source": "mobile_shift_report",
+      "owner_electricity": null,
+      "owner_gas": null,
+      "owner_total_energy": null,
+      "mobile_total_energy": 34240.0,
+      "system_total_energy": null,
+      "energy_per_ton": 110.92,
+      "electricity_cost": 0.63,
+      "gas_cost": 8.82,
+      "total_cost": 9.45,
+      "data_available": true,
+      "by_workshop": [
+        {
+          "workshop": "ZD",
+          "daily_electricity": 2950.0,
+          "daily_gas": 6807.0
+        },
+        {
+          "workshop": "ZD",
+          "daily_electricity": 2750.0,
+          "daily_gas": 7026.0
+        },
+        {
+          "workshop": "ZR2",
+          "daily_electricity": 900.0,
+          "daily_gas": 1966.0
+        },
+        {
+          "workshop": "ZR2",
+          "daily_electricity": 0.0,
+          "daily_gas": 1690.0
+        },
+        {
+          "workshop": "ZR3",
+          "daily_electricity": 1550.0,
+          "daily_gas": 2401.0
+        },
+        {
+          "workshop": "ZR3",
+          "daily_electricity": 1588.0,
+          "daily_gas": 2025.0
+        },
+        {
+          "workshop": "ZR3",
+          "daily_electricity": 0.0,
+          "daily_gas": 2587.0
+        },
+        {
+          "workshop": "FACTORY",
+          "daily_electricity": 0.0,
+          "daily_gas": 0.0
+        }
+      ]
+    },
+    "dashboard_daily_production_2026_06_16_yield_rates": {
+      "daily": 96.53,
+      "daily_delta": 0.04,
+      "monthly": 95.39,
+      "owner_daily": 86.0,
+      "basis": "mobile_coil_yield_rate"
+    },
+    "factory_command_2026_06_16": {
+      "business_date": "2026-06-16",
+      "source": "mixed",
+      "freshness": {
+        "status": "fresh",
+        "lag_seconds": 0.0,
+        "last_synced_at": "2026-06-17T11:26:15.756279+08:00",
+        "last_event_at": "2026-06-17T17:40:15.363000+08:00",
+        "source": "mixed",
+        "configured": true,
+        "migration_ready": true,
+        "action_required": "none",
+        "risk_tone": "normal"
+      },
+      "wip_tons": 148.69,
+      "today_output_tons": 1978.14,
+      "stock_tons": 1978.14,
+      "total_input_tons": 2126.83,
+      "total_output_tons": 1978.14,
+      "process_output_tons": 1978.14,
+      "yield_rate": 93.01,
+      "process_yield_rate": 93.01,
+      "output_basis": "live_aggregation",
+      "process_output_basis": "live_aggregation_factory_total",
+      "workshop_summary": [
+        {
+          "workshop_id": 4,
+          "workshop_name": "热轧",
+          "row_count": 114,
+          "total_input_tons": 1174.67,
+          "total_output_tons": 1142.87,
+          "yield_rate": 97.29
+        },
+        {
+          "workshop_id": 25,
+          "workshop_name": "拉矫",
+          "row_count": 25,
+          "total_input_tons": 212.45,
+          "total_output_tons": 211.05,
+          "yield_rate": 99.34
+        },
+        {
+          "workshop_id": 18,
+          "workshop_name": "冷轧1650",
+          "row_count": 22,
+          "total_input_tons": 211.35,
+          "total_output_tons": 207.75,
+          "yield_rate": 98.3
+        },
+        {
+          "workshop_id": 29,
+          "workshop_name": "新厂在线",
+          "row_count": 20,
+          "total_input_tons": 170.62,
+          "total_output_tons": 170.18,
+          "yield_rate": 99.74
+        },
+        {
+          "workshop_id": 26,
+          "workshop_name": "淬火车间",
+          "row_count": 21,
+          "total_input_tons": 147.71,
+          "total_output_tons": 136.69,
+          "yield_rate": 92.54
+        },
+        {
+          "workshop_id": 5,
+          "workshop_name": "冷轧2050",
+          "row_count": 11,
+          "total_input_tons": 89.84,
+          "total_output_tons": 89.01,
+          "yield_rate": 99.08
+        },
+        {
+          "workshop_id": 10,
+          "workshop_name": "园区剪切",
+          "row_count": 10,
+          "total_input_tons": 79.39,
+          "total_output_tons": 12.68,
+          "yield_rate": 15.97
+        },
+        {
+          "workshop_id": 3,
+          "workshop_name": "铸三",
+          "row_count": 7,
+          "total_input_tons": 40.8,
+          "total_output_tons": 7.91,
+          "yield_rate": 19.39
+        }
+      ],
+      "abnormal_count": 248,
+      "cost_estimate": {
+        "label": "经营估算",
+        "estimated_cost": null,
+        "estimated_gross_margin": null,
+        "missing_data": [
+          "cost_inputs"
+        ]
+      },
+      "missing_data": [
+        "cost_inputs"
+      ]
+    },
+    "energy_summary_2026_06_16_first_row": {
+      "business_date": "2026-06-16",
+      "workshop_id": 1,
+      "workshop_code": "ZD",
+      "shift_config_id": 6,
+      "shift_code": "C",
+      "electricity_value": 2950.0,
+      "gas_value": 6807.0,
+      "water_value": 0.0,
+      "total_energy": 9757.0,
+      "output_weight": 0.0,
+      "source": "mobile_shift_report"
+    },
+    "factory_command_coils_first_row": {
+      "coil_key": "fallback:26RA03629:26-s-3-065-1",
+      "tracking_card_no": "26RA03629",
+      "batch_no": "26RA03629",
+      "material_code": "26-s-3-065-1",
+      "mes_input_weight_tons": null,
+      "mes_output_weight_tons": null,
+      "auto_scrap_weight_tons": null,
+      "auto_scrap_rate": null,
+      "scrap_status": "no_mes_process_record",
+      "line_code": null,
+      "machine_code": null,
+      "previous_workshop": "新厂在线",
+      "previous_process": "北线退火",
+      "current_workshop": "冷轧2050",
+      "current_process": "冷轧",
+      "next_workshop": "拉矫",
+      "next_process": "退火",
+      "destination": {
+        "kind": "in_progress",
+        "label": "在制"
+      }
+    }
+  },
+  "reconciliation_results": [
+    {
+      "screen_or_api": "/manage/today, /manage/production, /api/v1/dashboard/daily-production?target_date=2026-06-16",
+      "visible_or_api_number": 308.68,
+      "meaning": "???? / daily_output / packaging_output????",
+      "mes_formula": "SUM(WMS_InStockDetail.NetWeight) / 1000, AllocationDate >= 2026-06-16 07:30 and < 2026-06-17 07:30",
+      "mes_value": 308.68,
+      "result": "exact_match"
+    },
+    {
+      "screen_or_api": "/manage/live, /api/v1/aggregation/live?business_date=2026-06-17",
+      "visible_or_api_number": 21.7,
+      "meaning": "??????????? 1 ?? 2 ???",
+      "mes_formula": "SUM(WMS_InStockDetail.NetWeight) / 1000, AllocationDate >= 2026-06-17 07:30 and < 2026-06-18 07:30",
+      "mes_value": 21.702,
+      "result": "match_after_display_rounding"
+    },
+    {
+      "screen_or_api": "same 2026-06-16 packaging output if using calendar day",
+      "visible_or_api_number": 308.68,
+      "meaning": "???????? 00:00-24:00 ????????",
+      "mes_formula": "SUM(WMS_InStockDetail.NetWeight) / 1000, AllocationDate calendar day 2026-06-16",
+      "mes_value": 275.154,
+      "result": "mismatch_due_to_wrong_time_window"
+    }
+  ],
+  "important_limitations": [
+    "????????????? SQL Server MES ???????????????????????????????????????????????????????????",
+    "???? /entry/* ???????????????? /manage/admin/settings????????/????????????????",
+    "????????????? SQL Server ????????????????????????????????? -> ???? -> SQL Server ????????????"
+  ]
+}

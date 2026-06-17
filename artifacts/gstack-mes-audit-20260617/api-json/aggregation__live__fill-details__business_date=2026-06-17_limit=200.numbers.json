@@ -1,0 +1,766 @@
+[
+  {
+    "path": "total",
+    "value": 22
+  },
+  {
+    "path": "summary.entry_count",
+    "value": 22
+  },
+  {
+    "path": "summary.machine_count",
+    "value": 8
+  },
+  {
+    "path": "summary.owner_count",
+    "value": 9
+  },
+  {
+    "path": "summary.output",
+    "value": 92.47
+  },
+  {
+    "path": "summary.energy_kwh",
+    "value": 2700.0
+  },
+  {
+    "path": "summary.gas_m3",
+    "value": 10913.0
+  },
+  {
+    "path": "summary.source_counts.work_order_entry",
+    "value": 14
+  },
+  {
+    "path": "summary.source_counts.mobile_shift_report",
+    "value": 3
+  },
+  {
+    "path": "summary.source_counts.machine_energy",
+    "value": 5
+  },
+  {
+    "path": "items[0].entry_id",
+    "value": 3474
+  },
+  {
+    "path": "items[0].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[0].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[0].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[0].input_weight",
+    "value": 3.57
+  },
+  {
+    "path": "items[0].output_weight",
+    "value": 3.5
+  },
+  {
+    "path": "items[0].scrap_weight",
+    "value": 0.07
+  },
+  {
+    "path": "items[0].yield_rate",
+    "value": 98.04
+  },
+  {
+    "path": "items[0].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[1].entry_id",
+    "value": 3473
+  },
+  {
+    "path": "items[1].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[1].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[1].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[1].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[1].input_weight",
+    "value": 9.33
+  },
+  {
+    "path": "items[1].output_weight",
+    "value": 9.2
+  },
+  {
+    "path": "items[1].scrap_weight",
+    "value": 0.13
+  },
+  {
+    "path": "items[1].yield_rate",
+    "value": 98.61
+  },
+  {
+    "path": "items[1].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[2].entry_id",
+    "value": 3472
+  },
+  {
+    "path": "items[2].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[2].machine_id",
+    "value": 146
+  },
+  {
+    "path": "items[2].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[2].responsible_user_id",
+    "value": 138
+  },
+  {
+    "path": "items[2].input_weight",
+    "value": 10.2
+  },
+  {
+    "path": "items[2].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "items[3].entry_id",
+    "value": 3471
+  },
+  {
+    "path": "items[3].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[3].machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[3].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[3].responsible_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[3].input_weight",
+    "value": 9.56
+  },
+  {
+    "path": "items[3].output_weight",
+    "value": 9.0
+  },
+  {
+    "path": "items[3].scrap_weight",
+    "value": 0.56
+  },
+  {
+    "path": "items[3].yield_rate",
+    "value": 94.14
+  },
+  {
+    "path": "items[3].metrics[1].value",
+    "value": 2.0
+  },
+  {
+    "path": "items[4].entry_id",
+    "value": 3470
+  },
+  {
+    "path": "items[4].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[4].machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[4].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[4].responsible_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[4].input_weight",
+    "value": 9.58
+  },
+  {
+    "path": "items[4].output_weight",
+    "value": 8.9
+  },
+  {
+    "path": "items[4].scrap_weight",
+    "value": 0.68
+  },
+  {
+    "path": "items[4].yield_rate",
+    "value": 92.9
+  },
+  {
+    "path": "items[4].metrics[1].value",
+    "value": 3.0
+  },
+  {
+    "path": "items[5].entry_id",
+    "value": 3469
+  },
+  {
+    "path": "items[5].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[5].machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[5].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[5].responsible_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[5].input_weight",
+    "value": 9.73
+  },
+  {
+    "path": "items[5].output_weight",
+    "value": 9.1
+  },
+  {
+    "path": "items[5].scrap_weight",
+    "value": 0.63
+  },
+  {
+    "path": "items[5].yield_rate",
+    "value": 93.53
+  },
+  {
+    "path": "items[5].metrics[1].value",
+    "value": 3.0
+  },
+  {
+    "path": "items[6].entry_id",
+    "value": 3468
+  },
+  {
+    "path": "items[6].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[6].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[6].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[6].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[6].input_weight",
+    "value": 9.34
+  },
+  {
+    "path": "items[6].output_weight",
+    "value": 9.25
+  },
+  {
+    "path": "items[6].scrap_weight",
+    "value": 0.09
+  },
+  {
+    "path": "items[6].yield_rate",
+    "value": 99.04
+  },
+  {
+    "path": "items[6].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[7].entry_id",
+    "value": 3467
+  },
+  {
+    "path": "items[7].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[7].machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[7].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[7].responsible_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[7].input_weight",
+    "value": 9.62
+  },
+  {
+    "path": "items[7].output_weight",
+    "value": 8.86
+  },
+  {
+    "path": "items[7].scrap_weight",
+    "value": 0.76
+  },
+  {
+    "path": "items[7].yield_rate",
+    "value": 92.1
+  },
+  {
+    "path": "items[7].metrics[1].value",
+    "value": 4.0
+  },
+  {
+    "path": "items[8].entry_id",
+    "value": 3466
+  },
+  {
+    "path": "items[8].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[8].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[8].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[8].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[8].input_weight",
+    "value": 9.12
+  },
+  {
+    "path": "items[8].output_weight",
+    "value": 9.0
+  },
+  {
+    "path": "items[8].scrap_weight",
+    "value": 0.12
+  },
+  {
+    "path": "items[8].yield_rate",
+    "value": 98.68
+  },
+  {
+    "path": "items[8].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[9].entry_id",
+    "value": 3465
+  },
+  {
+    "path": "items[9].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[9].machine_id",
+    "value": 146
+  },
+  {
+    "path": "items[9].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[9].responsible_user_id",
+    "value": 138
+  },
+  {
+    "path": "items[9].input_weight",
+    "value": 10.43
+  },
+  {
+    "path": "items[9].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "items[10].entry_id",
+    "value": 3464
+  },
+  {
+    "path": "items[10].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[10].machine_id",
+    "value": 123
+  },
+  {
+    "path": "items[10].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[10].responsible_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[10].input_weight",
+    "value": 9.45
+  },
+  {
+    "path": "items[10].output_weight",
+    "value": 8.86
+  },
+  {
+    "path": "items[10].scrap_weight",
+    "value": 0.59
+  },
+  {
+    "path": "items[10].yield_rate",
+    "value": 93.76
+  },
+  {
+    "path": "items[10].metrics[1].value",
+    "value": 2.0
+  },
+  {
+    "path": "items[11].report_id",
+    "value": 214
+  },
+  {
+    "path": "items[11].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[11].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[11].responsible_user_id",
+    "value": 16
+  },
+  {
+    "path": "items[12].report_id",
+    "value": 214
+  },
+  {
+    "path": "items[12].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[12].machine_id",
+    "value": 163
+  },
+  {
+    "path": "items[12].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[12].responsible_user_id",
+    "value": 16
+  },
+  {
+    "path": "items[12].gas_m3",
+    "value": 1300.0
+  },
+  {
+    "path": "items[13].report_id",
+    "value": 214
+  },
+  {
+    "path": "items[13].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[13].machine_id",
+    "value": 157
+  },
+  {
+    "path": "items[13].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[13].responsible_user_id",
+    "value": 16
+  },
+  {
+    "path": "items[13].gas_m3",
+    "value": 435.0
+  },
+  {
+    "path": "items[14].report_id",
+    "value": 214
+  },
+  {
+    "path": "items[14].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[14].machine_id",
+    "value": 156
+  },
+  {
+    "path": "items[14].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[14].responsible_user_id",
+    "value": 16
+  },
+  {
+    "path": "items[14].gas_m3",
+    "value": 1308.0
+  },
+  {
+    "path": "items[15].report_id",
+    "value": 213
+  },
+  {
+    "path": "items[15].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[15].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[15].responsible_user_id",
+    "value": 10
+  },
+  {
+    "path": "items[16].report_id",
+    "value": 213
+  },
+  {
+    "path": "items[16].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[16].machine_id",
+    "value": 118
+  },
+  {
+    "path": "items[16].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[16].responsible_user_id",
+    "value": 10
+  },
+  {
+    "path": "items[16].gas_m3",
+    "value": 295.0
+  },
+  {
+    "path": "items[17].report_id",
+    "value": 213
+  },
+  {
+    "path": "items[17].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[17].machine_id",
+    "value": 114
+  },
+  {
+    "path": "items[17].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[17].responsible_user_id",
+    "value": 10
+  },
+  {
+    "path": "items[17].gas_m3",
+    "value": 725.0
+  },
+  {
+    "path": "items[18].report_id",
+    "value": 212
+  },
+  {
+    "path": "items[18].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[18].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[18].responsible_user_id",
+    "value": 4
+  },
+  {
+    "path": "items[18].energy_kwh",
+    "value": 2700.0
+  },
+  {
+    "path": "items[18].gas_m3",
+    "value": 6850.0
+  },
+  {
+    "path": "items[19].entry_id",
+    "value": 3461
+  },
+  {
+    "path": "items[19].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[19].machine_id",
+    "value": 163
+  },
+  {
+    "path": "items[19].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[19].responsible_user_id",
+    "value": 361
+  },
+  {
+    "path": "items[19].input_weight",
+    "value": 9.6
+  },
+  {
+    "path": "items[19].output_weight",
+    "value": 5.8
+  },
+  {
+    "path": "items[19].scrap_weight",
+    "value": 1.0
+  },
+  {
+    "path": "items[19].yield_rate",
+    "value": 60.42
+  },
+  {
+    "path": "items[19].metrics[1].value",
+    "value": 600.0
+  },
+  {
+    "path": "items[19].metrics[2].value",
+    "value": 760.0
+  },
+  {
+    "path": "items[20].entry_id",
+    "value": 3460
+  },
+  {
+    "path": "items[20].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[20].machine_id",
+    "value": 157
+  },
+  {
+    "path": "items[20].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[20].responsible_user_id",
+    "value": 355
+  },
+  {
+    "path": "items[20].input_weight",
+    "value": 6.0
+  },
+  {
+    "path": "items[20].output_weight",
+    "value": 5.0
+  },
+  {
+    "path": "items[20].scrap_weight",
+    "value": 1.0
+  },
+  {
+    "path": "items[20].yield_rate",
+    "value": 83.33
+  },
+  {
+    "path": "items[20].metrics[1].value",
+    "value": 710.0
+  },
+  {
+    "path": "items[20].metrics[2].value",
+    "value": 760.0
+  },
+  {
+    "path": "items[21].entry_id",
+    "value": 3458
+  },
+  {
+    "path": "items[21].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[21].machine_id",
+    "value": 156
+  },
+  {
+    "path": "items[21].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[21].responsible_user_id",
+    "value": 354
+  },
+  {
+    "path": "items[21].input_weight",
+    "value": 8.4
+  },
+  {
+    "path": "items[21].output_weight",
+    "value": 6.0
+  },
+  {
+    "path": "items[21].scrap_weight",
+    "value": 2.0
+  },
+  {
+    "path": "items[21].yield_rate",
+    "value": 71.43
+  },
+  {
+    "path": "items[21].metrics[1].value",
+    "value": 1090.0
+  },
+  {
+    "path": "items[21].metrics[2].value",
+    "value": 760.0
+  }
+]

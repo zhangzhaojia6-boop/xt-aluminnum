@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
@@ -2104,10 +2105,7 @@ def _load_mes_snapshot_rows(
     workshop_rows = db.query(Workshop).filter(Workshop.is_active.is_(True)).all()
     workshop_id_by_code = {str(item.code or '').strip().upper(): item.id for item in workshop_rows if item.code}
     workshop_name_by_id = {item.id: item.name for item in workshop_rows}
-    machine_query = db.query(Equipment).filter(Equipment.is_active.is_(True))
-    if _has_reporting_machine_rows(db):
-        machine_query = machine_query.filter(Equipment.code.in_(tuple(REPORTING_MACHINE_CODE_SET)))
-    machine_rows = machine_query.all()
+    machine_rows = db.query(Equipment).filter(Equipment.is_active.is_(True)).all()
     machine_id_by_code = {str(item.code or '').strip().upper(): item.id for item in machine_rows if item.code}
     machines_by_workshop: dict[int, list[Equipment]] = defaultdict(list)
     for machine in machine_rows:
@@ -2120,7 +2118,10 @@ def _load_mes_snapshot_rows(
         )
         .all()
     )
-    terminal_bindings = db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
+    try:
+        terminal_bindings = db.query(MesTerminalBinding).filter(MesTerminalBinding.is_active.is_(True)).all()
+    except (OperationalError, ProgrammingError):
+        terminal_bindings = []
     shift_rows = db.query(ShiftConfig).filter(ShiftConfig.is_active.is_(True)).all()
     shift_id_by_code = {str(item.code or '').strip().upper(): item.id for item in shift_rows if item.code}
     work_order_by_card: dict[str, WorkOrder] = {}

@@ -28,6 +28,8 @@ test('mapping reconciliation page uses real API functions and dry-run copy', () 
   const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
 
   assert.match(api, /\/mapping-reconciliation\/sources/)
+  assert.match(api, /fetchMappingReconciliationSources\(params = \{\}\)/)
+  assert.match(api, /api\.get\('\/mapping-reconciliation\/sources', \{ params \}\)/)
   assert.match(api, /\/mapping-reconciliation\/run/)
   assert.match(api, /\/mapping-reconciliation\/rules\/propose/)
   assert.match(api, /\/mapping-reconciliation\/rules\/apply-dry-run/)
@@ -35,6 +37,17 @@ test('mapping reconciliation page uses real API functions and dry-run copy', () 
   assert.match(page, /fetchMappingReconciliationSources/)
   assert.match(page, /runMappingReconciliation/)
   assert.match(page, /只读 dry-run/)
+})
+
+test('mapping reconciliation page loads a full source list and filters it locally', () => {
+  const page = source('../src/views/manage/mapping-reconciliation/MappingReconciliationPage.vue')
+
+  assert.match(page, /const SOURCE_FILE_LIMIT = 5000/)
+  assert.match(page, /fetchMappingReconciliationSources\(\{ limit: SOURCE_FILE_LIMIT \}\)/)
+  assert.match(page, /sourceFileSearch/)
+  assert.match(page, /filteredSourceFiles/)
+  assert.match(page, /visibleSourceFiles/)
+  assert.doesNotMatch(page, /sourceFiles\.slice\(0, 12\)/)
 })
 
 test('mapping reconciliation page can run selected file and business day dry-run', () => {

@@ -1,0 +1,48 @@
+{
+  "business_date": "2026-06-17",
+  "workshop_id": 1,
+  "total": 1,
+  "summary": {
+    "entry_count": 1,
+    "machine_count": 0,
+    "owner_count": 1,
+    "output": 0.0,
+    "energy_kwh": 2700.0,
+    "gas_m3": 6850.0,
+    "source_counts": {
+      "mobile_shift_report": 1
+    }
+  },
+  "items": [
+    {
+      "row_id": "mobile-report-212",
+      "source_type": "mobile_shift_report",
+      "source_label": "班次汇总",
+      "entry_id": null,
+      "report_id": 212,
+      "tracking_card_no": null,
+      "business_date": "2026-06-17",
+      "workshop_id": 1,
+      "workshop_name": "铸锭分厂",
+      "machine_id": null,
+      "machine_name": "班次汇总",
+      "shift_id": 4,
+      "shift_name": "长白班",
+      "responsible_user_id": 4,
+      "responsible_name": "铸锭车间 电工",
+      "responsible_username": "ZD-EN",
+      "status": "submitted",
+      "entry_type": "mobile_shift_report",
+      "input_weight": null,
+      "output_weight": null,
+      "scrap_weight": null,
+      "yield_rate": null,
+      "energy_kwh": 2700.0,
+      "gas_m3": 6850.0,
+      "submitted_at": "2026-06-17T08:01:15.182907+08:00",
+      "updated_at": "2026-06-17T08:01:15.163467+08:00",
+      "metrics": [],
+      "search_text": "班次汇总 铸锭分厂 班次汇总 长白班 铸锭车间 电工 ZD-EN submitted mobile_shift_report"
+    }
+  ]
+}

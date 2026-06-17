@@ -1,0 +1,3029 @@
+{
+  "items": [
+    {
+      "code": "ZD-1",
+      "name": "1#线",
+      "workshop_id": 1,
+      "equipment_type": "ingot_caster",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZD-1",
+      "bound_user_id": 101,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 109,
+      "bound_username": "ZD-1",
+      "bound_user_name": "铸锭分厂 1#线"
+    },
+    {
+      "code": "ZR2-1",
+      "name": "1#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-1",
+      "bound_user_id": 105,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 113,
+      "bound_username": "ZR2-1",
+      "bound_user_name": "铸轧二 1#机"
+    },
+    {
+      "code": "ZR3-1",
+      "name": "1#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-1",
+      "bound_user_id": 111,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 119,
+      "bound_username": "ZR3-1",
+      "bound_user_name": "铸轧三 1#机"
+    },
+    {
+      "code": "RZ-ZJ",
+      "name": "热轧机",
+      "workshop_id": 4,
+      "equipment_type": "hot_mill",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "trim_weight",
+          "type": "number",
+          "unit": "kg",
+          "label": "切头重量"
+        },
+        {
+          "name": "oil_consumption",
+          "type": "number",
+          "unit": "L",
+          "label": "润滑油"
+        }
+      ],
+      "qr_code": "XT-RZ-ZJ",
+      "bound_user_id": 112,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 120,
+      "bound_username": "RZ-ZJ",
+      "bound_user_name": "热轧 热轧机"
+    },
+    {
+      "code": "LZ2050-1",
+      "name": "2050#",
+      "workshop_id": 5,
+      "equipment_type": "cold_mill",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-LZ2050-1",
+      "bound_user_id": 115,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 123,
+      "bound_username": "LZ2050-1",
+      "bound_user_name": "2050冷轧 2050#"
+    },
+    {
+      "code": "JQ-1",
+      "name": "1#",
+      "workshop_id": 10,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-1",
+      "bound_user_id": 136,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 144,
+      "bound_username": "JQ-1",
+      "bound_user_name": "剪切车间 1#"
+    },
+    {
+      "code": "ZXTF-1",
+      "name": "新厂北",
+      "workshop_id": 29,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZXTF-1",
+      "bound_user_id": 335,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 149,
+      "bound_username": "ZXTF-1",
+      "bound_user_name": "新厂在线退火 新厂北"
+    },
+    {
+      "code": "ZXTF-3",
+      "name": "园区北",
+      "workshop_id": 30,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZXTF-3",
+      "bound_user_id": 337,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 151,
+      "bound_username": "ZXTF-3",
+      "bound_user_name": "园区在线退火 园区北"
+    },
+    {
+      "code": "LZ1850-1",
+      "name": "1#",
+      "workshop_id": 17,
+      "equipment_type": "cold_mill",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-LZ1850-1",
+      "bound_user_id": 362,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 164,
+      "bound_username": "LZ1850-1",
+      "bound_user_name": "1850冷轧 1#"
+    },
+    {
+      "code": "LZ1650-1",
+      "name": "1650#",
+      "workshop_id": 18,
+      "equipment_type": "cold_mill",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-LZ1650-1",
+      "bound_user_id": 363,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 165,
+      "bound_username": "LZ1650-1",
+      "bound_user_name": "1650冷轧 1650#"
+    },
+    {
+      "code": "HS-1",
+      "name": "回收1#",
+      "workshop_id": 23,
+      "equipment_type": "recycling",
+      "spec": null,
+      "operational_status": "stopped",
+      "shift_mode": "two",
+      "assigned_shift_ids": [
+        4,
+        5
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-HS-1",
+      "bound_user_id": null,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 171,
+      "bound_username": null,
+      "bound_user_name": null
+    },
+    {
+      "code": "JQ-LJ",
+      "name": "拉矫",
+      "workshop_id": 25,
+      "equipment_type": "straightener",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-LJ",
+      "bound_user_id": 502,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 182,
+      "bound_username": "JQ-LJ",
+      "bound_user_name": "拉矫车间 拉矫"
+    },
+    {
+      "code": "CH-CHX",
+      "name": "淬火线",
+      "workshop_id": 26,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-CHX",
+      "bound_user_id": 506,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 219,
+      "bound_username": "CH-CHX",
+      "bound_user_name": "淬火车间 淬火线"
+    },
+    {
+      "code": "JZ-19G",
+      "name": "19辊",
+      "workshop_id": 8,
+      "equipment_type": "finishing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JZ-19G",
+      "bound_user_id": 499,
+      "sort_order": 1,
+      "is_active": true,
+      "id": 241,
+      "bound_username": "JZ-19G",
+      "bound_user_name": "精整车间 19辊"
+    },
+    {
+      "code": "ZD-2",
+      "name": "2#线",
+      "workshop_id": 1,
+      "equipment_type": "ingot_caster",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZD-2",
+      "bound_user_id": 102,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 110,
+      "bound_username": "ZD-2",
+      "bound_user_name": "铸锭分厂 2#线"
+    },
+    {
+      "code": "ZR2-2",
+      "name": "2#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-2",
+      "bound_user_id": 106,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 114,
+      "bound_username": "ZR2-2",
+      "bound_user_name": "铸轧二 2#机"
+    },
+    {
+      "code": "JQ-2",
+      "name": "2#",
+      "workshop_id": 10,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-2",
+      "bound_user_id": 137,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 145,
+      "bound_username": "JQ-2",
+      "bound_user_name": "剪切车间 2#"
+    },
+    {
+      "code": "ZXTF-2",
+      "name": "新厂南",
+      "workshop_id": 29,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZXTF-2",
+      "bound_user_id": 336,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 150,
+      "bound_username": "ZXTF-2",
+      "bound_user_name": "新厂在线退火 新厂南"
+    },
+    {
+      "code": "ZXTF-4",
+      "name": "园区南",
+      "workshop_id": 30,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZXTF-4",
+      "bound_user_id": 338,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 152,
+      "bound_username": "ZXTF-4",
+      "bound_user_name": "园区在线退火 园区南"
+    },
+    {
+      "code": "ZR3-2",
+      "name": "2#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-2",
+      "bound_user_id": 354,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 156,
+      "bound_username": "ZR3-2",
+      "bound_user_name": "铸轧三 2#机"
+    },
+    {
+      "code": "RZ-FM",
+      "name": "六面铣",
+      "workshop_id": 4,
+      "equipment_type": "milling",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "two",
+      "assigned_shift_ids": [
+        4,
+        5
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-RZ-FM",
+      "bound_user_id": 489,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 176,
+      "bound_username": "RZ-FM",
+      "bound_user_name": "热轧 六面铣"
+    },
+    {
+      "code": "LJ-DFC",
+      "name": "大分切",
+      "workshop_id": 25,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-LJ-DFC",
+      "bound_user_id": 503,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 217,
+      "bound_username": "LJ-DFC",
+      "bound_user_name": "拉矫车间 大分切"
+    },
+    {
+      "code": "CH-JZ1",
+      "name": "矫直机1#",
+      "workshop_id": 26,
+      "equipment_type": "straightener",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-JZ1",
+      "bound_user_id": 507,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 220,
+      "bound_username": "CH-JZ1",
+      "bound_user_name": "淬火车间 矫直机1#"
+    },
+    {
+      "code": "JZ-19N",
+      "name": "新19辊",
+      "workshop_id": 8,
+      "equipment_type": "finishing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JZ-19N",
+      "bound_user_id": 500,
+      "sort_order": 2,
+      "is_active": true,
+      "id": 242,
+      "bound_username": "JZ-19N",
+      "bound_user_name": "精整车间 新19辊"
+    },
+    {
+      "code": "ZD-3",
+      "name": "3#线",
+      "workshop_id": 1,
+      "equipment_type": "ingot_caster",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZD-3",
+      "bound_user_id": null,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 111,
+      "bound_username": null,
+      "bound_user_name": null
+    },
+    {
+      "code": "ZR2-3",
+      "name": "3#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "stopped",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-3",
+      "bound_user_id": null,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 115,
+      "bound_username": null,
+      "bound_user_name": null
+    },
+    {
+      "code": "JQ-3",
+      "name": "3#",
+      "workshop_id": 10,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-3",
+      "bound_user_id": 138,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 146,
+      "bound_username": "JQ-3",
+      "bound_user_name": "剪切车间 3#"
+    },
+    {
+      "code": "ZR3-3",
+      "name": "3#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-3",
+      "bound_user_id": 355,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 157,
+      "bound_username": "ZR3-3",
+      "bound_user_name": "铸轧三 3#机"
+    },
+    {
+      "code": "RZ-DM",
+      "name": "双面铣2台",
+      "workshop_id": 4,
+      "equipment_type": "milling",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "two",
+      "assigned_shift_ids": [
+        4,
+        5
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-RZ-DM",
+      "bound_user_id": 490,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 175,
+      "bound_username": "RZ-DM",
+      "bound_user_name": "热轧 双面铣2台"
+    },
+    {
+      "code": "LJ-XJZ",
+      "name": "小剪子",
+      "workshop_id": 25,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-LJ-XJZ",
+      "bound_user_id": 504,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 218,
+      "bound_username": "LJ-XJZ",
+      "bound_user_name": "拉矫车间 小剪子"
+    },
+    {
+      "code": "CH-JZ2",
+      "name": "矫直机2#",
+      "workshop_id": 26,
+      "equipment_type": "straightener",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-JZ2",
+      "bound_user_id": 508,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 221,
+      "bound_username": "CH-JZ2",
+      "bound_user_name": "淬火车间 矫直机2#"
+    },
+    {
+      "code": "JZ-ZJ-Z",
+      "name": "纵剪",
+      "workshop_id": 8,
+      "equipment_type": "slitter",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JZ-ZJ-Z",
+      "bound_user_id": 501,
+      "sort_order": 3,
+      "is_active": true,
+      "id": 243,
+      "bound_username": "JZ-ZJ-Z",
+      "bound_user_name": "精整车间 纵剪"
+    },
+    {
+      "code": "ZD-4",
+      "name": "4#线",
+      "workshop_id": 1,
+      "equipment_type": "ingot_caster",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-ZD-4",
+      "bound_user_id": null,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 112,
+      "bound_username": null,
+      "bound_user_name": null
+    },
+    {
+      "code": "ZR2-4",
+      "name": "4#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "stopped",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-4",
+      "bound_user_id": null,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 116,
+      "bound_username": null,
+      "bound_user_name": null
+    },
+    {
+      "code": "JQ-4",
+      "name": "4#",
+      "workshop_id": 10,
+      "equipment_type": "shear",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-4",
+      "bound_user_id": 139,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 147,
+      "bound_username": "JQ-4",
+      "bound_user_name": "剪切车间 4#"
+    },
+    {
+      "code": "ZR3-4",
+      "name": "4#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-4",
+      "bound_user_id": 356,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 158,
+      "bound_username": "ZR3-4",
+      "bound_user_name": "铸轧三 4#机"
+    },
+    {
+      "code": "RZ-MED",
+      "name": "中厚板",
+      "workshop_id": 4,
+      "equipment_type": "hot_mill",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-RZ-MED",
+      "bound_user_id": 491,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 177,
+      "bound_username": "RZ-MED",
+      "bound_user_name": "热轧 中厚板"
+    },
+    {
+      "code": "JQ-TH",
+      "name": "退火炉",
+      "workshop_id": 25,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-TH",
+      "bound_user_id": 505,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 183,
+      "bound_username": "JQ-TH",
+      "bound_user_name": "拉矫车间 退火炉"
+    },
+    {
+      "code": "CH-PG1",
+      "name": "抛光机1#",
+      "workshop_id": 26,
+      "equipment_type": "finishing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-PG1",
+      "bound_user_id": 509,
+      "sort_order": 4,
+      "is_active": true,
+      "id": 222,
+      "bound_username": "CH-PG1",
+      "bound_user_name": "淬火车间 抛光机1#"
+    },
+    {
+      "code": "ZR2-5",
+      "name": "5#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-5",
+      "bound_user_id": 109,
+      "sort_order": 5,
+      "is_active": true,
+      "id": 117,
+      "bound_username": "ZR2-5",
+      "bound_user_name": "铸轧二 5#机"
+    },
+    {
+      "code": "JQ-ZJ",
+      "name": "重卷",
+      "workshop_id": 10,
+      "equipment_type": "recoiler",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-JQ-ZJ",
+      "bound_user_id": 140,
+      "sort_order": 5,
+      "is_active": true,
+      "id": 148,
+      "bound_username": "JQ-ZJ",
+      "bound_user_name": "剪切车间 重卷"
+    },
+    {
+      "code": "ZR3-5",
+      "name": "5#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-5",
+      "bound_user_id": 357,
+      "sort_order": 5,
+      "is_active": true,
+      "id": 159,
+      "bound_username": "ZR3-5",
+      "bound_user_name": "铸轧三 5#机"
+    },
+    {
+      "code": "RZ-HE",
+      "name": "加热炉",
+      "workshop_id": 4,
+      "equipment_type": "annealing_line",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-RZ-HE",
+      "bound_user_id": 492,
+      "sort_order": 5,
+      "is_active": true,
+      "id": 172,
+      "bound_username": "RZ-HE",
+      "bound_user_name": "热轧 加热炉"
+    },
+    {
+      "code": "CH-PG2",
+      "name": "抛光机2#",
+      "workshop_id": 26,
+      "equipment_type": "finishing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-PG2",
+      "bound_user_id": 510,
+      "sort_order": 5,
+      "is_active": true,
+      "id": 223,
+      "bound_username": "CH-PG2",
+      "bound_user_name": "淬火车间 抛光机2#"
+    },
+    {
+      "code": "ZR2-6",
+      "name": "6#机",
+      "workshop_id": 2,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR2-6",
+      "bound_user_id": 110,
+      "sort_order": 6,
+      "is_active": true,
+      "id": 118,
+      "bound_username": "ZR2-6",
+      "bound_user_name": "铸轧二 6#机"
+    },
+    {
+      "code": "RZ-JC",
+      "name": "锯床",
+      "workshop_id": 4,
+      "equipment_type": "sawing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "two",
+      "assigned_shift_ids": [
+        4,
+        5
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-RZ-JC",
+      "bound_user_id": 114,
+      "sort_order": 6,
+      "is_active": true,
+      "id": 122,
+      "bound_username": "RZ-JC",
+      "bound_user_name": "热轧 锯床"
+    },
+    {
+      "code": "ZR3-6",
+      "name": "6#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-6",
+      "bound_user_id": 358,
+      "sort_order": 6,
+      "is_active": true,
+      "id": 160,
+      "bound_username": "ZR3-6",
+      "bound_user_name": "铸轧三 6#机"
+    },
+    {
+      "code": "CH-JQ",
+      "name": "锯切机",
+      "workshop_id": 26,
+      "equipment_type": "sawing",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-JQ",
+      "bound_user_id": 511,
+      "sort_order": 6,
+      "is_active": true,
+      "id": 224,
+      "bound_username": "CH-JQ",
+      "bound_user_name": "淬火车间 锯切机"
+    },
+    {
+      "code": "ZR3-7",
+      "name": "7#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-7",
+      "bound_user_id": 359,
+      "sort_order": 7,
+      "is_active": true,
+      "id": 161,
+      "bound_username": "ZR3-7",
+      "bound_user_name": "铸轧三 7#机"
+    },
+    {
+      "code": "CH-LS",
+      "name": "拉伸机",
+      "workshop_id": 26,
+      "equipment_type": "straightener",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": null,
+      "qr_code": "XT-CH-LS",
+      "bound_user_id": 512,
+      "sort_order": 7,
+      "is_active": true,
+      "id": 225,
+      "bound_username": "CH-LS",
+      "bound_user_name": "淬火车间 拉伸机"
+    },
+    {
+      "code": "ZR3-8",
+      "name": "8#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-8",
+      "bound_user_id": 360,
+      "sort_order": 8,
+      "is_active": true,
+      "id": 162,
+      "bound_username": "ZR3-8",
+      "bound_user_name": "铸轧三 8#机"
+    },
+    {
+      "code": "ZR3-9",
+      "name": "9#机",
+      "workshop_id": 3,
+      "equipment_type": "cast_roller",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": [
+        4,
+        5,
+        6
+      ],
+      "custom_fields": [
+        {
+          "name": "al_liquid_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "铝液"
+        },
+        {
+          "name": "cast_cut_count",
+          "type": "number",
+          "unit": "个",
+          "label": "铸轧削"
+        },
+        {
+          "name": "al_rod",
+          "type": "number",
+          "unit": "个",
+          "label": "铝棒"
+        },
+        {
+          "name": "fine_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "精轧"
+        },
+        {
+          "name": "coarse_roll",
+          "type": "number",
+          "unit": "个",
+          "label": "粗轧"
+        },
+        {
+          "name": "back_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "背板"
+        },
+        {
+          "name": "tip_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "嘴片"
+        },
+        {
+          "name": "graphite_ring",
+          "type": "number",
+          "unit": "个",
+          "label": "石墨环"
+        },
+        {
+          "name": "filter_plate",
+          "type": "number",
+          "unit": "个",
+          "label": "过滤板"
+        },
+        {
+          "name": "silica_tube",
+          "type": "number",
+          "unit": "根",
+          "label": "硅碳管"
+        },
+        {
+          "name": "mn_agent_kg",
+          "type": "number",
+          "unit": "公斤",
+          "label": "锰剂"
+        }
+      ],
+      "qr_code": "XT-ZR3-9",
+      "bound_user_id": 361,
+      "sort_order": 9,
+      "is_active": true,
+      "id": 163,
+      "bound_username": "ZR3-9",
+      "bound_user_name": "铸轧三 9#机"
+    },
+    {
+      "code": "HS-EN",
+      "name": "回收车间 电工",
+      "workshop_id": 23,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "QR2AF7706DA1BEAE6BADE9",
+      "bound_user_id": 929,
+      "sort_order": 9980,
+      "is_active": true,
+      "id": 274,
+      "bound_username": "HS-EN",
+      "bound_user_name": "回收车间 电工"
+    },
+    {
+      "code": "HS-CS",
+      "name": "回收车间 内勤",
+      "workshop_id": 23,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "QR88E1C107AD5F13B171CC",
+      "bound_user_id": 930,
+      "sort_order": 9980,
+      "is_active": true,
+      "id": 275,
+      "bound_username": "HS-CS",
+      "bound_user_name": "回收车间 内勤"
+    },
+    {
+      "code": "LZ1650-EN",
+      "name": "1650冷轧 电工",
+      "workshop_id": 18,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-LZ1650-EN",
+      "bound_user_id": 914,
+      "sort_order": 9980,
+      "is_active": true,
+      "id": 277,
+      "bound_username": "LZ1650-EN",
+      "bound_user_name": "1650冷轧 电工"
+    },
+    {
+      "code": "LZ1650-CS",
+      "name": "1650冷轧 内勤",
+      "workshop_id": 18,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-LZ1650-CS",
+      "bound_user_id": 915,
+      "sort_order": 9980,
+      "is_active": true,
+      "id": 278,
+      "bound_username": "LZ1650-CS",
+      "bound_user_name": "1650冷轧 内勤"
+    },
+    {
+      "code": "ZD-EN",
+      "name": "铸锭车间 电工",
+      "workshop_id": 1,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZD-EN",
+      "bound_user_id": 4,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 13,
+      "bound_username": "ZD-EN",
+      "bound_user_name": "铸锭车间 电工"
+    },
+    {
+      "code": "ZR2-EN",
+      "name": "铸轧二车间 电工",
+      "workshop_id": 2,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZR2-EN",
+      "bound_user_id": 10,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 17,
+      "bound_username": "ZR2-EN",
+      "bound_user_name": "铸轧二车间 电工"
+    },
+    {
+      "code": "ZR3-EN",
+      "name": "铸轧三车间 电工",
+      "workshop_id": 3,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZR3-EN",
+      "bound_user_id": 16,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 21,
+      "bound_username": "ZR3-EN",
+      "bound_user_name": "铸轧三车间 电工"
+    },
+    {
+      "code": "RZ-EN",
+      "name": "热轧车间 电工",
+      "workshop_id": 4,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-RZ-EN",
+      "bound_user_id": 22,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 25,
+      "bound_username": "RZ-EN",
+      "bound_user_name": "热轧车间 电工"
+    },
+    {
+      "code": "LZ2050-EN",
+      "name": "冷轧2050车间 电工",
+      "workshop_id": 5,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LZ2050-EN",
+      "bound_user_id": 28,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 29,
+      "bound_username": "LZ2050-EN",
+      "bound_user_name": "冷轧2050车间 电工"
+    },
+    {
+      "code": "JZ-EN",
+      "name": "精整一车间 电工",
+      "workshop_id": 8,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-JZ-EN",
+      "bound_user_id": 46,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 41,
+      "bound_username": "JZ-EN",
+      "bound_user_name": "精整一车间 电工"
+    },
+    {
+      "code": "JQ-EN",
+      "name": "剪切车间 电工",
+      "workshop_id": 10,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-JQ-EN",
+      "bound_user_id": 58,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 49,
+      "bound_username": "JQ-EN",
+      "bound_user_name": "剪切车间 电工"
+    },
+    {
+      "code": "CPK-EN",
+      "name": "成品库 电工",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-EN",
+      "bound_user_id": 64,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 53,
+      "bound_username": "CPK-EN",
+      "bound_user_name": "成品库 电工"
+    },
+    {
+      "code": "ZXTF-EN",
+      "name": "在线退火车间 电工",
+      "workshop_id": 29,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-EN",
+      "bound_user_id": 332,
+      "sort_order": 9990,
+      "is_active": true,
+      "id": 103,
+      "bound_username": "ZXTF-EN",
+      "bound_user_name": "在线退火车间 电工"
+    },
+    {
+      "code": "ZD-CS",
+      "name": "铸锭分厂 内勤",
+      "workshop_id": 1,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-ZD-CS",
+      "bound_user_id": 904,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 249,
+      "bound_username": "ZD-CS",
+      "bound_user_name": "铸锭分厂 内勤"
+    },
+    {
+      "code": "ZR2-CS",
+      "name": "铸轧二 内勤",
+      "workshop_id": 2,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-ZR2-CS",
+      "bound_user_id": 13,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 250,
+      "bound_username": "ZR2-CS",
+      "bound_user_name": "铸轧二 内勤"
+    },
+    {
+      "code": "ZR3-CS",
+      "name": "铸轧三 内勤",
+      "workshop_id": 3,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-ZR3-CS",
+      "bound_user_id": 905,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 251,
+      "bound_username": "ZR3-CS",
+      "bound_user_name": "铸轧三 内勤"
+    },
+    {
+      "code": "RZ-CS",
+      "name": "热轧 内勤",
+      "workshop_id": 4,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-RZ-CS",
+      "bound_user_id": 25,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 252,
+      "bound_username": "RZ-CS",
+      "bound_user_name": "热轧 内勤"
+    },
+    {
+      "code": "LZ2050-CS",
+      "name": "2050冷轧 内勤",
+      "workshop_id": 5,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-LZ2050-CS",
+      "bound_user_id": 31,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 253,
+      "bound_username": "LZ2050-CS",
+      "bound_user_name": "2050冷轧 内勤"
+    },
+    {
+      "code": "JZ-CS",
+      "name": "精整车间 内勤",
+      "workshop_id": 8,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-JZ-CS",
+      "bound_user_id": 911,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 256,
+      "bound_username": "JZ-CS",
+      "bound_user_name": "精整车间 内勤"
+    },
+    {
+      "code": "JQ-CS",
+      "name": "剪切车间 内勤",
+      "workshop_id": 10,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-JQ-CS",
+      "bound_user_id": 61,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 258,
+      "bound_username": "JQ-CS",
+      "bound_user_name": "剪切车间 内勤"
+    },
+    {
+      "code": "CPK-CS",
+      "name": "成品库 内勤",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": null,
+      "qr_code": "XT-CPK-CS",
+      "bound_user_id": 67,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 259,
+      "bound_username": "CPK-CS",
+      "bound_user_name": "成品库 内勤"
+    },
+    {
+      "code": "CPK-QM",
+      "name": "成品库质检内勤",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-QM",
+      "bound_user_id": 934,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 279,
+      "bound_username": "CPK-QM",
+      "bound_user_name": "成品库质检内勤"
+    },
+    {
+      "code": "CPK-PL",
+      "name": "成品库计划内勤",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-PL",
+      "bound_user_id": 935,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 280,
+      "bound_username": "CPK-PL",
+      "bound_user_name": "成品库计划内勤"
+    },
+    {
+      "code": "CPK-EC",
+      "name": "成品库总电工",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-EC",
+      "bound_user_id": 936,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 281,
+      "bound_username": "CPK-EC",
+      "bound_user_name": "成品库总电工"
+    },
+    {
+      "code": "CPK-FS",
+      "name": "成品库成品库",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-FS",
+      "bound_user_id": 937,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 282,
+      "bound_username": "CPK-FS",
+      "bound_user_name": "成品库成品库"
+    },
+    {
+      "code": "JQ-PSH",
+      "name": "剪切车间园区剪切",
+      "workshop_id": 10,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-JQ-PSH",
+      "bound_user_id": 933,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 283,
+      "bound_username": "JQ-PSH",
+      "bound_user_name": "剪切车间园区剪切"
+    },
+    {
+      "code": "HS-RC",
+      "name": "回收车间回收",
+      "workshop_id": 23,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-HS-RC",
+      "bound_user_id": 939,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 284,
+      "bound_username": "HS-RC",
+      "bound_user_name": "回收车间回收"
+    },
+    {
+      "code": "CPK-OH",
+      "name": "成品库大修",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-OH",
+      "bound_user_id": 938,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 285,
+      "bound_username": "CPK-OH",
+      "bound_user_name": "成品库大修"
+    },
+    {
+      "code": "LZ1850-EN",
+      "name": "1850冷轧电工",
+      "workshop_id": 17,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LZ1850-EN",
+      "bound_user_id": 949,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 298,
+      "bound_username": "LZ1850-EN",
+      "bound_user_name": "1850冷轧电工"
+    },
+    {
+      "code": "LJ-EN",
+      "name": "拉矫车间电工",
+      "workshop_id": 25,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LJ-EN",
+      "bound_user_id": 952,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 299,
+      "bound_username": "LJ-EN",
+      "bound_user_name": "拉矫车间电工"
+    },
+    {
+      "code": "CH-EN",
+      "name": "淬火车间电工",
+      "workshop_id": 26,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CH-EN",
+      "bound_user_id": 954,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 300,
+      "bound_username": "CH-EN",
+      "bound_user_name": "淬火车间电工"
+    },
+    {
+      "code": "LZ1850-CS",
+      "name": "1850冷轧内勤",
+      "workshop_id": 17,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LZ1850-CS",
+      "bound_user_id": 956,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 301,
+      "bound_username": "LZ1850-CS",
+      "bound_user_name": "1850冷轧内勤"
+    },
+    {
+      "code": "LJ-CS",
+      "name": "拉矫车间内勤",
+      "workshop_id": 25,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LJ-CS",
+      "bound_user_id": 957,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 302,
+      "bound_username": "LJ-CS",
+      "bound_user_name": "拉矫车间内勤"
+    },
+    {
+      "code": "ZXTF-CS",
+      "name": "在线退火分厂内勤",
+      "workshop_id": 29,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-CS",
+      "bound_user_id": 955,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 303,
+      "bound_username": "ZXTF-CS",
+      "bound_user_name": "在线退火分厂内勤"
+    },
+    {
+      "code": "CH-CS",
+      "name": "淬火车间内勤",
+      "workshop_id": 26,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CH-CS",
+      "bound_user_id": 958,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 304,
+      "bound_username": "CH-CS",
+      "bound_user_name": "淬火车间内勤"
+    },
+    {
+      "code": "ZXTF-P-EN",
+      "name": "园区在线退火电工",
+      "workshop_id": 30,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-P-EN",
+      "bound_user_id": 959,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 305,
+      "bound_username": "ZXTF-P-EN",
+      "bound_user_name": "园区在线退火电工"
+    },
+    {
+      "code": "ZXTF-P-CS",
+      "name": "园区在线退火内勤",
+      "workshop_id": 30,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-P-CS",
+      "bound_user_id": 960,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 306,
+      "bound_username": "ZXTF-P-CS",
+      "bound_user_name": "园区在线退火内勤"
+    },
+    {
+      "code": "ZXTF-N-EN",
+      "name": "新厂在线退火电工",
+      "workshop_id": 29,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-N-EN",
+      "bound_user_id": 979,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 307,
+      "bound_username": "ZXTF-N-EN",
+      "bound_user_name": "新厂在线退火电工"
+    },
+    {
+      "code": "ZXTF-N-CS",
+      "name": "新厂在线退火内勤",
+      "workshop_id": 29,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-N-CS",
+      "bound_user_id": 980,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 308,
+      "bound_username": "ZXTF-N-CS",
+      "bound_user_name": "新厂在线退火内勤"
+    },
+    {
+      "code": "CPK-DIR",
+      "name": "成品库车间主任看板",
+      "workshop_id": 11,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CPK-DIR",
+      "bound_user_id": 961,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 309,
+      "bound_username": "CPK-DIR",
+      "bound_user_name": "成品库车间主任"
+    },
+    {
+      "code": "ZXTF-N-DIR",
+      "name": "新厂在线退火车间主任看板",
+      "workshop_id": 29,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-N-DIR",
+      "bound_user_id": 962,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 310,
+      "bound_username": "ZXTF-N-DIR",
+      "bound_user_name": "新厂在线退火车间主任"
+    },
+    {
+      "code": "ZXTF-P-DIR",
+      "name": "园区在线退火车间主任看板",
+      "workshop_id": 30,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZXTF-P-DIR",
+      "bound_user_id": 963,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 311,
+      "bound_username": "ZXTF-P-DIR",
+      "bound_user_name": "园区在线退火车间主任"
+    },
+    {
+      "code": "LJ-DIR",
+      "name": "拉矫车间车间主任看板",
+      "workshop_id": 25,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-LJ-DIR",
+      "bound_user_id": 964,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 312,
+      "bound_username": "LJ-DIR",
+      "bound_user_name": "拉矫车间车间主任"
+    },
+    {
+      "code": "HS-DIR",
+      "name": "回收车间车间主任看板",
+      "workshop_id": 23,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-HS-DIR",
+      "bound_user_id": 967,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 315,
+      "bound_username": "HS-DIR",
+      "bound_user_name": "回收车间车间主任"
+    },
+    {
+      "code": "CH-DIR",
+      "name": "淬火车间车间主任看板",
+      "workshop_id": 26,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-CH-DIR",
+      "bound_user_id": 969,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 317,
+      "bound_username": "CH-DIR",
+      "bound_user_name": "淬火车间车间主任"
+    },
+    {
+      "code": "ZD-DIR",
+      "name": "铸锭分厂车间主任看板",
+      "workshop_id": 1,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZD-DIR",
+      "bound_user_id": 970,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 318,
+      "bound_username": "ZD-DIR",
+      "bound_user_name": "铸锭分厂车间主任"
+    },
+    {
+      "code": "ZR2-DIR",
+      "name": "铸轧二车间主任看板",
+      "workshop_id": 2,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZR2-DIR",
+      "bound_user_id": 971,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 319,
+      "bound_username": "ZR2-DIR",
+      "bound_user_name": "铸轧二车间主任"
+    },
+    {
+      "code": "ZR3-DIR",
+      "name": "铸轧三车间主任看板",
+      "workshop_id": 3,
+      "equipment_type": "virtual_role_qr",
+      "spec": null,
+      "operational_status": "running",
+      "shift_mode": "three",
+      "assigned_shift_ids": null,
+      "custom_fields": [],
+      "qr_code": "XT-ZR3-DIR",
+      "bound_user_id": 972,
+      "sort_order": 9991,
+      "is_active": true,
+      "id": 320,
+      "bound_username": "ZR3-DIR",
+      "bound_user_name": "铸轧三车间主任"
+    }
+  ],
+  "total": 106,
+  "skip": 0,
+  "limit": 100
+}

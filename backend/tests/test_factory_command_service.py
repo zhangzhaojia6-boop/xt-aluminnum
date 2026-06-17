@@ -1260,6 +1260,44 @@ def test_list_coils_exposes_mes_weight_and_auto_scrap_without_polluting_destinat
     assert coils[0]['scrap_status'] == 'normal'
 
 
+def test_list_coils_exposes_trace_identity_fields(monkeypatch):
+    db = _FakeDB(
+        coils=[
+            _coil(
+                coil_id='MES:TRACE',
+                tracking_card_no='LZ-TRACE',
+                batch_no='BATCH-TRACE',
+                contract_no='HT-TRACE',
+                customer_alias='华东客户',
+                alloy_grade='3003',
+                material_state='H24',
+                spec_display='0.72*1220*C',
+                material_weight=6350,
+                net_weight=6200,
+                status_name='生产中',
+                card_status_name='已排产',
+                production_status='打印完成',
+            )
+        ]
+    )
+    monkeypatch.setattr(factory_command_service, 'latest_sync_status', lambda _db, now=None: {'lag_seconds': 60})
+
+    coils = factory_command_service.list_coils(db)
+    flow = factory_command_service.get_coil_flow(db, coil_key='MES:TRACE')
+
+    assert coils[0]['contract_no'] == 'HT-TRACE'
+    assert coils[0]['customer_alias'] == '华东客户'
+    assert coils[0]['alloy_grade'] == '3003'
+    assert coils[0]['material_state'] == 'H24'
+    assert coils[0]['spec_display'] == '0.72*1220*C'
+    assert coils[0]['material_weight'] == 6350
+    assert coils[0]['net_weight'] == 6200
+    assert coils[0]['status_name'] == '生产中'
+    assert flow['contract_no'] == 'HT-TRACE'
+    assert flow['customer_alias'] == '华东客户'
+    assert flow['material_weight'] == 6350
+
+
 def test_coil_flow_marks_negative_auto_scrap_as_abnormal(monkeypatch):
     db = _FakeDB(
         coils=[_coil(coil_id='MES:NEG', tracking_card_no='LZ-NEG', batch_no='BATCH-NEG')],

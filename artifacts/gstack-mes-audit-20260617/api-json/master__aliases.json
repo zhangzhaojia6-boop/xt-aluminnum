@@ -1,0 +1,439 @@
+{
+  "items": [
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF-P",
+      "alias_code": "园区在线退火",
+      "alias_name": "园区在线退火",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 48
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF-N",
+      "alias_code": "新厂在线退火",
+      "alias_name": "新厂在线退火",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 47
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF",
+      "alias_code": "在线退火分厂",
+      "alias_name": "在线退火分厂",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 46
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZD",
+      "alias_code": "铸锭分厂",
+      "alias_name": "铸锭分厂",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 45
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR3",
+      "alias_code": "铸轧三",
+      "alias_name": "铸轧三",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 44
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR2",
+      "alias_code": "铸轧二",
+      "alias_name": "铸轧二",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 43
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR6",
+      "alias_code": "铸轧六",
+      "alias_name": "铸轧六",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 42
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR5",
+      "alias_code": "铸轧五",
+      "alias_name": "铸轧五",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 41
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "CH",
+      "alias_code": "淬火车间",
+      "alias_name": "淬火车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 40
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JQ",
+      "alias_code": "剪切车间",
+      "alias_name": "剪切车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 39
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1450",
+      "alias_code": "老厂",
+      "alias_name": "老厂",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 38
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ2050",
+      "alias_code": "2050冷轧",
+      "alias_name": "2050冷轧",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 37
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR6",
+      "alias_code": "铸六车间",
+      "alias_name": "铸六车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 36
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR6",
+      "alias_code": "铸六",
+      "alias_name": "铸六",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 35
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR5",
+      "alias_code": "铸五车间",
+      "alias_name": "铸五车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 34
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZR5",
+      "alias_code": "铸五",
+      "alias_name": "铸五",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 33
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "HS",
+      "alias_code": "回收车间",
+      "alias_name": "回收车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 32
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "HS",
+      "alias_code": "回收",
+      "alias_name": "回收",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 31
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "CT",
+      "alias_code": "彩涂车间",
+      "alias_name": "彩涂车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 30
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "CT",
+      "alias_code": "彩涂",
+      "alias_name": "彩涂",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 29
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "CH",
+      "alias_code": "园区淬火车间",
+      "alias_name": "园区淬火车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 28
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "CH",
+      "alias_code": "园区淬火",
+      "alias_name": "园区淬火",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 27
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "HWB",
+      "alias_code": "花纹板冷轧",
+      "alias_name": "花纹板冷轧",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 26
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "HWB",
+      "alias_code": "花纹板车间",
+      "alias_name": "花纹板车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 25
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "HWB",
+      "alias_code": "花纹板",
+      "alias_name": "花纹板",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 24
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1650",
+      "alias_code": "1650冷轧",
+      "alias_name": "1650冷轧",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 23
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1650",
+      "alias_code": "冷轧1650车间",
+      "alias_name": "冷轧1650车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 22
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1650",
+      "alias_code": "1650车间",
+      "alias_name": "1650车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 21
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1850",
+      "alias_code": "1850冷轧",
+      "alias_name": "1850冷轧",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 20
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1850",
+      "alias_code": "冷轧1850车间",
+      "alias_name": "冷轧1850车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 19
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1850",
+      "alias_code": "1850车间",
+      "alias_name": "1850车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 18
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF",
+      "alias_code": "在线退火车间",
+      "alias_name": "在线退火车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 17
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF",
+      "alias_code": "在线退火",
+      "alias_name": "在线退火",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 16
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF-P",
+      "alias_code": "园区在线车间",
+      "alias_name": "园区在线车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 15
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "ZXTF-N",
+      "alias_code": "新厂在线车间",
+      "alias_name": "新厂在线车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 14
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JQ",
+      "alias_code": "园区剪切车间",
+      "alias_name": "园区剪切车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 13
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JQ",
+      "alias_code": "园区剪切",
+      "alias_name": "园区剪切",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 12
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JQ",
+      "alias_code": "园区精整",
+      "alias_name": "园区精整",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 11
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LJ",
+      "alias_code": "拉矫车间",
+      "alias_name": "拉矫车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 10
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LJ",
+      "alias_code": "拉矫",
+      "alias_name": "拉矫",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 9
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JZ",
+      "alias_code": "精整车间",
+      "alias_name": "精整车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 8
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "JZ",
+      "alias_code": "精整",
+      "alias_name": "精整",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 7
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "RZ",
+      "alias_code": "热轧车间",
+      "alias_name": "热轧车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 6
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "RZ",
+      "alias_code": "热轧",
+      "alias_name": "热轧",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 5
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1450",
+      "alias_code": "冷轧1450车间",
+      "alias_name": "冷轧1450车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 4
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ1450",
+      "alias_code": "1450车间",
+      "alias_name": "1450车间",
+      "source_type": "mes_mvc",
+      "is_active": false,
+      "id": 3
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ2050",
+      "alias_code": "冷轧2050车间",
+      "alias_name": "冷轧2050车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 2
+    },
+    {
+      "entity_type": "workshop",
+      "canonical_code": "LZ2050",
+      "alias_code": "2050车间",
+      "alias_name": "2050车间",
+      "source_type": "mes_mvc",
+      "is_active": true,
+      "id": 1
+    }
+  ],
+  "total": 48,
+  "skip": 0,
+  "limit": 100
+}

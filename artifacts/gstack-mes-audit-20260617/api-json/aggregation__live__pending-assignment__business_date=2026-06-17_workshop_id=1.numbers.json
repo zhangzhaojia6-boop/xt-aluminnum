@@ -1,0 +1,42 @@
+[
+  {
+    "path": "workshop_id",
+    "value": 1
+  },
+  {
+    "path": "total",
+    "value": 0
+  },
+  {
+    "path": "summary.entry_count",
+    "value": 0
+  },
+  {
+    "path": "summary.draft_entry_count",
+    "value": 0
+  },
+  {
+    "path": "summary.formal_entry_count",
+    "value": 0
+  },
+  {
+    "path": "summary.missing_machine_count",
+    "value": 0
+  },
+  {
+    "path": "summary.missing_shift_count",
+    "value": 0
+  },
+  {
+    "path": "summary.input",
+    "value": 0.0
+  },
+  {
+    "path": "summary.output",
+    "value": 0.0
+  },
+  {
+    "path": "summary.scrap",
+    "value": 0.0
+  }
+]

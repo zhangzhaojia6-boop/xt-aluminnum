@@ -1,0 +1,1366 @@
+[
+  {
+    "path": "items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[0].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[0].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[0].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[0].bound_user_id",
+    "value": 101
+  },
+  {
+    "path": "items[0].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[0].id",
+    "value": 109
+  },
+  {
+    "path": "items[1].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[1].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[1].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[1].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[1].bound_user_id",
+    "value": 105
+  },
+  {
+    "path": "items[1].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[1].id",
+    "value": 113
+  },
+  {
+    "path": "items[2].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[2].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[2].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[2].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[2].bound_user_id",
+    "value": 111
+  },
+  {
+    "path": "items[2].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[2].id",
+    "value": 119
+  },
+  {
+    "path": "items[3].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[3].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[3].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[3].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[3].bound_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[3].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[3].id",
+    "value": 120
+  },
+  {
+    "path": "items[4].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[4].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[4].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[4].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[4].bound_user_id",
+    "value": 115
+  },
+  {
+    "path": "items[4].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[4].id",
+    "value": 123
+  },
+  {
+    "path": "items[5].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[5].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[5].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[5].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[5].bound_user_id",
+    "value": 136
+  },
+  {
+    "path": "items[5].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[5].id",
+    "value": 144
+  },
+  {
+    "path": "items[6].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "items[6].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[6].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[6].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[6].bound_user_id",
+    "value": 335
+  },
+  {
+    "path": "items[6].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[6].id",
+    "value": 149
+  },
+  {
+    "path": "items[7].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[7].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[7].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[7].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[7].bound_user_id",
+    "value": 337
+  },
+  {
+    "path": "items[7].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[7].id",
+    "value": 151
+  },
+  {
+    "path": "items[8].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "items[8].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[8].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[8].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[8].bound_user_id",
+    "value": 362
+  },
+  {
+    "path": "items[8].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[8].id",
+    "value": 164
+  },
+  {
+    "path": "items[9].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[9].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[9].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[9].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[9].bound_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[9].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[9].id",
+    "value": 165
+  },
+  {
+    "path": "items[10].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[10].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[10].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[10].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[10].bound_user_id",
+    "value": 502
+  },
+  {
+    "path": "items[10].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[10].id",
+    "value": 182
+  },
+  {
+    "path": "items[11].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[11].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[11].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[11].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[11].bound_user_id",
+    "value": 506
+  },
+  {
+    "path": "items[11].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[11].id",
+    "value": 219
+  },
+  {
+    "path": "items[12].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[12].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[12].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[12].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[12].bound_user_id",
+    "value": 499
+  },
+  {
+    "path": "items[12].sort_order",
+    "value": 1
+  },
+  {
+    "path": "items[12].id",
+    "value": 241
+  },
+  {
+    "path": "items[13].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[13].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[13].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[13].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[13].bound_user_id",
+    "value": 102
+  },
+  {
+    "path": "items[13].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[13].id",
+    "value": 110
+  },
+  {
+    "path": "items[14].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[14].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[14].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[14].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[14].bound_user_id",
+    "value": 106
+  },
+  {
+    "path": "items[14].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[14].id",
+    "value": 114
+  },
+  {
+    "path": "items[15].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[15].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[15].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[15].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[15].bound_user_id",
+    "value": 137
+  },
+  {
+    "path": "items[15].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[15].id",
+    "value": 145
+  },
+  {
+    "path": "items[16].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "items[16].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[16].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[16].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[16].bound_user_id",
+    "value": 336
+  },
+  {
+    "path": "items[16].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[16].id",
+    "value": 150
+  },
+  {
+    "path": "items[17].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "items[17].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[17].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[17].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[17].bound_user_id",
+    "value": 338
+  },
+  {
+    "path": "items[17].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[17].id",
+    "value": 152
+  },
+  {
+    "path": "items[18].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[18].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[18].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[18].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[18].bound_user_id",
+    "value": 354
+  },
+  {
+    "path": "items[18].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[18].id",
+    "value": 156
+  },
+  {
+    "path": "items[19].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[19].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[19].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[19].bound_user_id",
+    "value": 489
+  },
+  {
+    "path": "items[19].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[19].id",
+    "value": 176
+  },
+  {
+    "path": "items[20].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[20].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[20].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[20].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[20].bound_user_id",
+    "value": 503
+  },
+  {
+    "path": "items[20].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[20].id",
+    "value": 217
+  },
+  {
+    "path": "items[21].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[21].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[21].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[21].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[21].bound_user_id",
+    "value": 507
+  },
+  {
+    "path": "items[21].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[21].id",
+    "value": 220
+  },
+  {
+    "path": "items[22].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[22].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[22].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[22].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[22].bound_user_id",
+    "value": 500
+  },
+  {
+    "path": "items[22].sort_order",
+    "value": 2
+  },
+  {
+    "path": "items[22].id",
+    "value": 242
+  },
+  {
+    "path": "items[23].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[23].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[23].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[23].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[23].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[23].id",
+    "value": 111
+  },
+  {
+    "path": "items[24].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[24].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[24].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[24].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[24].bound_user_id",
+    "value": 138
+  },
+  {
+    "path": "items[24].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[24].id",
+    "value": 146
+  },
+  {
+    "path": "items[25].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[25].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[25].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[25].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[25].bound_user_id",
+    "value": 355
+  },
+  {
+    "path": "items[25].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[25].id",
+    "value": 157
+  },
+  {
+    "path": "items[26].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[26].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[26].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[26].bound_user_id",
+    "value": 490
+  },
+  {
+    "path": "items[26].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[26].id",
+    "value": 175
+  },
+  {
+    "path": "items[27].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[27].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[27].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[27].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[27].bound_user_id",
+    "value": 504
+  },
+  {
+    "path": "items[27].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[27].id",
+    "value": 218
+  },
+  {
+    "path": "items[28].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[28].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[28].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[28].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[28].bound_user_id",
+    "value": 508
+  },
+  {
+    "path": "items[28].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[28].id",
+    "value": 221
+  },
+  {
+    "path": "items[29].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[29].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[29].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[29].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[29].bound_user_id",
+    "value": 501
+  },
+  {
+    "path": "items[29].sort_order",
+    "value": 3
+  },
+  {
+    "path": "items[29].id",
+    "value": 243
+  },
+  {
+    "path": "items[30].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[30].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[30].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[30].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[30].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[30].id",
+    "value": 112
+  },
+  {
+    "path": "items[31].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[31].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[31].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[31].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[31].bound_user_id",
+    "value": 139
+  },
+  {
+    "path": "items[31].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[31].id",
+    "value": 147
+  },
+  {
+    "path": "items[32].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[32].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[32].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[32].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[32].bound_user_id",
+    "value": 356
+  },
+  {
+    "path": "items[32].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[32].id",
+    "value": 158
+  },
+  {
+    "path": "items[33].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[33].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[33].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[33].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[33].bound_user_id",
+    "value": 491
+  },
+  {
+    "path": "items[33].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[33].id",
+    "value": 177
+  },
+  {
+    "path": "items[34].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[34].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[34].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[34].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[34].bound_user_id",
+    "value": 505
+  },
+  {
+    "path": "items[34].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[34].id",
+    "value": 183
+  },
+  {
+    "path": "items[35].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[35].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[35].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[35].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[35].bound_user_id",
+    "value": 509
+  },
+  {
+    "path": "items[35].sort_order",
+    "value": 4
+  },
+  {
+    "path": "items[35].id",
+    "value": 222
+  },
+  {
+    "path": "items[36].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[36].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[36].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[36].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[36].bound_user_id",
+    "value": 109
+  },
+  {
+    "path": "items[36].sort_order",
+    "value": 5
+  },
+  {
+    "path": "items[36].id",
+    "value": 117
+  },
+  {
+    "path": "items[37].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[37].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[37].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[37].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[37].bound_user_id",
+    "value": 140
+  },
+  {
+    "path": "items[37].sort_order",
+    "value": 5
+  },
+  {
+    "path": "items[37].id",
+    "value": 148
+  },
+  {
+    "path": "items[38].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[38].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[38].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[38].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[38].bound_user_id",
+    "value": 357
+  },
+  {
+    "path": "items[38].sort_order",
+    "value": 5
+  },
+  {
+    "path": "items[38].id",
+    "value": 159
+  },
+  {
+    "path": "items[39].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[39].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[39].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[39].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[39].bound_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[39].sort_order",
+    "value": 5
+  },
+  {
+    "path": "items[39].id",
+    "value": 172
+  },
+  {
+    "path": "items[40].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[40].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[40].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[40].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[40].bound_user_id",
+    "value": 510
+  },
+  {
+    "path": "items[40].sort_order",
+    "value": 5
+  },
+  {
+    "path": "items[40].id",
+    "value": 223
+  },
+  {
+    "path": "items[41].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[41].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[41].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[41].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[41].bound_user_id",
+    "value": 110
+  },
+  {
+    "path": "items[41].sort_order",
+    "value": 6
+  },
+  {
+    "path": "items[41].id",
+    "value": 118
+  },
+  {
+    "path": "items[42].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[42].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[42].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[42].bound_user_id",
+    "value": 114
+  },
+  {
+    "path": "items[42].sort_order",
+    "value": 6
+  },
+  {
+    "path": "items[42].id",
+    "value": 122
+  },
+  {
+    "path": "items[43].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[43].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[43].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[43].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[43].bound_user_id",
+    "value": 358
+  },
+  {
+    "path": "items[43].sort_order",
+    "value": 6
+  },
+  {
+    "path": "items[43].id",
+    "value": 160
+  },
+  {
+    "path": "items[44].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[44].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[44].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[44].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[44].bound_user_id",
+    "value": 511
+  },
+  {
+    "path": "items[44].sort_order",
+    "value": 6
+  },
+  {
+    "path": "items[44].id",
+    "value": 224
+  },
+  {
+    "path": "items[45].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[45].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[45].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[45].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[45].bound_user_id",
+    "value": 359
+  },
+  {
+    "path": "items[45].sort_order",
+    "value": 7
+  },
+  {
+    "path": "items[45].id",
+    "value": 161
+  },
+  {
+    "path": "items[46].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[46].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[46].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[46].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[46].bound_user_id",
+    "value": 512
+  },
+  {
+    "path": "items[46].sort_order",
+    "value": 7
+  },
+  {
+    "path": "items[46].id",
+    "value": 225
+  },
+  {
+    "path": "items[47].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[47].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[47].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[47].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[47].bound_user_id",
+    "value": 360
+  },
+  {
+    "path": "items[47].sort_order",
+    "value": 8
+  },
+  {
+    "path": "items[47].id",
+    "value": 162
+  },
+  {
+    "path": "items[48].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[48].assigned_shift_ids[0]",
+    "value": 4
+  },
+  {
+    "path": "items[48].assigned_shift_ids[1]",
+    "value": 5
+  },
+  {
+    "path": "items[48].assigned_shift_ids[2]",
+    "value": 6
+  },
+  {
+    "path": "items[48].bound_user_id",
+    "value": 361
+  },
+  {
+    "path": "items[48].sort_order",
+    "value": 9
+  },
+  {
+    "path": "items[48].id",
+    "value": 163
+  },
+  {
+    "path": "total",
+    "value": 49
+  },
+  {
+    "path": "skip",
+    "value": 0
+  },
+  {
+    "path": "limit",
+    "value": 500
+  }
+]

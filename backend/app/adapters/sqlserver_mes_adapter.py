@@ -195,7 +195,7 @@ def _coil_snapshot_from_row(row: Mapping[str, Any]) -> CoilSnapshot:
         tracking_card_no=tracking_card_no,
         qr_code=_text(_value(row, 'QrCode', 'QRCode')),
         batch_no=_text(_value(row, 'BatchNo', 'BatchNumber', 'PBatchNumber')),
-        contract_no=_text(_value(row, 'ContractNo', 'ContractNumber', 'ContractCode')),
+        contract_no=_text(_value(row, 'ContractNo', 'ContractNumber', 'ContractCode', 'ContractNoticeCode')),
         workshop_code=_text(_value(row, 'CurrentWorkShop', 'WorkShopName', 'WorkshopName')),
         process_code=_text(_value(row, 'CurrentProcess', 'ProcessName')),
         machine_code=_text(_value(row, 'DeviceName', 'MachineName', 'MachineCode')),
@@ -338,7 +338,7 @@ class SqlServerMesAdapter(MesAdapter):
             MesMachineLineSource(
                 line_code=_record_id(row, 'DeviceCode', 'MachineCode'),
                 line_name=_text(_value(row, 'DeviceName', 'MachineName', 'Name')) or '',
-                workshop_name=_text(_value(row, 'WorkShopName', 'WorkshopName')),
+                workshop_name=_text(_value(row, 'WorkShop', 'WorkShopName', 'WorkshopName')),
                 slot_no=_int(_value(row, 'SlotNo', 'SortNo')),
                 metadata=_safe_metadata(row),
             )

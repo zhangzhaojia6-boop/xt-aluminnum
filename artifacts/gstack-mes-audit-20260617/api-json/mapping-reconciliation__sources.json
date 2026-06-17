@@ -1,0 +1,21 @@
+{
+  "reference_source": "reference/output-skill",
+  "available": false,
+  "files": [],
+  "system_sources": [
+    "mes_stock_records",
+    "mes_workshop_process_records",
+    "shift_production_data",
+    "work_order_entries",
+    "daily_consumable_logs",
+    "cost_daily_result",
+    "machine_daily_cost_snapshots",
+    "machine_energy_records",
+    "data_quality_issues",
+    "data_reconciliation_items",
+    "daily_reports",
+    "workshops",
+    "equipment",
+    "shift_configs"
+  ]
+}

@@ -1,0 +1,4948 @@
+{
+  "business_date": "2026-06-16",
+  "business_date_context": {
+    "requested_business_date": "2026-06-16",
+    "current_business_date": "2026-06-17",
+    "active_business_date": "2026-06-17",
+    "active_date_source": "recent_upload",
+    "latest_fill_business_date": "2026-06-17",
+    "requested_entry_count": 230,
+    "current_date_entry_count": 14,
+    "active_date_entry_count": 14,
+    "has_current_date_entries": true,
+    "is_requested_current_date": false,
+    "is_showing_active_business_date": false
+  },
+  "overall_progress": {
+    "submitted_cells": 40,
+    "total_cells": 144,
+    "missing_cell_count": 104,
+    "attention_cell_count": 144,
+    "completion_rate": 27.78,
+    "formal_entry_count": 234,
+    "draft_entry_count": 0,
+    "total_entry_count": 234
+  },
+  "workshops": [
+    {
+      "workshop_id": 1,
+      "workshop_name": "铸锭分厂",
+      "machines": [
+        {
+          "machine_id": 109,
+          "machine_name": "1#线",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 110,
+          "machine_name": "2#线",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 111,
+          "machine_name": "3#线",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 112,
+          "machine_name": "4#线",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 0.0,
+        "output": 0.0,
+        "scrap": 0.0,
+        "yield_rate": null,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 0,
+        "draft_entry_count": 0,
+        "total_entry_count": 0,
+        "mtd_input": 0.0,
+        "mtd_output": 0.0,
+        "mtd_scrap": 0.0,
+        "mtd_yield_rate": null,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 2,
+      "workshop_name": "铸轧二",
+      "machines": [
+        {
+          "machine_id": 113,
+          "machine_name": "1#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 114,
+          "machine_name": "2#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 117,
+          "machine_name": "5#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 118,
+          "machine_name": "6#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 0.0,
+        "output": 0.0,
+        "scrap": 0.0,
+        "yield_rate": null,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 0,
+        "draft_entry_count": 0,
+        "total_entry_count": 0,
+        "mtd_input": 154.29,
+        "mtd_output": 0.04,
+        "mtd_scrap": 124.48,
+        "mtd_yield_rate": 0.03,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 3,
+      "workshop_name": "铸轧三",
+      "machines": [
+        {
+          "machine_id": 119,
+          "machine_name": "1#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 156,
+          "machine_name": "2#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 3.6,
+              "total_output": 0.0,
+              "total_scrap": 3.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 7.2,
+              "total_output": 1.0,
+              "total_scrap": 1.5,
+              "yield_rate": 13.89,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 10.8,
+            "output": 1.0,
+            "scrap": 4.5,
+            "yield_rate": 9.26,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 157,
+          "machine_name": "3#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 7.2,
+              "total_output": 0.0,
+              "total_scrap": 3.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 8.4,
+              "total_output": 6.9,
+              "total_scrap": 1.5,
+              "yield_rate": 82.14,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 15.6,
+            "output": 6.9,
+            "scrap": 4.5,
+            "yield_rate": 44.23,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 158,
+          "machine_name": "4#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 159,
+          "machine_name": "5#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 160,
+          "machine_name": "6#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 161,
+          "machine_name": "7#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 162,
+          "machine_name": "8#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 163,
+          "machine_name": "9#机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 6.0,
+              "total_output": 0.0,
+              "total_scrap": 2.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 8.4,
+              "total_output": 0.01,
+              "total_scrap": 4.0,
+              "yield_rate": 0.12,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 14.4,
+            "output": 0.01,
+            "scrap": 6.0,
+            "yield_rate": 0.07,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 16.8,
+          "total_output": 0.0,
+          "total_scrap": 8.0,
+          "yield_rate": 0.0,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 24.0,
+          "total_output": 7.91,
+          "total_scrap": 7.0,
+          "yield_rate": 32.96,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 40.8,
+        "output": 7.91,
+        "scrap": 15.0,
+        "yield_rate": 19.39,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 7,
+        "draft_entry_count": 0,
+        "total_entry_count": 7,
+        "mtd_input": 415.4,
+        "mtd_output": 110.78,
+        "mtd_scrap": 127.9,
+        "mtd_yield_rate": 26.67,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 4,
+      "workshop_name": "热轧",
+      "machines": [
+        {
+          "machine_id": 120,
+          "machine_name": "热轧机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 11,
+              "draft_count": 0,
+              "total_expected": 10,
+              "total_input": 100.68,
+              "total_output": 98.22,
+              "total_scrap": 0.0,
+              "yield_rate": 97.56,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 9,
+              "draft_count": 0,
+              "total_expected": 14,
+              "total_input": 75.03,
+              "total_output": 72.69,
+              "total_scrap": 2.34,
+              "yield_rate": 96.88,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 13,
+              "draft_count": 0,
+              "total_expected": 12,
+              "total_input": 106.35,
+              "total_output": 103.81,
+              "total_scrap": 0.0,
+              "yield_rate": 97.61,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 282.06,
+            "output": 274.72,
+            "scrap": 2.34,
+            "yield_rate": 97.4,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 176,
+          "machine_name": "六面铣",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 10,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 114.5,
+              "total_output": 111.5,
+              "total_scrap": 3.0,
+              "yield_rate": 97.38,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_applicable",
+              "attendance_exception_count": 0,
+              "submission_status": "not_applicable",
+              "is_applicable": false,
+              "status_tone": "muted",
+              "status_text": "不适用"
+            }
+          ],
+          "day_total": {
+            "input": 114.5,
+            "output": 111.5,
+            "scrap": 3.0,
+            "yield_rate": 97.38,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 175,
+          "machine_name": "双面铣2台",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 8,
+              "draft_count": 0,
+              "total_expected": 7,
+              "total_input": 89.27,
+              "total_output": 83.55,
+              "total_scrap": 5.72,
+              "yield_rate": 93.59,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 11,
+              "draft_count": 0,
+              "total_expected": 13,
+              "total_input": 123.51,
+              "total_output": 115.61,
+              "total_scrap": 7.9,
+              "yield_rate": 93.6,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_applicable",
+              "attendance_exception_count": 0,
+              "submission_status": "not_applicable",
+              "is_applicable": false,
+              "status_tone": "muted",
+              "status_text": "不适用"
+            }
+          ],
+          "day_total": {
+            "input": 212.78,
+            "output": 199.16,
+            "scrap": 13.62,
+            "yield_rate": 93.6,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 177,
+          "machine_name": "中厚板",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 9.81,
+              "total_output": 9.49,
+              "total_scrap": 0.0,
+              "yield_rate": 96.74,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 9.81,
+            "output": 9.49,
+            "scrap": 0.0,
+            "yield_rate": 96.74,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 172,
+          "machine_name": "加热炉",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 12,
+              "draft_count": 0,
+              "total_expected": 11,
+              "total_input": 109.35,
+              "total_output": 109.35,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 10,
+              "draft_count": 0,
+              "total_expected": 13,
+              "total_input": 115.18,
+              "total_output": 115.18,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 12,
+              "draft_count": 0,
+              "total_expected": 14,
+              "total_input": 126.65,
+              "total_output": 126.65,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            }
+          ],
+          "day_total": {
+            "input": 351.18,
+            "output": 351.18,
+            "scrap": 0.0,
+            "yield_rate": 100.0,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 122,
+          "machine_name": "锯床",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 9,
+              "draft_count": 0,
+              "total_expected": 9,
+              "total_input": 106.05,
+              "total_output": 102.32,
+              "total_scrap": 0.0,
+              "yield_rate": 96.48,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 8,
+              "draft_count": 0,
+              "total_expected": 16,
+              "total_input": 98.29,
+              "total_output": 94.5,
+              "total_scrap": 0.0,
+              "yield_rate": 96.14,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_applicable",
+              "attendance_exception_count": 0,
+              "submission_status": "not_applicable",
+              "is_applicable": false,
+              "status_tone": "muted",
+              "status_text": "不适用"
+            }
+          ],
+          "day_total": {
+            "input": 204.34,
+            "output": 196.82,
+            "scrap": 0.0,
+            "yield_rate": 96.32,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 415.16,
+          "total_output": 402.93,
+          "total_scrap": 5.72,
+          "yield_rate": 97.05,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 526.51,
+          "total_output": 509.48,
+          "total_scrap": 13.24,
+          "yield_rate": 96.77,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 233.0,
+          "total_output": 230.46,
+          "total_scrap": 0.0,
+          "yield_rate": 98.91,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 1174.67,
+        "output": 1142.87,
+        "scrap": 18.96,
+        "yield_rate": 97.29,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 114,
+        "draft_entry_count": 0,
+        "total_entry_count": 114,
+        "mtd_input": 1424416.53,
+        "mtd_output": 10838.06,
+        "mtd_scrap": 105379.35,
+        "mtd_yield_rate": 0.76,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 5,
+      "workshop_name": "2050冷轧",
+      "machines": [
+        {
+          "machine_id": 123,
+          "machine_name": "2050#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 9,
+              "draft_count": 0,
+              "total_expected": 12,
+              "total_input": 89.84,
+              "total_output": 89.01,
+              "total_scrap": 0.83,
+              "yield_rate": 99.08,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 15,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 15,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 89.84,
+            "output": 89.01,
+            "scrap": 0.83,
+            "yield_rate": 99.08,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 89.84,
+          "total_output": 89.01,
+          "total_scrap": 0.83,
+          "yield_rate": 99.08,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 89.84,
+        "output": 89.01,
+        "scrap": 0.83,
+        "yield_rate": 99.08,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 11,
+        "draft_entry_count": 0,
+        "total_entry_count": 11,
+        "mtd_input": 1995.6,
+        "mtd_output": 1853.5,
+        "mtd_scrap": 124.06,
+        "mtd_yield_rate": 92.88,
+        "mtd_pass_count_total": 388
+      }
+    },
+    {
+      "workshop_id": 8,
+      "workshop_name": "精整车间",
+      "machines": [
+        {
+          "machine_id": 241,
+          "machine_name": "19辊",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 242,
+          "machine_name": "新19辊",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 8,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 243,
+          "machine_name": "纵剪",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 0.0,
+        "output": 0.0,
+        "scrap": 0.0,
+        "yield_rate": null,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 0,
+        "draft_entry_count": 0,
+        "total_entry_count": 0,
+        "mtd_input": 968.31,
+        "mtd_output": 927.59,
+        "mtd_scrap": 40.72,
+        "mtd_yield_rate": 95.79,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 10,
+      "workshop_name": "剪切车间",
+      "machines": [
+        {
+          "machine_id": 144,
+          "machine_name": "1#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 145,
+          "machine_name": "2#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 146,
+          "machine_name": "3#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 19.21,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 18.85,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 3,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 27.92,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": 0.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 65.98,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": 0.0,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 147,
+          "machine_name": "4#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 148,
+          "machine_name": "重卷",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 3,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 13.41,
+              "total_output": 12.68,
+              "total_scrap": 0.72,
+              "yield_rate": 94.56,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 13.41,
+            "output": 12.68,
+            "scrap": 0.72,
+            "yield_rate": 94.56,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 19.21,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": 0.0,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 32.26,
+          "total_output": 12.68,
+          "total_scrap": 0.72,
+          "yield_rate": 39.31,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 27.92,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": 0.0,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 79.39,
+        "output": 12.68,
+        "scrap": 0.72,
+        "yield_rate": 15.97,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 10,
+        "draft_entry_count": 0,
+        "total_entry_count": 10,
+        "mtd_input": 1005.3,
+        "mtd_output": 510.56,
+        "mtd_scrap": 41.83,
+        "mtd_yield_rate": 50.79,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 17,
+      "workshop_name": "1850冷轧",
+      "machines": [
+        {
+          "machine_id": 164,
+          "machine_name": "1#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 0.0,
+        "output": 0.0,
+        "scrap": 0.0,
+        "yield_rate": null,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 0,
+        "draft_entry_count": 0,
+        "total_entry_count": 0,
+        "mtd_input": 0.0,
+        "mtd_output": 0.0,
+        "mtd_scrap": 0.0,
+        "mtd_yield_rate": null,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 18,
+      "workshop_name": "1650冷轧",
+      "machines": [
+        {
+          "machine_id": 165,
+          "machine_name": "1650#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 5,
+              "draft_count": 0,
+              "total_expected": 12,
+              "total_input": 41.89,
+              "total_output": 40.99,
+              "total_scrap": 0.9,
+              "yield_rate": 97.85,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 12,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 124.3,
+              "total_output": 123.59,
+              "total_scrap": 0.71,
+              "yield_rate": 99.43,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 4,
+              "draft_count": 0,
+              "total_expected": 14,
+              "total_input": 45.16,
+              "total_output": 43.17,
+              "total_scrap": 1.99,
+              "yield_rate": 95.59,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            }
+          ],
+          "day_total": {
+            "input": 211.35,
+            "output": 207.75,
+            "scrap": 3.6,
+            "yield_rate": 98.3,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 41.89,
+          "total_output": 40.99,
+          "total_scrap": 0.9,
+          "yield_rate": 97.85,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 124.3,
+          "total_output": 123.59,
+          "total_scrap": 0.71,
+          "yield_rate": 99.43,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 45.16,
+          "total_output": 43.17,
+          "total_scrap": 1.99,
+          "yield_rate": 95.59,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 211.35,
+        "output": 207.75,
+        "scrap": 3.6,
+        "yield_rate": 98.3,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 22,
+        "draft_entry_count": 0,
+        "total_entry_count": 22,
+        "mtd_input": 1494.2,
+        "mtd_output": 1315.0,
+        "mtd_scrap": 170.7,
+        "mtd_yield_rate": 88.01,
+        "mtd_pass_count_total": 234
+      }
+    },
+    {
+      "workshop_id": 25,
+      "workshop_name": "拉矫车间",
+      "machines": [
+        {
+          "machine_id": 182,
+          "machine_name": "拉矫",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 7,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 9,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 80.92,
+              "total_output": 79.52,
+              "total_scrap": 1.4,
+              "yield_rate": 98.27,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 80.92,
+            "output": 79.52,
+            "scrap": 1.4,
+            "yield_rate": 98.27,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 217,
+          "machine_name": "大分切",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 218,
+          "machine_name": "小剪子",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 183,
+          "machine_name": "退火炉",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 5,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 12,
+              "draft_count": 0,
+              "total_expected": 6,
+              "total_input": 103.56,
+              "total_output": 103.56,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 3,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 27.97,
+              "total_output": 27.97,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 131.53,
+            "output": 131.53,
+            "scrap": 0.0,
+            "yield_rate": 100.0,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 103.56,
+          "total_output": 103.56,
+          "total_scrap": 0.0,
+          "yield_rate": 100.0,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 108.89,
+          "total_output": 107.49,
+          "total_scrap": 1.4,
+          "yield_rate": 98.71,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 212.45,
+        "output": 211.05,
+        "scrap": 1.4,
+        "yield_rate": 99.34,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 25,
+        "draft_entry_count": 0,
+        "total_entry_count": 25,
+        "mtd_input": 2462.46,
+        "mtd_output": 2394.66,
+        "mtd_scrap": 44.94,
+        "mtd_yield_rate": 97.25,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 26,
+      "workshop_name": "淬火车间",
+      "machines": [
+        {
+          "machine_id": 219,
+          "machine_name": "淬火线",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 8,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 8,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 220,
+          "machine_name": "矫直机1#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 20.75,
+              "total_output": 20.1,
+              "total_scrap": 0.65,
+              "yield_rate": 96.87,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 20.75,
+            "output": 20.1,
+            "scrap": 0.65,
+            "yield_rate": 96.87,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 221,
+          "machine_name": "矫直机2#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 5,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 21.5,
+              "total_output": 21.5,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            }
+          ],
+          "day_total": {
+            "input": 21.5,
+            "output": 21.5,
+            "scrap": 0.0,
+            "yield_rate": 100.0,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 222,
+          "machine_name": "抛光机1#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 8.01,
+              "total_output": 7.64,
+              "total_scrap": 0.36,
+              "yield_rate": 95.38,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 12.73,
+              "total_output": 10.24,
+              "total_scrap": 2.49,
+              "yield_rate": 80.44,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 5,
+              "draft_count": 0,
+              "total_expected": 4,
+              "total_input": 12.15,
+              "total_output": 10.79,
+              "total_scrap": 1.36,
+              "yield_rate": 88.81,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 32.89,
+            "output": 28.67,
+            "scrap": 4.21,
+            "yield_rate": 87.17,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 223,
+          "machine_name": "抛光机2#",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 4.08,
+              "total_output": 4.08,
+              "total_scrap": 0.0,
+              "yield_rate": 100.0,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 4.08,
+            "output": 4.08,
+            "scrap": 0.0,
+            "yield_rate": 100.0,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 224,
+          "machine_name": "锯切机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 4,
+              "draft_count": 0,
+              "total_expected": 3,
+              "total_input": 42.98,
+              "total_output": 39.21,
+              "total_scrap": 3.77,
+              "yield_rate": 91.23,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 1,
+              "draft_count": 0,
+              "total_expected": 1,
+              "total_input": 10.65,
+              "total_output": 9.65,
+              "total_scrap": 1.0,
+              "yield_rate": 90.61,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 2,
+              "draft_count": 0,
+              "total_expected": 2,
+              "total_input": 14.86,
+              "total_output": 13.48,
+              "total_scrap": 1.38,
+              "yield_rate": 90.71,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            }
+          ],
+          "day_total": {
+            "input": 68.49,
+            "output": 62.34,
+            "scrap": 6.15,
+            "yield_rate": 91.02,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 225,
+          "machine_name": "拉伸机",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 71.74,
+          "total_output": 66.95,
+          "total_scrap": 4.78,
+          "yield_rate": 93.32,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 27.46,
+          "total_output": 23.97,
+          "total_scrap": 3.49,
+          "yield_rate": 87.29,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 48.51,
+          "total_output": 45.77,
+          "total_scrap": 2.74,
+          "yield_rate": 94.35,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 147.71,
+        "output": 136.69,
+        "scrap": 11.01,
+        "yield_rate": 92.54,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 21,
+        "draft_entry_count": 0,
+        "total_entry_count": 21,
+        "mtd_input": 1732.65,
+        "mtd_output": 1601.84,
+        "mtd_scrap": 108.84,
+        "mtd_yield_rate": 92.45,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 29,
+      "workshop_name": "新厂在线退火",
+      "machines": [
+        {
+          "machine_id": 149,
+          "machine_name": "新厂北",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 12,
+              "draft_count": 0,
+              "total_expected": 9,
+              "total_input": 112.97,
+              "total_output": 112.76,
+              "total_scrap": 0.21,
+              "yield_rate": 99.81,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "all_submitted",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "考勤待确认"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 5,
+              "draft_count": 0,
+              "total_expected": 8,
+              "total_input": 57.65,
+              "total_output": 57.42,
+              "total_scrap": 0.23,
+              "yield_rate": 99.6,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "in_progress",
+              "is_applicable": true,
+              "status_tone": "warning",
+              "status_text": "进行中"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 15,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 170.62,
+            "output": 170.18,
+            "scrap": 0.44,
+            "yield_rate": 99.74,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 150,
+          "machine_name": "新厂南",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 112.97,
+          "total_output": 112.76,
+          "total_scrap": 0.21,
+          "yield_rate": 99.81,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 57.65,
+          "total_output": 57.42,
+          "total_scrap": 0.23,
+          "yield_rate": 99.6,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 170.62,
+        "output": 170.18,
+        "scrap": 0.44,
+        "yield_rate": 99.74,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 20,
+        "draft_entry_count": 0,
+        "total_entry_count": 20,
+        "mtd_input": 1881.91,
+        "mtd_output": 1871.74,
+        "mtd_scrap": 10.17,
+        "mtd_yield_rate": 99.46,
+        "mtd_pass_count_total": 0
+      }
+    },
+    {
+      "workshop_id": 30,
+      "workshop_name": "园区在线退火",
+      "machines": [
+        {
+          "machine_id": 151,
+          "machine_name": "园区北",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        },
+        {
+          "machine_id": 152,
+          "machine_name": "园区南",
+          "machine_binding_status": "bound",
+          "shifts": [
+            {
+              "shift_id": 4,
+              "shift_name": "长白班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 5,
+              "shift_name": "小夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            },
+            {
+              "shift_id": 6,
+              "shift_name": "大夜班",
+              "submitted_count": 0,
+              "draft_count": 0,
+              "total_expected": 0,
+              "total_input": 0.0,
+              "total_output": 0.0,
+              "total_scrap": 0.0,
+              "yield_rate": null,
+              "yield_rate_source": "runtime_compat",
+              "attendance_status": "not_started",
+              "attendance_exception_count": 0,
+              "submission_status": "not_started",
+              "is_applicable": true,
+              "status_tone": "danger",
+              "status_text": "缺报"
+            }
+          ],
+          "day_total": {
+            "input": 0.0,
+            "output": 0.0,
+            "scrap": 0.0,
+            "yield_rate": null,
+            "yield_rate_source": "runtime_compat"
+          }
+        }
+      ],
+      "shift_totals": [
+        {
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        },
+        {
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "is_applicable": true,
+          "total_input": 0.0,
+          "total_output": 0.0,
+          "total_scrap": 0.0,
+          "yield_rate": null,
+          "yield_rate_source": "runtime_compat"
+        }
+      ],
+      "workshop_total": {
+        "input": 0.0,
+        "output": 0.0,
+        "scrap": 0.0,
+        "yield_rate": null,
+        "yield_rate_source": "runtime_work_order",
+        "formal_entry_count": 0,
+        "draft_entry_count": 0,
+        "total_entry_count": 0,
+        "mtd_input": 0.0,
+        "mtd_output": 0.0,
+        "mtd_scrap": 0.0,
+        "mtd_yield_rate": null,
+        "mtd_pass_count_total": 0
+      }
+    }
+  ],
+  "factory_total": {
+    "input": 2126.83,
+    "output": 1978.14,
+    "scrap": 51.96,
+    "yield_rate": 93.01,
+    "yield_rate_source": "runtime_work_order",
+    "mtd_input": 1436526.64,
+    "mtd_output": 21423.78,
+    "mtd_scrap": 106173.0,
+    "mtd_yield_rate": 1.49,
+    "mtd_pass_count_total": 622,
+    "month_start": "2026-06-01",
+    "month_end": "2026-06-16",
+    "packaging_output": 308.68,
+    "daily_output": 308.68,
+    "factory_total_output": 308.68,
+    "finished_inbound_output": 277.64,
+    "owner_storage_finished_weight": 277.64,
+    "business_day_start": "07:30",
+    "daily_output_source": "mes_stock_records",
+    "finished_inbound_source": "storage_owner_daily_entry"
+  },
+  "data_quality": {
+    "missing_output_weight": {
+      "entry_count": 11,
+      "input": 86.38,
+      "scrap": 8.0,
+      "items": [
+        {
+          "entry_id": 3448,
+          "work_order_id": 2745,
+          "tracking_card_no": "26A05199",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "input_weight": 11.66,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3427,
+          "work_order_id": 2738,
+          "tracking_card_no": "26RA04900",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "input_weight": 9.6,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3411,
+          "work_order_id": 2275,
+          "tracking_card_no": "26A05085",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 6,
+          "shift_name": "大夜班",
+          "input_weight": 6.66,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3329,
+          "work_order_id": 2286,
+          "tracking_card_no": "26RA05048",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "input_weight": 8.6,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3318,
+          "work_order_id": 2525,
+          "tracking_card_no": "26RA05105",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "input_weight": 10.25,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3288,
+          "work_order_id": 2394,
+          "tracking_card_no": "26RA05168",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "input_weight": 10.0,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3239,
+          "work_order_id": 2299,
+          "tracking_card_no": "26RA05075",
+          "workshop_id": 10,
+          "workshop_name": "剪切车间",
+          "machine_id": 146,
+          "machine_name": "3#",
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "input_weight": 9.21,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3233,
+          "work_order_id": 2650,
+          "tracking_card_no": "S-2-102-1",
+          "workshop_id": 3,
+          "workshop_name": "铸轧三",
+          "machine_id": 156,
+          "machine_name": "2#机",
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "input_weight": 3.6,
+          "output_weight": null,
+          "scrap_weight": 3.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3234,
+          "work_order_id": 2651,
+          "tracking_card_no": "S-3-104-2",
+          "workshop_id": 3,
+          "workshop_name": "铸轧三",
+          "machine_id": 157,
+          "machine_name": "3#机",
+          "shift_id": 4,
+          "shift_name": "长白班",
+          "input_weight": 7.2,
+          "output_weight": null,
+          "scrap_weight": 3.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        },
+        {
+          "entry_id": 3312,
+          "work_order_id": 2684,
+          "tracking_card_no": "s-9-001-2",
+          "workshop_id": 3,
+          "workshop_name": "铸轧三",
+          "machine_id": 163,
+          "machine_name": "9#机",
+          "shift_id": 5,
+          "shift_name": "小夜班",
+          "input_weight": 3.6,
+          "output_weight": null,
+          "scrap_weight": 0.0,
+          "entry_status": "submitted",
+          "entry_type": "mobile_coil"
+        }
+      ]
+    }
+  },
+  "mes_machine_binding": {
+    "mes_row_count": 5,
+    "mes_rows_with_machine": 2,
+    "mes_rows_without_machine": 3,
+    "direct_machine_code_count": 0,
+    "route_inferred_machine_count": 2,
+    "unresolved_machine_count": 3,
+    "upstream_machine_code_missing_count": 5,
+    "fill_entry_count": 230,
+    "fill_entries_with_mes_match": 17,
+    "fill_entries_bound_to_machine": 17,
+    "fill_entries_pending_machine": 0,
+    "pending_assignment_entry_count": 0,
+    "pending_machine_assignment_count": 0
+  },
+  "yield_matrix_lane": {
+    "business_date": "2026-06-16",
+    "snapshot_count": 0,
+    "candidate_snapshot_count": 0,
+    "delivery_scopes": [],
+    "primary_delivery_scope": null,
+    "selection_status": "no_ready_snapshot",
+    "selection_rule": "prefer_factory_scope_else_single_ready_scope_else_ambiguous; conflicting_ready_metrics_do_not_promote_formal_truth",
+    "workshop_yields": {},
+    "mp_targets": {},
+    "company_total_yield": null,
+    "quality_status": "missing",
+    "items": []
+  },
+  "owner_daily_status": {
+    "business_date": "2026-06-16",
+    "submitted_count": 7,
+    "total_count": 20,
+    "totals": [
+      {
+        "key": "park_inbound_daily",
+        "label": "园区入库日合",
+        "value": 105.381,
+        "unit": "吨"
+      },
+      {
+        "key": "park_inbound_monthly",
+        "label": "园区入库（月累计）",
+        "value": 1985.862,
+        "unit": "吨"
+      },
+      {
+        "key": "park_outbound_daily",
+        "label": "园区出库日合",
+        "value": 142.095,
+        "unit": "吨"
+      },
+      {
+        "key": "park_outbound_monthly",
+        "label": "园区出库（月累计）",
+        "value": 1946.977,
+        "unit": "吨"
+      },
+      {
+        "key": "new_plant_inbound_daily",
+        "label": "新厂入库日合",
+        "value": 172.264,
+        "unit": "吨"
+      },
+      {
+        "key": "new_plant_inbound_monthly",
+        "label": "新厂入库（月累计）",
+        "value": 2925.608,
+        "unit": "吨"
+      },
+      {
+        "key": "new_plant_outbound_daily",
+        "label": "新厂出库日合",
+        "value": 125.328,
+        "unit": "吨"
+      },
+      {
+        "key": "new_plant_outbound_monthly",
+        "label": "新厂出库（月累计）",
+        "value": 2851.331,
+        "unit": "吨"
+      },
+      {
+        "key": "consignment_weight",
+        "label": "成品库寄存",
+        "value": 165.064,
+        "unit": "吨"
+      },
+      {
+        "key": "daily_contract_weight",
+        "label": "当日接合同",
+        "value": 66.0,
+        "unit": "吨"
+      },
+      {
+        "key": "daily_hot_roll_contract_weight",
+        "label": "当日热轧合同",
+        "value": 66.0,
+        "unit": "吨"
+      },
+      {
+        "key": "month_to_date_contract_weight",
+        "label": "月累计合同",
+        "value": 5405.0,
+        "unit": "吨"
+      },
+      {
+        "key": "month_to_date_hot_roll_contract_weight",
+        "label": "月累计热轧合同",
+        "value": 4449.0,
+        "unit": "吨"
+      },
+      {
+        "key": "remaining_contract_weight",
+        "label": "余合同量",
+        "value": 2569.0,
+        "unit": "吨"
+      },
+      {
+        "key": "remaining_hot_roll_contract_weight",
+        "label": "余热轧合同",
+        "value": 2041.0,
+        "unit": "吨"
+      },
+      {
+        "key": "billet_inventory_weight",
+        "label": "坯料总量",
+        "value": 458.0,
+        "unit": "吨"
+      },
+      {
+        "key": "daily_input_weight",
+        "label": "当日投料",
+        "value": 331.0,
+        "unit": "吨"
+      },
+      {
+        "key": "month_to_date_input_weight",
+        "label": "月累计投料",
+        "value": 5543.0,
+        "unit": "吨"
+      },
+      {
+        "key": "plant_wide_yield_rate",
+        "label": "全厂总成品率",
+        "value": 86.0,
+        "unit": "%"
+      },
+      {
+        "key": "rolling_oil_per_ton",
+        "label": "轧制油吨耗",
+        "value": 120.0,
+        "unit": "kg"
+      },
+      {
+        "key": "diatomite_per_ton",
+        "label": "硅藻土吨耗",
+        "value": 20.0,
+        "unit": "kg"
+      },
+      {
+        "key": "white_earth_per_ton",
+        "label": "白土吨耗",
+        "value": 12.0,
+        "unit": "kg"
+      },
+      {
+        "key": "recovery_weight",
+        "label": "回收重量",
+        "value": 63.0,
+        "unit": "块"
+      },
+      {
+        "key": "d40_per_ton",
+        "label": "D40吨耗",
+        "value": 18.0,
+        "unit": "kg"
+      },
+      {
+        "key": "steel_strip_per_ton",
+        "label": "钢带吨耗",
+        "value": 25.0,
+        "unit": "kg"
+      },
+      {
+        "key": "steel_buckle_per_ton",
+        "label": "钢带扣吨耗",
+        "value": 1.5,
+        "unit": "kg"
+      },
+      {
+        "key": "high_temp_tape_daily",
+        "label": "高温胶带日用",
+        "value": 1.0,
+        "unit": "卷"
+      },
+      {
+        "key": "packaging_inbound_output_tons",
+        "label": "包装入库产量",
+        "value": 46.14,
+        "unit": "吨"
+      },
+      {
+        "key": "steel_plate_per_ton",
+        "label": "钢板吨耗",
+        "value": 220.0,
+        "unit": "kg"
+      }
+    ],
+    "items": [
+      {
+        "user_id": 904,
+        "username": "ZD-CS",
+        "person_name": "铸锭分厂 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 1,
+        "workshop_name": "铸锭分厂",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 13,
+        "username": "ZR2-CS",
+        "person_name": "铸轧二 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 2,
+        "workshop_name": "铸轧二",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 905,
+        "username": "ZR3-CS",
+        "person_name": "铸轧三 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 3,
+        "workshop_name": "铸轧三",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 25,
+        "username": "RZ-CS",
+        "person_name": "热轧 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 4,
+        "workshop_name": "热轧",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 31,
+        "username": "LZ2050-CS",
+        "person_name": "2050冷轧 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 5,
+        "workshop_name": "2050冷轧",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 911,
+        "username": "JZ-CS",
+        "person_name": "精整车间 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 8,
+        "workshop_name": "精整车间",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 61,
+        "username": "JQ-CS",
+        "person_name": "剪切车间 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 10,
+        "workshop_name": "剪切车间",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 933,
+        "username": "JQ-PSH",
+        "person_name": "剪切车间园区剪切",
+        "role": "shipment_outflow_owner",
+        "role_label": "园区剪切",
+        "workshop_id": 10,
+        "workshop_name": "剪切车间",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 936,
+        "username": "CPK-EC",
+        "person_name": "成品库总电工",
+        "role": "energy_chief",
+        "role_label": "总电工",
+        "workshop_id": 11,
+        "workshop_name": "成品库",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 937,
+        "username": "CPK-FS",
+        "person_name": "成品库成品库",
+        "role": "storage_owner",
+        "role_label": "成品库",
+        "workshop_id": 11,
+        "workshop_name": "成品库",
+        "status": "submitted",
+        "entry_id": 3463,
+        "updated_at": "2026-06-17T08:07:15.929274+08:00",
+        "metrics": [
+          {
+            "key": "park_inbound_daily",
+            "label": "园区入库（日合）",
+            "value": 105.381,
+            "unit": "吨"
+          },
+          {
+            "key": "park_inbound_monthly",
+            "label": "园区入库（月累计）",
+            "value": 1985.862,
+            "unit": "吨"
+          },
+          {
+            "key": "park_outbound_daily",
+            "label": "园区出库（日合）",
+            "value": 142.095,
+            "unit": "吨"
+          },
+          {
+            "key": "park_outbound_monthly",
+            "label": "园区出库（月累计）",
+            "value": 1946.977,
+            "unit": "吨"
+          },
+          {
+            "key": "new_plant_inbound_daily",
+            "label": "新厂入库（日合）",
+            "value": 172.264,
+            "unit": "吨"
+          },
+          {
+            "key": "new_plant_inbound_monthly",
+            "label": "新厂入库（月累计）",
+            "value": 2925.608,
+            "unit": "吨"
+          },
+          {
+            "key": "new_plant_outbound_daily",
+            "label": "新厂出库（日合）",
+            "value": 125.328,
+            "unit": "吨"
+          },
+          {
+            "key": "new_plant_outbound_monthly",
+            "label": "新厂出库（月累计）",
+            "value": 2851.331,
+            "unit": "吨"
+          },
+          {
+            "key": "consignment_weight",
+            "label": "成品库寄存",
+            "value": 165.064,
+            "unit": "吨"
+          }
+        ]
+      },
+      {
+        "user_id": 938,
+        "username": "CPK-OH",
+        "person_name": "成品库大修",
+        "role": "overhaul_owner",
+        "role_label": "大修",
+        "workshop_id": 11,
+        "workshop_name": "成品库",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 935,
+        "username": "CPK-PL",
+        "person_name": "成品库计划内勤",
+        "role": "planning_owner",
+        "role_label": "计划内勤",
+        "workshop_id": 11,
+        "workshop_name": "成品库",
+        "status": "submitted",
+        "entry_id": 3327,
+        "updated_at": "2026-06-16T17:59:16.323225+08:00",
+        "metrics": [
+          {
+            "key": "daily_contract_weight",
+            "label": "当日接合同",
+            "value": 66.0,
+            "unit": "吨"
+          },
+          {
+            "key": "daily_hot_roll_contract_weight",
+            "label": "当日热轧合同",
+            "value": 66.0,
+            "unit": "吨"
+          },
+          {
+            "key": "month_to_date_contract_weight",
+            "label": "月累计合同",
+            "value": 5405.0,
+            "unit": "吨"
+          },
+          {
+            "key": "month_to_date_hot_roll_contract_weight",
+            "label": "月累计热轧合同",
+            "value": 4449.0,
+            "unit": "吨"
+          },
+          {
+            "key": "remaining_contract_weight",
+            "label": "余合同量",
+            "value": 2569.0,
+            "unit": "吨"
+          },
+          {
+            "key": "remaining_hot_roll_contract_weight",
+            "label": "余热轧合同",
+            "value": 2041.0,
+            "unit": "吨"
+          },
+          {
+            "key": "billet_inventory_weight",
+            "label": "坯料总量",
+            "value": 458.0,
+            "unit": "吨"
+          },
+          {
+            "key": "daily_input_weight",
+            "label": "当日投料",
+            "value": 331.0,
+            "unit": "吨"
+          },
+          {
+            "key": "month_to_date_input_weight",
+            "label": "月累计投料",
+            "value": 5543.0,
+            "unit": "吨"
+          }
+        ]
+      },
+      {
+        "user_id": 934,
+        "username": "CPK-QM",
+        "person_name": "成品库质检内勤",
+        "role": "quality_owner",
+        "role_label": "质检内勤",
+        "workshop_id": 11,
+        "workshop_name": "成品库",
+        "status": "submitted",
+        "entry_id": 3459,
+        "updated_at": "2026-06-17T07:39:09.149848+08:00",
+        "metrics": [
+          {
+            "key": "plant_wide_yield_rate",
+            "label": "全厂总成品率",
+            "value": 86.0,
+            "unit": "%"
+          }
+        ]
+      },
+      {
+        "user_id": 956,
+        "username": "LZ1850-CS",
+        "person_name": "1850冷轧内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 17,
+        "workshop_name": "1850冷轧",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 915,
+        "username": "LZ1650-CS",
+        "person_name": "1650冷轧 内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 18,
+        "workshop_name": "1650冷轧",
+        "status": "submitted",
+        "entry_id": 3384,
+        "updated_at": "2026-06-16T23:07:30.360351+08:00",
+        "metrics": [
+          {
+            "key": "rolling_oil_per_ton",
+            "label": "轧制油吨耗",
+            "value": 120.0,
+            "unit": "kg"
+          },
+          {
+            "key": "diatomite_per_ton",
+            "label": "硅藻土吨耗",
+            "value": 20.0,
+            "unit": "kg"
+          },
+          {
+            "key": "white_earth_per_ton",
+            "label": "白土吨耗",
+            "value": 12.0,
+            "unit": "kg"
+          }
+        ]
+      },
+      {
+        "user_id": 939,
+        "username": "HS-RC",
+        "person_name": "回收车间回收",
+        "role": "recovery_owner",
+        "role_label": "回收",
+        "workshop_id": 23,
+        "workshop_name": "回收车间",
+        "status": "submitted",
+        "entry_id": 3456,
+        "updated_at": "2026-06-17T07:37:47.595418+08:00",
+        "metrics": [
+          {
+            "key": "recovery_weight",
+            "label": "回收重量",
+            "value": 63.0,
+            "unit": "块"
+          },
+          {
+            "key": "recovery_material_type",
+            "label": "物料类型",
+            "value": "渣锭屑锭",
+            "unit": ""
+          },
+          {
+            "key": "recovery_notes",
+            "label": "备注",
+            "value": "累计1123",
+            "unit": ""
+          }
+        ]
+      },
+      {
+        "user_id": 957,
+        "username": "LJ-CS",
+        "person_name": "拉矫车间内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 25,
+        "workshop_name": "拉矫车间",
+        "status": "submitted",
+        "entry_id": 3457,
+        "updated_at": "2026-06-17T07:38:21.923407+08:00",
+        "metrics": [
+          {
+            "key": "d40_per_ton",
+            "label": "D40吨耗",
+            "value": 10.0,
+            "unit": "kg"
+          },
+          {
+            "key": "steel_strip_per_ton",
+            "label": "钢带吨耗",
+            "value": 15.0,
+            "unit": "kg"
+          },
+          {
+            "key": "steel_buckle_per_ton",
+            "label": "钢带扣吨耗",
+            "value": 1.0,
+            "unit": "kg"
+          },
+          {
+            "key": "high_temp_tape_daily",
+            "label": "高温胶带日用",
+            "value": 1.0,
+            "unit": "卷"
+          },
+          {
+            "key": "packaging_inbound_output_tons",
+            "label": "包装入库产量",
+            "value": 46.14,
+            "unit": "吨"
+          }
+        ]
+      },
+      {
+        "user_id": 958,
+        "username": "CH-CS",
+        "person_name": "淬火车间内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 26,
+        "workshop_name": "淬火车间",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      },
+      {
+        "user_id": 955,
+        "username": "ZXTF-CS",
+        "person_name": "在线退火分厂内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 29,
+        "workshop_name": "新厂在线退火",
+        "status": "submitted",
+        "entry_id": 3462,
+        "updated_at": "2026-06-17T07:44:01.298314+08:00",
+        "metrics": [
+          {
+            "key": "d40_per_ton",
+            "label": "D40吨耗",
+            "value": 8.0,
+            "unit": "kg"
+          },
+          {
+            "key": "steel_plate_per_ton",
+            "label": "钢板吨耗",
+            "value": 220.0,
+            "unit": "kg"
+          },
+          {
+            "key": "steel_strip_per_ton",
+            "label": "钢带吨耗",
+            "value": 10.0,
+            "unit": "kg"
+          },
+          {
+            "key": "steel_buckle_per_ton",
+            "label": "钢带扣吨耗",
+            "value": 0.5,
+            "unit": "kg"
+          }
+        ]
+      },
+      {
+        "user_id": 960,
+        "username": "ZXTF-P-CS",
+        "person_name": "园区在线退火内勤",
+        "role": "consumable_stat",
+        "role_label": "内勤",
+        "workshop_id": 30,
+        "workshop_name": "园区在线退火",
+        "status": "not_started",
+        "entry_id": null,
+        "updated_at": null,
+        "metrics": []
+      }
+    ]
+  },
+  "mes_sync_status": {
+    "cursor_key": "coil_snapshots",
+    "cursor_value": null,
+    "configured": true,
+    "migration_ready": true,
+    "status": "fresh",
+    "adapter": "sqlserver",
+    "source": "mes_projection",
+    "stale_threshold_seconds": 300.0,
+    "retry_limit": 3,
+    "last_event_at": "2026-06-17T17:40:15.363000+08:00",
+    "last_synced_at": "2026-06-17T11:25:15.756229+08:00",
+    "lag_seconds": 0.0,
+    "sync_freshness_seconds": 29.030429,
+    "last_run_status": "success",
+    "last_run_started_at": "2026-06-17T11:25:15.756229+08:00",
+    "last_run_finished_at": "2026-06-17T11:25:17.953050+08:00",
+    "fetched_count": 50,
+    "upserted_count": 50,
+    "replayed_count": 0,
+    "error_message": null,
+    "last_error": null,
+    "action_required": "none"
+  },
+  "data_source": "mixed"
+}

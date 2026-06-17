@@ -1,0 +1,127 @@
+{
+  "items": [
+    {
+      "code": "ZD",
+      "name": "铸锭分厂",
+      "workshop_type": "casting",
+      "sort_order": 1,
+      "is_active": true,
+      "id": 1
+    },
+    {
+      "code": "ZR2",
+      "name": "铸轧二",
+      "workshop_type": "casting",
+      "sort_order": 2,
+      "is_active": true,
+      "id": 2
+    },
+    {
+      "code": "ZR3",
+      "name": "铸轧三",
+      "workshop_type": "casting",
+      "sort_order": 3,
+      "is_active": true,
+      "id": 3
+    },
+    {
+      "code": "RZ",
+      "name": "热轧",
+      "workshop_type": "hot_roll",
+      "sort_order": 6,
+      "is_active": true,
+      "id": 4
+    },
+    {
+      "code": "LZ2050",
+      "name": "2050冷轧",
+      "workshop_type": "cold_roll",
+      "sort_order": 7,
+      "is_active": true,
+      "id": 5
+    },
+    {
+      "code": "LZ1850",
+      "name": "1850冷轧",
+      "workshop_type": "cold_roll",
+      "sort_order": 8,
+      "is_active": true,
+      "id": 17
+    },
+    {
+      "code": "LZ1650",
+      "name": "1650冷轧",
+      "workshop_type": "cold_roll",
+      "sort_order": 9,
+      "is_active": true,
+      "id": 18
+    },
+    {
+      "code": "JZ",
+      "name": "精整车间",
+      "workshop_type": "finishing",
+      "sort_order": 13,
+      "is_active": true,
+      "id": 8
+    },
+    {
+      "code": "JQ",
+      "name": "剪切车间",
+      "workshop_type": "shearing",
+      "sort_order": 15,
+      "is_active": true,
+      "id": 10
+    },
+    {
+      "code": "LJ",
+      "name": "拉矫车间",
+      "workshop_type": "straightening",
+      "sort_order": 16,
+      "is_active": true,
+      "id": 25
+    },
+    {
+      "code": "HS",
+      "name": "回收车间",
+      "workshop_type": "recycling",
+      "sort_order": 18,
+      "is_active": true,
+      "id": 23
+    },
+    {
+      "code": "CPK",
+      "name": "成品库",
+      "workshop_type": "inventory",
+      "sort_order": 19,
+      "is_active": true,
+      "id": 11
+    },
+    {
+      "code": "ZXTF-N",
+      "name": "新厂在线退火",
+      "workshop_type": "annealing",
+      "sort_order": 200,
+      "is_active": true,
+      "id": 29
+    },
+    {
+      "code": "ZXTF-P",
+      "name": "园区在线退火",
+      "workshop_type": "annealing",
+      "sort_order": 201,
+      "is_active": true,
+      "id": 30
+    },
+    {
+      "code": "CH",
+      "name": "淬火车间",
+      "workshop_type": "finishing",
+      "sort_order": 220,
+      "is_active": true,
+      "id": 26
+    }
+  ],
+  "total": 15,
+  "skip": 0,
+  "limit": 300
+}

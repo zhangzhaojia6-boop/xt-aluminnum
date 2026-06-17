@@ -1,0 +1,43 @@
+{
+  "kpi": {
+    "current_stock": 0.0,
+    "stock_change": 0.0,
+    "inbound_today": 0.0,
+    "outbound_today": 0.0,
+    "anomaly_count": 0
+  },
+  "trend": {
+    "labels": [
+      "2026-06-17"
+    ],
+    "series": [
+      {
+        "name": "入库",
+        "data": [
+          0.0
+        ]
+      },
+      {
+        "name": "出库",
+        "data": [
+          0.0
+        ]
+      }
+    ]
+  },
+  "transactions": [],
+  "warehouses": [
+    {
+      "id": 3,
+      "name": "铸轧三"
+    },
+    {
+      "id": 2,
+      "name": "铸轧二"
+    },
+    {
+      "id": 1,
+      "name": "铸锭分厂"
+    }
+  ]
+}

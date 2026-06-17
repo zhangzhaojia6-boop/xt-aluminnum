@@ -1,0 +1,773 @@
+{
+  "target_date": "2026-06-17",
+  "workshop_id": 1,
+  "total_output": 0.0,
+  "month_to_date_output": 0.0,
+  "pending_shift_count": 0,
+  "history_digest": {
+    "daily_snapshots": [
+      {
+        "date": "2026-06-11",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 372.0,
+        "energy_per_ton": 91.15,
+        "label": "06-11",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-12",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 176.0,
+        "energy_per_ton": 125.52,
+        "label": "06-12",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-13",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 227.0,
+        "energy_per_ton": 105.1,
+        "label": "06-13",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-14",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 192.0,
+        "energy_per_ton": 153.75,
+        "label": "06-14",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-15",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 0.0,
+        "energy_per_ton": 145.56,
+        "label": "06-15",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-16",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 66.0,
+        "energy_per_ton": 110.92,
+        "label": "06-16",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      },
+      {
+        "date": "2026-06-17",
+        "output_weight": 0.0,
+        "shipment_weight": 0.0,
+        "contract_weight": 0.0,
+        "energy_per_ton": 627.27,
+        "label": "06-17",
+        "storage_finished_weight": 0.0,
+        "storage_inbound_area": 0.0
+      }
+    ],
+    "month_archive": {
+      "total_output": 0.0,
+      "reported_days": 0,
+      "average_daily_output": 0.0,
+      "calendar_day": 17
+    },
+    "year_archive": {
+      "total_output": 309.0,
+      "reported_days": 5,
+      "active_months": 1,
+      "average_monthly_output": 309.0
+    }
+  },
+  "mobile_reporting_summary": {
+    "expected_count": 3,
+    "reported_count": 1,
+    "submitted_count": 1,
+    "auto_confirmed_count": 0,
+    "returned_count": 0,
+    "unreported_count": 3,
+    "late_count": 0,
+    "exception_count": 0,
+    "reporting_rate": 33.33,
+    "returned_items": [],
+    "approved_count": 0,
+    "draft_count": 0,
+    "config_warnings": []
+  },
+  "reminder_summary": {
+    "unreported_count": 3,
+    "late_report_count": 0,
+    "today_reminder_count": 28,
+    "recent_items": [
+      {
+        "id": 12616,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": 1,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:17.932112+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12631,
+        "business_date": "2026-06-17",
+        "shift_config_id": 5,
+        "workshop_id": 1,
+        "team_id": 2,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:18.236071+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12646,
+        "business_date": "2026-06-17",
+        "shift_config_id": 6,
+        "workshop_id": 1,
+        "team_id": 3,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:18.392101+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12661,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": 1,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:17.900888+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12676,
+        "business_date": "2026-06-17",
+        "shift_config_id": 5,
+        "workshop_id": 1,
+        "team_id": 2,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.063405+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12691,
+        "business_date": "2026-06-17",
+        "shift_config_id": 6,
+        "workshop_id": 1,
+        "team_id": 3,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.329511+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12711,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": null,
+        "leader_user_id": 904,
+        "reminder_type": "daily_unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T10:46:21.103319+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "每日一填：内勤"
+      },
+      {
+        "id": 12734,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": null,
+        "leader_user_id": 904,
+        "reminder_type": "daily_escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.901106+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "每日一填：内勤 自动升级提醒管理员"
+      }
+    ],
+    "daily_unreported_count": 1,
+    "daily_late_report_count": 0
+  },
+  "energy_summary": {
+    "electricity_value": 2700.0,
+    "gas_value": 6850.0,
+    "water_value": 0.0,
+    "total_energy": 9550.0,
+    "output_weight": 0.0,
+    "primary_source": "mobile_shift_report"
+  },
+  "production_lane": [],
+  "energy_lane": [
+    {
+      "source": "import",
+      "source_label": "系统导入",
+      "source_variant": "import",
+      "shift_code": "A",
+      "electricity_value": 2700.0,
+      "gas_value": 6850.0,
+      "water_value": 0.0,
+      "is_over_line": false,
+      "business_date": "2026-06-17",
+      "workshop_id": 1,
+      "workshop_code": "ZD",
+      "shift_config_id": 4,
+      "total_energy": 9550.0,
+      "output_weight": 0
+    }
+  ],
+  "inventory_lane": [
+    {
+      "source": "mobile",
+      "source_label": "主操直录",
+      "source_variant": "mobile",
+      "storage_prepared": 0.0,
+      "storage_finished": 0.0,
+      "storage_inbound_area": 0.0,
+      "shipment_weight": 0.0,
+      "actual_inventory_weight": 0.0,
+      "contract_received": 0.0,
+      "workshop_id": 1,
+      "workshop_name": "铸锭分厂",
+      "shipment_area": 0.0,
+      "consignment_weight": 0.0,
+      "finished_inventory_weight": 0.0
+    }
+  ],
+  "exception_lane": {
+    "unreported_shift_count": 3,
+    "returned_shift_count": 0,
+    "late_shift_count": 0,
+    "mobile_exception_count": 0,
+    "reminder_unreported_count": 4,
+    "reminder_late_count": 0,
+    "today_reminder_count": 28,
+    "production_exception_count": 0,
+    "reconciliation_open_count": 0,
+    "pending_report_publish_count": 0,
+    "returned_items": [],
+    "reminder_items": [
+      {
+        "id": 12616,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": 1,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:17.932112+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12631,
+        "business_date": "2026-06-17",
+        "shift_config_id": 5,
+        "workshop_id": 1,
+        "team_id": 2,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:18.236071+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12646,
+        "business_date": "2026-06-17",
+        "shift_config_id": 6,
+        "workshop_id": 1,
+        "team_id": 3,
+        "leader_user_id": 4,
+        "reminder_type": "unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T08:16:18.392101+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": null
+      },
+      {
+        "id": 12661,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": 1,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:17.900888+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12676,
+        "business_date": "2026-06-17",
+        "shift_config_id": 5,
+        "workshop_id": 1,
+        "team_id": 2,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.063405+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12691,
+        "business_date": "2026-06-17",
+        "shift_config_id": 6,
+        "workshop_id": 1,
+        "team_id": 3,
+        "leader_user_id": 4,
+        "reminder_type": "escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.329511+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "自动升级提醒管理员"
+      },
+      {
+        "id": 12711,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": null,
+        "leader_user_id": 904,
+        "reminder_type": "daily_unreported",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 3,
+        "last_reminded_at": "2026-06-17T10:46:21.103319+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "每日一填：内勤"
+      },
+      {
+        "id": 12734,
+        "business_date": "2026-06-17",
+        "shift_config_id": 4,
+        "workshop_id": 1,
+        "team_id": null,
+        "leader_user_id": 904,
+        "reminder_type": "daily_escalation",
+        "reminder_status": "sent",
+        "reminder_channel": "system",
+        "reminder_count": 4,
+        "last_reminded_at": "2026-06-17T11:16:18.901106+08:00",
+        "acknowledged_at": null,
+        "acknowledged_by": null,
+        "closed_at": null,
+        "closed_by": null,
+        "note": "每日一填：内勤 自动升级提醒管理员"
+      }
+    ],
+    "recent_items": [],
+    "legacy_unreported_shift_count": 3,
+    "legacy_returned_shift_count": 0,
+    "legacy_late_shift_count": 0,
+    "legacy_mobile_exception_count": 0,
+    "mobile_coil_entry_count": 0,
+    "mobile_coil_workshop_count": 0,
+    "reporting_source": "mobile_shift_reports"
+  },
+  "analysis_handoff": {
+    "target_date": "2026-06-17",
+    "surface": "workshop",
+    "readiness": false,
+    "blocking_reasons": [
+      "reporting_incomplete",
+      "delivery_not_ready"
+    ],
+    "priority": "high",
+    "attention_flags": [
+      "reporting_incomplete",
+      "delivery_not_ready"
+    ],
+    "data_gaps": [
+      "report_unpublished",
+      "contracts_unavailable",
+      "energy_unavailable"
+    ],
+    "section_matrix": {
+      "healthy_sections": [
+        "risk"
+      ],
+      "warning_sections": [],
+      "blocked_sections": [
+        "reporting",
+        "delivery"
+      ],
+      "idle_sections": [
+        "energy",
+        "contracts"
+      ]
+    },
+    "section_reasons": {
+      "reporting": [
+        "reporting_incomplete"
+      ],
+      "delivery": [
+        "delivery_not_ready"
+      ],
+      "energy": [
+        "energy_unavailable"
+      ],
+      "contracts": [
+        "contracts_unavailable"
+      ],
+      "risk": []
+    },
+    "source_matrix": {
+      "reporting": [
+        "主操直录"
+      ],
+      "delivery": [
+        "系统汇总",
+        "结果发布"
+      ],
+      "energy": [
+        "专项补录",
+        "系统汇总"
+      ],
+      "contracts": [
+        "系统汇总"
+      ],
+      "risk": [
+        "系统汇总"
+      ]
+    },
+    "source_variants": {
+      "reporting": [
+        "mobile"
+      ],
+      "delivery": [
+        "system",
+        "publish"
+      ],
+      "energy": [
+        "owner_only",
+        "system"
+      ],
+      "contracts": [
+        "system"
+      ],
+      "risk": [
+        "system"
+      ]
+    },
+    "action_matrix": {
+      "reporting": [
+        "check_unreported_shifts"
+      ],
+      "delivery": [
+        "publish_daily_report",
+        "close_delivery_steps"
+      ],
+      "energy": [
+        "collect_energy_owner_entries"
+      ],
+      "contracts": [
+        "collect_contract_owner_entries"
+      ],
+      "risk": [
+        "watch_risk_signals"
+      ]
+    },
+    "freshness": {
+      "freshness_status": "warming",
+      "sync_status": "success",
+      "sync_lag_seconds": 0,
+      "history_points": 7
+    },
+    "trend": {
+      "current_output": 0.0,
+      "yesterday_output": 0.0,
+      "output_delta_vs_yesterday": 0.0,
+      "seven_day_average_output": 0.0
+    },
+    "reporting": {
+      "status": "blocked",
+      "reporting_rate": 33.33,
+      "reported_count": 1,
+      "unreported_count": 3,
+      "auto_confirmed_count": 0,
+      "returned_count": 0,
+      "source_labels": [
+        "主操直录"
+      ]
+    },
+    "delivery": {
+      "status": "blocked",
+      "delivery_ready": false,
+      "reports_generated": 0,
+      "reports_published_count": 0,
+      "missing_steps": [
+        "reports_not_generated",
+        "reports_not_reviewed"
+      ],
+      "source_labels": [
+        "系统汇总",
+        "结果发布"
+      ]
+    },
+    "energy": {
+      "status": "idle",
+      "total_energy": 9550.0,
+      "electricity_value": 2700.0,
+      "gas_value": 6850.0,
+      "water_value": 0.0,
+      "source_labels": [
+        "专项补录",
+        "系统汇总"
+      ]
+    },
+    "contracts": {
+      "status": "idle",
+      "active_contract_count": 0,
+      "stalled_contract_count": 0,
+      "remaining_weight": 0.0,
+      "source_labels": [
+        "系统汇总"
+      ]
+    },
+    "risk": {
+      "status": "healthy",
+      "has_blockers": false,
+      "blocker_digest": "未发现关键异常",
+      "reconciliation_open_count": 0,
+      "mobile_exception_count": 0,
+      "production_exception_count": 0,
+      "source_labels": [
+        "系统汇总"
+      ]
+    }
+  },
+  "runtime_trace": {
+    "source_lanes": [
+      {
+        "key": "algorithm_pipeline",
+        "label": "算法流水线",
+        "actor_label": "规则引擎",
+        "detail": "上报率 33.33%",
+        "stage_label": "确定性规则",
+        "stage_detail": "1/3 班次到位，自动确认 0 条",
+        "result_label": "原始值标准化 / 自动校验",
+        "result_targets": [
+          "今日产量",
+          "生产泳道"
+        ],
+        "status": "blocked"
+      },
+      {
+        "key": "analysis_agent",
+        "label": "分析决策助手",
+        "actor_label": "AI 推理",
+        "detail": "异常 0 条，差异 0 条",
+        "stage_label": "解释与建议",
+        "stage_detail": "可靠度 51.6，风险阻塞 2 项",
+        "result_label": "异常归因 / 处理优先级",
+        "result_targets": [
+          "异常与提醒泳道",
+          "上报率"
+        ],
+        "status": "healthy"
+      },
+      {
+        "key": "execution_agent",
+        "label": "执行交付助手",
+        "actor_label": "交付编排",
+        "detail": "0 份可交付，留存 7 天",
+        "stage_label": "闭环执行",
+        "stage_detail": "班次缺报、交付链路未完成",
+        "result_label": "日报发布 / 交付闭环",
+        "result_targets": [
+          "待处理班次",
+          "交付缺口"
+        ],
+        "status": "blocked"
+      }
+    ],
+    "frontline": {
+      "status": "blocked",
+      "expected_count": 3,
+      "reported_count": 1,
+      "auto_confirmed_count": 0,
+      "returned_count": 0,
+      "unreported_count": 3,
+      "late_count": 0,
+      "reminder_count": 28,
+      "reporting_rate": 33.33
+    },
+    "backline": {
+      "status": "healthy",
+      "history_points": 7,
+      "energy_row_count": 1,
+      "exception_count": 0,
+      "reconciliation_open_count": 0,
+      "mes_last_run_status": "success"
+    },
+    "delivery": {
+      "status": "blocked",
+      "delivery_ready": false,
+      "reports_generated": 0,
+      "reports_ready_count": 0,
+      "reports_published_count": 0,
+      "missing_steps": [
+        "reports_not_generated",
+        "reports_not_reviewed"
+      ]
+    },
+    "orchestration": {
+      "reliability_score": 51.6,
+      "risk_level": "high",
+      "blocking_count": 2,
+      "bottlenecks": [
+        "班次缺报",
+        "交付链路未完成"
+      ],
+      "scores": {
+        "coverage": 18.3,
+        "quality": 100.0,
+        "delivery": 37
+      },
+      "workers": [
+        {
+          "key": "algorithm_pipeline",
+          "label": "算法流水线",
+          "status": "blocked",
+          "value": "覆盖 18.3"
+        },
+        {
+          "key": "analysis_agent",
+          "label": "分析决策助手",
+          "status": "healthy",
+          "value": "质量 100.0"
+        },
+        {
+          "key": "execution_agent",
+          "label": "执行交付助手",
+          "status": "blocked",
+          "value": "交付 37"
+        }
+      ]
+    }
+  },
+  "workshop_code": "ZD",
+  "workshop_name": "铸锭分厂",
+  "process_output": 0.0,
+  "pass_count_total": 0,
+  "process_stage_outputs": {},
+  "shift_count": 0,
+  "confirmed_shift_count": 0,
+  "reviewed_shift_count": 0,
+  "rejected_shift_count": 0,
+  "attendance_exception_count": 0,
+  "production_exception_count": 0,
+  "reconciliation_open_count": 0,
+  "attendance_summary": {
+    "total": 0,
+    "normal": 0,
+    "abnormal": 0
+  },
+  "shift_items": []
+}

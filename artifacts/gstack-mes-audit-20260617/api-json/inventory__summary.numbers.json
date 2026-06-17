@@ -1,0 +1,42 @@
+[
+  {
+    "path": "kpi.current_stock",
+    "value": 0.0
+  },
+  {
+    "path": "kpi.stock_change",
+    "value": 0.0
+  },
+  {
+    "path": "kpi.inbound_today",
+    "value": 0.0
+  },
+  {
+    "path": "kpi.outbound_today",
+    "value": 0.0
+  },
+  {
+    "path": "kpi.anomaly_count",
+    "value": 0
+  },
+  {
+    "path": "trend.series[0].data[0]",
+    "value": 0.0
+  },
+  {
+    "path": "trend.series[1].data[0]",
+    "value": 0.0
+  },
+  {
+    "path": "warehouses[0].id",
+    "value": 3
+  },
+  {
+    "path": "warehouses[1].id",
+    "value": 2
+  },
+  {
+    "path": "warehouses[2].id",
+    "value": 1
+  }
+]

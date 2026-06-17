@@ -1,0 +1,103 @@
+{
+  "business_date": "2026-06-16",
+  "source": "mixed",
+  "freshness": {
+    "status": "fresh",
+    "lag_seconds": 0.0,
+    "last_synced_at": "2026-06-17T11:26:15.756279+08:00",
+    "last_event_at": "2026-06-17T17:40:15.363000+08:00",
+    "source": "mixed",
+    "configured": true,
+    "migration_ready": true,
+    "action_required": "none",
+    "risk_tone": "normal"
+  },
+  "wip_tons": 148.69,
+  "today_output_tons": 1978.14,
+  "stock_tons": 1978.14,
+  "total_input_tons": 2126.83,
+  "total_output_tons": 1978.14,
+  "process_output_tons": 1978.14,
+  "yield_rate": 93.01,
+  "process_yield_rate": 93.01,
+  "output_basis": "live_aggregation",
+  "process_output_basis": "live_aggregation_factory_total",
+  "workshop_summary": [
+    {
+      "workshop_id": 4,
+      "workshop_name": "热轧",
+      "row_count": 114,
+      "total_input_tons": 1174.67,
+      "total_output_tons": 1142.87,
+      "yield_rate": 97.29
+    },
+    {
+      "workshop_id": 25,
+      "workshop_name": "拉矫",
+      "row_count": 25,
+      "total_input_tons": 212.45,
+      "total_output_tons": 211.05,
+      "yield_rate": 99.34
+    },
+    {
+      "workshop_id": 18,
+      "workshop_name": "冷轧1650",
+      "row_count": 22,
+      "total_input_tons": 211.35,
+      "total_output_tons": 207.75,
+      "yield_rate": 98.3
+    },
+    {
+      "workshop_id": 29,
+      "workshop_name": "新厂在线",
+      "row_count": 20,
+      "total_input_tons": 170.62,
+      "total_output_tons": 170.18,
+      "yield_rate": 99.74
+    },
+    {
+      "workshop_id": 26,
+      "workshop_name": "淬火车间",
+      "row_count": 21,
+      "total_input_tons": 147.71,
+      "total_output_tons": 136.69,
+      "yield_rate": 92.54
+    },
+    {
+      "workshop_id": 5,
+      "workshop_name": "冷轧2050",
+      "row_count": 11,
+      "total_input_tons": 89.84,
+      "total_output_tons": 89.01,
+      "yield_rate": 99.08
+    },
+    {
+      "workshop_id": 10,
+      "workshop_name": "园区剪切",
+      "row_count": 10,
+      "total_input_tons": 79.39,
+      "total_output_tons": 12.68,
+      "yield_rate": 15.97
+    },
+    {
+      "workshop_id": 3,
+      "workshop_name": "铸三",
+      "row_count": 7,
+      "total_input_tons": 40.8,
+      "total_output_tons": 7.91,
+      "yield_rate": 19.39
+    }
+  ],
+  "abnormal_count": 248,
+  "cost_estimate": {
+    "label": "经营估算",
+    "estimated_cost": null,
+    "estimated_gross_margin": null,
+    "missing_data": [
+      "cost_inputs"
+    ]
+  },
+  "missing_data": [
+    "cost_inputs"
+  ]
+}

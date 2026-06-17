@@ -1,0 +1,4 @@
+﻿--- BEGIN UNTRUSTED EXTERNAL CONTENT (source: https://xtmijd.com/manage/mes-terminal-bindings) ---
+鑫泰数据中枢数据中枢实时调度调度昨日报表日报生产分析作业车间卷材明细能耗异常人员考勤考勤系统资料账号规则通讯通道知识库对齐设置搜索Ctrl KAI 助手系系统管理员MES 终端绑定MES 终端绑定绑定规则0启用0PC 终端0 新增绑定 终端编码车间工艺状态请选择查询绑定清单终端到机列PC 只有命中规则才归机列终端编码终端名称MES设备名车间工艺机列可信度状态操作暂无数据设置
+操作员端退出登录启用停用
+--- END UNTRUSTED EXTERNAL CONTENT ---

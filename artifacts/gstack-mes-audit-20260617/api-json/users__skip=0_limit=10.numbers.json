@@ -1,0 +1,130 @@
+[
+  {
+    "path": "items[0].id",
+    "value": 4
+  },
+  {
+    "path": "items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[0].bound_machine_id",
+    "value": 13
+  },
+  {
+    "path": "items[1].id",
+    "value": 10
+  },
+  {
+    "path": "items[1].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[1].bound_machine_id",
+    "value": 17
+  },
+  {
+    "path": "items[2].id",
+    "value": 13
+  },
+  {
+    "path": "items[2].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[2].bound_machine_id",
+    "value": 250
+  },
+  {
+    "path": "items[3].id",
+    "value": 16
+  },
+  {
+    "path": "items[3].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[3].bound_machine_id",
+    "value": 21
+  },
+  {
+    "path": "items[4].id",
+    "value": 22
+  },
+  {
+    "path": "items[4].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[4].bound_machine_id",
+    "value": 25
+  },
+  {
+    "path": "items[5].id",
+    "value": 25
+  },
+  {
+    "path": "items[5].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[5].bound_machine_id",
+    "value": 252
+  },
+  {
+    "path": "items[6].id",
+    "value": 28
+  },
+  {
+    "path": "items[6].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[6].bound_machine_id",
+    "value": 29
+  },
+  {
+    "path": "items[7].id",
+    "value": 31
+  },
+  {
+    "path": "items[7].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "items[7].bound_machine_id",
+    "value": 253
+  },
+  {
+    "path": "items[8].id",
+    "value": 46
+  },
+  {
+    "path": "items[8].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "items[8].bound_machine_id",
+    "value": 41
+  },
+  {
+    "path": "items[9].id",
+    "value": 50
+  },
+  {
+    "path": "items[9].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "total",
+    "value": 112
+  },
+  {
+    "path": "skip",
+    "value": 0
+  },
+  {
+    "path": "limit",
+    "value": 10
+  }
+]

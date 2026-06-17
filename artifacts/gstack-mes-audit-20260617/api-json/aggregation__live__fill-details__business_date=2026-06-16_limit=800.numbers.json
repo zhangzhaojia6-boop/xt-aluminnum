@@ -1,0 +1,1718 @@
+[
+  {
+    "path": "total",
+    "value": 242
+  },
+  {
+    "path": "summary.entry_count",
+    "value": 242
+  },
+  {
+    "path": "summary.machine_count",
+    "value": 23
+  },
+  {
+    "path": "summary.owner_count",
+    "value": 31
+  },
+  {
+    "path": "summary.output",
+    "value": 1978.15
+  },
+  {
+    "path": "summary.energy_kwh",
+    "value": 9738.0
+  },
+  {
+    "path": "summary.gas_m3",
+    "value": 24502.0
+  },
+  {
+    "path": "summary.source_counts.owner_daily",
+    "value": 7
+  },
+  {
+    "path": "summary.source_counts.work_order_entry",
+    "value": 223
+  },
+  {
+    "path": "summary.source_counts.mobile_shift_report",
+    "value": 7
+  },
+  {
+    "path": "summary.source_counts.machine_energy",
+    "value": 5
+  },
+  {
+    "path": "items[0].entry_id",
+    "value": 3463
+  },
+  {
+    "path": "items[0].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "items[0].responsible_user_id",
+    "value": 937
+  },
+  {
+    "path": "items[0].metrics[0].value",
+    "value": 105.381
+  },
+  {
+    "path": "items[0].metrics[1].value",
+    "value": 1985.862
+  },
+  {
+    "path": "items[0].metrics[2].value",
+    "value": 142.095
+  },
+  {
+    "path": "items[0].metrics[3].value",
+    "value": 1946.977
+  },
+  {
+    "path": "items[0].metrics[4].value",
+    "value": 172.264
+  },
+  {
+    "path": "items[0].metrics[5].value",
+    "value": 2925.608
+  },
+  {
+    "path": "items[0].metrics[6].value",
+    "value": 125.328
+  },
+  {
+    "path": "items[0].metrics[7].value",
+    "value": 2851.331
+  },
+  {
+    "path": "items[0].metrics[8].value",
+    "value": 165.064
+  },
+  {
+    "path": "items[1].entry_id",
+    "value": 3462
+  },
+  {
+    "path": "items[1].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "items[1].responsible_user_id",
+    "value": 955
+  },
+  {
+    "path": "items[1].metrics[0].value",
+    "value": 8.0
+  },
+  {
+    "path": "items[1].metrics[1].value",
+    "value": 220.0
+  },
+  {
+    "path": "items[1].metrics[2].value",
+    "value": 10.0
+  },
+  {
+    "path": "items[1].metrics[3].value",
+    "value": 0.5
+  },
+  {
+    "path": "items[2].entry_id",
+    "value": 3459
+  },
+  {
+    "path": "items[2].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "items[2].responsible_user_id",
+    "value": 934
+  },
+  {
+    "path": "items[2].metrics[0].value",
+    "value": 86.0
+  },
+  {
+    "path": "items[3].entry_id",
+    "value": 3457
+  },
+  {
+    "path": "items[3].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[3].responsible_user_id",
+    "value": 957
+  },
+  {
+    "path": "items[3].metrics[0].value",
+    "value": 10.0
+  },
+  {
+    "path": "items[3].metrics[1].value",
+    "value": 15.0
+  },
+  {
+    "path": "items[3].metrics[2].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[3].metrics[3].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[3].metrics[4].value",
+    "value": 46.14
+  },
+  {
+    "path": "items[4].entry_id",
+    "value": 3456
+  },
+  {
+    "path": "items[4].workshop_id",
+    "value": 23
+  },
+  {
+    "path": "items[4].responsible_user_id",
+    "value": 939
+  },
+  {
+    "path": "items[4].metrics[0].value",
+    "value": 63.0
+  },
+  {
+    "path": "items[5].entry_id",
+    "value": 3455
+  },
+  {
+    "path": "items[5].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[5].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[5].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[5].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[5].input_weight",
+    "value": 8.01
+  },
+  {
+    "path": "items[5].output_weight",
+    "value": 7.79
+  },
+  {
+    "path": "items[5].yield_rate",
+    "value": 97.25
+  },
+  {
+    "path": "items[5].metrics[2].value",
+    "value": 220.0
+  },
+  {
+    "path": "items[6].entry_id",
+    "value": 3454
+  },
+  {
+    "path": "items[6].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[6].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[6].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[6].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[6].input_weight",
+    "value": 8.02
+  },
+  {
+    "path": "items[6].output_weight",
+    "value": 7.92
+  },
+  {
+    "path": "items[6].yield_rate",
+    "value": 98.75
+  },
+  {
+    "path": "items[6].metrics[2].value",
+    "value": 100.0
+  },
+  {
+    "path": "items[7].entry_id",
+    "value": 3453
+  },
+  {
+    "path": "items[7].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[7].machine_id",
+    "value": 224
+  },
+  {
+    "path": "items[7].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[7].responsible_user_id",
+    "value": 511
+  },
+  {
+    "path": "items[7].input_weight",
+    "value": 10.31
+  },
+  {
+    "path": "items[7].output_weight",
+    "value": 9.53
+  },
+  {
+    "path": "items[7].scrap_weight",
+    "value": 0.78
+  },
+  {
+    "path": "items[7].yield_rate",
+    "value": 92.43
+  },
+  {
+    "path": "items[8].entry_id",
+    "value": 3452
+  },
+  {
+    "path": "items[8].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[8].machine_id",
+    "value": 224
+  },
+  {
+    "path": "items[8].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[8].responsible_user_id",
+    "value": 511
+  },
+  {
+    "path": "items[8].input_weight",
+    "value": 4.55
+  },
+  {
+    "path": "items[8].output_weight",
+    "value": 3.95
+  },
+  {
+    "path": "items[8].scrap_weight",
+    "value": 0.6
+  },
+  {
+    "path": "items[8].yield_rate",
+    "value": 86.81
+  },
+  {
+    "path": "items[9].entry_id",
+    "value": 3451
+  },
+  {
+    "path": "items[9].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[9].machine_id",
+    "value": 222
+  },
+  {
+    "path": "items[9].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[9].responsible_user_id",
+    "value": 509
+  },
+  {
+    "path": "items[9].input_weight",
+    "value": 2.624
+  },
+  {
+    "path": "items[9].output_weight",
+    "value": 2.406
+  },
+  {
+    "path": "items[9].scrap_weight",
+    "value": 0.218
+  },
+  {
+    "path": "items[9].yield_rate",
+    "value": 91.68
+  },
+  {
+    "path": "items[10].entry_id",
+    "value": 3450
+  },
+  {
+    "path": "items[10].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[10].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[10].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[10].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[10].input_weight",
+    "value": 8.19
+  },
+  {
+    "path": "items[10].output_weight",
+    "value": 7.95
+  },
+  {
+    "path": "items[10].yield_rate",
+    "value": 97.07
+  },
+  {
+    "path": "items[10].metrics[2].value",
+    "value": 240.0
+  },
+  {
+    "path": "items[11].entry_id",
+    "value": 3449
+  },
+  {
+    "path": "items[11].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[11].machine_id",
+    "value": 176
+  },
+  {
+    "path": "items[11].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[11].responsible_user_id",
+    "value": 489
+  },
+  {
+    "path": "items[11].input_weight",
+    "value": 11.33
+  },
+  {
+    "path": "items[11].output_weight",
+    "value": 11.03
+  },
+  {
+    "path": "items[11].scrap_weight",
+    "value": 0.3
+  },
+  {
+    "path": "items[11].yield_rate",
+    "value": 97.35
+  },
+  {
+    "path": "items[12].entry_id",
+    "value": 3448
+  },
+  {
+    "path": "items[12].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[12].machine_id",
+    "value": 146
+  },
+  {
+    "path": "items[12].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[12].responsible_user_id",
+    "value": 138
+  },
+  {
+    "path": "items[12].input_weight",
+    "value": 11.66
+  },
+  {
+    "path": "items[12].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "items[13].entry_id",
+    "value": 3447
+  },
+  {
+    "path": "items[13].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[13].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[13].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[13].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[13].input_weight",
+    "value": 10.4
+  },
+  {
+    "path": "items[13].output_weight",
+    "value": 10.4
+  },
+  {
+    "path": "items[13].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[14].entry_id",
+    "value": 3446
+  },
+  {
+    "path": "items[14].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[14].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[14].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[14].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[14].input_weight",
+    "value": 10.52
+  },
+  {
+    "path": "items[14].output_weight",
+    "value": 10.52
+  },
+  {
+    "path": "items[14].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[15].entry_id",
+    "value": 3445
+  },
+  {
+    "path": "items[15].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[15].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[15].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[15].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[15].input_weight",
+    "value": 10.61
+  },
+  {
+    "path": "items[15].output_weight",
+    "value": 10.61
+  },
+  {
+    "path": "items[15].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[16].entry_id",
+    "value": 3444
+  },
+  {
+    "path": "items[16].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[16].machine_id",
+    "value": 222
+  },
+  {
+    "path": "items[16].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[16].responsible_user_id",
+    "value": 509
+  },
+  {
+    "path": "items[16].input_weight",
+    "value": 2.624
+  },
+  {
+    "path": "items[16].output_weight",
+    "value": 2.187
+  },
+  {
+    "path": "items[16].scrap_weight",
+    "value": 0.437
+  },
+  {
+    "path": "items[16].yield_rate",
+    "value": 83.35
+  },
+  {
+    "path": "items[17].entry_id",
+    "value": 3443
+  },
+  {
+    "path": "items[17].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[17].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[17].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[17].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[17].input_weight",
+    "value": 8.32
+  },
+  {
+    "path": "items[17].output_weight",
+    "value": 8.12
+  },
+  {
+    "path": "items[17].yield_rate",
+    "value": 97.6
+  },
+  {
+    "path": "items[17].metrics[2].value",
+    "value": 200.0
+  },
+  {
+    "path": "items[18].entry_id",
+    "value": 3442
+  },
+  {
+    "path": "items[18].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[18].machine_id",
+    "value": 122
+  },
+  {
+    "path": "items[18].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[18].responsible_user_id",
+    "value": 114
+  },
+  {
+    "path": "items[18].input_weight",
+    "value": 11.7
+  },
+  {
+    "path": "items[18].output_weight",
+    "value": 11.301
+  },
+  {
+    "path": "items[18].yield_rate",
+    "value": 96.59
+  },
+  {
+    "path": "items[18].metrics[2].value",
+    "value": 399.0
+  },
+  {
+    "path": "items[19].entry_id",
+    "value": 3441
+  },
+  {
+    "path": "items[19].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[19].machine_id",
+    "value": 122
+  },
+  {
+    "path": "items[19].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[19].responsible_user_id",
+    "value": 114
+  },
+  {
+    "path": "items[19].input_weight",
+    "value": 11.73
+  },
+  {
+    "path": "items[19].output_weight",
+    "value": 11.35
+  },
+  {
+    "path": "items[19].yield_rate",
+    "value": 96.76
+  },
+  {
+    "path": "items[19].metrics[2].value",
+    "value": 380.0
+  },
+  {
+    "path": "items[20].entry_id",
+    "value": 3440
+  },
+  {
+    "path": "items[20].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[20].machine_id",
+    "value": 122
+  },
+  {
+    "path": "items[20].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[20].responsible_user_id",
+    "value": 114
+  },
+  {
+    "path": "items[20].input_weight",
+    "value": 11.75
+  },
+  {
+    "path": "items[20].output_weight",
+    "value": 11.027
+  },
+  {
+    "path": "items[20].yield_rate",
+    "value": 93.85
+  },
+  {
+    "path": "items[20].metrics[2].value",
+    "value": 723.0
+  },
+  {
+    "path": "items[21].entry_id",
+    "value": 3439
+  },
+  {
+    "path": "items[21].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[21].machine_id",
+    "value": 122
+  },
+  {
+    "path": "items[21].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[21].responsible_user_id",
+    "value": 114
+  },
+  {
+    "path": "items[21].input_weight",
+    "value": 11.73
+  },
+  {
+    "path": "items[21].output_weight",
+    "value": 11.217
+  },
+  {
+    "path": "items[21].yield_rate",
+    "value": 95.63
+  },
+  {
+    "path": "items[21].metrics[2].value",
+    "value": 513.0
+  },
+  {
+    "path": "items[22].entry_id",
+    "value": 3438
+  },
+  {
+    "path": "items[22].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[22].machine_id",
+    "value": 183
+  },
+  {
+    "path": "items[22].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[22].responsible_user_id",
+    "value": 505
+  },
+  {
+    "path": "items[22].input_weight",
+    "value": 9.44
+  },
+  {
+    "path": "items[22].output_weight",
+    "value": 9.44
+  },
+  {
+    "path": "items[22].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[23].entry_id",
+    "value": 3437
+  },
+  {
+    "path": "items[23].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[23].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[23].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[23].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[23].input_weight",
+    "value": 10.48
+  },
+  {
+    "path": "items[23].output_weight",
+    "value": 10.48
+  },
+  {
+    "path": "items[23].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[24].entry_id",
+    "value": 3436
+  },
+  {
+    "path": "items[24].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[24].machine_id",
+    "value": 183
+  },
+  {
+    "path": "items[24].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[24].responsible_user_id",
+    "value": 505
+  },
+  {
+    "path": "items[24].input_weight",
+    "value": 9.33
+  },
+  {
+    "path": "items[24].output_weight",
+    "value": 9.33
+  },
+  {
+    "path": "items[24].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[25].entry_id",
+    "value": 3435
+  },
+  {
+    "path": "items[25].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[25].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[25].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[25].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[25].input_weight",
+    "value": 10.03
+  },
+  {
+    "path": "items[25].output_weight",
+    "value": 10.03
+  },
+  {
+    "path": "items[25].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[26].entry_id",
+    "value": 3434
+  },
+  {
+    "path": "items[26].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "items[26].machine_id",
+    "value": 183
+  },
+  {
+    "path": "items[26].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[26].responsible_user_id",
+    "value": 505
+  },
+  {
+    "path": "items[26].input_weight",
+    "value": 9.2
+  },
+  {
+    "path": "items[26].output_weight",
+    "value": 9.2
+  },
+  {
+    "path": "items[26].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[27].entry_id",
+    "value": 3433
+  },
+  {
+    "path": "items[27].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[27].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[27].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[27].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[27].input_weight",
+    "value": 10.1
+  },
+  {
+    "path": "items[27].output_weight",
+    "value": 10.1
+  },
+  {
+    "path": "items[27].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[28].entry_id",
+    "value": 3432
+  },
+  {
+    "path": "items[28].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[28].machine_id",
+    "value": 176
+  },
+  {
+    "path": "items[28].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[28].responsible_user_id",
+    "value": 489
+  },
+  {
+    "path": "items[28].input_weight",
+    "value": 11.35
+  },
+  {
+    "path": "items[28].output_weight",
+    "value": 11.05
+  },
+  {
+    "path": "items[28].scrap_weight",
+    "value": 0.3
+  },
+  {
+    "path": "items[28].yield_rate",
+    "value": 97.36
+  },
+  {
+    "path": "items[29].entry_id",
+    "value": 3431
+  },
+  {
+    "path": "items[29].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[29].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[29].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[29].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[29].input_weight",
+    "value": 7.96
+  },
+  {
+    "path": "items[29].output_weight",
+    "value": 7.77
+  },
+  {
+    "path": "items[29].yield_rate",
+    "value": 97.61
+  },
+  {
+    "path": "items[29].metrics[2].value",
+    "value": 190.0
+  },
+  {
+    "path": "items[30].entry_id",
+    "value": 3430
+  },
+  {
+    "path": "items[30].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[30].machine_id",
+    "value": 222
+  },
+  {
+    "path": "items[30].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[30].responsible_user_id",
+    "value": 509
+  },
+  {
+    "path": "items[30].input_weight",
+    "value": 2.406
+  },
+  {
+    "path": "items[30].output_weight",
+    "value": 2.187
+  },
+  {
+    "path": "items[30].scrap_weight",
+    "value": 0.219
+  },
+  {
+    "path": "items[30].yield_rate",
+    "value": 90.91
+  },
+  {
+    "path": "items[31].entry_id",
+    "value": 3429
+  },
+  {
+    "path": "items[31].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[31].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[31].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[31].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[31].input_weight",
+    "value": 8.05
+  },
+  {
+    "path": "items[31].output_weight",
+    "value": 7.83
+  },
+  {
+    "path": "items[31].yield_rate",
+    "value": 97.27
+  },
+  {
+    "path": "items[31].metrics[2].value",
+    "value": 220.0
+  },
+  {
+    "path": "items[32].entry_id",
+    "value": 3428
+  },
+  {
+    "path": "items[32].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[32].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[32].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[32].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[32].input_weight",
+    "value": 8.18
+  },
+  {
+    "path": "items[32].output_weight",
+    "value": 7.99
+  },
+  {
+    "path": "items[32].yield_rate",
+    "value": 97.68
+  },
+  {
+    "path": "items[32].metrics[2].value",
+    "value": 190.0
+  },
+  {
+    "path": "items[33].entry_id",
+    "value": 3427
+  },
+  {
+    "path": "items[33].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "items[33].machine_id",
+    "value": 146
+  },
+  {
+    "path": "items[33].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[33].responsible_user_id",
+    "value": 138
+  },
+  {
+    "path": "items[33].input_weight",
+    "value": 9.6
+  },
+  {
+    "path": "items[33].yield_rate",
+    "value": 0.0
+  },
+  {
+    "path": "items[34].entry_id",
+    "value": 3426
+  },
+  {
+    "path": "items[34].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[34].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[34].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[34].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[34].input_weight",
+    "value": 10.5
+  },
+  {
+    "path": "items[34].output_weight",
+    "value": 10.5
+  },
+  {
+    "path": "items[34].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[35].entry_id",
+    "value": 3425
+  },
+  {
+    "path": "items[35].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[35].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[35].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[35].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[35].input_weight",
+    "value": 10.1
+  },
+  {
+    "path": "items[35].output_weight",
+    "value": 10.1
+  },
+  {
+    "path": "items[35].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[36].entry_id",
+    "value": 3424
+  },
+  {
+    "path": "items[36].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[36].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[36].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[36].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[36].input_weight",
+    "value": 10.12
+  },
+  {
+    "path": "items[36].output_weight",
+    "value": 10.12
+  },
+  {
+    "path": "items[36].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[37].entry_id",
+    "value": 3423
+  },
+  {
+    "path": "items[37].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "items[37].machine_id",
+    "value": 222
+  },
+  {
+    "path": "items[37].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[37].responsible_user_id",
+    "value": 509
+  },
+  {
+    "path": "items[37].input_weight",
+    "value": 2.308
+  },
+  {
+    "path": "items[37].output_weight",
+    "value": 1.944
+  },
+  {
+    "path": "items[37].scrap_weight",
+    "value": 0.364
+  },
+  {
+    "path": "items[37].yield_rate",
+    "value": 84.23
+  },
+  {
+    "path": "items[38].entry_id",
+    "value": 3422
+  },
+  {
+    "path": "items[38].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[38].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[38].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[38].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[38].input_weight",
+    "value": 11.26
+  },
+  {
+    "path": "items[38].output_weight",
+    "value": 11.26
+  },
+  {
+    "path": "items[38].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[39].entry_id",
+    "value": 3421
+  },
+  {
+    "path": "items[39].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[39].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[39].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[39].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[39].input_weight",
+    "value": 11.23
+  },
+  {
+    "path": "items[39].output_weight",
+    "value": 11.23
+  },
+  {
+    "path": "items[39].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[40].entry_id",
+    "value": 3420
+  },
+  {
+    "path": "items[40].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[40].machine_id",
+    "value": 172
+  },
+  {
+    "path": "items[40].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[40].responsible_user_id",
+    "value": 492
+  },
+  {
+    "path": "items[40].input_weight",
+    "value": 11.3
+  },
+  {
+    "path": "items[40].output_weight",
+    "value": 11.3
+  },
+  {
+    "path": "items[40].yield_rate",
+    "value": 100.0
+  },
+  {
+    "path": "items[41].entry_id",
+    "value": 3419
+  },
+  {
+    "path": "items[41].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[41].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[41].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[41].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[41].input_weight",
+    "value": 8.28
+  },
+  {
+    "path": "items[41].output_weight",
+    "value": 8.08
+  },
+  {
+    "path": "items[41].yield_rate",
+    "value": 97.58
+  },
+  {
+    "path": "items[41].metrics[2].value",
+    "value": 200.0
+  },
+  {
+    "path": "items[42].entry_id",
+    "value": 3418
+  },
+  {
+    "path": "items[42].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[42].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[42].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[42].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[42].input_weight",
+    "value": 11.89
+  },
+  {
+    "path": "items[42].output_weight",
+    "value": 11.34
+  },
+  {
+    "path": "items[42].scrap_weight",
+    "value": 0.55
+  },
+  {
+    "path": "items[42].yield_rate",
+    "value": 95.37
+  },
+  {
+    "path": "items[42].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[43].entry_id",
+    "value": 3417
+  },
+  {
+    "path": "items[43].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[43].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[43].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[43].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[43].input_weight",
+    "value": 12.74
+  },
+  {
+    "path": "items[43].output_weight",
+    "value": 12.37
+  },
+  {
+    "path": "items[43].scrap_weight",
+    "value": 0.37
+  },
+  {
+    "path": "items[43].yield_rate",
+    "value": 97.1
+  },
+  {
+    "path": "items[43].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[44].entry_id",
+    "value": 3416
+  },
+  {
+    "path": "items[44].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "items[44].machine_id",
+    "value": 165
+  },
+  {
+    "path": "items[44].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[44].responsible_user_id",
+    "value": 363
+  },
+  {
+    "path": "items[44].input_weight",
+    "value": 11.7
+  },
+  {
+    "path": "items[44].output_weight",
+    "value": 11.03
+  },
+  {
+    "path": "items[44].scrap_weight",
+    "value": 0.67
+  },
+  {
+    "path": "items[44].yield_rate",
+    "value": 94.27
+  },
+  {
+    "path": "items[44].metrics[1].value",
+    "value": 1.0
+  },
+  {
+    "path": "items[45].report_id",
+    "value": 211
+  },
+  {
+    "path": "items[45].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "items[45].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[45].responsible_user_id",
+    "value": 16
+  },
+  {
+    "path": "items[45].energy_kwh",
+    "value": 1550.0
+  },
+  {
+    "path": "items[45].gas_m3",
+    "value": 2401.0
+  },
+  {
+    "path": "items[46].report_id",
+    "value": 210
+  },
+  {
+    "path": "items[46].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "items[46].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[46].responsible_user_id",
+    "value": 10
+  },
+  {
+    "path": "items[46].energy_kwh",
+    "value": 900.0
+  },
+  {
+    "path": "items[46].gas_m3",
+    "value": 1966.0
+  },
+  {
+    "path": "items[47].entry_id",
+    "value": 3415
+  },
+  {
+    "path": "items[47].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[47].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[47].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[47].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[47].input_weight",
+    "value": 8.33
+  },
+  {
+    "path": "items[47].output_weight",
+    "value": 8.15
+  },
+  {
+    "path": "items[47].yield_rate",
+    "value": 97.84
+  },
+  {
+    "path": "items[47].metrics[2].value",
+    "value": 180.0
+  },
+  {
+    "path": "items[48].entry_id",
+    "value": 3414
+  },
+  {
+    "path": "items[48].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[48].machine_id",
+    "value": 176
+  },
+  {
+    "path": "items[48].shift_id",
+    "value": 5
+  },
+  {
+    "path": "items[48].responsible_user_id",
+    "value": 489
+  },
+  {
+    "path": "items[48].input_weight",
+    "value": 10.78
+  },
+  {
+    "path": "items[48].output_weight",
+    "value": 10.48
+  },
+  {
+    "path": "items[48].scrap_weight",
+    "value": 0.3
+  },
+  {
+    "path": "items[48].yield_rate",
+    "value": 97.22
+  },
+  {
+    "path": "items[49].entry_id",
+    "value": 3413
+  },
+  {
+    "path": "items[49].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "items[49].machine_id",
+    "value": 120
+  },
+  {
+    "path": "items[49].shift_id",
+    "value": 6
+  },
+  {
+    "path": "items[49].responsible_user_id",
+    "value": 112
+  },
+  {
+    "path": "items[49].input_weight",
+    "value": 8.22
+  },
+  {
+    "path": "items[49].output_weight",
+    "value": 8.0
+  },
+  {
+    "path": "items[49].yield_rate",
+    "value": 97.32
+  },
+  {
+    "path": "items[49].metrics[2].value",
+    "value": 220.0
+  }
+]

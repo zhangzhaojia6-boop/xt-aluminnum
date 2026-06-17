@@ -193,6 +193,27 @@ def test_sqlserver_adapter_maps_stock_record_event_time_from_allocation_date_bef
     assert rows[0].metadata['CreateDate'] == '2026-06-04 08:30:00'
 
 
+def test_sqlserver_adapter_maps_xtal_device_workshop_to_machine_line() -> None:
+    runner = _QueryRunner({
+        'devices': [
+            {
+                'Id': 'device-1',
+                'Name': '园区北线（WIFI）',
+                'WorkShop': '园区在线车间',
+                'Craft': '在线退火',
+            }
+        ]
+    })
+    adapter = SqlServerMesAdapter(query_runner=runner)
+
+    rows = adapter.list_machine_line_sources()
+
+    assert len(rows) == 1
+    assert rows[0].line_code == 'device-1'
+    assert rows[0].line_name == '园区北线（WIFI）'
+    assert rows[0].workshop_name == '园区在线车间'
+
+
 def test_sqlserver_query_guard_allows_select_only() -> None:
     _ensure_read_only_query('SELECT TOP (10) * FROM v_CoilStatus')
     _ensure_read_only_query('  select DB_NAME() AS database_name')

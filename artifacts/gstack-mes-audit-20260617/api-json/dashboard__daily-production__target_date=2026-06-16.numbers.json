@@ -1,0 +1,658 @@
+[
+  {
+    "path": "header_kpis[0].value",
+    "value": 308.68
+  },
+  {
+    "path": "header_kpis[0].delta",
+    "value": 60.95
+  },
+  {
+    "path": "header_kpis[1].value",
+    "value": 277.64
+  },
+  {
+    "path": "header_kpis[2].value",
+    "value": 0
+  },
+  {
+    "path": "header_kpis[3].value",
+    "value": 96.53
+  },
+  {
+    "path": "header_kpis[3].delta",
+    "value": 0.04
+  },
+  {
+    "path": "header_kpis[4].value",
+    "value": 66.0
+  },
+  {
+    "path": "header_kpis[5].value",
+    "value": 2569.0
+  },
+  {
+    "path": "header_kpis[5].delta",
+    "value": 0.0
+  },
+  {
+    "path": "header_kpis[6].value",
+    "value": 306.0
+  },
+  {
+    "path": "plant_output.daily_output",
+    "value": 308.68
+  },
+  {
+    "path": "plant_output.yesterday_output",
+    "value": 247.73
+  },
+  {
+    "path": "plant_output.monthly_output",
+    "value": 3202.0
+  },
+  {
+    "path": "plant_output.monthly_average_output",
+    "value": 200.12
+  },
+  {
+    "path": "plant_output.packaging_output",
+    "value": 308.68
+  },
+  {
+    "path": "plant_output.packaging_monthly_output",
+    "value": 3202.0
+  },
+  {
+    "path": "plant_output.packaging_monthly_average",
+    "value": 200.12
+  },
+  {
+    "path": "plant_output.finished_inbound_output",
+    "value": 277.64
+  },
+  {
+    "path": "plant_output.finished_inbound_monthly_output",
+    "value": 4911.47
+  },
+  {
+    "path": "plant_output.finished_inbound_monthly_average",
+    "value": 306.97
+  },
+  {
+    "path": "plant_output.energy_per_ton",
+    "value": 31.55
+  },
+  {
+    "path": "shift_breakdown.total_output",
+    "value": 1708.16
+  },
+  {
+    "path": "shift_breakdown.total_throughput",
+    "value": 1708.16
+  },
+  {
+    "path": "shift_breakdown.total_energy_kwh",
+    "value": 0.0
+  },
+  {
+    "path": "shift_breakdown.shifts[0].shift_count",
+    "value": 52
+  },
+  {
+    "path": "shift_breakdown.shifts[0].total_output",
+    "value": 505.73
+  },
+  {
+    "path": "shift_breakdown.shifts[0].reported_workshops",
+    "value": 5
+  },
+  {
+    "path": "shift_breakdown.shifts[0].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "shift_breakdown.shifts[0].exception_count",
+    "value": 0
+  },
+  {
+    "path": "shift_breakdown.shifts[1].shift_count",
+    "value": 82
+  },
+  {
+    "path": "shift_breakdown.shifts[1].total_output",
+    "value": 779.91
+  },
+  {
+    "path": "shift_breakdown.shifts[1].reported_workshops",
+    "value": 7
+  },
+  {
+    "path": "shift_breakdown.shifts[1].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "shift_breakdown.shifts[1].exception_count",
+    "value": 0
+  },
+  {
+    "path": "shift_breakdown.shifts[2].shift_count",
+    "value": 48
+  },
+  {
+    "path": "shift_breakdown.shifts[2].total_output",
+    "value": 422.52
+  },
+  {
+    "path": "shift_breakdown.shifts[2].reported_workshops",
+    "value": 4
+  },
+  {
+    "path": "shift_breakdown.shifts[2].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "shift_breakdown.shifts[2].exception_count",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[0].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "workshop_output[0].daily_output",
+    "value": 977.03
+  },
+  {
+    "path": "workshop_output[0].monthly_output",
+    "value": 9106.0
+  },
+  {
+    "path": "workshop_output[0].yesterday_output",
+    "value": 1236.94
+  },
+  {
+    "path": "workshop_output[0].delta",
+    "value": -259.91
+  },
+  {
+    "path": "workshop_output[0].process_output",
+    "value": 977.03
+  },
+  {
+    "path": "workshop_output[0].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[1].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "workshop_output[1].daily_output",
+    "value": 211.05
+  },
+  {
+    "path": "workshop_output[1].monthly_output",
+    "value": 2371.06
+  },
+  {
+    "path": "workshop_output[1].yesterday_output",
+    "value": 165.29
+  },
+  {
+    "path": "workshop_output[1].delta",
+    "value": 45.76
+  },
+  {
+    "path": "workshop_output[1].process_output",
+    "value": 211.05
+  },
+  {
+    "path": "workshop_output[1].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[2].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "workshop_output[2].daily_output",
+    "value": 170.18
+  },
+  {
+    "path": "workshop_output[2].monthly_output",
+    "value": 1673.75
+  },
+  {
+    "path": "workshop_output[2].yesterday_output",
+    "value": 305.08
+  },
+  {
+    "path": "workshop_output[2].delta",
+    "value": -134.9
+  },
+  {
+    "path": "workshop_output[2].process_output",
+    "value": 170.18
+  },
+  {
+    "path": "workshop_output[2].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[3].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "workshop_output[3].daily_output",
+    "value": 91.38
+  },
+  {
+    "path": "workshop_output[3].monthly_output",
+    "value": 1317.82
+  },
+  {
+    "path": "workshop_output[3].yesterday_output",
+    "value": 126.37
+  },
+  {
+    "path": "workshop_output[3].delta",
+    "value": -34.99
+  },
+  {
+    "path": "workshop_output[3].process_output",
+    "value": 91.38
+  },
+  {
+    "path": "workshop_output[3].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[4].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "workshop_output[4].daily_output",
+    "value": 57.63
+  },
+  {
+    "path": "workshop_output[4].monthly_output",
+    "value": 627.94
+  },
+  {
+    "path": "workshop_output[4].yesterday_output",
+    "value": 47.03
+  },
+  {
+    "path": "workshop_output[4].delta",
+    "value": 10.6
+  },
+  {
+    "path": "workshop_output[4].process_output",
+    "value": 189.65
+  },
+  {
+    "path": "workshop_output[4].pass_count_total",
+    "value": 34
+  },
+  {
+    "path": "workshop_output[4].process_stage_outputs.billet",
+    "value": 123.59
+  },
+  {
+    "path": "workshop_output[4].process_stage_outputs.finished",
+    "value": 57.63
+  },
+  {
+    "path": "workshop_output[4].process_stage_outputs.intermediate_anneal",
+    "value": 8.43
+  },
+  {
+    "path": "workshop_output[5].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "workshop_output[5].daily_output",
+    "value": 36.33
+  },
+  {
+    "path": "workshop_output[5].monthly_output",
+    "value": 646.87
+  },
+  {
+    "path": "workshop_output[5].yesterday_output",
+    "value": 81.79
+  },
+  {
+    "path": "workshop_output[5].delta",
+    "value": -45.46
+  },
+  {
+    "path": "workshop_output[5].process_output",
+    "value": 48.22
+  },
+  {
+    "path": "workshop_output[5].pass_count_total",
+    "value": 6
+  },
+  {
+    "path": "workshop_output[5].process_stage_outputs.finished",
+    "value": 36.33
+  },
+  {
+    "path": "workshop_output[5].process_stage_outputs.intermediate_anneal",
+    "value": 11.89
+  },
+  {
+    "path": "workshop_output[6].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "workshop_output[6].daily_output",
+    "value": 12.68
+  },
+  {
+    "path": "workshop_output[6].monthly_output",
+    "value": 501.53
+  },
+  {
+    "path": "workshop_output[6].yesterday_output",
+    "value": 41.99
+  },
+  {
+    "path": "workshop_output[6].delta",
+    "value": -29.31
+  },
+  {
+    "path": "workshop_output[6].process_output",
+    "value": 12.68
+  },
+  {
+    "path": "workshop_output[6].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[7].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "workshop_output[7].daily_output",
+    "value": 7.91
+  },
+  {
+    "path": "workshop_output[7].monthly_output",
+    "value": 110.78
+  },
+  {
+    "path": "workshop_output[7].yesterday_output",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[7].delta",
+    "value": 7.91
+  },
+  {
+    "path": "workshop_output[7].process_output",
+    "value": 7.91
+  },
+  {
+    "path": "workshop_output[7].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[8].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "workshop_output[8].daily_output",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[8].monthly_output",
+    "value": 0.04
+  },
+  {
+    "path": "workshop_output[8].yesterday_output",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[8].delta",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[8].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[9].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "workshop_output[9].daily_output",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[9].monthly_output",
+    "value": 886.3
+  },
+  {
+    "path": "workshop_output[9].yesterday_output",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[9].delta",
+    "value": 0
+  },
+  {
+    "path": "workshop_output[9].pass_count_total",
+    "value": 0
+  },
+  {
+    "path": "wip_distribution[0].coil_count",
+    "value": 2
+  },
+  {
+    "path": "wip_distribution[0].total_weight",
+    "value": 0.0
+  },
+  {
+    "path": "wip_distribution[0].feeding_weight",
+    "value": 14.5
+  },
+  {
+    "path": "wip_distribution[1].coil_count",
+    "value": 3
+  },
+  {
+    "path": "wip_distribution[1].total_weight",
+    "value": 0.0
+  },
+  {
+    "path": "wip_distribution[1].feeding_weight",
+    "value": 28.5
+  },
+  {
+    "path": "yield_rates.daily",
+    "value": 96.53
+  },
+  {
+    "path": "yield_rates.daily_delta",
+    "value": 0.04
+  },
+  {
+    "path": "yield_rates.monthly",
+    "value": 95.39
+  },
+  {
+    "path": "yield_rates.owner_daily",
+    "value": 86.0
+  },
+  {
+    "path": "energy.total_electricity",
+    "value": 9738.0
+  },
+  {
+    "path": "energy.total_gas",
+    "value": 24502.0
+  },
+  {
+    "path": "energy.mobile_total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "energy.energy_per_ton",
+    "value": 110.92
+  },
+  {
+    "path": "energy.electricity_cost",
+    "value": 0.63
+  },
+  {
+    "path": "energy.gas_cost",
+    "value": 8.82
+  },
+  {
+    "path": "energy.total_cost",
+    "value": 9.45
+  },
+  {
+    "path": "energy.by_workshop[0].daily_electricity",
+    "value": 2950.0
+  },
+  {
+    "path": "energy.by_workshop[0].daily_gas",
+    "value": 6807.0
+  },
+  {
+    "path": "energy.by_workshop[1].daily_electricity",
+    "value": 2750.0
+  },
+  {
+    "path": "energy.by_workshop[1].daily_gas",
+    "value": 7026.0
+  },
+  {
+    "path": "energy.by_workshop[2].daily_electricity",
+    "value": 900.0
+  },
+  {
+    "path": "energy.by_workshop[2].daily_gas",
+    "value": 1966.0
+  },
+  {
+    "path": "energy.by_workshop[3].daily_electricity",
+    "value": 0.0
+  },
+  {
+    "path": "energy.by_workshop[3].daily_gas",
+    "value": 1690.0
+  },
+  {
+    "path": "energy.by_workshop[4].daily_electricity",
+    "value": 1550.0
+  },
+  {
+    "path": "energy.by_workshop[4].daily_gas",
+    "value": 2401.0
+  },
+  {
+    "path": "energy.by_workshop[5].daily_electricity",
+    "value": 1588.0
+  },
+  {
+    "path": "energy.by_workshop[5].daily_gas",
+    "value": 2025.0
+  },
+  {
+    "path": "energy.by_workshop[6].daily_electricity",
+    "value": 0.0
+  },
+  {
+    "path": "energy.by_workshop[6].daily_gas",
+    "value": 2587.0
+  },
+  {
+    "path": "energy.by_workshop[7].daily_electricity",
+    "value": 0.0
+  },
+  {
+    "path": "energy.by_workshop[7].daily_gas",
+    "value": 0.0
+  },
+  {
+    "path": "contracts.daily_new",
+    "value": 66.0
+  },
+  {
+    "path": "contracts.monthly_total",
+    "value": 5405.0
+  },
+  {
+    "path": "contracts.remaining",
+    "value": 2569.0
+  },
+  {
+    "path": "contracts.remaining_delta",
+    "value": 0.0
+  },
+  {
+    "path": "cost.electricity_cost",
+    "value": 0.63
+  },
+  {
+    "path": "cost.gas_cost",
+    "value": 8.82
+  },
+  {
+    "path": "cost.total",
+    "value": 9.45
+  },
+  {
+    "path": "cost.cost_per_ton",
+    "value": 306.0
+  },
+  {
+    "path": "cost.basis_weight",
+    "value": 308.68
+  },
+  {
+    "path": "plant_cost.electricity_cost",
+    "value": 0.63
+  },
+  {
+    "path": "plant_cost.gas_cost",
+    "value": 8.82
+  },
+  {
+    "path": "plant_cost.total",
+    "value": 9.45
+  },
+  {
+    "path": "plant_cost.cost_per_ton",
+    "value": 306.0
+  },
+  {
+    "path": "plant_cost.basis_weight",
+    "value": 308.68
+  },
+  {
+    "path": "process_cost.electricity_cost",
+    "value": 0.63
+  },
+  {
+    "path": "process_cost.gas_cost",
+    "value": 8.82
+  },
+  {
+    "path": "process_cost.total",
+    "value": 9.45
+  },
+  {
+    "path": "process_cost.cost_per_ton",
+    "value": 60.0
+  },
+  {
+    "path": "process_cost.basis_weight",
+    "value": 1564.19
+  }
+]

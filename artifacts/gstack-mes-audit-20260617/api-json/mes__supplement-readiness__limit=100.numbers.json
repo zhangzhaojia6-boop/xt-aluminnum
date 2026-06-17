@@ -1,0 +1,94 @@
+[
+  {
+    "path": "sample_limit",
+    "value": 100
+  },
+  {
+    "path": "coverage.sample_count",
+    "value": 15
+  },
+  {
+    "path": "coverage.device_name_rate",
+    "value": 1.0
+  },
+  {
+    "path": "coverage.output_weight_rate",
+    "value": 1.0
+  },
+  {
+    "path": "coverage.machine_match_rate",
+    "value": 1.0
+  },
+  {
+    "path": "coverage.machine_match_scope_count",
+    "value": 9
+  },
+  {
+    "path": "coverage.generic_terminal_count",
+    "value": 6
+  },
+  {
+    "path": "coverage.snapshot_match_rate",
+    "value": 0.2667
+  },
+  {
+    "path": "coverage.cold_roll_sequence_rate",
+    "value": 1.0
+  },
+  {
+    "path": "machine_binding.matched_count",
+    "value": 9
+  },
+  {
+    "path": "machine_binding.unmatched_count",
+    "value": 0
+  },
+  {
+    "path": "machine_binding.high_confidence_count",
+    "value": 9
+  },
+  {
+    "path": "machine_binding.medium_confidence_count",
+    "value": 0
+  },
+  {
+    "path": "machine_binding.source_counts.generic_mes_terminal",
+    "value": 6
+  },
+  {
+    "path": "machine_binding.source_counts.contained_machine_name",
+    "value": 9
+  },
+  {
+    "path": "material_categories.coil_process",
+    "value": 10
+  },
+  {
+    "path": "material_categories.cold_roll_pass",
+    "value": 5
+  },
+  {
+    "path": "window_comparison.supplement_window_count",
+    "value": 15
+  },
+  {
+    "path": "window_comparison.stored_business_date_count",
+    "value": 27
+  },
+  {
+    "path": "window_comparison.delta_count",
+    "value": -12
+  },
+  {
+    "path": "window_comparison.supplement_window_output_kg",
+    "value": 93087.0
+  },
+  {
+    "path": "window_comparison.stored_business_date_output_kg",
+    "value": 150639.0
+  },
+  {
+    "path": "window_comparison.delta_output_kg",
+    "value": -57552.0
+  }
+]

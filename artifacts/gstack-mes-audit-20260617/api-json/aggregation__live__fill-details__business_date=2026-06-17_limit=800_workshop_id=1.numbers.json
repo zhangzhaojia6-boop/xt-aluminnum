@@ -1,0 +1,62 @@
+[
+  {
+    "path": "workshop_id",
+    "value": 1
+  },
+  {
+    "path": "total",
+    "value": 1
+  },
+  {
+    "path": "summary.entry_count",
+    "value": 1
+  },
+  {
+    "path": "summary.machine_count",
+    "value": 0
+  },
+  {
+    "path": "summary.owner_count",
+    "value": 1
+  },
+  {
+    "path": "summary.output",
+    "value": 0.0
+  },
+  {
+    "path": "summary.energy_kwh",
+    "value": 2700.0
+  },
+  {
+    "path": "summary.gas_m3",
+    "value": 6850.0
+  },
+  {
+    "path": "summary.source_counts.mobile_shift_report",
+    "value": 1
+  },
+  {
+    "path": "items[0].report_id",
+    "value": 212
+  },
+  {
+    "path": "items[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "items[0].shift_id",
+    "value": 4
+  },
+  {
+    "path": "items[0].responsible_user_id",
+    "value": 4
+  },
+  {
+    "path": "items[0].energy_kwh",
+    "value": 2700.0
+  },
+  {
+    "path": "items[0].gas_m3",
+    "value": 6850.0
+  }
+]

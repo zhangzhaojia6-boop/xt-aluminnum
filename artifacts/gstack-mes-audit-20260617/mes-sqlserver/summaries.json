@@ -1,0 +1,532 @@
+{
+  "MES_Product_recent_by_operate_date": [
+    {
+      "d": "2026-06-17",
+      "rows": 2,
+      "feeding_weight": 16.5
+    },
+    {
+      "d": "2026-06-16",
+      "rows": 5,
+      "feeding_weight": 43.0
+    },
+    {
+      "d": "2026-06-15",
+      "rows": 6,
+      "feeding_weight": 51.5
+    },
+    {
+      "d": "2026-06-14",
+      "rows": 6,
+      "feeding_weight": 39.0
+    },
+    {
+      "d": "2026-06-13",
+      "rows": 6,
+      "feeding_weight": 54.0
+    },
+    {
+      "d": "2026-06-12",
+      "rows": 2,
+      "feeding_weight": 13.0
+    },
+    {
+      "d": "2026-06-11",
+      "rows": 5,
+      "feeding_weight": 43.0
+    },
+    {
+      "d": "2026-06-10",
+      "rows": 5,
+      "feeding_weight": 41.5
+    },
+    {
+      "d": "2026-06-09",
+      "rows": 6,
+      "feeding_weight": 47.0
+    },
+    {
+      "d": "2026-06-08",
+      "rows": 8,
+      "feeding_weight": 55.0
+    },
+    {
+      "d": "2026-06-07",
+      "rows": 11,
+      "feeding_weight": 91.0
+    },
+    {
+      "d": "2026-06-06",
+      "rows": 9,
+      "feeding_weight": 67.5
+    },
+    {
+      "d": "2026-06-05",
+      "rows": 8,
+      "feeding_weight": 50.0
+    },
+    {
+      "d": "2026-06-04",
+      "rows": 11,
+      "feeding_weight": 88.5
+    }
+  ],
+  "MES_Product_wip_by_workshop_process": [
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "包装",
+      "doing_count": 5584,
+      "doing_weight": 39275.399999999994
+    },
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "剪切",
+      "doing_count": 4,
+      "doing_weight": 26.5
+    },
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "拉矫",
+      "doing_count": 27,
+      "doing_weight": 201.5
+    },
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "冷轧",
+      "doing_count": 538,
+      "doing_weight": 3613.5
+    },
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "退火",
+      "doing_count": 54,
+      "doing_weight": 384.5
+    },
+    {
+      "CurrentWorkShop": "1450车间",
+      "CurrentProcess": "洗拉",
+      "doing_count": 9,
+      "doing_weight": 62.0
+    },
+    {
+      "CurrentWorkShop": "1650车间",
+      "CurrentProcess": "包装",
+      "doing_count": 4,
+      "doing_weight": 31.0
+    },
+    {
+      "CurrentWorkShop": "1650车间",
+      "CurrentProcess": "冷轧",
+      "doing_count": 901,
+      "doing_weight": 8190.5
+    },
+    {
+      "CurrentWorkShop": "1650车间",
+      "CurrentProcess": "重卷",
+      "doing_count": 132,
+      "doing_weight": 922.5
+    },
+    {
+      "CurrentWorkShop": "1850车间",
+      "CurrentProcess": "包装",
+      "doing_count": 457,
+      "doing_weight": 2758.5
+    },
+    {
+      "CurrentWorkShop": "1850车间",
+      "CurrentProcess": "冷轧",
+      "doing_count": 1952,
+      "doing_weight": 14606.9
+    },
+    {
+      "CurrentWorkShop": "2050车间",
+      "CurrentProcess": "包装",
+      "doing_count": 2,
+      "doing_weight": 14.0
+    },
+    {
+      "CurrentWorkShop": "2050车间",
+      "CurrentProcess": "冷轧",
+      "doing_count": 2303,
+      "doing_weight": 17569.2
+    },
+    {
+      "CurrentWorkShop": "2050车间",
+      "CurrentProcess": "退火",
+      "doing_count": 3,
+      "doing_weight": 33.5
+    },
+    {
+      "CurrentWorkShop": "2050车间",
+      "CurrentProcess": "铣床",
+      "doing_count": 220,
+      "doing_weight": 1875.5
+    },
+    {
+      "CurrentWorkShop": "2050车间",
+      "CurrentProcess": "纵剪",
+      "doing_count": 280,
+      "doing_weight": 2313.5
+    },
+    {
+      "CurrentWorkShop": "彩涂",
+      "CurrentProcess": "本厂滚涂",
+      "doing_count": 507,
+      "doing_weight": 3652.0
+    },
+    {
+      "CurrentWorkShop": "彩涂",
+      "CurrentProcess": "洗拉",
+      "doing_count": 2,
+      "doing_weight": 12.0
+    },
+    {
+      "CurrentWorkShop": "淬火",
+      "CurrentProcess": "包装",
+      "doing_count": 45,
+      "doing_weight": 295.8
+    },
+    {
+      "CurrentWorkShop": "淬火",
+      "CurrentProcess": "锯床",
+      "doing_count": 2,
+      "doing_weight": 12.0
+    },
+    {
+      "CurrentWorkShop": "精整",
+      "CurrentProcess": "包装",
+      "doing_count": 33837,
+      "doing_weight": 264237.15
+    },
+    {
+      "CurrentWorkShop": "精整",
+      "CurrentProcess": "剪切",
+      "doing_count": 1844,
+      "doing_weight": 14779.5
+    },
+    {
+      "CurrentWorkShop": "精整",
+      "CurrentProcess": "纵剪",
+      "doing_count": 176,
+      "doing_weight": 1277.5
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "包装",
+      "doing_count": 31592,
+      "doing_weight": 258860.8
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "分切",
+      "doing_count": 454,
+      "doing_weight": 2954.7000000000003
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "剪切",
+      "doing_count": 101,
+      "doing_weight": 592.0
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "拉矫",
+      "doing_count": 537,
+      "doing_weight": 3810.4
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "退火",
+      "doing_count": 501,
+      "doing_weight": 3755.08
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "外出分切",
+      "doing_count": 5,
+      "doing_weight": 37.5
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "外出压花",
+      "doing_count": 11,
+      "doing_weight": 74.5
+    },
+    {
+      "CurrentWorkShop": "拉矫车间",
+      "CurrentProcess": "洗拉",
+      "doing_count": 1665,
+      "doing_weight": 11964.9
+    },
+    {
+      "CurrentWorkShop": "热轧",
+      "CurrentProcess": "包装",
+      "doing_count": 887,
+      "doing_weight": 6448.400000000001
+    },
+    {
+      "CurrentWorkShop": "热轧",
+      "CurrentProcess": "中厚板剪切",
+      "doing_count": 167,
+      "doing_weight": 1206.5
+    },
+    {
+      "CurrentWorkShop": "铣床车间",
+      "CurrentProcess": "铣床",
+      "doing_count": 121,
+      "doing_weight": 1010.5
+    },
+    {
+      "CurrentWorkShop": "新厂在线车间",
+      "CurrentProcess": "包装",
+      "doing_count": 1,
+      "doing_weight": 6.0
+    },
+    {
+      "CurrentWorkShop": "新厂在线车间",
+      "CurrentProcess": "北线退火",
+      "doing_count": 583,
+      "doing_weight": 4425.5
+    },
+    {
+      "CurrentWorkShop": "新厂在线车间",
+      "CurrentProcess": "南线退火",
+      "doing_count": 745,
+      "doing_weight": 5738.8
+    },
+    {
+      "CurrentWorkShop": "园区淬火车间",
+      "CurrentProcess": "包装",
+      "doing_count": 263,
+      "doing_weight": 2376.5
+    },
+    {
+      "CurrentWorkShop": "园区淬火车间",
+      "CurrentProcess": "淬火",
+      "doing_count": 27,
+      "doing_weight": 285.0
+    },
+    {
+      "CurrentWorkShop": "园区淬火车间",
+      "CurrentProcess": "二次矫直",
+      "doing_count": 7,
+      "doing_weight": 49.5
+    },
+    {
+      "CurrentWorkShop": "园区淬火车间",
+      "CurrentProcess": "锯成品",
+      "doing_count": 20,
+      "doing_weight": 187.5
+    },
+    {
+      "CurrentWorkShop": "园区淬火车间",
+      "CurrentProcess": "抛光",
+      "doing_count": 37,
+      "doing_weight": 375.0
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "包装",
+      "doing_count": 31718,
+      "doing_weight": 227786.27999999997
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "剪切",
+      "doing_count": 1417,
+      "doing_weight": 10524.7
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "矫直",
+      "doing_count": 20,
+      "doing_weight": 127.5
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "锯床",
+      "doing_count": 19,
+      "doing_weight": 89.5
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "抛光",
+      "doing_count": 9,
+      "doing_weight": 62.0
+    },
+    {
+      "CurrentWorkShop": "园区精整",
+      "CurrentProcess": "重卷",
+      "doing_count": 479,
+      "doing_weight": 3712.0
+    },
+    {
+      "CurrentWorkShop": "园区圆片",
+      "CurrentProcess": "包装",
+      "doing_count": 94,
+      "doing_weight": 609.9
+    },
+    {
+      "CurrentWorkShop": "园区圆片",
+      "CurrentProcess": "矫直",
+      "doing_count": 228,
+      "doing_weight": 1403.5
+    }
+  ],
+  "MES_Process_by_end_date": [
+    {
+      "d": "2026-06-17",
+      "rows": 96
+    },
+    {
+      "d": "2026-06-16",
+      "rows": 197
+    },
+    {
+      "d": "2026-06-15",
+      "rows": 207
+    },
+    {
+      "d": "2026-06-14",
+      "rows": 178
+    },
+    {
+      "d": "2026-06-13",
+      "rows": 219
+    },
+    {
+      "d": "2026-06-12",
+      "rows": 216
+    },
+    {
+      "d": "2026-06-11",
+      "rows": 263
+    },
+    {
+      "d": "2026-06-10",
+      "rows": 259
+    },
+    {
+      "d": "2026-06-09",
+      "rows": 254
+    },
+    {
+      "d": "2026-06-08",
+      "rows": 100
+    },
+    {
+      "d": "2026-06-07",
+      "rows": 190
+    },
+    {
+      "d": "2026-06-06",
+      "rows": 234
+    },
+    {
+      "d": "2026-06-05",
+      "rows": 285
+    },
+    {
+      "d": "2026-06-04",
+      "rows": 210
+    }
+  ],
+  "WMS_InStockDetail_by_allocation_date": [
+    {
+      "d": "2026-06-17",
+      "rows": 49,
+      "net_weight": 117488.0,
+      "gross_weight": 112990.0
+    },
+    {
+      "d": "2026-06-16",
+      "rows": 95,
+      "net_weight": 275154.0,
+      "gross_weight": 190674.0
+    },
+    {
+      "d": "2026-06-15",
+      "rows": 97,
+      "net_weight": 273610.0,
+      "gross_weight": 167371.0
+    },
+    {
+      "d": "2026-06-14",
+      "rows": 92,
+      "net_weight": 283095.0,
+      "gross_weight": 152053.0
+    },
+    {
+      "d": "2026-06-13",
+      "rows": 69,
+      "net_weight": 194727.0,
+      "gross_weight": 121655.0
+    },
+    {
+      "d": "2026-06-12",
+      "rows": 90,
+      "net_weight": 263455.0,
+      "gross_weight": 150881.0
+    },
+    {
+      "d": "2026-06-11",
+      "rows": 183,
+      "net_weight": 514678.0,
+      "gross_weight": 255984.0
+    },
+    {
+      "d": "2026-06-10",
+      "rows": 123,
+      "net_weight": 339728.0,
+      "gross_weight": 244274.0
+    },
+    {
+      "d": "2026-06-09",
+      "rows": 100,
+      "net_weight": 271611.0,
+      "gross_weight": 173573.0
+    },
+    {
+      "d": "2026-06-08",
+      "rows": 62,
+      "net_weight": 188506.0,
+      "gross_weight": 79753.0
+    },
+    {
+      "d": "2026-06-07",
+      "rows": 129,
+      "net_weight": 421519.0,
+      "gross_weight": 183105.0
+    },
+    {
+      "d": "2026-06-06",
+      "rows": 149,
+      "net_weight": 429373.0,
+      "gross_weight": 241451.0
+    },
+    {
+      "d": "2026-06-05",
+      "rows": 108,
+      "net_weight": 359749.0,
+      "gross_weight": 135438.0
+    },
+    {
+      "d": "2026-06-04",
+      "rows": 148,
+      "net_weight": 394785.0,
+      "gross_weight": 212057.0
+    }
+  ],
+  "WMS_Stock_totals": [
+    {
+      "rows": 308339,
+      "net_weight": 842860217.25,
+      "gross_weight": 316440937.2
+    }
+  ],
+  "MES_Device_count": [
+    {
+      "rows": 50
+    }
+  ]
+}

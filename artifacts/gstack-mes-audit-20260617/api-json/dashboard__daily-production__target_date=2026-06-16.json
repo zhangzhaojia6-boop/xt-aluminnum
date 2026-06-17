@@ -1,0 +1,350 @@
+{
+  "target_date": "2026-06-16",
+  "header_kpis": [
+    {
+      "key": "plant_daily_output",
+      "label": "包装产量",
+      "value": 308.68,
+      "unit": "吨",
+      "delta": 60.95,
+      "delta_label": "比昨日 ↑60.95"
+    },
+    {
+      "key": "plant_inbound_output",
+      "label": "全厂入库产量",
+      "value": 277.64,
+      "unit": "吨"
+    },
+    {
+      "key": "wip_total",
+      "label": "在制料总计",
+      "value": 0,
+      "unit": "吨"
+    },
+    {
+      "key": "daily_yield",
+      "label": "日成品率",
+      "value": 96.53,
+      "unit": "%",
+      "delta": 0.04,
+      "delta_label": "比昨日 ↑0.04%"
+    },
+    {
+      "key": "daily_contracts",
+      "label": "当天接合同",
+      "value": 66.0,
+      "unit": "吨"
+    },
+    {
+      "key": "remaining_contracts",
+      "label": "总余合同量",
+      "value": 2569.0,
+      "unit": "吨",
+      "delta": 0.0,
+      "delta_label": null
+    },
+    {
+      "key": "energy_cost_per_ton",
+      "label": "综合能耗成本",
+      "value": 306.0,
+      "unit": "元/吨"
+    }
+  ],
+  "plant_output": {
+    "basis": "mes_packaging_output",
+    "basis_label": "包装产量",
+    "business_day_start": "07:30",
+    "daily_output_source": "mes_stock_records",
+    "finished_inbound_source": "storage_owner_daily_entry",
+    "daily_output": 308.68,
+    "yesterday_output": 247.73,
+    "monthly_output": 3202.0,
+    "monthly_average_output": 200.12,
+    "packaging_output": 308.68,
+    "packaging_monthly_output": 3202.0,
+    "packaging_monthly_average": 200.12,
+    "packaging_basis_label": "包装产量",
+    "finished_inbound_output": 277.64,
+    "finished_inbound_monthly_output": 4911.47,
+    "finished_inbound_monthly_average": 306.97,
+    "finished_inbound_basis_label": "全厂入库产量",
+    "energy_per_ton": 31.55
+  },
+  "shift_breakdown": {
+    "business_date": "2026-06-16",
+    "total_output": 1708.16,
+    "total_throughput": 1708.16,
+    "output_basis": "mobile_coil_process_output",
+    "output_basis_label": "工序下机量",
+    "total_energy_kwh": 0.0,
+    "energy_per_ton": null,
+    "shifts": [
+      {
+        "shift_code": "A",
+        "shift_name": "长白班",
+        "shift_window": "07:30-15:30",
+        "shift_count": 52,
+        "total_output": 505.73,
+        "reported_workshops": 5,
+        "expected_workshops": 15,
+        "energy_per_ton": null,
+        "exception_count": 0
+      },
+      {
+        "shift_code": "B",
+        "shift_name": "小夜班",
+        "shift_window": "15:30-23:30",
+        "shift_count": 82,
+        "total_output": 779.91,
+        "reported_workshops": 7,
+        "expected_workshops": 15,
+        "energy_per_ton": null,
+        "exception_count": 0
+      },
+      {
+        "shift_code": "C",
+        "shift_name": "大夜班",
+        "shift_window": "23:30-07:30",
+        "shift_count": 48,
+        "total_output": 422.52,
+        "reported_workshops": 4,
+        "expected_workshops": 15,
+        "energy_per_ton": null,
+        "exception_count": 0
+      }
+    ]
+  },
+  "workshop_output": [
+    {
+      "workshop_id": 4,
+      "workshop": "热轧",
+      "daily_output": 977.03,
+      "monthly_output": 9106.0,
+      "yesterday_output": 1236.94,
+      "delta": -259.91,
+      "process_output": 977.03,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 25,
+      "workshop": "拉矫车间",
+      "daily_output": 211.05,
+      "monthly_output": 2371.06,
+      "yesterday_output": 165.29,
+      "delta": 45.76,
+      "process_output": 211.05,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 29,
+      "workshop": "新厂在线退火",
+      "daily_output": 170.18,
+      "monthly_output": 1673.75,
+      "yesterday_output": 305.08,
+      "delta": -134.9,
+      "process_output": 170.18,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 26,
+      "workshop": "淬火车间",
+      "daily_output": 91.38,
+      "monthly_output": 1317.82,
+      "yesterday_output": 126.37,
+      "delta": -34.99,
+      "process_output": 91.38,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 18,
+      "workshop": "1650冷轧",
+      "daily_output": 57.63,
+      "monthly_output": 627.94,
+      "yesterday_output": 47.03,
+      "delta": 10.6,
+      "process_output": 189.65,
+      "pass_count_total": 34,
+      "process_stage_outputs": {
+        "billet": 123.59,
+        "finished": 57.63,
+        "intermediate_anneal": 8.43
+      }
+    },
+    {
+      "workshop_id": 5,
+      "workshop": "2050冷轧",
+      "daily_output": 36.33,
+      "monthly_output": 646.87,
+      "yesterday_output": 81.79,
+      "delta": -45.46,
+      "process_output": 48.22,
+      "pass_count_total": 6,
+      "process_stage_outputs": {
+        "finished": 36.33,
+        "intermediate_anneal": 11.89
+      }
+    },
+    {
+      "workshop_id": 10,
+      "workshop": "剪切车间",
+      "daily_output": 12.68,
+      "monthly_output": 501.53,
+      "yesterday_output": 41.99,
+      "delta": -29.31,
+      "process_output": 12.68,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 3,
+      "workshop": "铸轧三",
+      "daily_output": 7.91,
+      "monthly_output": 110.78,
+      "yesterday_output": 0,
+      "delta": 7.91,
+      "process_output": 7.91,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 2,
+      "workshop": "铸轧二",
+      "daily_output": 0,
+      "monthly_output": 0.04,
+      "yesterday_output": 0,
+      "delta": 0,
+      "process_output": null,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    },
+    {
+      "workshop_id": 8,
+      "workshop": "精整车间",
+      "daily_output": 0,
+      "monthly_output": 886.3,
+      "yesterday_output": 0,
+      "delta": 0,
+      "process_output": null,
+      "pass_count_total": 0,
+      "process_stage_outputs": {}
+    }
+  ],
+  "wip_distribution": [
+    {
+      "workshop": "2050车间",
+      "coil_count": 2,
+      "total_weight": 0.0,
+      "feeding_weight": 14.5,
+      "source_basis": "mes_daily_wip_snapshot",
+      "source_label": "外部 MES 当日快照参考"
+    },
+    {
+      "workshop": "新厂在线车间",
+      "coil_count": 3,
+      "total_weight": 0.0,
+      "feeding_weight": 28.5,
+      "source_basis": "mes_daily_wip_snapshot",
+      "source_label": "外部 MES 当日快照参考"
+    }
+  ],
+  "yield_rates": {
+    "daily": 96.53,
+    "daily_delta": 0.04,
+    "monthly": 95.39,
+    "owner_daily": 86.0,
+    "basis": "mobile_coil_yield_rate"
+  },
+  "energy": {
+    "total_electricity": 9738.0,
+    "total_gas": 24502.0,
+    "primary_source": "mobile_shift_report",
+    "owner_electricity": null,
+    "owner_gas": null,
+    "owner_total_energy": null,
+    "mobile_total_energy": 34240.0,
+    "system_total_energy": null,
+    "energy_per_ton": 110.92,
+    "electricity_cost": 0.63,
+    "gas_cost": 8.82,
+    "total_cost": 9.45,
+    "data_available": true,
+    "by_workshop": [
+      {
+        "workshop": "ZD",
+        "daily_electricity": 2950.0,
+        "daily_gas": 6807.0
+      },
+      {
+        "workshop": "ZD",
+        "daily_electricity": 2750.0,
+        "daily_gas": 7026.0
+      },
+      {
+        "workshop": "ZR2",
+        "daily_electricity": 900.0,
+        "daily_gas": 1966.0
+      },
+      {
+        "workshop": "ZR2",
+        "daily_electricity": 0.0,
+        "daily_gas": 1690.0
+      },
+      {
+        "workshop": "ZR3",
+        "daily_electricity": 1550.0,
+        "daily_gas": 2401.0
+      },
+      {
+        "workshop": "ZR3",
+        "daily_electricity": 1588.0,
+        "daily_gas": 2025.0
+      },
+      {
+        "workshop": "ZR3",
+        "daily_electricity": 0.0,
+        "daily_gas": 2587.0
+      },
+      {
+        "workshop": "FACTORY",
+        "daily_electricity": 0.0,
+        "daily_gas": 0.0
+      }
+    ]
+  },
+  "contracts": {
+    "daily_new": 66.0,
+    "monthly_total": 5405.0,
+    "remaining": 2569.0,
+    "remaining_delta": 0.0,
+    "unit": "吨",
+    "basis": "owner_daily_contract_weight",
+    "quality_status": "owner_only"
+  },
+  "cost": {
+    "electricity_cost": 0.63,
+    "gas_cost": 8.82,
+    "total": 9.45,
+    "cost_per_ton": 306.0,
+    "basis_weight": 308.68
+  },
+  "plant_cost": {
+    "electricity_cost": 0.63,
+    "gas_cost": 8.82,
+    "total": 9.45,
+    "cost_per_ton": 306.0,
+    "basis_weight": 308.68
+  },
+  "process_cost": {
+    "electricity_cost": 0.63,
+    "gas_cost": 8.82,
+    "total": 9.45,
+    "cost_per_ton": 60.0,
+    "basis_weight": 1564.19
+  },
+  "attendance": null,
+  "oil_consumption": null
+}

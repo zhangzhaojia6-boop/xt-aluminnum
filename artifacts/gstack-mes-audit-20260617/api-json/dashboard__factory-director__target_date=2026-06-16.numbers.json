@@ -1,0 +1,3062 @@
+[
+  {
+    "path": "leader_summary.metrics.total_output_weight",
+    "value": 308.68
+  },
+  {
+    "path": "leader_summary.metrics.total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "leader_summary.metrics.energy_per_ton",
+    "value": 110.92
+  },
+  {
+    "path": "leader_summary.metrics.reporting_rate",
+    "value": 15.56
+  },
+  {
+    "path": "leader_summary.metrics.total_attendance",
+    "value": 0
+  },
+  {
+    "path": "leader_summary.metrics.contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "leader_summary.metrics.yield_rate",
+    "value": 96.53
+  },
+  {
+    "path": "leader_summary.metrics.anomaly_total",
+    "value": 0
+  },
+  {
+    "path": "leader_summary.metrics.in_process_weight",
+    "value": 0.0
+  },
+  {
+    "path": "leader_summary.metrics.consumable_weight",
+    "value": 277.64
+  },
+  {
+    "path": "leader_summary.metrics.shipment_weight",
+    "value": 267.42
+  },
+  {
+    "path": "leader_summary.metrics.storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "leader_metrics.energy_per_ton",
+    "value": 110.92
+  },
+  {
+    "path": "leader_metrics.total_attendance",
+    "value": 0
+  },
+  {
+    "path": "leader_metrics.contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "leader_metrics.in_process_weight",
+    "value": 0.0
+  },
+  {
+    "path": "leader_metrics.today_total_output",
+    "value": 308.68
+  },
+  {
+    "path": "leader_metrics.storage_finished_weight",
+    "value": 277.64
+  },
+  {
+    "path": "leader_metrics.shipment_weight",
+    "value": 267.42
+  },
+  {
+    "path": "leader_metrics.storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "leader_metrics.active_contract_count",
+    "value": 286
+  },
+  {
+    "path": "leader_metrics.stalled_contract_count",
+    "value": 281
+  },
+  {
+    "path": "leader_metrics.active_coil_count",
+    "value": 808
+  },
+  {
+    "path": "leader_metrics.sync_lag_seconds",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].output_weight",
+    "value": 327.41
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].shipment_weight",
+    "value": 319.88
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].contract_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].energy_per_ton",
+    "value": 142.23
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].storage_finished_weight",
+    "value": 327.41
+  },
+  {
+    "path": "history_digest.daily_snapshots[0].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].output_weight",
+    "value": 465.43
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].shipment_weight",
+    "value": 419.45
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].contract_weight",
+    "value": 372.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].energy_per_ton",
+    "value": 91.15
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].storage_finished_weight",
+    "value": 465.43
+  },
+  {
+    "path": "history_digest.daily_snapshots[1].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].output_weight",
+    "value": 280.7
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].shipment_weight",
+    "value": 226.8
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].contract_weight",
+    "value": 176.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].energy_per_ton",
+    "value": 125.52
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].storage_finished_weight",
+    "value": 267.32
+  },
+  {
+    "path": "history_digest.daily_snapshots[2].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].output_weight",
+    "value": 241.91
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].shipment_weight",
+    "value": 210.35
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].contract_weight",
+    "value": 227.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].energy_per_ton",
+    "value": 105.1
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].storage_finished_weight",
+    "value": 246.38
+  },
+  {
+    "path": "history_digest.daily_snapshots[3].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].output_weight",
+    "value": 236.04
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].shipment_weight",
+    "value": 202.53
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].contract_weight",
+    "value": 192.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].energy_per_ton",
+    "value": 153.75
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].storage_finished_weight",
+    "value": 239.99
+  },
+  {
+    "path": "history_digest.daily_snapshots[4].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].output_weight",
+    "value": 247.73
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].shipment_weight",
+    "value": 350.31
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].contract_weight",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].energy_per_ton",
+    "value": 145.56
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].storage_finished_weight",
+    "value": 259.53
+  },
+  {
+    "path": "history_digest.daily_snapshots[5].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].output_weight",
+    "value": 308.68
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].shipment_weight",
+    "value": 267.42
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].energy_per_ton",
+    "value": 110.92
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].storage_finished_weight",
+    "value": 277.64
+  },
+  {
+    "path": "history_digest.daily_snapshots[6].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "history_digest.month_archive.total_output",
+    "value": 3202.0
+  },
+  {
+    "path": "history_digest.month_archive.reported_days",
+    "value": 16
+  },
+  {
+    "path": "history_digest.month_archive.average_daily_output",
+    "value": 200.12
+  },
+  {
+    "path": "history_digest.month_archive.calendar_day",
+    "value": 16
+  },
+  {
+    "path": "history_digest.year_archive.total_output",
+    "value": 3202.0
+  },
+  {
+    "path": "history_digest.year_archive.reported_days",
+    "value": 16
+  },
+  {
+    "path": "history_digest.year_archive.active_months",
+    "value": 1
+  },
+  {
+    "path": "history_digest.year_archive.average_monthly_output",
+    "value": 3202.0
+  },
+  {
+    "path": "delivery_status.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.quality_open_count",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.blocker_count",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.reports_generated",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.reports_reviewed_count",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.reports_published_count",
+    "value": 0
+  },
+  {
+    "path": "delivery_status.reports_published",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.expected_count",
+    "value": 45
+  },
+  {
+    "path": "mobile_reporting_summary.reported_count",
+    "value": 7
+  },
+  {
+    "path": "mobile_reporting_summary.submitted_count",
+    "value": 7
+  },
+  {
+    "path": "mobile_reporting_summary.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.returned_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.unreported_count",
+    "value": 45
+  },
+  {
+    "path": "mobile_reporting_summary.late_count",
+    "value": 2
+  },
+  {
+    "path": "mobile_reporting_summary.exception_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.reporting_rate",
+    "value": 15.56
+  },
+  {
+    "path": "mobile_reporting_summary.approved_count",
+    "value": 0
+  },
+  {
+    "path": "mobile_reporting_summary.draft_count",
+    "value": 0
+  },
+  {
+    "path": "reminder_summary.unreported_count",
+    "value": 45
+  },
+  {
+    "path": "reminder_summary.late_report_count",
+    "value": 30
+  },
+  {
+    "path": "reminder_summary.today_reminder_count",
+    "value": 566
+  },
+  {
+    "path": "reminder_summary.recent_items[0].id",
+    "value": 12578
+  },
+  {
+    "path": "reminder_summary.recent_items[0].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[0].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "reminder_summary.recent_items[0].leader_user_id",
+    "value": 938
+  },
+  {
+    "path": "reminder_summary.recent_items[0].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[1].id",
+    "value": 12579
+  },
+  {
+    "path": "reminder_summary.recent_items[1].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[1].workshop_id",
+    "value": 23
+  },
+  {
+    "path": "reminder_summary.recent_items[1].leader_user_id",
+    "value": 939
+  },
+  {
+    "path": "reminder_summary.recent_items[1].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[2].id",
+    "value": 12580
+  },
+  {
+    "path": "reminder_summary.recent_items[2].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[2].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "reminder_summary.recent_items[2].leader_user_id",
+    "value": 955
+  },
+  {
+    "path": "reminder_summary.recent_items[2].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[3].id",
+    "value": 12581
+  },
+  {
+    "path": "reminder_summary.recent_items[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[3].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "reminder_summary.recent_items[3].leader_user_id",
+    "value": 956
+  },
+  {
+    "path": "reminder_summary.recent_items[3].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[4].id",
+    "value": 12582
+  },
+  {
+    "path": "reminder_summary.recent_items[4].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[4].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "reminder_summary.recent_items[4].leader_user_id",
+    "value": 957
+  },
+  {
+    "path": "reminder_summary.recent_items[4].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[5].id",
+    "value": 12583
+  },
+  {
+    "path": "reminder_summary.recent_items[5].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[5].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "reminder_summary.recent_items[5].leader_user_id",
+    "value": 958
+  },
+  {
+    "path": "reminder_summary.recent_items[5].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[6].id",
+    "value": 12584
+  },
+  {
+    "path": "reminder_summary.recent_items[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[6].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "reminder_summary.recent_items[6].leader_user_id",
+    "value": 960
+  },
+  {
+    "path": "reminder_summary.recent_items[6].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[7].id",
+    "value": 12585
+  },
+  {
+    "path": "reminder_summary.recent_items[7].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.recent_items[7].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "reminder_summary.recent_items[7].leader_user_id",
+    "value": 980
+  },
+  {
+    "path": "reminder_summary.recent_items[7].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "reminder_summary.daily_unreported_count",
+    "value": 23
+  },
+  {
+    "path": "reminder_summary.daily_late_report_count",
+    "value": 0
+  },
+  {
+    "path": "management_estimate.active_contract_count",
+    "value": 286
+  },
+  {
+    "path": "management_estimate.stalled_contract_count",
+    "value": 281
+  },
+  {
+    "path": "management_estimate.active_coil_count",
+    "value": 808
+  },
+  {
+    "path": "management_estimate.stalled_coil_count",
+    "value": 799
+  },
+  {
+    "path": "management_estimate.today_advanced_weight",
+    "value": 66.0
+  },
+  {
+    "path": "management_estimate.remaining_weight",
+    "value": 2569.0
+  },
+  {
+    "path": "management_estimate.reported_shift_count",
+    "value": 7
+  },
+  {
+    "path": "management_estimate.unreported_shift_count",
+    "value": 45
+  },
+  {
+    "path": "management_estimate.reporting_rate",
+    "value": 15.56
+  },
+  {
+    "path": "management_estimate.total_attendance",
+    "value": 0
+  },
+  {
+    "path": "management_estimate.sync_lag_seconds",
+    "value": 0
+  },
+  {
+    "path": "contract_lane.snapshot_count",
+    "value": 0
+  },
+  {
+    "path": "contract_lane.owner_entry_count",
+    "value": 1
+  },
+  {
+    "path": "contract_lane.daily_contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "contract_lane.month_to_date_contract_weight",
+    "value": 5405.0
+  },
+  {
+    "path": "contract_lane.remaining_contract_weight",
+    "value": 2569.0
+  },
+  {
+    "path": "contract_lane.remaining_contract_delta_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_lane.daily_input_weight",
+    "value": 331.0
+  },
+  {
+    "path": "contract_lane.month_to_date_input_weight",
+    "value": 5543.0
+  },
+  {
+    "path": "contract_lane.items[0].daily_contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "contract_lane.items[0].month_to_date_contract_weight",
+    "value": 5405.0
+  },
+  {
+    "path": "contract_lane.items[0].remaining_contract_weight",
+    "value": 2569.0
+  },
+  {
+    "path": "contract_lane.items[0].daily_input_weight",
+    "value": 331.0
+  },
+  {
+    "path": "contract_lane.items[0].month_to_date_input_weight",
+    "value": 5543.0
+  },
+  {
+    "path": "energy_lane[0].electricity_value",
+    "value": 2950.0
+  },
+  {
+    "path": "energy_lane[0].gas_value",
+    "value": 6807.0
+  },
+  {
+    "path": "energy_lane[0].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "energy_lane[0].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_lane[0].total_energy",
+    "value": 9757.0
+  },
+  {
+    "path": "energy_lane[0].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[1].electricity_value",
+    "value": 2750.0
+  },
+  {
+    "path": "energy_lane[1].gas_value",
+    "value": 7026.0
+  },
+  {
+    "path": "energy_lane[1].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[1].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "energy_lane[1].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "energy_lane[1].total_energy",
+    "value": 9776.0
+  },
+  {
+    "path": "energy_lane[1].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[2].electricity_value",
+    "value": 900.0
+  },
+  {
+    "path": "energy_lane[2].gas_value",
+    "value": 1966.0
+  },
+  {
+    "path": "energy_lane[2].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[2].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "energy_lane[2].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_lane[2].total_energy",
+    "value": 2866.0
+  },
+  {
+    "path": "energy_lane[2].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[3].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[3].gas_value",
+    "value": 1690.0
+  },
+  {
+    "path": "energy_lane[3].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[3].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "energy_lane[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "energy_lane[3].total_energy",
+    "value": 1690.0
+  },
+  {
+    "path": "energy_lane[3].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[4].electricity_value",
+    "value": 1550.0
+  },
+  {
+    "path": "energy_lane[4].gas_value",
+    "value": 2401.0
+  },
+  {
+    "path": "energy_lane[4].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[4].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_lane[4].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_lane[4].total_energy",
+    "value": 3951.0
+  },
+  {
+    "path": "energy_lane[4].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[5].electricity_value",
+    "value": 1588.0
+  },
+  {
+    "path": "energy_lane[5].gas_value",
+    "value": 2025.0
+  },
+  {
+    "path": "energy_lane[5].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[5].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_lane[5].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "energy_lane[5].total_energy",
+    "value": 3613.0
+  },
+  {
+    "path": "energy_lane[5].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[6].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[6].gas_value",
+    "value": 2587.0
+  },
+  {
+    "path": "energy_lane[6].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[6].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_lane[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "energy_lane[6].total_energy",
+    "value": 2587.0
+  },
+  {
+    "path": "energy_lane[6].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_lane[7].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[7].gas_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[7].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[7].energy_per_ton",
+    "value": 110.92393417131007
+  },
+  {
+    "path": "energy_lane[7].total_energy",
+    "value": 0.0
+  },
+  {
+    "path": "energy_lane[7].output_weight",
+    "value": 308.68000000000006
+  },
+  {
+    "path": "inventory_lane[0].storage_prepared",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].storage_finished",
+    "value": 277.645
+  },
+  {
+    "path": "inventory_lane[0].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].shipment_weight",
+    "value": 267.423
+  },
+  {
+    "path": "inventory_lane[0].actual_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].contract_received",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "inventory_lane[0].shipment_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[0].consignment_weight",
+    "value": 165.064
+  },
+  {
+    "path": "inventory_lane[0].finished_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].storage_prepared",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].storage_finished",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].actual_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].contract_received",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "inventory_lane[1].shipment_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].consignment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[1].finished_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].storage_prepared",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].storage_finished",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].actual_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].contract_received",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "inventory_lane[2].shipment_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].consignment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[2].finished_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].storage_prepared",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].storage_finished",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].storage_inbound_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].shipment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].actual_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].contract_received",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "inventory_lane[3].shipment_area",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].consignment_weight",
+    "value": 0.0
+  },
+  {
+    "path": "inventory_lane[3].finished_inventory_weight",
+    "value": 0.0
+  },
+  {
+    "path": "exception_lane.unreported_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.returned_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.late_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reminder_unreported_count",
+    "value": 68
+  },
+  {
+    "path": "exception_lane.reminder_late_count",
+    "value": 30
+  },
+  {
+    "path": "exception_lane.today_reminder_count",
+    "value": 566
+  },
+  {
+    "path": "exception_lane.production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.pending_report_publish_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.reminder_items[0].id",
+    "value": 12578
+  },
+  {
+    "path": "exception_lane.reminder_items[0].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[0].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "exception_lane.reminder_items[0].leader_user_id",
+    "value": 938
+  },
+  {
+    "path": "exception_lane.reminder_items[0].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[1].id",
+    "value": 12579
+  },
+  {
+    "path": "exception_lane.reminder_items[1].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[1].workshop_id",
+    "value": 23
+  },
+  {
+    "path": "exception_lane.reminder_items[1].leader_user_id",
+    "value": 939
+  },
+  {
+    "path": "exception_lane.reminder_items[1].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[2].id",
+    "value": 12580
+  },
+  {
+    "path": "exception_lane.reminder_items[2].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[2].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "exception_lane.reminder_items[2].leader_user_id",
+    "value": 955
+  },
+  {
+    "path": "exception_lane.reminder_items[2].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[3].id",
+    "value": 12581
+  },
+  {
+    "path": "exception_lane.reminder_items[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[3].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "exception_lane.reminder_items[3].leader_user_id",
+    "value": 956
+  },
+  {
+    "path": "exception_lane.reminder_items[3].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[4].id",
+    "value": 12582
+  },
+  {
+    "path": "exception_lane.reminder_items[4].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[4].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "exception_lane.reminder_items[4].leader_user_id",
+    "value": 957
+  },
+  {
+    "path": "exception_lane.reminder_items[4].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[5].id",
+    "value": 12583
+  },
+  {
+    "path": "exception_lane.reminder_items[5].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[5].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "exception_lane.reminder_items[5].leader_user_id",
+    "value": 958
+  },
+  {
+    "path": "exception_lane.reminder_items[5].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[6].id",
+    "value": 12584
+  },
+  {
+    "path": "exception_lane.reminder_items[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[6].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "exception_lane.reminder_items[6].leader_user_id",
+    "value": 960
+  },
+  {
+    "path": "exception_lane.reminder_items[6].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[7].id",
+    "value": 12585
+  },
+  {
+    "path": "exception_lane.reminder_items[7].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.reminder_items[7].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "exception_lane.reminder_items[7].leader_user_id",
+    "value": 980
+  },
+  {
+    "path": "exception_lane.reminder_items[7].reminder_count",
+    "value": 4
+  },
+  {
+    "path": "exception_lane.legacy_unreported_shift_count",
+    "value": 45
+  },
+  {
+    "path": "exception_lane.legacy_returned_shift_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.legacy_late_shift_count",
+    "value": 2
+  },
+  {
+    "path": "exception_lane.legacy_mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "exception_lane.mobile_coil_entry_count",
+    "value": 182
+  },
+  {
+    "path": "exception_lane.mobile_coil_workshop_count",
+    "value": 8
+  },
+  {
+    "path": "yesterday_shift_breakdown.total_output",
+    "value": 308.68
+  },
+  {
+    "path": "yesterday_shift_breakdown.total_energy_kwh",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].total_energy_kwh",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].reported_workshops",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].shift_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].exception_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[0].total_throughput",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].total_energy_kwh",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].reported_workshops",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].shift_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].exception_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[1].total_throughput",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].total_output",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].total_energy_kwh",
+    "value": 0.0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].reported_workshops",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].expected_workshops",
+    "value": 15
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].shift_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].exception_count",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.shifts[2].total_throughput",
+    "value": 0
+  },
+  {
+    "path": "yesterday_shift_breakdown.total_throughput",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.active_contract_count",
+    "value": 286
+  },
+  {
+    "path": "contract_progress.stalled_contract_count",
+    "value": 281
+  },
+  {
+    "path": "contract_progress.active_coil_count",
+    "value": 808
+  },
+  {
+    "path": "contract_progress.stalled_coil_count",
+    "value": 799
+  },
+  {
+    "path": "contract_progress.today_advanced_weight",
+    "value": 6410.0
+  },
+  {
+    "path": "contract_progress.remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[0].active_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[0].stalled_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[0].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[0].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[0].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[1].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[1].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[1].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[1].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[1].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[2].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[2].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[2].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[2].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[2].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[2].statuses[0]",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[2].tracking_cards[0].status",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[3].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[3].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[3].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[3].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[3].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[4].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[4].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[4].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[4].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[4].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[5].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[5].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[5].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[5].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[5].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[6].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[6].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[6].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[6].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[6].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[7].active_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[7].stalled_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[7].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[7].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[7].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[8].active_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[8].stalled_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[8].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[8].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[8].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[8].statuses[0]",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[8].tracking_cards[0].status",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[9].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[9].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[9].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[9].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[9].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[10].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[10].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[10].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[10].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[10].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[11].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[11].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[11].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[11].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[11].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[12].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[12].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[12].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[12].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[12].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[13].active_coil_count",
+    "value": 6
+  },
+  {
+    "path": "contract_progress.contracts[13].stalled_coil_count",
+    "value": 6
+  },
+  {
+    "path": "contract_progress.contracts[13].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[13].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[13].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[13].statuses[0]",
+    "value": "3"
+  },
+  {
+    "path": "contract_progress.contracts[13].tracking_cards[4].status",
+    "value": "3"
+  },
+  {
+    "path": "contract_progress.contracts[14].active_coil_count",
+    "value": 5
+  },
+  {
+    "path": "contract_progress.contracts[14].stalled_coil_count",
+    "value": 5
+  },
+  {
+    "path": "contract_progress.contracts[14].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[14].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[14].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[15].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[15].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[15].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[15].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[15].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[16].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[16].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[16].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[16].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[16].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[17].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[17].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[17].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[17].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[17].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[18].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[18].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[18].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[18].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[18].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[18].statuses[0]",
+    "value": "3"
+  },
+  {
+    "path": "contract_progress.contracts[18].tracking_cards[0].status",
+    "value": "3"
+  },
+  {
+    "path": "contract_progress.contracts[19].active_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[19].stalled_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[19].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[19].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[19].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[20].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[20].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[20].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[20].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[20].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[21].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[21].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[21].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[21].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[21].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[22].active_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[22].stalled_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[22].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[22].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[22].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[23].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[23].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[23].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[23].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[23].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[24].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[24].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[24].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[24].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[24].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[25].active_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[25].stalled_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[25].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[25].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[25].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[26].active_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[26].stalled_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[26].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[26].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[26].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[27].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[27].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[27].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[27].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[27].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[28].active_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[28].stalled_coil_count",
+    "value": 4
+  },
+  {
+    "path": "contract_progress.contracts[28].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[28].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[28].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[29].active_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[29].stalled_coil_count",
+    "value": 3
+  },
+  {
+    "path": "contract_progress.contracts[29].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[29].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[29].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[30].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[30].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[30].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[30].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[30].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[31].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[31].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[31].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[31].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[31].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[32].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[32].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[32].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[32].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[32].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[33].active_coil_count",
+    "value": 9
+  },
+  {
+    "path": "contract_progress.contracts[33].stalled_coil_count",
+    "value": 9
+  },
+  {
+    "path": "contract_progress.contracts[33].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[33].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[33].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[34].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[34].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[34].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[34].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[34].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[35].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[35].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[35].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[35].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[35].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[36].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[36].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[36].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[36].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[36].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[37].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[37].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[37].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[37].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[37].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[38].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[38].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[38].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[38].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[38].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[39].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[39].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[39].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[39].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[39].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[40].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[40].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[40].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[40].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[40].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[41].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[41].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[41].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[41].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[41].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[41].statuses[0]",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[41].tracking_cards[0].status",
+    "value": "2"
+  },
+  {
+    "path": "contract_progress.contracts[42].active_coil_count",
+    "value": 6
+  },
+  {
+    "path": "contract_progress.contracts[42].stalled_coil_count",
+    "value": 6
+  },
+  {
+    "path": "contract_progress.contracts[42].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[42].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[42].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[43].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[43].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[43].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[43].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[43].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[44].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[44].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[44].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[44].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[44].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[45].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[45].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[45].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[45].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[45].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[46].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[46].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[46].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[46].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[46].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[47].active_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[47].stalled_coil_count",
+    "value": 2
+  },
+  {
+    "path": "contract_progress.contracts[47].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[47].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[47].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[48].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[48].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[48].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[48].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[48].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[49].active_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[49].stalled_coil_count",
+    "value": 1
+  },
+  {
+    "path": "contract_progress.contracts[49].today_advanced_coil_count",
+    "value": 0
+  },
+  {
+    "path": "contract_progress.contracts[49].today_advanced_weight",
+    "value": 0.0
+  },
+  {
+    "path": "contract_progress.contracts[49].remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "workshop_reporting_status[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "workshop_reporting_status[1].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "workshop_reporting_status[2].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "workshop_reporting_status[2].output_weight",
+    "value": 7.91
+  },
+  {
+    "path": "workshop_reporting_status[3].workshop_id",
+    "value": 4
+  },
+  {
+    "path": "workshop_reporting_status[3].output_weight",
+    "value": 977.03
+  },
+  {
+    "path": "workshop_reporting_status[4].workshop_id",
+    "value": 5
+  },
+  {
+    "path": "workshop_reporting_status[4].output_weight",
+    "value": 48.22
+  },
+  {
+    "path": "workshop_reporting_status[5].workshop_id",
+    "value": 17
+  },
+  {
+    "path": "workshop_reporting_status[6].workshop_id",
+    "value": 18
+  },
+  {
+    "path": "workshop_reporting_status[6].output_weight",
+    "value": 189.65
+  },
+  {
+    "path": "workshop_reporting_status[7].workshop_id",
+    "value": 8
+  },
+  {
+    "path": "workshop_reporting_status[8].workshop_id",
+    "value": 10
+  },
+  {
+    "path": "workshop_reporting_status[8].output_weight",
+    "value": 12.68
+  },
+  {
+    "path": "workshop_reporting_status[9].workshop_id",
+    "value": 25
+  },
+  {
+    "path": "workshop_reporting_status[9].output_weight",
+    "value": 211.05
+  },
+  {
+    "path": "workshop_reporting_status[10].workshop_id",
+    "value": 23
+  },
+  {
+    "path": "workshop_reporting_status[11].workshop_id",
+    "value": 11
+  },
+  {
+    "path": "workshop_reporting_status[12].workshop_id",
+    "value": 29
+  },
+  {
+    "path": "workshop_reporting_status[12].output_weight",
+    "value": 170.18
+  },
+  {
+    "path": "workshop_reporting_status[13].workshop_id",
+    "value": 30
+  },
+  {
+    "path": "workshop_reporting_status[14].workshop_id",
+    "value": 26
+  },
+  {
+    "path": "workshop_reporting_status[14].output_weight",
+    "value": 91.38
+  },
+  {
+    "path": "analysis_handoff.freshness.sync_lag_seconds",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.freshness.history_points",
+    "value": 7
+  },
+  {
+    "path": "analysis_handoff.trend.current_output",
+    "value": 308.68
+  },
+  {
+    "path": "analysis_handoff.trend.yesterday_output",
+    "value": 247.73
+  },
+  {
+    "path": "analysis_handoff.trend.output_delta_vs_yesterday",
+    "value": 60.95
+  },
+  {
+    "path": "analysis_handoff.trend.seven_day_average_output",
+    "value": 301.13
+  },
+  {
+    "path": "analysis_handoff.reporting.reporting_rate",
+    "value": 15.56
+  },
+  {
+    "path": "analysis_handoff.reporting.reported_count",
+    "value": 7
+  },
+  {
+    "path": "analysis_handoff.reporting.unreported_count",
+    "value": 45
+  },
+  {
+    "path": "analysis_handoff.reporting.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.reporting.returned_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.delivery.reports_generated",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.delivery.reports_published_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.energy.energy_per_ton",
+    "value": 110.92393417131007
+  },
+  {
+    "path": "analysis_handoff.energy.total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "analysis_handoff.energy.electricity_value",
+    "value": 9738.0
+  },
+  {
+    "path": "analysis_handoff.energy.gas_value",
+    "value": 24502.0
+  },
+  {
+    "path": "analysis_handoff.energy.water_value",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.contracts.daily_contract_weight",
+    "value": 66.0
+  },
+  {
+    "path": "analysis_handoff.contracts.month_to_date_contract_weight",
+    "value": 5405.0
+  },
+  {
+    "path": "analysis_handoff.contracts.active_contract_count",
+    "value": 286
+  },
+  {
+    "path": "analysis_handoff.contracts.stalled_contract_count",
+    "value": 281
+  },
+  {
+    "path": "analysis_handoff.contracts.remaining_weight",
+    "value": 0.0
+  },
+  {
+    "path": "analysis_handoff.risk.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.risk.mobile_exception_count",
+    "value": 0
+  },
+  {
+    "path": "analysis_handoff.risk.production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.expected_count",
+    "value": 45
+  },
+  {
+    "path": "runtime_trace.frontline.reported_count",
+    "value": 7
+  },
+  {
+    "path": "runtime_trace.frontline.auto_confirmed_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.returned_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.frontline.unreported_count",
+    "value": 45
+  },
+  {
+    "path": "runtime_trace.frontline.late_count",
+    "value": 2
+  },
+  {
+    "path": "runtime_trace.frontline.reminder_count",
+    "value": 566
+  },
+  {
+    "path": "runtime_trace.frontline.reporting_rate",
+    "value": 15.56
+  },
+  {
+    "path": "runtime_trace.backline.history_points",
+    "value": 7
+  },
+  {
+    "path": "runtime_trace.backline.energy_row_count",
+    "value": 8
+  },
+  {
+    "path": "runtime_trace.backline.exception_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.backline.reconciliation_open_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_generated",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_ready_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.delivery.reports_published_count",
+    "value": 0
+  },
+  {
+    "path": "runtime_trace.orchestration.reliability_score",
+    "value": 44.2
+  },
+  {
+    "path": "runtime_trace.orchestration.blocking_count",
+    "value": 2
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.coverage",
+    "value": 0.0
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.quality",
+    "value": 100.0
+  },
+  {
+    "path": "runtime_trace.orchestration.scores.delivery",
+    "value": 37
+  },
+  {
+    "path": "today_total_output",
+    "value": 308.68
+  },
+  {
+    "path": "process_total_output",
+    "value": 0.0
+  },
+  {
+    "path": "month_to_date_output",
+    "value": 3202.0
+  },
+  {
+    "path": "total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "energy_per_ton",
+    "value": 110.92393417131007
+  },
+  {
+    "path": "open_reconciliation_count",
+    "value": 0
+  },
+  {
+    "path": "shift_count",
+    "value": 0
+  },
+  {
+    "path": "confirmed_shift_count",
+    "value": 0
+  },
+  {
+    "path": "reviewed_shift_count",
+    "value": 0
+  },
+  {
+    "path": "pending_shift_count",
+    "value": 52
+  },
+  {
+    "path": "rejected_shift_count",
+    "value": 0
+  },
+  {
+    "path": "voided_shift_count",
+    "value": 0
+  },
+  {
+    "path": "attendance_exception_count",
+    "value": 0
+  },
+  {
+    "path": "production_exception_count",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.electricity_value",
+    "value": 9738.0
+  },
+  {
+    "path": "energy_summary.gas_value",
+    "value": 24502.0
+  },
+  {
+    "path": "energy_summary.water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "energy_summary.total_output_weight",
+    "value": 308.68000000000006
+  },
+  {
+    "path": "energy_summary.energy_per_ton",
+    "value": 110.92393417131007
+  },
+  {
+    "path": "energy_summary.system_totals.total_energy",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.system_totals.total_output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.system_totals.row_count",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.electricity_value",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.gas_value",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.water_value",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.total_energy",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.total_output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.owner_totals.row_count",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.mobile_totals.total_energy",
+    "value": 34240.0
+  },
+  {
+    "path": "energy_summary.mobile_totals.total_output_weight",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.mobile_totals.row_count",
+    "value": 7
+  },
+  {
+    "path": "energy_summary.rows[0].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "energy_summary.rows[0].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_summary.rows[0].electricity_value",
+    "value": 2950.0
+  },
+  {
+    "path": "energy_summary.rows[0].gas_value",
+    "value": 6807.0
+  },
+  {
+    "path": "energy_summary.rows[0].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[0].total_energy",
+    "value": 9757.0
+  },
+  {
+    "path": "energy_summary.rows[0].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[1].workshop_id",
+    "value": 1
+  },
+  {
+    "path": "energy_summary.rows[1].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "energy_summary.rows[1].electricity_value",
+    "value": 2750.0
+  },
+  {
+    "path": "energy_summary.rows[1].gas_value",
+    "value": 7026.0
+  },
+  {
+    "path": "energy_summary.rows[1].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[1].total_energy",
+    "value": 9776.0
+  },
+  {
+    "path": "energy_summary.rows[1].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[2].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "energy_summary.rows[2].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_summary.rows[2].electricity_value",
+    "value": 900.0
+  },
+  {
+    "path": "energy_summary.rows[2].gas_value",
+    "value": 1966.0
+  },
+  {
+    "path": "energy_summary.rows[2].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[2].total_energy",
+    "value": 2866.0
+  },
+  {
+    "path": "energy_summary.rows[2].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[3].workshop_id",
+    "value": 2
+  },
+  {
+    "path": "energy_summary.rows[3].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "energy_summary.rows[3].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[3].gas_value",
+    "value": 1690.0
+  },
+  {
+    "path": "energy_summary.rows[3].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[3].total_energy",
+    "value": 1690.0
+  },
+  {
+    "path": "energy_summary.rows[3].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[4].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_summary.rows[4].shift_config_id",
+    "value": 6
+  },
+  {
+    "path": "energy_summary.rows[4].electricity_value",
+    "value": 1550.0
+  },
+  {
+    "path": "energy_summary.rows[4].gas_value",
+    "value": 2401.0
+  },
+  {
+    "path": "energy_summary.rows[4].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[4].total_energy",
+    "value": 3951.0
+  },
+  {
+    "path": "energy_summary.rows[4].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[5].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_summary.rows[5].shift_config_id",
+    "value": 5
+  },
+  {
+    "path": "energy_summary.rows[5].electricity_value",
+    "value": 1588.0
+  },
+  {
+    "path": "energy_summary.rows[5].gas_value",
+    "value": 2025.0
+  },
+  {
+    "path": "energy_summary.rows[5].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[5].total_energy",
+    "value": 3613.0
+  },
+  {
+    "path": "energy_summary.rows[5].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[6].workshop_id",
+    "value": 3
+  },
+  {
+    "path": "energy_summary.rows[6].shift_config_id",
+    "value": 4
+  },
+  {
+    "path": "energy_summary.rows[6].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[6].gas_value",
+    "value": 2587.0
+  },
+  {
+    "path": "energy_summary.rows[6].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[6].total_energy",
+    "value": 2587.0
+  },
+  {
+    "path": "energy_summary.rows[6].output_weight",
+    "value": 0
+  },
+  {
+    "path": "energy_summary.rows[7].electricity_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[7].gas_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[7].water_value",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[7].total_energy",
+    "value": 0.0
+  },
+  {
+    "path": "energy_summary.rows[7].output_weight",
+    "value": 308.68000000000006
+  },
+  {
+    "path": "energy_summary.rows[7].energy_per_ton",
+    "value": 110.92393417131007
+  },
+  {
+    "path": "mes_sync_status.stale_threshold_seconds",
+    "value": 300.0
+  },
+  {
+    "path": "mes_sync_status.retry_limit",
+    "value": 3
+  },
+  {
+    "path": "mes_sync_status.lag_seconds",
+    "value": 0.0
+  },
+  {
+    "path": "mes_sync_status.sync_freshness_seconds",
+    "value": 23.090287
+  },
+  {
+    "path": "mes_sync_status.fetched_count",
+    "value": 50
+  },
+  {
+    "path": "mes_sync_status.upserted_count",
+    "value": 50
+  },
+  {
+    "path": "mes_sync_status.replayed_count",
+    "value": 0
+  }
+]

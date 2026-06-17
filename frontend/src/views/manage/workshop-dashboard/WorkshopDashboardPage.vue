@@ -216,6 +216,7 @@ const suppressWorkshopSelectionWatch = ref(false)
 const compactMissingPanel = ref(false)
 const exportingMissingReport = ref(false)
 let compactMediaQuery = null
+let loadRequestId = 0
 
 const MES_GAP_STATUS_LABELS = {
   missing_local_entry: 'MES有工序本地未填',
@@ -247,9 +248,9 @@ const mesRows = computed(() => {
     }))
   const processRows = mesProcessRows.value.slice(0, 6).map((row, index) => ({
     key: `process-${row.source_id || index}`,
-    title: row.batch_no || row.source_id || row.process_name || 'MES 过站',
-    flow: `${row.workshop_name || '-'} / ${row.process_name || '-'} / ${row.device_name || '-'}`,
-    unmatched: !row.device_name,
+    title: mesProcessTitle(row),
+    flow: mesProcessFlow(row),
+    unmatched: isUnmatchedMesDevice(row),
   }))
   return [...projectionRows, ...processRows].slice(0, 8)
 })
@@ -341,15 +342,50 @@ function mesGapWeightText(row) {
   return `${mes} / ${local} kg`
 }
 
+function mesProcessTitle(row) {
+  return row?.batch_no || row?.customer_alias || row?.source_id || row?.process_name || 'MES 过站'
+}
+
+function mesProcessWeightText(row) {
+  const input = row?.input_weight_tons
+  const output = row?.output_weight_tons
+  if (input == null && output == null) return ''
+  return `上${formatNumber(input, 2)}吨 / 下${formatNumber(output, 2)}吨`
+}
+
+function mesProcessFlow(row) {
+  const route = `${row?.workshop_name || '-'} / ${row?.process_name || '-'} / ${row?.device_name || '-'}`
+  return [route, mesProcessWeightText(row), row?.worker_name || '', formatDateTime(row?.end_time)].filter(Boolean).join(' · ')
+}
+
+function isUnmatchedMesDevice(row) {
+  const device = String(row?.device_name || '').trim().toLowerCase()
+  return !device || device === 'pc'
+}
+
+function formatDateTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function rowKey(row) {
   return `${row.status || 'gap'}-${row.local_entry_id || row.tracking_card_no || row.batch_no || 'unknown'}`
 }
 
 async function load() {
+  const requestId = ++loadRequestId
   loading.value = true
   freshness.value = 'yellow'
   try {
     await loadWorkshops()
+    if (requestId !== loadRequestId) return
     if (canChooseWorkshop.value && !workshopId.value) {
       dashboard.value = {}
       live.value = {}
@@ -370,6 +406,7 @@ async function load() {
       fetchMesWorkshopProcessRecords(scopedParams({ business_date: targetDate.value, limit: 80 })),
       fetchMesWipTotalSnapshots(scopedParams({ business_date: targetDate.value, limit: 80 })),
     ])
+    if (requestId !== loadRequestId) return
     dashboard.value = dashboardResult.status === 'fulfilled' ? dashboardResult.value || {} : {}
     live.value = liveResult.status === 'fulfilled' ? liveResult.value || {} : {}
     detailRows.value = detailResult.status === 'fulfilled' ? detailResult.value?.items || [] : []
@@ -379,10 +416,11 @@ async function load() {
     mesMaterialRows.value = materialResult.status === 'fulfilled' ? materialResult.value || [] : []
     freshness.value = [dashboardResult, liveResult, detailResult, mesGapResult].some((item) => item.status === 'rejected') ? 'yellow' : 'green'
   } catch {
+    if (requestId !== loadRequestId) return
     mesGapData.value = {}
     freshness.value = 'red'
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 

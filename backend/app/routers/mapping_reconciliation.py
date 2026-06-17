@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -174,9 +174,12 @@ def _resolve_rows(
 
 
 @router.get('/sources')
-def get_sources(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+def get_sources(
+    limit: int = Query(default=5000, ge=1, le=10000),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
     _ensure_mapping_reconciliation_access(current_user)
-    return list_sources()
+    return list_sources(limit=limit)
 
 
 @router.post('/run')

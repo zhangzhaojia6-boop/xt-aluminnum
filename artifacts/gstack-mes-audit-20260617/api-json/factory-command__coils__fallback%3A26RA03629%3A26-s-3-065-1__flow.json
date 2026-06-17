@@ -1,0 +1,30 @@
+{
+  "coil_key": "fallback:26RA03629:26-s-3-065-1",
+  "tracking_card_no": "26RA03629",
+  "mes_input_weight_tons": null,
+  "mes_output_weight_tons": null,
+  "auto_scrap_weight_tons": null,
+  "auto_scrap_rate": null,
+  "scrap_status": "no_mes_process_record",
+  "previous_workshop": "新厂在线",
+  "previous_process": "北线退火",
+  "current_workshop": "冷轧2050",
+  "current_process": "冷轧",
+  "next_workshop": "拉矫",
+  "next_process": "退火",
+  "destination": {
+    "kind": "in_progress",
+    "label": "在制"
+  },
+  "freshness": {
+    "status": "fresh",
+    "lag_seconds": 0.0,
+    "last_synced_at": "2026-06-17T11:26:15.756279+08:00",
+    "last_event_at": "2026-06-17T17:40:15.363000+08:00",
+    "source": "mes_projection",
+    "configured": true,
+    "migration_ready": true,
+    "action_required": "none",
+    "risk_tone": "normal"
+  }
+}
