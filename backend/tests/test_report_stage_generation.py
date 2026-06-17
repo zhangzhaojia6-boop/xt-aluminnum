@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -104,7 +104,7 @@ def test_forecast_stage_saves_production_forecast_report(monkeypatch):
     assert audits[0]['detail']['stage'] == 'forecast'
 
 
-def test_final_stage_updates_production_report_without_resetting_publication(monkeypatch):
+def test_final_stage_updates_draft_production_report(monkeypatch):
     _calls, audits = _stub_payload(monkeypatch)
     existing = DailyReport(
         id=3,
@@ -112,9 +112,7 @@ def test_final_stage_updates_production_report_without_resetting_publication(mon
         report_type='production',
         report_data={'old': True},
         text_summary='旧摘要',
-        status='published',
-        reviewed_by=11,
-        published_by=12,
+        status='draft',
         generated_scope='auto_confirmed',
         output_mode='json',
         is_final_version=False,
@@ -138,11 +136,67 @@ def test_final_stage_updates_production_report_without_resetting_publication(mon
     assert entity.report_data['generated_cutoff_label'] == '09:30终报'
     assert entity.is_final_version is True
     assert entity.final_text_summary == '生产摘要'
-    assert entity.status == 'published'
-    assert entity.reviewed_by == 11
-    assert entity.published_by == 12
+    assert entity.status == 'draft'
     assert audits[0]['detail']['report_type'] == 'production'
     assert audits[0]['detail']['stage'] == 'final'
+
+
+def test_final_stage_returns_locked_production_report_unchanged(monkeypatch):
+    calls, audits = _stub_payload(monkeypatch)
+    existing = DailyReport(
+        id=4,
+        report_date=date(2026, 6, 16),
+        report_type='production',
+        report_data={'locked': True},
+        text_summary='已审摘要',
+        final_text_summary='已确认终报',
+        status='reviewed',
+        final_confirmed_by=21,
+        final_confirmed_at=datetime(2026, 6, 17, 9, 35),
+        generated_scope='auto_confirmed',
+        output_mode='both',
+        generated_at=datetime(2026, 6, 17, 9, 30),
+        is_final_version=True,
+    )
+    db = FakeDB([existing])
+
+    reports = report_generation.generate_production_stage_report(
+        db,
+        report_date=date(2026, 6, 16),
+        stage='final',
+        scope='include_reviewed',
+        output_mode='both',
+        operator=_operator(),
+    )
+
+    assert reports == [existing]
+    assert existing.report_data == {'locked': True}
+    assert existing.text_summary == '已审摘要'
+    assert existing.final_text_summary == '已确认终报'
+    assert existing.final_confirmed_by == 21
+    assert existing.final_confirmed_at == datetime(2026, 6, 17, 9, 35)
+    assert existing.status == 'reviewed'
+    assert calls == []
+    assert audits == []
+    assert db.flushed is False
+    assert db.committed is False
+
+
+@pytest.mark.parametrize('output_mode', ['text', 'json'])
+def test_final_stage_requires_both_output_mode(output_mode):
+    db = FakeDB()
+
+    with pytest.raises(ValueError, match='final stage requires output_mode both'):
+        report_generation.generate_production_stage_report(
+            db,
+            report_date=date(2026, 6, 16),
+            stage='final',
+            scope='auto_confirmed',
+            output_mode=output_mode,
+            operator=_operator(),
+        )
+
+    assert db.committed is False
 
 
 def test_invalid_stage_raises_value_error():

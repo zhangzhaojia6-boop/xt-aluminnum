@@ -851,11 +851,21 @@ def generate_production_stage_report(
         raise ValueError('stage must be forecast or final')
     if output_mode not in VALID_OUTPUT_MODES:
         raise ValueError('output_mode must be json, text or both')
+    if stage == 'final' and output_mode != 'both':
+        raise ValueError('final stage requires output_mode both')
 
     canonical_scope = _normalize_scope(scope)
     stage_label = '07:30预报' if stage == 'forecast' else '09:30终报'
     saved_report_type = PRODUCTION_FORECAST_REPORT_TYPE if stage == 'forecast' else 'production'
     now = datetime.now(timezone.utc)
+
+    entity = (
+        db.query(DailyReport)
+        .filter(DailyReport.report_date == report_date, DailyReport.report_type == saved_report_type)
+        .first()
+    )
+    if stage == 'final' and entity is not None and _is_locked_production_final_report(entity):
+        return [entity]
 
     report_data, text_summary = _generate_report_payload(
         db,
@@ -874,11 +884,6 @@ def generate_production_stage_report(
         output_mode=output_mode,
     )
 
-    entity = (
-        db.query(DailyReport)
-        .filter(DailyReport.report_date == report_date, DailyReport.report_type == saved_report_type)
-        .first()
-    )
     if entity is None:
         entity = DailyReport(
             report_date=report_date,
@@ -925,6 +930,15 @@ def generate_production_stage_report(
     db.commit()
     db.refresh(entity)
     return [entity]
+
+def _is_locked_production_final_report(entity: DailyReport) -> bool:
+    if entity.report_type != 'production':
+        return False
+    if entity.status in {'reviewed', 'published'}:
+        return True
+    if entity.final_confirmed_by is not None or entity.final_confirmed_at is not None:
+        return True
+    return bool(entity.is_final_version and entity.generated_at is not None)
 
 def review_report(
     db: Session,
