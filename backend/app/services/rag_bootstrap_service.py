@@ -32,6 +32,24 @@ DATE_PATTERNS = (
     re.compile(r'\b\d{1,2}月\d{1,2}[日号]\b'),
 )
 NUMERIC_TOKEN_PATTERN = re.compile(r'(?<![A-Za-z])\d[\d,]*(?:\.\d+)?')
+PROTECTED_STABLE_LABELS = (
+    '1650车间',
+    '1850车间',
+    '2050车间',
+    '1650冷轧',
+    '1850冷轧',
+    '2050冷轧',
+    '1#机',
+    '2#机',
+    '3#机',
+    '4#机',
+    '5#机',
+    '6#机',
+)
+PROTECTED_STABLE_TOKENS = {
+    label: f'__RAG_STABLE_{chr(ord("A") + index)}__'
+    for index, label in enumerate(PROTECTED_STABLE_LABELS)
+}
 
 
 def build_rag_bootstrap_manifest(reference_root: Path) -> list[RagBootstrapItem]:
@@ -48,7 +66,11 @@ def sanitize_bootstrap_text(text: str) -> str:
     sanitized = str(text or '')
     for pattern in DATE_PATTERNS:
         sanitized = pattern.sub(DATE_PLACEHOLDER, sanitized)
+    for label, token in PROTECTED_STABLE_TOKENS.items():
+        sanitized = sanitized.replace(label, token)
     sanitized = NUMERIC_TOKEN_PATTERN.sub(VALUE_PLACEHOLDER, sanitized)
+    for label, token in PROTECTED_STABLE_TOKENS.items():
+        sanitized = sanitized.replace(token, label)
     return sanitized
 
 

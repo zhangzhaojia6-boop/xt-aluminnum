@@ -22,6 +22,12 @@ def _write_sample_files(root: Path) -> None:
         '\n'.join(
             [
                 '日报日期：2026-06-16',
+                '1650车间：1#机稳定生产，2#机待切换。',
+                '1850车间：本日按固定模板核对。',
+                '2050车间：继续沿用母版规则。',
+                '1650冷轧：固定口径标签。',
+                '1850冷轧：固定口径标签。',
+                '2050冷轧：固定口径标签。',
                 '天然气：57776m³',
                 '成品率：84.86%',
                 '成本：13.44万元',
@@ -39,6 +45,9 @@ def _write_sample_files(root: Path) -> None:
         '\n'.join(
             [
                 '报告日：6月16日',
+                '1650车间核对：1#机、2#机按模板记录。',
+                '1850车间核对：固定车间标签保留。',
+                '2050车间核对：固定车间标签保留。',
                 '天然气核对：57776m³',
                 '成品率核对：84.86%',
                 '成本核对：13.44万元',
@@ -94,6 +103,16 @@ def test_bootstrap_rag_apply_sanitizes_and_marks_rule_docs(tmp_path: Path) -> No
         assert '3条' not in combined_text
         assert '下降12吨' not in combined_text
         assert '合计166.992' not in combined_text
+        assert '1650车间' in combined_text
+        assert '1850车间' in combined_text
+        assert '2050车间' in combined_text
+        assert '1650冷轧' in combined_text
+        assert '1850冷轧' in combined_text
+        assert '2050冷轧' in combined_text
+        assert '1#机' in combined_text
+        assert '2#机' in combined_text
+        assert '[示例数值]车间' not in combined_text
+        assert '[示例数值]#机' not in combined_text
         assert '天然气' in combined_text
         assert '成品率' in combined_text
         assert '成本' in combined_text
