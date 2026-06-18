@@ -157,9 +157,22 @@ def test_agent_cli_ingests_safe_system_understanding_copy(tmp_path, monkeypatch,
         get_sessionmaker.cache_clear()
 
 
-def test_dingtalk_daily_report_without_archive_returns_safe_preview_message(tmp_path, monkeypatch, capsys) -> None:
+def test_dingtalk_daily_report_outputs_finished_text(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+
+    def fake_build_daily_report_product(*_args, **_kwargs):
+        return {
+            'status': 'ready',
+            'business_date': '2026-06-17',
+            'report_id': 88,
+            'text': '6月17日，车间总产量日合计303吨（外加工0吨）。',
+            'missing_fields': [],
+            'conflicts': [],
+            'scheduled_at': '07:30',
+        }
+
+    monkeypatch.setattr(agent_cli.daily_report_task, 'build_daily_report_product', fake_build_daily_report_product)
     try:
         db.add(User(id=4, username='zzj3', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
         db.commit()
@@ -176,10 +189,13 @@ def test_dingtalk_daily_report_without_archive_returns_safe_preview_message(tmp_
 
         assert code == 0
         assert payload['ok'] is True
-        assert payload['action'] == 'approval-preview'
-        assert payload['data']['status'] == 'daily_report_not_found'
+        assert payload['action'] == 'daily-report'
+        assert payload['reply'].startswith('6月17日，车间总产量日合计303吨')
+        assert payload['data']['business_date'] == '2026-06-17'
+        assert payload['data']['report_id'] == 88
+        assert payload['data']['status'] == 'ready'
         assert payload['data']['sent'] is False
-        assert payload['data']['approval_id'] is None
+        assert payload['data']['scheduled_at'] == '07:30'
     finally:
         db.close()
         get_engine.cache_clear()
@@ -294,13 +310,15 @@ def test_dingtalk_command_auto_recognizes_clear_production_question(tmp_path, mo
         event = db.query(HermesLearningEvent).one()
         assert event.trace_id == 'trace-auto-production-001'
         assert event.question == '今天包装产量多少'
+        assert event.status == 'candidate'
+        assert db.query(HermesApprovedLesson).count() == 0
     finally:
         db.close()
         get_engine.cache_clear()
         get_sessionmaker.cache_clear()
 
 
-def test_dingtalk_rag_query_records_learning_candidate(tmp_path, monkeypatch, capsys) -> None:
+def test_dingtalk_rag_query_auto_promotes_stable_knowledge(tmp_path, monkeypatch, capsys) -> None:
     db = _install_db(tmp_path, monkeypatch)
     monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
     try:
@@ -309,7 +327,7 @@ def test_dingtalk_rag_query_records_learning_candidate(tmp_path, monkeypatch, ca
         create_document_from_bytes(
             db,
             filename='日报口径.md',
-            content='日报 7:30 输出前一个业务日。'.encode('utf-8'),
+            content='日报口径：日报 7:30 输出前一个业务日。'.encode('utf-8'),
             content_type='text/markdown',
             uploaded_by=None,
         )
@@ -333,7 +351,12 @@ def test_dingtalk_rag_query_records_learning_candidate(tmp_path, monkeypatch, ca
         event = db.query(HermesLearningEvent).one()
         assert event.trace_id == 'trace-rag-learning-001'
         assert event.question == '日报口径'
-        assert event.status == 'candidate'
+        assert event.status == 'approved'
+        assert db.query(HermesApprovedLesson).count() == 1
+        assert any(
+            (document.metadata_payload or {}).get('source_type') == 'approved_lesson'
+            for document in db.query(RagDocument).all()
+        )
         inbox = db.query(ChatInboxMessage).one()
         assert inbox.trace_id == 'trace-rag-learning-001'
         assert inbox.text == '/查知识 日报口径'

@@ -34,6 +34,7 @@ from app.models.system import User
 from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
 from app.services.agent_command_service import handle_agent_command
 from app.services.rag_service import query_knowledge
+from app.tasks import daily_report as daily_report_task
 from app.tasks import mes_sync
 
 
@@ -233,7 +234,14 @@ def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAut
         payload = _cmd_mes_sync_business(db, args, auth)
         payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
         return payload
-    if command in {'日报', '发日报', '补产量', '正式通知'}:
+    if command in {'日报', '发日报'}:
+        if not auth.is_owner:
+            raise AgentCliError('owner_required')
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='daily_report')
+        payload = _cmd_daily_report_product(db, args, auth)
+        payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
+        return payload
+    if command in {'补产量', '正式通知'}:
         if not auth.is_owner:
             raise AgentCliError('owner_required')
         inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='approval_preview')
@@ -285,7 +293,7 @@ def _cmd_agent_ask(
         actor=auth.user,
         trace_id=result.trace_id,
     )
-    _record_learning_candidate(
+    _record_learning_memory(
         db,
         question=text,
         answer=result.answer,
@@ -325,7 +333,7 @@ def _query_rag(db: Session, *, query_text: str, args: argparse.Namespace, auth: 
         machine_code=args.machine_code or None,
     )
     trace_id = _trace_id(args)
-    _record_learning_candidate(
+    _record_learning_memory(
         db,
         question=query_text,
         answer=str(payload.get('answer') or ''),
@@ -504,6 +512,36 @@ def _cmd_outbox_status(db: Session, args: argparse.Namespace, auth: HermesAuth) 
         'reply': 'outbox 状态已读取',
         'trace_id': _trace_id(args),
         'data': {'status_counts': {str(status): int(count) for status, count in rows}},
+    }
+
+
+def _cmd_daily_report_product(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    business_date = _target_date(args)
+    product = daily_report_task.build_daily_report_product(
+        db,
+        target_date=business_date,
+        generated_by='hermes_cli',
+    )
+    hermes_rag_service.archive_latest_daily_report_to_rag(
+        db,
+        report_date=business_date,
+        actor=auth.user,
+        generated_by='hermes',
+    )
+    return {
+        'action': 'daily-report',
+        'reply': product.get('text') or '日报已生成，但当前没有可输出的正文。',
+        'trace_id': _trace_id(args),
+        'data': {
+            'business_date': product.get('business_date'),
+            'report_id': product.get('report_id'),
+            'status': product.get('status'),
+            'missing_fields': product.get('missing_fields') or [],
+            'conflicts': product.get('conflicts') or [],
+            'scheduled_at': product.get('scheduled_at') or '07:30',
+            'sent': False,
+            'delivery': 'command_reply_and_scheduled_job',
+        },
     }
 
 
@@ -689,7 +727,7 @@ def _record_dingtalk_command_inbox(
     return inbox
 
 
-def _record_learning_candidate(
+def _record_learning_memory(
     db: Session,
     *,
     question: str,
@@ -701,7 +739,7 @@ def _record_learning_candidate(
 ) -> None:
     if not str(answer or '').strip():
         return
-    hermes_rag_service.record_learning_event(
+    event = hermes_rag_service.record_learning_event(
         db,
         question=question,
         answer=answer,
@@ -710,6 +748,78 @@ def _record_learning_candidate(
         sources=sources,
         actor=actor,
     )
+    if _should_auto_promote_learning(question=question, answer=answer, tools_called=tools_called, sources=sources):
+        hermes_rag_service.approve_learning_event(db, event_id=event.id, approver=actor)
+
+
+def _should_auto_promote_learning(
+    *,
+    question: str,
+    answer: str,
+    tools_called: list,
+    sources: list,
+) -> bool:
+    clean_answer = str(answer or '').strip()
+    if not clean_answer or '数据不足' in clean_answer:
+        return False
+    tool_names = {str(item) for item in (tools_called or [])}
+    if 'handle_agent_command' in tool_names:
+        return False
+    if 'query_knowledge' not in tool_names:
+        return False
+    clean_question = str(question or '').strip()
+    stable_keywords = (
+        '口径',
+        '规则',
+        'SOP',
+        'sop',
+        '模板',
+        '字段',
+        '路线',
+        '来自哪里',
+        '归哪里',
+        '怎么',
+        '知识',
+        '制度',
+        '说明',
+    )
+    realtime_keywords = (
+        '今天',
+        '今日',
+        '现在',
+        '实时',
+        '当前',
+        '多少',
+        '产量',
+        '能耗',
+        '停机',
+        '异常',
+        '入库',
+        '发货',
+    )
+    has_stable_intent = any(keyword in clean_question for keyword in stable_keywords)
+    has_realtime_intent = any(keyword in clean_question for keyword in realtime_keywords)
+    if has_realtime_intent and not has_stable_intent:
+        return False
+    stable_source_types = {
+        'approved_lesson',
+        'daily_report_archive',
+        'external_industry_knowledge',
+        'internal_system_understanding',
+        'mes_page_route',
+        'mes_route_catalog',
+        'uploaded_file',
+    }
+    for source in sources or []:
+        if not isinstance(source, dict):
+            continue
+        metadata = source.get('metadata') if isinstance(source.get('metadata'), dict) else {}
+        source_type = str(source.get('source_type') or metadata.get('source_type') or '').strip()
+        if source_type == 'business_fact':
+            return False
+        if source_type in stable_source_types:
+            return True
+    return bool(has_stable_intent and sources)
 
 
 def _learning_sources_from_agent_result(result) -> list:
