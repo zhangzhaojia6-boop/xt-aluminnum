@@ -456,7 +456,7 @@ function buildWorkshopStage(key, label, matchers) {
   return {
     key,
     label,
-    primaryLabel: '今日产出',
+    primaryLabel: '日累计',
     primaryValue: daily == null ? '—' : `${fmt(daily, 0)} 吨`,
     secondaryLabel: '月累计',
     secondaryValue: monthly == null ? '—' : `${fmt(monthly, 0)} 吨`,
