@@ -36,10 +36,10 @@ PageFetcher = Callable[[str], str]
 
 
 MENU_QUERY = (
-    'SELECT Id AS id, ParentId AS parent_id, Name AS name, Url AS url, '
+    'SELECT Id AS id, PID AS parent_id, Name AS name, URL AS url, '
     'IsButton AS is_button, Sort AS sort, Status AS status '
     'FROM MES_Right WHERE ISNULL(IsButton, 0) = 0 AND ISNULL(Status, 0) = 0 '
-    'ORDER BY ParentId, Sort, Id'
+    'ORDER BY PID, Sort, Id'
 )
 
 TABLE_QUERY = (
@@ -229,7 +229,7 @@ PAGE_RULES: list[dict[str, Any]] = [
         'prefix': '/Right/',
         'business_meaning': '权限菜单',
         'tables': ['MES_Right'],
-        'source_fields': ['Name', 'Url', 'ParentId', 'IsButton'],
+        'source_fields': ['Name', 'URL', 'PID', 'IsButton'],
         'confidence': 'verified_menu_source',
     },
     {
@@ -243,7 +243,7 @@ PAGE_RULES: list[dict[str, Any]] = [
         'prefix': '/Department/',
         'business_meaning': '部门主数据',
         'tables': ['MES_Department'],
-        'source_fields': ['Name', 'ParentId', 'CreateDate'],
+        'source_fields': ['Name', 'PID', 'CreateDate'],
         'confidence': 'controller_catalog_match',
     },
     {
@@ -257,7 +257,7 @@ PAGE_RULES: list[dict[str, Any]] = [
         'prefix': '/Dict/',
         'business_meaning': '数据字典',
         'tables': ['MES_Dict'],
-        'source_fields': ['Name', 'Code', 'ParentId'],
+        'source_fields': ['Name', 'Code', 'PID'],
         'confidence': 'controller_catalog_match',
     },
     {

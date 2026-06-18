@@ -125,6 +125,8 @@ def test_extract_page_surface_finds_fields_and_endpoints_without_passwords() -> 
 
 def test_page_inventory_preserves_duplicate_urls_under_different_menus() -> None:
     module = _load_script_module()
+    assert 'PID AS parent_id' in module.MENU_QUERY
+    assert 'URL AS url' in module.MENU_QUERY
     catalog = module.inspect_sqlserver_catalog(_fake_query_runner())
     menu = module.fetch_mes_menu(_fake_query_runner())
 
