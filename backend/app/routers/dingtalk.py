@@ -22,7 +22,7 @@ from app.core.auth import create_access_token
 from app.core.redaction import redact_secret_text
 from app.core.scope import build_scope_summary
 from app.database import get_db
-from app.models.agent_communication import AgentChannelBinding, AgentProfile, CommunicationChannel
+from app.models.agent_communication import AgentChannelBinding, AgentProfile, ChatInboxMessage, CommunicationChannel
 from app.models.master import Workshop
 from app.models.system import User
 from app.schemas.auth import LoginResponse, UserInfo
@@ -346,6 +346,18 @@ def _has_bound_inbound_outbox_channel(db: Session, *, group_id: str, agent_code:
     )
 
 
+def _find_duplicate_inbound_message(db: Session, *, group_id: str, trace_id: str) -> ChatInboxMessage | None:
+    if not trace_id:
+        return None
+    query = db.query(ChatInboxMessage).filter(
+        ChatInboxMessage.channel == 'dingtalk_group',
+        ChatInboxMessage.trace_id == trace_id,
+    )
+    if group_id:
+        query = query.filter(ChatInboxMessage.group_id == group_id)
+    return query.order_by(ChatInboxMessage.id.asc()).first()
+
+
 def _ensure_inbound_token(header_token: str | None) -> None:
     accepted_tokens = {
         token
@@ -405,6 +417,17 @@ def dingtalk_agent_inbound(
         _first_payload_value(payload, 'senderStaffId', 'senderId', 'senderUserId', 'userid', 'userId')
     )
     trace_id = _clean_text(_first_payload_value(payload, 'traceId', 'trace_id', 'msgId', 'messageId'))
+    duplicate = _find_duplicate_inbound_message(db, group_id=group_id, trace_id=trace_id)
+    if duplicate is not None:
+        return {
+            'errcode': 0,
+            'errmsg': 'ok',
+            'action': 'dingtalk-duplicate',
+            'trace_id': trace_id,
+            'answer': '',
+            'should_reply': False,
+            'chat_inbox_id': duplicate.id,
+        }
     agent_code = _clean_text(_first_payload_value(payload, 'agentCode', 'agent_code')) or 'factory_dispatch'
     queue_outbox_value = _first_payload_value(payload, 'queueOutbox', 'queue_outbox')
     queue_outbox = (

@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.database import Base, get_engine, get_sessionmaker
+from app.models.agent_communication import AgentRun, ChatInboxMessage
 from app.models.master import Workshop
-from app.models.rag import RagChunk, RagDocument, RagEmbedding, RagQueryLog, RagSourceIngestion
+from app.models.rag import (
+    HermesApprovedLesson,
+    HermesLearningEvent,
+    HermesShortTermMemory,
+    RagChunk,
+    RagDocument,
+    RagEmbedding,
+    RagQueryLog,
+    RagSourceIngestion,
+)
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services.rag_service import create_document_from_bytes
@@ -22,7 +33,12 @@ TABLES = [
     RagQueryLog.__table__,
     RagEmbedding.__table__,
     RagSourceIngestion.__table__,
+    HermesLearningEvent.__table__,
+    HermesShortTermMemory.__table__,
+    HermesApprovedLesson.__table__,
     DailyReport.__table__,
+    ChatInboxMessage.__table__,
+    AgentRun.__table__,
 ]
 
 
@@ -164,6 +180,203 @@ def test_dingtalk_daily_report_without_archive_returns_safe_preview_message(tmp_
         assert payload['data']['status'] == 'daily_report_not_found'
         assert payload['data']['sent'] is False
         assert payload['data']['approval_id'] is None
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_command_records_unrelated_group_chat_without_reply(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        db.add(User(id=5, username='zzj4', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '收到，辛苦了',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'msg-ordinary-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'dingtalk-message-recorded'
+        assert payload['data']['should_reply'] is False
+        assert payload['reply'] == ''
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(AgentRun).count() == 0
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_command_dedupes_same_message_trace_id(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        db.add(User(id=6, username='zzj5', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+        args = [
+            'dingtalk-command',
+            '--text',
+            '普通群消息',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'ding-msg-duplicate-001',
+        ]
+
+        assert _run_cli(args, capsys)[1]['action'] == 'dingtalk-message-recorded'
+        code, payload = _run_cli(args, capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'dingtalk-duplicate'
+        assert payload['data']['should_reply'] is False
+        assert db.query(ChatInboxMessage).count() == 1
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_command_auto_recognizes_clear_production_question(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    seen: dict[str, str] = {}
+
+    def fake_handle_agent_command(*_args, **kwargs):
+        seen['text'] = kwargs['text']
+        return SimpleNamespace(
+            answer='包装产量 303.03 吨',
+            intent='production_today',
+            status_color='green',
+            facts={'data_source': 'test'},
+            rag={'citations': []},
+            chat_inbox_id=10,
+            agent_run_id=20,
+            outbox_message_id=None,
+            trace_id=kwargs['trace_id'],
+        )
+
+    monkeypatch.setattr(agent_cli, 'handle_agent_command', fake_handle_agent_command)
+    try:
+        db.add(User(id=7, username='zzj6', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '今天包装产量多少',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'trace-auto-production-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'agent-ask'
+        assert payload['reply'] == '包装产量 303.03 吨'
+        assert seen['text'] == '今天包装产量多少'
+        event = db.query(HermesLearningEvent).one()
+        assert event.trace_id == 'trace-auto-production-001'
+        assert event.question == '今天包装产量多少'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_rag_query_records_learning_candidate(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        db.add(User(id=8, username='zzj7', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+        create_document_from_bytes(
+            db,
+            filename='日报口径.md',
+            content='日报 7:30 输出前一个业务日。'.encode('utf-8'),
+            content_type='text/markdown',
+            uploaded_by=None,
+        )
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '/查知识 日报口径',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'cid-production',
+            '--trace-id',
+            'trace-rag-learning-001',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'rag-query'
+        event = db.query(HermesLearningEvent).one()
+        assert event.trace_id == 'trace-rag-learning-001'
+        assert event.question == '日报口径'
+        assert event.status == 'candidate'
+        inbox = db.query(ChatInboxMessage).one()
+        assert inbox.trace_id == 'trace-rag-learning-001'
+        assert inbox.text == '/查知识 日报口径'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_learning_approve_cli_promotes_candidate_to_long_term_rag(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        user = User(id=9, username='zzj8', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner')
+        db.add(user)
+        db.flush()
+        event = HermesLearningEvent(
+            trace_id='trace-learn-approve-001',
+            question='园区精整归哪里',
+            answer='园区精整归园区剪切。',
+            human_correction='园区精整在数据中枢归为园区剪切。',
+            status='candidate',
+            actor_user_id=user.id,
+        )
+        db.add(event)
+        db.commit()
+
+        code, payload = _run_cli([
+            'learning-approve',
+            '--learning-event-id',
+            str(event.id),
+            '--dingtalk-user-id',
+            'dt-owner',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'learning-approve'
+        db.expire_all()
+        assert db.get(HermesLearningEvent, event.id).status == 'approved'
+        assert db.query(HermesApprovedLesson).count() == 1
+        documents = db.query(RagDocument).all()
+        assert any((document.metadata_payload or {}).get('source_type') == 'approved_lesson' for document in documents)
     finally:
         db.close()
         get_engine.cache_clear()

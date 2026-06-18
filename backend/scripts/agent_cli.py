@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date
@@ -26,7 +27,7 @@ from app.config import settings
 from app.core.business_time import last_completed_production_business_date
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.database import get_sessionmaker
-from app.models.agent_communication import AgentOperationApproval, AgentOutboxMessage
+from app.models.agent_communication import AgentOperationApproval, AgentOutboxMessage, ChatInboxMessage
 from app.models.mes import MesSyncRunLog
 from app.models.reports import DailyReport
 from app.models.system import User
@@ -50,6 +51,7 @@ COMMAND_LEVELS = {
     'rag-ingest-web-source': 'L1',
     'rag-ingest-system-understanding': 'L1',
     'rag-rebuild-index': 'L1',
+    'learning-approve': 'L3',
     'agent-governance-status': 'L0',
     'agent-governance-apply': 'L1',
     'mes-sync-realtime': 'L1',
@@ -117,6 +119,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument('--limit', type=int, default=5)
     parser.add_argument('--target-date', default='')
     parser.add_argument('--report-id', type=int)
+    parser.add_argument('--learning-event-id', type=int)
     parser.add_argument('--group-id', default='')
     parser.add_argument('--channel', default='dingtalk_group')
     parser.add_argument('--agent-code', default='factory_dispatch')
@@ -143,6 +146,7 @@ def _run_with_db(args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
             'rag-ingest-web-source': _cmd_rag_ingest_web_source,
             'rag-ingest-system-understanding': _cmd_rag_ingest_system_understanding,
             'rag-rebuild-index': _cmd_rag_rebuild_index,
+            'learning-approve': _cmd_learning_approve,
             'agent-governance-status': _cmd_agent_governance_status,
             'agent-governance-apply': _cmd_agent_governance_apply,
             'mes-status': _cmd_mes_status,
@@ -201,28 +205,53 @@ def _authorize(args: argparse.Namespace) -> HermesAuth:
 
 def _cmd_dingtalk_command(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
     text = _normalize_dingtalk_text(args.text)
-    command, rest = _split_slash_command(text)
+    if not text:
+        raise AgentCliError('command_text_required')
+    if _is_duplicate_dingtalk_message(db, args):
+        return {
+            'action': 'dingtalk-duplicate',
+            'reply': '',
+            'trace_id': _trace_id(args),
+            'data': {'should_reply': False, 'reason': 'duplicate_message'},
+        }
+
+    is_slash = text.startswith('/')
+    is_direct = is_slash or _is_direct_dingtalk_mention(args.text)
+    command, rest = _split_slash_command(text) if is_slash or is_direct else ('', '')
     if command in {'查知识', '字段', '口径', 'MES路线', 'mes路线', '缺陷原因', '工艺解释'}:
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='rag_query')
         query_text = rest or text
         payload = _query_rag(db, query_text=query_text, args=args, auth=auth)
+        payload['data']['chat_inbox_id'] = inbox.id
         return {'action': 'rag-query', 'reply': payload['reply'], 'data': payload['data'], 'trace_id': _trace_id(args)}
     if command in {'同步MES', '同步mes'}:
         if not auth.is_owner:
             raise AgentCliError('owner_required')
         if not _ops_enabled():
             raise AgentCliError('hermes_ops_disabled')
-        return _cmd_mes_sync_business(db, args, auth)
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='mes_sync')
+        payload = _cmd_mes_sync_business(db, args, auth)
+        payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
+        return payload
     if command in {'日报', '发日报', '补产量', '正式通知'}:
         if not auth.is_owner:
             raise AgentCliError('owner_required')
-        return _cmd_approval_preview(db, args, auth)
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='approval_preview')
+        payload = _cmd_approval_preview(db, args, auth)
+        payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
+        return payload
     if command in {'巡检页面'}:
         if not auth.is_owner:
             raise AgentCliError('owner_required')
-        return _cmd_visual_inspect(db, args, auth)
-    if command and command not in {'产量', '能耗', '停机', '异常'}:
+        inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='visual_inspect')
+        payload = _cmd_visual_inspect(db, args, auth)
+        payload.setdefault('data', {})['chat_inbox_id'] = inbox.id
+        return payload
+    if is_slash and command and command not in {'产量', '能耗', '停机', '异常'}:
         raise AgentCliError('dingtalk_command_not_allowed')
-    return _cmd_agent_ask(db, args, auth, text_override=rest or text)
+    if is_direct or _should_auto_reply_to_dingtalk_text(text):
+        return _cmd_agent_ask(db, args, auth, text_override=rest or text.lstrip('/'))
+    return _record_dingtalk_message_without_reply(db, args, auth, text=text)
 
 
 def _cmd_agent_ask(
@@ -256,6 +285,15 @@ def _cmd_agent_ask(
         actor=auth.user,
         trace_id=result.trace_id,
     )
+    _record_learning_candidate(
+        db,
+        question=text,
+        answer=result.answer,
+        trace_id=result.trace_id,
+        tools_called=['handle_agent_command'],
+        sources=_learning_sources_from_agent_result(result),
+        actor=auth.user,
+    )
     return {
         'action': 'agent-ask',
         'reply': result.answer,
@@ -286,7 +324,17 @@ def _query_rag(db: Session, *, query_text: str, args: argparse.Namespace, auth: 
         workshop=args.workshop or None,
         machine_code=args.machine_code or None,
     )
-    return {'action': 'rag-query', 'reply': payload.get('answer'), 'data': payload, 'trace_id': _trace_id(args)}
+    trace_id = _trace_id(args)
+    _record_learning_candidate(
+        db,
+        question=query_text,
+        answer=str(payload.get('answer') or ''),
+        trace_id=trace_id,
+        tools_called=['query_knowledge'],
+        sources=payload.get('citations') or [],
+        actor=auth.user,
+    )
+    return {'action': 'rag-query', 'reply': payload.get('answer'), 'data': payload, 'trace_id': trace_id}
 
 
 def _cmd_rag_ingest_file(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
@@ -352,6 +400,23 @@ def _cmd_rag_ingest_system_understanding(db: Session, args: argparse.Namespace, 
 def _cmd_rag_rebuild_index(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
     count = hermes_rag_service.rebuild_rag_embeddings(db)
     return {'action': 'rag-rebuild-index', 'reply': f'已重建 {count} 个切片向量', 'data': {'embedding_count': count}, 'trace_id': _trace_id(args)}
+
+
+def _cmd_learning_approve(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    if not args.learning_event_id:
+        raise AgentCliError('learning_event_id_required')
+    lesson = hermes_rag_service.approve_learning_event(db, event_id=args.learning_event_id, approver=auth.user)
+    return {
+        'action': 'learning-approve',
+        'reply': f'学习候选 #{args.learning_event_id} 已进入长期知识库',
+        'trace_id': _trace_id(args),
+        'data': {
+            'learning_event_id': args.learning_event_id,
+            'approved_lesson_id': lesson.id,
+            'document_id': lesson.document_id,
+            'status': lesson.status,
+        },
+    }
 
 
 def _cmd_agent_governance_status(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
@@ -497,8 +562,7 @@ def _find_user(db: Session, *, dingtalk_user_id: str, dingtalk_union_id: str) ->
 def _normalize_dingtalk_text(text: str) -> str:
     clean = str(text or '').strip()
     if clean.startswith('@'):
-        parts = clean.split(maxsplit=1)
-        return parts[1].strip() if len(parts) > 1 else ''
+        return re.sub(r'^@\S+\s*', '', clean).strip()
     return clean
 
 
@@ -510,6 +574,153 @@ def _split_slash_command(text: str) -> tuple[str, str]:
         return '', ''
     parts = clean.split(maxsplit=1)
     return parts[0], parts[1].strip() if len(parts) > 1 else ''
+
+
+def _is_direct_dingtalk_mention(text: str) -> bool:
+    clean = str(text or '').strip()
+    return clean.startswith('@')
+
+
+def _should_auto_reply_to_dingtalk_text(text: str) -> bool:
+    clean = str(text or '').strip()
+    if not clean:
+        return False
+    keywords = (
+        '产量',
+        '包装',
+        '入库',
+        '发货',
+        '在制',
+        '能耗',
+        '电耗',
+        '气耗',
+        '吨耗',
+        '停机',
+        '异常',
+        '质量',
+        '日报',
+        '口径',
+        'MES',
+        'mes',
+        '同步',
+        '铸锭',
+        '铸二',
+        '铸三',
+        '热轧',
+        '精整',
+        '拉矫',
+        '剪切',
+        '园区',
+        '1650',
+        '1850',
+        '2050',
+    )
+    return any(keyword in clean for keyword in keywords)
+
+
+def _is_duplicate_dingtalk_message(db: Session, args: argparse.Namespace) -> bool:
+    trace_id = _clean(args.trace_id)
+    if not trace_id:
+        return False
+    query = db.query(ChatInboxMessage.id).filter(
+        ChatInboxMessage.channel == (args.channel or 'dingtalk_group'),
+        ChatInboxMessage.trace_id == trace_id,
+    )
+    group_id = _clean(args.group_id)
+    if group_id:
+        query = query.filter(ChatInboxMessage.group_id == group_id)
+    return query.first() is not None
+
+
+def _record_dingtalk_message_without_reply(
+    db: Session,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    *,
+    text: str,
+) -> dict[str, Any]:
+    trace_id = _trace_id(args)
+    inbox = _record_dingtalk_command_inbox(db, args, auth, text=text, handling='record_only', trace_id=trace_id)
+    hermes_memory_service.remember_short_term(
+        db,
+        conversation_key=args.group_id or f'user:{auth.user.id}',
+        memory_key='last_group_message',
+        memory_value={'text': text, 'handling': 'record_only'},
+        actor=auth.user,
+        trace_id=trace_id,
+    )
+    return {
+        'action': 'dingtalk-message-recorded',
+        'reply': '',
+        'trace_id': trace_id,
+        'data': {
+            'should_reply': False,
+            'chat_inbox_id': inbox.id,
+            'handling': 'record_only',
+        },
+    }
+
+
+def _record_dingtalk_command_inbox(
+    db: Session,
+    args: argparse.Namespace,
+    auth: HermesAuth,
+    *,
+    text: str,
+    handling: str,
+    trace_id: str | None = None,
+) -> ChatInboxMessage:
+    inbox = ChatInboxMessage(
+        channel=args.channel or 'dingtalk_group',
+        group_id=_clean(args.group_id) or None,
+        sender_external_id=_clean(args.dingtalk_user_id) or _clean(args.dingtalk_union_id) or None,
+        text=text,
+        agent_code=args.agent_code or 'factory_dispatch',
+        trace_id=trace_id or _trace_id(args),
+        source_payload={
+            'source': 'hermes_cli',
+            'command': args.command,
+            'handling': handling,
+            'actor_user_id': auth.user.id,
+        },
+    )
+    db.add(inbox)
+    db.flush()
+    return inbox
+
+
+def _record_learning_candidate(
+    db: Session,
+    *,
+    question: str,
+    answer: str,
+    trace_id: str,
+    tools_called: list,
+    sources: list,
+    actor: User | None,
+) -> None:
+    if not str(answer or '').strip():
+        return
+    hermes_rag_service.record_learning_event(
+        db,
+        question=question,
+        answer=answer,
+        trace_id=trace_id,
+        tools_called=tools_called,
+        sources=sources,
+        actor=actor,
+    )
+
+
+def _learning_sources_from_agent_result(result) -> list:
+    sources: list = []
+    facts = getattr(result, 'facts', None) or {}
+    data_source = facts.get('data_source')
+    if data_source:
+        sources.append({'source_type': 'business_fact', 'source_ref': data_source})
+    rag = getattr(result, 'rag', None) or {}
+    sources.extend(rag.get('citations') or [])
+    return sources
 
 
 def _reject_if_sql(text: str) -> None:

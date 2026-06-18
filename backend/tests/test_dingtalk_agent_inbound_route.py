@@ -567,3 +567,54 @@ def test_dingtalk_agent_inbound_treats_string_false_as_no_outbox(monkeypatch) ->
         assert db.query(AgentRun).count() == 1
     finally:
         _restore_db_override(previous_overrides, db)
+
+
+def test_dingtalk_agent_inbound_dedupes_same_message_trace_id(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        )
+    )
+    db.commit()
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'inbound-test', raising=False)
+
+    try:
+        client = TestClient(app)
+        payload = {
+            'conversationId': 'cid-production-test',
+            'senderStaffId': 'dt-manager-001',
+            'senderUnionId': 'union-manager-001',
+            'text': {'content': '@鑫泰助手 今日产量'},
+            'agentCode': 'factory_dispatch',
+            'traceId': 'trace-dingtalk-dedupe-001',
+            'queueOutbox': 'false',
+        }
+        first = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+        second = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'inbound-test'},
+            json=payload,
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        duplicate = second.json()
+        assert duplicate['action'] == 'dingtalk-duplicate'
+        assert duplicate['should_reply'] is False
+        assert db.query(ChatInboxMessage).count() == 1
+        assert db.query(AgentRun).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
