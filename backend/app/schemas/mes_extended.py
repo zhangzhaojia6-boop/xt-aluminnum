@@ -83,6 +83,12 @@ class MesWipTotalSnapshotOut(BaseModel):
     doing_count: int | None = None
     doing_weight_tons: float | None = None
     snapshot_at: datetime
+    source_page: str | None = None
+    source_path: str | None = None
+    source_table: str | None = None
+    source_workshop_field: str | None = None
+    source_process_field: str | None = None
+    source_weight_field: str | None = None
 
 
 class MesReferenceItemOut(BaseModel):

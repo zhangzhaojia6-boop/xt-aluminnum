@@ -387,14 +387,15 @@ def test_wip_distribution_uses_wip_total_when_daily_snapshot_weight_is_zero(tmp_
             'workshop': '新厂在线车间',
             'coil_count': 588,
             'total_weight': 4.47,
-            'feeding_weight': 28.5,
+            'feeding_weight': 0.0,
             'source_basis': 'mes_wip_total_snapshot',
-            'source_label': '外部 MES 在制总量参考',
+            'source_label': 'MES 在制料统计',
+            'snapshot_at': '2026-05-29T08:00:00',
         }
     ]
 
 
-def test_wip_distribution_ignores_zero_snapshots_and_total_fallback_when_positive_daily_exists(tmp_path) -> None:
+def test_wip_distribution_prefers_wip_total_snapshot_over_daily_snapshot(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-official-wip.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -432,12 +433,13 @@ def test_wip_distribution_ignores_zero_snapshots_and_total_fallback_when_positiv
 
     assert payload == [
         {
-            'workshop': '精整分厂',
-            'coil_count': 0,
-            'total_weight': 576.5,
+            'workshop': '精整',
+            'coil_count': 33839,
+            'total_weight': 264.25,
             'feeding_weight': 0.0,
-            'source_basis': 'mes_daily_wip_snapshot',
-            'source_label': '外部 MES 当日快照参考',
+            'source_basis': 'mes_wip_total_snapshot',
+            'source_label': 'MES 在制料统计',
+            'snapshot_at': '2026-06-17T08:00:00',
         }
     ]
 
@@ -463,7 +465,7 @@ def test_wip_distribution_does_not_use_other_day_wip_total_snapshot(tmp_path) ->
     assert payload == []
 
 
-def test_wip_distribution_falls_back_to_recent_wip_total_before_business_window(tmp_path) -> None:
+def test_wip_distribution_does_not_fall_back_to_recent_wip_total_before_business_window(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-wip-total-recent.db'}", future=True)
     Base.metadata.create_all(engine, tables=[MesCoilSnapshot.__table__, MesDailyWipSnapshot.__table__, MesWipTotalSnapshot.__table__])
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -489,24 +491,7 @@ def test_wip_distribution_falls_back_to_recent_wip_total_before_business_window(
 
     payload = daily_overview_builder._build_wip_distribution(db, date(2026, 6, 18))
 
-    assert payload == [
-        {
-            'workshop': '精整',
-            'coil_count': 250,
-            'total_weight': 250.0,
-            'feeding_weight': 0.0,
-            'source_basis': 'mes_wip_total_snapshot',
-            'source_label': '外部 MES 在制总量参考',
-        },
-        {
-            'workshop': '2050车间',
-            'coil_count': 14,
-            'total_weight': 14.0,
-            'feeding_weight': 0.0,
-            'source_basis': 'mes_wip_total_snapshot',
-            'source_label': '外部 MES 在制总量参考',
-        },
-    ]
+    assert payload == []
 
 
 def test_wip_distribution_converts_large_wip_total_snapshot_weight_from_kg(tmp_path) -> None:

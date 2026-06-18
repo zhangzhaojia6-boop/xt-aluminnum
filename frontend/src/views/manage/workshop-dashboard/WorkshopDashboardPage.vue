@@ -37,6 +37,8 @@
 
     <div class="xt-second-pass-source-strip" data-testid="second-pass-source-strip" aria-label="数据来源">
       <span class="xt-second-pass-source-strip__item">MES 外部数据</span>
+      <span class="xt-second-pass-source-strip__item">MES 车间报表</span>
+      <span class="xt-second-pass-source-strip__item">MES 在制料统计</span>
       <span class="xt-second-pass-source-strip__item">人工填报</span>
       <span class="xt-second-pass-source-strip__item">算法数据</span>
     </div>
@@ -262,7 +264,7 @@ const wipRows = computed(() => mesMaterialRows.value.slice(0, 6).map((row, index
   ...row,
   key: row.source_id || `wip-${index}`,
   title: row.process_name || row.workshop_name || '-',
-  subtitle: `${row.workshop_name || '-'} · ${formatNumber(row.doing_count, 0)} 卷`,
+  subtitle: `${row.workshop_name || '-'} · ${formatNumber(row.doing_count, 0)} 卷 · ${row.source_page || row.sourcePage || 'MES 在制料统计'}`,
   weight: row.doing_weight_tons ?? 0,
 })))
 const hasWorkshop = computed(() => Boolean(workshopId.value))
@@ -291,8 +293,13 @@ const exceptionRows = computed(() => {
 })
 const factoryMesHomeFact = computed(() => dashboard.value.factory_packaging_fact || dashboard.value.factory_mes_home_packaging_fact || dashboard.value.factoryMesHomePackagingFact || {})
 const factoryProductionFact = computed(() => dashboard.value.factory_production_fact || dashboard.value.factoryProductionFact || {})
+const liveWorkshopTotal = computed(() => {
+  const liveWorkshop = (live.value.workshops || [])[0] || {}
+  return liveWorkshop.workshop_total || liveWorkshop.workshopTotal || {}
+})
 const kpis = computed(() => [
-  { key: 'process', label: '今日下机量', value: formatNumber(dashboard.value.process_output ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
+  { key: 'workshop-feeding', label: '车间投料量', value: formatNumber(liveWorkshopTotal.value.input ?? dashboard.value.input_weight ?? dashboard.value.inputWeight, 2), unit: '吨', tone: 'primary' },
+  { key: 'process', label: '车间下机量', value: formatNumber(dashboard.value.process_output ?? liveWorkshopTotal.value.output ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
   { key: 'finished', label: '车间口径产量', value: formatNumber(dashboard.value.total_output, 2), unit: '吨', tone: 'success' },
   { key: 'factory-feeding', label: '全厂投料', value: formatNumber(factoryProductionFact.value.factory_feeding_daily_input, 2), unit: '吨', tone: 'primary' },
   { key: 'factory-mes-daily', label: '全厂包装', value: formatNumber(factoryMesHomeFact.value.factory_packaging_daily_output ?? factoryMesHomeFact.value.mes_home_daily_output, 2), unit: '吨', tone: 'success' },

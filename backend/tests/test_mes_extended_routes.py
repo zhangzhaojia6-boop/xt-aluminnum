@@ -307,7 +307,7 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
                     workshop_name='在线退火分厂',
                     process_name='退火',
                     doing_count=3,
-                    doing_weight_tons=12.5,
+                    doing_weight_tons=12500.0,
                     snapshot_at=datetime(2026, 5, 31, 15, 35, tzinfo=UTC),
                     source_payload={'Password': 'secret'},
                 ),
@@ -372,5 +372,9 @@ def test_mes_extended_service_summarizes_and_filters_without_raw_payload(tmp_pat
     assert len(wip_rows) == 1
     assert wip_rows[0]['workshop_name'] == '在线退火分厂'
     assert wip_rows[0]['source_id'] == 'wip-1'
+    assert wip_rows[0]['doing_weight_tons'] == 12.5
+    assert wip_rows[0]['source_page'] == '调度管理 / 车间实时查询 / 在制料统计'
+    assert wip_rows[0]['source_table'] == 'MES_Product'
+    assert wip_rows[0]['source_weight_field'] == 'FeedingWeight'
     assert 'source_payload' not in wip_rows[0]
     assert fallback_wip_rows == []

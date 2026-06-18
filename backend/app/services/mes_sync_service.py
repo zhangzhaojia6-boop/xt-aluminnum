@@ -1321,11 +1321,23 @@ def _merge_wip_fields(target: dict[str, Any], incoming: dict[str, Any]) -> None:
     target['source_payload'] = _merge_wip_payload(target.get('source_payload'), incoming.get('source_payload'))
 
 
+def _wip_source_payload(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    payload = _safe_payload(metadata)
+    payload.setdefault('source_page', '调度管理 / 车间实时查询 / 在制料统计')
+    payload.setdefault('source_path', '/Dispatch/DoingReportTotal')
+    payload.setdefault('source_table', 'MES_Product')
+    payload.setdefault('source_workshop_field', 'CurrentWorkShop')
+    payload.setdefault('source_process_field', 'CurrentProcess')
+    payload.setdefault('source_weight_field', 'FeedingWeight')
+    return payload
+
+
 def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_wip_totals()
     merged_fields: dict[str, dict[str, Any]] = {}
     for row in rows:
+        source_payload = _wip_source_payload(row.metadata)
         process_totals = _to_mapping(row.metadata.get('process_totals'))
         if process_totals:
             for process_name, weight in process_totals.items():
@@ -1336,7 +1348,7 @@ def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncSt
                     'doing_count': row.doing_count,
                     'doing_weight_tons': _to_float(weight),
                     'snapshot_at': synced_at,
-                    'source_payload': _safe_payload(row.metadata),
+                    'source_payload': source_payload,
                 }
                 if source_id in merged_fields:
                     _merge_wip_fields(merged_fields[source_id], fields)
@@ -1350,7 +1362,7 @@ def sync_mes_wip_total(db: Session, *, now: datetime | None = None) -> MesSyncSt
             'doing_count': row.doing_count,
             'doing_weight_tons': row.doing_weight,
             'snapshot_at': synced_at,
-            'source_payload': _safe_payload(row.metadata),
+            'source_payload': source_payload,
         }
         if source_id in merged_fields:
             _merge_wip_fields(merged_fields[source_id], fields)

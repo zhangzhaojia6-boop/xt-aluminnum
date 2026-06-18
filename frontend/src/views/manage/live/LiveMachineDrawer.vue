@@ -9,7 +9,7 @@
 
     <section v-if="machine" class="live-machine-drawer__body">
       <div class="live-machine-drawer__stats">
-        <span><b data-xt-numeric>{{ formatNumber(machine.input, 2) }}</b><em>投入 吨</em></span>
+        <span><b data-xt-numeric>{{ formatNumber(machine.input, 2) }}</b><em>上机量 吨</em></span>
         <span><b data-xt-numeric>{{ formatNumber(machine.output, 2) }}</b><em>下机量 吨</em></span>
         <span><b data-xt-numeric>{{ formatNumber(machine.scrap, 2) }}</b><em>废料 吨</em></span>
       </div>
@@ -28,6 +28,7 @@
         <el-table-column prop="entry_status" label="状态" width="88" />
         <el-table-column prop="tracking_card_no" label="随行卡" min-width="120" />
         <el-table-column prop="responsible_name" label="责任人" min-width="110" />
+        <el-table-column prop="input_weight" label="上机量" width="96" align="right" />
         <el-table-column prop="output_weight" label="下机量" width="96" align="right" />
       </el-table>
     </section>

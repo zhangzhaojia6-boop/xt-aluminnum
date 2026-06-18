@@ -19,6 +19,12 @@ const animatedMetricUrl = new URL('../src/views/manage/live/AnimatedMetricValue.
 const animatedMetricSource = existsSync(animatedMetricUrl) ? readFileSync(animatedMetricUrl, 'utf8') : ''
 const marketTickerUrl = new URL('../src/views/manage/live/LiveMarketTicker.vue', import.meta.url)
 const marketTickerSource = existsSync(marketTickerUrl) ? readFileSync(marketTickerUrl, 'utf8') : ''
+const machineCardUrl = new URL('../src/views/manage/live/LiveMachineCard.vue', import.meta.url)
+const machineCardSource = existsSync(machineCardUrl) ? readFileSync(machineCardUrl, 'utf8') : ''
+const machineMatrixUrl = new URL('../src/views/manage/live/LiveMachineMatrix.vue', import.meta.url)
+const machineMatrixSource = existsSync(machineMatrixUrl) ? readFileSync(machineMatrixUrl, 'utf8') : ''
+const machineDrawerUrl = new URL('../src/views/manage/live/LiveMachineDrawer.vue', import.meta.url)
+const machineDrawerSource = existsSync(machineDrawerUrl) ? readFileSync(machineDrawerUrl, 'utf8') : ''
 
 const componentNames = [
   'LiveMarketTicker',
@@ -95,6 +101,15 @@ test('/manage/live top ticker uses large readable cards without heavy loops', ()
   assert.match(marketTickerSource, /font-size:\s*clamp\(32px,\s*3\.2vw,\s*52px\)/)
   assert.doesNotMatch(marketTickerSource, /@keyframes/)
   assert.doesNotMatch(marketTickerSource, /infinite/)
+})
+
+test('/manage/live machine widgets show MES machine input and down-machine output', () => {
+  assert.match(machineCardSource, /上机量/)
+  assert.match(machineCardSource, /下机量/)
+  assert.match(machineMatrixSource, /上机/)
+  assert.match(machineMatrixSource, /下机/)
+  assert.match(machineDrawerSource, /上机量/)
+  assert.match(machineDrawerSource, /prop="input_weight"/)
 })
 
 test('realtime stream heartbeats do not reload the whole live page', () => {
@@ -223,18 +238,19 @@ test('machine matrix hides removed workshops and separates pending ownership', (
   const matrix = buildLiveMachineMatrix([
     {
       workshop_name: '园区在线',
+      workshop_total: { input: 42, output: 30 },
       machines: [
         {
           machine_id: 21,
           machine_name: '1#退火炉',
-          day_total: { output: 30, source_label: '外部 MES 过站产量' },
+          day_total: { input: 31, output: 30, source_label: '外部 MES 过站产量' },
           shifts: [{ shift_name: '大夜', submission_status: 'all_submitted', is_applicable: true }],
         },
         {
           machine_id: -5,
           machine_name: '未绑定机列 / 大夜',
           machine_binding_status: 'unbound',
-          day_total: { output: 12 },
+          day_total: { input: 12.5, output: 12 },
           shifts: [{ shift_name: '大夜', submission_status: 'in_progress', is_applicable: true }],
         },
       ],
@@ -255,10 +271,14 @@ test('machine matrix hides removed workshops and separates pending ownership', (
 
   assert.equal(matrix.workshops.length, 1)
   assert.equal(matrix.workshops[0].workshopName, '园区在线')
+  assert.equal(matrix.workshops[0].input, 42)
+  assert.equal(matrix.workshops[0].output, 30)
   assert.equal(matrix.workshops[0].machines.length, 1)
+  assert.equal(matrix.workshops[0].machines[0].input, 31)
   assert.equal(matrix.workshops[0].machines[0].sourceLabel, '外部 MES 过站产量')
   assert.equal(matrix.pendingMachines.length, 1)
   assert.equal(matrix.pendingMachines[0].machineName, '未绑定机列 / 大夜')
+  assert.equal(matrix.pendingMachines[0].input, 12.5)
 })
 
 test('machine matrix orders shifts by production day rhythm', () => {

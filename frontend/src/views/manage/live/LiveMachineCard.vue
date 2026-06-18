@@ -3,9 +3,15 @@
     <span class="live-machine-card__status"><i></i>{{ statusText }}</span>
     <strong>{{ machine.machineName }}</strong>
     <em>{{ machine.sourceLabel ? `${machine.workshopName} · ${machine.sourceLabel}` : machine.workshopName }}</em>
-    <div class="live-machine-card__metric">
-      <span>下机量</span>
-      <b data-xt-numeric>{{ outputText }} 吨</b>
+    <div class="live-machine-card__metrics">
+      <span>
+        <em>上机量</em>
+        <b data-xt-numeric>{{ inputText }} 吨</b>
+      </span>
+      <span>
+        <em>下机量</em>
+        <b data-xt-numeric>{{ outputText }} 吨</b>
+      </span>
     </div>
     <div class="live-machine-card__shifts">
       <span v-for="shift in machine.shifts.slice(0, 3)" :key="`${shift.shiftId}-${shift.shiftName}`">
@@ -37,6 +43,7 @@ const statusText = computed(() => {
 })
 
 const outputText = computed(() => formatNumber(props.machine.output, 2))
+const inputText = computed(() => formatNumber(props.machine.input, 2))
 </script>
 
 <style scoped>
@@ -87,7 +94,7 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
 .live-machine-card__status,
 .live-machine-card strong,
 .live-machine-card em,
-.live-machine-card__metric,
+.live-machine-card__metrics,
 .live-machine-card__shifts {
   position: relative;
   z-index: 1;
@@ -126,23 +133,38 @@ const outputText = computed(() => formatNumber(props.machine.output, 2))
   font-size: 12px;
 }
 
-.live-machine-card__metric {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+.live-machine-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin: 14px 0 11px;
   color: rgba(225, 253, 255, 0.86);
 }
 
-.live-machine-card__metric span {
+.live-machine-card__metrics span {
+  min-width: 0;
+  border: 1px solid rgba(0, 242, 255, 0.1);
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(0, 242, 255, 0.04);
+}
+
+.live-machine-card__metrics em {
+  display: block;
   color: rgba(185, 223, 235, 0.58);
+  font-style: normal;
   font-size: 12px;
 }
 
-.live-machine-card__metric b {
+.live-machine-card__metrics b {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
   color: #e1fdff;
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .live-machine-card__shifts {

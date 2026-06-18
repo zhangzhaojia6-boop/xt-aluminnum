@@ -23,7 +23,10 @@
       <article v-for="workshop in matrix.workshops" :key="workshop.workshopId || workshop.workshopName" class="live-machine-workshop">
         <div class="live-machine-workshop__head">
           <strong>{{ workshop.workshopName }}</strong>
-          <span data-xt-numeric>下机量 {{ formatNumber(workshop.output, 2) }} 吨</span>
+          <div class="live-machine-workshop__totals">
+            <span data-xt-numeric>上机 {{ formatNumber(workshop.input, 2) }} 吨</span>
+            <span data-xt-numeric>下机 {{ formatNumber(workshop.output, 2) }} 吨</span>
+          </div>
         </div>
         <div class="live-machine-workshop__grid">
           <LiveMachineCard
@@ -48,7 +51,7 @@
       >
         <span>{{ machine.workshopName }}</span>
         <b>{{ machine.machineName }}</b>
-        <em data-xt-numeric>{{ formatNumber(machine.output, 2) }} 吨</em>
+        <em data-xt-numeric>上机 {{ formatNumber(machine.input, 2) }} 吨 / 下机 {{ formatNumber(machine.output, 2) }} 吨</em>
       </button>
     </aside>
   </section>
@@ -199,7 +202,14 @@ defineEmits(['select'])
   font-size: 15px;
 }
 
-.live-machine-workshop__head span {
+.live-machine-workshop__totals {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.live-machine-workshop__totals span {
   color: #74f5ff;
   font-family: var(--xt-font-mono, "JetBrains Mono", monospace);
   font-size: 13px;
@@ -296,7 +306,7 @@ defineEmits(['select'])
     transition: none;
   }
 
-  .live-machine-workshop__head span,
+  .live-machine-workshop__totals span,
   .live-machine-matrix__pending em {
     transition: none;
   }

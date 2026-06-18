@@ -421,7 +421,10 @@ def _wip_workshop_key(value: Any) -> str:
 
 
 def _wip_weight_tons(value: Any) -> float:
-    return _to_float(value) / 1000
+    weight = _to_float(value)
+    if weight > 1000:
+        return weight / 1000
+    return weight
 
 
 def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, dict[str, Any]]:
@@ -435,15 +438,6 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
             )
             .scalar()
         )
-        if latest_at is None:
-            latest_at = (
-                db.query(func.max(MesWipTotalSnapshot.snapshot_at))
-                .filter(
-                    MesWipTotalSnapshot.snapshot_at >= start_at - timedelta(days=1),
-                    MesWipTotalSnapshot.snapshot_at < end_at,
-                )
-                .scalar()
-            )
         if latest_at is None:
             return {}
 
@@ -470,12 +464,32 @@ def _latest_wip_total_by_workshop(db: Session, target_date: date) -> dict[str, d
             'workshop': workshop,
             'coil_count': int(count or 0),
             'total_weight': _wip_weight_tons(weight),
+            'snapshot_at': latest_at,
+            'source_basis': 'mes_wip_total_snapshot',
+            'source_label': 'MES 在制料统计',
         }
     return result
 
 
 def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
     wip_total_rows = _latest_wip_total_by_workshop(db, target_date)
+    if wip_total_rows:
+        result = [
+            {
+                'workshop': row['workshop'],
+                'coil_count': row['coil_count'],
+                'total_weight': _round2(row['total_weight']),
+                'feeding_weight': 0.0,
+                'source_basis': row['source_basis'],
+                'source_label': row['source_label'],
+                'snapshot_at': row['snapshot_at'].isoformat() if row.get('snapshot_at') is not None else None,
+            }
+            for row in wip_total_rows.values()
+            if row['total_weight'] > 0
+        ]
+        result.sort(key=lambda x: -(x['total_weight'] or 0))
+        return result
+
     snapshot_rows = (
         db.query(
             MesDailyWipSnapshot.workshop_name,
@@ -490,21 +504,13 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
     if snapshot_rows:
         has_positive_daily_snapshot = any(_to_float(weight) > 0 for _workshop, _count, weight, _feeding in snapshot_rows)
         result = []
-        used_workshops = set()
         for workshop, count, weight, feeding_weight in snapshot_rows:
-            key = _wip_workshop_key(workshop)
-            fallback = wip_total_rows.get(key)
             total_weight = _to_float(weight)
             if has_positive_daily_snapshot and total_weight <= 0:
                 continue
             coil_count = int(count or 0)
             source_basis = 'mes_daily_wip_snapshot'
             source_label = '外部 MES 当日快照参考'
-            if total_weight <= 0 and fallback and fallback['total_weight'] > 0:
-                total_weight = fallback['total_weight']
-                coil_count = fallback['coil_count'] or coil_count
-                source_basis = 'mes_wip_total_snapshot'
-                source_label = '外部 MES 在制总量参考'
             result.append({
                 'workshop': workshop,
                 'coil_count': coil_count,
@@ -513,19 +519,6 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
                 'source_basis': source_basis,
                 'source_label': source_label,
             })
-            used_workshops.add(key)
-        if not has_positive_daily_snapshot:
-            for fallback in wip_total_rows.values():
-                if fallback['key'] in used_workshops or fallback['total_weight'] <= 0:
-                    continue
-                result.append({
-                    'workshop': fallback['workshop'],
-                    'coil_count': fallback['coil_count'],
-                    'total_weight': _round2(fallback['total_weight']),
-                    'feeding_weight': 0.0,
-                    'source_basis': 'mes_wip_total_snapshot',
-                    'source_label': '外部 MES 在制总量参考',
-                })
         result.sort(key=lambda x: -(x['total_weight'] or 0))
         return result
 
@@ -569,18 +562,6 @@ def _build_wip_distribution(db: Session, target_date: date) -> list[dict]:
             'source_basis': 'mes_coil_snapshot_business_date',
             'source_label': '外部 MES 当日快照参考',
         })
-    if not any(_to_float(row.get('total_weight')) > 0 for row in result):
-        for fallback in wip_total_rows.values():
-            if fallback['total_weight'] <= 0:
-                continue
-            result.append({
-                'workshop': fallback['workshop'],
-                'coil_count': fallback['coil_count'],
-                'total_weight': _round2(fallback['total_weight']),
-                'feeding_weight': 0.0,
-                'source_basis': 'mes_wip_total_snapshot',
-                'source_label': '外部 MES 在制总量参考',
-            })
     result.sort(key=lambda x: -(x['total_weight'] or 0))
     return result
 

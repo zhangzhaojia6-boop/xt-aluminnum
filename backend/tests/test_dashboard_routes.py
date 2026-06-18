@@ -256,6 +256,12 @@ def test_factory_production_reconciliation_route_exposes_feeding_yield_without_h
     assert payload['mes_home_reference_source'] == 'unavailable'
     assert payload['feeding_month_to_date_delta'] is None
     assert payload['source_mapping']['mes_home_feeding']['source_table'] == 'MES_Product'
+    assert payload['source_mapping']['mes_feeding_management']['endpoint'] == '/Feeding/Index'
+    assert payload['source_mapping']['mes_follow_card_management']['endpoint'] == '/FollowCard/Index'
+    assert payload['feeding_source_pages'] == [
+        {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
+        {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},
+    ]
 
     app.dependency_overrides.clear()
 
@@ -327,18 +333,25 @@ def test_mes_workshop_machine_reconciliation_separates_production_and_down_machi
     assert response.status_code == 200
     payload = response.json()
     assert payload['target_date'] == '2026-06-18'
+    assert payload['source_mapping']['workshop_feeding']['source_weight_field'] == 'BeginWeight'
+    assert payload['source_mapping']['machine_input']['source_weight_field'] == 'BeginWeight'
     assert payload['source_mapping']['machine_down_machine']['source_table'] == 'MES_ProductProcessRecord'
     assert payload['source_mapping']['machine_down_machine']['source_weight_field'] == 'EndWeight'
     workshop = payload['workshops'][0]
     assert workshop['production_output'] == 0.0
+    assert workshop['workshop_feeding_input'] == 43.0
+    assert workshop['machine_input_weight'] == 43.0
     assert workshop['workshop_down_machine_output'] == 40.0
     assert workshop['machine_down_machine_output'] == 40.0
     assert workshop['production_source_basis'] == 'mes_workshop_process_records'
     assert workshop['process_stage_outputs'] == {'unmarked': 40.0}
     assert workshop['unbound_machine_count'] == 1
     assert payload['totals']['production_output'] == 0.0
+    assert payload['totals']['workshop_feeding_input'] == 43.0
+    assert payload['totals']['machine_input_weight'] == 43.0
     assert payload['totals']['machine_down_machine_output'] == 40.0
     assert {row['machine_binding_status'] for row in workshop['machines']} == {'bound', 'unbound'}
+    assert sum(row['machine_input_weight'] for row in workshop['machines']) == 43.0
     assert sum(row['machine_down_machine_output'] for row in workshop['machines']) == 40.0
 
     app.dependency_overrides.clear()

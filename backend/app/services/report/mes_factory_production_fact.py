@@ -17,6 +17,10 @@ FEEDING_SOURCE_TABLE = 'MES_Product'
 FEEDING_SOURCE_WEIGHT_FIELD = 'FeedingWeight'
 FEEDING_SOURCE_TIME_FIELD = 'CreateDate'
 FEEDING_SOURCE_WORKSHOP_FIELD = 'CurrentWorkShop'
+FEEDING_SOURCE_PAGES = (
+    {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
+    {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},
+)
 FEEDING_PROJECTION_TABLE = 'mes_coil_snapshots'
 FEEDING_PROJECTION_WEIGHT_FIELD = 'feeding_weight'
 FINISHED_INBOUND_SOURCE_TABLES = ('WMS_InStock', 'WMS_InStockDetail')
@@ -317,6 +321,7 @@ def build_factory_feeding_fact(db: Session, *, target_date: date) -> dict[str, A
         'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
         'source_time_field': FEEDING_SOURCE_TIME_FIELD,
         'source_workshop_field': FEEDING_SOURCE_WORKSHOP_FIELD,
+        'source_pages': list(FEEDING_SOURCE_PAGES),
         'projection_table': FEEDING_PROJECTION_TABLE,
         'projection_weight_field': FEEDING_PROJECTION_WEIGHT_FIELD,
         'factory_feeding_daily_input': daily['input'],
@@ -383,6 +388,7 @@ def build_factory_production_fact(db: Session, *, target_date: date) -> dict[str
         'source_table': FEEDING_SOURCE_TABLE,
         'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
         'source_time_field': FEEDING_SOURCE_TIME_FIELD,
+        'feeding_source_pages': list(FEEDING_SOURCE_PAGES),
     }
 
 
@@ -411,7 +417,8 @@ def build_factory_production_reconciliation(db: Session, *, target_date: date) -
         **fact,
         'source_mapping': {
             'mes_home_feeding': {
-                'page': 'MES 首页投料',
+                'page': 'MES 投料/随行卡投料',
+                'source_pages': list(FEEDING_SOURCE_PAGES),
                 'source_table': FEEDING_SOURCE_TABLE,
                 'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
                 'source_time_field': FEEDING_SOURCE_TIME_FIELD,
@@ -420,8 +427,18 @@ def build_factory_production_reconciliation(db: Session, *, target_date: date) -
             },
             'mes_feeding_management': {
                 'page': 'MES 投料管理',
-                'endpoint': '/Product/QueryListByFeeding',
+                'endpoint': '/Feeding/Index',
                 'source_table': FEEDING_SOURCE_TABLE,
+                'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
+                'source_time_field': FEEDING_SOURCE_TIME_FIELD,
+                'projection_table': FEEDING_PROJECTION_TABLE,
+            },
+            'mes_follow_card_management': {
+                'page': 'MES 随行卡管理',
+                'endpoint': '/FollowCard/Index',
+                'source_table': FEEDING_SOURCE_TABLE,
+                'source_weight_field': FEEDING_SOURCE_WEIGHT_FIELD,
+                'source_time_field': FEEDING_SOURCE_TIME_FIELD,
                 'projection_table': FEEDING_PROJECTION_TABLE,
             },
             'mes_packaging': {

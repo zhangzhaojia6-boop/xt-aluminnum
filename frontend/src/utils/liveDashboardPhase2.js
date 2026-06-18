@@ -228,14 +228,18 @@ function resolveMachineTone(machine = {}) {
 
 function normalizeMachine(workshop, machine) {
   const dayTotal = machine.day_total || machine.dayTotal || {}
+  const input = numberValue(dayTotal.machine_input_weight ?? dayTotal.machineInputWeight ?? dayTotal.input)
+  const output = numberValue(dayTotal.machine_down_machine_output ?? dayTotal.machineDownMachineOutput ?? dayTotal.output)
   return {
     id: machine.machine_id ?? machine.machineId ?? machine.machine_name,
     workshopId: workshop.workshop_id ?? workshop.workshopId,
     workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
     machineId: machine.machine_id ?? machine.machineId,
     machineName: machine.machine_name || machine.machineName || '--',
-    output: numberValue(dayTotal.output),
-    input: numberValue(dayTotal.input),
+    output,
+    input,
+    machineDownMachineOutput: output,
+    machineInputWeight: input,
     scrap: numberValue(dayTotal.scrap),
     yieldRate: dayTotal.yield_rate ?? dayTotal.yieldRate ?? null,
     sourceBasis: dayTotal.source_basis || dayTotal.sourceBasis || '',
@@ -271,10 +275,14 @@ export function buildLiveMachineMatrix(workshops = []) {
     })
 
     if (machines.length) {
+      const workshopTotal = workshop.workshop_total || workshop.workshopTotal || {}
+      const workshopInput = workshopTotal.machine_input_weight ?? workshopTotal.machineInputWeight ?? workshopTotal.input
+      const workshopOutput = workshopTotal.machine_down_machine_output ?? workshopTotal.machineDownMachineOutput ?? workshopTotal.output
       normalizedWorkshops.push({
         workshopId: workshop.workshop_id ?? workshop.workshopId,
         workshopName: normalizeWorkshopName(workshop.workshop_name || workshop.workshopName || '--'),
-        output: numberValue(workshop.workshop_total?.output ?? workshop.workshopTotal?.output),
+        input: isPresent(workshopInput) ? numberValue(workshopInput) : roundMetric(machines.reduce((sum, machine) => sum + numberValue(machine.input), 0)),
+        output: isPresent(workshopOutput) ? numberValue(workshopOutput) : roundMetric(machines.reduce((sum, machine) => sum + numberValue(machine.output), 0)),
         machines,
       })
     }

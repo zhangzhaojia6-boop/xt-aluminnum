@@ -22,6 +22,12 @@ from app.models.master import Workshop
 
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
+WIP_SOURCE_PAGE = '调度管理 / 车间实时查询 / 在制料统计'
+WIP_SOURCE_PATH = '/Dispatch/DoingReportTotal'
+WIP_SOURCE_TABLE = 'MES_Product'
+WIP_SOURCE_WORKSHOP_FIELD = 'CurrentWorkShop'
+WIP_SOURCE_PROCESS_FIELD = 'CurrentProcess'
+WIP_SOURCE_WEIGHT_FIELD = 'FeedingWeight'
 
 _SOURCE_DEFS = (
     {
@@ -232,6 +238,42 @@ def _serialize(row: Any, fields: tuple[str, ...]) -> dict[str, Any]:
     return payload
 
 
+def _wip_weight_tons(value: Any) -> float | None:
+    weight = _as_float(value)
+    if weight is None:
+        return None
+    if weight > 1000:
+        return weight / 1000
+    return weight
+
+
+def _serialize_wip_total_snapshot(row: MesWipTotalSnapshot) -> dict[str, Any]:
+    payload = _serialize(
+        row,
+        (
+            'source_id',
+            'workshop_name',
+            'process_name',
+            'doing_count',
+            'doing_weight_tons',
+            'snapshot_at',
+        ),
+    )
+    payload['doing_weight_tons'] = _wip_weight_tons(payload.get('doing_weight_tons'))
+    source_payload = row.source_payload if isinstance(row.source_payload, dict) else {}
+    payload.update(
+        {
+            'source_page': source_payload.get('source_page') or WIP_SOURCE_PAGE,
+            'source_path': source_payload.get('source_path') or WIP_SOURCE_PATH,
+            'source_table': source_payload.get('source_table') or WIP_SOURCE_TABLE,
+            'source_workshop_field': source_payload.get('source_workshop_field') or WIP_SOURCE_WORKSHOP_FIELD,
+            'source_process_field': source_payload.get('source_process_field') or WIP_SOURCE_PROCESS_FIELD,
+            'source_weight_field': source_payload.get('source_weight_field') or WIP_SOURCE_WEIGHT_FIELD,
+        }
+    )
+    return payload
+
+
 def list_workshop_process_records(
     db: Session,
     *,
@@ -383,14 +425,6 @@ def list_wip_total_snapshots(
     offset: int | None = 0,
     workshop_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    fields = (
-        'source_id',
-        'workshop_name',
-        'process_name',
-        'doing_count',
-        'doing_weight_tons',
-        'snapshot_at',
-    )
     try:
         query = db.query(MesWipTotalSnapshot)
         query = _apply_filters(
@@ -407,6 +441,10 @@ def list_wip_total_snapshots(
                 MesWipTotalSnapshot.snapshot_at >= start_at,
                 MesWipTotalSnapshot.snapshot_at < end_at,
             )
+            latest_at = query.with_entities(func.max(MesWipTotalSnapshot.snapshot_at)).scalar()
+            if latest_at is None:
+                return []
+            query = query.filter(MesWipTotalSnapshot.snapshot_at == latest_at)
         rows = (
             query.order_by(MesWipTotalSnapshot.snapshot_at.desc(), MesWipTotalSnapshot.id.desc())
             .offset(_bounded_offset(offset))
@@ -415,7 +453,7 @@ def list_wip_total_snapshots(
         )
     except (OperationalError, ProgrammingError):
         return []
-    return [_serialize(row, fields) for row in rows]
+    return [_serialize_wip_total_snapshot(row) for row in rows]
 
 
 def list_reference_items(

@@ -71,6 +71,10 @@ def test_factory_feeding_fact_uses_mes_product_create_date_and_current_workshop(
     assert fact['source_table'] == 'MES_Product'
     assert fact['source_weight_field'] == 'FeedingWeight'
     assert fact['source_time_field'] == 'CreateDate'
+    assert fact['source_pages'] == [
+        {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
+        {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},
+    ]
     assert fact['business_day_start'] == '07:30'
     assert fact['factory_feeding_daily_input'] == 427.0
     assert fact['daily_row_count'] == 2
@@ -170,6 +174,10 @@ def test_factory_production_fact_uses_finished_inbound_over_feeding_for_yield(tm
     assert fact['factory_finished_inbound_daily_output'] == 85.0
     assert fact['daily_yield_rate'] == 85.0
     assert fact['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
+    assert fact['feeding_source_pages'] == [
+        {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
+        {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},
+    ]
 
 
 def test_factory_production_fact_returns_null_yield_when_feeding_is_zero(tmp_path) -> None:
@@ -222,3 +230,5 @@ def test_reconciliation_leaves_mes_home_reference_empty_without_hardcoded_manual
     assert payload['feeding_daily_delta'] is None
     assert payload['feeding_month_to_date_delta'] is None
     assert payload['finishing_packaging_daily_delta'] is None
+    assert payload['source_mapping']['mes_feeding_management']['endpoint'] == '/Feeding/Index'
+    assert payload['source_mapping']['mes_follow_card_management']['endpoint'] == '/FollowCard/Index'
