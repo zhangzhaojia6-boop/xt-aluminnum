@@ -27,7 +27,7 @@ from app.models.agent_communication import AgentOperationApproval, AgentOutboxMe
 from app.models.mes import MesSyncRunLog
 from app.models.reports import DailyReport
 from app.models.system import User
-from app.services import agent_designated_operation_service, hermes_memory_service, hermes_rag_service
+from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
 from app.services.agent_command_service import handle_agent_command
 from app.services.rag_service import query_knowledge
 from app.tasks import mes_sync
@@ -45,7 +45,10 @@ COMMAND_LEVELS = {
     'rag-ingest-mes-route': 'L1',
     'rag-ingest-mes-page': 'L1',
     'rag-ingest-web-source': 'L1',
+    'rag-ingest-system-understanding': 'L1',
     'rag-rebuild-index': 'L1',
+    'agent-governance-status': 'L0',
+    'agent-governance-apply': 'L1',
     'mes-sync-realtime': 'L1',
     'mes-sync-business': 'L1',
     'mes-sync-reference': 'L1',
@@ -103,6 +106,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument('--text', default='')
     parser.add_argument('--query', default='')
     parser.add_argument('--path', default='')
+    parser.add_argument('--output', default='')
     parser.add_argument('--directory', default='')
     parser.add_argument('--url', default='')
     parser.add_argument('--page-title', default='')
@@ -134,7 +138,10 @@ def _run_with_db(args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
             'rag-ingest-mes-route': _cmd_rag_ingest_mes_route,
             'rag-ingest-mes-page': _cmd_rag_ingest_mes_page,
             'rag-ingest-web-source': _cmd_rag_ingest_web_source,
+            'rag-ingest-system-understanding': _cmd_rag_ingest_system_understanding,
             'rag-rebuild-index': _cmd_rag_rebuild_index,
+            'agent-governance-status': _cmd_agent_governance_status,
+            'agent-governance-apply': _cmd_agent_governance_apply,
             'mes-status': _cmd_mes_status,
             'mes-preview': _cmd_mes_preview,
             'mes-sync-realtime': _cmd_mes_sync_realtime,
@@ -310,9 +317,48 @@ def _cmd_rag_ingest_web_source(db: Session, args: argparse.Namespace, auth: Herm
     return _document_result('rag-ingest-web-source', document)
 
 
+def _cmd_rag_ingest_system_understanding(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    result = hermes_governance_service.write_safe_system_understanding_copy(
+        source_path=args.path,
+        output_path=args.output or None,
+    )
+    document = hermes_rag_service.ingest_file(
+        db,
+        path=result.output_path,
+        actor=auth.user,
+        source_type='internal_system_understanding',
+        metadata={
+            'review_status': 'approved',
+            'temporal_scope': 'stable_knowledge',
+            'source_type': 'internal_system_understanding',
+            'redacted_line_count': result.redacted_line_count,
+        },
+    )
+    payload = _document_result('rag-ingest-system-understanding', document)
+    payload['data'].update(
+        {
+            'safe_output_path': result.output_path,
+            'redacted_line_count': result.redacted_line_count,
+            'original_size': result.original_size,
+            'safe_size': result.safe_size,
+        }
+    )
+    return payload
+
+
 def _cmd_rag_rebuild_index(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
     count = hermes_rag_service.rebuild_rag_embeddings(db)
     return {'action': 'rag-rebuild-index', 'reply': f'已重建 {count} 个切片向量', 'data': {'embedding_count': count}, 'trace_id': _trace_id(args)}
+
+
+def _cmd_agent_governance_status(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    payload = hermes_governance_service.apply_legacy_agent_governance(db, apply=False)
+    return {'action': 'agent-governance-status', 'reply': 'Agent 治理状态已读取', 'data': payload, 'trace_id': _trace_id(args)}
+
+
+def _cmd_agent_governance_apply(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
+    payload = hermes_governance_service.apply_legacy_agent_governance(db, apply=True)
+    return {'action': 'agent-governance-apply', 'reply': '旧 Agent 已标记为后台工具层', 'data': payload, 'trace_id': _trace_id(args)}
 
 
 def _cmd_mes_status(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
