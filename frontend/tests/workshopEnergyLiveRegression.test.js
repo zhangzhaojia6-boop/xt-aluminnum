@@ -49,6 +49,8 @@ test('live metrics keep real zero but do not turn missing source data into fake 
     '待同步',
     '待同步',
     '待同步',
+    '待同步',
+    '待同步',
   ])
 })
 

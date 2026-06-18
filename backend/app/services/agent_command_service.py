@@ -868,7 +868,7 @@ def _format_energy_sources(facts: dict[str, Any]) -> str:
         'none': '无主来源',
     }
     basis_labels = {
-        'mes_packaging_output': 'MES包装产量分母',
+        'mes_packaging_output': '全厂包装分母',
         'factory_final_packaging_inbound': '全厂入库产量分母',
         'energy_rows': '能耗行产量分母',
         'unknown': '未知产量分母',

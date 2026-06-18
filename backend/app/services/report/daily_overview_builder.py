@@ -21,7 +21,7 @@ from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
-from app.services.report import mes_home_packaging_fact
+from app.services.report import mes_factory_packaging_fact, mes_factory_production_fact, mes_home_packaging_fact
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
@@ -33,7 +33,7 @@ SHIFT_WINDOWS = {'A': '07:30-15:30', 'B': '15:30-23:30', 'C': '23:30-07:30'}
 PRODUCTION_SHIFT_EXCLUDED_WORKSHOP_CODES = {'FACTORY'}
 FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
 FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '精整车间', '拉矫', '拉矫车间', '园区精整', '园区剪切', '园区剪切车间', '剪切车间'}
-MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
+MES_PACKAGING_PROCESS_KEYWORDS = ('包装',)
 MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
 MES_STOCK_HEADER_SOURCE_PATH = 'sqlserver:stock_header_records'
 MES_DELIVERY_SOURCE_PATH = 'sqlserver:delivery_records'
@@ -890,13 +890,7 @@ def _mes_output_tons(row: MesWorkshopProcessRecord) -> float:
 
 
 def _is_mes_packaging_output(row: MesWorkshopProcessRecord) -> bool:
-    workshop_name = _plain_text(row.workshop_name)
-    process_name = _plain_text(row.process_name)
-    if not any(keyword in process_name for keyword in MES_PACKAGING_PROCESS_KEYWORDS):
-        return False
-    if workshop_name in FINAL_PACKAGING_MES_WORKSHOP_NAMES:
-        return True
-    return any(name and name in workshop_name for name in FINAL_PACKAGING_MES_WORKSHOP_NAMES)
+    return mes_factory_packaging_fact.is_factory_packaging_process(row)
 
 
 def _mes_stock_output_tons(row: MesStockRecord) -> float:
@@ -1044,10 +1038,7 @@ def _query_owner_storage_monthly_inbound_by_date(db: Session, start: date, end: 
 
 
 def _query_finished_inbound_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    totals = _query_owner_storage_inbound_by_date(db, start, end)
-    mes_header_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
-    totals.update(mes_header_totals)
-    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+    return mes_factory_production_fact.query_finished_inbound_output_by_date(db, start, end)
 
 
 def _query_mes_stock_packaging_output_by_date(
@@ -1118,79 +1109,19 @@ def _query_mes_delivery_output_by_date(db: Session, start: date, end: date) -> d
 
 
 def _query_mes_process_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    if db is None or not hasattr(db, "query"):
-        return {}
-    rows = (
-        db.query(MesWorkshopProcessRecord)
-        .filter(
-            MesWorkshopProcessRecord.business_date >= start,
-            MesWorkshopProcessRecord.business_date <= end,
-        )
-        .all()
-    )
-    totals: dict[date, float] = {}
-    for row in rows:
-        if row.business_date is None or not _is_mes_packaging_output(row):
-            continue
-        output_tons = _mes_output_tons(row)
-        if output_tons <= 0:
-            continue
-        totals[row.business_date] = totals.get(row.business_date, 0.0) + output_tons
-    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+    return mes_factory_packaging_fact.query_factory_packaging_output_by_date(db, start, end)
 
 
 def _query_mes_process_packaging_row_counts_by_date(db: Session, start: date, end: date) -> dict[date, int]:
-    if db is None or not hasattr(db, "query"):
-        return {}
-    rows = (
-        db.query(MesWorkshopProcessRecord)
-        .filter(
-            MesWorkshopProcessRecord.business_date >= start,
-            MesWorkshopProcessRecord.business_date <= end,
-        )
-        .all()
-    )
-    counts: dict[date, int] = {}
-    for row in rows:
-        if row.business_date is None or not _is_mes_packaging_output(row):
-            continue
-        if _mes_output_tons(row) <= 0:
-            continue
-        counts[row.business_date] = counts.get(row.business_date, 0) + 1
-    return counts
+    return mes_factory_packaging_fact.query_factory_packaging_row_counts_by_date(db, start, end)
 
 
 def _query_mes_packaging_output_with_source_by_date(db: Session, start: date, end: date) -> tuple[dict[date, float], dict[date, str]]:
-    header_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
-    detail_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={'sqlserver:stock_records', 'sqlserver', '/Stock/GetList'})
-    process_totals = _query_mes_process_packaging_output_by_date(db, start, end)
-    totals = dict(header_totals)
-    sources = {business_date: 'mes_stock_header_records' for business_date in header_totals}
-    for business_date, total in detail_totals.items():
-        if business_date in totals:
-            continue
-        totals[business_date] = total
-        sources[business_date] = 'mes_stock_records'
-    for business_date, total in process_totals.items():
-        if business_date in totals:
-            continue
-        totals[business_date] = total
-        sources[business_date] = 'mes_workshop_process_records'
-    return totals, sources
+    return mes_factory_packaging_fact.query_factory_packaging_output_with_source_by_date(db, start, end)
 
 
 def _query_mes_packaging_row_counts_with_source_by_date(db: Session, start: date, end: date) -> dict[date, int]:
-    header_counts = _query_mes_stock_packaging_row_counts_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
-    detail_counts = _query_mes_stock_packaging_row_counts_by_date(db, start, end, source_paths={'sqlserver:stock_records', 'sqlserver', '/Stock/GetList'})
-    process_counts = _query_mes_process_packaging_row_counts_by_date(db, start, end)
-    counts = dict(header_counts)
-    for business_date, row_count in detail_counts.items():
-        if business_date not in counts:
-            counts[business_date] = row_count
-    for business_date, row_count in process_counts.items():
-        if business_date not in counts:
-            counts[business_date] = row_count
-    return counts
+    return mes_factory_packaging_fact.query_factory_packaging_row_counts_by_date(db, start, end)
 
 
 def _query_mes_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
@@ -1204,32 +1135,24 @@ def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> d
 
 def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
+    factory_production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
     mes_totals_by_date, mes_sources_by_date = _query_mes_packaging_output_with_source_by_date(db, month_start, target_date)
     mes_row_counts_by_date = _query_mes_packaging_row_counts_with_source_by_date(db, month_start, target_date)
-    mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
-    mes_header_inbound_by_date = _query_mes_stock_packaging_output_by_date(
-        db,
-        month_start,
-        target_date,
-        source_paths={MES_STOCK_HEADER_SOURCE_PATH},
-    )
-    inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
+    mes_home_fact = factory_production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
+    finished_inbound_fact = factory_production_fact.get('finished_inbound_fact') or {}
+    feeding_fact = factory_production_fact.get('feeding_fact') or {}
     daily_output = mes_totals_by_date.get(target_date, 0.0)
     yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
     mes_monthly_output = sum(mes_totals_by_date.values())
     if mes_home_fact.get('daily_row_count'):
         daily_output = _to_float(mes_home_fact.get('mes_home_daily_output'))
         mes_totals_by_date[target_date] = daily_output
-        mes_sources_by_date[target_date] = 'mes_stock_header_records'
+        mes_sources_by_date[target_date] = 'mes_workshop_process_records'
         mes_row_counts_by_date[target_date] = int(mes_home_fact.get('daily_row_count') or 0)
     if mes_home_fact.get('month_row_count'):
         mes_monthly_output = _to_float(mes_home_fact.get('mes_home_month_to_date_output'))
-    finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
-    finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
-    if mes_home_fact.get('daily_row_count'):
-        finished_inbound_output = daily_output
-    if mes_home_fact.get('month_row_count'):
-        finished_inbound_monthly_output = mes_monthly_output
+    finished_inbound_output = _to_float(factory_production_fact.get('factory_finished_inbound_daily_output'))
+    finished_inbound_monthly_output = _to_float(factory_production_fact.get('factory_finished_inbound_month_to_date_output'))
     monthly_output = mes_monthly_output
     monthly_output_source = 'mes_packaging_output'
     daily_output_source = mes_sources_by_date.get(target_date, 'mes_packaging_output')
@@ -1258,10 +1181,14 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'daily_output_date_column': date_column_by_key.get(daily_output_source),
         'source_table': source_table_by_key.get(daily_output_source),
         'date_column': date_column_by_key.get(daily_output_source),
+        'source_weight_field': 'EndWeight' if daily_output_source == 'mes_workshop_process_records' else None,
+        'source_time_field': 'EndDatetime' if daily_output_source == 'mes_workshop_process_records' else None,
+        'projection_table': 'mes_workshop_process_records' if daily_output_source == 'mes_workshop_process_records' else None,
+        'projection_weight_field': 'output_weight_tons' if daily_output_source == 'mes_workshop_process_records' else None,
+        'projection_date_field': 'business_date' if daily_output_source == 'mes_workshop_process_records' else None,
         'row_count': mes_row_counts_by_date.get(target_date, 0),
         'business_window_start': business_window_start.isoformat(),
         'business_window_end': business_window_end.isoformat(),
-        'finished_inbound_source': 'mes_stock_header_records' if target_date in mes_header_inbound_by_date else 'storage_owner_daily_entry',
         'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),
@@ -1274,11 +1201,26 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'packaging_basis_label': '包装产量',
         'mes_packaging_output': _round2(mes_totals_by_date.get(target_date, 0.0)),
         'mes_packaging_monthly_output': _round2(mes_monthly_output),
+        'factory_production_fact': factory_production_fact,
+        'factory_packaging_fact': mes_home_fact,
         'mes_home_packaging_fact': mes_home_fact,
+        'factory_feeding_fact': feeding_fact,
+        'factory_feeding_daily_input': _round2(factory_production_fact.get('factory_feeding_daily_input')),
+        'factory_feeding_month_to_date_input': _round2(factory_production_fact.get('factory_feeding_month_to_date_input')),
         'finished_inbound_output': _round2(finished_inbound_output),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),
         'finished_inbound_basis_label': '全厂入库产量',
+        'finished_inbound_source': (
+            'mes_stock_header_records'
+            if any(item.get('source_path') == MES_STOCK_HEADER_SOURCE_PATH for item in finished_inbound_fact.get('by_source', []))
+            else 'mes_stock_records'
+            if (finished_inbound_fact.get('daily_row_count') or 0) > 0
+            else 'mes_stock_records_missing'
+        ),
+        'yield_rate': factory_production_fact.get('daily_yield_rate'),
+        'monthly_yield_rate': factory_production_fact.get('month_yield_rate'),
+        'yield_rate_source': factory_production_fact.get('yield_rate_source'),
         'energy_per_ton': energy_per_ton,
     }
 
@@ -1421,6 +1363,12 @@ def build_daily_production_overview(
     energy = _build_energy(db, target_date)
     contracts = _build_contracts(db, target_date)
     plant_output = _build_plant_output(db, target_date, energy)
+    if plant_output.get('yield_rate') is not None:
+        yield_rates['daily'] = plant_output.get('yield_rate')
+        yield_rates['source'] = plant_output.get('yield_rate_source')
+    if plant_output.get('monthly_yield_rate') is not None:
+        yield_rates['monthly'] = plant_output.get('monthly_yield_rate')
+        yield_rates['monthly_source'] = plant_output.get('yield_rate_source')
     shift_breakdown = _build_shift_breakdown(db, target_date)
 
     total_today = sum(r['daily_output'] or 0 for r in workshop_output)

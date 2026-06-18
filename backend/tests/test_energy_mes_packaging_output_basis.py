@@ -105,4 +105,4 @@ def test_energy_summary_uses_mes_packaging_output_when_shift_output_is_empty(tmp
     assert basis_row['water_value'] == 0
     assert basis_row['total_energy'] == 0
     assert basis_row['energy_per_ton'] == 10
-    assert EnergySummaryOut(**basis_row).source_label == 'MES包装产量'
+    assert EnergySummaryOut(**basis_row).source_label == '全厂包装'

@@ -682,7 +682,7 @@ def _with_mes_packaging_output_basis(
             'output_weight': packaging_output,
             'energy_per_ton': total_energy / packaging_output if total_energy else None,
             'source': 'mes_packaging_output_basis',
-            'source_label': 'MES包装产量',
+            'source_label': '全厂包装',
         },
     ]
 

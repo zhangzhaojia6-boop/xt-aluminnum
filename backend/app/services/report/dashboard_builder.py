@@ -18,7 +18,7 @@ from app.models.reconciliation import DataReconciliationItem
 from app.services import energy_service
 from app.services import mes_sync_service
 from app.services import quality_service
-from app.services.report import daily_overview_builder, mes_home_packaging_fact
+from app.services.report import daily_overview_builder, mes_factory_production_fact, mes_home_packaging_fact
 from app.models.reports import DailyReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -490,7 +490,8 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     sync_status = _safe_latest_mes_sync_status(db)
     blocker_summary = _normalize_blocker_summary(quality_service.blocker_summary(db, business_date=target_date))
     month_output = _month_to_date_output(db, target_date=target_date)
-    mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
+    factory_production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
+    mes_home_fact = factory_production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     if mes_home_fact.get('daily_row_count'):
         total_output = _to_float(mes_home_fact.get('mes_home_daily_output'))
     if mes_home_fact.get('month_row_count'):
@@ -515,7 +516,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         runtime_settings=settings,
     )
     latest_report_data = latest_report.report_data if latest_report and isinstance(latest_report.report_data, dict) else {}
-    dashboard_yield_rate = production_report.get('yield_rate') or latest_report_data.get('yield_rate')
+    dashboard_yield_rate = factory_production_fact.get('daily_yield_rate')
     dashboard_yield_matrix = production_report.get('yield_matrix_lane') or latest_report_data.get('yield_matrix_lane') or {}
     dashboard_yield_rates = latest_report_data.get('yield_rates') if isinstance(latest_report_data.get('yield_rates'), dict) else {}
     dashboard_energy_rows = energy_summary.get('rows')
@@ -556,6 +557,8 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         'process_total_output': _to_float(production_report.get('process_output_weight')),
         'total_output_basis': 'mes_packaging_output',
         'month_to_date_output': month_output,
+        'factory_production_fact': factory_production_fact,
+        'factory_packaging_fact': mes_home_fact,
         'mes_home_packaging_fact': mes_home_fact,
         'history_digest': history_digest,
         'total_energy': energy_summary['total_energy'],
@@ -724,7 +727,8 @@ def build_workshop_dashboard(
     sync_status = _safe_latest_mes_sync_status(db)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id)
     month_to_date_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
-    factory_mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
+    factory_production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=target_date)
+    factory_mes_home_fact = factory_production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     if workshop_id is not None:
         month_scope = daily_overview_builder._mixed_workshop_output_scope_by_workshop(
             db,
@@ -738,6 +742,8 @@ def build_workshop_dashboard(
         'workshop_id': workshop_id,
         'workshop_code': workshop_code,
         'workshop_name': workshop.name if workshop else None,
+        'factory_production_fact': factory_production_fact,
+        'factory_packaging_fact': factory_mes_home_fact,
         'factory_mes_home_packaging_fact': factory_mes_home_fact,
         'total_output': total_output,
         'process_output': process_output,

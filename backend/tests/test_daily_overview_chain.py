@@ -12,7 +12,7 @@ from app.models.attendance import AttendanceSchedule
 from app.models.consumable import DailyConsumableLog
 from app.models.imports import ImportBatch, ImportRow
 from app.models.master import Employee, Workshop
-from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesMaterialRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
+from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesMaterialRecord, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
 from app.models.production import WorkOrder, WorkOrderEntry
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -197,7 +197,7 @@ def test_owner_storage_inbound_supports_current_inventory_fields() -> None:
     }) == 5013.725
 
 
-def test_finished_inbound_output_uses_storage_owner_daily_entry_only(tmp_path) -> None:
+def test_finished_inbound_output_uses_wms_instock_projection_only(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-packaging-output.db'}", future=True)
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine, autoflush=False, future=True)()
@@ -247,6 +247,12 @@ def test_finished_inbound_output_uses_storage_owner_daily_entry_only(tmp_path) -
             created_by_user_id=7,
             extra_payload={'park_inbound_daily': 20.0, 'new_plant_inbound_daily': 11.25},
         ),
+        MesStockRecord(
+            source_id='wms-header-2026-06-04',
+            source_path='sqlserver:stock_header_records',
+            net_weight_tons=18.75,
+            business_date=date(2026, 6, 4),
+        ),
     ])
     db.commit()
 
@@ -256,7 +262,7 @@ def test_finished_inbound_output_uses_storage_owner_daily_entry_only(tmp_path) -
         date(2026, 6, 4),
     )
 
-    assert totals == {date(2026, 6, 4): 31.25}
+    assert totals == {date(2026, 6, 4): 18.75}
 
 
 def test_wip_distribution_uses_target_business_date_and_feeding_weight_reference(tmp_path) -> None:
@@ -969,9 +975,20 @@ def test_build_plant_output_keeps_inbound_as_comparison_when_mes_missing(monkeyp
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_finished_inbound_totals_by_date',
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder.mes_factory_production_fact,
+        'build_factory_production_fact',
         lambda *_args, **_kwargs: {
-            date(2026, 5, 28): 0.8,
-            date(2026, 5, 29): 2.0,
+            'factory_feeding_daily_input': 0.0,
+            'factory_feeding_month_to_date_input': 0.0,
+            'factory_finished_inbound_daily_output': 2.0,
+            'factory_finished_inbound_month_to_date_output': 2.8,
+            'finished_inbound_fact': {'daily_row_count': 1, 'by_source': [{'source_path': 'sqlserver:stock_header_records'}]},
+            'daily_yield_rate': None,
+            'month_yield_rate': None,
+            'yield_rate_source': 'mes_feeding_to_finished_inbound',
         },
     )
     monkeypatch.setattr(daily_overview_builder, '_query_owner_storage_monthly_inbound_by_date', lambda *_args, **_kwargs: {})
@@ -1003,13 +1020,27 @@ def test_build_plant_output_keeps_mes_packaging_as_output_when_owner_inbound_ava
         '_query_mes_packaging_output_with_source_by_date',
         lambda *_args, **_kwargs: (
             {date(2026, 6, 15): 305.848, date(2026, 6, 16): 308.68},
-            {date(2026, 6, 15): 'mes_stock_records', date(2026, 6, 16): 'mes_stock_records'},
+            {date(2026, 6, 15): 'mes_workshop_process_records', date(2026, 6, 16): 'mes_workshop_process_records'},
         ),
     )
     monkeypatch.setattr(
         daily_overview_builder,
         '_query_finished_inbound_totals_by_date',
-        lambda *_args, **_kwargs: {date(2026, 6, 16): 328.033},
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        daily_overview_builder.mes_factory_production_fact,
+        'build_factory_production_fact',
+        lambda *_args, **_kwargs: {
+            'factory_feeding_daily_input': 410.0,
+            'factory_feeding_month_to_date_input': 5013.725,
+            'factory_finished_inbound_daily_output': 328.033,
+            'factory_finished_inbound_month_to_date_output': 5013.725,
+            'finished_inbound_fact': {'daily_row_count': 1, 'by_source': [{'source_path': 'sqlserver:stock_header_records'}]},
+            'daily_yield_rate': 80.01,
+            'month_yield_rate': 100.0,
+            'yield_rate_source': 'mes_feeding_to_finished_inbound',
+        },
     )
     monkeypatch.setattr(
         daily_overview_builder,
@@ -1029,7 +1060,7 @@ def test_build_plant_output_keeps_mes_packaging_as_output_when_owner_inbound_ava
     assert payload['monthly_output'] == 614.53
     assert payload['finished_inbound_output'] == 328.03
     assert payload['mes_packaging_output'] == 308.68
-    assert payload['daily_output_source'] == 'mes_stock_records'
+    assert payload['daily_output_source'] == 'mes_workshop_process_records'
     assert payload['monthly_output_source'] == 'mes_packaging_output'
 
 

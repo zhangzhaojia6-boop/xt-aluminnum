@@ -594,6 +594,10 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         "source_table": plant_output.get("source_table"),
         "date_column": plant_output.get("date_column"),
     }
+    inbound_source_extra = {
+        "source_table": "WMS_InStock" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
+        "date_column": "InStockDate" if plant_output.get("finished_inbound_source") == "mes_stock_header_records" else None,
+    }
     _set_value(facts, "total_output_daily", plant_output.get("daily_output"), "mes_packaging_output", **output_source_extra)
     _set_value(facts, "total_output_month", plant_output.get("monthly_output"), "mes_packaging_output", **output_source_extra)
     _set_value(
@@ -603,8 +607,20 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
         "mes_packaging_output",
         **output_source_extra,
     )
-    _set_value(facts, "finished_inbound_daily", plant_output.get("daily_output"), "mes_packaging_output", **output_source_extra)
-    _set_value(facts, "finished_inbound_month", plant_output.get("monthly_output"), "mes_packaging_output", **output_source_extra)
+    _set_value(
+        facts,
+        "finished_inbound_daily",
+        plant_output.get("finished_inbound_output"),
+        plant_output.get("finished_inbound_source") or "finished_inbound_output",
+        **inbound_source_extra,
+    )
+    _set_value(
+        facts,
+        "finished_inbound_month",
+        plant_output.get("finished_inbound_monthly_output"),
+        plant_output.get("finished_inbound_source") or "finished_inbound_output",
+        **inbound_source_extra,
+    )
     shipment_totals = daily_overview_builder._query_mes_delivery_output_by_date(db, facts.target_date, facts.target_date)
     _set_value(facts, "shipment_daily", shipment_totals.get(facts.target_date), "mes_delivery_records")
 

@@ -77,13 +77,13 @@ export function buildAuditTickerItems({ dailyOverview = {}, liveAggregation = {}
   return [
     {
       key: 'plant-output',
-      label: 'MES包装产量',
+      label: '全厂包装',
       value: formatMetric(plantOutput.daily_output, '吨'),
       tone: toneByMissing(formatMetric(plantOutput.daily_output, '吨'), 'success'),
     },
     {
       key: 'finished-inbound',
-      label: '内勤入库填报',
+      label: '成品入库',
       value: formatMetric(plantOutput.finished_inbound_output, '吨'),
       tone: toneByMissing(formatMetric(plantOutput.finished_inbound_output, '吨'), 'success'),
     },
@@ -135,9 +135,9 @@ export function buildSourceChainCards(dailyOverview = {}) {
     {
       key: 'output',
       title: '包装产量对照',
-      primaryLabel: 'MES包装',
+      primaryLabel: '全厂包装',
       primaryValue: formatMetric(plantOutput.daily_output, '吨'),
-      compareLabel: '内勤入库填报',
+      compareLabel: '成品入库',
       compareValue: formatMetric(plantOutput.finished_inbound_output, '吨'),
       tone: 'success',
     },
@@ -147,7 +147,7 @@ export function buildSourceChainCards(dailyOverview = {}) {
       primaryLabel: '车间合计',
       primaryValue: formatMetric(processThroughput, '吨'),
       compareLabel: '最终口径',
-      compareValue: plantOutput.basis_label || 'MES包装产量',
+      compareValue: plantOutput.basis_label || '全厂包装',
       tone: 'primary',
     },
     {

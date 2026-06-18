@@ -10,7 +10,7 @@ from app.core.deps import get_db
 from app.core.permissions import get_current_manager_user
 from app.core.deps import get_current_user
 from app.main import app
-from app.models.mes import MesStockRecord
+from app.models.mes import MesCoilSnapshot, MesStockRecord, MesWorkshopProcessRecord
 from app.schemas.dashboard import FactoryDashboardResponse, WorkshopDashboardResponse
 from app.services import report_service
 
@@ -21,11 +21,14 @@ class DummyDB:
 
 def _mes_stock_session_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'mes-home-reconciliation.db'}", future=True)
-    Base.metadata.create_all(engine, tables=[MesStockRecord.__table__])
+    Base.metadata.create_all(
+        engine,
+        tables=[MesCoilSnapshot.__table__, MesStockRecord.__table__, MesWorkshopProcessRecord.__table__],
+    )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
-def test_mes_home_reconciliation_route_exposes_header_daily_and_monthly_fact(tmp_path) -> None:
+def test_mes_home_reconciliation_route_exposes_factory_packaging_process_fact(tmp_path) -> None:
     session_factory = _mes_stock_session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -55,6 +58,22 @@ def test_mes_home_reconciliation_route_exposes_header_daily_and_monthly_fact(tmp
                     status_name='1',
                     source_payload={'FromDepartment': '精整', 'ToDepartment': '成品库', 'Status': 1},
                 ),
+                MesWorkshopProcessRecord(
+                    source_id='pkg-2026-06-01',
+                    source_path='sqlserver:workshop_process_records',
+                    workshop_name='园区精整',
+                    process_name='包装',
+                    output_weight_tons=12.34,
+                    business_date=date(2026, 6, 1),
+                ),
+                MesWorkshopProcessRecord(
+                    source_id='pkg-2026-06-09',
+                    source_path='sqlserver:workshop_process_records',
+                    workshop_name='精整',
+                    process_name='包装',
+                    output_weight_tons=60.5,
+                    business_date=date(2026, 6, 9),
+                ),
             ]
         )
         db.commit()
@@ -82,14 +101,145 @@ def test_mes_home_reconciliation_route_exposes_header_daily_and_monthly_fact(tmp
     assert response.status_code == 200
     payload = response.json()
     assert payload['target_date'] == '2026-06-09'
-    assert payload['source_table'] == 'WMS_InStock'
-    assert payload['source_weight_field'] == 'TotalNetWeight'
-    assert payload['source_time_field'] == 'InStockDate'
-    assert payload['projection_table'] == 'mes_stock_records'
+    assert payload['source_table'] == 'MES_ProductProcessRecord'
+    assert payload['source_weight_field'] == 'EndWeight'
+    assert payload['source_time_field'] == 'EndDatetime'
+    assert payload['projection_table'] == 'mes_workshop_process_records'
+    assert payload['process_filter'] == '包装'
     assert payload['mes_home_daily_output'] == 60.5
     assert payload['mes_home_month_to_date_output'] == 72.84
+    assert payload['factory_packaging_daily_output'] == 60.5
     assert payload['daily_row_count'] == 1
     assert payload['month_row_count'] == 2
+    assert payload['business_day']['month_by_workshop'] == [
+        {'workshop_name': '园区剪切', 'output': 12.34, 'row_count': 1},
+        {'workshop_name': '精整', 'output': 60.5, 'row_count': 1},
+    ]
+
+    app.dependency_overrides.clear()
+
+
+def test_factory_packaging_reconciliation_route_uses_same_payload(tmp_path) -> None:
+    session_factory = _mes_stock_session_factory(tmp_path)
+    with session_factory() as db:
+        db.add(
+            MesWorkshopProcessRecord(
+                source_id='pkg-2026-06-09',
+                source_path='sqlserver:workshop_process_records',
+                workshop_name='精整',
+                process_name='包装',
+                output_weight_tons=42.5,
+                business_date=date(2026, 6, 9),
+            )
+        )
+        db.commit()
+
+    def fake_get_db():
+        with session_factory() as db:
+            yield db
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=7,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_manager_user] = fake_get_user
+
+    response = TestClient(app).get(
+        '/api/v1/dashboard/mes-factory-packaging-reconciliation',
+        params={'target_date': '2026-06-09'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['factory_packaging_daily_output'] == 42.5
+
+    app.dependency_overrides.clear()
+
+
+def test_factory_production_reconciliation_route_exposes_feeding_yield_and_delta(tmp_path) -> None:
+    session_factory = _mes_stock_session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesCoilSnapshot(
+                    coil_id='MES:month-before',
+                    tracking_card_no='month-before',
+                    current_workshop='热轧',
+                    feeding_weight=5953,
+                    source_payload={'metadata': {'CreateDate': '2026-06-01 08:00:00', 'CurrentWorkShop': '热轧'}},
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES:daily-1',
+                    tracking_card_no='daily-1',
+                    current_workshop='冷轧',
+                    feeding_weight=200,
+                    source_payload={'metadata': {'CreateDate': '2026-06-18 08:00:00', 'CurrentWorkShop': '冷轧'}},
+                ),
+                MesCoilSnapshot(
+                    coil_id='MES:daily-2',
+                    tracking_card_no='daily-2',
+                    current_workshop='热轧',
+                    feeding_weight=227,
+                    source_payload={'metadata': {'CreateDate': '2026-06-18 09:00:00', 'CurrentWorkShop': '热轧'}},
+                ),
+                MesStockRecord(
+                    source_id='inbound-2026-06-18',
+                    source_path='sqlserver:stock_header_records',
+                    net_weight_tons=341.6,
+                    business_date=date(2026, 6, 18),
+                ),
+                MesWorkshopProcessRecord(
+                    source_id='pkg-2026-06-18',
+                    source_path='sqlserver:workshop_process_records',
+                    workshop_name='精整',
+                    process_name='包装',
+                    output_weight_tons=66.1,
+                    business_date=date(2026, 6, 18),
+                ),
+            ]
+        )
+        db.commit()
+
+    def fake_get_db():
+        with session_factory() as db:
+            yield db
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=7,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_manager_user] = fake_get_user
+
+    response = TestClient(app).get(
+        '/api/v1/dashboard/mes-factory-production-reconciliation',
+        params={'target_date': '2026-06-18'},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['factory_feeding_daily_input'] == 427.0
+    assert payload['factory_feeding_month_to_date_input'] == 6380.0
+    assert payload['factory_packaging_daily_output'] == 66.1
+    assert payload['factory_finished_inbound_daily_output'] == 341.6
+    assert payload['daily_yield_rate'] == 80.0
+    assert payload['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
+    assert payload['feeding_month_to_date_delta'] == -144.0
+    assert payload['source_mapping']['mes_home_feeding']['source_table'] == 'MES_Product'
 
     app.dependency_overrides.clear()
 

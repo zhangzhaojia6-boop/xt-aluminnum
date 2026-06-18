@@ -58,9 +58,9 @@ test('audit ticker uses plant inbound output and ton contract values', () => {
     },
   })
 
-  assert.equal(items.find((item) => item.key === 'plant-output')?.label, 'MES包装产量')
+  assert.equal(items.find((item) => item.key === 'plant-output')?.label, '全厂包装')
   assert.equal(items.find((item) => item.key === 'plant-output')?.value, '81.25 吨')
-  assert.equal(items.find((item) => item.key === 'finished-inbound')?.label, '内勤入库填报')
+  assert.equal(items.find((item) => item.key === 'finished-inbound')?.label, '成品入库')
   assert.equal(items.find((item) => item.key === 'finished-inbound')?.value, '73.6 吨')
   assert.equal(items.find((item) => item.key === 'process-throughput')?.value, '90 吨')
   assert.equal(items.find((item) => item.key === 'contract-tonnage')?.value, '12.5 吨')
@@ -153,7 +153,7 @@ test('source chain cards keep algorithm values primary and filled values seconda
   assert.deepEqual(
     cards.map((item) => [item.key, item.primaryLabel, item.compareLabel]),
     [
-      ['output', 'MES包装', '内勤入库填报'],
+      ['output', '全厂包装', '成品入库'],
       ['process', '车间合计', '最终口径'],
       ['energy', '算法总用电', '电工填报'],
       ['yield', '算法成品率', '内勤填报'],
@@ -552,8 +552,8 @@ test('WorkshopDashboardPage separates workshop output from factory MES home fact
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 
   assert.match(dashboardSrc, /factory_mes_home_packaging_fact/)
-  assert.match(dashboardSrc, /全厂MES包装/)
-  assert.match(dashboardSrc, /全厂MES月累计/)
+  assert.match(dashboardSrc, /全厂包装/)
+  assert.match(dashboardSrc, /包装月累计/)
 })
 
 test('WorkshopDashboardPage protects compact director view from text overflow', () => {

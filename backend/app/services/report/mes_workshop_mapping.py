@@ -18,12 +18,12 @@ def resolve_mes_process_workshop_bucket(
     device = str(device_name or '').strip()
     text = _text(workshop, process, device)
 
-    if any(token in device for token in ('1650', '1850', '2050')):
-        if '1650' in device:
+    if any(token in text for token in ('1650', '1850', '2050')):
+        if '1650' in text:
             return '冷轧1650'
-        if '1850' in device:
+        if '1850' in text:
             return '冷轧1850'
-        if '2050' in device:
+        if '2050' in text:
             return '冷轧2050'
 
     if '园区精整' in workshop or '园区剪切' in workshop or workshop == '剪切车间':

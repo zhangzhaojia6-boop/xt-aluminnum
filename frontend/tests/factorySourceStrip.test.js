@@ -24,7 +24,7 @@ test('buildFactorySourceStrip renders MES extended source and separates tonnage 
   assert.equal(strip.sourceLabel, 'MES 扩展数据')
   assert.equal(strip.tone, 'success')
   assert.deepEqual(strip.items, [
-    { key: 'inbound', label: 'MES包装产量', value: '6.2', unit: '吨' },
+    { key: 'inbound', label: '全厂包装', value: '6.2', unit: '吨' },
     { key: 'process', label: '过站下机参考', value: '18.5', unit: '吨' },
     { key: 'wip', label: '在制', value: '13.5', unit: '吨' },
     { key: 'yield', label: '成品率', value: '92.5', unit: '%' },
@@ -40,7 +40,7 @@ test('buildFactorySourceStrip labels SQL Server MES database as the primary exte
 
   assert.equal(strip.sourceLabel, 'MES 数据库')
   assert.equal(strip.tone, 'success')
-  assert.equal(strip.items[0].label, 'MES包装产量')
+  assert.equal(strip.items[0].label, '全厂包装')
   assert.equal(strip.items[0].unit, '吨')
 })
 

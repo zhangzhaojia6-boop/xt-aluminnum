@@ -407,8 +407,20 @@ def _copy_overview_values(values: dict[str, Any], sources: dict[str, Any], overv
         _to_float(plant_output.get("daily_output")) - _to_float(plant_output.get("yesterday_output")),
         "mes_packaging_output",
     )
-    _set_value(values, sources, "finished_inbound_daily", plant_output.get("daily_output"), "mes_packaging_output")
-    _set_value(values, sources, "finished_inbound_month", plant_output.get("monthly_output"), "mes_packaging_output")
+    _set_value(
+        values,
+        sources,
+        "finished_inbound_daily",
+        plant_output.get("finished_inbound_output"),
+        plant_output.get("finished_inbound_source") or "finished_inbound_output",
+    )
+    _set_value(
+        values,
+        sources,
+        "finished_inbound_month",
+        plant_output.get("finished_inbound_monthly_output"),
+        plant_output.get("finished_inbound_source") or "finished_inbound_output",
+    )
 
     wip_total = sum(_to_float(row.get("total_weight")) for row in wip_distribution)
     if wip_total > 0:

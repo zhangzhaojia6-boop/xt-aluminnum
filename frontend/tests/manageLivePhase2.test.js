@@ -135,9 +135,11 @@ test('/manage/live coalesces realtime snapshot reloads to avoid request storms',
 test('ticker exposes the first-screen factory signals without fake zero fallback', () => {
   const items = buildLiveTickerItems({
     factory_total: {
+      feeding_input: 130,
       packaging_output: 126.42,
       finished_inbound_output: 120.5,
       output: 211.8,
+      yield_rate: 92.69,
     },
     energy_summary: {},
     overall_progress: {
@@ -150,8 +152,10 @@ test('ticker exposes the first-screen factory signals without fake zero fallback
   })
 
   assert.deepEqual(items.map((item) => item.label), [
-    'MES包装产量',
-    '内勤入库填报',
+    '投料量',
+    '全厂包装',
+    '成品入库',
+    '全厂成品率',
     '过站下机',
     '总电耗',
     '吨电耗',
@@ -159,13 +163,16 @@ test('ticker exposes the first-screen factory signals without fake zero fallback
     '异常',
     '外部 MES',
   ])
-  assert.equal(items[0].value, '126.42 吨')
-  assert.equal(items[1].value, '120.5 吨')
-  assert.equal(items[0].source, 'MES包装')
-  assert.equal(items[1].source, '内勤入库')
-  assert.equal(items[2].value, '211.8 吨')
-  assert.equal(items[3].value, '待同步')
-  assert.equal(items[4].value, '待同步')
+  assert.equal(items[0].value, '130 吨')
+  assert.equal(items[1].value, '126.42 吨')
+  assert.equal(items[2].value, '120.5 吨')
+  assert.equal(items[3].value, '92.69 %')
+  assert.equal(items[0].source, 'MES投料')
+  assert.equal(items[1].source, '包装工序')
+  assert.equal(items[2].source, '成品入库')
+  assert.equal(items[4].value, '211.8 吨')
+  assert.equal(items[5].value, '待同步')
+  assert.equal(items[6].value, '待同步')
 })
 
 test('ticker accepts daily energy aliases from the energy center summary', () => {
@@ -280,8 +287,10 @@ test('machine matrix orders shifts by production day rhythm', () => {
 test('metric comparison keeps algorithm values primary and filled values visible', () => {
   const items = buildLiveMetricCompareItems({
     factory_total: {
+      feeding_input: 130,
       packaging_output: 126.4,
       finished_inbound_output: 120.8,
+      yield_rate: 92.92,
     },
     energy_summary: {
       algorithm_total_energy: 8840,
@@ -291,12 +300,16 @@ test('metric comparison keeps algorithm values primary and filled values visible
   })
 
   assert.equal(items[0].label, '全厂总产量')
-  assert.equal(items[0].primaryLabel, 'MES包装')
+  assert.equal(items[0].primaryLabel, '全厂包装')
   assert.equal(items[0].primaryValue, '126.4 吨')
   assert.equal(items[0].compareLabel, '全厂入库')
   assert.equal(items[0].compareValue, '120.8 吨')
-  assert.equal(items[1].primaryValue, '8,840 kWh')
-  assert.equal(items[1].compareValue, '8,700 kWh')
+  assert.equal(items[1].label, '全厂成品率')
+  assert.equal(items[1].value, '92.92 %')
+  assert.equal(items[1].primaryValue, '120.8 吨')
+  assert.equal(items[1].compareValue, '130 吨')
+  assert.equal(items[2].primaryValue, '8,840 kWh')
+  assert.equal(items[2].compareValue, '8,700 kWh')
 })
 
 test('metric comparison accepts electrician fill aliases without saying missing', () => {
@@ -308,9 +321,9 @@ test('metric comparison accepts electrician fill aliases without saying missing'
     },
   })
 
-  assert.equal(items[1].primaryValue, '17,430 kWh')
-  assert.equal(items[1].compareValue, '17,020 kWh')
-  assert.equal(items[2].primaryValue, '64.2 kWh/吨')
+  assert.equal(items[2].primaryValue, '17,430 kWh')
+  assert.equal(items[2].compareValue, '17,020 kWh')
+  assert.equal(items[3].primaryValue, '64.2 kWh/吨')
 })
 
 test('metric comparison does not display total_energy as total electricity', () => {
@@ -321,8 +334,8 @@ test('metric comparison does not display total_energy as total electricity', () 
     },
   })
 
-  assert.equal(items[1].primaryValue, '待同步')
-  assert.equal(items[1].compareValue, '17,020 kWh')
+  assert.equal(items[2].primaryValue, '待同步')
+  assert.equal(items[2].compareValue, '17,020 kWh')
 })
 
 test('metric comparison honors unavailable energy flag instead of showing fake zero', () => {

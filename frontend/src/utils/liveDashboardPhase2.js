@@ -112,6 +112,18 @@ export function buildLiveTickerItems(aggregation = {}) {
     'finished_storage_weight',
     'finishedStorageWeight',
   ])
+  const feedingInput = pickValue(factoryTotal, [
+    'feeding_input',
+    'feedingInput',
+    'factory_feeding_daily_input',
+    'factoryFeedingDailyInput',
+  ])
+  const yieldRate = pickValue(factoryTotal, [
+    'yield_rate',
+    'yieldRate',
+    'daily_yield_rate',
+    'dailyYieldRate',
+  ])
   const throughProcessOutput = pickValue(factoryTotal, [
     'process_output',
     'through_process_output',
@@ -137,16 +149,28 @@ export function buildLiveTickerItems(aggregation = {}) {
 
   return [
     {
-      label: 'MES包装产量',
-      value: formatTrustedMetric(packagingOutput, '吨'),
-      tone: isPresent(packagingOutput) ? 'success' : 'muted',
-      source: 'MES包装',
+      label: '投料量',
+      value: formatTrustedMetric(feedingInput, '吨'),
+      tone: isPresent(feedingInput) ? 'primary' : 'muted',
+      source: 'MES投料',
     },
     {
-      label: '内勤入库填报',
+      label: '全厂包装',
+      value: formatTrustedMetric(packagingOutput, '吨'),
+      tone: isPresent(packagingOutput) ? 'success' : 'muted',
+      source: '包装工序',
+    },
+    {
+      label: '成品入库',
       value: formatTrustedMetric(finishedInboundOutput, '吨'),
       tone: isPresent(finishedInboundOutput) ? 'success' : 'muted',
-      source: '内勤入库',
+      source: '成品入库',
+    },
+    {
+      label: '全厂成品率',
+      value: formatTrustedMetric(yieldRate, '%'),
+      tone: isPresent(yieldRate) ? 'primary' : 'muted',
+      source: '投料入库',
     },
     {
       label: '过站下机',
@@ -369,7 +393,7 @@ export function buildLiveProcessFlowItems(aggregation = {}) {
       pendingMachineCount: bucket.pendingMachineCount,
       workshopNames: [...bucket.workshopNames],
       hasTrustedOutput,
-      source: stage.key === 'packaging' && hasTrustedOutput ? 'MES包装' : (hasTrustedOutput ? '实时聚合' : MISSING_TEXT),
+      source: stage.key === 'packaging' && hasTrustedOutput ? '包装工序' : (hasTrustedOutput ? '实时聚合' : MISSING_TEXT),
       tone,
     }
   })
@@ -400,6 +424,18 @@ export function buildLiveMetricCompareItems(aggregation = {}) {
     'filled_storage_finished_weight',
     'filledStorageFinishedWeight',
   ])
+  const feedingInput = pickValue(factoryTotal, [
+    'feeding_input',
+    'feedingInput',
+    'factory_feeding_daily_input',
+    'factoryFeedingDailyInput',
+  ])
+  const yieldRate = pickValue(factoryTotal, [
+    'yield_rate',
+    'yieldRate',
+    'daily_yield_rate',
+    'dailyYieldRate',
+  ])
   const algorithmEnergy = isEnergyUsable(energy)
     ? pickValue(energy, [
       'algorithm_total_energy',
@@ -428,11 +464,20 @@ export function buildLiveMetricCompareItems(aggregation = {}) {
   return [
     {
       label: '全厂总产量',
-      primaryLabel: 'MES包装',
+      primaryLabel: '全厂包装',
       primaryValue: formatTrustedMetric(algorithmOutput, '吨'),
       compareLabel: '全厂入库',
       compareValue: formatTrustedMetric(filledOutput, '吨'),
       tone: isPresent(algorithmOutput) ? 'success' : 'muted',
+    },
+    {
+      label: '全厂成品率',
+      primaryLabel: '成品入库',
+      primaryValue: formatTrustedMetric(filledOutput, '吨'),
+      compareLabel: '投料量',
+      compareValue: formatTrustedMetric(feedingInput, '吨'),
+      value: formatTrustedMetric(yieldRate, '%'),
+      tone: isPresent(yieldRate) ? 'primary' : 'muted',
     },
     {
       label: '全厂总电耗',

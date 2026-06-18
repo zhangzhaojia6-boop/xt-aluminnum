@@ -33,7 +33,7 @@ export function buildFactorySourceStrip(overview = {}) {
     sourceLabel: sourceLabel(source),
     tone: sourceTone(source, status),
     items: [
-      { key: 'inbound', label: 'MES包装产量', value: formatValue(overview.today_output_tons), unit: '吨' },
+      { key: 'inbound', label: '全厂包装', value: formatValue(overview.today_output_tons), unit: '吨' },
       { key: 'process', label: '过站下机参考', value: formatValue(processOutput), unit: '吨' },
       { key: 'wip', label: '在制', value: formatValue(overview.wip_tons), unit: '吨' },
       { key: 'yield', label: '成品率', value: formatValue(overview.yield_rate), unit: '%' },

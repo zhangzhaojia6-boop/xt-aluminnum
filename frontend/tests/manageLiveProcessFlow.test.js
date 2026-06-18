@@ -78,7 +78,7 @@ test('buildLiveProcessFlowItems keeps a full process path without faking missing
   const packaging = rows.find((row) => row.key === 'packaging')
   assert.equal(packaging.output, 88)
   assert.equal(packaging.valueText, '88 吨')
-  assert.equal(packaging.source, 'MES包装')
+  assert.equal(packaging.source, '包装工序')
 })
 
 test('manage live surface exposes process flow as a first-screen module', () => {

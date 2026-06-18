@@ -79,9 +79,18 @@ export function buildDailySettlementCards(overview = {}) {
 
   return [
     {
+      key: 'feeding-input',
+      label: '投料量',
+      sourceLabel: 'MES投料',
+      value: formatPlainMetric(plantOutput.factory_feeding_daily_input),
+      unit: plantOutput.factory_feeding_daily_input == null ? '' : '吨',
+      tone: plantOutput.factory_feeding_daily_input == null ? 'muted' : 'primary',
+      status: plantOutput.factory_feeding_daily_input == null ? 'muted' : null,
+    },
+    {
       key: 'plant-output',
       label: '包装产量',
-      sourceLabel: 'MES数据库',
+      sourceLabel: '包装工序',
       value: formatPlainMetric(plantOutput.daily_output),
       unit: '吨',
       deltaText: plantOutput.yesterday_output == null ? null : `比昨日 ${formatPlainMetric((toNumber(plantOutput.daily_output) || 0) - (toNumber(plantOutput.yesterday_output) || 0))} 吨`,
@@ -90,7 +99,7 @@ export function buildDailySettlementCards(overview = {}) {
     {
       key: 'finished-inbound',
       label: '全厂入库产量',
-      sourceLabel: '内勤成品库填报',
+      sourceLabel: '成品入库',
       value: formatPlainMetric(plantOutput.finished_inbound_output),
       unit: plantOutput.finished_inbound_output == null ? '' : '吨',
       tone: plantOutput.finished_inbound_output == null ? 'muted' : 'success',
@@ -121,9 +130,10 @@ export function buildDailySettlementCards(overview = {}) {
     },
     {
       key: 'yield-rate',
-      label: '日成品率',
-      value: formatPlainMetric(yieldRates.daily),
-      unit: yieldRates.daily == null ? '' : '%',
+      label: '全厂成品率',
+      sourceLabel: '投料入库',
+      value: formatPlainMetric(plantOutput.yield_rate ?? yieldRates.daily),
+      unit: (plantOutput.yield_rate ?? yieldRates.daily) == null ? '' : '%',
       tone: 'primary',
     },
   ]
@@ -132,6 +142,7 @@ export function buildDailySettlementCards(overview = {}) {
 export function buildDailyComparisonCards(overview = {}) {
   const energy = overview.energy || {}
   const yieldRates = overview.yield_rates || {}
+  const plantOutput = overview.plant_output || {}
   const hasEnergy = isEnergyAvailable(energy)
   const algorithmElectricity = pickEnergyValue(energy, ['total_electricity', 'algorithm_total_energy'])
   const ownerElectricity = pickEnergyValue(energy, ['owner_electricity', 'owner_total_electricity', 'electricity_value'])
@@ -148,12 +159,13 @@ export function buildDailyComparisonCards(overview = {}) {
     },
     {
       key: 'yield',
-      title: '算法成品率',
-      primaryLabel: '算法',
-      primaryValue: formatMetric(yieldRates.daily, '%'),
-      compareLabel: '内勤对照',
-      compareValue: formatMetric(yieldRates.owner_daily, '%'),
-      tone: yieldRates.daily == null ? 'muted' : 'primary',
+      title: '全厂成品率',
+      primaryLabel: '成品入库',
+      primaryValue: formatMetric(plantOutput.finished_inbound_output, '吨'),
+      compareLabel: '投料量',
+      compareValue: formatMetric(plantOutput.factory_feeding_daily_input, '吨'),
+      value: formatMetric(plantOutput.yield_rate ?? yieldRates.daily, '%'),
+      tone: (plantOutput.yield_rate ?? yieldRates.daily) == null ? 'muted' : 'primary',
     },
   ]
 }

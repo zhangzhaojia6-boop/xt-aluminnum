@@ -15,7 +15,7 @@ from app.core.scope import build_scope_summary
 from app.schemas.dashboard import DeliveryStatusOut, FactoryDashboardResponse, WorkshopDashboardResponse
 from app.models.system import User
 from app.services import report_service
-from app.services.report import mes_home_packaging_fact
+from app.services.report import mes_factory_production_fact, mes_home_packaging_fact
 from scripts.check_statistics_module_ready import inspect_statistics_module_ready
 
 router = APIRouter(tags=['dashboard'])
@@ -151,6 +151,36 @@ def mes_home_reconciliation(
     enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
     _ensure_global_dashboard_scope(current_user)
     return mes_home_packaging_fact.build_mes_home_reconciliation(
+        db,
+        target_date=_target_or_last_completed(target_date),
+    )
+
+
+@router.get('/mes-factory-packaging-reconciliation')
+def mes_factory_packaging_reconciliation(
+    request: Request,
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_manager_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return mes_home_packaging_fact.build_mes_home_reconciliation(
+        db,
+        target_date=_target_or_last_completed(target_date),
+    )
+
+
+@router.get('/mes-factory-production-reconciliation')
+def mes_factory_production_reconciliation(
+    request: Request,
+    target_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_manager_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    _ensure_global_dashboard_scope(current_user)
+    return mes_factory_production_fact.build_factory_production_reconciliation(
         db,
         target_date=_target_or_last_completed(target_date),
     )

@@ -43,7 +43,7 @@ from app.services import master_service
 from app.services import mes_machine_match_service
 from app.services import mes_sync_service
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
-from app.services.report import daily_overview_builder, mes_home_packaging_fact
+from app.services.report import daily_overview_builder, mes_factory_production_fact, mes_home_packaging_fact
 from app.services.real_master_data import (
     OWNER_DAILY_ROLES,
     REPORTING_MACHINE_CODE_SET,
@@ -1165,12 +1165,6 @@ def _apply_yield_matrix_authority(payload: dict, workshops: list[Workshop], yiel
             workshop_total['yield_matrix_key'] = workshop_key
             workshop_payload['workshop_total'] = workshop_total
 
-    factory_total = dict(payload.get('factory_total') or {})
-    if company_total is not None:
-        factory_total['yield_rate'] = company_total
-        factory_total['yield_rate_source'] = 'yield_matrix_lane'
-        payload['factory_total'] = factory_total
-
     payload['yield_matrix_lane'] = yield_matrix_lane
     return payload
 
@@ -1845,16 +1839,23 @@ def _inject_factory_packaging_output(
     scoped_workshop_id: int | None,
 ) -> dict:
     factory_total = payload.setdefault('factory_total', {})
+    feeding_input = None
+    feeding_monthly_input = None
+    finished_inbound_monthly_output = None
+    yield_rate = factory_total.get('yield_rate')
+    monthly_yield_rate = factory_total.get('monthly_yield_rate')
+    yield_rate_source = factory_total.get('yield_rate_source')
     if scoped_workshop_id is not None:
         packaging_output = 0.0
         packaging_monthly_output = 0.0
         finished_inbound_output = 0.0
         daily_output_source = 'scoped_workshop'
     else:
-        mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=business_date)
+        production_fact = mes_factory_production_fact.build_factory_production_fact(db, target_date=business_date)
+        mes_home_fact = production_fact.get('packaging_fact') or mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=business_date)
         if mes_home_fact.get('daily_row_count'):
             packaging_output = mes_home_fact.get('mes_home_daily_output') or 0.0
-            daily_output_source = 'mes_stock_header_records'
+            daily_output_source = 'mes_workshop_process_records'
         else:
             packaging_by_date, sources_by_date = daily_overview_builder._query_mes_packaging_output_with_source_by_date(
                 db,
@@ -1873,23 +1874,33 @@ def _inject_factory_packaging_output(
                 business_date,
             )
             packaging_monthly_output = sum(packaging_month_by_date.values())
-        finished_inbound_output = daily_overview_builder._query_finished_inbound_totals_by_date(
-            db,
-            business_date,
-            business_date,
-        ).get(business_date, 0.0)
+        feeding_input = production_fact.get('factory_feeding_daily_input')
+        feeding_monthly_input = production_fact.get('factory_feeding_month_to_date_input')
+        finished_inbound_output = production_fact.get('factory_finished_inbound_daily_output') or 0.0
+        finished_inbound_monthly_output = production_fact.get('factory_finished_inbound_month_to_date_output') or 0.0
+        yield_rate = production_fact.get('daily_yield_rate')
+        monthly_yield_rate = production_fact.get('month_yield_rate')
+        yield_rate_source = production_fact.get('yield_rate_source')
 
     factory_total.update({
+        'feeding_input': round(_to_float(feeding_input), 2) if scoped_workshop_id is None else 0.0,
+        'factory_feeding_daily_input': round(_to_float(feeding_input), 2) if scoped_workshop_id is None else 0.0,
+        'feeding_monthly_input': round(_to_float(feeding_monthly_input), 2) if scoped_workshop_id is None else 0.0,
+        'factory_feeding_month_to_date_input': round(_to_float(feeding_monthly_input), 2) if scoped_workshop_id is None else 0.0,
         'packaging_output': round(packaging_output, 2),
         'daily_output': round(packaging_output, 2),
         'factory_total_output': round(packaging_output, 2),
         'packaging_monthly_output': round(packaging_monthly_output, 2),
         'month_to_date_output': round(packaging_monthly_output, 2),
         'finished_inbound_output': round(finished_inbound_output, 2),
+        'finished_inbound_monthly_output': round(_to_float(finished_inbound_monthly_output), 2) if scoped_workshop_id is None else 0.0,
         'owner_storage_finished_weight': round(finished_inbound_output, 2),
+        'yield_rate': yield_rate if scoped_workshop_id is None else factory_total.get('yield_rate'),
+        'monthly_yield_rate': monthly_yield_rate if scoped_workshop_id is None else factory_total.get('monthly_yield_rate'),
+        'yield_rate_source': yield_rate_source if scoped_workshop_id is None else factory_total.get('yield_rate_source'),
         'business_day_start': '07:30',
         'daily_output_source': daily_output_source,
-        'finished_inbound_source': 'storage_owner_daily_entry',
+        'finished_inbound_source': 'mes_stock_records',
     })
     return payload
 

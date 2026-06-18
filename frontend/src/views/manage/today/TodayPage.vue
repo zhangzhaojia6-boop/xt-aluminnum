@@ -403,8 +403,15 @@ const highlightMetrics = computed(() => {
   const plantOutput = dailyOverview.value.plant_output || {}
   return [
     {
+      key: 'feeding-month',
+      label: '投料月累计',
+      value: plantOutput.factory_feeding_month_to_date_input == null ? '—' : `${fmt(plantOutput.factory_feeding_month_to_date_input, 0)} 吨`,
+      subText: 'MES投料',
+      tone: plantOutput.factory_feeding_month_to_date_input == null ? 'muted' : 'primary',
+    },
+    {
       key: 'daily-output-month',
-      label: '包装月累计',
+      label: '全厂包装月累计',
       value: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
       subText: plantOutput.monthly_average_output == null ? '月均 —' : `月均 ${fmt(plantOutput.monthly_average_output, 1)} 吨`,
       tone: 'primary',
@@ -415,6 +422,13 @@ const highlightMetrics = computed(() => {
       value: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
       subText: plantOutput.finished_inbound_monthly_average == null ? '月均 —' : `月均 ${fmt(plantOutput.finished_inbound_monthly_average, 1)} 吨`,
       tone: plantOutput.finished_inbound_monthly_output == null ? 'muted' : 'success',
+    },
+    {
+      key: 'yield-rate-month',
+      label: '全厂成品率',
+      value: plantOutput.monthly_yield_rate == null ? '—' : `${fmt(plantOutput.monthly_yield_rate, 2)}%`,
+      subText: '投料入库',
+      tone: plantOutput.monthly_yield_rate == null ? 'muted' : 'primary',
     },
   ]
 })
@@ -464,17 +478,21 @@ const productionFlowStages = computed(() => {
     {
       key: 'warehouse',
       label: '包装 / 入库对照',
-      primaryLabel: 'MES包装',
+      primaryLabel: '全厂包装',
       primaryValue: plantOutput.daily_output == null ? '—' : `${fmt(plantOutput.daily_output, 0)} 吨`,
-      secondaryLabel: '内勤填报',
+      secondaryLabel: '成品入库',
       secondaryValue: plantOutput.finished_inbound_output == null ? '—' : `${fmt(plantOutput.finished_inbound_output, 0)} 吨`,
       subItems: [
         {
-          label: 'MES月累计',
+          label: '投料月累计',
+          value: plantOutput.factory_feeding_month_to_date_input == null ? '—' : `${fmt(plantOutput.factory_feeding_month_to_date_input, 0)} 吨`,
+        },
+        {
+          label: '包装月累计',
           value: plantOutput.monthly_output == null ? '—' : `${fmt(plantOutput.monthly_output, 0)} 吨`,
         },
         {
-          label: '填报月累计',
+          label: '入库月累计',
           value: plantOutput.finished_inbound_monthly_output == null ? '—' : `${fmt(plantOutput.finished_inbound_monthly_output, 0)} 吨`,
         },
       ],

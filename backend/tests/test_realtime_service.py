@@ -2666,7 +2666,7 @@ def test_mobile_shift_aggregate_rows_use_reporting_machine_for_virtual_role_qr()
     assert entries[0]['machine_id'] == 123
 
 
-def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() -> None:
+def test_apply_yield_matrix_authority_keeps_factory_total_as_main_fact_reference() -> None:
     workshops = [
         SimpleNamespace(id=2, code='LZ2050', name='冷轧2050车间'),
     ]
@@ -2691,8 +2691,7 @@ def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() ->
 
     updated = realtime_service._apply_yield_matrix_authority(payload, workshops, yield_matrix_lane)
 
-    assert updated['factory_total']['yield_rate'] == 96.0
-    assert updated['factory_total']['yield_rate_source'] == 'yield_matrix_lane'
+    assert updated['factory_total']['yield_rate'] == 97.0
     assert updated['workshops'][0]['workshop_total']['yield_rate'] == 95.8
     assert updated['workshops'][0]['workshop_total']['yield_rate_source'] == 'yield_matrix_lane'
     assert updated['yield_matrix_lane']['quality_status'] == 'ready'
@@ -2701,17 +2700,23 @@ def test_apply_yield_matrix_authority_overrides_factory_and_workshop_totals() ->
 def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatch) -> None:
     business_date = date(2026, 6, 9)
     monkeypatch.setattr(
-        realtime_service.daily_overview_builder,
-        '_query_mes_packaging_output_with_source_by_date',
-        lambda _db, _start, _end: (
-            {date(2026, 6, 1): 10.0, business_date: 42.5},
-            {business_date: 'mes_stock_header_records'},
-        ),
-    )
-    monkeypatch.setattr(
-        realtime_service.daily_overview_builder,
-        '_query_finished_inbound_totals_by_date',
-        lambda _db, _start, _end: {business_date: 39.25},
+        realtime_service.mes_factory_production_fact,
+        'build_factory_production_fact',
+        lambda _db, *, target_date: {
+            'factory_feeding_daily_input': 50.0,
+            'factory_feeding_month_to_date_input': 60.0,
+            'factory_finished_inbound_daily_output': 39.25,
+            'factory_finished_inbound_month_to_date_output': 49.25,
+            'daily_yield_rate': 78.5,
+            'month_yield_rate': 82.08,
+            'yield_rate_source': 'mes_feeding_to_finished_inbound',
+            'packaging_fact': {
+                'daily_row_count': 1,
+                'month_row_count': 2,
+                'mes_home_daily_output': 42.5,
+                'mes_home_month_to_date_output': 52.5,
+            },
+        },
     )
 
     payload = realtime_service._inject_factory_packaging_output(
@@ -2724,8 +2729,12 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     assert payload['factory_total']['packaging_output'] == 42.5
     assert payload['factory_total']['daily_output'] == 42.5
     assert payload['factory_total']['factory_total_output'] == 42.5
+    assert payload['factory_total']['factory_feeding_daily_input'] == 50.0
     assert payload['factory_total']['finished_inbound_output'] == 39.25
+    assert payload['factory_total']['finished_inbound_monthly_output'] == 49.25
+    assert payload['factory_total']['yield_rate'] == 78.5
+    assert payload['factory_total']['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
     assert payload['factory_total']['business_day_start'] == '07:30'
-    assert payload['factory_total']['daily_output_source'] == 'mes_stock_header_records'
+    assert payload['factory_total']['daily_output_source'] == 'mes_workshop_process_records'
     assert payload['factory_total']['packaging_monthly_output'] == 52.5
     assert payload['factory_total']['month_to_date_output'] == 52.5

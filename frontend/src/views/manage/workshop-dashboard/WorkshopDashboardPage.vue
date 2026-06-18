@@ -289,12 +289,16 @@ const exceptionRows = computed(() => {
     { key: 'energy', label: '能耗缺失', value: energyRows.value.length ? 0 : 1, tone: energyRows.value.length ? 'success' : 'warning' },
   ]
 })
-const factoryMesHomeFact = computed(() => dashboard.value.factory_mes_home_packaging_fact || dashboard.value.factoryMesHomePackagingFact || {})
+const factoryMesHomeFact = computed(() => dashboard.value.factory_packaging_fact || dashboard.value.factory_mes_home_packaging_fact || dashboard.value.factoryMesHomePackagingFact || {})
+const factoryProductionFact = computed(() => dashboard.value.factory_production_fact || dashboard.value.factoryProductionFact || {})
 const kpis = computed(() => [
   { key: 'process', label: '今日下机量', value: formatNumber(dashboard.value.process_output ?? dashboard.value.total_output, 2), unit: '吨', tone: 'primary' },
-  { key: 'finished', label: '成品口径产量', value: formatNumber(dashboard.value.total_output, 2), unit: '吨', tone: 'success' },
-  { key: 'factory-mes-daily', label: '全厂MES包装', value: formatNumber(factoryMesHomeFact.value.mes_home_daily_output, 2), unit: '吨', tone: 'success' },
-  { key: 'factory-mes-month', label: '全厂MES月累计', value: formatNumber(factoryMesHomeFact.value.mes_home_month_to_date_output, 2), unit: '吨', tone: 'primary' },
+  { key: 'finished', label: '车间口径产量', value: formatNumber(dashboard.value.total_output, 2), unit: '吨', tone: 'success' },
+  { key: 'factory-feeding', label: '全厂投料', value: formatNumber(factoryProductionFact.value.factory_feeding_daily_input, 2), unit: '吨', tone: 'primary' },
+  { key: 'factory-mes-daily', label: '全厂包装', value: formatNumber(factoryMesHomeFact.value.factory_packaging_daily_output ?? factoryMesHomeFact.value.mes_home_daily_output, 2), unit: '吨', tone: 'success' },
+  { key: 'factory-inbound', label: '成品入库', value: formatNumber(factoryProductionFact.value.factory_finished_inbound_daily_output, 2), unit: '吨', tone: 'success' },
+  { key: 'factory-yield', label: '全厂成品率', value: formatNumber(factoryProductionFact.value.daily_yield_rate, 2), unit: '%', tone: 'primary' },
+  { key: 'factory-mes-month', label: '包装月累计', value: formatNumber(factoryMesHomeFact.value.factory_packaging_month_to_date_output ?? factoryMesHomeFact.value.mes_home_month_to_date_output, 2), unit: '吨', tone: 'primary' },
   { key: 'pass', label: '道次总数', value: formatNumber(dashboard.value.pass_count_total, 0), unit: '道', tone: 'primary' },
   { key: 'exception', label: '异常数量', value: formatNumber(exceptionRows.value.reduce((sum, row) => sum + Number(row.value || 0), 0), 0), unit: '项', tone: 'danger' },
 ])

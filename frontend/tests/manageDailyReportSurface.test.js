@@ -12,10 +12,12 @@ import {
 test('daily settlement cards keep MES packaging output separate from plant inbound output', () => {
   const cards = buildDailySettlementCards({
     plant_output: {
+      factory_feeding_daily_input: 88,
       daily_output: 81.25,
       finished_inbound_output: 73.6,
       monthly_output: 1234.5,
-      energy_per_ton: 456.7
+      energy_per_ton: 456.7,
+      yield_rate: 83.64
     },
     workshop_output: [
       { workshop: '园区在线', daily_output: 40 },
@@ -26,19 +28,25 @@ test('daily settlement cards keep MES packaging output separate from plant inbou
     yield_rates: { daily: 95.6 }
   })
 
+  assert.equal(cards.find((item) => item.key === 'feeding-input')?.value, '88')
+  assert.equal(cards.find((item) => item.key === 'feeding-input')?.label, '投料量')
+  assert.equal(cards.find((item) => item.key === 'feeding-input')?.sourceLabel, 'MES投料')
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.25')
   assert.equal(cards.find((item) => item.key === 'plant-output')?.label, '包装产量')
-  assert.equal(cards.find((item) => item.key === 'plant-output')?.sourceLabel, 'MES数据库')
+  assert.equal(cards.find((item) => item.key === 'plant-output')?.sourceLabel, '包装工序')
   assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '73.6')
   assert.equal(cards.find((item) => item.key === 'finished-inbound')?.label, '全厂入库产量')
-  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.sourceLabel, '内勤成品库填报')
+  assert.equal(cards.find((item) => item.key === 'finished-inbound')?.sourceLabel, '成品入库')
+  assert.equal(cards.find((item) => item.key === 'yield-rate')?.label, '全厂成品率')
+  assert.equal(cards.find((item) => item.key === 'yield-rate')?.sourceLabel, '投料入库')
+  assert.equal(cards.find((item) => item.key === 'yield-rate')?.value, '83.64')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'contract-tonnage')?.unit, '吨')
 })
 
 test('daily values hide trailing zero decimals but keep useful precision', () => {
   const cards = buildDailySettlementCards({
-    plant_output: { daily_output: 81.2, finished_inbound_output: 80, energy_per_ton: 456 },
+    plant_output: { factory_feeding_daily_input: 90, daily_output: 81.2, finished_inbound_output: 80, energy_per_ton: 456 },
     workshop_output: [
       { workshop: '园区在线', daily_output: 40 },
       { workshop: '精整', daily_output: 50 },
@@ -48,6 +56,7 @@ test('daily values hide trailing zero decimals but keep useful precision', () =>
     yield_rates: { daily: 95 },
   })
 
+  assert.equal(cards.find((item) => item.key === 'feeding-input')?.value, '90')
   assert.equal(cards.find((item) => item.key === 'plant-output')?.value, '81.2')
   assert.equal(cards.find((item) => item.key === 'finished-inbound')?.value, '80')
   assert.equal(cards.find((item) => item.key === 'process-throughput')?.value, '90')
@@ -83,6 +92,11 @@ test('daily comparison cards show algorithm values first and owner filled values
       owner_electricity: 1180,
       data_available: true
     },
+    plant_output: {
+      factory_feeding_daily_input: 100,
+      finished_inbound_output: 86,
+      yield_rate: 86,
+    },
     yield_rates: {
       daily: 96.4,
       owner_daily: 95.1
@@ -93,11 +107,14 @@ test('daily comparison cards show algorithm values first and owner filled values
     cards.map((item) => [item.title, item.primaryLabel, item.compareLabel]),
     [
       ['算法能耗', '算法', '电工填报'],
-      ['算法成品率', '算法', '内勤对照']
+      ['全厂成品率', '成品入库', '投料量']
     ]
   )
   assert.equal(cards[0].primaryValue, '1,200 度')
   assert.equal(cards[0].compareValue, '1,180 度')
+  assert.equal(cards[1].primaryValue, '86 吨')
+  assert.equal(cards[1].compareValue, '100 吨')
+  assert.equal(cards[1].value, '86 %')
 })
 
 test('daily comparison cards accept electricity aliases shared with live and energy pages', () => {
