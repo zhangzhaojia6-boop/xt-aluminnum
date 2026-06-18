@@ -28,6 +28,7 @@ _PRIVATE_KEY_BLOCK_PATTERN = re.compile(
     r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----',
     re.IGNORECASE | re.DOTALL,
 )
+_PRIVATE_KEY_LINE_PATTERN = re.compile(r'-----(?:BEGIN|END) [A-Z0-9 ]*PRIVATE KEY-----', re.IGNORECASE)
 _BEARER_PATTERN = re.compile(r'(?i)authorization\s*[:=]\s*bearer\s+\S+')
 _CONNECTION_AUTH_PATTERN = re.compile(r'(?i)([a-z][a-z0-9+.-]*://)([^:/@\s]+):([^/@\s]+)@')
 
@@ -67,6 +68,10 @@ def sanitize_system_understanding_text(text: str) -> tuple[str, int]:
 
     safe_lines: list[str] = []
     for raw_line in text.splitlines():
+        if _PRIVATE_KEY_LINE_PATTERN.search(raw_line):
+            redacted_count += 1
+            safe_lines.append('【敏感私钥标记已脱敏】')
+            continue
         line = redact_secret_text(raw_line)
         if _SENSITIVE_LINE_PATTERN.search(line):
             cleaned = _ASSIGNMENT_PATTERN.sub(' 已脱敏', line)

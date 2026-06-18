@@ -41,6 +41,9 @@ def test_safe_system_understanding_copy_can_be_ingested_without_secret_values(tm
                 'DINGTALK_CLIENT_SECRET=real-secret-value-1234567890',
                 '数据库密码：real-db-password-1234567890',
                 'webhook=https://oapi.dingtalk.com/robot/send?access_token=abc1234567890',
+                '-----BEGIN PRIVATE KEY-----',
+                'private-key-body',
+                '-----END PRIVATE KEY-----',
                 '包装产量来自 WMS_InStock.TotalNetWeight + InStockDate。',
             ]
         ),
@@ -58,6 +61,8 @@ def test_safe_system_understanding_copy_can_be_ingested_without_secret_values(tm
         assert 'real-secret-value' not in safe_text
         assert 'real-db-password' not in safe_text
         assert 'access_token=' not in safe_text
+        assert 'BEGIN PRIVATE KEY' not in safe_text
+        assert 'END PRIVATE KEY' not in safe_text
         assert 'Hermes 工厂总控' in safe_text
 
         document = hermes_rag_service.ingest_file(
