@@ -50,3 +50,77 @@ class RagQueryLog(Base):
     citations: Mapped[list | None] = mapped_column(json_object_type, nullable=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class RagEmbedding(Base):
+    __tablename__ = 'rag_embeddings'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey('rag_documents.id'), nullable=False, index=True)
+    chunk_id: Mapped[int] = mapped_column(ForeignKey('rag_chunks.id'), nullable=False, unique=True, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    vector_payload: Mapped[list | None] = mapped_column(json_object_type, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='ready', index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class RagSourceIngestion(Base):
+    __tablename__ = 'rag_source_ingestions'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_ref: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='active', index=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey('rag_documents.id'), nullable=True, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
+    metadata_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HermesLearningEvent(Base):
+    __tablename__ = 'hermes_learning_events'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    tools_called: Mapped[list | None] = mapped_column(json_object_type, nullable=True)
+    sources: Mapped[list | None] = mapped_column(json_object_type, nullable=True)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    user_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    human_correction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='candidate', index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HermesShortTermMemory(Base):
+    __tablename__ = 'hermes_short_term_memories'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    conversation_key: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    memory_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    memory_value: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HermesApprovedLesson(Base):
+    __tablename__ = 'hermes_approved_lessons'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    learning_event_id: Mapped[int | None] = mapped_column(ForeignKey('hermes_learning_events.id'), nullable=True, index=True)
+    lesson_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_payload: Mapped[dict | None] = mapped_column(json_object_type, nullable=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey('rag_documents.id'), nullable=True, index=True)
+    approved_by_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default='active', index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

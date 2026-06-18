@@ -347,12 +347,19 @@ def _has_bound_inbound_outbox_channel(db: Session, *, group_id: str, agent_code:
 
 
 def _ensure_inbound_token(header_token: str | None) -> None:
-    expected = _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None))
-    if not expected:
+    accepted_tokens = {
+        token
+        for token in (
+            _clean_text(getattr(settings, 'DINGTALK_INBOUND_TOKEN', None)),
+            _clean_text(getattr(settings, 'HERMES_DINGTALK_INBOUND_TOKEN', None)),
+        )
+        if token
+    }
+    if not accepted_tokens:
         if settings.is_production_like:
             raise HTTPException(status_code=503, detail='dingtalk_inbound_token_required')
         return
-    if _clean_text(header_token) != expected:
+    if _clean_text(header_token) not in accepted_tokens:
         raise HTTPException(status_code=401, detail='dingtalk_inbound_token_invalid')
 
 

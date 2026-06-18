@@ -367,6 +367,92 @@ def test_dingtalk_agent_inbound_rejects_missing_token_when_configured(monkeypatc
         _restore_db_override(previous_overrides, db)
 
 
+def test_dingtalk_agent_inbound_accepts_hermes_token_without_replacing_legacy_token(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', 'legacy-inbound', raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-inbound', raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/dingtalk/agent-inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-inbound'},
+            json={
+                'conversationId': 'cid-hermes-test',
+                'senderStaffId': 'dt-manager-001',
+                'senderUnionId': 'union-manager-001',
+                'text': {'content': '@Hermes 点检资料怎么查'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-hermes-token-001',
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()['trace_id'] == 'trace-hermes-token-001'
+        assert db.query(ChatInboxMessage).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
+def test_hermes_dingtalk_inbound_alias_reuses_agent_inbound_contract(monkeypatch) -> None:
+    db, previous_overrides = _install_db_override()
+    db.add(
+        User(
+            id=1,
+            username='manager',
+            password_hash='x',
+            name='生产经理',
+            role='manager',
+            is_manager=True,
+            is_active=True,
+            dingtalk_user_id='dt-manager-001',
+            dingtalk_union_id='union-manager-001',
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr('app.routers.dingtalk.settings.DINGTALK_INBOUND_TOKEN', '', raising=False)
+    monkeypatch.setattr('app.routers.dingtalk.settings.HERMES_DINGTALK_INBOUND_TOKEN', 'hermes-inbound', raising=False)
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            '/api/v1/hermes/dingtalk/inbound',
+            headers={'x-dingtalk-inbound-token': 'hermes-inbound'},
+            json={
+                'conversationId': 'cid-hermes-test',
+                'senderStaffId': 'dt-manager-001',
+                'senderUnionId': 'union-manager-001',
+                'text': {'content': '@Hermes 点检资料怎么查'},
+                'agentCode': 'factory_dispatch',
+                'traceId': 'trace-hermes-alias-001',
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload['errcode'] == 0
+        assert payload['trace_id'] == 'trace-hermes-alias-001'
+        assert db.query(ChatInboxMessage).count() == 1
+    finally:
+        _restore_db_override(previous_overrides, db)
+
+
 def test_dingtalk_agent_inbound_redacts_agent_error_detail(monkeypatch) -> None:
     db, previous_overrides = _install_db_override()
     db.add(

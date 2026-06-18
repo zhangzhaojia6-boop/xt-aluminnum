@@ -38,6 +38,11 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
         'apply_template_daily_report_to_latest_report',
         lambda db, target_date: calls.append(('template', target_date, db)),
     )
+    monkeypatch.setattr(
+        daily_report.hermes_rag_service,
+        'archive_latest_daily_report_to_rag',
+        lambda db, report_date, generated_by: calls.append(('archive', report_date, db)),
+    )
 
     result = daily_report.generate_daily_reports()
 
@@ -45,9 +50,10 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
     assert calls == [
         ('aggregator', date(2026, 6, 1), session),
         ('template', date(2026, 6, 1), session),
+        ('archive', date(2026, 6, 1), session),
         ('reporter', date(2026, 6, 1), session),
     ]
-    assert session.commits == 3
+    assert session.commits == 4
 
 
 def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> None:
@@ -63,8 +69,13 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
         'apply_template_daily_report_to_latest_report',
         lambda db, target_date: seen.append(target_date),
     )
+    monkeypatch.setattr(
+        daily_report.hermes_rag_service,
+        'archive_latest_daily_report_to_rag',
+        lambda db, report_date, generated_by: seen.append(report_date),
+    )
 
     result = daily_report.generate_daily_reports(target_date=date(2026, 5, 30))
 
     assert result == {'status': 'ok', 'business_date': '2026-05-30'}
-    assert seen == [date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30)]
+    assert seen == [date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30)]

@@ -84,6 +84,12 @@ def _parse_nested_json_object(value: str | None, *, setting_name: str) -> dict[s
     return normalized
 
 
+def _parse_csv_values(value: str | None) -> list[str]:
+    if _is_blank(value):
+        return []
+    return [item.strip() for item in str(value).split(',') if item.strip()]
+
+
 class Settings(BaseSettings):
     APP_NAME: str = '鑫泰铝业'
     APP_VERSION: str = '0.4.1'
@@ -155,6 +161,10 @@ class Settings(BaseSettings):
     DINGTALK_ENABLED: bool = False
     DINGTALK_NOTIFY_DRY_RUN: bool = False
     DINGTALK_INBOUND_TOKEN: str | None = None
+    HERMES_DINGTALK_CLIENT_ID: str | None = None
+    HERMES_DINGTALK_CLIENT_SECRET: str | None = None
+    HERMES_DINGTALK_INBOUND_TOKEN: str | None = None
+    HERMES_DINGTALK_MODE: str = 'callback'
     WORKFLOW_ENABLED: bool = False
     AUTO_PUBLISH_ENABLED: bool = True
     AUTO_PUSH_ENABLED: bool = True
@@ -180,6 +190,18 @@ class Settings(BaseSettings):
     LLM_IMAGE_ENDPOINT_ID: str | None = None
     LLM_TIMEOUT_SECONDS: float = 20.0
     LLM_DAILY_QUERY_LIMIT: int = 50
+    RAG_EMBEDDING_PROVIDER: str = 'null'
+    RAG_EMBEDDING_MODEL: str | None = None
+    RAG_EMBEDDING_API_BASE: str | None = None
+    RAG_EMBEDDING_API_KEY: str | None = None
+    RAG_WEB_SOURCE_ALLOWLIST: str = (
+        'openstd.samr.gov.cn,std.samr.gov.cn,mem.gov.cn,aluminum.org,pmc.ncbi.nlm.nih.gov,'
+        'ameteksurfacevision.com,sms-group.com'
+    )
+    HERMES_OWNER_DINGTALK_USER_IDS: str = ''
+    HERMES_ALLOWED_DINGTALK_USER_IDS: str = ''
+    HERMES_ALLOWED_GROUP_IDS: str = ''
+    HERMES_OPS_ENABLED: bool = False
     APP_CONNECTION_ENABLED: bool = False
     APP_CONNECTION_API_BASE: str | None = None
     APP_CONNECTION_API_KEY: str | None = None
@@ -244,6 +266,26 @@ class Settings(BaseSettings):
     @property
     def iot_energy_meter_map(self) -> dict[str, dict[str, str]]:
         return _parse_nested_json_object(self.IOT_ENERGY_METER_MAP, setting_name='IOT_ENERGY_METER_MAP')
+
+    @property
+    def rag_embedding_provider_normalized(self) -> str:
+        return str(self.RAG_EMBEDDING_PROVIDER or 'null').strip().lower() or 'null'
+
+    @property
+    def rag_web_source_allowlist(self) -> list[str]:
+        return [item.lower() for item in _parse_csv_values(self.RAG_WEB_SOURCE_ALLOWLIST)]
+
+    @property
+    def hermes_owner_dingtalk_user_ids(self) -> set[str]:
+        return set(_parse_csv_values(self.HERMES_OWNER_DINGTALK_USER_IDS))
+
+    @property
+    def hermes_allowed_dingtalk_user_ids(self) -> set[str]:
+        return set(_parse_csv_values(self.HERMES_ALLOWED_DINGTALK_USER_IDS))
+
+    @property
+    def hermes_allowed_group_ids(self) -> set[str]:
+        return set(_parse_csv_values(self.HERMES_ALLOWED_GROUP_IDS))
 
     @property
     def mobile_data_entry_mode_normalized(self) -> str:
@@ -373,6 +415,10 @@ class Settings(BaseSettings):
 
         if self.LLM_DAILY_QUERY_LIMIT <= 0:
             issues.append('LLM_DAILY_QUERY_LIMIT must be greater than 0')
+
+        hermes_dingtalk_mode = str(self.HERMES_DINGTALK_MODE or 'callback').strip().lower()
+        if hermes_dingtalk_mode not in {'callback', 'stream', 'disabled'}:
+            issues.append('HERMES_DINGTALK_MODE must be one of callback, stream, or disabled')
 
         if self.APP_CONNECTION_TIMEOUT_SECONDS <= 0:
             issues.append('APP_CONNECTION_TIMEOUT_SECONDS must be greater than 0')

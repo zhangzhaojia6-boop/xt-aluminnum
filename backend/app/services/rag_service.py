@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.scope import can_request_workshop_scope
 from app.core.redaction import redact_secret_text
-from app.models.rag import RagChunk, RagDocument, RagQueryLog
+from app.models.rag import RagChunk, RagDocument, RagEmbedding, RagQueryLog
 from app.models.system import User
+from app.services import rag_embedding_service
 
 
 ALLOWED_EXTENSIONS = {'.txt', '.md', '.csv', '.json', '.log'}
@@ -55,6 +56,7 @@ def create_document_from_bytes(
     source_name: str | None = None,
     metadata: dict[str, Any] | None = None,
     scope: dict[str, Any] | None = None,
+    status: str = 'active',
 ) -> RagDocument:
     clean_name = _clean_filename(filename)
     clean_source_name = _clean_source_name(source_name, fallback=clean_name)
@@ -67,7 +69,7 @@ def create_document_from_bytes(
         source_name=clean_source_name,
         content_type=content_type,
         encoding=decoded.encoding,
-        status='active',
+        status=_document_status(status),
         file_size=len(content),
         chunk_count=len(chunks),
         uploaded_by_id=getattr(uploaded_by, 'id', None),
@@ -90,6 +92,11 @@ def create_document_from_bytes(
             )
         )
     db.flush()
+    try:
+        rag_embedding_service.index_document_embeddings(db, document)
+    except Exception:
+        # Embedding is an optional accelerator; keyword RAG must stay available.
+        pass
     return document
 
 
@@ -161,10 +168,13 @@ def query_knowledge(
         for chunk, document in chunks
         if _document_visible_to_user(db, document, user)
     ]
-    ranked = sorted(
+    keyword_ranked = sorted(
         ((chunk, document, _score_chunk(clean_query, tokens, chunk.content)) for chunk, document in chunks),
         key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index),
-    )[: max(1, min(limit, 10))]
+    )
+    vector_ranked = _vector_ranked_chunks(db, clean_query, user=user, metadata_filters=metadata_filters)
+    merged = _merge_ranked_chunks(keyword_ranked, vector_ranked)
+    ranked = merged[: max(1, min(limit, 10))]
 
     if not ranked:
         answer = '数据不足，知识库没有找到可靠来源。'
@@ -274,6 +284,11 @@ def _clean_source_name(source_name: str | None, *, fallback: str) -> str:
     return clean_name or fallback
 
 
+def _document_status(status: str | None) -> str:
+    clean_status = str(status or 'active').strip()
+    return clean_status if clean_status in {'active', 'pending_review', 'deleted'} else 'active'
+
+
 def _clean_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     clean_payload: dict[str, Any] = {}
     for key, value in (payload or {}).items():
@@ -370,6 +385,50 @@ def _score_chunk(query: str, tokens: list[str], content: str) -> int:
         if token in content:
             score += 2
     return score
+
+
+def _vector_ranked_chunks(
+    db: Session,
+    query: str,
+    *,
+    user: User | None,
+    metadata_filters: dict[str, Any],
+) -> list[tuple[RagChunk, RagDocument, float]]:
+    query_vector = rag_embedding_service.embed_text(query)
+    if query_vector is None:
+        return []
+    rows = (
+        db.query(RagEmbedding, RagChunk, RagDocument)
+        .join(RagChunk, RagChunk.id == RagEmbedding.chunk_id)
+        .join(RagDocument, RagDocument.id == RagChunk.document_id)
+        .filter(RagEmbedding.status == 'ready')
+        .filter(RagDocument.status == 'active')
+        .all()
+    )
+    ranked: list[tuple[RagChunk, RagDocument, float]] = []
+    for embedding, chunk, document in rows:
+        if metadata_filters and not _document_matches_metadata(document, metadata_filters):
+            continue
+        if not _document_visible_to_user(db, document, user):
+            continue
+        score = rag_embedding_service.cosine_similarity(query_vector, embedding.vector_payload)
+        if score <= 0:
+            continue
+        ranked.append((chunk, document, round(score * 100, 4)))
+    ranked.sort(key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index))
+    return ranked
+
+
+def _merge_ranked_chunks(
+    keyword_ranked: list[tuple[RagChunk, RagDocument, int]],
+    vector_ranked: list[tuple[RagChunk, RagDocument, float]],
+) -> list[tuple[RagChunk, RagDocument, float]]:
+    merged: dict[int, tuple[RagChunk, RagDocument, float]] = {}
+    for chunk, document, score in [*keyword_ranked, *vector_ranked]:
+        current = merged.get(chunk.id)
+        if current is None or float(score) > current[2]:
+            merged[chunk.id] = (chunk, document, float(score))
+    return sorted(merged.values(), key=lambda item: (-item[2], item[0].document_id, item[0].chunk_index))
 
 
 def _chunk_item(chunk: RagChunk, document: RagDocument, *, score: int) -> dict[str, Any]:

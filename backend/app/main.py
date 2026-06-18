@@ -21,7 +21,7 @@ from app.core.exceptions import BusinessException, business_exception_handler, h
 from app.core.logging import configure_json_logging
 from app.core.scheduler import scheduler, setup_scheduler, try_acquire_scheduler_leader, release_scheduler_leader
 from app.routers.config import router as config_router
-from app.routers import ai, agent, agent_management, assistant, assistant_actions, attendance, auth, command, consumables, contracts, dashboard, dingtalk, energy, executive, export, factory_command, imports, inventory, mapping_reconciliation, master, mes, mobile, notifications, ocr, production, quality, rag, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, work_orders
+from app.routers import ai, agent, agent_management, assistant, assistant_actions, attendance, auth, command, consumables, contracts, dashboard, dingtalk, energy, executive, export, factory_command, hermes, imports, inventory, mapping_reconciliation, master, mes, mobile, notifications, ocr, production, quality, rag, realtime, reconciliation, reports, rule_configs, search, telemetry, templates, user_preferences, users, work_orders
 from app.services import dingtalk_service
 
 logger = logging.getLogger(__name__)
@@ -275,6 +275,7 @@ app.include_router(quality.router, prefix=f'{settings.API_V1_PREFIX}/quality')
 app.include_router(realtime.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(templates.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(dingtalk.router, prefix=f'{settings.API_V1_PREFIX}/dingtalk')
+app.include_router(hermes.router, prefix=f'{settings.API_V1_PREFIX}/hermes')
 app.include_router(work_orders.router, prefix=f'{settings.API_V1_PREFIX}')
 app.include_router(ai.router, prefix=f'{settings.API_V1_PREFIX}/ai')
 app.include_router(search.router, prefix=f'{settings.API_V1_PREFIX}')

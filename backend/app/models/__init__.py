@@ -77,7 +77,16 @@ from app.models.production import (
     WorkOrderEntry,
 )
 from app.models.quality import DataQualityIssue, QualityIssueLog, QualityYieldDaily
-from app.models.rag import RagChunk, RagDocument, RagQueryLog
+from app.models.rag import (
+    HermesApprovedLesson,
+    HermesLearningEvent,
+    HermesShortTermMemory,
+    RagChunk,
+    RagDocument,
+    RagEmbedding,
+    RagQueryLog,
+    RagSourceIngestion,
+)
 from app.models.reconciliation import DataReconciliationItem, MappingReconciliationRun
 from app.models.reports import DailyReport
 from app.models.rule_config import RuleConfig
@@ -155,6 +164,11 @@ __all__ = [
     'RagDocument',
     'RagChunk',
     'RagQueryLog',
+    'RagEmbedding',
+    'RagSourceIngestion',
+    'HermesLearningEvent',
+    'HermesShortTermMemory',
+    'HermesApprovedLesson',
     'ProductionPlanDaily',
     'AlloySpecBreakdown',
     'ShipmentOutflowRecord',
