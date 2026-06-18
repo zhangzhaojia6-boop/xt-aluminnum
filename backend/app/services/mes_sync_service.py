@@ -924,6 +924,31 @@ def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any
     }
 
 
+def _delivery_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
+    payload = _safe_payload(record.metadata)
+    if record.source_path == 'sqlserver:delivery_stock_records':
+        delivery_date = _record_metadata_event_time(record, 'CreateDate', 'OperateDate')
+    else:
+        delivery_date = _record_metadata_event_time(record, 'OperateDate', 'StrOperateDate', 'CreateDate')
+    net_kg = _to_float(_metadata_value(payload, 'NetWeight', 'TotalNetWeight', 'OutStockNetWeight'))
+    gross_kg = _to_float(_metadata_value(payload, 'GrossWeight', 'TotalGrossWeight'))
+    return {
+        'source_path': record.source_path,
+        'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
+        'contract_no': _to_text(_metadata_value(payload, 'ContractCode', 'ContractNo')),
+        'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
+        'net_weight_kg': net_kg,
+        'net_weight_tons': _kg_to_tons(net_kg),
+        'gross_weight_kg': gross_kg,
+        'gross_weight_tons': _kg_to_tons(gross_kg),
+        'in_stock_date': delivery_date,
+        'business_date': resolve_production_business_date(delivery_date) if delivery_date is not None else _record_business_date(record),
+        'status_name': _to_text(_metadata_value(payload, 'StatusName', 'Status')),
+        'last_seen_from_mes_at': synced_at,
+        'source_payload': payload,
+    }
+
+
 def _material_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any]:
     payload = _safe_payload(record.metadata)
     production_date = _record_event_time(record, 'ProductionDate', 'StrProductionDate')
@@ -1191,7 +1216,7 @@ def sync_mes_delivery_records_between(
         cursor_key='mes_delivery_records_between',
         synced_at=synced_at,
         model=MesStockRecord,
-        field_builder=_stock_fields,
+        field_builder=_delivery_fields,
         fetch_page=lambda *, limit, offset: fetcher(
             start_at=start_at,
             end_at=end_at,

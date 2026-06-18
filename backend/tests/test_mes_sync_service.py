@@ -1122,6 +1122,7 @@ def test_sync_finished_inbound_and_delivery_records_between(tmp_path, monkeypatc
                         'DeliveryCode': 'FH-1',
                         'NetWeight': '222306',
                         'OperateDate': datetime(2026, 6, 17, 14, 0),
+                        'CreateDate': datetime(2026, 6, 18, 8, 0),
                     },
                 )
             ]
@@ -1150,6 +1151,7 @@ def test_sync_finished_inbound_and_delivery_records_between(tmp_path, monkeypatc
     assert float(by_source['sqlserver:stock_header_records'].net_weight_tons) == 303.031
     assert by_source['sqlserver:stock_header_records'].business_date == date(2026, 6, 17)
     assert float(by_source['sqlserver:delivery_records'].net_weight_tons) == 222.306
+    assert by_source['sqlserver:delivery_records'].business_date == date(2026, 6, 17)
 
 
 def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):
