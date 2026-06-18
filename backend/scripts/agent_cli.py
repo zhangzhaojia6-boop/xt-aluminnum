@@ -14,8 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+load_dotenv(ROOT / '.env')
 
 from app.adapters import get_mes_adapter
 from app.adapters.mes_adapter import NullMesAdapter
