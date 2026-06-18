@@ -353,10 +353,7 @@ def test_dingtalk_rag_query_auto_promotes_stable_knowledge(tmp_path, monkeypatch
         assert event.question == '日报口径'
         assert event.status == 'approved'
         assert db.query(HermesApprovedLesson).count() == 1
-        assert any(
-            (document.metadata_payload or {}).get('source_type') == 'approved_lesson'
-            for document in db.query(RagDocument).all()
-        )
+        assert not any((document.metadata_payload or {}).get('source_type') == 'approved_lesson' for document in db.query(RagDocument).all())
         inbox = db.query(ChatInboxMessage).one()
         assert inbox.trace_id == 'trace-rag-learning-001'
         assert inbox.text == '/查知识 日报口径'

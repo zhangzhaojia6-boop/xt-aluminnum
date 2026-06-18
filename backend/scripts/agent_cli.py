@@ -29,6 +29,7 @@ from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.database import get_sessionmaker
 from app.models.agent_communication import AgentOperationApproval, AgentOutboxMessage, ChatInboxMessage
 from app.models.mes import MesSyncRunLog
+from app.models.rag import HermesApprovedLesson
 from app.models.reports import DailyReport
 from app.models.system import User
 from app.services import agent_designated_operation_service, hermes_governance_service, hermes_memory_service, hermes_rag_service
@@ -749,7 +750,27 @@ def _record_learning_memory(
         actor=actor,
     )
     if _should_auto_promote_learning(question=question, answer=answer, tools_called=tools_called, sources=sources):
-        hermes_rag_service.approve_learning_event(db, event_id=event.id, approver=actor)
+        _auto_approve_learning_event(db, event=event, approver=actor)
+
+
+def _auto_approve_learning_event(db: Session, *, event, approver: User | None) -> HermesApprovedLesson:
+    event.status = 'approved'
+    lesson = HermesApprovedLesson(
+        learning_event_id=event.id,
+        lesson_text=str(event.answer or '').strip(),
+        source_payload={
+            'trace_id': event.trace_id,
+            'sources': event.sources or [],
+            'auto_promoted': True,
+            'storage': 'approved_lessons_only',
+        },
+        document_id=None,
+        approved_by_id=getattr(approver, 'id', None),
+        status='active',
+    )
+    db.add(lesson)
+    db.flush()
+    return lesson
 
 
 def _should_auto_promote_learning(
