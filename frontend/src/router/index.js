@@ -121,6 +121,7 @@ const rawRoutes = [
       { path: '', redirect: '/manage/today' },
       { path: 'live', name: 'manage-live', component: LiveDashboardPage, meta: { ...reviewMeta, title: '生产实时', canonical: '/manage/live' } },
       { path: 'workshop', redirect: preserveRouteState('/manage/workshop-dashboard') },
+      { path: 'workshop-dashborad', redirect: preserveRouteState('/manage/workshop-dashboard') },
       { path: 'workshop-dashboard', name: 'manage-workshop-dashboard', component: WorkshopDashboardPage, meta: { ...reviewMeta, access: 'workshop_dashboard', title: '各车间看板', canonical: '/manage/workshop-dashboard' } },
       { path: 'today', name: 'manage-today', component: TodayPage, meta: { ...reviewMeta, title: '昨日日报', canonical: '/manage/today' } },
       { path: 'production', name: 'manage-production', component: ProductionPage, meta: { ...reviewMeta, title: '生产', canonical: '/manage/production' } },

@@ -21,6 +21,7 @@ from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
+from app.services.report import mes_home_packaging_fact
 from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
@@ -1205,6 +1206,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
     mes_totals_by_date, mes_sources_by_date = _query_mes_packaging_output_with_source_by_date(db, month_start, target_date)
     mes_row_counts_by_date = _query_mes_packaging_row_counts_with_source_by_date(db, month_start, target_date)
+    mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     mes_header_inbound_by_date = _query_mes_stock_packaging_output_by_date(
         db,
         month_start,
@@ -1215,8 +1217,19 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     daily_output = mes_totals_by_date.get(target_date, 0.0)
     yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
     mes_monthly_output = sum(mes_totals_by_date.values())
+    if mes_home_fact.get('daily_row_count'):
+        daily_output = _to_float(mes_home_fact.get('mes_home_daily_output'))
+        mes_totals_by_date[target_date] = daily_output
+        mes_sources_by_date[target_date] = 'mes_stock_header_records'
+        mes_row_counts_by_date[target_date] = int(mes_home_fact.get('daily_row_count') or 0)
+    if mes_home_fact.get('month_row_count'):
+        mes_monthly_output = _to_float(mes_home_fact.get('mes_home_month_to_date_output'))
     finished_inbound_output = inbound_totals_by_date.get(target_date, 0.0)
     finished_inbound_monthly_output = sum(inbound_totals_by_date.values())
+    if mes_home_fact.get('daily_row_count'):
+        finished_inbound_output = daily_output
+    if mes_home_fact.get('month_row_count'):
+        finished_inbound_monthly_output = mes_monthly_output
     monthly_output = mes_monthly_output
     monthly_output_source = 'mes_packaging_output'
     daily_output_source = mes_sources_by_date.get(target_date, 'mes_packaging_output')
@@ -1261,6 +1274,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'packaging_basis_label': '包装产量',
         'mes_packaging_output': _round2(mes_totals_by_date.get(target_date, 0.0)),
         'mes_packaging_monthly_output': _round2(mes_monthly_output),
+        'mes_home_packaging_fact': mes_home_fact,
         'finished_inbound_output': _round2(finished_inbound_output),
         'finished_inbound_monthly_output': _round2(finished_inbound_monthly_output),
         'finished_inbound_monthly_average': _round2(finished_inbound_monthly_output / days_elapsed),

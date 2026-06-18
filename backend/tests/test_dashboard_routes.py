@@ -1,18 +1,97 @@
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
+from app.database import Base
 from app.core.deps import get_db
 from app.core.permissions import get_current_manager_user
 from app.core.deps import get_current_user
 from app.main import app
+from app.models.mes import MesStockRecord
 from app.schemas.dashboard import FactoryDashboardResponse, WorkshopDashboardResponse
 from app.services import report_service
 
 
 class DummyDB:
     pass
+
+
+def _mes_stock_session_factory(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-home-reconciliation.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesStockRecord.__table__])
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
+def test_mes_home_reconciliation_route_exposes_header_daily_and_monthly_fact(tmp_path) -> None:
+    session_factory = _mes_stock_session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesStockRecord(
+                    source_id='header-2026-06-01',
+                    source_path='sqlserver:stock_header_records',
+                    net_weight_tons=12.34,
+                    in_stock_date=datetime(2026, 6, 1, 9, 0),
+                    business_date=date(2026, 6, 1),
+                    source_payload={'TotalNetWeight': '12340', 'InStockDate': '2026-06-01 09:00:00'},
+                ),
+                MesStockRecord(
+                    source_id='header-2026-06-09',
+                    source_path='sqlserver:stock_header_records',
+                    net_weight_tons=60.5,
+                    in_stock_date=datetime(2026, 6, 9, 10, 0),
+                    business_date=date(2026, 6, 9),
+                    source_payload={'TotalNetWeight': '60500', 'InStockDate': '2026-06-09 10:00:00'},
+                ),
+                MesStockRecord(
+                    source_id='detail-ignored-2026-06-09',
+                    source_path='sqlserver:stock_records',
+                    net_weight_tons=99.0,
+                    in_stock_date=datetime(2026, 6, 9, 10, 0),
+                    business_date=date(2026, 6, 9),
+                    status_name='1',
+                    source_payload={'FromDepartment': '精整', 'ToDepartment': '成品库', 'Status': 1},
+                ),
+            ]
+        )
+        db.commit()
+
+    def fake_get_db():
+        with session_factory() as db:
+            yield db
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=7,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_manager_user] = fake_get_user
+
+    response = TestClient(app).get('/api/v1/dashboard/mes-home-reconciliation', params={'target_date': '2026-06-09'})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['target_date'] == '2026-06-09'
+    assert payload['source_table'] == 'WMS_InStock'
+    assert payload['source_weight_field'] == 'TotalNetWeight'
+    assert payload['source_time_field'] == 'InStockDate'
+    assert payload['projection_table'] == 'mes_stock_records'
+    assert payload['mes_home_daily_output'] == 60.5
+    assert payload['mes_home_month_to_date_output'] == 72.84
+    assert payload['daily_row_count'] == 1
+    assert payload['month_row_count'] == 2
+
+    app.dependency_overrides.clear()
 
 
 def test_factory_dashboard_exposes_leader_summary_payload(monkeypatch) -> None:

@@ -162,6 +162,8 @@ def test_plant_output_prefers_mes_stock_header_records_over_detail_records(tmp_p
     assert plant['daily_output_source'] == 'mes_stock_header_records'
     assert plant['source_table'] == 'WMS_InStock'
     assert plant['date_column'] == 'InStockDate'
+    assert plant['mes_home_packaging_fact']['mes_home_daily_output'] == 303.03
+    assert plant['mes_home_packaging_fact']['mes_home_month_to_date_output'] == 303.03
     assert plant['row_count'] == 1
     assert plant['business_window_start'] == f'{BUSINESS_DATE.isoformat()}T07:30:00+08:00'
     assert plant['business_window_end'] == f'{(BUSINESS_DATE + timedelta(days=1)).isoformat()}T07:30:00+08:00'

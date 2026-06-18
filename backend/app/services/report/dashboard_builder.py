@@ -18,7 +18,7 @@ from app.models.reconciliation import DataReconciliationItem
 from app.services import energy_service
 from app.services import mes_sync_service
 from app.services import quality_service
-from app.services.report import daily_overview_builder
+from app.services.report import daily_overview_builder, mes_home_packaging_fact
 from app.models.reports import DailyReport
 from app.models.shift import ShiftConfig
 from app.models.system import User
@@ -490,6 +490,11 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
     sync_status = _safe_latest_mes_sync_status(db)
     blocker_summary = _normalize_blocker_summary(quality_service.blocker_summary(db, business_date=target_date))
     month_output = _month_to_date_output(db, target_date=target_date)
+    mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
+    if mes_home_fact.get('daily_row_count'):
+        total_output = _to_float(mes_home_fact.get('mes_home_daily_output'))
+    if mes_home_fact.get('month_row_count'):
+        month_output = _to_float(mes_home_fact.get('mes_home_month_to_date_output'))
     boss_summary = _build_factory_boss_summary(
         target_date=target_date,
         total_output=total_output,
@@ -551,6 +556,7 @@ def build_factory_dashboard(db: Session, *, target_date: date) -> dict:
         'process_total_output': _to_float(production_report.get('process_output_weight')),
         'total_output_basis': 'mes_packaging_output',
         'month_to_date_output': month_output,
+        'mes_home_packaging_fact': mes_home_fact,
         'history_digest': history_digest,
         'total_energy': energy_summary['total_energy'],
         'energy_per_ton': energy_summary['energy_per_ton'],
@@ -718,6 +724,7 @@ def build_workshop_dashboard(
     sync_status = _safe_latest_mes_sync_status(db)
     inventory_lane = mobile_report_service.summarize_mobile_inventory(db, target_date=target_date, workshop_id=workshop_id)
     month_to_date_output = _month_to_date_output(db, target_date=target_date, workshop_id=workshop_id)
+    factory_mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=target_date)
     if workshop_id is not None:
         month_scope = daily_overview_builder._mixed_workshop_output_scope_by_workshop(
             db,
@@ -731,6 +738,7 @@ def build_workshop_dashboard(
         'workshop_id': workshop_id,
         'workshop_code': workshop_code,
         'workshop_name': workshop.name if workshop else None,
+        'factory_mes_home_packaging_fact': factory_mes_home_fact,
         'total_output': total_output,
         'process_output': process_output,
         'pass_count_total': pass_count_total,

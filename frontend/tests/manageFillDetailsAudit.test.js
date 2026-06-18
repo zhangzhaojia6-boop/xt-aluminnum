@@ -548,6 +548,14 @@ test('WorkshopDashboardPage shows machine fill submit time', () => {
   assert.match(dashboardSrc, /colspan="7"/)
 })
 
+test('WorkshopDashboardPage separates workshop output from factory MES home facts', () => {
+  const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
+
+  assert.match(dashboardSrc, /factory_mes_home_packaging_fact/)
+  assert.match(dashboardSrc, /全厂MES包装/)
+  assert.match(dashboardSrc, /全厂MES月累计/)
+})
+
 test('WorkshopDashboardPage protects compact director view from text overflow', () => {
   const dashboardSrc = source('../src/views/manage/workshop-dashboard/WorkshopDashboardPage.vue')
 

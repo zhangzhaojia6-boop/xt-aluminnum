@@ -148,6 +148,13 @@ test('legacy workshop manage path redirects to current workshop dashboard', () =
   assert.match(line, /redirect:\s*preserveRouteState\(['"]\/manage\/workshop-dashboard['"]\)/)
 })
 
+test('misspelled workshop dashboard path redirects to current workshop dashboard', () => {
+  const line = routeLine('workshop-dashborad')
+
+  assert.ok(line, "route 'workshop-dashborad' should exist under /manage")
+  assert.match(line, /redirect:\s*preserveRouteState\(['"]\/manage\/workshop-dashboard['"]\)/)
+})
+
 test('deleted route paths stay absent', () => {
   for (const path of ['live-dashboard', 'manage-data-portal']) {
     assert.equal(src.includes(`path: '${path}'`), false, `route '${path}' should not exist`)

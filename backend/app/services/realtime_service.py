@@ -43,7 +43,7 @@ from app.services import master_service
 from app.services import mes_machine_match_service
 from app.services import mes_sync_service
 from app.services.equipment_service import get_bound_machine_for_user, resolve_reporting_machine_from_candidates
-from app.services.report import daily_overview_builder
+from app.services.report import daily_overview_builder, mes_home_packaging_fact
 from app.services.real_master_data import (
     OWNER_DAILY_ROLES,
     REPORTING_MACHINE_CODE_SET,
@@ -1847,16 +1847,32 @@ def _inject_factory_packaging_output(
     factory_total = payload.setdefault('factory_total', {})
     if scoped_workshop_id is not None:
         packaging_output = 0.0
+        packaging_monthly_output = 0.0
         finished_inbound_output = 0.0
         daily_output_source = 'scoped_workshop'
     else:
-        packaging_by_date, sources_by_date = daily_overview_builder._query_mes_packaging_output_with_source_by_date(
-            db,
-            business_date,
-            business_date,
-        )
-        packaging_output = packaging_by_date.get(business_date, 0.0)
-        daily_output_source = sources_by_date.get(business_date, 'mes_stock_records')
+        mes_home_fact = mes_home_packaging_fact.build_mes_home_packaging_fact(db, target_date=business_date)
+        if mes_home_fact.get('daily_row_count'):
+            packaging_output = mes_home_fact.get('mes_home_daily_output') or 0.0
+            daily_output_source = 'mes_stock_header_records'
+        else:
+            packaging_by_date, sources_by_date = daily_overview_builder._query_mes_packaging_output_with_source_by_date(
+                db,
+                business_date,
+                business_date,
+            )
+            packaging_output = packaging_by_date.get(business_date, 0.0)
+            daily_output_source = sources_by_date.get(business_date, 'mes_stock_records')
+        if mes_home_fact.get('month_row_count'):
+            packaging_monthly_output = mes_home_fact.get('mes_home_month_to_date_output') or 0.0
+        else:
+            month_start = business_date.replace(day=1)
+            packaging_month_by_date, _month_sources = daily_overview_builder._query_mes_packaging_output_with_source_by_date(
+                db,
+                month_start,
+                business_date,
+            )
+            packaging_monthly_output = sum(packaging_month_by_date.values())
         finished_inbound_output = daily_overview_builder._query_finished_inbound_totals_by_date(
             db,
             business_date,
@@ -1867,6 +1883,8 @@ def _inject_factory_packaging_output(
         'packaging_output': round(packaging_output, 2),
         'daily_output': round(packaging_output, 2),
         'factory_total_output': round(packaging_output, 2),
+        'packaging_monthly_output': round(packaging_monthly_output, 2),
+        'month_to_date_output': round(packaging_monthly_output, 2),
         'finished_inbound_output': round(finished_inbound_output, 2),
         'owner_storage_finished_weight': round(finished_inbound_output, 2),
         'business_day_start': '07:30',
