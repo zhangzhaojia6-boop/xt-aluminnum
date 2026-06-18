@@ -1272,16 +1272,19 @@ def _build_mtd_totals(
         rounded: dict[int, dict[str, Any]] = {}
         factory_input = 0.0
         factory_output = 0.0
+        factory_process_output = 0.0
         factory_pass_total = 0
         for ws_id, bucket in mes_by_workshop.items():
             if scoped_ids and int(ws_id) not in scoped_ids:
                 continue
             input_total = _to_float(bucket.get('input'))
             output_total = _to_float(bucket.get('output'))
+            process_output_total = _to_float(bucket.get('process_output'))
             pass_total = int(bucket.get('pass_count_total') or 0)
             rounded[int(ws_id)] = {
                 'mtd_input': round(input_total, 2),
                 'mtd_output': round(output_total, 2),
+                'mtd_process_output': round(process_output_total, 2),
                 'mtd_scrap': 0.0,
                 'mtd_yield_rate': _round_rate(input_total, output_total),
                 'mtd_pass_count_total': pass_total,
@@ -1290,12 +1293,14 @@ def _build_mtd_totals(
             }
             factory_input += input_total
             factory_output += output_total
+            factory_process_output += process_output_total
             factory_pass_total += pass_total
         return {
             'by_workshop': rounded,
             'factory': {
                 'mtd_input': round(factory_input, 2),
                 'mtd_output': round(factory_output, 2),
+                'mtd_process_output': round(factory_process_output, 2),
                 'mtd_scrap': 0.0,
                 'mtd_yield_rate': _round_rate(factory_input, factory_output),
                 'mtd_pass_count_total': int(factory_pass_total),
@@ -1321,6 +1326,7 @@ def _build_mtd_totals(
             'factory': {
                 'mtd_input': 0.0,
                 'mtd_output': 0.0,
+                'mtd_process_output': 0.0,
                 'mtd_scrap': 0.0,
                 'mtd_yield_rate': None,
                 'mtd_pass_count_total': 0,
@@ -1331,6 +1337,7 @@ def _build_mtd_totals(
         lambda: {
             'mtd_input': 0.0,
             'mtd_output': 0.0,
+            'mtd_process_output': 0.0,
             'mtd_scrap': 0.0,
             'mtd_pass_count_total': 0,
         }
@@ -1349,6 +1356,7 @@ def _build_mtd_totals(
         scrap_t = _to_float(entry.scrap_weight) / 1000
         bucket['mtd_input'] += input_t
         bucket['mtd_output'] += output_t
+        bucket['mtd_process_output'] += output_t
         bucket['mtd_scrap'] += scrap_t
         factory_input += input_t
         factory_output += output_t
@@ -1363,6 +1371,7 @@ def _build_mtd_totals(
         rounded[ws_id] = {
             'mtd_input': round(bucket['mtd_input'], 2),
             'mtd_output': round(bucket['mtd_output'], 2),
+            'mtd_process_output': round(bucket['mtd_process_output'], 2),
             'mtd_scrap': round(bucket['mtd_scrap'], 2),
             'mtd_yield_rate': _round_rate(bucket['mtd_input'], bucket['mtd_output']),
             'mtd_pass_count_total': int(bucket['mtd_pass_count_total']),
@@ -1372,6 +1381,7 @@ def _build_mtd_totals(
         'factory': {
             'mtd_input': round(factory_input, 2),
             'mtd_output': round(factory_output, 2),
+            'mtd_process_output': round(factory_output, 2),
             'mtd_scrap': round(factory_scrap, 2),
             'mtd_yield_rate': _round_rate(factory_input, factory_output),
             'mtd_pass_count_total': int(factory_pass_total),
@@ -1510,7 +1520,7 @@ def _load_mes_machine_output_scope(
     machines: list[Equipment],
 ) -> tuple[dict[tuple[int, int], dict[str, Any]], set[int]]:
     result: dict[tuple[int, int], dict[str, Any]] = {}
-    if not workshops or not machines:
+    if not workshops:
         return result, set()
 
     material_workshops = [
@@ -1808,6 +1818,7 @@ def _inject_mtd_into_payload(payload: dict, mtd: dict) -> dict:
     empty = {
         'mtd_input': 0.0,
         'mtd_output': 0.0,
+        'mtd_process_output': 0.0,
         'mtd_scrap': 0.0,
         'mtd_yield_rate': None,
         'mtd_pass_count_total': 0,

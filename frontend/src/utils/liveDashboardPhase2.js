@@ -238,6 +238,8 @@ function normalizeMachine(workshop, machine) {
     input: numberValue(dayTotal.input),
     scrap: numberValue(dayTotal.scrap),
     yieldRate: dayTotal.yield_rate ?? dayTotal.yieldRate ?? null,
+    sourceBasis: dayTotal.source_basis || dayTotal.sourceBasis || '',
+    sourceLabel: dayTotal.source_label || dayTotal.sourceLabel || '',
     tone: resolveMachineTone(machine),
     shifts: (machine.shifts || [])
       .map((shift) => ({

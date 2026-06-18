@@ -15,7 +15,7 @@ from app.core.scope import build_scope_summary
 from app.schemas.dashboard import DeliveryStatusOut, FactoryDashboardResponse, WorkshopDashboardResponse
 from app.models.system import User
 from app.services import report_service
-from app.services.report import mes_factory_production_fact, mes_home_packaging_fact
+from app.services.report import mes_factory_production_fact, mes_home_packaging_fact, mes_workshop_machine_reconciliation
 from scripts.check_statistics_module_ready import inspect_statistics_module_ready
 
 router = APIRouter(tags=['dashboard'])
@@ -183,6 +183,28 @@ def mes_factory_production_reconciliation(
     return mes_factory_production_fact.build_factory_production_reconciliation(
         db,
         target_date=_target_or_last_completed(target_date),
+    )
+
+
+@router.get('/mes-workshop-machine-reconciliation')
+def mes_workshop_machine_reconciliation_route(
+    request: Request,
+    target_date: date | None = None,
+    workshop_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    enforce_request_rate_limit(request, current_user, scope='dashboard', limit=30, window_seconds=60)
+    selected_workshop_id = workshop_id or current_user.workshop_id
+    summary = assert_manager_dashboard_access(current_user, workshop_id=selected_workshop_id)
+    if not summary.is_admin and summary.data_scope_type != 'all':
+        if summary.workshop_id is not None and selected_workshop_id != summary.workshop_id:
+            raise HTTPException(status_code=403, detail='Dashboard scope denied')
+        selected_workshop_id = summary.workshop_id if summary.workshop_id is not None else selected_workshop_id
+    return mes_workshop_machine_reconciliation.build_mes_workshop_machine_reconciliation(
+        db,
+        target_date=_target_or_last_completed(target_date),
+        workshop_id=selected_workshop_id,
     )
 
 

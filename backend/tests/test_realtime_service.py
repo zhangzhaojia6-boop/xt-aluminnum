@@ -921,9 +921,11 @@ def test_mtd_totals_use_mes_material_for_hot_roll_and_process_for_downstream(tmp
 
     assert payload['by_workshop'][1]['mtd_output'] == 70.0
     assert payload['by_workshop'][1]['source_basis'] == 'mes_material_records'
-    assert payload['by_workshop'][2]['mtd_output'] == 33.0
+    assert payload['by_workshop'][2]['mtd_output'] == 0.0
+    assert payload['by_workshop'][2]['mtd_process_output'] == 33.0
     assert payload['by_workshop'][2]['source_basis'] == 'mes_workshop_process_records'
-    assert payload['factory']['mtd_output'] == 103.0
+    assert payload['factory']['mtd_output'] == 70.0
+    assert payload['factory']['mtd_process_output'] == 103.0
 
 
 def test_live_aggregation_uses_mes_process_and_material_machine_output(tmp_path, monkeypatch) -> None:

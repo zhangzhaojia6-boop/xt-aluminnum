@@ -33,7 +33,8 @@
 
 | 接口/字段 | 用途 |
 |---|---|
-| `/api/v1/dashboard/mes-factory-production-reconciliation` | 对账接口，返回投料、包装、入库、成品率、来源表、来源字段、车间拆分和 MES 首页已知数字差异 |
+| `/api/v1/dashboard/mes-factory-production-reconciliation` | 全厂对账接口，返回投料、包装、入库、成品率、来源表、来源字段和车间拆分；没有真实读取到 MES 首页参考值时，差异字段返回 `null` |
+| `/api/v1/dashboard/mes-workshop-machine-reconciliation` | 车间/机台对账接口，返回车间产量、车间下机量、机台下机量、机台绑定状态和来源字段 |
 | `factory_feeding_daily_input` | 日投料量 |
 | `factory_feeding_month_to_date_input` | 月累计投料量 |
 | `factory_packaging_daily_output` | 日全厂包装量 |
@@ -44,13 +45,23 @@
 | `month_yield_rate` | 月全厂成品率 |
 | `yield_rate_source` | 固定为 `mes_feeding_to_finished_inbound` |
 
+## 车间和机台口径
+
+| 指标 | 含义 | 主要来源 | 数据中枢字段 | 注意 |
+|---|---|---|---|---|
+| 车间产量 | 车间最终产出口径 | `MES_ProductProcessRecord.EndWeight` 或坯料卷投影 | `production_output`、`total_output` | 冷轧只统计已标记最终工序的重量；没有最终工序标记时不能把过站量当产量 |
+| 车间下机量 | 车间所有过站下机重量 | `MES_ProductProcessRecord.EndWeight` | `workshop_down_machine_output`、`process_output`、`mtd_process_output` | 这是过程通过量，不等于最终产量 |
+| 机台下机量 | 机台维度的过站下机重量 | `MES_ProductProcessRecord.DeviceName + EndWeight` | `machine_down_machine_output`、`day_total.output` | 本地未匹配机台必须显示为 `MES未匹配机台` 或 `待归属`，不能猜 |
+
+坯料类车间当前沿用已有 MES 坯料卷投影口径，接口会在 `source_basis/source_label` 里标出来源，不混称为 `MES_ProductProcessRecord`。
+
 ## 页面映射
 
 | 数据中枢页面 | 页面要表达的业务 | 对齐方式 |
 |---|---|---|
-| `/manage/live` | 管理实时大屏 | 顶部卡片展示投料量、全厂包装、成品入库、全厂成品率，来源标签分别是 `MES投料`、`包装工序`、`成品入库`、`投料入库` |
+| `/manage/live` | 管理实时大屏 | 顶部卡片展示投料量、全厂包装、成品入库、全厂成品率；机台矩阵展示机台下机量 |
 | `/manage/today` | 日报工作台 | 日累计和月累计都使用同一套全厂事实；包装和入库分开展示 |
-| `/manage/workshop-dashboard` | 车间看板 | 车间明细按车间过滤；全厂头部指标复用同一套全厂事实 |
+| `/manage/workshop-dashboard` | 车间看板 | `今日下机量` 对应 `process_output`，`车间口径产量` 对应 `total_output`，全厂头部指标复用同一套全厂事实 |
 | `/manage/production` | 生产分析 | 可以保留质检/历史成品率参考，但主成品率用投料到入库 |
 | `/manage/coils` | 卷级线索 | 当前车间、当前工序、随行卡来自 `MES_Product`；工序历史来自 `MES_ProductProcessRecord` |
 | `/manage/energy` | 能耗中心 | 吨耗分母若使用包装量，来源必须标成 `包装工序` |
@@ -63,7 +74,8 @@
 | 日投料 | 数据中枢对 `MES_Product.FeedingWeight` 的业务日汇总应能对上 MES 首页 `427.0t` |
 | MES 首页包装 | 精整包装口径应能解释 MES 首页 `66.1t` |
 | 全厂包装 | 必须包含精整、园区精整、拉矫车间等所有 `Process=包装` 的工序 |
-| 月投料差异 | 当前本地口径 `6380.0t` 与 MES 首页 `6524.0t` 差 `144.0t`，对账接口必须返回 `feeding_month_to_date_delta=-144.0` |
+| 月投料差异 | 只有真实浏览器读到 MES 首页月累计参考值时才计算；当前没有参考值时 `mes_home_reference={}`，`feeding_month_to_date_delta=null` |
+| 车间/机台下机 | `/api/v1/dashboard/mes-workshop-machine-reconciliation?target_date=2026-06-18` 返回车间、机台、来源、绑定状态 |
 
 ## 小白版理解
 

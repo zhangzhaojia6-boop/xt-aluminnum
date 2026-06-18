@@ -745,7 +745,8 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
     assert by_name['铸轧二车间']['daily_output'] == 44.0
     assert by_name['铸轧二车间']['source_basis'] == 'mes_material_records'
     assert by_name['铸轧二车间']['process_stage_outputs'] == {'3#': 44.0}
-    assert by_name['1650车间']['daily_output'] == 33.0
+    assert by_name['1650车间']['daily_output'] == 0.0
+    assert by_name['1650车间']['process_output'] == 33.0
     assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
     assert by_name['1650车间']['pass_count_total'] == 11
     assert by_name['园区淬火']['daily_output'] == 99.0
@@ -797,9 +798,11 @@ def test_workshop_output_uses_device_name_for_cold_roll_mes_rows(tmp_path) -> No
     )
     by_name = {row['workshop']: row for row in rows}
 
-    assert by_name['1650车间']['daily_output'] == 141.74
+    assert by_name['1650车间']['daily_output'] == 0.0
+    assert by_name['1650车间']['process_output'] == 141.74
     assert by_name['1650车间']['source_basis'] == 'mes_workshop_process_records'
-    assert by_name['2050车间']['daily_output'] == 167.9
+    assert by_name['2050车间']['daily_output'] == 0.0
+    assert by_name['2050车间']['process_output'] == 167.9
     assert by_name['2050车间']['source_basis'] == 'mes_workshop_process_records'
 
 

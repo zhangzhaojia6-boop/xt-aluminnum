@@ -21,6 +21,7 @@
           <span>{{ item.value }}</span>
           <small v-if="item.unit">{{ item.unit }}</small>
         </div>
+        <div v-if="item.sourceLabel" class="xt-kpi-bar__source">{{ item.sourceLabel }}</div>
         <Sparkline
           v-if="item.spark && item.spark.length > 1"
           class="xt-kpi-bar__spark"
@@ -311,6 +312,15 @@ defineProps({ items: { type: Array, default: () => [] } })
   font-family: var(--xt-font-body);
   font-size: var(--xt-text-xs);
   font-weight: 800;
+}
+
+.xt-kpi-bar__source {
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--xt-text-inverse) 58%, transparent);
+  font-size: var(--xt-text-xs);
+  font-weight: 850;
 }
 
 .xt-kpi-bar__card.tone-positive .xt-kpi-bar__value span {

@@ -23,7 +23,7 @@
       <article v-for="workshop in matrix.workshops" :key="workshop.workshopId || workshop.workshopName" class="live-machine-workshop">
         <div class="live-machine-workshop__head">
           <strong>{{ workshop.workshopName }}</strong>
-          <span data-xt-numeric>{{ formatNumber(workshop.output, 2) }} 吨</span>
+          <span data-xt-numeric>下机量 {{ formatNumber(workshop.output, 2) }} 吨</span>
         </div>
         <div class="live-machine-workshop__grid">
           <LiveMachineCard

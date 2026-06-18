@@ -270,9 +270,10 @@ def _query_mes_process_output_scope_by_workshop(db: Session, start: date, end: d
             },
         )
         bucket['input'] += _mes_input_tons(row)
-        bucket['output'] += output_weight
         bucket['process_output'] += output_weight
         bucket['pass_count_total'] += _process_row_pass_count(row)
+        if counts_as_workshop_output(workshop_type=matched_workshop.workshop_type, extra_payload=row.source_payload):
+            bucket['output'] += output_weight
         if str(matched_workshop.workshop_type or '').strip() == 'cold_roll':
             stage = normalize_process_stage(getattr(row, 'source_payload', None) or {})
             stage_key = stage or 'unmarked'

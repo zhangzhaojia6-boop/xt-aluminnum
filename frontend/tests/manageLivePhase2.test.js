@@ -227,7 +227,7 @@ test('machine matrix hides removed workshops and separates pending ownership', (
         {
           machine_id: 21,
           machine_name: '1#退火炉',
-          day_total: { output: 30 },
+          day_total: { output: 30, source_label: '外部 MES 过站产量' },
           shifts: [{ shift_name: '大夜', submission_status: 'all_submitted', is_applicable: true }],
         },
         {
@@ -256,6 +256,7 @@ test('machine matrix hides removed workshops and separates pending ownership', (
   assert.equal(matrix.workshops.length, 1)
   assert.equal(matrix.workshops[0].workshopName, '园区在线')
   assert.equal(matrix.workshops[0].machines.length, 1)
+  assert.equal(matrix.workshops[0].machines[0].sourceLabel, '外部 MES 过站产量')
   assert.equal(matrix.pendingMachines.length, 1)
   assert.equal(matrix.pendingMachines[0].machineName, '未绑定机列 / 大夜')
 })

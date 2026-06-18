@@ -14,9 +14,11 @@ test('KpiBar declares items prop and renders cards via v-for', () => {
   assert.match(src, /data-testid="manage-kpi-bar"/)
 })
 
-test('KpiBar binds label / value / unit / hint slots', () => {
+test('KpiBar binds label / source / value / unit / hint slots', () => {
   const src = source('../src/components/manage/KpiBar.vue')
   assert.match(src, /\{\{\s*item\.label\s*\}\}/)
+  assert.match(src, /v-if="item\.sourceLabel"/)
+  assert.match(src, /\{\{\s*item\.sourceLabel\s*\}\}/)
   assert.match(src, /\{\{\s*item\.value\s*\}\}/)
   assert.match(src, /\{\{\s*item\.unit\s*\}\}/)
   assert.match(src, /\{\{\s*item\.hint\s*\}\}/)

@@ -2,9 +2,9 @@
   <button class="live-machine-card" :class="`is-${machine.tone}`" type="button" @click="$emit('select', machine)">
     <span class="live-machine-card__status"><i></i>{{ statusText }}</span>
     <strong>{{ machine.machineName }}</strong>
-    <em>{{ machine.workshopName }}</em>
+    <em>{{ machine.sourceLabel ? `${machine.workshopName} · ${machine.sourceLabel}` : machine.workshopName }}</em>
     <div class="live-machine-card__metric">
-      <span>产出</span>
+      <span>下机量</span>
       <b data-xt-numeric>{{ outputText }} 吨</b>
     </div>
     <div class="live-machine-card__shifts">

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from typing import Any
 
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -25,14 +26,7 @@ FINISHED_INBOUND_HEADER_SOURCE_PATH = 'sqlserver:stock_header_records'
 FINISHED_INBOUND_DETAIL_SOURCE_PATH = 'sqlserver:stock_records'
 BUSINESS_DAY_START_LABEL = '07:30'
 YIELD_RATE_SOURCE = 'mes_feeding_to_finished_inbound'
-
-VERIFIED_MES_HOME_REFERENCES: dict[date, dict[str, float]] = {
-    date(2026, 6, 18): {
-        'factory_feeding_daily_input': 427.0,
-        'factory_feeding_month_to_date_input': 6524.0,
-        'mes_home_finishing_packaging_output': 66.1,
-    },
-}
+MES_HOME_REFERENCE_SOURCE_UNAVAILABLE = 'unavailable'
 
 
 def _round2(value: float | None) -> float:
@@ -130,7 +124,19 @@ def _feeding_weight(row: MesCoilSnapshot) -> float:
 
 
 def _feeding_rows(db: Session, start: date, end: date) -> list[MesCoilSnapshot]:
-    return db.query(MesCoilSnapshot).all()
+    window_start, _ = production_business_window(start)
+    _, window_end = production_business_window(end)
+    return (
+        db.query(MesCoilSnapshot)
+        .filter(
+            or_(
+                MesCoilSnapshot.business_date.between(start, end),
+                and_(MesCoilSnapshot.event_time >= window_start, MesCoilSnapshot.event_time < window_end),
+                and_(MesCoilSnapshot.business_date.is_(None), MesCoilSnapshot.event_time.is_(None)),
+            )
+        )
+        .all()
+    )
 
 
 def _sum_feeding_rows(rows: list[MesCoilSnapshot], start: date, end: date) -> dict[str, Any]:
@@ -388,10 +394,10 @@ def _delta(actual: float | None, expected: float | None) -> float | None:
 
 def build_factory_production_reconciliation(db: Session, *, target_date: date) -> dict[str, Any]:
     fact = build_factory_production_fact(db, target_date=target_date)
-    reference = VERIFIED_MES_HOME_REFERENCES.get(target_date, {})
-    feeding_reference_daily = reference.get('factory_feeding_daily_input')
-    feeding_reference_month = reference.get('factory_feeding_month_to_date_input')
-    packaging_reference_finishing = reference.get('mes_home_finishing_packaging_output')
+    reference: dict[str, float] = {}
+    feeding_reference_daily = None
+    feeding_reference_month = None
+    packaging_reference_finishing = None
     packaging_by_workshop = (
         fact.get('packaging_fact', {})
         .get('business_day', {})
@@ -435,7 +441,7 @@ def build_factory_production_reconciliation(db: Session, *, target_date: date) -
             },
         },
         'mes_home_reference': reference,
-        'mes_home_reference_source': 'verified_manual_readonly_reconciliation',
+        'mes_home_reference_source': MES_HOME_REFERENCE_SOURCE_UNAVAILABLE,
         'feeding_daily_delta': _delta(fact.get('factory_feeding_daily_input'), feeding_reference_daily),
         'feeding_month_to_date_delta': _delta(fact.get('factory_feeding_month_to_date_input'), feeding_reference_month),
         'finishing_packaging_daily_output': finishing_packaging,

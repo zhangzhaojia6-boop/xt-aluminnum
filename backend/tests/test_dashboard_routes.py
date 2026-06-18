@@ -10,6 +10,7 @@ from app.core.deps import get_db
 from app.core.permissions import get_current_manager_user
 from app.core.deps import get_current_user
 from app.main import app
+from app.models.master import Equipment, Workshop
 from app.models.mes import MesCoilSnapshot, MesStockRecord, MesWorkshopProcessRecord
 from app.schemas.dashboard import FactoryDashboardResponse, WorkshopDashboardResponse
 from app.services import report_service
@@ -24,6 +25,19 @@ def _mes_stock_session_factory(tmp_path):
     Base.metadata.create_all(
         engine,
         tables=[MesCoilSnapshot.__table__, MesStockRecord.__table__, MesWorkshopProcessRecord.__table__],
+    )
+    return sessionmaker(bind=engine, future=True, expire_on_commit=False)
+
+
+def _mes_workshop_machine_session_factory(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-workshop-machine-reconciliation.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            Equipment.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
     )
     return sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
@@ -163,7 +177,7 @@ def test_factory_packaging_reconciliation_route_uses_same_payload(tmp_path) -> N
     app.dependency_overrides.clear()
 
 
-def test_factory_production_reconciliation_route_exposes_feeding_yield_and_delta(tmp_path) -> None:
+def test_factory_production_reconciliation_route_exposes_feeding_yield_without_hardcoded_delta(tmp_path) -> None:
     session_factory = _mes_stock_session_factory(tmp_path)
     with session_factory() as db:
         db.add_all(
@@ -238,8 +252,94 @@ def test_factory_production_reconciliation_route_exposes_feeding_yield_and_delta
     assert payload['factory_finished_inbound_daily_output'] == 341.6
     assert payload['daily_yield_rate'] == 80.0
     assert payload['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
-    assert payload['feeding_month_to_date_delta'] == -144.0
+    assert payload['mes_home_reference'] == {}
+    assert payload['mes_home_reference_source'] == 'unavailable'
+    assert payload['feeding_month_to_date_delta'] is None
     assert payload['source_mapping']['mes_home_feeding']['source_table'] == 'MES_Product'
+
+    app.dependency_overrides.clear()
+
+
+def test_mes_workshop_machine_reconciliation_separates_production_and_down_machine_output(tmp_path) -> None:
+    session_factory = _mes_workshop_machine_session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                Workshop(id=1, code='LZ1650', name='1650车间', workshop_type='cold_roll', sort_order=1, is_active=True),
+                Equipment(
+                    id=10,
+                    code='LZ1650-1',
+                    name='1650#',
+                    workshop_id=1,
+                    equipment_type='cold_mill',
+                    sort_order=1,
+                    is_active=True,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id='cold-bound',
+                    source_path='sqlserver:workshop_process_records',
+                    workshop_name='1650车间',
+                    process_name='冷轧',
+                    device_name='1650冷轧（WAN）',
+                    input_weight_tons=35,
+                    output_weight_tons=33,
+                    business_date=date(2026, 6, 18),
+                    source_payload={'pass_count': 11},
+                ),
+                MesWorkshopProcessRecord(
+                    source_id='cold-unbound',
+                    source_path='sqlserver:workshop_process_records',
+                    workshop_name='1650车间',
+                    process_name='冷轧',
+                    device_name='PC',
+                    input_weight_tons=8,
+                    output_weight_tons=7,
+                    business_date=date(2026, 6, 18),
+                    source_payload={'pass_count': 2},
+                ),
+            ]
+        )
+        db.commit()
+
+    def fake_get_db():
+        with session_factory() as db:
+            yield db
+
+    def fake_get_user():
+        return SimpleNamespace(
+            id=7,
+            role='manager',
+            is_admin=False,
+            is_manager=True,
+            is_reviewer=False,
+            workshop_id=None,
+            data_scope_type='all',
+        )
+
+    app.dependency_overrides[get_db] = fake_get_db
+    app.dependency_overrides[get_current_user] = fake_get_user
+
+    response = TestClient(app).get(
+        '/api/v1/dashboard/mes-workshop-machine-reconciliation',
+        params={'target_date': '2026-06-18'},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['target_date'] == '2026-06-18'
+    assert payload['source_mapping']['machine_down_machine']['source_table'] == 'MES_ProductProcessRecord'
+    assert payload['source_mapping']['machine_down_machine']['source_weight_field'] == 'EndWeight'
+    workshop = payload['workshops'][0]
+    assert workshop['production_output'] == 0.0
+    assert workshop['workshop_down_machine_output'] == 40.0
+    assert workshop['machine_down_machine_output'] == 40.0
+    assert workshop['production_source_basis'] == 'mes_workshop_process_records'
+    assert workshop['process_stage_outputs'] == {'unmarked': 40.0}
+    assert workshop['unbound_machine_count'] == 1
+    assert payload['totals']['production_output'] == 0.0
+    assert payload['totals']['machine_down_machine_output'] == 40.0
+    assert {row['machine_binding_status'] for row in workshop['machines']} == {'bound', 'unbound'}
+    assert sum(row['machine_down_machine_output'] for row in workshop['machines']) == 40.0
 
     app.dependency_overrides.clear()
 
