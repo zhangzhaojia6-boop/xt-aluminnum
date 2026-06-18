@@ -34,9 +34,9 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
         lambda *, db, target_date: calls.append(('reporter', target_date, db)),
     )
     monkeypatch.setattr(
-        daily_report.template_daily_report,
-        'apply_template_daily_report_to_latest_report',
-        lambda db, target_date: calls.append(('template', target_date, db)),
+        daily_report,
+        'build_daily_report_product',
+        lambda db, target_date: calls.append(('product', target_date, db)) or {'status': 'ready', 'text': '日报成品正文'},
     )
     monkeypatch.setattr(
         daily_report.hermes_rag_service,
@@ -46,10 +46,10 @@ def test_generate_daily_reports_defaults_to_last_completed_business_day(monkeypa
 
     result = daily_report.generate_daily_reports()
 
-    assert result == {'status': 'ok', 'business_date': '2026-06-01'}
+    assert result == {'status': 'ok', 'business_date': '2026-06-01', 'report_status': 'ready', 'text': '日报成品正文'}
     assert calls == [
         ('aggregator', date(2026, 6, 1), session),
-        ('template', date(2026, 6, 1), session),
+        ('product', date(2026, 6, 1), session),
         ('archive', date(2026, 6, 1), session),
         ('reporter', date(2026, 6, 1), session),
     ]
@@ -65,9 +65,9 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
     monkeypatch.setattr(daily_report.aggregator_agent, 'execute', lambda *, db, target_date: seen.append(target_date))
     monkeypatch.setattr(daily_report.reporter_agent, 'execute', lambda *, db, target_date: seen.append(target_date))
     monkeypatch.setattr(
-        daily_report.template_daily_report,
-        'apply_template_daily_report_to_latest_report',
-        lambda db, target_date: seen.append(target_date),
+        daily_report,
+        'build_daily_report_product',
+        lambda db, target_date: seen.append(target_date) or {'status': 'ready', 'text': '日报成品正文'},
     )
     monkeypatch.setattr(
         daily_report.hermes_rag_service,
@@ -77,5 +77,5 @@ def test_generate_daily_reports_respects_explicit_target_date(monkeypatch) -> No
 
     result = daily_report.generate_daily_reports(target_date=date(2026, 5, 30))
 
-    assert result == {'status': 'ok', 'business_date': '2026-05-30'}
+    assert result == {'status': 'ok', 'business_date': '2026-05-30', 'report_status': 'ready', 'text': '日报成品正文'}
     assert seen == [date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30), date(2026, 5, 30)]
