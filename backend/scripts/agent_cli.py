@@ -442,7 +442,12 @@ def _cmd_outbox_status(db: Session, args: argparse.Namespace, auth: HermesAuth) 
 def _cmd_approval_preview(db: Session, args: argparse.Namespace, auth: HermesAuth) -> dict[str, Any]:
     report_id = args.report_id or _latest_report_id(db, target_date=_target_date(args))
     if report_id is None:
-        raise AgentCliError('daily_report_not_found')
+        return {
+            'action': 'approval-preview',
+            'reply': '未找到可预览的日报档案，未正式发送；请先生成日报后再发起审批。',
+            'trace_id': _trace_id(args),
+            'data': {'status': 'daily_report_not_found', 'sent': False, 'approval_id': None},
+        }
     approval = agent_designated_operation_service.request_publish_daily_report_preview(
         db,
         requester_user_id=auth.user.id,

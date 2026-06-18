@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import Base, get_engine, get_sessionmaker
 from app.models.master import Workshop
 from app.models.rag import RagChunk, RagDocument, RagEmbedding, RagQueryLog, RagSourceIngestion
+from app.models.reports import DailyReport
 from app.models.system import User
 from app.services.rag_service import create_document_from_bytes
 from scripts import agent_cli
@@ -21,6 +22,7 @@ TABLES = [
     RagQueryLog.__table__,
     RagEmbedding.__table__,
     RagSourceIngestion.__table__,
+    DailyReport.__table__,
 ]
 
 
@@ -133,6 +135,35 @@ def test_agent_cli_ingests_safe_system_understanding_copy(tmp_path, monkeypatch,
         assert output.exists()
         assert 'real-secret-value' not in output.read_text(encoding='utf-8')
         assert db.query(RagSourceIngestion).one().source_type == 'internal_system_understanding'
+    finally:
+        db.close()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+
+def test_dingtalk_daily_report_without_archive_returns_safe_preview_message(tmp_path, monkeypatch, capsys) -> None:
+    db = _install_db(tmp_path, monkeypatch)
+    monkeypatch.setenv('HERMES_OWNER_DINGTALK_USER_IDS', 'dt-owner')
+    try:
+        db.add(User(id=4, username='zzj3', password_hash='x', name='张兆嘉', role='admin', is_active=True, dingtalk_user_id='dt-owner'))
+        db.commit()
+
+        code, payload = _run_cli([
+            'dingtalk-command',
+            '--text',
+            '/日报',
+            '--dingtalk-user-id',
+            'dt-owner',
+            '--group-id',
+            'hermes-test',
+        ], capsys)
+
+        assert code == 0
+        assert payload['ok'] is True
+        assert payload['action'] == 'approval-preview'
+        assert payload['data']['status'] == 'daily_report_not_found'
+        assert payload['data']['sent'] is False
+        assert payload['data']['approval_id'] is None
     finally:
         db.close()
         get_engine.cache_clear()
