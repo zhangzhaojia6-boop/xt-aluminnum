@@ -143,13 +143,68 @@ class MesAdapter(ABC):
         _ = limit
         raise NotImplementedError('MesAdapter.list_workshop_process_records is not implemented for this adapter')
 
+    def list_workshop_process_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        _ = (start_at, end_at, limit, offset)
+        return []
+
     def list_stock_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
         raise NotImplementedError('MesAdapter.list_stock_records is not implemented for this adapter')
 
+    def list_stock_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        _ = (start_at, end_at, limit, offset)
+        return []
+
+    def list_finished_inbound_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        _ = (start_at, end_at, limit, offset)
+        return []
+
+    def list_delivery_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        _ = (start_at, end_at, limit, offset)
+        return []
+
     def list_material_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit
         raise NotImplementedError('MesAdapter.list_material_records is not implemented for this adapter')
+
+    def list_material_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        _ = (start_at, end_at, limit, offset)
+        return []
 
     def list_yield_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         _ = limit

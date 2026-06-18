@@ -74,6 +74,14 @@ def sync_mes_business_projection() -> dict[str, object]:
     )
 
 
+def sync_mes_month_to_date_projection() -> dict[str, object]:
+    return _run_sync_group(
+        lambda mes_sync_service, session: {
+            'projection': [item.to_dict() for item in mes_sync_service.sync_mes_month_to_date_projection(db=session)],
+        }
+    )
+
+
 def sync_mes_reference_projection() -> dict[str, object]:
     return _run_sync_group(
         lambda mes_sync_service, session: {

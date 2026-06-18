@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.adapters import get_mes_adapter
 from app.adapters.mes_adapter import CoilSnapshot, MesMachineLineSource, MesSourceRecord, MesWipTotal
 from app.config import settings
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import last_completed_production_business_date, local_now, production_business_window, resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 from app.models.mes import (
     CoilFlowEvent,
@@ -900,12 +900,13 @@ def _stock_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, Any
         record,
         'InStockDate',
         'StrInStockDate',
+        'CreateDate',
+        'UrgentOperateDate',
         'AllocationDate',
         'OperateDate',
-        'CreateDate',
     )
-    net_kg = _to_float(_metadata_value(payload, 'NetWeight', 'InStockNetWeight'))
-    gross_kg = _to_float(_metadata_value(payload, 'GrossWeight'))
+    net_kg = _to_float(_metadata_value(payload, 'TotalNetWeight', 'NetWeight', 'InStockNetWeight'))
+    gross_kg = _to_float(_metadata_value(payload, 'TotalGrossWeight', 'GrossWeight'))
     return {
         'source_path': record.source_path,
         'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
@@ -1025,6 +1026,42 @@ def _sync_source_records(
     return _stats(cursor_key=cursor_key, fetched_count=len(rows), upserted_count=upserted_count, synced_at=synced_at)
 
 
+def _sync_source_records_between(
+    db: Session,
+    *,
+    cursor_key: str,
+    synced_at: datetime,
+    model: type,
+    field_builder,
+    fetch_page,
+    id_keys: tuple[str, ...] = ('Id',),
+    page_size: int = 1000,
+) -> MesSyncStats:
+    fetched_count = 0
+    upserted_count = 0
+    offset = 0
+    bounded_page_size = max(1, min(int(page_size), 1000))
+    while True:
+        rows = fetch_page(limit=bounded_page_size, offset=offset)
+        if not rows:
+            break
+        stats = _sync_source_records(
+            db,
+            cursor_key=cursor_key,
+            rows=rows,
+            synced_at=synced_at,
+            model=model,
+            field_builder=field_builder,
+            id_keys=id_keys,
+        )
+        fetched_count += len(rows)
+        upserted_count += stats.upserted_count
+        if len(rows) < bounded_page_size:
+            break
+        offset += bounded_page_size
+    return _stats(cursor_key=cursor_key, fetched_count=fetched_count, upserted_count=upserted_count, synced_at=synced_at)
+
+
 def sync_mes_workshop_process_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_workshop_process_records(limit=settings.MES_SYNC_LIMIT)
@@ -1035,6 +1072,34 @@ def sync_mes_workshop_process_records(db: Session, *, now: datetime | None = Non
         synced_at=synced_at,
         model=MesWorkshopProcessRecord,
         field_builder=_workshop_process_fields,
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_workshop_process_records_between(
+    db: Session,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    adapter = get_mes_adapter()
+    fetcher = getattr(adapter, 'list_workshop_process_records_between', None)
+    if not callable(fetcher):
+        return _stats(cursor_key='mes_workshop_process_records_between', fetched_count=0, synced_at=synced_at)
+    return _sync_source_records_between(
+        db,
+        cursor_key='mes_workshop_process_records_between',
+        synced_at=synced_at,
+        model=MesWorkshopProcessRecord,
+        field_builder=_workshop_process_fields,
+        fetch_page=lambda *, limit, offset: fetcher(
+            start_at=start_at,
+            end_at=end_at,
+            limit=limit,
+            offset=offset,
+        ),
         id_keys=('Id', 'BatchNumber'),
     )
 
@@ -1053,6 +1118,90 @@ def sync_mes_stock_records(db: Session, *, now: datetime | None = None) -> MesSy
     )
 
 
+def sync_mes_stock_records_between(
+    db: Session,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    adapter = get_mes_adapter()
+    fetcher = getattr(adapter, 'list_stock_records_between', None)
+    if not callable(fetcher):
+        return _stats(cursor_key='mes_stock_records_between', fetched_count=0, synced_at=synced_at)
+    return _sync_source_records_between(
+        db,
+        cursor_key='mes_stock_records_between',
+        synced_at=synced_at,
+        model=MesStockRecord,
+        field_builder=_stock_fields,
+        fetch_page=lambda *, limit, offset: fetcher(
+            start_at=start_at,
+            end_at=end_at,
+            limit=limit,
+            offset=offset,
+        ),
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_finished_inbound_records_between(
+    db: Session,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    adapter = get_mes_adapter()
+    fetcher = getattr(adapter, 'list_finished_inbound_records_between', None)
+    if not callable(fetcher):
+        return _stats(cursor_key='mes_finished_inbound_records_between', fetched_count=0, synced_at=synced_at)
+    return _sync_source_records_between(
+        db,
+        cursor_key='mes_finished_inbound_records_between',
+        synced_at=synced_at,
+        model=MesStockRecord,
+        field_builder=_stock_fields,
+        fetch_page=lambda *, limit, offset: fetcher(
+            start_at=start_at,
+            end_at=end_at,
+            limit=limit,
+            offset=offset,
+        ),
+        id_keys=('Id', 'BatchNumber'),
+    )
+
+
+def sync_mes_delivery_records_between(
+    db: Session,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    adapter = get_mes_adapter()
+    fetcher = getattr(adapter, 'list_delivery_records_between', None)
+    if not callable(fetcher):
+        return _stats(cursor_key='mes_delivery_records_between', fetched_count=0, synced_at=synced_at)
+    return _sync_source_records_between(
+        db,
+        cursor_key='mes_delivery_records_between',
+        synced_at=synced_at,
+        model=MesStockRecord,
+        field_builder=_stock_fields,
+        fetch_page=lambda *, limit, offset: fetcher(
+            start_at=start_at,
+            end_at=end_at,
+            limit=limit,
+            offset=offset,
+        ),
+        id_keys=('Id', 'DeliveryCode', 'BatchNumber'),
+    )
+
+
 def sync_mes_material_records(db: Session, *, now: datetime | None = None) -> MesSyncStats:
     synced_at = now or _utcnow()
     rows = get_mes_adapter().list_material_records(limit=settings.MES_SYNC_LIMIT)
@@ -1063,6 +1212,34 @@ def sync_mes_material_records(db: Session, *, now: datetime | None = None) -> Me
         synced_at=synced_at,
         model=MesMaterialRecord,
         field_builder=_material_fields,
+        id_keys=('MaterialCode', 'Id'),
+    )
+
+
+def sync_mes_material_records_between(
+    db: Session,
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> MesSyncStats:
+    synced_at = now or _utcnow()
+    adapter = get_mes_adapter()
+    fetcher = getattr(adapter, 'list_material_records_between', None)
+    if not callable(fetcher):
+        return _stats(cursor_key='mes_material_records_between', fetched_count=0, synced_at=synced_at)
+    return _sync_source_records_between(
+        db,
+        cursor_key='mes_material_records_between',
+        synced_at=synced_at,
+        model=MesMaterialRecord,
+        field_builder=_material_fields,
+        fetch_page=lambda *, limit, offset: fetcher(
+            start_at=start_at,
+            end_at=end_at,
+            limit=limit,
+            offset=offset,
+        ),
         id_keys=('MaterialCode', 'Id'),
     )
 
@@ -1255,12 +1432,41 @@ def sync_mes_realtime_projection(db: Session, *, now: datetime | None = None) ->
 
 def sync_mes_business_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
     synced_at = now or _utcnow()
-    return _run_projection_steps(db, synced_at=synced_at, steps=BUSINESS_PROJECTION_STEPS)
+    stats = _run_projection_steps(db, synced_at=synced_at, steps=BUSINESS_PROJECTION_STEPS)
+    target_date = last_completed_production_business_date(local_now(synced_at) + timedelta(minutes=10))
+    start_at, end_at = production_business_window(target_date)
+    stats.extend(
+        [
+            sync_mes_finished_inbound_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+            sync_mes_delivery_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+        ]
+    )
+    return stats
 
 
 def sync_mes_reference_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:
     synced_at = now or _utcnow()
     return _run_projection_steps(db, synced_at=synced_at, steps=REFERENCE_PROJECTION_STEPS)
+
+
+def sync_mes_month_to_date_projection(
+    db: Session,
+    *,
+    target_date: date | None = None,
+    now: datetime | None = None,
+) -> list[MesSyncStats]:
+    synced_at = now or _utcnow()
+    effective_target = target_date or last_completed_production_business_date(local_now(synced_at) + timedelta(minutes=10))
+    month_start = effective_target.replace(day=1)
+    start_at, _ = production_business_window(month_start)
+    _, end_at = production_business_window(effective_target)
+    return [
+        sync_mes_workshop_process_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+        sync_mes_stock_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+        sync_mes_finished_inbound_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+        sync_mes_delivery_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+        sync_mes_material_records_between(db, start_at=start_at, end_at=end_at, now=synced_at),
+    ]
 
 
 def sync_mes_projection(db: Session, *, now: datetime | None = None) -> list[MesSyncStats]:

@@ -10,8 +10,8 @@ class _QueryRunner:
         self.rows_by_key = rows_by_key
         self.calls = []
 
-    def __call__(self, query_key, *, limit=200, tracking_card_no=None):
-        self.calls.append((query_key, limit, tracking_card_no))
+    def __call__(self, query_key, *, limit=200, tracking_card_no=None, offset=0, start_at=None, end_at=None):
+        self.calls.append((query_key, limit, tracking_card_no, offset, start_at, end_at))
         return list(self.rows_by_key.get(query_key, []))
 
 
@@ -61,7 +61,7 @@ def test_sqlserver_adapter_maps_dispatch_rows_to_coil_snapshots() -> None:
     assert row.metadata['AlloyGrade'] == '3003'
     assert row.metadata['Spec'] == '0.72*1220*C'
     assert row.metadata['CurrentProcessSort'] == 20
-    assert runner.calls == [('dispatch', 50, None)]
+    assert runner.calls == [('dispatch', 50, None, 0, None, None)]
 
 
 def test_sqlserver_adapter_maps_real_xtal_product_rows_to_coil_snapshots() -> None:
@@ -124,7 +124,7 @@ def test_sqlserver_adapter_get_tracking_card_info_uses_dispatch_rows() -> None:
     assert card.alloy_grade == '3003'
     assert card.batch_no == '26RA04597'
     assert card.process_route_code == '铸轧-冷轧-退火'
-    assert runner.calls == [('card_lookup', 1, 'S-2-085-2')]
+    assert runner.calls == [('card_lookup', 1, 'S-2-085-2', 0, None, None)]
 
 
 def test_sqlserver_adapter_get_tracking_card_info_falls_back_to_recent_dispatch_rows() -> None:
@@ -145,7 +145,7 @@ def test_sqlserver_adapter_get_tracking_card_info_falls_back_to_recent_dispatch_
 
     assert card is not None
     assert card.card_no == 'S-2-085-2'
-    assert runner.calls == [('card_lookup', 1, 'S-2-085-2'), ('dispatch', 200, None)]
+    assert runner.calls == [('card_lookup', 1, 'S-2-085-2', 0, None, None), ('dispatch', 200, None, 0, None, None)]
 
 
 def test_sqlserver_adapter_maps_wip_totals() -> None:
@@ -171,7 +171,7 @@ def test_sqlserver_adapter_maps_wip_totals() -> None:
     assert rows[0].metadata['process_totals'] == {'轧制': 25.5}
 
 
-def test_sqlserver_adapter_maps_stock_record_event_time_from_allocation_date_before_create_date() -> None:
+def test_sqlserver_adapter_maps_stock_record_event_time_from_create_date_before_allocation_date() -> None:
     runner = _QueryRunner({
         'stock_records': [
             {
@@ -188,9 +188,82 @@ def test_sqlserver_adapter_maps_stock_record_event_time_from_allocation_date_bef
     rows = adapter.list_stock_records(limit=10)
 
     assert len(rows) == 1
-    assert rows[0].event_time == datetime(2026, 6, 3, 16, 30)
+    assert rows[0].event_time == datetime(2026, 6, 4, 8, 30)
     assert rows[0].metadata['AllocationDate'] == '2026-06-03 16:30:00'
     assert rows[0].metadata['CreateDate'] == '2026-06-04 08:30:00'
+
+
+def test_sqlserver_adapter_maps_finished_inbound_header_between() -> None:
+    start_at = datetime(2026, 6, 17, 7, 30)
+    end_at = datetime(2026, 6, 18, 7, 30)
+    runner = _QueryRunner({
+        'finished_inbound_records': [
+            {
+                'Id': 'inbound-1',
+                'FromDepartment': '园区精整',
+                'ToDepartment': '成品库',
+                'TotalNetWeight': '303031',
+                'InStockDate': '2026-06-17 09:10:00',
+            }
+        ]
+    })
+    adapter = SqlServerMesAdapter(query_runner=runner)
+
+    rows = adapter.list_finished_inbound_records_between(start_at=start_at, end_at=end_at, limit=1000, offset=2000)
+
+    assert len(rows) == 1
+    assert rows[0].source_id == 'stock_header_records:inbound-1'
+    assert rows[0].source_path == 'sqlserver:stock_header_records'
+    assert rows[0].event_time == datetime(2026, 6, 17, 9, 10)
+    assert rows[0].metadata['TotalNetWeight'] == '303031'
+    assert runner.calls == [('finished_inbound_records', 1000, None, 2000, start_at, end_at)]
+
+
+def test_sqlserver_adapter_maps_delivery_records_between() -> None:
+    start_at = datetime(2026, 6, 17, 7, 30)
+    end_at = datetime(2026, 6, 18, 7, 30)
+    runner = _QueryRunner({
+        'delivery_records': [
+            {
+                'Id': 'delivery-1',
+                'DeliveryCode': 'FH-1',
+                'NetWeight': '222306',
+                'OperateDate': '2026-06-17 14:20:00',
+            }
+        ]
+    })
+    adapter = SqlServerMesAdapter(query_runner=runner)
+
+    rows = adapter.list_delivery_records_between(start_at=start_at, end_at=end_at, limit=500, offset=0)
+
+    assert len(rows) == 1
+    assert rows[0].source_id == 'delivery_records:delivery-1'
+    assert rows[0].source_path == 'sqlserver:delivery_records'
+    assert rows[0].event_time == datetime(2026, 6, 17, 14, 20)
+
+
+def test_sqlserver_adapter_falls_back_to_wms_outstock_delivery_records_between() -> None:
+    start_at = datetime(2026, 6, 17, 7, 30)
+    end_at = datetime(2026, 6, 18, 7, 30)
+    runner = _QueryRunner({
+        'delivery_records': [],
+        'delivery_stock_records': [
+            {
+                'Id': 'outstock-1',
+                'DeliveryCode': 'FH-2',
+                'NetWeight': '222306',
+                'CreateDate': '2026-06-17 15:20:00',
+            }
+        ]
+    })
+    adapter = SqlServerMesAdapter(query_runner=runner)
+
+    rows = adapter.list_delivery_records_between(start_at=start_at, end_at=end_at, limit=500, offset=0)
+
+    assert len(rows) == 1
+    assert rows[0].source_id == 'delivery_stock_records:outstock-1'
+    assert rows[0].source_path == 'sqlserver:delivery_stock_records'
+    assert rows[0].event_time == datetime(2026, 6, 17, 15, 20)
 
 
 def test_sqlserver_adapter_maps_material_record_event_time_from_production_date() -> None:
@@ -268,7 +341,7 @@ def test_sqlserver_default_queries_target_discovered_xtal_tables() -> None:
     assert 'MES_Feeding' not in _QUERY_BY_KEY['material_records']
     assert 'ORDER BY EndDatetime DESC' in _QUERY_BY_KEY['workshop_process_records']
     assert 'ORDER BY ProductionDate DESC' in _QUERY_BY_KEY['material_records']
-    assert 'ORDER BY AllocationDate DESC' in _QUERY_BY_KEY['stock_records']
+    assert 'ORDER BY CreateDate DESC' in _QUERY_BY_KEY['stock_records']
     assert "CurrentWorkShop IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert "CurrentProcess IS NOT NULL" in _QUERY_BY_KEY['wip_totals']
     assert 'SUM(FeedingWeight)' in _QUERY_BY_KEY['wip_totals']

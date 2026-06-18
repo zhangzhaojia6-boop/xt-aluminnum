@@ -797,6 +797,64 @@ def test_workshop_output_uses_device_name_for_cold_roll_mes_rows(tmp_path) -> No
     assert by_name['2050车间']['source_basis'] == 'mes_workshop_process_records'
 
 
+def test_workshop_output_maps_park_finishing_to_park_shearing_not_finishing(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-park-finishing-alias.db'}", future=True)
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            Workshop.__table__,
+            WorkOrder.__table__,
+            WorkOrderEntry.__table__,
+            MesWorkshopProcessRecord.__table__,
+        ],
+    )
+    db = sessionmaker(bind=engine, autoflush=False, future=True)()
+    db.add_all(
+        [
+            Workshop(id=1, code='JZ', name='精整车间', workshop_type='finishing', is_active=True),
+            Workshop(id=2, code='JQ', name='园区剪切车间', workshop_type='shearing', is_active=True),
+            MesWorkshopProcessRecord(
+                source_id='jz-packaging',
+                source_path='sqlserver',
+                workshop_name='精整',
+                process_name='包装',
+                device_name='PC',
+                output_weight_tons=84.163,
+                business_date=date(2026, 6, 17),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='jz-slitting',
+                source_path='sqlserver',
+                workshop_name='精整',
+                process_name='纵剪',
+                device_name='精整纵剪（WAN）',
+                output_weight_tons=44.5,
+                business_date=date(2026, 6, 17),
+            ),
+            MesWorkshopProcessRecord(
+                source_id='park-packaging',
+                source_path='sqlserver',
+                workshop_name='园区精整',
+                process_name='包装',
+                device_name='PC',
+                output_weight_tons=149.976,
+                business_date=date(2026, 6, 17),
+            ),
+        ]
+    )
+    db.commit()
+
+    rows = daily_overview_builder._build_workshop_output(
+        db,
+        date(2026, 6, 17),
+        {1: '精整车间', 2: '园区剪切车间'},
+    )
+    by_name = {row['workshop']: row for row in rows}
+
+    assert by_name['精整车间']['daily_output'] == 128.66
+    assert by_name['园区剪切车间']['daily_output'] == 149.98
+
+
 def test_yield_rates_prefer_mes_algorithm_over_mobile_entry_yield(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{tmp_path / 'daily-overview-mes-yield.db'}", future=True)
     Base.metadata.create_all(

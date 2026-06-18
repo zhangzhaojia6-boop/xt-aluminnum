@@ -91,6 +91,7 @@ def setup_scheduler(target_scheduler=None):
     from app.tasks.agent_outbox import dispatch_due_agent_outbox_messages
     from app.tasks.iot_energy_sync import sync_iot_energy_snapshots
     from app.tasks.mes_sync import (
+        sync_mes_month_to_date_projection,
         sync_mes_business_projection,
         sync_mes_coil_snapshots,
         sync_mes_realtime_projection,
@@ -119,6 +120,22 @@ def setup_scheduler(target_scheduler=None):
             'interval',
             job_id='mes_sync_business',
             minutes=settings.MES_BUSINESS_SYNC_POLL_MINUTES,
+        )
+        _add_job_once(
+            active_scheduler,
+            sync_mes_month_to_date_projection,
+            'cron',
+            job_id='mes_month_to_date_backfill_0725',
+            hour=7,
+            minute=25,
+        )
+        _add_job_once(
+            active_scheduler,
+            sync_mes_month_to_date_projection,
+            'cron',
+            job_id='mes_month_to_date_backfill_0850',
+            hour=8,
+            minute=50,
         )
         _add_job_once(
             active_scheduler,

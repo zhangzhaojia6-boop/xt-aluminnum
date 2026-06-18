@@ -16,6 +16,7 @@ from app.models.quality import QualityYieldDaily
 from app.models.reports import DailyReport
 from app.services.report import daily_overview_builder
 from app.services.report._utils import _to_float
+from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 from app.services.report.output_skill_report_parser import parse_output_skill_daily_report
 
 
@@ -45,19 +46,19 @@ MES_MATERIAL_OUTPUT_WORKSHOPS = {
     "cast_3_daily": ("铸三车间", "铸三", "铸轧三", "铸轧三车间", "铸轧3"),
 }
 
-MES_REPORT_PROCESS_MAPPING = {
-    "hot_roll_daily": {"include": ("热轧",), "exclude": ("包装", "入库")},
-    "foundry_daily": {"include": ("铸锭", "铸造", "熔炼"), "exclude": ()},
-    "cast_2_daily": {"include": ("铸二", "铸轧二", "铸轧2"), "exclude": ("铸三", "铸轧三")},
-    "cast_3_daily": {"include": ("铸三", "铸轧三", "铸轧3"), "exclude": ("铸二", "铸轧二")},
-    "cold_1650_daily": {"include": ("1650",), "exclude": ("1850", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1650",)},
-    "cold_1850_daily": {"include": ("1850",), "exclude": ("1650", "2050", "精整", "拉矫", "剪切", "退火"), "device_include": ("1850",)},
-    "cold_2050_daily": {"include": ("2050",), "exclude": ("1650", "1850", "精整", "拉矫", "剪切", "退火"), "device_include": ("2050",)},
-    "online_anneal_daily": {"include": ("在线退火", "退火"), "exclude": ()},
-    "straightening_daily": {"include": ("拉矫",), "exclude": ()},
-    "finishing_daily": {"include": ("精整",), "exclude": ()},
-    "shearing_daily": {"include": ("剪切",), "exclude": ()},
-    "coating_daily": {"include": ("彩涂",), "exclude": ()},
+MES_REPORT_PROCESS_BUCKETS = {
+    "hot_roll_daily": ("热轧",),
+    "foundry_daily": ("铸锭",),
+    "cast_2_daily": ("铸二",),
+    "cast_3_daily": ("铸三",),
+    "cold_1650_daily": ("冷轧1650",),
+    "cold_1850_daily": ("冷轧1850",),
+    "cold_2050_daily": ("冷轧2050",),
+    "online_anneal_daily": ("新厂在线", "园区在线"),
+    "straightening_daily": ("拉矫",),
+    "finishing_daily": ("精整",),
+    "shearing_daily": ("园区剪切",),
+    "coating_daily": ("彩涂",),
 }
 BILLET_MATERIAL_FIELDS = set(MES_MATERIAL_OUTPUT_WORKSHOPS)
 BILLET_BUSINESS_DAY_START = time(8, 0)
@@ -386,6 +387,32 @@ def _mapped_mes_output(
     return (0.0, 0, 0) if rows else (None, 0, 0)
 
 
+def _bucketed_mes_output(
+    rows: list[MesWorkshopProcessRecord],
+    buckets: tuple[str, ...],
+    *,
+    claimed_source_ids: set[str] | None = None,
+) -> tuple[float | None, int, int]:
+    total = 0.0
+    pass_total = 0
+    count = 0
+    claimed_source_ids = claimed_source_ids if claimed_source_ids is not None else set()
+    for row in rows:
+        source_key = row.source_id or str(row.id)
+        if source_key in claimed_source_ids:
+            continue
+        bucket = resolve_mes_process_workshop_bucket(row.workshop_name, row.process_name, row.device_name)
+        if bucket not in buckets:
+            continue
+        total += _output_weight_tons(row)
+        pass_total += _pass_count(row)
+        count += 1
+        claimed_source_ids.add(source_key)
+    if count:
+        return round(total, 3), pass_total, count
+    return (0.0, 0, 0) if rows else (None, 0, 0)
+
+
 def _owner_daily_payload_values(db: Session, *, target_date: date) -> dict[str, Any]:
     if not _has_table(db, WorkOrderEntry.__tablename__):
         return {}
@@ -563,16 +590,23 @@ def collect_opening_facts(db: Session, facts: TemplateDailyFacts, *, wip_date: d
     cost = dict(overview.get("cost") or {})
     wip_distribution = list(overview.get("wip_distribution") or [])
 
-    _set_value(facts, "total_output_daily", plant_output.get("daily_output"), "mes_packaging_output")
-    _set_value(facts, "total_output_month", plant_output.get("monthly_output"), "mes_packaging_output")
+    output_source_extra = {
+        "source_table": plant_output.get("source_table"),
+        "date_column": plant_output.get("date_column"),
+    }
+    _set_value(facts, "total_output_daily", plant_output.get("daily_output"), "mes_packaging_output", **output_source_extra)
+    _set_value(facts, "total_output_month", plant_output.get("monthly_output"), "mes_packaging_output", **output_source_extra)
     _set_value(
         facts,
         "total_output_delta",
         _to_float(plant_output.get("daily_output")) - _to_float(plant_output.get("yesterday_output")),
         "mes_packaging_output",
+        **output_source_extra,
     )
-    _set_value(facts, "finished_inbound_daily", plant_output.get("daily_output"), "mes_packaging_output")
-    _set_value(facts, "finished_inbound_month", plant_output.get("monthly_output"), "mes_packaging_output")
+    _set_value(facts, "finished_inbound_daily", plant_output.get("daily_output"), "mes_packaging_output", **output_source_extra)
+    _set_value(facts, "finished_inbound_month", plant_output.get("monthly_output"), "mes_packaging_output", **output_source_extra)
+    shipment_totals = daily_overview_builder._query_mes_delivery_output_by_date(db, facts.target_date, facts.target_date)
+    _set_value(facts, "shipment_daily", shipment_totals.get(facts.target_date), "mes_delivery_records")
 
     wip_total = sum(_to_float(row.get("total_weight")) for row in wip_distribution)
     if wip_total > 0:
@@ -642,11 +676,11 @@ def collect_mes_workshop_facts(db: Session, facts: TemplateDailyFacts) -> None:
     claimed_daily: set[str] = set()
     claimed_month: set[str] = set()
 
-    for key, mapping in MES_REPORT_PROCESS_MAPPING.items():
+    for key, buckets in MES_REPORT_PROCESS_BUCKETS.items():
         if key in BILLET_MATERIAL_FIELDS:
             continue
-        daily, daily_pass, _daily_count = _mapped_mes_output(daily_rows, mapping, claimed_source_ids=claimed_daily)
-        monthly, monthly_pass, _monthly_count = _mapped_mes_output(month_rows, mapping, claimed_source_ids=claimed_month)
+        daily, daily_pass, _daily_count = _bucketed_mes_output(daily_rows, buckets, claimed_source_ids=claimed_daily)
+        monthly, monthly_pass, _monthly_count = _bucketed_mes_output(month_rows, buckets, claimed_source_ids=claimed_month)
         _set_value(facts, key, daily, "mes_workshop_process_records")
         _set_value(facts, MONTHLY_FIELD_BY_DAILY_FIELD[key], monthly, "mes_workshop_process_records")
         _set_value(facts, key.replace("_daily", "_pass_daily"), daily_pass, "computed")
