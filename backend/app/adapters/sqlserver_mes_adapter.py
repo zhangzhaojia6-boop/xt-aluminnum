@@ -52,7 +52,7 @@ _QUERY_BY_KEY = {
     ),
     'stock_records': (
         'SELECT TOP ({limit}) * FROM WMS_InStockDetail '
-        'ORDER BY AllocationDate DESC, OperateDate DESC, CreateDate DESC'
+        'ORDER BY CreateDate DESC, UrgentOperateDate DESC, AllocationDate DESC, OperateDate DESC'
     ),
     'material_records': (
         'SELECT TOP ({limit}) * FROM MES_Material '
@@ -69,6 +69,46 @@ _QUERY_BY_KEY = {
     'devices': (
         'SELECT TOP ({limit}) * FROM MES_Device '
         'ORDER BY OperateDate DESC, CreateDate DESC'
+    ),
+}
+
+_BETWEEN_QUERY_BY_KEY = {
+    'workshop_process_records': (
+        'SELECT * FROM MES_ProductProcessRecord '
+        'WHERE EndDatetime >= %s AND EndDatetime < %s '
+        'ORDER BY EndDatetime ASC, OperateDate ASC, CreateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
+    ),
+    'stock_records': (
+        'SELECT * FROM WMS_InStockDetail '
+        'WHERE CreateDate >= %s AND CreateDate < %s '
+        'ORDER BY CreateDate ASC, UrgentOperateDate ASC, AllocationDate ASC, OperateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
+    ),
+    'finished_inbound_records': (
+        'SELECT * FROM WMS_InStock '
+        'WHERE InStockDate >= %s AND InStockDate < %s '
+        'ORDER BY InStockDate ASC, CreateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
+    ),
+    'delivery_records': (
+        'SELECT * FROM MES_DeliveryDetail '
+        'WHERE OperateDate >= %s AND OperateDate < %s '
+        'ORDER BY OperateDate ASC, CreateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
+    ),
+    'delivery_stock_records': (
+        'SELECT * FROM WMS_OutStockDetail '
+        'WHERE CreateDate >= %s AND CreateDate < %s '
+        "AND DeliveryCode IS NOT NULL AND LTRIM(RTRIM(DeliveryCode)) <> '' "
+        'ORDER BY CreateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
+    ),
+    'material_records': (
+        'SELECT * FROM MES_Material '
+        'WHERE ProductionDate >= %s AND ProductionDate < %s '
+        'ORDER BY ProductionDate ASC, CreateDate ASC '
+        'OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY'
     ),
 }
 
@@ -209,14 +249,24 @@ def _coil_snapshot_from_row(row: Mapping[str, Any]) -> CoilSnapshot:
 
 def _source_record(query_key: str, row: Mapping[str, Any]) -> MesSourceRecord:
     if query_key == 'stock_records':
-        event_keys = ('EventTime', 'AllocationDate', 'InStockDate', 'OperateDate', 'ReportTime', 'UpdateTime', 'CreateDate')
+        event_keys = ('EventTime', 'InStockDate', 'StrInStockDate', 'CreateDate', 'UrgentOperateDate', 'AllocationDate', 'OperateDate', 'ReportTime', 'UpdateTime')
+    elif query_key == 'finished_inbound_records':
+        event_keys = ('InStockDate', 'StrInStockDate', 'CreateDate', 'OperateDate')
+    elif query_key == 'delivery_records':
+        event_keys = ('OperateDate', 'StrOperateDate', 'CreateDate')
+    elif query_key == 'delivery_stock_records':
+        event_keys = ('CreateDate', 'OperateDate')
     elif query_key == 'material_records':
         event_keys = ('ProductionDate', 'StrProductionDate', 'EventTime', 'OperateDate', 'UpdateTime', 'CreateDate')
     else:
         event_keys = ('EventTime', 'OperateDate', 'EndTime', 'EndDatetime', 'InStockDate', 'ReportTime', 'UpdateTime', 'CreateDate')
+    source_id = _record_id(row)
+    source_path_key = 'stock_header_records' if query_key == 'finished_inbound_records' else query_key
+    if query_key in {'finished_inbound_records', 'delivery_records', 'delivery_stock_records'}:
+        source_id = f'{source_path_key}:{source_id}'
     return MesSourceRecord(
-        source_id=_record_id(row),
-        source_path=f'sqlserver:{query_key}',
+        source_id=source_id,
+        source_path=f'sqlserver:{source_path_key}',
         event_time=_datetime(_value(row, *event_keys)),
         metadata=_safe_metadata(row),
     )
@@ -321,11 +371,69 @@ class SqlServerMesAdapter(MesAdapter):
     def list_workshop_process_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         return [_source_record('workshop_process_records', row) for row in self._query('workshop_process_records', limit=limit)]
 
+    def list_workshop_process_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        rows = self._query_between('workshop_process_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+        return [_source_record('workshop_process_records', row) for row in rows]
+
     def list_stock_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         return [_source_record('stock_records', row) for row in self._query('stock_records', limit=limit)]
 
+    def list_stock_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        rows = self._query_between('stock_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+        return [_source_record('stock_records', row) for row in rows]
+
+    def list_finished_inbound_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        rows = self._query_between('finished_inbound_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+        return [_source_record('finished_inbound_records', row) for row in rows]
+
+    def list_delivery_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        rows = self._query_between('delivery_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+        if not rows:
+            rows = self._query_between('delivery_stock_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+            return [_source_record('delivery_stock_records', row) for row in rows]
+        return [_source_record('delivery_records', row) for row in rows]
+
     def list_material_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         return [_source_record('material_records', row) for row in self._query('material_records', limit=limit)]
+
+    def list_material_records_between(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[MesSourceRecord]:
+        rows = self._query_between('material_records', start_at=start_at, end_at=end_at, limit=limit, offset=offset)
+        return [_source_record('material_records', row) for row in rows]
 
     def list_yield_records(self, *, limit: int = 200) -> list[MesSourceRecord]:
         return [_source_record('yield_records', row) for row in self._query('yield_records', limit=limit)]
@@ -367,6 +475,40 @@ class SqlServerMesAdapter(MesAdapter):
             encrypt=self._encrypt,
             query=query,
             params=params,
+        )
+
+    def _query_between(
+        self,
+        query_key: str,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[Mapping[str, Any]]:
+        bounded_limit = max(1, min(int(limit), 1000))
+        bounded_offset = max(0, int(offset))
+        if self._query_runner is not None:
+            return self._query_runner(
+                query_key,
+                limit=bounded_limit,
+                offset=bounded_offset,
+                start_at=start_at,
+                end_at=end_at,
+                tracking_card_no=None,
+            )
+        query_template = _BETWEEN_QUERY_BY_KEY[query_key]
+        query = query_template.format(limit=bounded_limit, offset=bounded_offset)
+        return _run_pymssql_query(
+            host=self._host,
+            port=self._port,
+            database=self._database,
+            username=self._username,
+            password=self._password,
+            timeout_seconds=self._timeout_seconds,
+            encrypt=self._encrypt,
+            query=query,
+            params=(start_at, end_at),
         )
 
 

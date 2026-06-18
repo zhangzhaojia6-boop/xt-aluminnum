@@ -784,8 +784,17 @@ def test_mes_projection_profiles_split_realtime_business_and_reference(monkeypat
         'sync_mes_devices': 'mes_devices',
         'sync_mes_reference_items': 'mes_reference_items',
         'sync_mes_machine_lines': 'mes_machine_lines',
+        'sync_mes_finished_inbound_records_between': 'mes_finished_inbound_records_between',
+        'sync_mes_delivery_records_between': 'mes_delivery_records_between',
     }
     for func_name, cursor_key in patched.items():
+        if func_name in {'sync_mes_finished_inbound_records_between', 'sync_mes_delivery_records_between'}:
+            monkeypatch.setattr(
+                mes_sync_service,
+                func_name,
+                lambda _db, cursor_key=cursor_key, **_kwargs: stat(cursor_key),
+            )
+            continue
         monkeypatch.setattr(
             mes_sync_service,
             func_name,
@@ -805,6 +814,8 @@ def test_mes_projection_profiles_split_realtime_business_and_reference(monkeypat
         'mes_stock_records',
         'mes_material_records',
         'mes_yield_records',
+        'mes_finished_inbound_records_between',
+        'mes_delivery_records_between',
     ]
     assert [item.cursor_key for item in reference] == [
         'mes_crafts',
@@ -1051,7 +1062,7 @@ def test_sync_mes_extended_sources_persists_business_tables_and_strips_sensitive
     assert float(wip.doing_weight_tons) == 430.0
 
 
-def test_stock_record_business_date_prefers_allocation_date_over_create_date():
+def test_stock_record_business_date_prefers_create_date_over_allocation_date():
     record = MesSourceRecord(
         source_id='stock-cross-day',
         source_path='sqlserver:stock_records',
@@ -1067,8 +1078,78 @@ def test_stock_record_business_date_prefers_allocation_date_over_create_date():
 
     fields = mes_sync_service._stock_fields(record, synced_at=datetime(2026, 6, 2, 1, 15, tzinfo=UTC))
 
-    assert fields['in_stock_date'] == datetime(2026, 6, 1, 16, 20, tzinfo=UTC)
-    assert fields['business_date'] == date(2026, 6, 1)
+    assert fields['in_stock_date'] == datetime(2026, 6, 2, 1, 10, tzinfo=UTC)
+    assert fields['business_date'] == date(2026, 6, 2)
+
+
+def test_sync_finished_inbound_and_delivery_records_between(tmp_path, monkeypatch):
+    engine = create_engine(f"sqlite:///{tmp_path / 'mes-stock-window-sync.db'}", future=True)
+    Base.metadata.create_all(engine, tables=[MesStockRecord.__table__])
+    Session = sessionmaker(bind=engine, autoflush=False, future=True)
+    synced_at = datetime(2026, 6, 18, 1, 0, tzinfo=UTC)
+    start_at = datetime(2026, 6, 17, 7, 30)
+    end_at = datetime(2026, 6, 18, 7, 30)
+
+    class Adapter:
+        def list_finished_inbound_records_between(self, *, start_at, end_at, limit=1000, offset=0):
+            _ = (start_at, end_at, limit)
+            if offset:
+                return []
+            return [
+                MesSourceRecord(
+                    source_id='stock_header_records:inbound-1',
+                    source_path='sqlserver:stock_header_records',
+                    metadata={
+                        'Id': 'inbound-1',
+                        'FromDepartment': '园区精整',
+                        'ToDepartment': '成品库',
+                        'TotalNetWeight': '303031',
+                        'InStockDate': datetime(2026, 6, 17, 9, 0),
+                    },
+                )
+            ]
+
+        def list_delivery_records_between(self, *, start_at, end_at, limit=1000, offset=0):
+            _ = (start_at, end_at, limit)
+            if offset:
+                return []
+            return [
+                MesSourceRecord(
+                    source_id='delivery_records:delivery-1',
+                    source_path='sqlserver:delivery_records',
+                    metadata={
+                        'Id': 'delivery-1',
+                        'DeliveryCode': 'FH-1',
+                        'NetWeight': '222306',
+                        'OperateDate': datetime(2026, 6, 17, 14, 0),
+                    },
+                )
+            ]
+
+    monkeypatch.setattr('app.services.mes_sync_service.get_mes_adapter', lambda: Adapter())
+
+    with Session() as db:
+        inbound_stats = mes_sync_service.sync_mes_finished_inbound_records_between(
+            db,
+            start_at=start_at,
+            end_at=end_at,
+            now=synced_at,
+        )
+        delivery_stats = mes_sync_service.sync_mes_delivery_records_between(
+            db,
+            start_at=start_at,
+            end_at=end_at,
+            now=synced_at,
+        )
+        db.commit()
+        rows = db.execute(select(MesStockRecord).order_by(MesStockRecord.source_path.asc())).scalars().all()
+
+    assert inbound_stats.fetched_count == 1
+    assert delivery_stats.fetched_count == 1
+    by_source = {row.source_path: row for row in rows}
+    assert float(by_source['sqlserver:stock_header_records'].net_weight_tons) == 303.031
+    assert by_source['sqlserver:stock_header_records'].business_date == date(2026, 6, 17)
+    assert float(by_source['sqlserver:delivery_records'].net_weight_tons) == 222.306
 
 
 def test_sync_mes_wip_total_merges_duplicate_source_ids(tmp_path, monkeypatch):

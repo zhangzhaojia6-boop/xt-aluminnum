@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -123,6 +123,77 @@ def test_mes_packaging_output_prefers_mes_stock_in_records_over_process_packagin
         totals = daily_overview_builder._query_mes_packaging_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
 
     assert totals == {BUSINESS_DATE: 341.71}
+
+
+def test_plant_output_prefers_mes_stock_header_records_over_detail_records(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesStockRecord(
+                    source_id='header-inbound-2026-06-17',
+                    source_path='sqlserver:stock_header_records',
+                    net_weight_tons=303.031,
+                    business_date=BUSINESS_DATE,
+                    source_payload={},
+                ),
+                MesStockRecord(
+                    source_id='detail-inbound-2026-06-17',
+                    source_path='sqlserver:stock_records',
+                    net_weight_tons=271.996,
+                    status_name='1',
+                    business_date=BUSINESS_DATE,
+                    source_payload={
+                        'FromDepartment': '园区精整',
+                        'ToDepartment': '成品库',
+                        'Status': 1,
+                    },
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        plant = daily_overview_builder._build_plant_output(db, BUSINESS_DATE, {'total_electricity': 0})
+
+    assert plant['daily_output'] == 303.03
+    assert plant['packaging_output'] == 303.03
+    assert plant['finished_inbound_output'] == 303.03
+    assert plant['daily_output_source'] == 'mes_stock_header_records'
+    assert plant['source_table'] == 'WMS_InStock'
+    assert plant['date_column'] == 'InStockDate'
+    assert plant['row_count'] == 1
+    assert plant['business_window_start'] == f'{BUSINESS_DATE.isoformat()}T07:30:00+08:00'
+    assert plant['business_window_end'] == f'{(BUSINESS_DATE + timedelta(days=1)).isoformat()}T07:30:00+08:00'
+
+
+def test_mes_delivery_output_requires_delivery_code(tmp_path) -> None:
+    session_factory = _session_factory(tmp_path)
+    with session_factory() as db:
+        db.add_all(
+            [
+                MesStockRecord(
+                    source_id='delivery-with-code',
+                    source_path='sqlserver:delivery_records',
+                    net_weight_tons=222.306,
+                    business_date=BUSINESS_DATE,
+                    source_payload={'DeliveryCode': 'FH-1'},
+                ),
+                MesStockRecord(
+                    source_id='delivery-without-code',
+                    source_path='sqlserver:delivery_records',
+                    net_weight_tons=2.617,
+                    business_date=BUSINESS_DATE,
+                    source_payload={'DeliveryCode': ''},
+                ),
+            ]
+        )
+        db.commit()
+
+    with session_factory() as db:
+        totals = daily_overview_builder._query_mes_delivery_output_by_date(db, BUSINESS_DATE, BUSINESS_DATE)
+
+    assert totals == {BUSINESS_DATE: 222.31}
 
 
 def test_mes_packaging_output_counts_legacy_stock_rows_without_department_payload(tmp_path) -> None:

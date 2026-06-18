@@ -368,6 +368,50 @@ def test_mes_row_cannot_count_into_multiple_report_fields(tmp_path) -> None:
     assert sum(1 for value in counted if value == 10) <= 1
 
 
+def test_park_finishing_mes_rows_fill_shearing_not_finishing(tmp_path) -> None:
+    SessionLocal = _session(tmp_path)
+    with SessionLocal() as db:
+        _seed_workshop_and_order(db)
+        db.add_all(
+            [
+                MesWorkshopProcessRecord(
+                    source_id="jz-packaging",
+                    source_path="sqlserver",
+                    workshop_name="精整",
+                    process_name="包装",
+                    device_name="PC",
+                    output_weight_tons=84.163,
+                    business_date=REPORT_DATE,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id="jz-slitting",
+                    source_path="sqlserver",
+                    workshop_name="精整",
+                    process_name="纵剪",
+                    device_name="精整纵剪（WAN）",
+                    output_weight_tons=44.5,
+                    business_date=REPORT_DATE,
+                ),
+                MesWorkshopProcessRecord(
+                    source_id="park-packaging",
+                    source_path="sqlserver",
+                    workshop_name="园区精整",
+                    process_name="包装",
+                    device_name="PC",
+                    output_weight_tons=149.976,
+                    business_date=REPORT_DATE,
+                ),
+            ]
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        facts = collect_template_daily_facts(db, target_date=REPORT_DATE, required_fields=REQUIRED_FIELDS)
+
+    assert facts.values["finishing_daily"] == 128.663
+    assert facts.values["shearing_daily"] == 149.976
+
+
 def test_owner_daily_payload_aliases_fill_template_fields(tmp_path) -> None:
     SessionLocal = _session(tmp_path)
     with SessionLocal() as db:

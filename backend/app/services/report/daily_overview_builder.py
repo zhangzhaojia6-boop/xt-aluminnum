@@ -21,6 +21,7 @@ from app.services import energy_service
 from app.services.contract_canonical_service import build_contract_projection
 from app.services.production_output_scope import counts_as_workshop_output, normalize_process_stage, pass_count
 from app.services.report._utils import _to_float
+from app.services.report.mes_workshop_mapping import resolve_mes_process_workshop_bucket
 
 
 DEFAULT_ELECTRICITY_PRICE = 0.65
@@ -33,22 +34,10 @@ FINAL_PACKAGING_WORKSHOP_CODES = {'JZ', 'LJ', 'JQ'}
 FINAL_PACKAGING_MES_WORKSHOP_NAMES = {'精整', '精整车间', '拉矫', '拉矫车间', '园区精整', '园区剪切', '园区剪切车间', '剪切车间'}
 MES_PACKAGING_PROCESS_KEYWORDS = ('包装', '入库')
 MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS = ('精整', '拉矫', '剪切')
+MES_STOCK_HEADER_SOURCE_PATH = 'sqlserver:stock_header_records'
+MES_DELIVERY_SOURCE_PATH = 'sqlserver:delivery_records'
+MES_DELIVERY_STOCK_SOURCE_PATH = 'sqlserver:delivery_stock_records'
 STORAGE_OWNER_ROLE = 'storage_owner'
-MES_OUTPUT_WORKSHOP_MAPPINGS = {
-    '铸锭': {'include': ('铸锭', '铸造', '熔炼'), 'exclude': ()},
-    '铸二': {'include': ('铸二', '铸轧二', '铸轧2'), 'exclude': ('铸三', '铸轧三')},
-    '铸三': {'include': ('铸三', '铸轧三', '铸轧3'), 'exclude': ('铸二', '铸轧二')},
-    '热轧': {'include': ('热轧',), 'exclude': ('包装', '入库')},
-    '淬火车间': {'include': ('淬火',), 'exclude': ('包装', '入库')},
-    '冷轧1650': {'include': ('1650',), 'exclude': ('1850', '2050', '精整', '拉矫', '剪切', '退火'), 'device_include': ('1650',)},
-    '冷轧1850': {'include': ('1850',), 'exclude': ('1650', '2050', '精整', '拉矫', '剪切', '退火'), 'device_include': ('1850',)},
-    '冷轧2050': {'include': ('2050',), 'exclude': ('1650', '1850', '精整', '拉矫', '剪切', '退火'), 'device_include': ('2050',)},
-    '新厂在线': {'include': ('新厂在线', '新厂北线', '新厂南线', '北线退火', '南线退火', '北线', '南线'), 'exclude': ('园区',)},
-    '园区在线': {'include': ('园区在线', '园区退火'), 'exclude': ('新厂',)},
-    '拉矫': {'include': ('拉矫',), 'exclude': ()},
-    '精整': {'include': ('精整',), 'exclude': ()},
-    '园区剪切': {'include': ('园区剪切', '剪切车间', '剪切'), 'exclude': ()},
-}
 BILLET_MATERIAL_WORKSHOP_MAPPINGS = {
     '热轧': ('热轧车间', '热轧'),
     '铸二': ('铸二车间', '铸二', '铸轧二', '铸轧二车间', '铸轧2'),
@@ -149,18 +138,12 @@ def _mes_input_tons(row: MesWorkshopProcessRecord) -> float:
 
 def _mes_row_matches_workshop(row: MesWorkshopProcessRecord, workshop: Workshop) -> bool:
     canonical_name = normalize_workshop_name(workshop.name)
-    text = _process_row_text(row)
-    mapping = MES_OUTPUT_WORKSHOP_MAPPINGS.get(canonical_name)
-    if mapping is not None:
-        device_text = str(getattr(row, 'device_name', '') or '')
-        device_includes = tuple(mapping.get('device_include') or ())
-        if device_includes and any(token in device_text for token in ('1650', '1850', '2050')):
-            return any(token in device_text for token in device_includes)
-        includes = tuple(mapping.get('include') or ())
-        excludes = tuple(mapping.get('exclude') or ())
-        return (not includes or any(token in text for token in includes)) and not any(token in text for token in excludes)
+    resolved = resolve_mes_process_workshop_bucket(row.workshop_name, row.process_name, row.device_name)
+    if resolved is not None:
+        return resolved == canonical_name
     tokens = set(workshop_name_query_tokens(workshop.name))
     tokens.update(workshop_name_query_tokens(workshop.code))
+    text = _process_row_text(row)
     return any(token and token in text for token in tokens)
 
 
@@ -923,6 +906,10 @@ def _mes_stock_output_tons(row: MesStockRecord) -> float:
 
 
 def _is_mes_stock_packaging_output(row: MesStockRecord) -> bool:
+    if row.source_path in {MES_DELIVERY_SOURCE_PATH, MES_DELIVERY_STOCK_SOURCE_PATH}:
+        return False
+    if row.source_path == MES_STOCK_HEADER_SOURCE_PATH:
+        return _mes_stock_output_tons(row) > 0
     payload = _source_payload(row)
     from_department = _plain_text(payload.get('FromDepartment'))
     to_department = _plain_text(payload.get('ToDepartment'))
@@ -936,6 +923,14 @@ def _is_mes_stock_packaging_output(row: MesStockRecord) -> bool:
     if from_department:
         return any(keyword in from_department for keyword in MES_STOCK_OUTPUT_FROM_DEPARTMENT_KEYWORDS)
     return _mes_stock_output_tons(row) > 0
+
+
+def _is_mes_delivery_output(row: MesStockRecord) -> bool:
+    if row.source_path not in {MES_DELIVERY_SOURCE_PATH, MES_DELIVERY_STOCK_SOURCE_PATH}:
+        return False
+    payload = _source_payload(row)
+    delivery_code = _plain_text(payload.get('DeliveryCode'))
+    return bool(delivery_code) and _mes_stock_output_tons(row) > 0
 
 
 def _owner_storage_inbound_tons(payload: dict) -> float:
@@ -1049,20 +1044,24 @@ def _query_owner_storage_monthly_inbound_by_date(db: Session, start: date, end: 
 
 def _query_finished_inbound_totals_by_date(db: Session, start: date, end: date) -> dict[date, float]:
     totals = _query_owner_storage_inbound_by_date(db, start, end)
+    mes_header_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
+    totals.update(mes_header_totals)
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
-def _query_mes_stock_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    if db is None or not _has_mes_stock_record_table(db):
+def _query_mes_stock_packaging_output_by_date(
+    db: Session,
+    start: date,
+    end: date,
+    *,
+    source_paths: set[str] | None = None,
+) -> dict[date, float]:
+    if db is None or not hasattr(db, "query") or not _has_mes_stock_record_table(db):
         return {}
-    rows = (
-        db.query(MesStockRecord)
-        .filter(
-            MesStockRecord.business_date >= start,
-            MesStockRecord.business_date <= end,
-        )
-        .all()
-    )
+    query = db.query(MesStockRecord).filter(MesStockRecord.business_date >= start, MesStockRecord.business_date <= end)
+    if source_paths is not None:
+        query = query.filter(MesStockRecord.source_path.in_(tuple(source_paths)))
+    rows = query.all()
     totals: dict[date, float] = {}
     for row in rows:
         if row.business_date is None or not _is_mes_stock_packaging_output(row):
@@ -1074,8 +1073,51 @@ def _query_mes_stock_packaging_output_by_date(db: Session, start: date, end: dat
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
+def _query_mes_stock_packaging_row_counts_by_date(
+    db: Session,
+    start: date,
+    end: date,
+    *,
+    source_paths: set[str] | None = None,
+) -> dict[date, int]:
+    if db is None or not hasattr(db, "query") or not _has_mes_stock_record_table(db):
+        return {}
+    query = db.query(MesStockRecord).filter(MesStockRecord.business_date >= start, MesStockRecord.business_date <= end)
+    if source_paths is not None:
+        query = query.filter(MesStockRecord.source_path.in_(tuple(source_paths)))
+    counts: dict[date, int] = {}
+    for row in query.all():
+        if row.business_date is None or not _is_mes_stock_packaging_output(row):
+            continue
+        if _mes_stock_output_tons(row) <= 0:
+            continue
+        counts[row.business_date] = counts.get(row.business_date, 0) + 1
+    return counts
+
+
+def _query_mes_delivery_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
+    if db is None or not hasattr(db, "query") or not _has_mes_stock_record_table(db):
+        return {}
+    rows = (
+        db.query(MesStockRecord)
+        .filter(
+            MesStockRecord.business_date >= start,
+            MesStockRecord.business_date <= end,
+            MesStockRecord.source_path.in_((MES_DELIVERY_SOURCE_PATH, MES_DELIVERY_STOCK_SOURCE_PATH)),
+        )
+        .all()
+    )
+    totals: dict[date, float] = {}
+    for row in rows:
+        if row.business_date is None or not _is_mes_delivery_output(row):
+            continue
+        output_tons = _mes_stock_output_tons(row)
+        totals[row.business_date] = totals.get(row.business_date, 0.0) + output_tons
+    return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
+
+
 def _query_mes_process_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
-    if db is None:
+    if db is None or not hasattr(db, "query"):
         return {}
     rows = (
         db.query(MesWorkshopProcessRecord)
@@ -1096,17 +1138,58 @@ def _query_mes_process_packaging_output_by_date(db: Session, start: date, end: d
     return {business_date: _round2(total) or 0.0 for business_date, total in totals.items()}
 
 
+def _query_mes_process_packaging_row_counts_by_date(db: Session, start: date, end: date) -> dict[date, int]:
+    if db is None or not hasattr(db, "query"):
+        return {}
+    rows = (
+        db.query(MesWorkshopProcessRecord)
+        .filter(
+            MesWorkshopProcessRecord.business_date >= start,
+            MesWorkshopProcessRecord.business_date <= end,
+        )
+        .all()
+    )
+    counts: dict[date, int] = {}
+    for row in rows:
+        if row.business_date is None or not _is_mes_packaging_output(row):
+            continue
+        if _mes_output_tons(row) <= 0:
+            continue
+        counts[row.business_date] = counts.get(row.business_date, 0) + 1
+    return counts
+
+
 def _query_mes_packaging_output_with_source_by_date(db: Session, start: date, end: date) -> tuple[dict[date, float], dict[date, str]]:
-    stock_totals = _query_mes_stock_packaging_output_by_date(db, start, end)
+    header_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
+    detail_totals = _query_mes_stock_packaging_output_by_date(db, start, end, source_paths={'sqlserver:stock_records', 'sqlserver', '/Stock/GetList'})
     process_totals = _query_mes_process_packaging_output_by_date(db, start, end)
-    totals = dict(stock_totals)
-    sources = {business_date: 'mes_stock_records' for business_date in stock_totals}
+    totals = dict(header_totals)
+    sources = {business_date: 'mes_stock_header_records' for business_date in header_totals}
+    for business_date, total in detail_totals.items():
+        if business_date in totals:
+            continue
+        totals[business_date] = total
+        sources[business_date] = 'mes_stock_records'
     for business_date, total in process_totals.items():
         if business_date in totals:
             continue
         totals[business_date] = total
         sources[business_date] = 'mes_workshop_process_records'
     return totals, sources
+
+
+def _query_mes_packaging_row_counts_with_source_by_date(db: Session, start: date, end: date) -> dict[date, int]:
+    header_counts = _query_mes_stock_packaging_row_counts_by_date(db, start, end, source_paths={MES_STOCK_HEADER_SOURCE_PATH})
+    detail_counts = _query_mes_stock_packaging_row_counts_by_date(db, start, end, source_paths={'sqlserver:stock_records', 'sqlserver', '/Stock/GetList'})
+    process_counts = _query_mes_process_packaging_row_counts_by_date(db, start, end)
+    counts = dict(header_counts)
+    for business_date, row_count in detail_counts.items():
+        if business_date not in counts:
+            counts[business_date] = row_count
+    for business_date, row_count in process_counts.items():
+        if business_date not in counts:
+            counts[business_date] = row_count
+    return counts
 
 
 def _query_mes_packaging_output_by_date(db: Session, start: date, end: date) -> dict[date, float]:
@@ -1121,6 +1204,13 @@ def _query_plant_output_totals_by_date(db: Session, start: date, end: date) -> d
 def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     month_start = target_date.replace(day=1)
     mes_totals_by_date, mes_sources_by_date = _query_mes_packaging_output_with_source_by_date(db, month_start, target_date)
+    mes_row_counts_by_date = _query_mes_packaging_row_counts_with_source_by_date(db, month_start, target_date)
+    mes_header_inbound_by_date = _query_mes_stock_packaging_output_by_date(
+        db,
+        month_start,
+        target_date,
+        source_paths={MES_STOCK_HEADER_SOURCE_PATH},
+    )
     inbound_totals_by_date = _query_finished_inbound_totals_by_date(db, month_start, target_date)
     daily_output = mes_totals_by_date.get(target_date, 0.0)
     yesterday_output = mes_totals_by_date.get(target_date - timedelta(days=1), 0.0)
@@ -1130,6 +1220,19 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     monthly_output = mes_monthly_output
     monthly_output_source = 'mes_packaging_output'
     daily_output_source = mes_sources_by_date.get(target_date, 'mes_packaging_output')
+    business_window_start, business_window_end = production_business_window(target_date)
+    source_table_by_key = {
+        'mes_stock_header_records': 'WMS_InStock',
+        'mes_stock_records': 'WMS_InStockDetail',
+        'mes_workshop_process_records': 'MES_ProductProcessRecord',
+        'mes_packaging_output': 'mes_projection',
+    }
+    date_column_by_key = {
+        'mes_stock_header_records': 'InStockDate',
+        'mes_stock_records': 'CreateDate',
+        'mes_workshop_process_records': 'business_date',
+        'mes_packaging_output': 'business_date',
+    }
     days_elapsed = max(1, target_date.day)
     total_electricity = _to_float(energy.get('total_electricity'))
     energy_per_ton = round(total_electricity / daily_output, 2) if daily_output > 0 and total_electricity > 0 else None
@@ -1138,7 +1241,14 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
         'basis_label': '包装产量',
         'business_day_start': '07:30',
         'daily_output_source': daily_output_source,
-        'finished_inbound_source': 'storage_owner_daily_entry',
+        'daily_output_source_table': source_table_by_key.get(daily_output_source),
+        'daily_output_date_column': date_column_by_key.get(daily_output_source),
+        'source_table': source_table_by_key.get(daily_output_source),
+        'date_column': date_column_by_key.get(daily_output_source),
+        'row_count': mes_row_counts_by_date.get(target_date, 0),
+        'business_window_start': business_window_start.isoformat(),
+        'business_window_end': business_window_end.isoformat(),
+        'finished_inbound_source': 'mes_stock_header_records' if target_date in mes_header_inbound_by_date else 'storage_owner_daily_entry',
         'monthly_output_source': monthly_output_source,
         'daily_output': _round2(daily_output),
         'yesterday_output': _round2(yesterday_output),

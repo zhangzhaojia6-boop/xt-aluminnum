@@ -33,6 +33,8 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
         'mes_sync_core',
         'mes_sync_realtime',
         'mes_sync_business',
+        'mes_month_to_date_backfill_0725',
+        'mes_month_to_date_backfill_0850',
         'mes_sync_reference',
         'agent_outbox_dispatch',
         'fill_reminder',
@@ -47,6 +49,12 @@ def test_setup_scheduler_registers_backend_completion_jobs(monkeypatch) -> None:
     assert scheduler.jobs['mes_sync_realtime']['kwargs']['seconds'] == 30
     assert scheduler.jobs['mes_sync_business']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_business']['kwargs']['minutes'] == 10
+    assert scheduler.jobs['mes_month_to_date_backfill_0725']['trigger'] == 'cron'
+    assert scheduler.jobs['mes_month_to_date_backfill_0725']['kwargs']['hour'] == 7
+    assert scheduler.jobs['mes_month_to_date_backfill_0725']['kwargs']['minute'] == 25
+    assert scheduler.jobs['mes_month_to_date_backfill_0850']['trigger'] == 'cron'
+    assert scheduler.jobs['mes_month_to_date_backfill_0850']['kwargs']['hour'] == 8
+    assert scheduler.jobs['mes_month_to_date_backfill_0850']['kwargs']['minute'] == 50
     assert scheduler.jobs['mes_sync_reference']['trigger'] == 'interval'
     assert scheduler.jobs['mes_sync_reference']['kwargs']['minutes'] == 360
     assert scheduler.jobs['agent_outbox_dispatch']['trigger'] == 'interval'
