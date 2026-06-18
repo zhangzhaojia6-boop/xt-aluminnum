@@ -207,7 +207,8 @@ async function refreshFillDetails(businessDate = targetDate.value) {
 }
 
 async function loadDashboardSurface(options = {}) {
-  if (dashboardLoadPromise) return dashboardLoadPromise
+  const force = options.force === true
+  if (dashboardLoadPromise && !force) return dashboardLoadPromise
   const silent = options.silent === true
   const includeDetails = options.includeDetails !== false
   dashboardLoadPromise = (async () => {
@@ -301,7 +302,7 @@ onMounted(() => {
   void initializeActiveBusinessDate().then((activeDate) => {
     if (activeDate && activeDate !== targetDate.value) {
       targetDate.value = activeDate
-      void loadDashboardSurface()
+      void loadDashboardSurface({ force: true })
     }
   })
   startSnapshotPolling()

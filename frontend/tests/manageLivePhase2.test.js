@@ -141,7 +141,8 @@ test('realtime stream heartbeats do not reload the whole live page', () => {
 
 test('/manage/live coalesces realtime snapshot reloads to avoid request storms', () => {
   assert.match(livePageSource, /let\s+dashboardLoadPromise\s*=\s*null/)
-  assert.match(livePageSource, /if\s*\(dashboardLoadPromise\)\s*return\s+dashboardLoadPromise/)
+  assert.match(livePageSource, /if\s*\(dashboardLoadPromise\s*&&\s*!force\)\s*return\s+dashboardLoadPromise/)
+  assert.match(livePageSource, /loadDashboardSurface\(\{\s*force:\s*true\s*\}\)/)
   assert.match(livePageSource, /function\s+scheduleRealtimeSnapshotReload/)
   assert.match(livePageSource, /REALTIME_RELOAD_DEBOUNCE_MS\s*=\s*5000/)
   assert.doesNotMatch(livePageSource, /void\s+loadDashboardSurface\(\{\s*silent:\s*streamOpen,\s*includeDetails:\s*!streamOpen\s*\}\)/)
