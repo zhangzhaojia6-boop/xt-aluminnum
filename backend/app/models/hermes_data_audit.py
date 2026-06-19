@@ -9,7 +9,7 @@ from app.models.base import Base, json_object_type
 class HermesDataAuditRun(Base):
     __tablename__ = 'hermes_data_audit_runs'
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     run_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default='pending', index=True)
@@ -33,7 +33,7 @@ class HermesDataAuditRun(Base):
 class HermesCorrectionAction(Base):
     __tablename__ = 'hermes_correction_actions'
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     audit_run_id: Mapped[int] = mapped_column(Integer, ForeignKey('hermes_data_audit_runs.id'), nullable=False, index=True)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     action_type: Mapped[str] = mapped_column(String(64), nullable=False)

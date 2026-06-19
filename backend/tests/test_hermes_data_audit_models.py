@@ -1,7 +1,9 @@
 from importlib import util as importlib_util
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect
+from alembic.operations import Operations
+from alembic.runtime.migration import MigrationContext
+from sqlalchemy import MetaData, Table, Column, Integer, create_engine, inspect
 from sqlalchemy.dialects import postgresql
 
 from app.models import Base, User
@@ -85,6 +87,8 @@ def test_hermes_data_audit_tables_include_required_columns_and_indexes() -> None
     assert ('created_by_id',) in run_indexes.values()
     assert ('audit_run_id',) in action_indexes.values()
     assert ('idempotency_key',) in action_indexes.values()
+    assert ('id',) not in run_indexes.values()
+    assert ('id',) not in action_indexes.values()
 
 
 def test_hermes_correction_action_audit_run_fk_points_to_audit_runs() -> None:
@@ -142,3 +146,44 @@ def test_hermes_data_audit_migration_uses_jsonb_payload_columns_for_postgres(mon
 
     for column_name in ('before_value', 'after_value', 'evidence', 'rollback_payload'):
         assert str(action_columns[column_name].type.compile(dialect=postgresql.dialect())) == 'JSONB'
+
+
+def test_hermes_data_audit_migration_upgrade_and_downgrade_on_sqlite(tmp_path) -> None:
+    migration = _load_migration_module()
+    engine = create_engine(f"sqlite:///{(tmp_path / 'hermes_data_audit_migration.db').as_posix()}", future=True)
+
+    metadata = MetaData()
+    Table('users', metadata, Column('id', Integer, primary_key=True))
+    metadata.create_all(engine)
+
+    with engine.begin() as conn:
+        original_op = migration.op
+        migration.op = Operations(MigrationContext.configure(conn))
+        try:
+            migration.upgrade()
+
+            inspector = inspect(conn)
+            assert inspector.has_table('hermes_data_audit_runs')
+            assert inspector.has_table('hermes_correction_actions')
+
+            run_columns = {column['name'] for column in inspector.get_columns('hermes_data_audit_runs')}
+            action_columns = {column['name'] for column in inspector.get_columns('hermes_correction_actions')}
+            assert {'id', 'run_key', 'business_date', 'status', 'source_status', 'created_by_id'} <= run_columns
+            assert {'id', 'audit_run_id', 'idempotency_key', 'status', 'rollback_status'} <= action_columns
+
+            run_indexes = {index['name']: tuple(index['column_names']) for index in inspector.get_indexes('hermes_data_audit_runs')}
+            action_indexes = {index['name']: tuple(index['column_names']) for index in inspector.get_indexes('hermes_correction_actions')}
+            assert ('run_key',) in run_indexes.values()
+            assert ('business_date',) in run_indexes.values()
+            assert ('status',) in run_indexes.values()
+            assert ('created_by_id',) in run_indexes.values()
+            assert ('audit_run_id',) in action_indexes.values()
+            assert ('idempotency_key',) in action_indexes.values()
+
+            migration.downgrade()
+
+            inspector = inspect(conn)
+            assert not inspector.has_table('hermes_correction_actions')
+            assert not inspector.has_table('hermes_data_audit_runs')
+        finally:
+            migration.op = original_op
