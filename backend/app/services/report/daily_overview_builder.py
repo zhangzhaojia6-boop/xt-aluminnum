@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.active_workshops import get_workshop_data_source_policy, normalize_workshop_name, workshop_name_query_tokens
-from app.core.business_time import production_business_window
+from app.core.business_time import production_business_day_start_label, production_business_window
 from app.models.attendance import AttendanceSchedule
 from app.models.master import Workshop
 from app.models.mes import MesCoilSnapshot, MesDailyWipSnapshot, MesMaterialRecord, MesStockRecord, MesWipTotalSnapshot, MesWorkshopProcessRecord, MesYieldRecord
@@ -44,7 +44,8 @@ BILLET_MATERIAL_WORKSHOP_MAPPINGS = {
     '铸二': ('铸二车间', '铸二', '铸轧二', '铸轧二车间', '铸轧2'),
     '铸三': ('铸三车间', '铸三', '铸轧三', '铸轧三车间', '铸轧3'),
 }
-BILLET_BUSINESS_DAY_START = time(8, 0)
+BILLET_BUSINESS_DAY_START = time(10, 0)
+BILLET_MATERIAL_INCLUDED_STATUS_NAMES = ('已使用', '未使用')
 
 
 def _workshop_map(db: Session) -> dict[int, str]:
@@ -162,6 +163,14 @@ def _mes_material_weight_tons(row: MesMaterialRecord) -> float:
     return _to_float(row.weight_kg) / 1000
 
 
+def _mes_material_status_counts(row: MesMaterialRecord) -> bool:
+    payload = row.source_payload if isinstance(row.source_payload, dict) else {}
+    status_text = str(row.status_name or payload.get('StatusName') or payload.get('Status') or '').strip()
+    if not status_text:
+        return True
+    return any(token in status_text for token in BILLET_MATERIAL_INCLUDED_STATUS_NAMES)
+
+
 def _mes_material_row_matches_workshop(row: MesMaterialRecord, workshop: Workshop) -> bool:
     canonical_name = normalize_workshop_name(workshop.name)
     tokens = BILLET_MATERIAL_WORKSHOP_MAPPINGS.get(canonical_name)
@@ -195,6 +204,8 @@ def _query_mes_material_output_scope_by_workshop(db: Session, start: date, end: 
     )
     result: dict[int, dict[str, Any]] = {}
     for row in rows:
+        if not _mes_material_status_counts(row):
+            continue
         output_weight = _mes_material_weight_tons(row)
         if output_weight <= 0:
             continue
@@ -1157,7 +1168,7 @@ def _build_plant_output(db: Session, target_date: date, energy: dict) -> dict:
     return {
         'basis': 'mes_packaging_output',
         'basis_label': '包装产量',
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'daily_output_source': daily_output_source,
         'daily_output_source_table': source_table_by_key.get(daily_output_source),
         'daily_output_date_column': date_column_by_key.get(daily_output_source),

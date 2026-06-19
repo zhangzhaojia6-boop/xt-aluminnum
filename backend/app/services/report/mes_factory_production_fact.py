@@ -7,7 +7,11 @@ from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window, resolve_production_business_date
+from app.core.business_time import (
+    production_business_day_start_label,
+    production_business_window,
+    resolve_production_business_date,
+)
 from app.models.mes import MesCoilSnapshot, MesStockRecord
 from app.services.report._utils import _to_float
 from app.services.report import mes_factory_packaging_fact
@@ -28,9 +32,17 @@ FINISHED_INBOUND_WEIGHT_FIELD = 'TotalNetWeight/NetWeight'
 FINISHED_INBOUND_TIME_FIELD = 'InStockDate/CreateDate'
 FINISHED_INBOUND_HEADER_SOURCE_PATH = 'sqlserver:stock_header_records'
 FINISHED_INBOUND_DETAIL_SOURCE_PATH = 'sqlserver:stock_records'
-BUSINESS_DAY_START_LABEL = '07:30'
+BUSINESS_DAY_START_LABEL = production_business_day_start_label()
+BUSINESS_DAY_WINDOW_KEY = 'business_day_0750'
+BUSINESS_DAY_POLICY = {
+    'default': '07:50-07:50',
+    '铸二': '10:00-10:00',
+    '铸三': '10:00-10:00',
+    '热轧': '10:00-10:00',
+}
 YIELD_RATE_SOURCE = 'mes_feeding_to_finished_inbound'
 MES_HOME_REFERENCE_SOURCE_UNAVAILABLE = 'unavailable'
+MES_READ_MODE = 'projection_cache_with_read_only_sqlserver_reconciliation'
 
 
 def _round2(value: float | None) -> float:
@@ -106,7 +118,7 @@ def _row_create_time(row: MesCoilSnapshot) -> datetime | None:
 def _row_business_date_from_create_time(row: MesCoilSnapshot) -> date | None:
     created_at = _row_create_time(row)
     if created_at is not None:
-        return resolve_production_business_date(created_at)
+        return resolve_production_business_date(created_at, workshop_name=_feeding_workshop(row))
     return getattr(row, 'business_date', None)
 
 
@@ -164,7 +176,15 @@ def _sum_feeding_rows(rows: list[MesCoilSnapshot], start: date, end: date) -> di
             latest_seen is None or row.last_seen_from_mes_at > latest_seen
         ):
             latest_seen = row.last_seen_from_mes_at
-        bucket = by_workshop.setdefault(workshop, {'workshop_name': workshop, 'input': 0.0, 'row_count': 0})
+        bucket = by_workshop.setdefault(
+            workshop,
+            {
+                'workshop_name': workshop,
+                'business_day_start': production_business_day_start_label(workshop),
+                'input': 0.0,
+                'row_count': 0,
+            },
+        )
         bucket['input'] += feeding
         bucket['row_count'] += 1
     return {
@@ -174,6 +194,7 @@ def _sum_feeding_rows(rows: list[MesCoilSnapshot], start: date, end: date) -> di
         'by_workshop': [
             {
                 'workshop_name': item['workshop_name'],
+                'business_day_start': item['business_day_start'],
                 'input': _round2(item['input']),
                 'row_count': item['row_count'],
             }
@@ -312,8 +333,10 @@ def build_factory_feeding_fact(db: Session, *, target_date: date) -> dict[str, A
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
-        'selected_window': 'business_day_0730',
+        'selected_window': BUSINESS_DAY_WINDOW_KEY,
         'business_day_start': BUSINESS_DAY_START_LABEL,
+        'business_day_policy': BUSINESS_DAY_POLICY,
+        'read_mode': MES_READ_MODE,
         'business_window_start': business_start_at.isoformat(),
         'business_window_end': business_end_at.isoformat(),
         'month_window_start': month_start_at.isoformat(),
@@ -345,8 +368,10 @@ def build_finished_inbound_fact(db: Session, *, target_date: date) -> dict[str, 
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
-        'selected_window': 'business_day_0730',
+        'selected_window': BUSINESS_DAY_WINDOW_KEY,
         'business_day_start': BUSINESS_DAY_START_LABEL,
+        'business_day_policy': BUSINESS_DAY_POLICY,
+        'read_mode': MES_READ_MODE,
         'source_tables': list(FINISHED_INBOUND_SOURCE_TABLES),
         'source_weight_field': FINISHED_INBOUND_WEIGHT_FIELD,
         'source_time_field': FINISHED_INBOUND_TIME_FIELD,
@@ -373,6 +398,8 @@ def build_factory_production_fact(db: Session, *, target_date: date) -> dict[str
         'target_date': target_date.isoformat(),
         'month_start': target_date.replace(day=1).isoformat(),
         'business_day_start': BUSINESS_DAY_START_LABEL,
+        'business_day_policy': BUSINESS_DAY_POLICY,
+        'read_mode': MES_READ_MODE,
         'feeding_fact': feeding,
         'packaging_fact': packaging,
         'finished_inbound_fact': inbound,
@@ -443,11 +470,20 @@ def build_factory_production_reconciliation(db: Session, *, target_date: date) -
             },
             'mes_packaging': {
                 'page': 'MES 包装统计',
+                'source_pages': list(mes_factory_packaging_fact.PACKAGING_SOURCE_PAGES),
                 'source_table': mes_factory_packaging_fact.FACT_SOURCE_TABLE,
                 'source_weight_field': mes_factory_packaging_fact.FACT_WEIGHT_FIELD,
                 'source_time_field': mes_factory_packaging_fact.FACT_TIME_FIELD,
                 'filter': f'{mes_factory_packaging_fact.FACT_PROCESS_FIELD}=包装',
                 'projection_table': mes_factory_packaging_fact.FACT_PROJECTION_TABLE,
+            },
+            'mes_finished_transfer': {
+                'page': 'MES 成品调拨单',
+                'endpoint': '/Allocation/Index',
+                'source_tables': ['WMS_InStockDetail', 'WMS_OutStockDetail'],
+                'source_weight_field': 'NetWeight',
+                'source_time_field': 'CreateDate/AllocationDate',
+                'projection_table': 'mes_stock_records',
             },
             'finished_inbound': {
                 'page': 'MES 成品库/入库',

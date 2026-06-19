@@ -6,8 +6,8 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
-from app.models.mes import MesWorkshopProcessRecord
+from app.core.business_time import production_business_day_start_label, production_business_window
+from app.models.mes import MesStockRecord, MesWorkshopProcessRecord
 from app.services.report._utils import _to_float
 
 
@@ -23,7 +23,14 @@ FACT_PROJECTION_WEIGHT_FIELD = 'output_weight_tons'
 FACT_PROJECTION_TIME_FIELD = 'end_time'
 FACT_PROJECTION_DATE_FIELD = 'business_date'
 PACKAGING_PROCESS_KEYWORD = '包装'
-BUSINESS_DAY_START_LABEL = '07:30'
+BUSINESS_DAY_START_LABEL = production_business_day_start_label()
+BUSINESS_DAY_WINDOW_KEY = 'business_day_0750'
+PACKAGING_SOURCE_PAGES = (
+    {'page': '包装管理 / 包装录入', 'path': '/Pack/Index'},
+    {'page': '包装管理 / 成品调拨单', 'path': '/Allocation/Index'},
+)
+TRANSFER_SOURCE_PATHS = ('sqlserver:stock_records', 'sqlserver:delivery_stock_records')
+TRANSFER_TO_DEPARTMENT_KEYWORDS = ('成品库',)
 WORKSHOP_ALIAS_MAP = {
     '园区精整': '园区剪切',
     '园区精整车间': '园区剪切',
@@ -65,6 +72,35 @@ def _output_tons(row: MesWorkshopProcessRecord) -> float:
     if direct > 0:
         return direct
     return _to_float(getattr(row, 'output_weight_kg', None)) / 1000
+
+
+def _stock_weight_tons(row: MesStockRecord) -> float:
+    direct = _to_float(getattr(row, 'net_weight_tons', None))
+    if direct > 0:
+        return direct
+    return _to_float(getattr(row, 'net_weight_kg', None)) / 1000
+
+
+def _payload_text(row: MesStockRecord, *keys: str) -> str:
+    payload = row.source_payload if isinstance(row.source_payload, dict) else {}
+    for key in keys:
+        value = payload.get(key)
+        if value not in (None, ''):
+            return str(value).strip()
+    return ''
+
+
+def _is_packaging_transfer(row: MesStockRecord) -> bool:
+    source_path = str(getattr(row, 'source_path', '') or '')
+    if source_path not in TRANSFER_SOURCE_PATHS:
+        return False
+    from_department = _payload_text(row, 'FromDepartment', 'FromDeptName', 'SourceDepartment')
+    to_department = _payload_text(row, 'ToDepartment', 'ToDeptName', 'TargetDepartment')
+    if not any(token in from_department for token in ('精整', '拉矫', '剪切')):
+        return False
+    if to_department and not any(token in to_department for token in TRANSFER_TO_DEPARTMENT_KEYWORDS):
+        return False
+    return True
 
 
 def _empty_sum() -> dict[str, Any]:
@@ -117,12 +153,65 @@ def _sum_rows(rows: list[MesWorkshopProcessRecord]) -> dict[str, Any]:
     }
 
 
+def _sum_transfer_rows(rows: list[MesStockRecord]) -> dict[str, Any]:
+    total = 0.0
+    row_count = 0
+    latest_seen = None
+    by_workshop: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not _is_packaging_transfer(row):
+            continue
+        output = _stock_weight_tons(row)
+        if output <= 0:
+            continue
+        row_count += 1
+        total += output
+        if row.last_seen_from_mes_at is not None and (
+            latest_seen is None or row.last_seen_from_mes_at > latest_seen
+        ):
+            latest_seen = row.last_seen_from_mes_at
+        workshop_name = normalize_packaging_workshop_name(_payload_text(row, 'FromDepartment', 'FromDeptName', 'SourceDepartment'))
+        bucket = by_workshop.setdefault(
+            workshop_name,
+            {'workshop_name': workshop_name, 'output': 0.0, 'row_count': 0},
+        )
+        bucket['output'] += output
+        bucket['row_count'] += 1
+    if row_count == 0:
+        return _empty_sum()
+    return {
+        'output': _round2(total),
+        'row_count': row_count,
+        'last_seen_from_mes_at': latest_seen.isoformat() if latest_seen is not None else None,
+        'by_workshop': [
+            {
+                'workshop_name': item['workshop_name'],
+                'output': _round2(item['output']),
+                'row_count': item['row_count'],
+            }
+            for item in sorted(by_workshop.values(), key=lambda item: item['workshop_name'])
+        ],
+    }
+
+
 def _rows_by_business_date(db: Session, start: date, end: date) -> list[MesWorkshopProcessRecord]:
     return (
         db.query(MesWorkshopProcessRecord)
         .filter(
             MesWorkshopProcessRecord.business_date >= start,
             MesWorkshopProcessRecord.business_date <= end,
+        )
+        .all()
+    )
+
+
+def _transfer_rows_by_business_date(db: Session, start: date, end: date) -> list[MesStockRecord]:
+    return (
+        db.query(MesStockRecord)
+        .filter(
+            MesStockRecord.business_date >= start,
+            MesStockRecord.business_date <= end,
+            MesStockRecord.source_path.in_(TRANSFER_SOURCE_PATHS),
         )
         .all()
     )
@@ -187,7 +276,7 @@ def _build_empty_fact(target_date: date) -> dict[str, Any]:
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
-        'selected_window': 'business_day_0730',
+        'selected_window': BUSINESS_DAY_WINDOW_KEY,
         'business_day_start': BUSINESS_DAY_START_LABEL,
         'source_kind': 'factory_packaging_process',
         'source_table': FACT_SOURCE_TABLE,
@@ -200,6 +289,7 @@ def _build_empty_fact(target_date: date) -> dict[str, Any]:
         'projection_time_field': FACT_PROJECTION_TIME_FIELD,
         'projection_date_field': FACT_PROJECTION_DATE_FIELD,
         'source_path': FACT_SOURCE_PATH,
+        'source_pages': list(PACKAGING_SOURCE_PAGES),
         'process_filter': PACKAGING_PROCESS_KEYWORD,
         'workshop_aliases': WORKSHOP_ALIAS_MAP,
         'factory_packaging_daily_output': 0.0,
@@ -209,6 +299,7 @@ def _build_empty_fact(target_date: date) -> dict[str, Any]:
         'daily_row_count': 0,
         'month_row_count': 0,
         'business_day': {},
+        'finished_transfer_day': {},
         'natural_day': {},
     }
 
@@ -220,6 +311,12 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
         natural_start_at, natural_end_at = _natural_window(target_date)
         business_daily = _sum_rows(_rows_by_business_date(db, target_date, target_date))
         business_month = _sum_rows(_rows_by_business_date(db, month_start, target_date))
+        try:
+            transfer_daily = _sum_transfer_rows(_transfer_rows_by_business_date(db, target_date, target_date))
+            transfer_month = _sum_transfer_rows(_transfer_rows_by_business_date(db, month_start, target_date))
+        except SQLAlchemyError:
+            transfer_daily = _empty_sum()
+            transfer_month = _empty_sum()
         natural_daily = _sum_rows(_rows_by_natural_time(db, natural_start_at, natural_end_at))
         natural_month = _sum_rows(
             _rows_by_natural_time(
@@ -234,7 +331,7 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
     return {
         'target_date': target_date.isoformat(),
         'month_start': month_start.isoformat(),
-        'selected_window': 'business_day_0730',
+        'selected_window': BUSINESS_DAY_WINDOW_KEY,
         'business_day_start': BUSINESS_DAY_START_LABEL,
         'source_kind': 'factory_packaging_process',
         'source_table': FACT_SOURCE_TABLE,
@@ -247,6 +344,7 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
         'projection_time_field': FACT_PROJECTION_TIME_FIELD,
         'projection_date_field': FACT_PROJECTION_DATE_FIELD,
         'source_path': FACT_SOURCE_PATH,
+        'source_pages': list(PACKAGING_SOURCE_PAGES),
         'process_filter': PACKAGING_PROCESS_KEYWORD,
         'workshop_aliases': WORKSHOP_ALIAS_MAP,
         'factory_packaging_daily_output': business_daily['output'],
@@ -255,7 +353,12 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
         'mes_home_month_to_date_output': business_month['output'],
         'daily_row_count': business_daily['row_count'],
         'month_row_count': business_month['row_count'],
-        'last_seen_from_mes_at': business_month['last_seen_from_mes_at'] or business_daily['last_seen_from_mes_at'],
+        'last_seen_from_mes_at': (
+            business_month['last_seen_from_mes_at']
+            or business_daily['last_seen_from_mes_at']
+            or transfer_month['last_seen_from_mes_at']
+            or transfer_daily['last_seen_from_mes_at']
+        ),
         'business_day': {
             'window_start': business_start_at.isoformat(),
             'window_end': business_end_at.isoformat(),
@@ -265,6 +368,18 @@ def build_factory_packaging_fact(db: Session, *, target_date: date) -> dict[str,
             'month_row_count': business_month['row_count'],
             'by_workshop': business_daily['by_workshop'],
             'month_by_workshop': business_month['by_workshop'],
+        },
+        'finished_transfer_day': {
+            'source_page': '包装管理 / 成品调拨单',
+            'source_tables': ['WMS_InStockDetail', 'WMS_OutStockDetail'],
+            'source_weight_field': 'NetWeight',
+            'source_time_field': 'CreateDate/AllocationDate',
+            'daily_output': transfer_daily['output'],
+            'month_to_date_output': transfer_month['output'],
+            'daily_row_count': transfer_daily['row_count'],
+            'month_row_count': transfer_month['row_count'],
+            'by_workshop': transfer_daily['by_workshop'],
+            'month_by_workshop': transfer_month['by_workshop'],
         },
         'natural_day': {
             'window_start': natural_start_at.isoformat(),

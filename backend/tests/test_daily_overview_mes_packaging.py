@@ -177,9 +177,17 @@ def test_plant_output_uses_packaging_process_and_keeps_inbound_as_comparison(tmp
     assert plant['mes_home_packaging_fact']['mes_home_daily_output'] == 66.14
     assert plant['mes_home_packaging_fact']['mes_home_month_to_date_output'] == 66.14
     assert plant['factory_packaging_fact']['factory_packaging_daily_output'] == 66.14
+    assert plant['factory_packaging_fact']['source_pages'] == [
+        {'page': '包装管理 / 包装录入', 'path': '/Pack/Index'},
+        {'page': '包装管理 / 成品调拨单', 'path': '/Allocation/Index'},
+    ]
+    assert plant['factory_packaging_fact']['finished_transfer_day']['daily_output'] == 272.0
+    assert plant['factory_packaging_fact']['finished_transfer_day']['by_workshop'] == [
+        {'workshop_name': '园区剪切', 'output': 272.0, 'row_count': 1}
+    ]
     assert plant['row_count'] == 1
-    assert plant['business_window_start'] == f'{BUSINESS_DATE.isoformat()}T07:30:00+08:00'
-    assert plant['business_window_end'] == f'{(BUSINESS_DATE + timedelta(days=1)).isoformat()}T07:30:00+08:00'
+    assert plant['business_window_start'] == f'{BUSINESS_DATE.isoformat()}T07:50:00+08:00'
+    assert plant['business_window_end'] == f'{(BUSINESS_DATE + timedelta(days=1)).isoformat()}T07:50:00+08:00'
 
 
 def test_factory_packaging_fact_maps_park_finishing_to_park_shearing(tmp_path) -> None:
@@ -375,7 +383,7 @@ def test_plant_output_uses_process_packaging_for_daily_and_monthly(tmp_path) -> 
 
     assert plant['basis'] == 'mes_packaging_output'
     assert plant['basis_label'] == '包装产量'
-    assert plant['business_day_start'] == '07:30'
+    assert plant['business_day_start'] == '07:50'
     assert plant['daily_output_source'] == 'mes_workshop_process_records'
     assert plant['daily_output'] == 36.5
     assert plant['packaging_output'] == 36.5

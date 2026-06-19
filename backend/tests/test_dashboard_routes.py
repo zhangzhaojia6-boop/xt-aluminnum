@@ -187,7 +187,7 @@ def test_factory_production_reconciliation_route_exposes_feeding_yield_without_h
                     tracking_card_no='month-before',
                     current_workshop='热轧',
                     feeding_weight=5953,
-                    source_payload={'metadata': {'CreateDate': '2026-06-01 08:00:00', 'CurrentWorkShop': '热轧'}},
+                    source_payload={'metadata': {'CreateDate': '2026-06-01 10:00:00', 'CurrentWorkShop': '热轧'}},
                 ),
                 MesCoilSnapshot(
                     coil_id='MES:daily-1',
@@ -201,7 +201,7 @@ def test_factory_production_reconciliation_route_exposes_feeding_yield_without_h
                     tracking_card_no='daily-2',
                     current_workshop='热轧',
                     feeding_weight=227,
-                    source_payload={'metadata': {'CreateDate': '2026-06-18 09:00:00', 'CurrentWorkShop': '热轧'}},
+                    source_payload={'metadata': {'CreateDate': '2026-06-18 10:00:00', 'CurrentWorkShop': '热轧'}},
                 ),
                 MesStockRecord(
                     source_id='inbound-2026-06-18',

@@ -84,6 +84,7 @@ def _seed_mes_material(
     line: str,
     weight_tons: float,
     production_date: datetime,
+    status_name: str | None = None,
 ):
     db.add(
         MesMaterialRecord(
@@ -95,6 +96,7 @@ def _seed_mes_material(
             weight_kg=weight_tons * 1000,
             weight_tons=weight_tons,
             production_date=production_date,
+            status_name=status_name,
         )
     )
 
@@ -117,7 +119,7 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
                     output_weight=0,
                     entry_type="mobile_coil",
                     entry_status="submitted",
-                    submitted_at=datetime(2026, 6, 16, 7, 59),
+            submitted_at=datetime(2026, 6, 16, 9, 59),
                 ),
                 WorkOrderEntry(
                     work_order_id=3,
@@ -127,7 +129,7 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
                     output_weight=0,
                     entry_type="mobile_coil",
                     entry_status="submitted",
-                    submitted_at=datetime(2026, 6, 16, 8, 0),
+            submitted_at=datetime(2026, 6, 16, 10, 0),
                 ),
                 WorkOrderEntry(
                     work_order_id=4,
@@ -137,7 +139,7 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
                     output_weight=0,
                     entry_type="mobile_coil",
                     entry_status="submitted",
-                    submitted_at=datetime(2026, 6, 17, 8, 0),
+            submitted_at=datetime(2026, 6, 17, 10, 0),
                 ),
             ]
         )
@@ -147,7 +149,7 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
             workshop="热轧车间",
             line="1#",
             weight_tons=11,
-            production_date=datetime(2026, 6, 16, 7, 59),
+            production_date=datetime(2026, 6, 16, 9, 59),
         )
         _seed_mes_material(
             db,
@@ -155,7 +157,17 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
             workshop="热轧车间",
             line="1#",
             weight_tons=70,
-            production_date=datetime(2026, 6, 16, 8, 0),
+            production_date=datetime(2026, 6, 16, 10, 0),
+            status_name="已使用",
+        )
+        _seed_mes_material(
+            db,
+            source_id="hot-invalid-status",
+            workshop="热轧车间",
+            line="1#",
+            weight_tons=999,
+            production_date=datetime(2026, 6, 16, 11, 0),
+            status_name="作废",
         )
         _seed_mes_material(
             db,
@@ -163,7 +175,7 @@ def test_hot_roll_daily_uses_mes_material_business_window(tmp_path) -> None:
             workshop="热轧车间",
             line="1#",
             weight_tons=12,
-            production_date=datetime(2026, 6, 17, 8, 0),
+            production_date=datetime(2026, 6, 17, 10, 0),
         )
         db.commit()
 

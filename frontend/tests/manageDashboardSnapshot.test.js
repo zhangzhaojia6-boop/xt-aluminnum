@@ -13,17 +13,17 @@ test('useDashboardSnapshot defaults target_date to last completed production bus
   assert.equal(snap.leaderMetrics.value.total_output_weight, 10)
 })
 
-test('useDashboardSnapshot default changes at the 07:30 production day start', async () => {
+test('useDashboardSnapshot default changes at the 07:50 production day start', async () => {
   const fakeFetch = async (params) => {
     fakeFetch.lastParams = params
     return { target_date: params.target_date }
   }
   const mod = await import('../src/composables/useDashboardSnapshot.js')
-  const before = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-22T23:29:00Z') })
+  const before = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-22T23:49:00Z') })
   await before.load()
   assert.equal(fakeFetch.lastParams.target_date, '2026-05-21')
 
-  const snap = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-22T23:30:00Z') })
+  const snap = mod.createDashboardSnapshot({ fetchImpl: fakeFetch, now: new Date('2026-05-22T23:50:00Z') })
   await snap.load()
   assert.equal(fakeFetch.lastParams.target_date, '2026-05-22')
 })

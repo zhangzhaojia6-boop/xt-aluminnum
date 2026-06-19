@@ -11,7 +11,7 @@ function readSource(relativePath) {
   return readFileSync(resolve(root, relativePath), 'utf8')
 }
 
-test('business date defaults: manage pages use the 07:30 production anchor', () => {
+test('business date defaults: manage pages use the 07:50 production anchor', () => {
   const files = [
     'src/views/manage/live/LiveDashboardPage.vue',
     'src/views/reports/LiveDashboard.vue',

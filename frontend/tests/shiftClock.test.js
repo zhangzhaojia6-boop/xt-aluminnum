@@ -51,10 +51,10 @@ test('shiftClock: 07:29 still C 大夜', () => {
   assert.equal(inferShift(now).code, 'C')
 })
 
-test('shiftClock: business date starts at the 07:30 anchor', () => {
-  const before = shanghaiInstant(2026, 5, 26, 7, 29)
+test('shiftClock: business date starts at the 07:50 anchor', () => {
+  const before = shanghaiInstant(2026, 5, 26, 7, 49)
   assert.equal(inferBusinessDate(before), '2026-05-25')
-  const after = shanghaiInstant(2026, 5, 26, 7, 30)
+  const after = shanghaiInstant(2026, 5, 26, 7, 50)
   assert.equal(inferBusinessDate(after), '2026-05-26')
 })
 
@@ -70,9 +70,9 @@ test('shiftClock: owner daily business date starts at the 09:30 anchor', () => {
   assert.equal(inferOwnerDailyBusinessDate(after), '2026-05-26')
 })
 
-test('shiftClock: last completed business date changes at 07:30', () => {
-  assert.equal(inferLastCompletedBusinessDate(shanghaiInstant(2026, 5, 27, 7, 29)), '2026-05-25')
-  assert.equal(inferLastCompletedBusinessDate(shanghaiInstant(2026, 5, 27, 7, 30)), '2026-05-26')
+test('shiftClock: last completed business date changes at 07:50', () => {
+  assert.equal(inferLastCompletedBusinessDate(shanghaiInstant(2026, 5, 27, 7, 49)), '2026-05-25')
+  assert.equal(inferLastCompletedBusinessDate(shanghaiInstant(2026, 5, 27, 7, 50)), '2026-05-26')
   assert.equal(inferLastCompletedBusinessDate(shanghaiInstant(2026, 5, 27, 23, 30)), '2026-05-26')
 })
 

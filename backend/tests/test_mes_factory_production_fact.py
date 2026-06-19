@@ -57,8 +57,8 @@ def test_factory_feeding_fact_uses_mes_product_create_date_and_current_workshop(
     with session_factory() as db:
         db.add_all(
             [
-                _coil(source_id='before-boundary', create_date='2026-06-18 07:29:00', current_workshop='冷轧', feeding_weight=100),
-                _coil(source_id='at-boundary', create_date='2026-06-18 07:30:00', current_workshop='冷轧', feeding_weight=200),
+                _coil(source_id='before-boundary', create_date='2026-06-18 07:49:00', current_workshop='冷轧', feeding_weight=100),
+                _coil(source_id='at-boundary', create_date='2026-06-18 07:50:00', current_workshop='冷轧', feeding_weight=200),
                 _coil(source_id='after-boundary', create_date='2026-06-18 11:00:00', current_workshop='热轧', feeding_weight=227),
                 _coil(source_id='no-workshop', create_date='2026-06-18 12:00:00', current_workshop='', feeding_weight=999),
             ]
@@ -75,12 +75,12 @@ def test_factory_feeding_fact_uses_mes_product_create_date_and_current_workshop(
         {'page': '计划管理 / 投料管理', 'path': '/Feeding/Index'},
         {'page': '计划管理 / 随行卡管理', 'path': '/FollowCard/Index'},
     ]
-    assert fact['business_day_start'] == '07:30'
+    assert fact['business_day_start'] == '07:50'
     assert fact['factory_feeding_daily_input'] == 427.0
     assert fact['daily_row_count'] == 2
     assert fact['by_workshop'] == [
-        {'workshop_name': '冷轧', 'input': 200.0, 'row_count': 1},
-        {'workshop_name': '热轧', 'input': 227.0, 'row_count': 1},
+        {'workshop_name': '冷轧', 'business_day_start': '07:50', 'input': 200.0, 'row_count': 1},
+        {'workshop_name': '热轧', 'business_day_start': '10:00', 'input': 227.0, 'row_count': 1},
     ]
 
 
@@ -135,8 +135,8 @@ def test_factory_feeding_rows_use_indexed_date_candidates_before_python_business
     finally:
         event.remove(engine, 'before_cursor_execute', capture_sql)
 
-    assert fact['factory_feeding_daily_input'] == 450.0
-    assert fact['daily_row_count'] == 3
+    assert fact['factory_feeding_daily_input'] == 325.0
+    assert fact['daily_row_count'] == 2
     assert any('WHERE' in statement for statement in statements)
     assert any('business_date' in statement or 'event_time' in statement for statement in statements)
 
@@ -205,9 +205,9 @@ def test_reconciliation_leaves_mes_home_reference_empty_without_hardcoded_manual
     with session_factory() as db:
         db.add_all(
             [
-                _coil(source_id='month-before', create_date='2026-06-01 08:00:00', current_workshop='热轧', feeding_weight=5953),
+                _coil(source_id='month-before', create_date='2026-06-01 10:00:00', current_workshop='热轧', feeding_weight=5953),
                 _coil(source_id='daily-1', create_date='2026-06-18 08:00:00', current_workshop='冷轧', feeding_weight=200),
-                _coil(source_id='daily-2', create_date='2026-06-18 09:00:00', current_workshop='热轧', feeding_weight=227),
+                _coil(source_id='daily-2', create_date='2026-06-18 10:00:00', current_workshop='热轧', feeding_weight=227),
                 MesWorkshopProcessRecord(
                     source_id='pkg-jz',
                     source_path='sqlserver:workshop_process_records',

@@ -5,7 +5,7 @@ const SHIFT_WINDOWS = [
   { code: 'C', name: '大夜班', startMinutes: 0, endMinutes: 7 * 60 + 30 }
 ]
 
-const BUSINESS_DAY_ANCHOR_MINUTES = 7 * 60 + 30
+const BUSINESS_DAY_ANCHOR_MINUTES = 7 * 60 + 50
 const OWNER_DAILY_ANCHOR_MINUTES = 9 * 60 + 30
 
 function nowInShanghai(now = new Date()) {

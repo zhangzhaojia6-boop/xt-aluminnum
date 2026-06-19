@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.business_time import production_business_window
+from app.core.business_time import production_business_day_start_label, production_business_window
 from app.models.master import Equipment, Workshop
 from app.services import realtime_service
 from app.services.report import daily_overview_builder
@@ -50,8 +50,12 @@ def _source_mapping() -> dict[str, Any]:
     return {
         'workshop_production': {
             'meaning': '车间产量',
-            'rule': '最终产出口径；冷轧只统计已标记最终工序的重量',
+            'rule': '最终产出口径；铸二/铸三/热轧优先按 MES 坯料明细重量，冷轧只统计已标记最终工序的重量',
             'projection_tables': ['mes_material_records', 'mes_workshop_process_records', 'work_order_entries'],
+            'billet_source_page': '坯料管理 / 坯料明细',
+            'billet_source_table': 'MES_Material',
+            'billet_weight_field': 'Weight',
+            'billet_status_filter': ['已使用', '未使用'],
         },
         'workshop_down_machine': {
             'meaning': '车间下机量',
@@ -169,6 +173,7 @@ def build_mes_workshop_machine_reconciliation(
                 'workshop_id': wid,
                 'workshop_code': workshop.code,
                 'workshop_name': workshop.name,
+                'business_day_start': production_business_day_start_label(workshop.name),
                 'production_output': _round2(production_payload.get('output')),
                 'workshop_down_machine_output': down_machine_output,
                 'machine_down_machine_output': machine_down_machine_output,
@@ -192,12 +197,27 @@ def build_mes_workshop_machine_reconciliation(
         )
 
     window_start, window_end = production_business_window(target_date)
+    workshop_time_policy = [
+        {
+            'workshop_id': int(workshop.id),
+            'workshop_name': workshop.name,
+            'business_day_start': production_business_day_start_label(workshop.name),
+        }
+        for workshop in workshops
+    ]
     return {
         'target_date': target_date.isoformat(),
         'business_day': {
             'start': window_start.isoformat(),
             'end': window_end.isoformat(),
-            'start_label': '07:30',
+            'start_label': production_business_day_start_label(),
+            'policy': {
+                'default': '07:50-07:50',
+                '铸二': '10:00-10:00',
+                '铸三': '10:00-10:00',
+                '热轧': '10:00-10:00',
+            },
+            'workshops': workshop_time_policy,
         },
         'source_mapping': _source_mapping(),
         'totals': {

@@ -961,7 +961,7 @@ def test_live_aggregation_uses_mes_process_and_material_machine_output(tmp_path,
                 line_name='1#',
                 weight_kg=70000,
                 weight_tons=70,
-                production_date=datetime(2026, 6, 17, 8, 5),
+                production_date=datetime(2026, 6, 17, 10, 5),
             ),
             MesWorkshopProcessRecord(
                 source_id='mes-cold-1650-live',
@@ -2736,7 +2736,7 @@ def test_inject_factory_packaging_output_uses_mes_as_live_main_metric(monkeypatc
     assert payload['factory_total']['finished_inbound_monthly_output'] == 49.25
     assert payload['factory_total']['yield_rate'] == 78.5
     assert payload['factory_total']['yield_rate_source'] == 'mes_feeding_to_finished_inbound'
-    assert payload['factory_total']['business_day_start'] == '07:30'
+    assert payload['factory_total']['business_day_start'] == '07:50'
     assert payload['factory_total']['daily_output_source'] == 'mes_workshop_process_records'
     assert payload['factory_total']['packaging_monthly_output'] == 52.5
     assert payload['factory_total']['month_to_date_output'] == 52.5

@@ -297,20 +297,20 @@ def test_upsert_snapshot_business_date_prefers_event_time_over_updated_at():
     assert entity.updated_from_mes_at == datetime(2026, 6, 2, 1, 0, tzinfo=UTC)
 
 
-def test_upsert_snapshot_business_date_switches_at_0730_shanghai_time():
+def test_upsert_snapshot_business_date_switches_at_0750_shanghai_time():
     before_boundary_db = _FakeDB()
     before_boundary = CoilSnapshot(
         coil_id='coil-before-boundary',
         tracking_card_no='BN-BEFORE-BOUNDARY',
         status='running',
-        event_time=datetime(2026, 6, 1, 23, 29, tzinfo=UTC),
+        event_time=datetime(2026, 6, 1, 23, 49, tzinfo=UTC),
         metadata={'Product': {'Id': 'before-boundary'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
     )
 
     mes_sync_service._upsert_snapshot(
         before_boundary_db,
         snapshot=before_boundary,
-        synced_at=datetime(2026, 6, 1, 23, 31, tzinfo=UTC),
+        synced_at=datetime(2026, 6, 1, 23, 51, tzinfo=UTC),
     )
 
     before_entity = next(item for item in before_boundary_db.added if item.__class__.__name__ == 'MesCoilSnapshot')
@@ -321,14 +321,14 @@ def test_upsert_snapshot_business_date_switches_at_0730_shanghai_time():
         coil_id='coil-at-boundary',
         tracking_card_no='BN-AT-BOUNDARY',
         status='running',
-        event_time=datetime(2026, 6, 1, 23, 30, tzinfo=UTC),
+        event_time=datetime(2026, 6, 1, 23, 50, tzinfo=UTC),
         metadata={'Product': {'Id': 'at-boundary'}, 'CurrentWorkShop': '冷轧', 'CurrentProcess': '轧制'},
     )
 
     mes_sync_service._upsert_snapshot(
         at_boundary_db,
         snapshot=at_boundary,
-        synced_at=datetime(2026, 6, 1, 23, 31, tzinfo=UTC),
+        synced_at=datetime(2026, 6, 1, 23, 51, tzinfo=UTC),
     )
 
     at_entity = next(item for item in at_boundary_db.added if item.__class__.__name__ == 'MesCoilSnapshot')
@@ -497,16 +497,16 @@ def test_refresh_daily_wip_snapshots_groups_current_coils_by_business_date(tmp_p
     assert float(rows[0].feeding_weight_tons) == 16.0
 
 
-def test_mes_snapshot_business_date_uses_production_0730_anchor() -> None:
+def test_mes_snapshot_business_date_uses_production_0750_anchor() -> None:
     before_anchor = CoilSnapshot(
         coil_id='MES:BEFORE',
         tracking_card_no='BEFORE',
-        event_time=datetime(2026, 6, 1, 23, 29, tzinfo=UTC),
+        event_time=datetime(2026, 6, 1, 23, 49, tzinfo=UTC),
     )
     at_anchor = CoilSnapshot(
         coil_id='MES:ANCHOR',
         tracking_card_no='ANCHOR',
-        event_time=datetime(2026, 6, 1, 23, 30, tzinfo=UTC),
+        event_time=datetime(2026, 6, 1, 23, 50, tzinfo=UTC),
     )
     from_updated_at = CoilSnapshot(
         coil_id='MES:UPDATED',

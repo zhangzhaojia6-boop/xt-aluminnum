@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
 from app.core.active_workshops import get_workshop_data_source_policy, normalize_workshop_name
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import production_business_day_start_label, resolve_production_business_date
 from app.core.scope import (
     build_scope_summary,
     can_view_all_work_order_entries,
@@ -1909,7 +1909,8 @@ def _inject_factory_packaging_output(
         'yield_rate': yield_rate if scoped_workshop_id is None else factory_total.get('yield_rate'),
         'monthly_yield_rate': monthly_yield_rate if scoped_workshop_id is None else factory_total.get('monthly_yield_rate'),
         'yield_rate_source': yield_rate_source if scoped_workshop_id is None else factory_total.get('yield_rate_source'),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
+        'business_day_policy': production_fact.get('business_day_policy') if isinstance(production_fact, dict) else None,
         'daily_output_source': daily_output_source,
         'finished_inbound_source': 'mes_stock_records',
     })

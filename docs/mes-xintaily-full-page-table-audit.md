@@ -10,8 +10,8 @@
 
 本次核心结论：
 
-- 共同业务日：`07:30` 到次日 `07:30`，数据中枢和 MES 对齐时都按这个窗口解释日累计。
-- MES 首页“当日投料量”：`MES_Product.FeedingWeight`，时间字段 `CreateDate`，过滤 `CurrentWorkShop` 非空。
+- 共同业务日：默认 `07:50` 到次日 `07:50`；铸二、铸三、热轧按 `10:00` 到次日 `10:00`。数据中枢和 MES 对齐时必须按车间使用同一窗口解释日累计。
+- MES 首页“当日投料量”：`MES_Product.FeedingWeight`，时间字段 `CreateDate`，过滤 `CurrentWorkShop` 非空，并按当前车间的业务时间归属业务日。
 - MES 首页“当日包装总量 66.1t”：`MES_ProductProcessRecord.EndWeight`，过滤 `Process=包装` 且 `WorkShop=精整`。
 - 全厂包装不能只看精整，要看所有 `Process=包装` 的车间。
 - 成品入库看 `WMS_InStock / WMS_InStockDetail`，不能拿包装工序产量当入库量。
@@ -44,7 +44,7 @@ $env:MES_SQLSERVER_PASSWORD='<只读密码>'
 
 | 首页指标 | 主表 | 核心字段 | 时间字段 | 过滤/口径 |
 |---|---|---|---|---|
-| 当日投料量 | `MES_Product` | `FeedingWeight` | `CreateDate` | 业务日窗口内，`CurrentWorkShop` 非空 |
+| 当日投料量 | `MES_Product` | `FeedingWeight` | `CreateDate` | 业务日窗口内，`CurrentWorkShop` 非空；热轧/铸二/铸三按 `10:00-10:00` |
 | 首页包装总量 | `MES_ProductProcessRecord` | `EndWeight` | `EndDatetime` | `Process=包装`，MES 首页当前看到的是 `WorkShop=精整` |
 | 全厂包装量 | `MES_ProductProcessRecord` | `EndWeight` | `EndDatetime` | `Process=包装`，包含精整、园区精整、拉矫车间等 |
 | 成品入库量 | `WMS_InStock / WMS_InStockDetail` | `TotalNetWeight / NetWeight` | `InStockDate` | 入库事实，不和包装工序混用 |
@@ -84,7 +84,7 @@ $env:MES_SQLSERVER_PASSWORD='<只读密码>'
 | 15 | 计划管理 / 合同结构一览表 | `/Report/ContractStructReport` | 合同结构 | 候选：`MES_Contract`, `MES_ContractDetail`, `MES_ContractNotice`, `MES_Product` |
 | 16 | 计划管理 / 工艺修改历史 | `/ProductHistory/Index` | 工艺修改历史 | 候选：`MES_ProductHistory`, `MES_Product` |
 | 17 | 计划管理 / 生产通知单报表 | `/ContractNotice/Report` | 生产通知单报表 | 候选：`MES_ContractNotice`, `MES_ContractNoticeDetail`, `MES_Product` |
-| 18 | 调度管理 / 生产车间实时查询 | `/Dispatch/Index` | 在制、当前车间/工序 | 已核实主表：`MES_Product`；候选工序表：`MES_ProductProcessRecord` |
+| 18 | 调度管理 / 生产车间实时查询 | `/Dispatch/Index` | 在制、当前车间/工序、右上角在制料统计 | 已核实主表：`MES_Product`；在制料统计按页面汇总优先，SQL 候选为 `MES_Product.CurrentWorkShop + CurrentProcess + FeedingWeight` |
 | 19 | 调度管理 / 问题卷管理 | `/ProductProblem/Index` | 问题卷 | 候选：`MES_ProductProblem`, `MES_Product` |
 | 20 | 调度管理 / 工艺延迟 | `/Dispatch/ProcessDelay` | 工艺延迟 | 候选：`MES_Product`, `MES_ProductProcessRecord` |
 | 21 | 质检管理 / 问题卷管理 | `/ProductProblem/Index` | 问题卷 | 候选：`MES_ProductProblem`, `MES_Product` |
@@ -93,13 +93,13 @@ $env:MES_SQLSERVER_PASSWORD='<只读密码>'
 | 24 | 质检管理 / 质量证明书 | `/Inspection/CertificateReport` | 质量证明书 | 候选：`MES_Product`, `MES_ProductProcessRecord`, 合同/客户表 |
 | 25 | 车间生产管理 / 车间随行卡 | `/Workshop/Index` | 车间过站/随行卡 | 已核实主表：`MES_Product`, `MES_ProductProcessRecord` |
 | 26 | 车间生产管理 / 成品率预警 | `/Report/YieldWarningReport` | 成品率预警 | 候选：`MES_Product`, `MES_ProductProcessRecord` |
-| 27 | 车间生产管理 / 车间报表 | `/Report/ProductionWorkshopReport` | 车间工序报表 | 已核实主表：`MES_ProductProcessRecord` |
+| 27 | 车间生产管理 / 车间报表 | `/Report/ProductionWorkshopReport` | 车间工序报表、车间投料量、各机台上机/下机量 | 已核实主表：`MES_ProductProcessRecord`；`BeginWeight` 对应上机/投料，`EndWeight` 对应下机 |
 | 28 | 退火管理 / 随行卡管理 | `/Anneal/IndexTake` | 退火随行卡 | 候选：`MES_Product`, `MES_ProductProcessRecord` |
 | 29 | 退火管理 / 退火录入 | `/Anneal/Index` | 退火录入 | 候选：`MES_Product`, `MES_ProductProcessRecord` |
 | 30 | 退火管理 / 退火报表 | `/Anneal/AnnealReport` | 退火报表 | 候选：`MES_ProductProcessRecord` |
-| 31 | 包装管理 / 包装录入 | `/Pack/Index` | 包装录入 | 已核实主表：`MES_ProductProcessRecord`；核心字段 `Process=包装`, `EndWeight`, `EndDatetime` |
-| 32 | 包装管理 / 成品调拨单 | `/Allocation/Index` | 成品调拨 | 候选：`WMS_Stock`, `WMS_InStockDetail`, `WMS_OutStockDetail` |
-| 33 | 坯料管理 / 坯料明细 | `/Material/Index` | 坯料明细 | 已核实主表：`MES_Material` |
+| 31 | 包装管理 / 包装录入 | `/Pack/Index` | 已包装但未必已入成品库的包装产量 | 已核实主表：`MES_ProductProcessRecord`；核心字段 `Process=包装`, `EndWeight`, `EndDatetime` |
+| 32 | 包装管理 / 成品调拨单 | `/Allocation/Index` | 精整、园区精整、拉矫每日成品包装流转 | 候选：`WMS_Stock`, `WMS_InStockDetail`, `WMS_OutStockDetail`；数据中枢先以 `mes_stock_records` 做对照事实 |
+| 33 | 坯料管理 / 坯料明细 | `/Material/Index` | 铸二、铸三、热轧坯料产量 | 已核实主表：`MES_Material`；重量字段 `Weight`，状态包含 `已使用` 和 `未使用` |
 | 34 | 坯料管理 / 机列生产管理 | `/Material/Board` | 机列生产 | 已核实主表：`MES_Material` |
 | 35 | 公告管理 / 公告管理 | `/Notices/Index` | 公告 | 候选：`MES_Notices` |
 | 36 | 成品库 / 库存查询 | `/Stock/Index` | 成品库存 | 已核实主表：`WMS_Stock`, `WMS_InStock`, `WMS_InStockDetail` |
@@ -111,7 +111,7 @@ $env:MES_SQLSERVER_PASSWORD='<只读密码>'
 | 42 | 系统管理 / 生产工艺管理 | `/Craft/Index` | 工艺 | 候选：`MES_Craft` |
 | 43 | 系统管理 / 设备机器管理 | `/Device/Index` | 设备 | 已核实主表：`MES_Device` |
 | 44 | 系统管理 / 登录日志 | `/Log/Index` | 登录日志 | 候选：`MES_Log` |
-| 45 | 前世今生 / 前世今生 | `/Archives/Index` | 卷级追溯 | 候选：`MES_Product`, `MES_ProductProcessRecord`, `WMS_InStockDetail`, `WMS_Stock` |
+| 45 | 前世今生 / 前世今生 | `/Archives/Index` | 卷级追溯，查询批号、合同、每道工序上机/下机、包装、出入库 | 候选：`MES_Product`, `MES_ProductProcessRecord`, `WMS_InStockDetail`, `WMS_Stock` |
 
 ## 数据中枢落地原则
 

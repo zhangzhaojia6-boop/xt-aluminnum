@@ -656,7 +656,7 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
                 line_name='1#',
                 weight_kg=70000,
                 weight_tons=70,
-                production_date=datetime(2026, 5, 29, 8, 0),
+                production_date=datetime(2026, 5, 29, 10, 0),
             ),
             MesWorkshopProcessRecord(
                 source_id='mes-cast-2',
@@ -674,7 +674,7 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
                 line_name='3#',
                 weight_kg=11000,
                 weight_tons=11,
-                production_date=datetime(2026, 5, 29, 7, 59),
+                production_date=datetime(2026, 5, 29, 9, 59),
             ),
             MesMaterialRecord(
                 source_id='mat-cast-2-window',
@@ -684,7 +684,7 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
                 line_name='3#',
                 weight_kg=44000,
                 weight_tons=44,
-                production_date=datetime(2026, 5, 30, 7, 59),
+                production_date=datetime(2026, 5, 29, 10, 0),
             ),
             MesMaterialRecord(
                 source_id='mat-cast-2-end',
@@ -694,7 +694,7 @@ def test_workshop_output_uses_mes_material_for_hot_roll_casting_and_process_for_
                 line_name='3#',
                 weight_kg=22000,
                 weight_tons=22,
-                production_date=datetime(2026, 5, 30, 8, 0),
+                production_date=datetime(2026, 5, 30, 10, 0),
             ),
             MesWorkshopProcessRecord(
                 source_id='mes-1650',

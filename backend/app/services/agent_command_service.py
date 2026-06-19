@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.business_time import resolve_production_business_date
+from app.core.business_time import production_business_day_start_label, resolve_production_business_date
 from app.core.redaction import filter_sensitive_mapping
 from app.core.scope import build_scope_summary
 from app.core.templates.consumable_payload import flatten_payload, parse_payload
@@ -261,7 +261,7 @@ def _load_business_facts(db: Session, *, intent: str, text: str, current_user: U
         'status': 'connected',
         'scope_label': _scope_label_for_facts(db, current_user),
         'business_date': payload.get('business_date') or business_date.isoformat(),
-        'business_day_start': factory_total.get('business_day_start') or '07:30',
+        'business_day_start': factory_total.get('business_day_start') or production_business_day_start_label(),
         'daily_output_tons': _number_or_zero(factory_total.get('daily_output')),
         'packaging_output_tons': _number_or_zero(factory_total.get('packaging_output')),
         'finished_inbound_output_tons': _number_or_zero(factory_total.get('finished_inbound_output')),
@@ -294,7 +294,7 @@ def _extract_energy_cost_facts(db: Session, *, business_date, current_user: User
         'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': 'green' if total_energy > 0 else 'yellow',
         'business_date': business_date.isoformat(),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'electricity_kwh': _number_or_zero(summary.get('electricity_value')),
         'gas_m3': _number_or_zero(summary.get('gas_value')),
         'water_ton': _number_or_zero(summary.get('water_value')),
@@ -358,7 +358,7 @@ def _extract_machine_stop_facts(
         'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': _machine_stop_status_color(max_minutes),
         'business_date': business_date.isoformat(),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'machine_filter': machine_filter,
         'stop_count': len(stop_items),
         'max_downtime_minutes': max_minutes,
@@ -456,7 +456,7 @@ def _extract_quality_facts(db: Session, *, business_date, current_user: User) ->
         'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': status_color,
         'business_date': business_date.isoformat(),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'blocker_count': len(blockers),
         'warning_count': len(warnings),
         'quality_issue_count': len(issue_rows),
@@ -553,7 +553,7 @@ def _extract_consumable_facts(db: Session, *, business_date, current_user: User)
         'scope_label': _scope_label_for_facts(db, current_user),
         'status_color': status_color,
         'business_date': business_date.isoformat(),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'log_count': len(rows),
         'checked_target_count': checked_count,
         'unchecked_value_count': unchecked_value_count,
@@ -624,7 +624,7 @@ def _extract_anomaly_facts(*, payload: dict[str, Any], business_date, scope_labe
         'scope_label': scope_label,
         'status_color': status_color,
         'business_date': payload.get('business_date') or business_date.isoformat(),
-        'business_day_start': '07:30',
+        'business_day_start': production_business_day_start_label(),
         'anomaly_count': anomaly_count,
         'pending_assignment_count': pending_count,
         'missing_output_weight_count': missing_output_count,

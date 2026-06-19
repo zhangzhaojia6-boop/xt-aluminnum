@@ -35,7 +35,7 @@ test('mobile entry and unified form keep real controls with a stable industrial 
   assert.match(mobileEntrySrc, /主操机列填报/)
   assert.match(mobileEntrySrc, /电工能耗填报/)
   assert.match(mobileEntrySrc, /内勤每日填报/)
-  assert.match(mobileEntrySrc, /07:30 起算/)
+  assert.match(mobileEntrySrc, /07:50 起算/)
   assert.doesNotMatch(mobileEntrySrc, /23:30 起算/)
   assert.doesNotMatch(mobileEntrySrc, /animation:\s*[^;{}]*(infinite|linear infinite|ease-in-out infinite)/)
   assert.doesNotMatch(mobileEntrySrc, /mobileEntry(Sweep|Led|ButtonSweep)/)

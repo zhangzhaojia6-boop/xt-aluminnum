@@ -272,7 +272,7 @@ const shiftHint = computed(() => {
   if (shiftMismatch.value && current.value?.shift_name) {
     return `当前时段属于 ${wall.code} ${wall.name}（${wall.businessDate}），页面将自动刷新最新任务。`
   }
-  return `按 07:30 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
+  return `按 07:50 起算，当前是 ${wall.code} ${wall.name}（${wall.businessDate}）。`
 })
 const currentFacts = computed(() => [
   { label: '日期', value: current.value?.business_date || '-' },
@@ -293,7 +293,7 @@ const screenSummaryItems = computed(() => {
   if (screenRoleBucket.value === 'energy') {
     return [
       { label: '归属日', value: current.value?.business_date || '-' },
-      { label: '填报口径', value: '07:30循环' },
+      { label: '填报口径', value: '07:50循环' },
       { label: '当前状态', value: formatStatusLabel(current.value?.report_status) },
     ]
   }

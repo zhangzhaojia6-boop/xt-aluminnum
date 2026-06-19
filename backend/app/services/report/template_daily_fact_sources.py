@@ -61,7 +61,8 @@ MES_REPORT_PROCESS_BUCKETS = {
     "coating_daily": ("彩涂",),
 }
 BILLET_MATERIAL_FIELDS = set(MES_MATERIAL_OUTPUT_WORKSHOPS)
-BILLET_BUSINESS_DAY_START = time(8, 0)
+BILLET_BUSINESS_DAY_START = time(10, 0)
+BILLET_MATERIAL_INCLUDED_STATUS_NAMES = ("已使用", "未使用")
 
 MONTHLY_FIELD_BY_DAILY_FIELD = {
     "hot_roll_daily": "hot_roll_month",
@@ -306,6 +307,14 @@ def _material_weight_tons(row: MesMaterialRecord) -> float:
     return _to_float(row.weight_kg) / 1000
 
 
+def _material_status_counts(row: MesMaterialRecord) -> bool:
+    payload = row.source_payload if isinstance(row.source_payload, dict) else {}
+    status_text = str(row.status_name or payload.get("StatusName") or payload.get("Status") or "").strip()
+    if not status_text:
+        return True
+    return any(token in status_text for token in BILLET_MATERIAL_INCLUDED_STATUS_NAMES)
+
+
 def _query_mes_material_output(
     db: Session,
     *,
@@ -330,6 +339,8 @@ def _query_mes_material_output(
     total = 0.0
     count = 0
     for row in rows:
+        if not _material_status_counts(row):
+            continue
         if not _matches_any(row.workshop_name, tokens):
             continue
         weight = _material_weight_tons(row)

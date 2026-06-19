@@ -255,9 +255,9 @@ def _record_metadata_event_time(record: MesSourceRecord, *keys: str) -> datetime
     return record.event_time
 
 
-def _record_business_date(record: MesSourceRecord, *keys: str) -> Any:
+def _record_business_date(record: MesSourceRecord, *keys: str, workshop_name: str | None = None) -> Any:
     event_time = _record_event_time(record, *keys)
-    return resolve_production_business_date(event_time) if event_time is not None else None
+    return resolve_production_business_date(event_time, workshop_name=workshop_name) if event_time is not None else None
 
 
 def _snapshot_business_event_time(snapshot: CoilSnapshot) -> datetime | None:
@@ -266,7 +266,12 @@ def _snapshot_business_event_time(snapshot: CoilSnapshot) -> datetime | None:
 
 def _snapshot_business_date(snapshot: CoilSnapshot) -> Any:
     event_time = _snapshot_business_event_time(snapshot)
-    return resolve_production_business_date(event_time) if event_time is not None else None
+    workshop_name = _to_text(
+        snapshot.metadata.get('CurrentWorkShop')
+        or snapshot.metadata.get('current_workshop')
+        or snapshot.workshop_code
+    )
+    return resolve_production_business_date(event_time, workshop_name=workshop_name) if event_time is not None else None
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -874,12 +879,14 @@ def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> di
     end_time = _record_event_time(record, 'EndDatetime', 'StrEndDatetime', 'CalcDatetime', 'StrOperateDate')
     input_kg = _to_float(_metadata_value(payload, 'BeginWeight', 'InputWeight', 'UpWeight'))
     output_kg = _to_float(_metadata_value(payload, 'EndWeight', 'OutputWeight', 'CalcWeight'))
+    workshop_name = _to_text(_metadata_value(payload, 'WorkShop', 'Workshop', 'WorkShopName'))
+    process_name = _to_text(_metadata_value(payload, 'Process', 'ProcessName', 'WorkShopProcess'))
     return {
         'source_path': record.source_path,
         'batch_no': _to_text(_metadata_value(payload, *BATCH_NUMBER_KEYS)),
         'customer_alias': _to_text(_metadata_value(payload, 'CustomerSimple', 'Customer', 'CustomerName')),
-        'workshop_name': _to_text(_metadata_value(payload, 'WorkShop', 'Workshop', 'WorkShopName')),
-        'process_name': _to_text(_metadata_value(payload, 'Process', 'ProcessName', 'WorkShopProcess')),
+        'workshop_name': workshop_name,
+        'process_name': process_name,
         'worker_name': _to_text(_metadata_value(payload, 'Worker', 'WorkerName', 'Operator')),
         'device_name': _to_text(_metadata_value(payload, 'DeviceName', 'Device', 'MachineName')),
         'input_weight_kg': input_kg,
@@ -888,7 +895,9 @@ def _workshop_process_fields(record: MesSourceRecord, synced_at: datetime) -> di
         'output_weight_tons': _kg_to_tons(output_kg),
         'yield_rate': _to_float(_metadata_value(payload, 'YieldRate', 'CraftYield')),
         'end_time': end_time,
-        'business_date': resolve_production_business_date(end_time) if end_time is not None else _record_business_date(record, 'StrOperateDate'),
+        'business_date': resolve_production_business_date(end_time, workshop_name=workshop_name)
+        if end_time is not None
+        else _record_business_date(record, 'StrOperateDate', workshop_name=workshop_name),
         'last_seen_from_mes_at': synced_at,
         'source_payload': payload,
     }
@@ -953,10 +962,11 @@ def _material_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, 
     payload = _safe_payload(record.metadata)
     production_date = _record_event_time(record, 'ProductionDate', 'StrProductionDate')
     weight_kg = _to_float(_metadata_value(payload, 'Weight', 'MaterialWeight'))
+    workshop_name = _to_text(_metadata_value(payload, 'WorkShopRolling', 'PWorkShop', 'WorkShop'))
     return {
         'source_path': record.source_path,
         'material_code': _to_text(_metadata_value(payload, 'MaterialCode', 'MaterialAutoCode')),
-        'workshop_name': _to_text(_metadata_value(payload, 'WorkShopRolling', 'PWorkShop', 'WorkShop')),
+        'workshop_name': workshop_name,
         'line_name': _to_text(_metadata_value(payload, 'WorkShopLine', 'LineName')),
         'position_name': _to_text(_metadata_value(payload, 'PositionName', 'Position')),
         'alloy_grade': _to_text(_metadata_value(payload, 'Alloy')),
@@ -964,7 +974,9 @@ def _material_fields(record: MesSourceRecord, synced_at: datetime) -> dict[str, 
         'weight_kg': weight_kg,
         'weight_tons': _kg_to_tons(weight_kg),
         'production_date': production_date,
-        'business_date': resolve_production_business_date(production_date) if production_date is not None else _record_business_date(record),
+        'business_date': resolve_production_business_date(production_date, workshop_name=workshop_name)
+        if production_date is not None
+        else _record_business_date(record, workshop_name=workshop_name),
         'status_name': _to_text(_metadata_value(payload, 'StatusName', 'Status')),
         'last_seen_from_mes_at': synced_at,
         'source_payload': payload,
