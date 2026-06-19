@@ -211,6 +211,58 @@ def test_create_run_persists_match_rate_diffs_source_status_and_errors(tmp_path)
         db.close()
 
 
+def test_create_run_persists_output_skill_issues_into_source_errors() -> None:
+    mes_service = _MesReadServiceFake(
+        {
+            'business_date': '2026-06-18',
+            'window': {'start_at': '2026-06-18T07:50:00+08:00', 'end_at': '2026-06-19T07:50:00+08:00'},
+            'records': {
+                'summary': [
+                    {'field': 'total_output', 'value': 100.0},
+                ]
+            },
+            'source_status': {
+                'mes': 'ok',
+                'sources': {
+                    'summary': {'status': 'ok', 'count': 1},
+                },
+            },
+            'source_errors': {},
+        }
+    )
+
+    db = _db_session()
+    try:
+        service = HermesDataAuditService(
+            db,
+            mes_read_service=mes_service,
+            hub_snapshot_reader=lambda business_date, fields: {'total_output': 100.0},
+        )
+        service._read_output_skill_business_date = lambda business_date: {
+            'status': 'parsed',
+            'files': ['D:/output-skill/2026-06-18.txt'],
+            'raw_text': '',
+            'parsed': {'total_output': 100.0},
+            'issues': [
+                {'code': 'conflicting_field_value', 'field_name': 'total_output'},
+                {'message': 'token=abc123 should be redacted'},
+            ],
+        }
+
+        run = service.create_run(
+            business_date=date(2026, 6, 18),
+            fields=['total_output'],
+        )
+
+        db.refresh(run)
+        assert run.source_errors['output_skill'] == [
+            {'code': 'conflicting_field_value', 'field_name': 'total_output'},
+            {'message': 'token=<redacted> should be redacted'},
+        ]
+    finally:
+        db.close()
+
+
 def test_create_run_writes_failed_run_before_raising_when_no_field_is_comparable(tmp_path) -> None:
     root = tmp_path / 'output-skill'
     root.mkdir()

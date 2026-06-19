@@ -98,6 +98,17 @@ def _json_safe(value: Any) -> Any:
     return str(value)
 
 
+def _redact_issue_payload(value: Any) -> Any:
+    safe_value = _json_safe(value)
+    if isinstance(safe_value, Mapping):
+        return {str(key): _redact_issue_payload(item) for key, item in safe_value.items()}
+    if isinstance(safe_value, list):
+        return [_redact_issue_payload(item) for item in safe_value]
+    if isinstance(safe_value, str):
+        return redact_secret_text(safe_value)
+    return safe_value
+
+
 def _numeric_value(value: Any) -> float | None:
     if value is None or value == '':
         return None
@@ -660,7 +671,9 @@ class HermesDataAuditService:
         if output_status == 'missing':
             source_errors['output_skill'] = 'output_skill_source_missing'
         elif output_status == 'unsupported':
-            source_errors['output_skill'] = _json_safe(output_issues)
+            source_errors['output_skill'] = _redact_issue_payload(output_issues)
+        elif output_issues:
+            source_errors['output_skill'] = _redact_issue_payload(output_issues)
         return source_errors
 
     def _output_skill_root_path(self) -> Path | None:
