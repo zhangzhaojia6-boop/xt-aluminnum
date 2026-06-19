@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 revision = '0049_hermes_data_audit'
 down_revision = '0048_hermes_rag_memory'
 branch_labels = None
 depends_on = None
+
+
+json_object_type = sa.JSON().with_variant(JSONB, 'postgresql')
 
 
 def _has_table(inspector: sa.Inspector, table_name: str) -> bool:
@@ -49,13 +53,13 @@ def upgrade() -> None:
             sa.Column('run_key', sa.String(length=128), nullable=False),
             sa.Column('business_date', sa.Date(), nullable=False),
             sa.Column('status', sa.String(length=32), nullable=False, server_default='pending'),
-            sa.Column('source_status', sa.JSON(), nullable=False),
-            sa.Column('source_errors', sa.JSON(), nullable=False),
-            sa.Column('mes_snapshot', sa.JSON(), nullable=False),
-            sa.Column('hub_snapshot', sa.JSON(), nullable=False),
-            sa.Column('output_skill_snapshot', sa.JSON(), nullable=False),
-            sa.Column('diffs', sa.JSON(), nullable=False),
-            sa.Column('suggested_actions', sa.JSON(), nullable=False),
+            sa.Column('source_status', json_object_type, nullable=False),
+            sa.Column('source_errors', json_object_type, nullable=False),
+            sa.Column('mes_snapshot', json_object_type, nullable=False),
+            sa.Column('hub_snapshot', json_object_type, nullable=False),
+            sa.Column('output_skill_snapshot', json_object_type, nullable=False),
+            sa.Column('diffs', json_object_type, nullable=False),
+            sa.Column('suggested_actions', json_object_type, nullable=False),
             sa.Column('match_rate', sa.Numeric(8, 4), nullable=True),
             sa.Column('created_by_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
             sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
@@ -83,14 +87,14 @@ def upgrade() -> None:
             sa.Column('target_table', sa.String(length=128), nullable=False),
             sa.Column('target_key', sa.String(length=256), nullable=False),
             sa.Column('field_name', sa.String(length=128), nullable=True),
-            sa.Column('before_value', sa.JSON(), nullable=True),
-            sa.Column('after_value', sa.JSON(), nullable=True),
-            sa.Column('evidence', sa.JSON(), nullable=False),
+            sa.Column('before_value', json_object_type, nullable=True),
+            sa.Column('after_value', json_object_type, nullable=True),
+            sa.Column('evidence', json_object_type, nullable=False),
             sa.Column('status', sa.String(length=32), nullable=False, server_default='pending'),
             sa.Column('applied_by_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
             sa.Column('applied_at', sa.DateTime(timezone=True), nullable=True),
             sa.Column('rollback_status', sa.String(length=32), nullable=False, server_default='not_requested'),
-            sa.Column('rollback_payload', sa.JSON(), nullable=True),
+            sa.Column('rollback_payload', json_object_type, nullable=True),
             sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
             sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         )

@@ -1,6 +1,21 @@
+from importlib import util as importlib_util
+from pathlib import Path
+
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.dialects import postgresql
 
 from app.models import Base, User
+
+
+MIGRATION_PATH = Path(__file__).resolve().parents[1] / 'alembic' / 'versions' / '0049_hermes_data_audit.py'
+
+
+def _load_migration_module():
+    spec = importlib_util.spec_from_file_location('migration_0049_hermes_data_audit', MIGRATION_PATH)
+    module = importlib_util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_app_models_exports_hermes_data_audit_models() -> None:
@@ -87,3 +102,43 @@ def test_hermes_correction_action_audit_run_fk_points_to_audit_runs() -> None:
         and fk['referred_columns'] == ['id']
         for fk in foreign_keys
     )
+
+
+def test_hermes_data_audit_migration_uses_jsonb_payload_columns_for_postgres(monkeypatch) -> None:
+    migration = _load_migration_module()
+    created_tables: dict[str, tuple] = {}
+
+    class _Inspector:
+        def has_table(self, _table_name: str) -> bool:
+            return False
+
+        def get_indexes(self, _table_name: str) -> list[dict]:
+            return []
+
+    monkeypatch.setattr(migration.op, 'get_bind', lambda: object())
+    monkeypatch.setattr(migration.sa, 'inspect', lambda _bind: _Inspector())
+    monkeypatch.setattr(migration.op, 'create_index', lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        migration.op,
+        'create_table',
+        lambda table_name, *columns, **kwargs: created_tables.setdefault(table_name, columns),
+    )
+
+    migration.upgrade()
+
+    run_columns = {column.name: column for column in created_tables['hermes_data_audit_runs']}
+    action_columns = {column.name: column for column in created_tables['hermes_correction_actions']}
+
+    for column_name in (
+        'source_status',
+        'source_errors',
+        'mes_snapshot',
+        'hub_snapshot',
+        'output_skill_snapshot',
+        'diffs',
+        'suggested_actions',
+    ):
+        assert str(run_columns[column_name].type.compile(dialect=postgresql.dialect())) == 'JSONB'
+
+    for column_name in ('before_value', 'after_value', 'evidence', 'rollback_payload'):
+        assert str(action_columns[column_name].type.compile(dialect=postgresql.dialect())) == 'JSONB'
