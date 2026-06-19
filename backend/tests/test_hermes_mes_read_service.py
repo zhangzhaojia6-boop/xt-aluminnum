@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.adapters.mes_adapter import MesSourceRecord, MesStockItem, MesWipTotal
+from app.adapters.mes_adapter import MesSourceRecord, MesStockItem, MesWipTotal, NullMesAdapter
 from app.services.hermes_mes_read_service import HermesMesReadService, UnsupportedMesQueryKeyError
 
 
@@ -258,3 +258,56 @@ def test_read_sources_marks_partial_failed_when_some_sources_fail() -> None:
         'end_at': '2026-06-19T07:50:00+08:00',
     }
     assert payload['source_errors']['material_records'] == 'driver exploded password=<redacted>'
+
+
+def test_read_sources_marks_unimplemented_adapter_capability_as_failed() -> None:
+    payload = HermesMesReadService(NullMesAdapter()).read_sources(
+        business_date=date(2026, 6, 18),
+        query_keys=['stock_records'],
+    )
+
+    assert payload['records'] == {}
+    assert payload['source_status'] == {
+        'mes': 'failed',
+        'sources': {
+            'stock_records': {'status': 'failed', 'count': 0},
+        },
+    }
+    assert 'unsupported_adapter_capability' in payload['source_errors']['stock_records']
+
+
+def test_read_sources_filters_sensitive_mapping_keys_recursively() -> None:
+    adapter = _AdapterSpy()
+    adapter.results['list_stock'] = [
+        MesStockItem(
+            coil_key='coil-2',
+            tracking_card_no='R2-7283-2',
+            weight=8.6,
+            destination='成品库',
+            metadata={
+                'token': 'abc123',
+                'nested': {
+                    'password': 'secret-pass',
+                    'mobile': '13800000000',
+                    'ok': 'visible',
+                },
+                'rows': [
+                    {'email': 'a@example.com', 'keep': 'row-1'},
+                    {'address': 'private address', 'keep': 'row-2'},
+                ],
+            },
+        )
+    ]
+
+    payload = HermesMesReadService(adapter).read_sources(
+        business_date=date(2026, 6, 18),
+        query_keys=['stock'],
+    )
+
+    stock_row = payload['records']['stock'][0]
+    assert 'token' not in stock_row['metadata']
+    assert stock_row['metadata']['nested'] == {'ok': 'visible'}
+    assert stock_row['metadata']['rows'] == [
+        {'keep': 'row-1'},
+        {'keep': 'row-2'},
+    ]

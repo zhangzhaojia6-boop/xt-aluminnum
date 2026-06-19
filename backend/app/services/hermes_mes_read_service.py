@@ -7,7 +7,7 @@ from typing import Any
 
 from app.adapters.mes_adapter import MesAdapter
 from app.core.business_time import production_business_window
-from app.core.redaction import redact_secret_text
+from app.core.redaction import filter_sensitive_mapping, redact_secret_text
 
 
 class UnsupportedMesQueryKeyError(ValueError):
@@ -56,15 +56,15 @@ def _run_yield_records(adapter: MesAdapter, start_at: datetime, end_at: datetime
     return adapter.list_yield_records(limit=limit)
 
 
-_QUERY_RUNNERS: dict[str, QueryRunner] = {
-    'workshop_process_records': _run_workshop_process_records,
-    'stock_records': _run_stock_records,
-    'finished_inbound_records': _run_finished_inbound_records,
-    'delivery_records': _run_delivery_records,
-    'material_records': _run_material_records,
-    'wip_totals': _run_wip_totals,
-    'stock': _run_stock,
-    'yield_records': _run_yield_records,
+_QUERY_SPECS: dict[str, tuple[str, QueryRunner]] = {
+    'workshop_process_records': ('list_workshop_process_records_between', _run_workshop_process_records),
+    'stock_records': ('list_stock_records_between', _run_stock_records),
+    'finished_inbound_records': ('list_finished_inbound_records_between', _run_finished_inbound_records),
+    'delivery_records': ('list_delivery_records_between', _run_delivery_records),
+    'material_records': ('list_material_records_between', _run_material_records),
+    'wip_totals': ('list_wip_totals', _run_wip_totals),
+    'stock': ('list_stock', _run_stock),
+    'yield_records': ('list_yield_records', _run_yield_records),
 }
 
 
@@ -94,8 +94,16 @@ class HermesMesReadService:
         non_empty_sources = 0
 
         for query_key in validated_query_keys:
+            required_method_name, runner = _QUERY_SPECS[query_key]
+            if not self._adapter_overrides(required_method_name):
+                failed_sources += 1
+                source_states[query_key] = {'status': 'failed', 'count': 0}
+                source_errors[query_key] = redact_secret_text(
+                    f'unsupported_adapter_capability:{query_key}:{required_method_name}'
+                )
+                continue
             try:
-                result = _QUERY_RUNNERS[query_key](self._adapter, start_at, end_at, bounded_limit)
+                result = runner(self._adapter, start_at, end_at, bounded_limit)
             except TimeoutError as exc:
                 failed_sources += 1
                 source_states[query_key] = {'status': 'failed', 'count': 0}
@@ -135,11 +143,16 @@ class HermesMesReadService:
     @staticmethod
     def _validate_query_keys(query_keys: Sequence[str]) -> list[str]:
         validated = [str(query_key).strip() for query_key in query_keys]
-        unsupported = [query_key for query_key in validated if query_key not in _QUERY_RUNNERS]
+        unsupported = [query_key for query_key in validated if query_key not in _QUERY_SPECS]
         if unsupported:
             joined = ', '.join(unsupported)
             raise UnsupportedMesQueryKeyError(f'Unsupported MES query key: {joined}')
         return validated
+
+    def _adapter_overrides(self, method_name: str) -> bool:
+        adapter_method = getattr(type(self._adapter), method_name, None)
+        base_method = getattr(MesAdapter, method_name, None)
+        return adapter_method is not None and adapter_method is not base_method
 
     @classmethod
     def _bounded_limit(cls, limit: int) -> int:
@@ -168,7 +181,8 @@ class HermesMesReadService:
         if is_dataclass(value):
             return cls._to_plain_data(asdict(value))
         if isinstance(value, Mapping):
-            return {str(key): cls._to_plain_data(item) for key, item in value.items()}
+            sanitized = filter_sensitive_mapping(value)
+            return {str(key): cls._to_plain_data(item) for key, item in sanitized.items()}
         if isinstance(value, (list, tuple, set)):
             return [cls._to_plain_data(item) for item in value]
         if isinstance(value, (datetime, date)):
